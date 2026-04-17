@@ -1,0 +1,288 @@
+<?php
+
+use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\Auth\RegisterController;
+use App\Http\Controllers\Auth\LoginController;
+use App\Http\Controllers\RoleController;
+use App\Models\User;
+use Illuminate\Auth\Events\Verified;
+use Illuminate\Http\Request;
+use App\Http\Controllers\Auth\ForgotPasswordController;
+use App\Http\Controllers\Auth\ResetPasswordController;
+use App\Http\Middleware\RoleMiddleware;
+use App\Http\Controllers\Publisher\SiteController;
+use App\Http\Controllers\Admin\UserController;
+use App\Http\Controllers\Admin\SiteController as AdminSiteController;
+use App\Http\Controllers\Advertiser\ProjectController;
+use App\Http\Controllers\Advertiser\CatalogController;
+use App\Http\Controllers\Advertiser\CampaignController;
+
+Route::get('/', function () {
+    return view('home');
+});
+
+// ✅ UPDATED: Guest middleware for login/register pages
+Route::middleware('guest')->group(function () {
+    Route::get('/register', [RegisterController::class, 'show'])->name('register');
+    Route::get('/login', [LoginController::class, 'show'])->name('login');
+});
+
+// Registration routes
+Route::post('/register', [RegisterController::class, 'register'])
+    ->middleware('throttle:5,1'); // 5 requests per minute
+
+// Authentication routes (login, logout)
+Route::post('/login', [LoginController::class, 'login'])->name('login.post');
+Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
+
+// Forgot Password
+Route::get('/forgot-password', [ForgotPasswordController::class, 'show'])->name('password.request');
+Route::post('/forgot-password', [ForgotPasswordController::class, 'send'])->name('password.email');
+
+// Reset Password
+Route::get('/reset-password/{token}', [ResetPasswordController::class, 'show'])->name('password.reset');
+Route::post('/reset-password', [ResetPasswordController::class, 'update'])->name('password.update');
+
+// Email Verification Notice (user can see this page if they are logged in)
+Route::get('/email/verify', function () {
+    return view('auth.verify-email');
+})->middleware('auth')->name('verification.notice');
+
+// Email verification link (no auth required, user clicks link from email)
+Route::get('/email/verify/{id}/{hash}', function ($id, $hash) {
+
+    $user = User::findOrFail($id);
+
+    // Validate the hash matches user's email
+    if (! hash_equals($hash, sha1($user->getEmailForVerification()))) {
+        abort(403, 'Invalid verification link.');
+    }
+
+    // Mark as verified if not already
+    if (! $user->hasVerifiedEmail()) {
+        $user->markEmailAsVerified();
+        event(new Verified($user));
+    }
+
+    return redirect('/login')->with('message', 'Email verified successfully. You can now login.');
+})->name('verification.verify');
+
+// Resend verification email (requires login)
+Route::post('/email/verification-notification', function (Request $request) {
+    $request->user()->sendEmailVerificationNotification();
+    return back()->with('message', 'Verification link sent!');
+})->middleware(['auth', 'throttle:6,1'])->name('verification.send');
+
+// ✅ NEW: Resend verification WITHOUT login (AJAX)
+Route::post('/email/resend', function (Request $request) {
+
+    $request->validate([
+        'email' => 'required|email|exists:users,email'
+    ]);
+
+    $user = User::where('email', $request->email)->first();
+
+    if ($user->hasVerifiedEmail()) {
+        return response()->json([
+            'status' => 'error',
+            'message' => 'Email already verified.'
+        ]);
+    }
+
+    $user->sendEmailVerificationNotification();
+
+    return response()->json([
+        'status' => 'success',
+        'message' => 'Verification email resent successfully.'
+    ]);
+
+})->middleware('throttle:3,1')->name('verification.resend');
+
+
+// ✅ NEW: Role Switch (Dropdown) Route
+Route::post('/switch-role', [RoleController::class, 'switchRole'])
+    ->middleware('auth')
+    ->name('switch.role');
+
+
+// ✅ Admin
+Route::middleware(['auth','verified', RoleMiddleware::class . ':admin'])
+    ->prefix('admin')->name('admin.')
+    ->group(function () {
+        Route::get('/dashboard', function () {
+            return view('admin.dashboard');
+        })->name('dashboard');
+
+        // Users management
+        Route::get('/users', [UserController::class, 'index'])
+            ->name('users.index');
+        
+        // Update Company (AJAX)
+        Route::post('/users/{id}/update-company', [UserController::class, 'updateCompany'])
+            ->name('users.updateCompany');    
+
+    //  Sites routes
+    Route::get('/sites', [AdminSiteController::class, 'index'])
+    ->name('sites.index');
+
+    Route::get('/users/{id}/sites', [AdminSiteController::class, 'userSites'])
+    ->name('users.sites');
+
+    // edit page
+Route::get('/sites/{id}/edit', [AdminSiteController::class, 'edit'])
+    ->name('sites.edit');
+
+    // update (AJAX)
+Route::post('/sites/{id}/update', [AdminSiteController::class, 'update'])
+->name('sites.update');    
+
+// UPDATE (AJAX uses this)
+Route::put('/sites/{id}', [AdminSiteController::class, 'update'])
+    ->name('sites.update');
+
+// DELETE (AJAX uses this)
+Route::delete('/sites/{id}', [AdminSiteController::class, 'destroy'])
+    ->name('sites.destroy');
+
+// VERIFY / UNVERIFY (AJAX toggle)
+Route::post('/sites/{id}/verify', [AdminSiteController::class, 'verify'])
+    ->name('sites.verify');
+
+// ACTIVE / INACTIVE (AJAX toggle)
+Route::post('/sites/{id}/active', [AdminSiteController::class, 'toggleActive'])
+    ->name('sites.active');
+
+    
+
+
+    // Reports site
+    Route::get('/reports', function () {
+            return view('admin.reports');
+        })->name('reports');
+
+    // Settings
+    Route::get('/settings', function () {
+            return view('admin.settings');
+        })->name('settings'); 
+    
+});
+
+// ✅ Common routes for all authenticated users
+Route::middleware(['auth', 'verified'])->group(function () {
+
+    Route::get('/profile', function () {
+        return view('profile.index');
+    })->name('profile');
+
+    Route::post('/profile/update', [\App\Http\Controllers\ProfileController::class, 'update'])
+        ->name('profile.update');
+
+    Route::post('/profile/password', [\App\Http\Controllers\ProfileController::class, 'password'])
+        ->name('profile.password');
+
+    // ✅ ADD THESE TWO
+    Route::post('/profile/social', [\App\Http\Controllers\ProfileController::class, 'social'])
+        ->name('profile.social');
+
+    Route::post('/profile/billing', [\App\Http\Controllers\ProfileController::class, 'billing'])
+        ->name('profile.billing');
+});
+
+// ✅ Advertiser - Routes for managing campaigns, catalog, and projects
+Route::middleware(['auth','verified', RoleMiddleware::class . ':advertiser'])
+    ->prefix('advertiser')->name('advertiser.')
+    ->group(function () {
+
+        Route::get('/dashboard', function () {
+            return view('advertiser.dashboard');
+        })->name('dashboard');
+
+        Route::get('/campaigns', [ProjectController::class, 'index'])
+    ->name('campaigns');
+
+    // Catelog routes
+    Route::get('/catalog', [CatalogController::class, 'index'])
+        ->name('catalog');
+                
+
+        // PROJECTS CRUD routes
+Route::post('/projects', [ProjectController::class, 'store'])
+    ->name('projects.store');
+
+Route::get('/projects', [ProjectController::class, 'index'])
+    ->name('projects.index');
+
+Route::put('/projects/{project}', [ProjectController::class, 'update'])
+    ->name('projects.update');
+
+Route::delete('/projects/{project}', [ProjectController::class, 'destroy'])
+    ->name('projects.destroy');
+
+        // OTHER PAGES
+        Route::get('/add-funds', function () {
+            return view('advertiser.add-funds');
+        })->name('add-funds');
+
+        Route::get('/reports', function () {
+            return view('advertiser.reports');
+        })->name('reports');
+        
+
+
+        // Campaign  websites page
+        Route::get('/campaigns/{project:slug}/websites', [CampaignController::class, 'websites'])
+            ->name('campaigns.websites');
+
+});
+
+// ✅ Publisher
+Route::middleware(['auth','verified', RoleMiddleware::class . ':publisher'])
+    ->prefix('publisher')->name('publisher.')
+    ->group(function () {
+
+        Route::get('/dashboard', function () {
+            return view('publisher.dashboard');
+        })->name('dashboard');
+
+        Route::get('/websites', function () {
+            return view('publisher.websites');
+        })->name('websites');
+
+
+
+        // Store
+Route::post('/sites/store', [SiteController::class, 'store'])
+    ->name('sites.store');
+
+// AJAX listing
+Route::get('/sites/ajax', [SiteController::class, 'ajax'])
+    ->name('sites.ajax');
+
+// Index (main page)
+Route::get('/sites', [SiteController::class, 'index'])
+    ->name('sites.index');
+
+// Update (used by AJAX)
+Route::put('/sites/{id}', [SiteController::class, 'update'])
+    ->name('sites.update');
+
+// Delete
+Route::delete('/sites/{id}', [SiteController::class, 'destroy'])
+    ->name('sites.destroy');
+
+
+
+        // OTHER PAGES
+        
+        Route::get('/earnings', function () {
+            return view('publisher.earnings');
+        })->name('earnings');
+
+        Route::get('/reports', function () {
+            return view('publisher.reports');
+        })->name('reports');
+
+        Route::get('/settings', function () {
+            return view('publisher.settings');
+        })->name('settings');
+});

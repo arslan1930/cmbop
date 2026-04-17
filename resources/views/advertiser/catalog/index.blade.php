@@ -1,0 +1,636 @@
+@extends('advertiser.layouts.app')
+
+@section('content')
+
+@php
+    use Illuminate\Support\Str;
+    $sites = $sites ?? collect();
+
+    function fullCountry($code){
+        return class_exists(\Symfony\Component\Intl\Countries::class)
+            ? \Symfony\Component\Intl\Countries::getName($code)
+            : $code;
+    }
+
+    function fullLanguage($code){
+        return class_exists(\Symfony\Component\Intl\Languages::class)
+            ? \Symfony\Component\Intl\Languages::getName($code)
+            : $code;
+    }
+    
+    function getCountryFlag($countryCode){
+        // Convert country code to emoji flag
+        $code = strtoupper($countryCode);
+        $flag = mb_convert_encoding('&#' . (127397 + ord($code[0])) . ';&#' . (127397 + ord($code[1])) . ';', 'UTF-8', 'HTML-ENTITIES');
+        return $flag;
+    }
+@endphp
+
+<div class="container-fluid">
+
+    <!-- HEADER -->
+    <div class="row mb-3">
+        <div class="col-md-12">
+
+            <!-- Title -->
+            <h2 class="mb-1 fw-semibold">All Publishers</h2>
+
+            <!-- Subtitle -->
+            <p class="text-muted mb-0">
+                Browse verified publishers and explore available placement opportunities.
+            </p>
+
+        </div>
+    </div>
+
+    <!-- CONTENT AREA -->
+    <div class="row">
+        <div class="col-md-12">
+
+            <!-- Publishers Table -->
+            <div class="card border-0 shadow-sm">
+                <div class="card-body p-0">
+                    
+                    <!-- ================= SITES TABLE ================= -->
+                    <div class="table-responsive">
+                        <table class="table table-borderless align-middle mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th style="min-width: 250px;">Site</th>
+                                    <th>Category</th>
+                                    <th>Monthly Traffic</th>
+                                    <th>AHREFS DR</th>
+                                    <th>MOZ DA</th>
+                                    <th>Language</th>
+                                    <th style="min-width: 140px;">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @forelse($sites as $site)
+                                <tr class="site-row" data-id="{{ $site->id }}">
+                                    <!-- Site Column with masked URL only -->
+                                    <td style="min-width: 220px; position: relative;">
+
+                                        <!-- VERIFIED BADGE -->
+                                        @if($site->verified)
+                                            <span class="badge bg-success text-white shadow-sm fw-semibold"
+                                                  style="position: absolute; top: 6px; right: 6px; font-size: 10px; padding: 4px 8px; border-radius: 6px; letter-spacing: 0.3px; z-index: 1;"
+                                                  title="Site has been verified for quality and authenticity">
+                                                VERIFIED
+                                            </span>
+                                        @endif
+
+                                        <div class="d-flex flex-column gap-1">
+
+                                            <!-- URL ROW -->
+                                            <div class="d-flex align-items-center gap-2">
+                                                <span class="text-dark"
+                                                      style="font-family: monospace; font-weight: 600; font-size: 13.5px;"
+                                                      id="url-masked-{{ $site->id }}">
+                                                    {{ substr(Str::of($site->site_url)->replaceMatches('/^(https?:\/\/)?(www\.)?/', ''), 0, 4) }}******
+                                                </span>
+
+                                                <span class="url-full text-muted d-none"
+                                                      id="url-full-{{ $site->id }}"
+                                                      style="font-family: monospace; font-weight: 500; font-size: 13.5px;">
+                                                    {{ Str::of($site->site_url)->replaceMatches('/^(https?:\/\/)?(www\.)?/', '') }}
+                                                </span>
+
+                                                <!-- Toggle Eye -->
+                                                <button class="btn btn-sm btn-link text-secondary p-0 toggle-url"
+                                                        data-id="{{ $site->id }}"
+                                                        title="Toggle URL"
+                                                        style="font-size: 15px;">
+                                                    <i class="fa-regular fa-eye"></i>
+                                                </button>
+
+                                                <!-- External Link Icon -->
+                                                <a href="{{ $site->site_url }}"
+                                                   target="_blank"
+                                                   rel="noopener noreferrer"
+                                                   class="text-muted"
+                                                   title="Open Website"
+                                                   style="display:inline-flex; align-items:center; text-decoration:none;">
+                                                    <i class="fa-solid fa-arrow-up-right-from-square" style="font-size: 13px;"></i>
+                                                </a>
+
+                                                <!-- Expand Arrow -->
+                                                <i class="fa-solid fa-chevron-down expand-arrow text-muted" 
+                                                   id="arrow-{{ $site->id }}"
+                                                   style="font-size: 13px; cursor: pointer; transition: transform 0.3s ease;">
+                                                </i>
+                                            </div>
+
+                                        </div>
+
+                                    </td>
+
+                                    <!-- Category Column -->
+                                    <td>
+                                        <span class="badge" style="background-color: #e3f2fd; color: #1976d2; border-radius: 4px; padding: 4px 8px; font-weight: 500;">
+                                            {{ $site->category }}
+                                        </span>
+                                    </td>
+
+                                    <!-- Monthly Traffic Column -->
+                                    <td>
+                                        <div class="d-flex align-items-center gap-2">
+                                            <img src="{{ asset('assets/img/traffic.svg') }}" alt="Traffic" style="width: 18px; height: 18px;" onerror="this.style.display='none'">
+                                            <span class="fw-semibold" title="Monthly Traffic Semrush estimate">
+                                                {{ number_format($site->traffic) }}
+                                            </span>
+                                        </div>
+                                    </td>
+
+                                    <!-- AHREFS DR Column -->
+                                    <td>
+                                        <div class="d-flex align-items-center gap-2">
+                                            <img src="{{ asset('assets/img/ahref.jpeg') }}" alt="AHREFS DR" style="width: 18px; height: 18px; border-radius: 2px;" onerror="this.style.display='none'">
+                                            <span class="fw-semibold text-info" title="AHREFS Domain Rating">
+                                                {{ $site->dr }}
+                                            </span>
+                                        </div>
+                                    </td>
+
+                                    <!-- MOZ DA Column -->
+                                    <td>
+                                        <div class="d-flex align-items-center gap-2">
+                                            <img src="{{ asset('assets/img/moz_da.png') }}" alt="MOZ DA" style="width: 18px; height: 18px;" onerror="this.style.display='none'">
+                                            <span class="fw-semibold text-primary" title="MOZ Domain Authority">
+                                                {{ $site->da }}
+                                            </span>
+                                        </div>
+                                    </td>
+
+                                    <!-- Language Column with flag above language name -->
+                                    <td>
+                                        <div class="d-flex flex-column align-items-center gap-1">
+                                            <span style="font-size: 24px;">{{ getCountryFlag($site->country) }}</span>
+                                            <span class="text-muted small text-center">{{ fullLanguage($site->language) }}</span>
+                                        </div>
+                                    </td>
+
+                                    <!-- Action Column - Price in row, buttons below -->
+                                    <td>
+                                        <div class="d-flex flex-column gap-2 align-items-center">
+
+                                            <!-- Buy Button -->
+                                            <button class="btn btn-primary btn-sm buy-now d-inline-flex justify-content-center align-items-center gap-2"
+                                                    data-id="{{ $site->id }}"
+                                                    data-price="{{ $site->price }}"
+                                                    style="padding: 6px 12px; font-size: 13px; border-radius: 6px;">
+                                                <span>Buy</span>
+                                                <span class="fw-semibold">€{{ number_format($site->price, 2) }}</span>
+                                            </button>
+
+                                            <!-- Secondary Buttons -->
+                                            <div class="d-flex gap-2 justify-content-center" style="width: fit-content;">
+                                                <button class="btn btn-sm btn-outline-danger favorite-btn"
+                                                        data-id="{{ $site->id }}"
+                                                        title="Add to Favorites"
+                                                        style="padding: 4px 15px; border-radius: 6px;">
+                                                    <i class="fa-regular fa-heart"></i>
+                                                </button>
+
+                                                <button class="btn btn-sm btn-outline-secondary blacklist-btn"
+                                                        data-id="{{ $site->id }}"
+                                                        title="Blacklist Site"
+                                                        style="padding: 4px 15px; border-radius: 6px;">
+                                                    <i class="fa-solid fa-ban"></i>
+                                                </button>
+                                            </div>
+
+                                        </div>
+                                    </td>
+                                </tr>
+                                
+                                <!-- Expanded Row for additional details -->
+                                <tr class="expanded-row-{{ $site->id }}" style="display: none;">
+                                    <td colspan="7" style="background-color: #f9f9f9; padding: 20px;">
+                                        <div class="row">
+                                            <div class="col-md-12">
+                                                <h6 class="mb-3">Site Details</h6>
+                                                <div class="row">
+                                                    <div class="col-md-6">
+                                                        <p><strong>Description:</strong></p>
+                                                        <div class="text-muted small">
+                                                            {!! $site->description !!}
+                                                        </div>
+                                                    </div>
+                                                    <div class="col-md-3">
+                                                        <p><strong>Tags:</strong></p>
+                                                        <div class="d-flex flex-column gap-2">
+                                                            <!-- Row 1: Link Type -->
+                                                            <div>
+                                                                @if($site->link_type)
+                                                                    <span class="badge bg-secondary-subtle text-secondary border px-2 py-1"
+                                                                          style="font-size: 11px;"
+                                                                          title="Link Type">
+                                                                        <i class="fa-solid fa-link me-1"></i>{{ $site->link_type }}
+                                                                    </span>
+                                                                @else
+                                                                    <span class="text-muted small">No link type specified</span>
+                                                                @endif
+                                                            </div>
+                                                            
+                                                            <!-- Row 2: Sponsored & Partner & As You Prefer -->
+                                                            <div class="d-flex flex-wrap gap-1">
+                                                                @if($site->sponsored)
+                                                                    <span class="badge bg-warning-subtle text-dark border px-2 py-1"
+                                                                          style="font-size: 11px;"
+                                                                          title="Sponsored placement">
+                                                                        <i class="fa-solid fa-star me-1"></i>Sponsored
+                                                                    </span>
+                                                                @endif
+
+                                                                @if($site->partner_material)
+                                                                    <span class="badge bg-success-subtle text-success border px-2 py-1"
+                                                                          style="font-size: 11px;"
+                                                                          title="Partner content allowed">
+                                                                        <i class="fa-solid fa-handshake me-1"></i>Partner
+                                                                    </span>
+                                                                @endif
+
+                                                                @if($site->as_you_prefer ?? false)
+                                                                    <span class="badge bg-primary-subtle text-primary border px-2 py-1"
+                                                                          style="font-size: 11px;"
+                                                                          title="Flexible placement">
+                                                                        <i class="fa-solid fa-sliders-h me-1"></i>As You Prefer
+                                                                    </span>
+                                                                @endif
+                                                                
+                                                                @if(!$site->sponsored && !$site->partner_material && !($site->as_you_prefer ?? false))
+                                                                    <span class="text-muted small">No additional tags</span>
+                                                                @endif
+                                                            </div>
+                                                            
+                                                            <!-- Row 3: Sensitive Prices -->
+                                                            <div>
+                                                                @php
+                                                                    $sensitivePrices = $site->sensitive_prices;
+
+                                                                    if (is_string($sensitivePrices)) {
+                                                                        $sensitivePrices = json_decode($sensitivePrices, true);
+                                                                    }
+
+                                                                    $sensitivePrices = is_array($sensitivePrices) ? $sensitivePrices : [];
+                                                                @endphp
+
+                                                                @if(!empty($sensitivePrices))
+                                                                    <div class="d-flex flex-wrap gap-1">
+                                                                        @foreach($sensitivePrices as $type => $price)
+                                                                            <span class="badge bg-danger-subtle text-danger border px-2 py-1"
+                                                                                  style="font-size: 11px;"
+                                                                                  title="Sensitive price for {{ ucfirst($type) }}">
+                                                                                <i class="fa-solid fa-shield-alt me-1"></i>{{ ucfirst($type) }}: €{{ number_format($price, 2) }}
+                                                                            </span>
+                                                                        @endforeach
+                                                                    </div>
+                                                                @else
+                                                                    <span class="text-muted small">No sensitive prices available</span>
+                                                                @endif
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    <div class="col-md-3">
+                                                        <p><strong>Example URL:</strong></p>
+                                                        <div class="d-flex flex-column gap-2">
+                                                            <div class="d-flex align-items-center gap-2">
+                                                                <a href="{{ $site->example_url ?? '#' }}" 
+                                                                   target="_blank" 
+                                                                   class="text-decoration-none"
+                                                                   style="word-break: break-all;">
+                                                                    <i class="fa-solid fa-link me-1"></i>
+                                                                    {{ Str::limit($site->example_url ?? 'Not available', 50) }}
+                                                                </a>
+                                                                @if($site->example_url)
+                                                                    <button class="btn btn-sm btn-link text-secondary p-0 copy-example-url" 
+                                                                            data-url="{{ $site->example_url }}"
+                                                                            title="Copy example URL"
+                                                                            style="font-size: 12px;">
+                                                                        <i class="fa-regular fa-copy"></i>
+                                                                    </button>
+                                                                @endif
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </td>
+                                </tr>
+                                @empty
+                                <tr>
+                                    <td colspan="7" class="text-center py-5">
+                                        <div class="alert alert-light border text-center mb-0">
+                                            No publishers available at the moment.
+                                        </div>
+                                    </td>
+                                </tr>
+                                @endforelse
+                            </tbody>
+                        </table>
+                    </div>
+
+                </div>
+            </div>
+    
+        </div>
+    </div>
+
+</div>
+
+<!-- ================= STYLE ================= -->
+<style>
+.table {
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+.table thead th {
+    border-bottom: 2px solid #e9ecef;
+    font-weight: 600;
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #495057;
+    padding: 12px 8px;
+}
+
+.table tbody td {
+    padding: 16px 8px;
+    vertical-align: middle;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.table tbody tr {
+    transition: none;
+    cursor: pointer;
+}
+
+.table tbody tr:hover {
+    background-color: #fafafa;
+}
+
+.btn-link {
+    text-decoration: none;
+}
+
+.btn-link:hover {
+    background-color: #f1f3f5;
+    border-radius: 4px;
+}
+
+.badge {
+    font-size: 0.75rem;
+    font-weight: 500;
+}
+
+/* No zoom on hover */
+.table tbody tr:hover {
+    transform: none;
+}
+
+/* Action buttons hover effects - color change only */
+.favorite-btn:hover {
+    background-color: #dc3545 !important;
+    color: white !important;
+}
+
+.favorite-btn:hover i {
+    color: white;
+}
+
+.blacklist-btn:hover {
+    background-color: #6c757d !important;
+    color: white !important;
+}
+
+.blacklist-btn:hover i {
+    color: white;
+}
+
+.buy-now:hover {
+    background-color: #0056b3 !important;
+}
+
+/* Expanded row styling */
+.expanded-row {
+    background-color: #f9f9f9;
+}
+
+/* Arrow rotation animation */
+.rotate-arrow {
+    transform: rotate(180deg);
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .table-responsive {
+        font-size: 0.85rem;
+    }
+    
+    .btn-sm {
+        font-size: 0.75rem;
+    }
+}
+</style>
+
+<!-- ================= JS ================= -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+
+    // Toggle URL visibility (Eye Icon)
+    document.querySelectorAll('.toggle-url').forEach(button => {
+        button.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation(); // Prevent row expansion
+            let id = this.dataset.id;
+            
+            let maskedSpan = document.getElementById('url-masked-' + id);
+            let fullSpan = document.getElementById('url-full-' + id);
+            
+            if (maskedSpan.classList.contains('d-none')) {
+                // Currently showing full URL, switch to masked
+                maskedSpan.classList.remove('d-none');
+                fullSpan.classList.add('d-none');
+                this.querySelector('i').classList.remove('fa-eye-slash');
+                this.querySelector('i').classList.add('fa-eye');
+            } else {
+                // Currently showing masked URL, switch to full
+                maskedSpan.classList.add('d-none');
+                fullSpan.classList.remove('d-none');
+                this.querySelector('i').classList.remove('fa-eye');
+                this.querySelector('i').classList.add('fa-eye-slash');
+            }
+        });
+    });
+
+    // Toggle expanded row on site row click or arrow click
+    function toggleExpandRow(id, arrowElement) {
+        let expandedRow = document.querySelector('.expanded-row-' + id);
+        
+        if (expandedRow.style.display === 'none' || expandedRow.style.display === '') {
+            // Close all other expanded rows first
+            document.querySelectorAll('[class^="expanded-row-"]').forEach(row => {
+                if (row.style.display === 'table-row') {
+                    row.style.display = 'none';
+                    // Reset all arrows
+                    let rowId = row.className.match(/expanded-row-(\d+)/);
+                    if (rowId && rowId[1]) {
+                        let otherArrow = document.getElementById('arrow-' + rowId[1]);
+                        if (otherArrow) {
+                            otherArrow.classList.remove('rotate-arrow');
+                        }
+                    }
+                }
+            });
+            
+            // Open this row
+            expandedRow.style.display = 'table-row';
+            // Add rotation to arrow
+            if (arrowElement) {
+                arrowElement.classList.add('rotate-arrow');
+            }
+        } else {
+            expandedRow.style.display = 'none';
+            // Remove rotation from arrow
+            if (arrowElement) {
+                arrowElement.classList.remove('rotate-arrow');
+            }
+        }
+    }
+
+    // Handle row click for expansion
+    document.querySelectorAll('.site-row').forEach(row => {
+        row.addEventListener('click', function(e) {
+            // Don't expand if clicking on buttons or interactive elements
+            if(e.target.closest('.toggle-url') || e.target.closest('.buy-now') || 
+               e.target.closest('.favorite-btn') || e.target.closest('.blacklist-btn') ||
+               e.target.closest('.copy-example-url') || e.target.closest('.expand-arrow') ||
+               e.target.closest('a')) {
+                return;
+            }
+            
+            let id = this.dataset.id;
+            let arrowElement = document.getElementById('arrow-' + id);
+            toggleExpandRow(id, arrowElement);
+        });
+    });
+
+    // Handle arrow click separately
+    document.querySelectorAll('.expand-arrow').forEach(arrow => {
+        arrow.addEventListener('click', function(e) {
+            e.stopPropagation(); // Prevent row click event
+            let id = this.id.replace('arrow-', '');
+            toggleExpandRow(id, this);
+        });
+    });
+
+    // Copy example URL functionality
+    document.querySelectorAll('.copy-example-url').forEach(button => {
+        button.addEventListener('click', async function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            let url = this.dataset.url;
+            
+            try {
+                await navigator.clipboard.writeText(url);
+                
+                // Visual feedback
+                let originalIcon = this.innerHTML;
+                this.innerHTML = '<i class="fa-regular fa-check"></i>';
+                this.classList.add('text-success');
+                
+                setTimeout(() => {
+                    this.innerHTML = originalIcon;
+                    this.classList.remove('text-success');
+                }, 1500);
+                
+                console.log('Example URL copied:', url);
+            } catch (err) {
+                console.error('Failed to copy:', err);
+            }
+        });
+    });
+
+    // Buy Now functionality
+    document.querySelectorAll('.buy-now').forEach(button => {
+        button.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation(); // Prevent row expansion
+            let id = this.dataset.id;
+            let price = this.dataset.price;
+            
+            console.log(`Buy Now clicked for site ID: ${id}, Price: €${price}`);
+            
+            if (confirm(`Order placement for site ID: ${id}\nPrice: €${price}\n\nProceed to checkout?`)) {
+                // window.location.href = `/advertiser/checkout/${id}`;
+                alert('Redirecting to checkout...');
+            }
+        });
+    });
+
+    // Favorite functionality
+    document.querySelectorAll('.favorite-btn').forEach(button => {
+        button.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation(); // Prevent row expansion
+            let id = this.dataset.id;
+            let icon = this.querySelector('i');
+            
+            if (icon.classList.contains('fa-regular')) {
+                icon.classList.remove('fa-regular');
+                icon.classList.add('fa-solid');
+                this.classList.add('btn-danger');
+                this.classList.remove('btn-outline-danger');
+                console.log(`Added to favorites: Site ID ${id}`);
+                
+                let originalText = this.innerHTML;
+                this.innerHTML = '<i class="fa-solid fa-check"></i>';
+                setTimeout(() => {
+                    this.innerHTML = originalText;
+                }, 1000);
+            } else {
+                icon.classList.remove('fa-solid');
+                icon.classList.add('fa-regular');
+                this.classList.remove('btn-danger');
+                this.classList.add('btn-outline-danger');
+                console.log(`Removed from favorites: Site ID ${id}`);
+            }
+        });
+    });
+
+    // Blacklist functionality
+    document.querySelectorAll('.blacklist-btn').forEach(button => {
+        button.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation(); // Prevent row expansion
+            let id = this.dataset.id;
+            
+            if (confirm('Are you sure you want to blacklist this site? You will no longer see it in your catalog.')) {
+                console.log(`Blacklisted: Site ID ${id}`);
+                let row = this.closest('.site-row');
+                let expandedRow = document.querySelector('.expanded-row-' + id);
+                
+                if (row) {
+                    row.style.transition = 'opacity 0.3s ease';
+                    row.style.opacity = '0';
+                }
+                if (expandedRow) {
+                    expandedRow.style.transition = 'opacity 0.3s ease';
+                    expandedRow.style.opacity = '0';
+                }
+                
+                setTimeout(() => {
+                    if (row) row.remove();
+                    if (expandedRow) expandedRow.remove();
+                }, 300);
+            }
+        });
+    });
+
+});
+</script>
+
+@endsection
