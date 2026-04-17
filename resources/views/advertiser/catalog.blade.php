@@ -7,19 +7,69 @@
     $sites = $sites ?? collect();
 
     function fullCountry($code){
-        return class_exists(\Symfony\Component\Intl\Countries::class)
-            ? \Symfony\Component\Intl\Countries::getName($code)
-            : $code;
+        $countries = [
+            'us' => 'United States', 'uk' => 'United Kingdom', 'de' => 'Germany',
+            'fr' => 'France', 'it' => 'Italy', 'es' => 'Spain', 'pt' => 'Portugal',
+            'nl' => 'Netherlands', 'be' => 'Belgium', 'at' => 'Austria', 'ch' => 'Switzerland',
+            'ae' => 'United Arab Emirates', 'sa' => 'Saudi Arabia', 'jp' => 'Japan',
+            'cn' => 'China', 'kr' => 'South Korea', 'sg' => 'Singapore', 'br' => 'Brazil',
+            'mx' => 'Mexico', 'ar' => 'Argentina', 'ru' => 'Russia', 'pl' => 'Poland',
+            'se' => 'Sweden', 'no' => 'Norway', 'dk' => 'Denmark', 'fi' => 'Finland',
+            'ie' => 'Ireland', 'nz' => 'New Zealand', 'au' => 'Australia', 'in' => 'India',
+            'pk' => 'Pakistan', 'bd' => 'Bangladesh', 'lk' => 'Sri Lanka', 'np' => 'Nepal',
+            'tr' => 'Turkey', 'eg' => 'Egypt', 'ma' => 'Morocco', 'za' => 'South Africa',
+            'ng' => 'Nigeria', 'ke' => 'Kenya', 'gh' => 'Ghana',
+        ];
+        return $countries[strtolower($code)] ?? strtoupper($code);
     }
 
     function fullLanguage($code){
-        return class_exists(\Symfony\Component\Intl\Languages::class)
-            ? \Symfony\Component\Intl\Languages::getName($code)
-            : $code;
+        $languages = [
+            'en' => 'English', 'es' => 'Spanish', 'fr' => 'French', 'de' => 'German',
+            'it' => 'Italian', 'pt' => 'Portuguese', 'nl' => 'Dutch', 'ru' => 'Russian',
+            'zh' => 'Chinese', 'ja' => 'Japanese', 'ko' => 'Korean', 'ar' => 'Arabic',
+            'hi' => 'Hindi', 'tr' => 'Turkish', 'pl' => 'Polish', 'uk' => 'Ukrainian',
+            'sv' => 'Swedish', 'da' => 'Danish', 'no' => 'Norwegian', 'fi' => 'Finnish',
+            'el' => 'Greek', 'cs' => 'Czech', 'hu' => 'Hungarian', 'ro' => 'Romanian',
+            'bg' => 'Bulgarian', 'hr' => 'Croatian', 'sk' => 'Slovak', 'sl' => 'Slovenian',
+            'lt' => 'Lithuanian', 'lv' => 'Latvian', 'et' => 'Estonian', 'he' => 'Hebrew',
+            'th' => 'Thai', 'vi' => 'Vietnamese', 'id' => 'Indonesian', 'ms' => 'Malay',
+            'fa' => 'Persian', 'ur' => 'Urdu', 'bn' => 'Bengali', 'ta' => 'Tamil',
+            'te' => 'Telugu', 'mr' => 'Marathi', 'gu' => 'Gujarati', 'kn' => 'Kannada',
+            'ml' => 'Malayalam', 'ne' => 'Nepali', 'si' => 'Sinhala', 'my' => 'Burmese',
+            'km' => 'Khmer', 'lo' => 'Lao', 'mn' => 'Mongolian', 'az' => 'Azerbaijani',
+            'ka' => 'Georgian', 'hy' => 'Armenian', 'sq' => 'Albanian', 'mk' => 'Macedonian',
+            'bs' => 'Bosnian', 'sr' => 'Serbian', 'me' => 'Montenegrin', 'is' => 'Icelandic',
+            'ga' => 'Irish', 'cy' => 'Welsh', 'gd' => 'Scottish Gaelic', 'mt' => 'Maltese',
+            'sw' => 'Swahili', 'am' => 'Amharic', 'yo' => 'Yoruba', 'ig' => 'Igbo',
+            'ha' => 'Hausa', 'zu' => 'Zulu', 'so' => 'Somali', 'rw' => 'Kinyarwanda',
+        ];
+        return $languages[strtolower($code)] ?? strtoupper($code);
     }
     
     function getCountryFlag($countryCode){
         // Convert country code to emoji flag
+        $code = strtoupper($countryCode);
+        if ($code === 'UK') $code = 'GB';
+        $flag = mb_convert_encoding('&#' . (127397 + ord($code[0])) . ';&#' . (127397 + ord($code[1])) . ';', 'UTF-8', 'HTML-ENTITIES');
+        return $flag;
+    }
+    
+    function getLanguageFlag($languageCode){
+        // Map language codes to country codes for flag display
+        $languageToCountry = [
+            'en' => 'us', 'es' => 'es', 'fr' => 'fr', 'de' => 'de',
+            'it' => 'it', 'pt' => 'pt', 'nl' => 'nl', 'ru' => 'ru',
+            'zh' => 'cn', 'ja' => 'jp', 'ko' => 'kr', 'ar' => 'sa',
+            'hi' => 'in', 'tr' => 'tr', 'pl' => 'pl', 'uk' => 'ua',
+            'sv' => 'se', 'da' => 'dk', 'no' => 'no', 'fi' => 'fi',
+            'el' => 'gr', 'cs' => 'cz', 'hu' => 'hu', 'ro' => 'ro',
+            'bg' => 'bg', 'hr' => 'hr', 'sk' => 'sk', 'sl' => 'si',
+            'lt' => 'lt', 'lv' => 'lv', 'et' => 'ee', 'he' => 'il',
+            'th' => 'th', 'vi' => 'vn', 'id' => 'id', 'ms' => 'my',
+            'ur' => 'pk', 'bn' => 'bd', 'ta' => 'in', 'ne' => 'np',
+        ];
+        $countryCode = $languageToCountry[strtolower($languageCode)] ?? 'us';
         $code = strtoupper($countryCode);
         $flag = mb_convert_encoding('&#' . (127397 + ord($code[0])) . ';&#' . (127397 + ord($code[1])) . ';', 'UTF-8', 'HTML-ENTITIES');
         return $flag;
@@ -43,9 +93,124 @@
         </div>
     </div>
 
+    <!-- FILTERS SECTION -->
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <form method="GET" action="{{ route('advertiser.catalog') }}" id="filterForm">
+                        <div class="row g-3 align-items-end">
+                            <!-- Search -->
+                            <div class="col-md-3">
+                                <label class="form-label fw-semibold small text-muted mb-1">Search</label>
+                                <input type="text" 
+                                       name="search" 
+                                       class="form-control form-control-sm" 
+                                       placeholder="URL or category..."
+                                       value="{{ request('search') }}">
+                            </div>
+
+                            <!-- Verified Filter -->
+                            <div class="col-md-2">
+                                <label class="form-label fw-semibold small text-muted mb-1">Verified Only</label>
+                                <select name="verified" class="form-select form-select-sm">
+                                    <option value="">All Sites</option>
+                                    <option value="1" {{ request('verified') == '1' ? 'selected' : '' }}>Verified Only</option>
+                                </select>
+                            </div>
+
+                            <!-- DA Range -->
+                            <div class="col-md-2">
+                                <label class="form-label fw-semibold small text-muted mb-1">DA Range</label>
+                                <div class="d-flex gap-2">
+                                    <input type="number" 
+                                           name="da_min" 
+                                           class="form-control form-control-sm" 
+                                           placeholder="Min"
+                                           value="{{ request('da_min') }}">
+                                    <input type="number" 
+                                           name="da_max" 
+                                           class="form-control form-control-sm" 
+                                           placeholder="Max"
+                                           value="{{ request('da_max') }}">
+                                </div>
+                            </div>
+
+                            <!-- DR Range -->
+                            <div class="col-md-2">
+                                <label class="form-label fw-semibold small text-muted mb-1">DR Range</label>
+                                <div class="d-flex gap-2">
+                                    <input type="number" 
+                                           name="dr_min" 
+                                           class="form-control form-control-sm" 
+                                           placeholder="Min"
+                                           value="{{ request('dr_min') }}">
+                                    <input type="number" 
+                                           name="dr_max" 
+                                           class="form-control form-control-sm" 
+                                           placeholder="Max"
+                                           value="{{ request('dr_max') }}">
+                                </div>
+                            </div>
+
+                            <!-- Traffic Range -->
+                            <div class="col-md-3">
+                                <label class="form-label fw-semibold small text-muted mb-1">Monthly Traffic</label>
+                                <div class="d-flex gap-2">
+                                    <input type="number" 
+                                           name="traffic_min" 
+                                           class="form-control form-control-sm" 
+                                           placeholder="Min"
+                                           value="{{ request('traffic_min') }}">
+                                    <input type="number" 
+                                           name="traffic_max" 
+                                           class="form-control form-control-sm" 
+                                           placeholder="Max"
+                                           value="{{ request('traffic_max') }}">
+                                </div>
+                            </div>
+
+                            <!-- Language Filter -->
+                            <div class="col-md-2">
+                                <label class="form-label fw-semibold small text-muted mb-1">Language</label>
+                                <select name="language" class="form-select form-select-sm">
+                                    <option value="">All Languages</option>
+                                    @foreach($availableLanguages as $langCode)
+                                        <option value="{{ $langCode }}" {{ request('language') == $langCode ? 'selected' : '' }}>
+                                            {{ fullLanguage($langCode) }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                            </div>
+
+                            <!-- Action Buttons -->
+                            <div class="col-md-2">
+                                <div class="d-flex gap-2">
+                                    <button type="submit" class="btn btn-primary btn-sm px-4">
+                                        <i class="fa-solid fa-magnifying-glass me-1"></i> Filter
+                                    </button>
+                                    <a href="{{ route('advertiser.catalog') }}" class="btn btn-secondary btn-sm px-3">
+                                        <i class="fa-solid fa-rotate-right me-1"></i> Reset
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- CONTENT AREA -->
     <div class="row">
         <div class="col-md-12">
+
+            <!-- Results Count -->
+            <div class="mb-3">
+                <small class="text-muted">
+                    Showing <strong>{{ $sites->firstItem() ?? 0 }}</strong> to <strong>{{ $sites->lastItem() ?? 0 }}</strong> of <strong>{{ $sites->total() }}</strong> publishers
+                </small>
+            </div>
 
             <!-- Publishers Table -->
             <div class="card border-0 shadow-sm">
@@ -87,7 +252,7 @@
                                                 <span class="text-dark"
                                                       style="font-family: monospace; font-weight: 600; font-size: 13.5px;"
                                                       id="url-masked-{{ $site->id }}">
-                                                    {{ substr(Str::of($site->site_url)->replaceMatches('/^(https?:\/\/)?(www\.)?/', ''), 0, 4) }}******
+                                                    {{ substr(Str::of($site->site_url)->replaceMatches('/^(https?:\/\/)?(www\.)?/', ''), 0, 3) }}******
                                                 </span>
 
                                                 <span class="url-full text-muted d-none"
@@ -123,14 +288,14 @@
 
                                         </div>
 
-                                    </td>
+                                      </td>
 
                                     <!-- Category Column -->
                                     <td>
                                         <span class="badge" style="background-color: #e3f2fd; color: #1976d2; border-radius: 4px; padding: 4px 8px; font-weight: 500;">
                                             {{ $site->category }}
                                         </span>
-                                    </td>
+                                      </td>
 
                                     <!-- Monthly Traffic Column -->
                                     <td>
@@ -140,7 +305,7 @@
                                                 {{ number_format($site->traffic) }}
                                             </span>
                                         </div>
-                                    </td>
+                                      </td>
 
                                     <!-- AHREFS DR Column -->
                                     <td>
@@ -150,7 +315,7 @@
                                                 {{ $site->dr }}
                                             </span>
                                         </div>
-                                    </td>
+                                      </td>
 
                                     <!-- MOZ DA Column -->
                                     <td>
@@ -160,15 +325,15 @@
                                                 {{ $site->da }}
                                             </span>
                                         </div>
-                                    </td>
+                                      </td>
 
-                                    <!-- Language Column with flag above language name -->
+                                    <!-- Language Column with flag and language name -->
                                     <td>
                                         <div class="d-flex flex-column align-items-center gap-1">
-                                            <span style="font-size: 24px;">{{ getCountryFlag($site->country) }}</span>
+                                            <span style="font-size: 24px;">{!! getLanguageFlag($site->language) !!}</span>
                                             <span class="text-muted small text-center">{{ fullLanguage($site->language) }}</span>
                                         </div>
-                                    </td>
+                                      </td>
 
                                     <!-- Action Column - Price in row, buttons below -->
                                     <td>
@@ -201,7 +366,7 @@
                                             </div>
 
                                         </div>
-                                    </td>
+                                      </td>
                                 </tr>
                                 
                                 <!-- Expanded Row for additional details -->
@@ -332,6 +497,11 @@
                         </table>
                     </div>
 
+                    <!-- Pagination -->
+                    <div class="d-flex justify-content-center mt-4 pb-3">
+                        {{ $sites->links() }}
+                    </div>
+
                 </div>
             </div>
     
@@ -358,18 +528,24 @@
 }
 
 .table tbody td {
-    padding: 16px 8px;
+    padding: 10px 8px;
     vertical-align: middle;
     border-bottom: 1px solid #f0f0f0;
 }
 
-.table tbody tr {
-    transition: none;
+/* ROW hover effect - full row highlighting */
+.table tbody tr.site-row {
+    transition: background-color 0.2s ease;
     cursor: pointer;
 }
 
-.table tbody tr:hover {
-    background-color: #fafafa;
+.table tbody tr.site-row:hover {
+    background-color: #f5f9ff !important;
+}
+
+/* Ensure expanded row doesn't get hover effect */
+.table tbody tr[class*="expanded-row"]:hover {
+    background-color: #f9f9f9 !important;
 }
 
 .btn-link {
@@ -386,12 +562,7 @@
     font-weight: 500;
 }
 
-/* No zoom on hover */
-.table tbody tr:hover {
-    transform: none;
-}
-
-/* Action buttons hover effects - color change only */
+/* Action buttons hover effects */
 .favorite-btn:hover {
     background-color: #dc3545 !important;
     color: white !important;
@@ -414,11 +585,6 @@
     background-color: #0056b3 !important;
 }
 
-/* Expanded row styling */
-.expanded-row {
-    background-color: #f9f9f9;
-}
-
 /* Arrow rotation animation */
 .rotate-arrow {
     transform: rotate(180deg);
@@ -434,6 +600,16 @@
         font-size: 0.75rem;
     }
 }
+
+/* Filter form styling */
+#filterForm input[type="number"]::-webkit-inner-spin-button,
+#filterForm input[type="number"]::-webkit-outer-spin-button {
+    opacity: 0.5;
+}
+
+.form-control-sm, .form-select-sm {
+    font-size: 0.875rem;
+}
 </style>
 
 <!-- ================= JS ================= -->
@@ -444,20 +620,18 @@ document.addEventListener('DOMContentLoaded', function() {
     document.querySelectorAll('.toggle-url').forEach(button => {
         button.addEventListener('click', function(e) {
             e.preventDefault();
-            e.stopPropagation(); // Prevent row expansion
+            e.stopPropagation();
             let id = this.dataset.id;
             
             let maskedSpan = document.getElementById('url-masked-' + id);
             let fullSpan = document.getElementById('url-full-' + id);
             
             if (maskedSpan.classList.contains('d-none')) {
-                // Currently showing full URL, switch to masked
                 maskedSpan.classList.remove('d-none');
                 fullSpan.classList.add('d-none');
                 this.querySelector('i').classList.remove('fa-eye-slash');
                 this.querySelector('i').classList.add('fa-eye');
             } else {
-                // Currently showing masked URL, switch to full
                 maskedSpan.classList.add('d-none');
                 fullSpan.classList.remove('d-none');
                 this.querySelector('i').classList.remove('fa-eye');
@@ -471,11 +645,9 @@ document.addEventListener('DOMContentLoaded', function() {
         let expandedRow = document.querySelector('.expanded-row-' + id);
         
         if (expandedRow.style.display === 'none' || expandedRow.style.display === '') {
-            // Close all other expanded rows first
             document.querySelectorAll('[class^="expanded-row-"]').forEach(row => {
                 if (row.style.display === 'table-row') {
                     row.style.display = 'none';
-                    // Reset all arrows
                     let rowId = row.className.match(/expanded-row-(\d+)/);
                     if (rowId && rowId[1]) {
                         let otherArrow = document.getElementById('arrow-' + rowId[1]);
@@ -486,15 +658,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             });
             
-            // Open this row
             expandedRow.style.display = 'table-row';
-            // Add rotation to arrow
             if (arrowElement) {
                 arrowElement.classList.add('rotate-arrow');
             }
         } else {
             expandedRow.style.display = 'none';
-            // Remove rotation from arrow
             if (arrowElement) {
                 arrowElement.classList.remove('rotate-arrow');
             }
@@ -504,7 +673,6 @@ document.addEventListener('DOMContentLoaded', function() {
     // Handle row click for expansion
     document.querySelectorAll('.site-row').forEach(row => {
         row.addEventListener('click', function(e) {
-            // Don't expand if clicking on buttons or interactive elements
             if(e.target.closest('.toggle-url') || e.target.closest('.buy-now') || 
                e.target.closest('.favorite-btn') || e.target.closest('.blacklist-btn') ||
                e.target.closest('.copy-example-url') || e.target.closest('.expand-arrow') ||
@@ -521,7 +689,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Handle arrow click separately
     document.querySelectorAll('.expand-arrow').forEach(arrow => {
         arrow.addEventListener('click', function(e) {
-            e.stopPropagation(); // Prevent row click event
+            e.stopPropagation();
             let id = this.id.replace('arrow-', '');
             toggleExpandRow(id, this);
         });
@@ -537,7 +705,6 @@ document.addEventListener('DOMContentLoaded', function() {
             try {
                 await navigator.clipboard.writeText(url);
                 
-                // Visual feedback
                 let originalIcon = this.innerHTML;
                 this.innerHTML = '<i class="fa-regular fa-check"></i>';
                 this.classList.add('text-success');
@@ -558,14 +725,13 @@ document.addEventListener('DOMContentLoaded', function() {
     document.querySelectorAll('.buy-now').forEach(button => {
         button.addEventListener('click', function(e) {
             e.preventDefault();
-            e.stopPropagation(); // Prevent row expansion
+            e.stopPropagation();
             let id = this.dataset.id;
             let price = this.dataset.price;
             
             console.log(`Buy Now clicked for site ID: ${id}, Price: €${price}`);
             
             if (confirm(`Order placement for site ID: ${id}\nPrice: €${price}\n\nProceed to checkout?`)) {
-                // window.location.href = `/advertiser/checkout/${id}`;
                 alert('Redirecting to checkout...');
             }
         });
@@ -575,7 +741,7 @@ document.addEventListener('DOMContentLoaded', function() {
     document.querySelectorAll('.favorite-btn').forEach(button => {
         button.addEventListener('click', function(e) {
             e.preventDefault();
-            e.stopPropagation(); // Prevent row expansion
+            e.stopPropagation();
             let id = this.dataset.id;
             let icon = this.querySelector('i');
             
@@ -605,7 +771,7 @@ document.addEventListener('DOMContentLoaded', function() {
     document.querySelectorAll('.blacklist-btn').forEach(button => {
         button.addEventListener('click', function(e) {
             e.preventDefault();
-            e.stopPropagation(); // Prevent row expansion
+            e.stopPropagation();
             let id = this.dataset.id;
             
             if (confirm('Are you sure you want to blacklist this site? You will no longer see it in your catalog.')) {

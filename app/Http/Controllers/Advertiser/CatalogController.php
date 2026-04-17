@@ -10,22 +10,69 @@ class CatalogController extends Controller
 {
     public function index(Request $request)
     {
-        // Base: only active sites
         $query = Site::where('active', 1);
 
-        // Optional filter: verified sites
-        if ($request->has('verified') && $request->verified == 1) {
+        // 🔍 Search (by URL or category)
+        if ($request->filled('search')) {
+            $search = $request->search;
+            $query->where(function ($q) use ($search) {
+                $q->where('site_url', 'like', "%{$search}%")
+                  ->orWhere('category', 'like', "%{$search}%");
+            });
+        }
+
+        // ✅ Verified filter
+        if ($request->filled('verified') && $request->verified == 1) {
             $query->where('verified', 1);
         }
 
-        $sites = $query->latest()->get();
+        // 📊 DA range
+        if ($request->filled('da_min')) {
+            $query->where('da', '>=', (int)$request->da_min);
+        }
 
-        // ✅ Get logged-in user's projects
-        $projects = auth()->user()
-            ->projects()
-            ->select('id', 'project_name', 'slug')
-            ->get();
+        if ($request->filled('da_max')) {
+            $query->where('da', '<=', (int)$request->da_max);
+        }
 
-        return view('advertiser.catalog.index', compact('sites', 'projects'));
+        // 📊 DR range
+        if ($request->filled('dr_min')) {
+            $query->where('dr', '>=', (int)$request->dr_min);
+        }
+
+        if ($request->filled('dr_max')) {
+            $query->where('dr', '<=', (int)$request->dr_max);
+        }
+
+        // 📊 Traffic range
+        if ($request->filled('traffic_min')) {
+            $query->where('traffic', '>=', (int)$request->traffic_min);
+        }
+
+        if ($request->filled('traffic_max')) {
+            $query->where('traffic', '<=', (int)$request->traffic_max);
+        }
+
+        // 🌍 Language filter - FIXED with debug
+        if ($request->filled('language') && !empty($request->language)) {
+            $query->where('language', $request->language);
+            
+            // Debug log
+            \Log::info('Language filter applied: ' . $request->language);
+        }
+
+        // ✅ Pagination (20 per page)
+        $sites = $query->latest()->paginate(20)->withQueryString();
+
+        // Get unique languages for the filter dropdown
+        $availableLanguages = Site::where('active', 1)
+            ->whereNotNull('language')
+            ->where('language', '!=', '')
+            ->select('language')
+            ->distinct()
+            ->orderBy('language')
+            ->pluck('language');
+
+        return view('advertiser.catalog', compact('sites', 'availableLanguages'));
     }
 }

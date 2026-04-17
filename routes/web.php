@@ -202,7 +202,7 @@ Route::middleware(['auth','verified', RoleMiddleware::class . ':advertiser'])
 
     // Catelog routes
     Route::get('/catalog', [CatalogController::class, 'index'])
-        ->name('catalog');
+        ->name('catalog');    
                 
 
         // PROJECTS CRUD routes
@@ -218,6 +218,23 @@ Route::put('/projects/{project}', [ProjectController::class, 'update'])
 Route::delete('/projects/{project}', [ProjectController::class, 'destroy'])
     ->name('projects.destroy');
 
+    
+
+        // Favorite page
+        Route::get('/favorites', function () {
+            return view('advertiser.favorites');
+        })->name('favorites');
+
+        // Blacklist page
+        Route::get('/blacklist', function () {
+            return view('advertiser.blacklist');
+        })->name('blacklist');
+
+        // Orders page  
+        Route::get('/orders', function () {
+            return view('advertiser.orders');
+        })->name('orders');
+
         // OTHER PAGES
         Route::get('/add-funds', function () {
             return view('advertiser.add-funds');
@@ -230,8 +247,8 @@ Route::delete('/projects/{project}', [ProjectController::class, 'destroy'])
 
 
         // Campaign  websites page
-        Route::get('/campaigns/{project:slug}/websites', [CampaignController::class, 'websites'])
-            ->name('campaigns.websites');
+        // Route::get('/campaigns/{project:slug}/websites', [CampaignController::class, 'websites'])
+        //     ->name('campaigns.websites');
 
 });
 
@@ -244,36 +261,28 @@ Route::middleware(['auth','verified', RoleMiddleware::class . ':publisher'])
             return view('publisher.dashboard');
         })->name('dashboard');
 
-        Route::get('/websites', function () {
-            return view('publisher.websites');
-        })->name('websites');
+        // FIXED: Update this route to use SiteController instead of closure
+        Route::get('/websites', [SiteController::class, 'index'])->name('websites');
 
-
+        // Index (main page) - you can keep this or remove it since /websites now does the same
+        Route::get('/sites', [SiteController::class, 'index'])->name('sites.index');
 
         // Store
-Route::post('/sites/store', [SiteController::class, 'store'])
-    ->name('sites.store');
+        Route::post('/sites/store', [SiteController::class, 'store'])->name('sites.store');
 
-// AJAX listing
-Route::get('/sites/ajax', [SiteController::class, 'ajax'])
-    ->name('sites.ajax');
+        // AJAX listing
+        Route::get('/sites/ajax', [SiteController::class, 'ajax'])->name('sites.ajax');
 
-// Index (main page)
-Route::get('/sites', [SiteController::class, 'index'])
-    ->name('sites.index');
+        // Update (used by AJAX)
+        Route::put('/sites/{id}', [SiteController::class, 'update'])->name('sites.update');
 
-// Update (used by AJAX)
-Route::put('/sites/{id}', [SiteController::class, 'update'])
-    ->name('sites.update');
+        // Delete
+        Route::delete('/sites/{id}', [SiteController::class, 'destroy'])->name('sites.destroy');
 
-// Delete
-Route::delete('/sites/{id}', [SiteController::class, 'destroy'])
-    ->name('sites.destroy');
-
-
+         // Make sure this route is correct
+        Route::get('/countries/{country}/languages', [SiteController::class, 'getCountryLanguages'])->name('publisher.countries.languages');
 
         // OTHER PAGES
-        
         Route::get('/earnings', function () {
             return view('publisher.earnings');
         })->name('earnings');

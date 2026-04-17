@@ -166,18 +166,35 @@
         background-color: #009e66;
         border-color: #009e66;
     }
+    
+    .loading-spinner {
+        display: inline-block;
+        width: 16px;
+        height: 16px;
+        border: 2px solid #f3f3f3;
+        border-top: 2px solid #3498db;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+        margin-right: 5px;
+    }
+    
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+    
     @media (max-width: 768px) {
-    #sitesTableWrapper {
-        overflow-x: auto;
-        overflow-y: auto;
-        max-height: 70vh;
-        -webkit-overflow-scrolling: touch;
-    }
+        #sitesTableWrapper {
+            overflow-x: auto;
+            overflow-y: auto;
+            max-height: 70vh;
+            -webkit-overflow-scrolling: touch;
+        }
 
-    #sitesTableWrapper table {
-        min-width: 900px;
+        #sitesTableWrapper table {
+            min-width: 900px;
+        }
     }
-}
 </style>
 
 <div class="container-fluid">
@@ -203,29 +220,29 @@
     @endif
 
     <button id="showFormBtn" class="btn btn-primary mb-3 shadow-sm">
-        <i class="fa fa-plus"></i> Add New Site
+        <i class="fa fa-plus"></i> Add New Website
     </button>
 
     <div class="card shadow-sm border-0 d-none" id="formCard">
         <div class="card-body">
             <form id="addSiteForm" class="needs-validation" novalidate method="POST" action="{{ route('publisher.sites.store') }}">
                 @csrf
+                <input type="hidden" name="_method" id="methodField" value="POST">
 
                 <!-- Row 1 -->
                 <div class="form-section">
                     <div class="row">
-                        <!-- also add info icon with tooltip -->
                         <div class="col-md-4"> 
                             <label class="form-label">Site Name <span class="text-danger">*</span></label>
-                            <input type="text" name="siteName" class="form-control" placeholder="Enter site name" value="{{ old('siteName') }}" required>
+                            <input type="text" name="siteName" id="siteName" class="form-control" placeholder="Enter site name" value="{{ old('siteName') }}" required>
                         </div>
                         <div class="col-md-4">
                             <label class="form-label">Site URL <span class="text-danger">*</span></label>
-                            <input type="url" name="siteUrl" class="form-control" placeholder="eg:https://example.com" value="{{ old('siteUrl') }}" required>
+                            <input type="url" name="siteUrl" id="siteUrl" class="form-control" placeholder="eg:https://example.com" value="{{ old('siteUrl') }}" required>
                         </div>
                         <div class="col-md-4">
                             <label class="form-label">Example URL <span class="text-danger">*</span></label>
-                            <input type="url" name="exampleUrl" class="form-control" placeholder="https://example.com/example" value="{{ old('exampleUrl') }}" required>
+                            <input type="url" name="exampleUrl" id="exampleUrl" class="form-control" placeholder="https://example.com/example" value="{{ old('exampleUrl') }}" required>
                         </div>
                     </div>
                 </div>
@@ -235,15 +252,15 @@
                     <div class="row bg-light p-3 rounded">
                         <div class="col-md-2">
                             <label class="form-label">DA (Domain Authority) <span class="text-danger">*</span></label>
-                            <input type="number" name="da" class="form-control" placeholder="0-100" min="0" max="100" value="{{ old('da') }}" required>
+                            <input type="number" name="da" id="da" class="form-control" placeholder="0-100" min="0" max="100" value="{{ old('da') }}" required>
                         </div>
                         <div class="col-md-2">
                             <label class="form-label">DR (Domain Rating) <span class="text-danger">*</span></label>
-                            <input type="number" name="dr" class="form-control" placeholder="0-100" min="0" max="100" value="{{ old('dr') }}" required>
+                            <input type="number" name="dr" id="dr" class="form-control" placeholder="0-100" min="0" max="100" value="{{ old('dr') }}" required>
                         </div>
                         <div class="col-md-2">
                             <label class="form-label">Traffic <span class="text-danger">*</span></label>
-                            <input type="number" name="traffic" class="form-control" placeholder="Visitors/month" value="{{ old('traffic') }}" required>
+                            <input type="number" name="traffic" id="traffic" class="form-control" placeholder="Visitors/month" value="{{ old('traffic') }}" required>
                         </div>
                     </div>
                 </div>
@@ -253,38 +270,44 @@
                     <div class="row bg-light p-3 rounded">
                         <div class="col-md-2">
                             <label class="form-label">Country <span class="text-danger">*</span></label>
-                            <select name="country" class="form-select" required>
+                            <select name="country" id="countrySelect" class="form-select" required>
                                 <option value="">Select Country</option>
-                                <option value="us" {{ old('country') == 'us' ? 'selected' : '' }}>USA</option>
-                                <option value="uk" {{ old('country') == 'uk' ? 'selected' : '' }}>UK</option>
-                                <option value="de" {{ old('country') == 'de' ? 'selected' : '' }}>Germany</option>
+                                @foreach($countries as $country)
+                                    <option value="{{ $country->code }}" {{ old('country') == $country->code ? 'selected' : '' }}>
+                                        {{ $country->name }}
+                                    </option>
+                                @endforeach
                             </select>
                         </div>
                         <div class="col-md-2">
                             <label class="form-label">Language <span class="text-danger">*</span></label>
-                            <select name="language" class="form-select" required>
+                            <select name="language" id="languageSelect" class="form-select" required>
                                 <option value="">Select Language</option>
-                                <option value="en" {{ old('language') == 'en' ? 'selected' : '' }}>English</option>
-                                <option value="de" {{ old('language') == 'de' ? 'selected' : '' }}>German</option>
-                                <option value="fr" {{ old('language') == 'fr' ? 'selected' : '' }}>French</option>
+                                @foreach($languages as $language)
+                                    <option value="{{ $language->code }}" {{ old('language') == $language->code ? 'selected' : '' }}>
+                                        {{ $language->name }}
+                                    </option>
+                                @endforeach
                             </select>
                         </div>
                         <div class="col-md-2">
                             <label class="form-label">Category <span class="text-danger">*</span></label>
-                            <select name="category" class="form-select" required>
+                            <select name="category" id="category" class="form-select" required>
                                 <option value="">Select Category</option>
-                                <option value="tech" {{ old('category') == 'tech' ? 'selected' : '' }}>Tech</option>
-                                <option value="blog" {{ old('category') == 'blog' ? 'selected' : '' }}>Blog</option>
-                                <option value="finance" {{ old('category') == 'finance' ? 'selected' : '' }}>Finance</option>
+                                @foreach($categories as $category)
+                                    <option value="{{ $category->name }}" {{ old('category') == $category->name ? 'selected' : '' }}>
+                                        {{ $category->name }}
+                                    </option>
+                                @endforeach
                             </select>
                         </div>
                         <div class="col-md-2">
                             <label class="form-label">Price (€) <span class="text-danger">*</span></label>
-                            <input type="number" name="price" class="form-control" placeholder="Enter price" min="0" step="0.01" value="{{ old('price') }}" required>
+                            <input type="number" name="price" id="price" class="form-control" placeholder="Enter price" min="0" step="0.01" value="{{ old('price') }}" required>
                         </div>
                         <div class="col-md-2">
                             <label class="form-label">Publication Duration <span class="text-danger">*</span></label>
-                            <select name="publicationTime" class="form-select" required>
+                            <select name="publicationTime" id="publicationTime" class="form-select" required>
                                 <option value="">Select Duration</option>
                                 <option value="6months" {{ old('publicationTime') == '6months' ? 'selected' : '' }}>6 Months</option>
                                 <option value="1year" {{ old('publicationTime') == '1year' ? 'selected' : '' }}>1 Year</option>
@@ -295,11 +318,11 @@
                             <label class="form-label">Link Type <span class="text-danger">*</span></label>
                             <div class="d-flex gap-3">
                                 <div class="form-check">
-                                    <input type="radio" name="link_type" value="dofollow" class="form-check-input" {{ old('link_type', 'dofollow') == 'dofollow' ? 'checked' : '' }}>
+                                    <input type="radio" name="link_type" id="linkTypeDofollow" value="dofollow" class="form-check-input" {{ old('link_type', 'dofollow') == 'dofollow' ? 'checked' : '' }}>
                                     <label class="form-check-label">DoFollow</label>
                                 </div>
                                 <div class="form-check">
-                                    <input type="radio" name="link_type" value="nofollow" class="form-check-input" {{ old('link_type') == 'nofollow' ? 'checked' : '' }}>
+                                    <input type="radio" name="link_type" id="linkTypeNofollow" value="nofollow" class="form-check-input" {{ old('link_type') == 'nofollow' ? 'checked' : '' }}>
                                     <label class="form-check-label">NoFollow</label>
                                 </div>
                             </div>
@@ -313,19 +336,19 @@
                         <label class="form-label">Tags (Optional, select only one)</label>
                         <div class="col-md-2">
                             <div class="form-check">
-                                <input type="checkbox" name="sponsored" class="form-check-input tag-checkbox" value="1" {{ old('sponsored') ? 'checked' : '' }}>
+                                <input type="checkbox" name="sponsored" id="sponsored" class="form-check-input tag-checkbox" value="1" {{ old('sponsored') ? 'checked' : '' }}>
                                 <label class="form-check-label">Sponsored</label>
                             </div>
                         </div>
                         <div class="col-md-2">
                             <div class="form-check">
-                                <input type="checkbox" name="partner_material" class="form-check-input tag-checkbox" value="1" {{ old('partner_material') ? 'checked' : '' }}>
+                                <input type="checkbox" name="partner_material" id="partnerMaterial" class="form-check-input tag-checkbox" value="1" {{ old('partner_material') ? 'checked' : '' }}>
                                 <label class="form-check-label">Partner Materials</label>
                             </div>
                         </div>
                         <div class="col-md-2">
                             <div class="form-check">
-                                <input type="checkbox" name="as_you_prefer" class="form-check-input tag-checkbox" value="1" {{ old('as_you_prefer') ? 'checked' : '' }}>
+                                <input type="checkbox" name="as_you_prefer" id="asYouPrefer" class="form-check-input tag-checkbox" value="1" {{ old('as_you_prefer') ? 'checked' : '' }}>
                                 <label class="form-check-label">As You Prefer</label>
                             </div>
                         </div>
@@ -341,10 +364,10 @@
                                 @foreach(['crypto','trading','CBD','forex'] as $topic)
                                 <div class="me-3">
                                     <div class="form-check">
-                                        <input type="checkbox" name="sensitive[{{ $topic }}]" class="form-check-input" id="sensitive{{ $topic }}" {{ old("sensitive.$topic") ? 'checked' : '' }}>
+                                        <input type="checkbox" name="sensitive[{{ $topic }}]" class="form-check-input sensitive-checkbox" id="sensitive{{ $topic }}" {{ old("sensitive.$topic") ? 'checked' : '' }}>
                                         <label class="form-check-label" for="sensitive{{ $topic }}">{{ ucfirst($topic) }}</label>
                                     </div>
-                                    <input type="number" name="price_sensitive[{{ $topic }}]" class="form-control mt-1" placeholder="Price" value="{{ old("price_sensitive.$topic") }}">
+                                    <input type="number" name="price_sensitive[{{ $topic }}]" class="form-control mt-1 sensitive-price" placeholder="Price" value="{{ old("price_sensitive.$topic") }}">
                                 </div>
                                 @endforeach
                             </div>
@@ -394,6 +417,15 @@ const submitBtn = $('#submitBtn');
 const closeBtn = $('#closeBtn');
 const formHeaderSpan = $('#formHeader');
 
+// Store all languages for reset (NO country filtering on create)
+var allLanguages = [];
+@foreach($languages as $language)
+    allLanguages.push({code: '{{ $language->code }}', name: '{{ $language->name }}'});
+@endforeach
+
+// NO country-language linking on create - language dropdown shows all languages
+// This is intentionally removed for create functionality
+
 // Quill editor
 var quill = new Quill('#quillEditor', {
     theme: 'snow',
@@ -413,7 +445,7 @@ $(document).on('change', '.tag-checkbox', function() {
     $('.tag-checkbox').not(this).prop('checked', false);
 });
 
-// Toggle form
+// Toggle form for CREATE
 addBtn.on('click', function() {
     formCard.toggleClass('d-none');
     let isOpen = !formCard.hasClass('d-none');
@@ -423,9 +455,27 @@ addBtn.on('click', function() {
     formHeaderSpan.text('Add New Website');
 
     if(isOpen){
+        // Reset form for new site
         $('#addSiteForm')[0].reset();
+        $('#methodField').val('POST');
+        $('#addSiteForm').attr('action', '{{ route("publisher.sites.store") }}');
         quill.root.innerHTML = '';
         submitBtn.prop('disabled', false).text('Submit');
+        
+        // Reset language dropdown to all languages
+        $('#languageSelect').empty();
+        $('#languageSelect').append('<option value="">Select Language</option>');
+        $.each(allLanguages, function(index, lang) {
+            $('#languageSelect').append('<option value="' + lang.code + '">' + lang.name + '</option>');
+        });
+        
+        // Reset country dropdown
+        $('#countrySelect').val('');
+        
+        // Enable site name and URL for create
+        $('#siteName').prop('disabled', false);
+        $('#siteUrl').prop('disabled', false);
+        $('.readonly-note').remove();
     }
 });
 
@@ -438,7 +488,7 @@ $('#addSiteForm').submit(function(e){
         e.stopPropagation();
         $(form).addClass('was-validated');
     } else {
-        submitBtn.prop('disabled', true).html('<i class="fa fa-spinner fa-spin"></i> Saving...');
+        submitBtn.prop('disabled', true).html('<span class="loading-spinner"></span> Saving...');
     }
 });
 
@@ -480,7 +530,7 @@ $(document).ready(function(){
     });
 });
 
-// Close
+// Close form
 closeBtn.on('click', function(){
     formCard.addClass('d-none');
     addBtn.removeClass('d-none');
@@ -489,6 +539,91 @@ closeBtn.on('click', function(){
     $('#addSiteForm')[0].reset();
     quill.root.innerHTML = '';
     $('.tag-checkbox').prop('checked', false);
+    $('.sensitive-checkbox').prop('checked', false);
+    $('.sensitive-price').val('');
+    $('#languageSelect').empty();
+    $('#languageSelect').append('<option value="">Select Language</option>');
+    $.each(allLanguages, function(index, lang) {
+        $('#languageSelect').append('<option value="' + lang.code + '">' + lang.name + '</option>');
+    });
+    $('#siteName').prop('disabled', false);
+    $('#siteUrl').prop('disabled', false);
+    $('.readonly-note').remove();
+});
+
+// Edit functionality - Properly prefill all values
+$(document).on('click', '.btn-edit', function() {
+    const site = $(this).data('site');
+    
+    // Show form
+    $('#formCard').removeClass('d-none');
+    $('#showFormBtn').addClass('d-none');
+    $('#closeBtn').removeClass('d-none');
+    $('#formHeader').text('Edit Site: ' + site.site_name);
+    
+    // Set form action for update
+    $('#methodField').remove();
+    $('#addSiteForm')
+        .attr('action', '/publisher/sites/' + site.id)
+        .append('<input type="hidden" name="_method" value="PUT" id="methodField">');
+    
+    // Prefill all fields
+    $('#siteName').val(site.site_name).prop('disabled', true);
+    $('#siteUrl').val(site.site_url).prop('disabled', true);
+    
+    // Add readonly message
+    if (!$('#siteName').next('.readonly-note').length) {
+        $('#siteName').after('<small class="text-muted readonly-note d-block">Due to security reasons, this field is readonly</small>');
+    }
+    if (!$('#siteUrl').next('.readonly-note').length) {
+        $('#siteUrl').after('<small class="text-muted readonly-note d-block">Due to security reasons, this field is readonly</small>');
+    }
+    
+    $('#exampleUrl').val(site.example_url);
+    $('#da').val(site.da);
+    $('#dr').val(site.dr);
+    $('#traffic').val(site.traffic);
+    $('#price').val(site.price);
+    $('#countrySelect').val(site.country);
+    $('#languageSelect').val(site.language);
+    $('#category').val(site.category);
+    $('#publicationTime').val(site.publication_time);
+    
+    // Link type radio
+    if (site.link_type === 'dofollow') {
+        $('#linkTypeDofollow').prop('checked', true);
+    } else {
+        $('#linkTypeNofollow').prop('checked', true);
+    }
+    
+    // Tags checkboxes
+    $('#sponsored').prop('checked', site.sponsored == 1);
+    $('#partnerMaterial').prop('checked', site.partner_material == 1);
+    $('#asYouPrefer').prop('checked', site.as_you_prefer == 1);
+    
+    // Sensitive topics
+    $('.sensitive-checkbox').prop('checked', false);
+    $('.sensitive-price').val('');
+    
+    if (site.sensitive_prices) {
+        let prices = typeof site.sensitive_prices === 'string' ? JSON.parse(site.sensitive_prices) : site.sensitive_prices;
+        for (const key in prices) {
+            $(`#sensitive${key.charAt(0).toUpperCase() + key.slice(1)}`).prop('checked', true);
+            $(`input[name="price_sensitive[${key}]"]`).val(prices[key]);
+        }
+    }
+    
+    // Description
+    if (quill) {
+        quill.root.innerHTML = site.description || '';
+    }
+    
+    $('#submitBtn').prop('disabled', false).text('Update');
+    
+    // Scroll to form
+    $('html, body').animate({
+        scrollTop: $("#formCard").offset().top - 100
+    }, 500);
 });
 </script>
 @endsection

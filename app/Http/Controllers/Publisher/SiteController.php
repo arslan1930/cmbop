@@ -5,11 +5,49 @@ namespace App\Http\Controllers\Publisher;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\Site;
+use App\Models\Country;
+use App\Models\Language;
+use App\Models\Category;
+use App\Models\User;
+use App\Models\Role;
+use App\Mail\NewSiteNotification;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Log;
 
 class SiteController extends Controller
 {
+    // Show the main view with form and sites list
+    public function index()
+    {
+        // Get data directly from database without caching
+        $countries = Country::orderBy('name')->get();
+        $categories = Category::orderBy('group')->orderBy('name')->get();
+        $languages = Language::orderBy('name')->get();
+        
+        return view('publisher.websites', compact('countries', 'categories', 'languages'));
+    }
+
+    // GET LANGUAGES FOR SELECTED COUNTRY (AJAX)
+    public function getCountryLanguages($countryCode)
+    {
+        $country = Country::where('code', $countryCode)->first();
+        
+        if (!$country) {
+            return response()->json([]);
+        }
+        
+        // Get all languages spoken in this country
+        $languages = DB::table('country_language')
+            ->join('languages', 'country_language.language_id', '=', 'languages.id')
+            ->where('country_language.country_id', $country->id)
+            ->select('languages.code', 'languages.name')
+            ->get();
+        
+        return response()->json($languages);
+    }
+
     // STORE NEW SITE
     public function store(Request $request)
     {
@@ -34,20 +72,14 @@ class SiteController extends Controller
             'da'              => 'required|integer|min:0|max:100',
             'dr'              => 'required|integer|min:0|max:100',
             'traffic'         => 'required|integer|min:0',
-            'country'         => 'required|string|max:10',
-            'language'        => 'required|string|max:10',
-            'category'        => 'required|string|max:50',
+            'country'         => 'required|string|size:2',
+            'language'        => 'required|string|size:2',
+            'category'        => 'required|string|max:100',
             'price'           => 'required|numeric|min:0',
-            'publicationTime' => 'required|string|max:20',
+            'publicationTime' => 'required|string|max:20|in:6months,1year,permanent',
             'link_type'       => 'required|in:dofollow,nofollow',
-            'siteDescription' => 'required|string',
+            'siteDescription' => 'required|string|min:50',
             'price_sensitive.*' => 'nullable|numeric|min:0',
-        ], [
-            'siteName.required'   => 'Site name is required.',
-            'siteUrl.required'    => 'Site URL is required.',
-            'siteUrl.url'         => 'Please enter a valid URL.',
-            'exampleUrl.required' => 'Example URL is required.',
-            'exampleUrl.url'      => 'Example URL must be valid.',
         ]);
 
         // Prevent duplicates for same publisher
@@ -64,7 +96,9 @@ class SiteController extends Controller
         // Sanitize description
         $cleanDescription = strip_tags($request->siteDescription, '<p><a><b><strong><i><ul><ol><li><br>');
 
-        DB::transaction(function () use ($request, $domain, $cleanDescription) {
+        $site = null;
+
+        DB::transaction(function () use ($request, $domain, $cleanDescription, &$site) {
 
             $site = new Site();
 
@@ -80,7 +114,7 @@ class SiteController extends Controller
             $site->language          = $request->language;
             $site->category          = $request->category;
             $site->price             = $request->price;
-            $site->publication_time  = $request->publicationTime;
+            $site->publication_time  = $request->publicationTime; // Stored as string: '6months', '1year', 'permanent'
             $site->link_type         = $request->link_type;
 
             // Tags (boolean columns)
@@ -104,10 +138,36 @@ class SiteController extends Controller
             $site->save();
         });
 
-        return redirect()->back()->with('success', 'Site added successfully! It will be reviewed and approved within 24-48 hours.');
+        // Send email synchronously (immediately) - Find admin users
+        if ($site) {
+            try {
+                // Find users with admin role using active_role_id
+                $admins = User::where('active_role_id', function($query) {
+                    $query->select('id')
+                          ->from('roles')
+                          ->where('name', 'admin')
+                          ->limit(1);
+                })->get();
+                
+                if ($admins->count() > 0) {
+                    foreach ($admins as $admin) {
+                        Mail::to($admin->email)->send(new NewSiteNotification($site));
+                    }
+                } else {
+                    // Fallback: Send to default admin email if no admin users found
+                    $defaultAdminEmail = config('mail.admin_email', 'admin@yourdomain.com');
+                    Mail::to($defaultAdminEmail)->send(new NewSiteNotification($site));
+                }
+                
+            } catch (\Exception $e) {
+                Log::error('Failed to send email notification: ' . $e->getMessage());
+            }
+        }
+
+        return redirect()->back()->with('success', 'Site submitted successfully! Admin will review and activate it within 24-48 hours.');
     }
 
-    // AJAX LISTING (KEEP THIS)
+    // AJAX LISTING
     public function ajax(Request $request)
     {
         $query = $request->get('query');
@@ -116,7 +176,8 @@ class SiteController extends Controller
             ->when($query, function ($q) use ($query) {
                 $q->where(function ($sub) use ($query) {
                     $sub->where('site_name', 'like', "%{$query}%")
-                        ->orWhere('site_url', 'like', "%{$query}%");
+                        ->orWhere('site_url', 'like', "%{$query}%")
+                        ->orWhere('domain', 'like', "%{$query}%");
                 });
             })
             ->latest()
@@ -125,7 +186,7 @@ class SiteController extends Controller
         return view('publisher.sites.partials.table', compact('sites'))->render();
     }
 
-    // UPDATE SITE (NOW LARAVEL STYLE)
+    // UPDATE SITE
     public function update(Request $request, $id)
     {
         $site = Site::where('publisher_id', auth()->id())->findOrFail($id);
@@ -135,13 +196,13 @@ class SiteController extends Controller
             'da'              => 'required|integer|min:0|max:100',
             'dr'              => 'required|integer|min:0|max:100',
             'traffic'         => 'required|integer|min:0',
-            'country'         => 'required|string|max:10',
-            'language'        => 'required|string|max:10',
-            'category'        => 'required|string|max:50',
+            'country'         => 'required|string|size:2',
+            'language'        => 'required|string|size:2',
+            'category'        => 'required|string|max:100',
             'price'           => 'required|numeric|min:0',
-            'publicationTime' => 'required|string|max:20',
+            'publicationTime' => 'required|string|max:20|in:6months,1year,permanent',
             'link_type'       => 'required|in:dofollow,nofollow',
-            'siteDescription' => 'required|string',
+            'siteDescription' => 'required|string|min:50',
             'price_sensitive.*' => 'nullable|numeric|min:0',
         ]);
 
@@ -161,7 +222,7 @@ class SiteController extends Controller
             $site->language          = $request->language;
             $site->category          = $request->category;
             $site->price             = $request->price;
-            $site->publication_time  = $request->publicationTime;
+            $site->publication_time  = $request->publicationTime; // Stored as string: '6months', '1year', 'permanent'
             $site->link_type         = $request->link_type;
 
             // Tags
@@ -171,7 +232,7 @@ class SiteController extends Controller
 
             $site->description       = $cleanDescription;
 
-            // Reset approval
+            // Reset approval when edited
             $site->verified = false;
             $site->active = false;
 
@@ -186,7 +247,29 @@ class SiteController extends Controller
             $site->save();
         });
 
-        return redirect()->back()->with('success', 'Site updated successfully!');
+        // Send email synchronously for update
+        try {
+            // Find admin users
+            $admins = User::where('active_role_id', function($query) {
+                $query->select('id')
+                      ->from('roles')
+                      ->where('name', 'admin')
+                      ->limit(1);
+            })->get();
+            
+            if ($admins->count() > 0) {
+                foreach ($admins as $admin) {
+                    Mail::to($admin->email)->send(new NewSiteNotification($site, 'update'));
+                }
+            } else {
+                $defaultAdminEmail = config('mail.admin_email', 'admin@yourdomain.com');
+                Mail::to($defaultAdminEmail)->send(new NewSiteNotification($site, 'update'));
+            }
+        } catch (\Exception $e) {
+            Log::error('Failed to send email notification: ' . $e->getMessage());
+        }
+
+        return redirect()->back()->with('success', 'Site updated successfully! It will be reviewed again.');
     }
 
     // DELETE SITE

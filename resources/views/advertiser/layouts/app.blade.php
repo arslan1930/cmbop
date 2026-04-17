@@ -134,10 +134,20 @@
             background-color: #0d6efd;
         }
 
+        #toggleCart {
+            width: 36px;
+            height: 36px;
+            border-radius: 40%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 0;
+        }
+
         #toggleDarkMode {
             width: 36px;
             height: 36px;
-            border-radius: 50%;
+            border-radius: 40%;
             display: flex;
             justify-content: center;
             align-items: center;
@@ -147,7 +157,7 @@
         #toggleNotifications {
             width: 36px;
             height: 36px;
-            border-radius: 50%;
+            border-radius: 40%;
             display: flex;
             justify-content: center;
             align-items: center;
@@ -288,7 +298,7 @@
    <i class="fa fa-list"></i> 
    <span>All Publishers</span>
 </a>
-<!-- <hr class="my-1"> -->
+
 
 <div class="sidebar-projects">
 
@@ -370,13 +380,30 @@
     </div>
 
 @endforeach
-
 </div>
-<hr class="my-1">
+
+    
+
+        <!-- Favorites -->
+        <a href="{{ route('advertiser.favorites') }}" class="{{ request()->routeIs('advertiser.favorites') ? 'active' : '' }}">
+            <i class="fa fa-bookmark"></i> <span>Favorites</span>
+        </a>
+
+        <!-- Blacklist -->
+        <a href="{{ route('advertiser.blacklist') }}" class="{{ request()->routeIs('advertiser.blacklist') ? 'active' : '' }}">
+            <i class="fa fa-ban"></i> <span>Blacklist</span>
+        </a>
+
+        <!-- Orders -->
+        <a href="{{ route('advertiser.orders') }}" class="{{ request()->routeIs('advertiser.orders') ? 'active' : '' }}">
+            <i class="fa fa-shopping-cart"></i> <span>Orders</span>
+        </a>
+
+        <!-- Add Funds -->
         <a href="{{ route('advertiser.add-funds') }}" class="{{ request()->routeIs('advertiser.add-funds') ? 'active' : '' }}">
             <i class="fa fa-coins"></i> <span>Add Funds</span>
         </a>
-        <!-- <hr class="my-1"> -->
+        <!-- Reports -->
         <a href="{{ route('advertiser.reports') }}" class="{{ request()->routeIs('advertiser.reports') ? 'active' : '' }}">
             <i class="fa fa-chart-line"></i> <span>Reports</span>
         </a>
@@ -418,10 +445,16 @@
         <!-- Notifications Icon -->
         <div class="position-relative">
             <button id="toggleNotifications" class="btn btn-outline-secondary btn-sm" title="Notifications">
-                <i class="fa fa-bell"></i>
+                <i class="fa fa-message"></i>
             </button>
         </div>
-
+        
+        <!-- Cart Icon -->
+        <div class="position-relative">
+            <button id="toggleCart" class="btn btn-outline-secondary btn-sm" title="Cart">
+                <i class="fa fa-shopping-cart"></i>
+            </button>
+        </div>
 
         <button id="toggleDarkMode" class="btn btn-outline-secondary btn-sm" title="Toggle Dark Mode">
             <i class="fa fa-moon"></i>

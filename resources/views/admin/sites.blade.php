@@ -138,6 +138,24 @@
     padding-top: 14px !important;
     padding-bottom: 14px !important;
 }
+
+.btn-action-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.btn-action-group .row-1 {
+    display: flex;
+    gap: 5px;
+    justify-content: center;
+}
+
+.btn-action-group .row-2 {
+    display: flex;
+    gap: 5px;
+    justify-content: center;
+}
 </style>
 
 <script>
@@ -193,23 +211,34 @@ document.addEventListener('click', function(e){
         return;
     }
 
-    /* EDIT */
+    /* EDIT - Only Site Name, Site URL, DA, DR, Traffic */
     if(e.target.closest('.edit-site')){
         let id = e.target.closest('button').dataset.id;
         let site = allSites.find(s => s.id == id);
         if(!site) return;
 
         Swal.fire({
-            title: 'Update Site Details',
-            width: 650,
+            title: 'Edit Site',
+            width: 500,
             showCancelButton: true,
             confirmButtonText: 'Update',
             html: `
-                <input id="swal-site_name" class="swal2-input" value="${site.site_name ?? ''}">
-                <input id="swal-site_url" class="swal2-input" value="${site.site_url ?? ''}">
-                <input id="swal-da" class="swal2-input" value="${site.da ?? ''}">
-                <input id="swal-dr" class="swal2-input" value="${site.dr ?? ''}">
-                <input id="swal-traffic" class="swal2-input" value="${site.traffic ?? ''}">
+                <div style="text-align: left;">
+                    <label style="font-weight:600; margin-bottom:5px; display:block;">Site Name</label>
+                    <input id="swal-site_name" class="swal2-input" value="${escapeHtml(site.site_name ?? '')}" placeholder="Site Name">
+                    
+                    <label style="font-weight:600; margin-bottom:5px; margin-top:10px; display:block;">Site URL</label>
+                    <input id="swal-site_url" class="swal2-input" value="${escapeHtml(site.site_url ?? '')}" placeholder="Site URL">
+                    
+                    <label style="font-weight:600; margin-bottom:5px; margin-top:10px; display:block;">DA (Domain Authority)</label>
+                    <input id="swal-da" class="swal2-input" type="number" value="${site.da ?? ''}" placeholder="0-100" min="0" max="100">
+                    
+                    <label style="font-weight:600; margin-bottom:5px; margin-top:10px; display:block;">DR (Domain Rating)</label>
+                    <input id="swal-dr" class="swal2-input" type="number" value="${site.dr ?? ''}" placeholder="0-100" min="0" max="100">
+                    
+                    <label style="font-weight:600; margin-bottom:5px; margin-top:10px; display:block;">Traffic</label>
+                    <input id="swal-traffic" class="swal2-input" type="number" value="${site.traffic ?? ''}" placeholder="Monthly visitors">
+                </div>
             `,
             preConfirm: () => {
                 let site_url = document.getElementById('swal-site_url').value.trim();
@@ -223,8 +252,8 @@ document.addEventListener('click', function(e){
 
                 return {
                     site_name: document.getElementById('swal-site_name').value,
-                    site_url,
-                    domain,
+                    site_url: site_url,
+                    domain: domain,
                     da: document.getElementById('swal-da').value,
                     dr: document.getElementById('swal-dr').value,
                     traffic: document.getElementById('swal-traffic').value,
@@ -242,22 +271,30 @@ document.addEventListener('click', function(e){
                 },
                 body: JSON.stringify(result.value)
             })
-            .then(() => {
+            .then(res => res.json())
+            .then(data => {
                 toast('Updated successfully');
+                if(data.email_sent) {
+                    toast('Email notification sent to publisher', 'info');
+                }
                 fetchUserSites(sessionStorage.getItem('selected_user'));
-            });
+            })
+            .catch(() => toast('Update failed', 'error'));
         });
     }
 
     /* DELETE */
     if(e.target.closest('.delete-site')){
         let id = e.target.closest('button').dataset.id;
+        let site = allSites.find(s => s.id == id);
 
         Swal.fire({
             title:'Delete this site?',
+            text: `Are you sure you want to delete "${site?.site_name}"?`,
             icon:'warning',
             showCancelButton:true,
-            confirmButtonText:'Delete'
+            confirmButtonText:'Delete',
+            confirmButtonColor:'#d33'
         }).then(result => {
             if(!result.isConfirmed) return;
 
@@ -276,17 +313,33 @@ document.addEventListener('click', function(e){
         let btn = e.target.closest('button');
         let id = btn.dataset.id;
         let status = btn.dataset.status;
+        let newStatus = status == 1 ? 'activate' : 'deactivate';
 
-        fetch(`/admin/sites/${id}/active`, {
-            method:'POST',
-            headers:{
-                'Content-Type':'application/json',
-                'X-CSRF-TOKEN':'{{ csrf_token() }}'
-            },
-            body: JSON.stringify({active: status})
-        }).then(() => {
-            toast('Active status updated');
-            fetchUserSites(sessionStorage.getItem('selected_user'));
+        Swal.fire({
+            title: `${newStatus === 'activate' ? 'Activate' : 'Deactivate'} Site?`,
+            text: `Are you sure you want to ${newStatus} this site?`,
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonText: `Yes, ${newStatus}`,
+        }).then(result => {
+            if(!result.isConfirmed) return;
+
+            fetch(`/admin/sites/${id}/active`, {
+                method:'POST',
+                headers:{
+                    'Content-Type':'application/json',
+                    'X-CSRF-TOKEN':'{{ csrf_token() }}'
+                },
+                body: JSON.stringify({active: status})
+            })
+            .then(res => res.json())
+            .then(data => {
+                toast(`Site ${newStatus}d successfully`);
+                if(data.email_sent) {
+                    toast(`Email notification sent to publisher`, 'info');
+                }
+                fetchUserSites(sessionStorage.getItem('selected_user'));
+            });
         });
     }
 
@@ -295,20 +348,47 @@ document.addEventListener('click', function(e){
         let btn = e.target.closest('button');
         let id = btn.dataset.id;
         let status = btn.dataset.status;
+        let newStatus = status == 1 ? 'verify' : 'unverify';
 
-        fetch(`/admin/sites/${id}/verify`, {
-            method:'POST',
-            headers:{
-                'Content-Type':'application/json',
-                'X-CSRF-TOKEN':'{{ csrf_token() }}'
-            },
-            body: JSON.stringify({verified: status})
-        }).then(() => {
-            toast('Verification updated');
-            fetchUserSites(sessionStorage.getItem('selected_user'));
+        Swal.fire({
+            title: `${newStatus === 'verify' ? 'Verify' : 'Unverify'} Site?`,
+            text: `Are you sure you want to ${newStatus} this site?`,
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonText: `Yes, ${newStatus}`,
+        }).then(result => {
+            if(!result.isConfirmed) return;
+
+            fetch(`/admin/sites/${id}/verify`, {
+                method:'POST',
+                headers:{
+                    'Content-Type':'application/json',
+                    'X-CSRF-TOKEN':'{{ csrf_token() }}'
+                },
+                body: JSON.stringify({verified: status})
+            })
+            .then(res => res.json())
+            .then(data => {
+                toast(`Site ${newStatus}d successfully`);
+                if(data.email_sent) {
+                    toast(`Email notification sent to publisher`, 'info');
+                }
+                fetchUserSites(sessionStorage.getItem('selected_user'));
+            });
         });
     }
 });
+
+/* ================= HELPER ================= */
+function escapeHtml(str) {
+    if(!str) return '';
+    return str.replace(/[&<>]/g, function(m) {
+        if(m === '&') return '&amp;';
+        if(m === '<') return '&lt;';
+        if(m === '>') return '&gt;';
+        return m;
+    });
+}
 
 /* ================= RENDER ================= */
 function renderSites(data){
@@ -326,33 +406,41 @@ function renderSites(data){
             html += `
                 <tr>
                     <td>${i+1}</td>
-                    <td class="fw-semibold">${site.site_name ?? '-'}</td>
-                    <td>${site.site_url ?? '-'}</td>
+                    <td class="fw-semibold">${escapeHtml(site.site_name ?? '-')}</td>
+                    <td>${escapeHtml(site.site_url ?? '-')}</td>
                     <td>${site.traffic ?? '-'}</td>
-                    <td>${site.price ?? '-'}</td>
-
+                    <td>€${site.price ?? '-'}</td>
                     <td>
                         ${site.active
                             ? '<span class="pulse-dot pulse-green"></span>Active'
                             : '<span class="pulse-dot pulse-red"></span>Inactive'}
                     </td>
-
                     <td>
-                        <div class="d-flex gap-1">
-                            <button class="btn btn-sm btn-outline-info view-site" data-id="${site.id}">View</button>
-                            <button class="btn btn-sm btn-outline-primary edit-site" data-id="${site.id}">Edit</button>
-                        </div>
-
-                        <div class="d-flex gap-1 mt-1">
-                            <button class="btn btn-sm btn-outline-danger delete-site" data-id="${site.id}">Delete</button>
-
-                            ${site.active
-                                ? `<button class="btn btn-sm btn-secondary toggle-active" data-id="${site.id}" data-status="0">Deactivate</button>`
-                                : `<button class="btn btn-sm btn-success toggle-active" data-id="${site.id}" data-status="1">Activate</button>`}
-
-                            ${site.verified
-                                ? `<button class="btn btn-sm btn-warning toggle-verify" data-id="${site.id}" data-status="0">Unverify</button>`
-                                : `<button class="btn btn-sm btn-primary toggle-verify" data-id="${site.id}" data-status="1">Verify</button>`}
+                        <div class="btn-action-group">
+                            <div class="row-1">
+                                <button class="btn btn-sm btn-outline-primary edit-site" data-id="${site.id}">
+                                    <i class="fa fa-edit"></i> Edit
+                                </button>
+                                <button class="btn btn-sm btn-outline-danger delete-site" data-id="${site.id}">
+                                    <i class="fa fa-trash"></i> Delete
+                                </button>
+                            </div>
+                            <div class="row-2">
+                                ${site.active
+                                    ? `<button class="btn btn-sm btn-secondary toggle-active" data-id="${site.id}" data-status="0">
+                                        <i class="fa fa-pause"></i> Deactivate
+                                       </button>`
+                                    : `<button class="btn btn-sm btn-success toggle-active" data-id="${site.id}" data-status="1">
+                                        <i class="fa fa-play"></i> Activate
+                                       </button>`}
+                                ${site.verified
+                                    ? `<button class="btn btn-sm btn-warning toggle-verify" data-id="${site.id}" data-status="0">
+                                        <i class="fa fa-times"></i> Unverify
+                                       </button>`
+                                    : `<button class="btn btn-sm btn-primary toggle-verify" data-id="${site.id}" data-status="1">
+                                        <i class="fa fa-check"></i> Verify
+                                       </button>`}
+                            </div>
                         </div>
                     </td>
                 </tr>
@@ -361,16 +449,16 @@ function renderSites(data){
                     <td colspan="7">
                         <div class="p-3 border rounded bg-white shadow-sm">
                             <div class="row g-3">
-                                <div class="col-md-4"><strong>Domain</strong><div>${site.domain ?? '-'}</div></div>
+                                <div class="col-md-4"><strong>Domain</strong><div>${escapeHtml(site.domain ?? '-')}</div></div>
                                 <div class="col-md-4"><strong>DA/DR</strong><div>${site.da ?? '-'} / ${site.dr ?? '-'}</div></div>
                                 <div class="col-md-4"><strong>Traffic</strong><div>${site.traffic ?? '-'}</div></div>
                                 <div class="col-md-4"><strong>Country</strong><div>${site.country ?? '-'}</div></div>
                                 <div class="col-md-4"><strong>Language</strong><div>${site.language ?? '-'}</div></div>
-                                <div class="col-md-4"><strong>Category</strong><div>${site.category ?? '-'}</div></div>
+                                <div class="col-md-4"><strong>Category</strong><div>${escapeHtml(site.category ?? '-')}</div></div>
                                 <div class="col-md-4"><strong>Link Type</strong><div>${site.link_type ?? '-'}</div></div>
                                 <div class="col-md-4"><strong>Sponsored</strong><div>${site.sponsored ? 'Yes':'No'}</div></div>
-                                <div class="col-md-4"><strong>Price</strong><div>${site.price ?? '-'}</div></div>
-                                <div class="col-12"><strong>Description</strong><div>${site.description ?? '-'}</div></div>
+                                <div class="col-md-4"><strong>Price</strong><div>€${site.price ?? '-'}</div></div>
+                                <div class="col-12"><strong>Description</strong><div>${escapeHtml(site.description ?? '-')}</div></div>
                             </div>
                         </div>
                     </td>
@@ -401,9 +489,10 @@ document.getElementById('siteSearch').addEventListener('keyup', function(){
     let val = this.value.toLowerCase();
     let filtered = allSites.filter(s =>
         (s.site_name||'').toLowerCase().includes(val) ||
-        (s.domain||'').toLowerCase().includes(val)
+        (s.domain||'').toLowerCase().includes(val) ||
+        (s.site_url||'').toLowerCase().includes(val)
     );
-    renderSites(filtered);
+    renderSites(filtered);  
 });
 
 /* ================= RESTORE ================= */

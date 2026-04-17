@@ -88,25 +88,49 @@
         border: 1px solid #eee;
         border-radius: 8px;
     }
+    
+    .country-flag {
+        font-size: 24px;
+        display: block;
+        margin-bottom: 5px;
+    }
+    
+    .language-name {
+        font-size: 12px;
+        color: #666;
+    }
 </style>
 
 @php
-    function countryName($code) {
-        return [
-            'us' => 'United States',
-            'uk' => 'United Kingdom',
-            'de' => 'Germany',
-            'pk' => 'Pakistan'
-        ][$code] ?? strtoupper($code);
+    function getCountryFlag($countryCode) {
+        $code = strtoupper($countryCode);
+        if ($code === 'UK') $code = 'GB';
+        $flag = mb_convert_encoding('&#' . (127397 + ord($code[0])) . ';&#' . (127397 + ord($code[1])) . ';', 'UTF-8', 'HTML-ENTITIES');
+        return $flag;
     }
-
-    function languageName($code) {
-        return [
-            'en' => 'English',
-            'de' => 'German',
-            'fr' => 'French',
-            'ur' => 'Urdu'
-        ][$code] ?? strtoupper($code);
+    
+    function getLanguageName($code) {
+        $languages = [
+            'en' => 'English', 'es' => 'Spanish', 'fr' => 'French', 'de' => 'German',
+            'it' => 'Italian', 'pt' => 'Portuguese', 'nl' => 'Dutch', 'ru' => 'Russian',
+            'zh' => 'Chinese', 'ja' => 'Japanese', 'ko' => 'Korean', 'ar' => 'Arabic',
+            'hi' => 'Hindi', 'tr' => 'Turkish', 'pl' => 'Polish', 'uk' => 'Ukrainian',
+            'sv' => 'Swedish', 'da' => 'Danish', 'no' => 'Norwegian', 'fi' => 'Finnish',
+            'el' => 'Greek', 'cs' => 'Czech', 'hu' => 'Hungarian', 'ro' => 'Romanian',
+            'bg' => 'Bulgarian', 'hr' => 'Croatian', 'sk' => 'Slovak', 'sl' => 'Slovenian',
+            'lt' => 'Lithuanian', 'lv' => 'Latvian', 'et' => 'Estonian', 'he' => 'Hebrew',
+            'th' => 'Thai', 'vi' => 'Vietnamese', 'id' => 'Indonesian', 'ms' => 'Malay',
+        ];
+        return $languages[strtolower($code)] ?? strtoupper($code);
+    }
+    
+    function getPublicationDuration($value) {
+        $durations = [
+            '6months' => '6 Months',
+            '1year' => '1 Year',
+            'permanent' => 'Permanent'
+        ];
+        return $durations[$value] ?? ucfirst($value);
     }
 @endphp
 
@@ -121,8 +145,7 @@
             <th>DR</th>
             <th>Traffic</th>
             <th>Price (€)</th>
-            <th>Country</th>
-            <th>Language</th>
+            <th>Country / Language</th>
             <th>Status</th>
             <th>Actions</th>
         </tr>
@@ -137,24 +160,34 @@
             <td>{{ $site->da }}</td>
             <td>{{ $site->dr }}</td>
             <td>{{ number_format($site->traffic, 0, '.', ',') }}</td>
-            <td>{{ number_format($site->price, 2) }}</td>
-            <td>{{ countryName($site->country) }}</td>
-            <td>{{ languageName($site->language) }}</td>
+            <td>€{{ number_format($site->price, 2) }}</td>
+            
+            <!-- Country Flag + Language Combined Column -->
             <td>
-    @if($site->verified)
-        <span class="badge bg-success" data-bs-toggle="tooltip" title="Site is active and listed">
-            Active
-        </span>
-    @elseif($site->active)
-        <span class="badge bg-info" data-bs-toggle="tooltip" title="Site is active but not listed">
-            Active
-        </span>
-    @else
-        <span class="badge bg-secondary" data-bs-toggle="tooltip" title="Site is pending review">
-            Pending
-        </span>
-    @endif
-</td>
+                <div class="d-flex flex-column align-items-center">
+                    <span class="country-flag">{!! getCountryFlag($site->country) !!}</span>
+                    <span class="language-name">{{ getLanguageName($site->language) }}</span>
+                </div>
+            </td>
+            
+            <!-- Status Column -->
+            <td>
+                @if($site->verified)
+                    <span class="badge bg-success" data-bs-toggle="tooltip" title="Site is verified and active">
+                        Verified
+                    </span>
+                @elseif($site->active)
+                    <span class="badge bg-info" data-bs-toggle="tooltip" title="Site is active but not verified">
+                        Active
+                    </span>
+                @else
+                    <span class="badge bg-secondary" data-bs-toggle="tooltip" title="Site is pending review">
+                        Pending
+                    </span>
+                @endif
+            </td>
+            
+            <!-- Actions Column -->
             <td>
                 <!-- View button -->
                 <button class="btn btn-sm btn-outline-primary action-view" data-id="{{ $site->id }}">
@@ -181,7 +214,7 @@
 
         <!-- Expand Row -->
         <tr class="expand-row" id="expand-{{ $site->id }}">
-            <td colspan="12">
+            <td colspan="11">
                 <div class="expand-box">
                     <div class="detail-line">
                         <strong>Example URL:</strong>
@@ -189,15 +222,7 @@
                     </div>
 
                     <div class="detail-line">
-                        <strong>Country:</strong> {{ countryName($site->country) }}
-                    </div>
-
-                    <div class="detail-line">
-                        <strong>Language:</strong> {{ languageName($site->language) }}
-                    </div>
-
-                    <div class="detail-line">
-                        <strong>Publication Duration:</strong> {{ ucfirst($site->publication_time) }}
+                        <strong>Publication Duration:</strong> {{ getPublicationDuration($site->publication_time) }}
                     </div>
 
                     <div class="detail-line">
@@ -215,14 +240,21 @@
                         @if($site->as_you_prefer)
                             <span class="tag-badge">As You Prefer</span>
                         @endif
+                        @if(!$site->sponsored && !$site->partner_material && !$site->as_you_prefer)
+                            <span class="text-muted">No tags</span>
+                        @endif
                     </div>
 
                     @if($site->sensitive_prices)
-                        @php $prices = json_decode($site->sensitive_prices, true); @endphp
                         <div class="detail-line">
                             <strong>Sensitive Topics:</strong>
+                            @php
+                                $prices = is_array($site->sensitive_prices) 
+                                    ? $site->sensitive_prices 
+                                    : (is_string($site->sensitive_prices) ? json_decode($site->sensitive_prices, true) : []);
+                            @endphp
                             @foreach($prices as $key => $value)
-                                <span class="sensitive-badge">{{ ucfirst($key) }}: €{{ $value }}</span>
+                                <span class="sensitive-badge">{{ ucfirst($key) }}: €{{ number_format($value, 2) }}</span>
                             @endforeach
                         </div>
                     @endif
@@ -239,13 +271,11 @@
 </table>
 
 <!-- Pagination -->
+@if($sites->hasPages())
 <ul class="pagination">
-    @foreach($sites->links()->elements[0] as $page => $url)
-        <li class="{{ $sites->currentPage() == $page ? 'active' : '' }}" data-page="{{ $page }}">
-            {{ $page }}
-        </li>
-    @endforeach
+    {{ $sites->links() }}
 </ul>
+@endif
 
 <!-- SweetAlert2 for delete and edit -->
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
@@ -288,7 +318,7 @@ $(document).ready(function(){
         });
     });
 
-    // ✅ EDIT BUTTON FIXED
+    // EDIT BUTTON
     $(document).on('click', '.btn-edit', function() {
         const site = $(this).data('site');
 
@@ -310,12 +340,12 @@ $(document).ready(function(){
         siteNameInput.val(site.site_name).prop('disabled', true);
         siteUrlInput.val(site.site_url).prop('disabled', true);
 
-        // ✅ Add readonly message (only once)
+        // Add readonly message (only once)
         if (!siteNameInput.next('.readonly-note').length) {
-            siteNameInput.after('<small class="text-muted readonly-note">Due to security reasons, this field is readonly</small>');
+            siteNameInput.after('<small class="text-muted readonly-note d-block">Due to security reasons, this field is readonly</small>');
         }
         if (!siteUrlInput.next('.readonly-note').length) {
-            siteUrlInput.after('<small class="text-muted readonly-note">Due to security reasons, this field is readonly</small>');
+            siteUrlInput.after('<small class="text-muted readonly-note d-block">Due to security reasons, this field is readonly</small>');
         }
 
         $('input[name="exampleUrl"]').val(site.example_url);
@@ -330,13 +360,17 @@ $(document).ready(function(){
         $('input[name="link_type"][value="' + site.link_type + '"]').prop('checked', true);
 
         // Tags
-        $('input[name="sponsored"]').prop('checked', site.sponsored);
-        $('input[name="partner_material"]').prop('checked', site.partner_material);
-        $('input[name="as_you_prefer"]').prop('checked', site.as_you_prefer);
+        $('input[name="sponsored"]').prop('checked', site.sponsored == 1);
+        $('input[name="partner_material"]').prop('checked', site.partner_material == 1);
+        $('input[name="as_you_prefer"]').prop('checked', site.as_you_prefer == 1);
 
-        // Sensitive topics
+        // Sensitive topics - FIXED
         if(site.sensitive_prices){
-            const prices = JSON.parse(site.sensitive_prices);
+            let prices = site.sensitive_prices;
+            // Handle both array and string JSON
+            if (typeof prices === 'string') {
+                prices = JSON.parse(prices);
+            }
             for(const key in prices){
                 $('input[name="sensitive['+key+']"]').prop('checked', true);
                 $('input[name="price_sensitive['+key+']"]').val(prices[key]);
@@ -344,7 +378,9 @@ $(document).ready(function(){
         }
 
         // Description
-        quill.root.innerHTML = site.description;
+        if (typeof quill !== 'undefined') {
+            quill.root.innerHTML = site.description;
+        }
 
         $('#submitBtn').prop('disabled', false).text('Update');
 
@@ -353,7 +389,7 @@ $(document).ready(function(){
         }, 500);
     });
 
-    // ✅ CLOSE RESET FIXED
+    // CLOSE RESET
     $('#closeBtn').click(function(){
         $('#formCard').addClass('d-none');
         $('#showFormBtn').removeClass('d-none');
@@ -363,15 +399,19 @@ $(document).ready(function(){
         $('#addSiteForm')[0].reset();
         $('#methodField').remove();
 
-        quill.root.innerHTML = '';
+        if (typeof quill !== 'undefined') {
+            quill.root.innerHTML = '';
+        }
         $('.tag-checkbox').prop('checked', false);
+        $('.sensitive-checkbox').prop('checked', false);
+        $('.sensitive-price').val('');
 
         $('#submitBtn').text('Submit');
 
-        // ✅ Re-enable fields
+        // Re-enable fields
         $('input[name="siteName"], input[name="siteUrl"]').prop('disabled', false);
 
-        // ✅ Remove readonly notes
+        // Remove readonly notes
         $('.readonly-note').remove();
     });
 
@@ -379,5 +419,7 @@ $(document).ready(function(){
 </script>
 
 @else
-<p>No sites found.</p>
+<div class="alert alert-info text-center">
+    <i class="fa fa-info-circle me-2"></i> No sites found. Click "Add New Website" to get started.
+</div>
 @endif
