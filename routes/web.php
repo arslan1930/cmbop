@@ -16,6 +16,8 @@ use App\Http\Controllers\Admin\SiteController as AdminSiteController;
 use App\Http\Controllers\Advertiser\ProjectController;
 use App\Http\Controllers\Advertiser\CatalogController;
 use App\Http\Controllers\Advertiser\CampaignController;
+use App\Http\Controllers\Advertiser\AddFundsController;
+use App\Http\Controllers\Admin\DepositController as AdminDepositController;
 
 Route::get('/', function () {
     return view('home');
@@ -129,30 +131,36 @@ Route::middleware(['auth','verified', RoleMiddleware::class . ':admin'])
     ->name('users.sites');
 
     // edit page
-Route::get('/sites/{id}/edit', [AdminSiteController::class, 'edit'])
+    Route::get('/sites/{id}/edit', [AdminSiteController::class, 'edit'])
     ->name('sites.edit');
 
     // update (AJAX)
-Route::post('/sites/{id}/update', [AdminSiteController::class, 'update'])
-->name('sites.update');    
+    Route::post('/sites/{id}/update', [AdminSiteController::class, 'update'])
+    ->name('sites.update');    
 
-// UPDATE (AJAX uses this)
-Route::put('/sites/{id}', [AdminSiteController::class, 'update'])
-    ->name('sites.update');
+    // UPDATE (AJAX uses this)
+    Route::put('/sites/{id}', [AdminSiteController::class, 'update'])
+        ->name('sites.update');
 
-// DELETE (AJAX uses this)
-Route::delete('/sites/{id}', [AdminSiteController::class, 'destroy'])
-    ->name('sites.destroy');
+    // DELETE (AJAX uses this)
+    Route::delete('/sites/{id}', [AdminSiteController::class, 'destroy'])
+        ->name('sites.destroy');
 
-// VERIFY / UNVERIFY (AJAX toggle)
-Route::post('/sites/{id}/verify', [AdminSiteController::class, 'verify'])
-    ->name('sites.verify');
+    // VERIFY / UNVERIFY (AJAX toggle)
+    Route::post('/sites/{id}/verify', [AdminSiteController::class, 'verify'])
+        ->name('sites.verify');
 
-// ACTIVE / INACTIVE (AJAX toggle)
-Route::post('/sites/{id}/active', [AdminSiteController::class, 'toggleActive'])
-    ->name('sites.active');
+    // ACTIVE / INACTIVE (AJAX toggle)
+    Route::post('/sites/{id}/active', [AdminSiteController::class, 'toggleActive'])
+        ->name('sites.active');
 
     
+
+        // Deposits Routes
+        Route::get('/deposits', [AdminDepositController::class, 'index'])->name('deposits');
+        Route::get('/deposits/{id}', [AdminDepositController::class, 'show'])->name('deposits.show');
+        Route::post('/deposits/{id}/approve', [AdminDepositController::class, 'approve'])->name('deposits.approve');
+        Route::post('/deposits/{id}/reject', [AdminDepositController::class, 'reject'])->name('deposits.reject');
 
 
     // Reports site
@@ -203,7 +211,27 @@ Route::middleware(['auth','verified', RoleMiddleware::class . ':advertiser'])
     // Catelog routes
     Route::get('/catalog', [CatalogController::class, 'index'])
         ->name('catalog');    
+
+        // Favorites (Database)
+        Route::post('/favorites/save', [CatalogController::class, 'saveFavorites'])->name('favorites.save');
+        
+        // Blacklist (Database)
+        Route::post('/blacklist/save', [CatalogController::class, 'saveBlacklist'])->name('blacklist.save');
+
+        // Cart (Session)
+        Route::post('/cart/save', [CatalogController::class, 'saveCart'])->name('cart.save');
+        Route::get('/cart/get', [CatalogController::class, 'getCart'])->name('cart.get');
+        Route::get('/cart/count', [CatalogController::class, 'getCartCount'])->name('cart.count');
+        Route::post('/cart/add', [CatalogController::class, 'addToCart'])->name('cart.add');
+        Route::post('/cart/remove', [CatalogController::class, 'removeFromCart'])->name('cart.remove');
+        Route::post('/cart/update', [CatalogController::class, 'updateCartQuantity'])->name('cart.update');
+        Route::post('/cart/clear', [CatalogController::class, 'clearCart'])->name('cart.clear');
+        
+        // Checkout
+        Route::get('/checkout', [CatalogController::class, 'checkout'])->name('checkout');
+        Route::post('/checkout/process', [CatalogController::class, 'processOrder'])->name('checkout.process');
                 
+        
 
         // PROJECTS CRUD routes
 Route::post('/projects', [ProjectController::class, 'store'])
@@ -219,36 +247,21 @@ Route::delete('/projects/{project}', [ProjectController::class, 'destroy'])
     ->name('projects.destroy');
 
     
+        // Orders
+        Route::get('/orders',      [CatalogController::class, 'orders'])->name('orders');
+        Route::get('/orders/list', [CatalogController::class, 'getOrders'])->name('orders.list');
+        Route::get('/orders/{id}', [CatalogController::class, 'getOrder'])->name('orders.get');
 
-        // Favorite page
-        Route::get('/favorites', function () {
-            return view('advertiser.favorites');
-        })->name('favorites');
-
-        // Blacklist page
-        Route::get('/blacklist', function () {
-            return view('advertiser.blacklist');
-        })->name('blacklist');
-
-        // Orders page  
-        Route::get('/orders', function () {
-            return view('advertiser.orders');
-        })->name('orders');
 
         // OTHER PAGES
-        Route::get('/add-funds', function () {
-            return view('advertiser.add-funds');
-        })->name('add-funds');
-
+        Route::get('/add-funds', [AddFundsController::class, 'index'])->name('add-funds');
+        Route::post('/add-funds', [AddFundsController::class, 'store'])->name('add-funds.store');
+        Route::get('/add-funds/status/{id}', [AddFundsController::class, 'getStatus'])->name('add-funds.status');
+        
+        
         Route::get('/reports', function () {
             return view('advertiser.reports');
         })->name('reports');
-        
-
-
-        // Campaign  websites page
-        // Route::get('/campaigns/{project:slug}/websites', [CampaignController::class, 'websites'])
-        //     ->name('campaigns.websites');
 
 });
 

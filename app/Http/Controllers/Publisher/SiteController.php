@@ -89,6 +89,14 @@ class SiteController extends Controller
             }
         });
 
+        // 🔒 NEW: Prevent adding a domain that already exists in the system (any publisher)
+        $validator->after(function ($validator) use ($domain) {
+            $existingSite = Site::where('domain', $domain)->exists();
+            if ($existingSite) {
+                $validator->errors()->add('siteUrl', 'This website domain is already registered in our system by another publisher. Each domain can only be listed once.');
+            }
+        });
+
         if ($validator->fails()) {
             return redirect()->back()->withErrors($validator)->withInput();
         }
@@ -205,6 +213,31 @@ class SiteController extends Controller
             'siteDescription' => 'required|string|min:50',
             'price_sensitive.*' => 'nullable|numeric|min:0',
         ]);
+
+        // 🔒 Check if domain is being changed to an already existing domain (by other publisher)
+        $validator->after(function ($validator) use ($request, $site) {
+            // Only check if domain is being changed
+            $newDomain = null;
+            if ($request->has('siteUrl')) {
+                $url = $request->siteUrl;
+                if (!preg_match("~^(?:f|ht)tps?://~i", $url)) {
+                    $url = "https://" . $url;
+                }
+                $host = parse_url($url, PHP_URL_HOST);
+                if ($host) {
+                    $newDomain = preg_replace('/^www\./', '', strtolower($host));
+                }
+            }
+            
+            if ($newDomain && $newDomain !== $site->domain) {
+                $existingSite = Site::where('domain', $newDomain)
+                    ->where('id', '!=', $site->id)
+                    ->exists();
+                if ($existingSite) {
+                    $validator->errors()->add('siteUrl', 'This website domain is already registered in our system by another publisher. Each domain can only be listed once.');
+                }
+            }
+        });
 
         if ($validator->fails()) {
             return redirect()->back()->withErrors($validator)->withInput();

@@ -5,6 +5,9 @@
 @php
     use Illuminate\Support\Str;
     $sites = $sites ?? collect();
+    $favorites = $favorites ?? [];
+    $blacklist = $blacklist ?? [];
+    $cart = $cart ?? [];
 
     function fullCountry($code){
         $countries = [
@@ -48,7 +51,6 @@
     }
     
     function getCountryFlag($countryCode){
-        // Convert country code to emoji flag
         $code = strtoupper($countryCode);
         if ($code === 'UK') $code = 'GB';
         $flag = mb_convert_encoding('&#' . (127397 + ord($code[0])) . ';&#' . (127397 + ord($code[1])) . ';', 'UTF-8', 'HTML-ENTITIES');
@@ -56,7 +58,6 @@
     }
     
     function getLanguageFlag($languageCode){
-        // Map language codes to country codes for flag display
         $languageToCountry = [
             'en' => 'us', 'es' => 'es', 'fr' => 'fr', 'de' => 'de',
             'it' => 'it', 'pt' => 'pt', 'nl' => 'nl', 'ru' => 'ru',
@@ -81,15 +82,10 @@
     <!-- HEADER -->
     <div class="row mb-3">
         <div class="col-md-12">
-
-            <!-- Title -->
             <h2 class="mb-1 fw-semibold">All Publishers</h2>
-
-            <!-- Subtitle -->
             <p class="text-muted mb-0">
                 Browse verified publishers and explore available placement opportunities.
             </p>
-
         </div>
     </div>
 
@@ -116,6 +112,24 @@
                                 <select name="verified" class="form-select form-select-sm">
                                     <option value="">All Sites</option>
                                     <option value="1" {{ request('verified') == '1' ? 'selected' : '' }}>Verified Only</option>
+                                </select>
+                            </div>
+
+                            <!-- Favorites Filter -->
+                            <div class="col-md-2">
+                                <label class="form-label fw-semibold small text-muted mb-1">Favorites</label>
+                                <select name="favorites_filter" class="form-select form-select-sm">
+                                    <option value="">All Sites</option>
+                                    <option value="1" {{ request('favorites_filter') == '1' ? 'selected' : '' }}>Favorites Only</option>
+                                </select>
+                            </div>
+
+                            <!-- Blacklist Filter -->
+                            <div class="col-md-2">
+                                <label class="form-label fw-semibold small text-muted mb-1">Blacklist</label>
+                                <select name="blacklist_filter" class="form-select form-select-sm">
+                                    <option value="">All Sites</option>
+                                    <option value="1" {{ request('blacklist_filter') == '1' ? 'selected' : '' }}>Blacklisted Only</option>
                                 </select>
                             </div>
 
@@ -205,18 +219,12 @@
     <div class="row">
         <div class="col-md-12">
 
-            <!-- Results Count -->
-            <div class="mb-3">
-                <small class="text-muted">
-                    Showing <strong>{{ $sites->firstItem() ?? 0 }}</strong> to <strong>{{ $sites->lastItem() ?? 0 }}</strong> of <strong>{{ $sites->total() }}</strong> publishers
-                </small>
-            </div>
+            
 
             <!-- Publishers Table -->
             <div class="card border-0 shadow-sm">
                 <div class="card-body p-0">
                     
-                    <!-- ================= SITES TABLE ================= -->
                     <div class="table-responsive">
                         <table class="table table-borderless align-middle mb-0">
                             <thead class="table-light">
@@ -227,16 +235,18 @@
                                     <th>AHREFS DR</th>
                                     <th>MOZ DA</th>
                                     <th>Language</th>
-                                    <th style="min-width: 140px;">Action</th>
+                                    <th style="min-width: 180px;">Action</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 @forelse($sites as $site)
-                                <tr class="site-row" data-id="{{ $site->id }}">
-                                    <!-- Site Column with masked URL only -->
+                                @php
+                                    $isBlacklisted = in_array($site->id, $blacklist);
+                                    $isFavorited = in_array($site->id, $favorites);
+                                @endphp
+                                <tr class="site-row {{ $isBlacklisted ? 'blacklisted-row' : '' }}" data-id="{{ $site->id }}" data-name="{{ $site->site_name }}" style="{{ $isBlacklisted ? 'opacity: 0.7; background-color: #fff3f3;' : '' }}">
                                     <td style="min-width: 220px; position: relative;">
 
-                                        <!-- VERIFIED BADGE -->
                                         @if($site->verified)
                                             <span class="badge bg-success text-white shadow-sm fw-semibold"
                                                   style="position: absolute; top: 6px; right: 6px; font-size: 10px; padding: 4px 8px; border-radius: 6px; letter-spacing: 0.3px; z-index: 1;"
@@ -245,9 +255,16 @@
                                             </span>
                                         @endif
 
+                                        @if($isBlacklisted)
+                                            <span class="badge bg-danger text-white shadow-sm fw-semibold blacklist-badge"
+                                                  style="position: absolute; top: 6px; left: 6px; font-size: 10px; padding: 4px 8px; border-radius: 6px; letter-spacing: 0.3px; z-index: 1;"
+                                                  title="This site is blacklisted">
+                                                BLACKLISTED
+                                            </span>
+                                        @endif
+
                                         <div class="d-flex flex-column gap-1">
 
-                                            <!-- URL ROW -->
                                             <div class="d-flex align-items-center gap-2">
                                                 <span class="text-dark"
                                                       style="font-family: monospace; font-weight: 600; font-size: 13.5px;"
@@ -261,7 +278,6 @@
                                                     {{ Str::of($site->site_url)->replaceMatches('/^(https?:\/\/)?(www\.)?/', '') }}
                                                 </span>
 
-                                                <!-- Toggle Eye -->
                                                 <button class="btn btn-sm btn-link text-secondary p-0 toggle-url"
                                                         data-id="{{ $site->id }}"
                                                         title="Toggle URL"
@@ -269,7 +285,6 @@
                                                     <i class="fa-regular fa-eye"></i>
                                                 </button>
 
-                                                <!-- External Link Icon -->
                                                 <a href="{{ $site->site_url }}"
                                                    target="_blank"
                                                    rel="noopener noreferrer"
@@ -279,7 +294,6 @@
                                                     <i class="fa-solid fa-arrow-up-right-from-square" style="font-size: 13px;"></i>
                                                 </a>
 
-                                                <!-- Expand Arrow -->
                                                 <i class="fa-solid fa-chevron-down expand-arrow text-muted" 
                                                    id="arrow-{{ $site->id }}"
                                                    style="font-size: 13px; cursor: pointer; transition: transform 0.3s ease;">
@@ -288,16 +302,14 @@
 
                                         </div>
 
-                                      </td>
+                                       </td>
 
-                                    <!-- Category Column -->
                                     <td>
                                         <span class="badge" style="background-color: #e3f2fd; color: #1976d2; border-radius: 4px; padding: 4px 8px; font-weight: 500;">
                                             {{ $site->category }}
                                         </span>
-                                      </td>
+                                    </td>
 
-                                    <!-- Monthly Traffic Column -->
                                     <td>
                                         <div class="d-flex align-items-center gap-2">
                                             <img src="{{ asset('assets/img/traffic.svg') }}" alt="Traffic" style="width: 18px; height: 18px;" onerror="this.style.display='none'">
@@ -305,9 +317,8 @@
                                                 {{ number_format($site->traffic) }}
                                             </span>
                                         </div>
-                                      </td>
+                                    </td>
 
-                                    <!-- AHREFS DR Column -->
                                     <td>
                                         <div class="d-flex align-items-center gap-2">
                                             <img src="{{ asset('assets/img/ahref.jpeg') }}" alt="AHREFS DR" style="width: 18px; height: 18px; border-radius: 2px;" onerror="this.style.display='none'">
@@ -315,9 +326,8 @@
                                                 {{ $site->dr }}
                                             </span>
                                         </div>
-                                      </td>
+                                    </td>
 
-                                    <!-- MOZ DA Column -->
                                     <td>
                                         <div class="d-flex align-items-center gap-2">
                                             <img src="{{ asset('assets/img/moz_da.png') }}" alt="MOZ DA" style="width: 18px; height: 18px;" onerror="this.style.display='none'">
@@ -325,51 +335,48 @@
                                                 {{ $site->da }}
                                             </span>
                                         </div>
-                                      </td>
+                                    </td>
 
-                                    <!-- Language Column with flag and language name -->
                                     <td>
                                         <div class="d-flex flex-column align-items-center gap-1">
                                             <span style="font-size: 24px;">{!! getLanguageFlag($site->language) !!}</span>
                                             <span class="text-muted small text-center">{{ fullLanguage($site->language) }}</span>
                                         </div>
-                                      </td>
+                                    </td>
 
-                                    <!-- Action Column - Price in row, buttons below -->
                                     <td>
                                         <div class="d-flex flex-column gap-2 align-items-center">
-
-                                            <!-- Buy Button -->
                                             <button class="btn btn-primary btn-sm buy-now d-inline-flex justify-content-center align-items-center gap-2"
                                                     data-id="{{ $site->id }}"
                                                     data-price="{{ $site->price }}"
+                                                    data-name="{{ $site->site_name }}"
                                                     style="padding: 6px 12px; font-size: 13px; border-radius: 6px;">
+                                                <i class="fa-solid fa-cart-plus"></i>
                                                 <span>Buy</span>
                                                 <span class="fw-semibold">€{{ number_format($site->price, 2) }}</span>
                                             </button>
 
-                                            <!-- Secondary Buttons -->
                                             <div class="d-flex gap-2 justify-content-center" style="width: fit-content;">
-                                                <button class="btn btn-sm btn-outline-danger favorite-btn"
+                                                <button class="btn btn-sm favorite-btn {{ $isFavorited ? 'btn-danger' : 'btn-outline-danger' }}"
                                                         data-id="{{ $site->id }}"
-                                                        title="Add to Favorites"
-                                                        style="padding: 4px 15px; border-radius: 6px;">
-                                                    <i class="fa-regular fa-heart"></i>
+                                                        data-name="{{ $site->site_name }}"
+                                                        title="{{ $isFavorited ? 'Remove from Favorites' : 'Add to Favorites' }}"
+                                                        style="padding: 4px 20px; border-radius: 6px;">
+                                                    <i class="fa-{{ $isFavorited ? 'solid' : 'regular' }} fa-heart"></i>
                                                 </button>
 
-                                                <button class="btn btn-sm btn-outline-secondary blacklist-btn"
+                                                <button class="btn btn-sm blacklist-btn {{ $isBlacklisted ? 'btn-dark' : 'btn-outline-secondary' }}"
                                                         data-id="{{ $site->id }}"
-                                                        title="Blacklist Site"
-                                                        style="padding: 4px 15px; border-radius: 6px;">
+                                                        data-name="{{ $site->site_name }}"
+                                                        title="{{ $isBlacklisted ? 'Remove from Blacklist' : 'Blacklist Site' }}"
+                                                        style="padding: 4px 20px; border-radius: 6px;">
                                                     <i class="fa-solid fa-ban"></i>
                                                 </button>
                                             </div>
-
                                         </div>
-                                      </td>
+                                    </td>
                                 </tr>
                                 
-                                <!-- Expanded Row for additional details -->
                                 <tr class="expanded-row-{{ $site->id }}" style="display: none;">
                                     <td colspan="7" style="background-color: #f9f9f9; padding: 20px;">
                                         <div class="row">
@@ -385,7 +392,6 @@
                                                     <div class="col-md-3">
                                                         <p><strong>Tags:</strong></p>
                                                         <div class="d-flex flex-column gap-2">
-                                                            <!-- Row 1: Link Type -->
                                                             <div>
                                                                 @if($site->link_type)
                                                                     <span class="badge bg-secondary-subtle text-secondary border px-2 py-1"
@@ -398,7 +404,6 @@
                                                                 @endif
                                                             </div>
                                                             
-                                                            <!-- Row 2: Sponsored & Partner & As You Prefer -->
                                                             <div class="d-flex flex-wrap gap-1">
                                                                 @if($site->sponsored)
                                                                     <span class="badge bg-warning-subtle text-dark border px-2 py-1"
@@ -429,15 +434,12 @@
                                                                 @endif
                                                             </div>
                                                             
-                                                            <!-- Row 3: Sensitive Prices -->
                                                             <div>
                                                                 @php
                                                                     $sensitivePrices = $site->sensitive_prices;
-
                                                                     if (is_string($sensitivePrices)) {
                                                                         $sensitivePrices = json_decode($sensitivePrices, true);
                                                                     }
-
                                                                     $sensitivePrices = is_array($sensitivePrices) ? $sensitivePrices : [];
                                                                 @endphp
 
@@ -510,7 +512,6 @@
 
 </div>
 
-<!-- ================= STYLE ================= -->
 <style>
 .table {
     border-radius: 12px;
@@ -533,7 +534,6 @@
     border-bottom: 1px solid #f0f0f0;
 }
 
-/* ROW hover effect - full row highlighting */
 .table tbody tr.site-row {
     transition: background-color 0.2s ease;
     cursor: pointer;
@@ -543,7 +543,10 @@
     background-color: #f5f9ff !important;
 }
 
-/* Ensure expanded row doesn't get hover effect */
+.table tbody tr.blacklisted-row:hover {
+    background-color: #ffe6e6 !important;
+}
+
 .table tbody tr[class*="expanded-row"]:hover {
     background-color: #f9f9f9 !important;
 }
@@ -562,35 +565,24 @@
     font-weight: 500;
 }
 
-/* Action buttons hover effects */
-.favorite-btn:hover {
+.favorite-btn.btn-danger {
     background-color: #dc3545 !important;
     color: white !important;
 }
 
-.favorite-btn:hover i {
-    color: white;
-}
-
-.blacklist-btn:hover {
+.blacklist-btn.btn-dark {
     background-color: #6c757d !important;
     color: white !important;
-}
-
-.blacklist-btn:hover i {
-    color: white;
 }
 
 .buy-now:hover {
     background-color: #0056b3 !important;
 }
 
-/* Arrow rotation animation */
 .rotate-arrow {
     transform: rotate(180deg);
 }
 
-/* Responsive adjustments */
 @media (max-width: 768px) {
     .table-responsive {
         font-size: 0.85rem;
@@ -601,7 +593,6 @@
     }
 }
 
-/* Filter form styling */
 #filterForm input[type="number"]::-webkit-inner-spin-button,
 #filterForm input[type="number"]::-webkit-outer-spin-button {
     opacity: 0.5;
@@ -612,11 +603,120 @@
 }
 </style>
 
-<!-- ================= JS ================= -->
 <script>
-document.addEventListener('DOMContentLoaded', function() {
+// Initialize favorites and blacklist from database
+let favorites = @json($favorites);
+let blacklist = @json($blacklist);
 
-    // Toggle URL visibility (Eye Icon)
+// Toast function using layout's toast or create one
+function showToast(message, type = 'success') {
+    // Try to use layout's toast if available
+    const toastEl = document.getElementById('toastMessage');
+    if (toastEl) {
+        const toastBody = document.getElementById('toastMessageBody');
+        toastBody.innerText = message;
+        
+        if (type === 'success') {
+            toastEl.classList.remove('bg-danger', 'bg-warning');
+            toastEl.classList.add('bg-success');
+        } else if (type === 'error') {
+            toastEl.classList.remove('bg-success', 'bg-warning');
+            toastEl.classList.add('bg-danger');
+        } else if (type === 'warning') {
+            toastEl.classList.remove('bg-success', 'bg-danger');
+            toastEl.classList.add('bg-warning');
+        }
+        
+        const toast = new bootstrap.Toast(toastEl, { delay: 3000 });
+        toast.show();
+    } else {
+        // Fallback alert
+        alert(message);
+    }
+}
+
+// Update cart badge and sidebar (using layout's cart functions)
+function updateCartBadge() {
+    if (typeof window.updateCartBadge === 'function') {
+        window.updateCartBadge();
+    }
+}
+
+// Add to cart using layout's cart function
+function addToCart(id, name, price) {
+    if (typeof window.addToCart === 'function') {
+        window.addToCart(id, name, price);
+    } else {
+        // Fallback: reload page to update cart
+        window.location.reload();
+    }
+}
+
+// Update UI for favorites and blacklist
+function updateButtonStates() {
+    document.querySelectorAll('.favorite-btn').forEach(btn => {
+        let id = parseInt(btn.dataset.id);
+        if (favorites.includes(id)) {
+            btn.classList.add('btn-danger');
+            btn.classList.remove('btn-outline-danger');
+            btn.querySelector('i').classList.remove('fa-regular');
+            btn.querySelector('i').classList.add('fa-solid');
+            btn.title = 'Remove from Favorites';
+        } else {
+            btn.classList.remove('btn-danger');
+            btn.classList.add('btn-outline-danger');
+            btn.querySelector('i').classList.remove('fa-solid');
+            btn.querySelector('i').classList.add('fa-regular');
+            btn.title = 'Add to Favorites';
+        }
+    });
+    
+    document.querySelectorAll('.blacklist-btn').forEach(btn => {
+        let id = parseInt(btn.dataset.id);
+        if (blacklist.includes(id)) {
+            btn.classList.add('btn-dark');
+            btn.classList.remove('btn-outline-secondary');
+            btn.style.backgroundColor = '#6c757d';
+            btn.style.color = 'white';
+            btn.title = 'Remove from Blacklist';
+        } else {
+            btn.classList.remove('btn-dark');
+            btn.classList.add('btn-outline-secondary');
+            btn.style.backgroundColor = '';
+            btn.style.color = '';
+            btn.title = 'Blacklist Site';
+        }
+    });
+}
+
+// Save favorites to database
+function saveFavorites() {
+    fetch('{{ route("advertiser.favorites.save") }}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': '{{ csrf_token() }}'
+        },
+        body: JSON.stringify({ favorites: favorites })
+    }).catch(err => console.error('Error saving favorites:', err));
+}
+
+// Save blacklist to database
+function saveBlacklist() {
+    fetch('{{ route("advertiser.blacklist.save") }}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': '{{ csrf_token() }}'
+        },
+        body: JSON.stringify({ blacklist: blacklist })
+    }).catch(err => console.error('Error saving blacklist:', err));
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    updateButtonStates();
+
+    // Toggle URL visibility
     document.querySelectorAll('.toggle-url').forEach(button => {
         button.addEventListener('click', function(e) {
             e.preventDefault();
@@ -640,7 +740,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 
-    // Toggle expanded row on site row click or arrow click
+    // Toggle expanded row
     function toggleExpandRow(id, arrowElement) {
         let expandedRow = document.querySelector('.expanded-row-' + id);
         
@@ -670,7 +770,6 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    // Handle row click for expansion
     document.querySelectorAll('.site-row').forEach(row => {
         row.addEventListener('click', function(e) {
             if(e.target.closest('.toggle-url') || e.target.closest('.buy-now') || 
@@ -686,7 +785,6 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 
-    // Handle arrow click separately
     document.querySelectorAll('.expand-arrow').forEach(arrow => {
         arrow.addEventListener('click', function(e) {
             e.stopPropagation();
@@ -695,7 +793,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 
-    // Copy example URL functionality
+    // Copy example URL
     document.querySelectorAll('.copy-example-url').forEach(button => {
         button.addEventListener('click', async function(e) {
             e.preventDefault();
@@ -704,99 +802,152 @@ document.addEventListener('DOMContentLoaded', function() {
             
             try {
                 await navigator.clipboard.writeText(url);
-                
+                showToast('URL copied to clipboard!', 'success');
                 let originalIcon = this.innerHTML;
                 this.innerHTML = '<i class="fa-regular fa-check"></i>';
                 this.classList.add('text-success');
-                
                 setTimeout(() => {
                     this.innerHTML = originalIcon;
                     this.classList.remove('text-success');
                 }, 1500);
-                
-                console.log('Example URL copied:', url);
             } catch (err) {
                 console.error('Failed to copy:', err);
+                showToast('Failed to copy URL', 'error');
             }
         });
     });
 
-    // Buy Now functionality
+    // Add to Cart - Use layout's cart function
     document.querySelectorAll('.buy-now').forEach(button => {
         button.addEventListener('click', function(e) {
             e.preventDefault();
             e.stopPropagation();
-            let id = this.dataset.id;
-            let price = this.dataset.price;
+            let id = parseInt(this.dataset.id);
+            let price = parseFloat(this.dataset.price);
+            let name = this.dataset.name;
             
-            console.log(`Buy Now clicked for site ID: ${id}, Price: €${price}`);
+            addToCart(id, name, price);
             
-            if (confirm(`Order placement for site ID: ${id}\nPrice: €${price}\n\nProceed to checkout?`)) {
-                alert('Redirecting to checkout...');
-            }
+            let originalText = this.innerHTML;
+            this.innerHTML = '<i class="fa-solid fa-check"></i> Added!';
+            setTimeout(() => {
+                this.innerHTML = originalText;
+            }, 1000);
         });
     });
 
-    // Favorite functionality
+    // Favorite functionality (Database)
     document.querySelectorAll('.favorite-btn').forEach(button => {
         button.addEventListener('click', function(e) {
             e.preventDefault();
             e.stopPropagation();
-            let id = this.dataset.id;
-            let icon = this.querySelector('i');
+            let id = parseInt(this.dataset.id);
+            let name = this.dataset.name;
+            let index = favorites.indexOf(id);
             
-            if (icon.classList.contains('fa-regular')) {
-                icon.classList.remove('fa-regular');
-                icon.classList.add('fa-solid');
+            if (index === -1) {
+                favorites.push(id);
                 this.classList.add('btn-danger');
                 this.classList.remove('btn-outline-danger');
-                console.log(`Added to favorites: Site ID ${id}`);
-                
-                let originalText = this.innerHTML;
-                this.innerHTML = '<i class="fa-solid fa-check"></i>';
-                setTimeout(() => {
-                    this.innerHTML = originalText;
-                }, 1000);
+                this.querySelector('i').classList.remove('fa-regular');
+                this.querySelector('i').classList.add('fa-solid');
+                this.title = 'Remove from Favorites';
+                showToast(`${name} added to favorites!`, 'success');
             } else {
-                icon.classList.remove('fa-solid');
-                icon.classList.add('fa-regular');
+                favorites.splice(index, 1);
                 this.classList.remove('btn-danger');
                 this.classList.add('btn-outline-danger');
-                console.log(`Removed from favorites: Site ID ${id}`);
+                this.querySelector('i').classList.remove('fa-solid');
+                this.querySelector('i').classList.add('fa-regular');
+                this.title = 'Add to Favorites';
+                showToast(`${name} removed from favorites!`, 'warning');
             }
+            
+            saveFavorites();
         });
     });
 
-    // Blacklist functionality
+    // Blacklist functionality (Database)
     document.querySelectorAll('.blacklist-btn').forEach(button => {
         button.addEventListener('click', function(e) {
             e.preventDefault();
             e.stopPropagation();
-            let id = this.dataset.id;
+            let id = parseInt(this.dataset.id);
+            let name = this.dataset.name;
+            let index = blacklist.indexOf(id);
+            let row = this.closest('.site-row');
+            let expandedRow = document.querySelector('.expanded-row-' + id);
             
-            if (confirm('Are you sure you want to blacklist this site? You will no longer see it in your catalog.')) {
-                console.log(`Blacklisted: Site ID ${id}`);
-                let row = this.closest('.site-row');
-                let expandedRow = document.querySelector('.expanded-row-' + id);
+            if (index === -1) {
+                blacklist.push(id);
+                this.classList.add('btn-dark');
+                this.classList.remove('btn-outline-secondary');
+                this.style.backgroundColor = '#6c757d';
+                this.style.color = 'white';
+                this.title = 'Remove from Blacklist';
+                showToast(`${name} has been blacklisted!`, 'warning');
                 
+                @if(!request('blacklist_filter'))
                 if (row) {
                     row.style.transition = 'opacity 0.3s ease';
                     row.style.opacity = '0';
+                    setTimeout(() => {
+                        row.style.display = 'none';
+                    }, 300);
                 }
                 if (expandedRow) {
                     expandedRow.style.transition = 'opacity 0.3s ease';
                     expandedRow.style.opacity = '0';
+                    setTimeout(() => {
+                        expandedRow.style.display = 'none';
+                    }, 300);
                 }
+                @endif
+            } else {
+                blacklist.splice(index, 1);
+                this.classList.remove('btn-dark');
+                this.classList.add('btn-outline-secondary');
+                this.style.backgroundColor = '';
+                this.style.color = '';
+                this.title = 'Blacklist Site';
+                showToast(`${name} removed from blacklist!`, 'success');
                 
-                setTimeout(() => {
-                    if (row) row.remove();
-                    if (expandedRow) expandedRow.remove();
-                }, 300);
+                if (row) {
+                    row.style.display = '';
+                    row.style.opacity = '';
+                    row.style.transition = '';
+                }
+                if (expandedRow) {
+                    expandedRow.style.display = '';
+                    expandedRow.style.opacity = '';
+                    expandedRow.style.transition = '';
+                }
             }
+            
+            saveBlacklist();
         });
     });
-
 });
+
+// Hide blacklisted sites on page load
+@if(!request('blacklist_filter'))
+document.querySelectorAll('.site-row').forEach(row => {
+    let id = parseInt(row.dataset.id);
+    if (blacklist.includes(id)) {
+        row.style.opacity = '0';
+        setTimeout(() => {
+            row.style.display = 'none';
+        }, 100);
+        let expandedRow = document.querySelector('.expanded-row-' + id);
+        if (expandedRow) {
+            expandedRow.style.opacity = '0';
+            setTimeout(() => {
+                expandedRow.style.display = 'none';
+            }, 100);
+        }
+    }
+});
+@endif
 </script>
 
 @endsection

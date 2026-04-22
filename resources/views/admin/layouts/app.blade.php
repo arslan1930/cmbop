@@ -23,7 +23,7 @@
 
         #sidebar .menu { flex-grow: 1; }
         #sidebar a { display: flex; align-items: center; gap: 10px; padding: 12px 20px; color: #555; text-decoration: none; font-weight: 500; }
-        #sidebar a.active, #sidebar a:hover { background-color: #0d6efd; color: #fff; }
+        #sidebar a.active, #sidebar a:hover { border-radius: 6px; background-color: #0d6efd; color: #fff; }
         #sidebar.collapsed { width: 70px; min-width: 70px; }
         #sidebar.collapsed a { justify-content: center; font-size: 0; }
         #sidebar.collapsed a i { font-size: 18px; }
@@ -91,6 +91,10 @@
         <a href="{{ route('admin.sites.index') }}" class="{{ request()->routeIs('admin.sites.*') ? 'active' : '' }}">
             <i class="fa fa-globe"></i> <span>Sites</span>
         </a>
+
+        <a href="{{ route('admin.deposits') }}" class="{{ request()->routeIs('admin.deposits') || request()->routeIs('admin.deposits.*') ? 'active' : '' }}">
+    <i class="fa fa-wallet"></i> <span>Deposits</span>
+</a>
 
         <a href="{{ route('admin.reports') }}" class="{{ request()->routeIs('admin.reports') ? 'active' : '' }}">
             <i class="fa fa-chart-bar"></i> <span>Reports</span>

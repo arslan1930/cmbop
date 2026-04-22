@@ -51,6 +51,7 @@
 
         #sidebar a.active,
         #sidebar a:hover {
+            border-radius: 6px;
             background-color: #4ECDCB;
             color: #fff;
         }
