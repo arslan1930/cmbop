@@ -209,9 +209,10 @@
            
         <!-- Websites + number of websites simple count bg of red as a batch  -->
         <a href="{{ route('publisher.websites') }}" class="{{ request()->routeIs('publisher.websites') ? 'active' : '' }}">
-    <i class="fa fa-globe"></i> 
+    <!-- sites icon-->
+    <i class="fa fa-globe"></i>
     <span class="d-flex align-items-center w-100">
-    <span>Websites</span>
+    <span>My Sites</span>
 
     @auth
         <span class="badge bg-danger rounded-pill ms-auto">
@@ -221,16 +222,12 @@
 </span>
 </a>
 
-        <a href="{{ route('publisher.earnings') }}" class="{{ request()->routeIs('publisher.earnings') ? 'active' : '' }}">
-            <i class="fa fa-dollar-sign"></i> <span>Earnings</span>
+        <a href="{{ route('publisher.tasks') }}" class="{{ request()->routeIs('publisher.tasks') ? 'active' : '' }}">
+            <i class="fa fa-tasks"></i> <span>Tasks</span>
         </a>
 
         <a href="{{ route('publisher.reports') }}" class="{{ request()->routeIs('publisher.reports') ? 'active' : '' }}">
             <i class="fa fa-chart-line"></i> <span>Reports</span>
-        </a>
-
-        <a href="{{ route('publisher.settings') }}" class="{{ request()->routeIs('publisher.settings') ? 'active' : '' }}">
-            <i class="fa fa-cog"></i> <span>Settings</span>
         </a>
     </div>
 </div>

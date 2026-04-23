@@ -38,7 +38,6 @@
                             <span class="input-group-text bg-white">€</span>
                             <input type="number" id="customAmount" class="form-control" placeholder="Custom amount" min="10" step="1">
                         </div>
-                        <!-- min amount -->
                         <small class="form-text text-muted mt-1">Minimum amount: €10</small>
                     </div>
 
@@ -93,15 +92,15 @@
                                 </div>
                             </div>
 
-                            <!-- Card Payment -->
+                            <!-- Card Payment with Stripe Checkout -->
                             <div class="col-6 col-md-3">
                                 <div class="payment-option" data-method="card" style="cursor: pointer;">
                                     <div class="payment-option-card" style="border: 2px solid #e5e7eb; border-radius: 12px; padding: 16px; text-align: center; background: white; transition: all 0.2s;">
                                         <div style="width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; background: #f3f4f6; border-radius: 8px; margin: 0 auto 8px;">
-                                            <i class="fas fa-credit-card" style="font-size: 28px; color: #6b7280;"></i>
+                                            <i class="fab fa-stripe" style="font-size: 28px; color: #635bff;"></i>
                                         </div>
-                                        <span style="font-weight: 600; font-size: 12px; color: #1f2937;">Pay with Card</span>
-                                        <span style="font-size: 10px; color: #6b7280; display: block; margin-top: 4px;">Secure card payment</span>
+                                        <span style="font-weight: 600; font-size: 12px; color: #1f2937;">Credit/Debit Card</span>
+                                        <span style="font-size: 10px; color: #6b7280; display: block; margin-top: 4px;">Secure Stripe checkout</span>
                                     </div>
                                 </div>
                             </div>
@@ -255,27 +254,38 @@
                             </div>
                         </div>
 
-                        <!-- Card Payment Details -->
+                        <!-- Card Payment Details - Stripe Checkout -->
                         <div id="cardPaymentDetails" class="card border-0 shadow-sm mb-4" style="display: none;">
                             <div class="card-body">
                                 <div style="display: flex; align-items: center; margin-bottom: 16px;">
                                     <div style="width: 40px; height: 40px; background: #f3f4f6; border-radius: 8px; display: flex; align-items: center; justify-content: center; margin-right: 12px;">
-                                        <i class="fas fa-credit-card" style="font-size: 24px; color: #6b7280;"></i>
+                                        <i class="fab fa-stripe" style="font-size: 24px; color: #635bff;"></i>
                                     </div>
                                     <div>
                                         <h3 style="font-size: 18px; font-weight: 600; margin: 0;">Card Payment</h3>
-                                        <p style="font-size: 12px; color: #6b7280; margin: 4px 0 0;">Secure card payment</p>
+                                        <p style="font-size: 12px; color: #6b7280; margin: 4px 0 0;">Secure card payment via Stripe</p>
+                                    </div>
+                                </div>
+                                
+                                <div class="alert alert-info py-3 px-3 mb-3">
+                                    <div class="d-flex align-items-center">
+                                        <i class="fab fa-cc-visa fa-2x me-2 text-primary"></i>
+                                        <i class="fab fa-cc-mastercard fa-2x me-2 text-warning"></i>
+                                        <i class="fab fa-cc-amex fa-2x me-2 text-info"></i>
+                                        <i class="fab fa-cc-discover fa-2x me-2 text-secondary"></i>
                                     </div>
                                 </div>
                                 
                                 <div style="background: #f9fafb; border-radius: 12px; padding: 20px; border: 1px solid #e5e7eb;">
-                                    <p>You will be redirected to our secure payment gateway to complete your transaction.</p>
+                                    <!-- <p class="text-center mb-3">You will be redirected to Stripe's secure checkout page to complete your payment.</p>
                                     
-                                    <div style="background: #eff6ff; padding: 12px; border-radius: 8px; margin-top: 16px; border: 1px solid #bfdbfe;">
-                                        <div style="display: flex; align-items: center;">
-                                            <i class="fas fa-shield-alt" style="color: #2563eb; margin-right: 8px;"></i>
-                                            <p style="font-size: 12px; color: #1e40af; margin: 0;">Secure SSL encrypted payment. Your card details are safe.</p>
-                                        </div>
+                                    <div class="text-center">
+                                        <img src="https://stripe.com/img/about/logos/logos/black.png" alt="Stripe" style="height: 30px; opacity: 0.7;">
+                                    </div> -->
+                                    
+                                    <div class="alert alert-success mt-3 py-2">
+                                        <i class="fas fa-shield-alt me-1"></i>
+                                        <small>Your payment is secure and encrypted. We accept Visa, Mastercard, American Express, and Discover.</small>
                                     </div>
                                 </div>
                             </div>
@@ -333,39 +343,60 @@
 
                     <div class="alert alert-warning py-2 px-3 mb-3">
                         <i class="fas fa-exclamation-triangle me-1"></i>
-                        <small>Please include <strong id="refCodeDisplay">XXXXXXXX</strong> in your payment note. Payments without this reference cannot be tracked.</small>
+                        <small>Please include <strong id="refCodeDisplay">XXXXXXXX</strong> in your payment note for manual payments. For card payments, reference is auto-recorded.</small>
                     </div>
 
                     <button type="button" id="proceedBtn" class="btn btn-primary w-100 mt-2 py-2">
-                        <i class="fa fa-arrow-right me-2"></i> Submit Request
+                        <i class="fa fa-arrow-right me-2"></i> Proceed to Payment
                     </button>
                 </div>
             </div>
 
-            <!-- Pending Requests -->
-            @if(isset($pendingRequests) && $pendingRequests->count() > 0)
+            <!-- Deposit History -->
+            @if(isset($allRequests) && $allRequests->count() > 0)
             <div class="card border-0 shadow-sm">
                 <div class="card-header bg-white fw-semibold">
-                    <i class="fa fa-clock me-2"></i> Pending Requests
+                    <i class="fa fa-history me-2"></i> Deposit History
                 </div>
                 <div class="card-body p-0">
-                    <div class="list-group list-group-flush">
-                        @foreach($pendingRequests as $request)
-                        <div class="list-group-item">
-                            <div class="d-flex justify-content-between align-items-center">
-                                <div>
-                                    <span class="fw-semibold">€{{ number_format($request->amount, 2) }}</span>
-                                    <small class="text-muted d-block">REF: {{ $request->reference_code }}</small>
-                                </div>
-                                <span class="badge bg-warning">Pending</span>
-                            </div>
-                            <div class="mt-2">
-                                <small class="text-muted">Submitted: {{ $request->created_at->format('M d, Y H:i') }}</small>
-                            </div>
-                        </div>
-                        @endforeach
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Amount</th>
+                                    <th>Reference</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach($allRequests as $request)
+                                <tr>
+                                    <td><small>{{ $request->created_at->format('M d, Y') }}</small></td>
+                                    <td class="fw-semibold">€{{ number_format($request->amount, 2) }}</td>
+                                    <td><code class="small">{{ $request->reference_code }}</code></td>
+                                    <td>
+                                        @if($request->status == 'pending')
+                                            <span class="badge bg-warning">Pending</span>
+                                        @elseif($request->status == 'approved')
+                                            <span class="badge bg-info">Approved</span>
+                                        @elseif($request->status == 'completed')
+                                            <span class="badge bg-success">Completed</span>
+                                        @elseif($request->status == 'rejected')
+                                            <span class="badge bg-danger">Rejected</span>
+                                        @endif
+                                    </td>
+                                </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
                     </div>
                 </div>
+                @if($allRequests->hasPages())
+                <div class="card-footer bg-white">
+                    {{ $allRequests->links() }}
+                </div>
+                @endif
             </div>
             @endif
         </div>
@@ -620,7 +651,7 @@ document.addEventListener('DOMContentLoaded', function() {
     });
     
     // Proceed button
-    proceedBtn.addEventListener('click', function() {
+    proceedBtn.addEventListener('click', async function() {
         if (selectedAmount <= 0) {
             Swal.fire({
                 title: 'Amount Required',
@@ -642,58 +673,98 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
         
-        // Show loading
-        proceedBtn.disabled = true;
-        proceedBtn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Processing...';
-        
-        // Submit deposit request
-        fetch('{{ route("advertiser.add-funds.store") }}', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRF-TOKEN': '{{ csrf_token() }}'
-            },
-            body: JSON.stringify({
-                amount: selectedAmount,
-                payment_method: selectedMethod
-            })
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                Swal.fire({
-                    title: 'Request Submitted!',
-                    html: `Your deposit request has been submitted.<br><br>
-                           <strong>Amount:</strong> €${selectedAmount.toFixed(2)}<br>
-                           <strong>Reference Code:</strong> <code class="font-monospace">${data.reference_code}</code><br><br>
-                           <span class="text-warning">⚠️ Please complete the payment using the instructions. Your funds will be added after admin approval.</span>`,
-                    icon: 'success',
-                    confirmButtonText: 'OK'
-                }).then(() => {
-                    window.location.reload();
+        // For card payments, redirect to Stripe Checkout
+        if (selectedMethod === 'card') {
+            proceedBtn.disabled = true;
+            proceedBtn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Redirecting...';
+            
+            try {
+                // Create Stripe Checkout session
+                const response = await fetch('{{ route("advertiser.create-checkout-session") }}', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                    },
+                    body: JSON.stringify({
+                        amount: selectedAmount,
+                        reference_code: referenceCode
+                    })
                 });
-            } else {
+                
+                const data = await response.json();
+                
+                if (data.success && data.checkout_url) {
+                    // Redirect to Stripe Checkout
+                    window.location.href = data.checkout_url;
+                } else {
+                    throw new Error(data.message || 'Failed to create checkout session');
+                }
+            } catch (error) {
+                console.error('Error:', error);
                 Swal.fire({
-                    title: 'Error', 
-                    text: data.message || 'Failed to submit request. Please try again.',
+                    title: 'Error',
+                    text: error.message || 'Failed to redirect to Stripe. Please try again.',
                     icon: 'error',
                     confirmButtonText: 'OK'
                 });
                 proceedBtn.disabled = false;
-                proceedBtn.innerHTML = '<i class="fa fa-arrow-right me-2"></i> Submit Request';
+                proceedBtn.innerHTML = '<i class="fa fa-arrow-right me-2"></i> Proceed to Payment';
             }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            Swal.fire({
-                title: 'Error',
-                text: 'Failed to submit request. Please try again.',
-                icon: 'error',
-                confirmButtonText: 'OK'
+        } else {
+            // For manual payment methods (wise, crypto, bank)
+            proceedBtn.disabled = true;
+            proceedBtn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Processing...';
+            
+            fetch('{{ route("advertiser.add-funds.store") }}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                },
+                body: JSON.stringify({
+                    amount: selectedAmount,
+                    payment_method: selectedMethod,
+                    reference_code: referenceCode
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    Swal.fire({
+                        title: 'Request Submitted!',
+                        html: `Your deposit request has been submitted.<br><br>
+                               <strong>Amount:</strong> €${selectedAmount.toFixed(2)}<br>
+                               <strong>Reference Code:</strong> <code class="font-monospace">${data.reference_code}</code><br><br>
+                               <span class="text-warning">⚠️ Please complete the payment using the instructions. Your funds will be added after admin approval.</span>`,
+                        icon: 'success',
+                        confirmButtonText: 'OK'
+                    }).then(() => {
+                        window.location.reload();
+                    });
+                } else {
+                    Swal.fire({
+                        title: 'Error', 
+                        text: data.message || 'Failed to submit request. Please try again.',
+                        icon: 'error',
+                        confirmButtonText: 'OK'
+                    });
+                    proceedBtn.disabled = false;
+                    proceedBtn.innerHTML = '<i class="fa fa-arrow-right me-2"></i> Proceed to Payment';
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                Swal.fire({
+                    title: 'Error',
+                    text: 'Failed to submit request. Please try again.',
+                    icon: 'error',
+                    confirmButtonText: 'OK'
+                });
+                proceedBtn.disabled = false;
+                proceedBtn.innerHTML = '<i class="fa fa-arrow-right me-2"></i> Proceed to Payment';
             });
-            proceedBtn.disabled = false;
-            proceedBtn.innerHTML = '<i class="fa fa-arrow-right me-2"></i> Submit Request';
-        });
+        }
     });
 });
 </script>

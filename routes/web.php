@@ -13,11 +13,13 @@ use App\Http\Middleware\RoleMiddleware;
 use App\Http\Controllers\Publisher\SiteController;
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\Admin\SiteController as AdminSiteController;
+use App\Http\Controllers\Admin\DepositController as AdminDepositController;
 use App\Http\Controllers\Advertiser\ProjectController;
 use App\Http\Controllers\Advertiser\CatalogController;
 use App\Http\Controllers\Advertiser\CampaignController;
 use App\Http\Controllers\Advertiser\AddFundsController;
-use App\Http\Controllers\Admin\DepositController as AdminDepositController;
+use App\Http\Controllers\Advertiser\ReportsController;
+
 
 Route::get('/', function () {
     return view('home');
@@ -230,6 +232,8 @@ Route::middleware(['auth','verified', RoleMiddleware::class . ':advertiser'])
         // Checkout
         Route::get('/checkout', [CatalogController::class, 'checkout'])->name('checkout');
         Route::post('/checkout/process', [CatalogController::class, 'processOrder'])->name('checkout.process');
+
+        
                 
         
 
@@ -257,11 +261,14 @@ Route::delete('/projects/{project}', [ProjectController::class, 'destroy'])
         Route::get('/add-funds', [AddFundsController::class, 'index'])->name('add-funds');
         Route::post('/add-funds', [AddFundsController::class, 'store'])->name('add-funds.store');
         Route::get('/add-funds/status/{id}', [AddFundsController::class, 'getStatus'])->name('add-funds.status');
-        
-        
-        Route::get('/reports', function () {
-            return view('advertiser.reports');
-        })->name('reports');
+
+        // Stripe Checkout routes
+        Route::post('/create-checkout-session', [AddFundsController::class, 'createCheckoutSession'])->name('create-checkout-session');
+        Route::get('/checkout-success', [AddFundsController::class, 'checkoutSuccess'])->name('checkout.success');
+
+
+           
+        Route::get('/reports', [ReportsController::class, 'index'])->name('reports');
 
 });
 
@@ -295,16 +302,13 @@ Route::middleware(['auth','verified', RoleMiddleware::class . ':publisher'])
          // Make sure this route is correct
         Route::get('/countries/{country}/languages', [SiteController::class, 'getCountryLanguages'])->name('publisher.countries.languages');
 
+
         // OTHER PAGES
-        Route::get('/earnings', function () {
-            return view('publisher.earnings');
-        })->name('earnings');
+        Route::get('/tasks', function () {
+            return view('publisher.tasks');
+        })->name('tasks');
 
         Route::get('/reports', function () {
             return view('publisher.reports');
         })->name('reports');
-
-        Route::get('/settings', function () {
-            return view('publisher.settings');
-        })->name('settings');
 });

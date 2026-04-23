@@ -473,30 +473,72 @@ public function processOrder(Request $request)
     }
     
     /**
-     * Get orders list (AJAX)
-     */
-    public function getOrders()
-    {
-        try {
-            $userId = auth()->id();
-            
-            $orders = Order::where('user_id', $userId)
-                ->with('items')
-                ->orderBy('created_at', 'desc')
-                ->get();
-            
-            return response()->json([
-                'success' => true,
-                'orders' => $orders
-            ]);
-        } catch (\Exception $e) {
-            Log::error('Error fetching orders: ' . $e->getMessage());
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to fetch orders'
-            ]);
+ * Get orders list (AJAX)
+ */
+public function getOrders(Request $request)
+{
+    try {
+        $userId = auth()->id();
+        
+        $query = Order::where('user_id', $userId)->with('items');
+        
+        // Search filter
+        if ($request->filled('search')) {
+            $search = $request->search;
+            $query->where(function($q) use ($search) {
+                $q->where('order_number', 'like', "%{$search}%")
+                  ->orWhereHas('items', function($sub) use ($search) {
+                      $sub->where('site_name', 'like', "%{$search}%");
+                  });
+            });
         }
+        
+        // Status filter
+        if ($request->filled('status')) {
+            $query->where('status', $request->status);
+        }
+        
+        // Payment status filter
+        if ($request->filled('payment_status')) {
+            $query->where('payment_status', $request->payment_status);
+        }
+        
+        // Payment method filter
+        if ($request->filled('payment_method')) {
+            $query->where('payment_method', $request->payment_method);
+        }
+        
+        // Date range filter
+        if ($request->filled('date_from')) {
+            $query->whereDate('created_at', '>=', $request->date_from);
+        }
+        
+        if ($request->filled('date_to')) {
+            $query->whereDate('created_at', '<=', $request->date_to);
+        }
+        
+        $orders = $query->orderBy('created_at', 'desc')->paginate(20);
+        
+        return response()->json([
+            'success' => true,
+            'orders' => $orders->items(),
+            'pagination' => [
+                'current_page' => $orders->currentPage(),
+                'last_page' => $orders->lastPage(),
+                'per_page' => $orders->perPage(),
+                'total' => $orders->total(),
+                'from' => $orders->firstItem(),
+                'to' => $orders->lastItem()
+            ]
+        ]);
+    } catch (\Exception $e) {
+        Log::error('Error fetching orders: ' . $e->getMessage());
+        return response()->json([
+            'success' => false,
+            'message' => 'Failed to fetch orders'
+        ]);
     }
+}
     
     /**
      * Get single order details (AJAX)

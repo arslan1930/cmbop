@@ -8,14 +8,18 @@ use Illuminate\Database\Eloquent\Model;
 class DepositRequest extends Model
 {
     protected $fillable = [
-        'user_id', 'reference_code', 'amount', 'payment_method', 
-        'status', 'admin_notes', 'approved_at', 'rejected_at'
-    ];
+    'user_id', 'reference_code', 'stripe_session_id', 'stripe_payment_intent_id', 
+    'stripe_response', 'amount', 'payment_method', 'status', 'admin_notes', 
+    'approved_at', 'rejected_at', 'paid_at'
+];
 
-    protected $casts = [
-        'approved_at' => 'datetime',
-        'rejected_at' => 'datetime',
-    ];
+protected $casts = [
+    'stripe_response' => 'array',
+    'approved_at' => 'datetime',
+    'rejected_at' => 'datetime',
+    'paid_at' => 'datetime',
+    'amount' => 'decimal:2'
+];
 
     public function user()
     {
