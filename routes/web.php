@@ -13,11 +13,13 @@ use App\Http\Middleware\RoleMiddleware;
 // Publisher and Advertiser controllers
 use App\Http\Controllers\Publisher\SiteController;
 use App\Http\Controllers\Publisher\OrderController;
+use App\Http\Controllers\Publisher\WithdrawalController;
 
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\Admin\SiteController as AdminSiteController;
 use App\Http\Controllers\Admin\DepositController as AdminDepositController;
 use App\Http\Controllers\Admin\PaymentController as AdminPaymentController;
+use App\Http\Controllers\Admin\AdminWithdrawalController;
 use App\Http\Controllers\Advertiser\ProjectController;
 use App\Http\Controllers\Advertiser\CatalogController;
 use App\Http\Controllers\Advertiser\CampaignController;
@@ -175,6 +177,15 @@ Route::middleware(['auth','verified', RoleMiddleware::class . ':admin'])
         Route::get('/deposits/{id}', [AdminDepositController::class, 'show'])->name('deposits.show');
         Route::post('/deposits/{id}/approve', [AdminDepositController::class, 'approve'])->name('deposits.approve');
         Route::post('/deposits/{id}/reject', [AdminDepositController::class, 'reject'])->name('deposits.reject');
+
+            
+    // Withdrawals Routes
+    Route::get('/withdrawals', [AdminWithdrawalController::class, 'index'])->name('withdrawals');
+    Route::get('/withdrawals/data', [AdminWithdrawalController::class, 'getWithdrawalsData'])->name('admin.withdrawals.data');
+    Route::get('/withdrawals/{id}', [AdminWithdrawalController::class, 'show'])->name('admin.withdrawals.show');
+    Route::post('/withdrawals/{id}/status', [AdminWithdrawalController::class, 'updateStatus'])->name('admin.withdrawals.update-status');
+    Route::get('/withdrawals/statistics', [AdminWithdrawalController::class, 'getStatistics'])->name('admin.withdrawals.statistics');
+     
 
 
     // Reports site
@@ -335,7 +346,13 @@ Route::middleware(['auth','verified', RoleMiddleware::class . ':publisher'])
     // Order details endpoint
     Route::get('/orders/{id}/details', [OrderController::class, 'getOrderDetails'])->name('publisher.orders.details');
 
-        Route::get('/reports', function () {
-            return view('publisher.reports');
-        })->name('reports');
+        // Withdraw page
+        Route::get('/withdraw', [WithdrawalController::class, 'index'])->name('withdraw');
+        Route::post('/withdraw/request', [WithdrawalController::class, 'requestWithdrawal'])->name('withdraw.request');
+
+        // Optional additional routes
+    Route::get('/withdrawals/history', [WithdrawalController::class, 'getHistory'])->name('publisher.withdrawals.history');
+    Route::get('/withdrawals/statistics', [WithdrawalController::class, 'getStatistics'])->name('publisher.withdrawals.statistics');
+    Route::post('/withdrawals/{id}/cancel', [WithdrawalController::class, 'cancelWithdrawal'])->name('publisher.withdrawals.cancel');
+
 });

@@ -226,9 +226,11 @@
             <i class="fa fa-tasks"></i> <span>Tasks</span>
         </a>
 
-        <!-- <a href="{{ route('publisher.reports') }}" class="{{ request()->routeIs('publisher.reports') ? 'active' : '' }}">
-            <i class="fa fa-chart-line"></i> <span>Reports</span>
-        </a> -->
+        <!-- withdraw -->
+        <a href="{{ route('publisher.withdraw') }}" class="{{ request()->routeIs('publisher.withdraw') ? 'active' : '' }}">
+            <i class="fa fa-money-bill-wave"></i> <span>Withdraw</span>
+        </a>
+        
     </div>
 </div>
 
@@ -265,11 +267,13 @@
     <div class="d-flex align-items-center gap-2 ">
 
             <!-- Notifications Icon -->
-        <div class="position-relative">
+        <!-- <div class="position-relative">
             <button id="toggleNotifications" class="btn btn-outline-secondary btn-sm" title="Notifications">
                 <i class="fa fa-bell"></i>
             </button>
-        </div>
+        </div> -->
+
+        
 
         <button id="toggleDarkMode" class="btn btn-outline-secondary btn-sm" title="Toggle Dark Mode">
             <i class="fa fa-moon"></i>

@@ -101,6 +101,12 @@
             <i class="fa fa-wallet"></i> <span>Deposits</span>
         </a>
 
+        <!-- withdrawals -->
+        <a href="{{ route('admin.withdrawals') }}" class="{{ request()->routeIs('admin.withdrawals') || request()->routeIs('admin.withdrawals.*') ? 'active' : '' }}">
+            <i class="fa fa-money-bill-wave"></i> <span>Withdrawals</span>
+        </a>
+
+        <!-- reports -->
         <!-- <a href="{{ route('admin.reports') }}" class="{{ request()->routeIs('admin.reports') ? 'active' : '' }}">
             <i class="fa fa-chart-bar"></i> <span>Reports</span>
         </a>
