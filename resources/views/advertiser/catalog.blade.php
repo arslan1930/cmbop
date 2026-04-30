@@ -538,6 +538,22 @@
                                                                     <i class="fa-regular fa-copy"></i> Copy URL
                                                                 </button>
                                                             @endif
+                                                            <div class="d-flex align-items-center gap-2">
+                                                                <strong>Publication Duration:</strong>
+
+                                                                @if($site->publication_time)
+                                                                    <span class="badge text-muted border px-2 py-1"
+                                                                        style="font-size: 11px;"
+                                                                        title="Publication Duration">
+                                                                        <i class="fa-solid fa-clock me-1"></i>
+                                                                        {{ $site->publication_time }} days
+                                                                    </span>
+                                                                @else
+                                                                    <span class="text-muted small">
+                                                                        No publication duration specified
+                                                                    </span>
+                                                                @endif
+                                                            </div>
                                                         </div>
                                                     </div>
                                                 </div>

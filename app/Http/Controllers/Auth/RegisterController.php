@@ -83,11 +83,15 @@ class RegisterController extends Controller
             $user->save();
 
             // Create wallets for both roles
+            // Only give 20 EUR welcome bonus to advertisers, not to publishers
+            $advertiserWalletBalance = ($request->role === 'advertiser') ? 20.00 : 0.00;
+            $publisherWalletBalance = 0.00; // Publishers get no welcome bonus
+
             $wallets = [
                 [
                     'user_id'          => $user->id,
                     'role_id'          => $advertiserRole->id,
-                    'balance'          => $request->role === 'advertiser' ? 20.00 : 0.00,
+                    'balance'          => $advertiserWalletBalance,
                     'reserved_balance' => 0.00,
                     'currency'         => 'EUR',
                     'created_at'       => now(),
@@ -96,7 +100,7 @@ class RegisterController extends Controller
                 [
                     'user_id'          => $user->id,
                     'role_id'          => $publisherRole->id,
-                    'balance'          => $request->role === 'publisher' ? 20.00 : 0.00,
+                    'balance'          => $publisherWalletBalance,
                     'reserved_balance' => 0.00,
                     'currency'         => 'EUR',
                     'created_at'       => now(),

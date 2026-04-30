@@ -22,128 +22,256 @@ use Stripe\Checkout\Session;
 
 class CatalogController extends Controller
 {
-    public function index(Request $request)
-    {
-        $userId = auth()->id();
-        
-        // Get favorites and blacklist from DATABASE
-        $favorites = UserFavorite::where('user_id', $userId)->pluck('site_id')->toArray();
-        $blacklist = UserBlacklist::where('user_id', $userId)->pluck('site_id')->toArray();
-        
-        $query = Site::where('active', 1);
-        
-        // Check if blacklist filter is active
-        $showBlacklistedOnly = $request->filled('blacklist_filter') && $request->blacklist_filter == 1;
-        
-        if ($showBlacklistedOnly) {
-            // Show ONLY blacklisted sites
-            if (!empty($blacklist)) {
-                $query->whereIn('id', $blacklist);
-            } else {
-                $query->whereRaw('1 = 0');
-            }
-        } else {
-            // Normal view: Exclude blacklisted sites
-            if (!empty($blacklist)) {
-                $query->whereNotIn('id', $blacklist);
-            }
-        }
 
-        // 🔍 Search (by URL or category)
-        if ($request->filled('search')) {
-            $search = $request->search;
-            $query->where(function ($q) use ($search) {
-                $q->where('site_url', 'like', "%{$search}%")
-                  ->orWhere('category', 'like', "%{$search}%")
-                  ->orWhere('site_name', 'like', "%{$search}%");
-            });
-        }
-
-        // ✅ Sponsored filter
-        if ($request->filled('sponsored') && $request->sponsored == 1) {
-            $query->where('sponsored', 1);
-        }
-
-        // Price range filter
-        if ($request->filled('price_min')) {
-            $query->where('price', '>=', (float)$request->price_min);
-        }        if ($request->filled('price_max')) {
-            $query->where('price', '<=', (float)$request->price_max);
-        }
-
-        
-        // ⭐ Favorites filter
-        if ($request->filled('favorites_filter') && $request->favorites_filter == 1) {
-            if (!empty($favorites)) {
-                $query->whereIn('id', $favorites);
-            } else {
-                $query->whereRaw('1 = 0');
-            }
-        }
-
-        // 📊 DA range
-        if ($request->filled('da_min')) {
-            $query->where('da', '>=', (int)$request->da_min);
-        }
-        if ($request->filled('da_max')) {
-            $query->where('da', '<=', (int)$request->da_max);
-        }
-
-        // 📊 DR range
-        if ($request->filled('dr_min')) {
-            $query->where('dr', '>=', (int)$request->dr_min);
-        }
-        if ($request->filled('dr_max')) {
-            $query->where('dr', '<=', (int)$request->dr_max);
-        }
-
-        // 📊 Traffic range
-        if ($request->filled('traffic_min')) {
-            $query->where('traffic', '>=', (int)$request->traffic_min);
-        }
-        if ($request->filled('traffic_max')) {
-            $query->where('traffic', '<=', (int)$request->traffic_max);
-        }
-
-        // Country filter
-        if ($request->filled('country') && !empty($request->country)) {
-            $query->where('country', $request->country);
-        }
-
-        // 🌍 Language filter
-        if ($request->filled('language') && !empty($request->language)) {
-            $query->where('language', $request->language);
-        }
-
-        // ✅ Pagination (20 per page)
-        $sites = $query->latest()->paginate(20)->withQueryString();
-
-        // Get unique countries for the filter dropdown
-        $availableCountries = Site::where('active', 1)
-            ->whereNotNull('country')
-            ->where('country', '!=', '')
-            ->select('country')
-            ->distinct()
-            ->orderBy('country')
-            ->pluck('country');
-
-        // Get unique languages for the filter dropdown
-        $availableLanguages = Site::where('active', 1)
-            ->whereNotNull('language')
-            ->where('language', '!=', '')
-            ->select('language')
-            ->distinct()
-            ->orderBy('language')
-            ->pluck('language');
-        
-        // Get cart from SESSION with sensitive price info
-        $cart = session()->get('cart', []);
-
-        // Pass the filter state to the view
-        $showBlacklistedOnly = $showBlacklistedOnly;
-
-        return view('advertiser.catalog', compact('sites', 'availableLanguages', 'availableCountries', 'favorites', 'blacklist', 'cart', 'showBlacklistedOnly'));
+// Add this method to your controller
+/**
+ * Get price based on user role
+ * - Publishers see original price
+ * - Advertisers see marked up price (+15%)
+ * - Sensitive prices are NOT marked up
+ */
+private function getPriceForUser($originalPrice, $sitePublisherId = null)
+{
+    $user = auth()->user();
+    
+    // Check if user is a publisher and owns this site
+    if ($user && $sitePublisherId && $user->id == $sitePublisherId) {
+        // Publisher viewing their own site - show original price
+        return $originalPrice;
     }
+    
+    // Check if user has publisher role (but not owner of this specific site)
+    $role = \App\Models\Role::find($user->active_role_id ?? 0);
+    if ($role && $role->name === 'publisher') {
+        // Publisher viewing someone else's site - show original price
+        return $originalPrice;
+    }
+    
+    // Advertisers see marked up price (+15%)
+    return $originalPrice * 1.15;
+}
+
+// Update your index method
+public function index(Request $request)
+{
+    $userId = auth()->id();
+    $currentUser = auth()->user();
+    
+    // Get current user's role
+    $userRole = null;
+    if ($currentUser && $currentUser->active_role_id) {
+        $userRole = \App\Models\Role::find($currentUser->active_role_id);
+    }
+    
+    // Get favorites and blacklist from DATABASE
+    $favorites = UserFavorite::where('user_id', $userId)->pluck('site_id')->toArray();
+    $blacklist = UserBlacklist::where('user_id', $userId)->pluck('site_id')->toArray();
+    
+    $query = Site::where('active', 1);
+    
+    // Check if blacklist filter is active
+    $showBlacklistedOnly = $request->filled('blacklist_filter') && $request->blacklist_filter == 1;
+    
+    if ($showBlacklistedOnly) {
+        // Show ONLY blacklisted sites
+        if (!empty($blacklist)) {
+            $query->whereIn('id', $blacklist);
+        } else {
+            $query->whereRaw('1 = 0');
+        }
+    } else {
+        // Normal view: Exclude blacklisted sites
+        if (!empty($blacklist)) {
+            $query->whereNotIn('id', $blacklist);
+        }
+    }
+
+    // 🔍 Search (by URL or category)
+    if ($request->filled('search')) {
+        $search = $request->search;
+        $query->where(function ($q) use ($search) {
+            $q->where('site_url', 'like', "%{$search}%")
+              ->orWhere('category', 'like', "%{$search}%")
+              ->orWhere('site_name', 'like', "%{$search}%");
+        });
+    }
+
+    // ✅ Verified filter
+    if ($request->filled('verified') && $request->verified == 1) {
+        $query->where('verified', 1);
+    }
+    
+    // ⭐ Favorites filter
+    if ($request->filled('favorites_filter') && $request->favorites_filter == 1) {
+        if (!empty($favorites)) {
+            $query->whereIn('id', $favorites);
+        } else {
+            $query->whereRaw('1 = 0');
+        }
+    }
+
+    // 📊 DA range
+    if ($request->filled('da_min')) {
+        $query->where('da', '>=', (int)$request->da_min);
+    }
+    if ($request->filled('da_max')) {
+        $query->where('da', '<=', (int)$request->da_max);
+    }
+
+    // 📊 DR range
+    if ($request->filled('dr_min')) {
+        $query->where('dr', '>=', (int)$request->dr_min);
+    }
+    if ($request->filled('dr_max')) {
+        $query->where('dr', '<=', (int)$request->dr_max);
+    }
+
+    // 📊 Traffic range
+    if ($request->filled('traffic_min')) {
+        $query->where('traffic', '>=', (int)$request->traffic_min);
+    }
+    if ($request->filled('traffic_max')) {
+        $query->where('traffic', '<=', (int)$request->traffic_max);
+    }
+
+    // 🌍 Language filter
+    if ($request->filled('language') && !empty($request->language)) {
+        $query->where('language', $request->language);
+    }
+    
+    // 🌍 Country filter
+    if ($request->filled('country') && !empty($request->country)) {
+        $query->where('country', $request->country);
+    }
+    
+    // 💰 Price range filter
+    if ($request->filled('price_min')) {
+        $minPrice = $request->price_min;
+        // For advertisers, we need to filter based on marked up price
+        if ($userRole && $userRole->name === 'advertiser') {
+            $query->whereRaw('price * 1.15 >= ?', [$minPrice]);
+        } else {
+            $query->where('price', '>=', $minPrice);
+        }
+    }
+    if ($request->filled('price_max')) {
+        $maxPrice = $request->price_max;
+        if ($userRole && $userRole->name === 'advertiser') {
+            $query->whereRaw('price * 1.15 <= ?', [$maxPrice]);
+        } else {
+            $query->where('price', '<=', $maxPrice);
+        }
+    }
+    
+    // 🔥 Sponsored filter
+    if ($request->filled('sponsored') && $request->sponsored == 1) {
+        $query->where('sponsored', 1);
+    }
+
+    // ✅ Pagination (20 per page)
+    $sites = $query->latest()->paginate(20)->withQueryString();
+    
+    // Transform sites to show appropriate price based on user role
+    foreach ($sites as $site) {
+        $site->original_price = $site->price;
+        
+        // Get price based on who is viewing (ONLY base price gets markup)
+        $site->price = $this->getPriceForUser($site->price, $site->publisher_id);
+        
+        // Process sensitive prices - NO MARKUP applied to sensitive prices
+        if ($site->sensitive_prices) {
+            $sensitivePrices = is_string($site->sensitive_prices) 
+                ? json_decode($site->sensitive_prices, true) 
+                : $site->sensitive_prices;
+            
+            if (is_array($sensitivePrices)) {
+                $processedSensitive = [];
+                foreach ($sensitivePrices as $type => $additionalPrice) {
+                    // Sensitive prices remain as is (no markup)
+                    $processedSensitive[$type] = $additionalPrice;
+                }
+                $site->sensitive_prices = $processedSensitive;
+            }
+        }
+    }
+
+    // Get unique languages for the filter dropdown
+    $availableLanguages = Site::where('active', 1)
+        ->whereNotNull('language')
+        ->where('language', '!=', '')
+        ->select('language')
+        ->distinct()
+        ->orderBy('language')
+        ->pluck('language');
+    
+    // Get unique countries for the filter dropdown
+    $availableCountries = Site::where('active', 1)
+        ->whereNotNull('country')
+        ->where('country', '!=', '')
+        ->select('country')
+        ->distinct()
+        ->orderBy('country')
+        ->pluck('country');
+    
+    // Get cart from SESSION
+    $cart = session()->get('cart', []);
+
+    // Pass the filter state to the view
+    $showBlacklistedOnly = $showBlacklistedOnly;
+
+    return view('advertiser.catalog', compact(
+        'sites', 
+        'availableLanguages',
+        'availableCountries',
+        'favorites', 
+        'blacklist', 
+        'cart', 
+        'showBlacklistedOnly'
+    ));
+}
+
+
+/**
+ * Helper method to determine if current user is viewing as advertiser
+ */
+private function isAdvertiserView()
+{
+    $user = auth()->user();
+    
+    // Check if user has advertiser role
+    if ($user && $user->active_role_id) {
+        $role = \App\Models\Role::find($user->active_role_id);
+        if ($role && $role->name === 'advertiser') {
+            return true;
+        }
+    }
+    
+    return false;
+}
+
+/**
+ * Helper method to determine if current user is publisher viewing their own site
+ */
+private function isPublisherOwner($sitePublisherId)
+{
+    $user = auth()->user();
+    
+    if (!$user || !$sitePublisherId) {
+        return false;
+    }
+    
+    // Check if user has publisher role and is the owner
+    if ($user->active_role_id) {
+        $role = \App\Models\Role::find($user->active_role_id);
+        if ($role && $role->name === 'publisher' && $user->id == $sitePublisherId) {
+            return true;
+        }
+    }
+    
+    return false;
+}
+
+
     
     /**
      * Save favorites to DATABASE
@@ -219,59 +347,59 @@ class CatalogController extends Controller
     }
     
     /**
-     * Add to cart (SESSION) with sensitive price support
-     */
-    public function addToCart(Request $request)
-    {
-        try {
-            $id = $request->id;
-            $price = $request->price; // This is the final price (base + sensitive if selected)
-            $name = $request->name;
-            $sensitiveType = $request->sensitive_type; // Optional: type of sensitive price selected
-            $additionalPrice = $request->additional_price; // Optional: additional price amount
-            
-            $cart = session()->get('cart', []);
-            
-            $existingItem = null;
-            foreach ($cart as $key => $item) {
-                // Check if item exists with same ID and same sensitive type
-                if ($item['id'] == $id && ($item['sensitive_type'] ?? null) == $sensitiveType) {
-                    $existingItem = $key;
-                    break;
-                }
+ * Add to cart (SESSION) with marked up price
+ */
+public function addToCart(Request $request)
+{
+    try {
+        $id = $request->id;
+        $price = $request->price; // This should already be the marked up price from frontend
+        $name = $request->name;
+        $sensitiveType = $request->sensitive_type;
+        $additionalPrice = $request->additional_price;
+        $basePrice = $request->base_price;
+        
+        $cart = session()->get('cart', []);
+        
+        $existingItem = null;
+        foreach ($cart as $key => $item) {
+            if ($item['id'] == $id && ($item['sensitive_type'] ?? null) == $sensitiveType) {
+                $existingItem = $key;
+                break;
             }
-            
-            if ($existingItem !== null) {
-                $cart[$existingItem]['quantity']++;
-            } else {
-                $cart[] = [
-                    'id' => $id,
-                    'name' => $name,
-                    'price' => $price,
-                    'base_price' => $request->base_price ?? $price,
-                    'additional_price' => $additionalPrice ?? 0,
-                    'sensitive_type' => $sensitiveType,
-                    'quantity' => 1
-                ];
-            }
-            
-            session()->put('cart', $cart);
-            
-            $cartCount = array_sum(array_column($cart, 'quantity'));
-            $cartTotal = array_sum(array_map(function($item) {
-                return $item['price'] * $item['quantity'];
-            }, $cart));
-            
-            return response()->json([
-                'success' => true,
-                'cart_count' => $cartCount,
-                'cart_total' => $cartTotal
-            ]);
-        } catch (\Exception $e) {
-            Log::error('Error adding to cart: ' . $e->getMessage());
-            return response()->json(['success' => false, 'error' => $e->getMessage()], 500);
         }
+        
+        if ($existingItem !== null) {
+            $cart[$existingItem]['quantity']++;
+        } else {
+            $cart[] = [
+                'id' => $id,
+                'name' => $name,
+                'price' => $price, // Marked up price
+                'base_price' => $basePrice ?? ($price - ($additionalPrice ?? 0)),
+                'additional_price' => $additionalPrice ?? 0,
+                'sensitive_type' => $sensitiveType,
+                'quantity' => 1
+            ];
+        }
+        
+        session()->put('cart', $cart);
+        
+        $cartCount = array_sum(array_column($cart, 'quantity'));
+        $cartTotal = array_sum(array_map(function($item) {
+            return $item['price'] * $item['quantity'];
+        }, $cart));
+        
+        return response()->json([
+            'success' => true,
+            'cart_count' => $cartCount,
+            'cart_total' => $cartTotal
+        ]);
+    } catch (\Exception $e) {
+        Log::error('Error adding to cart: ' . $e->getMessage());
+        return response()->json(['success' => false, 'error' => $e->getMessage()], 500);
     }
+}
     
     /**
      * Remove from cart (SESSION)
@@ -339,40 +467,52 @@ class CatalogController extends Controller
         return response()->json(['success' => true]);
     }
     
-    /**
-     * Checkout page
-     */
-    public function checkout()
-    {
-        $cart = session()->get('cart', []);
-        
-        if (empty($cart)) {
-            return redirect()->route('advertiser.catalog')->with('error', 'Your cart is empty.');
-        }
-        
-        // Get full site details for items in cart
-        $cartItems = [];
-        foreach ($cart as $item) {
-            $site = Site::where('id', $item['id'])->where('active', 1)->first();
-            if ($site) {
-                $cartItems[] = [
-                    'id' => $site->id,
-                    'name' => $site->site_name,
-                    'url' => $site->site_url,
-                    'price' => $item['price'], // Use the stored price (includes sensitive charges)
-                    'base_price' => $item['base_price'] ?? $site->price,
-                    'additional_price' => $item['additional_price'] ?? 0,
-                    'sensitive_type' => $item['sensitive_type'] ?? null,
-                    'quantity' => $item['quantity'],
-                    'total' => $item['price'] * $item['quantity']
-                ];
-            }
-        }
-        
-        $total = array_sum(array_column($cartItems, 'total'));
-        
-        return view('advertiser.checkout', compact('cartItems', 'total'));
+   /**
+ * Checkout page
+ */
+public function checkout()
+{
+    $cart = session()->get('cart', []);
+    
+    if (empty($cart)) {
+        return redirect()->route('advertiser.catalog')->with('error', 'Your cart is empty.');
     }
+    
+    // Get full site details for items in cart
+    $cartItems = [];
+    foreach ($cart as $item) {
+        $site = Site::where('id', $item['id'])->where('active', 1)->first();
+        if ($site) {
+            // Calculate original base price
+            $originalBasePrice = $site->price;
+            
+            // Calculate final base price (with markup if applicable)
+            $finalBasePrice = $this->getPriceForUser($originalBasePrice, $site->publisher_id);
+            
+            // Sensitive prices are NOT marked up
+            $sensitiveAdditionalPrice = $item['additional_price'] ?? 0;
+            
+            // Final total price = marked up base price + sensitive price (no markup)
+            $finalTotalPrice = $finalBasePrice + $sensitiveAdditionalPrice;
+            
+            $cartItems[] = [
+                'id' => $site->id,
+                'name' => $site->site_name,
+                'url' => $site->site_url,
+                'price' => $finalTotalPrice,
+                'base_price' => $finalBasePrice,
+                'additional_price' => $sensitiveAdditionalPrice,
+                'sensitive_type' => $item['sensitive_type'] ?? null,
+                'quantity' => $item['quantity'],
+                'total' => $finalTotalPrice * $item['quantity']
+            ];
+        }
+    }
+    
+    $total = array_sum(array_column($cartItems, 'total'));
+    
+    return view('advertiser.checkout', compact('cartItems', 'total'));
+}
     
     /**
      * Process order - Creates orders ONLY after successful payment for card payments
