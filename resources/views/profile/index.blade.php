@@ -17,27 +17,6 @@
 @section('content')
 <div class="container py-5 mt-5">
 
-    {{-- ─── HEADER ─── --}}
-    <div class="profile-header d-flex align-items-center gap-3 text-white">
-        <div class="profile-avatar">
-            {{ strtoupper(substr(auth()->user()->name, 0, 2)) }}
-        </div>
-        <div>
-            <h4 class="mb-0 fw-bold fs-5">{{ auth()->user()->name }}</h4>
-            <p class="mb-0 opacity-75 fs-sm">{{ auth()->user()->email }}</p>
-        </div>
-        <div class="ms-auto d-none d-md-flex align-items-center gap-2">
-            <span class="badge badge-role active">
-                <i class="fas fa-crown me-1"></i>{{ auth()->user()->activeRole() }}
-            </span>
-            @foreach(auth()->user()->roles as $role)
-                @if($role->name !== auth()->user()->activeRole())
-                    <span class="badge badge-role bg-dark py-2 px-2">{{ ucfirst($role->name) }}</span>
-                @endif
-            @endforeach
-        </div>
-    </div>
-
     {{-- ─── FLASH MESSAGES (pill style) ─── --}}
     @if(session('success'))
     <div class="alert alert-success border-0 rounded-pill py-2 px-3 d-inline-flex align-items-center gap-2 fade show"

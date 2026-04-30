@@ -9,6 +9,7 @@
     $blacklist = $blacklist ?? [];
     $cart = $cart ?? [];
 
+    
     function fullCountry($code){
         $countries = [
             'us' => 'United States', 'uk' => 'United Kingdom', 'de' => 'Germany',
@@ -22,6 +23,12 @@
             'pk' => 'Pakistan', 'bd' => 'Bangladesh', 'lk' => 'Sri Lanka', 'np' => 'Nepal',
             'tr' => 'Turkey', 'eg' => 'Egypt', 'ma' => 'Morocco', 'za' => 'South Africa',
             'ng' => 'Nigeria', 'ke' => 'Kenya', 'gh' => 'Ghana',
+            'id' => 'Indonesia', 'my' => 'Malaysia', 'th' => 'Thailand', 'vn' => 'Vietnam',
+            'ph' => 'Philippines', 'ir' => 'Iran', 'iq' => 'Iraq', 'sy' => 'Syria', 'jo' => 'Jordan',
+            'lb' => 'Lebanon', 'kw' => 'Kuwait', 'qa' => 'Qatar', 'om' => 'Oman', 'ye' => 'Yemen',
+            'hu' => 'Hungary', 'ro' => 'Romania', 'cz' => 'Czech Republic', 'sk' => 'Slovakia', 'si' => 'Slovenia',
+            'bg' => 'Bulgaria', 'hr' => 'Croatia', 'lt' => 'Lithuania', 'lv' => 'Latvia', 'ee' => 'Estonia', 'gr' => 'Greece', 'cy' => 'Cyprus', 'is' => 'Iceland', 'al' => 'Albania', 'mk' => 'North Macedonia', 'ba' => 'Bosnia and Herzegovina', 'rs' => 'Serbia', 'me' => 'Montenegro', 'md' => 'Moldova', 'by' => 'Belarus', 'ua' => 'Ukraine', 'ge' => 'Georgia', 'am' => 'Armenia', 'az' => 'Azerbaijan', 'kz' => 'Kazakhstan', 'uz' => 'Uzbekistan', 'af' => 'Afghanistan', 'bd' => 'Bangladesh', 'lk' => 'Sri Lanka', 'np' => 'Nepal', 'mm' => 'Myanmar', 'kh' => 'Cambodia', 'la' => 'Laos', 'mn' => 'Mongolia', 'bt' => 'Bhutan', 've' => 'Venezuela', 'co' => 'Colombia', 'pe' => 'Peru', 'ec' => 'Ecuador', 'cl' => 'Chile', 'uy' => 'Uruguay', 'py' => 'Paraguay', 'bo' => 'Bolivia', 'do' => 'Dominican Republic', 'cr' => 'Costa Rica', 'pa' => 'Panama', 'sv' => 'El Salvador', 'hn' => 'Honduras', 'ni' => 'Nicaragua', 'gt' => 'Guatemala', 'cu' => 'Cuba', 'ht' => 'Haiti', 'jm' => 'Jamaica', 'tt' => 'Trinidad and Tobago', 'bb' => 'Barbados', 'bs' => 'Bahamas', 'ag' => 'Antigua and Barbuda', 'dm' => 'Dominica', 'kn' => 'Saint Kitts and Nevis', 'lc' => 'Saint Lucia', 'vc' => 'Saint Vincent and the Grenadines', 'gd' => 'Grenada', 'aw' => 'Aruba', 'an' => 'Netherlands Antilles', 'cw' => 'Curacao',
+            
         ];
         return $countries[strtolower($code)] ?? strtoupper($code);
     }
@@ -106,13 +113,57 @@
                                        value="{{ request('search') }}">
                             </div>
 
-                            <!-- Verified Filter -->
+                            <!-- Country Filter -->
                             <div class="col-md-2">
-                                <label class="form-label fw-semibold small text-muted mb-1">Verified Only</label>
-                                <select name="verified" class="form-select form-select-sm">
-                                    <option value="">All Sites</option>
-                                    <option value="1" {{ request('verified') == '1' ? 'selected' : '' }}>Verified Only</option>
+                                <label class="form-label fw-semibold small text-muted mb-1">Country</label>
+                                <select name="country" class="form-select form-select-sm">
+                                    <option value="">All Countries</option>
+                                    @foreach($availableCountries as $countryCode)
+                                        <option value="{{ $countryCode }}" {{ request('country') == $countryCode ? 'selected' : '' }}>
+                                            {{ fullCountry($countryCode) }}
+                                        </option>
+                                    @endforeach
                                 </select>
+                            </div>
+
+                            <!-- Language Filter -->
+                            <div class="col-md-2">
+                                <label class="form-label fw-semibold small text-muted mb-1">Language</label>
+                                <select name="language" class="form-select form-select-sm">
+                                    <option value="">All Languages</option>
+                                    @foreach($availableLanguages as $langCode)
+                                        <option value="{{ $langCode }}" {{ request('language') == $langCode ? 'selected' : '' }}>
+                                            {{ fullLanguage($langCode) }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                            </div>
+
+
+                            <!-- Sponsored Filter -->
+                             <div class="col-md-2">
+                                <label class="form-label fw-semibold small text-muted mb-1">Sponsored Only</label>
+                                <select name="sponsored" class="form-select form-select-sm">
+                                    <option value="">All Sites</option>
+                                    <option value="1" {{ request('sponsored') == '1' ? 'selected' : '' }}>Sponsored Only</option>
+                                </select>
+                            </div>
+
+                            <!-- Price Range -->
+                            <div class="col-md-2">
+                                <label class="form-label fw-semibold small text-muted mb-1">Price Range</label>
+                                <div class="d-flex gap-2">
+                                    <input type="number" 
+                                           name="price_min" 
+                                           class="form-control form-control-sm" 
+                                           placeholder="Min"
+                                           value="{{ request('price_min') }}">
+                                    <input type="number" 
+                                           name="price_max" 
+                                           class="form-control form-control-sm" 
+                                           placeholder="Max"
+                                           value="{{ request('price_max') }}">
+                                </div>
                             </div>
 
                             <!-- Favorites Filter -->
@@ -184,18 +235,7 @@
                                 </div>
                             </div>
 
-                            <!-- Language Filter -->
-                            <div class="col-md-2">
-                                <label class="form-label fw-semibold small text-muted mb-1">Language</label>
-                                <select name="language" class="form-select form-select-sm">
-                                    <option value="">All Languages</option>
-                                    @foreach($availableLanguages as $langCode)
-                                        <option value="{{ $langCode }}" {{ request('language') == $langCode ? 'selected' : '' }}>
-                                            {{ fullLanguage($langCode) }}
-                                        </option>
-                                    @endforeach
-                                </select>
-                            </div>
+        
 
                             <!-- Action Buttons -->
                             <div class="col-md-2">

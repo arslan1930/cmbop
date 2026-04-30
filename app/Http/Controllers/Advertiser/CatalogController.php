@@ -59,10 +59,18 @@ class CatalogController extends Controller
             });
         }
 
-        // ✅ Verified filter
-        if ($request->filled('verified') && $request->verified == 1) {
-            $query->where('verified', 1);
+        // ✅ Sponsored filter
+        if ($request->filled('sponsored') && $request->sponsored == 1) {
+            $query->where('sponsored', 1);
         }
+
+        // Price range filter
+        if ($request->filled('price_min')) {
+            $query->where('price', '>=', (float)$request->price_min);
+        }        if ($request->filled('price_max')) {
+            $query->where('price', '<=', (float)$request->price_max);
+        }
+
         
         // ⭐ Favorites filter
         if ($request->filled('favorites_filter') && $request->favorites_filter == 1) {
@@ -97,6 +105,11 @@ class CatalogController extends Controller
             $query->where('traffic', '<=', (int)$request->traffic_max);
         }
 
+        // Country filter
+        if ($request->filled('country') && !empty($request->country)) {
+            $query->where('country', $request->country);
+        }
+
         // 🌍 Language filter
         if ($request->filled('language') && !empty($request->language)) {
             $query->where('language', $request->language);
@@ -104,6 +117,15 @@ class CatalogController extends Controller
 
         // ✅ Pagination (20 per page)
         $sites = $query->latest()->paginate(20)->withQueryString();
+
+        // Get unique countries for the filter dropdown
+        $availableCountries = Site::where('active', 1)
+            ->whereNotNull('country')
+            ->where('country', '!=', '')
+            ->select('country')
+            ->distinct()
+            ->orderBy('country')
+            ->pluck('country');
 
         // Get unique languages for the filter dropdown
         $availableLanguages = Site::where('active', 1)
@@ -120,7 +142,7 @@ class CatalogController extends Controller
         // Pass the filter state to the view
         $showBlacklistedOnly = $showBlacklistedOnly;
 
-        return view('advertiser.catalog', compact('sites', 'availableLanguages', 'favorites', 'blacklist', 'cart', 'showBlacklistedOnly'));
+        return view('advertiser.catalog', compact('sites', 'availableLanguages', 'availableCountries', 'favorites', 'blacklist', 'cart', 'showBlacklistedOnly'));
     }
     
     /**

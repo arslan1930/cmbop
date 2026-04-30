@@ -37,7 +37,7 @@
         <div class="tab-pane fade show active" id="funds" role="tabpanel">
             <div class="card border-0 shadow-sm">
                 <div class="card-header bg-white fw-semibold">
-                    <i class="fa fa-wallet me-2"></i> Funds Activity (Recent Transactions)
+                    <i class="fa fa-wallet me-2"></i> Funds Activity
                 </div>
                 <div class="card-body p-0">
                     <div class="table-responsive">
@@ -50,6 +50,7 @@
                                     <th>Payment Method</th>
                                     <th>Status</th>
                                     <th>Type</th>
+                                    <th>Action</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -85,10 +86,22 @@
                                     <td>
                                         <span class="badge bg-primary">{{ ucfirst($activity->type) }}</span>
                                     </td>
+                                    <td>
+                                        @if($activity->type == 'deposit')
+                                            <a href="{{ route('advertiser.invoice', $activity->reference_code) }}" 
+                                               class="btn btn-sm btn-outline-primary" 
+                                               target="_blank"
+                                               title="View Invoice">
+                                                <i class="fa fa-file-invoice"></i> Invoice
+                                            </a>
+                                        @else
+                                            <span class="text-muted">—</span>
+                                        @endif
+                                    </td>
                                 </tr>
                                 @empty
                                 <tr>
-                                    <td colspan="6" class="text-center py-5">
+                                    <td colspan="7" class="text-center py-5">
                                         <i class="fa fa-inbox fa-3x text-muted mb-3"></i>
                                         <p class="text-muted">No funds activity found</p>
                                     </td>
@@ -98,14 +111,24 @@
                         </table>
                     </div>
                 </div>
+                @if($fundsActivity->hasPages())
+                <div class="card-footer bg-white">
+                    {{ $fundsActivity->links() }}
+                </div>
+                @endif
             </div>
         </div>
 
         <!-- Orders Tab -->
         <div class="tab-pane fade" id="orders" role="tabpanel">
             <div class="card border-0 shadow-sm">
-                <div class="card-header bg-white fw-semibold">
-                    <i class="fa fa-shopping-cart me-2"></i> Orders (Recent Orders)
+                <div class="card-header bg-white fw-semibold d-flex justify-content-between align-items-center">
+                    <div>
+                        <i class="fa fa-shopping-cart me-2"></i> Orders
+                    </div>
+                    <div>
+                        <small class="text-muted" id="ordersResultsCount"></small>
+                    </div>
                 </div>
                 <div class="card-body p-0">
                     <div class="table-responsive">
@@ -118,12 +141,14 @@
                                     <th>Base Price</th>
                                     <th>Sensitive Price</th>
                                     <th>Total</th>
+                                    <th>Reference</th>
                                     <th>Payment Method</th>
                                     <th>Status</th>
                                     <th>Payment Status</th>
+                                    <th>Action</th>
                                 </tr>
                             </thead>
-                            <tbody>
+                            <tbody id="ordersTableBody">
                                 @forelse($orders as $order)
                                     @foreach($order->items as $item)
                                     @php
@@ -148,6 +173,7 @@
                                             @endif
                                         </td>
                                         <td class="fw-semibold">€{{ number_format($item->price, 2) }}</td>
+                                        <td><code class="small">{{ $order->reference_code }}</code></td>
                                         <td>
                                             <span class="badge bg-secondary">{{ ucfirst($order->payment_method) }}</span>
                                         </td>
@@ -171,11 +197,19 @@
                                                 <span class="badge bg-danger">Failed</span>
                                             @endif
                                         </td>
+                                        <td>
+                                            <a href="{{ route('advertiser.invoice', $order->reference_code) }}" 
+                                               class="btn btn-sm btn-outline-primary" 
+                                               target="_blank"
+                                               title="View Invoice">
+                                                <i class="fa fa-file-invoice"></i> Invoice
+                                            </a>
+                                        </td>
                                     </tr>
                                     @endforeach
                                 @empty
                                 <tr>
-                                    <td colspan="9" class="text-center py-5">
+                                    <td colspan="10" class="text-center py-5">
                                         <i class="fa fa-inbox fa-3x text-muted mb-3"></i>
                                         <p class="text-muted">No orders found</p>
                                     </td>
@@ -185,6 +219,11 @@
                         </table>
                     </div>
                 </div>
+                @if($orders->hasPages())
+                <div class="card-footer bg-white">
+                    {{ $orders->links() }}
+                </div>
+                @endif
             </div>
         </div>
     </div>
@@ -241,6 +280,20 @@
     display: inline-block;
 }
 
+.btn-sm {
+    padding: 4px 10px;
+    font-size: 11px;
+}
+
+.btn-outline-primary {
+    border-color: #2563eb;
+}
+
+.btn-outline-primary:hover {
+    background-color: #2563eb;
+    border-color: #2563eb;
+}
+
 /* Dark mode styles */
 body.layout-dark .sensitive-badge {
     background-color: #4a3a1e;
@@ -259,6 +312,16 @@ body.layout-dark .nav-tabs-custom .nav-link {
 body.layout-dark .nav-tabs-custom .nav-link.active {
     color: #4ECDCB;
     border-bottom-color: #4ECDCB;
+}
+
+body.layout-dark .btn-outline-primary {
+    color: #60a5fa;
+    border-color: #3b82f6;
+}
+
+body.layout-dark .btn-outline-primary:hover {
+    background-color: #3b82f6;
+    color: #1a1a2e;
 }
 </style>
 

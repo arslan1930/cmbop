@@ -277,12 +277,6 @@
                                 </div>
                                 
                                 <div style="background: #f9fafb; border-radius: 12px; padding: 20px; border: 1px solid #e5e7eb;">
-                                    <!-- <p class="text-center mb-3">You will be redirected to Stripe's secure checkout page to complete your payment.</p>
-                                    
-                                    <div class="text-center">
-                                        <img src="https://stripe.com/img/about/logos/logos/black.png" alt="Stripe" style="height: 30px; opacity: 0.7;">
-                                    </div> -->
-                                    
                                     <div class="alert alert-success mt-3 py-2">
                                         <i class="fas fa-shield-alt me-1"></i>
                                         <small>Your payment is secure and encrypted. We accept Visa, Mastercard, American Express, and Discover.</small>
@@ -386,19 +380,80 @@
                                             <span class="badge bg-danger">Rejected</span>
                                         @endif
                                     </td>
-                                </tr>
+                                </td>
                                 @endforeach
                             </tbody>
                         </table>
                     </div>
                 </div>
                 @if($allRequests->hasPages())
-                <div class="card-footer bg-white">
-                    {{ $allRequests->links() }}
+                <div class="card-footer bg-white py-2">
+                    {{ $allRequests->links('pagination::bootstrap-5') }}
                 </div>
-                @endif
+                @endif  
             </div>
             @endif
+        </div>
+    </div>
+</div>
+
+<!-- Billing Information Modal -->
+<div class="modal fade" id="billingInfoModal" tabindex="-1" data-bs-backdrop="static">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title">
+                    <i class="fa fa-user-edit me-2"></i> Billing Information
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p class="text-muted mb-3">Please provide your billing information for the invoice.</p>
+                
+                <form id="billingForm">
+                    @csrf
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Billing Name <span class="text-danger">*</span></label>
+                            <input type="text" name="billing_name" id="billing_name" class="form-control" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Company Name <span class="text-danger">*</span></label>
+                            <input type="text" name="company_name" id="company_name" class="form-control" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Country <span class="text-danger">*</span></label>
+                            <input type="text" name="country" id="country" class="form-control" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">State/Province <span class="text-danger">*</span></label>
+                            <input type="text" name="state" id="state" class="form-control" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">City <span class="text-danger">*</span></label>
+                            <input type="text" name="city" id="city" class="form-control" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Postal Code <span class="text-danger">*</span></label>
+                            <input type="text" name="postal_code" id="postal_code" class="form-control" required>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label">Address <span class="text-danger">*</span></label>
+                            <textarea name="address" id="address" class="form-control" rows="2" required></textarea>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">VAT Number</label>
+                            <input type="text" name="vat_number" id="vat_number" class="form-control">
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="saveBillingInfo">
+                    <i class="fa fa-save"></i> Save & Continue
+                </button>
+            </div>
         </div>
     </div>
 </div>
@@ -650,6 +705,124 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
     
+    // Function to submit deposit
+    function submitDeposit() {
+        proceedBtn.disabled = true;
+        proceedBtn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Processing...';
+        
+        fetch('{{ route("advertiser.add-funds.store") }}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': '{{ csrf_token() }}'
+            },
+            body: JSON.stringify({
+                amount: selectedAmount,
+                payment_method: selectedMethod,
+                reference_code: referenceCode
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                if (selectedMethod === 'bank' && data.invoice_url) {
+                    Swal.fire({
+                        title: 'Request Submitted!',
+                        html: `Your deposit request has been submitted.<br><br>
+                               <strong>Amount:</strong> €${selectedAmount.toFixed(2)}<br>
+                               <strong>Reference Code:</strong> <code class="font-monospace">${data.reference_code}</code><br><br>
+                               <a href="${data.invoice_url}" target="_blank" class="btn btn-primary">
+                                   <i class="fa fa-file-invoice"></i> View Invoice
+                               </a>`,
+                        icon: 'success',
+                        confirmButtonText: 'OK'
+                    }).then(() => {
+                        window.location.href = '{{ route("advertiser.reports") }}';
+                    });
+                } else {
+                    Swal.fire({
+                        title: 'Request Submitted!',
+                        html: `Your deposit request has been submitted.<br><br>
+                               <strong>Amount:</strong> €${selectedAmount.toFixed(2)}<br>
+                               <strong>Reference Code:</strong> <code class="font-monospace">${data.reference_code}</code><br><br>`,
+                        icon: 'success',
+                        confirmButtonText: 'OK'
+                    }).then(() => {
+                        window.location.href = '{{ route("advertiser.reports") }}';
+                    });
+                }
+            } else if (data.requires_billing) {
+                // Show billing info modal
+                const modal = new bootstrap.Modal(document.getElementById('billingInfoModal'));
+                modal.show();
+                proceedBtn.disabled = false;
+                proceedBtn.innerHTML = '<i class="fa fa-arrow-right me-2"></i> Proceed to Payment';
+            } else {
+                Swal.fire({
+                    title: 'Error', 
+                    text: data.message || 'Failed to submit request. Please try again.',
+                    icon: 'error',
+                    confirmButtonText: 'OK'
+                });
+                proceedBtn.disabled = false;
+                proceedBtn.innerHTML = '<i class="fa fa-arrow-right me-2"></i> Proceed to Payment';
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            Swal.fire({
+                title: 'Error',
+                text: 'Failed to submit request. Please try again.',
+                icon: 'error',
+                confirmButtonText: 'OK'
+            });
+            proceedBtn.disabled = false;
+            proceedBtn.innerHTML = '<i class="fa fa-arrow-right me-2"></i> Proceed to Payment';
+        });
+    }
+    
+    // Save billing info
+    document.getElementById('saveBillingInfo').addEventListener('click', function() {
+        const formData = {
+            billing_name: document.getElementById('billing_name').value,
+            company_name: document.getElementById('company_name').value,
+            country: document.getElementById('country').value,
+            state: document.getElementById('state').value,
+            city: document.getElementById('city').value,
+            address: document.getElementById('address').value,
+            postal_code: document.getElementById('postal_code').value,
+            vat_number: document.getElementById('vat_number').value,
+            _token: '{{ csrf_token() }}'
+        };
+        
+        if (!formData.billing_name || !formData.country || !formData.city || !formData.address) {
+            Swal.fire('Error', 'Please fill in all required fields', 'error');
+            return;
+        }
+        
+        fetch('{{ route("advertiser.save-billing-info") }}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': '{{ csrf_token() }}'
+            },
+            body: JSON.stringify(formData)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const modal = bootstrap.Modal.getInstance(document.getElementById('billingInfoModal'));
+                modal.hide();
+                submitDeposit();
+            } else {
+                Swal.fire('Error', data.message || 'Failed to save billing information', 'error');
+            }
+        })
+        .catch(error => {
+            Swal.fire('Error', 'Failed to save billing information', 'error');
+        });
+    });
+    
     // Proceed button
     proceedBtn.addEventListener('click', async function() {
         if (selectedAmount <= 0) {
@@ -679,7 +852,6 @@ document.addEventListener('DOMContentLoaded', function() {
             proceedBtn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Redirecting...';
             
             try {
-                // Create Stripe Checkout session
                 const response = await fetch('{{ route("advertiser.create-checkout-session") }}', {
                     method: 'POST',
                     headers: {
@@ -695,7 +867,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 const data = await response.json();
                 
                 if (data.success && data.checkout_url) {
-                    // Redirect to Stripe Checkout
                     window.location.href = data.checkout_url;
                 } else {
                     throw new Error(data.message || 'Failed to create checkout session');
@@ -712,58 +883,32 @@ document.addEventListener('DOMContentLoaded', function() {
                 proceedBtn.innerHTML = '<i class="fa fa-arrow-right me-2"></i> Proceed to Payment';
             }
         } else {
-            // For manual payment methods (wise, crypto, bank)
-            proceedBtn.disabled = true;
-            proceedBtn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Processing...';
-            
-            fetch('{{ route("advertiser.add-funds.store") }}', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': '{{ csrf_token() }}'
-                },
-                body: JSON.stringify({
-                    amount: selectedAmount,
-                    payment_method: selectedMethod,
-                    reference_code: referenceCode
+            // Check if bank transfer and need billing info
+            if (selectedMethod === 'bank') {
+                // First check if billing info exists
+                fetch('{{ route("advertiser.get-billing-info") }}', {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                    }
                 })
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    Swal.fire({
-                        title: 'Request Submitted!',
-                        html: `Your deposit request has been submitted.<br><br>
-                               <strong>Amount:</strong> €${selectedAmount.toFixed(2)}<br>
-                               <strong>Reference Code:</strong> <code class="font-monospace">${data.reference_code}</code><br><br>
-                               <span class="text-warning">⚠️ Please complete the payment using the instructions. Your funds will be added after admin approval.</span>`,
-                        icon: 'success',
-                        confirmButtonText: 'OK'
-                    }).then(() => {
-                        window.location.reload();
-                    });
-                } else {
-                    Swal.fire({
-                        title: 'Error', 
-                        text: data.message || 'Failed to submit request. Please try again.',
-                        icon: 'error',
-                        confirmButtonText: 'OK'
-                    });
-                    proceedBtn.disabled = false;
-                    proceedBtn.innerHTML = '<i class="fa fa-arrow-right me-2"></i> Proceed to Payment';
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                Swal.fire({
-                    title: 'Error',
-                    text: 'Failed to submit request. Please try again.',
-                    icon: 'error',
-                    confirmButtonText: 'OK'
+                .then(response => response.json())
+                .then(billingData => {
+                    if (!billingData.success || !billingData.data.has_info) {
+                        const modal = new bootstrap.Modal(document.getElementById('billingInfoModal'));
+                        modal.show();
+                    } else {
+                        submitDeposit();
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    submitDeposit();
                 });
-                proceedBtn.disabled = false;
-                proceedBtn.innerHTML = '<i class="fa fa-arrow-right me-2"></i> Proceed to Payment';
-            });
+            } else {
+                submitDeposit();
+            }
         }
     });
 });

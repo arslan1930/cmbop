@@ -15,10 +15,10 @@
     <!-- Navbar Links -->
     <div class="collapse navbar-collapse" id="navbarContent">
       <ul class="navbar-nav ms-auto mb-2 mb-lg-0 align-items-lg-center">
-        <li class="nav-item"><a class="nav-link" href="/link-building">Link Building</a></li>
-        <li class="nav-item"><a class="nav-link" href="/digital-pr-seo">Digital PR & SEO</a></li>
-        <li class="nav-item"><a class="nav-link" href="/fix-design-site">Fix & Design Site</a></li>
-        <li class="nav-item"><a class="nav-link" href="/content-writing">Content Writing</a></li>
+          <!-- <li class="nav-item"><a class="nav-link" href="/link-building">Link Building</a></li>
+          <li class="nav-item"><a class="nav-link" href="/digital-pr-seo">Digital PR & SEO</a></li>
+          <li class="nav-item"><a class="nav-link" href="/fix-design-site">Fix & Design Site</a></li>
+          <li class="nav-item"><a class="nav-link" href="/content-writing">Content Writing</a></li> -->
 
         @auth
           <!-- Dashboard Button -->

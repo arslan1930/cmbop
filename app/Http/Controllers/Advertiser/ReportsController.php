@@ -15,25 +15,23 @@ class ReportsController extends Controller
     {
         $userId = auth()->id();
         
-        // Get funds activity (deposit requests) - last 50 only
+        // Get funds activity (deposit requests) with pagination - 20 per page
         $fundsActivity = DepositRequest::where('user_id', $userId)
             ->orderBy('created_at', 'desc')
-            ->limit(50)
-            ->get();
+            ->paginate(20);
         
         // Add type attribute to each fund activity
         foreach ($fundsActivity as $activity) {
             $activity->type = 'deposit';
         }
         
-        // Get orders - last 50 only with items
+        // Get orders with pagination - 20 per page
         $orders = Order::where('user_id', $userId)
             ->with('items')
             ->orderBy('created_at', 'desc')
-            ->limit(50)
-            ->get();
+            ->paginate(20);
         
-        // Calculate order statistics with sensitive prices
+        // Calculate order statistics with sensitive prices (overall totals, not paginated)
         $orderStats = [
             'total_orders' => 0,
             'total_base_amount' => 0,
@@ -42,7 +40,10 @@ class ReportsController extends Controller
             'orders_with_sensitive' => 0
         ];
         
-        foreach ($orders as $order) {
+        // Get ALL orders for statistics (not paginated)
+        $allOrders = Order::where('user_id', $userId)->with('items')->get();
+        
+        foreach ($allOrders as $order) {
             $orderStats['total_orders']++;
             $orderStats['total_amount'] += $order->total_amount;
             
@@ -59,7 +60,7 @@ class ReportsController extends Controller
             }
         }
         
-        // Calculate totals from database
+        // Calculate totals from database (overall)
         $totalDeposits = DepositRequest::where('user_id', $userId)
             ->where('status', 'completed')
             ->sum('amount');
@@ -70,7 +71,7 @@ class ReportsController extends Controller
         
         $totalOrders = Order::where('user_id', $userId)->count();
         
-        // Get sensitive price breakdown by type
+        // Get sensitive price breakdown by type (overall)
         $sensitiveBreakdown = OrderItem::whereHas('order', function($query) use ($userId) {
                 $query->where('user_id', $userId);
             })
@@ -80,7 +81,7 @@ class ReportsController extends Controller
             ->groupBy('sensitive_type')
             ->get();
         
-        // Get monthly spending with sensitive breakdown
+        // Get monthly spending with sensitive breakdown (overall)
         $monthlySpending = Order::where('user_id', $userId)
             ->where('payment_status', 'paid')
             ->selectRaw('DATE_FORMAT(created_at, "%Y-%m") as month, SUM(total_amount) as total')
@@ -124,6 +125,11 @@ class ReportsController extends Controller
             // Status filter
             if ($request->filled('status')) {
                 $query->where('status', $request->status);
+            }
+            
+            // Payment status filter
+            if ($request->filled('payment_status')) {
+                $query->where('payment_status', $request->payment_status);
             }
             
             $orders = $query->paginate(20);
@@ -241,6 +247,59 @@ class ReportsController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to fetch analytics'
+            ], 500);
+        }
+    }
+    
+    /**
+     * Get funds activity with pagination (AJAX)
+     */
+    public function getFundsActivity(Request $request)
+    {
+        try {
+            $userId = auth()->id();
+            
+            $query = DepositRequest::where('user_id', $userId)
+                ->orderBy('created_at', 'desc');
+            
+            // Date range filter
+            if ($request->filled('date_from')) {
+                $query->whereDate('created_at', '>=', $request->date_from);
+            }
+            if ($request->filled('date_to')) {
+                $query->whereDate('created_at', '<=', $request->date_to);
+            }
+            
+            // Status filter
+            if ($request->filled('status')) {
+                $query->where('status', $request->status);
+            }
+            
+            $activities = $query->paginate(20);
+            
+            // Add type attribute
+            foreach ($activities as $activity) {
+                $activity->type = 'deposit';
+            }
+            
+            return response()->json([
+                'success' => true,
+                'data' => $activities->items(),
+                'pagination' => [
+                    'current_page' => $activities->currentPage(),
+                    'last_page' => $activities->lastPage(),
+                    'per_page' => $activities->perPage(),
+                    'total' => $activities->total(),
+                    'from' => $activities->firstItem(),
+                    'to' => $activities->lastItem()
+                ]
+            ]);
+            
+        } catch (\Exception $e) {
+            \Log::error('Error fetching funds activity: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to fetch funds activity'
             ], 500);
         }
     }

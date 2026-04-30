@@ -440,6 +440,82 @@
     @endif
 </div>
 
+<!-- Billing Information Modal -->
+<div class="modal fade" id="billingInfoModal" tabindex="-1" data-bs-backdrop="static">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title">
+                    <i class="fa fa-user-edit me-2"></i> Billing Information
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p class="text-muted mb-3">Please provide your billing information for the invoice.</p>
+                
+                <form id="billingForm">
+                    @csrf
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Billing Name <span class="text-danger">*</span></label>
+                            <input type="text" name="billing_name" id="billing_name" class="form-control" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Company Name</label>
+                            <input type="text" name="company_name" id="company_name" class="form-control">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Country <span class="text-danger">*</span></label>
+                            <select name="country" id="country" class="form-select" required>
+                                <option value="">Select Country</option>
+                                <option value="United States">United States</option>
+                                <option value="United Kingdom">United Kingdom</option>
+                                <option value="Germany">Germany</option>
+                                <option value="France">France</option>
+                                <option value="Italy">Italy</option>
+                                <option value="Spain">Spain</option>
+                                <option value="Netherlands">Netherlands</option>
+                                <option value="Belgium">Belgium</option>
+                                <option value="Austria">Austria</option>
+                                <option value="Switzerland">Switzerland</option>
+                                <option value="Pakistan">Pakistan</option>
+                                <option value="India">India</option>
+                                <option value="UAE">UAE</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">State/Province</label>
+                            <input type="text" name="state" id="state" class="form-control">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">City <span class="text-danger">*</span></label>
+                            <input type="text" name="city" id="city" class="form-control" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Postal Code</label>
+                            <input type="text" name="postal_code" id="postal_code" class="form-control">
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label">Address <span class="text-danger">*</span></label>
+                            <textarea name="address" id="address" class="form-control" rows="2" required></textarea>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">VAT Number</label>
+                            <input type="text" name="vat_number" id="vat_number" class="form-control">
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="saveBillingInfo">
+                    <i class="fa fa-save"></i> Save & Continue
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <style>   
 .table td, .table th {
     padding: 12px 15px;
@@ -505,16 +581,22 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Generate 6-digit reference code
     let referenceCode = Math.floor(100000 + Math.random() * 900000).toString();
     
-    // Update reference code display
     const refCodeDisplay = document.getElementById('referenceCode');
     const refCodeDisplaySpan = document.getElementById('refCodeDisplay');
-    if (refCodeDisplay) refCodeDisplay.innerText = referenceCode;
-    if (refCodeDisplaySpan) refCodeDisplaySpan.innerText = `REF${referenceCode}`;
+    const refCodeTexts = document.querySelectorAll('.ref-code-display');
     
-    // Copy reference code button
+    function updateReferenceCode() {
+        if (refCodeDisplay) refCodeDisplay.innerText = referenceCode;
+        if (refCodeDisplaySpan) refCodeDisplaySpan.innerText = `REF${referenceCode}`;
+        refCodeTexts.forEach(el => {
+            el.innerText = `REF${referenceCode}`;
+        });
+    }
+    
+    updateReferenceCode();
+    
     document.querySelectorAll('.copy-ref-btn').forEach(btn => {
         btn.addEventListener('click', function() {
             const targetId = this.dataset.target;
@@ -530,7 +612,6 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 
-    // Payment method selection
     const paymentOptions = document.querySelectorAll('.payment-option');
     const paymentDetailsSection = document.getElementById('paymentDetailsSection');
     const walletDetails = document.getElementById('walletPaymentDetails');
@@ -544,50 +625,33 @@ document.addEventListener('DOMContentLoaded', function() {
     const totalAmount = {{ $total }};
     const walletBalance = {{ auth()->user()->activeWallet()?->balance ?? 0 }};
 
-    // Payment option click handler
     paymentOptions.forEach(option => {
         option.addEventListener('click', function() {
             const method = this.dataset.method;
             selectedMethod = method;
             
-            // Update UI - remove selected class from all
             paymentOptions.forEach(opt => opt.classList.remove('selected'));
             this.classList.add('selected');
             
-            // Hide all payment details
             if (walletDetails) walletDetails.style.display = 'none';
             if (wiseDetails) wiseDetails.style.display = 'none';
             if (cryptoDetails) cryptoDetails.style.display = 'none';
             if (bankDetails) bankDetails.style.display = 'none';
             if (cardDetails) cardDetails.style.display = 'none';
             
-            // Show selected payment details
-            if (method === 'wallet' && walletDetails) {
-                walletDetails.style.display = 'block';
-            } else if (method === 'wise' && wiseDetails) {
-                wiseDetails.style.display = 'block';
-            } else if (method === 'crypto' && cryptoDetails) {
-                cryptoDetails.style.display = 'block';
-            } else if (method === 'bank' && bankDetails) {
-                bankDetails.style.display = 'block';
-            } else if (method === 'card' && cardDetails) {
-                cardDetails.style.display = 'block';
-            }
+            if (method === 'wallet' && walletDetails) walletDetails.style.display = 'block';
+            else if (method === 'wise' && wiseDetails) wiseDetails.style.display = 'block';
+            else if (method === 'crypto' && cryptoDetails) cryptoDetails.style.display = 'block';
+            else if (method === 'bank' && bankDetails) bankDetails.style.display = 'block';
+            else if (method === 'card' && cardDetails) cardDetails.style.display = 'block';
             
-            // Show payment details section
-            if (paymentDetailsSection) {
-                paymentDetailsSection.style.display = 'block';
-            }
+            if (paymentDetailsSection) paymentDetailsSection.style.display = 'block';
             
-            // Hide error if shown
             const paymentError = document.getElementById('paymentError');
-            if (paymentError) {
-                paymentError.style.display = 'none';
-            }
+            if (paymentError) paymentError.style.display = 'none';
         });
     });
 
-    // Copy button functionality
     document.querySelectorAll('.copy-btn').forEach(button => {
         button.addEventListener('click', function() {
             const targetId = this.dataset.target;
@@ -605,11 +669,103 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 
-    // Validate Google Docs links
     function validateGoogleDocsLink(url) {
         if (!url) return false;
         const googleDocsPattern = /^https?:\/\/(docs\.google\.com|drive\.google\.com)\/.*$/i;
         return googleDocsPattern.test(url);
+    }
+
+    // Get billing info from user profile
+    function getBillingInfo() {
+        return fetch('{{ route("advertiser.get-billing-info") }}', {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': '{{ csrf_token() }}'
+            }
+        }).then(response => response.json());
+    }
+
+    // Save billing info to user profile
+    function saveBillingInfo(formData) {
+        return fetch('{{ route("advertiser.save-billing-info") }}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': '{{ csrf_token() }}'
+            },
+            body: JSON.stringify(formData)
+        }).then(response => response.json());
+    }
+
+    // Submit order function
+    function submitOrder(contentLinksData) {
+        fetch('{{ route("advertiser.checkout.process") }}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': '{{ csrf_token() }}'
+            },
+            body: JSON.stringify({
+                payment_method: selectedMethod,
+                content_links: contentLinksData,
+                reference_code: referenceCode
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                if (data.requires_payment && data.checkout_url) {
+                    window.location.href = data.checkout_url;
+                } else if (selectedMethod === 'bank') {
+                    // Use the invoice.blade.php template
+                    const invoiceUrl = '/advertiser/invoice/' + referenceCode;
+                    
+                    Swal.fire({
+                        title: 'Order Placed Successfully!',
+                        html: `Your order has been placed.<br><br>
+                               <strong>Reference Code:</strong> REF${referenceCode}<br>
+                               <strong>Total Amount:</strong> €${totalAmount.toFixed(2)}<br><br>
+                               <a href="${invoiceUrl}" target="_blank" class="btn btn-primary">
+                                   <i class="fa fa-file-invoice"></i> View Invoice
+                               </a>`,
+                        icon: 'success',
+                        confirmButtonText: 'Go to Orders',
+                        showCancelButton: true,
+                        cancelButtonText: 'Stay Here'
+                    }).then((result) => {
+                        if (result.isConfirmed) {
+                            window.location.href = '{{ route("advertiser.orders") }}';
+                        } else {
+                            placeOrderBtn.disabled = false;
+                            placeOrderBtn.innerHTML = '<i class="fa fa-check-circle"></i> Place Order';
+                            window.open(invoiceUrl, '_blank');
+                        }
+                    });
+                    
+                    placeOrderBtn.disabled = false;
+                    placeOrderBtn.innerHTML = '<i class="fa fa-check-circle"></i> Place Order';
+                } else if (data.message) {
+                    Swal.fire('Success', data.message, 'success').then(() => {
+                        window.location.href = '{{ route("advertiser.orders") }}';
+                    });
+                } else {
+                    Swal.fire('Success', 'Order placed successfully!', 'success').then(() => {
+                        window.location.href = '{{ route("advertiser.orders") }}';
+                    });
+                }
+            } else {
+                Swal.fire('Error', data.message || 'Failed to process order', 'error');
+                placeOrderBtn.disabled = false;
+                placeOrderBtn.innerHTML = '<i class="fa fa-check-circle"></i> Place Order';
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            Swal.fire('Error', 'Network error. Please try again.', 'error');
+            placeOrderBtn.disabled = false;
+            placeOrderBtn.innerHTML = '<i class="fa fa-check-circle"></i> Place Order';
+        });
     }
 
     // Place order click handler
@@ -652,60 +808,60 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
         
-        // Show loading
-        placeOrderBtn.disabled = true;
-        placeOrderBtn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Processing...';
-        
-        // Submit the order
-        fetch('{{ route("advertiser.checkout.process") }}', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRF-TOKEN': '{{ csrf_token() }}'
-            },
-            body: JSON.stringify({
-                payment_method: selectedMethod,
-                content_links: contentLinksData,
-                reference_code: referenceCode
-            })
-        })
-        .then(response => response.json())
-        .then(data => {
-            console.log('Response:', data);
-            
-            if (data.success) {
-                if (data.requires_payment && data.checkout_url) {
-                    // Redirect to Stripe for card payment
-                    window.location.href = data.checkout_url;
-                } else if (data.message) {
-                    // Success for other payment methods
-                    Swal.fire('Success', data.message, 'success').then(() => {
-                        window.location.href = '{{ route("advertiser.orders") }}';
-                    });
+        // For bank transfer, check billing info
+        if (selectedMethod === 'bank') {
+            getBillingInfo().then(billingResponse => {
+                if (billingResponse.success && billingResponse.data.has_info) {
+                    placeOrderBtn.disabled = true;
+                    placeOrderBtn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Processing...';
+                    submitOrder(contentLinksData);
                 } else {
-                    Swal.fire('Success', 'Order placed successfully!', 'success').then(() => {
-                        window.location.href = '{{ route("advertiser.orders") }}';
-                    });
+                    const modal = new bootstrap.Modal(document.getElementById('billingInfoModal'));
+                    modal.show();
+                    
+                    document.getElementById('saveBillingInfo').onclick = function() {
+                        const formData = {
+                            billing_name: document.getElementById('billing_name').value,
+                            company_name: document.getElementById('company_name').value,
+                            country: document.getElementById('country').value,
+                            state: document.getElementById('state').value,
+                            city: document.getElementById('city').value,
+                            address: document.getElementById('address').value,
+                            postal_code: document.getElementById('postal_code').value,
+                            vat_number: document.getElementById('vat_number').value,
+                            _token: '{{ csrf_token() }}'
+                        };
+                        
+                        if (!formData.billing_name || !formData.country || !formData.city || !formData.address) {
+                            Swal.fire('Error', 'Please fill in all required fields', 'error');
+                            return;
+                        }
+                        
+                        saveBillingInfo(formData).then(data => {
+                            if (data.success) {
+                                modal.hide();
+                                placeOrderBtn.disabled = true;
+                                placeOrderBtn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Processing...';
+                                submitOrder(contentLinksData);
+                            } else {
+                                Swal.fire('Error', data.message || 'Failed to save billing information', 'error');
+                            }
+                        });
+                    };
                 }
-            } else {
-                Swal.fire('Error', data.message || 'Failed to process order', 'error');
-                placeOrderBtn.disabled = false;
-                placeOrderBtn.innerHTML = '<i class="fa fa-check-circle"></i> Place Order';
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            Swal.fire('Error', 'Network error. Please try again.', 'error');
-            placeOrderBtn.disabled = false;
-            placeOrderBtn.innerHTML = '<i class="fa fa-check-circle"></i> Place Order';
-        });
+            });
+        } else {
+            placeOrderBtn.disabled = true;
+            placeOrderBtn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Processing...';
+            submitOrder(contentLinksData);
+        }
     });
 });
 </script>
 
-<!-- SweetAlert2 for better alerts -->
+<!-- SweetAlert2 for better alerts -->  
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <!-- Font Awesome -->
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 
-@endsection 
+@endsection

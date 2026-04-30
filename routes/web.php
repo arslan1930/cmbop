@@ -26,6 +26,8 @@ use App\Http\Controllers\Advertiser\CampaignController;
 use App\Http\Controllers\Advertiser\AddFundsController;
 use App\Http\Controllers\Advertiser\ReportsController;
 
+use App\Http\Controllers\InvoiceController;
+
 
 
 
@@ -188,13 +190,13 @@ Route::middleware(['auth','verified', RoleMiddleware::class . ':admin'])
      
 
 
-    // Reports site
+    // Reports site 
     Route::get('/reports', function () {
             return view('admin.reports');
         })->name('reports');
 
     // Settings
-    Route::get('/settings', function () {
+    Route::get('/settings', function () {   
             return view('admin.settings');
         })->name('settings'); 
     
@@ -300,6 +302,18 @@ Route::middleware(['auth','verified', RoleMiddleware::class . ':advertiser'])
         
         // Reports
         Route::get('/reports', [ReportsController::class, 'index'])->name('reports');
+
+
+        // Invoice route
+        Route::get('/invoice/{referenceCode}', [InvoiceController::class, 'showInvoice'])->name('invoice');
+
+
+// Save billing info route
+Route::post('/save-billing-info', [AddFundsController::class, 'saveBillingInfo'])->name('save-billing-info');
+
+// Get billing info route
+Route::get('/get-billing-info', [AddFundsController::class, 'getBillingInfo'])->name('get-billing-info');
+        
 
 });
 

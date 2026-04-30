@@ -6,6 +6,7 @@ namespace App\Http\Controllers\Advertiser;
 use App\Http\Controllers\Controller;
 use App\Models\DepositRequest;
 use App\Models\Wallet;
+use App\Models\User;
 use App\Mail\DepositRequestSubmitted;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
@@ -166,52 +167,85 @@ class AddFundsController extends Controller
 
     public function store(Request $request)
     {
-        $request->validate([
-            'amount' => 'required|numeric|min:10',
-            'payment_method' => 'required|in:wise,crypto,bank',
-        ]);
-
-        // Generate unique reference code
-        do {
-            $referenceCode = str_pad(mt_rand(1, 999999), 6, '0', STR_PAD_LEFT);
-        } while (DepositRequest::where('reference_code', $referenceCode)->exists());
-
-        $depositRequest = DepositRequest::create([
-            'user_id' => auth()->id(),
-            'reference_code' => $referenceCode,
-            'amount' => $request->amount,
-            'payment_method' => $request->payment_method,
-            'status' => 'pending'
-        ]);
-
-        // Send email notification to admin
         try {
-            $admins = \App\Models\User::where('active_role_id', function($query) {
-                $query->select('id')
-                      ->from('roles')
-                      ->where('name', 'admin')
-                      ->limit(1);
-            })->get();
+            $request->validate([
+                'amount' => 'required|numeric|min:10',
+                'payment_method' => 'required|in:wise,crypto,bank',
+                'reference_code' => 'required|string'
+            ]);
+
+            $user = auth()->user();
             
-            if ($admins->count() > 0) {
-                foreach ($admins as $admin) {
-                    Mail::to($admin->email)->send(new DepositRequestSubmitted($depositRequest));
+            // For bank transfer, check if billing info exists
+            if ($request->payment_method === 'bank') {
+                if (empty($user->billing_name) || empty($user->address)) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Please complete your billing information first.',
+                        'requires_billing' => true
+                    ]);
                 }
-            } else {
-                $defaultAdminEmail = config('mail.admin_email', 'admin@yourdomain.com');
-                Mail::to($defaultAdminEmail)->send(new DepositRequestSubmitted($depositRequest));
+            }
+
+            // Use the provided reference code
+            $referenceCode = $request->reference_code;
+            
+            // Check if reference code already exists
+            $existingDeposit = DepositRequest::where('reference_code', $referenceCode)->first();
+            if ($existingDeposit) {
+                do {
+                    $referenceCode = str_pad(mt_rand(1, 999999), 6, '0', STR_PAD_LEFT);
+                } while (DepositRequest::where('reference_code', $referenceCode)->exists());
+            }
+
+            $depositRequest = DepositRequest::create([
+                'user_id' => auth()->id(),
+                'reference_code' => $referenceCode,
+                'amount' => $request->amount,
+                'payment_method' => $request->payment_method,
+                'status' => 'pending'
+            ]);
+
+            // Send email notification to admin
+            try {
+                $admins = User::whereHas('roles', function($query) {
+                    $query->where('name', 'admin');
+                })->get();
+                
+                if ($admins->count() > 0) {
+                    foreach ($admins as $admin) {
+                        Mail::to($admin->email)->send(new DepositRequestSubmitted($depositRequest));
+                    }
+                } else {
+                    $defaultAdminEmail = config('mail.admin_email', 'admin@yourdomain.com');
+                    Mail::to($defaultAdminEmail)->send(new DepositRequestSubmitted($depositRequest));
+                }
+                
+            } catch (\Exception $e) {
+                Log::error('Failed to send deposit notification email: ' . $e->getMessage());
+            }
+
+            $responseData = [
+                'success' => true,
+                'message' => 'Deposit request submitted successfully.',
+                'reference_code' => $referenceCode,
+                'deposit_id' => $depositRequest->id
+            ];
+            
+            // For bank transfer, include invoice URL
+            if ($request->payment_method === 'bank') {
+                $responseData['invoice_url'] = route('advertiser.invoice', $referenceCode);
             }
             
+            return response()->json($responseData);
+            
         } catch (\Exception $e) {
-            Log::error('Failed to send deposit notification email: ' . $e->getMessage());
+            Log::error('Error submitting deposit request: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to submit deposit request: ' . $e->getMessage()
+            ], 500);
         }
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Deposit request submitted successfully.',
-            'reference_code' => $referenceCode,
-            'deposit_id' => $depositRequest->id
-        ]);
     }
 
     public function getStatus($id)
@@ -226,4 +260,187 @@ class AddFundsController extends Controller
             'deposit' => $depositRequest
         ]);
     }
+    
+    /**
+     * Save billing information to user profile
+     */
+    public function saveBillingInfo(Request $request)
+    {
+        try {
+            $user = auth()->user();
+            
+            $request->validate([
+                'billing_name' => 'required|string|max:255',
+                'country' => 'required|string|max:255',
+                'city' => 'required|string|max:255',
+                'address' => 'required|string'
+            ]);
+            
+            // Update user billing info directly on users table
+            $user->billing_name = $request->billing_name;
+            $user->company_name = $request->company_name;
+            $user->country = $request->country;
+            $user->state = $request->state;
+            $user->city = $request->city;
+            $user->address = $request->address;
+            $user->postal_code = $request->postal_code;
+            $user->vat_number = $request->vat_number;
+            $user->save();
+            
+            Log::info('Billing information saved for user', [
+                'user_id' => $user->id,
+                'billing_name' => $request->billing_name
+            ]);
+            
+            return response()->json([
+                'success' => true,
+                'message' => 'Billing information saved successfully'
+            ]);
+            
+        } catch (\Exception $e) {
+            Log::error('Error saving billing info: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to save billing information: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+    
+    /**
+     * Get billing information from user profile
+     */
+    public function getBillingInfo()
+    {
+        try {
+            $user = auth()->user();
+            
+            $billingInfo = [
+                'billing_name' => $user->billing_name,
+                'company_name' => $user->company_name,
+                'country' => $user->country,
+                'state' => $user->state,
+                'city' => $user->city,
+                'address' => $user->address,
+                'postal_code' => $user->postal_code,
+                'vat_number' => $user->vat_number,
+                'has_info' => !empty($user->billing_name) && !empty($user->address)
+            ];
+            
+            return response()->json([
+                'success' => true,
+                'data' => $billingInfo
+            ]);
+            
+        } catch (\Exception $e) {
+            Log::error('Error fetching billing info: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to fetch billing information'
+            ], 500);
+        }
+    }
+    
+    /**
+ * Show invoice page
+ */
+public function showInvoice($referenceCode)
+{
+    try {
+        $userId = auth()->id();
+        
+        // First check if it's a deposit
+        $deposit = DepositRequest::where('reference_code', $referenceCode)
+            ->where('user_id', $userId)
+            ->first();
+        
+        $user = auth()->user();
+        
+        if ($deposit) {
+            // It's a deposit invoice
+            return view('advertiser.invoice', [
+                'invoiceType' => 'deposit',
+                'referenceCode' => $referenceCode,
+                'amount' => $deposit->amount,
+                'billingName' => $user->billing_name ?? $user->name,
+                'companyName' => $user->company_name ?? '',
+                'country' => $user->country ?? '',
+                'state' => $user->state ?? '',
+                'city' => $user->city ?? '',
+                'address' => $user->address ?? '',
+                'postalCode' => $user->postal_code ?? '',
+                'vatNumber' => $user->vat_number ?? '',
+                'userName' => $user->name,
+                'userEmail' => $user->email,
+                'userId' => $user->id,
+                'status' => $deposit->status,
+                'paymentMethod' => $deposit->payment_method,
+                'orderDate' => $deposit->created_at,
+                'orderItems' => [],
+                'totalBaseAmount' => 0,
+                'totalSensitiveAmount' => 0
+            ]);
+        }
+        
+        // Check if it's an order
+        $order = Order::where('reference_code', $referenceCode)
+            ->where('user_id', $userId)
+            ->with('items')
+            ->first();
+        
+        if ($order) {
+            $orderItems = [];
+            $totalBaseAmount = 0;
+            $totalSensitiveAmount = 0;
+            
+            foreach ($order->items as $item) {
+                $additionalPrice = $item->additional_price ?? 0;
+                $basePrice = $item->price - $additionalPrice;
+                $totalBaseAmount += $basePrice;
+                $totalSensitiveAmount += $additionalPrice;
+                
+                $orderItems[] = [
+                    'site_name' => $item->site_name,
+                    'site_url' => $item->site_url,
+                    'price' => $item->price,
+                    'base_price' => $basePrice,
+                    'additional_price' => $additionalPrice,
+                    'sensitive_type' => $item->sensitive_type,
+                    'content_link' => $item->content_link,
+                    'live_url' => $item->live_url ?? ''
+                ];
+            }
+            
+            return view('advertiser.invoice', [
+                'invoiceType' => 'order',
+                'referenceCode' => $referenceCode,
+                'amount' => $order->total_amount,
+                'billingName' => $user->billing_name ?? $user->name,
+                'companyName' => $user->company_name ?? '',
+                'country' => $user->country ?? '',
+                'state' => $user->state ?? '',
+                'city' => $user->city ?? '',
+                'address' => $user->address ?? '',
+                'postalCode' => $user->postal_code ?? '',
+                'vatNumber' => $user->vat_number ?? '',
+                'userName' => $user->name,
+                'userEmail' => $user->email,
+                'userId' => $user->id,
+                'status' => $order->status,
+                'paymentMethod' => $order->payment_method,
+                'orderDate' => $order->created_at,
+                'orderItems' => $orderItems,
+                'totalBaseAmount' => $totalBaseAmount,
+                'totalSensitiveAmount' => $totalSensitiveAmount
+            ]);
+        }
+        
+        return redirect()->route('advertiser.add-funds')
+            ->with('error', 'Invoice not found');
+        
+    } catch (\Exception $e) {
+        Log::error('Error showing invoice: ' . $e->getMessage());
+        return redirect()->route('advertiser.add-funds')
+            ->with('error', 'Invoice not found');
+    }
+}
 }
