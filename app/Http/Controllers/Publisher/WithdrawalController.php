@@ -15,7 +15,7 @@ use Illuminate\Support\Facades\Mail;
 
 class WithdrawalController extends Controller
 {
-    private $platformChargePercent = 18;
+    private $platformChargePercent = 0.00; // Set to 0% for now, can be configured later
     
     public function index()
     {

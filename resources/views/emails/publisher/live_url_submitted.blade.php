@@ -16,7 +16,7 @@ The publisher has submitted the live URL for your order **#{{ $order->order_numb
 
 ## Next Steps:
 
-Please review the published content. Once you are satisfied, you can approve the order from your dashboard.
+If you do not approve the order within 48 hours, it will be automatically approved. If you have any questions or concerns, please contact our support team.
 
 @component('mail::button', ['url' => route('advertiser.orders')])
 Review Order

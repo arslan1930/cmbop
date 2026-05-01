@@ -39,6 +39,7 @@ class ReportsController extends Controller
             'total_amount' => 0,
             'orders_with_sensitive' => 0
         ];
+
         
         // Get ALL orders for statistics (not paginated)
         $allOrders = Order::where('user_id', $userId)->with('items')->get();
@@ -103,6 +104,41 @@ class ReportsController extends Controller
     }
     
     /**
+     * Get statistics for dashboard cards (AJAX)
+     */
+    public function getStatistics(Request $request)
+    {
+        try {
+            $userId = auth()->id();
+            
+            $totalDeposits = DepositRequest::where('user_id', $userId)
+                ->where('status', 'completed')
+                ->sum('amount');
+            
+            $totalSpent = Order::where('user_id', $userId)
+                ->where('payment_status', 'paid')
+                ->sum('total_amount');
+            
+            $totalOrders = Order::where('user_id', $userId)->count();
+            
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'total_deposits' => $totalDeposits,
+                    'total_spent' => $totalSpent,
+                    'total_orders' => $totalOrders
+                ]
+            ]);
+        } catch (\Exception $e) {
+            \Log::error('Error fetching statistics: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to load statistics'
+            ], 500);
+        }
+    }
+    
+    /**
      * Get detailed order report with sensitive prices (AJAX)
      */
     public function getOrderReport(Request $request)
@@ -132,7 +168,8 @@ class ReportsController extends Controller
                 $query->where('payment_status', $request->payment_status);
             }
             
-            $orders = $query->paginate(20);
+            $perPage = $request->get('per_page', 20);
+            $orders = $query->paginate($perPage);
             
             // Transform data with sensitive price info
             $transformedOrders = [];
@@ -140,6 +177,7 @@ class ReportsController extends Controller
                 $orderData = [
                     'id' => $order->id,
                     'order_number' => $order->order_number,
+                    'reference_code' => $order->reference_code,
                     'created_at' => $order->created_at,
                     'status' => $order->status,
                     'payment_method' => $order->payment_method,
@@ -275,7 +313,8 @@ class ReportsController extends Controller
                 $query->where('status', $request->status);
             }
             
-            $activities = $query->paginate(20);
+            $perPage = $request->get('per_page', 20);
+            $activities = $query->paginate($perPage);
             
             // Add type attribute
             foreach ($activities as $activity) {

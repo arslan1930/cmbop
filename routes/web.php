@@ -14,6 +14,7 @@ use App\Http\Middleware\RoleMiddleware;
 use App\Http\Controllers\Publisher\SiteController;
 use App\Http\Controllers\Publisher\OrderController;
 use App\Http\Controllers\Publisher\WithdrawalController;
+use App\Http\Controllers\Publisher\PublisherReportsController;
 
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\Admin\SiteController as AdminSiteController;
@@ -27,6 +28,7 @@ use App\Http\Controllers\Advertiser\AddFundsController;
 use App\Http\Controllers\Advertiser\ReportsController;
 
 use App\Http\Controllers\InvoiceController;
+
 
 
 
@@ -227,6 +229,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/messages/{orderId}', [App\Http\Controllers\ChatController::class, 'getMessages'])->name('chat.messages');
     Route::post('/send/{orderId}', [App\Http\Controllers\ChatController::class, 'sendMessage'])->name('chat.send');
     Route::post('/upload-image', [App\Http\Controllers\ChatImageController::class, 'upload'])->name('chat.upload-image');
+
+
+    
 });
 
 
@@ -311,10 +316,18 @@ Route::middleware(['auth','verified', RoleMiddleware::class . ':advertiser'])
         
         // Reports
         Route::get('/reports', [ReportsController::class, 'index'])->name('reports');
+    Route::get('/reports/statistics', [ReportsController::class, 'getStatistics'])->name('reports.statistics');
+    Route::get('/reports/funds', [ReportsController::class, 'getFundsActivity'])->name('reports.funds');
+    Route::get('/reports/orders', [ReportsController::class, 'getOrderReport'])->name('reports.orders');
+
+    Route::get('/reports/funds-data', [ReportsController::class, 'getFundsActivity'])->name('reports.funds');
+    Route::get('/reports/orders-data', [ReportsController::class, 'getOrderReport'])->name('reports.orders');
 
 
         // Invoice route
-        Route::get('/invoice/{referenceCode}', [InvoiceController::class, 'showInvoice'])->name('invoice');
+Route::get('/invoice/{referenceCode}', [InvoiceController::class, 'showInvoice'])->name('invoice');
+
+       
 
 
 // Save billing info route
@@ -378,4 +391,10 @@ Route::middleware(['auth','verified', RoleMiddleware::class . ':publisher'])
     Route::get('/withdrawals/statistics', [WithdrawalController::class, 'getStatistics'])->name('publisher.withdrawals.statistics');
     Route::post('/withdrawals/{id}/cancel', [WithdrawalController::class, 'cancelWithdrawal'])->name('publisher.withdrawals.cancel');
 
+    // Reports page
+    Route::get('/reports', [PublisherReportsController::class, 'index'])->name('reports');
+    Route::get('/reports/statistics', [PublisherReportsController::class, 'getStatistics'])->name('reports.statistics');
+    Route::get('/reports/orders', [PublisherReportsController::class, 'getOrders'])->name('reports.orders');
+    Route::get('/reports/orders/{orderItemId}/details', [PublisherReportsController::class, 'getOrderDetails'])->name('reports.order.details');
+    Route::get('/reports/withdrawals', [PublisherReportsController::class, 'getWithdrawals'])->name('reports.withdrawals');
 });

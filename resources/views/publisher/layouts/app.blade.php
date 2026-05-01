@@ -230,6 +230,11 @@
         <a href="{{ route('publisher.withdraw') }}" class="{{ request()->routeIs('publisher.withdraw') ? 'active' : '' }}">
             <i class="fa fa-money-bill-wave"></i> <span>Withdraw</span>
         </a>
+
+        <!-- Reports -->
+        <a href="{{ route('publisher.reports') }}" class="{{ request()->routeIs('publisher.reports') ? 'active' : '' }}">
+            <i class="fa fa-chart-bar"></i> <span>Reports</span>
+        </a>
         
     </div>
 </div>
