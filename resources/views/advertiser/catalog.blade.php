@@ -235,7 +235,16 @@
                                 </div>
                             </div>
 
-        
+                            <!-- New Badge Filter -->
+                            <div class="col-md-2">
+                                <label class="form-label fw-semibold small text-muted mb-1">New Sites</label>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="new_badge" id="new_badge" value="1" {{ request('new_badge') == 1 ? 'checked' : '' }}>
+                                    <label class="form-check-label" for="new_badge">
+                                        Show New Sites
+                                    </label>
+                                </div>
+                            </div>
 
                             <!-- Action Buttons -->
                             <div class="col-md-2">
@@ -309,6 +318,7 @@
 
                                         <div class="d-flex flex-column gap-1">
 
+                                            <!-- URL Display with the 30 days old site with a new badge in the top right corner -->
                                             <div class="d-flex align-items-center gap-2">
                                                 <span class="text-dark"
                                                       style="font-family: monospace; font-weight: 600; font-size: 13.5px;"
@@ -342,7 +352,13 @@
                                                    id="arrow-{{ $site->id }}"
                                                    style="font-size: 13px; cursor: pointer; transition: transform 0.3s ease;">
                                                 </i>
-                                            </div>
+
+                                                @if($site->created_at->gt(now()->subDays(30)))
+                                                    <span class="new-badge">
+                                                        NEW
+                                                        <span class="pulse-dot"></span>
+                                                    </span>
+                                                @endif
 
                                         </div>
 
@@ -689,6 +705,58 @@
     font-size: 0.875rem;
     padding: 5px 0;
     border-top: 1px solid #e9ecef;
+}
+
+.new-badge {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    background: linear-gradient(135deg, #dc3545, #ff6b6b);
+    color: #fff;
+    font-size: 10px;
+    padding: 4px 8px;
+    border-radius: 6px;
+    font-weight: 600;
+    letter-spacing: 0.4px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+    z-index: 1;
+}
+
+/* Pulse dot (cleaner, smoother) */
+.pulse-dot {
+    width: 6px;
+    height: 6px;
+    background-color: #fff;
+    border-radius: 50%;
+    position: relative;
+}
+
+/* Outer pulse ring */
+.pulse-dot::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.6);
+    animation: pulse-ring 1.6s infinite ease-out;
+}
+
+/* Animation */
+@keyframes pulse-ring {
+    0% {
+        transform: scale(1);
+        opacity: 0.8;
+    }
+    70% {
+        transform: scale(2.5);
+        opacity: 0;
+    }
+    100% {
+        opacity: 0;
+    }
 }
 </style>
 

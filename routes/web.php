@@ -221,6 +221,15 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::post('/profile/billing', [\App\Http\Controllers\ProfileController::class, 'billing'])
         ->name('profile.billing');
+
+        // Chat routes
+    Route::prefix('chat')->group(function () {
+    Route::get('/messages/{orderId}', [App\Http\Controllers\ChatController::class, 'getMessages'])->name('chat.messages');
+    Route::post('/send/{orderId}', [App\Http\Controllers\ChatController::class, 'sendMessage'])->name('chat.send');
+    Route::post('/upload-image', [App\Http\Controllers\ChatImageController::class, 'upload'])->name('chat.upload-image');
+});
+
+
 });
 
 // ✅ Advertiser - Routes for managing campaigns, catalog, and projects

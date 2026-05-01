@@ -84,7 +84,7 @@
                             <th>Sensitive Price</th>
                             <th>Order Status</th>
                             <th>Content Link</th>
-                            <th width="100">Action</th>
+                            <th width="120">Action</th>
                         </tr>
                     </thead>
                     <tbody id="tasksTableBody">
@@ -187,6 +187,41 @@
             <div class="modal-body" id="detailsContent"></div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Chat Modal -->
+<div class="modal fade" id="chatModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title">
+                    <i class="fa fa-comments me-2"></i> 
+                    Order Chat - <span id="chatOrderNumber"></span>
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-0">
+                <div id="chatMessages" class="p-3" style="height: 400px; overflow-y: auto; background: #f8f9fa;">
+                    <div class="text-center text-muted py-5">
+                        <i class="fa fa-spinner fa-spin fa-2x"></i>
+                        <p class="mt-2">Loading messages...</p>
+                    </div>
+                </div>
+                <div class="p-3 border-top">
+                    <form id="chatForm">
+                        <input type="hidden" id="chatOrderId">
+                        <div class="input-group">
+                            <textarea id="chatMessageInput" class="form-control" rows="2" placeholder="Type your message..."></textarea>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fa fa-paper-plane"></i> Send
+                            </button>
+                        </div>
+                        <small class="text-muted mt-1 d-block">Press Ctrl+Enter to send</small>
+                    </form>
+                </div>
             </div>
         </div>
     </div>
@@ -296,6 +331,20 @@ body.layout-dark .sensitive-badge {
 td a {
     word-break: break-all;
 }
+
+#chatMessages::-webkit-scrollbar {
+    width: 6px;
+}
+#chatMessages::-webkit-scrollbar-track {
+    background: #f1f1f1;
+}
+#chatMessages::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 3px;
+}
+#chatMessages::-webkit-scrollbar-thumb:hover {
+    background: #a8a8a8;
+}
 </style>
 
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
@@ -303,6 +352,7 @@ td a {
 
 <script>
 let currentPage = 1;
+let currentChatOrderId = null;
 
 // Get the base URL dynamically
 const baseUrl = window.location.origin;
@@ -340,6 +390,111 @@ $(document).ready(function() {
         $('#complete_order_item_id').val($(this).data('id'));
         $('#live_url').val('');
         $('#completeModal').modal('show');
+    });
+
+    // Chat functionality
+    window.openChat = function(orderId, orderNumber) {
+        currentChatOrderId = orderId;
+        document.getElementById('chatOrderId').value = orderId;
+        document.getElementById('chatOrderNumber').innerText = orderNumber;
+        loadChatMessages(orderId);
+        $('#chatModal').modal('show');
+    };
+
+    function loadChatMessages(orderId) {
+        fetch(baseUrl + '/chat/messages/' + orderId, {
+            method: 'GET',
+            headers: {
+                'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                renderChatMessages(data.messages, data.current_user_id);
+                const chatDiv = document.getElementById('chatMessages');
+                chatDiv.scrollTop = chatDiv.scrollHeight;
+            } else {
+                document.getElementById('chatMessages').innerHTML = '<div class="text-center text-danger py-5"><i class="fa fa-exclamation-circle fa-3x mb-3"></i><p>Failed to load messages. Please try again.</p></div>';
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            document.getElementById('chatMessages').innerHTML = '<div class="text-center text-danger py-5"><i class="fa fa-exclamation-circle fa-3x mb-3"></i><p>Failed to load messages. Please try again.</p></div>';
+        });
+    }
+
+    function renderChatMessages(messages, currentUserId) {
+        if (!messages || messages.length === 0) {
+            document.getElementById('chatMessages').innerHTML = '<div class="text-center text-muted py-5"><i class="fa fa-comments fa-3x mb-3"></i><p>No messages yet. Start the conversation!</p></div>';
+            return;
+        }
+        
+        let html = '';
+        
+        messages.forEach(msg => {
+            const isOwnMessage = msg.user_id === currentUserId;
+            const messageClass = isOwnMessage ? 'bg-primary text-white' : 'bg-white border';
+            const alignClass = isOwnMessage ? 'justify-content-end' : 'justify-content-start';
+            const senderName = isOwnMessage ? 'You' : escapeHtml(msg.user.name);
+            const time = new Date(msg.created_at).toLocaleString();
+            const messageText = escapeHtml(msg.message || '');
+            
+            html += '<div class="d-flex ' + alignClass + ' mb-3">' +
+                '<div class="' + messageClass + ' rounded-3 p-3" style="max-width: 70%;">' +
+                    '<div class="small fw-semibold ' + (isOwnMessage ? 'text-white-50' : 'text-primary') + ' mb-1">' +
+                        senderName + ' · ' + time +
+                    '</div>' +
+                    '<div class="mb-0">' + messageText + '</div>' +
+                '</div>' +
+            '</div>';
+        });
+        
+        document.getElementById('chatMessages').innerHTML = html;
+    }
+
+    $('#chatForm').on('submit', function(e) {
+        e.preventDefault();
+        const orderId = $('#chatOrderId').val();
+        const message = $('#chatMessageInput').val().trim();
+        
+        if (!message) return;
+        
+        const sendBtn = $(this).find('button[type="submit"]');
+        sendBtn.prop('disabled', true).html('<i class="fa fa-spinner fa-spin"></i> Sending...');
+        
+        fetch(baseUrl + '/chat/send/' + orderId, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': '{{ csrf_token() }}'
+            },
+            body: JSON.stringify({ message: message })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                $('#chatMessageInput').val('');
+                loadChatMessages(orderId);
+            } else {
+                Swal.fire('Error', data.message, 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            Swal.fire('Error', 'Failed to send message', 'error');
+        })
+        .finally(() => {
+            sendBtn.prop('disabled', false).html('<i class="fa fa-paper-plane"></i> Send');
+        });
+    });
+
+    // Ctrl+Enter shortcut
+    $('#chatMessageInput').on('keydown', function(e) {
+        if (e.ctrlKey && e.key === 'Enter') {
+            $('#chatForm').submit();
+        }
     });
 
     $('#confirmAccept').on('click', function() {
@@ -509,59 +664,38 @@ $(document).ready(function() {
             
             var actions = '';
             if (orderStatus === 'pending') {
-                actions = `
-                    <div class="action-buttons">
-                        <button class="btn btn-success btn-action-sm accept-task" data-id="${item.id}">
-                            <i class="fa fa-check"></i> Accept
-                        </button>
-                        <button class="btn btn-danger btn-action-sm reject-task" data-id="${item.id}">
-                            <i class="fa fa-times"></i> Reject
-                        </button>
-                        <button class="btn btn-info btn-action-sm view-details" data-id="${item.id}">
-                            <i class="fa fa-eye"></i> View
-                        </button>
-                    </div>
-                `;
+                actions = '<div class="action-buttons">' +
+                    '<button class="btn btn-success btn-action-sm accept-task" data-id="' + item.id + '"><i class="fa fa-check"></i> Accept</button>' +
+                    '<button class="btn btn-danger btn-action-sm reject-task" data-id="' + item.id + '"><i class="fa fa-times"></i> Reject</button>' +
+                    '<button class="btn btn-info btn-action-sm view-details" data-id="' + item.id + '"><i class="fa fa-eye"></i> View</button>' +
+                    '<button class="btn btn-primary btn-action-sm" onclick="openChat(' + item.order_id + ', \'' + orderNumber + '\')"><i class="fa fa-comments"></i> Chat</button>' +
+                    '</div>';
             } else if (orderStatus === 'processing') {
-                actions = `
-                    <div class="action-buttons">
-                        <button class="btn btn-primary btn-action-sm submit-live-url" data-id="${item.id}">
-                            <i class="fa fa-link"></i> Submit
-                        </button>
-                        <button class="btn btn-info btn-action-sm view-details" data-id="${item.id}">
-                            <i class="fa fa-eye"></i> View
-                        </button>
-                    </div>
-                `;
+                actions = '<div class="action-buttons">' +
+                    '<button class="btn btn-primary btn-action-sm submit-live-url" data-id="' + item.id + '"><i class="fa fa-link"></i> Submit</button>' +
+                    '<button class="btn btn-info btn-action-sm view-details" data-id="' + item.id + '"><i class="fa fa-eye"></i> View</button>' +
+                    '<button class="btn btn-primary btn-action-sm" onclick="openChat(' + item.order_id + ', \'' + orderNumber + '\')"><i class="fa fa-comments"></i> Chat</button>' +
+                    '</div>';
             } else if (orderStatus === 'completed') {
-                actions = `
-                    <div class="action-buttons">
-                        <button class="btn btn-info btn-action-sm view-details" data-id="${item.id}">
-                            <i class="fa fa-eye"></i> View
-                        </button>
-                        ${item.live_url && item.live_url !== '' ? 
-                            `<a href="${item.live_url}" target="_blank" class="btn btn-secondary btn-action-sm">
-                                <i class="fa fa-external-link"></i> Live
-                            </a>` : ''
-                        }
-                    </div>
-                `;
+                var liveUrlBtn = '';
+                if (item.live_url && item.live_url !== '') {
+                    liveUrlBtn = '<a href="' + item.live_url + '" target="_blank" class="btn btn-secondary btn-action-sm"><i class="fa fa-external-link"></i> Live</a>';
+                }
+                actions = '<div class="action-buttons">' +
+                    '<button class="btn btn-info btn-action-sm view-details" data-id="' + item.id + '"><i class="fa fa-eye"></i> View</button>' +
+                    '<button class="btn btn-primary btn-action-sm" onclick="openChat(' + item.order_id + ', \'' + orderNumber + '\')"><i class="fa fa-comments"></i> Chat</button>' +
+                    liveUrlBtn +
+                    '</div>';
             } else if (orderStatus === 'cancelled') {
-                actions = `
-                    <div class="action-buttons">
-                        <button class="btn btn-info btn-action-sm view-details" data-id="${item.id}">
-                            <i class="fa fa-eye"></i> View
-                        </button>
-                    </div>
-                `;
+                actions = '<div class="action-buttons">' +
+                    '<button class="btn btn-info btn-action-sm view-details" data-id="' + item.id + '"><i class="fa fa-eye"></i> View</button>' +
+                    '<button class="btn btn-primary btn-action-sm" onclick="openChat(' + item.order_id + ', \'' + orderNumber + '\')"><i class="fa fa-comments"></i> Chat</button>' +
+                    '</div>';
             }
             
             html += '<tr>' +
                 '<td><strong>#' + escapeHtml(orderNumber) + '</strong></td>' +
-                '<td>' +
-                    '<div class="fw-semibold">' + escapeHtml(item.site_name) + '</div>' +
-                    '<div class="text-muted small"><a href="' + escapeHtml(item.site_url) + '" target="_blank">' + escapeHtml(item.site_url) + '</a></div>' +
-                '</td>' +
+                '<td><div class="fw-semibold">' + escapeHtml(item.site_name) + '</div><div class="text-muted small"><a href="' + escapeHtml(item.site_url) + '" target="_blank">' + escapeHtml(item.site_url) + '</a></div></td>' +
                 '<td class="fw-semibold text-primary">€' + basePrice.toFixed(2) + '</td>' +
                 '<td>' + (additionalPrice > 0 ? '<span class="sensitive-badge"><i class="fa fa-plus-circle"></i> ' + escapeHtml(sensitiveType || 'Extra') + ' (+€' + additionalPrice.toFixed(2) + ')</span>' : '<span class="text-muted">—</span>') + '</td>' +
                 '<td><span class="status-badge ' + statusClass + '">' + statusText + '</span></td>' +
@@ -630,50 +764,47 @@ $(document).ready(function() {
         
         var createdAt = item.created_at ? new Date(item.created_at).toLocaleDateString() : 'N/A';
         
-        var html = `
-            <div class="row mb-4">
-                <div class="col-md-6">
-                    <div class="bg-light p-3 rounded">
-                        <h6 class="mb-3">Order Information</h6>
-                        <p class="mb-1"><strong>Order Number:</strong> #${escapeHtml(order.order_number)}</p>
-                        <p class="mb-1"><strong>Date:</strong> ${escapeHtml(createdAt)}</p>
-                        <p class="mb-1"><strong>Payment Status:</strong> ${paymentStatusHtml}</p>
-                        <p class="mb-1"><strong>Reference Code:</strong> ${escapeHtml(order.reference_code || '-')}</p>
-                    </div>
-                </div>
-                <div class="col-md-6">
-                    <div class="bg-light p-3 rounded">
-                        <h6 class="mb-3">Order Status</h6>
-                        <p class="mb-1"><strong>Status:</strong> <span class="status-badge ${statusClass}">${statusText}</span></p>
-                        <p class="mb-1"><strong>Price:</strong> <span class="fw-bold">€${basePrice.toFixed(2)}</span></p>
-                        ${additionalPrice > 0 ? `<p class="mb-1"><strong>Sensitive Price:</strong> <span class="text-warning">+ €${additionalPrice.toFixed(2)} (${escapeHtml(sensitiveType)})</span></p>` : ''}
-                        <p class="mb-1"><strong>Total Amount:</strong> <span class="fw-bold text-primary fs-5">€${parseFloat(item.price).toFixed(2)}</span></p>
-                    </div>
-                </div>
-            </div>
-            
-            <h6 class="mb-3">Order Items</h6>
-            <div class="border rounded p-3">
-                <div class="row">
-                    <div class="col-md-6">
-                        <p class="mb-1"><strong>Site Name:</strong></p>
-                        <p class="mb-2">${escapeHtml(item.site_name)}</p>
-                        <p class="mb-1"><strong>Site URL:</strong></p>
-                        <p class="mb-2"><a href="${escapeHtml(item.site_url)}" target="_blank" class="text-primary">${escapeHtml(item.site_url)} <i class="fa fa-external-link fa-xs"></i></a></p>
-                        ${additionalPrice > 0 ? `<p class="mb-1"><strong>Sensitive Type:</strong></p><p class="mb-2 text-warning">${escapeHtml(sensitiveType)} (+€${additionalPrice.toFixed(2)})</p>` : ''}
-                    </div>
-                    <div class="col-md-6">
-                        <p class="mb-1"><strong>Price Breakdown:</strong></p>
-                        <p class="mb-1"><small>Base Price: €${basePrice.toFixed(2)}</small></p>
-                        ${additionalPrice > 0 ? `<p class="mb-1"><small class="text-warning">+ ${escapeHtml(sensitiveType)}: €${additionalPrice.toFixed(2)}</small></p>` : ''}
-                        <p class="mb-2"><strong class="text-primary">Total: €${parseFloat(item.price).toFixed(2)}</strong></p>
-                        <p class="mb-1"><strong>Content Link:</strong></p>
-                        <p class="mb-2"><a href="${escapeHtml(item.content_link)}" target="_blank" class="text-primary text-break">${escapeHtml(item.content_link)} <i class="fa fa-external-link fa-xs"></i></a></p>
-                        ${liveUrlHtml}
-                    </div>
-                </div>
-            </div>
-        `;
+        var html = '<div class="row mb-4">' +
+            '<div class="col-md-6">' +
+                '<div class="bg-light p-3 rounded">' +
+                    '<h6 class="mb-3">Order Information</h6>' +
+                    '<p class="mb-1"><strong>Order Number:</strong> #' + escapeHtml(order.order_number) + '</p>' +
+                    '<p class="mb-1"><strong>Date:</strong> ' + escapeHtml(createdAt) + '</p>' +
+                    '<p class="mb-1"><strong>Payment Status:</strong> ' + paymentStatusHtml + '</p>' +
+                    '<p class="mb-1"><strong>Reference Code:</strong> ' + escapeHtml(order.reference_code || '-') + '</p>' +
+                '</div>' +
+            '</div>' +
+            '<div class="col-md-6">' +
+                '<div class="bg-light p-3 rounded">' +
+                    '<h6 class="mb-3">Order Status</h6>' +
+                    '<p class="mb-1"><strong>Status:</strong> <span class="status-badge ' + statusClass + '">' + statusText + '</span></p>' +
+                    '<p class="mb-1"><strong>Price:</strong> <span class="fw-bold">€' + basePrice.toFixed(2) + '</span></p>' +
+                    (additionalPrice > 0 ? '<p class="mb-1"><strong>Sensitive Price:</strong> <span class="text-warning">+ €' + additionalPrice.toFixed(2) + ' (' + escapeHtml(sensitiveType) + ')</span></p>' : '') +
+                    '<p class="mb-1"><strong>Total Amount:</strong> <span class="fw-bold text-primary fs-5">€' + parseFloat(item.price).toFixed(2) + '</span></p>' +
+                '</div>' +
+            '</div>' +
+        '</div>' +
+        '<h6 class="mb-3">Order Items</h6>' +
+        '<div class="border rounded p-3">' +
+            '<div class="row">' +
+                '<div class="col-md-6">' +
+                    '<p class="mb-1"><strong>Site Name:</strong></p>' +
+                    '<p class="mb-2">' + escapeHtml(item.site_name) + '</p>' +
+                    '<p class="mb-1"><strong>Site URL:</strong></p>' +
+                    '<p class="mb-2"><a href="' + escapeHtml(item.site_url) + '" target="_blank" class="text-primary">' + escapeHtml(item.site_url) + ' <i class="fa fa-external-link fa-xs"></i></a></p>' +
+                    (additionalPrice > 0 ? '<p class="mb-1"><strong>Sensitive Type:</strong></p><p class="mb-2 text-warning">' + escapeHtml(sensitiveType) + ' (+€' + additionalPrice.toFixed(2) + ')</p>' : '') +
+                '</div>' +
+                '<div class="col-md-6">' +
+                    '<p class="mb-1"><strong>Price Breakdown:</strong></p>' +
+                    '<p class="mb-1"><small>Base Price: €' + basePrice.toFixed(2) + '</small></p>' +
+                    (additionalPrice > 0 ? '<p class="mb-1"><small class="text-warning">+ ' + escapeHtml(sensitiveType) + ': €' + additionalPrice.toFixed(2) + '</small></p>' : '') +
+                    '<p class="mb-2"><strong class="text-primary">Total: €' + parseFloat(item.price).toFixed(2) + '</strong></p>' +
+                    '<p class="mb-1"><strong>Content Link:</strong></p>' +
+                    '<p class="mb-2"><a href="' + escapeHtml(item.content_link) + '" target="_blank" class="text-primary text-break">' + escapeHtml(item.content_link) + ' <i class="fa fa-external-link fa-xs"></i></a></p>' +
+                    liveUrlHtml +
+                '</div>' +
+            '</div>' +
+        '</div>';
         
         $('#detailsContent').html(html);
     }

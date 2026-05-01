@@ -22,7 +22,9 @@ class Order extends Model
         'payment_status', 
         'status',
         'sensitive_type',
-        'additional_price'
+        'additional_price',
+        'last_chat_message',     // Add this
+        'last_chat_at'           // Add this
     ];
 
     protected $casts = [
@@ -33,7 +35,8 @@ class Order extends Model
         'additional_price' => 'decimal:2',
         'subtotal' => 'decimal:2',
         'tax' => 'decimal:2',
-        'total_amount' => 'decimal:2'
+        'total_amount' => 'decimal:2',
+        'last_chat_at' => 'datetime'  // Add this
     ];
 
     public function user()
@@ -44,6 +47,52 @@ class Order extends Model
     public function items()
     {
         return $this->hasMany(OrderItem::class);
+    }
+    
+    /**
+     * Get all chat messages for this order
+     */
+    public function chatMessages()
+    {
+        return $this->hasMany(OrderChatMessage::class)->orderBy('created_at', 'asc');
+    }
+    
+    /**
+     * Get unread chat messages for this order
+     */
+    public function unreadChatMessages($userId, $userType)
+    {
+        return $this->chatMessages()
+            ->where('is_read', false)
+            ->where('user_id', '!=', $userId)
+            ->when($userType === 'advertiser', function($q) {
+                $q->where('sender_type', 'publisher');
+            })
+            ->when($userType === 'publisher', function($q) {
+                $q->where('sender_type', 'advertiser');
+            });
+    }
+    
+    /**
+     * Get the latest chat message
+     */
+    public function getLatestChatMessageAttribute()
+    {
+        return $this->chatMessages()->latest()->first();
+    }
+    
+    /**
+     * Get unread count for this order
+     */
+    public function getUnreadChatCountAttribute()
+    {
+        $user = auth()->user();
+        if (!$user) return 0;
+        
+        $isAdvertiser = $this->user_id === $user->id;
+        $userType = $isAdvertiser ? 'advertiser' : 'publisher';
+        
+        return $this->unreadChatMessages($user->id, $userType)->count();
     }
     
     // Helper method to get base price

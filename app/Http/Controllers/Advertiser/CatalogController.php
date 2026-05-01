@@ -168,6 +168,11 @@ public function index(Request $request)
         $query->where('sponsored', 1);
     }
 
+    // New badge filter created At last 30 days
+    if ($request->filled('new_badge') && $request->new_badge == 1) {
+        $query->where('created_at', '>=', now()->subDays(30));
+    }
+
     // ✅ Pagination (20 per page)
     $sites = $query->latest()->paginate(20)->withQueryString();
     

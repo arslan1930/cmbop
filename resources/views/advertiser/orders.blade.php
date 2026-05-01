@@ -124,7 +124,7 @@
                             <th>Order Status</th>
                             <th>Content Link</th>
                             <th>Live URL</th>
-                            <th width="100">Action</th>
+                            <th width="120">Action</th>
                         </tr>
                     </thead>
                     <tbody id="ordersTableBody">
@@ -160,6 +160,41 @@
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Chat Modal -->
+<div class="modal fade" id="chatModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title">
+                    <i class="fa fa-comments me-2"></i> 
+                    Order Chat - <span id="chatOrderNumber"></span>
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-0">
+                <div id="chatMessages" class="p-3" style="height: 400px; overflow-y: auto; background: #f8f9fa;">
+                    <div class="text-center text-muted py-5">
+                        <i class="fa fa-spinner fa-spin fa-2x"></i>
+                        <p class="mt-2">Loading messages...</p>
+                    </div>
+                </div>
+                <div class="p-3 border-top">
+                    <form id="chatForm">
+                        <input type="hidden" id="chatOrderId">
+                        <div class="input-group">
+                            <textarea id="chatMessageInput" class="form-control" rows="2" placeholder="Type your message..."></textarea>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fa fa-paper-plane"></i> Send
+                            </button>
+                        </div>
+                        <small class="text-muted mt-1 d-block">Press Ctrl+Enter to send</small>
+                    </form>
+                </div>
             </div>
         </div>
     </div>
@@ -240,6 +275,12 @@
     white-space: nowrap;
 }
 
+.btn-chat {
+    padding: 4px 12px;
+    font-size: 12px;
+    white-space: nowrap;
+}
+
 .link-cell {
     max-width: 150px;
     overflow: hidden;
@@ -249,6 +290,16 @@
 
 .link-cell a {
     font-size: 12px;
+}
+
+.action-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.action-btn {
+    justify-content: center;
 }
 
 /* Dark mode styles */
@@ -299,10 +350,25 @@ body.layout-dark .sensitive-badge {
 td a {
     word-break: break-all;
 }
+
+#chatMessages::-webkit-scrollbar {
+    width: 6px;
+}
+#chatMessages::-webkit-scrollbar-track {
+    background: #f1f1f1;
+}
+#chatMessages::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 3px;
+}
+#chatMessages::-webkit-scrollbar-thumb:hover {
+    background: #a8a8a8;
+}
 </style>
 
 <script>
 let currentPage = 1;
+let currentChatOrderId = null;
 
 document.addEventListener('DOMContentLoaded', function() {
     fetchOrders();
@@ -326,6 +392,122 @@ document.addEventListener('DOMContentLoaded', function() {
         e.preventDefault();
         currentPage = 1;
         fetchOrders();
+    });
+
+    // Chat functionality
+    window.openChat = function(orderId, orderNumber) {
+        currentChatOrderId = orderId;
+        document.getElementById('chatOrderId').value = orderId;
+        document.getElementById('chatOrderNumber').innerText = orderNumber;
+        loadChatMessages(orderId);
+        $('#chatModal').modal('show');
+    };
+
+    function loadChatMessages(orderId) {
+        fetch(`/chat/messages/${orderId}`, {
+            method: 'GET',
+            headers: {
+                'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                renderChatMessages(data.messages, data.current_user_id);
+                const chatDiv = document.getElementById('chatMessages');
+                chatDiv.scrollTop = chatDiv.scrollHeight;
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            document.getElementById('chatMessages').innerHTML = `
+                <div class="text-center text-danger py-5">
+                    <i class="fa fa-exclamation-circle fa-3x mb-3"></i>
+                    <p>Failed to load messages. Please try again.</p>
+                </div>
+            `;
+        });
+    }
+
+    function renderChatMessages(messages, currentUserId) {
+        if (!messages || messages.length === 0) {
+            document.getElementById('chatMessages').innerHTML = `
+                <div class="text-center text-muted py-5">
+                    <i class="fa fa-comments fa-3x mb-3"></i>
+                    <p>No messages yet. Start the conversation!</p>
+                </div>
+            `;
+            return;
+        }
+        
+        let html = '';
+        
+        messages.forEach(msg => {
+            const isOwnMessage = msg.user_id === currentUserId;
+            const messageClass = isOwnMessage ? 'bg-primary text-white' : 'bg-white border';
+            const alignClass = isOwnMessage ? 'justify-content-end' : 'justify-content-start';
+            const senderName = isOwnMessage ? 'You' : msg.user.name;
+            const time = new Date(msg.created_at).toLocaleString();
+            
+            html += `
+                <div class="d-flex ${alignClass} mb-3">
+                    <div class="${messageClass} rounded-3 p-3" style="max-width: 70%;">
+                        <div class="small fw-semibold ${isOwnMessage ? 'text-white-50' : 'text-primary'} mb-1">
+                            ${senderName} · ${time}
+                        </div>
+                        <div class="mb-0">${escapeHtml(msg.message || '')}</div>
+                    </div>
+                </div>
+            `;
+        });
+        
+        document.getElementById('chatMessages').innerHTML = html;
+    }
+
+    document.getElementById('chatForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const orderId = document.getElementById('chatOrderId').value;
+        const message = document.getElementById('chatMessageInput').value.trim();
+        
+        if (!message) return;
+        
+        const sendBtn = this.querySelector('button[type="submit"]');
+        sendBtn.disabled = true;
+        sendBtn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Sending...';
+        
+        fetch(`/chat/send/${orderId}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': '{{ csrf_token() }}'
+            },
+            body: JSON.stringify({ message: message })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                document.getElementById('chatMessageInput').value = '';
+                loadChatMessages(orderId);
+            } else {
+                Swal.fire('Error', data.message, 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            Swal.fire('Error', 'Failed to send message', 'error');
+        })
+        .finally(() => {
+            sendBtn.disabled = false;
+            sendBtn.innerHTML = '<i class="fa fa-paper-plane"></i> Send';
+        });
+    });
+
+    // Ctrl+Enter shortcut
+    document.getElementById('chatMessageInput').addEventListener('keydown', function(e) {
+        if (e.ctrlKey && e.key === 'Enter') {
+            document.getElementById('chatForm').dispatchEvent(new Event('submit'));
+        }
     });
 
     function fetchOrders(page = 1) {
@@ -453,16 +635,23 @@ document.addEventListener('DOMContentLoaded', function() {
                         }
                     </td>
                     <td>
-                        <div class="d-flex flex-column gap-1">
+                        <div class="action-buttons">
                             <button 
-                                class="btn btn-sm btn-outline-info action-btn d-flex align-items-center"
+                                class="btn btn-sm btn-outline-info action-btn"
                                 onclick="viewOrder(${order.id})">
                                 <i class="fa fa-eye me-1"></i>
                                 <span>View</span>
                             </button>
 
+                            <button 
+                                class="btn btn-sm btn-outline-success action-btn"
+                                onclick="openChat(${order.id}, '${order.order_number}')">
+                                <i class="fa fa-comments me-1"></i>
+                                <span>Chat</span>
+                            </button>
+
                             ${order.status === 'processing' && liveUrl ? 
-                                `<button class="btn btn-sm btn-success action-btn d-flex align-items-center"
+                                `<button class="btn btn-sm btn-success action-btn"
                                     onclick="approveOrder(${order.id})">
                                     <i class="fa fa-check-circle me-1"></i>
                                     <span>Approve</span>
