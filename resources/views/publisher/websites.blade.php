@@ -183,6 +183,46 @@
         100% { transform: rotate(360deg); }
     }
     
+    /* Turnaround Time Badge Styles */
+    .turnaround-badge {
+        display: inline-block;
+        padding: 4px 10px;
+        border-radius: 20px;
+        font-size: 12px;
+        font-weight: 600;
+    }
+    
+    .turnaround-24h {
+        background-color: #d4edda;
+        color: #155724;
+    }
+    
+    .turnaround-48h {
+        background-color: #d1ecf1;
+        color: #0c5460;
+    }
+    
+    .turnaround-3days {
+        background-color: #fff3cd;
+        color: #856404;
+    }
+    
+    .turnaround-5days {
+        background-color: #f8d7da;
+        color: #721c24;
+    }
+    
+    .turnaround-7days {
+        background-color: #e2d5f0;
+        color: #4a148c;
+    }
+    
+    .help-text {
+        font-size: 11px;
+        color: #6c757d;
+        margin-top: 4px;
+    }
+    
     @media (max-width: 768px) {
         #sitesTableWrapper {
             overflow-x: auto;
@@ -262,6 +302,22 @@
                             <label class="form-label">Traffic <span class="text-danger">*</span></label>
                             <input type="number" name="traffic" id="traffic" class="form-control" placeholder="Visitors/month" value="{{ old('traffic') }}" required>
                         </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Turnaround Time <span class="text-danger">*</span></label>
+                            <select name="turnaround_time" id="turnaroundTime" class="form-select" required>
+                                <option value="">Select Turnaround Time</option>
+                                <option value="24h" {{ old('turnaround_time') == '24h' ? 'selected' : '' }}>24 Hours</option>
+                                <option value="48h" {{ old('turnaround_time') == '48h' ? 'selected' : '' }}>48 Hours</option>
+                                <option value="3days" {{ old('turnaround_time') == '3days' ? 'selected' : '' }}>3 Days</option>
+                                <option value="5days" {{ old('turnaround_time') == '5days' ? 'selected' : '' }}>5 Days</option>
+                                <option value="7days" {{ old('turnaround_time') == '7days' ? 'selected' : '' }}>7 Days</option>
+                            </select>
+                            <div class="help-text">Estimated time to publish after order confirmation</div>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Price (€) <span class="text-danger">*</span></label>
+                            <input type="number" name="price" id="price" class="form-control" placeholder="Enter price" min="0" step="0.01" value="{{ old('price') }}" required>
+                        </div>
                     </div>
                 </div>
 
@@ -300,10 +356,6 @@
                                     </option>
                                 @endforeach
                             </select>
-                        </div>
-                        <div class="col-md-2">
-                            <label class="form-label">Price (€) <span class="text-danger">*</span></label>
-                            <input type="number" name="price" id="price" class="form-control" placeholder="Enter price" min="0" step="0.01" value="{{ old('price') }}" required>
                         </div>
                         <div class="col-md-2">
                             <label class="form-label">Publication Duration <span class="text-danger">*</span></label>
@@ -367,7 +419,7 @@
                                         <input type="checkbox" name="sensitive[{{ $topic }}]" class="form-check-input sensitive-checkbox" id="sensitive{{ $topic }}" {{ old("sensitive.$topic") ? 'checked' : '' }}>
                                         <label class="form-check-label" for="sensitive{{ $topic }}">{{ ucfirst($topic) }}</label>
                                     </div>
-                                    <input type="number" name="price_sensitive[{{ $topic }}]" class="form-control mt-1 sensitive-price" placeholder="Price" value="{{ old("price_sensitive.$topic") }}">
+                                    <input type="number" name="price_sensitive[{{ $topic }}]" class="form-control mt-1 sensitive-price" placeholder="Extra Price" value="{{ old("price_sensitive.$topic") }}">
                                 </div>
                                 @endforeach
                             </div>
@@ -417,14 +469,11 @@ const submitBtn = $('#submitBtn');
 const closeBtn = $('#closeBtn');
 const formHeaderSpan = $('#formHeader');
 
-// Store all languages for reset (NO country filtering on create)
+// Store all languages for reset
 var allLanguages = [];
 @foreach($languages as $language)
     allLanguages.push({code: '{{ $language->code }}', name: '{{ $language->name }}'});
 @endforeach
-
-// NO country-language linking on create - language dropdown shows all languages
-// This is intentionally removed for create functionality
 
 // Quill editor
 var quill = new Quill('#quillEditor', {
@@ -551,7 +600,7 @@ closeBtn.on('click', function(){
     $('.readonly-note').remove();
 });
 
-// Edit functionality - Properly prefill all values
+// Edit functionality - Prefill all values including turnaround time
 $(document).on('click', '.btn-edit', function() {
     const site = $(this).data('site');
     
@@ -584,6 +633,7 @@ $(document).on('click', '.btn-edit', function() {
     $('#dr').val(site.dr);
     $('#traffic').val(site.traffic);
     $('#price').val(site.price);
+    $('#turnaroundTime').val(site.turnaround_time || '3days');
     $('#countrySelect').val(site.country);
     $('#languageSelect').val(site.language);
     $('#category').val(site.category);
@@ -626,4 +676,5 @@ $(document).on('click', '.btn-edit', function() {
     }, 500);
 });
 </script>
+
 @endsection

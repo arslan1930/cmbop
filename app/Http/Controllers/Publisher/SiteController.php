@@ -76,6 +76,7 @@ class SiteController extends Controller
             'language'        => 'required|string|size:2',
             'category'        => 'required|string|max:100',
             'price'           => 'required|numeric|min:0',
+            'turnaround_time' => 'required|string|in:24h,48h,3days,5days,7days',
             'publicationTime' => 'required|string|max:20|in:6months,1year,permanent',
             'link_type'       => 'required|in:dofollow,nofollow',
             'siteDescription' => 'required|string|min:50',
@@ -122,6 +123,7 @@ class SiteController extends Controller
             $site->language          = $request->language;
             $site->category          = $request->category;
             $site->price             = $request->price;
+            $site->turnaround_time   = $request->turnaround_time;
             $site->publication_time  = $request->publicationTime; // Stored as string: '6months', '1year', 'permanent'
             $site->link_type         = $request->link_type;
 
@@ -208,6 +210,7 @@ class SiteController extends Controller
             'language'        => 'required|string|size:2',
             'category'        => 'required|string|max:100',
             'price'           => 'required|numeric|min:0',
+            'turnaround_time' => 'required|string|in:24h,48h,3days,5days,7days',
             'publicationTime' => 'required|string|max:20|in:6months,1year,permanent',
             'link_type'       => 'required|in:dofollow,nofollow',
             'siteDescription' => 'required|string|min:50',
@@ -255,6 +258,7 @@ class SiteController extends Controller
             $site->language          = $request->language;
             $site->category          = $request->category;
             $site->price             = $request->price;
+            $site->turnaround_time   = $request->turnaround_time;
             $site->publication_time  = $request->publicationTime; // Stored as string: '6months', '1year', 'permanent'
             $site->link_type         = $request->link_type;
 

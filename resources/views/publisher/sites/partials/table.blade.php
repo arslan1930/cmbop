@@ -99,6 +99,33 @@
         font-size: 12px;
         color: #666;
     }
+    
+    /* Turnaround Time Badge Styles */
+    .turnaround-badge {
+    display: inline-block;
+    padding: 5px 10px;
+    border-radius: 10px;
+    font-size: 12px;
+    font-weight: 600;
+    background-color: #f1f1f1; /* light gray */
+    color: #282828;
+}
+    
+    .turnaround-24h,
+.turnaround-48h,
+.turnaround-3days,
+.turnaround-5days,
+.turnaround-7days {
+    background-color: #f1f1f1;
+    color: #282828;
+}
+
+/* Edit form styles */
+#turnaroundTime {
+    display: inline-block;
+    width: auto;
+    margin-top: 5px;
+}
 </style>
 
 @php
@@ -132,6 +159,28 @@
         ];
         return $durations[$value] ?? ucfirst($value);
     }
+    
+    function getTurnaroundLabel($value) {
+        $labels = [
+            '24h' => '24 Hours',
+            '48h' => '48 Hours',
+            '3days' => '3 Days',
+            '5days' => '5 Days',
+            '7days' => '7 Days'
+        ];
+        return $labels[$value] ?? '3 Days';
+    }
+    
+    function getTurnaroundClass($value) {
+        $classes = [
+            '24h' => 'turnaround-24h',
+            '48h' => 'turnaround-48h',
+            '3days' => 'turnaround-3days',
+            '5days' => 'turnaround-5days',
+            '7days' => 'turnaround-7days'
+        ];
+        return $classes[$value] ?? 'turnaround-3days';
+    }
 @endphp
 
 <table class="table table-striped modern-table">
@@ -144,9 +193,9 @@
             <th>DA</th>
             <th>DR</th>
             <th>Traffic</th>
-            <th>Price (€)</th>
             <th>Country / Language</th>
             <th>Status</th>
+            <th>Price (€)</th>
             <th>Actions</th>
         </tr>
     </thead>
@@ -160,7 +209,9 @@
             <td>{{ $site->da }}</td>
             <td>{{ $site->dr }}</td>
             <td>{{ number_format($site->traffic, 0, '.', ',') }}</td>
-            <td>€{{ number_format($site->price, 2) }}</td>
+            
+            
+            
             
             <!-- Country Flag + Language Combined Column -->
             <td>
@@ -186,6 +237,9 @@
                     </span>
                 @endif
             </td>
+
+            <!-- Price Column -->
+            <td>€{{ number_format($site->price, 2) }}</td>
             
             <!-- Actions Column -->
             <td>
@@ -214,7 +268,7 @@
 
         <!-- Expand Row -->
         <tr class="expand-row" id="expand-{{ $site->id }}">
-            <td colspan="11">
+            <td colspan="12">
                 <div class="expand-box">
                     <div class="detail-line">
                         <strong>Example URL:</strong>
@@ -227,6 +281,13 @@
 
                     <div class="detail-line">
                         <strong>Link Type:</strong> {{ ucfirst($site->link_type) }}
+                    </div>
+
+                    <div class="detail-line">
+                        <strong>Turnaround Time:</strong> 
+                        <span class="turnaround-badge {{ getTurnaroundClass($site->turnaround_time ?? '3days') }}">
+                            {{ getTurnaroundLabel($site->turnaround_time ?? '3days') }}
+                        </span>
                     </div>
 
                     <div class="detail-line">
@@ -318,14 +379,14 @@ $(document).ready(function(){
         });
     });
 
-    // EDIT BUTTON
+    // EDIT BUTTON with Turnaround Time
     $(document).on('click', '.btn-edit', function() {
         const site = $(this).data('site');
 
         $('#formCard').removeClass('d-none');
         $('#showFormBtn').addClass('d-none');
         $('#closeBtn').removeClass('d-none');
-        $('#formHeader').text('Edit Site: ' + site.domain);
+        $('#formHeader').text('Edit Site: ' + site.site_name);
 
         // Fix duplicate method field
         $('#methodField').remove();
@@ -333,7 +394,7 @@ $(document).ready(function(){
             .attr('action', '/publisher/sites/' + site.id)
             .append('<input type="hidden" name="_method" value="PUT" id="methodField">');
 
-        // Prefill
+        // Prefill fields
         const siteNameInput = $('input[name="siteName"]');
         const siteUrlInput = $('input[name="siteUrl"]');
 
@@ -353,6 +414,10 @@ $(document).ready(function(){
         $('input[name="dr"]').val(site.dr);
         $('input[name="traffic"]').val(site.traffic);
         $('input[name="price"]').val(site.price);
+        
+        // Set Turnaround Time
+        $('#turnaroundTime').val(site.turnaround_time || '3days');
+        
         $('select[name="country"]').val(site.country);
         $('select[name="language"]').val(site.language);
         $('select[name="category"]').val(site.category);
@@ -364,7 +429,7 @@ $(document).ready(function(){
         $('input[name="partner_material"]').prop('checked', site.partner_material == 1);
         $('input[name="as_you_prefer"]').prop('checked', site.as_you_prefer == 1);
 
-        // Sensitive topics - FIXED
+        // Sensitive topics
         if(site.sensitive_prices){
             let prices = site.sensitive_prices;
             // Handle both array and string JSON
@@ -375,11 +440,14 @@ $(document).ready(function(){
                 $('input[name="sensitive['+key+']"]').prop('checked', true);
                 $('input[name="price_sensitive['+key+']"]').val(prices[key]);
             }
+        } else {
+            $('.sensitive-checkbox').prop('checked', false);
+            $('.sensitive-price').val('');
         }
 
         // Description
         if (typeof quill !== 'undefined') {
-            quill.root.innerHTML = site.description;
+            quill.root.innerHTML = site.description || '';
         }
 
         $('#submitBtn').prop('disabled', false).text('Update');
@@ -405,8 +473,11 @@ $(document).ready(function(){
         $('.tag-checkbox').prop('checked', false);
         $('.sensitive-checkbox').prop('checked', false);
         $('.sensitive-price').val('');
+        
+        // Reset turnaround time to default
+        $('#turnaroundTime').val('3days');
 
-        $('#submitBtn').text('Submit');
+        $('#submitBtn').text('Submit').prop('disabled', false);
 
         // Re-enable fields
         $('input[name="siteName"], input[name="siteUrl"]').prop('disabled', false);

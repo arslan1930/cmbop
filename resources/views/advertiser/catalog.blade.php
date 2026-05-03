@@ -283,16 +283,16 @@
                     <div class="table-responsive">
                         <table class="table table-borderless align-middle mb-0">
                             <thead class="table-light">
-                                <tr>
-                                    <th style="min-width: 250px;">Site</th>
-                                    <th>Category</th>
-                                    <th>Monthly Traffic</th>
-                                    <th>AHREFS DR</th>
-                                    <th>MOZ DA</th>
-                                    <th>Language</th>
-                                    <th style="min-width: 180px;">Action</th>
-                                </tr>
-                            </thead>
+    <tr>
+        <th class="text-center" style="min-width: 250px;">Site</th>
+        <th class="text-center">Category</th>
+        <th class="text-center">Monthly Traffic</th>
+        <th class="text-center">AHREFS DR</th>
+        <th class="text-center">MOZ DA</th>
+        <th class="text-center">Language</th>
+        <th class="text-center" style="min-width: 180px;">Action</th>
+    </tr>
+</thead>
                             <tbody>
                                 @forelse($sites as $site)
                                 @php
@@ -306,8 +306,8 @@
                                     $sensitivePrices = is_array($sensitivePrices) ? $sensitivePrices : [];
                                 @endphp
                                 <tr class="site-row {{ $isBlacklisted ? 'blacklisted-row' : '' }}" data-id="{{ $site->id }}" data-name="{{ $site->site_name }}" style="{{ $isBlacklisted ? 'opacity: 0.7; background-color: #fff3f3;' : '' }}">
+                                    
                                     <td style="min-width: 220px; position: relative;">
-
                                         @if($site->verified)
                                             <span class="badge bg-success text-white shadow-sm fw-semibold"
                                                   style="position: absolute; top: 6px; right: 6px; font-size: 10px; padding: 4px 8px; border-radius: 6px; letter-spacing: 0.3px; z-index: 1;"
@@ -324,51 +324,64 @@
                                             </span>
                                         @endif
 
+                                        
                                         <div class="d-flex flex-column gap-1">
+    <!-- URL Row -->
+    <div class="d-flex align-items-center gap-2">
+        <span class="text-dark"
+              style="font-family: monospace; font-weight: 600; font-size: 13.5px;"
+              id="url-masked-{{ $site->id }}">
+            {{ substr(Str::of($site->site_url)->replaceMatches('/^(https?:\/\/)?(www\.)?/', ''), 0, 3) }}******
+        </span>
 
-                                            <!-- URL Display with the 30 days old site with a new badge in the top right corner -->
-                                            <div class="d-flex align-items-center gap-2">
-                                                <span class="text-dark"
-                                                      style="font-family: monospace; font-weight: 600; font-size: 13.5px;"
-                                                      id="url-masked-{{ $site->id }}">
-                                                    {{ substr(Str::of($site->site_url)->replaceMatches('/^(https?:\/\/)?(www\.)?/', ''), 0, 3) }}******
-                                                </span>
+        <span class="url-full text-muted d-none"
+              id="url-full-{{ $site->id }}"
+              style="font-family: monospace; font-weight: 500; font-size: 13.5px;">
+            {{ Str::of($site->site_url)->replaceMatches('/^(https?:\/\/)?(www\.)?/', '') }}
+        </span>
 
-                                                <span class="url-full text-muted d-none"
-                                                      id="url-full-{{ $site->id }}"
-                                                      style="font-family: monospace; font-weight: 500; font-size: 13.5px;">
-                                                    {{ Str::of($site->site_url)->replaceMatches('/^(https?:\/\/)?(www\.)?/', '') }}
-                                                </span>
+        <button class="btn btn-sm btn-link text-secondary p-0 toggle-url"
+                data-id="{{ $site->id }}"
+                title="Toggle URL"
+                style="font-size: 15px;">
+            <i class="fa-regular fa-eye"></i>
+        </button>
 
-                                                <button class="btn btn-sm btn-link text-secondary p-0 toggle-url"
-                                                        data-id="{{ $site->id }}"
-                                                        title="Toggle URL"
-                                                        style="font-size: 15px;">
-                                                    <i class="fa-regular fa-eye"></i>
-                                                </button>
+        <a href="{{ $site->site_url }}"
+           target="_blank"
+           rel="noopener noreferrer"
+           class="text-muted"
+           title="Open Website"
+           style="display:inline-flex; align-items:center; text-decoration:none;">
+            <i class="fa-solid fa-arrow-up-right-from-square" style="font-size: 13px;"></i>
+        </a>
 
-                                                <a href="{{ $site->site_url }}"
-                                                   target="_blank"
-                                                   rel="noopener noreferrer"
-                                                   class="text-muted"
-                                                   title="Open Website"
-                                                   style="display:inline-flex; align-items:center; text-decoration:none;">
-                                                    <i class="fa-solid fa-arrow-up-right-from-square" style="font-size: 13px;"></i>
-                                                </a>
+        <i class="fa-solid fa-chevron-down expand-arrow text-muted" 
+           id="arrow-{{ $site->id }}"
+           style="font-size: 13px; cursor: pointer; transition: transform 0.3s ease;">
+        </i>
 
-                                                <i class="fa-solid fa-chevron-down expand-arrow text-muted" 
-                                                   id="arrow-{{ $site->id }}"
-                                                   style="font-size: 13px; cursor: pointer; transition: transform 0.3s ease;">
-                                                </i>
+        @if($site->created_at->gt(now()->subDays(30)))
+            <span class="new-badge">
+                NEW
+                <span class="pulse-dot"></span>
+            </span>
+        @endif
+    </div>
 
-                                                @if($site->created_at->gt(now()->subDays(30)))
-                                                    <span class="new-badge">
-                                                        NEW
-                                                        <span class="pulse-dot"></span>
-                                                    </span>
-                                                @endif
+    <!-- DoFollow Links -->
+    <div class="text-muted" style="font-size: 12.5px;">
+        Max 03 DoFollow links
+    </div>
 
-                                        </div>
+    <!-- Turnaround Time -->
+    <div>
+        <span class="turnaround-badge" style="font-size: 12.5px;">
+        Turnaround: {{ $site->turnaround_time ?? 'N/A' }}
+        </span>
+    </div>
+</div>
+
 
                                         </td>
 
@@ -631,6 +644,10 @@
     padding: 10px 8px;
     vertical-align: middle;
     border-bottom: 1px solid #f0f0f0;
+}
+
+thead th {
+    text-align: center;
 }
 
 .table tbody tr.site-row {

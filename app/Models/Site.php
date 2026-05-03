@@ -16,6 +16,7 @@ class Site extends Model
         'da',
         'dr',
         'traffic',
+        'turnaround_time',
         'country',
         'language',
         'category',

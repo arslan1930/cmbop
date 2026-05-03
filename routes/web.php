@@ -325,7 +325,7 @@ Route::middleware(['auth','verified', RoleMiddleware::class . ':advertiser'])
 
 
         // Invoice route
-Route::get('/invoice/{referenceCode}', [InvoiceController::class, 'showInvoice'])->name('invoice');
+        Route::get('/invoice/{referenceCode}', [InvoiceController::class, 'showInvoice'])->name('invoice');
 
        
 
