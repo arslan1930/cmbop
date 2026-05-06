@@ -636,4 +636,50 @@ class OrderController extends Controller
             ], 500);
         }
     }
+
+
+    /**
+ * Get recent orders for dashboard (AJAX)
+ */
+public function getRecentOrders(Request $request)
+{
+    try {
+        $userId = auth()->id();
+        
+        // Get all sites owned by this publisher
+        $siteIds = Site::where('publisher_id', $userId)->pluck('id')->toArray();
+        
+        if (empty($siteIds)) {
+            return response()->json([
+                'success' => true,
+                'orders' => []
+            ]);
+        }
+        
+        // Get recent orders (last 5)
+        $orderIds = OrderItem::whereIn('site_id', $siteIds)
+            ->orderBy('created_at', 'desc')
+            ->pluck('order_id')
+            ->unique()
+            ->take(5);
+        
+        $orders = Order::whereIn('id', $orderIds)
+            ->with('items')
+            ->orderBy('created_at', 'desc')
+            ->get();
+        
+        return response()->json([
+            'success' => true,
+            'orders' => $orders
+        ]);
+        
+    } catch (\Exception $e) {
+        Log::error('Error fetching recent orders: ' . $e->getMessage());
+        return response()->json([
+            'success' => false,
+            'message' => 'Failed to fetch recent orders'
+        ]);
+    }
+}
+
 }

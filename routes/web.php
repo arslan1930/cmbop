@@ -15,6 +15,9 @@ use App\Http\Controllers\Publisher\SiteController;
 use App\Http\Controllers\Publisher\OrderController;
 use App\Http\Controllers\Publisher\WithdrawalController;
 use App\Http\Controllers\Publisher\PublisherReportsController;
+use App\Http\Controllers\Publisher\BalanceController;
+use App\Http\Controllers\Publisher\DashboardController;
+
 
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\Admin\SiteController as AdminSiteController;
@@ -246,6 +249,11 @@ Route::middleware(['auth','verified', RoleMiddleware::class . ':advertiser'])
             return view('advertiser.dashboard');
         })->name('dashboard');
 
+        // Balance routes
+        Route::get('/balance', [App\Http\Controllers\Advertiser\BalanceController::class, 'index'])->name('balance');
+        Route::post('/balance/transfer', [App\Http\Controllers\Advertiser\BalanceController::class, 'transferToPublisher'])->name('balance.transfer');
+        Route::get('/balance/history', [App\Http\Controllers\Advertiser\BalanceController::class, 'getTransferHistory'])->name('balance.history');
+
         // Campaigns routes
         Route::get('/campaigns', [ProjectController::class, 'index'])
         ->name('campaigns');
@@ -348,6 +356,53 @@ Route::middleware(['auth','verified', RoleMiddleware::class . ':publisher'])
         Route::get('/dashboard', function () {
             return view('publisher.dashboard');
         })->name('dashboard');
+
+    
+
+        // Balance
+    Route::get('/balance', [\App\Http\Controllers\Publisher\BalanceController::class, 'index'])->name('balance');
+    Route::post('/balance/transfer', [\App\Http\Controllers\Publisher\BalanceController::class, 'transferToAdvertiser'])->name('balance.transfer');
+    Route::get('/balance/history', [\App\Http\Controllers\Publisher\BalanceController::class, 'getTransferHistory'])->name('balance.history');
+
+
+
+            // Dashboard
+    Route::get('/dashboard', [App\Http\Controllers\Publisher\DashboardController::class, 'index'])->name('dashboard');
+    
+    
+    // Dashboard AJAX Endpoints
+    Route::get('/dashboard/statistics', [App\Http\Controllers\Publisher\DashboardController::class, 'getStatistics'])->name('dashboard.statistics');
+    Route::get('/dashboard/recent-orders', [App\Http\Controllers\Publisher\DashboardController::class, 'getRecentOrders'])->name('dashboard.recent');
+    Route::get('/dashboard/earnings-chart', [App\Http\Controllers\Publisher\DashboardController::class, 'getEarningsChart'])->name('dashboard.earnings');
+    Route::get('/dashboard/top-sites', [App\Http\Controllers\Publisher\DashboardController::class, 'getTopSites'])->name('dashboard.top-sites');
+    Route::get('/dashboard/wallet-balance', [App\Http\Controllers\Publisher\DashboardController::class, 'getWalletBalance'])->name('dashboard.wallet');
+    Route::get('/dashboard/pending-tasks', [App\Http\Controllers\Publisher\DashboardController::class, 'getPendingTasks'])->name('dashboard.pending-tasks');
+    
+    // Websites Management
+    Route::get('/websites', [App\Http\Controllers\Publisher\SiteController::class, 'index'])->name('websites');
+    Route::post('/websites/store', [App\Http\Controllers\Publisher\SiteController::class, 'store'])->name('sites.store');
+    Route::get('/websites/ajax', [App\Http\Controllers\Publisher\SiteController::class, 'ajax'])->name('sites.ajax');
+    Route::put('/sites/{id}', [App\Http\Controllers\Publisher\SiteController::class, 'update'])->name('sites.update');
+    Route::delete('/sites/{id}', [App\Http\Controllers\Publisher\SiteController::class, 'destroy'])->name('sites.destroy');
+    
+    // Tasks/Orders
+    Route::get('/tasks', [App\Http\Controllers\Publisher\OrderController::class, 'index'])->name('tasks');
+    Route::get('/orders/data', [App\Http\Controllers\Publisher\OrderController::class, 'getOrders'])->name('orders.data');
+    Route::get('/orders/{id}/details', [App\Http\Controllers\Publisher\OrderController::class, 'getOrderDetails'])->name('orders.details');
+    Route::post('/orders/{id}/accept', [App\Http\Controllers\Publisher\OrderController::class, 'acceptOrder'])->name('orders.accept');
+    Route::post('/orders/{id}/reject', [App\Http\Controllers\Publisher\OrderController::class, 'rejectOrder'])->name('orders.reject');
+    Route::post('/orders/{id}/complete', [App\Http\Controllers\Publisher\OrderController::class, 'submitLiveUrl'])->name('orders.complete');
+    Route::post('/orders/{id}/resubmit', [App\Http\Controllers\Publisher\OrderController::class, 'resubmitLiveUrl'])->name('orders.resubmit');
+    
+    // Dashboard Statistics
+    Route::get('/dashboard/statistics', [App\Http\Controllers\Publisher\DashboardController::class, 'getStatistics'])->name('dashboard.statistics');
+    Route::get('/dashboard/recent-orders', [App\Http\Controllers\Publisher\DashboardController::class, 'getRecentOrders'])->name('dashboard.recent');
+
+    // Chart Data Routes - ADD THESE
+    Route::get('/dashboard/weekly-earnings', [App\Http\Controllers\Publisher\DashboardController::class, 'getWeeklyEarnings'])->name('dashboard.weekly-earnings');
+    Route::get('/dashboard/order-status', [App\Http\Controllers\Publisher\DashboardController::class, 'getOrderStatusDistribution'])->name('dashboard.order-status');
+    Route::get('/dashboard/monthly-earnings', [App\Http\Controllers\Publisher\DashboardController::class, 'getMonthlyEarnings'])->name('dashboard.monthly-earnings');
+
 
         // FIXED: Update this route to use SiteController instead of closure
         Route::get('/websites', [SiteController::class, 'index'])->name('websites');

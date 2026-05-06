@@ -285,6 +285,8 @@
             <i class="fa fa-sun d-none"></i>
         </button>
 
+        <!-- link to balance route -->
+         <a href="{{ route('publisher.balance') }}">
         <div class="balance-block" data-bs-toggle="tooltip" title="Balance / Reserved">
             @php
                 $activeWallet = auth()->user()->activeWallet();
@@ -293,6 +295,7 @@
             <span>/</span>
             <span>€{{ $activeWallet?->reserved_balance ?? '0.00' }}</span>
         </div>
+        </a>
 
         <div class="dropdown">
             <button class="btn dropdown-toggle d-flex align-items-center gap-1"

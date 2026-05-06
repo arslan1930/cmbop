@@ -451,11 +451,11 @@
     <div class="d-flex align-items-center gap-2">
 
         <!-- Notifications Icon -->
-        <div class="position-relative">
+        <!-- <div class="position-relative">
             <button id="toggleNotifications" class="btn btn-outline-secondary btn-sm" title="Notifications">
                 <i class="fa fa-message"></i>
             </button>
-        </div>
+        </div> -->
         
         <!-- Cart Icon with Badge -->
         <div class="position-relative">
@@ -469,7 +469,9 @@
             <i class="fa fa-moon"></i>
             <i class="fa fa-sun d-none"></i>
         </button>
-
+         
+        <!-- Balance route -->
+        <a href="{{ route('advertiser.balance') }}">
         <div class="balance-block" data-bs-toggle="tooltip" title="Balance / Reserved">
             @php
                 $activeWallet = auth()->user()->activeWallet();
@@ -478,6 +480,7 @@
             <span>/</span>
             <span>€{{ $activeWallet?->reserved_balance ?? '0.00' }}</span>
         </div>
+        </a>
 
         <div class="dropdown">
             <button class="btn dropdown-toggle d-flex align-items-center gap-1"
