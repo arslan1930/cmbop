@@ -95,7 +95,7 @@
 
                     <div class="col-6">
                         <div class="d-flex align-items-center p-3 border rounded bg-primary bg-opacity-10">
-                            <div class="me-3 p-2 bg-primary text-white rounded">
+                            <div class="me-3 p-2 text-white rounded" style="background-color: #3aaeb2; color: white;">
                                 <i class="fa-solid fa-box-open"></i>
                             </div>
                             <div>
@@ -149,7 +149,7 @@
     <!-- Promo -->
     <div class="col-xl-4">
         <div class="card text-white shadow-sm h-100 position-relative overflow-hidden"
-             style="background: linear-gradient(90deg, #0d6efd, #084298);">
+             style="background: linear-gradient(90deg, #3aaeb2, #0b6266);">
 
             <!-- Right-side background image -->
             <div class="position-absolute top-0 end-0 h-100 w-50 d-none d-md-block">
@@ -182,7 +182,7 @@
 
                 <div>
                     <h5 class="mb-3">
-                        <i class="fa fa-circle-question text-primary me-1"></i>
+                        <i class="fa fa-circle-question me-1"></i>
                         Need Assistance?
                     </h5>
 
@@ -202,7 +202,7 @@
 
                 <div>
                     <a href="https://t.me/arslan_seolinkbuildings" target="_blank"
-                       class="btn btn-primary w-100">
+                       class="btn w-100" style="background-color: #3aaeb2; color: white;">
                         <i class="fa fa-message me-1"></i> Start Chat
                     </a>
 

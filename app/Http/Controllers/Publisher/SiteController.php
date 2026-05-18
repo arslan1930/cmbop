@@ -60,22 +60,31 @@ class SiteController extends Controller
 
         $domain = preg_replace('/^www\./', '', strtolower($host));
 
-        // Handle categories - can be array from multi-select or single value
+        // Handle categories - get as array from multi-select
         $categories = $request->categories;
         if (is_string($categories)) {
             $categories = json_decode($categories, true);
         }
         
-        // If no categories array, try to get from old category field
-        if (empty($categories) && $request->has('category')) {
-            $categories = [$request->category];
+        // If categories is a comma-separated string, explode it
+        if (is_string($categories) && str_contains($categories, ',')) {
+            $categories = array_map('trim', explode(',', $categories));
         }
         
-        // Convert to JSON for storage
-        $categoriesJson = !empty($categories) ? json_encode($categories) : null;
+        // If no categories array, try to get from old category field
+        if (empty($categories) && $request->has('category')) {
+            if (str_contains($request->category, ',')) {
+                $categories = array_map('trim', explode(',', $request->category));
+            } else {
+                $categories = [$request->category];
+            }
+        }
         
-        // For backward compatibility, use first category as the main category
-        $primaryCategory = !empty($categories) ? $categories[0] : $request->category;
+        // Store ALL categories as comma-separated string in category column (for backward compatibility and easy searching)
+        $primaryCategory = !empty($categories) ? implode(',', $categories) : $request->category;
+        
+        // Store as array (model cast will handle JSON conversion)
+        $categoriesArray = !empty($categories) ? $categories : null;
 
         $validator = Validator::make($request->all(), [
             'siteName'        => 'required|string|max:255',
@@ -119,7 +128,7 @@ class SiteController extends Controller
 
         $site = null;
 
-        DB::transaction(function () use ($request, $domain, $cleanDescription, $categoriesJson, $primaryCategory, &$site) {
+        DB::transaction(function () use ($request, $domain, $cleanDescription, $categoriesArray, $primaryCategory, &$site) {
             $site = new Site();
 
             $site->publisher_id      = auth()->id();
@@ -132,8 +141,8 @@ class SiteController extends Controller
             $site->traffic           = $request->traffic;
             $site->country           = $request->country;
             $site->language          = $request->language;
-            $site->category          = $primaryCategory; // Keep for backward compatibility
-            $site->categories        = $categoriesJson;   // Store all categories as JSON
+            $site->category          = $primaryCategory; // Store all categories as comma-separated string
+            $site->categories        = $categoriesArray;   // Store as array (model cast handles JSON)
             $site->price             = $request->price;
             $site->turnaround_time   = $request->turnaround_time;
             $site->publication_time  = $request->publicationTime;
@@ -208,18 +217,30 @@ class SiteController extends Controller
     {
         $site = Site::where('publisher_id', auth()->id())->findOrFail($id);
 
-        // Handle categories
+        // Handle categories - get as array from multi-select
         $categories = $request->categories;
         if (is_string($categories)) {
             $categories = json_decode($categories, true);
         }
         
-        if (empty($categories) && $request->has('category')) {
-            $categories = [$request->category];
+        // If categories is a comma-separated string, explode it
+        if (is_string($categories) && str_contains($categories, ',')) {
+            $categories = array_map('trim', explode(',', $categories));
         }
         
-        $categoriesJson = !empty($categories) ? json_encode($categories) : $site->categories;
-        $primaryCategory = !empty($categories) ? $categories[0] : $site->category;
+        if (empty($categories) && $request->has('category')) {
+            if (str_contains($request->category, ',')) {
+                $categories = array_map('trim', explode(',', $request->category));
+            } else {
+                $categories = [$request->category];
+            }
+        }
+        
+        // Store ALL categories as comma-separated string in category column
+        $primaryCategory = !empty($categories) ? implode(',', $categories) : $site->category;
+        
+        // Store as array (model cast handles JSON)
+        $categoriesArray = !empty($categories) ? $categories : null;
 
         $validator = Validator::make($request->all(), [
             'exampleUrl'      => 'required|url|max:255',
@@ -267,15 +288,15 @@ class SiteController extends Controller
 
         $cleanDescription = strip_tags($request->siteDescription, '<p><a><b><strong><i><ul><ol><li><br>');
 
-        DB::transaction(function () use ($site, $request, $cleanDescription, $categoriesJson, $primaryCategory) {
+        DB::transaction(function () use ($site, $request, $cleanDescription, $categoriesArray, $primaryCategory) {
             $site->example_url       = $request->exampleUrl;
             $site->da                = $request->da;
             $site->dr                = $request->dr;
             $site->traffic           = $request->traffic;
             $site->country           = $request->country;
             $site->language          = $request->language;
-            $site->category          = $primaryCategory;
-            $site->categories        = $categoriesJson;
+            $site->category          = $primaryCategory; // Store all categories as comma-separated string
+            $site->categories        = $categoriesArray;   // Store as array (model cast handles JSON)
             $site->price             = $request->price;
             $site->turnaround_time   = $request->turnaround_time;
             $site->publication_time  = $request->publicationTime;

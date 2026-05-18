@@ -196,8 +196,8 @@ Route::middleware(['auth','verified', RoleMiddleware::class . ':admin'])
     ->name('sites.edit');
 
     // update (AJAX)
-    Route::post('/sites/{id}/update', [AdminSiteController::class, 'update'])
-    ->name('sites.update');    
+    // Route::post('/sites/{id}/update', [AdminSiteController::class, 'update'])
+    // ->name('sites.update');    
 
     // UPDATE (AJAX uses this)
     Route::put('/sites/{id}', [AdminSiteController::class, 'update'])
@@ -377,8 +377,8 @@ Route::middleware(['auth','verified', RoleMiddleware::class . ':advertiser'])
     Route::get('/reports/funds', [ReportsController::class, 'getFundsActivity'])->name('reports.funds');
     Route::get('/reports/orders', [ReportsController::class, 'getOrderReport'])->name('reports.orders');
 
-    Route::get('/reports/funds-data', [ReportsController::class, 'getFundsActivity'])->name('reports.funds');
-    Route::get('/reports/orders-data', [ReportsController::class, 'getOrderReport'])->name('reports.orders');
+    // Route::get('/reports/funds-data', [ReportsController::class, 'getFundsActivity'])->name('reports.funds');
+    // Route::get('/reports/orders-data', [ReportsController::class, 'getOrderReport'])->name('reports.orders');
 
 
         // Invoice route
@@ -459,10 +459,10 @@ Route::middleware(['auth','verified', RoleMiddleware::class . ':publisher'])
         Route::get('/sites', [SiteController::class, 'index'])->name('sites.index');
 
         // Store
-        Route::post('/sites/store', [SiteController::class, 'store'])->name('sites.store');
+        // Route::post('/sites/store', [SiteController::class, 'store'])->name('sites.store');
 
         // AJAX listing
-        Route::get('/sites/ajax', [SiteController::class, 'ajax'])->name('sites.ajax');
+        // Route::get('/sites/ajax', [SiteController::class, 'ajax'])->name('sites.ajax');
 
         // Update (used by AJAX)
         Route::put('/sites/{id}', [SiteController::class, 'update'])->name('sites.update');
@@ -498,7 +498,7 @@ Route::middleware(['auth','verified', RoleMiddleware::class . ':publisher'])
 
     // Reports page
     Route::get('/reports', [PublisherReportsController::class, 'index'])->name('reports');
-    Route::get('/reports/statistics', [PublisherReportsController::class, 'getStatistics'])->name('reports.statistics');
+    Route::get('/reports/statistics', [PublisherReportsController::class, 'ge   tStatistics'])->name('reports.statistics');
     Route::get('/reports/orders', [PublisherReportsController::class, 'getOrders'])->name('reports.orders');
     Route::get('/reports/orders/{orderItemId}/details', [PublisherReportsController::class, 'getOrderDetails'])->name('reports.order.details');
     Route::get('/reports/withdrawals', [PublisherReportsController::class, 'getWithdrawals'])->name('reports.withdrawals');

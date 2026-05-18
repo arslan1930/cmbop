@@ -12,22 +12,75 @@
     
     function fullCountry($code){
         $countries = [
-            'us' => 'United States', 'uk' => 'United Kingdom', 'de' => 'Germany',
-            'fr' => 'France', 'it' => 'Italy', 'es' => 'Spain', 'pt' => 'Portugal',
-            'nl' => 'Netherlands', 'be' => 'Belgium', 'at' => 'Austria', 'ch' => 'Switzerland',
-            'ae' => 'United Arab Emirates', 'sa' => 'Saudi Arabia', 'jp' => 'Japan',
-            'cn' => 'China', 'kr' => 'South Korea', 'sg' => 'Singapore', 'br' => 'Brazil',
-            'mx' => 'Mexico', 'ar' => 'Argentina', 'ru' => 'Russia', 'pl' => 'Poland',
-            'se' => 'Sweden', 'no' => 'Norway', 'dk' => 'Denmark', 'fi' => 'Finland',
-            'ie' => 'Ireland', 'nz' => 'New Zealand', 'au' => 'Australia', 'in' => 'India',
-            'pk' => 'Pakistan', 'bd' => 'Bangladesh', 'lk' => 'Sri Lanka', 'np' => 'Nepal',
-            'tr' => 'Turkey', 'eg' => 'Egypt', 'ma' => 'Morocco', 'za' => 'South Africa',
-            'ng' => 'Nigeria', 'ke' => 'Kenya', 'gh' => 'Ghana',
-            'id' => 'Indonesia', 'my' => 'Malaysia', 'th' => 'Thailand', 'vn' => 'Vietnam',
-            'ph' => 'Philippines', 'ir' => 'Iran', 'iq' => 'Iraq', 'sy' => 'Syria', 'jo' => 'Jordan',
-            'lb' => 'Lebanon', 'kw' => 'Kuwait', 'qa' => 'Qatar', 'om' => 'Oman', 'ye' => 'Yemen',
-            'hu' => 'Hungary', 'ro' => 'Romania', 'cz' => 'Czech Republic', 'sk' => 'Slovakia', 'si' => 'Slovenia',
-            'bg' => 'Bulgaria', 'hr' => 'Croatia', 'lt' => 'Lithuania', 'lv' => 'Latvia', 'ee' => 'Estonia', 'gr' => 'Greece', 'cy' => 'Cyprus', 'is' => 'Iceland', 'al' => 'Albania', 'mk' => 'North Macedonia', 'ba' => 'Bosnia and Herzegovina', 'rs' => 'Serbia', 'me' => 'Montenegro', 'md' => 'Moldova', 'by' => 'Belarus', 'ua' => 'Ukraine', 'ge' => 'Georgia', 'am' => 'Armenia', 'az' => 'Azerbaijan', 'kz' => 'Kazakhstan', 'uz' => 'Uzbekistan', 'af' => 'Afghanistan', 'bd' => 'Bangladesh', 'lk' => 'Sri Lanka', 'np' => 'Nepal', 'mm' => 'Myanmar', 'kh' => 'Cambodia', 'la' => 'Laos', 'mn' => 'Mongolia', 'bt' => 'Bhutan', 've' => 'Venezuela', 'co' => 'Colombia', 'pe' => 'Peru', 'ec' => 'Ecuador', 'cl' => 'Chile', 'uy' => 'Uruguay', 'py' => 'Paraguay', 'bo' => 'Bolivia', 'do' => 'Dominican Republic', 'cr' => 'Costa Rica', 'pa' => 'Panama', 'sv' => 'El Salvador', 'hn' => 'Honduras', 'ni' => 'Nicaragua', 'gt' => 'Guatemala', 'cu' => 'Cuba', 'ht' => 'Haiti', 'jm' => 'Jamaica', 'tt' => 'Trinidad and Tobago', 'bb' => 'Barbados', 'bs' => 'Bahamas', 'ag' => 'Antigua and Barbuda', 'dm' => 'Dominica', 'kn' => 'Saint Kitts and Nevis', 'lc' => 'Saint Lucia', 'vc' => 'Saint Vincent and the Grenadines', 'gd' => 'Grenada', 'aw' => 'Aruba', 'an' => 'Netherlands Antilles', 'cw' => 'Curacao',
+            'at' => 'Austria',
+    'bh' => 'Bahrain',
+    'by' => 'Belarus',
+    'be' => 'Belgium',
+    'br' => 'Brazil',
+    'bg' => 'Bulgaria',
+    'cn' => 'China',
+    'hr' => 'Croatia',
+    'cy' => 'Cyprus',
+    'cz' => 'Czech Republic',
+    'dk' => 'Denmark',
+    'eg' => 'Egypt',
+    'fi' => 'Finland',
+    'fr' => 'France',
+    'de' => 'Germany',
+    'gr' => 'Greece',
+    'hk' => 'Hong Kong',
+    'hu' => 'Hungary',
+    'iq' => 'Iraq',
+    'ie' => 'Ireland',
+    'it' => 'Italy',
+    'jp' => 'Japan',
+    'jo' => 'Jordan',
+    'kw' => 'Kuwait',
+    'lv' => 'Latvia',
+    'lb' => 'Lebanon',
+    'lt' => 'Lithuania',
+    'lu' => 'Luxembourg',
+    'ma' => 'Morocco',
+    'nl' => 'Netherlands',
+    'no' => 'Norway',
+    'om' => 'Oman',
+    'pl' => 'Poland',
+    'pt' => 'Portugal',
+    'qa' => 'Qatar',
+    'ro' => 'Romania',
+    'ru' => 'Russia',
+    'sa' => 'Saudi Arabia',
+    'sg' => 'Singapore',
+    'sk' => 'Slovakia',
+    'si' => 'Slovenia',
+    'kr' => 'South Korea',
+    'es' => 'Spain',
+    'se' => 'Sweden',
+    'ch' => 'Switzerland',
+    'ua' => 'Ukraine',
+    'uk' => 'United Kingdom',
+    'us' => 'United States',
+    'ae' => 'United Arab Emirates',
+    'ye' => 'Yemen',
+    'ar' => 'Argentina',
+    'bo' => 'Bolivia',
+    'cl' => 'Chile',
+    'co' => 'Colombia',
+    'cr' => 'Costa Rica',
+    'cu' => 'Cuba',
+    'do' => 'Dominican Republic',
+    'ec' => 'Ecuador',
+    'sv' => 'El Salvador',
+    'gt' => 'Guatemala',
+    'hn' => 'Honduras',
+    'mx' => 'Mexico',
+    'ni' => 'Nicaragua',
+    'pa' => 'Panama',
+    'py' => 'Paraguay',
+    'pe' => 'Peru',
+    'pr' => 'Puerto Rico',
+    'uy' => 'Uruguay',
+    've' => 'Venezuela',
             
         ];
         return $countries[strtolower($code)] ?? strtoupper($code);
@@ -35,24 +88,55 @@
 
     function fullLanguage($code){
         $languages = [
-            'en' => 'English', 'es' => 'Spanish', 'fr' => 'French', 'de' => 'German',
-            'it' => 'Italian', 'pt' => 'Portuguese', 'nl' => 'Dutch', 'ru' => 'Russian',
-            'zh' => 'Chinese', 'ja' => 'Japanese', 'ko' => 'Korean', 'ar' => 'Arabic',
-            'hi' => 'Hindi', 'tr' => 'Turkish', 'pl' => 'Polish', 'uk' => 'Ukrainian',
-            'sv' => 'Swedish', 'da' => 'Danish', 'no' => 'Norwegian', 'fi' => 'Finnish',
-            'el' => 'Greek', 'cs' => 'Czech', 'hu' => 'Hungarian', 'ro' => 'Romanian',
-            'bg' => 'Bulgarian', 'hr' => 'Croatian', 'sk' => 'Slovak', 'sl' => 'Slovenian',
-            'lt' => 'Lithuanian', 'lv' => 'Latvian', 'et' => 'Estonian', 'he' => 'Hebrew',
-            'th' => 'Thai', 'vi' => 'Vietnamese', 'id' => 'Indonesian', 'ms' => 'Malay',
-            'fa' => 'Persian', 'ur' => 'Urdu', 'bn' => 'Bengali', 'ta' => 'Tamil',
-            'te' => 'Telugu', 'mr' => 'Marathi', 'gu' => 'Gujarati', 'kn' => 'Kannada',
-            'ml' => 'Malayalam', 'ne' => 'Nepali', 'si' => 'Sinhala', 'my' => 'Burmese',
-            'km' => 'Khmer', 'lo' => 'Lao', 'mn' => 'Mongolian', 'az' => 'Azerbaijani',
-            'ka' => 'Georgian', 'hy' => 'Armenian', 'sq' => 'Albanian', 'mk' => 'Macedonian',
-            'bs' => 'Bosnian', 'sr' => 'Serbian', 'me' => 'Montenegrin', 'is' => 'Icelandic',
-            'ga' => 'Irish', 'cy' => 'Welsh', 'gd' => 'Scottish Gaelic', 'mt' => 'Maltese',
-            'sw' => 'Swahili', 'am' => 'Amharic', 'yo' => 'Yoruba', 'ig' => 'Igbo',
-            'ha' => 'Hausa', 'zu' => 'Zulu', 'so' => 'Somali', 'rw' => 'Kinyarwanda',
+            'en' => 'English',
+    'es' => 'Spanish',
+    'fr' => 'French',
+    'de' => 'German',
+    'it' => 'Italian',
+    'pt' => 'Portuguese',
+    'nl' => 'Dutch',
+    'ru' => 'Russian',
+    'zh' => 'Chinese',
+    'ja' => 'Japanese',
+    'ko' => 'Korean',
+    'ar' => 'Arabic',
+    'tr' => 'Turkish',
+    'pl' => 'Polish',
+    'uk' => 'Ukrainian',
+    'sv' => 'Swedish',
+    'da' => 'Danish',
+    'no' => 'Norwegian',
+    'fi' => 'Finnish',
+    'el' => 'Greek',
+    'cs' => 'Czech',
+    'hu' => 'Hungarian',
+    'ro' => 'Romanian',
+    'bg' => 'Bulgarian',
+    'hr' => 'Croatian',
+    'sk' => 'Slovak',
+    'sl' => 'Slovenian',
+    'lt' => 'Lithuanian',
+    'lv' => 'Latvian',
+    'et' => 'Estonian',
+    'he' => 'Hebrew',
+    'th' => 'Thai',
+    'vi' => 'Vietnamese',
+    'id' => 'Indonesian',
+    'ms' => 'Malay',
+    'ca' => 'Catalan',
+    'gl' => 'Galician',
+    'eu' => 'Basque',
+    'cy' => 'Welsh',
+    'gd' => 'Scottish Gaelic',
+    'ga' => 'Irish',
+    'lb' => 'Luxembourgish',
+    'rm' => 'Romansh',
+    'qu' => 'Quechua',
+    'ay' => 'Aymara',
+    'gn' => 'Guarani',
+    'be' => 'Belarusian',
+    'ku' => 'Kurdish',
+    'ta' => 'Tamil',
         ];
         return $languages[strtolower($code)] ?? strtoupper($code);
     }
@@ -97,194 +181,237 @@
     </div>
 
     <!-- FILTERS SECTION -->
-    <div class="row mb-4">
-        <div class="col-md-12">
-            <div class="card border-0 shadow-sm">
-                <div class="card-body">
-                    <form method="GET" action="{{ route('advertiser.catalog') }}" id="filterForm">
-                        <div class="row g-3 align-items-end">
-                            <!-- Search -->
-                            <div class="col-md-3">
-                                <label class="form-label fw-semibold small text-muted mb-1">Search</label>
-                                <input type="text" 
-                                       name="search" 
-                                       class="form-control form-control-sm" 
-                                       placeholder="Search by site name or URL"
-                                       value="{{ request('search') }}">
-                            </div>
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="card border-0 shadow-sm">
+            <div class="card-body">
+                <form method="GET" action="{{ route('advertiser.catalog') }}" id="filterForm">
+                    <div class="row g-3 align-items-end">
+                        <!-- Search -->
+                        <div class="col-md-3">
+                            <label class="form-label fw-semibold small text-muted mb-1">Search</label>
+                            <input type="text" 
+                                   name="search" 
+                                   class="form-control form-control-sm" 
+                                   placeholder="Search by site name or URL"
+                                   value="{{ request('search') }}">
+                        </div>
 
-                            <!-- Category Filter -->
-                            <div class="col-md-2">
-                                <label class="form-label fw-semibold small text-muted mb-1">Category</label>
-                                <select name="category" class="form-select form-select-sm">
-                                    <option value="">All Categories</option>
+                        <!-- Category Filter with Multi-Select -->
+                        <div class="col-md-2">
+                            <label class="form-label fw-semibold small text-muted mb-1">Category</label>
+                            <div class="multi-select-wrapper">
+                                <div class="multi-select-input form-control form-control-sm" onclick="toggleMultiDropdown('categoryMultiDropdown')">
+                                    <div class="selected-items" id="selectedCategoriesDisplay">
+                                        <span class="placeholder-text">Select categories...</span>
+                                    </div>
+                                    <i class="fa fa-chevron-down"></i>
+                                </div>
+                                <div class="multi-select-dropdown" id="categoryMultiDropdown">
+                                    <div class="search-box">
+                                        <i class="fa fa-search"></i>
+                                        <input type="text" id="categorySearch" class="form-control form-control-sm" placeholder="Search categories..." onkeyup="filterMultiOptions('categoryMultiOptions', this.value)">
+                                    </div>
+                                    <div class="options-list" id="categoryMultiOptions">
                                         @foreach($siteCategories as $category)
-                                            <option value="{{ $category }}" {{ request('category') == $category ? 'selected' : '' }}>
-                                                {{ $category }}
-                                            </option>
+                                            <label class="option-item">
+                                                <input type="checkbox" value="{{ $category }}" data-type="category" onchange="updateMultiFilter(this)">
+                                                <span>{{ $category }}</span>
+                                            </label>
                                         @endforeach
-                                </select>
-                            </div>
-
-                            <!-- Country Filter -->
-                            <div class="col-md-2">
-                                <label class="form-label fw-semibold small text-muted mb-1">Country</label>
-                                <select name="country" class="form-select form-select-sm">
-                                    <option value="">All Countries</option>
-                                    @foreach($availableCountries as $countryCode)
-                                        <option value="{{ $countryCode }}" {{ request('country') == $countryCode ? 'selected' : '' }}>
-                                            {{ fullCountry($countryCode) }}
-                                        </option>
-                                    @endforeach
-                                </select>
-                            </div>
-
-
-                            <!-- Language Filter -->
-                            <div class="col-md-2">
-                                <label class="form-label fw-semibold small text-muted mb-1">Language</label>
-                                <select name="language" class="form-select form-select-sm">
-                                    <option value="">All Languages</option>
-                                    @foreach($availableLanguages as $langCode)
-                                        <option value="{{ $langCode }}" {{ request('language') == $langCode ? 'selected' : '' }}>
-                                            {{ fullLanguage($langCode) }}
-                                        </option>
-                                    @endforeach
-                                </select>
-                            </div>
-
-
-                            <!-- Sponsored Filter -->
-                             <div class="col-md-2">
-                                <label class="form-label fw-semibold small text-muted mb-1">Sponsored</label>
-                                <select name="sponsored" class="form-select form-select-sm">
-                                    <option value="">All Sites</option>
-                                    <option value="1" {{ request('sponsored') == '1' ? 'selected' : '' }}>Sponsored Only</option>
-                                </select>
-                            </div>
-
-                            <!-- Price Range -->
-                            <div class="col-md-2">
-                                <label class="form-label fw-semibold small text-muted mb-1">Price Range(€)</label>
-                                <div class="d-flex gap-2">
-                                    <input type="number" 
-                                           name="price_min" 
-                                           class="form-control form-control-sm no-spinner" 
-                                           placeholder="00.00"
-                                           min="0" step="0.01"
-                                           value="{{ request('price_min') }}">
-                                    <input type="number" 
-                                           name="price_max" 
-                                           class="form-control form-control-sm no-spinner" 
-                                           placeholder="999999.00"
-                                            min="0" step="0.01"
-                                           value="{{ request('price_max') }}">
+                                    </div>
                                 </div>
                             </div>
+                            <input type="hidden" name="category" id="selectedCategory" value="{{ request('category') }}">
+                        </div>
 
-                            <!-- Favorites Filter -->
-                            <div class="col-md-2">
-                                <label class="form-label fw-semibold small text-muted mb-1">Favorites</label>
-                                <select name="favorites_filter" class="form-select form-select-sm">
-                                    <option value="">All Sites</option>
-                                    <option value="1" {{ request('favorites_filter') == '1' ? 'selected' : '' }}>Favorites Only</option>
-                                </select>
-                            </div>
-
-                            <!-- Blacklist Filter -->
-                            <div class="col-md-2">
-                                <label class="form-label fw-semibold small text-muted mb-1">Blacklist</label>
-                                <select name="blacklist_filter" class="form-select form-select-sm">
-                                    <option value="">All Sites</option>
-                                    <option value="1" {{ request('blacklist_filter') == '1' ? 'selected' : '' }}>Blacklisted Only</option>
-                                </select>
-                            </div>
-
-                            <!-- DA Range -->
-                            <div class="col-md-2">
-                                <label class="form-label fw-semibold small text-muted mb-1">DA Range</label>
-                                <div class="d-flex gap-2">
-                                    <input type="number" 
-                                           name="da_min" 
-                                           class="form-control form-control-sm no-spinner"  
-                                           placeholder="00"
-                                            min="0" step="1"
-                                           value="{{ request('da_min') }}">
-                                    <input type="number" 
-                                           name="da_max" 
-                                           class="form-control form-control-sm no-spinner" 
-                                           placeholder="99"
-                                            min="0" step="1"
-                                           value="{{ request('da_max') }}">
+                        <!-- Country Filter with Multi-Select -->
+                        <div class="col-md-2">
+                            <label class="form-label fw-semibold small text-muted mb-1">Country</label>
+                            <div class="multi-select-wrapper">
+                                <div class="multi-select-input form-control form-control-sm" onclick="toggleMultiDropdown('countryMultiDropdown')">
+                                    <div class="selected-items" id="selectedCountriesDisplay">
+                                        <span class="placeholder-text">Select countries...</span>
+                                    </div>
+                                    <i class="fa fa-chevron-down"></i>
+                                </div>
+                                <div class="multi-select-dropdown" id="countryMultiDropdown">
+                                    <div class="search-box">
+                                        <i class="fa fa-search"></i>
+                                        <input type="text" id="countrySearch" class="form-control form-control-sm" placeholder="Search countries..." onkeyup="filterMultiOptions('countryMultiOptions', this.value)">
+                                    </div>
+                                    <div class="options-list" id="countryMultiOptions">
+                                        @foreach($availableCountries as $code => $name)
+                                            <label class="option-item">
+                                                <input type="checkbox" value="{{ $code }}" data-type="country" data-name="{{ $name }}" onchange="updateMultiFilter(this)">
+                                                <span>{{ $name }}</span>
+                                            </label>
+                                        @endforeach
+                                    </div>
                                 </div>
                             </div>
+                            <input type="hidden" name="country" id="selectedCountry" value="{{ request('country') }}">
+                        </div>
 
-                            <!-- DR Range -->
-                            <div class="col-md-2">
-                                <label class="form-label fw-semibold small text-muted mb-1">DR Range</label>
-                                <div class="d-flex gap-2">
-                                    <input type="number" 
-                                           name="dr_min" 
-                                           class="form-control form-control-sm no-spinner" 
-                                           placeholder="00"
-                                            min="0" step="1"
-                                           value="{{ request('dr_min') }}">
-                                    <input type="number" 
-                                           name="dr_max" 
-                                           class="form-control form-control-sm no-spinner" 
-                                           placeholder="99"
-                                            min="0" step="1"
-                                           value="{{ request('dr_max') }}">
+                        <!-- Language Filter with Multi-Select -->
+                        <div class="col-md-2">
+                            <label class="form-label fw-semibold small text-muted mb-1">Language</label>
+                            <div class="multi-select-wrapper">
+                                <div class="multi-select-input form-control form-control-sm" onclick="toggleMultiDropdown('languageMultiDropdown')">
+                                    <div class="selected-items" id="selectedLanguagesDisplay">
+                                        <span class="placeholder-text">Select languages...</span>
+                                    </div>
+                                    <i class="fa fa-chevron-down"></i>
+                                </div>
+                                <div class="multi-select-dropdown" id="languageMultiDropdown">
+                                    <div class="search-box">
+                                        <i class="fa fa-search"></i>
+                                        <input type="text" id="languageSearch" class="form-control form-control-sm" placeholder="Search languages..." onkeyup="filterMultiOptions('languageMultiOptions', this.value)">
+                                    </div>
+                                    <div class="options-list" id="languageMultiOptions">
+                                        @foreach($availableLanguages as $code => $name)
+                                            <label class="option-item">
+                                                <input type="checkbox" value="{{ $code }}" data-type="language" data-name="{{ $name }}" onchange="updateMultiFilter(this)">
+                                                <span>{{ $name }}</span>
+                                            </label>
+                                        @endforeach
+                                    </div>
                                 </div>
                             </div>
+                            <input type="hidden" name="language" id="selectedLanguage" value="{{ request('language') }}">
+                        </div>
 
-                            <!-- Traffic Range -->
-                            <div class="col-md-3">
-                                <label class="form-label fw-semibold small text-muted mb-1">Monthly Traffic</label>
-                                <div class="d-flex gap-2">
-                                    <input type="number" 
-                                           name="traffic_min" 
-                                           class="form-control form-control-sm no-spinner" 
-                                           placeholder="00"
-                                            min="0" step="1"
-                                           value="{{ request('traffic_min') }}">
-                                    <input type="number" 
-                                           name="traffic_max" 
-                                           class="form-control form-control-sm no-spinner" 
-                                           placeholder="999999"
-                                            min="0" step="1"
-                                           value="{{ request('traffic_max') }}">
-                                </div>
-                            </div>
+                        <!-- Sponsored Filter -->
+                        <div class="col-md-2">
+                            <label class="form-label fw-semibold small text-muted mb-1">Sponsored</label>
+                            <select name="sponsored" class="form-select form-select-sm">
+                                <option value="">All Sites</option>
+                                <option value="1" {{ request('sponsored') == '1' ? 'selected' : '' }}>Sponsored Only</option>
+                            </select>
+                        </div>
 
-                            <!-- New Badge Filter -->
-                            <div class="col-md-2">
-                                <label class="form-label fw-semibold small text-muted mb-1">New Sites</label>
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" name="new_badge" id="new_badge" value="1" {{ request('new_badge') == 1 ? 'checked' : '' }}>
-                                    <label class="form-check-label" for="new_badge">
-                                        Show New Sites
-                                    </label>
-                                </div>
-                            </div>
-
-                            <!-- Action Buttons -->
-                            <div class="col-md-2">
-                                <div class="d-flex gap-2">
-                                    <button type="submit" class="btn btn-primary btn-sm px-4">
-                                        <i class="fa-solid fa-magnifying-glass me-1"></i> Filter
-                                    </button>
-                                    <a href="{{ route('advertiser.catalog') }}" class="btn btn-secondary btn-sm px-3">
-                                        <i class="fa-solid fa-rotate-right me-1"></i> Reset
-                                    </a>
-                                </div>
+                        <!-- Price Range -->
+                        <div class="col-md-2">
+                            <label class="form-label fw-semibold small text-muted mb-1">Price Range(€)</label>
+                            <div class="d-flex gap-2">
+                                <input type="number" 
+                                       name="price_min" 
+                                       class="form-control form-control-sm no-spinner" 
+                                       placeholder="00.00"
+                                       min="0" step="0.01"
+                                       value="{{ request('price_min') }}">
+                                <input type="number" 
+                                       name="price_max" 
+                                       class="form-control form-control-sm no-spinner" 
+                                       placeholder="999999.00"
+                                       min="0" step="0.01"
+                                       value="{{ request('price_max') }}">
                             </div>
                         </div>
-                    </form>
-                </div>
+
+                        <!-- Favorites Filter -->
+                        <div class="col-md-2">
+                            <label class="form-label fw-semibold small text-muted mb-1">Favorites</label>
+                            <select name="favorites_filter" class="form-select form-select-sm">
+                                <option value="">All Sites</option>
+                                <option value="1" {{ request('favorites_filter') == '1' ? 'selected' : '' }}>Favorites Only</option>
+                            </select>
+                        </div>
+
+                        <!-- Blacklist Filter -->
+                        <div class="col-md-2">
+                            <label class="form-label fw-semibold small text-muted mb-1">Blacklist</label>
+                            <select name="blacklist_filter" class="form-select form-select-sm">
+                                <option value="">All Sites</option>
+                                <option value="1" {{ request('blacklist_filter') == '1' ? 'selected' : '' }}>Blacklisted Only</option>
+                            </select>
+                        </div>
+
+                        <!-- DA Range -->
+                        <div class="col-md-2">
+                            <label class="form-label fw-semibold small text-muted mb-1">DA Range</label>
+                            <div class="d-flex gap-2">
+                                <input type="number" 
+                                       name="da_min" 
+                                       class="form-control form-control-sm no-spinner"  
+                                       placeholder="00"
+                                       min="0" step="1"
+                                       value="{{ request('da_min') }}">
+                                <input type="number" 
+                                       name="da_max" 
+                                       class="form-control form-control-sm no-spinner" 
+                                       placeholder="99"
+                                       min="0" step="1"
+                                       value="{{ request('da_max') }}">
+                            </div>
+                        </div>
+
+                        <!-- DR Range -->
+                        <div class="col-md-2">
+                            <label class="form-label fw-semibold small text-muted mb-1">DR Range</label>
+                            <div class="d-flex gap-2">
+                                <input type="number" 
+                                       name="dr_min" 
+                                       class="form-control form-control-sm no-spinner" 
+                                       placeholder="00"
+                                       min="0" step="1"
+                                       value="{{ request('dr_min') }}">
+                                <input type="number" 
+                                       name="dr_max" 
+                                       class="form-control form-control-sm no-spinner" 
+                                       placeholder="99"
+                                       min="0" step="1"
+                                       value="{{ request('dr_max') }}">
+                            </div>
+                        </div>
+
+                        <!-- Traffic Range -->
+                        <div class="col-md-3">
+                            <label class="form-label fw-semibold small text-muted mb-1">Monthly Traffic</label>
+                            <div class="d-flex gap-2">
+                                <input type="number" 
+                                       name="traffic_min" 
+                                       class="form-control form-control-sm no-spinner" 
+                                       placeholder="00"
+                                       min="0" step="1"
+                                       value="{{ request('traffic_min') }}">
+                                <input type="number" 
+                                       name="traffic_max" 
+                                       class="form-control form-control-sm no-spinner" 
+                                       placeholder="999999"
+                                       min="0" step="1"
+                                       value="{{ request('traffic_max') }}">
+                            </div>
+                        </div>
+
+                        <!-- New Badge Filter -->
+                        <div class="col-md-2">
+                            <label class="form-label fw-semibold small text-muted mb-1">New Sites</label>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" name="new_badge" id="new_badge" value="1" {{ request('new_badge') == 1 ? 'checked' : '' }}>
+                                <label class="form-check-label" for="new_badge">
+                                    Show New Sites
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- Action Buttons -->
+                        <div class="d-flex gap-2">
+                            <button type="button" class="btn btn-sm px-4" id="applyFiltersBtn" style="background-color: #3aaeb2; color: white;">
+                                <i class="fa-solid fa-magnifying-glass me-1"></i> Apply Filters
+                            </button>
+                            <a href="{{ route('advertiser.catalog') }}" class="btn btn-sm px-3" style="background-color: #e9ecef; color: #495057;">
+                                <i class="fa-solid fa-rotate-right me-1"></i> Reset
+                            </a>
+                        </div>
+                    </div>
+                </form>
             </div>
         </div>
     </div>
+</div>
+
+
 
     <!-- CONTENT AREA -->
     <div class="row">
@@ -295,371 +422,399 @@
                 <div class="card-body p-0">
                     
                     <div class="table-responsive">
-                        <table class="table table-borderless align-middle mb-0">
-                            <thead class="table-light">
-    <tr>
-        <th class="text-center" style="min-width: 250px;">Site</th>
-        <th class="text-center">Category</th>
-        <th class="text-center">Monthly Traffic</th>
-        <th class="text-center">AHREFS DR</th>
-        <th class="text-center">MOZ DA</th>
-        <th class="text-center">Language</th>
-        <th class="text-center" style="min-width: 180px;">Action</th>
-    </tr>
-</thead>
-                            <tbody>
-                                @forelse($sites as $site)
-                                @php
-                                    $isBlacklisted = in_array($site->id, $blacklist);
-                                    $isFavorited = in_array($site->id, $favorites);
-                                    // Decode sensitive prices
-                                    $sensitivePrices = $site->sensitive_prices;
-                                    if (is_string($sensitivePrices)) {
-                                        $sensitivePrices = json_decode($sensitivePrices, true);
-                                    }
-                                    $sensitivePrices = is_array($sensitivePrices) ? $sensitivePrices : [];
-                                @endphp
-                                <tr class="site-row {{ $isBlacklisted ? 'blacklisted-row' : '' }}" data-id="{{ $site->id }}" data-name="{{ $site->site_name }}" style="{{ $isBlacklisted ? 'opacity: 0.7; background-color: #fff3f3;' : '' }}">
-                                    
-                                    <td style="min-width: 220px; position: relative;">
-                                        @if($site->verified)
-                                            <span class="badge bg-success text-white shadow-sm fw-semibold"
-                                                  style="position: absolute; top: 6px; right: 6px; font-size: 10px; padding: 4px 8px; border-radius: 6px; letter-spacing: 0.3px; z-index: 1;"
-                                                  title="Site has been verified for quality and authenticity">
-                                                VERIFIED
-                                            </span>
-                                        @endif
-
-                                        @if($isBlacklisted)
-                                            <span class="badge bg-danger text-white shadow-sm fw-semibold blacklist-badge"
-                                                  style="position: absolute; top: 6px; left: 6px; font-size: 10px; padding: 4px 8px; border-radius: 6px; letter-spacing: 0.3px; z-index: 1;"
-                                                  title="This site is blacklisted">
-                                                BLACKLISTED
-                                            </span>
-                                        @endif
-
-                                        
-                                        <div class="d-flex flex-column gap-1">
-    <!-- URL Row -->
-    <div class="d-flex align-items-center gap-2">
-        <span class="text-dark"
-              style="font-family: monospace; font-weight: 600; font-size: 13.5px;"
-              id="url-masked-{{ $site->id }}">
-            {{ substr(Str::of($site->site_url)->replaceMatches('/^(https?:\/\/)?(www\.)?/', ''), 0, 3) }}******
-        </span>
-
-        <span class="url-full text-muted d-none"
-              id="url-full-{{ $site->id }}"
-              style="font-family: monospace; font-weight: 500; font-size: 13.5px;">
-            {{ Str::of($site->site_url)->replaceMatches('/^(https?:\/\/)?(www\.)?/', '') }}
-        </span>
-
-        <button class="btn btn-sm btn-link text-secondary p-0 toggle-url"
-                data-id="{{ $site->id }}"
-                title="Toggle URL"
-                style="font-size: 15px;">
-            <i class="fa-regular fa-eye"></i>
-        </button>
-
-        <a href="{{ $site->site_url }}"
-           target="_blank"
-           rel="noopener noreferrer"
-           class="text-muted"
-           title="Open Website"
-           style="display:inline-flex; align-items:center; text-decoration:none;">
-            <i class="fa-solid fa-arrow-up-right-from-square" style="font-size: 13px;"></i>
-        </a>
-
-        <i class="fa-solid fa-chevron-down expand-arrow text-muted" 
-           id="arrow-{{ $site->id }}"
-           style="font-size: 13px; cursor: pointer; transition: transform 0.3s ease;">
-        </i>
-
-        @if($site->created_at->gt(now()->subDays(30)))
-            <span class="new-badge">
-                NEW
-                <span class="pulse-dot"></span>
-            </span>
-        @endif
-    </div>
-
-    <!-- DoFollow Links -->
-    <div class="text-muted" style="font-size: 12.5px;">
-        Max 03 DoFollow links
-    </div>
-
-    <!-- Turnaround Time -->
-    <div>
-        <span class="turnaround-badge" style="font-size: 12.5px;">
-        Turnaround: {{ $site->turnaround_time ?? 'N/A' }}
-        </span>
-    </div>
-</div>
-
-
-                                        </td>
-
-                                    <td>
-                                            @php
-        $categoryArray = !empty($site->categories) 
-            ? array_map('trim', explode(',', str_replace(['["', '"]', '"'], '', $site->categories))) 
-            : (!empty($site->category) ? [$site->category] : []);
-        
-        // Filter out any empty values
-        $categoryArray = array_filter($categoryArray);
-        // Reset array keys after filtering
-        $categoryArray = array_values($categoryArray);
-        
-        $totalCategories = count($categoryArray);
-        $showLimit = 3; // Show 3 categories 
-        $hasMore = $totalCategories > $showLimit;
-    @endphp
-
-    @if(!empty($categoryArray))
-        <div class="categories-wrapper">
-            <div style="display: grid; grid-template-columns: repeat(2, auto); gap: 4px; width: fit-content;">
-                @foreach($categoryArray as $index => $cat)
-                    <div class="{{ $index >= $showLimit ? 'hidden-category' : '' }}" 
-                        style="{{ $index >= $showLimit ? 'display: none;' : '' }} background: #e9ecef; border-radius: 10px; padding: 3px 8px; font-size: 10px; font-weight: 500; color: #495057; text-align: center; white-space: nowrap;">
-                        {{ $cat }}
-                    </div>
-                @endforeach
-            </div>
-            
-            @if($hasMore)
-                <button type="button" class="toggle-cats-btn" 
-                        style="background: none; border: none; color: #6c757d; font-size: 9px; cursor: pointer; padding: 0; margin-top: 3px; display: block;"
-                        data-site-id="{{ $site->id }}">
-                    +{{ $totalCategories - $showLimit }} more
-                </button>
-            @endif
-        </div>
-    @else
-        <div style="background: #e9ecef; border-radius: 10px; padding: 3px 8px; font-size: 10px; font-weight: 500; color: #495057; display: inline-block;">
-            {{ $site->category }}
-        </div>
-    @endif
-                                    </td>
-
-                                    <td>
-                                        <div class="d-flex align-items-center gap-2">
-                                            <img src="{{ asset('assets/img/traffic.svg') }}" alt="Traffic" style="width: 18px; height: 18px;" onerror="this.style.display='none'">
-                                            <span class="fw-semibold" title="Monthly Traffic Semrush estimate">
-                                                {{ number_format($site->traffic) }}
-                                            </span>
-                                        </div>
-                                    </td>
-
-                                    <td>
-                                        <div class="d-flex align-items-center gap-2">
-                                            <img src="{{ asset('assets/img/ahref.jpeg') }}" alt="AHREFS DR" style="width: 18px; height: 18px; border-radius: 2px;" onerror="this.style.display='none'">
-                                            <span class="fw-semibold text-info" title="AHREFS Domain Rating">
-                                                {{ $site->dr }}
-                                            </span>
-                                        </div>
-                                    </td>
-
-                                    <td>
-                                        <div class="d-flex align-items-center gap-2">
-                                            <img src="{{ asset('assets/img/moz_da.png') }}" alt="MOZ DA" style="width: 18px; height: 18px;" onerror="this.style.display='none'">
-                                            <span class="fw-semibold text-primary" title="MOZ Domain Authority">
-                                                {{ $site->da }}
-                                            </span>
-                                        </div>
-                                    </td>
-
-                                    <td>
-                                        <div class="d-flex flex-column align-items-center gap-1">
-                                            <span style="font-size: 24px;">{!! getLanguageFlag($site->language) !!}</span>
-                                            <span class="text-muted small text-center">{{ fullLanguage($site->language) }}</span>
-                                        </div>
-                                    </td>
-
-                                    <td>
-                                        <div class="d-flex flex-column gap-2 align-items-center">
-                                            <button class="btn btn-primary btn-sm buy-now d-inline-flex justify-content-center align-items-center gap-2"
-                                                    data-id="{{ $site->id }}"
-                                                    data-base-price="{{ $site->price }}"
-                                                    data-name="{{ $site->site_name }}"
-                                                    style="padding: 6px 12px; font-size: 13px; border-radius: 6px;">
-                                                <i class="fa-solid fa-cart-plus"></i>
-                                                <span>Buy</span>
-                                                <span class="fw-semibold base-price-display">€{{ number_format($site->price, 2) }}</span>
-                                            </button>
-
-                                            <div class="d-flex gap-2 justify-content-center" style="width: fit-content;">
-                                                <button class="btn btn-sm favorite-btn {{ $isFavorited ? 'btn-danger' : 'btn-outline-danger' }}"
-                                                        data-id="{{ $site->id }}"
-                                                        data-name="{{ $site->site_name }}"
-                                                        title="{{ $isFavorited ? 'Remove from Favorites' : 'Add to Favorites' }}"
-                                                        style="padding: 4px 20px; border-radius: 6px;">
-                                                    <i class="fa-{{ $isFavorited ? 'solid' : 'regular' }} fa-heart"></i>
-                                                </button>
-
-                                                <button class="btn btn-sm blacklist-btn {{ $isBlacklisted ? 'btn-dark' : 'btn-outline-secondary' }}"
-                                                        data-id="{{ $site->id }}"
-                                                        data-name="{{ $site->site_name }}"
-                                                        title="{{ $isBlacklisted ? 'Remove from Blacklist' : 'Blacklist Site' }}"
-                                                        style="padding: 4px 20px; border-radius: 6px;">
-                                                    <i class="fa-solid fa-ban"></i>
-                                                </button>
-                                            </div>
-                                        </div>
-                                    </td>
-                                </tr>
-                                
-                                <tr class="expanded-row-{{ $site->id }}" style="display: none;">
-                                    <td colspan="7" style="background-color: #f9f9f9; padding: 20px;">
-                                        <div class="row">
-                                            <div class="col-md-12">
-                                                <h6 class="mb-3">Site Details</h6>
-                                                <div class="row">
-                                                    <div class="col-md-6">
-                                                        <p><strong>Description:</strong></p>
-                                                        <div class="text-muted small">
-                                                            {!! $site->description !!}
-                                                        </div>
-                                                    </div>
-                                                    <div class="col-md-3">
-                                                        <p><strong>Tags:</strong></p>
-                                                        <div class="d-flex flex-column gap-2">
-                                                            <div>
-                                                                @if($site->link_type)
-                                                                    <span class="badge bg-secondary-subtle text-secondary border px-2 py-1"
-                                                                          style="font-size: 11px;"
-                                                                          title="Link Type">
-                                                                        <i class="fa-solid fa-link me-1"></i>{{ $site->link_type }}
-                                                                    </span>
-                                                                @else
-                                                                    <span class="text-muted small">No link type specified</span>
-                                                                @endif
-                                                            </div>
-                                                            
-                                                            <div class="d-flex flex-wrap gap-1">
-                                                                @if($site->sponsored)
-                                                                    <span class="badge bg-warning-subtle text-dark border px-2 py-1"
-                                                                          style="font-size: 11px;"
-                                                                          title="Sponsored placement">
-                                                                        <i class="fa-solid fa-star me-1"></i>Sponsored
-                                                                    </span>
-                                                                @endif
-
-                                                                @if($site->partner_material)
-                                                                    <span class="badge bg-success-subtle text-success border px-2 py-1"
-                                                                          style="font-size: 11px;"
-                                                                          title="Partner content allowed">
-                                                                        <i class="fa-solid fa-handshake me-1"></i>Partner
-                                                                    </span>
-                                                                @endif
-
-                                                                @if($site->as_you_prefer ?? false)
-                                                                    <span class="badge bg-primary-subtle text-primary border px-2 py-1"
-                                                                          style="font-size: 11px;"
-                                                                          title="Flexible placement">
-                                                                        <i class="fa-solid fa-sliders-h me-1"></i>As You Prefer
-                                                                    </span>
-                                                                @endif
-                                                        
-                                                                @if(!$site->sponsored && !$site->partner_material && !($site->as_you_prefer ?? false))
-                                                                    <span class="text-muted small">No additional tags</span>
-                                                                @endif
-                                                            </div>
-                                                            
-                                                            <div>
-                                                                @if(!empty($sensitivePrices))
-    <p><strong>Sensitive Prices (Additional Charges):</strong></p>
-    <div class="sensitive-prices-group" data-site-id="{{ $site->id }}" data-base-price="{{ $site->price }}">
-        @foreach($sensitivePrices as $type => $additionalPrice)
+    <table class="table table-borderless align-middle mb-0">
+        <thead class="table-light">
+            <tr>
+                <th class="text-center" style="min-width: 250px;">Site</th>
+                <th class="text-center">Category</th>
+                <th class="text-center">Monthly Traffic</th>
+                <th class="text-center">AHREFS DR</th>
+                <th class="text-center">MOZ DA</th>
+                <th class="text-center">Language</th>
+                <th class="text-center" style="min-width: 180px;">Action</th>
+            </tr>
+        </thead>
+        <tbody>
+            @forelse($sites as $site)
             @php
-                $totalPrice = $site->price + $additionalPrice;
+                $isBlacklisted = in_array($site->id, $blacklist);
+                $isFavorited = in_array($site->id, $favorites);
+                // Decode sensitive prices
+                $sensitivePrices = $site->sensitive_prices;
+                if (is_string($sensitivePrices)) {
+                    $sensitivePrices = json_decode($sensitivePrices, true);
+                }
+                $sensitivePrices = is_array($sensitivePrices) ? $sensitivePrices : [];
             @endphp
-            <div class="form-check mb-2">
-                <input class="form-check-input sensitive-price-checkbox" 
-                       type="checkbox" 
-                       name="sensitive_prices_{{ $site->id }}[]" 
-                       value="{{ $additionalPrice }}"
-                       data-type="{{ $type }}"
-                       data-additional-price="{{ $additionalPrice }}"
-                       data-total-price="{{ $totalPrice }}"
-                       data-site-id="{{ $site->id }}"
-                       id="sensitive_{{ $site->id }}_{{ $loop->index }}">
-                <label class="form-check-label" for="sensitive_{{ $site->id }}_{{ $loop->index }}">
-                    <strong>{{ ucfirst($type) }}</strong>
-                    <span class="text-danger">€{{ number_format($additionalPrice, 2) }}</span>
-                </label>
-            </div>
-        @endforeach
-    </div>
-    <div class="selected-price-info mt-2" id="price-info-{{ $site->id }}">
-        <small class="text-muted">Current price: <strong>€{{ number_format($site->price, 2) }}</strong> (Base price)</small>
+            <tr class="site-row {{ $isBlacklisted ? 'blacklisted-row' : '' }}" data-id="{{ $site->id }}" data-name="{{ $site->site_name }}" style="{{ $isBlacklisted ? 'opacity: 0.7; background-color: #fff3f3;' : '' }}">
+                
+                <td style="min-width: 220px; position: relative;">
+                    @if($site->verified)
+                        <span class="badge bg-success text-white shadow-sm fw-semibold"
+                              style="position: absolute; top: 6px; right: 6px; font-size: 10px; padding: 4px 8px; border-radius: 6px; letter-spacing: 0.3px; z-index: 1;"
+                              title="Site has been verified for quality and authenticity">
+                            VERIFIED
+                        </span>
+                    @endif
+
+                    @if($isBlacklisted)
+                        <span class="badge bg-danger text-white shadow-sm fw-semibold blacklist-badge"
+                              style="position: absolute; top: 6px; left: 6px; font-size: 10px; padding: 4px 8px; border-radius: 6px; letter-spacing: 0.3px; z-index: 1;"
+                              title="This site is blacklisted">
+                            BLACKLISTED
+                        </span>
+                    @endif
+
+                    
+                    <div class="d-flex flex-column gap-1">
+                        <!-- URL Row -->
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="text-dark"
+                                  style="font-family: monospace; font-weight: 600; font-size: 13.5px;"
+                                  id="url-masked-{{ $site->id }}">
+                                {{ substr(Str::of($site->site_url)->replaceMatches('/^(https?:\/\/)?(www\.)?/', ''), 0, 3) }}******
+                            </span>
+
+                            <span class="url-full text-muted d-none"
+                                  id="url-full-{{ $site->id }}"
+                                  style="font-family: monospace; font-weight: 500; font-size: 13.5px;">
+                                {{ Str::of($site->site_url)->replaceMatches('/^(https?:\/\/)?(www\.)?/', '') }}
+                            </span>
+
+                            <button class="btn btn-sm btn-link text-secondary p-0 toggle-url"
+                                    data-id="{{ $site->id }}"
+                                    title="Toggle URL"
+                                    style="font-size: 15px;">
+                                <i class="fa-regular fa-eye"></i>
+                            </button>
+
+                            <a href="{{ $site->site_url }}"
+                               target="_blank"
+                               rel="noopener noreferrer"
+                               class="text-muted"
+                               title="Open Website"
+                               style="display:inline-flex; align-items:center; text-decoration:none;">
+                                <i class="fa-solid fa-arrow-up-right-from-square" style="font-size: 13px;"></i>
+                            </a>
+
+                            <i class="fa-solid fa-chevron-down expand-arrow text-muted" 
+                               id="arrow-{{ $site->id }}"
+                               style="font-size: 13px; cursor: pointer; transition: transform 0.3s ease;">
+                            </i>
+
+                            @if($site->created_at->gt(now()->subDays(30)))
+                                <span class="new-badge">
+                                    NEW
+                                    <span class="pulse-dot"></span>
+                                </span>
+                            @endif
+                        </div>
+
+                        <!-- DoFollow Links -->
+                        <div class="text-muted" style="font-size: 12.5px;">
+                            Max 03 DoFollow links
+                        </div>
+
+                        <!-- Turnaround Time -->
+                        <div>
+                            <span class="turnaround-badge" style="font-size: 12.5px;">
+                            Turnaround: {{ $site->turnaround_time ?? 'N/A' }}
+                            </span>
+                        </div>
+                    </div>
+                </td>
+
+                <td>
+                   @php
+    $categoryArray = [];
+
+    // Handle categories array
+    if (!empty($site->categories) && is_array($site->categories)) {
+
+        foreach ($site->categories as $cat) {
+
+            if (str_contains($cat, ',')) {
+                $splitCats = array_map('trim', explode(',', $cat));
+                $categoryArray = array_merge($categoryArray, $splitCats);
+            } else {
+                $categoryArray[] = trim($cat);
+            }
+        }
+    }
+
+    // Fallback to category string
+    elseif (!empty($site->category)) {
+
+        if (str_contains($site->category, ',')) {
+            $categoryArray = array_map('trim', explode(',', $site->category));
+        } else {
+            $categoryArray[] = trim($site->category);
+        }
+    }
+
+    // Clean array
+    $categoryArray = array_values(array_unique(array_filter($categoryArray)));
+
+    $showLimit = 3;
+    $totalCategories = count($categoryArray);
+@endphp
+
+@if(count($categoryArray))
+    <div class="categories-wrapper">
+
+        <div class="categories-column">
+
+            @foreach($categoryArray as $index => $cat)
+
+                <span class="category-badge {{ $index >= $showLimit ? 'extra-category d-none' : '' }}">
+                    {{ $cat }}
+                </span>
+
+            @endforeach
+
+        </div>
+
+        @if($totalCategories > $showLimit)
+            <button type="button"
+                    class="toggle-cats-btn"
+                    onclick="
+                        const wrapper = this.closest('.categories-wrapper');
+                        const hiddenItems = wrapper.querySelectorAll('.extra-category');
+
+                        hiddenItems.forEach(el => el.classList.toggle('d-none'));
+
+                        this.innerText = this.innerText.includes('more')
+                            ? 'Show less'
+                            : '+{{ $totalCategories - $showLimit }} more';
+                    ">
+                +{{ $totalCategories - $showLimit }} more
+            </button>
+        @endif
+
     </div>
 @endif
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                    <div class="col-md-3">
-                                                        <p><strong>Example URL:</strong></p>
-                                                        <div class="d-flex flex-column gap-2">
-                                                            <div class="d-flex align-items-center gap-2">
-                                                                <a href="{{ $site->example_url ?? '#' }}" 
-                                                                target="_blank" 
-                                                                class="text-decoration-none"
-                                                                style="word-break: break-all;">
-                                                                    {{ Str::limit($site->example_url ?? 'Not available', 50) }}
-                                                                </a>
+                </td>
 
-                                                                @if($site->example_url)
-                                                                    <a href="{{ $site->example_url }}"
-                                                                    target="_blank"
-                                                                    rel="noopener noreferrer"
-                                                                    class="text-muted d-inline-flex align-items-center"
-                                                                    title="Open Website">
-                                                                        <i class="fa-solid fa-arrow-up-right-from-square" style="font-size: 13px;"></i>
-                                                                    </a>
-                                                                @endif
-                                                            </div>
-                                                            @if($site->example_url)
-                                                                <button class="btn btn-sm btn-outline-secondary copy-example-url" 
-                                                                        data-url="{{ $site->example_url }}"
-                                                                        style="width: fit-content;">
-                                                                    <i class="fa-regular fa-copy"></i> Copy URL
-                                                                </button>
-                                                            @endif
-                                                            <div class="d-flex align-items-center gap-2">
-                                                                <strong>Publication Duration:</strong>
-
-                                                                @if($site->publication_time)
-                                                                    <span class="badge text-muted border px-2 py-1"
-                                                                        style="font-size: 11px;"
-                                                                        title="Publication Duration">
-                                                                        <i class="fa-solid fa-clock me-1"></i>
-                                                                        {{ $site->publication_time }}
-                                                                    </span>
-                                                                @else
-                                                                    <span class="text-muted small">
-                                                                        No publication duration specified
-                                                                    </span>
-                                                                @endif
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </td>
-                                </tr>
-                                @empty
-                                <tr>
-                                    <td colspan="7" class="text-center py-5">
-                                        <div class="alert alert-light border text-center mb-0">
-                                            No publishers available at the moment.
-                                        </div>
-                                    </td>
-                                </tr>
-                                @endforelse
-                            </tbody>
-                        </table>
+                <td>
+                    <div class="d-flex align-items-center gap-2">
+                        <img src="{{ asset('assets/img/traffic.svg') }}" alt="Traffic" style="width: 18px; height: 18px;" onerror="this.style.display='none'">
+                        <span class="fw-semibold" title="Monthly Traffic Semrush estimate">
+                            {{ number_format($site->traffic) }}
+                        </span>
                     </div>
+                </td>
+
+                <td>
+                    <div class="d-flex align-items-center gap-2">
+                        <img src="{{ asset('assets/img/ahref.jpeg') }}" alt="AHREFS DR" style="width: 18px; height: 18px; border-radius: 2px;" onerror="this.style.display='none'">
+                        <span class="fw-semibold text-info" title="AHREFS Domain Rating">
+                            {{ $site->dr }}
+                        </span>
+                    </div>
+                </td>
+
+                <td>
+                    <div class="d-flex align-items-center gap-2">
+                        <img src="{{ asset('assets/img/moz_da.png') }}" alt="MOZ DA" style="width: 18px; height: 18px;" onerror="this.style.display='none'">
+                        <span class="fw-semibold text-primary" title="MOZ Domain Authority">
+                            {{ $site->da }}
+                        </span>
+                    </div>
+                </td>
+
+                <td>
+                    <div class="d-flex flex-column align-items-center gap-1">
+                        <span style="font-size: 24px;">{!! getLanguageFlag($site->language) !!}</span>
+                        <span class="text-muted small text-center">{{ fullLanguage($site->language) }}</span>
+                    </div>
+                </td>
+
+                <td>
+                    <div class="d-flex flex-column gap-2 align-items-center">
+                        <button class="btn btn-sm buy-now d-inline-flex justify-content-center align-items-center gap-2" 
+                                style="background-color: #3aaeb2; color: white;"
+                                data-id="{{ $site->id }}"
+                                data-base-price="{{ $site->price }}"
+                                data-name="{{ $site->site_name }}"
+                                style="padding: 6px 12px; font-size: 13px; border-radius: 6px;">
+                            <i class="fa-solid fa-cart-plus"></i>
+                            <span>Buy</span>
+                            <span class="fw-semibold base-price-display">€{{ number_format($site->price, 2) }}</span>
+                        </button>
+
+                        <div class="d-flex gap-2 justify-content-center" style="width: fit-content;">
+                            <button class="btn btn-sm favorite-btn {{ $isFavorited ? 'btn-danger' : 'btn-outline-danger' }}"
+                                    data-id="{{ $site->id }}"
+                                    data-name="{{ $site->site_name }}"
+                                    title="{{ $isFavorited ? 'Remove from Favorites' : 'Add to Favorites' }}"
+                                    style="padding: 4px 20px; border-radius: 6px;">
+                                <i class="fa-{{ $isFavorited ? 'solid' : 'regular' }} fa-heart"></i>
+                            </button>
+
+                            <button class="btn btn-sm blacklist-btn {{ $isBlacklisted ? 'btn-dark' : 'btn-outline-secondary' }}"
+                                    data-id="{{ $site->id }}"
+                                    data-name="{{ $site->site_name }}"
+                                    title="{{ $isBlacklisted ? 'Remove from Blacklist' : 'Blacklist Site' }}"
+                                    style="padding: 4px 20px; border-radius: 6px;">
+                                <i class="fa-solid fa-ban"></i>
+                            </button>
+                        </div>
+                    </div>
+                </td>
+            </tr>
+            
+            <tr class="expanded-row-{{ $site->id }}" style="display: none;">
+                <td colspan="7" style="background-color: #f9f9f9; padding: 20px;">
+                    <div class="row">
+                        <div class="col-md-12">
+                            <h6 class="mb-3">Site Details</h6>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <p><strong>Description:</strong></p>
+                                    <div class="text-muted small">
+                                        {!! $site->description !!}
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <p><strong>Tags:</strong></p>
+                                    <div class="d-flex flex-column gap-2">
+                                        <div>
+                                            @if($site->link_type)
+                                                <span class="badge bg-secondary-subtle text-secondary border px-2 py-1"
+                                                      style="font-size: 11px;"
+                                                      title="Link Type">
+                                                    <i class="fa-solid fa-link me-1"></i>{{ $site->link_type }}
+                                                </span>
+                                            @else
+                                                <span class="text-muted small">No link type specified</span>
+                                            @endif
+                                        </div>
+                                        
+                                        <div class="d-flex flex-wrap gap-1">
+                                            @if($site->sponsored)
+                                                <span class="badge bg-warning-subtle text-dark border px-2 py-1"
+                                                      style="font-size: 11px;"
+                                                      title="Sponsored placement">
+                                                    <i class="fa-solid fa-star me-1"></i>Sponsored
+                                                </span>
+                                            @endif
+
+                                            @if($site->partner_material)
+                                                <span class="badge bg-success-subtle text-success border px-2 py-1"
+                                                      style="font-size: 11px;"
+                                                      title="Partner content allowed">
+                                                    <i class="fa-solid fa-handshake me-1"></i>Partner
+                                                </span>
+                                            @endif
+
+                                            @if($site->as_you_prefer ?? false)
+                                                <span class="badge bg-primary-subtle text-primary border px-2 py-1"
+                                                      style="font-size: 11px;"
+                                                      title="Flexible placement">
+                                                    <i class="fa-solid fa-sliders-h me-1"></i>As You Prefer
+                                                </span>
+                                            @endif
+                                    
+                                            @if(!$site->sponsored && !$site->partner_material && !($site->as_you_prefer ?? false))
+                                                <span class="text-muted small">No additional tags</span>
+                                            @endif
+                                        </div>
+                                        
+                                        <div>
+                                            @if(!empty($sensitivePrices))
+                                                <p><strong>Sensitive Prices (Additional Charges):</strong></p>
+                                                <div class="sensitive-prices-group" data-site-id="{{ $site->id }}" data-base-price="{{ $site->price }}">
+                                                    @foreach($sensitivePrices as $type => $additionalPrice)
+                                                        @php
+                                                            $totalPrice = $site->price + $additionalPrice;
+                                                        @endphp
+                                                        <div class="form-check mb-2">
+                                                            <input class="form-check-input sensitive-price-checkbox" 
+                                                                   type="checkbox" 
+                                                                   name="sensitive_prices_{{ $site->id }}[]" 
+                                                                   value="{{ $additionalPrice }}"
+                                                                   data-type="{{ $type }}"
+                                                                   data-additional-price="{{ $additionalPrice }}"
+                                                                   data-total-price="{{ $totalPrice }}"
+                                                                   data-site-id="{{ $site->id }}"
+                                                                   id="sensitive_{{ $site->id }}_{{ $loop->index }}">
+                                                            <label class="form-check-label" for="sensitive_{{ $site->id }}_{{ $loop->index }}">
+                                                                <strong>{{ ucfirst($type) }}</strong>
+                                                                <span class="text-danger">€{{ number_format($additionalPrice, 2) }}</span>
+                                                            </label>
+                                                        </div>
+                                                    @endforeach
+                                                </div>
+                                                <div class="selected-price-info mt-2" id="price-info-{{ $site->id }}">
+                                                    <small class="text-muted">Current price: <strong>€{{ number_format($site->price, 2) }}</strong> (Base price)</small>
+                                                </div>
+                                            @endif
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <p><strong>Example URL:</strong></p>
+                                    <div class="d-flex flex-column gap-2">
+                                        <div class="d-flex align-items-center gap-2">
+                                            <a href="{{ $site->example_url ?? '#' }}" 
+                                               target="_blank" 
+                                               class="text-decoration-none"
+                                               style="word-break: break-all;">
+                                                {{ Str::limit($site->example_url ?? 'Not available', 50) }}
+                                            </a>
+
+                                            @if($site->example_url)
+                                                <a href="{{ $site->example_url }}"
+                                                   target="_blank"
+                                                   rel="noopener noreferrer"
+                                                   class="text-muted d-inline-flex align-items-center"
+                                                   title="Open Website">
+                                                    <i class="fa-solid fa-arrow-up-right-from-square" style="font-size: 13px;"></i>
+                                                </a>
+                                            @endif
+                                        </div>
+                                        @if($site->example_url)
+                                            <button class="btn btn-sm btn-outline-secondary copy-example-url" 
+                                                    data-url="{{ $site->example_url }}"
+                                                    style="width: fit-content;">
+                                                <i class="fa-regular fa-copy"></i> Copy URL
+                                            </button>
+                                        @endif
+                                        <div class="d-flex align-items-center gap-2">
+                                            <strong>Publication Duration:</strong>
+
+                                            @if($site->publication_time)
+                                                <span class="badge text-muted border px-2 py-1"
+                                                    style="font-size: 11px;"
+                                                    title="Publication Duration">
+                                                    <i class="fa-solid fa-clock me-1"></i>
+                                                    {{ $site->publication_time }}
+                                                </span>
+                                            @else
+                                                <span class="text-muted small">
+                                                    No publication duration specified
+                                                </span>
+                                            @endif
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </td>
+            </tr>
+            @empty
+            <tr>
+                <td colspan="7" class="text-center py-5">
+                    <div class="alert alert-light border text-center mb-0">
+                        No publishers available at the moment.
+                    </div>
+                </td>
+            </tr>
+            @endforelse
+        </tbody>
+    </table>
+</div>
 
                     <!-- Pagination -->
                     <div class="d-flex justify-content-center mt-4 pb-3">
@@ -742,7 +897,7 @@ thead th {
 }
 
 .buy-now:hover {
-    background-color: #0056b3 !important;
+    background-color: #0b6266 !important;
 }
 
 .rotate-arrow {
@@ -852,6 +1007,175 @@ thead th {
     -moz-appearance: textfield;
 }
 
+/* Multi-select Styles - Matching Bootstrap exactly */
+.multi-select-wrapper {
+    position: relative;
+    width: 100%;
+}
+
+.multi-select-input {
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    cursor: pointer !important;
+    padding-right: 2.25rem !important;
+}
+
+.multi-select-input .selected-items {
+    flex: 1;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    align-items: center;
+    min-height: 23px;
+}
+
+.multi-select-input .placeholder-text {
+    color: #6c757d;
+    font-size: 0.875rem;
+}
+
+.selected-tag {
+    background-color: #e9ecef;
+    color: #495057;
+    border-radius: 4px;
+    padding: 2px 6px;
+    font-size: 0.75rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.selected-tag .remove-tag {
+    cursor: pointer;
+    font-weight: bold;
+    margin-left: 4px;
+    color: #6c757d;
+}
+
+.selected-tag .remove-tag:hover {
+    color: #dc3545;
+}
+
+.multi-select-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: white;
+    border: 1px solid #ced4da;
+    border-radius: 0.2rem;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    z-index: 1000;
+    max-height: 280px;
+    overflow-y: auto;
+    display: none;
+    margin-top: 4px;
+}
+
+.multi-select-dropdown.show {
+    display: block;
+}
+
+.multi-select-dropdown .search-box {
+    padding: 8px 10px;
+    border-bottom: 1px solid #dee2e6;
+    position: sticky;
+    top: 0;
+    background: white;
+    z-index: 1;
+}
+
+.multi-select-dropdown .search-box i {
+    position: absolute;
+    left: 18px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #6c757d;
+    font-size: 12px;
+    z-index: 2;
+}
+
+.multi-select-dropdown .search-box input {
+    padding-left: 28px;
+}
+
+.options-list {
+    max-height: 220px;
+    overflow-y: auto;
+}
+
+.option-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px;
+    cursor: pointer;
+    transition: background 0.15s ease;
+    margin: 0;
+}
+
+.option-item:hover {
+    background-color: #f8f9fa;
+}
+
+.option-item input[type="checkbox"] {
+    margin: 0;
+    cursor: pointer;
+    width: 14px;
+    height: 14px;
+}
+
+.option-item span {
+    font-size: 0.875rem;
+    color: #212529;
+    cursor: pointer;
+}
+
+/* Ensure chevron icon is positioned correctly */
+.multi-select-input i {
+    position: absolute;
+    right: 0.75rem;
+    top: 50%;
+    transform: translateY(-50%);
+    pointer-events: none;
+    font-size: 0.75rem;
+    color: #6c757d;
+}
+
+.categories-column {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.category-badge {
+    background: #e3f2fd;
+    color: #1976d2;
+    border-radius: 6px;
+    padding: 4px 10px;
+    font-size: 10px;
+    font-weight: 500;
+    line-height: 1.2;
+    width: fit-content;
+    max-width: 100%;
+}
+
+.toggle-cats-btn {
+    background: none;
+    border: none;
+    color: #1976d2;
+    font-size: 10px;
+    font-weight: 600;
+    cursor: pointer;
+    padding: 4px 0 0;
+    text-align: left;
+}
+
+.toggle-cats-btn:hover {
+    text-decoration: underline;
+}
+
 /* Animation */
 @keyframes pulse-ring {
     0% {
@@ -873,12 +1197,195 @@ thead th {
 let favorites = @json($favorites);
 let blacklist = @json($blacklist);
 
+// Multi-select variables
+let selectedMultiFilters = {
+    category: [],
+    country: [],
+    language: []
+};
+
+// Initialize from URL parameters
+@php
+    $categoryParam = request('category', '');
+    $countryParam = request('country', '');
+    $languageParam = request('language', '');
+@endphp
+
+if ('{{ $categoryParam }}') {
+    selectedMultiFilters.category = '{{ $categoryParam }}'.split(',').filter(function(v) { return v; });
+}
+if ('{{ $countryParam }}') {
+    selectedMultiFilters.country = '{{ $countryParam }}'.split(',').filter(function(v) { return v; });
+}
+if ('{{ $languageParam }}') {
+    selectedMultiFilters.language = '{{ $languageParam }}'.split(',').filter(function(v) { return v; });
+}
+
+function toggleMultiDropdown(dropdownId) {
+    event.stopPropagation();
+    var dropdowns = document.querySelectorAll('.multi-select-dropdown');
+    for (var i = 0; i < dropdowns.length; i++) {
+        if (dropdowns[i].id !== dropdownId) {
+            dropdowns[i].classList.remove('show');
+        }
+    }
+    var dropdown = document.getElementById(dropdownId);
+    if (dropdown) {
+        dropdown.classList.toggle('show');
+    }
+}
+
+function filterMultiOptions(optionsId, searchTerm) {
+    var options = document.getElementById(optionsId);
+    if (!options) return;
+    var optionItems = options.querySelectorAll('.option-item');
+    var term = searchTerm.toLowerCase();
+    
+    for (var i = 0; i < optionItems.length; i++) {
+        var option = optionItems[i];
+        var text = option.querySelector('span').textContent.toLowerCase();
+        if (term === '' || text.indexOf(term) !== -1) {
+            option.style.display = 'flex';
+        } else {
+            option.style.display = 'none';
+        }
+    }
+}
+
+function updateMultiFilter(checkbox) {
+    var type = checkbox.getAttribute('data-type');
+    var value = checkbox.value;
+    
+    if (checkbox.checked) {
+        if (selectedMultiFilters[type].indexOf(value) === -1) {
+            selectedMultiFilters[type].push(value);
+        }
+    } else {
+        var newArray = [];
+        for (var i = 0; i < selectedMultiFilters[type].length; i++) {
+            if (selectedMultiFilters[type][i] !== value) {
+                newArray.push(selectedMultiFilters[type][i]);
+            }
+        }
+        selectedMultiFilters[type] = newArray;
+    }
+    
+    // Update display
+    updateMultiDisplay(type);
+}
+
+function updateMultiDisplay(type) {
+    var container = document.getElementById('selected' + type.charAt(0).toUpperCase() + type.slice(1) + 'sDisplay');
+    var values = selectedMultiFilters[type];
+    
+    if (!container) return;
+    
+    container.innerHTML = '';
+    
+    if (values.length === 0) {
+        container.innerHTML = '<span class="placeholder-text">Select ' + type + 's...</span>';
+        return;
+    }
+    
+    for (var i = 0; i < values.length; i++) {
+        var value = values[i];
+        var displayName = value;
+        
+        if (type === 'country') {
+            var option = document.querySelector('#countryMultiOptions input[value="' + value + '"]');
+            if (option) {
+                displayName = option.getAttribute('data-name') || value;
+            }
+        }
+        
+        if (type === 'language') {
+            var option = document.querySelector('#languageMultiOptions input[value="' + value + '"]');
+            if (option) {
+                displayName = option.getAttribute('data-name') || value;
+            }
+        }
+        
+        var tag = document.createElement('span');
+        tag.className = 'selected-tag';
+        tag.innerHTML = displayName + ' <span class="remove-tag" onclick="event.stopPropagation(); removeMultiFilter(\'' + type + '\', \'' + value + '\')">&times;</span>';
+        container.appendChild(tag);
+    }
+}
+
+function removeMultiFilter(type, value) {
+    var newArray = [];
+    for (var i = 0; i < selectedMultiFilters[type].length; i++) {
+        if (selectedMultiFilters[type][i] !== value) {
+            newArray.push(selectedMultiFilters[type][i]);
+        }
+    }
+    selectedMultiFilters[type] = newArray;
+    
+    var checkbox = document.querySelector('#' + type + 'MultiOptions input[value="' + value + '"]');
+    if (checkbox) {
+        checkbox.checked = false;
+    }
+    
+    updateMultiDisplay(type);
+}
+
+function initializeMultiSelects() {
+    // Initialize checkboxes
+    for (var i = 0; i < selectedMultiFilters.category.length; i++) {
+        var value = selectedMultiFilters.category[i];
+        var checkbox = document.querySelector('#categoryMultiOptions input[value="' + value + '"]');
+        if (checkbox) checkbox.checked = true;
+    }
+    
+    for (var i = 0; i < selectedMultiFilters.country.length; i++) {
+        var value = selectedMultiFilters.country[i];
+        var checkbox = document.querySelector('#countryMultiOptions input[value="' + value + '"]');
+        if (checkbox) checkbox.checked = true;
+    }
+    
+    for (var i = 0; i < selectedMultiFilters.language.length; i++) {
+        var value = selectedMultiFilters.language[i];
+        var checkbox = document.querySelector('#languageMultiOptions input[value="' + value + '"]');
+        if (checkbox) checkbox.checked = true;
+    }
+    
+    // Update displays
+    updateMultiDisplay('category');
+    updateMultiDisplay('country');
+    updateMultiDisplay('language');
+}
+
+// Apply Filters button - submit the form with all selected values
+document.getElementById('applyFiltersBtn').addEventListener('click', function() {
+    // Update hidden inputs with selected values
+    document.getElementById('selectedCategory').value = selectedMultiFilters.category.join(',');
+    document.getElementById('selectedCountry').value = selectedMultiFilters.country.join(',');
+    document.getElementById('selectedLanguage').value = selectedMultiFilters.language.join(',');
+    
+    // Submit form
+    document.getElementById('filterForm').submit();
+});
+
+// Close dropdown when clicking outside
+document.addEventListener('click', function(event) {
+    if (!event.target.closest('.multi-select-wrapper')) {
+        var dropdowns = document.querySelectorAll('.multi-select-dropdown');
+        for (var i = 0; i < dropdowns.length; i++) {
+            if (dropdowns[i]) {
+                dropdowns[i].classList.remove('show');
+            }
+        }
+    }
+});
+
+// Initialize multi-selects on page load
+initializeMultiSelects();
+
 // Store selected sensitive price additional amount for each site
 let selectedSensitiveAdditionalPrice = {};
 
-// Toast function using layout's toast or create one
+// Toast function
 function showToast(message, type = 'success') {
-    // Try to use layout's toast if available
     const toastEl = document.getElementById('toastMessage');
     if (toastEl) {
         const toastBody = document.getElementById('toastMessageBody');
@@ -898,27 +1405,24 @@ function showToast(message, type = 'success') {
         const toast = new bootstrap.Toast(toastEl, { delay: 3000 });
         toast.show();
     } else {
-        // Fallback alert
         alert(message);
     }
 }
 
-// Update cart badge and sidebar (using layout's cart functions)
+// Update cart badge
 function updateCartBadge() {
     if (typeof window.updateCartBadge === 'function') {
         window.updateCartBadge();
     }
 }
 
-// Add to cart with combined price (base price + selected sensitive additional price)
+// Add to cart
 function addToCart(id, name, basePrice, additionalPrice = 0) {
     let finalPrice = parseFloat(basePrice) + parseFloat(additionalPrice);
     
     if (typeof window.addToCart === 'function') {
-        // Pass the final price to the cart function
         window.addToCart(id, name, finalPrice);
     } else {
-        // Fallback: reload page to update cart
         window.location.reload();
     }
     
@@ -1002,82 +1506,65 @@ function saveBlacklist() {
 document.addEventListener('DOMContentLoaded', function() {
     updateButtonStates();
 
-    // Store selected sensitive price for each site (store both type and price)
-let selectedSensitivePrices = {};
+    // Store selected sensitive price for each site
+    let selectedSensitivePrices = {};
 
-   // Handle sensitive price checkbox selection
-document.querySelectorAll('.sensitive-prices-group').forEach(group => {
-    let siteId = group.dataset.siteId;
-    let basePrice = parseFloat(group.dataset.basePrice);
-    let checkboxes = group.querySelectorAll('.sensitive-price-checkbox');
-    
-    checkboxes.forEach(checkbox => {
-        checkbox.addEventListener('change', function(e) {
-            e.stopPropagation();
-            
-            if (this.checked) {
-                // Uncheck all other checkboxes in the same group
-                checkboxes.forEach(cb => {
-                    if (cb !== this) {
-                        cb.checked = false;
-                    }
-                });
+    // Handle sensitive price checkbox selection
+    document.querySelectorAll('.sensitive-prices-group').forEach(group => {
+        let siteId = group.dataset.siteId;
+        let basePrice = parseFloat(group.dataset.basePrice);
+        let checkboxes = group.querySelectorAll('.sensitive-price-checkbox');
+        
+        checkboxes.forEach(checkbox => {
+            checkbox.addEventListener('change', function(e) {
+                e.stopPropagation();
                 
-                // Store the selected sensitive price info
-                let additionalPrice = parseFloat(this.dataset.additionalPrice);
-                let totalPrice = parseFloat(this.dataset.totalPrice);
-                let priceType = this.dataset.type;
-                
-                selectedSensitivePrices[siteId] = {
-                    type: priceType,
-                    additionalPrice: additionalPrice,
-                    totalPrice: totalPrice
-                };
-                
-                // Update buy button price
-                updateBuyButtonPrice(siteId, basePrice, additionalPrice);
-                
-                // Update price info display
-                let priceInfoDiv = document.getElementById(`price-info-${siteId}`);
-                if (priceInfoDiv) {
-                    priceInfoDiv.innerHTML = `
-                        <small class="text-muted">Base price: <strong>€${basePrice.toFixed(2)}</strong></small><br>
-                        <small class="text-success">Selected: <strong>${priceType}</strong> - Total: <strong>€${totalPrice.toFixed(2)}</strong> (+€${additionalPrice.toFixed(2)})</small>
-                    `;
-                }
-                
-                showToast(`${priceType} selected: +€${additionalPrice.toFixed(2)} - Total: €${totalPrice.toFixed(2)}`, 'success');
-            } else {
-                // If unchecking, revert to base price
-                if (selectedSensitivePrices[siteId] && selectedSensitivePrices[siteId].additionalPrice === parseFloat(this.dataset.additionalPrice)) {
-                    delete selectedSensitivePrices[siteId];
-                    updateBuyButtonPrice(siteId, basePrice, 0);
+                if (this.checked) {
+                    checkboxes.forEach(cb => {
+                        if (cb !== this) {
+                            cb.checked = false;
+                        }
+                    });
+                    
+                    let additionalPrice = parseFloat(this.dataset.additionalPrice);
+                    let totalPrice = parseFloat(this.dataset.totalPrice);
+                    let priceType = this.dataset.type;
+                    
+                    selectedSensitivePrices[siteId] = {
+                        type: priceType,
+                        additionalPrice: additionalPrice,
+                        totalPrice: totalPrice
+                    };
+                    
+                    updateBuyButtonPrice(siteId, basePrice, additionalPrice);
                     
                     let priceInfoDiv = document.getElementById(`price-info-${siteId}`);
                     if (priceInfoDiv) {
                         priceInfoDiv.innerHTML = `
-                            <small class="text-muted">Current price: <strong>€${basePrice.toFixed(2)}</strong> (Base price)</small>
+                            <small class="text-muted">Base price: <strong>€${basePrice.toFixed(2)}</strong></small><br>
+                            <small class="text-success">Selected: <strong>${priceType}</strong> - Total: <strong>€${totalPrice.toFixed(2)}</strong> (+€${additionalPrice.toFixed(2)})</small>
                         `;
                     }
                     
-                    showToast(`Reverted to base price: €${basePrice.toFixed(2)}`, 'info');
+                    showToast(`${priceType} selected: +€${additionalPrice.toFixed(2)} - Total: €${totalPrice.toFixed(2)}`, 'success');
+                } else {
+                    if (selectedSensitivePrices[siteId] && selectedSensitivePrices[siteId].additionalPrice === parseFloat(this.dataset.additionalPrice)) {
+                        delete selectedSensitivePrices[siteId];
+                        updateBuyButtonPrice(siteId, basePrice, 0);
+                        
+                        let priceInfoDiv = document.getElementById(`price-info-${siteId}`);
+                        if (priceInfoDiv) {
+                            priceInfoDiv.innerHTML = `
+                                <small class="text-muted">Current price: <strong>€${basePrice.toFixed(2)}</strong> (Base price)</small>
+                            `;
+                        }
+                        
+                        showToast(`Reverted to base price: €${basePrice.toFixed(2)}`, 'info');
+                    }
                 }
-            }
+            });
         });
     });
-});
-
-// Update buy button price display
-function updateBuyButtonPrice(siteId, basePrice, additionalPrice = 0) {
-    let buyButton = document.querySelector(`.buy-now[data-id="${siteId}"]`);
-    if (buyButton) {
-        let priceSpan = buyButton.querySelector('.fw-semibold');
-        let totalPrice = basePrice + additionalPrice;
-        if (priceSpan) {
-            priceSpan.textContent = `€${totalPrice.toFixed(2)}`;
-        }
-    }
-}
 
     // Toggle URL visibility
     document.querySelectorAll('.toggle-url').forEach(button => {
@@ -1179,35 +1666,32 @@ function updateBuyButtonPrice(siteId, basePrice, additionalPrice = 0) {
         });
     });
 
-    // Add to Cart - with selected sensitive price
-document.querySelectorAll('.buy-now').forEach(button => {
-    button.addEventListener('click', function(e) {
-        e.preventDefault();
-        e.stopPropagation();
-        let id = parseInt(this.dataset.id);
-        let basePrice = parseFloat(this.dataset.basePrice);
-        let name = this.dataset.name;
-        
-        // Get the selected sensitive price for this site
-        let sensitiveType = selectedSensitivePrices[id] ? selectedSensitivePrices[id].type : null;
-        let additionalPrice = selectedSensitivePrices[id] ? selectedSensitivePrices[id].additionalPrice : 0;
-        let finalPrice = basePrice + additionalPrice;
-        
-        // Call the global addToCart function with all parameters
-        if (typeof window.addToCart === 'function') {
-            window.addToCart(id, name, finalPrice, sensitiveType, additionalPrice, basePrice);
-        }
-        
-        // Visual feedback
-        let originalText = this.innerHTML;
-        this.innerHTML = '<i class="fa-solid fa-check"></i> Added!';
-        setTimeout(() => {
-            this.innerHTML = originalText;
-        }, 1000);
+    // Add to Cart
+    document.querySelectorAll('.buy-now').forEach(button => {
+        button.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            let id = parseInt(this.dataset.id);
+            let basePrice = parseFloat(this.dataset.basePrice);
+            let name = this.dataset.name;
+            
+            let sensitiveType = selectedSensitivePrices[id] ? selectedSensitivePrices[id].type : null;
+            let additionalPrice = selectedSensitivePrices[id] ? selectedSensitivePrices[id].additionalPrice : 0;
+            let finalPrice = basePrice + additionalPrice;
+            
+            if (typeof window.addToCart === 'function') {
+                window.addToCart(id, name, finalPrice, sensitiveType, additionalPrice, basePrice);
+            }
+            
+            let originalText = this.innerHTML;
+            this.innerHTML = '<i class="fa-solid fa-check"></i> Added!';
+            setTimeout(() => {
+                this.innerHTML = originalText;
+            }, 1000);
+        });
     });
-});
 
-    // Favorite functionality (Database)
+    // Favorite functionality
     document.querySelectorAll('.favorite-btn').forEach(button => {
         button.addEventListener('click', function(e) {
             e.preventDefault();
@@ -1238,7 +1722,7 @@ document.querySelectorAll('.buy-now').forEach(button => {
         });
     });
 
-    // Blacklist functionality (Database)
+    // Blacklist functionality
     document.querySelectorAll('.blacklist-btn').forEach(button => {
         button.addEventListener('click', function(e) {
             e.preventDefault();
@@ -1318,21 +1802,19 @@ document.querySelectorAll('.site-row').forEach(row => {
         }
     }
 });
-
-
 @endif
 </script>
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    document.querySelectorAll('.toggle-categories-btn').forEach(btn => {
+    document.querySelectorAll('.toggle-cats-btn').forEach(btn => {
         const wrapper = btn.closest('.categories-wrapper');
         const hiddenItems = wrapper.querySelectorAll('.hidden-category');
         let expanded = false;
         const hiddenCount = hiddenItems.length;
         
         btn.addEventListener('click', function() {
-            if (!expanded) {
+            if (!expanded) {                                
                 hiddenItems.forEach(item => item.style.display = 'inline-block');
                 btn.innerHTML = '<span>-less</span><span style="font-size: 9px;">▲</span>';
                 expanded = true;

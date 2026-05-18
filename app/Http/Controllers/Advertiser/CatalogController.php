@@ -25,7 +25,6 @@ use Stripe\Checkout\Session;
 class CatalogController extends Controller
 {
 
-// Add this method to your controller
 /**
  * Get price based on user role
  * - Publishers see original price
@@ -51,6 +50,142 @@ private function getPriceForUser($originalPrice, $sitePublisherId = null)
     
     // Advertisers see marked up price (+15%)
     return $originalPrice * 1.15;
+}
+
+/**
+ * Get all available countries with their full names
+ */
+private function getAvailableCountries()
+{
+    return [
+    'at' => 'Austria',
+    'bh' => 'Bahrain',
+    'by' => 'Belarus',
+    'be' => 'Belgium',
+    'br' => 'Brazil',
+    'bg' => 'Bulgaria',
+    'cn' => 'China',
+    'hr' => 'Croatia',
+    'cy' => 'Cyprus',
+    'cz' => 'Czech Republic',
+    'dk' => 'Denmark',
+    'eg' => 'Egypt',
+    'fi' => 'Finland',
+    'fr' => 'France',
+    'de' => 'Germany',
+    'gr' => 'Greece',
+    'hk' => 'Hong Kong',
+    'hu' => 'Hungary',
+    'iq' => 'Iraq',
+    'ie' => 'Ireland',
+    'it' => 'Italy',
+    'jp' => 'Japan',
+    'jo' => 'Jordan',
+    'kw' => 'Kuwait',
+    'lv' => 'Latvia',
+    'lb' => 'Lebanon',
+    'lt' => 'Lithuania',
+    'lu' => 'Luxembourg',
+    'ma' => 'Morocco',
+    'nl' => 'Netherlands',
+    'no' => 'Norway',
+    'om' => 'Oman',
+    'pl' => 'Poland',
+    'pt' => 'Portugal',
+    'qa' => 'Qatar',
+    'ro' => 'Romania',
+    'ru' => 'Russia',
+    'sa' => 'Saudi Arabia',
+    'sg' => 'Singapore',
+    'sk' => 'Slovakia',
+    'si' => 'Slovenia',
+    'kr' => 'South Korea',
+    'es' => 'Spain',
+    'se' => 'Sweden',
+    'ch' => 'Switzerland',
+    'ua' => 'Ukraine',
+    'uk' => 'United Kingdom',
+    'us' => 'United States',
+    'ae' => 'United Arab Emirates',
+    'ye' => 'Yemen',
+    'ar' => 'Argentina',
+    'bo' => 'Bolivia',
+    'cl' => 'Chile',
+    'co' => 'Colombia',
+    'cr' => 'Costa Rica',
+    'cu' => 'Cuba',
+    'do' => 'Dominican Republic',
+    'ec' => 'Ecuador',
+    'sv' => 'El Salvador',
+    'gt' => 'Guatemala',
+    'hn' => 'Honduras',
+    'mx' => 'Mexico',
+    'ni' => 'Nicaragua',
+    'pa' => 'Panama',
+    'py' => 'Paraguay', 
+    'pe' => 'Peru',
+    'pr' => 'Puerto Rico',
+    'uy' => 'Uruguay',
+    've' => 'Venezuela',
+    ];
+}
+
+/**
+ * Get all available languages with their full names
+ */
+private function getAvailableLanguages()
+{
+    return [
+        'en' => 'English',
+    'es' => 'Spanish',
+    'fr' => 'French',
+    'de' => 'German',
+    'it' => 'Italian',
+    'pt' => 'Portuguese',
+    'nl' => 'Dutch',
+    'ru' => 'Russian',
+    'zh' => 'Chinese',
+    'ja' => 'Japanese',
+    'ko' => 'Korean',
+    'ar' => 'Arabic',
+    'tr' => 'Turkish',
+    'pl' => 'Polish',
+    'uk' => 'Ukrainian',
+    'sv' => 'Swedish',
+    'da' => 'Danish',
+    'no' => 'Norwegian',
+    'fi' => 'Finnish',
+    'el' => 'Greek',
+    'cs' => 'Czech',
+    'hu' => 'Hungarian',
+    'ro' => 'Romanian',
+    'bg' => 'Bulgarian',
+    'hr' => 'Croatian',
+    'sk' => 'Slovak',
+    'sl' => 'Slovenian',
+    'lt' => 'Lithuanian',
+    'lv' => 'Latvian',
+    'et' => 'Estonian',
+    'he' => 'Hebrew',
+    'th' => 'Thai',
+    'vi' => 'Vietnamese',
+    'id' => 'Indonesian',
+    'ms' => 'Malay',
+    'ca' => 'Catalan',
+    'gl' => 'Galician',
+    'eu' => 'Basque',
+    'cy' => 'Welsh',
+    'gd' => 'Scottish Gaelic',
+    'ga' => 'Irish',
+    'lb' => 'Luxembourgish',
+    'rm' => 'Romansh',
+    'qu' => 'Quechua',
+    'ay' => 'Aymara',
+    'gn' => 'Guarani',
+    'be' => 'Belarusian',
+    'ku' => 'Kurdish',
+    'ta' => 'Tamil',
+    ];
 }
 
 /**
@@ -216,30 +351,46 @@ public function index(Request $request)
         $query->where('traffic', '<=', (int)$request->traffic_max);
     }
 
-    // 🌍 Language filter
-    if ($request->filled('language') && !empty($request->language)) {
-        $query->where('language', $request->language);
-    }
-    
-    // 🌍 Country filter
-    if ($request->filled('country') && !empty($request->country)) {
-        $query->where('country', $request->country);
-    }
-
-   // 📂 Category filter - Handle both single category and comma-separated values
+  // 📂 Category filter - Search in category column (comma-separated string)
 if ($request->filled('category') && !empty($request->category)) {
-    $category = $request->category;
-    $query->where(function($q) use ($category) {
-        // Check exact match on category field
-        $q->where('category', $category)
-          // Check if category exists in categories JSON array
-          ->orWhereJsonContains('categories', $category)
-          // Check if category exists in comma-separated string (for backward compatibility)
-          ->orWhere('categories', 'like', "%{$category}%")
-          ->orWhere('categories', 'like', "%,{$category},%")
-          ->orWhere('categories', 'like', "{$category},%")
-          ->orWhere('categories', 'like', "%,{$category}");
+    $categories = explode(',', $request->category);
+    $categories = array_map('trim', $categories);
+    
+    $query->where(function($q) use ($categories) {
+        foreach ($categories as $category) {
+            $category = trim($category);
+            // Only check the category column which is a comma-separated string
+            $q->orWhere('category', 'like', '%' . $category . '%');
+        }
     });
+}
+
+// 🌍 Country filter - Support multiple countries
+if ($request->filled('country') && !empty($request->country)) {
+    $countries = explode(',', $request->country);
+    $query->whereIn('country', $countries);
+}
+
+// 🌍 Language filter - Support multiple languages
+if ($request->filled('language') && !empty($request->language)) {
+    $languages = explode(',', $request->language);
+    $query->whereIn('language', $languages);
+}
+
+    // In your CatalogController index method
+if ($request->filled('category')) {
+    $categories = explode(',', $request->category);
+    $query->whereIn('category', $categories);
+}
+
+if ($request->filled('country')) {
+    $countries = explode(',', $request->country);
+    $query->whereIn('country', $countries);
+}
+
+if ($request->filled('language')) {
+    $languages = explode(',', $request->language);
+    $query->whereIn('language', $languages);
 }
 
     // 💰 Price range filter
@@ -307,45 +458,19 @@ if ($request->filled('category') && !empty($request->category)) {
         }
     }
 
-    // Get unique languages for the filter dropdown from sites table
-    $availableLanguages = Site::where('active', 1)
-        ->whereNotNull('language')
-        ->where('language', '!=', '')
-        ->select('language')
-        ->distinct()
-        ->orderBy('language')
-        ->pluck('language');
+    // Get predefined countries for filter dropdown
+    $availableCountries = $this->getAvailableCountries();
     
-    // Get unique countries for the filter dropdown from sites table
-    $availableCountries = Site::where('active', 1)
-        ->whereNotNull('country')
-        ->where('country', '!=', '')
-        ->select('country')
-        ->distinct()
-        ->orderBy('country')
-        ->pluck('country');
+    // Get predefined languages for filter dropdown
+    $availableLanguages = $this->getAvailableLanguages();
     
-    // Get predefined categories (from your array, not from sites table)
-$predefinedCategories = $this->getAvailableCategories();
+    // Get categories from the predefined array (grouped)
+    $predefinedCategories = $this->getAvailableCategories();
+    
+    // Get unique category names for filter (from predefined array)
+    $siteCategories = collect($predefinedCategories)->pluck('name')->unique()->sort()->values()->toArray();
 
-// Get category counts from database
-$categoryCounts = [];
-foreach ($predefinedCategories as $cat) {
-    $count = Site::where('active', 1)
-        ->where(function($q) use ($cat) {
-            $q->where('category', $cat['name'])
-              ->orWhereJsonContains('categories', $cat['name']);
-        })
-        ->count();
     
-    if ($count > 0) {
-        $categoryCounts[$cat['name']] = $count;
-    }
-}
-    
-    // Get unique category names for filter dropdown (from predefined array)
-$siteCategories = collect($predefinedCategories)->pluck('name')->unique()->sort()->values()->toArray();
-
     
     // Get cart from SESSION
     $cart = session()->get('cart', []);
@@ -359,7 +484,6 @@ $siteCategories = collect($predefinedCategories)->pluck('name')->unique()->sort(
         'availableCountries',
         'predefinedCategories',
         'siteCategories',
-        'categoryCounts',
         'favorites', 
         'blacklist', 
         'cart', 

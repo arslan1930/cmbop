@@ -93,10 +93,10 @@
                     <!-- Action Buttons -->
                     <div class="col-md-4">
                         <div class="d-flex gap-2">
-                            <button type="submit" class="btn btn-primary btn-sm px-4">
+                            <button type="submit" class="btn btn-sm px-4" style="background-color: #3aaeb2; color: white;">
                                 <i class="fa-solid fa-magnifying-glass me-1"></i> Filter
                             </button>
-                            <button type="button" id="resetFiltersBtn" class="btn btn-secondary btn-sm px-3">
+                            <button type="button" id="resetFiltersBtn" class="btn btn-sm px-3" style="background-color: #e9ecef; color: #495057;">
                                 <i class="fa-solid fa-rotate-right me-1"></i> Reset
                             </button>
                         </div>

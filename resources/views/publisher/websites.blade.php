@@ -466,7 +466,7 @@
         </div>
     @endif
 
-    <button id="showFormBtn" class="btn btn-primary mb-3 shadow-sm">
+    <button id="showFormBtn" class="btn mb-3 shadow-sm" style="background-color: #3aaeb2; color: white;">
         <i class="fa fa-plus"></i> Add New Website
     </button>
 

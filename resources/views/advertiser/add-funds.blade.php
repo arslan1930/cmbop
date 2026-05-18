@@ -104,6 +104,27 @@
                                     </div>
                                 </div>
                             </div>
+                            <!-- Paypal Comimg Soon -->
+                            <div class="col-6 col-md-3">
+                            <div class="payment-option" style="cursor:not-allowed;">
+                                <div class="payment-option-card" style="border:2px solid #e5e7eb;border-radius:12px;padding:16px;text-align:center;background:white;transition:all 0.2s;position:relative;">
+                                    
+                                    <div style="width:48px;height:48px;display:flex;align-items:center;justify-content:center;background:#eff6ff;border-radius:8px;margin:0 auto 8px;">
+                                        <i class="fab fa-paypal" style="font-size:28px;color:#0070ba;"></i>
+                                    </div>
+
+                                    <span style="font-weight:600;font-size:12px;color:#1f2937;">
+                                        PayPal
+                                    </span>
+
+                                    <span style="font-size:10px;color:#6b7280;display:block;margin-top:4px;">
+                                        Coming Soon
+                                    </span>
+
+                                </div>
+                            </div>
+                        </div>
+                              
                         </div>
 
                         <div id="paymentError" style="display: none; margin-top: 12px; font-size: 14px; color: #dc2626;">
@@ -340,7 +361,7 @@
                         <small>Please include <strong id="refCodeDisplay">XXXXXXXX</strong> in your payment note for manual payments. For card payments, reference is auto-recorded.</small>
                     </div>
 
-                    <button type="button" id="proceedBtn" class="btn btn-primary w-100 mt-2 py-2">
+                    <button type="button" id="proceedBtn" class="btn w-100 mt-2 py-2" style="background-color: #3aaeb2; color: white;">
                         <i class="fa fa-arrow-right me-2"></i> Proceed to Payment
                     </button>
                 </div>

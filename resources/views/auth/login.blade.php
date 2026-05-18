@@ -47,7 +47,7 @@
 
                             {{-- reCAPTCHA --}}
                             <div class="mb-3">
-                                <div class="g-recaptcha" data-sitekey="{{ env('GOOGLE_RECAPTCHA_SITE_KEY') }}"></div>
+                                <div class="g-recaptcha" data-sitekey="{{ config('services.recaptcha.site_key') }}"></div>
                             </div>
 
                             {{-- Submit --}}
