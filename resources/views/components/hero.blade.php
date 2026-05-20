@@ -74,18 +74,40 @@
           </div>
 
           <!-- Right: cart, theme, balance, avatar -->
-          <div style="display:flex; align-items:center; gap:10px;">
-            <div style="width:32px; height:32px; background:#f5f5f5; border-radius:50%; display:flex; align-items:center; justify-content:center;">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#999" stroke-width="2"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
-            </div>
-            <div style="width:32px; height:32px; background:#f5f5f5; border-radius:50%; display:flex; align-items:center; justify-content:center;">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#999" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
-            </div>
-            <div style="padding:7px 14px; background:#3b82f6; border-radius:6px;">
-              <div style="width:80px; height:9px; background:rgba(255,255,255,0.7); border-radius:4px;"></div>
-            </div>
-            <div style="width:34px; height:34px; background:linear-gradient(135deg,#a78bfa,#8b5cf6); border-radius:50%;"></div>
-          </div>
+<div style="display:flex; align-items:center; gap:10px;">
+
+  <div style="width:32px; height:32px; background:#f5f5f5; border-radius:50%; display:flex; align-items:center; justify-content:center;">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#999" stroke-width="2">
+      <circle cx="9" cy="21" r="1"/>
+      <circle cx="20" cy="21" r="1"/>
+      <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/>
+    </svg>
+  </div>
+
+  <div style="width:32px; height:32px; background:#f5f5f5; border-radius:50%; display:flex; align-items:center; justify-content:center;">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#999" stroke-width="2">
+      <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+    </svg>
+  </div>
+
+  <!-- Balance Box -->
+  <div style="
+      padding:7px 14px;
+      background:#3b82f6;
+      border-radius:6px;
+      color:#fff;
+      font-size:13px;
+      font-weight:600;
+      min-width:110px;
+      text-align:center;
+      font-family:Arial,sans-serif;
+  ">
+    €20.00 / €0.00
+  </div>
+
+  <div style="width:34px; height:34px; background:linear-gradient(135deg,#a78bfa,#8b5cf6); border-radius:50%; display:flex; align-items:center; justify-content:center; color:#fff; font-weight:600;">S</div>
+
+</div>
         </div>
 
         <!-- ===== BODY: Sidebar + Main ===== -->

@@ -36,6 +36,8 @@ use App\Http\Controllers\InvoiceController;
 // BlogController for public blog pages
 use App\Http\Controllers\BlogController;
 
+use App\Http\Controllers\Auth\SocialiteController;
+
 
 
 
@@ -83,6 +85,10 @@ Route::get('/cron/orders-auto-approve/{key}', function ($key) {
 Route::middleware('guest')->group(function () {
     Route::get('/register', [RegisterController::class, 'show'])->name('register');
     Route::get('/login', [LoginController::class, 'show'])->name('login');
+
+    // Google Social Login Routes
+Route::get('auth/google', [SocialiteController::class, 'redirectToGoogle'])->name('auth.google');
+Route::get('auth/google/callback', [SocialiteController::class, 'handleGoogleCallback'])->name('auth.google.callback');
 });
 
 
@@ -202,6 +208,9 @@ Route::middleware(['auth','verified', RoleMiddleware::class . ':admin'])
     // UPDATE (AJAX uses this)
     Route::put('/sites/{id}', [AdminSiteController::class, 'update'])
         ->name('sites.update');
+
+    // Image upload (AJAX)
+    Route::post('/sites/{id}/upload-image', [AdminSiteController::class, 'uploadImage'])->name('sites.upload-image');    
 
     // DELETE (AJAX uses this)
     Route::delete('/sites/{id}', [AdminSiteController::class, 'destroy'])

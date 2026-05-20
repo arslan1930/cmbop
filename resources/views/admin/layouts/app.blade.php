@@ -144,35 +144,64 @@
         </button>
 
         <div class="dropdown">
-            <button class="btn dropdown-toggle d-flex align-items-center gap-1" data-bs-toggle="dropdown">
-                <div class="rounded-circle bg-primary text-white d-flex justify-content-center align-items-center"
-                     style="width: 36px; height: 36px; font-weight: 600;">
-                    {{ strtoupper(substr(auth()->user()->name,0,1)) }}
-                </div>
-            </button>
+    <button class="btn dropdown-toggle d-flex align-items-center gap-1" data-bs-toggle="dropdown">
+        @php
+            $user = auth()->user();
+        @endphp
+        
+        {{-- If user has avatar (Google avatar), display it --}}
+        @if($user->avatar)
+            <img src="{{ $user->avatar }}" 
+                 alt="{{ $user->name }}"
+                 class="rounded-circle"
+                 style="width: 36px; height: 36px; object-fit: cover;">
+        @else
+            {{-- Otherwise show initials with gradient background --}}
+            <div class="rounded-circle text-white d-flex justify-content-center align-items-center"
+                 style="width: 36px; height: 36px; font-weight: 600; background: linear-gradient(135deg, #0d6efd, #6f42c1);">
+                {{ strtoupper(substr($user->name, 0, 1)) }}
+            </div>
+        @endif
+    </button>
 
-            <ul class="dropdown-menu dropdown-menu-end">
-                <li class="px-3 py-2">
-                    <strong>{{ auth()->user()->name }}</strong><br>
-                    <small>{{ auth()->user()->email }}</small>
-                </li>
-                <li><hr class="dropdown-divider"></li>
-                <li>
-                    <a class="dropdown-item" href="{{ route('profile') }}">
-                        <i class="fa fa-user"></i> Profile
-                    </a>
-                </li>
-                <li><hr class="dropdown-divider"></li>
-                <li>
-                    <form method="POST" action="{{ route('logout') }}">
-                        @csrf
-                        <button class="dropdown-item text-danger">
-                            <i class="fa fa-sign-out-alt"></i> Logout
-                        </button>
-                    </form>
-                </li>
-            </ul>
-        </div>
+    <ul class="dropdown-menu dropdown-menu-end">
+        {{-- User info with avatar in dropdown (optional but nice) --}}
+        <li class="px-3 py-2">
+            <div class="d-flex align-items-center gap-2">
+                @if($user->avatar)
+                    <img src="{{ $user->avatar }}" 
+                         alt="{{ $user->name }}"
+                         class="rounded-circle"
+                         style="width: 32px; height: 32px; object-fit: cover;">
+                @else
+                    <div class="rounded-circle text-white d-flex justify-content-center align-items-center"
+                         style="width: 32px; height: 32px; font-weight: 600; background: linear-gradient(135deg, #0d6efd, #6f42c1);">
+                        {{ strtoupper(substr($user->name, 0, 1)) }}
+                    </div>
+                @endif
+                <div>
+                    <strong>{{ $user->name }}</strong><br>
+                    <small>{{ $user->email }}</small>
+                </div>
+            </div>
+        </li>
+        <li><hr class="dropdown-divider"></li>
+        <li>
+            <a class="dropdown-item" href="{{ route('profile') }}">
+                <i class="fa fa-user"></i> Profile
+            </a>
+        </li>
+        <li><hr class="dropdown-divider"></li>
+        <li>
+            <form method="POST" action="{{ route('logout') }}">
+                @csrf
+                <button class="dropdown-item text-danger">
+                    <i class="fa fa-sign-out-alt"></i> Logout
+                </button>
+            </form>
+        </li>
+    </ul>
+</div>
     </div>
 </div>
 

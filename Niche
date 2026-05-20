@@ -188,3 +188,12 @@ Regional/Local (city guides, expat living)
                                         <i class="fa-solid fa-rotate-right me-1"></i> Reset
                                     </a>
                                 </div>
+
+
+
+
+/opt/alt/php83/usr/bin/php artisan config:clear
+/opt/alt/php83/usr/bin/php artisan cache:clear
+/opt/alt/php83/usr/bin/php artisan view:clear
+/opt/alt/php83/usr/bin/php artisan route:clear
+/opt/alt/php83/usr/bin/php artisan optimize
