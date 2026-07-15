@@ -470,6 +470,85 @@
         <i class="fa fa-plus"></i> Add New Website
     </button>
 
+    <button id="showBulkBtn" type="button" class="btn mb-3 shadow-sm btn-outline-primary ms-1">
+        <i class="fa fa-file-csv"></i> Bulk Import (Agency)
+    </button>
+
+    @if(session('error') && !session('bulk_import_failures'))
+        <div class="alert alert-danger alert-dismissible fade show">
+            {{ session('error') }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    @endif
+
+    @if(session('bulk_import_failures'))
+        <div class="alert alert-warning">
+            <strong>Bulk import finished.</strong>
+            {{ session('bulk_import_created', 0) }} site(s) submitted.
+            {{ count(session('bulk_import_failures')) }} row(s) failed:
+            <div class="table-responsive mt-2" style="max-height: 260px; overflow:auto;">
+                <table class="table table-sm table-bordered bg-white mb-0">
+                    <thead><tr><th>Row</th><th>Site</th><th>Errors</th></tr></thead>
+                    <tbody>
+                        @foreach(session('bulk_import_failures') as $fail)
+                            <tr>
+                                <td>{{ $fail['row'] }}</td>
+                                <td class="small">{{ $fail['site'] }}</td>
+                                <td class="small text-danger">{{ implode(' · ', $fail['errors']) }}</td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    @endif
+
+    <div class="card shadow-sm border-0 d-none mb-3" id="bulkCard">
+        <div class="card-body">
+            <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
+                <div>
+                    <h5 class="mb-1">Bulk Import for Agencies</h5>
+                    <p class="text-muted mb-0 small">
+                        Own 150+ websites? Upload a CSV to submit many sites at once (max 200 per upload).
+                        Each site still needs admin approval before it goes live.
+                    </p>
+                </div>
+                <a href="{{ route('publisher.sites.bulk-template') }}" class="btn btn-sm btn-outline-secondary">
+                    <i class="fa fa-download me-1"></i> Download CSV template
+                </a>
+            </div>
+
+            <div class="bg-light rounded p-3 mb-3 small">
+                <strong>CSV tips:</strong>
+                <ul class="mb-0 mt-1">
+                    <li><code>country</code> / <code>language</code> = 2-letter codes (e.g. <code>US</code>, <code>en</code>)</li>
+                    <li><code>categories</code> = exact category names, separated by <code>|</code> (max 7)</li>
+                    <li><code>turnaround_time</code> = <code>24h</code>, <code>48h</code>, <code>3days</code>, <code>5days</code>, or <code>7days</code></li>
+                    <li><code>publication_time</code> = <code>6months</code>, <code>1year</code>, or <code>permanent</code></li>
+                    <li><code>link_type</code> = <code>dofollow</code> or <code>nofollow</code></li>
+                    <li><code>description</code> must be at least 50 characters</li>
+                    <li>Flags (<code>sponsored</code>, etc.) use <code>1</code> / <code>0</code></li>
+                </ul>
+            </div>
+
+            <form method="POST" action="{{ route('publisher.sites.bulk-import') }}" enctype="multipart/form-data">
+                @csrf
+                <div class="row g-3 align-items-end">
+                    <div class="col-md-8">
+                        <label class="form-label">CSV file</label>
+                        <input type="file" name="csv_file" class="form-control" accept=".csv,text/csv" required>
+                    </div>
+                    <div class="col-md-4 d-flex gap-2">
+                        <button type="submit" class="btn btn-primary flex-grow-1">
+                            <i class="fa fa-upload me-1"></i> Upload &amp; Import
+                        </button>
+                        <button type="button" class="btn btn-outline-secondary" id="closeBulkBtn">Close</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <div class="card shadow-sm border-0 d-none" id="formCard">
         <div class="card-body">
             <form id="addSiteForm" class="needs-validation" novalidate method="POST" action="{{ route('publisher.sites.store') }}">
@@ -703,6 +782,9 @@
 
 <script>
 const addBtn = $('#showFormBtn');
+const bulkBtn = $('#showBulkBtn');
+const bulkCard = $('#bulkCard');
+const closeBulkBtn = $('#closeBulkBtn');
 const formCard = $('#formCard');
 const submitBtn = $('#submitBtn');
 const closeBtn = $('#closeBtn');
@@ -1055,10 +1137,12 @@ let categoryMultiSelect = initMultiSelect('categoryWrapper', 'categoryInput', 'c
 
 // Toggle form for CREATE
 addBtn.on('click', function() {
+    bulkCard.addClass('d-none');
     formCard.toggleClass('d-none');
     let isOpen = !formCard.hasClass('d-none');
 
     addBtn.toggleClass('d-none', isOpen);
+    bulkBtn.toggleClass('d-none', isOpen);
     closeBtn.toggleClass('d-none', !isOpen);
     formHeaderSpan.text('Add New Website');
 
@@ -1082,6 +1166,21 @@ addBtn.on('click', function() {
         $('#siteUrl').prop('disabled', false);
         $('.readonly-note').remove();
     }
+});
+
+bulkBtn.on('click', function() {
+    formCard.addClass('d-none');
+    closeBtn.addClass('d-none');
+    addBtn.removeClass('d-none');
+    bulkCard.toggleClass('d-none');
+    bulkBtn.toggleClass('d-none', !bulkCard.hasClass('d-none'));
+    formHeaderSpan.text(bulkCard.hasClass('d-none') ? 'Add New Website' : 'Bulk Import');
+});
+
+closeBulkBtn.on('click', function() {
+    bulkCard.addClass('d-none');
+    bulkBtn.removeClass('d-none');
+    formHeaderSpan.text('Add New Website');
 });
 
 // Form validation
@@ -1157,6 +1256,7 @@ $(document).ready(function(){
 closeBtn.on('click', function(){
     formCard.addClass('d-none');
     addBtn.removeClass('d-none');
+    bulkBtn.removeClass('d-none');
     closeBtn.addClass('d-none');
     formHeaderSpan.text('Add New Website');
     $('#addSiteForm')[0].reset();

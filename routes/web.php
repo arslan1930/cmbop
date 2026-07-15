@@ -494,6 +494,8 @@ Route::middleware(['auth','verified', RoleMiddleware::class . ':publisher'])
     Route::get('/websites', [App\Http\Controllers\Publisher\SiteController::class, 'index'])->name('websites');
     Route::post('/websites/store', [App\Http\Controllers\Publisher\SiteController::class, 'store'])->name('sites.store');
     Route::get('/websites/ajax', [App\Http\Controllers\Publisher\SiteController::class, 'ajax'])->name('sites.ajax');
+    Route::get('/websites/bulk-template', [App\Http\Controllers\Publisher\SiteController::class, 'bulkTemplate'])->name('sites.bulk-template');
+    Route::post('/websites/bulk-import', [App\Http\Controllers\Publisher\SiteController::class, 'bulkImport'])->name('sites.bulk-import');
     Route::put('/sites/{id}', [App\Http\Controllers\Publisher\SiteController::class, 'update'])->name('sites.update');
     Route::delete('/sites/{id}', [App\Http\Controllers\Publisher\SiteController::class, 'destroy'])->name('sites.destroy');
     
