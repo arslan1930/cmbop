@@ -15,7 +15,7 @@ class StripePaymentService
 
     /**
      * Convert a decimal EUR amount to Stripe integer cents.
-     * Avoids float artifacts like 19.99 * 100 => 1998.999...
+     * Uses round() to avoid float truncation (e.g. 19.99 * 100 => 1998.999...).
      */
     public static function toCents(float|int|string $amount): int
     {

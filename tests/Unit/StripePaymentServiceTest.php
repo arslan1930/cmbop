@@ -28,4 +28,14 @@ class StripePaymentServiceTest extends TestCase
         $this->assertSame(10.0, StripePaymentService::fromCents(1000));
         $this->assertSame(0.0, StripePaymentService::fromCents(null));
     }
+
+    public function test_to_cents_and_from_cents_round_trip(): void
+    {
+        foreach ([0.01, 1.0, 10.5, 19.99, 115.15, 999.99] as $amount) {
+            $this->assertSame(
+                round($amount, 2),
+                StripePaymentService::fromCents(StripePaymentService::toCents($amount))
+            );
+        }
+    }
 }
