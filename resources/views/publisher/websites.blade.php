@@ -1105,7 +1105,8 @@ function initMultiSelect(wrapperId, inputId, dropdownId, optionsId, hiddenInputI
     };
 }
 
-const languageCountryMap = @json($languageCountryMap ?? new \stdClass());
+window.languageCountryMap = @json($languageCountryMap ?? new \stdClass());
+const languageCountryMap = window.languageCountryMap;
 
 // Initialize Country / Language Multi Selects (independent)
 let countryMultiSelect = initMultiSelect('countryWrapper', 'countryInput', 'countryDropdown', 'countryOptions', 'selectedCountries', 'countrySearch', null, 'Select countries...');
