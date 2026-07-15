@@ -14,7 +14,7 @@ use App\Mail\OrderConfirmation;
 use App\Mail\SiteOwnerOrderNotification;
 use App\Mail\AdminManualPaymentNotification;
 use App\Mail\ModificationRequested;
-use App\Services\OrderPaymentService;
+use App\Services\StripePaymentService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
@@ -833,7 +833,99 @@ public function checkout(Request $request)
             // For card payments - create durable pending orders BEFORE Stripe checkout
             // so webhook/success can finalize payment without relying on browser session.
             if ($paymentMethod === 'card') {
-                return $this->processCardPayment($cart, $contentLinks, $referenceCode, $userId);
+                // Validate content links
+                if (!$contentLinks || empty($contentLinks)) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Content links are required. Please fill in all Google Docs links.'
+                    ]);
+                }
+                
+                // Validate all content links
+                $expandedOrders = [];
+                foreach ($cart as $item) {
+                    for ($i = 0; $i < $item['quantity']; $i++) {
+                        $expandedOrders[] = [
+                            'id' => $item['id'],
+                            'name' => $item['name'],
+                            'price' => $item['price'], // Use the stored price from cart
+                            'sensitive_type' => $item['sensitive_type'] ?? null,
+                            'additional_price' => $item['additional_price'] ?? 0,
+                            'copy_number' => $i + 1
+                        ];
+                    }
+                }
+                
+                $orderIndex = 0;
+                foreach ($expandedOrders as $orderItem) {
+                    $site = Site::where('id', $orderItem['id'])->where('active', 1)->first();
+                    if (!$site) {
+                        throw new \Exception("Site not found: " . $orderItem['name']);
+                    }
+                    
+                    if (!isset($contentLinks[$site->id]) || !isset($contentLinks[$site->id][$orderIndex])) {
+                        throw new \Exception("Content link required for copy #" . ($orderIndex + 1) . " of: " . $site->site_name);
+                    }
+                    
+                    $link = $contentLinks[$site->id][$orderIndex];
+                    
+                    if (!preg_match('/^https?:\/\/(docs\.google\.com|drive\.google\.com)\/.*$/i', $link)) {
+                        throw new \Exception("Invalid Google Docs link for: " . $site->site_name);
+                    }
+                    $orderIndex++;
+                }
+                
+                // Store cart and content links in session for later
+                session([
+                    'pending_card_payment' => true,
+                    'pending_cart' => $cart,
+                    'pending_content_links' => $contentLinks,
+                    'pending_reference_code' => $referenceCode,
+                    'pending_user_id' => $userId
+                ]);
+                
+                $totalAmount = round(array_sum(array_column($expandedOrders, 'price')), 2);
+                
+                // Create Stripe Checkout Session
+                Stripe::setApiKey(config('services.stripe.secret'));
+                
+                $checkoutSession = Session::create([
+                    'payment_method_types' => ['card'],
+                    'line_items' => [[
+                        'price_data' => [
+                            'currency' => 'eur',
+                            'product_data' => [
+                                'name' => 'Order Package - ' . count($expandedOrders) . ' item(s)',
+                                'description' => 'Order reference: ' . $referenceCode,
+                            ],
+                            'unit_amount' => StripePaymentService::toCents($totalAmount),
+                        ],
+                        'quantity' => 1,
+                    ]],
+                    'mode' => 'payment',
+                    'success_url' => route('advertiser.checkout.process') . '?session_id={CHECKOUT_SESSION_ID}&ref=' . $referenceCode,
+                    'cancel_url' => route('advertiser.checkout'),
+                    'metadata' => [
+                        'type' => 'order_payment',
+                        'reference_code' => $referenceCode,
+                        'user_id' => (string) $userId,
+                        'order_count' => count($expandedOrders)
+                    ],
+                ]);
+                
+                Log::info('Stripe session created for card payment (orders not yet created)', [
+                    'reference_code' => $referenceCode,
+                    'session_id' => $checkoutSession->id,
+                    'total_amount' => $totalAmount
+                ]);
+                
+                return response()->json([
+                    'success' => true,
+                    'requires_payment' => true,
+                    'checkout_url' => $checkoutSession->url,
+                    'session_id' => $checkoutSession->id,
+                    'reference_code' => $referenceCode
+                ]);
             }
             
             return response()->json([

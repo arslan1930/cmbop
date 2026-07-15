@@ -8,7 +8,7 @@ use App\Models\DepositRequest;
 use App\Models\Order;
 use App\Models\Wallet;
 use App\Models\StripeWebhookLog;
-use App\Services\OrderPaymentService;
+use App\Services\StripePaymentService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
@@ -195,8 +195,8 @@ class StripeWebhookController extends Controller
             
             // If no deposit_id, create one (fallback for direct payments)
             $userId = is_object($metadata) ? ($metadata->user_id ?? null) : ($metadata['user_id'] ?? null);
-            $stripeAmount = $session->amount_total / 100;
-            $finalAmount = $amount ?? $stripeAmount;
+            $stripeAmount = \App\Services\StripePaymentService::fromCents($session->amount_total);
+            $finalAmount = isset($amount) ? round((float) $amount, 2) : $stripeAmount;
             
             if ($userId) {
                 DB::transaction(function () use ($userId, $session, $finalAmount, $referenceCode) {

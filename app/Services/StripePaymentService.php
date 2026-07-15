@@ -14,6 +14,23 @@ class StripePaymentService
     }
 
     /**
+     * Convert a decimal EUR amount to Stripe integer cents.
+     * Avoids float artifacts like 19.99 * 100 => 1998.999...
+     */
+    public static function toCents(float|int|string $amount): int
+    {
+        return (int) round(((float) $amount) * 100);
+    }
+
+    /**
+     * Convert Stripe integer cents to a decimal EUR amount.
+     */
+    public static function fromCents(int|float|string|null $cents): float
+    {
+        return round(((float) ($cents ?? 0)) / 100, 2);
+    }
+
+    /**
      * Create a checkout session for orders
      */
     public function createOrderCheckoutSession($orderData, $referenceCode, $userId)
@@ -27,7 +44,7 @@ class StripePaymentService
                         'name' => 'Order Package - ' . $orderData['item_count'] . ' item(s)',
                         'description' => 'Order reference: ' . $referenceCode,
                     ],
-                    'unit_amount' => $orderData['total_amount'] * 100,
+                    'unit_amount' => self::toCents($orderData['total_amount']),
                 ],
                 'quantity' => 1,
             ]],
@@ -62,7 +79,7 @@ class StripePaymentService
                         'name' => 'Wallet Deposit',
                         'description' => 'Add funds to your wallet',
                     ],
-                    'unit_amount' => $amount * 100,
+                    'unit_amount' => self::toCents($amount),
                 ],
                 'quantity' => 1,
             ]],
