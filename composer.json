@@ -8,6 +8,7 @@
     "require": {
         "php": "^8.3",
         "laravel/framework": "^13.0",
+        "laravel/socialite": "^5.27",
         "laravel/tinker": "^3.0",
         "stripe/stripe-php": "^20.0"
     },
@@ -20,6 +21,9 @@
         "phpunit/phpunit": "^12.5.12"
     },
     "autoload": {
+        "files": [
+        "app/Helpers/LanguageHelper.php"
+    ],
         "psr-4": {
             "App\\": "app/",
             "Database\\Factories\\": "database/factories/",

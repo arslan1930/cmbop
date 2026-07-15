@@ -17,13 +17,16 @@ class OrderApprovedByAdvertiser extends Mailable
     public $orderItem;
     public $site;
     public $basePrice;
+    public $payoutAmount;
 
     public function __construct(Order $order, OrderItem $orderItem, Site $site)
     {
         $this->order = $order;
         $this->orderItem = $orderItem;
         $this->site = $site;
-        $this->basePrice = $orderItem->price - ($orderItem->additional_price ?? 0);
+        // Show publisher earnings (excludes the 15% platform fee)
+        $this->basePrice = $orderItem->publisherBasePrice();
+        $this->payoutAmount = $orderItem->publisherPayoutAmount();
     }
 
     public function build()

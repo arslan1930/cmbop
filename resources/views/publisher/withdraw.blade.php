@@ -4,9 +4,11 @@
 
 @php
     $wallet = auth()->user()->activeWallet();
-    $availableBalance = $wallet ? $wallet->balance : 0;
-    $reservedBalance = $wallet ? $wallet->reserved_balance : 0;
-    $totalEarnings = $availableBalance + $reservedBalance;
+    $walletBalance = $wallet ? (float) $wallet->balance : 0;
+    $bonusBalance = $wallet ? $wallet->lockedBonusBalance() : 0;
+    $availableBalance = $wallet ? $wallet->withdrawableBalance() : 0;
+    $reservedBalance = $wallet ? (float) $wallet->reserved_balance : 0;
+    $totalEarnings = $walletBalance + $reservedBalance;
     $platformChargePercent = 0.00; 
     
     $recentWithdrawals = \App\Models\Withdrawal::where('user_id', auth()->id())
@@ -29,59 +31,93 @@
 
     <!-- Balance Cards -->
     <div class="row g-3 mb-4">
-        <div class="col-md-3">
-            <div class="card border-0 shadow-sm">
+        <div class="col-md-6 col-xl-3">
+            <div class="card border-0 shadow-sm h-100">
                 <div class="card-body">
                     <div class="d-flex justify-content-between">
                         <div>
-                            <span class="text-muted small">Available</span>
-                            <h3 class="mb-0 fw-bold">€{{ number_format($availableBalance, 2) }}</h3>
+                            <span class="text-muted small">
+                                Can Withdraw
+                                <i class="fa fa-info-circle text-muted ms-1"
+                                   data-bs-toggle="tooltip"
+                                   data-bs-placement="top"
+                                   title="This is real money you earned or deposited. You can cash it out."></i>
+                            </span>
+                            <h3 class="mb-1 fw-bold">€{{ number_format($availableBalance, 2) }}</h3>
+                            <p class="text-muted small mb-0">Money you can cash out</p>
                         </div>
                         <i class="fa fa-wallet fa-2x text-primary opacity-50"></i>
                     </div>
                 </div>
             </div>
         </div>
-        <div class="col-md-3">
-            <div class="card border-0 shadow-sm">
+        <div class="col-md-6 col-xl-3">
+            <div class="card border-0 shadow-sm h-100">
                 <div class="card-body">
                     <div class="d-flex justify-content-between">
                         <div>
-                            <span class="text-muted small">Reserved</span>
-                            <h3 class="mb-0 fw-bold">€{{ number_format($reservedBalance, 2) }}</h3>
+                            <span class="text-muted small">
+                                Free Credit
+                                <i class="fa fa-info-circle text-muted ms-1"
+                                   data-bs-toggle="tooltip"
+                                   data-bs-placement="top"
+                                   title="A welcome gift to buy orders on this website. You cannot withdraw or transfer it."></i>
+                            </span>
+                            <h3 class="mb-1 fw-bold">€{{ number_format($bonusBalance, 2) }}</h3>
+                            <p class="text-muted small mb-0">For orders only — not cash</p>
+                        </div>
+                        <i class="fa fa-gift fa-2x text-secondary opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6 col-xl-3">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <span class="text-muted small">
+                                On Hold
+                                <i class="fa fa-info-circle text-muted ms-1"
+                                   data-bs-toggle="tooltip"
+                                   data-bs-placement="top"
+                                   title="Money temporarily locked while an order is in progress. It comes back if the order is cancelled."></i>
+                            </span>
+                            <h3 class="mb-1 fw-bold">€{{ number_format($reservedBalance, 2) }}</h3>
+                            <p class="text-muted small mb-0">Locked for open orders</p>
                         </div>
                         <i class="fa fa-lock fa-2x text-warning opacity-50"></i>
                     </div>
                 </div>
             </div>
         </div>
-        <div class="col-md-3">
-            <div class="card border-0 shadow-sm">
+        <div class="col-md-6 col-xl-3">
+            <div class="card border-0 shadow-sm h-100">
                 <div class="card-body">
                     <div class="d-flex justify-content-between">
                         <div>
-                            <span class="text-muted small">Total Earnings</span>
-                            <h3 class="mb-0 fw-bold">€{{ number_format($totalEarnings, 2) }}</h3>
+                            <span class="text-muted small">
+                                Wallet Total
+                                <i class="fa fa-info-circle text-muted ms-1"
+                                   data-bs-toggle="tooltip"
+                                   data-bs-placement="top"
+                                   title="Everything in your wallet right now, including free credit and money on hold."></i>
+                            </span>
+                            <h3 class="mb-1 fw-bold">€{{ number_format($totalEarnings, 2) }}</h3>
+                            <p class="text-muted small mb-0">All funds in your wallet</p>
                         </div>
                         <i class="fa fa-chart-line fa-2x text-success opacity-50"></i>
                     </div>
                 </div>
             </div>
         </div>
-        <div class="col-md-3">
-            <div class="card border-0 shadow-sm">
-                <div class="card-body">
-                    <div class="d-flex justify-content-between">
-                        <div>
-                            <span class="text-muted small">Platform Fee</span>
-                            <h3 class="mb-0 fw-bold">{{ $platformChargePercent }}%</h3>
-                        </div>
-                        <i class="fa fa-percent fa-2x text-info opacity-50"></i>
-                    </div>
-                </div>
-            </div>
-        </div>
     </div>
+    @if($platformChargePercent > 0)
+    <div class="alert alert-light border mb-4 py-2 small text-muted">
+        <i class="fa fa-info-circle me-1"></i>
+        Withdrawal fee: {{ $platformChargePercent }}% of the amount you withdraw.
+    </div>
+    @endif
 
     <div class="row g-4">
         <!-- Withdrawal Form -->
@@ -104,7 +140,14 @@
                                    min="0.01"
                                    max="{{ $availableBalance }}"
                                    required>
-                            <div class="form-text">Maximum: €{{ number_format($availableBalance, 2) }}</div>
+                            <div class="form-text">
+                                You can withdraw up to <strong>€{{ number_format($availableBalance, 2) }}</strong>.
+                                @if($bonusBalance > 0)
+                                    <span class="d-block mt-1">
+                                        Your €{{ number_format($bonusBalance, 2) }} free credit is for buying orders only and cannot be withdrawn.
+                                    </span>
+                                @endif
+                            </div>
                         </div>
                         
                         <!-- Fee Preview -->

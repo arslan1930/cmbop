@@ -339,6 +339,24 @@
             display: block;
         }
 
+        /* Mobile Sidebar Logo Styling */
+        .mobile-sidebar-logo {
+            padding: 16px 0;
+            text-align: center;
+            border-bottom: 1px solid rgba(0,0,0,0.05);
+            margin-bottom: 8px;
+            display: none; /* hidden by default, shown on mobile */
+        }
+        
+        body.layout-dark .mobile-sidebar-logo {
+            border-bottom-color: rgba(255,255,255,0.1);
+        }
+        
+        .mobile-sidebar-logo img {
+            height: 40px;
+            width: auto;
+        }
+
         @media (max-width: 768px) {
             .cart-sidebar {
                 width: 80%;
@@ -359,6 +377,21 @@
 
             .top-navbar { left: 0 !important; padding-left: 10px; padding-right: 10px; }
             .top-navbar .mobile-left { display: flex; align-items: center; gap: 10px; }
+            
+            /* Hide navbar logo on mobile */
+            .top-navbar .mobile-left a.d-flex.align-items-center {
+                display: none !important;
+            }
+            
+            /* Show logo in sidebar on mobile */
+            .mobile-sidebar-logo {
+                display: block;
+            }
+            
+            /* Hide desktop sidebar logo image if exists (the one in .menu) */
+            #sidebar .menu > .text-center.d-none.d-md-block {
+                display: none !important;
+            }
         }
     </style>
 </head>
@@ -367,6 +400,11 @@
 
 <!-- Sidebar -->
 <div id="sidebar">
+    <!-- Mobile Sidebar Logo (visible only on mobile) -->
+    <div class="mobile-sidebar-logo">
+        <img id="mobileSidebarLogo" src="{{ asset('assets/img/logo1.png') }}" alt="Logo">
+    </div>
+    
     <div class="menu">
 
         <!-- Mobile Role Switch -->
@@ -403,7 +441,11 @@
 
         <!-- Orders -->
         <a href="{{ route('advertiser.orders') }}" class="{{ request()->routeIs('advertiser.orders') ? 'active' : '' }}">
-            <i class="fa fa-shopping-cart"></i> <span>Orders</span>
+            <i class="fa fa-shopping-cart"></i>
+            <span class="d-flex align-items-center w-100">
+                <span>Orders</span>
+                <span id="navNeedsActionBadge" class="badge bg-warning text-dark rounded-pill ms-auto" style="display:none;">0</span>
+            </span>
         </a>
 
         <!-- Add Funds -->
@@ -426,6 +468,7 @@
             <span class="arrow"><i class="fa fa-chevron-left"></i></span>
         </button>
 
+        <!-- Navbar logo - will be hidden on mobile via CSS -->
         <a href="/" class="d-flex align-items-center">
             <img id="logoNavbar" src="{{ asset('assets/img/logo1.png') }}" height="45">
         </a>
@@ -450,12 +493,13 @@
 
     <div class="d-flex align-items-center gap-2">
 
-        <!-- Notifications Icon -->
-        <!-- <div class="position-relative">
-            <button id="toggleNotifications" class="btn btn-outline-secondary btn-sm" title="Notifications">
-                <i class="fa fa-message"></i>
-            </button>
-        </div> -->
+        <!-- Chat / action alerts -->
+        <div class="position-relative">
+            <a href="{{ route('advertiser.orders') }}" id="toggleNotifications" class="btn btn-outline-secondary btn-sm" title="Unread chat & orders needing review">
+                <i class="fa fa-comments"></i>
+                <span id="headerChatBadge" class="cart-badge" style="display: none;">0</span>
+            </a>
+        </div>
         
         <!-- Cart Icon with Badge -->
         <div class="position-relative">
@@ -472,10 +516,14 @@
          
         <!-- Balance route -->
         <a href="{{ route('advertiser.balance') }}">
-        <div class="balance-block" data-bs-toggle="tooltip" title="Balance / Reserved">
-            @php
-                $activeWallet = auth()->user()->activeWallet();
-            @endphp
+        @php
+            $activeWallet = auth()->user()->activeWallet();
+            $headerBonus = $activeWallet ? $activeWallet->lockedBonusBalance() : 0;
+            $headerBalanceTitle = $headerBonus > 0
+                ? 'Ready to spend / On hold for open orders. Includes €' . number_format($headerBonus, 2) . ' free credit (orders only, not cash).'
+                : 'Ready to spend / On hold for open orders.';
+        @endphp
+        <div class="balance-block" data-bs-toggle="tooltip" data-bs-placement="bottom" title="{{ $headerBalanceTitle }}">
             <span>€{{ $activeWallet?->balance ?? '0.00' }}</span>
             <span>/</span>
             <span>€{{ $activeWallet?->reserved_balance ?? '0.00' }}</span>
@@ -483,34 +531,57 @@
         </a>
 
         <div class="dropdown">
-            <button class="btn dropdown-toggle d-flex align-items-center gap-1"
-                    data-bs-toggle="dropdown">
+    <button class="btn dropdown-toggle d-flex align-items-center gap-1"
+            data-bs-toggle="dropdown">
+        
+        @php
+            $user = auth()->user();
+        @endphp
+        
+        {{-- If user has avatar (Google avatar), display it --}}
+        @if($user->avatar)
+            <img src="{{ $user->avatar }}" 
+                 alt="{{ $user->name }}"
+                 class="rounded-circle"
+                 style="width: 36px; height: 36px; object-fit: cover;">
+        @else
+            {{-- Check if user has uploaded avatar from profile --}}
+            @if($user->profile_avatar ?? false)
+                <img src="{{ asset('storage/' . $user->profile_avatar) }}" 
+                     alt="{{ $user->name }}"
+                     class="rounded-circle"
+                     style="width: 36px; height: 36px; object-fit: cover;">
+            @else
+                {{-- Fallback to initials --}}
                 <div class="rounded-circle text-white d-flex justify-content-center align-items-center"
                      style="width: 36px; height: 36px; font-weight: 600; background: linear-gradient(to right, #0d6efd, #6f42c1);">
-                    {{ strtoupper(substr(auth()->user()->name,0,1)) }}
+                    {{ strtoupper(substr($user->name, 0, 1)) }}
                 </div>
-            </button>
-
-            <ul class="dropdown-menu dropdown-menu-end">
-                <li class="px-3 py-2">
-                    <strong>{{ auth()->user()->name }}</strong><br>
-                    <small>{{ auth()->user()->email }}</small>
-                </li>
-                <li><hr class="dropdown-divider"></li>
-                <li>
-                    <a class="dropdown-item" href="{{ route('profile') }}">
-                        <i class="fa fa-user"></i> Profile
-                    </a>
-                </li>
-                <li><hr class="dropdown-divider"></li>
-                <li>
-                    <form method="POST" action="{{ route('logout') }}">
-                        @csrf
-                        <button class="dropdown-item text-danger">Logout</button>
-                    </form>
-                </li>
-            </ul>
-        </div>
+            @endif
+        @endif
+    </button>
+    
+    <!-- Rest of the dropdown menu remains the same -->
+    <ul class="dropdown-menu dropdown-menu-end">
+        <li class="px-3 py-2">
+            <strong>{{ auth()->user()->name }}</strong><br>
+            <small>{{ auth()->user()->email }}</small>
+        </li>
+        <li><hr class="dropdown-divider"></li>
+        <li>
+            <a class="dropdown-item" href="{{ route('profile') }}">
+                <i class="fa fa-user"></i> Profile
+            </a>
+        </li>
+        <li><hr class="dropdown-divider"></li>
+        <li>
+            <form method="POST" action="{{ route('logout') }}">
+                @csrf
+                <button class="dropdown-item text-danger">Logout</button>
+            </form>
+        </li>
+    </ul>
+</div>
     </div>
 </div>
 
@@ -585,6 +656,7 @@
     const sunIcon = darkModeBtn.querySelector('.fa-sun');
     const logoSidebar = document.getElementById('logoSidebar');
     const logoNavbar = document.getElementById('logoNavbar');
+    const mobileSidebarLogo = document.getElementById('mobileSidebarLogo');
 
     if (localStorage.getItem('layoutDarkMode') === 'true') {
         document.body.classList.add('layout-dark');
@@ -592,6 +664,7 @@
         sunIcon.classList.remove('d-none');
         logoSidebar.src = "{{ asset('assets/img/logo2.png') }}";
         logoNavbar.src = "{{ asset('assets/img/logo2.png') }}";
+        if (mobileSidebarLogo) mobileSidebarLogo.src = "{{ asset('assets/img/logo2.png') }}";
     }
 
     darkModeBtn.addEventListener('click', () => {
@@ -599,8 +672,10 @@
         moonIcon.classList.toggle('d-none', isDark);
         sunIcon.classList.toggle('d-none', !isDark);
         localStorage.setItem('layoutDarkMode', isDark);
-        logoSidebar.src = isDark ? "{{ asset('assets/img/logo2.png') }}" : "{{ asset('assets/img/logo1.png') }}";
-        logoNavbar.src = isDark ? "{{ asset('assets/img/logo2.png') }}" : "{{ asset('assets/img/logo1.png') }}";
+        const logoSrc = isDark ? "{{ asset('assets/img/logo2.png') }}" : "{{ asset('assets/img/logo1.png') }}";
+        logoSidebar.src = logoSrc;
+        logoNavbar.src = logoSrc;
+        if (mobileSidebarLogo) mobileSidebarLogo.src = logoSrc;
     });
 
     // Tooltips
@@ -608,6 +683,39 @@
     tooltipTriggerList.map(function (el) {
         return new bootstrap.Tooltip(el)
     });
+
+    function refreshHeaderAlerts() {
+        fetch('{{ route("chat.unread-summary") }}', {
+            headers: { 'Accept': 'application/json' },
+            credentials: 'same-origin'
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (!data.success) return;
+            const chatBadge = document.getElementById('headerChatBadge');
+            const navBadge = document.getElementById('navNeedsActionBadge');
+            const totalAlert = (data.unread_chat || 0) + (data.needs_action || 0);
+            if (chatBadge) {
+                if (totalAlert > 0) {
+                    chatBadge.style.display = 'flex';
+                    chatBadge.innerText = totalAlert > 99 ? '99+' : totalAlert;
+                } else {
+                    chatBadge.style.display = 'none';
+                }
+            }
+            if (navBadge) {
+                if (data.needs_action > 0) {
+                    navBadge.style.display = 'inline-block';
+                    navBadge.innerText = data.needs_action > 99 ? '99+' : data.needs_action;
+                } else {
+                    navBadge.style.display = 'none';
+                }
+            }
+        })
+        .catch(() => {});
+    }
+    refreshHeaderAlerts();
+    setInterval(refreshHeaderAlerts, 45000);
 
     // Cart Functionality with Sensitive Price Support
     let cart = [];

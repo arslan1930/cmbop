@@ -15,11 +15,16 @@ use Illuminate\Support\Facades\Mail;
 
 class WithdrawalController extends Controller
 {
-    private $platformChargePercent = 0.00; // Set to 0% for now, can be configured later
-    
+    private function platformChargePercent(): float
+    {
+        return (float) config('billing.withdrawal_fee_percent', 0);
+    }
+
     public function index()
     {
-        return view('publisher.withdraw');
+        return view('publisher.withdraw', [
+            'platformChargePercent' => $this->platformChargePercent(),
+        ]);
     }
     
     public function requestWithdrawal(Request $request)
@@ -41,7 +46,8 @@ class WithdrawalController extends Controller
             }
             
             $amount = $request->amount;
-            $availableBalance = $wallet->balance;
+            // Welcome / promo credit is spend-only and cannot be withdrawn
+            $availableBalance = $wallet->withdrawableBalance();
             
             if ($amount <= 0) {
                 return response()->json([
@@ -51,13 +57,17 @@ class WithdrawalController extends Controller
             }
             
             if ($amount > $availableBalance) {
+                $promoNote = $wallet->lockedBonusBalance() > 0
+                    ? ' (€' . number_format($wallet->lockedBonusBalance(), 2) . ' site credit is spend-only and cannot be withdrawn.)'
+                    : '';
+
                 return response()->json([
                     'success' => false,
-                    'message' => 'Insufficient balance for this withdrawal. Available balance: €' . number_format($availableBalance, 2)
+                    'message' => 'Insufficient withdrawable balance for this withdrawal. Available to withdraw: €' . number_format($availableBalance, 2) . '.' . $promoNote
                 ]);
             }
             
-            $fee = ($amount * $this->platformChargePercent) / 100;
+            $fee = ($amount * $this->platformChargePercent()) / 100;
             $netAmount = $amount - $fee;
             
             // Prepare payment details based on method
@@ -109,6 +119,16 @@ class WithdrawalController extends Controller
             }
             
             DB::beginTransaction();
+
+            // Re-lock wallet inside the transaction before debiting
+            $wallet = Wallet::where('id', $wallet->id)->lockForUpdate()->first();
+            if (!$wallet || (float) $wallet->balance < $amount) {
+                DB::rollBack();
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Insufficient balance for this withdrawal. Available balance: €' . number_format($wallet?->balance ?? 0, 2)
+                ]);
+            }
             
             // Create withdrawal record
             $withdrawal = Withdrawal::create([
@@ -121,9 +141,8 @@ class WithdrawalController extends Controller
                 'status' => 'pending'
             ]);
             
-            // Deduct from wallet balance
-            $wallet->balance -= $amount;
-            $wallet->save();
+            // Deduct from withdrawable wallet balance only
+            $wallet->deductWithdrawable($amount);
             
             DB::commit();
             
@@ -310,12 +329,27 @@ class WithdrawalController extends Controller
             }
             
             DB::beginTransaction();
+
+            $withdrawal = Withdrawal::where('id', $withdrawal->id)
+                ->where('status', 'pending')
+                ->lockForUpdate()
+                ->first();
+
+            if (!$withdrawal) {
+                DB::rollBack();
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Withdrawal request not found or cannot be cancelled'
+                ]);
+            }
             
-            // Refund the amount back to wallet
+            // Refund the amount back to the locked wallet
             $wallet = $user->activeWallet();
             if ($wallet) {
-                $wallet->balance += $withdrawal->amount;
-                $wallet->save();
+                $wallet = Wallet::where('id', $wallet->id)->lockForUpdate()->first();
+                if ($wallet) {
+                    $wallet->credit((float) $withdrawal->amount);
+                }
             }
             
             // Update withdrawal status

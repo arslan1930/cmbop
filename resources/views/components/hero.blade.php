@@ -39,20 +39,20 @@
   <!-- ==================== CONTENT ==================== -->
   <div class="container" style="position:relative; z-index:5; text-align:center; max-width:1200px; margin:0 auto; padding:0 20px;">
 
-    <!-- Hero Title -->
-    <h1 style="margin:0 auto; font-size:3.25rem; line-height:1.15; font-weight:800; color:#1a1a2e; max-width:900px; letter-spacing:-1px;">
-      Earn Powerful Backlinks from Trusted Websites
-    </h1>
+  <!-- Hero Title -->
+<h1 style="margin:0 auto; font-size:3.25rem; line-height:1.15; font-weight:800; color:#1a1a2e; max-width:900px; letter-spacing:-1px;">
+  {{ __('messages.hero_title') }}
+</h1>
 
-    <!-- CTA Button -->
-    <a href="/register" class="hero-cta" style="display:inline-block; margin-top:1.5rem; padding:16px 48px; font-size:1rem; background:#4ECDCB; color:white; border-radius:50px; text-decoration:none; font-weight:700; box-shadow:0 8px 20px rgba(78,205,203,0.3); transition:all 0.3s ease;">
-      Sign up for free
-    </a>
+<!-- CTA Button -->
+<a href="{{ localized_url('register') }}" class="hero-cta" style="display:inline-block; margin-top:1.5rem; padding:16px 48px; font-size:1rem; background:#4ECDCB; color:white; border-radius:50px; text-decoration:none; font-weight:700; box-shadow:0 8px 20px rgba(78,205,203,0.3); transition:all 0.3s ease;">
+  {{ __('messages.get_started') }}
+</a>
 
-    <!-- Tagline -->
-    <p style="margin-top:1.25rem; font-size:0.9rem; color:#888; max-width:680px; margin-left:auto; margin-right:auto; line-height:1.6;">
-      to explore the global link building platform built for SEO, digital PR, and content distribution
-    </p>
+<!-- Tagline -->
+<p style="margin-top:1.25rem; font-size:0.9rem; color:#888; max-width:680px; margin-left:auto; margin-right:auto; line-height:1.6;">
+  {{ __('messages.hero_tagline') }}
+</p>
 
     <!-- ==================== DASHBOARD MOCKUP (SKELETON) ==================== -->
     <div style="margin-top:3rem; position:relative; z-index:3;">
@@ -74,18 +74,40 @@
           </div>
 
           <!-- Right: cart, theme, balance, avatar -->
-          <div style="display:flex; align-items:center; gap:10px;">
-            <div style="width:32px; height:32px; background:#f5f5f5; border-radius:50%; display:flex; align-items:center; justify-content:center;">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#999" stroke-width="2"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
-            </div>
-            <div style="width:32px; height:32px; background:#f5f5f5; border-radius:50%; display:flex; align-items:center; justify-content:center;">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#999" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
-            </div>
-            <div style="padding:7px 14px; background:#3b82f6; border-radius:6px;">
-              <div style="width:80px; height:9px; background:rgba(255,255,255,0.7); border-radius:4px;"></div>
-            </div>
-            <div style="width:34px; height:34px; background:linear-gradient(135deg,#a78bfa,#8b5cf6); border-radius:50%;"></div>
-          </div>
+<div style="display:flex; align-items:center; gap:10px;">
+
+  <div style="width:32px; height:32px; background:#f5f5f5; border-radius:50%; display:flex; align-items:center; justify-content:center;">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#999" stroke-width="2">
+      <circle cx="9" cy="21" r="1"/>
+      <circle cx="20" cy="21" r="1"/>
+      <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/>
+    </svg>
+  </div>
+
+  <div style="width:32px; height:32px; background:#f5f5f5; border-radius:50%; display:flex; align-items:center; justify-content:center;">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#999" stroke-width="2">
+      <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+    </svg>
+  </div>
+
+  <!-- Balance Box -->
+  <div style="
+      padding:7px 14px;
+      background:#3b82f6;
+      border-radius:6px;
+      color:#fff;
+      font-size:13px;
+      font-weight:600;
+      min-width:110px;
+      text-align:center;
+      font-family:Arial,sans-serif;
+  ">
+    €20.00 / €0.00
+  </div>
+
+  <div style="width:34px; height:34px; background:linear-gradient(135deg,#a78bfa,#8b5cf6); border-radius:50%; display:flex; align-items:center; justify-content:center; color:#fff; font-weight:600;">S</div>
+
+</div>
         </div>
 
         <!-- ===== BODY: Sidebar + Main ===== -->

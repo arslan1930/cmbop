@@ -398,7 +398,7 @@
                         <!-- Action Buttons -->
                         <div class="d-flex gap-2">
                             <button type="button" class="btn btn-sm px-4" id="applyFiltersBtn" style="background-color: #3aaeb2; color: white;">
-                                <i class="fa-solid fa-magnifying-glass me-1"></i> Apply Filters
+                                <i class="fa-solid fa-filter me-1"></i> Filter
                             </button>
                             <a href="{{ route('advertiser.catalog') }}" class="btn btn-sm px-3" style="background-color: #e9ecef; color: #495057;">
                                 <i class="fa-solid fa-rotate-right me-1"></i> Reset
@@ -664,145 +664,203 @@
             </tr>
             
             <tr class="expanded-row-{{ $site->id }}" style="display: none;">
-                <td colspan="7" style="background-color: #f9f9f9; padding: 20px;">
-                    <div class="row">
-                        <div class="col-md-12">
-                            <h6 class="mb-3">Site Details</h6>
-                            <div class="row">
-                                <div class="col-md-6">
-                                    <p><strong>Description:</strong></p>
-                                    <div class="text-muted small">
-                                        {!! $site->description !!}
-                                    </div>
-                                </div>
-                                <div class="col-md-3">
-                                    <p><strong>Tags:</strong></p>
-                                    <div class="d-flex flex-column gap-2">
-                                        <div>
-                                            @if($site->link_type)
-                                                <span class="badge bg-secondary-subtle text-secondary border px-2 py-1"
-                                                      style="font-size: 11px;"
-                                                      title="Link Type">
-                                                    <i class="fa-solid fa-link me-1"></i>{{ $site->link_type }}
-                                                </span>
-                                            @else
-                                                <span class="text-muted small">No link type specified</span>
-                                            @endif
-                                        </div>
-                                        
-                                        <div class="d-flex flex-wrap gap-1">
-                                            @if($site->sponsored)
-                                                <span class="badge bg-warning-subtle text-dark border px-2 py-1"
-                                                      style="font-size: 11px;"
-                                                      title="Sponsored placement">
-                                                    <i class="fa-solid fa-star me-1"></i>Sponsored
-                                                </span>
-                                            @endif
+    <td colspan="7" style="background-color: #f9f9f9; padding: 20px;">
+        <div class="row">
+            <div class="col-md-12">
+                <h6 class="mb-3">Site Details</h6>
 
-                                            @if($site->partner_material)
-                                                <span class="badge bg-success-subtle text-success border px-2 py-1"
-                                                      style="font-size: 11px;"
-                                                      title="Partner content allowed">
-                                                    <i class="fa-solid fa-handshake me-1"></i>Partner
-                                                </span>
-                                            @endif
+                <div class="row align-items-start g-4">
+                    
+                    {{-- Bigger Image --}}
+                    <div class="col-md-3 text-center">
+                        <p><strong>Site Image:</strong></p>
 
-                                            @if($site->as_you_prefer ?? false)
-                                                <span class="badge bg-primary-subtle text-primary border px-2 py-1"
-                                                      style="font-size: 11px;"
-                                                      title="Flexible placement">
-                                                    <i class="fa-solid fa-sliders-h me-1"></i>As You Prefer
-                                                </span>
-                                            @endif
-                                    
-                                            @if(!$site->sponsored && !$site->partner_material && !($site->as_you_prefer ?? false))
-                                                <span class="text-muted small">No additional tags</span>
-                                            @endif
-                                        </div>
-                                        
-                                        <div>
-                                            @if(!empty($sensitivePrices))
-                                                <p><strong>Sensitive Prices (Additional Charges):</strong></p>
-                                                <div class="sensitive-prices-group" data-site-id="{{ $site->id }}" data-base-price="{{ $site->price }}">
-                                                    @foreach($sensitivePrices as $type => $additionalPrice)
-                                                        @php
-                                                            $totalPrice = $site->price + $additionalPrice;
-                                                        @endphp
-                                                        <div class="form-check mb-2">
-                                                            <input class="form-check-input sensitive-price-checkbox" 
-                                                                   type="checkbox" 
-                                                                   name="sensitive_prices_{{ $site->id }}[]" 
-                                                                   value="{{ $additionalPrice }}"
-                                                                   data-type="{{ $type }}"
-                                                                   data-additional-price="{{ $additionalPrice }}"
-                                                                   data-total-price="{{ $totalPrice }}"
-                                                                   data-site-id="{{ $site->id }}"
-                                                                   id="sensitive_{{ $site->id }}_{{ $loop->index }}">
-                                                            <label class="form-check-label" for="sensitive_{{ $site->id }}_{{ $loop->index }}">
-                                                                <strong>{{ ucfirst($type) }}</strong>
-                                                                <span class="text-danger">€{{ number_format($additionalPrice, 2) }}</span>
-                                                            </label>
-                                                        </div>
-                                                    @endforeach
-                                                </div>
-                                                <div class="selected-price-info mt-2" id="price-info-{{ $site->id }}">
-                                                    <small class="text-muted">Current price: <strong>€{{ number_format($site->price, 2) }}</strong> (Base price)</small>
-                                                </div>
-                                            @endif
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="col-md-3">
-                                    <p><strong>Example URL:</strong></p>
-                                    <div class="d-flex flex-column gap-2">
-                                        <div class="d-flex align-items-center gap-2">
-                                            <a href="{{ $site->example_url ?? '#' }}" 
-                                               target="_blank" 
-                                               class="text-decoration-none"
-                                               style="word-break: break-all;">
-                                                {{ Str::limit($site->example_url ?? 'Not available', 50) }}
-                                            </a>
-
-                                            @if($site->example_url)
-                                                <a href="{{ $site->example_url }}"
-                                                   target="_blank"
-                                                   rel="noopener noreferrer"
-                                                   class="text-muted d-inline-flex align-items-center"
-                                                   title="Open Website">
-                                                    <i class="fa-solid fa-arrow-up-right-from-square" style="font-size: 13px;"></i>
-                                                </a>
-                                            @endif
-                                        </div>
-                                        @if($site->example_url)
-                                            <button class="btn btn-sm btn-outline-secondary copy-example-url" 
-                                                    data-url="{{ $site->example_url }}"
-                                                    style="width: fit-content;">
-                                                <i class="fa-regular fa-copy"></i> Copy URL
-                                            </button>
-                                        @endif
-                                        <div class="d-flex align-items-center gap-2">
-                                            <strong>Publication Duration:</strong>
-
-                                            @if($site->publication_time)
-                                                <span class="badge text-muted border px-2 py-1"
-                                                    style="font-size: 11px;"
-                                                    title="Publication Duration">
-                                                    <i class="fa-solid fa-clock me-1"></i>
-                                                    {{ $site->publication_time }}
-                                                </span>
-                                            @else
-                                                <span class="text-muted small">
-                                                    No publication duration specified
-                                                </span>
-                                            @endif
-                                        </div>
-                                    </div>
-                                </div>
+                        @if($site->site_image)
+                            <img src="{{ asset('storage/' . $site->site_image) }}"
+                                 alt="{{ $site->site_name }}"
+                                 loading="lazy"
+                                 class="site-image-thumbnail img-fluid"
+                                 style="
+                                    width: 280px;
+                                    height: 180px;
+                                    border-radius: 12px;    
+                                    object-fit: cover;
+                                    object-position: center;
+                                    border: 1px solid #ddd;
+                                    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+                                 ">
+                        @else
+                            <div class="bg-light border rounded d-inline-flex align-items-center justify-content-center"
+                                 style="width: 180px; height: 180px;">
+                                <i class="fa-solid fa-image text-muted" style="font-size: 40px;"></i>
                             </div>
+                        @endif
+                    </div>
+
+                    {{-- Description --}}
+                    <div class="col-md-5">
+                        <p><strong>Description:</strong></p>
+                        <div class="text-muted small">
+                            {!! $site->description !!}
                         </div>
                     </div>
-                </td>
-            </tr>
+
+                    {{-- Tags --}}
+                    <div class="col-md-2">
+                        <p><strong>Tags:</strong></p>
+
+                        <div class="d-flex flex-column gap-2">
+                            
+                            <div>
+                                @if($site->link_type)
+                                    <span class="badge bg-secondary-subtle text-secondary border px-2 py-1"
+                                          style="font-size: 11px;"
+                                          title="Link Type">
+                                        <i class="fa-solid fa-link me-1"></i>{{ $site->link_type }}
+                                    </span>
+                                @else
+                                    <span class="text-muted small">No link type specified</span>
+                                @endif
+                            </div>
+
+                            <div class="d-flex flex-wrap gap-1">
+                                @if($site->sponsored)
+                                    <span class="badge bg-warning-subtle text-dark border px-2 py-1"
+                                          style="font-size: 11px;"
+                                          title="Sponsored placement">
+                                        <i class="fa-solid fa-star me-1"></i>Sponsored
+                                    </span>
+                                @endif
+
+                                @if($site->partner_material)
+                                    <span class="badge bg-success-subtle text-success border px-2 py-1"
+                                          style="font-size: 11px;"
+                                          title="Partner content allowed">
+                                        <i class="fa-solid fa-handshake me-1"></i>Partner
+                                    </span>
+                                @endif
+
+                                @if($site->as_you_prefer ?? false)
+                                    <span class="badge bg-primary-subtle text-primary border px-2 py-1"
+                                          style="font-size: 11px;"
+                                          title="Flexible placement">
+                                        <i class="fa-solid fa-sliders-h me-1"></i>As You Prefer
+                                    </span>
+                                @endif
+
+                                @if(!$site->sponsored && !$site->partner_material && !($site->as_you_prefer ?? false))
+                                    <span class="text-muted small">No additional tags</span>
+                                @endif
+                            </div>
+
+                            <div>
+                                @if(!empty($sensitivePrices))
+                                    <p><strong>Sensitive Prices (Additional Charges):</strong></p>
+
+                                    <div class="sensitive-prices-group"
+                                         data-site-id="{{ $site->id }}"
+                                         data-base-price="{{ $site->price }}">
+
+                                        @foreach($sensitivePrices as $type => $additionalPrice)
+                                            @php
+                                                $totalPrice = $site->price + $additionalPrice;
+                                            @endphp
+
+                                            <div class="form-check mb-2">
+                                                <input class="form-check-input sensitive-price-checkbox"
+                                                       type="checkbox"
+                                                       name="sensitive_prices_{{ $site->id }}[]"
+                                                       value="{{ $additionalPrice }}"
+                                                       data-type="{{ $type }}"
+                                                       data-additional-price="{{ $additionalPrice }}"
+                                                       data-total-price="{{ $totalPrice }}"
+                                                       data-site-id="{{ $site->id }}"
+                                                       id="sensitive_{{ $site->id }}_{{ $loop->index }}">
+
+                                                <label class="form-check-label"
+                                                       for="sensitive_{{ $site->id }}_{{ $loop->index }}">
+                                                    <strong>{{ ucfirst($type) }}</strong>
+                                                    <span class="text-danger">
+                                                        €{{ number_format($additionalPrice, 2) }}
+                                                    </span>
+                                                </label>
+                                            </div>
+                                        @endforeach
+                                    </div>
+
+                                    <div class="selected-price-info mt-2"
+                                         id="price-info-{{ $site->id }}">
+                                        <small class="text-muted">
+                                            Current price:
+                                            <strong>€{{ number_format($site->price, 2) }}</strong>
+                                            (Base price)
+                                        </small>
+                                    </div>
+                                @endif
+                            </div>
+
+                        </div>
+                    </div>
+
+                    {{-- Example URL --}}
+                    <div class="col-md-2">
+                        <p><strong>Example URL:</strong></p>
+
+                        <div class="d-flex flex-column gap-2">
+
+                            <div class="d-flex align-items-center gap-2">
+                                <a href="{{ $site->example_url ?? '#' }}"
+                                   target="_blank"
+                                   class="text-decoration-none"
+                                   style="word-break: break-all;">
+                                    {{ Str::limit($site->example_url ?? 'Not available', 50) }}
+                                </a>
+
+                                @if($site->example_url)
+                                    <a href="{{ $site->example_url }}"
+                                       target="_blank"
+                                       rel="noopener noreferrer"
+                                       class="text-muted d-inline-flex align-items-center"
+                                       title="Open Website">
+                                        <i class="fa-solid fa-arrow-up-right-from-square"
+                                           style="font-size: 13px;"></i>
+                                    </a>
+                                @endif
+                            </div>
+
+                            @if($site->example_url)
+                                <button class="btn btn-sm btn-outline-secondary copy-example-url"
+                                        data-url="{{ $site->example_url }}"
+                                        style="width: fit-content;">
+                                    <i class="fa-regular fa-copy"></i> Copy URL
+                                </button>
+                            @endif
+
+                            <div class="d-flex align-items-center gap-2">
+                                <strong>Publication Duration:</strong>
+
+                                @if($site->publication_time)
+                                    <span class="badge text-muted border px-2 py-1"
+                                          style="font-size: 11px;"
+                                          title="Publication Duration">
+                                        <i class="fa-solid fa-clock me-1"></i>
+                                        {{ $site->publication_time }}
+                                    </span>
+                                @else
+                                    <span class="text-muted small">
+                                        No publication duration specified
+                                    </span>
+                                @endif
+                            </div>
+
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </td>
+</tr>
             @empty
             <tr>
                 <td colspan="7" class="text-center py-5">
@@ -924,6 +982,7 @@ thead th {
 }
 
 .sensitive-price-checkbox {
+    background-color: #3aaeb2;
     cursor: pointer;
 }
 
@@ -1036,7 +1095,7 @@ thead th {
 }
 
 .selected-tag {
-    background-color: #e9ecef;
+    background-color: #3aaeb2;
     color: #495057;
     border-radius: 4px;
     padding: 2px 6px;
@@ -1091,13 +1150,14 @@ thead th {
     left: 18px;
     top: 50%;
     transform: translateY(-50%);
-    color: #6c757d;
+    color: #3aaeb2;
     font-size: 12px;
     z-index: 2;
 }
 
 .multi-select-dropdown .search-box input {
     padding-left: 28px;
+    
 }
 
 .options-list {
@@ -1116,7 +1176,7 @@ thead th {
 }
 
 .option-item:hover {
-    background-color: #f8f9fa;
+    background-color: #3aaeb2;
 }
 
 .option-item input[type="checkbox"] {
@@ -1174,6 +1234,169 @@ thead th {
 
 .toggle-cats-btn:hover {
     text-decoration: underline;
+}
+
+
+/* Update the CSS styles - remove border colors from normal state, add on hover/focus */
+
+/* Only show borders on hover/focus for form controls */
+.form-control, 
+.form-select,
+.multi-select-input {
+    border-color: #ced4da;
+    transition: all 0.2s ease;
+}
+
+.form-control:hover, 
+.form-select:hover,
+.multi-select-input:hover {
+    border-color: #3aaeb2;
+}
+
+.form-control:focus, 
+.form-select:focus,
+.multi-select-input:focus-within {
+    border-color: #3aaeb2 !important;
+    box-shadow: 0 0 0 0.2rem rgba(58, 174, 178, 0.25) !important;
+}
+
+/* Multi-select dropdown styles */
+.option-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    margin: 0;
+}
+
+.option-item:hover {
+    background-color: #3aaeb2 !important;
+}
+
+.option-item:hover span {
+    color: white !important;
+}
+
+/* Checkbox styling */
+.option-item input[type="checkbox"] {
+    accent-color: #3aaeb2;
+    cursor: pointer;
+    width: 14px;
+    height: 14px;
+}
+
+.form-check-input:checked {
+    background-color: #3aaeb2 !important;
+    border-color: #3aaeb2 !important;
+}
+
+.form-check-input:focus {
+    border-color: #3aaeb2 !important;
+    box-shadow: 0 0 0 0.2rem rgba(58, 174, 178, 0.25) !important;
+}
+
+/* Selected tags */
+.selected-tag {
+    background-color: #3aaeb2;
+    color: white;
+}
+
+.selected-tag .remove-tag {
+    color: white;
+}
+
+.selected-tag .remove-tag:hover {
+    color: #ffcccc;
+}
+
+/* Dropdown chevron icon */
+.multi-select-input i {
+    color: #6c757d;
+}
+
+.multi-select-input:hover i {
+    color: #3aaeb2;
+}
+
+/* Search icon in dropdown */
+.multi-select-dropdown .search-box i {
+    color: #3aaeb2;
+}
+
+/* Sponsored, Favorites, Blacklist select dropdown options background - Updated */
+select.form-select option:hover,
+select.form-select option:focus,
+select.form-select option:active {
+    background-color: #3aaeb2 !important;
+    color: white !important;
+}
+
+/* Style for select dropdown when focused */
+select.form-select:focus {
+    border-color: #3aaeb2 !important;
+    box-shadow: 0 0 0 0.2rem rgba(58, 174, 178, 0.25) !important;
+}
+
+/* For the select options background in different browsers */
+select.form-select option {
+    transition: background-color 0.2s ease;
+    background-color: white;
+    color: #212529;
+}
+
+/* Chrome/Safari/Edge - selected and hover states */
+select.form-select option:checked,
+select.form-select option:hover {
+    background: #3aaeb2 !important;
+    background-color: #3aaeb2 !important;
+    color: white !important;
+}
+
+/* Firefox specific */
+@-moz-document url-prefix() {
+    select.form-select option:checked,
+    select.form-select option:hover {
+        background-color: #3aaeb2 !important;
+        color: white !important;
+    }
+}
+
+/* For when the select is opened and options are hovered */
+select.form-select[size] option:hover,
+select.form-select[multiple] option:hover {
+    background-color: #3aaeb2 !important;
+    color: white !important;
+}
+
+/* Style the select dropdown arrow on hover */
+select.form-select:hover {
+    border-color: #3aaeb2;
+    cursor: pointer;
+}
+
+/* Custom dropdown styling for better hover effect */
+select.form-select {
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+select.form-select option {
+    padding: 8px 12px;
+    cursor: pointer;
+}
+
+/* Style the dropdown when opened */
+select.form-select:focus option:hover {
+    background: #3aaeb2 linear-gradient(0deg, #3aaeb2 0%, #3aaeb2 100%);
+    color: white;
+}
+
+/* Additional style for the select element hover state */
+select.form-select:focus option:checked {
+    background: #3aaeb2 linear-gradient(0deg, #3aaeb2 0%, #3aaeb2 100%);
+    color: white;
 }
 
 /* Animation */
@@ -1806,24 +2029,58 @@ document.querySelectorAll('.site-row').forEach(row => {
 </script>
 
 <script>
+// Force change hover color for Sponsored, Favorites, and Blacklist dropdowns
 document.addEventListener('DOMContentLoaded', function() {
-    document.querySelectorAll('.toggle-cats-btn').forEach(btn => {
-        const wrapper = btn.closest('.categories-wrapper');
-        const hiddenItems = wrapper.querySelectorAll('.hidden-category');
-        let expanded = false;
-        const hiddenCount = hiddenItems.length;
+    // Target the specific select elements
+    const selectElements = document.querySelectorAll('select[name="sponsored"], select[name="favorites_filter"], select[name="blacklist_filter"]');
+    
+    selectElements.forEach(select => {
+        // Store original options
+        let originalOptions = [];
         
-        btn.addEventListener('click', function() {
-            if (!expanded) {                                
-                hiddenItems.forEach(item => item.style.display = 'inline-block');
-                btn.innerHTML = '<span>-less</span><span style="font-size: 9px;">▲</span>';
-                expanded = true;
-            } else {
-                hiddenItems.forEach(item => item.style.display = 'none');
-                btn.innerHTML = '<span>+' + hiddenCount + ' more</span><span style="font-size: 9px;">▼</span>';
-                expanded = false;
-            }
+        // Function to apply custom styling to options
+        function applyCustomStyling() {
+            // Get all options
+            const options = select.querySelectorAll('option');
+            
+            options.forEach(option => {
+                // Remove existing event listeners by cloning and replacing
+                const newOption = option.cloneNode(true);
+                option.parentNode.replaceChild(newOption, option);
+                
+                // Apply custom hover effect
+                newOption.addEventListener('mouseenter', function() {
+                    this.style.backgroundColor = '#3aaeb2';
+                    this.style.color = 'white';
+                });
+                
+                newOption.addEventListener('mouseleave', function() {
+                    if (!this.selected) {
+                        this.style.backgroundColor = '';
+                        this.style.color = '';
+                    }
+                });
+                
+                // Set selected option style
+                if (newOption.selected) {
+                    newOption.style.backgroundColor = '#3aaeb2';
+                    newOption.style.color = 'white';
+                }
+            });
+        }
+        
+        // Apply styling when dropdown opens
+        select.addEventListener('mousedown', function() {
+            setTimeout(applyCustomStyling, 10);
         });
+        
+        // Apply styling on change
+        select.addEventListener('change', function() {
+            setTimeout(applyCustomStyling, 10);
+        });
+        
+        // Initial application
+        applyCustomStyling();
     });
 });
 </script>

@@ -1,6 +1,9 @@
 @extends('admin.layouts.app')
 
 @section('content')
+@php
+    $platformChargePercent = (float) config('billing.withdrawal_fee_percent', 0);
+@endphp
 <div class="container-fluid py-3">
 
     <h4 class="mb-4 fw-bold">Withdrawals Management</h4>
@@ -67,7 +70,7 @@
                         <th>#</th>
                         <th>Publisher</th>
                         <th>Amount</th>
-                        <th>Fee (18%)</th>
+                        <th>Fee ({{ rtrim(rtrim(number_format($platformChargePercent, 2, '.', ''), '0'), '.') }}%)</th>
                         <th>Net Amount</th>
                         <th>Payment Method</th>
                         <th>Status</th>
@@ -453,7 +456,7 @@ function renderDetails(withdrawal) {
                 <div class="bg-light p-3 rounded">
                     <h6 class="mb-3">Financial Details</h6>
                     <p class="mb-1"><strong>Requested Amount:</strong> €${parseFloat(withdrawal.amount).toFixed(2)}</p>
-                    <p class="mb-1"><strong>Platform Fee (18%):</strong> <span class="text-danger">-€${parseFloat(withdrawal.fee).toFixed(2)}</span></p>
+                    <p class="mb-1"><strong>Platform Fee ({{ rtrim(rtrim(number_format($platformChargePercent, 2, '.', ''), '0'), '.') }}%):</strong> <span class="text-danger">-€${parseFloat(withdrawal.fee).toFixed(2)}</span></p>
                     <p class="mb-1"><strong>Net Amount:</strong> <span class="fw-bold text-success">€${parseFloat(withdrawal.net_amount).toFixed(2)}</span></p>
                 </div>
             </div>
@@ -548,8 +551,18 @@ $('#resetFiltersBtn').on('click', function() {
     loadWithdrawals();
 });
 
-// Initialize
+// Initialize (support deep-links from ops dashboard, e.g. ?status=pending)
 $(document).ready(function() {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('status')) {
+        $('#statusFilter').val(params.get('status'));
+    }
+    if (params.get('payment_method')) {
+        $('#paymentMethodFilter').val(params.get('payment_method'));
+    }
+    if (params.get('search')) {
+        $('#searchInput').val(params.get('search'));
+    }
     loadWithdrawals();
 });
 </script>

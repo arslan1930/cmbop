@@ -5,6 +5,16 @@
 
     <h4 class="mb-4 fw-bold">Sites Management</h4>
 
+    @if(!empty($unverifiedFilter))
+        <div class="alert alert-warning border-0 shadow-sm d-flex flex-wrap justify-content-between align-items-center gap-2">
+            <div>
+                <strong>Unverified sites queue</strong>
+                <span class="ms-1">Showing publishers who still have sites waiting for verification.</span>
+            </div>
+            <a href="{{ route('admin.sites.index') }}" class="btn btn-sm btn-outline-dark">Show all publishers</a>
+        </div>
+    @endif
+
     <!-- ================= USERS TABLE ================= -->
     <div id="usersSection">
 
@@ -14,7 +24,7 @@
 
         <div class="card shadow-sm border-0 mb-3">
             <div class="card-header bg-white fw-semibold">
-                Users
+                {{ !empty($unverifiedFilter) ? 'Publishers with unverified sites' : 'Users' }}
             </div>
 
             <div class="table-responsive">
@@ -37,8 +47,11 @@
                             <td class="fw-semibold">{{ $user->name }}</td>
                             <td>{{ $user->email }}</td>
                             <td>
-                                <span class="badge rounded-pill bg-danger">
-                                    {{ $user->sites->where('verified', 0)->count() }}
+                                <span class="badge rounded-pill bg-danger" title="Unverified sites">
+                                    {{ $user->unverified_sites_count ?? $user->sites->where('verified', 0)->count() }} unverified
+                                </span>
+                                <span class="badge rounded-pill bg-secondary ms-1" title="Total sites">
+                                    {{ $user->sites_count }} total
                                 </span>
                             </td>
                             <td>
@@ -91,8 +104,7 @@
                     <thead class="table-light">
                         <tr>
                             <th>#</th>
-                            <th>Site</th>
-                            <th>Site URL</th>
+                            <th>Site Information</th>
                             <th>Traffic</th>
                             <th>Price</th>
                             <th>Status</th>
@@ -102,7 +114,7 @@
 
                     <tbody id="sitesTable"></tbody>
 
-                </table>
+                 </table>
             </div>
 
         </div>
@@ -156,6 +168,58 @@
     gap: 5px;
     justify-content: center;
 }
+
+/* Site info column styling */
+.site-info-cell {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.site-thumbnail {
+    width: 48px;
+    height: 48px;
+    border-radius: 8px;
+    object-fit: cover;
+    border: 1px solid #e0e0e0;
+    background: #f8f9fa;
+}
+
+.site-details {
+    flex: 1;
+}
+
+.site-name {
+    font-weight: 600;
+    font-size: 14px;
+    color: #333;
+    margin-bottom: 4px;
+}
+
+.site-url {
+    font-size: 12px;
+    color: #6c757d;
+    text-decoration: none;
+    word-break: break-all;
+}
+
+.site-url:hover {
+    color: #0d6efd;
+    text-decoration: underline;
+}
+
+body.layout-dark .site-name {
+    color: #eee;
+}
+
+body.layout-dark .site-url {
+    color: #aaa;
+}
+
+body.layout-dark .site-thumbnail {
+    border-color: #444;
+    background: #2d2d3f;
+}
 </style>
 
 <script>
@@ -189,7 +253,7 @@ function fetchUserSites(id){
     document.getElementById('sitesSection').classList.remove('d-none');
 
     document.getElementById('sitesTable').innerHTML =
-        `<tr><td colspan="7">Loading...</td></tr>`;
+        `<tr><td colspan="6">Loading...</td></tr>`;
 
     fetch(`/admin/users/${id}/sites`)
         .then(res => res.json())
@@ -198,6 +262,159 @@ function fetchUserSites(id){
             renderSites(allSites);
         })
         .catch(() => toast('Failed to load sites','error'));
+}
+
+/* ================= EDIT WITH FILE UPLOAD ================= */
+function editSiteWithImage(siteId) {
+    let site = allSites.find(s => s.id == siteId);
+    if(!site) return;
+
+    // Create a form data for file upload
+    const formData = new FormData();
+    
+    Swal.fire({
+        title: 'Edit Site',
+        width: 550,
+        showCancelButton: true,
+        confirmButtonText: 'Update',
+        html: `
+            <div style="text-align: left;">
+                <label style="font-weight:600; margin-bottom:5px; display:block;">Site Name</label>
+                <input id="swal-site_name" class="swal2-input" value="${escapeHtml(site.site_name ?? '')}" placeholder="Site Name">
+                
+                <label style="font-weight:600; margin-bottom:5px; margin-top:10px; display:block;">Site URL</label>
+                <input id="swal-site_url" class="swal2-input" value="${escapeHtml(site.site_url ?? '')}" placeholder="Site URL">
+                
+                <label style="font-weight:600; margin-bottom:5px; margin-top:10px; display:block;">Site Image (Upload)</label>
+                <input type="file" id="swal-site_image" class="swal2-file" accept="image/*">
+                <div id="imagePreviewContainer" style="margin-top:10px; text-align:center;">
+                    ${site.site_image ? `<img id="imagePreview" src="/storage/${site.site_image}" style="max-width:100px; max-height:80px; border-radius:6px; border:1px solid #ddd; padding:3px;">` : '<span style="font-size:12px; color:#888;">No image uploaded</span>'}
+                </div>
+                <small class="text-muted" style="display:block; margin-top:5px;">Leave empty to keep current image</small>
+                
+                <label style="font-weight:600; margin-bottom:5px; margin-top:10px; display:block;">DA (Domain Authority)</label>
+                <input id="swal-da" class="swal2-input" type="number" value="${site.da ?? ''}" placeholder="0-100" min="0" max="100" step="1">
+                
+                <label style="font-weight:600; margin-bottom:5px; margin-top:10px; display:block;">DR (Domain Rating)</label>
+                <input id="swal-dr" class="swal2-input" type="number" value="${site.dr ?? ''}" placeholder="0-100" min="0" max="100" step="1">
+                
+                <label style="font-weight:600; margin-bottom:5px; margin-top:10px; display:block;">Traffic</label>
+                <input id="swal-traffic" class="swal2-input" type="number" value="${site.traffic ?? ''}" placeholder="Monthly visitors">
+            </div>
+        `,
+        didOpen: () => {
+            // Preview new image when selected
+            const fileInput = document.getElementById('swal-site_image');
+            const previewContainer = document.getElementById('imagePreviewContainer');
+            
+            if(fileInput && previewContainer) {
+                fileInput.addEventListener('change', function() {
+                    const file = this.files[0];
+                    if(file) {
+                        const reader = new FileReader();
+                        reader.onload = function(e) {
+                            previewContainer.innerHTML = `<img src="${e.target.result}" style="max-width:100px; max-height:80px; border-radius:6px; border:1px solid #ddd; padding:3px;">`;
+                        };
+                        reader.readAsDataURL(file);
+                    } else if('${site.site_image}') {
+                        previewContainer.innerHTML = `<img src="/storage/${site.site_image}" style="max-width:100px; max-height:80px; border-radius:6px; border:1px solid #ddd; padding:3px;">`;
+                    } else {
+                        previewContainer.innerHTML = '<span style="font-size:12px; color:#888;">No image uploaded</span>';
+                    }
+                });
+            }
+        },
+        preConfirm: async () => {
+            let site_url = document.getElementById('swal-site_url').value.trim();
+            let domain = '';
+
+            try {
+                domain = new URL(site_url).hostname.replace('www.', '');
+            } catch {
+                domain = site_url.replace(/^(https?:\/\/)?(www\.)?/, '').split('/')[0];
+            }
+
+            const fileInput = document.getElementById('swal-site_image');
+            const file = fileInput.files[0];
+            
+            // If there's a file, upload it first
+            if(file) {
+                const uploadFormData = new FormData();
+                uploadFormData.append('site_image', file);
+                uploadFormData.append('_token', '{{ csrf_token() }}');
+                
+                try {
+                    const uploadResponse = await fetch(`/admin/sites/${siteId}/upload-image`, {
+                        method: 'POST',
+                        body: uploadFormData
+                    });
+                    
+                    const uploadResult = await uploadResponse.json();
+                    
+                    if(!uploadResponse.ok) {
+                        Swal.showValidationMessage(uploadResult.message || 'Image upload failed');
+                        return false;
+                    }
+                    
+                    // Return all data including the uploaded image path
+                    return {
+                        site_name: document.getElementById('swal-site_name').value,
+                        site_url: site_url,
+                        domain: domain,
+                        site_image: uploadResult.image_path,
+                        da: document.getElementById('swal-da').value,
+                        dr: document.getElementById('swal-dr').value,
+                        traffic: document.getElementById('swal-traffic').value,
+                    };
+                } catch(error) {
+                    Swal.showValidationMessage('Error uploading image: ' + error.message);
+                    return false;
+                }
+            } else {
+                // No new image, just return existing data without changing image
+                return {
+                    site_name: document.getElementById('swal-site_name').value,
+                    site_url: site_url,
+                    domain: domain,
+                    site_image: null, // Will not update image on server
+                    da: document.getElementById('swal-da').value,
+                    dr: document.getElementById('swal-dr').value,
+                    traffic: document.getElementById('swal-traffic').value,
+                };
+            }
+        }
+    }).then(async (result) => {
+        if(!result.isConfirmed) return;
+        
+        // Update site data
+        const updateData = result.value;
+        
+        try {
+            const response = await fetch(`/admin/sites/${siteId}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                    'X-HTTP-Method-Override': 'PUT'
+                },
+                body: JSON.stringify(updateData)
+            });
+            
+            const data = await response.json();
+            
+            if(response.ok) {
+                toast('Updated successfully');
+                if(data.email_sent) {
+                    toast('Email notification sent to publisher', 'info');
+                }
+                fetchUserSites(sessionStorage.getItem('selected_user'));
+            } else {
+                toast(data.message || 'Update failed', 'error');
+            }
+        } catch(error) {
+            toast('Update failed: ' + error.message, 'error');
+        }
+    });
 }
 
 /* ================= EVENTS ================= */
@@ -211,76 +428,10 @@ document.addEventListener('click', function(e){
         return;
     }
 
-    /* EDIT - Only Site Name, Site URL, DA, DR, Traffic */
+    /* EDIT - Using new file upload method */
     if(e.target.closest('.edit-site')){
         let id = e.target.closest('button').dataset.id;
-        let site = allSites.find(s => s.id == id);
-        if(!site) return;
-
-        Swal.fire({
-            title: 'Edit Site',
-            width: 500,
-            showCancelButton: true,
-            confirmButtonText: 'Update',
-            html: `
-                <div style="text-align: left;">
-                    <label style="font-weight:600; margin-bottom:5px; display:block;">Site Name</label>
-                    <input id="swal-site_name" class="swal2-input" value="${escapeHtml(site.site_name ?? '')}" placeholder="Site Name">
-                    
-                    <label style="font-weight:600; margin-bottom:5px; margin-top:10px; display:block;">Site URL</label>
-                    <input id="swal-site_url" class="swal2-input" value="${escapeHtml(site.site_url ?? '')}" placeholder="Site URL">
-                    
-                    <label style="font-weight:600; margin-bottom:5px; margin-top:10px; display:block;">DA (Domain Authority)</label>
-                    <input id="swal-da" class="swal2-input" type="number" value="${site.da ?? ''}" placeholder="0-100" min="0" max="100">
-                    
-                    <label style="font-weight:600; margin-bottom:5px; margin-top:10px; display:block;">DR (Domain Rating)</label>
-                    <input id="swal-dr" class="swal2-input" type="number" value="${site.dr ?? ''}" placeholder="0-100" min="0" max="100">
-                    
-                    <label style="font-weight:600; margin-bottom:5px; margin-top:10px; display:block;">Traffic</label>
-                    <input id="swal-traffic" class="swal2-input" type="number" value="${site.traffic ?? ''}" placeholder="Monthly visitors">
-                </div>
-            `,
-            preConfirm: () => {
-                let site_url = document.getElementById('swal-site_url').value.trim();
-                let domain = '';
-
-                try {
-                    domain = new URL(site_url).hostname.replace('www.', '');
-                } catch {
-                    domain = site_url.replace(/^(https?:\/\/)?(www\.)?/, '').split('/')[0];
-                }
-
-                return {
-                    site_name: document.getElementById('swal-site_name').value,
-                    site_url: site_url,
-                    domain: domain,
-                    da: document.getElementById('swal-da').value,
-                    dr: document.getElementById('swal-dr').value,
-                    traffic: document.getElementById('swal-traffic').value,
-                };
-            }
-        }).then(result => {
-            if(!result.isConfirmed) return;
-
-            fetch(`/admin/sites/${id}`, {
-                method:'POST',
-                headers:{
-                    'Content-Type':'application/json',
-                    'X-CSRF-TOKEN':'{{ csrf_token() }}',
-                    'X-HTTP-Method-Override':'PUT'
-                },
-                body: JSON.stringify(result.value)
-            })
-            .then(res => res.json())
-            .then(data => {
-                toast('Updated successfully');
-                if(data.email_sent) {
-                    toast('Email notification sent to publisher', 'info');
-                }
-                fetchUserSites(sessionStorage.getItem('selected_user'));
-            })
-            .catch(() => toast('Update failed', 'error'));
-        });
+        editSiteWithImage(id);
     }
 
     /* DELETE */
@@ -398,16 +549,37 @@ function renderSites(data){
     let html = '';
 
     if(!data.length){
-        html = `<tr><td colspan="7" class="text-center text-muted">No sites found</td></tr>`;
+        html = `<tr><td colspan="6" class="text-center text-muted">No sites found</td></tr>`;
     } else {
 
         data.forEach((site,i) => {
 
+            // Get image URL or placeholder
+            let imageUrl = site.site_image ? `/storage/${escapeHtml(site.site_image)}` : null;
+            let firstLetter = (site.site_name || 'S').charAt(0).toUpperCase();
+            
+            // Create image HTML with fallback
+            let imageHtml = imageUrl 
+                ? `<img src="${imageUrl}" class="site-thumbnail" alt="${escapeHtml(site.site_name)}" onerror="this.onerror=null; this.src=''; this.style.display='none'; this.parentElement.querySelector('.thumbnail-fallback').style.display='flex';">`
+                : '';
+            
+            // Create combined site info column with image, name and URL
+            let siteInfoHtml = `
+                <div class="site-info-cell">
+                    ${imageUrl ? imageHtml : ''}
+                    <div class="site-details">
+                        <div class="site-name">${escapeHtml(site.site_name ?? '-')}</div>
+                        <a href="${escapeHtml(site.site_url ?? '#')}" target="_blank" class="site-url" title="${escapeHtml(site.site_url ?? '')}">
+                            ${escapeHtml(site.site_url ?? '-')}
+                        </a>
+                    </div>
+                </div>
+            `;
+
             html += `
                 <tr>
                     <td>${i+1}</td>
-                    <td class="fw-semibold">${escapeHtml(site.site_name ?? '-')}</td>
-                    <td>${escapeHtml(site.site_url ?? '-')}</td>
+                    <td>${siteInfoHtml}</td>
                     <td>${site.traffic ?? '-'}</td>
                     <td>€${site.price ?? '-'}</td>
                     <td>
@@ -446,7 +618,7 @@ function renderSites(data){
                 </tr>
 
                 <tr id="details-${site.id}" class="d-none">
-                    <td colspan="7">
+                    <td colspan="6">
                         <div class="p-3 border rounded bg-white shadow-sm">
                             <div class="row g-3">
                                 <div class="col-md-4"><strong>Domain</strong><div>${escapeHtml(site.domain ?? '-')}</div></div>
@@ -459,6 +631,7 @@ function renderSites(data){
                                 <div class="col-md-4"><strong>Sponsored</strong><div>${site.sponsored ? 'Yes':'No'}</div></div>
                                 <div class="col-md-4"><strong>Price</strong><div>€${site.price ?? '-'}</div></div>
                                 <div class="col-12"><strong>Description</strong><div>${escapeHtml(site.description ?? '-')}</div></div>
+                                ${site.site_image ? `<div class="col-12"><strong>Site Image</strong><div><img src="/storage/${escapeHtml(site.site_image)}" style="max-width:200px; max-height:120px; border-radius:8px; margin-top:5px;" onerror="this.style.display='none'"></div></div>` : ''}
                             </div>
                         </div>
                     </td>
@@ -485,7 +658,7 @@ document.getElementById('userSearch').addEventListener('keyup', function(){
     });
 });
 
-document.getElementById('siteSearch').addEventListener('keyup', function(){
+document.getElementById('siteSearch').addEventListener('keyup', function(){ 
     let val = this.value.toLowerCase();
     let filtered = allSites.filter(s =>
         (s.site_name||'').toLowerCase().includes(val) ||

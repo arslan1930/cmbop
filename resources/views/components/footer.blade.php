@@ -1,16 +1,27 @@
+@php
+  // Get locale from URL segment for footer links
+  $segments = request()->segments();
+  $availableLocales = ['de', 'fr', 'nl'];
+  $currentLocale = 'en';
+  
+  if (!empty($segments) && in_array($segments[0], $availableLocales)) {
+    $currentLocale = $segments[0];
+  }
+@endphp
+
 <footer class="bg-light text-dark pt-5 pb-4">
     <div class="container">
         <div class="row gy-4">
 
             <!-- Brand -->
             <div class="col-md-3">
-                <a href="{{ url('/') }}">
+                <a href="{{ $currentLocale == 'en' ? url('/') : url('/' . $currentLocale) }}">
                     <img src="{{ asset('assets/img/logo1.png') }}" 
                          alt="SEO Link Buildings Logo" 
                          style="max-width: 200px;">
                 </a>
                 <p class="mt-3 small">
-                    Professional link building services that deliver measurable results for your business.
+                    {{ __('messages.professional_services') }}
                 </p>
                 <!-- Add Social Media Links -->
                 <div class="mt-3">
@@ -24,38 +35,38 @@
 
             <!-- Services -->
             <div class="col-md-3">
-                <h5 class="mb-3">Services</h5>
+                <h5 class="mb-3">{{ __('messages.services') }}</h5>
                 <ul class="list-unstyled small">
-                    <li><a href="#" class="text-dark text-decoration-none d-block mb-2">Article Publication</a></li>
-                    <li><a href="#" class="text-dark text-decoration-none d-block mb-2">Copywriting</a></li>
-                    <li><a href="#" class="text-dark text-decoration-none d-block mb-2">Link Insertion</a></li>
-                    <li><a href="#" class="text-dark text-decoration-none d-block mb-2">Digital PR</a></li>
-                    <li><a href="#" class="text-dark text-decoration-none d-block mb-2">Free SEO Audit</a></li>
+                    <li><a href="#" class="text-dark text-decoration-none d-block mb-2">{{ __('messages.article_publication') }}</a></li>
+                    <li><a href="#" class="text-dark text-decoration-none d-block mb-2">{{ __('messages.copywriting') }}</a></li>
+                    <li><a href="#" class="text-dark text-decoration-none d-block mb-2">{{ __('messages.link_insertions') }}</a></li>
+                    <li><a href="#" class="text-dark text-decoration-none d-block mb-2">{{ __('messages.digital_pr') }}</a></li>
+                    <li><a href="#" class="text-dark text-decoration-none d-block mb-2">{{ __('messages.free_seo_audit') }}</a></li>
                 </ul>
             </div>
 
             <!-- Company -->
             <div class="col-md-3">
-                <h5 class="mb-3">Company</h5>
+                <h5 class="mb-3">{{ __('messages.company') }}</h5>
                 <ul class="list-unstyled small">
-                    <li><a href="{{ url('contact') }}" class="text-dark text-decoration-none d-block mb-2">Contact</a></li>
-                    <li><a href="{{ url('blog') }}" class="text-dark text-decoration-none d-block mb-2">Blog</a></li>
-                    <li><a href="{{ url('privacy-policy') }}" class="text-dark text-decoration-none d-block mb-2">Privacy Policy</a></li>
-                    <li><a href="{{ url('terms-of-services') }}" class="text-dark text-decoration-none d-block mb-2">Terms of Service</a></li>
+                    <li><a href="{{ $currentLocale == 'en' ? url('contact') : url('/' . $currentLocale . '/contact') }}" class="text-dark text-decoration-none d-block mb-2">{{ __('messages.contact') }}</a></li>
+                    <!-- <li><a href="{{ $currentLocale == 'en' ? url('blog') : url('/' . $currentLocale . '/blog') }}" class="text-dark text-decoration-none d-block mb-2">{{ __('messages.blog') }}</a></li> -->
+                    <li><a href="{{ $currentLocale == 'en' ? url('privacy-policy') : url('/' . $currentLocale . '/privacy-policy') }}" class="text-dark text-decoration-none d-block mb-2">{{ __('messages.privacy_policy') }}</a></li>
+                    <li><a href="{{ $currentLocale == 'en' ? url('terms-of-services') : url('/' . $currentLocale . '/terms-of-services') }}" class="text-dark text-decoration-none d-block mb-2">{{ __('messages.terms_of_service') }}</a></li>
                 </ul>
             </div>
 
             <!-- Address -->
             <div class="col-md-3">
-                <h5 class="mb-3">Address</h5>
+                <h5 class="mb-3">{{ __('messages.address') }}</h5>
                 <p class="small mb-0">
-                    SEOLinkBuildings is a partner brand of TopURLz Ltd, registered in the United Kingdom.
+                    {{ __('messages.address_description') }}
                 </p>
                 <p class="small mt-2 mb-0">
-                    Registered Address: 20 Wenlock Road, London, England, N1 7GU
+                    {{ __('messages.registered_address') }}
                 </p>
                 <p class="small mt-2">
-                    Company Number: 16607074
+                    {{ __('messages.company_number') }}: 16607074
                 </p>
             </div>
 
