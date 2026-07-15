@@ -22,11 +22,15 @@
             <div class="card border-0 shadow-sm">
                 <div class="card-header bg-white fw-semibold">
                     <i class="fa fa-wallet me-2 text-primary"></i> 
-                    Current Balance
+                    Your Balance
+                    <i class="fa fa-info-circle text-muted ms-1"
+                       data-bs-toggle="tooltip"
+                       data-bs-placement="top"
+                       title="Money you earned. You can transfer it to your Advertiser wallet or withdraw it."></i>
                 </div>
                 <div class="card-body text-center">
                     <h2 class="mb-0" id="publisherBalance" style="color: #10b981;">€{{ number_format($publisherBalance, 2) }}</h2>
-                    <p class="text-muted small mt-2">Your wallet balance</p>
+                    <p class="text-muted small mt-2 mb-0">Ready to transfer or withdraw</p>
                 </div>
             </div>
         </div>

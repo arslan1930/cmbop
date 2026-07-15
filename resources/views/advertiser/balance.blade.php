@@ -22,12 +22,46 @@
         <div class="col-md-4 mb-4">
             <div class="card border-0 shadow-sm">
                 <div class="card-header bg-white fw-semibold">
-                    <i class="fa fa-wallet me-2 text-primary"></i> 
-                    Current Balance
+                    <i class="fa fa-wallet me-2 text-primary"></i>
+                    Your Balance
+                    <i class="fa fa-info-circle text-muted ms-1"
+                       data-bs-toggle="tooltip"
+                       data-bs-placement="top"
+                       title="This is the total you can spend on orders right now."></i>
                 </div>
-                <div class="card-body text-center">
-                    <h2 class="mb-0" id="advertiserBalance" style="color: #10b981;">€{{ number_format($advertiserBalance, 2) }}</h2>
-                    <p class="text-muted small mt-2">Your wallet balance</p>
+                <div class="card-body">
+                    <div class="text-center mb-3">
+                        <h2 class="mb-0" id="advertiserBalance" style="color: #10b981;">€{{ number_format($advertiserBalance, 2) }}</h2>
+                        <p class="text-muted small mt-2 mb-0">Ready to spend on orders</p>
+                    </div>
+                    <div class="border-top pt-3">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <div>
+                                <span class="small fw-semibold">
+                                    Can transfer
+                                    <i class="fa fa-info-circle text-muted ms-1"
+                                       data-bs-toggle="tooltip"
+                                       data-bs-placement="top"
+                                       title="Money you added yourself. You can move this to your Publisher wallet."></i>
+                                </span>
+                                <div class="text-muted small">Your own money</div>
+                            </div>
+                            <strong id="advertiserWithdrawableBalance">€{{ number_format($advertiserWithdrawableBalance, 2) }}</strong>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-start {{ ($advertiserBonusBalance ?? 0) > 0 ? '' : 'd-none' }}" id="advertiserBonusBalanceWrap">
+                            <div>
+                                <span class="small fw-semibold">
+                                    Free credit
+                                    <i class="fa fa-info-circle text-muted ms-1"
+                                       data-bs-toggle="tooltip"
+                                       data-bs-placement="top"
+                                       title="A welcome gift for buying orders on this website. You cannot withdraw or transfer it."></i>
+                                </span>
+                                <div class="text-muted small">For orders only — not cash</div>
+                            </div>
+                            <strong id="advertiserBonusBalance">€{{ number_format($advertiserBonusBalance ?? 0, 2) }}</strong>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -72,8 +106,8 @@
                             </span>
                             <input type="number" id="amount" class="form-control" placeholder="0.00" step="0.01" min="1">
                         </div>
-                        <small class="text-muted">Minimum transfer: €1.00</small>
-                        <small class="text-muted d-block mt-1">This will transfer from your Advertiser wallet to your Publisher wallet.</small>
+                        <small class="text-muted">Minimum €1.00. You can transfer up to <strong>€{{ number_format($advertiserWithdrawableBalance, 2) }}</strong>.</small>
+                        <small class="text-muted d-block mt-1">Free credit stays in this wallet and can only be used to buy orders.</small>
                     </div>
 
                     <!-- Dynamic Balance Preview -->
@@ -202,6 +236,8 @@
 <script>
 let currentPage = 1;
 let advertiserBalance = parseFloat('{{ $advertiserBalance }}');
+let advertiserWithdrawableBalance = parseFloat('{{ $advertiserWithdrawableBalance }}');
+let advertiserBonusBalance = parseFloat('{{ $advertiserBonusBalance }}');
 let publisherBalance = parseFloat('{{ $publisherBalance }}');
 const baseUrl = window.location.origin;
 
@@ -222,8 +258,8 @@ $(document).ready(function() {
             return;
         }
         
-        if (amount > advertiserBalance) {
-            Swal.fire('Error', `Insufficient balance. Your Advertiser balance is €${advertiserBalance.toFixed(2)}`, 'error');
+        if (amount > advertiserWithdrawableBalance) {
+            Swal.fire('Error', `You can transfer up to €${advertiserWithdrawableBalance.toFixed(2)}. Free credit cannot be transferred.`, 'error');
             return;
         }
         
@@ -256,8 +292,17 @@ $(document).ready(function() {
                         if (response.success) {
                             Swal.fire('Success!', response.message, 'success');
                             advertiserBalance = response.advertiser_balance;
+                            advertiserWithdrawableBalance = response.advertiser_withdrawable_balance ?? advertiserWithdrawableBalance;
+                            advertiserBonusBalance = response.advertiser_bonus_balance ?? advertiserBonusBalance;
                             publisherBalance = response.publisher_balance;
                             $('#advertiserBalance').html('€' + advertiserBalance.toFixed(2));
+                            $('#advertiserWithdrawableBalance').html('€' + advertiserWithdrawableBalance.toFixed(2));
+                            $('#advertiserBonusBalance').html('€' + advertiserBonusBalance.toFixed(2));
+                            if (advertiserBonusBalance > 0) {
+                                $('#advertiserBonusBalanceWrap').removeClass('d-none');
+                            } else {
+                                $('#advertiserBonusBalanceWrap').addClass('d-none');
+                            }
                             $('#publisherBalance').html('€' + publisherBalance.toFixed(2));
                             $('#currentAdvertiserBalance').html('€' + advertiserBalance.toFixed(2));
                             $('#currentPublisherBalance').html('€' + publisherBalance.toFixed(2));
@@ -308,7 +353,7 @@ function updatePreview() {
 function validateTransfer() {
     let amount = parseFloat($('#amount').val()) || 0;
     
-    if (amount >= 1 && amount <= advertiserBalance) {
+    if (amount >= 1 && amount <= advertiserWithdrawableBalance) {
         $('#transferBtn').prop('disabled', false);
     } else {
         $('#transferBtn').prop('disabled', true);

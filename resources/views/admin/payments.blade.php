@@ -187,6 +187,21 @@
 let currentPage = 1;
 
 $(document).ready(function() {
+    // Support deep-links from ops dashboard, e.g. ?payment_status=pending&search=ORD-123
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('payment_status')) {
+        $('#paymentStatusFilter').val(params.get('payment_status'));
+    }
+    if (params.get('payment_method')) {
+        $('#paymentMethodFilter').val(params.get('payment_method'));
+    }
+    if (params.get('status')) {
+        $('#orderStatusFilter').val(params.get('status'));
+    }
+    if (params.get('search')) {
+        $('#searchInput').val(params.get('search'));
+    }
+
     loadPayments();
 
     $('#filterForm').on('submit', function(e) {

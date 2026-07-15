@@ -111,10 +111,10 @@
                             </div>
                         </div>
                         <div class="col-6">
-                            <div class="small text-muted">On-Time Delivery</div>
-                            <h4 class="mb-0" id="onTimeRate">0%</h4>
+                            <div class="small text-muted">Success Rate</div>
+                            <h4 class="mb-0" id="successRate">0%</h4>
                             <div class="progress mt-2" style="height: 4px;">
-                                <div id="onTimeProgress" class="progress-bar bg-primary" style="width: 0%"></div>
+                                <div id="successProgress" class="progress-bar bg-primary" style="width: 0%"></div>
                             </div>
                         </div>
                     </div>
@@ -252,14 +252,20 @@ function loadDashboardData() {
                 var conversionRate = totalOrders > 0 ? ((completedOrders + (response.data.processing_orders || 0)) / totalOrders * 100).toFixed(1) : 0;
                 var avgOrderValue = completedOrders > 0 ? (response.data.total_earnings / completedOrders).toFixed(2) : 0;
                 
+                var successRate = typeof response.data.success_rate !== 'undefined'
+                    ? response.data.success_rate
+                    : (completedOrders + cancelledOrders > 0
+                        ? ((completedOrders / (completedOrders + cancelledOrders)) * 100).toFixed(1)
+                        : 0);
+
                 $('#conversionRate').text(conversionRate + '%');
                 $('#avgOrderValue').html('€' + avgOrderValue);
                 $('#completionRate').text(completionRate + '%');
-                $('#onTimeRate').text('95%'); // Example, calculate based on your data
+                $('#successRate').text(successRate + '%');
                 
                 $('#conversionProgress').css('width', conversionRate + '%');
                 $('#completionProgress').css('width', completionRate + '%');
-                $('#onTimeProgress').css('width', '95%');
+                $('#successProgress').css('width', successRate + '%');
             }
         },
         error: function() {

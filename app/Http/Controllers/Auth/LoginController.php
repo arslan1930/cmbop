@@ -6,7 +6,6 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\RateLimiter;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Validator;
 
 class LoginController extends Controller
@@ -39,10 +38,7 @@ class LoginController extends Controller
         // ✅ Validation
         $validator = Validator::make($request->all(), [
             'email' => 'required|email',
-            'password' => 'required|string',
-            'g-recaptcha-response' => 'required'
-        ], [
-            'g-recaptcha-response.required' => 'Please verify that you are not a robot.'
+            'password' => 'required|string'
         ]);
 
         if ($validator->fails()) {
@@ -52,28 +48,11 @@ class LoginController extends Controller
             ]);
         }
 
-        // 🔒 Validate reCAPTCHA
-        $recaptcha = Http::asForm()->post(
-            'https://www.google.com/recaptcha/api/siteverify',
-            [
-                'secret'   => env('GOOGLE_RECAPTCHA_SECRET_KEY'),
-                'response' => $request->input('g-recaptcha-response'),
-                'remoteip' => $request->ip(),
-            ]
-        );
-
-        if (!$recaptcha->json('success')) {
-            return response()->json([
-                'status' => 'error',
-                'message' => 'reCAPTCHA verification failed. Please try again.'
-            ]);
-        }
-
         $credentials = $request->only('email', 'password');
-        $remember = $request->boolean('remember'); // ✅ added
+        $remember = $request->boolean('remember');
 
         // Attempt login
-        if (!Auth::attempt($credentials, $remember)) { // ✅ updated
+        if (!Auth::attempt($credentials, $remember)) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'Invalid email or password.'
@@ -82,7 +61,7 @@ class LoginController extends Controller
 
         $user = Auth::user();
 
-        // 🚨 Email verification check (UPDATED)
+        // 🚨 Email verification check
         if (!$user->hasVerifiedEmail()) {
             Auth::logout();
 
