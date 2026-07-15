@@ -4,10 +4,17 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 
 class OrderItem extends Model
 {
+    /**
+     * Advertiser-facing markup multiplier. The extra portion is the platform fee.
+     * Example: listing €100 → advertiser pays €115; publisher receives €100.
+     */
+    public const PLATFORM_MARKUP_RATE = 1.15;
+
     protected $fillable = [
         'order_id', 
         'site_id', 
@@ -92,11 +99,61 @@ class OrderItem extends Model
     }
     
     /**
-     * Helper method to get base price (price - additional_price)
+     * Helper method to get base price (price - additional_price).
+     * For advertisers this is the marked-up base (includes platform fee).
      */
     public function getBasePriceAttribute()
     {
         return $this->price - $this->additional_price;
+    }
+
+    /**
+     * Marked-up base paid by the advertiser (excludes sensitive add-ons).
+     */
+    public function markedUpBasePrice(): float
+    {
+        return round((float) $this->price - (float) ($this->additional_price ?? 0), 2);
+    }
+
+    /**
+     * Publisher listing/base price before the platform markup.
+     */
+    public function publisherBasePrice(): float
+    {
+        return round($this->markedUpBasePrice() / self::PLATFORM_MARKUP_RATE, 2);
+    }
+
+    /**
+     * Amount credited to the publisher on approval.
+     * Publisher gets original base + sensitive add-ons; platform keeps the 15% markup.
+     */
+    public function publisherPayoutAmount(): float
+    {
+        return round(
+            $this->publisherBasePrice() + (float) ($this->additional_price ?? 0),
+            2
+        );
+    }
+
+    /**
+     * Platform fee retained from the marked-up base price.
+     */
+    public function platformFeeAmount(): float
+    {
+        return round($this->markedUpBasePrice() - $this->publisherBasePrice(), 2);
+    }
+
+    /**
+     * SQL expression for publisher payout amounts (for SUM/aggregates).
+     * Removes the 15% platform markup from the stored advertiser price.
+     */
+    public static function publisherPayoutSqlExpression()
+    {
+        $rate = self::PLATFORM_MARKUP_RATE;
+
+        return DB::raw(
+            "(price - COALESCE(additional_price, 0)) / {$rate} + COALESCE(additional_price, 0)"
+        );
     }
     
     /**
