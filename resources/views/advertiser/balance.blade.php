@@ -298,6 +298,11 @@ $(document).ready(function() {
                             $('#advertiserBalance').html('€' + advertiserBalance.toFixed(2));
                             $('#advertiserWithdrawableBalance').html('€' + advertiserWithdrawableBalance.toFixed(2));
                             $('#advertiserBonusBalance').html('€' + advertiserBonusBalance.toFixed(2));
+                            if (advertiserBonusBalance > 0) {
+                                $('#advertiserBonusBalanceWrap').removeClass('d-none');
+                            } else {
+                                $('#advertiserBonusBalanceWrap').addClass('d-none');
+                            }
                             $('#publisherBalance').html('€' + publisherBalance.toFixed(2));
                             $('#currentAdvertiserBalance').html('€' + advertiserBalance.toFixed(2));
                             $('#currentPublisherBalance').html('€' + publisherBalance.toFixed(2));
