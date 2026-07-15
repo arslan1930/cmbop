@@ -1,56 +1,83 @@
 # AGENTS.md
 
+## Project overview
+
+This is a Laravel 13 / PHP 8.3 application — a two-sided guest-post / backlink
+marketplace ("Seolinkbuildings") connecting **advertisers** (buy placements) with
+**publishers** (sell placements on their sites), plus an **admin** role. It has an
+internal EUR wallet system with optional Stripe card payments. Frontend assets are
+built with Vite + Tailwind v4. New advertisers get a €20 welcome bonus.
+
+Standard commands live in `composer.json` (`scripts`) and `package.json`
+(`scripts`). Common ones:
+- Serve: `php artisan serve`
+- Dev (all processes): `composer dev` (serve + queue + pail + vite)
+- Tests: `php artisan test` (or `composer test`)
+- Lint: `./vendor/bin/pint` (add `--test` to check without rewriting)
+- Build assets: `npm run build`; hot reload: `npm run dev`
+
 ## Cursor Cloud specific instructions
 
-### What this app is
-A Laravel 13 (PHP 8.3) web app — a "Niche" backlink / guest‑post **marketplace** with three roles (advertiser, publisher, admin). Server‑rendered Blade views styled with Bootstrap, with a Vite + Tailwind asset pipeline. Payments use Stripe. It is a single application (not a monorepo).
+The update script installs PHP deps (`composer install`) and JS deps
+(`npm install`). PHP 8.3, Composer, Node, and MariaDB are pre-installed in the VM
+snapshot. The `.env`, `vendor/`, `node_modules/`, and `public/build/` are gitignored
+and persist in the snapshot, so they usually already exist on startup. The notes
+below are non-obvious gotchas discovered during setup.
 
-### Database: MySQL is required (not SQLite)
-Although `.env.example` defaults to `sqlite`, the migrations contain **MySQL‑specific raw SQL** (e.g. `ALTER TABLE ... MODIFY COLUMN ... ENUM(...)` in `2026_05_03_064024_add_refunded_to_payment_status.php`) and foreign keys that assume MySQL. The app must run on MySQL/MariaDB.
+### Database: use MySQL/MariaDB, not SQLite
+Despite `.env.example` defaulting to `DB_CONNECTION=sqlite`, the app requires
+**MySQL/MariaDB**. Migration `2026_05_03_064024_add_refunded_to_payment_status`
+uses raw MySQL DDL (`ALTER TABLE ... MODIFY COLUMN ... ENUM(...)`) that SQLite
+cannot run. The committed `.env` is configured for MySQL (db `laravel`, user
+`laravel`, password `secret` on `127.0.0.1:3306`).
 
-The dev DB used during setup: database `niche`, user `niche`, password `niche` (host `127.0.0.1:3306`). These values are already written into the (gitignored) `.env`.
+MariaDB does not auto-start. Start it each session (it is not in the update script
+because the update script must not start services):
+```
+sudo mysqld_safe --datadir=/var/lib/mysql &
+```
+The data dir `/var/lib/mysql` persists in the snapshot, so an already-migrated
+database is normally still present after restart.
 
-MySQL is installed in the VM image but is **not** started automatically (no systemd). Start it before running the app, migrations, or tests that hit the real DB:
+### Migration ordering is broken for a fresh `migrate`
+The migration filename timestamps are out of dependency order, so a clean
+`php artisan migrate` / `migrate:fresh` FAILS:
+- `2024_01_01_000001_create_order_chat_messages_table` has an FK to `orders`
+  (created only in `2026_04_21_...`).
+- `2024_01_01_000002_add_live_url_to_order_items` alters `order_items`
+  (also created in `2026_04_21_...`).
 
-```bash
-sudo service mysql start   # or: sudo mysqld_safe &
+To build the schema from scratch, pre-create the out-of-order tables in dependency
+order, then run the rest (do NOT modify the migration files):
+```
+php artisan db:wipe --force
+for m in 0001_01_01_000000_create_users_table \
+         2026_04_06_094704_create_sites_table \
+         2026_04_21_070134_create_orders_table \
+         2026_04_21_070217_create_order_items_table; do
+  php artisan migrate --force --path=database/migrations/$m.php
+done
+php artisan migrate --force
 ```
 
-If the `niche` database/user is missing after a fresh VM, recreate it:
-
-```bash
-sudo mysql -e "CREATE DATABASE IF NOT EXISTS niche CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-CREATE USER IF NOT EXISTS 'niche'@'127.0.0.1' IDENTIFIED BY 'niche';
-CREATE USER IF NOT EXISTS 'niche'@'localhost' IDENTIFIED BY 'niche';
-GRANT ALL PRIVILEGES ON niche.* TO 'niche'@'127.0.0.1';
-GRANT ALL PRIVILEGES ON niche.* TO 'niche'@'localhost'; FLUSH PRIVILEGES;"
+### Seeders: roles are NOT in DatabaseSeeder
+`php artisan db:seed` only seeds countries/languages/categories. Registration needs
+the `roles` table populated, so also run:
 ```
-
-### First‑time app setup (not done by the update script)
-The update script only refreshes dependencies. After the VM is up, do the one‑time app setup if `.env`/DB are not already present:
-
-```bash
-cp .env.example .env          # only if .env is missing
-php artisan key:generate      # only if APP_KEY is empty
-php artisan migrate           # runs after MySQL is started
-php artisan db:seed --class=RolesTableSeeder   # REQUIRED: roles are NOT in DatabaseSeeder
-php artisan db:seed           # countries / languages / categories / country_language
+php artisan db:seed --class=RolesTableSeeder --force
 ```
+There is no default user/admin seeder; an admin must be promoted manually in the DB.
 
-Gotcha: `DatabaseSeeder` does **not** seed the `roles` table, but registration and login both look up the `advertiser`/`publisher`/`admin` roles. Always run `RolesTableSeeder` or new users cannot be created / logged in.
+### Auth: reCAPTCHA + email verification
+- Login (and forgot-password) verify Google reCAPTCHA **server-side** against
+  `google.com/recaptcha/api/siteverify`. The committed `.env` uses Google's official
+  **test keys** (`GOOGLE_RECAPTCHA_SITE_KEY` / `GOOGLE_RECAPTCHA_SECRET_KEY`) which
+  always validate, so automated/manual login works locally.
+- Login is blocked until the email is verified. With `MAIL_MAILER=log`, the
+  verification link is written to `storage/logs/laravel.log` (search for
+  `email/verify`). Visiting that link (no auth required) verifies the account.
 
-### Auth requires reCAPTCHA + verified email
-Both `/login` and `/register` require a Google reCAPTCHA token that is verified **server‑side** against `https://www.google.com/recaptcha/api/siteverify` (needs outbound network). For local dev, `.env` is configured with Google's official reCAPTCHA v2 **test keys** (`GOOGLE_RECAPTCHA_SITE_KEY` / `GOOGLE_RECAPTCHA_SECRET_KEY`) which always pass — the browser shows a "for testing purposes only" banner; just click the checkbox. Login also enforces `hasVerifiedEmail()`.
-
-To get a usable logged‑in account without email delivery, create a verified user via tinker (mail is set to `log`, so no real email is sent). A demo advertiser used during setup:
-- email `advertiser@example.com`, password `Password123!` (verified, has advertiser+publisher roles and wallets).
-
-### Running in development
-- All‑in‑one (server + queue + logs + vite): `composer run dev`
-- Or individually: `php artisan serve --host=0.0.0.0 --port=8000` and `npm run dev` (Vite dev server on :5173).
-- `npm run build` produces `public/build` assets; Blade `@vite` uses the built manifest when the Vite dev server is not running.
-
-### Lint / test / build
-- Lint: `./vendor/bin/pint` (use `--test` to check without fixing). Note: the existing codebase is **not** currently Pint‑clean, so `pint --test` reports many pre‑existing style deviations — this is expected, not a regression.
-- Tests: `php artisan test`. The test suite is configured (in `phpunit.xml`) to use `sqlite :memory:` and currently only contains the default example tests (they do not run the MySQL‑specific migrations).
-- Build: `npm run build`.
+### Frontend assets
+Blade uses `@vite`, so `public/build/manifest.json` must exist or pages error. It is
+gitignored but persists in the snapshot. If it is missing (or you changed JS/CSS),
+run `npm run build` (build is intentionally not in the update script).
