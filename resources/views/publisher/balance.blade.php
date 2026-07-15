@@ -23,6 +23,10 @@
                 <div class="card-header bg-white fw-semibold">
                     <i class="fa fa-wallet me-2 text-primary"></i> 
                     Current Balance
+                    <i class="fa fa-info-circle text-muted ms-1"
+                       data-bs-toggle="tooltip"
+                       data-bs-placement="top"
+                       title="Publisher earnings available to transfer to your Advertiser wallet or withdraw."></i>
                 </div>
                 <div class="card-body text-center">
                     <h2 class="mb-0" id="publisherBalance" style="color: #10b981;">€{{ number_format($publisherBalance, 2) }}</h2>

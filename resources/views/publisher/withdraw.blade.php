@@ -36,7 +36,13 @@
                 <div class="card-body">
                     <div class="d-flex justify-content-between">
                         <div>
-                            <span class="text-muted small">Available to Withdraw</span>
+                            <span class="text-muted small">
+                                Available to Withdraw
+                                <i class="fa fa-info-circle text-muted ms-1"
+                                   data-bs-toggle="tooltip"
+                                   data-bs-placement="top"
+                                   title="Earnings and deposits you can cash out. Welcome site credit is not included."></i>
+                            </span>
                             <h3 class="mb-0 fw-bold">€{{ number_format($availableBalance, 2) }}</h3>
                         </div>
                         <i class="fa fa-wallet fa-2x text-primary opacity-50"></i>
@@ -49,7 +55,13 @@
                 <div class="card-body">
                     <div class="d-flex justify-content-between">
                         <div>
-                            <span class="text-muted small">Site Credit (spend only)</span>
+                            <span class="text-muted small">
+                                Site Credit
+                                <i class="fa fa-info-circle text-muted ms-1"
+                                   data-bs-toggle="tooltip"
+                                   data-bs-placement="top"
+                                   title="Promotional credit for orders on this site only. It cannot be withdrawn or transferred."></i>
+                            </span>
                             <h3 class="mb-0 fw-bold">€{{ number_format($bonusBalance, 2) }}</h3>
                         </div>
                         <i class="fa fa-gift fa-2x text-secondary opacity-50"></i>
@@ -62,7 +74,13 @@
                 <div class="card-body">
                     <div class="d-flex justify-content-between">
                         <div>
-                            <span class="text-muted small">Reserved</span>
+                            <span class="text-muted small">
+                                Reserved
+                                <i class="fa fa-info-circle text-muted ms-1"
+                                   data-bs-toggle="tooltip"
+                                   data-bs-placement="top"
+                                   title="Funds held for open orders until they are approved or refunded."></i>
+                            </span>
                             <h3 class="mb-0 fw-bold">€{{ number_format($reservedBalance, 2) }}</h3>
                         </div>
                         <i class="fa fa-lock fa-2x text-warning opacity-50"></i>
@@ -75,7 +93,13 @@
                 <div class="card-body">
                     <div class="d-flex justify-content-between">
                         <div>
-                            <span class="text-muted small">Total Earnings</span>
+                            <span class="text-muted small">
+                                Total Balance
+                                <i class="fa fa-info-circle text-muted ms-1"
+                                   data-bs-toggle="tooltip"
+                                   data-bs-placement="top"
+                                   title="Available wallet balance plus reserved funds (includes site credit)."></i>
+                            </span>
                             <h3 class="mb-0 fw-bold">€{{ number_format($totalEarnings, 2) }}</h3>
                         </div>
                         <i class="fa fa-chart-line fa-2x text-success opacity-50"></i>
@@ -88,7 +112,13 @@
                 <div class="card-body">
                     <div class="d-flex justify-content-between">
                         <div>
-                            <span class="text-muted small">Platform Fee</span>
+                            <span class="text-muted small">
+                                Platform Fee
+                                <i class="fa fa-info-circle text-muted ms-1"
+                                   data-bs-toggle="tooltip"
+                                   data-bs-placement="top"
+                                   title="Percentage fee deducted from each withdrawal. Currently {{ $platformChargePercent }}%."></i>
+                            </span>
                             <h3 class="mb-0 fw-bold">{{ $platformChargePercent }}%</h3>
                         </div>
                         <i class="fa fa-percent fa-2x text-info opacity-50"></i>

@@ -190,11 +190,32 @@
                                 </div>
                                 
                                 <div style="background: #f9fafb; border-radius: 12px; padding: 20px; border: 1px solid #e5e7eb;">
+                                    @php
+                                        $checkoutWallet = auth()->user()->activeWallet();
+                                        $checkoutBonus = $checkoutWallet ? $checkoutWallet->lockedBonusBalance() : 0;
+                                    @endphp
                                     <div style="margin-bottom: 16px;">
-                                        <p style="font-size: 14px; color: #6b7280; margin-bottom: 8px;">Available Balance:</p>
-                                        <p style="font-size: 24px; font-weight: 700; color: #16a34a; margin: 0;">
-                                            €{{ number_format(auth()->user()->activeWallet()?->balance ?? 0, 2) }}
+                                        <p style="font-size: 14px; color: #6b7280; margin-bottom: 8px;">
+                                            Available Balance
+                                            <i class="fas fa-info-circle text-muted ms-1"
+                                               data-bs-toggle="tooltip"
+                                               data-bs-placement="top"
+                                               title="{{ $checkoutBonus > 0
+                                                    ? 'Total spendable funds, including €' . number_format($checkoutBonus, 2) . ' site credit (orders only, not withdrawable).'
+                                                    : 'Total funds available to pay for this order.' }}"></i>:
                                         </p>
+                                        <p style="font-size: 24px; font-weight: 700; color: #16a34a; margin: 0;">
+                                            €{{ number_format($checkoutWallet?->balance ?? 0, 2) }}
+                                        </p>
+                                        @if($checkoutBonus > 0)
+                                            <p style="font-size: 12px; color: #6b7280; margin: 6px 0 0;">
+                                                Includes €{{ number_format($checkoutBonus, 2) }} site credit
+                                                <i class="fas fa-info-circle text-muted ms-1"
+                                                   data-bs-toggle="tooltip"
+                                                   data-bs-placement="top"
+                                                   title="Welcome promotional credit for orders on this site only. It cannot be withdrawn or transferred."></i>
+                                            </p>
+                                        @endif
                                     </div>
                                     
                                     <div style="margin-bottom: 16px;">
