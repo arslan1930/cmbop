@@ -27,6 +27,7 @@ use App\Http\Controllers\Admin\PaymentController as AdminPaymentController;
 use App\Http\Controllers\Admin\BlogController as AdminBlogController;
 use App\Http\Controllers\Admin\AdminWithdrawalController;
 use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
+use App\Http\Controllers\Admin\ActivityLogController as AdminActivityLogController;
 use App\Http\Controllers\Advertiser\ProjectController;
 use App\Http\Controllers\Advertiser\CatalogController;
 use App\Http\Controllers\Advertiser\CampaignController;
@@ -235,98 +236,90 @@ Route::post('/switch-role', [RoleController::class, 'switchRole'])
     ->name('switch.role');
 
 
-// ✅ Admin
-Route::middleware(['auth','verified', RoleMiddleware::class . ':admin'])
+// ✅ Admin panel (admin + marketing share the prefix; permissions split inside)
+Route::middleware(['auth','verified', RoleMiddleware::class . ':admin,marketing'])
     ->prefix('admin')->name('admin.')
     ->group(function () {
 
+        // ---- Shared: dashboard, sites (no delete), activity logs ----
+        Route::get('/dashboard', [AdminDashboardController::class, 'index'])
+            ->name('dashboard');
 
-        Route::get('/dashboard', [AdminDashboardController::class, 'index'])->name('dashboard');
-        Route::get('/dashboard/queue-counts', [AdminDashboardController::class, 'queueCounts'])->name('dashboard.queue-counts');
+        Route::get('/sites', [AdminSiteController::class, 'index'])
+            ->name('sites.index');
+        Route::get('/users/{id}/sites', [AdminSiteController::class, 'userSites'])
+            ->name('users.sites');
+        Route::get('/sites/{id}/edit', [AdminSiteController::class, 'edit'])
+            ->name('sites.edit');
+        Route::put('/sites/{id}', [AdminSiteController::class, 'update'])
+            ->name('sites.update');
+        Route::post('/sites/{id}/upload-image', [AdminSiteController::class, 'uploadImage'])
+            ->name('sites.upload-image');
+        Route::post('/sites/{id}/verify', [AdminSiteController::class, 'verify'])
+            ->name('sites.verify');
+        Route::post('/sites/{id}/active', [AdminSiteController::class, 'toggleActive'])
+            ->name('sites.active');
 
-        
+        Route::get('/activity-logs', [AdminActivityLogController::class, 'index'])
+            ->name('activity-logs.index');
 
-        // Users management
-        Route::get('/users', [UserController::class, 'index'])
-            ->name('users.index');
-        
-        // Update Company (AJAX)
-        Route::post('/users/{id}/update-company', [UserController::class, 'updateCompany'])
-            ->name('users.updateCompany');    
+        // ---- Admin only: payments, orders money, users/roles, blogs, delete sites ----
+        Route::middleware([RoleMiddleware::class . ':admin'])->group(function () {
 
-    //  Sites routes
-    Route::get('/sites', [AdminSiteController::class, 'index'])
-    ->name('sites.index');
+            Route::get('/dashboard/statistics', [AdminDashboardController::class, 'getStatistics'])
+                ->name('dashboard.statistics');
+            Route::get('/dashboard/trends', [AdminDashboardController::class, 'getTrends'])
+                ->name('dashboard.trends');
+            Route::get('/dashboard/distributions', [AdminDashboardController::class, 'getDistributions'])
+                ->name('dashboard.distributions');
+            Route::get('/dashboard/action-queue', [AdminDashboardController::class, 'getActionQueue'])
+                ->name('dashboard.action-queue');
 
-    Route::get('/users/{id}/sites', [AdminSiteController::class, 'userSites'])
-    ->name('users.sites');
+            // Users management + role assignment
+            Route::get('/users', [UserController::class, 'index'])
+                ->name('users.index');
+            Route::post('/users/{id}/update-company', [UserController::class, 'updateCompany'])
+                ->name('users.updateCompany');
+            Route::post('/users/{id}/roles', [UserController::class, 'updateRoles'])
+                ->name('users.updateRoles');
 
-    // edit page
-    Route::get('/sites/{id}/edit', [AdminSiteController::class, 'edit'])
-    ->name('sites.edit');
+            // Delete sites — admin only
+            Route::delete('/sites/{id}', [AdminSiteController::class, 'destroy'])
+                ->name('sites.destroy');
 
-    // update (AJAX)
-    // Route::post('/sites/{id}/update', [AdminSiteController::class, 'update'])
-    // ->name('sites.update');    
+            // Payments / orders money
+            Route::get('/payments', [AdminPaymentController::class, 'index'])->name('payments');
+            Route::get('/payments/data', [AdminPaymentController::class, 'getPaymentsData'])->name('payments.data');
+            Route::get('/payments/{id}', [AdminPaymentController::class, 'show'])->name('payments.show');
+            Route::post('/payments/{id}/update-status', [AdminPaymentController::class, 'updatePaymentStatus'])->name('payments.updateStatus');
 
-    // UPDATE (AJAX uses this)
-    Route::put('/sites/{id}', [AdminSiteController::class, 'update'])
-        ->name('sites.update');
+            // Deposits
+            Route::get('/deposits', [AdminDepositController::class, 'index'])->name('deposits');
+            Route::get('/deposits/{id}', [AdminDepositController::class, 'show'])->name('deposits.show');
+            Route::post('/deposits/{id}/approve', [AdminDepositController::class, 'approve'])->name('deposits.approve');
+            Route::post('/deposits/{id}/reject', [AdminDepositController::class, 'reject'])->name('deposits.reject');
 
-    // Image upload (AJAX)
-    Route::post('/sites/{id}/upload-image', [AdminSiteController::class, 'uploadImage'])->name('sites.upload-image');    
+            // Withdrawals
+            Route::get('/withdrawals', [AdminWithdrawalController::class, 'index'])->name('withdrawals');
+            Route::get('/withdrawals/data', [AdminWithdrawalController::class, 'getWithdrawalsData'])->name('admin.withdrawals.data');
+            Route::get('/withdrawals/{id}', [AdminWithdrawalController::class, 'show'])->name('admin.withdrawals.show');
+            Route::post('/withdrawals/{id}/status', [AdminWithdrawalController::class, 'updateStatus'])->name('admin.withdrawals.update-status');
+            Route::get('/withdrawals/statistics', [AdminWithdrawalController::class, 'getStatistics'])->name('admin.withdrawals.statistics');
 
-    // DELETE (AJAX uses this)
-    Route::delete('/sites/{id}', [AdminSiteController::class, 'destroy'])
-        ->name('sites.destroy');
+            // Blogs
+            Route::resource('blogs', AdminBlogController::class);
+            Route::get('blogs/{id}/toggle-status', [AdminBlogController::class, 'toggleStatus'])->name('blogs.toggle-status');
+            Route::post('blogs/upload-image', [AdminBlogController::class, 'uploadImage'])->name('blogs.upload-image');
 
-    // VERIFY / UNVERIFY (AJAX toggle)
-    Route::post('/sites/{id}/verify', [AdminSiteController::class, 'verify'])
-        ->name('sites.verify');
+            Route::get('/reports', function () {
+                return view('admin.reports');
+            })->name('reports');
 
-    // ACTIVE / INACTIVE (AJAX toggle)
-    Route::post('/sites/{id}/active', [AdminSiteController::class, 'toggleActive'])
-        ->name('sites.active');
-
-        
-        // Payments Routes
-        Route::get('/payments', [AdminPaymentController::class, 'index'])->name('payments');
-        Route::get('/payments/data', [AdminPaymentController::class, 'getPaymentsData'])->name('payments.data');
-        Route::get('/payments/{id}', [AdminPaymentController::class, 'show'])->name('payments.show');
-        Route::post('/payments/{id}/update-status', [AdminPaymentController::class, 'updatePaymentStatus'])->name('payments.updateStatus'); 
-        
-
-        // Deposits Routes
-        Route::get('/deposits', [AdminDepositController::class, 'index'])->name('deposits');
-        Route::get('/deposits/{id}', [AdminDepositController::class, 'show'])->name('deposits.show');
-        Route::post('/deposits/{id}/approve', [AdminDepositController::class, 'approve'])->name('deposits.approve');
-        Route::post('/deposits/{id}/reject', [AdminDepositController::class, 'reject'])->name('deposits.reject');
-
-            
-    // Withdrawals Routes
-    Route::get('/withdrawals', [AdminWithdrawalController::class, 'index'])->name('withdrawals');
-    Route::get('/withdrawals/data', [AdminWithdrawalController::class, 'getWithdrawalsData'])->name('admin.withdrawals.data');
-    Route::get('/withdrawals/{id}', [AdminWithdrawalController::class, 'show'])->name('admin.withdrawals.show');
-    Route::post('/withdrawals/{id}/status', [AdminWithdrawalController::class, 'updateStatus'])->name('admin.withdrawals.update-status');
-    Route::get('/withdrawals/statistics', [AdminWithdrawalController::class, 'getStatistics'])->name('admin.withdrawals.statistics');
-     
-    // Admin Blogs Routes
-    Route::resource('blogs', AdminBlogController::class);
-    Route::get('blogs/{id}/toggle-status', [AdminBlogController::class, 'toggleStatus'])->name('blogs.toggle-status');
-    Route::post('blogs/upload-image', [AdminBlogController::class, 'uploadImage'])->name('blogs.upload-image');
-    
-
-    // Reports site 
-    Route::get('/reports', function () {
-            return view('admin.reports');
-        })->name('reports');
-
-    // Settings
-    Route::get('/settings', function () {   
-            return view('admin.settings');
-        })->name('settings'); 
-    
-});
+            Route::get('/settings', function () {
+                return view('admin.settings');
+            })->name('settings');
+        });
+    });
 
 // ✅ Common routes for all authenticated users
 Route::middleware(['auth', 'verified'])->group(function () {

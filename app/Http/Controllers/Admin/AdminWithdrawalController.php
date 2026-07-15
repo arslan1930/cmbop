@@ -8,6 +8,7 @@ use App\Models\Withdrawal;
 use App\Models\User;
 use App\Models\Wallet;
 use App\Mail\WithdrawalStatusUpdated;
+use App\Services\ActivityLogger;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -174,6 +175,14 @@ class AdminWithdrawalController extends Controller
                 'admin_id' => auth()->id(),
                 'notes' => $request->notes
             ]);
+
+            ActivityLogger::log(
+                'withdrawal.status_updated',
+                auth()->user()->name . ' set withdrawal #' . $withdrawal->id . ' to ' . $newStatus,
+                $withdrawal,
+                ['from' => $oldStatus, 'to' => $newStatus, 'amount' => $withdrawal->amount],
+                'Withdrawal #' . $withdrawal->id
+            );
 
             return response()->json([
                 'success' => true,

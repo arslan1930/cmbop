@@ -8,6 +8,7 @@ use App\Models\DepositRequest;
 use App\Models\Wallet;
 use App\Mail\DepositApproved;
 use App\Mail\DepositRejected;
+use App\Services\ActivityLogger;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
@@ -140,7 +141,15 @@ class DepositController extends Controller
             } else {
                 $message .= ' Email could not be sent.';
             }
-            
+
+            ActivityLogger::log(
+                'deposit.approved',
+                auth()->user()->name . ' approved deposit #' . $deposit->id . ' (€' . number_format($deposit->amount, 2) . ')',
+                $deposit,
+                ['amount' => $deposit->amount, 'user_id' => $deposit->user_id],
+                'Deposit #' . $deposit->id
+            );
+
             return response()->json([
                 'success' => true,
                 'message' => $message,
@@ -206,7 +215,15 @@ class DepositController extends Controller
         } else {
             $message .= ' Email could not be sent.';
         }
-        
+
+        ActivityLogger::log(
+            'deposit.rejected',
+            auth()->user()->name . ' rejected deposit #' . $deposit->id . ' (€' . number_format($deposit->amount, 2) . ')',
+            $deposit,
+            ['amount' => $deposit->amount, 'user_id' => $deposit->user_id],
+            'Deposit #' . $deposit->id
+        );
+
         return response()->json([
             'success' => true,
             'message' => $message,

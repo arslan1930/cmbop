@@ -223,6 +223,7 @@ body.layout-dark .site-thumbnail {
 </style>
 
 <script>
+const CAN_DELETE_SITES = @json(auth()->user()->isAdmin());
 let allSites = [];
 
 /* ================= TOAST ================= */
@@ -593,9 +594,9 @@ function renderSites(data){
                                 <button class="btn btn-sm btn-outline-primary edit-site" data-id="${site.id}">
                                     <i class="fa fa-edit"></i> Edit
                                 </button>
-                                <button class="btn btn-sm btn-outline-danger delete-site" data-id="${site.id}">
+                                ${CAN_DELETE_SITES ? `<button class="btn btn-sm btn-outline-danger delete-site" data-id="${site.id}">
                                     <i class="fa fa-trash"></i> Delete
-                                </button>
+                                </button>` : ''}
                             </div>
                             <div class="row-2">
                                 ${site.active

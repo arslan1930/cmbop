@@ -161,7 +161,7 @@ class WithdrawalController extends Controller
             
             return response()->json([
                 'success' => true,
-                'message' => 'Withdrawal request submitted successfully! Amount: €' . number_format($amount, 2) . ' (Fee: €' . number_format($fee, 2) . ', You receive: €' . number_format($netAmount, 2) . ')'
+                'message' => 'Withdrawal request submitted successfully! Amount: €' . number_format($amount, 2)
             ]);
             
         } catch (\Illuminate\Validation\ValidationException $e) {
@@ -254,7 +254,19 @@ class WithdrawalController extends Controller
             }
             
             $withdrawals = $query->orderBy('created_at', 'desc')->paginate(20);
-            
+
+            // Never expose platform fee fields to publishers
+            $withdrawals->getCollection()->transform(function ($w) {
+                return [
+                    'id' => $w->id,
+                    'amount' => $w->amount,
+                    'payment_method' => $w->payment_method,
+                    'status' => $w->status,
+                    'created_at' => $w->created_at,
+                    'processed_at' => $w->processed_at,
+                ];
+            });
+
             return response()->json([
                 'success' => true,
                 'data' => $withdrawals
@@ -283,20 +295,15 @@ class WithdrawalController extends Controller
             $pendingWithdrawals = Withdrawal::where('user_id', $user->id)
                 ->where('status', 'pending')
                 ->sum('amount');
-                
-            $totalFees = Withdrawal::where('user_id', $user->id)
-                ->where('status', 'completed')
-                ->sum('fee');
-                
+
             $withdrawalCount = Withdrawal::where('user_id', $user->id)->count();
-            
+
             return response()->json([
                 'success' => true,
                 'data' => [
                     'total_withdrawn' => $totalWithdrawn,
                     'pending_withdrawals' => $pendingWithdrawals,
-                    'total_fees' => $totalFees,
-                    'withdrawal_count' => $withdrawalCount
+                    'withdrawal_count' => $withdrawalCount,
                 ]
             ]);
         } catch (\Exception $e) {

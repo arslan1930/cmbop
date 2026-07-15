@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Order;
 use App\Models\User;
 use App\Mail\OrderPaymentConfirmed;
+use App\Services\ActivityLogger;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -149,7 +150,15 @@ class PaymentController extends Controller
             }
             
             DB::commit();
-            
+
+            ActivityLogger::log(
+                'payment.status_updated',
+                auth()->user()->name . ' set payment for order ' . $order->order_number . ' to ' . $request->payment_status,
+                $order,
+                ['from' => $oldStatus, 'to' => $request->payment_status],
+                $order->order_number
+            );
+
             return response()->json([
                 'success' => true,
                 'message' => 'Payment status updated successfully',

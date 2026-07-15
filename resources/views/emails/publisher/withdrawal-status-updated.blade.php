@@ -23,7 +23,7 @@ Your withdrawal request has been **{{ ucfirst($newStatus) }}**.
 @endif
 
 @if($newStatus == 'completed')
-The net amount of **€{{ number_format($withdrawal->net_amount, 2) }}** has been sent to your {{ strtoupper($withdrawal->payment_method) }} account.
+The amount of **€{{ number_format($withdrawal->amount, 2) }}** has been sent to your {{ strtoupper($withdrawal->payment_method) }} account.
 
 @elseif($newStatus == 'cancelled')
 The amount of **€{{ number_format($withdrawal->amount, 2) }}** has been refunded to your wallet balance.

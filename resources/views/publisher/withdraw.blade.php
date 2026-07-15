@@ -4,13 +4,10 @@
 
 @php
     $wallet = auth()->user()->activeWallet();
-    $walletBalance = $wallet ? (float) $wallet->balance : 0;
-    $bonusBalance = $wallet ? $wallet->lockedBonusBalance() : 0;
-    $availableBalance = $wallet ? $wallet->withdrawableBalance() : 0;
-    $reservedBalance = $wallet ? (float) $wallet->reserved_balance : 0;
-    $totalEarnings = $walletBalance + $reservedBalance;
-    $platformChargePercent = 0.00; 
-    
+    $availableBalance = $wallet ? $wallet->balance : 0;
+    $reservedBalance = $wallet ? $wallet->reserved_balance : 0;
+    $totalEarnings = $availableBalance + $reservedBalance;
+
     $recentWithdrawals = \App\Models\Withdrawal::where('user_id', auth()->id())
         ->orderBy('created_at', 'desc')
         ->limit(10)
@@ -31,8 +28,8 @@
 
     <!-- Balance Cards -->
     <div class="row g-3 mb-4">
-        <div class="col-md-6 col-xl-3">
-            <div class="card border-0 shadow-sm h-100">
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm">
                 <div class="card-body">
                     <div class="d-flex justify-content-between">
                         <div>
@@ -51,8 +48,8 @@
                 </div>
             </div>
         </div>
-        <div class="col-md-6 col-xl-3">
-            <div class="card border-0 shadow-sm h-100">
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm">
                 <div class="card-body">
                     <div class="d-flex justify-content-between">
                         <div>
@@ -71,8 +68,8 @@
                 </div>
             </div>
         </div>
-        <div class="col-md-6 col-xl-3">
-            <div class="card border-0 shadow-sm h-100">
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm">
                 <div class="card-body">
                     <div class="d-flex justify-content-between">
                         <div>
@@ -87,26 +84,6 @@
                             <p class="text-muted small mb-0">Locked for open orders</p>
                         </div>
                         <i class="fa fa-lock fa-2x text-warning opacity-50"></i>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-6 col-xl-3">
-            <div class="card border-0 shadow-sm h-100">
-                <div class="card-body">
-                    <div class="d-flex justify-content-between">
-                        <div>
-                            <span class="text-muted small">
-                                Wallet Total
-                                <i class="fa fa-info-circle text-muted ms-1"
-                                   data-bs-toggle="tooltip"
-                                   data-bs-placement="top"
-                                   title="Everything in your wallet right now, including free credit and money on hold."></i>
-                            </span>
-                            <h3 class="mb-1 fw-bold">€{{ number_format($totalEarnings, 2) }}</h3>
-                            <p class="text-muted small mb-0">All funds in your wallet</p>
-                        </div>
-                        <i class="fa fa-chart-line fa-2x text-success opacity-50"></i>
                     </div>
                 </div>
             </div>
@@ -150,20 +127,11 @@
                             </div>
                         </div>
                         
-                        <!-- Fee Preview -->
+                        <!-- Amount Preview -->
                         <div class="bg-light p-3 rounded mb-4">
-                            <div class="d-flex justify-content-between mb-2">
-                                <span>Amount</span>
-                                <strong id="previewAmount">€0.00</strong>
-                            </div>
-                            <div class="d-flex justify-content-between mb-2 text-danger">
-                                <span>Fee ({{ $platformChargePercent }}%)</span>
-                                <strong id="previewFee">€0.00</strong>
-                            </div>
-                            <hr class="my-2">
                             <div class="d-flex justify-content-between">
-                                <span class="fw-semibold">You receive</span>
-                                <strong class="text-success fs-5" id="previewNet">€0.00</strong>
+                                <span class="fw-semibold">You will receive</span>
+                                <strong class="text-success fs-5" id="previewAmount">€0.00</strong>
                             </div>
                         </div>
                         
@@ -245,8 +213,6 @@
                                 <tr>
                                     <th>Date</th>
                                     <th>Amount</th>
-                                    <th>Fee</th>
-                                    <th>Net Amount</th>
                                     <th>Status</th>
                                 </tr>
                             </thead>
@@ -257,8 +223,6 @@
                                         <small class="text-muted">{{ $w->created_at->format('h:i A') }}</small>
                                     </td>
                                     <td class="fw-semibold">€{{ number_format($w->amount, 2) }}</td>
-                                    <td class="text-danger">-€{{ number_format($w->fee, 2) }}</td>
-                                    <td class="text-success fw-semibold">€{{ number_format($w->net_amount, 2) }}</td>
                                     <td>
                                         @php
                                             $statusColors = [
@@ -276,7 +240,7 @@
                                 </tr>
                                 @empty
                                 <tr>
-                                    <td colspan="5" class="text-center py-4 text-muted">
+                                    <td colspan="3" class="text-center py-4 text-muted">
                                         <i class="fa fa-receipt fa-2x mb-2 d-block opacity-50"></i>
                                         No withdrawal requests yet
                                     </td>
@@ -327,28 +291,20 @@
 document.addEventListener('DOMContentLoaded', function() {
     const amountInput = document.getElementById('amount');
     const previewAmount = document.getElementById('previewAmount');
-    const previewFee = document.getElementById('previewFee');
-    const previewNet = document.getElementById('previewNet');
     const paymentMethod = document.getElementById('paymentMethod');
     const submitBtn = document.getElementById('submitWithdrawBtn');
     const form = document.getElementById('withdrawForm');
     const maxAmount = {{ $availableBalance }};
-    const feePercent = {{ $platformChargePercent }};
-    
-    // Calculate fee preview
+
+    // Update amount preview (no fee breakdown for publishers)
     function updatePreview() {
         let amount = parseFloat(amountInput.value) || 0;
         if (amount > maxAmount) amount = maxAmount;
         if (amount < 0) amount = 0;
-        
-        const fee = amount * feePercent / 100;
-        const net = amount - fee;
-        
+
         previewAmount.textContent = `€${amount.toFixed(2)}`;
-        previewFee.textContent = `€${fee.toFixed(2)}`;
-        previewNet.textContent = `€${net.toFixed(2)}`;
     }
-    
+
     // Show/hide payment fields
     function togglePaymentFields() {
         const method = paymentMethod.value;
@@ -356,13 +312,13 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('paypalFields')?.classList.add('d-none');
         document.getElementById('wiseFields')?.classList.add('d-none');
         document.getElementById('cryptoFields')?.classList.add('d-none');
-        
+
         if (method === 'bank') document.getElementById('bankFields')?.classList.remove('d-none');
         if (method === 'paypal') document.getElementById('paypalFields')?.classList.remove('d-none');
         if (method === 'wise') document.getElementById('wiseFields')?.classList.remove('d-none');
         if (method === 'crypto') document.getElementById('cryptoFields')?.classList.remove('d-none');
     }
-    
+
     // Show error with SweetAlert
     function showError(message) {
         Swal.fire({
@@ -373,16 +329,14 @@ document.addEventListener('DOMContentLoaded', function() {
             confirmButtonText: 'OK'
         });
     }
-    
-    // Show confirmation dialog
-    function showConfirmation(amount, fee, net) {
+
+    // Show confirmation dialog (amount only — no platform fee shown to publishers)
+    function showConfirmation(amount) {
         return Swal.fire({
             title: 'Confirm Withdrawal',
             html: `
                 <div style="text-align: left;">
-                    <p><strong>Amount:</strong> €${amount.toFixed(2)}</p>
-                    <p><strong>Fee (${feePercent}%):</strong> €${fee.toFixed(2)}</p>
-                    <p><strong>You will receive:</strong> €${net.toFixed(2)}</p>
+                    <p><strong>You will receive:</strong> €${amount.toFixed(2)}</p>
                     <hr>
                     <p class="text-muted">Please review the details before confirming.</p>
                 </div>
@@ -395,12 +349,12 @@ document.addEventListener('DOMContentLoaded', function() {
             cancelButtonText: 'Cancel'
         });
     }
-    
+
     // Validate form
     function validateForm() {
         const amount = parseFloat(amountInput.value) || 0;
         const method = paymentMethod.value;
-        
+
         if (amount <= 0) {
             showError('Please enter a valid amount greater than 0.');
             return false;
@@ -413,11 +367,11 @@ document.addEventListener('DOMContentLoaded', function() {
             showError('Please select a payment method');
             return false;
         }
-        
+
         // Validate payment details
         if (method === 'bank') {
-            if (!document.querySelector('input[name="bank_name"]')?.value || 
-                !document.querySelector('input[name="account_holder"]')?.value || 
+            if (!document.querySelector('input[name="bank_name"]')?.value ||
+                !document.querySelector('input[name="account_holder"]')?.value ||
                 !document.querySelector('input[name="account_number"]')?.value) {
                 showError('Please fill in all bank details');
                 return false;
@@ -451,21 +405,19 @@ document.addEventListener('DOMContentLoaded', function() {
                 return false;
             }
         }
-        
+
         return true;
     }
-    
+
     // Submit withdrawal
     submitBtn.addEventListener('click', async function() {
         if (!validateForm()) return;
-        
+
         const amount = parseFloat(amountInput.value);
-        const fee = amount * feePercent / 100;
-        const net = amount - fee;
-        
+
         // Show confirmation dialog
-        const result = await showConfirmation(amount, fee, net);
-        
+        const result = await showConfirmation(amount);
+
         if (result.isConfirmed) {
             // Show loading state
             Swal.fire({
@@ -478,12 +430,12 @@ document.addEventListener('DOMContentLoaded', function() {
                     Swal.showLoading();
                 }
             });
-            
+
             // Disable button
             submitBtn.disabled = true;
-            
+
             const formData = new FormData(form);
-            
+
             fetch('{{ route("publisher.withdraw.request") }}', {
                 method: 'POST',
                 headers: {
@@ -501,8 +453,6 @@ document.addEventListener('DOMContentLoaded', function() {
                         html: `
                             <div style="text-align: left;">
                                 <p><strong>Amount:</strong> €${amount.toFixed(2)}</p>
-                                <p><strong>Fee:</strong> €${fee.toFixed(2)}</p>
-                                <p><strong>You will receive:</strong> €${net.toFixed(2)}</p>
                                 <hr>
                                 <p class="text-muted small">Your withdrawal request has been received and is pending admin approval.</p>
                             </div>
@@ -536,7 +486,7 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         }
     });
-    
+
     // Event listeners
     amountInput.addEventListener('input', updatePreview);
     amountInput.addEventListener('change', function() {
@@ -546,7 +496,7 @@ document.addEventListener('DOMContentLoaded', function() {
         updatePreview();
     });
     paymentMethod.addEventListener('change', togglePaymentFields);
-    
+
     // Initial preview
     updatePreview();
 });

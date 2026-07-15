@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Models\Site;
 use App\Mail\SiteStatusNotification;
+use App\Services\ActivityLogger;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Log;
@@ -58,7 +59,7 @@ class SiteController extends Controller
     public function uploadImage(Request $request, $id)
     {
         $site = Site::findOrFail($id);
-        
+
         $request->validate([
             'site_image' => 'required|image|mimes:jpeg,png,jpg,gif,webp|max:2048'
         ]);
@@ -72,6 +73,14 @@ class SiteController extends Controller
         $file = $request->file('site_image');
         $path = $file->store('sites', 'public');
 
+        ActivityLogger::log(
+            'site.image_uploaded',
+            auth()->user()->name . ' uploaded an image for site "' . $site->site_name . '"',
+            $site,
+            ['image_path' => $path],
+            $site->site_name
+        );
+
         return response()->json([
             'success' => true,
             'image_path' => $path,
@@ -83,14 +92,17 @@ class SiteController extends Controller
     public function update(Request $request, $id)
     {
         $site = Site::findOrFail($id);
-        
-        // Store old data for email comparison
+
+        // Store old data for email comparison / activity log
         $oldData = [
             'site_name' => $site->site_name,
             'site_url' => $site->site_url,
             'da' => $site->da,
             'dr' => $site->dr,
             'traffic' => $site->traffic,
+            'price' => $site->price,
+            'active' => $site->active,
+            'verified' => $site->verified,
         ];
 
         $data = $request->only([
@@ -118,10 +130,8 @@ class SiteController extends Controller
 
         // Handle site_image - only update if provided (not null)
         if ($request->has('site_image') && $request->site_image !== null) {
-            // If a new image path is provided, use it
             $data['site_image'] = $request->site_image;
         } else {
-            // Remove site_image from data to keep existing value
             unset($data['site_image']);
         }
 
@@ -131,9 +141,25 @@ class SiteController extends Controller
         });
 
         $site->update($data);
-        
+
+        $changes = [];
+        foreach ($oldData as $key => $oldValue) {
+            $newValue = $site->{$key} ?? null;
+            if ((string) $oldValue !== (string) $newValue) {
+                $changes[$key] = ['from' => $oldValue, 'to' => $newValue];
+            }
+        }
+
+        ActivityLogger::log(
+            'site.updated',
+            auth()->user()->name . ' modified site "' . $site->site_name . '"',
+            $site,
+            ['changes' => $changes],
+            $site->site_name
+        );
+
         $emailSent = false;
-        
+
         // Send email notification to publisher about the update
         try {
             $publisher = $site->publisher;
@@ -152,18 +178,28 @@ class SiteController extends Controller
         ]);
     }
 
-    // VERIFY / UNVERIFY
+    // VERIFY / UNVERIFY (approve / reject)
     public function verify(Request $request, $id)
     {
         $site = Site::findOrFail($id);
-        
-        $oldStatus = $site->verified;
+
+        $oldStatus = (int) $site->verified;
         $site->verified = (int) $request->verified;
         $site->save();
-        
+
+        $action = $site->verified ? 'site.approved' : 'site.rejected';
+        $label  = $site->verified ? 'approved' : 'rejected';
+
+        ActivityLogger::log(
+            $action,
+            auth()->user()->name . ' ' . $label . ' site "' . $site->site_name . '"',
+            $site,
+            ['from' => $oldStatus, 'to' => (int) $site->verified],
+            $site->site_name
+        );
+
         $emailSent = false;
-        
-        // Send email notification
+
         try {
             $publisher = $site->publisher;
             if ($publisher && $publisher->email) {
@@ -182,18 +218,28 @@ class SiteController extends Controller
         ]);
     }
 
-    // TOGGLE ACTIVE STATUS (FIXED)
+    // TOGGLE ACTIVE STATUS
     public function toggleActive(Request $request, $id)
     {
         $site = Site::findOrFail($id);
-        
-        $oldStatus = $site->active;
+
+        $oldStatus = (int) $site->active;
         $site->active = (int) $request->active;
         $site->save();
-        
+
+        $action = $site->active ? 'site.activated' : 'site.deactivated';
+        $label  = $site->active ? 'activated' : 'deactivated';
+
+        ActivityLogger::log(
+            $action,
+            auth()->user()->name . ' ' . $label . ' site "' . $site->site_name . '"',
+            $site,
+            ['from' => $oldStatus, 'to' => (int) $site->active],
+            $site->site_name
+        );
+
         $emailSent = false;
-        
-        // Send email notification
+
         try {
             $publisher = $site->publisher;
             if ($publisher && $publisher->email) {
@@ -212,17 +258,33 @@ class SiteController extends Controller
         ]);
     }
 
-    // DELETE
+    // DELETE — admin only
     public function destroy($id)
     {
+        if (!auth()->user()?->isAdmin()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Only admins can delete sites.',
+            ], 403);
+        }
+
         $site = Site::findOrFail($id);
-        
-        // Delete associated image if exists
+        $siteName = $site->site_name;
+        $siteId = $site->id;
+
         if ($site->site_image && Storage::disk('public')->exists($site->site_image)) {
             Storage::disk('public')->delete($site->site_image);
         }
-        
+
         $site->delete();
+
+        ActivityLogger::log(
+            'site.deleted',
+            auth()->user()->name . ' deleted site "' . $siteName . '"',
+            null,
+            ['site_id' => $siteId, 'site_name' => $siteName],
+            $siteName
+        );
 
         return response()->json([
             'success' => true,

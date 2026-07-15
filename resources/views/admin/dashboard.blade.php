@@ -2,314 +2,389 @@
 
 @section('content')
 <div class="container-fluid">
-    <div class="mb-4">
-        <h1 class="h3 mb-1">Ops dashboard</h1>
-        <p class="text-muted mb-0">
-            Things that need your attention right now.
-            @if(($counts['total_attention'] ?? 0) === 0)
-                <span class="text-success">You’re all caught up.</span>
-            @else
-                <span class="text-warning fw-semibold">{{ $counts['total_attention'] }} item{{ $counts['total_attention'] === 1 ? '' : 's' }} waiting.</span>
-            @endif
-        </p>
+
+    <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-2">
+        <div>
+            <h1 class="h3 mb-1">Admin Dashboard</h1>
+            <p class="text-muted mb-0">Platform overview, money flow, and items that need your attention.</p>
+        </div>
+        <div class="d-flex gap-2">
+            <a href="{{ route('admin.users.index') }}" class="btn btn-sm btn-outline-primary">
+                <i class="fa fa-bullhorn me-1"></i> Marketing Access
+            </a>
+            <a href="{{ route('admin.sites.index') }}" class="btn btn-sm btn-outline-secondary">
+                <i class="fa fa-globe me-1"></i> Sites
+            </a>
+            <a href="{{ route('admin.activity-logs.index') }}" class="btn btn-sm btn-outline-dark">
+                <i class="fa fa-history me-1"></i> Activity
+            </a>
+            <a href="{{ route('admin.deposits') }}" class="btn btn-sm btn-outline-success">
+                <i class="fa fa-wallet me-1"></i> Deposits
+            </a>
+            <a href="{{ route('admin.withdrawals') }}" class="btn btn-sm btn-outline-warning">
+                <i class="fa fa-money-bill-wave me-1"></i> Withdrawals
+            </a>
+        </div>
     </div>
 
-    {{-- Summary cards --}}
+    <!-- KPI cards -->
     <div class="row g-3 mb-4">
-        <div class="col-6 col-lg-3">
-            <a href="{{ route('admin.deposits', ['status' => 'pending']) }}" class="text-decoration-none">
-                <div class="card border-0 shadow-sm h-100 ops-card">
-                    <div class="card-body">
-                        <div class="d-flex justify-content-between align-items-start">
-                            <div>
-                                <div class="text-muted small">Pending deposits</div>
-                                <div class="display-6 fw-bold text-warning">{{ $counts['pending_deposits'] }}</div>
-                                @if($aging['deposits_over_24h'] > 0)
-                                    <div class="small text-danger mt-1">{{ $aging['deposits_over_24h'] }} older than 24h</div>
-                                @else
-                                    <div class="small text-muted mt-1">Wallet top-ups to approve</div>
-                                @endif
-                            </div>
-                            <i class="fa fa-wallet fa-2x text-warning opacity-50"></i>
-                        </div>
+        <div class="col-6 col-xl-3">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <div class="text-muted small">Total Users</div>
+                    <div class="d-flex align-items-end justify-content-between">
+                        <h3 class="mb-0" id="kpiUsers">—</h3>
+                        <span class="badge bg-primary-subtle text-primary" id="kpiUsers7d">+0 / 7d</span>
+                    </div>
+                    <div class="small text-muted mt-2">
+                        <span id="kpiAdvertisers">0</span> advertisers ·
+                        <span id="kpiPublishers">0</span> publishers
                     </div>
                 </div>
-            </a>
+            </div>
         </div>
-        <div class="col-6 col-lg-3">
-            <a href="{{ route('admin.withdrawals') }}?status=pending" class="text-decoration-none">
-                <div class="card border-0 shadow-sm h-100 ops-card">
-                    <div class="card-body">
-                        <div class="d-flex justify-content-between align-items-start">
-                            <div>
-                                <div class="text-muted small">Pending withdrawals</div>
-                                <div class="display-6 fw-bold text-danger">{{ $counts['pending_withdrawals'] }}</div>
-                                @if($aging['withdrawals_over_24h'] > 0)
-                                    <div class="small text-danger mt-1">{{ $aging['withdrawals_over_24h'] }} older than 24h</div>
-                                @else
-                                    <div class="small text-muted mt-1">Publisher payouts</div>
-                                @endif
-                            </div>
-                            <i class="fa fa-money-bill-wave fa-2x text-danger opacity-50"></i>
-                        </div>
+        <div class="col-6 col-xl-3">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <div class="text-muted small">Paid Revenue</div>
+                    <div class="d-flex align-items-end justify-content-between">
+                        <h3 class="mb-0" id="kpiRevenue">—</h3>
+                        <span class="badge bg-success-subtle text-success" id="kpiRevenue7d">€0 / 7d</span>
+                    </div>
+                    <div class="small text-muted mt-2">
+                        <span id="kpiPaidOrders">0</span> paid orders
                     </div>
                 </div>
-            </a>
+            </div>
         </div>
-        <div class="col-6 col-lg-3">
-            <a href="{{ route('admin.sites.index') }}?verified=0" class="text-decoration-none">
-                <div class="card border-0 shadow-sm h-100 ops-card">
-                    <div class="card-body">
-                        <div class="d-flex justify-content-between align-items-start">
-                            <div>
-                                <div class="text-muted small">Unverified sites</div>
-                                <div class="display-6 fw-bold text-primary">{{ $counts['unverified_sites'] }}</div>
-                                @if($aging['sites_over_48h'] > 0)
-                                    <div class="small text-danger mt-1">{{ $aging['sites_over_48h'] }} older than 48h</div>
-                                @else
-                                    <div class="small text-muted mt-1">Publisher site reviews</div>
-                                @endif
-                            </div>
-                            <i class="fa fa-globe fa-2x text-primary opacity-50"></i>
-                        </div>
+        <div class="col-6 col-xl-3">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <div class="text-muted small">Sites</div>
+                    <div class="d-flex align-items-end justify-content-between">
+                        <h3 class="mb-0" id="kpiSites">—</h3>
+                        <span class="badge bg-warning-subtle text-warning" id="kpiUnverified">0 pending</span>
+                    </div>
+                    <div class="small text-muted mt-2">
+                        <span id="kpiVerified">0</span> verified
                     </div>
                 </div>
-            </a>
+            </div>
         </div>
-        <div class="col-6 col-lg-3">
-            <a href="{{ route('admin.payments') }}?payment_status=pending" class="text-decoration-none">
-                <div class="card border-0 shadow-sm h-100 ops-card">
-                    <div class="card-body">
-                        <div class="d-flex justify-content-between align-items-start">
-                            <div>
-                                <div class="text-muted small">Unpaid orders</div>
-                                <div class="display-6 fw-bold text-info">{{ $counts['pending_payments'] }}</div>
-                                @if($aging['payments_over_24h'] > 0)
-                                    <div class="small text-danger mt-1">{{ $aging['payments_over_24h'] }} older than 24h</div>
-                                @else
-                                    <div class="small text-muted mt-1">Bank / Wise / crypto</div>
-                                @endif
-                            </div>
-                            <i class="fa fa-file-invoice-dollar fa-2x text-info opacity-50"></i>
-                        </div>
+        <div class="col-6 col-xl-3">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <div class="text-muted small">Needs Attention</div>
+                    <div class="d-flex align-items-end justify-content-between">
+                        <h3 class="mb-0" id="kpiAttention">—</h3>
+                        <span class="badge bg-danger-subtle text-danger">Action queue</span>
+                    </div>
+                    <div class="small text-muted mt-2">
+                        <span id="kpiDeposits">0</span> deposits ·
+                        <span id="kpiWithdrawals">0</span> withdrawals
                     </div>
                 </div>
-            </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Charts -->
+    <div class="row g-3 mb-4">
+        <div class="col-lg-8">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header bg-white border-0 d-flex justify-content-between align-items-center">
+                    <strong><i class="fa fa-chart-line me-2 text-primary"></i>Revenue &amp; Orders (30 days)</strong>
+                    <span class="text-muted small">Paid revenue vs order volume</span>
+                </div>
+                <div class="card-body">
+                    <canvas id="trendChart" height="110"></canvas>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-4">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header bg-white border-0">
+                    <strong><i class="fa fa-user-plus me-2 text-success"></i>New Signups (30 days)</strong>
+                </div>
+                <div class="card-body">
+                    <canvas id="signupChart" height="220"></canvas>
+                </div>
+            </div>
         </div>
     </div>
 
     <div class="row g-3 mb-4">
         <div class="col-md-6">
-            <div class="card border-0 shadow-sm">
-                <div class="card-body d-flex justify-content-between align-items-center">
-                    <div>
-                        <div class="text-muted small">Registered users</div>
-                        <div class="h4 mb-0">{{ number_format($counts['users']) }}</div>
-                    </div>
-                    <a href="{{ route('admin.users.index') }}" class="btn btn-sm btn-outline-secondary">View users</a>
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header bg-white border-0">
+                    <strong><i class="fa fa-pie-chart me-2 text-info"></i>Order Status Mix</strong>
+                </div>
+                <div class="card-body d-flex justify-content-center">
+                    <canvas id="orderStatusChart" style="max-height:260px;"></canvas>
                 </div>
             </div>
         </div>
         <div class="col-md-6">
-            <div class="card border-0 shadow-sm">
-                <div class="card-body d-flex justify-content-between align-items-center">
-                    <div>
-                        <div class="text-muted small">Orders created today</div>
-                        <div class="h4 mb-0">{{ number_format($counts['orders_today']) }}</div>
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header bg-white border-0">
+                    <strong><i class="fa fa-users me-2 text-secondary"></i>Users by Role</strong>
+                </div>
+                <div class="card-body d-flex justify-content-center">
+                    <canvas id="roleChart" style="max-height:260px;"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Action queues -->
+    <div class="row g-3 mb-4">
+        <div class="col-lg-4">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header bg-white border-0 d-flex justify-content-between align-items-center">
+                    <strong><i class="fa fa-wallet me-2 text-success"></i>Pending Deposits</strong>
+                    <a href="{{ route('admin.deposits') }}" class="small">View all</a>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-sm mb-0 align-middle">
+                            <thead class="table-light">
+                                <tr><th>User</th><th>Amount</th><th>Date</th></tr>
+                            </thead>
+                            <tbody id="queueDeposits">
+                                <tr><td colspan="3" class="text-center text-muted py-3">Loading…</td></tr>
+                            </tbody>
+                        </table>
                     </div>
-                    <a href="{{ route('admin.payments') }}" class="btn btn-sm btn-outline-secondary">View payments</a>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-4">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header bg-white border-0 d-flex justify-content-between align-items-center">
+                    <strong><i class="fa fa-money-bill-wave me-2 text-warning"></i>Pending Withdrawals</strong>
+                    <a href="{{ route('admin.withdrawals') }}" class="small">View all</a>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-sm mb-0 align-middle">
+                            <thead class="table-light">
+                                <tr><th>User</th><th>Amount</th><th>Date</th></tr>
+                            </thead>
+                            <tbody id="queueWithdrawals">
+                                <tr><td colspan="3" class="text-center text-muted py-3">Loading…</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-4">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header bg-white border-0 d-flex justify-content-between align-items-center">
+                    <strong><i class="fa fa-globe me-2 text-primary"></i>Sites Awaiting Verify</strong>
+                    <a href="{{ route('admin.sites.index') }}" class="small">View all</a>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-sm mb-0 align-middle">
+                            <thead class="table-light">
+                                <tr><th>Site</th><th>Publisher</th><th>Date</th></tr>
+                            </thead>
+                            <tbody id="queueSites">
+                                <tr><td colspan="3" class="text-center text-muted py-3">Loading…</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 
-    <div class="row g-4">
-        {{-- Deposits queue --}}
-        <div class="col-lg-6">
-            <div class="card border-0 shadow-sm h-100">
-                <div class="card-header bg-white d-flex justify-content-between align-items-center">
-                    <strong><i class="fa fa-wallet text-warning me-2"></i>Deposit queue</strong>
-                    <a href="{{ route('admin.deposits', ['status' => 'pending']) }}" class="small">Open all</a>
-                </div>
-                <div class="card-body p-0">
-                    @if($pendingDeposits->isEmpty())
-                        <div class="p-4 text-muted text-center">No pending deposits</div>
-                    @else
-                        <div class="table-responsive">
-                            <table class="table table-hover align-middle mb-0">
-                                <thead class="table-light">
-                                    <tr>
-                                        <th>User</th>
-                                        <th>Amount</th>
-                                        <th>Age</th>
-                                        <th></th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    @foreach($pendingDeposits as $deposit)
-                                        <tr class="{{ $deposit->created_at->lt(now()->subDay()) ? 'table-warning' : '' }}">
-                                            <td>
-                                                <div class="fw-semibold">{{ $deposit->user->name ?? 'Unknown' }}</div>
-                                                <div class="small text-muted">{{ $deposit->reference_code }}</div>
-                                            </td>
-                                            <td>€{{ number_format($deposit->amount, 2) }}</td>
-                                            <td class="small">{{ $deposit->created_at->diffForHumans() }}</td>
-                                            <td class="text-end">
-                                                <a href="{{ route('admin.deposits', ['status' => 'pending', 'search' => $deposit->reference_code]) }}" class="btn btn-sm btn-outline-primary">Review</a>
-                                            </td>
-                                        </tr>
-                                    @endforeach
-                                </tbody>
-                            </table>
-                        </div>
-                    @endif
-                </div>
-            </div>
-        </div>
-
-        {{-- Withdrawals queue --}}
-        <div class="col-lg-6">
-            <div class="card border-0 shadow-sm h-100">
-                <div class="card-header bg-white d-flex justify-content-between align-items-center">
-                    <strong><i class="fa fa-money-bill-wave text-danger me-2"></i>Withdrawal queue</strong>
-                    <a href="{{ route('admin.withdrawals') }}?status=pending" class="small">Open all</a>
-                </div>
-                <div class="card-body p-0">
-                    @if($pendingWithdrawals->isEmpty())
-                        <div class="p-4 text-muted text-center">No pending withdrawals</div>
-                    @else
-                        <div class="table-responsive">
-                            <table class="table table-hover align-middle mb-0">
-                                <thead class="table-light">
-                                    <tr>
-                                        <th>Publisher</th>
-                                        <th>Amount</th>
-                                        <th>Status</th>
-                                        <th>Age</th>
-                                        <th></th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    @foreach($pendingWithdrawals as $withdrawal)
-                                        <tr class="{{ $withdrawal->created_at->lt(now()->subDay()) ? 'table-warning' : '' }}">
-                                            <td>
-                                                <div class="fw-semibold">{{ $withdrawal->user->name ?? 'Unknown' }}</div>
-                                                <div class="small text-muted">{{ ucfirst($withdrawal->payment_method) }}</div>
-                                            </td>
-                                            <td>€{{ number_format($withdrawal->amount, 2) }}</td>
-                                            <td><span class="badge bg-secondary">{{ ucfirst($withdrawal->status) }}</span></td>
-                                            <td class="small">{{ $withdrawal->created_at->diffForHumans() }}</td>
-                                            <td class="text-end">
-                                                <a href="{{ route('admin.withdrawals') }}?status={{ $withdrawal->status }}" class="btn btn-sm btn-outline-primary">Review</a>
-                                            </td>
-                                        </tr>
-                                    @endforeach
-                                </tbody>
-                            </table>
-                        </div>
-                    @endif
-                </div>
-            </div>
-        </div>
-
-        {{-- Unverified sites --}}
-        <div class="col-lg-6">
-            <div class="card border-0 shadow-sm h-100">
-                <div class="card-header bg-white d-flex justify-content-between align-items-center">
-                    <strong><i class="fa fa-globe text-primary me-2"></i>Unverified sites</strong>
-                    <a href="{{ route('admin.sites.index') }}?verified=0" class="small">Open all</a>
-                </div>
-                <div class="card-body p-0">
-                    @if($unverifiedSites->isEmpty())
-                        <div class="p-4 text-muted text-center">No sites waiting for verification</div>
-                    @else
-                        <div class="table-responsive">
-                            <table class="table table-hover align-middle mb-0">
-                                <thead class="table-light">
-                                    <tr>
-                                        <th>Site</th>
-                                        <th>Publisher</th>
-                                        <th>Age</th>
-                                        <th></th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    @foreach($unverifiedSites as $site)
-                                        <tr class="{{ $site->created_at->lt(now()->subDays(2)) ? 'table-warning' : '' }}">
-                                            <td>
-                                                <div class="fw-semibold">{{ $site->site_name }}</div>
-                                                <div class="small text-muted text-truncate" style="max-width:180px;">{{ $site->site_url }}</div>
-                                            </td>
-                                            <td class="small">{{ $site->publisher->name ?? 'Unknown' }}</td>
-                                            <td class="small">{{ $site->created_at->diffForHumans() }}</td>
-                                            <td class="text-end">
-                                                <a href="{{ route('admin.sites.edit', $site->id) }}" class="btn btn-sm btn-outline-primary">Review</a>
-                                            </td>
-                                        </tr>
-                                    @endforeach
-                                </tbody>
-                            </table>
-                        </div>
-                    @endif
-                </div>
-            </div>
-        </div>
-
-        {{-- Manual payments --}}
-        <div class="col-lg-6">
-            <div class="card border-0 shadow-sm h-100">
-                <div class="card-header bg-white d-flex justify-content-between align-items-center">
-                    <strong><i class="fa fa-file-invoice-dollar text-info me-2"></i>Manual payment queue</strong>
-                    <a href="{{ route('admin.payments') }}?payment_status=pending" class="small">Open all</a>
-                </div>
-                <div class="card-body p-0">
-                    @if($pendingPayments->isEmpty())
-                        <div class="p-4 text-muted text-center">No unpaid manual orders</div>
-                    @else
-                        <div class="table-responsive">
-                            <table class="table table-hover align-middle mb-0">
-                                <thead class="table-light">
-                                    <tr>
-                                        <th>Order</th>
-                                        <th>Amount</th>
-                                        <th>Method</th>
-                                        <th>Age</th>
-                                        <th></th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    @foreach($pendingPayments as $order)
-                                        <tr class="{{ $order->created_at->lt(now()->subDay()) ? 'table-warning' : '' }}">
-                                            <td>
-                                                <div class="fw-semibold">{{ $order->order_number }}</div>
-                                                <div class="small text-muted">{{ $order->user->name ?? 'Unknown' }}</div>
-                                            </td>
-                                            <td>€{{ number_format($order->total_amount, 2) }}</td>
-                                            <td class="small">{{ ucfirst($order->payment_method) }}</td>
-                                            <td class="small">{{ $order->created_at->diffForHumans() }}</td>
-                                            <td class="text-end">
-                                                <a href="{{ route('admin.payments') }}?payment_status=pending&search={{ urlencode($order->order_number) }}" class="btn btn-sm btn-outline-primary">Review</a>
-                                            </td>
-                                        </tr>
-                                    @endforeach
-                                </tbody>
-                            </table>
-                        </div>
-                    @endif
-                </div>
-            </div>
-        </div>
-    </div>
 </div>
 
-<style>
-.ops-card { transition: transform .15s ease, box-shadow .15s ease; color: inherit; }
-.ops-card:hover { transform: translateY(-2px); box-shadow: 0 .5rem 1rem rgba(0,0,0,.08) !important; }
-.display-6 { font-size: 2rem; line-height: 1.2; }
-body.layout-dark .ops-card,
-body.layout-dark .card { background: #1e1e2f; color: #ddd; }
-body.layout-dark .card-header { background: #1e1e2f !important; border-color: #333; color: #ddd; }
-body.layout-dark .table { color: #ddd; }
-body.layout-dark .table-light { --bs-table-bg: #252538; color: #ddd; }
-</style>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script>
+const money = (n) => '€' + Number(n || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const num = (n) => Number(n || 0).toLocaleString();
+
+let trendChart, signupChart, orderStatusChart, roleChart;
+
+async function loadStatistics() {
+    const res = await fetch(`{{ route('admin.dashboard.statistics') }}`);
+    const json = await res.json();
+    if (!json.success) return;
+    const d = json.data;
+
+    document.getElementById('kpiUsers').textContent = num(d.total_users);
+    document.getElementById('kpiUsers7d').textContent = '+' + num(d.new_users_7d) + ' / 7d';
+    document.getElementById('kpiAdvertisers').textContent = num(d.advertisers);
+    document.getElementById('kpiPublishers').textContent = num(d.publishers);
+    document.getElementById('kpiRevenue').textContent = money(d.revenue);
+    document.getElementById('kpiRevenue7d').textContent = money(d.revenue_7d) + ' / 7d';
+    document.getElementById('kpiPaidOrders').textContent = num(d.paid_orders);
+    document.getElementById('kpiSites').textContent = num(d.total_sites);
+    document.getElementById('kpiVerified').textContent = num(d.verified_sites);
+    document.getElementById('kpiUnverified').textContent = num(d.unverified_sites) + ' pending';
+    document.getElementById('kpiDeposits').textContent = num(d.pending_deposits);
+    document.getElementById('kpiWithdrawals').textContent = num(d.pending_withdrawals);
+    document.getElementById('kpiAttention').textContent = num(
+        d.pending_deposits + d.pending_withdrawals + d.unverified_sites
+    );
+}
+
+async function loadTrends() {
+    const res = await fetch(`{{ route('admin.dashboard.trends') }}?days=30`);
+    const json = await res.json();
+    if (!json.success) return;
+
+    const commonOpts = {
+        responsive: true,
+        maintainAspectRatio: true,
+        plugins: { legend: { display: true, position: 'bottom' } },
+        scales: { y: { beginAtZero: true } }
+    };
+
+    trendChart = new Chart(document.getElementById('trendChart'), {
+        type: 'line',
+        data: {
+            labels: json.labels,
+            datasets: [
+                {
+                    label: 'Revenue (€)',
+                    data: json.revenue,
+                    borderColor: '#0d6efd',
+                    backgroundColor: 'rgba(13,110,253,0.12)',
+                    fill: true,
+                    tension: 0.35,
+                    yAxisID: 'y'
+                },
+                {
+                    label: 'Orders',
+                    data: json.orders,
+                    borderColor: '#198754',
+                    backgroundColor: 'rgba(25,135,84,0.08)',
+                    fill: false,
+                    tension: 0.35,
+                    yAxisID: 'y1'
+                }
+            ]
+        },
+        options: {
+            ...commonOpts,
+            scales: {
+                y:  { beginAtZero: true, position: 'left', title: { display: true, text: 'Revenue (€)' } },
+                y1: { beginAtZero: true, position: 'right', grid: { drawOnChartArea: false }, title: { display: true, text: 'Orders' } }
+            }
+        }
+    });
+
+    signupChart = new Chart(document.getElementById('signupChart'), {
+        type: 'bar',
+        data: {
+            labels: json.labels,
+            datasets: [{
+                label: 'New users',
+                data: json.signups,
+                backgroundColor: 'rgba(25,135,84,0.65)',
+                borderRadius: 4
+            }]
+        },
+        options: {
+            ...commonOpts,
+            plugins: { legend: { display: false } }
+        }
+    });
+}
+
+async function loadDistributions() {
+    const res = await fetch(`{{ route('admin.dashboard.distributions') }}`);
+    const json = await res.json();
+    if (!json.success) return;
+
+    const palette = ['#0d6efd', '#198754', '#ffc107', '#dc3545', '#6f42c1', '#20c997', '#fd7e14'];
+
+    orderStatusChart = new Chart(document.getElementById('orderStatusChart'), {
+        type: 'doughnut',
+        data: {
+            labels: json.orders.labels,
+            datasets: [{
+                data: json.orders.values,
+                backgroundColor: palette
+            }]
+        },
+        options: { plugins: { legend: { position: 'bottom' } } }
+    });
+
+    roleChart = new Chart(document.getElementById('roleChart'), {
+        type: 'doughnut',
+        data: {
+            labels: json.roles.labels,
+            datasets: [{
+                data: json.roles.values,
+                backgroundColor: ['#0d6efd', '#198754', '#6c757d']
+            }]
+        },
+        options: { plugins: { legend: { position: 'bottom' } } }
+    });
+}
+
+function emptyRow(cols, msg) {
+    return `<tr><td colspan="${cols}" class="text-center text-muted py-3">${msg}</td></tr>`;
+}
+
+async function loadActionQueue() {
+    const res = await fetch(`{{ route('admin.dashboard.action-queue') }}`);
+    const json = await res.json();
+    if (!json.success) return;
+
+    const depBody = document.getElementById('queueDeposits');
+    if (!json.deposits.length) {
+        depBody.innerHTML = emptyRow(3, 'No pending deposits');
+    } else {
+        depBody.innerHTML = json.deposits.map(d => `
+            <tr>
+                <td>
+                    <div class="fw-semibold">${d.user}</div>
+                    <div class="small text-muted">${d.email || ''}</div>
+                </td>
+                <td>${money(d.amount)}</td>
+                <td class="small text-muted">${d.date}</td>
+            </tr>`).join('');
+    }
+
+    const wBody = document.getElementById('queueWithdrawals');
+    if (!json.withdrawals.length) {
+        wBody.innerHTML = emptyRow(3, 'No pending withdrawals');
+    } else {
+        wBody.innerHTML = json.withdrawals.map(w => `
+            <tr>
+                <td>
+                    <div class="fw-semibold">${w.user}</div>
+                    <div class="small text-muted">${w.email || ''}</div>
+                </td>
+                <td>${money(w.amount)}</td>
+                <td class="small text-muted">${w.date}</td>
+            </tr>`).join('');
+    }
+
+    const sBody = document.getElementById('queueSites');
+    if (!json.sites.length) {
+        sBody.innerHTML = emptyRow(3, 'No sites awaiting verification');
+    } else {
+        sBody.innerHTML = json.sites.map(s => `
+            <tr>
+                <td>
+                    <div class="fw-semibold">${s.site_name || '—'}</div>
+                    <div class="small text-muted text-truncate" style="max-width:140px;">${s.site_url || ''}</div>
+                </td>
+                <td>${s.publisher}</td>
+                <td class="small text-muted">${s.date}</td>
+            </tr>`).join('');
+    }
+}
+
+Promise.all([loadStatistics(), loadTrends(), loadDistributions(), loadActionQueue()])
+    .catch(err => console.error('Dashboard load failed', err));
+</script>
 @endsection

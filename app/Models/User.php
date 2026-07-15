@@ -103,6 +103,22 @@ class User extends Authenticatable implements MustVerifyEmail
         return $this->activeRole() === $role;
     }
 
+    public function isAdmin(): bool
+    {
+        return $this->isActiveRole('admin');
+    }
+
+    public function isMarketing(): bool
+    {
+        return $this->isActiveRole('marketing');
+    }
+
+    /** Staff roles that share the admin panel (with different permissions). */
+    public function isStaff(): bool
+    {
+        return in_array($this->activeRole(), ['admin', 'marketing'], true);
+    }
+
     public function sites()
     {
         return $this->hasMany(\App\Models\Site::class, 'publisher_id');
@@ -133,6 +149,7 @@ class User extends Authenticatable implements MustVerifyEmail
     {
         return match ($this->activeRole()) {
             'admin'      => route('admin.dashboard'),
+            'marketing'  => route('admin.dashboard'),
             'advertiser' => route('advertiser.dashboard'),
             'publisher'  => route('publisher.dashboard'),
             default      => url('/'),

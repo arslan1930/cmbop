@@ -232,10 +232,23 @@ class PublisherReportsController extends Controller
             
             $perPage = $request->get('per_page', 20);
             $withdrawals = $query->paginate($perPage);
-            
+
+            // Never expose platform fee fields to publishers
+            $items = collect($withdrawals->items())->map(function ($w) {
+                return [
+                    'id' => $w->id,
+                    'amount' => $w->amount,
+                    'payment_method' => $w->payment_method,
+                    'status' => $w->status,
+                    'payment_reference' => $w->payment_details['reference'] ?? null,
+                    'created_at' => $w->created_at,
+                    'processed_at' => $w->processed_at,
+                ];
+            })->values();
+
             return response()->json([
                 'success' => true,
-                'data' => $withdrawals->items(),
+                'data' => $items,
                 'pagination' => [
                     'current_page' => $withdrawals->currentPage(),
                     'last_page' => $withdrawals->lastPage(),
