@@ -178,8 +178,8 @@ class OrderItem extends Model
             return false;
         }
         
-        // Must have 48 hours passed
-        $hoursPassed = Carbon::now()->diffInHours($this->live_url_submitted_at);
+        // Must have 48 hours passed (absolute: Carbon 3 returns signed diffs by default)
+        $hoursPassed = $this->live_url_submitted_at->diffInHours(Carbon::now(), true);
         return $hoursPassed >= 48;
     }
     
@@ -192,7 +192,7 @@ class OrderItem extends Model
             return 0;
         }
         
-        $hoursPassed = Carbon::now()->diffInHours($this->live_url_submitted_at);
+        $hoursPassed = $this->live_url_submitted_at->diffInHours(Carbon::now(), true);
         $remaining = 48 - $hoursPassed;
         
         return $remaining > 0 ? $remaining : 0;
