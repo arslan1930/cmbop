@@ -14,6 +14,7 @@ use App\Mail\OrderConfirmation;
 use App\Mail\SiteOwnerOrderNotification;
 use App\Mail\AdminManualPaymentNotification;
 use App\Mail\ModificationRequested;
+use App\Services\StripePaymentService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
@@ -867,7 +868,7 @@ public function checkout()
                     'pending_user_id' => $userId
                 ]);
                 
-                $totalAmount = array_sum(array_column($expandedOrders, 'price'));
+                $totalAmount = round(array_sum(array_column($expandedOrders, 'price')), 2);
                 
                 // Create Stripe Checkout Session
                 Stripe::setApiKey(config('services.stripe.secret'));
@@ -881,7 +882,7 @@ public function checkout()
                                 'name' => 'Order Package - ' . count($expandedOrders) . ' item(s)',
                                 'description' => 'Order reference: ' . $referenceCode,
                             ],
-                            'unit_amount' => $totalAmount * 100,
+                            'unit_amount' => StripePaymentService::toCents($totalAmount),
                         ],
                         'quantity' => 1,
                     ]],

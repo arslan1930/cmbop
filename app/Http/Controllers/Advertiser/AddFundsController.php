@@ -8,6 +8,7 @@ use App\Models\DepositRequest;
 use App\Models\Wallet;
 use App\Models\User;
 use App\Mail\DepositRequestSubmitted;
+use App\Services\StripePaymentService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Log;
@@ -47,7 +48,8 @@ class AddFundsController extends Controller
             
             Stripe::setApiKey(config('services.stripe.secret'));
             
-            $amount = $request->amount * 100;
+            $amountEuros = round((float) $request->amount, 2);
+            $amountCents = StripePaymentService::toCents($amountEuros);
             $referenceCode = $request->reference_code;
             $user = auth()->user();
             
@@ -62,19 +64,19 @@ class AddFundsController extends Controller
                         'currency' => 'eur',
                         'product_data' => [
                             'name' => 'Add Funds to Wallet',
-                            'description' => 'Deposit €' . number_format($request->amount, 2) . ' to your wallet',
+                            'description' => 'Deposit €' . number_format($amountEuros, 2) . ' to your wallet',
                         ],
-                        'unit_amount' => $amount,
+                        'unit_amount' => $amountCents,
                     ],
                     'quantity' => 1,
                 ]],
                 'mode' => 'payment',
-                'success_url' => route('advertiser.checkout.success') . '?session_id={CHECKOUT_SESSION_ID}&amount=' . $request->amount . '&ref=' . $referenceCode,
+                'success_url' => route('advertiser.checkout.success') . '?session_id={CHECKOUT_SESSION_ID}&amount=' . $amountEuros . '&ref=' . $referenceCode,
                 'cancel_url' => route('advertiser.add-funds'),
                 'metadata' => [
                     'type' => 'wallet_deposit',
                     'user_id' => (string) $user->id,
-                    'amount' => (string) $request->amount,
+                    'amount' => (string) $amountEuros,
                     'reference_code' => $referenceCode,
                     'session_reference' => $sessionReference
                 ],
@@ -129,7 +131,9 @@ class AddFundsController extends Controller
                     $deposit = DepositRequest::create([
                         'user_id' => auth()->id(),
                         'reference_code' => $referenceCode,
-                        'amount' => $amount ?? ($session->amount_total / 100),
+                        'amount' => isset($amount)
+                            ? round((float) $amount, 2)
+                            : StripePaymentService::fromCents($session->amount_total),
                         'payment_method' => 'card',
                         'status' => 'completed',
                         'stripe_session_id' => $sessionId,
