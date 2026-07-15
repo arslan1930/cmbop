@@ -1024,27 +1024,6 @@ public function checkout(Request $request)
             $expandedOrders = $this->cartPricing()->expandCart($cart);
             $totalAmount = round(array_sum(array_column($expandedOrders, 'price')), 2);
             
-            // Get advertiser's wallet
-            $advertiserRoleId = \App\Models\Role::where('name', 'advertiser')->value('id');
-            $advertiserWallet = Wallet::where('user_id', $userId)
-                ->where('role_id', $advertiserRoleId)
-                ->first();
-            
-            if (!$advertiserWallet) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Wallet not found. Please add funds to your wallet first.'
-                ]);
-            }
-            
-            // Check if balance is sufficient
-            if ($advertiserWallet->balance < $totalAmount) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Insufficient wallet balance. Please add more funds.'
-                ]);
-            }
-            
             // Validate content links
             if (!$contentLinks || empty($contentLinks)) {
                 return response()->json([
@@ -1069,13 +1048,37 @@ public function checkout(Request $request)
                 }
                 $orderIndex++;
             }
+
+            $advertiserRoleId = Wallet::advertiserRoleId();
+            if (!$advertiserRoleId) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Advertiser role not configured.'
+                ]);
+            }
             
             DB::beginTransaction();
-            
-            // Deduct from balance and add to reserved_balance
-            $advertiserWallet->balance -= $totalAmount;
-            $advertiserWallet->reserved_balance += $totalAmount;
-            $advertiserWallet->save();
+
+            // Lock wallet row before balance check/reserve to prevent concurrent overspend
+            $advertiserWallet = Wallet::lockForUserRole($userId, $advertiserRoleId);
+
+            if (!$advertiserWallet) {
+                DB::rollBack();
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Wallet not found. Please add funds to your wallet first.'
+                ]);
+            }
+
+            if ((float) $advertiserWallet->balance < $totalAmount) {
+                DB::rollBack();
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Insufficient wallet balance. Please add more funds.'
+                ]);
+            }
+
+            $advertiserWallet->reserveAmount($totalAmount);
             
             Log::info('Wallet payment processed - funds reserved', [
                 'user_id' => $userId,
@@ -1695,22 +1698,33 @@ public function approveOrder(Request $request, $id)
         }
         
         DB::beginTransaction();
+
+        // Lock order to prevent double-approve races
+        $order = Order::where('id', $order->id)->lockForUpdate()->firstOrFail();
+
+        if ($order->status === 'completed') {
+            DB::rollBack();
+            return response()->json([
+                'success' => false,
+                'message' => 'Order is already approved and completed'
+            ], 400);
+        }
+
+        if ($order->status !== 'review') {
+            DB::rollBack();
+            return response()->json([
+                'success' => false,
+                'message' => 'Order must be under review to approve'
+            ], 400);
+        }
         
         // Update order status to completed
         $order->update([
             'status' => 'completed'
         ]);
         
-        // Get publisher role ID
-        $publisherRoleId = \App\Models\Role::where('name', 'publisher')->value('id');
-        
-        // Get advertiser role ID for wallet
-        $advertiserRoleId = \App\Models\Role::where('name', 'advertiser')->value('id');
-        
-        // Get advertiser's wallet to release reserved funds
-        $advertiserWallet = Wallet::where('user_id', auth()->id())
-            ->where('role_id', $advertiserRoleId)
-            ->first();
+        $publisherRoleId = Wallet::publisherRoleId();
+        $advertiserRoleId = Wallet::advertiserRoleId();
         
         $transferPublishers = [];
         $totalTransferred = 0;
@@ -1722,28 +1736,12 @@ public function approveOrder(Request $request, $id)
             if ($site && $site->publisher_id) {
                 $publisher = User::find($site->publisher_id);
                 
-                if ($publisher) {
-                    // Get publisher's wallet
-                    $publisherWallet = Wallet::where('user_id', $publisher->id)
-                        ->where('role_id', $publisherRoleId)
-                        ->first();
+                if ($publisher && $publisherRoleId) {
+                    $publisherWallet = Wallet::lockOrCreateForRole($publisher->id, $publisherRoleId);
                     
-                    if (!$publisherWallet) {
-                        // Create publisher wallet if doesn't exist
-                        $publisherWallet = Wallet::create([
-                            'user_id' => $publisher->id,
-                            'role_id' => $publisherRoleId,
-                            'balance' => 0,
-                            'reserved_balance' => 0,
-                            'currency' => 'EUR'
-                        ]);
-                    }
-                    
-                    // Publisher gets listing base (+ sensitive); platform keeps 15% markup fee
-                    $amount = $orderItem->publisherPayoutAmount();
-                    $platformFee = $orderItem->platformFeeAmount();
-                    $publisherWallet->balance += $amount;
-                    $publisherWallet->save();
+                    // Add the order amount to publisher's wallet balance
+                    $amount = (float) $orderItem->price;
+                    $publisherWallet->credit($amount);
                     
                     $totalTransferred += $amount;
                     
@@ -1778,18 +1776,20 @@ public function approveOrder(Request $request, $id)
             }
         }
         
-        // If payment method was wallet, release the reserved funds from advertiser's wallet
-        if ($order->payment_method === 'wallet' && $advertiserWallet) {
-            $totalOrderAmount = $order->total_amount;
-            $advertiserWallet->reserved_balance -= $totalOrderAmount;
-            $advertiserWallet->save();
-            
-            Log::info('Reserved funds released from advertiser wallet', [
-                'user_id' => auth()->id(),
-                'order_id' => $order->id,
-                'order_total' => $totalOrderAmount,
-                'remaining_reserved_balance' => $advertiserWallet->reserved_balance
-            ]);
+        // If payment method was wallet, consume reserved funds from advertiser's wallet
+        if ($order->payment_method === 'wallet' && $advertiserRoleId) {
+            $advertiserWallet = Wallet::lockForUserRole(auth()->id(), $advertiserRoleId);
+            if ($advertiserWallet) {
+                $totalOrderAmount = (float) $order->total_amount;
+                $advertiserWallet->consumeReserved($totalOrderAmount);
+                
+                Log::info('Reserved funds released from advertiser wallet', [
+                    'user_id' => auth()->id(),
+                    'order_id' => $order->id,
+                    'order_total' => $totalOrderAmount,
+                    'remaining_reserved_balance' => $advertiserWallet->reserved_balance
+                ]);
+            }
         }
         
         DB::commit();

@@ -131,22 +131,25 @@ class AdminWithdrawalController extends Controller
                 'notes' => 'nullable|string'
             ]);
 
-            $withdrawal = Withdrawal::with('user')->findOrFail($id);
+            DB::beginTransaction();
+
+            $withdrawal = Withdrawal::with('user')->where('id', $id)->lockForUpdate()->firstOrFail();
             $oldStatus = $withdrawal->status;
             $newStatus = $request->status;
-
-            DB::beginTransaction();
 
             // Update withdrawal status
             $withdrawal->status = $newStatus;
             $withdrawal->save();
 
-            // If cancelling, refund the amount back to wallet
+            // If cancelling, refund the amount back to publisher wallet
             if ($newStatus === 'cancelled' && $oldStatus !== 'cancelled') {
-                $wallet = Wallet::where('user_id', $withdrawal->user_id)->first();
+                $publisherRoleId = Wallet::publisherRoleId();
+                $wallet = $publisherRoleId
+                    ? Wallet::lockOrCreateForRole($withdrawal->user_id, $publisherRoleId)
+                    : null;
+
                 if ($wallet) {
-                    $wallet->balance += $withdrawal->amount;
-                    $wallet->save();
+                    $wallet->credit((float) $withdrawal->amount);
                     
                     Log::info('Withdrawal cancelled - amount refunded', [
                         'withdrawal_id' => $withdrawal->id,

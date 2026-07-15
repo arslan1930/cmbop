@@ -114,6 +114,16 @@ class WithdrawalController extends Controller
             }
             
             DB::beginTransaction();
+
+            // Re-lock wallet inside the transaction before debiting
+            $wallet = Wallet::where('id', $wallet->id)->lockForUpdate()->first();
+            if (!$wallet || (float) $wallet->balance < $amount) {
+                DB::rollBack();
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Insufficient balance for this withdrawal. Available balance: €' . number_format($wallet?->balance ?? 0, 2)
+                ]);
+            }
             
             // Create withdrawal record
             $withdrawal = Withdrawal::create([
@@ -126,9 +136,7 @@ class WithdrawalController extends Controller
                 'status' => 'pending'
             ]);
             
-            // Deduct from wallet balance
-            $wallet->balance -= $amount;
-            $wallet->save();
+            $wallet->debit((float) $amount);
             
             DB::commit();
             
@@ -315,12 +323,27 @@ class WithdrawalController extends Controller
             }
             
             DB::beginTransaction();
+
+            $withdrawal = Withdrawal::where('id', $withdrawal->id)
+                ->where('status', 'pending')
+                ->lockForUpdate()
+                ->first();
+
+            if (!$withdrawal) {
+                DB::rollBack();
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Withdrawal request not found or cannot be cancelled'
+                ]);
+            }
             
-            // Refund the amount back to wallet
+            // Refund the amount back to the locked wallet
             $wallet = $user->activeWallet();
             if ($wallet) {
-                $wallet->balance += $withdrawal->amount;
-                $wallet->save();
+                $wallet = Wallet::where('id', $wallet->id)->lockForUpdate()->first();
+                if ($wallet) {
+                    $wallet->credit((float) $withdrawal->amount);
+                }
             }
             
             // Update withdrawal status
