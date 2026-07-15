@@ -4,6 +4,10 @@
 <div class="container-fluid">
 
     <h1 class="h3 mb-4">User Management</h1>
+    <p class="text-muted mb-3">
+        Assignable roles: <strong>Advertiser</strong>, <strong>Publisher</strong>, and <strong>Marketing</strong>.
+        Admin is limited to {{ $adminCount ?? 0 }}/2 accounts and cannot be assigned here.
+    </p>
 
     @if(session('success'))
         <div class="alert alert-success alert-dismissible fade show">
@@ -292,7 +296,7 @@ document.addEventListener('click', function(e){
         const id  = rolesBtn.dataset.id;
         const row = document.querySelector('.main-row[data-id="'+id+'"]');
         const name = row?.dataset.name || 'user';
-        const current = (row?.dataset.roles || '').split(',').filter(Boolean);
+        const current = (row?.dataset.roles || '').split(',').filter(Boolean).filter(r => r !== 'admin');
 
         const checkboxes = ALL_ROLES.map(role => {
             const checked = current.includes(role.name) ? 'checked' : '';
@@ -308,7 +312,8 @@ document.addEventListener('click', function(e){
             title: 'Manage Roles',
             html: `
                 <p class="text-muted mb-3" style="font-size:14px;">
-                    Assign one or more roles to <strong>${name}</strong>.
+                    Assign <strong>Advertiser</strong>, <strong>Publisher</strong>, and/or <strong>Marketing</strong> to <strong>${name}</strong>.
+                    <br><small>Admin is limited to 2 accounts and cannot be assigned here.</small>
                 </p>
                 <div class="text-start">${checkboxes}</div>`,
             showCancelButton: true,

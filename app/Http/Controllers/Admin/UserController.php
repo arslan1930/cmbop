@@ -9,16 +9,29 @@ use App\Models\Wallet;
 use App\Services\ActivityLogger;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 
 class UserController extends Controller
 {
+    /** Roles that can be assigned from the admin panel. */
+    public const ASSIGNABLE_ROLES = ['advertiser', 'publisher', 'marketing'];
+
+    /** Hard cap on how many users may hold the admin role. */
+    public const MAX_ADMINS = 2;
+
     // ✅ Users listing
     public function index()
     {
         $users = User::with('roles')->latest()->paginate(10);
-        $roles = Role::orderBy('id')->get();
 
-        return view('admin.users', compact('users', 'roles'));
+        // Only the 3 customer/staff roles are assignable — admin is locked.
+        $roles = Role::whereIn('name', self::ASSIGNABLE_ROLES)
+            ->orderByRaw("FIELD(name, 'advertiser', 'publisher', 'marketing')")
+            ->get();
+
+        $adminCount = $this->adminCount();
+
+        return view('admin.users', compact('users', 'roles', 'adminCount'));
     }
 
     // ✅ Update Company (AJAX)
@@ -48,46 +61,50 @@ class UserController extends Controller
     }
 
     /**
-     * ✅ Assign / update the roles for a user (AJAX)
+     * ✅ Assign / update roles for a user (AJAX)
      *
-     * Admin selects any combination of advertiser / publisher / admin / marketing.
-     * A wallet is created for every wallet-backed role the user gains, and the
-     * user's active role is repaired when the previously active role is removed.
+     * Only advertiser / publisher / marketing may be assigned from the panel.
+     * Admin is limited to MAX_ADMINS accounts and cannot be granted here.
+     * Existing admins keep their admin role when other roles are edited.
      */
     public function updateRoles(Request $request, $id)
     {
         $validated = $request->validate([
             'roles'   => 'required|array|min:1',
-            'roles.*' => 'string|exists:roles,name',
+            'roles.*' => ['string', Rule::in(self::ASSIGNABLE_ROLES)],
         ], [
             'roles.required' => 'Please select at least one role.',
             'roles.min'      => 'A user must have at least one role.',
+            'roles.*.in'     => 'Only Advertiser, Publisher, and Marketing can be assigned. Admin is limited and not assignable.',
         ]);
 
-        $user = User::findOrFail($id);
-        $previousRoles = $user->roles()->pluck('name')->all();
-
-        // Safety: an admin cannot strip their own admin role and lock themselves out.
-        if (
-            auth()->id() === $user->id
-            && $user->hasRole('admin')
-            && !in_array('admin', $validated['roles'], true)
-        ) {
+        // Explicitly reject any attempt to pass admin (even if validation is bypassed).
+        if (in_array('admin', (array) $request->input('roles', []), true)) {
             return response()->json([
                 'success' => false,
-                'message' => 'You cannot remove the admin role from your own account.',
+                'message' => 'Admin role cannot be assigned from the panel. Only ' . self::MAX_ADMINS . ' admin accounts are allowed.',
             ], 422);
         }
 
-        $selectedRoles = Role::whereIn('name', $validated['roles'])->get();
+        $user = User::findOrFail($id);
+        $previousRoles = $user->roles()->pluck('name')->all();
+        $wasAdmin = in_array('admin', $previousRoles, true);
+
+        // Build final role set from the 3 assignable roles only.
+        $finalRoleNames = array_values(array_unique($validated['roles']));
+
+        // Preserve admin on users who already have it (admin is not managed here).
+        if ($wasAdmin) {
+            $finalRoleNames[] = 'admin';
+        }
+
+        $selectedRoles = Role::whereIn('name', $finalRoleNames)->get();
         $roleIds       = $selectedRoles->pluck('id')->all();
 
         try {
             DB::transaction(function () use ($user, $selectedRoles, $roleIds) {
-                // Sync the pivot table to exactly the selected roles.
                 $user->roles()->sync($roleIds);
 
-                // Ensure a wallet exists for every wallet-backed role the user now has.
                 foreach ($selectedRoles as $role) {
                     if (in_array($role->name, ['advertiser', 'publisher'], true)) {
                         Wallet::firstOrCreate(
@@ -101,9 +118,11 @@ class UserController extends Controller
                     }
                 }
 
-                // Repair the active role if it is no longer assigned (or was never set).
                 if (!in_array($user->active_role_id, $roleIds, true)) {
-                    $user->active_role_id = $roleIds[0];
+                    // Prefer a non-admin active role when repairing.
+                    $preferred = $selectedRoles->first(fn ($r) => $r->name !== 'admin')
+                        ?? $selectedRoles->first();
+                    $user->active_role_id = $preferred->id;
                     $user->save();
                 }
             });
@@ -134,5 +153,15 @@ class UserController extends Controller
             'roles'       => $newRoles,
             'active_role' => $user->activeRole(),
         ]);
+    }
+
+    private function adminCount(): int
+    {
+        $adminRoleId = Role::where('name', 'admin')->value('id');
+        if (!$adminRoleId) {
+            return 0;
+        }
+
+        return (int) DB::table('role_user')->where('role_id', $adminRoleId)->distinct()->count('user_id');
     }
 }

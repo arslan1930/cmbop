@@ -10,6 +10,9 @@ class RolesTableSeeder extends Seeder
 {
     public function run(): void
     {
+        // Core roles. Admin exists for up to 2 locked staff accounts only —
+        // it is NOT assignable from the user-management panel.
+        // Assignable roles: advertiser, publisher, marketing.
         $roles = ['advertiser', 'publisher', 'admin', 'marketing'];
 
         foreach ($roles as $roleName) {
