@@ -59,9 +59,16 @@ class OrderController extends Controller
                 ]);
             }
             
-            // Get order items for these sites with their orders
+            // Get order items for these sites with their orders.
+            // Hide unpaid card checkouts (created before Stripe payment confirms).
             $query = OrderItem::with(['order.user', 'site'])
                 ->whereIn('site_id', $siteIds)
+                ->whereHas('order', function ($q) {
+                    $q->where(function ($inner) {
+                        $inner->where('payment_status', 'paid')
+                            ->orWhere('payment_method', '!=', 'card');
+                    });
+                })
                 ->orderBy('created_at', 'desc');
             
             // Search filter
@@ -165,6 +172,18 @@ class OrderController extends Controller
                     'message' => 'Unauthorized: This order does not belong to your site'
                 ], 403);
             }
+
+            // Unpaid card checkouts are not visible to publishers yet
+            $order = $orderItem->order;
+            if ($order
+                && $order->payment_method === 'card'
+                && $order->payment_status !== 'paid'
+            ) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Order is not available yet'
+                ], 404);
+            }
             
             $data = [
                 'id' => $orderItem->id,
@@ -226,10 +245,18 @@ class OrderController extends Controller
                 ], 403);
             }
             
+            $order = Order::find($orderItem->order_id);
+
+            if ($order->payment_method === 'card' && $order->payment_status !== 'paid') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Order payment is not confirmed yet'
+                ], 400);
+            }
+
             DB::beginTransaction();
             
             // Update the order status to 'processing' (accepted)
-            $order = Order::find($orderItem->order_id);
             $order->update([
                 'status' => 'processing'
             ]);
@@ -602,8 +629,17 @@ class OrderController extends Controller
                 ]);
             }
             
-            // Get all order IDs for these site items
-            $orderIds = OrderItem::whereIn('site_id', $siteIds)->pluck('order_id')->unique()->toArray();
+            // Paid / non-card orders only (exclude unpaid Stripe checkouts)
+            $orderIds = OrderItem::whereIn('site_id', $siteIds)
+                ->whereHas('order', function ($q) {
+                    $q->where(function ($inner) {
+                        $inner->where('payment_status', 'paid')
+                            ->orWhere('payment_method', '!=', 'card');
+                    });
+                })
+                ->pluck('order_id')
+                ->unique()
+                ->toArray();
             
             $stats = [
                 'total_orders' => count($orderIds),

@@ -14,6 +14,7 @@ use App\Mail\OrderConfirmation;
 use App\Mail\SiteOwnerOrderNotification;
 use App\Mail\AdminManualPaymentNotification;
 use App\Mail\ModificationRequested;
+use App\Services\OrderPaymentService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
@@ -731,8 +732,29 @@ public function addToCart(Request $request)
    /**
  * Checkout page
  */
-public function checkout()
+public function checkout(Request $request)
 {
+    // Abandoned Stripe checkout: cancel unpaid pending card orders for this reference
+    if ($request->boolean('canceled') && $request->filled('ref')) {
+        $canceled = Order::where('user_id', auth()->id())
+            ->where('reference_code', $request->ref)
+            ->where('payment_method', 'card')
+            ->where('payment_status', 'pending')
+            ->where('status', 'pending')
+            ->get();
+
+        foreach ($canceled as $order) {
+            $order->update(['status' => 'cancelled']);
+        }
+
+        if ($canceled->isNotEmpty()) {
+            Log::info('Cancelled unpaid card orders after Stripe cancel', [
+                'reference_code' => $request->ref,
+                'order_count' => $canceled->count(),
+            ]);
+        }
+    }
+
     $cart = session()->get('cart', []);
     
     if (empty($cart)) {
@@ -814,101 +836,10 @@ public function checkout()
                 return $this->processWalletPayment($cart, $contentLinks, $referenceCode, $userId);
             }
             
-            // For card payments - DON'T create orders yet, just validate and store pending info
+            // For card payments - create durable pending orders BEFORE Stripe checkout
+            // so webhook/success can finalize payment without relying on browser session.
             if ($paymentMethod === 'card') {
-                // Validate content links
-                if (!$contentLinks || empty($contentLinks)) {
-                    return response()->json([
-                        'success' => false,
-                        'message' => 'Content links are required. Please fill in all Google Docs links.'
-                    ]);
-                }
-                
-                // Validate all content links
-                $expandedOrders = [];
-                foreach ($cart as $item) {
-                    for ($i = 0; $i < $item['quantity']; $i++) {
-                        $expandedOrders[] = [
-                            'id' => $item['id'],
-                            'name' => $item['name'],
-                            'price' => $item['price'], // Use the stored price from cart
-                            'sensitive_type' => $item['sensitive_type'] ?? null,
-                            'additional_price' => $item['additional_price'] ?? 0,
-                            'copy_number' => $i + 1
-                        ];
-                    }
-                }
-                
-                $orderIndex = 0;
-                foreach ($expandedOrders as $orderItem) {
-                    $site = Site::where('id', $orderItem['id'])->where('active', 1)->first();
-                    if (!$site) {
-                        throw new \Exception("Site not found: " . $orderItem['name']);
-                    }
-                    
-                    if (!isset($contentLinks[$site->id]) || !isset($contentLinks[$site->id][$orderIndex])) {
-                        throw new \Exception("Content link required for copy #" . ($orderIndex + 1) . " of: " . $site->site_name);
-                    }
-                    
-                    $link = $contentLinks[$site->id][$orderIndex];
-                    
-                    if (!preg_match('/^https?:\/\/(docs\.google\.com|drive\.google\.com)\/.*$/i', $link)) {
-                        throw new \Exception("Invalid Google Docs link for: " . $site->site_name);
-                    }
-                    $orderIndex++;
-                }
-                
-                // Store cart and content links in session for later
-                session([
-                    'pending_card_payment' => true,
-                    'pending_cart' => $cart,
-                    'pending_content_links' => $contentLinks,
-                    'pending_reference_code' => $referenceCode,
-                    'pending_user_id' => $userId
-                ]);
-                
-                $totalAmount = array_sum(array_column($expandedOrders, 'price'));
-                
-                // Create Stripe Checkout Session
-                Stripe::setApiKey(config('services.stripe.secret'));
-                
-                $checkoutSession = Session::create([
-                    'payment_method_types' => ['card'],
-                    'line_items' => [[
-                        'price_data' => [
-                            'currency' => 'eur',
-                            'product_data' => [
-                                'name' => 'Order Package - ' . count($expandedOrders) . ' item(s)',
-                                'description' => 'Order reference: ' . $referenceCode,
-                            ],
-                            'unit_amount' => $totalAmount * 100,
-                        ],
-                        'quantity' => 1,
-                    ]],
-                    'mode' => 'payment',
-                    'success_url' => route('advertiser.checkout.process') . '?session_id={CHECKOUT_SESSION_ID}&ref=' . $referenceCode,
-                    'cancel_url' => route('advertiser.checkout'),
-                    'metadata' => [
-                        'type' => 'order_payment',
-                        'reference_code' => $referenceCode,
-                        'user_id' => (string) $userId,
-                        'order_count' => count($expandedOrders)
-                    ],
-                ]);
-                
-                Log::info('Stripe session created for card payment (orders not yet created)', [
-                    'reference_code' => $referenceCode,
-                    'session_id' => $checkoutSession->id,
-                    'total_amount' => $totalAmount
-                ]);
-                
-                return response()->json([
-                    'success' => true,
-                    'requires_payment' => true,
-                    'checkout_url' => $checkoutSession->url,
-                    'session_id' => $checkoutSession->id,
-                    'reference_code' => $referenceCode
-                ]);
+                return $this->processCardPayment($cart, $contentLinks, $referenceCode, $userId);
             }
             
             return response()->json([
@@ -925,6 +856,170 @@ public function checkout()
         }
     }
     
+    /**
+     * Create pending card orders in DB, then redirect to Stripe Checkout.
+     * Payment finalization is handled by webhook (authoritative) or success URL (fallback).
+     */
+    private function processCardPayment($cart, $contentLinks, $referenceCode, $userId)
+    {
+        if (!$contentLinks || empty($contentLinks)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Content links are required. Please fill in all Google Docs links.'
+            ]);
+        }
+
+        $platformMarkupRate = 1.15;
+        $expandedOrders = [];
+
+        foreach ($cart as $item) {
+            $site = Site::where('id', $item['id'])->where('active', 1)->first();
+            if (!$site) {
+                throw new \Exception('Site not found: ' . ($item['name'] ?? $item['id']));
+            }
+
+            $additionalPrice = (float) ($item['additional_price'] ?? 0);
+            $sensitiveType = $item['sensitive_type'] ?? null;
+            // Recalculate advertiser price from DB listing (do not trust client cart prices)
+            $finalBasePrice = round((float) $site->price * $platformMarkupRate, 2);
+            $finalTotalPrice = round($finalBasePrice + $additionalPrice, 2);
+
+            for ($i = 0; $i < (int) $item['quantity']; $i++) {
+                $expandedOrders[] = [
+                    'site' => $site,
+                    'price' => $finalTotalPrice,
+                    'additional_price' => $additionalPrice,
+                    'sensitive_type' => $sensitiveType,
+                    'copy_number' => $i + 1,
+                ];
+            }
+        }
+
+        $orderIndex = 0;
+        foreach ($expandedOrders as $orderItem) {
+            $site = $orderItem['site'];
+            if (!isset($contentLinks[$site->id][$orderIndex])) {
+                throw new \Exception('Content link required for copy #' . ($orderIndex + 1) . ' of: ' . $site->site_name);
+            }
+
+            $link = $contentLinks[$site->id][$orderIndex];
+            if (!preg_match('/^https?:\/\/(docs\.google\.com|drive\.google\.com)\/.*$/i', $link)) {
+                throw new \Exception('Invalid Google Docs link for: ' . $site->site_name);
+            }
+            $orderIndex++;
+        }
+
+        $createdOrders = collect();
+
+        DB::beginTransaction();
+        try {
+            $orderIndex = 0;
+            foreach ($expandedOrders as $orderItem) {
+                $site = $orderItem['site'];
+                $link = $contentLinks[$site->id][$orderIndex];
+                $orderNumber = str_pad((string) mt_rand(1, 999999), 6, '0', STR_PAD_LEFT);
+
+                $order = Order::create([
+                    'user_id' => $userId,
+                    'order_number' => $orderNumber,
+                    'reference_code' => $referenceCode,
+                    'subtotal' => $orderItem['price'],
+                    'tax' => 0,
+                    'total_amount' => $orderItem['price'],
+                    'payment_method' => 'card',
+                    'payment_status' => 'pending',
+                    'status' => 'pending',
+                    'sensitive_type' => $orderItem['sensitive_type'],
+                    'additional_price' => $orderItem['additional_price'],
+                ]);
+
+                OrderItem::create([
+                    'order_id' => $order->id,
+                    'site_id' => $site->id,
+                    'site_name' => $site->site_name,
+                    'site_url' => $site->site_url,
+                    'price' => $orderItem['price'],
+                    'content_link' => $link,
+                    'sensitive_type' => $orderItem['sensitive_type'],
+                    'additional_price' => $orderItem['additional_price'],
+                ]);
+
+                $createdOrders->push($order);
+                $orderIndex++;
+            }
+
+            DB::commit();
+        } catch (\Exception $e) {
+            DB::rollBack();
+            throw $e;
+        }
+
+        $totalAmount = round($createdOrders->sum('total_amount'), 2);
+
+        try {
+            Stripe::setApiKey(config('services.stripe.secret'));
+
+            $checkoutSession = Session::create([
+                'payment_method_types' => ['card'],
+                'line_items' => [[
+                    'price_data' => [
+                        'currency' => 'eur',
+                        'product_data' => [
+                            'name' => 'Order Package - ' . $createdOrders->count() . ' item(s)',
+                            'description' => 'Order reference: ' . $referenceCode,
+                        ],
+                        'unit_amount' => (int) round($totalAmount * 100),
+                    ],
+                    'quantity' => 1,
+                ]],
+                'mode' => 'payment',
+                'success_url' => route('advertiser.checkout.process') . '?session_id={CHECKOUT_SESSION_ID}&ref=' . urlencode($referenceCode),
+                'cancel_url' => route('advertiser.checkout') . '?canceled=1&ref=' . urlencode($referenceCode),
+                'metadata' => [
+                    'type' => 'order_payment',
+                    'reference_code' => $referenceCode,
+                    'user_id' => (string) $userId,
+                    'order_count' => (string) $createdOrders->count(),
+                ],
+            ]);
+
+            Order::where('reference_code', $referenceCode)
+                ->where('payment_method', 'card')
+                ->where('payment_status', 'pending')
+                ->update(['stripe_session_id' => $checkoutSession->id]);
+
+            session()->forget('cart');
+
+            Log::info('Pending card orders created; Stripe session ready', [
+                'reference_code' => $referenceCode,
+                'session_id' => $checkoutSession->id,
+                'order_count' => $createdOrders->count(),
+                'total_amount' => $totalAmount,
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'requires_payment' => true,
+                'checkout_url' => $checkoutSession->url,
+                'session_id' => $checkoutSession->id,
+                'reference_code' => $referenceCode,
+            ]);
+        } catch (\Exception $e) {
+            // Stripe session failed — remove the unpaid pending orders we just created
+            foreach ($createdOrders as $order) {
+                $order->items()->delete();
+                $order->delete();
+            }
+
+            Log::error('Stripe session creation failed; pending orders rolled back', [
+                'reference_code' => $referenceCode,
+                'error' => $e->getMessage(),
+            ]);
+
+            throw $e;
+        }
+    }
+
     /**
      * Process wallet payment - deduct from balance and move to reserved_balance
      */
@@ -1189,164 +1284,95 @@ public function checkout()
     }
     
     /**
-     * Handle Stripe success callback - Create orders AFTER successful payment
+     * Handle Stripe success callback — finalize pending orders if webhook has not yet.
+     * Orders are created before checkout; this path is an idempotent fallback.
      */
     public function handleStripeSuccess(Request $request)
     {
         try {
             $sessionId = $request->query('session_id');
             $referenceCode = $request->query('ref');
-            
+
             Log::info('Stripe success callback received', [
                 'session_id' => $sessionId,
-                'reference_code' => $referenceCode
+                'reference_code' => $referenceCode,
             ]);
-            
+
             if (!$sessionId || $sessionId === '{CHECKOUT_SESSION_ID}') {
                 return redirect()->route('advertiser.checkout')
                     ->with('error', 'Invalid payment session.');
             }
-            
+
             if (!$referenceCode) {
                 return redirect()->route('advertiser.checkout')
                     ->with('error', 'Invalid payment callback.');
             }
-            
-            // Verify payment with Stripe
+
             Stripe::setApiKey(config('services.stripe.secret'));
-            
+
             try {
                 $stripeSession = Session::retrieve($sessionId);
             } catch (\Exception $e) {
                 Log::error('Failed to retrieve Stripe session', [
                     'session_id' => $sessionId,
-                    'error' => $e->getMessage()
+                    'error' => $e->getMessage(),
                 ]);
                 return redirect()->route('advertiser.checkout')
                     ->with('error', 'Unable to verify payment. Please contact support.');
             }
-            
+
             if ($stripeSession->payment_status !== 'paid') {
                 return redirect()->route('advertiser.checkout')
                     ->with('error', 'Payment not completed.');
             }
-            
-            // Check if orders already exist (prevent duplicate)
-            $existingOrders = Order::where('reference_code', $referenceCode)->get();
-            if ($existingOrders->isNotEmpty()) {
-                Log::info('Orders already exist for reference code', ['reference_code' => $referenceCode]);
-                session()->forget(['pending_card_payment', 'pending_cart', 'pending_content_links', 'pending_reference_code']);
-                return redirect()->route('advertiser.orders')
-                    ->with('success', 'Orders have already been processed.');
-            }
-            
-            // Get pending data from session
-            $pendingCart = session()->get('pending_cart');
-            $pendingContentLinks = session()->get('pending_content_links');
-            $pendingUserId = session()->get('pending_user_id') ?? auth()->id();
-            
-            if (!$pendingCart || !$pendingContentLinks) {
-                Log::error('No pending order data found in session');
+
+            // Ensure the session belongs to this reference / user
+            $sessionRef = $stripeSession->metadata->reference_code ?? null;
+            if ($sessionRef && $sessionRef !== $referenceCode) {
                 return redirect()->route('advertiser.checkout')
-                    ->with('error', 'Session expired. Please try again.');
+                    ->with('error', 'Payment reference mismatch.');
             }
-            
-            // Expand cart items with their prices
-            $expandedOrders = [];
-            foreach ($pendingCart as $item) {
-                for ($i = 0; $i < $item['quantity']; $i++) {
-                    $expandedOrders[] = [
-                        'id' => $item['id'],
-                        'name' => $item['name'],
-                        'price' => $item['price'],
-                        'base_price' => $item['base_price'] ?? 0,
-                        'additional_price' => $item['additional_price'] ?? 0,
-                        'sensitive_type' => $item['sensitive_type'] ?? null,
-                        'copy_number' => $i + 1
-                    ];
-                }
-            }
-            
-            DB::beginTransaction();
-            
-            $createdOrders = [];
-            $orderIndex = 0;
-            
-            foreach ($expandedOrders as $orderItem) {
-                $site = Site::where('id', $orderItem['id'])->where('active', 1)->first();
-                if (!$site) {
-                    throw new \Exception("Site not found: " . $orderItem['name']);
-                }
-                
-                if (!isset($pendingContentLinks[$site->id]) || !isset($pendingContentLinks[$site->id][$orderIndex])) {
-                    throw new \Exception("Content link required for copy #" . ($orderIndex + 1) . " of: " . $site->site_name);
-                }
-                
-                $link = $pendingContentLinks[$site->id][$orderIndex];
-                
-                $orderNumber = str_pad(mt_rand(1, 999999), 6, '0', STR_PAD_LEFT);
-                
-                $orderData = [
-                    'user_id' => $pendingUserId,
-                    'order_number' => $orderNumber,
+
+            $orders = Order::with('items')
+                ->where('reference_code', $referenceCode)
+                ->where('payment_method', 'card')
+                ->where('user_id', auth()->id())
+                ->get();
+
+            if ($orders->isEmpty()) {
+                Log::error('No pending card orders found on success callback', [
                     'reference_code' => $referenceCode,
-                    'subtotal' => $orderItem['price'],
-                    'tax' => 0,
-                    'total_amount' => $orderItem['price'],
-                    'payment_method' => 'card',
-                    'payment_status' => 'paid',
-                    'status' => 'pending',
-                    'stripe_session_id' => $stripeSession->id,
-                    'stripe_payment_intent_id' => $stripeSession->payment_intent,
-                    'stripe_response' => json_encode($stripeSession->toArray()),
-                    'paid_at' => now(),
-                    'sensitive_type' => $orderItem['sensitive_type'],
-                    'additional_price' => $orderItem['additional_price']
-                ];
-                
-                $order = Order::create($orderData);
-                
-                OrderItem::create([
-                    'order_id' => $order->id,
-                    'site_id' => $site->id,
-                    'site_name' => $site->site_name,
-                    'site_url' => $site->site_url,
-                    'price' => $orderItem['price'],
-                    'content_link' => $link,
-                    'sensitive_type' => $orderItem['sensitive_type'],
-                    'additional_price' => $orderItem['additional_price']
+                    'session_id' => $sessionId,
                 ]);
-                
-                $createdOrders[] = $order;
-                $orderIndex++;
+                return redirect()->route('advertiser.checkout')
+                    ->with('error', 'Order not found. Please contact support with your payment reference.');
             }
-            
-            DB::commit();
-            
-            // Clear session data
-            session()->forget(['pending_card_payment', 'pending_cart', 'pending_content_links', 'pending_reference_code', 'pending_user_id', 'cart']);
-            
-            // Send email to site owners (for each site in the order)
-            $this->sendSiteOwnerEmails($createdOrders);
-            
-            // Note: For card payments, no admin email is sent (only for manual payments)
-            
-            $orderNumbers = implode(', ', array_column($createdOrders, 'order_number'));
-            
-            Log::info('Orders created after successful card payment', [
-                'reference_code' => $referenceCode,
-                'order_count' => count($createdOrders),
-                'order_numbers' => $orderNumbers
+
+            $paymentService = app(OrderPaymentService::class);
+            $newlyPaid = $paymentService->markOrdersPaidFromStripeSession($referenceCode, $stripeSession);
+
+            if ($newlyPaid->isNotEmpty()) {
+                $paymentService->notifyPublishersOfPaidOrders($newlyPaid);
+            }
+
+            session()->forget([
+                'pending_card_payment',
+                'pending_cart',
+                'pending_content_links',
+                'pending_reference_code',
+                'pending_user_id',
+                'cart',
             ]);
-            
+
+            $orderNumbers = $orders->pluck('order_number')->implode(', ');
+            $paidCount = $orders->count();
+
             return redirect()->route('advertiser.orders')
-                ->with('success', count($createdOrders) . ' order(s) paid successfully! Order numbers: ' . $orderNumbers);
-            
+                ->with('success', $paidCount . ' order(s) paid successfully! Order numbers: ' . $orderNumbers);
         } catch (\Exception $e) {
-            DB::rollBack();
             Log::error('Stripe success handling failed: ' . $e->getMessage());
             Log::error('Stack trace: ' . $e->getTraceAsString());
-            
+
             return redirect()->route('advertiser.checkout')
                 ->with('error', 'Payment verification failed: ' . $e->getMessage());
         }

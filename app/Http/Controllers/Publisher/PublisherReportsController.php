@@ -118,9 +118,15 @@ class PublisherReportsController extends Controller
                 ]);
             }
             
-            // Get order items for these sites
+            // Get order items for these sites (exclude unpaid card checkouts)
             $query = OrderItem::with(['order'])
                 ->whereIn('site_id', $siteIds)
+                ->whereHas('order', function ($q) {
+                    $q->where(function ($inner) {
+                        $inner->where('payment_status', 'paid')
+                            ->orWhere('payment_method', '!=', 'card');
+                    });
+                })
                 ->orderBy('created_at', 'desc');
             
             // Date range filter
