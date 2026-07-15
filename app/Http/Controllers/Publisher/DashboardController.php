@@ -46,13 +46,23 @@ class DashboardController extends Controller
                         'cancelled_orders' => 0,
                         'total_earnings' => 0,
                         'pending_earnings' => 0,
-                        'total_sites' => 0
+                        'total_sites' => 0,
+                        'success_rate' => 0,
                     ]
                 ]);
             }
             
-            // Get all order IDs for these site items
-            $orderIds = OrderItem::whereIn('site_id', $siteIds)->pluck('order_id')->unique()->toArray();
+            // Exclude unpaid card checkouts from publisher-facing stats
+            $orderIds = OrderItem::whereIn('site_id', $siteIds)
+                ->whereHas('order', function ($q) {
+                    $q->where(function ($inner) {
+                        $inner->where('payment_status', 'paid')
+                            ->orWhere('payment_method', '!=', 'card');
+                    });
+                })
+                ->pluck('order_id')
+                ->unique()
+                ->toArray();
             
             // Calculate statistics
             $stats = [
@@ -60,21 +70,21 @@ class DashboardController extends Controller
                 'pending_orders' => Order::whereIn('id', $orderIds)->where('status', 'pending')->count(),
                 'processing_orders' => Order::whereIn('id', $orderIds)->where('status', 'processing')->count(),
                 'review_orders' => Order::whereIn('id', $orderIds)->where('status', 'review')->count(),
-                'completed_orders' => Order::whereIn('id', $orderIds)->where('status', 'completed')->count(),
-                'cancelled_orders' => Order::whereIn('id', $orderIds)->where('status', 'cancelled')->count(),
+                'completed_orders' => $completedOrders,
+                'cancelled_orders' => $cancelledOrders,
                 'total_sites' => count($siteIds),
-                'total_earnings' => (float) OrderItem::whereIn('site_id', $siteIds)
+                'total_earnings' => round((float) OrderItem::whereIn('site_id', $siteIds)
                     ->whereHas('order', function($q) {
                         $q->where('status', 'completed')
                           ->where('payment_status', 'paid');
                     })
-                    ->sum('price'),
-                'pending_earnings' => (float) OrderItem::whereIn('site_id', $siteIds)
+                    ->sum(OrderItem::publisherPayoutSqlExpression()), 2),
+                'pending_earnings' => round((float) OrderItem::whereIn('site_id', $siteIds)
                     ->whereHas('order', function($q) {
                         $q->where('status', 'review')
                           ->where('payment_status', 'paid');
                     })
-                    ->sum('price')
+                    ->sum(OrderItem::publisherPayoutSqlExpression()), 2)
             ];
             
             return response()->json([
@@ -178,9 +188,9 @@ class DashboardController extends Controller
                           ->where('payment_status', 'paid');
                     })
                     ->whereDate('created_at', $date->toDateString())
-                    ->sum('price');
+                    ->sum(OrderItem::publisherPayoutSqlExpression());
                 
-                $weeklyData[] = (float) $earnings;
+                $weeklyData[] = round((float) $earnings, 2);
             }
             
             return response()->json([
@@ -284,9 +294,9 @@ class DashboardController extends Controller
                     })
                     ->whereYear('created_at', $date->year)
                     ->whereMonth('created_at', $date->month)
-                    ->sum('price');
+                    ->sum(OrderItem::publisherPayoutSqlExpression());
                 
-                $monthlyData[] = (float) $earnings;
+                $monthlyData[] = round((float) $earnings, 2);
             }
             
             return response()->json([

@@ -45,13 +45,13 @@ class PublisherReportsController extends Controller
                 ]);
             }
             
-            // Calculate total earned from completed orders (where payment is paid and order is completed)
+            // Publisher earnings exclude the 15% platform markup fee
             $totalEarned = OrderItem::whereIn('site_id', $siteIds)
                 ->whereHas('order', function($q) {
                     $q->where('payment_status', 'paid')
                       ->where('status', 'completed');
                 })
-                ->sum('price');
+                ->sum(OrderItem::publisherPayoutSqlExpression());
             
             // Count completed orders
             $completedOrders = OrderItem::whereIn('site_id', $siteIds)
@@ -118,9 +118,15 @@ class PublisherReportsController extends Controller
                 ]);
             }
             
-            // Get order items for these sites
+            // Get order items for these sites (exclude unpaid card checkouts)
             $query = OrderItem::with(['order'])
                 ->whereIn('site_id', $siteIds)
+                ->whereHas('order', function ($q) {
+                    $q->where(function ($inner) {
+                        $inner->where('payment_status', 'paid')
+                            ->orWhere('payment_method', '!=', 'card');
+                    });
+                })
                 ->orderBy('created_at', 'desc');
             
             // Date range filter
@@ -140,10 +146,16 @@ class PublisherReportsController extends Controller
             
             $perPage = $request->get('per_page', 20);
             $orderItems = $query->paginate($perPage);
+
+            // Expose publisher payout as price so UI matches credited earnings
+            $data = collect($orderItems->items())->map(function (OrderItem $item) {
+                $item->setAttribute('price', $item->publisherPayoutAmount());
+                return $item;
+            })->values();
             
             return response()->json([
                 'success' => true,
-                'data' => $orderItems->items(),
+                'data' => $data,
                 'pagination' => [
                     'current_page' => $orderItems->currentPage(),
                     'last_page' => $orderItems->lastPage(),
@@ -177,6 +189,8 @@ class PublisherReportsController extends Controller
                     $q->where('publisher_id', $userId);
                 })
                 ->findOrFail($orderItemId);
+
+            $orderItem->setAttribute('price', $orderItem->publisherPayoutAmount());
             
             return response()->json([
                 'success' => true,

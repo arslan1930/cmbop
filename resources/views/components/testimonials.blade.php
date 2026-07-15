@@ -42,8 +42,8 @@
 
 <section class="py-5 bg-white">
   <div class="container">
-    <h3 class="text-center mb-2">Trusted by Growth-Oriented Teams</h3>
-    <p class="text-center mb-5">Real results from companies that take SEO seriously</p>
+    <h3 class="text-center mb-2">{{ __('messages.testimonial_title') }}</h3>
+    <p class="text-center mb-5">{{ __('messages.testimonial_subtitle') }}</p>
 
     <div id="testimonialCarousel" class="carousel slide" data-bs-ride="carousel" data-bs-wrap="true">
 
@@ -61,41 +61,41 @@
 
         <div class="carousel-item active">
           <div class="p-4 p-md-5 rounded mx-auto" style="max-width:700px;">
-            <p class="lead fst-italic mb-3">“LinkBuilder Pro increased our organic traffic by 300% in just three months. Their strategic approach is unmatched.”</p>
-            <h6 class="mb-0">Sarah Johnson</h6>
-            <small class="text-muted">Marketing Director, TechStart Inc</small>
+            <p class="lead fst-italic mb-3">{{ __('messages.testimonial_1_text') }}</p>
+            <h6 class="mb-0">{{ __('messages.testimonial_1_name') }}</h6>
+            <small class="text-muted">{{ __('messages.testimonial_1_title') }}</small>
           </div>
         </div>
 
         <div class="carousel-item">
           <div class="p-4 p-md-5 rounded mx-auto" style="max-width:700px;">
-            <p class="lead fst-italic mb-3">“Every link placement was relevant, authoritative, and effective. We now dominate search results in our niche.”</p>
-            <h6 class="mb-0">Michael Chen</h6>
-            <small class="text-muted">CEO, EcomGrowth</small>
+            <p class="lead fst-italic mb-3">{{ __('messages.testimonial_2_text') }}</p>
+            <h6 class="mb-0">{{ __('messages.testimonial_2_name') }}</h6>
+            <small class="text-muted">{{ __('messages.testimonial_2_title') }}</small>
           </div>
         </div>
 
         <div class="carousel-item">
           <div class="p-4 p-md-5 rounded mx-auto" style="max-width:700px;">
-            <p class="lead fst-italic mb-3">“Professional, reliable, and transparent. Our clients consistently praise the results achieved.”</p>
-            <h6 class="mb-0">Emily Rodriguez</h6>
-            <small class="text-muted">SEO Manager, DigitalAgency</small>
+            <p class="lead fst-italic mb-3">{{ __('messages.testimonial_3_text') }}</p>
+            <h6 class="mb-0">{{ __('messages.testimonial_3_name') }}</h6>
+            <small class="text-muted">{{ __('messages.testimonial_3_title') }}</small>
           </div>
         </div>
 
         <div class="carousel-item">
           <div class="p-4 p-md-5 rounded mx-auto" style="max-width:700px;">
-            <p class="lead fst-italic mb-3">“The team at LinkBuilder Pro truly understands SEO. They delivered beyond our expectations.”</p>
-            <h6 class="mb-0">David Kim</h6>
-            <small class="text-muted">Founder, StartupHub</small>
+            <p class="lead fst-italic mb-3">{{ __('messages.testimonial_4_text') }}</p>
+            <h6 class="mb-0">{{ __('messages.testimonial_4_name') }}</h6>
+            <small class="text-muted">{{ __('messages.testimonial_4_title') }}</small>
           </div>
         </div>
 
         <div class="carousel-item">
           <div class="p-4 p-md-5 rounded mx-auto" style="max-width:700px;">
-            <p class="lead fst-italic mb-3">“LinkBuilder Pro has been instrumental in our SEO strategy. The results speak for themselves.”</p>
-            <h6 class="mb-0">Lisa Thompson</h6>
-            <small class="text-muted">Marketing Director, GrowthCo</small>
+            <p class="lead fst-italic mb-3">{{ __('messages.testimonial_5_text') }}</p>
+            <h6 class="mb-0">{{ __('messages.testimonial_5_name') }}</h6>
+            <small class="text-muted">{{ __('messages.testimonial_5_title') }}</small>
           </div>
         </div>
 
@@ -104,12 +104,12 @@
       <!-- Controls -->
       <button class="carousel-control-prev" type="button" data-bs-target="#testimonialCarousel" data-bs-slide="prev">
         <span class="carousel-control-prev-icon"></span>
-        <span class="visually-hidden">Previous</span>
+        <span class="visually-hidden">{{ __('messages.previous') }}</span>
       </button>
 
       <button class="carousel-control-next" type="button" data-bs-target="#testimonialCarousel" data-bs-slide="next">
         <span class="carousel-control-next-icon"></span>
-        <span class="visually-hidden">Next</span>
+        <span class="visually-hidden">{{ __('messages.next') }}</span>
       </button>
 
     </div>

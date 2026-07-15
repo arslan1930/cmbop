@@ -1,3 +1,19 @@
+@php
+    // Manually set locale based on URL
+    $segments = request()->segments();
+    $availableLocales = ['de', 'fr', 'nl'];
+    
+    if (!empty($segments) && in_array($segments[0], $availableLocales)) {
+        $locale = $segments[0];
+        app()->setLocale($locale);
+    } else {
+        app()->setLocale('en');
+    }
+    
+    // Also set in session
+    session(['locale' => app()->getLocale()]);
+@endphp
+
 @extends('layouts.app')
 
 @section('title', 'Seolinkbuildings - Content Marketplace & Blogger Outreach Platform')

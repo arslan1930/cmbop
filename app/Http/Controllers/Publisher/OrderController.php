@@ -59,9 +59,16 @@ class OrderController extends Controller
                 ]);
             }
             
-            // Get order items for these sites with their orders
+            // Get order items for these sites with their orders.
+            // Hide unpaid card checkouts (created before Stripe payment confirms).
             $query = OrderItem::with(['order.user', 'site'])
                 ->whereIn('site_id', $siteIds)
+                ->whereHas('order', function ($q) {
+                    $q->where(function ($inner) {
+                        $inner->where('payment_status', 'paid')
+                            ->orWhere('payment_method', '!=', 'card');
+                    });
+                })
                 ->orderBy('created_at', 'desc');
             
             // Search filter
@@ -93,7 +100,8 @@ class OrderController extends Controller
             $perPage = $request->get('per_page', 20);
             $orderItems = $query->paginate($perPage);
             
-            // Transform data to include sensitive price info and auto-approve fields
+            // Transform data to include sensitive price info and auto-approve fields.
+            // Publishers see their payout (listing base + sensitive), not the advertiser total.
             $transformedItems = [];
             foreach ($orderItems->items() as $item) {
                 $transformedItems[] = [
@@ -102,7 +110,7 @@ class OrderController extends Controller
                     'site_id' => $item->site_id,
                     'site_name' => $item->site_name,
                     'site_url' => $item->site_url,
-                    'price' => (float) $item->price,
+                    'price' => $item->publisherPayoutAmount(),
                     'additional_price' => (float) ($item->additional_price ?? 0),
                     'sensitive_type' => $item->sensitive_type ?? null,
                     'content_link' => $item->content_link,
@@ -165,6 +173,18 @@ class OrderController extends Controller
                     'message' => 'Unauthorized: This order does not belong to your site'
                 ], 403);
             }
+
+            // Unpaid card checkouts are not visible to publishers yet
+            $order = $orderItem->order;
+            if ($order
+                && $order->payment_method === 'card'
+                && $order->payment_status !== 'paid'
+            ) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Order is not available yet'
+                ], 404);
+            }
             
             $data = [
                 'id' => $orderItem->id,
@@ -172,7 +192,7 @@ class OrderController extends Controller
                 'site_id' => $orderItem->site_id,
                 'site_name' => $orderItem->site_name,
                 'site_url' => $orderItem->site_url,
-                'price' => (float) $orderItem->price,
+                'price' => $orderItem->publisherPayoutAmount(),
                 'additional_price' => (float) ($orderItem->additional_price ?? 0),
                 'sensitive_type' => $orderItem->sensitive_type ?? null,
                 'content_link' => $orderItem->content_link,
@@ -226,10 +246,18 @@ class OrderController extends Controller
                 ], 403);
             }
             
+            $order = Order::find($orderItem->order_id);
+
+            if ($order->payment_method === 'card' && $order->payment_status !== 'paid') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Order payment is not confirmed yet'
+                ], 400);
+            }
+
             DB::beginTransaction();
             
             // Update the order status to 'processing' (accepted)
-            $order = Order::find($orderItem->order_id);
             $order->update([
                 'status' => 'processing'
             ]);
@@ -593,8 +621,17 @@ class OrderController extends Controller
                 ]);
             }
             
-            // Get all order IDs for these site items
-            $orderIds = OrderItem::whereIn('site_id', $siteIds)->pluck('order_id')->unique()->toArray();
+            // Paid / non-card orders only (exclude unpaid Stripe checkouts)
+            $orderIds = OrderItem::whereIn('site_id', $siteIds)
+                ->whereHas('order', function ($q) {
+                    $q->where(function ($inner) {
+                        $inner->where('payment_status', 'paid')
+                            ->orWhere('payment_method', '!=', 'card');
+                    });
+                })
+                ->pluck('order_id')
+                ->unique()
+                ->toArray();
             
             $stats = [
                 'total_orders' => count($orderIds),
@@ -603,12 +640,12 @@ class OrderController extends Controller
                 'review_orders' => Order::whereIn('id', $orderIds)->where('status', 'review')->count(),
                 'completed_orders' => Order::whereIn('id', $orderIds)->where('status', 'completed')->count(),
                 'rejected_orders' => Order::whereIn('id', $orderIds)->where('status', 'cancelled')->count(),
-                'total_earnings' => (float) OrderItem::whereIn('site_id', $siteIds)
+                'total_earnings' => round((float) OrderItem::whereIn('site_id', $siteIds)
                     ->whereHas('order', function($q) {
                         $q->where('status', 'completed')
                           ->where('payment_status', 'paid');
                     })
-                    ->sum('price')
+                    ->sum(OrderItem::publisherPayoutSqlExpression()), 2)
             ];
             
             Log::info('Statistics calculated', $stats);

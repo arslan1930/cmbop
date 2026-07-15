@@ -8,6 +8,7 @@ use App\Models\DepositRequest;
 use App\Models\Order;
 use App\Models\Wallet;
 use App\Models\StripeWebhookLog;
+use App\Services\OrderPaymentService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
@@ -242,19 +243,21 @@ class StripeWebhookController extends Controller
     }
 
     /**
-     * Handle order payment - Saves to orders table
+     * Handle order payment — pending orders are created before Stripe checkout.
+     * Webhook is the authoritative path to mark them paid (success URL is fallback).
      */
     private function handleOrderPayment($session)
     {
         try {
             $metadata = $session->metadata ?? [];
-            
-            // Try to get reference_code from metadata (could be object or array)
-            $referenceCode = is_object($metadata) ? ($metadata->reference_code ?? null) : ($metadata['reference_code'] ?? null);
-            
-            Log::info('Processing order payment', [
+
+            $referenceCode = is_object($metadata)
+                ? ($metadata->reference_code ?? null)
+                : ($metadata['reference_code'] ?? null);
+
+            Log::info('Processing order payment webhook', [
                 'reference_code' => $referenceCode,
-                'session_id' => $session->id
+                'session_id' => $session->id,
             ]);
 
             if (!$referenceCode) {
@@ -262,39 +265,37 @@ class StripeWebhookController extends Controller
                 return;
             }
 
-            // Find pending orders with this reference code
-            $orders = Order::where('reference_code', $referenceCode)
-                ->where('payment_status', 'pending')
-                ->get();
+            $paymentService = app(OrderPaymentService::class);
+            $newlyPaid = $paymentService->markOrdersPaidFromStripeSession($referenceCode, $session);
 
-            if ($orders->isEmpty()) {
-                Log::warning('No pending orders found', ['reference_code' => $referenceCode]);
+            if ($newlyPaid->isEmpty()) {
+                // Orders may already be paid by the success URL, or not created yet.
+                $existingPaid = Order::where('reference_code', $referenceCode)
+                    ->where('payment_method', 'card')
+                    ->where('payment_status', 'paid')
+                    ->count();
+
+                if ($existingPaid > 0) {
+                    Log::info('Order payment already finalized (idempotent webhook)', [
+                        'reference_code' => $referenceCode,
+                        'paid_count' => $existingPaid,
+                    ]);
+                    return;
+                }
+
+                Log::warning('No pending card orders found for webhook', [
+                    'reference_code' => $referenceCode,
+                    'session_id' => $session->id,
+                ]);
                 return;
             }
 
-            DB::transaction(function () use ($orders, $session) {
-                foreach ($orders as $order) {
-                    $order->update([
-                        'stripe_session_id' => $session->id,
-                        'stripe_payment_intent_id' => $session->payment_intent,
-                        'stripe_response' => json_encode($session->toArray()),
-                        'paid_at' => now(),
-                        'payment_status' => 'paid',
-                        'status' => 'processing'
-                    ]);
-                    
-                    Log::info('Order updated', [
-                        'order_id' => $order->id,
-                        'order_number' => $order->order_number
-                    ]);
-                }
-            });
+            $paymentService->notifyPublishersOfPaidOrders($newlyPaid);
 
-            Log::info('Order payment completed', [
+            Log::info('Order payment completed via webhook', [
                 'reference_code' => $referenceCode,
-                'orders_updated' => $orders->count()
+                'orders_updated' => $newlyPaid->count(),
             ]);
-
         } catch (\Exception $e) {
             Log::error('Error processing order payment: ' . $e->getMessage());
         }
