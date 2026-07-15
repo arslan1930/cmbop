@@ -13,13 +13,29 @@ use Illuminate\Support\Facades\Storage;
 
 class SiteController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $users = User::withCount('sites')
-            ->latest()
-            ->paginate(20);
+        $query = User::withCount('sites')->with(['sites' => function ($q) {
+            $q->latest();
+        }]);
 
-        return view('admin.sites', compact('users'));
+        // Ops dashboard deep-link: only publishers who still have unverified sites
+        if ($request->query('verified') === '0' || $request->query('verified') === 0) {
+            $query->whereHas('sites', function ($q) {
+                $q->where(function ($inner) {
+                    $inner->where('verified', 0)->orWhereNull('verified');
+                });
+            })->withCount(['sites as unverified_sites_count' => function ($q) {
+                $q->where(function ($inner) {
+                    $inner->where('verified', 0)->orWhereNull('verified');
+                });
+            }]);
+        }
+
+        $users = $query->latest()->paginate(20)->appends($request->query());
+        $unverifiedFilter = $request->query('verified') === '0' || $request->query('verified') === 0;
+
+        return view('admin.sites', compact('users', 'unverifiedFilter'));
     }
 
     // Get all sites of a user (AJAX)

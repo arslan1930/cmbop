@@ -548,8 +548,18 @@ $('#resetFiltersBtn').on('click', function() {
     loadWithdrawals();
 });
 
-// Initialize
+// Initialize (support deep-links from ops dashboard, e.g. ?status=pending)
 $(document).ready(function() {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('status')) {
+        $('#statusFilter').val(params.get('status'));
+    }
+    if (params.get('payment_method')) {
+        $('#paymentMethodFilter').val(params.get('payment_method'));
+    }
+    if (params.get('search')) {
+        $('#searchInput').val(params.get('search'));
+    }
     loadWithdrawals();
 });
 </script>

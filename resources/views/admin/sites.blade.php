@@ -5,6 +5,16 @@
 
     <h4 class="mb-4 fw-bold">Sites Management</h4>
 
+    @if(!empty($unverifiedFilter))
+        <div class="alert alert-warning border-0 shadow-sm d-flex flex-wrap justify-content-between align-items-center gap-2">
+            <div>
+                <strong>Unverified sites queue</strong>
+                <span class="ms-1">Showing publishers who still have sites waiting for verification.</span>
+            </div>
+            <a href="{{ route('admin.sites.index') }}" class="btn btn-sm btn-outline-dark">Show all publishers</a>
+        </div>
+    @endif
+
     <!-- ================= USERS TABLE ================= -->
     <div id="usersSection">
 
@@ -14,7 +24,7 @@
 
         <div class="card shadow-sm border-0 mb-3">
             <div class="card-header bg-white fw-semibold">
-                Users
+                {{ !empty($unverifiedFilter) ? 'Publishers with unverified sites' : 'Users' }}
             </div>
 
             <div class="table-responsive">
@@ -37,8 +47,11 @@
                             <td class="fw-semibold">{{ $user->name }}</td>
                             <td>{{ $user->email }}</td>
                             <td>
-                                <span class="badge rounded-pill bg-danger">
-                                    {{ $user->sites->where('verified', 0)->count() }}
+                                <span class="badge rounded-pill bg-danger" title="Unverified sites">
+                                    {{ $user->unverified_sites_count ?? $user->sites->where('verified', 0)->count() }} unverified
+                                </span>
+                                <span class="badge rounded-pill bg-secondary ms-1" title="Total sites">
+                                    {{ $user->sites_count }} total
                                 </span>
                             </td>
                             <td>
