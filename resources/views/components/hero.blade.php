@@ -39,20 +39,20 @@
   <!-- ==================== CONTENT ==================== -->
   <div class="container" style="position:relative; z-index:5; text-align:center; max-width:1200px; margin:0 auto; padding:0 20px;">
 
-    <!-- Hero Title -->
-    <h1 style="margin:0 auto; font-size:3.25rem; line-height:1.15; font-weight:800; color:#1a1a2e; max-width:900px; letter-spacing:-1px;">
-      Earn Powerful Backlinks from Trusted Websites
-    </h1>
+  <!-- Hero Title -->
+<h1 style="margin:0 auto; font-size:3.25rem; line-height:1.15; font-weight:800; color:#1a1a2e; max-width:900px; letter-spacing:-1px;">
+  {{ __('messages.hero_title') }}
+</h1>
 
-    <!-- CTA Button -->
-    <a href="/register" class="hero-cta" style="display:inline-block; margin-top:1.5rem; padding:16px 48px; font-size:1rem; background:#4ECDCB; color:white; border-radius:50px; text-decoration:none; font-weight:700; box-shadow:0 8px 20px rgba(78,205,203,0.3); transition:all 0.3s ease;">
-      Sign up for free
-    </a>
+<!-- CTA Button -->
+<a href="{{ localized_url('register') }}" class="hero-cta" style="display:inline-block; margin-top:1.5rem; padding:16px 48px; font-size:1rem; background:#4ECDCB; color:white; border-radius:50px; text-decoration:none; font-weight:700; box-shadow:0 8px 20px rgba(78,205,203,0.3); transition:all 0.3s ease;">
+  {{ __('messages.get_started') }}
+</a>
 
-    <!-- Tagline -->
-    <p style="margin-top:1.25rem; font-size:0.9rem; color:#888; max-width:680px; margin-left:auto; margin-right:auto; line-height:1.6;">
-      to explore the global link building platform built for SEO, digital PR, and content distribution
-    </p>
+<!-- Tagline -->
+<p style="margin-top:1.25rem; font-size:0.9rem; color:#888; max-width:680px; margin-left:auto; margin-right:auto; line-height:1.6;">
+  {{ __('messages.hero_tagline') }}
+</p>
 
     <!-- ==================== DASHBOARD MOCKUP (SKELETON) ==================== -->
     <div style="margin-top:3rem; position:relative; z-index:3;">

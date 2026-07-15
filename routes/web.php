@@ -39,8 +39,68 @@ use App\Http\Controllers\BlogController;
 use App\Http\Controllers\Auth\SocialiteController;
 
 
+/*
+|--------------------------------------------------------------------------
+| Public Routes with Multi-language Support
+|--------------------------------------------------------------------------
+*/
+
+// Redirect if there are multiple locale segments (e.g., /nl/fr, /de/en, etc.)
+Route::get('/{locale}/{nested}', function ($locale, $nested) {
+    $availableLocales = ['de', 'fr', 'nl'];
+    
+    // If first segment is a locale and second segment is also a locale, redirect to the first one
+    if (in_array($locale, $availableLocales) && in_array($nested, $availableLocales)) {
+        // Get the remaining path segments
+        $segments = request()->segments();
+        // Remove the first two segments
+        $remainingSegments = array_slice($segments, 2);
+        // Build the new path
+        $newPath = $remainingSegments ? '/' . implode('/', $remainingSegments) : '';
+        
+        return Redirect::to('/' . $locale . $newPath);
+    }
+    
+    // Otherwise, try to match the route normally
+    return app()->make('router')->dispatch(request());
+})->where(['locale' => 'de|fr|nl', 'nested' => 'de|fr|nl']);
+
+// Routes with optional locale prefix
+Route::group(['prefix' => '{locale?}', 'where' => ['locale' => 'de|fr|nl']], function () {
+    
+    // Homepage
+    Route::get('/', function () {
+        return view('home');
+    })->name('home');
+
+    // Contact page
+    Route::get('/contact', function () {
+        return view('pages.contact');
+    })->name('contact');
+
+    // Privacy Policy
+    Route::get('/privacy-policy', function () {
+        return view('pages.privacy-policy');
+    })->name('privacy-policy');
+
+    // Terms of Service
+    Route::get('/terms-of-services', function () {
+        return view('pages.terms-of-services');
+    })->name('terms-of-services');
+
+    // Blog routes
+    Route::get('/blog', [BlogController::class, 'index'])->name('blog.index');
+    Route::get('/blog/{slug}', [BlogController::class, 'show'])->name('blog.show');
+
+    // Auth routes (GET only)
+    Route::middleware('guest')->group(function () {
+        Route::get('/login', [LoginController::class, 'show'])->name('login');
+        Route::get('/register', [RegisterController::class, 'show'])->name('register');
+    });
+});
 
 
+// Routes start 
 Route::get('/', function () {
     return view('home');
 });
@@ -87,8 +147,8 @@ Route::middleware('guest')->group(function () {
     Route::get('/login', [LoginController::class, 'show'])->name('login');
 
     // Google Social Login Routes
-Route::get('auth/google', [SocialiteController::class, 'redirectToGoogle'])->name('auth.google');
-Route::get('auth/google/callback', [SocialiteController::class, 'handleGoogleCallback'])->name('auth.google.callback');
+    Route::get('auth/google', [SocialiteController::class, 'redirectToGoogle'])->name('auth.google');
+    Route::get('auth/google/callback', [SocialiteController::class, 'handleGoogleCallback'])->name('auth.google.callback');
 });
 
 
@@ -288,12 +348,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::prefix('chat')->group(function () {
     Route::get('/messages/{orderId}', [App\Http\Controllers\ChatController::class, 'getMessages'])->name('chat.messages');
     Route::post('/send/{orderId}', [App\Http\Controllers\ChatController::class, 'sendMessage'])->name('chat.send');
-    Route::post('/upload-image', [App\Http\Controllers\ChatImageController::class, 'upload'])->name('chat.upload-image');
-
-
+    Route::post('/upload-image', [App\Http\Controllers\ChatImageController::class, 'upload'])->name('chat.upload-image');    
     
-});
-
+    });
 
 });
 
