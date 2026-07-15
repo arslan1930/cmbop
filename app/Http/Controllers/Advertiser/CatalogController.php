@@ -1703,10 +1703,31 @@ public function requestModification(Request $request, $id)
             }
             
             $orders = $query->orderBy('created_at', 'desc')->paginate(20);
+
+            $orderIds = collect($orders->items())->pluck('id');
+            $unreadByOrder = \App\Models\OrderChatMessage::whereIn('order_id', $orderIds)
+                ->where('sender_type', 'publisher')
+                ->where('is_read', false)
+                ->selectRaw('order_id, COUNT(*) as unread_count')
+                ->groupBy('order_id')
+                ->pluck('unread_count', 'order_id');
+
+            $ordersPayload = collect($orders->items())->map(function ($order) use ($unreadByOrder) {
+                $order->unread_chat = (int) ($unreadByOrder[$order->id] ?? 0);
+                return $order;
+            });
+
+            $needsAction = Order::where('user_id', $userId)
+                ->where('status', 'review')
+                ->whereHas('items', function ($q) {
+                    $q->whereNotNull('live_url')->where('live_url', '!=', '');
+                })
+                ->count();
             
             return response()->json([
                 'success' => true,
-                'orders' => $orders->items(),
+                'orders' => $ordersPayload,
+                'needs_action' => $needsAction,
                 'pagination' => [
                     'current_page' => $orders->currentPage(),
                     'last_page' => $orders->lastPage(),

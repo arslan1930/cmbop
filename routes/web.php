@@ -350,6 +350,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
         // Chat routes
     Route::prefix('chat')->group(function () {
+    Route::get('/unread-summary', [App\Http\Controllers\ChatController::class, 'unreadSummary'])->name('chat.unread-summary');
     Route::get('/messages/{orderId}', [App\Http\Controllers\ChatController::class, 'getMessages'])->name('chat.messages');
     Route::post('/send/{orderId}', [App\Http\Controllers\ChatController::class, 'sendMessage'])->name('chat.send');
     Route::post('/upload-image', [App\Http\Controllers\ChatImageController::class, 'upload'])->name('chat.upload-image');    

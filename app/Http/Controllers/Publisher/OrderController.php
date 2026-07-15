@@ -100,8 +100,15 @@ class OrderController extends Controller
             $perPage = $request->get('per_page', 20);
             $orderItems = $query->paginate($perPage);
             
-            // Transform data to include sensitive price info and auto-approve fields.
-            // Publishers see their payout (listing base + sensitive), not the advertiser total.
+            $orderIds = collect($orderItems->items())->pluck('order_id')->unique()->values();
+            $unreadByOrder = \App\Models\OrderChatMessage::whereIn('order_id', $orderIds)
+                ->where('sender_type', 'advertiser')
+                ->where('is_read', false)
+                ->selectRaw('order_id, COUNT(*) as unread_count')
+                ->groupBy('order_id')
+                ->pluck('unread_count', 'order_id');
+
+            // Transform data to include sensitive price info and auto-approve fields
             $transformedItems = [];
             foreach ($orderItems->items() as $item) {
                 $transformedItems[] = [
@@ -118,6 +125,8 @@ class OrderController extends Controller
                     'live_url_submitted_at' => $item->live_url_submitted_at ?? null,
                     'auto_approve_triggered' => (bool) ($item->auto_approve_triggered ?? false),
                     'modification_requested' => $item->modification_requested ?? 'no',
+                    'completion_notes' => $item->completion_notes ?? null,
+                    'unread_chat' => (int) ($unreadByOrder[$item->order_id] ?? 0),
                     'created_at' => $item->created_at,
                     'order' => [
                         'id' => $item->order->id,
@@ -200,6 +209,7 @@ class OrderController extends Controller
                 'live_url_submitted_at' => $orderItem->live_url_submitted_at ?? null,
                 'auto_approve_triggered' => (bool) ($orderItem->auto_approve_triggered ?? false),
                 'modification_requested' => $orderItem->modification_requested ?? 'no',
+                'completion_notes' => $orderItem->completion_notes ?? null,
                 'created_at' => $orderItem->created_at,
                 'order' => [
                     'id' => $orderItem->order->id,

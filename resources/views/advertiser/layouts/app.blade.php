@@ -441,7 +441,11 @@
 
         <!-- Orders -->
         <a href="{{ route('advertiser.orders') }}" class="{{ request()->routeIs('advertiser.orders') ? 'active' : '' }}">
-            <i class="fa fa-shopping-cart"></i> <span>Orders</span>
+            <i class="fa fa-shopping-cart"></i>
+            <span class="d-flex align-items-center w-100">
+                <span>Orders</span>
+                <span id="navNeedsActionBadge" class="badge bg-warning text-dark rounded-pill ms-auto" style="display:none;">0</span>
+            </span>
         </a>
 
         <!-- Add Funds -->
@@ -489,12 +493,13 @@
 
     <div class="d-flex align-items-center gap-2">
 
-        <!-- Notifications Icon -->
-        <!-- <div class="position-relative">
-            <button id="toggleNotifications" class="btn btn-outline-secondary btn-sm" title="Notifications">
-                <i class="fa fa-message"></i>
-            </button>
-        </div> -->
+        <!-- Chat / action alerts -->
+        <div class="position-relative">
+            <a href="{{ route('advertiser.orders') }}" id="toggleNotifications" class="btn btn-outline-secondary btn-sm" title="Unread chat & orders needing review">
+                <i class="fa fa-comments"></i>
+                <span id="headerChatBadge" class="cart-badge" style="display: none;">0</span>
+            </a>
+        </div>
         
         <!-- Cart Icon with Badge -->
         <div class="position-relative">
@@ -674,6 +679,39 @@
     tooltipTriggerList.map(function (el) {
         return new bootstrap.Tooltip(el)
     });
+
+    function refreshHeaderAlerts() {
+        fetch('{{ route("chat.unread-summary") }}', {
+            headers: { 'Accept': 'application/json' },
+            credentials: 'same-origin'
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (!data.success) return;
+            const chatBadge = document.getElementById('headerChatBadge');
+            const navBadge = document.getElementById('navNeedsActionBadge');
+            const totalAlert = (data.unread_chat || 0) + (data.needs_action || 0);
+            if (chatBadge) {
+                if (totalAlert > 0) {
+                    chatBadge.style.display = 'flex';
+                    chatBadge.innerText = totalAlert > 99 ? '99+' : totalAlert;
+                } else {
+                    chatBadge.style.display = 'none';
+                }
+            }
+            if (navBadge) {
+                if (data.needs_action > 0) {
+                    navBadge.style.display = 'inline-block';
+                    navBadge.innerText = data.needs_action > 99 ? '99+' : data.needs_action;
+                } else {
+                    navBadge.style.display = 'none';
+                }
+            }
+        })
+        .catch(() => {});
+    }
+    refreshHeaderAlerts();
+    setInterval(refreshHeaderAlerts, 45000);
 
     // Cart Functionality with Sensitive Price Support
     let cart = [];

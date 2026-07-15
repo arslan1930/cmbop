@@ -8,8 +8,18 @@
         <div class="col-md-12">
             <h2 class="mb-1 fw-semibold">My Orders</h2>
             <p class="text-muted mb-0">
-                View and manage all your orders.
+                Track each order from payment to live publication.
             </p>
+        </div>
+    </div>
+
+    <div id="needsActionBanner" class="alert alert-warning border-0 shadow-sm d-none mb-4" role="status">
+        <div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
+            <div>
+                <strong><i class="fa fa-exclamation-circle me-1"></i> Needs your review</strong>
+                <span class="ms-1" id="needsActionText"></span>
+            </div>
+            <button type="button" class="btn btn-sm btn-dark" id="showNeedsReviewBtn">Show orders to review</button>
         </div>
     </div>
 
@@ -34,9 +44,9 @@
                         <label class="form-label fw-semibold small text-muted mb-1">Order Status</label>
                         <select name="status" id="statusFilter" class="form-select form-select-sm">
                             <option value="">All Status</option>
-                            <option value="pending" {{ request('status') == 'pending' ? 'selected' : '' }}>Pending</option>
-                            <option value="processing" {{ request('status') == 'processing' ? 'selected' : '' }}>Processing</option>
-                            <option value="review" {{ request('status') == 'review' ? 'selected' : '' }}>Under Review</option>
+                            <option value="pending" {{ request('status') == 'pending' ? 'selected' : '' }}>Waiting for payment</option>
+                            <option value="processing" {{ request('status') == 'processing' ? 'selected' : '' }}>Publisher working</option>
+                            <option value="review" {{ request('status') == 'review' ? 'selected' : '' }}>Needs your review</option>
                             <option value="completed" {{ request('status') == 'completed' ? 'selected' : '' }}>Completed</option>
                             <option value="cancelled" {{ request('status') == 'cancelled' ? 'selected' : '' }}>Cancelled</option>
                         </select>
@@ -317,6 +327,28 @@
     white-space: nowrap;
 }
 
+.chat-unread-dot {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 16px;
+    height: 16px;
+    padding: 0 4px;
+    margin-left: 4px;
+    border-radius: 999px;
+    background: #dc3545;
+    color: #fff;
+    font-size: 10px;
+    font-weight: 700;
+}
+
+.next-step-hint {
+    font-size: 11px;
+    color: #6b7280;
+    margin-top: 4px;
+    max-width: 180px;
+}
+
 .link-cell {
     max-width: 150px;
     overflow: hidden;
@@ -426,6 +458,12 @@ document.addEventListener('DOMContentLoaded', function() {
         url.search = '';
         window.history.pushState({}, '', url);
         
+        fetchOrders();
+    });
+
+    document.getElementById('showNeedsReviewBtn')?.addEventListener('click', function() {
+        document.getElementById('statusFilter').value = 'review';
+        currentPage = 1;
         fetchOrders();
     });
     
@@ -626,6 +664,7 @@ document.addEventListener('DOMContentLoaded', function() {
         .then(data => {
             if (data.success) {
                 renderOrders(data.orders, data.pagination);
+                updateNeedsActionBanner(data.needs_action || 0);
             } else {
                 document.getElementById('ordersTableBody').innerHTML = `
                     <tr>
@@ -636,6 +675,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 `;
                 document.getElementById('resultsCount').innerHTML = '';
                 document.getElementById('paginationNav').innerHTML = '';
+                updateNeedsActionBanner(0);
             }
         })
         .catch(error => {
@@ -650,10 +690,71 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
+    function updateNeedsActionBanner(count) {
+        const banner = document.getElementById('needsActionBanner');
+        const text = document.getElementById('needsActionText');
+        if (!banner || !text) return;
+        if (count > 0) {
+            text.textContent = `${count} order${count === 1 ? '' : 's'} have a live URL ready — approve or request changes.`;
+            banner.classList.remove('d-none');
+        } else {
+            banner.classList.add('d-none');
+        }
+    }
+
+    function getAdvertiserStatusMeta(order) {
+        const item = order.items && order.items[0] ? order.items[0] : null;
+        const hasLiveUrl = !!(item && item.live_url);
+        const status = order.status;
+        if (status === 'pending') {
+            return { label: 'Waiting for payment', next: 'Complete payment so the publisher can start', cls: 'status-pending' };
+        }
+        if (status === 'processing') {
+            return { label: 'Publisher working', next: 'They will publish your content and send a live URL', cls: 'status-processing' };
+        }
+        if (status === 'review') {
+            return { label: 'Needs your review', next: hasLiveUrl ? 'Check the live URL, then approve or request changes' : 'Waiting for live URL', cls: 'status-review' };
+        }
+        if (status === 'completed') {
+            return { label: 'Completed', next: 'All done — publisher has been paid', cls: 'status-completed' };
+        }
+        if (status === 'cancelled') {
+            return { label: 'Cancelled', next: 'No further action needed', cls: 'status-cancelled' };
+        }
+        return { label: capitalize(status), next: '', cls: getStatusClass(status) };
+    }
+
+    function buildAdvertiserTimeline(order) {
+        const item = order.items && order.items[0] ? order.items[0] : {};
+        const hasLiveUrl = !!(item.live_url);
+        const status = order.status;
+        if (status === 'cancelled') {
+            return `<div class="alert alert-secondary mt-3 mb-0 py-2 small">This order was cancelled.</div>`;
+        }
+        const steps = [
+            { label: 'Paid', done: ['processing', 'review', 'completed'].includes(status) || order.payment_status === 'paid' },
+            { label: 'Publisher working', done: ['review', 'completed'].includes(status) || (status === 'processing' && hasLiveUrl) },
+            { label: 'Your review', done: status === 'completed', current: status === 'review' },
+            { label: 'Completed', done: status === 'completed' }
+        ];
+        if (status === 'processing' && !hasLiveUrl) {
+            steps[1].current = true;
+        }
+        if (status === 'pending') {
+            steps[0].current = true;
+            steps[0].done = false;
+        }
+        return `<div class="d-flex flex-wrap gap-2 mt-3 mb-3">${steps.map((step, i) => {
+            const cls = step.done ? 'bg-success text-white' : (step.current ? 'bg-info text-white' : 'bg-light text-muted');
+            const arrow = i < steps.length - 1 ? '<span class="text-muted align-self-center">→</span>' : '';
+            return `<span class="badge ${cls} px-3 py-2">${i + 1}. ${step.label}</span>${arrow}`;
+        }).join('')}</div>`;
+    }
+
     function renderOrders(orders, pagination) {
         if (!orders || orders.length === 0) {
             document.getElementById('ordersTableBody').innerHTML = `
-                <td>
+                <tr>
                     <td colspan="11" class="text-center py-5">
                         <div class="text-muted">No orders found</div>
                         <a href="{{ route('advertiser.catalog') }}" class="btn btn-primary btn-sm mt-3">
@@ -669,7 +770,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
         let html = '';
         orders.forEach(order => {
-            const statusClass = getStatusClass(order.status);
+            const statusMeta = getAdvertiserStatusMeta(order);
             const siteName = order.items && order.items[0] ? order.items[0].site_name : 'N/A';
             const siteUrl = order.items && order.items[0] ? order.items[0].site_url : '#';
             const contentLink = order.items && order.items[0] ? order.items[0].content_link : '#';
@@ -678,10 +779,6 @@ document.addEventListener('DOMContentLoaded', function() {
             const basePrice = order.items && order.items[0] ? (parseFloat(order.total_amount) - additionalPrice) : parseFloat(order.total_amount);
             const sensitiveType = order.items && order.items[0] ? order.items[0].sensitive_type : null;
             
-            // Truncate long URLs
-            const shortContentLink = contentLink.length > 40 ? contentLink.substring(0, 40) + '...' : contentLink;
-            const shortLiveUrl = liveUrl && liveUrl.length > 40 ? liveUrl.substring(0, 40) + '...' : liveUrl;
-            
             // Payment info combined
             const paymentMethodName = getPaymentMethodName(order.payment_method);
             const paymentStatusClass = getPaymentStatusClass(order.payment_status);
@@ -689,6 +786,9 @@ document.addEventListener('DOMContentLoaded', function() {
             // Check if order is in review status and has live URL (can approve or modify)
             const hasLiveUrl = liveUrl && liveUrl !== '';
             const isUnderReview = order.status === 'review';
+            const unreadBadge = order.unread_chat > 0
+                ? `<span class="chat-unread-dot">${order.unread_chat}</span>`
+                : '';
             
             html += `
                 <tr>
@@ -707,7 +807,10 @@ document.addEventListener('DOMContentLoaded', function() {
                         <span class="status-badge ${paymentStatusClass}">${capitalize(order.payment_status)}</span>
                     </td>
                     <td>${order.reference_code || '-'}</td>
-                    <td><span class="status-badge ${statusClass}">${capitalize(order.status)}</span></td>
+                    <td>
+                        <span class="status-badge ${statusMeta.cls}">${statusMeta.label}</span>
+                        <div class="next-step-hint">${statusMeta.next}</div>
+                    </td>
                     <td class="link-cell">
                         <a href="${contentLink}" 
                            target="_blank" 
@@ -740,7 +843,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                 class="btn btn-sm btn-outline-success action-btn d-flex align-items-center"
                                 onclick="openChat(${order.id}, '${order.order_number}')">
                                 <i class="fa fa-comments me-1"></i>
-                                <span>Chat</span>
+                                <span>Chat</span>${unreadBadge}
                             </button>
 
                             ${isUnderReview && hasLiveUrl ? 
@@ -832,6 +935,8 @@ document.addEventListener('DOMContentLoaded', function() {
         const basePrice = parseFloat(item.price) - additionalPrice;
         const isUnderReview = order.status === 'review';
         const hasLiveUrl = liveUrl && liveUrl !== '';
+        const statusMeta = getAdvertiserStatusMeta(order);
+        const timelineHtml = buildAdvertiserTimeline(order);
         
         const liveUrlHtml = liveUrl 
             ? `<p class="mb-1"><strong>Live URL:</strong></p>
@@ -871,14 +976,16 @@ document.addEventListener('DOMContentLoaded', function() {
                 </div>
                 <div class="col-md-6">
                     <div class="bg-light p-3 rounded">
-                        <h6 class="mb-3">Order Status</h6>
-                        <p class="mb-1"><strong>Status:</strong> <span class="status-badge ${getStatusClass(order.status)}">${capitalize(order.status)}</span></p>
+                        <h6 class="mb-3">What's happening</h6>
+                        <p class="mb-1"><strong>Status:</strong> <span class="status-badge ${statusMeta.cls}">${statusMeta.label}</span></p>
+                        <p class="mb-2 text-muted small">${statusMeta.next}</p>
                         <p class="mb-1"><strong>Price:</strong> <span class="fw-bold">€${basePrice.toFixed(2)}</span></p>
                         ${additionalPrice > 0 ? `<p class="mb-1"><strong>Sensitive Price:</strong> <span class="text-warning">+ €${additionalPrice.toFixed(2)}</span></p>` : ''}
                         <p class="mb-1"><strong>Total Amount:</strong> <span class="fw-bold text-primary fs-5">€${parseFloat(order.total_amount).toFixed(2)}</span></p>
                     </div>
                 </div>
             </div>
+            ${timelineHtml}
             
             <h6 class="mb-3">Order Items</h6>
             <div class="border rounded p-3">

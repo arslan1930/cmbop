@@ -260,7 +260,11 @@
         </a>
 
         <a href="{{ route('publisher.tasks') }}" class="{{ request()->routeIs('publisher.tasks') ? 'active' : '' }}">
-            <i class="fa fa-tasks"></i> <span>Tasks</span>
+            <i class="fa fa-tasks"></i>
+            <span class="d-flex align-items-center w-100">
+                <span>Tasks</span>
+                <span id="navNeedsActionBadge" class="badge bg-warning text-dark rounded-pill ms-auto" style="display:none;">0</span>
+            </span>
         </a>
 
         <!-- withdraw -->
@@ -309,14 +313,12 @@
 
     <div class="d-flex align-items-center gap-2 ">
 
-            <!-- Notifications Icon -->
-        <!-- <div class="position-relative">
-            <button id="toggleNotifications" class="btn btn-outline-secondary btn-sm" title="Notifications">
-                <i class="fa fa-bell"></i>
-            </button>
-        </div> -->
-
-        
+        <div class="position-relative">
+            <a href="{{ route('publisher.tasks') }}" id="toggleNotifications" class="btn btn-outline-secondary btn-sm" title="Unread chat & tasks needing action">
+                <i class="fa fa-comments"></i>
+                <span id="headerChatBadge" class="badge bg-danger rounded-pill position-absolute top-0 start-100 translate-middle" style="display:none; font-size:10px;">0</span>
+            </a>
+        </div>
 
         <button id="toggleDarkMode" class="btn btn-outline-secondary btn-sm" title="Toggle Dark Mode">
             <i class="fa fa-moon"></i>
@@ -469,7 +471,40 @@
     var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
     tooltipTriggerList.map(function (el) {
         return new bootstrap.Tooltip(el)
-    });  
+    });
+
+    function refreshHeaderAlerts() {
+        fetch('{{ route("chat.unread-summary") }}', {
+            headers: { 'Accept': 'application/json' },
+            credentials: 'same-origin'
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (!data.success) return;
+            const chatBadge = document.getElementById('headerChatBadge');
+            const navBadge = document.getElementById('navNeedsActionBadge');
+            const totalAlert = (data.unread_chat || 0) + (data.needs_action || 0);
+            if (chatBadge) {
+                if (totalAlert > 0) {
+                    chatBadge.style.display = 'inline-block';
+                    chatBadge.innerText = totalAlert > 99 ? '99+' : totalAlert;
+                } else {
+                    chatBadge.style.display = 'none';
+                }
+            }
+            if (navBadge) {
+                if (data.needs_action > 0) {
+                    navBadge.style.display = 'inline-block';
+                    navBadge.innerText = data.needs_action > 99 ? '99+' : data.needs_action;
+                } else {
+                    navBadge.style.display = 'none';
+                }
+            }
+        })
+        .catch(() => {});
+    }
+    refreshHeaderAlerts();
+    setInterval(refreshHeaderAlerts, 45000);
 </script>
 
 </body>

@@ -15,6 +15,16 @@
         </div>
     </div>
 
+    <div id="needsActionBanner" class="alert alert-warning border-0 shadow-sm d-none mb-4" role="status">
+        <div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
+            <div>
+                <strong><i class="fa fa-exclamation-circle me-1"></i> Needs your action</strong>
+                <span class="ms-1" id="needsActionText"></span>
+            </div>
+            <button type="button" class="btn btn-sm btn-dark" id="showNeedsActionBtn">Show tasks that need me</button>
+        </div>
+    </div>
+
     <!-- Statistics Cards -->
     <div class="row mb-4">
         <div class="col-md-4 mb-3">
@@ -74,8 +84,9 @@
                         <label class="form-label fw-semibold small text-muted mb-1">Order Status</label>
                         <select id="statusFilter" class="form-select form-select-sm">
                             <option value="">All Status</option>
-                            <option value="pending">Pending</option>
-                            <option value="processing">In Progress</option>
+                            <option value="pending">New — needs accept</option>
+                            <option value="processing">In progress — publish content</option>
+                            <option value="review">Waiting for advertiser</option>
                             <option value="completed">Completed</option>
                             <option value="cancelled">Rejected</option>
                         </select>
@@ -326,6 +337,11 @@
     color: #282828;
 }
 
+.status-review {
+    background-color: #e0f2fe;
+    color: #0369a1;
+}
+
 .status-completed {
     background-color: #dcfce7;
     color: #282828;
@@ -334,6 +350,28 @@
 .status-cancelled {
     background-color: #fee2e2;
     color: #282828;
+}
+
+.chat-unread-dot {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 16px;
+    height: 16px;
+    padding: 0 4px;
+    margin-left: 4px;
+    border-radius: 999px;
+    background: #dc3545;
+    color: #fff;
+    font-size: 10px;
+    font-weight: 700;
+}
+
+.next-step-hint {
+    font-size: 11px;
+    color: #6b7280;
+    margin-top: 4px;
+    max-width: 160px;
 }
 
 .sensitive-badge {
@@ -389,6 +427,11 @@ body.layout-dark .status-processing {
     color: #60a5fa;
 }
 
+body.layout-dark .status-review {
+    background-color: #0c4a6e;
+    color: #7dd3fc;
+}
+
 body.layout-dark .status-completed {
     background-color: #1e5a2e;
     color: #4ade80;
@@ -437,6 +480,13 @@ const baseUrl = window.location.origin;
 $(document).ready(function() {
     loadTasks();
     loadStatistics();
+    refreshNeedsActionBanner();
+
+    $('#showNeedsActionBtn').on('click', function() {
+        $('#statusFilter').val('');
+        loadTasks(1);
+        $('html, body').animate({ scrollTop: $('#tasksTableBody').offset().top - 120 }, 'fast');
+    });
     
     // Auto-refresh every 30 seconds
     refreshInterval = setInterval(function() {
@@ -787,6 +837,7 @@ $(document).ready(function() {
                 if (response.success) {
                     renderTasksTable(response.data);
                     if (response.pagination) renderPagination(response.pagination);
+                    refreshNeedsActionBanner();
                 } else if (!silent) {
                     $('#tasksTableBody').html('<tr><td colspan="9" class="text-center text-danger py-5">' + (response.message || 'Failed to load tasks') + '</td></table>');
                 }
@@ -816,54 +867,42 @@ $(document).ready(function() {
             var totalPrice = parseFloat(item.price);
             var sensitiveType = item.sensitive_type || null;
             
-            var statusClass = '';
-            var statusText = '';
-            switch(orderStatus) {
-                case 'pending': statusClass = 'status-pending'; statusText = 'Pending'; break;
-                case 'processing': statusClass = 'status-processing'; statusText = 'In Progress'; break;
-                case 'completed': statusClass = 'status-completed'; statusText = 'Completed'; break;
-                case 'cancelled': statusClass = 'status-cancelled'; statusText = 'Rejected'; break;
-                default: statusClass = 'status-pending'; statusText = orderStatus;
-            }
-            
+            var hasLiveUrl = !!(item.live_url && item.live_url !== '');
+            var modificationRequested = item.modification_requested === 'yes';
+            var awaitingAdvertiser = orderStatus === 'review' || (orderStatus === 'processing' && hasLiveUrl && !modificationRequested);
+            var statusMeta = getPublisherStatusMeta(orderStatus, hasLiveUrl, modificationRequested, item.live_url_submitted_at);
+            var unreadBadge = item.unread_chat > 0
+                ? '<span class="chat-unread-dot">' + item.unread_chat + '</span>'
+                : '';
+            var chatBtn = '<button class="btn btn-primary btn-action-sm" onclick="openChat(' + item.order_id + ', \'' + orderNumber + '\')"><i class="fa fa-comments"></i> Chat' + unreadBadge + '</button>';
+            var viewBtn = '<button class="btn btn-info btn-action-sm view-details" data-id="' + item.id + '"><i class="fa fa-eye"></i> View</button>';
+            var liveBtn = hasLiveUrl
+                ? '<a href="' + escapeHtml(item.live_url) + '" target="_blank" class="btn btn-secondary btn-action-sm"><i class="fa fa-external-link"></i> Live</a>'
+                : '';
+
             var actions = '';
             if (orderStatus === 'pending') {
                 actions = '<div class="action-buttons">' +
                     '<button class="btn btn-success btn-action-sm accept-task" data-id="' + item.id + '"><i class="fa fa-check"></i> Accept</button>' +
                     '<button class="btn btn-danger btn-action-sm reject-task" data-id="' + item.id + '"><i class="fa fa-times"></i> Reject</button>' +
-                    '<button class="btn btn-info btn-action-sm view-details" data-id="' + item.id + '"><i class="fa fa-eye"></i> View</button>' +
-                    '<button class="btn btn-primary btn-action-sm" onclick="openChat(' + item.order_id + ', \'' + orderNumber + '\')"><i class="fa fa-comments"></i> Chat</button>' +
+                    viewBtn + chatBtn +
+                    '</div>';
+            } else if (modificationRequested && (orderStatus === 'processing' || orderStatus === 'review')) {
+                actions = '<div class="action-buttons">' +
+                    '<button class="btn btn-warning btn-action-sm resubmit-live-url" data-id="' + item.id + '"><i class="fa fa-edit"></i> Resubmit URL</button>' +
+                    viewBtn + chatBtn + liveBtn +
+                    '</div>';
+            } else if (awaitingAdvertiser) {
+                actions = '<div class="action-buttons">' +
+                    viewBtn + chatBtn + liveBtn +
                     '</div>';
             } else if (orderStatus === 'processing') {
-                // Check if modification was requested
-                if (item.modification_requested === 'yes') {
-                    actions = '<div class="action-buttons">' +
-                        '<button class="btn btn-warning btn-action-sm resubmit-live-url" data-id="' + item.id + '"><i class="fa fa-edit"></i> Resubmit</button>' +
-                        '<button class="btn btn-info btn-action-sm view-details" data-id="' + item.id + '"><i class="fa fa-eye"></i> View</button>' +
-                        '<button class="btn btn-primary btn-action-sm" onclick="openChat(' + item.order_id + ', \'' + orderNumber + '\')"><i class="fa fa-comments"></i> Chat</button>' +
-                        '</div>';
-                } else {
-                    actions = '<div class="action-buttons">' +
-                        '<button class="btn btn-primary btn-action-sm submit-live-url" data-id="' + item.id + '"><i class="fa fa-link"></i> Submit Live URL</button>' +
-                        '<button class="btn btn-info btn-action-sm view-details" data-id="' + item.id + '"><i class="fa fa-eye"></i> View</button>' +
-                        '<button class="btn btn-primary btn-action-sm" onclick="openChat(' + item.order_id + ', \'' + orderNumber + '\')"><i class="fa fa-comments"></i> Chat</button>' +
-                        '</div>';
-                }
-            } else if (orderStatus === 'completed') {
-                var liveUrlBtn = '';
-                if (item.live_url && item.live_url !== '') {
-                    liveUrlBtn = '<a href="' + item.live_url + '" target="_blank" class="btn btn-secondary btn-action-sm"><i class="fa fa-external-link"></i> Live</a>';
-                }
                 actions = '<div class="action-buttons">' +
-                    '<button class="btn btn-info btn-action-sm view-details" data-id="' + item.id + '"><i class="fa fa-eye"></i> View</button>' +
-                    '<button class="btn btn-primary btn-action-sm" onclick="openChat(' + item.order_id + ', \'' + orderNumber + '\')"><i class="fa fa-comments"></i> Chat</button>' +
-                    liveUrlBtn +
+                    '<button class="btn btn-primary btn-action-sm submit-live-url" data-id="' + item.id + '"><i class="fa fa-link"></i> Submit Live URL</button>' +
+                    viewBtn + chatBtn +
                     '</div>';
-            } else if (orderStatus === 'cancelled') {
-                actions = '<div class="action-buttons">' +
-                    '<button class="btn btn-info btn-action-sm view-details" data-id="' + item.id + '"><i class="fa fa-eye"></i> View</button>' +
-                    '<button class="btn btn-primary btn-action-sm" onclick="openChat(' + item.order_id + ', \'' + orderNumber + '\')"><i class="fa fa-comments"></i> Chat</button>' +
-                    '</div>';
+            } else {
+                actions = '<div class="action-buttons">' + viewBtn + chatBtn + liveBtn + '</div>';
             }
             
             html += '<tr>' +
@@ -872,7 +911,7 @@ $(document).ready(function() {
                 '<td class="text-primary">€' + basePrice.toFixed(2) + '</td>' +
                 '<td>' + (additionalPrice > 0 ? '<span class="sensitive-badge"><i class="fa fa-plus-circle"></i> ' + escapeHtml(sensitiveType || 'Extra') + ' (+€' + additionalPrice.toFixed(2) + ')</span>' : '<span class="text-muted">—</span>') + '</td>' +
                 '<td class="fw-semibold total-price" style="color: #10b981;">€' + totalPrice.toFixed(2) + '</td>' +
-                '<td><span class="status-badge ' + statusClass + '">' + statusText + '</span></td>' +
+                '<td><span class="status-badge ' + statusMeta.statusClass + '">' + statusMeta.statusText + '</span><div class="next-step-hint">' + statusMeta.nextStep + '</div></td>' +
                 '<td class="link-cell">' + (item.content_link ? '<a href="' + item.content_link + '" target="_blank" class="btn btn-sm btn-outline-primary"><i class="fa fa-external-link me-1"></i> View</a>' : '<span class="text-muted">Not submitted</span>') + '</td>' +
                 '<td>' + actions + '</td>' +
                 '</tr>';
@@ -923,30 +962,19 @@ $(document).ready(function() {
             ? '<span class="badge bg-success">Paid</span>' 
             : '<span class="badge bg-warning text-dark">Pending</span>';
         
-        var statusClass = '';
-        var statusText = '';
-        switch(orderStatus) {
-            case 'pending': statusClass = 'status-pending'; statusText = 'Pending'; break;
-            case 'processing': statusClass = 'status-processing'; statusText = 'In Progress'; break;
-            case 'completed': statusClass = 'status-completed'; statusText = 'Completed'; break;
-            case 'cancelled': statusClass = 'status-cancelled'; statusText = 'Rejected'; break;
-            default: statusClass = 'status-pending'; statusText = orderStatus;
-        }
+        var hasLiveUrl = !!(item.live_url && item.live_url !== '');
+        var modificationRequested = item.modification_requested === 'yes';
+        var statusMeta = getPublisherStatusMeta(orderStatus, hasLiveUrl, modificationRequested, item.live_url_submitted_at);
+        var statusClass = statusMeta.statusClass;
+        var statusText = statusMeta.statusText;
         
         var autoApproveInfo = '';
-        if (item.live_url_submitted_at) {
-            if (item.modification_requested === 'yes') {
-                autoApproveInfo = '<div class="alert alert-warning mt-3"><i class="fa fa-exclamation-triangle"></i> <strong>Auto-approve paused:</strong> The advertiser has requested modifications. Please update your content and resubmit.</div>';
-            } else if (!item.auto_approve_triggered) {
-                const submittedAt = new Date(item.live_url_submitted_at);
-                const now = new Date();
-                const hoursPassed = (now - submittedAt) / (1000 * 60 * 60);
-                const hoursRemaining = 48 - hoursPassed;
-                if (hoursRemaining > 0) {
-                    autoApproveInfo = '<div class="alert alert-info mt-3"><i class="fa fa-info-circle"></i> <strong>Auto-approve active:</strong> The order will be automatically approved in ' + Math.ceil(hoursRemaining) + ' hours if the advertiser takes no action.</div>';
-                } else {
-                    autoApproveInfo = '<div class="alert alert-success mt-3"><i class="fa fa-check-circle"></i> <strong>Ready for approval:</strong> The order is ready to be approved. The advertiser has 48 hours to review.</div>';
-                }
+        if (item.live_url_submitted_at && !modificationRequested && !item.auto_approve_triggered) {
+            const hoursRemaining = getAutoApproveHoursRemaining(item.live_url_submitted_at);
+            if (hoursRemaining > 0) {
+                autoApproveInfo = '<div class="alert alert-info mt-3"><i class="fa fa-info-circle"></i> <strong>Waiting for advertiser:</strong> They can approve or request changes. Auto-approve in about ' + Math.ceil(hoursRemaining) + ' hours if they take no action.</div>';
+            } else {
+                autoApproveInfo = '<div class="alert alert-success mt-3"><i class="fa fa-check-circle"></i> <strong>Ready for approval:</strong> The advertiser review window has ended — this should auto-approve soon.</div>';
             }
         }
         
@@ -954,9 +982,12 @@ $(document).ready(function() {
             ? '<p class="mb-1"><strong>Live URL:</strong></p><p class="mb-2"><a href="' + escapeHtml(item.live_url) + '" target="_blank" class="text-success">' + escapeHtml(item.live_url) + ' <i class="fa fa-external-link fa-xs"></i></a></p>'
             : '<p class="mb-2 text-muted">Live URL not submitted yet</p>';
         
-        if (item.modification_requested === 'yes') {
-            liveUrlHtml = '<div class="alert alert-warning"><i class="fa fa-exclamation-triangle"></i> Modification requested. Please update your content and resubmit.</div>' + liveUrlHtml;
+        if (modificationRequested) {
+            var reason = item.completion_notes ? '<div class="small mt-1">Reason: ' + escapeHtml(item.completion_notes) + '</div>' : '';
+            liveUrlHtml = '<div class="alert alert-warning"><i class="fa fa-exclamation-triangle"></i> The advertiser asked for changes. Update the article and resubmit the live URL.' + reason + '</div>' + liveUrlHtml;
         }
+
+        var timelineHtml = buildPublisherTimeline(orderStatus, hasLiveUrl, modificationRequested);
         
         var createdAt = item.created_at ? new Date(item.created_at).toLocaleDateString() : 'N/A';
         
@@ -974,12 +1005,14 @@ $(document).ready(function() {
                 '<div class="bg-light p-3 rounded">' +
                     '<h6 class="mb-3">Order Status</h6>' +
                     '<p class="mb-1"><strong>Status:</strong> <span class="status-badge ' + statusClass + '">' + statusText + '</span></p>' +
+                    '<p class="mb-1 text-muted small">' + statusMeta.nextStep + '</p>' +
                     '<p class="mb-1"><strong>Base Price:</strong> €' + basePrice.toFixed(2) + '</p>' +
                     (additionalPrice > 0 ? '<p class="mb-1"><strong>Sensitive Price:</strong> <span class="text-warning">+ €' + additionalPrice.toFixed(2) + ' (' + escapeHtml(sensitiveType) + ')</span></p>' : '') +
                     '<p class="mb-1"><strong>Total Amount:</strong> <span class="fw-bold text-primary fs-5">€' + totalPrice.toFixed(2) + '</span></p>' +
                 '</div>' +
             '</div>' +
         '</div>' +
+        timelineHtml +
         autoApproveInfo +
         '<h6 class="mb-3">Order Items</h6>' +
         '<div class="border rounded p-3">' +
@@ -1043,6 +1076,78 @@ $(document).ready(function() {
         });
     }
     
+    function getAutoApproveHoursRemaining(submittedAt) {
+        if (!submittedAt) return null;
+        const hoursPassed = (new Date() - new Date(submittedAt)) / (1000 * 60 * 60);
+        return 48 - hoursPassed;
+    }
+
+    function getPublisherStatusMeta(orderStatus, hasLiveUrl, modificationRequested, liveUrlSubmittedAt) {
+        if (orderStatus === 'pending') {
+            return { statusClass: 'status-pending', statusText: 'New order', nextStep: 'Accept or reject this order' };
+        }
+        if (modificationRequested) {
+            return { statusClass: 'status-pending', statusText: 'Changes requested', nextStep: 'Update the article and resubmit the live URL' };
+        }
+        if (orderStatus === 'review' || (orderStatus === 'processing' && hasLiveUrl)) {
+            const hoursRemaining = getAutoApproveHoursRemaining(liveUrlSubmittedAt);
+            const countdown = hoursRemaining !== null && hoursRemaining > 0
+                ? 'Auto-approve in ~' + Math.ceil(hoursRemaining) + 'h if they take no action'
+                : 'Advertiser can approve anytime';
+            return { statusClass: 'status-review', statusText: 'Waiting for advertiser', nextStep: countdown };
+        }
+        if (orderStatus === 'processing') {
+            return { statusClass: 'status-processing', statusText: 'In progress', nextStep: 'Publish the content, then submit the live URL' };
+        }
+        if (orderStatus === 'completed') {
+            return { statusClass: 'status-completed', statusText: 'Completed', nextStep: 'Payment released to your wallet' };
+        }
+        if (orderStatus === 'cancelled') {
+            return { statusClass: 'status-cancelled', statusText: 'Rejected', nextStep: 'No further action needed' };
+        }
+        return { statusClass: 'status-pending', statusText: orderStatus, nextStep: '' };
+    }
+
+    function buildPublisherTimeline(orderStatus, hasLiveUrl, modificationRequested) {
+        const steps = [
+            { key: 'pending', label: 'Accepted' },
+            { key: 'processing', label: 'Publishing' },
+            { key: 'review', label: 'Advertiser review' },
+            { key: 'completed', label: 'Done' }
+        ];
+        let activeIndex = 0;
+        if (orderStatus === 'cancelled') {
+            return '<div class="alert alert-secondary mt-3 mb-3 py-2 small">This order was rejected.</div>';
+        }
+        if (orderStatus === 'pending') activeIndex = 0;
+        else if (orderStatus === 'processing' && !hasLiveUrl) activeIndex = 1;
+        else if (orderStatus === 'review' || (orderStatus === 'processing' && hasLiveUrl) || modificationRequested) activeIndex = 2;
+        else if (orderStatus === 'completed') activeIndex = 3;
+
+        let html = '<div class="d-flex flex-wrap gap-2 mt-3 mb-3">';
+        steps.forEach(function(step, index) {
+            const done = index < activeIndex || orderStatus === 'completed';
+            const current = index === activeIndex && orderStatus !== 'completed';
+            const cls = done ? 'bg-success text-white' : (current ? 'bg-info text-white' : 'bg-light text-muted');
+            html += '<span class="badge ' + cls + ' px-3 py-2">' + (index + 1) + '. ' + step.label + '</span>';
+            if (index < steps.length - 1) html += '<span class="text-muted align-self-center">→</span>';
+        });
+        html += '</div>';
+        return html;
+    }
+
+    function refreshNeedsActionBanner() {
+        $.getJSON(baseUrl + '/chat/unread-summary')
+            .done(function(res) {
+                if (res.success && res.needs_action > 0) {
+                    $('#needsActionText').text(res.needs_action + ' task' + (res.needs_action === 1 ? '' : 's') + ' need you (accept, publish, or resubmit).');
+                    $('#needsActionBanner').removeClass('d-none');
+                } else {
+                    $('#needsActionBanner').addClass('d-none');
+                }
+            });
+    }
+
     function escapeHtml(str) {
         if (!str) return '';
         return String(str).replace(/[&<>]/g, function(m) {

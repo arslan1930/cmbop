@@ -9,6 +9,7 @@ class AddRefundedToPaymentStatus extends Migration
 {
     public function up()
     {
+        // MySQL/MariaDB can alter ENUM in place; SQLite stores enums as strings already.
         if (Schema::getConnection()->getDriverName() !== 'sqlite') {
             DB::statement("ALTER TABLE orders MODIFY COLUMN payment_status ENUM('pending', 'paid', 'failed', 'refunded') DEFAULT 'pending'");
         }
