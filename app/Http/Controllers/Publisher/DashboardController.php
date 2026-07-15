@@ -52,15 +52,17 @@ class DashboardController extends Controller
                 ]);
             }
             
-            // Get all order IDs for these site items
-            $orderIds = OrderItem::whereIn('site_id', $siteIds)->pluck('order_id')->unique()->toArray();
-
-            $completedOrders = Order::whereIn('id', $orderIds)->where('status', 'completed')->count();
-            $cancelledOrders = Order::whereIn('id', $orderIds)->where('status', 'cancelled')->count();
-            $resolvedOrders = $completedOrders + $cancelledOrders;
-            $successRate = $resolvedOrders > 0
-                ? round(($completedOrders / $resolvedOrders) * 100, 1)
-                : 0;
+            // Exclude unpaid card checkouts from publisher-facing stats
+            $orderIds = OrderItem::whereIn('site_id', $siteIds)
+                ->whereHas('order', function ($q) {
+                    $q->where(function ($inner) {
+                        $inner->where('payment_status', 'paid')
+                            ->orWhere('payment_method', '!=', 'card');
+                    });
+                })
+                ->pluck('order_id')
+                ->unique()
+                ->toArray();
             
             // Calculate statistics
             $stats = [
