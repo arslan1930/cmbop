@@ -63,18 +63,18 @@ class DashboardController extends Controller
                 'completed_orders' => Order::whereIn('id', $orderIds)->where('status', 'completed')->count(),
                 'cancelled_orders' => Order::whereIn('id', $orderIds)->where('status', 'cancelled')->count(),
                 'total_sites' => count($siteIds),
-                'total_earnings' => (float) OrderItem::whereIn('site_id', $siteIds)
+                'total_earnings' => round((float) OrderItem::whereIn('site_id', $siteIds)
                     ->whereHas('order', function($q) {
                         $q->where('status', 'completed')
                           ->where('payment_status', 'paid');
                     })
-                    ->sum('price'),
-                'pending_earnings' => (float) OrderItem::whereIn('site_id', $siteIds)
+                    ->sum(OrderItem::publisherPayoutSqlExpression()), 2),
+                'pending_earnings' => round((float) OrderItem::whereIn('site_id', $siteIds)
                     ->whereHas('order', function($q) {
                         $q->where('status', 'review')
                           ->where('payment_status', 'paid');
                     })
-                    ->sum('price')
+                    ->sum(OrderItem::publisherPayoutSqlExpression()), 2)
             ];
             
             return response()->json([
@@ -178,9 +178,9 @@ class DashboardController extends Controller
                           ->where('payment_status', 'paid');
                     })
                     ->whereDate('created_at', $date->toDateString())
-                    ->sum('price');
+                    ->sum(OrderItem::publisherPayoutSqlExpression());
                 
-                $weeklyData[] = (float) $earnings;
+                $weeklyData[] = round((float) $earnings, 2);
             }
             
             return response()->json([
@@ -284,9 +284,9 @@ class DashboardController extends Controller
                     })
                     ->whereYear('created_at', $date->year)
                     ->whereMonth('created_at', $date->month)
-                    ->sum('price');
+                    ->sum(OrderItem::publisherPayoutSqlExpression());
                 
-                $monthlyData[] = (float) $earnings;
+                $monthlyData[] = round((float) $earnings, 2);
             }
             
             return response()->json([

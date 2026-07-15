@@ -82,11 +82,20 @@ class AutoApproveOrders extends Command
                             ]);
                         }
                         
-                        // Add amount to publisher's wallet
-                        $amount = $orderItem->price;
+                        // Publisher gets listing base (+ sensitive); platform keeps 15% markup fee
+                        $amount = $orderItem->publisherPayoutAmount();
+                        $platformFee = $orderItem->platformFeeAmount();
                         $publisherWallet->increment('balance', $amount);
                         
-                        $this->info("✓ Payment of €{$amount} transferred to publisher #{$publisher->id}");
+                        $this->info("✓ Payment of €{$amount} transferred to publisher #{$publisher->id} (platform fee €{$platformFee})");
+                        Log::info('Auto-approve publisher payout', [
+                            'order_id' => $order->id,
+                            'order_item_id' => $orderItem->id,
+                            'publisher_id' => $publisher->id,
+                            'advertiser_paid' => (float) $orderItem->price,
+                            'publisher_payout' => $amount,
+                            'platform_fee' => $platformFee,
+                        ]);
                     }
                 }
                 

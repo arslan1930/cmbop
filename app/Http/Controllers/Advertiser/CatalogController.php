@@ -48,8 +48,8 @@ private function getPriceForUser($originalPrice, $sitePublisherId = null)
         return $originalPrice;
     }
     
-    // Advertisers see marked up price (+15%)
-    return $originalPrice * 1.15;
+    // Advertisers see marked up price (+15% platform fee)
+    return round($originalPrice * OrderItem::PLATFORM_MARKUP_RATE, 2);
 }
 
 /**
@@ -1756,8 +1756,9 @@ public function approveOrder(Request $request, $id)
                         ]);
                     }
                     
-                    // Add the order amount to publisher's wallet balance
-                    $amount = $orderItem->price;
+                    // Publisher gets listing base (+ sensitive); platform keeps 15% markup fee
+                    $amount = $orderItem->publisherPayoutAmount();
+                    $platformFee = $orderItem->platformFeeAmount();
                     $publisherWallet->balance += $amount;
                     $publisherWallet->save();
                     
@@ -1766,14 +1767,17 @@ public function approveOrder(Request $request, $id)
                     $transferPublishers[] = [
                         'publisher_id' => $publisher->id,
                         'publisher_name' => $publisher->name,
-                        'amount' => $amount
+                        'amount' => $amount,
+                        'platform_fee' => $platformFee,
                     ];
                     
                     Log::info('Payment transferred to publisher wallet for approval', [
                         'order_id' => $order->id,
                         'order_item_id' => $orderItem->id,
                         'publisher_id' => $publisher->id,
-                        'amount' => $amount,
+                        'advertiser_paid' => (float) $orderItem->price,
+                        'publisher_payout' => $amount,
+                        'platform_fee' => $platformFee,
                         'wallet_balance' => $publisherWallet->balance
                     ]);
                     
@@ -1809,9 +1813,9 @@ public function approveOrder(Request $request, $id)
         
         $message = 'Order approved successfully! ';
         if ($order->payment_method === 'wallet') {
-            $message .= '€' . number_format($totalTransferred, 2) . ' has been transferred from reserved funds to the publisher\'s wallet.';
+            $message .= '€' . number_format($totalTransferred, 2) . ' (publisher payout, excluding platform fee) has been transferred to the publisher\'s wallet.';
         } else {
-            $message .= '€' . number_format($totalTransferred, 2) . ' payment processed.';
+            $message .= '€' . number_format($totalTransferred, 2) . ' publisher payout processed (platform fee retained).';
         }
         
         return response()->json([

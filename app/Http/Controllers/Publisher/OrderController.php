@@ -93,7 +93,8 @@ class OrderController extends Controller
             $perPage = $request->get('per_page', 20);
             $orderItems = $query->paginate($perPage);
             
-            // Transform data to include sensitive price info and auto-approve fields
+            // Transform data to include sensitive price info and auto-approve fields.
+            // Publishers see their payout (listing base + sensitive), not the advertiser total.
             $transformedItems = [];
             foreach ($orderItems->items() as $item) {
                 $transformedItems[] = [
@@ -102,7 +103,7 @@ class OrderController extends Controller
                     'site_id' => $item->site_id,
                     'site_name' => $item->site_name,
                     'site_url' => $item->site_url,
-                    'price' => (float) $item->price,
+                    'price' => $item->publisherPayoutAmount(),
                     'additional_price' => (float) ($item->additional_price ?? 0),
                     'sensitive_type' => $item->sensitive_type ?? null,
                     'content_link' => $item->content_link,
@@ -172,7 +173,7 @@ class OrderController extends Controller
                 'site_id' => $orderItem->site_id,
                 'site_name' => $orderItem->site_name,
                 'site_url' => $orderItem->site_url,
-                'price' => (float) $orderItem->price,
+                'price' => $orderItem->publisherPayoutAmount(),
                 'additional_price' => (float) ($orderItem->additional_price ?? 0),
                 'sensitive_type' => $orderItem->sensitive_type ?? null,
                 'content_link' => $orderItem->content_link,
@@ -612,12 +613,12 @@ class OrderController extends Controller
                 'review_orders' => Order::whereIn('id', $orderIds)->where('status', 'review')->count(),
                 'completed_orders' => Order::whereIn('id', $orderIds)->where('status', 'completed')->count(),
                 'rejected_orders' => Order::whereIn('id', $orderIds)->where('status', 'cancelled')->count(),
-                'total_earnings' => (float) OrderItem::whereIn('site_id', $siteIds)
+                'total_earnings' => round((float) OrderItem::whereIn('site_id', $siteIds)
                     ->whereHas('order', function($q) {
                         $q->where('status', 'completed')
                           ->where('payment_status', 'paid');
                     })
-                    ->sum('price')
+                    ->sum(OrderItem::publisherPayoutSqlExpression()), 2)
             ];
             
             Log::info('Statistics calculated', $stats);
