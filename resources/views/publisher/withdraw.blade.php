@@ -7,8 +7,8 @@
     $availableBalance = $wallet ? $wallet->balance : 0;
     $reservedBalance = $wallet ? $wallet->reserved_balance : 0;
     $totalEarnings = $availableBalance + $reservedBalance;
-    $platformChargePercent = 0.00; 
-    
+    $platformChargePercent = $platformChargePercent ?? (float) config('billing.withdrawal_fee_percent', 0);
+
     $recentWithdrawals = \App\Models\Withdrawal::where('user_id', auth()->id())
         ->orderBy('created_at', 'desc')
         ->limit(10)

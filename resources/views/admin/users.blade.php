@@ -131,10 +131,10 @@
             <form action="#" method="POST" style="display:inline-block;">
                 @csrf
                 @method('DELETE')
-                <button type="button" class="btn btn-sm btn-danger btn-delete">
+                <!-- <button type="button" class="btn btn-sm btn-danger btn-delete">
                     <i class="fa fa-trash me-1"></i>
                     Delete
-                </button>
+                </button> -->
             </form>
         </td>
     </tr>

@@ -15,11 +15,16 @@ use Illuminate\Support\Facades\Mail;
 
 class WithdrawalController extends Controller
 {
-    private $platformChargePercent = 0.00; // Set to 0% for now, can be configured later
-    
+    private function platformChargePercent(): float
+    {
+        return (float) config('billing.withdrawal_fee_percent', 0);
+    }
+
     public function index()
     {
-        return view('publisher.withdraw');
+        return view('publisher.withdraw', [
+            'platformChargePercent' => $this->platformChargePercent(),
+        ]);
     }
     
     public function requestWithdrawal(Request $request)
@@ -57,7 +62,7 @@ class WithdrawalController extends Controller
                 ]);
             }
             
-            $fee = ($amount * $this->platformChargePercent) / 100;
+            $fee = ($amount * $this->platformChargePercent()) / 100;
             $netAmount = $amount - $fee;
             
             // Prepare payment details based on method

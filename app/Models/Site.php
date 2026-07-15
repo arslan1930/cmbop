@@ -11,6 +11,7 @@ class Site extends Model
         'publisher_id',
         'site_name',
         'site_url',
+        'site_image', // ADDED - for storing site image path
         'domain', // NEW
         'example_url',
         'da',
@@ -47,6 +48,7 @@ class Site extends Model
         'publication_time' => 'string',
         'sensitive_prices' => 'array', // if stored as JSON
         'categories' => 'array', // NEW - cast categories to array
+        'site_image' => 'string', // ADDED - cast site_image to string
     ];
 
     /**
@@ -166,6 +168,17 @@ class Site extends Model
     }
 
     /**
+     * Accessor for full image URL.
+     */
+    public function getImageUrlAttribute(): ?string
+    {
+        if ($this->site_image) {
+            return asset('storage/' . $this->site_image);
+        }
+        return null;
+    }
+
+    /**
      * Check if site has good metrics.
      */
     public function hasGoodMetrics(): bool
@@ -199,42 +212,42 @@ class Site extends Model
     }
 
     /**
- * Get categories as array (handles both JSON and comma-separated strings)
- */
-public function getCategoriesArrayAttribute()
-{
-    if (empty($this->categories)) {
-        return !empty($this->category) ? [$this->category] : [];
-    }
-    
-    // If it's already an array
-    if (is_array($this->categories)) {
-        return $this->categories;
-    }
-    
-    // If it's a JSON string
-    if (is_string($this->categories) && (str_starts_with($this->categories, '[') || str_starts_with($this->categories, '{'))) {
-        $decoded = json_decode($this->categories, true);
-        if (is_array($decoded)) {
-            return $decoded;
+     * Get categories as array (handles both JSON and comma-separated strings)
+     */
+    public function getCategoriesArrayAttribute()
+    {
+        if (empty($this->categories)) {
+            return !empty($this->category) ? [$this->category] : [];
         }
+        
+        // If it's already an array
+        if (is_array($this->categories)) {
+            return $this->categories;
+        }
+        
+        // If it's a JSON string
+        if (is_string($this->categories) && (str_starts_with($this->categories, '[') || str_starts_with($this->categories, '{'))) {
+            $decoded = json_decode($this->categories, true);
+            if (is_array($decoded)) {
+                return $decoded;
+            }
+        }
+        
+        // If it's a comma-separated string
+        if (is_string($this->categories) && str_contains($this->categories, ',')) {
+            return array_map('trim', explode(',', $this->categories));
+        }
+        
+        // Single value
+        return !empty($this->categories) ? [$this->categories] : (!empty($this->category) ? [$this->category] : []);
     }
-    
-    // If it's a comma-separated string
-    if (is_string($this->categories) && str_contains($this->categories, ',')) {
-        return array_map('trim', explode(',', $this->categories));
-    }
-    
-    // Single value
-    return !empty($this->categories) ? [$this->categories] : (!empty($this->category) ? [$this->category] : []);
-}
 
-/**
- * Check if site has a specific category
- */
-public function hasCategory($categoryName)
-{
-    $categories = $this->getCategoriesArrayAttribute();
-    return in_array($categoryName, $categories);
-}
+    /**
+     * Check if site has a specific category
+     */
+    public function hasCategory($categoryName)
+    {
+        $categories = $this->getCategoriesArrayAttribute();
+        return in_array($categoryName, $categories);
+    }
 }

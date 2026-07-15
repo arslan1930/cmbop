@@ -9,16 +9,33 @@ use App\Mail\SiteStatusNotification;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 
 class SiteController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $users = User::withCount('sites')
-            ->latest()
-            ->paginate(20);
+        $query = User::withCount('sites')->with(['sites' => function ($q) {
+            $q->latest();
+        }]);
 
-        return view('admin.sites', compact('users'));
+        // Ops dashboard deep-link: only publishers who still have unverified sites
+        if ($request->query('verified') === '0' || $request->query('verified') === 0) {
+            $query->whereHas('sites', function ($q) {
+                $q->where(function ($inner) {
+                    $inner->where('verified', 0)->orWhereNull('verified');
+                });
+            })->withCount(['sites as unverified_sites_count' => function ($q) {
+                $q->where(function ($inner) {
+                    $inner->where('verified', 0)->orWhereNull('verified');
+                });
+            }]);
+        }
+
+        $users = $query->latest()->paginate(20)->appends($request->query());
+        $unverifiedFilter = $request->query('verified') === '0' || $request->query('verified') === 0;
+
+        return view('admin.sites', compact('users', 'unverifiedFilter'));
     }
 
     // Get all sites of a user (AJAX)
@@ -35,6 +52,31 @@ class SiteController extends Controller
         $site = Site::findOrFail($id);
 
         return view('admin.site-edit', compact('site'));
+    }
+
+    // Upload image for site
+    public function uploadImage(Request $request, $id)
+    {
+        $site = Site::findOrFail($id);
+        
+        $request->validate([
+            'site_image' => 'required|image|mimes:jpeg,png,jpg,gif,webp|max:2048'
+        ]);
+
+        // Delete old image if exists
+        if ($site->site_image && Storage::disk('public')->exists($site->site_image)) {
+            Storage::disk('public')->delete($site->site_image);
+        }
+
+        // Store new image
+        $file = $request->file('site_image');
+        $path = $file->store('sites', 'public');
+
+        return response()->json([
+            'success' => true,
+            'image_path' => $path,
+            'message' => 'Image uploaded successfully'
+        ]);
     }
 
     // UPDATE (supports partial + full updates safely)
@@ -70,8 +112,18 @@ class SiteController extends Controller
             'as_you_prefer',
             'sensitive_prices',
             'description',
-            'active'
+            'active',
+            'site_image'
         ]);
+
+        // Handle site_image - only update if provided (not null)
+        if ($request->has('site_image') && $request->site_image !== null) {
+            // If a new image path is provided, use it
+            $data['site_image'] = $request->site_image;
+        } else {
+            // Remove site_image from data to keep existing value
+            unset($data['site_image']);
+        }
 
         // Prevent overwriting NOT NULL fields with null
         $data = array_filter($data, function ($value) {
@@ -164,6 +216,12 @@ class SiteController extends Controller
     public function destroy($id)
     {
         $site = Site::findOrFail($id);
+        
+        // Delete associated image if exists
+        if ($site->site_image && Storage::disk('public')->exists($site->site_image)) {
+            Storage::disk('public')->delete($site->site_image);
+        }
+        
         $site->delete();
 
         return response()->json([

@@ -17,10 +17,7 @@ class ForgotPasswordController extends Controller
     public function send(Request $request)
     {
         $request->validate([
-            'email' => 'required|email',
-            'g-recaptcha-response' => 'required'
-        ], [
-            'g-recaptcha-response.required' => 'Please verify that you are not a robot.'
+            'email' => 'required|email'
         ]);
 
         // Rate limiting: max 5 attempts per 10 minutes per IP

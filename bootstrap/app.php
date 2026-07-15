@@ -20,16 +20,15 @@ return Application::configure(basePath: dirname(__DIR__))
         // Configure exception handling here if needed
     })
     ->withSchedule(function (Schedule $schedule) {
-        // Auto-approve orders every minute
-        $schedule->command('orders:auto-approve')
-                 ->everyMinute()
-                 ->withoutOverlapping()
-                 ->sendOutputTo(storage_path('logs/auto-approve.log'))
-                 ->emailOutputOnFailure(config('mail.admin_email'));
-        
-        // Alternative schedules (uncomment as needed):
-        // $schedule->command('orders:auto-approve')->hourly();
-        // $schedule->command('orders:auto-approve')->everyFiveMinutes();
-        // $schedule->command('orders:auto-approve')->everyTenMinutes();
+        // 48-hour window — every 15 minutes is enough; everyMinute was unnecessarily aggressive
+        $event = $schedule->command('orders:auto-approve')
+            ->everyFifteenMinutes()
+            ->withoutOverlapping()
+            ->sendOutputTo(storage_path('logs/auto-approve.log'));
+
+        $adminEmail = config('mail.admin_email');
+        if (filled($adminEmail)) {
+            $event->emailOutputOnFailure($adminEmail);
+        }
     })
     ->create();
