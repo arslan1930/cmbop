@@ -15,10 +15,13 @@
         <!-- Right: Content -->
         <div class="col-lg-7">
           <form id="newsletterForm" class="w-100">
+            @csrf
 
             <h3 class="mb-3">
               {{ __('messages.newsletter_title') }}
             </h3>
+
+            <div id="newsletterAlert" class="alert d-none mb-3" role="alert"></div>
 
             <!-- Email + Button -->
             <div class="d-flex flex-column flex-sm-row gap-2 mb-3">
@@ -28,7 +31,7 @@
                      class="form-control me-sm-2"
                      required>
 
-              <button type="submit" class="btn" style="background-color: #4ECDCB; color: white; border: none; padding: 0.5rem 1rem; border-radius: 0.375rem;">
+              <button type="submit" id="newsletterSubmitBtn" class="btn" style="background-color: #4ECDCB; color: white; border: none; padding: 0.5rem 1rem; border-radius: 0.375rem;">
                 {{ __('messages.newsletter_subscribe_btn') }}
               </button>
             </div>
@@ -42,7 +45,12 @@
                      value="1"
                      required>
               <label class="form-check-label small" for="agreement_newsletter">
-                <span class="form-check-sign text-danger">*</span> {{ __('messages.newsletter_consent_text') }}
+                <span class="form-check-sign text-danger">*</span>
+                {!! str_replace(
+                    e(__('messages.privacy_policy')),
+                    '<a href="'.e(route('privacy-policy')).'" target="_blank" rel="noopener">'.e(__('messages.privacy_policy')).'</a>',
+                    e(__('messages.newsletter_consent_text'))
+                ) !!}
               </label>
             </div>
 
@@ -52,9 +60,7 @@
               <p>{{ __('messages.newsletter_agreement_text') }}</p>
             </div>
 
-            <!-- Hidden metadata -->
-            <input type="hidden" name="form_name" value="newsletter_add_HS_en_GB_main_page">
-            <input type="hidden" name="int_com_lang" value="{{ $currentLocale ?? 'en' }}">
+            <input type="hidden" name="int_com_lang" value="{{ $currentLocale ?? app()->getLocale() }}">
 
           </form>
         </div>
@@ -66,18 +72,54 @@
 </section>
 
 <script>
-document.getElementById('newsletterForm').addEventListener('submit', function(e) {
+document.getElementById('newsletterForm').addEventListener('submit', async function(e) {
     e.preventDefault();
-    const email = this.querySelector('input[name="email"]').value;
-    const consent = this.querySelector('input[name="newsletter_opt_in"]').checked;
-    
+
+    const form = this;
+    const alertEl = document.getElementById('newsletterAlert');
+    const submitBtn = document.getElementById('newsletterSubmitBtn');
+    const consent = form.querySelector('input[name="newsletter_opt_in"]').checked;
+
+    alertEl.classList.add('d-none');
+    alertEl.classList.remove('alert-success', 'alert-danger', 'alert-warning');
+
     if (!consent) {
-        alert('{{ __("messages.newsletter_consent_required") }}');
+        alertEl.textContent = @json(__('messages.newsletter_consent_required'));
+        alertEl.classList.remove('d-none');
+        alertEl.classList.add('alert-danger');
         return;
     }
-    
-    // Add your AJAX submission logic here
-    alert('{{ __("messages.newsletter_success_message") }}');
-    this.reset();
+
+    submitBtn.disabled = true;
+    const originalLabel = submitBtn.textContent;
+    submitBtn.textContent = '...';
+
+    try {
+        const response = await fetch(@json(route('newsletter.subscribe')), {
+            method: 'POST',
+            headers: {
+                'Accept': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+            },
+            body: new FormData(form),
+            credentials: 'same-origin',
+        });
+
+        const data = await response.json();
+        alertEl.textContent = data.message || @json(__('messages.newsletter_error_message'));
+        alertEl.classList.remove('d-none');
+        alertEl.classList.add(data.success ? 'alert-success' : 'alert-danger');
+
+        if (data.success) {
+            form.reset();
+        }
+    } catch (err) {
+        alertEl.textContent = @json(__('messages.newsletter_error_message'));
+        alertEl.classList.remove('d-none');
+        alertEl.classList.add('alert-danger');
+    } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = originalLabel;
+    }
 });
 </script>

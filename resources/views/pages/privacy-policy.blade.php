@@ -37,7 +37,7 @@
                 {{ __('messages.privacy_hero_subtitle') }}
             </p>
             <p style="color:#999; margin-top:1.25rem; font-size:0.9rem;">
-                <strong style="color:#1a1a2e;">{{ __('messages.last_updated') }}:</strong> {{ date('F j, Y') }}
+                <strong style="color:#1a1a2e;">{{ __('messages.last_updated') }}:</strong> {{ __('messages.last_updated_value') }}
             </p>
         </div>
     </div>

@@ -26,6 +26,7 @@ use App\Http\Controllers\Admin\DepositController as AdminDepositController;
 use App\Http\Controllers\Admin\PaymentController as AdminPaymentController;
 use App\Http\Controllers\Admin\BlogController as AdminBlogController;
 use App\Http\Controllers\Admin\AdminWithdrawalController;
+use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
 use App\Http\Controllers\Advertiser\ProjectController;
 use App\Http\Controllers\Advertiser\CatalogController;
 use App\Http\Controllers\Advertiser\CampaignController;
@@ -35,6 +36,7 @@ use App\Http\Controllers\Advertiser\ReportsController;
 use App\Http\Controllers\InvoiceController;
 // BlogController for public blog pages
 use App\Http\Controllers\BlogController;
+use App\Http\Controllers\NewsletterController;
 
 use App\Http\Controllers\Auth\SocialiteController;
 
@@ -88,6 +90,10 @@ Route::group(['prefix' => '{locale?}', 'where' => ['locale' => 'de|fr|nl']], fun
         return view('pages.terms-of-services');
     })->name('terms-of-services');
 
+    Route::post('/newsletter/subscribe', [NewsletterController::class, 'subscribe'])
+        ->middleware('throttle:10,1')
+        ->name('newsletter.subscribe');
+
     // Blog routes
     Route::get('/blog', [BlogController::class, 'index'])->name('blog.index');
     Route::get('/blog/{slug}', [BlogController::class, 'show'])->name('blog.show');
@@ -110,10 +116,6 @@ Route::get('/contact', function () {
     return view('pages.contact');
 });
 
-Route::get('/blog', function () {
-    return view('pages.blog');
-});
-
 Route::get('/privacy-policy', function () {
     return view('pages.privacy-policy');
 });
@@ -121,6 +123,9 @@ Route::get('/privacy-policy', function () {
 Route::get('/terms-of-services', function () {
     return view('pages.terms-of-services');
 });
+
+Route::post('/newsletter/subscribe', [NewsletterController::class, 'subscribe'])
+    ->middleware('throttle:10,1');
 
 // ========== PUBLIC BLOG ROUTES ==========
 Route::get('/blog', [BlogController::class, 'index'])->name('blog.index');
@@ -236,9 +241,8 @@ Route::middleware(['auth','verified', RoleMiddleware::class . ':admin'])
     ->group(function () {
 
 
-        Route::get('/dashboard', function () {
-            return view('admin.dashboard');
-        })->name('dashboard');
+        Route::get('/dashboard', [AdminDashboardController::class, 'index'])->name('dashboard');
+        Route::get('/dashboard/queue-counts', [AdminDashboardController::class, 'queueCounts'])->name('dashboard.queue-counts');
 
         
 

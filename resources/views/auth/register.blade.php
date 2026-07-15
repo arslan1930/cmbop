@@ -275,7 +275,7 @@
                                 <div class="form-check">
                                     <input type="checkbox" class="form-check-input" name="terms" id="terms" required>
                                     <label class="form-check-label" for="terms">
-                                        <span class="text-danger">*</span> I agree to the <span class="text-decoration-underline"><a href="{{ url('/terms-and-services') }}" target="_blank">Terms and Services</a></span>.
+                                        <span class="text-danger">*</span> I agree to the <span class="text-decoration-underline"><a href="{{ route('terms-of-services') }}" target="_blank" rel="noopener">Terms of Service</a></span>.
                                     </label>
                                 </div>
                                 <div class="form-check">

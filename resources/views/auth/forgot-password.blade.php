@@ -76,7 +76,6 @@ document.getElementById('forgotForm').addEventListener('submit', async function(
 
     sendBtn.disabled = false;
     sendBtn.innerText = 'Send Reset Link';
-    grecaptcha.reset();
 });
 </script>
 @endsection

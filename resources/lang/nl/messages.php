@@ -111,25 +111,25 @@ return [
 
     // ==================== TESTIMONIAL SECTION ====================
     'testimonial_title' => 'Vertrouwd door groeigerichte teams',
-    'testimonial_subtitle' => 'Echte resultaten van bedrijven die SEO serieus nemen',
+    'testimonial_subtitle' => 'Wat adverteerders en publishers waarderen op SEOLinkBuildings',
     
-    'testimonial_1_text' => 'LinkBuilder Pro verhoogde ons organische verkeer met 300% in slechts drie maanden. Hun strategische aanpak is ongeëvenaard.',
+    'testimonial_1_text' => 'Met SEOLinkBuildings vinden we relevante publishers en plaatsen we guest posts zonder eindeloze outreach.',
     'testimonial_1_name' => 'Sarah Johnson',
     'testimonial_1_title' => 'Marketingdirecteur, TechStart Inc',
     
-    'testimonial_2_text' => 'Elke linkplaatsing was relevant, gezaghebbend en effectief. We domineren nu de zoekresultaten in onze niche.',
+    'testimonial_2_text' => 'Duidelijke filters, transparante prijzen en een soepele checkout. Bestellen voelt eenvoudig.',
     'testimonial_2_name' => 'Michael Chen',
     'testimonial_2_title' => 'CEO, EcomGrowth',
     
-    'testimonial_3_text' => 'Professioneel, betrouwbaar en transparant. Onze klanten prijzen consequent de behaalde resultaten.',
+    'testimonial_3_text' => 'Als publisher zijn taken en wallet-uitbetalingen makkelijk te volgen van acceptatie tot live URL.',
     'testimonial_3_name' => 'Emily Rodriguez',
     'testimonial_3_title' => 'SEO-manager, DigitalAgency',
     
-    'testimonial_4_text' => 'Het team van LinkBuilder Pro begrijpt SEO echt. Ze hebben onze verwachtingen overtroffen.',
+    'testimonial_4_text' => 'We waarderen de orderchat en reviewstappen — iedereen weet wat er na betaling gebeurt.',
     'testimonial_4_name' => 'David Kim',
     'testimonial_4_title' => 'Oprichter, StartupHub',
     
-    'testimonial_5_text' => 'LinkBuilder Pro was instrumenteel in onze SEO-strategie. De resultaten spreken voor zich.',
+    'testimonial_5_text' => 'Een praktische marketplace voor guest posts: sites bekijken, wallet opladen en levering volgen.',
     'testimonial_5_name' => 'Lisa Thompson',
     'testimonial_5_title' => 'Marketingdirecteur, GrowthCo',
     
@@ -141,11 +141,13 @@ return [
     'newsletter_title' => 'Abonneer je en ontvang updates over de nieuwste functies en wijzigingen op ons platform.',
     'newsletter_email_placeholder' => 'Uw e-mailadres',
     'newsletter_subscribe_btn' => 'Abonneren',
-    'newsletter_consent_text' => 'Ik abonneer me op de SEOLinkBuildings-nieuwsbrief en bevestig dat ik het privacybeleid heb gelezen.',
+    'newsletter_consent_text' => 'Ik abonneer me op de SEOLinkBuildings-nieuwsbrief en bevestig dat ik het Privacybeleid heb gelezen.',
     'newsletter_gdpr_text' => 'De verantwoordelijke voor persoonsgegevens van personen die de website Seolinkbuildings.com en alle subpagina\'s gebruiken, is SEOLinkBuildings. We verwerken uw e-mailadres voor het verzenden van de nieuwsbrief op basis van uw toestemming.',
     'newsletter_agreement_text' => 'Door u aan te melden voor de nieuwsbrief, gaat u akkoord met het ontvangen van commerciële informatie via elektronische communicatie van SEOLinkBuildings. U kunt zich op elk moment uitschrijven via de link in elke nieuwsbrief.',
     'newsletter_consent_required' => 'Gelieve akkoord te gaan met het privacybeleid om u te abonneren.',
-    'newsletter_success_message' => 'Bedankt voor uw inschrijving! Controleer uw e-mail om uw inschrijving te bevestigen.',
+    'newsletter_success_message' => 'Bedankt — u bent geabonneerd op onze nieuwsbrief.',
+    'newsletter_already_subscribed' => 'Dit e-mailadres is al geabonneerd. U blijft onze updates ontvangen.',
+    'newsletter_error_message' => 'We konden uw abonnement nu niet opslaan. Probeer het opnieuw.',
 
 
     // ==================== CTA SECTION ====================

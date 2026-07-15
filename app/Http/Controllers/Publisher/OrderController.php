@@ -59,9 +59,16 @@ class OrderController extends Controller
                 ]);
             }
             
-            // Get order items for these sites with their orders
+            // Get order items for these sites with their orders.
+            // Hide unpaid card checkouts (created before Stripe payment confirms).
             $query = OrderItem::with(['order.user', 'site'])
                 ->whereIn('site_id', $siteIds)
+                ->whereHas('order', function ($q) {
+                    $q->where(function ($inner) {
+                        $inner->where('payment_status', 'paid')
+                            ->orWhere('payment_method', '!=', 'card');
+                    });
+                })
                 ->orderBy('created_at', 'desc');
             
             // Search filter
@@ -110,7 +117,7 @@ class OrderController extends Controller
                     'site_id' => $item->site_id,
                     'site_name' => $item->site_name,
                     'site_url' => $item->site_url,
-                    'price' => (float) $item->price,
+                    'price' => $item->publisherPayoutAmount(),
                     'additional_price' => (float) ($item->additional_price ?? 0),
                     'sensitive_type' => $item->sensitive_type ?? null,
                     'content_link' => $item->content_link,
@@ -175,6 +182,18 @@ class OrderController extends Controller
                     'message' => 'Unauthorized: This order does not belong to your site'
                 ], 403);
             }
+
+            // Unpaid card checkouts are not visible to publishers yet
+            $order = $orderItem->order;
+            if ($order
+                && $order->payment_method === 'card'
+                && $order->payment_status !== 'paid'
+            ) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Order is not available yet'
+                ], 404);
+            }
             
             $data = [
                 'id' => $orderItem->id,
@@ -182,7 +201,7 @@ class OrderController extends Controller
                 'site_id' => $orderItem->site_id,
                 'site_name' => $orderItem->site_name,
                 'site_url' => $orderItem->site_url,
-                'price' => (float) $orderItem->price,
+                'price' => $orderItem->publisherPayoutAmount(),
                 'additional_price' => (float) ($orderItem->additional_price ?? 0),
                 'sensitive_type' => $orderItem->sensitive_type ?? null,
                 'content_link' => $orderItem->content_link,
@@ -237,10 +256,18 @@ class OrderController extends Controller
                 ], 403);
             }
             
+            $order = Order::find($orderItem->order_id);
+
+            if ($order->payment_method === 'card' && $order->payment_status !== 'paid') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Order payment is not confirmed yet'
+                ], 400);
+            }
+
             DB::beginTransaction();
             
             // Update the order status to 'processing' (accepted)
-            $order = Order::find($orderItem->order_id);
             $order->update([
                 'status' => 'processing'
             ]);
@@ -294,34 +321,17 @@ class OrderController extends Controller
     private function refundAdvertiser($order, $orderAmount, $reason)
     {
         try {
-            // Get advertiser role ID
-            $advertiserRoleId = \App\Models\Role::where('name', 'advertiser')->value('id');
-            
-            // Get advertiser's wallet
-            $advertiserWallet = Wallet::where('user_id', $order->user_id)
-                ->where('role_id', $advertiserRoleId)
-                ->first();
-            
-            if (!$advertiserWallet) {
-                // Create wallet if doesn't exist
-                $advertiserWallet = Wallet::create([
-                    'user_id' => $order->user_id,
-                    'role_id' => $advertiserRoleId,
-                    'balance' => 0,
-                    'reserved_balance' => 0,
-                    'currency' => 'EUR'
-                ]);
-                Log::info('Created new wallet for advertiser', [
-                    'user_id' => $order->user_id,
-                    'order_id' => $order->id
-                ]);
+            $advertiserRoleId = Wallet::advertiserRoleId();
+            if (!$advertiserRoleId) {
+                throw new \RuntimeException('Advertiser role not configured');
             }
+
+            // Caller must already be inside a DB transaction
+            $advertiserWallet = Wallet::lockOrCreateForRole($order->user_id, $advertiserRoleId);
             
             // For wallet payments: Move from reserved_balance to balance
             if ($order->payment_method === 'wallet') {
-                $advertiserWallet->reserved_balance -= $orderAmount;
-                $advertiserWallet->balance += $orderAmount;
-                $advertiserWallet->save();
+                $advertiserWallet->releaseReserved((float) $orderAmount);
                 
                 Log::info('Wallet refund: funds moved from reserved to balance', [
                     'order_id' => $order->id,
@@ -332,8 +342,7 @@ class OrderController extends Controller
             } 
             // For all other payment methods (card, wise, crypto, bank): Direct refund to balance
             else {
-                $advertiserWallet->balance += $orderAmount;
-                $advertiserWallet->save();
+                $advertiserWallet->credit((float) $orderAmount);
                 
                 Log::info('Direct refund to advertiser balance', [
                     'order_id' => $order->id,
@@ -379,8 +388,17 @@ class OrderController extends Controller
             
             DB::beginTransaction();
             
-            // Update the order status to 'cancelled' (rejected)
-            $order = Order::find($orderItem->order_id);
+            // Lock order to prevent double-reject / double-refund races
+            $order = Order::where('id', $orderItem->order_id)->lockForUpdate()->firstOrFail();
+
+            if ($order->status === 'cancelled' || $order->payment_status === 'refunded') {
+                DB::rollBack();
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Order has already been cancelled or refunded'
+                ], 400);
+            }
+
             $order->update([
                 'status' => 'cancelled',
                 'payment_status' => 'refunded'
@@ -613,8 +631,17 @@ class OrderController extends Controller
                 ]);
             }
             
-            // Get all order IDs for these site items
-            $orderIds = OrderItem::whereIn('site_id', $siteIds)->pluck('order_id')->unique()->toArray();
+            // Paid / non-card orders only (exclude unpaid Stripe checkouts)
+            $orderIds = OrderItem::whereIn('site_id', $siteIds)
+                ->whereHas('order', function ($q) {
+                    $q->where(function ($inner) {
+                        $inner->where('payment_status', 'paid')
+                            ->orWhere('payment_method', '!=', 'card');
+                    });
+                })
+                ->pluck('order_id')
+                ->unique()
+                ->toArray();
             
             $stats = [
                 'total_orders' => count($orderIds),
@@ -623,12 +650,12 @@ class OrderController extends Controller
                 'review_orders' => Order::whereIn('id', $orderIds)->where('status', 'review')->count(),
                 'completed_orders' => Order::whereIn('id', $orderIds)->where('status', 'completed')->count(),
                 'rejected_orders' => Order::whereIn('id', $orderIds)->where('status', 'cancelled')->count(),
-                'total_earnings' => (float) OrderItem::whereIn('site_id', $siteIds)
+                'total_earnings' => round((float) OrderItem::whereIn('site_id', $siteIds)
                     ->whereHas('order', function($q) {
                         $q->where('status', 'completed')
                           ->where('payment_status', 'paid');
                     })
-                    ->sum('price')
+                    ->sum(OrderItem::publisherPayoutSqlExpression()), 2)
             ];
             
             Log::info('Statistics calculated', $stats);

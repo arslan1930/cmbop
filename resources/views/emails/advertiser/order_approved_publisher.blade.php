@@ -25,12 +25,12 @@ Great news! The advertiser has **approved** the order for your site.
 @if($orderItem->additional_price > 0)
 - **{{ ucfirst($orderItem->sensitive_type) }}:** +€{{ number_format($orderItem->additional_price, 2) }}
 @endif
-- **Total Amount:** €{{ number_format($orderItem->price, 2) }}
+- **Amount Credited:** €{{ number_format($payoutAmount, 2) }}
 
 ## What this means:
 
 The advertiser has confirmed that the content is published correctly and meets their requirements. 
-The payment for this order has been completed and will be credited to your account.
+Your payout (listing price; platform fee excluded) has been credited to your publisher wallet.
 
 You can view all your approved orders in your publisher dashboard.
 

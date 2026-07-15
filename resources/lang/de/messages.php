@@ -111,25 +111,25 @@ return [
 
     // ==================== TESTIMONIAL SECTION ====================
     'testimonial_title' => 'Von wachstumsorientierten Teams vertrauenswürdig',
-    'testimonial_subtitle' => 'Echte Ergebnisse von Unternehmen, die SEO ernst nehmen',
+    'testimonial_subtitle' => 'Was Werbetreibende und Publisher an SEOLinkBuildings schätzen',
     
-    'testimonial_1_text' => 'LinkBuilder Pro hat unseren organischen Traffic in nur drei Monaten um 300% gesteigert. Ihr strategischer Ansatz ist unübertroffen.',
+    'testimonial_1_text' => 'Mit SEOLinkBuildings finden wir passende Publisher und platzieren Gastbeiträge ohne endlose Outreach-Arbeit.',
     'testimonial_1_name' => 'Sarah Johnson',
     'testimonial_1_title' => 'Marketingdirektorin, TechStart Inc',
     
-    'testimonial_2_text' => 'Jede Linkplatzierung war relevant, autoritativ und effektiv. Wir dominieren jetzt die Suchergebnisse in unserer Nische.',
+    'testimonial_2_text' => 'Klare Filter, transparente Preise und ein einfacher Checkout. Bestellungen sind unkompliziert.',
     'testimonial_2_name' => 'Michael Chen',
     'testimonial_2_title' => 'CEO, EcomGrowth',
     
-    'testimonial_3_text' => 'Professionell, zuverlässig und transparent. Unsere Kunden loben durchweg die erzielten Ergebnisse.',
+    'testimonial_3_text' => 'Als Publisher sind Aufgaben und Auszahlungen vom Annehmen bis zur Live-URL leicht nachvollziehbar.',
     'testimonial_3_name' => 'Emily Rodriguez',
     'testimonial_3_title' => 'SEO-Managerin, DigitalAgency',
     
-    'testimonial_4_text' => 'Das Team von LinkBuilder Pro versteht SEO wirklich. Sie haben unsere Erwartungen übertroffen.',
+    'testimonial_4_text' => 'Wir schätzen Chat und Review-Schritte — nach der Zahlung weiß jeder, was als Nächstes kommt.',
     'testimonial_4_name' => 'David Kim',
     'testimonial_4_title' => 'Gründer, StartupHub',
     
-    'testimonial_5_text' => 'LinkBuilder Pro war maßgeblich an unserer SEO-Strategie beteiligt. Die Ergebnisse sprechen für sich.',
+    'testimonial_5_text' => 'Ein praktischer Marktplatz für Gastbeiträge: Sites finden, Guthaben aufladen und Lieferung verfolgen.',
     'testimonial_5_name' => 'Lisa Thompson',
     'testimonial_5_title' => 'Marketingdirektorin, GrowthCo',
     
@@ -141,11 +141,13 @@ return [
     'newsletter_title' => 'Abonnieren Sie und erhalten Sie Updates zu den neuesten Funktionen und Änderungen auf unserer Plattform.',
     'newsletter_email_placeholder' => 'Ihre E-Mail-Adresse',
     'newsletter_subscribe_btn' => 'Abonnieren',
-    'newsletter_consent_text' => 'Ich abonniere den SEOLinkBuildings-Newsletter und bestätige, dass ich die Datenschutzerklärung gelesen habe.',
+    'newsletter_consent_text' => 'Ich abonniere den SEOLinkBuildings-Newsletter und bestätige, dass ich die Datenschutzrichtlinie gelesen habe.',
     'newsletter_gdpr_text' => 'Der Verantwortliche für personenbezogene Daten von Nutzern der Website Seolinkbuildings.com und aller Unterseiten ist SEOLinkBuildings. Wir verarbeiten Ihre E-Mail-Adresse zum Zweck des Newsletter-Versands auf der Grundlage Ihrer Einwilligung.',
     'newsletter_agreement_text' => 'Mit der Anmeldung zum Newsletter erklären Sie sich damit einverstanden, kommerzielle Informationen per elektronischer Kommunikation von SEOLinkBuildings zu erhalten. Sie können sich jederzeit über den Link in jedem Newsletter abmelden.',
     'newsletter_consent_required' => 'Bitte stimmen Sie der Datenschutzerklärung zu, um den Newsletter zu abonnieren.',
-    'newsletter_success_message' => 'Vielen Dank für Ihr Abonnement! Bitte überprüfen Sie Ihre E-Mail, um Ihr Abonnement zu bestätigen.',
+    'newsletter_success_message' => 'Danke — Sie sind für unseren Newsletter angemeldet.',
+    'newsletter_already_subscribed' => 'Diese E-Mail ist bereits angemeldet. Sie erhalten weiterhin unsere Updates.',
+    'newsletter_error_message' => 'Ihre Anmeldung konnte gerade nicht gespeichert werden. Bitte versuchen Sie es erneut.',
 
 
     // ==================== CTA SECTION ====================

@@ -110,25 +110,25 @@ return [
 
     // ==================== TESTIMONIAL SECTION ====================
     'testimonial_title' => 'Trusted by Growth-Oriented Teams',
-    'testimonial_subtitle' => 'Real results from companies that take SEO seriously',
+    'testimonial_subtitle' => 'What advertisers and publishers value on SEOLinkBuildings',
     
-    'testimonial_1_text' => 'LinkBuilder Pro increased our organic traffic by 300% in just three months. Their strategic approach is unmatched.',
+    'testimonial_1_text' => 'SEOLinkBuildings made it simple to find relevant publishers and place guest posts without endless outreach.',
     'testimonial_1_name' => 'Sarah Johnson',
     'testimonial_1_title' => 'Marketing Director, TechStart Inc',
     
-    'testimonial_2_text' => 'Every link placement was relevant, authoritative, and effective. We now dominate search results in our niche.',
+    'testimonial_2_text' => 'Clear filters, transparent pricing, and a smooth checkout. Ordering placements feels straightforward.',
     'testimonial_2_name' => 'Michael Chen',
     'testimonial_2_title' => 'CEO, EcomGrowth',
     
-    'testimonial_3_text' => 'Professional, reliable, and transparent. Our clients consistently praise the results achieved.',
+    'testimonial_3_text' => 'As a publisher, the task workflow and wallet payouts are easy to follow from accept to live URL.',
     'testimonial_3_name' => 'Emily Rodriguez',
     'testimonial_3_title' => 'SEO Manager, DigitalAgency',
     
-    'testimonial_4_text' => 'The team at LinkBuilder Pro truly understands SEO. They delivered beyond our expectations.',
+    'testimonial_4_text' => 'We like the order chat and review steps — everyone knows what happens next after payment.',
     'testimonial_4_name' => 'David Kim',
     'testimonial_4_title' => 'Founder, StartupHub',
     
-    'testimonial_5_text' => 'LinkBuilder Pro has been instrumental in our SEO strategy. The results speak for themselves.',
+    'testimonial_5_text' => 'A practical marketplace for guest posts: browse sites, fund the wallet, and track delivery in one place.',
     'testimonial_5_name' => 'Lisa Thompson',
     'testimonial_5_title' => 'Marketing Director, GrowthCo',
     
@@ -144,7 +144,9 @@ return [
     'newsletter_gdpr_text' => 'The controller for personal data of individuals who use the Seolinkbuildings.com website and all subpages is SEOLinkBuildings. We process your email address for the purpose of sending the newsletter based on your consent.',
     'newsletter_agreement_text' => 'By signing up for the newsletter, you agree to receive commercial information via electronic communications from SEOLinkBuildings. You can unsubscribe at any time using the link in each newsletter.',
     'newsletter_consent_required' => 'Please agree to the privacy policy to subscribe.',
-    'newsletter_success_message' => 'Thank you for subscribing! Please check your email to confirm your subscription.',
+    'newsletter_success_message' => 'Thank you — you are subscribed to our newsletter.',
+    'newsletter_already_subscribed' => 'This email is already subscribed. You will keep receiving our updates.',
+    'newsletter_error_message' => 'We could not save your subscription right now. Please try again.',
 
     // ==================== CTA SECTION ====================
     'cta_title' => 'Ready to boost your SEO?',
