@@ -165,7 +165,12 @@ class StripeWebhookController extends Controller
                 }
                 
                 DB::transaction(function () use ($deposit, $session) {
-                    $deposit->update([
+                    $lockedDeposit = DepositRequest::where('id', $deposit->id)->lockForUpdate()->first();
+                    if (!$lockedDeposit || $lockedDeposit->status === 'completed') {
+                        return;
+                    }
+
+                    $lockedDeposit->update([
                         'stripe_session_id' => $session->id,
                         'stripe_payment_intent_id' => $session->payment_intent,
                         'stripe_response' => json_encode($session),
@@ -173,12 +178,14 @@ class StripeWebhookController extends Controller
                         'approved_at' => now(),
                         'paid_at' => now(),
                     ]);
-                    
-                    $wallet = Wallet::firstOrCreate(
-                        ['user_id' => $deposit->user_id],
-                        ['balance' => 0, 'reserved_balance' => 0, 'role_id' => 1]
-                    );
-                    $wallet->increment('balance', $deposit->amount);
+
+                    $advertiserRoleId = Wallet::advertiserRoleId();
+                    if (!$advertiserRoleId) {
+                        throw new \RuntimeException('Advertiser role not configured');
+                    }
+
+                    $wallet = Wallet::lockOrCreateForRole($lockedDeposit->user_id, $advertiserRoleId);
+                    $wallet->credit((float) $lockedDeposit->amount);
                 });
                 
                 Log::info('Deposit completed', ['deposit_id' => $deposit->id]);
@@ -192,6 +199,18 @@ class StripeWebhookController extends Controller
             
             if ($userId) {
                 DB::transaction(function () use ($userId, $session, $finalAmount, $referenceCode) {
+                    // Idempotency: skip if this Stripe session was already credited
+                    $existing = DepositRequest::where('stripe_session_id', $session->id)
+                        ->lockForUpdate()
+                        ->first();
+                    if ($existing) {
+                        Log::info('Deposit already exists for Stripe session', [
+                            'deposit_id' => $existing->id,
+                            'session_id' => $session->id,
+                        ]);
+                        return;
+                    }
+
                     $deposit = DepositRequest::create([
                         'user_id' => $userId,
                         'reference_code' => $referenceCode ?? str_pad(mt_rand(1, 999999), 6, '0', STR_PAD_LEFT),
@@ -204,12 +223,14 @@ class StripeWebhookController extends Controller
                         'approved_at' => now(),
                         'paid_at' => now(),
                     ]);
-                    
-                    $wallet = Wallet::firstOrCreate(
-                        ['user_id' => $userId],
-                        ['balance' => 0, 'reserved_balance' => 0, 'role_id' => 1]
-                    );
-                    $wallet->increment('balance', $finalAmount);
+
+                    $advertiserRoleId = Wallet::advertiserRoleId();
+                    if (!$advertiserRoleId) {
+                        throw new \RuntimeException('Advertiser role not configured');
+                    }
+
+                    $wallet = Wallet::lockOrCreateForRole($userId, $advertiserRoleId);
+                    $wallet->credit((float) $finalAmount);
                     
                     Log::info('Deposit created from webhook', ['deposit_id' => $deposit->id]);
                 });

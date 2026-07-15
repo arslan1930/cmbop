@@ -283,34 +283,17 @@ class OrderController extends Controller
     private function refundAdvertiser($order, $orderAmount, $reason)
     {
         try {
-            // Get advertiser role ID
-            $advertiserRoleId = \App\Models\Role::where('name', 'advertiser')->value('id');
-            
-            // Get advertiser's wallet
-            $advertiserWallet = Wallet::where('user_id', $order->user_id)
-                ->where('role_id', $advertiserRoleId)
-                ->first();
-            
-            if (!$advertiserWallet) {
-                // Create wallet if doesn't exist
-                $advertiserWallet = Wallet::create([
-                    'user_id' => $order->user_id,
-                    'role_id' => $advertiserRoleId,
-                    'balance' => 0,
-                    'reserved_balance' => 0,
-                    'currency' => 'EUR'
-                ]);
-                Log::info('Created new wallet for advertiser', [
-                    'user_id' => $order->user_id,
-                    'order_id' => $order->id
-                ]);
+            $advertiserRoleId = Wallet::advertiserRoleId();
+            if (!$advertiserRoleId) {
+                throw new \RuntimeException('Advertiser role not configured');
             }
+
+            // Caller must already be inside a DB transaction
+            $advertiserWallet = Wallet::lockOrCreateForRole($order->user_id, $advertiserRoleId);
             
             // For wallet payments: Move from reserved_balance to balance
             if ($order->payment_method === 'wallet') {
-                $advertiserWallet->reserved_balance -= $orderAmount;
-                $advertiserWallet->balance += $orderAmount;
-                $advertiserWallet->save();
+                $advertiserWallet->releaseReserved((float) $orderAmount);
                 
                 Log::info('Wallet refund: funds moved from reserved to balance', [
                     'order_id' => $order->id,
@@ -321,8 +304,7 @@ class OrderController extends Controller
             } 
             // For all other payment methods (card, wise, crypto, bank): Direct refund to balance
             else {
-                $advertiserWallet->balance += $orderAmount;
-                $advertiserWallet->save();
+                $advertiserWallet->credit((float) $orderAmount);
                 
                 Log::info('Direct refund to advertiser balance', [
                     'order_id' => $order->id,
@@ -368,8 +350,17 @@ class OrderController extends Controller
             
             DB::beginTransaction();
             
-            // Update the order status to 'cancelled' (rejected)
-            $order = Order::find($orderItem->order_id);
+            // Lock order to prevent double-reject / double-refund races
+            $order = Order::where('id', $orderItem->order_id)->lockForUpdate()->firstOrFail();
+
+            if ($order->status === 'cancelled' || $order->payment_status === 'refunded') {
+                DB::rollBack();
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Order has already been cancelled or refunded'
+                ], 400);
+            }
+
             $order->update([
                 'status' => 'cancelled',
                 'payment_status' => 'refunded'

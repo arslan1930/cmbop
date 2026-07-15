@@ -85,6 +85,16 @@ class DepositController extends Controller
         DB::beginTransaction();
         
         try {
+            $deposit = DepositRequest::where('id', $deposit->id)->lockForUpdate()->firstOrFail();
+
+            if ($deposit->status !== 'pending') {
+                DB::rollBack();
+                return response()->json([
+                    'success' => false,
+                    'message' => 'This deposit request has already been processed.'
+                ]);
+            }
+
             // Update deposit status
             $deposit->update([
                 'status' => 'approved',
@@ -92,15 +102,13 @@ class DepositController extends Controller
                 'approved_at' => now()
             ]);
             
-            // Get or create wallet
-            $wallet = Wallet::firstOrCreate(
-                ['user_id' => $deposit->user_id],
-                ['balance' => 0, 'reserved_balance' => 0]
-            );
-            
-            // Add funds to wallet
-            $wallet->balance += $deposit->amount;
-            $wallet->save();
+            // Credit advertiser wallet with a row lock
+            $advertiserRoleId = Wallet::advertiserRoleId();
+            if (!$advertiserRoleId) {
+                throw new \RuntimeException('Advertiser role not configured');
+            }
+            $wallet = Wallet::lockOrCreateForRole($deposit->user_id, $advertiserRoleId);
+            $wallet->credit((float) $deposit->amount);
             
             // Update deposit status to completed
             $deposit->update(['status' => 'completed']);
