@@ -51,56 +51,49 @@ class BalanceController extends Controller
             ]);
             
             $userId = auth()->id();
+            $amount = (float) $request->amount;
+
+            $publisherRoleId = Wallet::publisherRoleId();
+            $advertiserRoleId = Wallet::advertiserRoleId();
+
+            if (!$publisherRoleId || !$advertiserRoleId) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Wallet roles are not configured.'
+                ]);
+            }
             
-            // Role IDs: 2 = Publisher, 1 = Advertiser
-            $publisherRoleId = 2;
-            $advertiserRoleId = 1;
-            
-            // Get publisher wallet (source)
-            $publisherWallet = Wallet::where('user_id', $userId)
-                ->where('role_id', $publisherRoleId)
-                ->first();
-            
-            if (!$publisherWallet || $publisherWallet->balance < $request->amount) {
+            DB::beginTransaction();
+
+            // Lock both wallets in a consistent role-id order to avoid deadlocks
+            $firstRoleId = min($advertiserRoleId, $publisherRoleId);
+            $secondRoleId = max($advertiserRoleId, $publisherRoleId);
+            $locked = [
+                $firstRoleId => Wallet::lockOrCreateForRole($userId, $firstRoleId),
+                $secondRoleId => Wallet::lockOrCreateForRole($userId, $secondRoleId),
+            ];
+            $publisherWallet = $locked[$publisherRoleId];
+            $advertiserWallet = $locked[$advertiserRoleId];
+
+            if ((float) $publisherWallet->balance < $amount) {
+                DB::rollBack();
                 return response()->json([
                     'success' => false,
                     'message' => 'Insufficient balance in Publisher wallet. Available: €' . ($publisherWallet ? number_format($publisherWallet->balance, 2) : '0.00')
                 ]);
             }
-            
-            DB::beginTransaction();
-            
-            // Deduct from publisher wallet
-            $publisherWallet->balance -= $request->amount;
-            $publisherWallet->save();
-            
-            // Get or create advertiser wallet (destination)
-            $advertiserWallet = Wallet::where('user_id', $userId)
-                ->where('role_id', $advertiserRoleId)
-                ->first();
-            
-            if (!$advertiserWallet) {
-                $advertiserWallet = Wallet::create([
-                    'user_id' => $userId,
-                    'role_id' => $advertiserRoleId,
-                    'balance' => 0,
-                    'reserved_balance' => 0,
-                    'currency' => 'EUR'
-                ]);
-            }
-            
-            // Add to advertiser wallet
-            $advertiserWallet->balance += $request->amount;
-            $advertiserWallet->save();
+
+            $publisherWallet->debit($amount);
+            $advertiserWallet->credit($amount);
             
             // Create transfer record
             $transfer = BalanceTransfer::create([
                 'user_id' => $userId,
                 'from_role' => 'publisher',
                 'to_role' => 'advertiser',
-                'amount' => $request->amount,
+                'amount' => $amount,
                 'fee' => 0,
-                'net_amount' => $request->amount,
+                'net_amount' => $amount,
                 'reference_code' => BalanceTransfer::generateReferenceCode(),
                 'status' => 'completed',
                 'notes' => null
@@ -110,13 +103,13 @@ class BalanceController extends Controller
             
             Log::info('Transfer from Publisher to Advertiser completed', [
                 'user_id' => $userId,
-                'amount' => $request->amount,
+                'amount' => $amount,
                 'reference' => $transfer->reference_code
             ]);
             
             return response()->json([
                 'success' => true,
-                'message' => '€' . number_format($request->amount, 2) . ' transferred from Publisher to Advertiser wallet successfully!',
+                'message' => '€' . number_format($amount, 2) . ' transferred from Publisher to Advertiser wallet successfully!',
                 'publisher_balance' => $publisherWallet->balance,
                 'advertiser_balance' => $advertiserWallet->balance,
                 'transfer' => $transfer

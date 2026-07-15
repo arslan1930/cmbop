@@ -19,7 +19,7 @@ class WithdrawalRequestNotification extends Mailable
     {
         $this->withdrawal = $withdrawal;
         $this->user = $user;
-        $this->platformChargePercent = 18; // 18% platform charge
+        $this->platformChargePercent = (float) config('billing.withdrawal_fee_percent', 0);
     }
 
     public function build()

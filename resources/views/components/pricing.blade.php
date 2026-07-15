@@ -1,8 +1,8 @@
 <section class="py-20 bg-light">
   <div class="container py-5">
     <div class="text-center mb-16">
-      <h2 class="h2 mb-3">Strengthen Your Brand Authority with Strategic Digital PR</h2>
-      <p class="lead text-muted">Partner with Seolinkbuildings to secure high-quality editorial backlinks through ethical, journalist-led Digital PR campaigns designed for long-term search visibility.</p>
+      <h2 class="h2 mb-3"><?= __('messages.pricing_title') ?></h2>
+      <p class="lead text-muted"><?= __('messages.pricing_description') ?></p>
     </div>
 
     <div class="row g-4 justify-content-center">
@@ -12,17 +12,17 @@
         <div class="card h-100 border rounded-3 shadow-sm pricing-card" style="min-height: 520px;">
           <div class="card-body d-flex flex-column justify-content-between text-start p-5">
             <div>
-              <h5 class="card-title mb-4">Starter Package</h5>
-              <p class="card-text mb-4">Ideal for small businesses and startups beginning their Digital PR journey</p>
+              <h5 class="card-title mb-4"><?= __('messages.pricing_card_1_title') ?></h5>
+              <p class="card-text mb-4"><?= __('messages.pricing_card_1_description') ?></p>
               <div class="h3 mb-4">€499<span class="text-muted fs-6">/month</span></div>
-              <p class="fw-semibold mb-3">What’s Included</p>
+              <p class="fw-semibold mb-3"><?= __('messages.pricing_card_1_item_title') ?></p>
               <ul class="list-unstyled mb-4 ps-3">
-                <li>✔ 2+ editorial backlinks from relevant industry publications</li>
-                <li>✔ Average Domain Rating (DR) 30–40</li>
-                <li>✔ Websites with verified organic traffic and real audiences</li>
+                <li>✔ <?= __('messages.pricing_card_1_item_1') ?></li>
+                <li>✔ <?= __('messages.pricing_card_1_item_2') ?></li>
+                <li>✔ <?= __('messages.pricing_card_1_item_3') ?></li>
               </ul>
             </div>
-            <a href="#" class="btn btn-outline-secondary w-100 mt-4 py-2">Get Started</a>
+            <a href="#" class="btn btn-outline-secondary w-100 mt-4 py-2"><?= __('messages.pricing_card_1_price_button') ?></a>
           </div>
         </div>
       </div>
@@ -35,17 +35,17 @@
           
           <div class="card-body d-flex flex-column justify-content-between text-start mt-4 p-5">
             <div>
-              <h5 class="card-title mb-4">Growth Package</h5>
-              <p class="card-text mb-4">Designed for growing brands seeking consistent expert-led media placements</p>
+              <h5 class="card-title mb-4"><?= __('messages.pricing_card_2_title') ?></h5>
+              <p class="card-text mb-4"><?= __('messages.pricing_card_2_description') ?></p>
               <div class="h3 mb-4">€1,499<span class="text-muted fs-6">/month</span></div>
-              <p class="fw-semibold mb-3">What’s Included</p>
+              <p class="fw-semibold mb-3"><?= __('messages.pricing_card_2_item_title') ?></p>
               <ul class="list-unstyled mb-4 ps-3">
-                <li>✔ 5+ backlinks via expert commentary and contributed content</li>
-                <li>✔ Average Domain Rating (DR) 40+</li>
-                <li>✔ Minimum 50% do-follow links, earned organically</li>
+                <li>✔ <?= __('messages.pricing_card_2_item_1') ?></li>
+                <li>✔ <?= __('messages.pricing_card_2_item_2') ?></li>
+                <li>✔ <?= __('messages.pricing_card_2_item_3') ?></li>
               </ul>
             </div>
-            <a href="#" class="btn w-100 mt-4 py-2 text-white" style="background-color:#4ECDCB; border:none;">Get Started</a>
+            <a href="#" class="btn w-100 mt-4 py-2 text-white" style="background-color:#4ECDCB; border:none;"><?= __('messages.pricing_card_2_price_button') ?></a>
           </div>
         </div>
       </div>
@@ -55,17 +55,17 @@
         <div class="card h-100 border rounded-3 shadow-sm pricing-card" style="min-height: 520px;">
           <div class="card-body d-flex flex-column justify-content-between text-start p-5">
             <div>
-              <h5 class="card-title mb-4">Premium Package</h5>
-              <p class="card-text mb-4">For established brands requiring top-tier editorial authority and scale</p>
+              <h5 class="card-title mb-4"><?= __('messages.pricing_card_3_title') ?></h5>
+              <p class="card-text mb-4"><?= __('messages.pricing_card_3_description') ?></p>
               <div class="h3 mb-4">€2,799<span class="text-muted fs-6">/month</span></div>
-              <p class="fw-semibold mb-3">What’s Included</p>
+              <p class="fw-semibold mb-3"><?= __('messages.pricing_card_3_item_title') ?></p>
               <ul class="list-unstyled mb-4 ps-3">
-                <li>✔ 10+ editorial backlinks from authoritative publications</li>
-                <li>✔ Average Domain Rating (DR) 50+</li>
-                <li>✔ Minimum 50% do-follow links, earned organically</li>
+                <li>✔ <?= __('messages.pricing_card_3_item_1') ?></li>
+                <li>✔ <?= __('messages.pricing_card_3_item_2') ?></li>
+                <li>✔ <?= __('messages.pricing_card_3_item_3') ?></li>
               </ul>
             </div>
-            <a href="#" class="btn btn-outline-secondary w-100 mt-4 py-2">Get Started</a>
+            <a href="#" class="btn btn-outline-secondary w-100 mt-4 py-2"><?= __('messages.pricing_card_3_price_button') ?></a>
           </div>
         </div>
       </div>
@@ -73,7 +73,7 @@
     </div>
 
     <div class="text-center mt-5">
-      <p class="text-muted">Need a tailored Digital PR strategy? <a href="contact-us" class="text-danger fw-bold">Contact us</a></p>
+      <p class="text-muted"> {{ __('messages.tagline') }} <a href="contact-us" class="text-danger fw-bold"><?= __('messages.contact_us') ?></a></p>
     </div>
   </div>
 

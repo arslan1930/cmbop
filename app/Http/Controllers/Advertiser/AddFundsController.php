@@ -10,6 +10,7 @@ use App\Models\User;
 use App\Mail\DepositRequestSubmitted;
 use App\Services\StripePaymentService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Log;
 use Stripe\Stripe;
@@ -116,18 +117,24 @@ class AddFundsController extends Controller
             $session = Session::retrieve($sessionId);
             
             if ($session->payment_status === 'paid') {
-                // Check if deposit already exists
-                $existingDeposit = DepositRequest::where('stripe_session_id', $sessionId)->first();
-                
-                if (!$existingDeposit) {
-                    // Generate unique reference code if not provided
+                $creditedAmount = null;
+
+                DB::transaction(function () use ($sessionId, $session, $amount, &$referenceCode, &$creditedAmount) {
+                    $existingDeposit = DepositRequest::where('stripe_session_id', $sessionId)
+                        ->lockForUpdate()
+                        ->first();
+
+                    if ($existingDeposit) {
+                        $creditedAmount = (float) $existingDeposit->amount;
+                        return;
+                    }
+
                     if (!$referenceCode) {
                         do {
                             $referenceCode = str_pad(mt_rand(1, 999999), 6, '0', STR_PAD_LEFT);
                         } while (DepositRequest::where('reference_code', $referenceCode)->exists());
                     }
-                    
-                    // Create deposit record only after successful payment
+
                     $deposit = DepositRequest::create([
                         'user_id' => auth()->id(),
                         'reference_code' => $referenceCode,
@@ -142,21 +149,19 @@ class AddFundsController extends Controller
                         'approved_at' => now(),
                         'paid_at' => now()
                     ]);
-                    
-                    // Update wallet balance
-                    $wallet = Wallet::firstOrCreate(
-                        ['user_id' => auth()->id()],
-                        ['balance' => 0, 'reserved_balance' => 0]
-                    );
-                    $wallet->balance += $deposit->amount;
-                    $wallet->save();
-                    
-                    return redirect()->route('advertiser.add-funds')
-                        ->with('success', 'Payment successful! €' . number_format($deposit->amount, 2) . ' added to your wallet.');
-                } else {
-                    return redirect()->route('advertiser.add-funds')
-                        ->with('success', 'Payment already processed! €' . number_format($existingDeposit->amount, 2) . ' added to your wallet.');
-                }
+
+                    $advertiserRoleId = Wallet::advertiserRoleId();
+                    if (!$advertiserRoleId) {
+                        throw new \RuntimeException('Advertiser role not configured');
+                    }
+
+                    $wallet = Wallet::lockOrCreateForRole(auth()->id(), $advertiserRoleId);
+                    $wallet->credit((float) $deposit->amount);
+                    $creditedAmount = (float) $deposit->amount;
+                });
+
+                return redirect()->route('advertiser.add-funds')
+                    ->with('success', 'Payment successful! €' . number_format($creditedAmount ?? 0, 2) . ' added to your wallet.');
             }
             
             return redirect()->route('advertiser.add-funds')

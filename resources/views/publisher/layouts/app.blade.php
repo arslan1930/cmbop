@@ -155,6 +155,24 @@
             padding: 0;
         }
 
+        /* Mobile Sidebar Logo Styling */
+        .mobile-sidebar-logo {
+            padding: 16px 0;
+            text-align: center;
+            border-bottom: 1px solid rgba(0,0,0,0.05);
+            margin-bottom: 8px;
+            display: none; /* hidden by default, shown on mobile */
+        }
+        
+        body.layout-dark .mobile-sidebar-logo {
+            border-bottom-color: rgba(255,255,255,0.1);
+        }
+        
+        .mobile-sidebar-logo img {
+            height: 40px;
+            width: auto;
+        }
+
         @media (max-width: 768px) {
             #sidebar {
                 top: 70px;
@@ -170,6 +188,21 @@
 
             .top-navbar { left: 0 !important; padding-left: 10px; padding-right: 10px; }
             .top-navbar .mobile-left { display: flex; align-items: center; gap: 10px; }
+            
+            /* Hide navbar logo on mobile */
+            .top-navbar .mobile-left a.d-flex.align-items-center {
+                display: none !important;
+            }
+            
+            /* Show logo in sidebar on mobile */
+            .mobile-sidebar-logo {
+                display: block;
+            }
+            
+            /* Hide desktop sidebar logo image if exists (the one in .menu) */
+            #sidebar .menu > .text-center.d-none.d-md-block {
+                display: none !important;
+            }
         }
     </style>
 </head>
@@ -178,6 +211,11 @@
 
 <!-- Sidebar -->
 <div id="sidebar">
+    <!-- Mobile Sidebar Logo (visible only on mobile) -->
+    <div class="mobile-sidebar-logo">
+        <img id="mobileSidebarLogo" src="{{ asset('assets/img/logo1.png') }}" alt="Logo">
+    </div>
+    
     <div class="menu">
 
         <!-- Mobile Role Switch -->
@@ -209,18 +247,17 @@
            
         <!-- Websites + number of websites simple count bg of red as a batch  -->
         <a href="{{ route('publisher.websites') }}" class="{{ request()->routeIs('publisher.websites') ? 'active' : '' }}">
-    <!-- sites icon-->
-    <i class="fa fa-globe"></i>
-    <span class="d-flex align-items-center w-100">
-    <span>My Sites</span>
-
-    @auth
-        <span class="badge bg-danger rounded-pill ms-auto">
-            {{ auth()->user()->sites()->count() }}
-        </span>
-    @endauth
-</span>
-</a>
+            <!-- sites icon-->
+            <i class="fa fa-globe"></i>
+            <span class="d-flex align-items-center w-100">
+                <span>My Sites</span>
+                @auth
+                    <span class="badge bg-danger rounded-pill ms-auto">
+                        {{ auth()->user()->sites()->count() }}
+                    </span>
+                @endauth
+            </span>
+        </a>
 
         <a href="{{ route('publisher.tasks') }}" class="{{ request()->routeIs('publisher.tasks') ? 'active' : '' }}">
             <i class="fa fa-tasks"></i> <span>Tasks</span>
@@ -247,6 +284,7 @@
             <span class="arrow"><i class="fa fa-chevron-left"></i></span>
         </button>
 
+        <!-- Navbar logo - will be hidden on mobile via CSS -->
         <a href="/" class="d-flex align-items-center">
             <img id="logoNavbar" src="{{ asset('assets/img/logo1.png') }}" height="45">
         </a>
@@ -298,37 +336,67 @@
         </a>
 
         <div class="dropdown">
-            <button class="btn dropdown-toggle d-flex align-items-center gap-1"
-                    data-bs-toggle="dropdown">
-                <div class="rounded-circle text-white d-flex justify-content-center align-items-center"
-                     style="width: 36px; height: 36px; font-weight: 600; background: linear-gradient(to right, #0d6efd, #6f42c1);">
-                    {{ strtoupper(substr(auth()->user()->name,0,1)) }}
-                </div>
-            </button>
+    <button class="btn dropdown-toggle d-flex align-items-center gap-1"
+            data-bs-toggle="dropdown">
+        
+        @php
+            $user = auth()->user();
+        @endphp
+        
+        {{-- If user has avatar (Google avatar), display it --}}
+        @if($user->avatar)
+            <img src="{{ $user->avatar }}" 
+                 alt="{{ $user->name }}"
+                 class="rounded-circle"
+                 style="width: 36px; height: 36px; object-fit: cover;">
+        @else
+            {{-- Otherwise show initials with gradient background --}}
+            <div class="rounded-circle text-white d-flex justify-content-center align-items-center"
+                 style="width: 36px; height: 36px; font-weight: 600; background: linear-gradient(to right, #0d6efd, #6f42c1);">
+                {{ strtoupper(substr($user->name, 0, 1)) }}
+            </div>
+        @endif
+    </button>
 
-            <ul class="dropdown-menu dropdown-menu-end">
-                <li class="px-3 py-2">
-                    <strong>{{ auth()->user()->name }}</strong><br>
-                    <small>{{ auth()->user()->email }}</small>
-                </li>
-                <li><hr class="dropdown-divider"></li>
-                <!-- Profile + icon -->
-                <li>
-                    <a class="dropdown-item" href="{{ route('profile') }}">
-                        <i class="fa fa-user"></i> Profile
-                    </a>
-                </li>
-                <li><hr class="dropdown-divider"></li>
-                <li>
-                    <form method="POST" action="{{ route('logout') }}">
-                        @csrf
-                        <button class="dropdown-item text-danger">
-                            <i class="fa fa-sign-out-alt"></i> Logout
-                        </button>
-                    </form>
-                </li>
-            </ul>
-        </div>
+    <ul class="dropdown-menu dropdown-menu-end">
+        {{-- User info with avatar thumbnail in dropdown --}}
+        <li class="px-3 py-2">
+            <div class="d-flex align-items-center gap-2">
+                @if($user->avatar)
+                    <img src="{{ $user->avatar }}" 
+                         alt="{{ $user->name }}"
+                         class="rounded-circle"
+                         style="width: 32px; height: 32px; object-fit: cover;">
+                @else
+                    <div class="rounded-circle text-white d-flex justify-content-center align-items-center"
+                         style="width: 32px; height: 32px; font-weight: 600; background: linear-gradient(to right, #0d6efd, #6f42c1);">
+                        {{ strtoupper(substr($user->name, 0, 1)) }}
+                    </div>
+                @endif
+                <div>
+                    <strong>{{ $user->name }}</strong><br>
+                    <small>{{ $user->email }}</small>
+                </div>
+            </div>
+        </li>
+        <li><hr class="dropdown-divider"></li>
+        <!-- Profile + icon -->
+        <li>
+            <a class="dropdown-item" href="{{ route('profile') }}">
+                <i class="fa fa-user"></i> Profile
+            </a>
+        </li>
+        <li><hr class="dropdown-divider"></li>
+        <li>
+            <form method="POST" action="{{ route('logout') }}">
+                @csrf
+                <button class="dropdown-item text-danger">
+                    <i class="fa fa-sign-out-alt"></i> Logout
+                </button>
+            </form>
+        </li>
+    </ul>
+</div>
     </div>
 </div>
 
@@ -376,6 +444,7 @@
     const sunIcon = darkModeBtn.querySelector('.fa-sun');
     const logoSidebar = document.getElementById('logoSidebar');
     const logoNavbar = document.getElementById('logoNavbar');
+    const mobileSidebarLogo = document.getElementById('mobileSidebarLogo');
 
     if (localStorage.getItem('layoutDarkMode') === 'true') {
         document.body.classList.add('layout-dark');
@@ -383,6 +452,7 @@
         sunIcon.classList.remove('d-none');
         logoSidebar.src = "{{ asset('assets/img/logo2.png') }}";
         logoNavbar.src = "{{ asset('assets/img/logo2.png') }}";
+        if (mobileSidebarLogo) mobileSidebarLogo.src = "{{ asset('assets/img/logo2.png') }}";
     }
 
     darkModeBtn.addEventListener('click', () => {
@@ -390,8 +460,10 @@
         moonIcon.classList.toggle('d-none', isDark);
         sunIcon.classList.toggle('d-none', !isDark);
         localStorage.setItem('layoutDarkMode', isDark);
-        logoSidebar.src = isDark ? "{{ asset('assets/img/logo2.png') }}" : "{{ asset('assets/img/logo1.png') }}";
-        logoNavbar.src = isDark ? "{{ asset('assets/img/logo2.png') }}" : "{{ asset('assets/img/logo1.png') }}";
+        const logoSrc = isDark ? "{{ asset('assets/img/logo2.png') }}" : "{{ asset('assets/img/logo1.png') }}";
+        logoSidebar.src = logoSrc;
+        logoNavbar.src = logoSrc;
+        if (mobileSidebarLogo) mobileSidebarLogo.src = logoSrc;
     });
 
     var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))

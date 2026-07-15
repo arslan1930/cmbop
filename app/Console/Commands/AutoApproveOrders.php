@@ -23,16 +23,22 @@ class AutoApproveOrders extends Command
     {
         $this->info('[' . Carbon::now() . '] Auto-approve check started...');
         
-        // Find orders ready for auto-approval
+        // Find orders ready for auto-approval.
+        // Treat NULL modification_requested like 'no' so older rows are not skipped forever.
         $orderItems = OrderItem::whereNotNull('live_url')
+            ->where('live_url', '!=', '')
             ->whereNotNull('live_url_submitted_at')
             ->where('live_url_submitted_at', '<=', Carbon::now()->subHours(48))
-            ->where('modification_requested', 'no')
-            ->where('auto_approve_triggered', false)
-            ->whereHas('order', function($query) {
-                $query->where('status', 'review')
-                      ->where('status', '!=', 'completed')
-                      ->where('status', '!=', 'cancelled');
+            ->where(function ($query) {
+                $query->where('modification_requested', 'no')
+                    ->orWhereNull('modification_requested');
+            })
+            ->where(function ($query) {
+                $query->where('auto_approve_triggered', false)
+                    ->orWhereNull('auto_approve_triggered');
+            })
+            ->whereHas('order', function ($query) {
+                $query->where('status', 'review');
             })
             ->get();
         
@@ -43,11 +49,21 @@ class AutoApproveOrders extends Command
         foreach ($orderItems as $orderItem) {
             try {
                 DB::beginTransaction();
-                
-                $order = $orderItem->order;
+
+                $order = Order::where('id', $orderItem->order_id)->lockForUpdate()->first();
+                if (!$order || $order->status === 'completed' || $order->status === 'cancelled') {
+                    DB::rollBack();
+                    continue;
+                }
+
+                $lockedItem = OrderItem::where('id', $orderItem->id)->lockForUpdate()->first();
+                if (!$lockedItem || $lockedItem->auto_approve_triggered) {
+                    DB::rollBack();
+                    continue;
+                }
                 
                 // Update order item
-                $orderItem->update([
+                $lockedItem->update([
                     'auto_approve_triggered' => true,
                     'auto_approve_at' => Carbon::now()
                 ]);
@@ -57,48 +73,40 @@ class AutoApproveOrders extends Command
                     'status' => 'completed'
                 ]);
                 
-                // Get publisher role ID
-                $publisherRoleId = \App\Models\Role::where('name', 'publisher')->value('id');
+                $publisherRoleId = Wallet::publisherRoleId();
                 
                 // Get the site to find publisher
-                $site = Site::find($orderItem->site_id);
+                $site = Site::find($lockedItem->site_id);
                 
-                if ($site && $site->publisher_id) {
+                if ($site && $site->publisher_id && $publisherRoleId) {
                     $publisher = User::find($site->publisher_id);
                     
                     if ($publisher) {
-                        // Get or create publisher's wallet
-                        $publisherWallet = Wallet::where('user_id', $publisher->id)
-                            ->where('role_id', $publisherRoleId)
-                            ->first();
+                        $publisherWallet = Wallet::lockOrCreateForRole($publisher->id, $publisherRoleId);
+                        $amount = (float) $lockedItem->price;
+                        $publisherWallet->credit($amount);
                         
-                        if (!$publisherWallet) {
-                            $publisherWallet = Wallet::create([
-                                'user_id' => $publisher->id,
-                                'role_id' => $publisherRoleId,
-                                'balance' => 0,
-                                'reserved_balance' => 0,
-                                'currency' => 'EUR'
-                            ]);
-                        }
-                        
-                        // Add amount to publisher's wallet
-                        $amount = $orderItem->price;
-                        $publisherWallet->increment('balance', $amount);
-                        
-                        $this->info("✓ Payment of €{$amount} transferred to publisher #{$publisher->id}");
+                        $this->info("✓ Payment of €{$amount} transferred to publisher #{$publisher->id} (platform fee €{$platformFee})");
+                        Log::info('Auto-approve publisher payout', [
+                            'order_id' => $order->id,
+                            'order_item_id' => $orderItem->id,
+                            'publisher_id' => $publisher->id,
+                            'advertiser_paid' => (float) $orderItem->price,
+                            'publisher_payout' => $amount,
+                            'platform_fee' => $platformFee,
+                        ]);
                     }
                 }
                 
-                // If wallet payment, release reserved funds
+                // If wallet payment, consume reserved funds
                 if ($order->payment_method === 'wallet') {
-                    $advertiserRoleId = \App\Models\Role::where('name', 'advertiser')->value('id');
-                    $advertiserWallet = Wallet::where('user_id', $order->user_id)
-                        ->where('role_id', $advertiserRoleId)
-                        ->first();
+                    $advertiserRoleId = Wallet::advertiserRoleId();
+                    $advertiserWallet = $advertiserRoleId
+                        ? Wallet::lockForUserRole($order->user_id, $advertiserRoleId)
+                        : null;
                     
                     if ($advertiserWallet) {
-                        $advertiserWallet->decrement('reserved_balance', $order->total_amount);
+                        $advertiserWallet->consumeReserved((float) $order->total_amount);
                         $this->info("✓ Reserved funds released from advertiser wallet");
                     }
                 }

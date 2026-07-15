@@ -47,10 +47,8 @@ class RegisterController extends Controller
             'password'              => ['required', 'confirmed', Password::defaults()],
             'role'                  => 'required|in:advertiser,publisher',
             'terms'                 => 'accepted',
-            'g-recaptcha-response'  => 'required',
         ], [
             'terms.accepted' => 'You must agree to the Terms and Services.',
-            'g-recaptcha-response.required' => 'Please verify that you are not a robot.'
         ]);
 
         if ($validator->fails()) {

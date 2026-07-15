@@ -166,7 +166,12 @@ class StripeWebhookController extends Controller
                 }
                 
                 DB::transaction(function () use ($deposit, $session) {
-                    $deposit->update([
+                    $lockedDeposit = DepositRequest::where('id', $deposit->id)->lockForUpdate()->first();
+                    if (!$lockedDeposit || $lockedDeposit->status === 'completed') {
+                        return;
+                    }
+
+                    $lockedDeposit->update([
                         'stripe_session_id' => $session->id,
                         'stripe_payment_intent_id' => $session->payment_intent,
                         'stripe_response' => json_encode($session),
@@ -174,12 +179,14 @@ class StripeWebhookController extends Controller
                         'approved_at' => now(),
                         'paid_at' => now(),
                     ]);
-                    
-                    $wallet = Wallet::firstOrCreate(
-                        ['user_id' => $deposit->user_id],
-                        ['balance' => 0, 'reserved_balance' => 0, 'role_id' => 1]
-                    );
-                    $wallet->increment('balance', $deposit->amount);
+
+                    $advertiserRoleId = Wallet::advertiserRoleId();
+                    if (!$advertiserRoleId) {
+                        throw new \RuntimeException('Advertiser role not configured');
+                    }
+
+                    $wallet = Wallet::lockOrCreateForRole($lockedDeposit->user_id, $advertiserRoleId);
+                    $wallet->credit((float) $lockedDeposit->amount);
                 });
                 
                 Log::info('Deposit completed', ['deposit_id' => $deposit->id]);
@@ -193,6 +200,18 @@ class StripeWebhookController extends Controller
             
             if ($userId) {
                 DB::transaction(function () use ($userId, $session, $finalAmount, $referenceCode) {
+                    // Idempotency: skip if this Stripe session was already credited
+                    $existing = DepositRequest::where('stripe_session_id', $session->id)
+                        ->lockForUpdate()
+                        ->first();
+                    if ($existing) {
+                        Log::info('Deposit already exists for Stripe session', [
+                            'deposit_id' => $existing->id,
+                            'session_id' => $session->id,
+                        ]);
+                        return;
+                    }
+
                     $deposit = DepositRequest::create([
                         'user_id' => $userId,
                         'reference_code' => $referenceCode ?? str_pad(mt_rand(1, 999999), 6, '0', STR_PAD_LEFT),
@@ -205,12 +224,14 @@ class StripeWebhookController extends Controller
                         'approved_at' => now(),
                         'paid_at' => now(),
                     ]);
-                    
-                    $wallet = Wallet::firstOrCreate(
-                        ['user_id' => $userId],
-                        ['balance' => 0, 'reserved_balance' => 0, 'role_id' => 1]
-                    );
-                    $wallet->increment('balance', $finalAmount);
+
+                    $advertiserRoleId = Wallet::advertiserRoleId();
+                    if (!$advertiserRoleId) {
+                        throw new \RuntimeException('Advertiser role not configured');
+                    }
+
+                    $wallet = Wallet::lockOrCreateForRole($userId, $advertiserRoleId);
+                    $wallet->credit((float) $finalAmount);
                     
                     Log::info('Deposit created from webhook', ['deposit_id' => $deposit->id]);
                 });
@@ -222,19 +243,21 @@ class StripeWebhookController extends Controller
     }
 
     /**
-     * Handle order payment - Saves to orders table
+     * Handle order payment — pending orders are created before Stripe checkout.
+     * Webhook is the authoritative path to mark them paid (success URL is fallback).
      */
     private function handleOrderPayment($session)
     {
         try {
             $metadata = $session->metadata ?? [];
-            
-            // Try to get reference_code from metadata (could be object or array)
-            $referenceCode = is_object($metadata) ? ($metadata->reference_code ?? null) : ($metadata['reference_code'] ?? null);
-            
-            Log::info('Processing order payment', [
+
+            $referenceCode = is_object($metadata)
+                ? ($metadata->reference_code ?? null)
+                : ($metadata['reference_code'] ?? null);
+
+            Log::info('Processing order payment webhook', [
                 'reference_code' => $referenceCode,
-                'session_id' => $session->id
+                'session_id' => $session->id,
             ]);
 
             if (!$referenceCode) {
@@ -242,39 +265,37 @@ class StripeWebhookController extends Controller
                 return;
             }
 
-            // Find pending orders with this reference code
-            $orders = Order::where('reference_code', $referenceCode)
-                ->where('payment_status', 'pending')
-                ->get();
+            $paymentService = app(OrderPaymentService::class);
+            $newlyPaid = $paymentService->markOrdersPaidFromStripeSession($referenceCode, $session);
 
-            if ($orders->isEmpty()) {
-                Log::warning('No pending orders found', ['reference_code' => $referenceCode]);
+            if ($newlyPaid->isEmpty()) {
+                // Orders may already be paid by the success URL, or not created yet.
+                $existingPaid = Order::where('reference_code', $referenceCode)
+                    ->where('payment_method', 'card')
+                    ->where('payment_status', 'paid')
+                    ->count();
+
+                if ($existingPaid > 0) {
+                    Log::info('Order payment already finalized (idempotent webhook)', [
+                        'reference_code' => $referenceCode,
+                        'paid_count' => $existingPaid,
+                    ]);
+                    return;
+                }
+
+                Log::warning('No pending card orders found for webhook', [
+                    'reference_code' => $referenceCode,
+                    'session_id' => $session->id,
+                ]);
                 return;
             }
 
-            DB::transaction(function () use ($orders, $session) {
-                foreach ($orders as $order) {
-                    $order->update([
-                        'stripe_session_id' => $session->id,
-                        'stripe_payment_intent_id' => $session->payment_intent,
-                        'stripe_response' => json_encode($session->toArray()),
-                        'paid_at' => now(),
-                        'payment_status' => 'paid',
-                        'status' => 'processing'
-                    ]);
-                    
-                    Log::info('Order updated', [
-                        'order_id' => $order->id,
-                        'order_number' => $order->order_number
-                    ]);
-                }
-            });
+            $paymentService->notifyPublishersOfPaidOrders($newlyPaid);
 
-            Log::info('Order payment completed', [
+            Log::info('Order payment completed via webhook', [
                 'reference_code' => $referenceCode,
-                'orders_updated' => $orders->count()
+                'orders_updated' => $newlyPaid->count(),
             ]);
-
         } catch (\Exception $e) {
             Log::error('Error processing order payment: ' . $e->getMessage());
         }

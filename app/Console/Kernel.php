@@ -19,8 +19,9 @@ class Kernel extends ConsoleKernel
      */
     protected function schedule(Schedule $schedule): void
     {
+        // Kept in sync with bootstrap/app.php (Laravel 11+ uses bootstrap schedule)
         $schedule->command('orders:auto-approve')
-                 ->everyMinute()
+                 ->everyFifteenMinutes()
                  ->withoutOverlapping();
     }
 
