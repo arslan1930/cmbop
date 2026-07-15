@@ -71,13 +71,16 @@ class SocialiteController extends Controller
             // Attach both roles to the user
             $user->roles()->sync([$advertiserRole->id, $publisherRole->id]);
 
-            // Create wallets for both roles
+            // Create wallets for both roles (€20 spend-only welcome credit on advertiser wallet)
+            $welcomeBonus = 20.00;
             $wallets = [
                 [
                     'user_id' => $user->id,
                     'role_id' => $advertiserRole->id,
-                    'balance' => 20.00,
+                    'balance' => $welcomeBonus,
                     'reserved_balance' => 0.00,
+                    'bonus_balance' => $welcomeBonus,
+                    'bonus_reserved' => 0.00,
                     'currency' => 'EUR',
                     'created_at' => now(),
                     'updated_at' => now(),
@@ -87,6 +90,8 @@ class SocialiteController extends Controller
                     'role_id' => $publisherRole->id,
                     'balance' => 0.00,
                     'reserved_balance' => 0.00,
+                    'bonus_balance' => 0.00,
+                    'bonus_reserved' => 0.00,
                     'currency' => 'EUR',
                     'created_at' => now(),
                     'updated_at' => now(),

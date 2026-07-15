@@ -98,7 +98,7 @@ class AutoApproveOrders extends Command
                         ->first();
                     
                     if ($advertiserWallet) {
-                        $advertiserWallet->decrement('reserved_balance', $order->total_amount);
+                        $advertiserWallet->consumeReserved((float) $order->total_amount);
                         $this->info("✓ Reserved funds released from advertiser wallet");
                     }
                 }

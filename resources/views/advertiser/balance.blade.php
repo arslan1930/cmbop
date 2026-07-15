@@ -27,7 +27,15 @@
                 </div>
                 <div class="card-body text-center">
                     <h2 class="mb-0" id="advertiserBalance" style="color: #10b981;">€{{ number_format($advertiserBalance, 2) }}</h2>
-                    <p class="text-muted small mt-2">Your wallet balance</p>
+                    <p class="text-muted small mt-2 mb-0">Total wallet balance</p>
+                    <p class="text-muted small mt-1 mb-0">
+                        Transferable: <strong id="advertiserWithdrawableBalance">€{{ number_format($advertiserWithdrawableBalance, 2) }}</strong>
+                        @if(($advertiserBonusBalance ?? 0) > 0)
+                            · Site credit: <strong id="advertiserBonusBalance">€{{ number_format($advertiserBonusBalance, 2) }}</strong> (spend only)
+                        @else
+                            <span id="advertiserBonusBalanceWrap" class="d-none">· Site credit: <strong id="advertiserBonusBalance">€0.00</strong></span>
+                        @endif
+                    </p>
                 </div>
             </div>
         </div>
@@ -72,8 +80,8 @@
                             </span>
                             <input type="number" id="amount" class="form-control" placeholder="0.00" step="0.01" min="1">
                         </div>
-                        <small class="text-muted">Minimum transfer: €1.00</small>
-                        <small class="text-muted d-block mt-1">This will transfer from your Advertiser wallet to your Publisher wallet.</small>
+                        <small class="text-muted">Minimum transfer: €1.00 · Max transferable: €{{ number_format($advertiserWithdrawableBalance, 2) }}</small>
+                        <small class="text-muted d-block mt-1">Transfers use deposited/earned funds only. Welcome site credit can only be spent on orders.</small>
                     </div>
 
                     <!-- Dynamic Balance Preview -->
@@ -202,6 +210,8 @@
 <script>
 let currentPage = 1;
 let advertiserBalance = parseFloat('{{ $advertiserBalance }}');
+let advertiserWithdrawableBalance = parseFloat('{{ $advertiserWithdrawableBalance }}');
+let advertiserBonusBalance = parseFloat('{{ $advertiserBonusBalance }}');
 let publisherBalance = parseFloat('{{ $publisherBalance }}');
 const baseUrl = window.location.origin;
 
@@ -222,8 +232,8 @@ $(document).ready(function() {
             return;
         }
         
-        if (amount > advertiserBalance) {
-            Swal.fire('Error', `Insufficient balance. Your Advertiser balance is €${advertiserBalance.toFixed(2)}`, 'error');
+        if (amount > advertiserWithdrawableBalance) {
+            Swal.fire('Error', `Insufficient transferable balance. Available to transfer: €${advertiserWithdrawableBalance.toFixed(2)}. Site credit cannot be transferred.`, 'error');
             return;
         }
         
@@ -256,8 +266,12 @@ $(document).ready(function() {
                         if (response.success) {
                             Swal.fire('Success!', response.message, 'success');
                             advertiserBalance = response.advertiser_balance;
+                            advertiserWithdrawableBalance = response.advertiser_withdrawable_balance ?? advertiserWithdrawableBalance;
+                            advertiserBonusBalance = response.advertiser_bonus_balance ?? advertiserBonusBalance;
                             publisherBalance = response.publisher_balance;
                             $('#advertiserBalance').html('€' + advertiserBalance.toFixed(2));
+                            $('#advertiserWithdrawableBalance').html('€' + advertiserWithdrawableBalance.toFixed(2));
+                            $('#advertiserBonusBalance').html('€' + advertiserBonusBalance.toFixed(2));
                             $('#publisherBalance').html('€' + publisherBalance.toFixed(2));
                             $('#currentAdvertiserBalance').html('€' + advertiserBalance.toFixed(2));
                             $('#currentPublisherBalance').html('€' + publisherBalance.toFixed(2));
@@ -308,7 +322,7 @@ function updatePreview() {
 function validateTransfer() {
     let amount = parseFloat($('#amount').val()) || 0;
     
-    if (amount >= 1 && amount <= advertiserBalance) {
+    if (amount >= 1 && amount <= advertiserWithdrawableBalance) {
         $('#transferBtn').prop('disabled', false);
     } else {
         $('#transferBtn').prop('disabled', true);

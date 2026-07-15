@@ -306,17 +306,17 @@ class OrderController extends Controller
                 ]);
             }
             
-            // For wallet payments: Move from reserved_balance to balance
+            // For wallet payments: Move from reserved_balance to balance (restore spend-only bonus if used)
             if ($order->payment_method === 'wallet') {
-                $advertiserWallet->reserved_balance -= $orderAmount;
-                $advertiserWallet->balance += $orderAmount;
-                $advertiserWallet->save();
+                $advertiserWallet->refundReserved($orderAmount);
                 
                 Log::info('Wallet refund: funds moved from reserved to balance', [
                     'order_id' => $order->id,
                     'amount' => $orderAmount,
                     'new_balance' => $advertiserWallet->balance,
-                    'new_reserved_balance' => $advertiserWallet->reserved_balance
+                    'new_reserved_balance' => $advertiserWallet->reserved_balance,
+                    'bonus_balance' => $advertiserWallet->bonus_balance,
+                    'bonus_reserved' => $advertiserWallet->bonus_reserved,
                 ]);
             } 
             // For all other payment methods (card, wise, crypto, bank): Direct refund to balance

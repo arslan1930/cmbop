@@ -198,7 +198,7 @@
                                         <div class="bonus-title">Welcome Bonus</div>
                                     </div>
                                     <div class="bonus-amount">€20 Free Credit</div>
-                                    <p class="bonus-desc">Create your account and receive €20 to start immediately.</p>
+                                    <p class="bonus-desc">Create your account and receive €20 to spend on orders. Site credit cannot be withdrawn.</p>
                                 </div>
 
                                 {{-- Flags --}}

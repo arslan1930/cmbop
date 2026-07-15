@@ -41,7 +41,8 @@ class WithdrawalController extends Controller
             }
             
             $amount = $request->amount;
-            $availableBalance = $wallet->balance;
+            // Welcome / promo credit is spend-only and cannot be withdrawn
+            $availableBalance = $wallet->withdrawableBalance();
             
             if ($amount <= 0) {
                 return response()->json([
@@ -51,9 +52,13 @@ class WithdrawalController extends Controller
             }
             
             if ($amount > $availableBalance) {
+                $promoNote = $wallet->lockedBonusBalance() > 0
+                    ? ' (€' . number_format($wallet->lockedBonusBalance(), 2) . ' site credit is spend-only and cannot be withdrawn.)'
+                    : '';
+
                 return response()->json([
                     'success' => false,
-                    'message' => 'Insufficient balance for this withdrawal. Available balance: €' . number_format($availableBalance, 2)
+                    'message' => 'Insufficient withdrawable balance for this withdrawal. Available to withdraw: €' . number_format($availableBalance, 2) . '.' . $promoNote
                 ]);
             }
             
@@ -121,9 +126,8 @@ class WithdrawalController extends Controller
                 'status' => 'pending'
             ]);
             
-            // Deduct from wallet balance
-            $wallet->balance -= $amount;
-            $wallet->save();
+            // Deduct from withdrawable wallet balance only
+            $wallet->deductWithdrawable($amount);
             
             DB::commit();
             

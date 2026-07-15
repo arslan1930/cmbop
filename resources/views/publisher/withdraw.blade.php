@@ -4,9 +4,11 @@
 
 @php
     $wallet = auth()->user()->activeWallet();
-    $availableBalance = $wallet ? $wallet->balance : 0;
-    $reservedBalance = $wallet ? $wallet->reserved_balance : 0;
-    $totalEarnings = $availableBalance + $reservedBalance;
+    $walletBalance = $wallet ? (float) $wallet->balance : 0;
+    $bonusBalance = $wallet ? $wallet->lockedBonusBalance() : 0;
+    $availableBalance = $wallet ? $wallet->withdrawableBalance() : 0;
+    $reservedBalance = $wallet ? (float) $wallet->reserved_balance : 0;
+    $totalEarnings = $walletBalance + $reservedBalance;
     $platformChargePercent = 0.00; 
     
     $recentWithdrawals = \App\Models\Withdrawal::where('user_id', auth()->id())
@@ -34,10 +36,23 @@
                 <div class="card-body">
                     <div class="d-flex justify-content-between">
                         <div>
-                            <span class="text-muted small">Available</span>
+                            <span class="text-muted small">Available to Withdraw</span>
                             <h3 class="mb-0 fw-bold">€{{ number_format($availableBalance, 2) }}</h3>
                         </div>
                         <i class="fa fa-wallet fa-2x text-primary opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <span class="text-muted small">Site Credit (spend only)</span>
+                            <h3 class="mb-0 fw-bold">€{{ number_format($bonusBalance, 2) }}</h3>
+                        </div>
+                        <i class="fa fa-gift fa-2x text-secondary opacity-50"></i>
                     </div>
                 </div>
             </div>
@@ -104,7 +119,12 @@
                                    min="0.01"
                                    max="{{ $availableBalance }}"
                                    required>
-                            <div class="form-text">Maximum: €{{ number_format($availableBalance, 2) }}</div>
+                            <div class="form-text">
+                                Maximum withdrawable: €{{ number_format($availableBalance, 2) }}
+                                @if($bonusBalance > 0)
+                                    <span class="d-block">€{{ number_format($bonusBalance, 2) }} site credit can only be spent on orders, not withdrawn.</span>
+                                @endif
+                            </div>
                         </div>
                         
                         <!-- Fee Preview -->

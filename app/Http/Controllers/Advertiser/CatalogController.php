@@ -1000,16 +1000,16 @@ public function checkout()
             
             DB::beginTransaction();
             
-            // Deduct from balance and add to reserved_balance
-            $advertiserWallet->balance -= $totalAmount;
-            $advertiserWallet->reserved_balance += $totalAmount;
-            $advertiserWallet->save();
+            // Deduct from balance and add to reserved_balance (welcome bonus is consumed first)
+            $advertiserWallet->reserveForOrder($totalAmount);
             
             Log::info('Wallet payment processed - funds reserved', [
                 'user_id' => $userId,
                 'total_amount' => $totalAmount,
                 'new_balance' => $advertiserWallet->balance,
                 'reserved_balance' => $advertiserWallet->reserved_balance,
+                'bonus_balance' => $advertiserWallet->bonus_balance,
+                'bonus_reserved' => $advertiserWallet->bonus_reserved,
                 'reference_code' => $referenceCode
             ]);
             
@@ -1791,17 +1791,17 @@ public function approveOrder(Request $request, $id)
             }
         }
         
-        // If payment method was wallet, release the reserved funds from advertiser's wallet
+        // If payment method was wallet, consume reserved funds (bonus portion stays non-withdrawable / spent)
         if ($order->payment_method === 'wallet' && $advertiserWallet) {
             $totalOrderAmount = $order->total_amount;
-            $advertiserWallet->reserved_balance -= $totalOrderAmount;
-            $advertiserWallet->save();
+            $advertiserWallet->consumeReserved($totalOrderAmount);
             
             Log::info('Reserved funds released from advertiser wallet', [
                 'user_id' => auth()->id(),
                 'order_id' => $order->id,
                 'order_total' => $totalOrderAmount,
-                'remaining_reserved_balance' => $advertiserWallet->reserved_balance
+                'remaining_reserved_balance' => $advertiserWallet->reserved_balance,
+                'bonus_reserved' => $advertiserWallet->bonus_reserved,
             ]);
         }
         

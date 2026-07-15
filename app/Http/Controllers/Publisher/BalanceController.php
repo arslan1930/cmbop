@@ -61,18 +61,19 @@ class BalanceController extends Controller
                 ->where('role_id', $publisherRoleId)
                 ->first();
             
-            if (!$publisherWallet || $publisherWallet->balance < $request->amount) {
+            $withdrawable = $publisherWallet ? $publisherWallet->withdrawableBalance() : 0;
+
+            if (!$publisherWallet || $withdrawable < $request->amount) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Insufficient balance in Publisher wallet. Available: €' . ($publisherWallet ? number_format($publisherWallet->balance, 2) : '0.00')
+                    'message' => 'Insufficient transferable balance in Publisher wallet. Available to transfer: €' . number_format($withdrawable, 2)
                 ]);
             }
             
             DB::beginTransaction();
             
-            // Deduct from publisher wallet
-            $publisherWallet->balance -= $request->amount;
-            $publisherWallet->save();
+            // Deduct withdrawable funds only
+            $publisherWallet->deductWithdrawable((float) $request->amount);
             
             // Get or create advertiser wallet (destination)
             $advertiserWallet = Wallet::where('user_id', $userId)
