@@ -162,27 +162,35 @@
 .recommended-site {
     display: flex; align-items: center; justify-content: space-between; gap: 12px;
     padding: 12px 14px; border: 1px solid #e5e7eb; border-radius: 10px;
-    background: #fff; color: inherit;
-    transition: border-color .2s ease, background .2s ease;
+    background: #fff; color: inherit; text-decoration: none;
+    transition: border-color .2s ease, background .2s ease, box-shadow .2s ease;
 }
-.recommended-site:hover { border-color: #4ECDCB; background: #f0fbfb; }
+.recommended-site:hover {
+    border-color: #4ECDCB;
+    background: #f0fbfb;
+    color: inherit;
+    box-shadow: 0 6px 16px rgba(11, 98, 102, 0.08);
+}
 .recommended-site .rs-name {
     font-weight: 400;
     font-size: 14px;
     color: #0b6266;
-    text-decoration: underline;
-    text-underline-offset: 2px;
     word-break: break-all;
 }
-.recommended-site .rs-name:hover { color: #3aaeb2; }
 .recommended-site .rs-meta { font-size: 12px; color: #64748b; margin: 0; }
 .recommended-site .rs-price {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
     font-weight: 600;
-    color: #0b6266;
+    color: #fff;
+    background: #0b6266;
+    border-radius: 8px;
+    padding: 6px 10px;
     white-space: nowrap;
-    text-decoration: none;
+    font-size: 13px;
 }
-.recommended-site .rs-price:hover { color: #3aaeb2; }
+.recommended-site:hover .rs-price { background: #095255; }
 </style>
 
 <div class="d-flex flex-wrap align-items-end justify-content-between gap-2 mb-4">
@@ -250,17 +258,15 @@
                                 $displayUrl = (string) \Illuminate\Support\Str::of($site->site_url)
                                     ->replaceMatches('/^(https?:\/\/)?(www\.)?/', '')
                                     ->before('/');
-                                $href = \Illuminate\Support\Str::startsWith($site->site_url, ['http://', 'https://'])
-                                    ? $site->site_url
-                                    : 'https://' . ltrim((string) $site->site_url, '/');
+                                $buyUrl = route('advertiser.catalog', ['site' => $site->id]);
                             @endphp
-                            <div class="recommended-site">
+                            <a href="{{ $buyUrl }}" class="recommended-site" aria-label="Buy placement on {{ $displayUrl }}">
                                 <div>
-                                    <a href="{{ $href }}" target="_blank" rel="noopener noreferrer" class="rs-name">{{ $displayUrl }}</a>
+                                    <div class="rs-name">{{ $displayUrl }}</div>
                                     <p class="rs-meta mb-0">DR {{ $site->dr }} · {{ fullLanguage($site->language) }}</p>
                                 </div>
-                                <a href="{{ route('advertiser.catalog', ['sort' => 'dr_desc']) }}" class="rs-price">€{{ number_format($site->display_price, 2) }}</a>
-                            </div>
+                                <span class="rs-price"><i class="fa fa-cart-plus" aria-hidden="true"></i> €{{ number_format($site->display_price, 2) }}</span>
+                            </a>
                         @endforeach
                     </div>
                 @endif
@@ -363,17 +369,15 @@
                                 $displayUrl = (string) \Illuminate\Support\Str::of($site->site_url)
                                     ->replaceMatches('/^(https?:\/\/)?(www\.)?/', '')
                                     ->before('/');
-                                $href = \Illuminate\Support\Str::startsWith($site->site_url, ['http://', 'https://'])
-                                    ? $site->site_url
-                                    : 'https://' . ltrim((string) $site->site_url, '/');
+                                $buyUrl = route('advertiser.catalog', ['site' => $site->id]);
                             @endphp
-                            <div class="recommended-site">
+                            <a href="{{ $buyUrl }}" class="recommended-site" aria-label="Buy placement on {{ $displayUrl }}">
                                 <div>
-                                    <a href="{{ $href }}" target="_blank" rel="noopener noreferrer" class="rs-name">{{ $displayUrl }}</a>
+                                    <div class="rs-name">{{ $displayUrl }}</div>
                                     <p class="rs-meta mb-0">DR {{ $site->dr }}</p>
                                 </div>
-                                <a href="{{ route('advertiser.catalog', ['sort' => 'dr_desc']) }}" class="rs-price">€{{ number_format($site->display_price, 2) }}</a>
-                            </div>
+                                <span class="rs-price"><i class="fa fa-cart-plus" aria-hidden="true"></i> €{{ number_format($site->display_price, 2) }}</span>
+                            </a>
                         @endforeach
                     </div>
                 @endif

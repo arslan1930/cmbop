@@ -198,6 +198,11 @@ public function index(Request $request)
         }
     }
 
+    // Deep-link from dashboard Recommended → exact site for buy
+    if ($request->filled('site')) {
+        $query->where('id', (int) $request->site);
+    }
+
     // 🔍 Search by site name/URL, category, country name/code, or language name/code
     if ($request->filled('search')) {
         $search = trim($request->search);
