@@ -40,10 +40,6 @@ class BlogController extends Controller
     public function store(Request $request)
     {
         try {
-            // DEBUG: Log the raw content
-            \Log::info('Raw content received:', ['content' => $request->content]);
-            
-            // Validate request - SIMPLIFIED validation for debugging
             $validated = $request->validate([
                 'title' => 'required|string|max:255',
                 'content' => 'required|string',
