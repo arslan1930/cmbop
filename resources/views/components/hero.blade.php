@@ -125,83 +125,60 @@
 
   .slb-hero-visual {
     position: relative;
-    align-self: stretch;
-    display: flex;
-    align-items: flex-end;
+    align-self: end;
     width: 100%;
-    min-height: min(72vh, 680px);
     animation: slbHeroRise 0.9s ease 0.18s both;
   }
 
   .slb-hero-catalog-link {
     display: block;
     position: relative;
-    width: 100%;
-    height: 100%;
     text-decoration: none;
     color: inherit;
-    /* Fade only on the right edge into the background */
-    -webkit-mask-image: linear-gradient(to right, #000 0%, #000 78%, transparent 100%);
-    mask-image: linear-gradient(to right, #000 0%, #000 78%, transparent 100%);
-    -webkit-mask-repeat: no-repeat;
-    mask-repeat: no-repeat;
-    -webkit-mask-size: 100% 100%;
-    mask-size: 100% 100%;
-  }
-
-  .slb-hero-catalog-link::after {
-    content: "";
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-    background: linear-gradient(90deg, transparent 0%, transparent 72%, rgba(255, 255, 255, 0.75) 100%);
-    z-index: 2;
+    transform-origin: bottom right;
   }
 
   .slb-hero-product {
     display: block;
     width: 100%;
-    height: 100%;
     min-height: min(68vh, 620px);
-    max-height: none;
+    max-height: min(78vh, 720px);
     object-fit: cover;
     object-position: left top;
-    border: none;
     border-radius: 18px 0 0 0;
-    box-shadow: -12px 18px 40px rgba(11, 98, 102, 0.12);
-    transition: transform 0.35s ease, filter 0.35s ease;
+    box-shadow: -18px 24px 70px rgba(11, 98, 102, 0.22);
+    border: 1px solid rgba(11, 98, 102, 0.1);
+    border-right: none;
+    transition: transform 0.35s ease, box-shadow 0.35s ease;
   }
 
   .slb-hero-catalog-link:hover .slb-hero-product {
-    transform: scale(1.01);
-    filter: brightness(1.02);
+    transform: translateY(-6px) scale(1.01);
+    box-shadow: -22px 30px 80px rgba(11, 98, 102, 0.28);
   }
 
   .slb-hero-catalog-hint {
     position: absolute;
     left: 18px;
     bottom: 18px;
-    z-index: 3;
     display: inline-flex;
     align-items: center;
     gap: 8px;
     padding: 10px 14px;
     border-radius: 999px;
-    background: rgba(11, 98, 102, 0.9);
+    background: rgba(11, 98, 102, 0.92);
     color: #fff;
     font-size: 13px;
     font-weight: 600;
     backdrop-filter: blur(8px);
     box-shadow: 0 8px 20px rgba(11, 98, 102, 0.25);
-    opacity: 0;
-    transform: translateY(6px);
-    transition: opacity 0.25s ease, transform 0.25s ease;
+    opacity: 1;
+    transition: transform 0.25s ease, background 0.25s ease;
   }
 
-  .slb-hero-catalog-link:hover .slb-hero-catalog-hint,
-  .slb-hero-catalog-link:focus-visible .slb-hero-catalog-hint {
-    opacity: 1;
-    transform: translateY(0);
+  .slb-hero-catalog-link:hover .slb-hero-catalog-hint {
+    background: #0b6266;
+    transform: translateY(-2px);
   }
 
   @keyframes slbHeroFade {
@@ -235,26 +212,11 @@
       margin-left: auto;
       margin-right: auto;
     }
-    .slb-hero-visual {
-      min-height: 320px;
-    }
-    .slb-hero-catalog-link {
-      -webkit-mask-image:
-        linear-gradient(to right, transparent 0%, #000 6%, #000 94%, transparent 100%),
-        linear-gradient(to bottom, transparent 0%, #000 8%, #000 85%, transparent 100%);
-      mask-image:
-        linear-gradient(to right, transparent 0%, #000 6%, #000 94%, transparent 100%),
-        linear-gradient(to bottom, transparent 0%, #000 8%, #000 85%, transparent 100%);
-    }
     .slb-hero-product {
-      min-height: 300px;
-    }
-    .slb-hero-catalog-hint {
-      opacity: 1;
-      transform: none;
-      left: 50%;
-      bottom: 12%;
-      translate: -50% 0;
+      min-height: 280px;
+      max-height: 420px;
+      border-radius: 16px 16px 0 0;
+      border-right: 1px solid rgba(11, 98, 102, 0.1);
     }
   }
 
