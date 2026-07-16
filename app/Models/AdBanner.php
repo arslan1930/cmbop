@@ -76,7 +76,8 @@ class AdBanner extends Model
     public function imageSrc(): ?string
     {
         if (filled($this->image_path)) {
-            return Storage::disk('public')->url($this->image_path);
+            // Root-relative path so admin/public previews work on any host:port
+            return '/storage/' . ltrim($this->image_path, '/');
         }
 
         return $this->image_url ?: null;

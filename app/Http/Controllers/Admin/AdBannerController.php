@@ -107,7 +107,7 @@ class AdBannerController extends Controller
             'size_key' => ['required', Rule::in(array_keys(config('promotions.banner_sizes', [])))],
             'width' => ['nullable', 'integer', 'min:20', 'max:2000'],
             'height' => ['nullable', 'integer', 'min:20', 'max:2000'],
-            'image' => [$requiresImage && !$request->filled('image_url') ? 'required' : 'nullable', 'image', 'mimes:jpeg,png,jpg,gif,webp', 'max:5120'],
+            'image' => [$requiresImage && !$request->filled('image_url') ? 'required' : 'nullable', 'file', 'mimes:jpeg,png,jpg,gif,webp,svg', 'max:5120'],
             'image_url' => ['nullable', 'url', 'max:500'],
             'link_url' => ['nullable', 'url', 'max:500'],
             'placement' => ['required', Rule::in(array_keys(config('promotions.banner_placements', [])))],
