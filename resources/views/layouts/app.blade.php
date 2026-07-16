@@ -26,9 +26,13 @@
             height: 50px;
             display: none;
             position: fixed;
-            bottom: 40px;
-            right: 40px;
+            /* Sit above the Help & feedback button (bottom-right) so they don't overlap */
+            bottom: 96px;
+            right: 24px;
             z-index: 1000;
+        }
+        @media (max-width: 576px) {
+            #backToTop { bottom: 84px; right: 16px; }
         }
     </style>
 </head>

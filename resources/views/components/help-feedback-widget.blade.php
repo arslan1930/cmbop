@@ -20,7 +20,7 @@
     border: 0;
     border-radius: 999px;
     padding: 12px 16px;
-    background: #0b6266;
+    background: var(--brand-primary, #0b6266);
     color: #fff;
     font-weight: 600;
     font-size: 14px;
@@ -28,22 +28,27 @@
     display: inline-flex;
     align-items: center;
     gap: 8px;
+    transition: background-color .15s ease, transform .15s ease, box-shadow .15s ease;
 }
-.help-fab__btn:hover { background: #094e51; color: #fff; }
+.help-fab__btn:hover { background: var(--brand-primary-soft, #3aaeb2); color: #fff; transform: translateY(-1px); }
+.help-fab__btn:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--bs-focus-ring-color, rgba(58,174,178,.4)), 0 10px 24px rgba(11,98,102,.28); }
 .help-fab__panel {
     width: min(380px, calc(100vw - 32px));
     background: #fff;
-    border: 1px solid #e5e7eb;
+    border: 1px solid var(--brand-primary-border, #e5e7eb);
     border-radius: 16px;
     box-shadow: 0 18px 40px rgba(15, 23, 42, 0.16);
     overflow: hidden;
     display: none;
+    transform: translateY(8px);
+    opacity: 0;
+    transition: opacity .15s ease, transform .15s ease;
 }
-.help-fab__panel.is-open { display: block; }
+.help-fab__panel.is-open { display: block; transform: translateY(0); opacity: 1; }
 .help-fab__tabs {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    background: #f8fafc;
+    background: var(--brand-neutral-bg, #f8fafc);
     border-bottom: 1px solid #e5e7eb;
 }
 .help-fab__tab {
@@ -52,66 +57,72 @@
     padding: 12px 10px;
     font-size: 13px;
     font-weight: 600;
-    color: #64748b;
+    color: var(--brand-neutral, #64748b);
+    transition: color .15s ease, background-color .15s ease;
 }
 .help-fab__tab.is-active {
-    color: #0b6266;
+    color: var(--brand-primary, #0b6266);
     background: #fff;
-    box-shadow: inset 0 -2px 0 #0b6266;
+    box-shadow: inset 0 -2px 0 var(--brand-primary, #0b6266);
 }
+.help-fab__tab:focus-visible { outline: 2px solid var(--brand-primary-soft, #3aaeb2); outline-offset: -2px; }
 .help-fab__body { padding: 14px; }
 .help-fab__pane { display: none; }
 .help-fab__pane.is-active { display: block; }
-.help-fab__hint { font-size: 12px; color: #64748b; margin-bottom: 10px; }
+.help-fab__hint { font-size: 12px; color: var(--brand-neutral, #64748b); margin-bottom: 10px; }
 @media (max-width: 576px) {
     .help-fab { right: 14px; bottom: 14px; }
     .help-fab__btn span { display: none; }
 }
+@media (prefers-reduced-motion: reduce) {
+    .help-fab__btn, .help-fab__panel, .help-fab__tab { transition: none; }
+    .help-fab__btn:hover { transform: none; }
+}
 </style>
 
 <div class="help-fab" id="helpFeedbackWidget">
-    <div class="help-fab__panel" id="helpFeedbackPanel" aria-hidden="true">
-        <div class="help-fab__tabs">
-            <button type="button" class="help-fab__tab is-active" data-pane="problem">Report a problem</button>
-            <button type="button" class="help-fab__tab" data-pane="suggestion">Suggestion box</button>
+    <div class="help-fab__panel" id="helpFeedbackPanel" role="dialog" aria-label="Help and feedback" aria-hidden="true">
+        <div class="help-fab__tabs" role="tablist">
+            <button type="button" class="help-fab__tab is-active" data-pane="problem" role="tab" aria-selected="true" aria-controls="helpPaneProblem">Report a problem</button>
+            <button type="button" class="help-fab__tab" data-pane="suggestion" role="tab" aria-selected="false" aria-controls="helpPaneSuggestion">Suggestion box</button>
         </div>
         <div class="help-fab__body">
-            <div class="help-fab__pane is-active" id="helpPaneProblem">
+            <div class="help-fab__pane is-active" id="helpPaneProblem" role="tabpanel">
                 <p class="help-fab__hint">Tell us what went wrong — bugs, broken pages, or confusing flows.</p>
                 <form id="helpProblemForm" class="vstack gap-2">
                     @unless($isAuthed)
-                        <input type="text" name="name" class="form-control form-control-sm" placeholder="Your name" required>
-                        <input type="email" name="email" class="form-control form-control-sm" placeholder="Email" required>
+                        <input type="text" name="name" class="form-control form-control-sm" placeholder="Your name" aria-label="Your name" required>
+                        <input type="email" name="email" class="form-control form-control-sm" placeholder="Email" aria-label="Email" required>
                     @endunless
-                    <input type="text" name="subject" class="form-control form-control-sm" placeholder="Subject" required maxlength="160">
-                    <textarea name="message" class="form-control form-control-sm" rows="4" placeholder="What happened?" required minlength="10"></textarea>
+                    <input type="text" name="subject" class="form-control form-control-sm" placeholder="Subject" aria-label="Subject" required maxlength="160">
+                    <textarea name="message" class="form-control form-control-sm" rows="4" placeholder="What happened?" aria-label="Describe the problem" required minlength="10"></textarea>
                     <button type="submit" class="btn btn-sm btn-primary">Send report</button>
                 </form>
             </div>
-            <div class="help-fab__pane" id="helpPaneSuggestion">
+            <div class="help-fab__pane" id="helpPaneSuggestion" role="tabpanel">
                 <p class="help-fab__hint">Share ideas to improve the marketplace, pricing, or publisher tools.</p>
                 <form id="helpSuggestionForm" class="vstack gap-2">
                     @unless($isAuthed)
-                        <input type="text" name="name" class="form-control form-control-sm" placeholder="Your name" required>
-                        <input type="email" name="email" class="form-control form-control-sm" placeholder="Email" required>
+                        <input type="text" name="name" class="form-control form-control-sm" placeholder="Your name" aria-label="Your name" required>
+                        <input type="email" name="email" class="form-control form-control-sm" placeholder="Email" aria-label="Email" required>
                     @endunless
-                    <select name="category" class="form-select form-select-sm">
+                    <select name="category" class="form-select form-select-sm" aria-label="Suggestion category">
                         <option value="general">General</option>
                         <option value="feature">New feature</option>
                         <option value="ux">Usability / UX</option>
                         <option value="pricing">Pricing</option>
                         <option value="other">Other</option>
                     </select>
-                    <textarea name="message" class="form-control form-control-sm" rows="4" placeholder="Your suggestion…" required minlength="10"></textarea>
+                    <textarea name="message" class="form-control form-control-sm" rows="4" placeholder="Your suggestion…" aria-label="Your suggestion" required minlength="10"></textarea>
                     <button type="submit" class="btn btn-sm btn-primary">Send suggestion</button>
                 </form>
             </div>
         </div>
     </div>
 
-    <button type="button" class="help-fab__btn" id="helpFeedbackToggle" aria-expanded="false" aria-controls="helpFeedbackPanel">
+    <button type="button" class="help-fab__btn" id="helpFeedbackToggle" aria-expanded="false" aria-controls="helpFeedbackPanel" aria-label="Open help and feedback">
         <i class="fa-regular fa-life-ring" aria-hidden="true"></i>
-        <span>Help & feedback</span>
+        <span>Help &amp; feedback</span>
     </button>
 </div>
 
@@ -124,19 +135,50 @@
     const csrf = document.querySelector('meta[name="csrf-token"]')?.content
         || '{{ csrf_token() }}';
 
-    toggle.addEventListener('click', function () {
-        const open = panel.classList.toggle('is-open');
+    function setOpen(open) {
+        panel.classList.toggle('is-open', open);
         toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
         panel.setAttribute('aria-hidden', open ? 'false' : 'true');
+        if (open) {
+            const first = panel.querySelector('.help-fab__pane.is-active input, .help-fab__pane.is-active textarea');
+            if (first) setTimeout(() => first.focus(), 60);
+        }
+    }
+
+    toggle.addEventListener('click', function () {
+        setOpen(!panel.classList.contains('is-open'));
+    });
+
+    // Close on Escape (return focus to the toggle) and on outside click.
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' && panel.classList.contains('is-open')) {
+            setOpen(false);
+            toggle.focus();
+        }
+    });
+    document.addEventListener('click', function (e) {
+        if (panel.classList.contains('is-open')
+            && !panel.contains(e.target)
+            && !toggle.contains(e.target)) {
+            setOpen(false);
+        }
     });
 
     panel.querySelectorAll('.help-fab__tab').forEach(function (tab) {
         tab.addEventListener('click', function () {
-            panel.querySelectorAll('.help-fab__tab').forEach(t => t.classList.remove('is-active'));
+            panel.querySelectorAll('.help-fab__tab').forEach(t => {
+                t.classList.remove('is-active');
+                t.setAttribute('aria-selected', 'false');
+            });
             panel.querySelectorAll('.help-fab__pane').forEach(p => p.classList.remove('is-active'));
             tab.classList.add('is-active');
+            tab.setAttribute('aria-selected', 'true');
             const pane = document.getElementById(tab.dataset.pane === 'problem' ? 'helpPaneProblem' : 'helpPaneSuggestion');
-            if (pane) pane.classList.add('is-active');
+            if (pane) {
+                pane.classList.add('is-active');
+                const first = pane.querySelector('input, textarea');
+                if (first) first.focus();
+            }
         });
     });
 
