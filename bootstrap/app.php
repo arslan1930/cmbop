@@ -14,7 +14,10 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware) {
-        // Configure middleware here if needed
+        // Apple Sign In may POST the callback (form_post response mode)
+        $middleware->validateCsrfTokens(except: [
+            'auth/apple/callback',
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
         // Production uses branded resources/views/errors/* pages (APP_DEBUG=false).
