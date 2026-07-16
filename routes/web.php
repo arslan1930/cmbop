@@ -412,24 +412,15 @@ Route::middleware(['auth','verified', RoleMiddleware::class . ':advertiser'])
                     return $site;
                 });
 
-            $analyticsPreview = app(\App\Services\AdvertiserAnalyticsService::class)->build($user);
-            $dashboardInsights = array_slice($analyticsPreview['insights'] ?? [], 0, 3);
-            $dashboardComparisons = $analyticsPreview['comparisons'] ?? null;
-            $hasSpendHistory = (bool) ($analyticsPreview['has_spend'] ?? false);
-
             return view('advertiser.dashboard', compact(
                 'stats',
                 'recentOrders',
-                'recommendedSites',
-                'dashboardInsights',
-                'dashboardComparisons',
-                'hasSpendHistory'
+                'recommendedSites'
             ));
         })->name('dashboard');
 
-        // Advanced analytics & insights
+        // Spending history chart
         Route::get('/analytics', [AnalyticsController::class, 'index'])->name('analytics');
-        Route::get('/analytics/export', [AnalyticsController::class, 'export'])->name('analytics.export');
 
         // Balance routes
         Route::get('/balance', [App\Http\Controllers\Advertiser\BalanceController::class, 'index'])->name('balance');

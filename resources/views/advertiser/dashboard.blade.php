@@ -6,9 +6,6 @@
     $stats = $stats ?? ['total' => 0, 'completed' => 0, 'in_progress' => 0, 'cancelled' => 0];
     $recentOrders = $recentOrders ?? collect();
     $recommendedSites = $recommendedSites ?? collect();
-    $dashboardInsights = $dashboardInsights ?? [];
-    $dashboardComparisons = $dashboardComparisons ?? null;
-    $hasSpendHistory = $hasSpendHistory ?? false;
     $isNewAdvertiser = ($stats['total'] ?? 0) === 0;
 @endphp
 
@@ -194,22 +191,6 @@
     font-size: 13px;
 }
 .recommended-site:hover .rs-price { background: #095255; }
-.dash-insight {
-    border-left: 4px solid #3aaeb2;
-    background: linear-gradient(90deg, #f0fbfb, #fff);
-    border-radius: 12px;
-    padding: 12px 14px;
-    font-size: 0.9rem;
-    color: #334155;
-    height: 100%;
-}
-.dash-delta {
-    display: inline-flex; align-items: center; gap: 4px;
-    font-size: 12px; font-weight: 700; border-radius: 999px; padding: 2px 8px;
-}
-.dash-delta.up { background: #d1fae5; color: #047857; }
-.dash-delta.down { background: #fee2e2; color: #b91c1c; }
-.dash-delta.flat { background: #f1f5f9; color: #475569; }
 </style>
 
 <div class="d-flex flex-wrap align-items-end justify-content-between gap-2 mb-4">
@@ -352,56 +333,6 @@
         </div>
     </div>
 
-    @if($hasSpendHistory && $dashboardComparisons)
-        <div class="row g-3 mb-4 px-1">
-            <div class="col-lg-5">
-                <div class="dash-panel h-100">
-                    <div class="d-flex justify-content-between align-items-center mb-3">
-                        <h5 class="mb-0">This month vs last month</h5>
-                        <a href="{{ route('advertiser.analytics') }}" class="small" style="color:#0b6266;font-weight:600;">Full analytics</a>
-                    </div>
-                    @php $m = $dashboardComparisons['month']; @endphp
-                    <div class="row g-3">
-                        @foreach([
-                            'spend' => ['Spend', true],
-                            'orders' => ['Orders', false],
-                            'aov' => ['AOV', true],
-                        ] as $key => [$label, $money])
-                            @php $d = $m[$key]; @endphp
-                            <div class="col-4">
-                                <div class="small text-muted">{{ $label }}</div>
-                                <div class="fw-bold" style="color:#0b6266;">
-                                    {{ $money ? '€'.number_format($d['current'], 2) : number_format($d['current']) }}
-                                </div>
-                                <span class="dash-delta {{ $d['direction'] }}">
-                                    @if($d['direction'] === 'up') ▲ @elseif($d['direction'] === 'down') ▼ @else — @endif
-                                    {{ abs($d['pct']) }}%
-                                </span>
-                            </div>
-                        @endforeach
-                    </div>
-                </div>
-            </div>
-            <div class="col-lg-7">
-                <div class="dash-panel h-100">
-                    <div class="d-flex justify-content-between align-items-center mb-3">
-                        <h5 class="mb-0">Smart insights</h5>
-                        <a href="{{ route('advertiser.analytics') }}" class="btn btn-sm btn-primary">Explore analytics</a>
-                    </div>
-                    <div class="row g-2">
-                        @forelse($dashboardInsights as $insight)
-                            <div class="col-md-12">
-                                <div class="dash-insight">{{ $insight }}</div>
-                            </div>
-                        @empty
-                            <p class="text-muted small mb-0">Place more orders to unlock personalized insights.</p>
-                        @endforelse
-                    </div>
-                </div>
-            </div>
-        </div>
-    @endif
-
     <div class="row g-4 mb-4">
         <!-- Next actions + recommended -->
         <div class="col-lg-4">
@@ -431,8 +362,8 @@
                     </a>
                     <a href="{{ route('advertiser.analytics') }}" class="next-action">
                         <div>
-                            <div class="na-title">Open analytics</div>
-                            <p class="na-desc">Forecasts, categories, and exports</p>
+                            <div class="na-title">Spending history</div>
+                            <p class="na-desc">View spend by order, day, or month</p>
                         </div>
                         <i class="fa fa-chevron-right text-muted" aria-hidden="true"></i>
                     </a>

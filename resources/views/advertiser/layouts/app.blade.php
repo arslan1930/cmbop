@@ -526,9 +526,9 @@
             <i class="fa fa-coins"></i> <span>Add Funds</span>
         </a>
         
-        <!-- Analytics -->
+        <!-- Spending History -->
         <a href="{{ route('advertiser.analytics') }}" class="{{ request()->routeIs('advertiser.analytics*') ? 'active' : '' }}">
-            <i class="fa fa-chart-pie"></i> <span>Analytics</span>
+            <i class="fa fa-chart-area"></i> <span>Spending</span>
         </a>
 
         <!-- Reports -->

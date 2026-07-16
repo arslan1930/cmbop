@@ -7,11 +7,9 @@
     "license": "MIT",
     "require": {
         "php": "^8.3",
-        "barryvdh/laravel-dompdf": "^3.1",
         "laravel/framework": "^13.0",
         "laravel/socialite": "^5.27",
         "laravel/tinker": "^3.0",
-        "phpoffice/phpspreadsheet": "^5.9",
         "socialiteproviders/apple": "^5.10",
         "stripe/stripe-php": "^20.0"
     },
