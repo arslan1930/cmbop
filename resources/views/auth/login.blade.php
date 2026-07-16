@@ -70,9 +70,24 @@
                             <div class="auth-mobile-strip d-md-none" aria-label="Why advertisers trust us">
                                 <strong>Welcome back to your SEO workspace</strong>
                                 <ul>
-                                    <li><span class="mi" aria-hidden="true"><i class="fa-solid fa-shield-halved"></i></span> Verified publishers</li>
-                                    <li><span class="mi" aria-hidden="true"><i class="fa-solid fa-lock"></i></span> Secure payments</li>
-                                    <li><span class="mi" aria-hidden="true"><i class="fa-solid fa-rotate-left"></i></span> Money-back protection</li>
+                                    <li>
+                                        <span class="mi" aria-hidden="true">
+                                            <svg width="22" height="22" viewBox="0 0 24 24" focusable="false"><path d="M12 3l7 3v5c0 5-3.5 8.5-7 10-3.5-1.5-7-5-7-10V6l7-3z"/><path d="M9.5 12.2l1.8 1.8 3.7-3.8"/></svg>
+                                        </span>
+                                        Verified publishers
+                                    </li>
+                                    <li>
+                                        <span class="mi" aria-hidden="true">
+                                            <svg width="22" height="22" viewBox="0 0 24 24" focusable="false"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/><circle cx="12" cy="15.5" r="1.2" fill="#0b6266" stroke="none"/></svg>
+                                        </span>
+                                        Secure payments
+                                    </li>
+                                    <li>
+                                        <span class="mi" aria-hidden="true">
+                                            <svg width="22" height="22" viewBox="0 0 24 24" focusable="false"><path d="M4 19V5"/><path d="M4 19h16"/><path d="M7 15l3.5-4 3 2.5L18 7"/></svg>
+                                        </span>
+                                        Real-time tracking
+                                    </li>
                                 </ul>
                             </div>
 
