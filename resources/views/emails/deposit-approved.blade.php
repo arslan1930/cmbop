@@ -9,7 +9,7 @@ Your deposit request has been **approved** and the funds have been added to your
 
 - **Amount:** €{{ number_format($deposit->amount, 2) }}
 - **Reference Code:** {{ $deposit->reference_code }}
-- **Approved At:** {{ $deposit->approved_at->format('M d, Y H:i') }}
+- **Approved At:** {{ optional($deposit->approved_at)->format('M d, Y H:i') ?? now()->format('M d, Y H:i') }}
 
 ## Your Current Balance:
 
