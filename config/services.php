@@ -59,6 +59,6 @@ return [
     ],
 
     'trustpilot' => [
-        'review_url' => env('TRUSTPILOT_REVIEW_URL', 'https://www.trustpilot.com'),
+        'review_url' => env('TRUSTPILOT_REVIEW_URL', 'https://www.trustpilot.com/review/seolinkbuildings.com'),
     ],
 ];

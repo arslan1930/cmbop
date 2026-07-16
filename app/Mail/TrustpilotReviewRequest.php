@@ -15,7 +15,7 @@ class TrustpilotReviewRequest extends PlatformMailable
 
     public function build()
     {
-        $reviewUrl = config('services.trustpilot.review_url', 'https://www.trustpilot.com');
+        $reviewUrl = config('services.trustpilot.review_url', 'https://www.trustpilot.com/review/seolinkbuildings.com');
 
         return $this->subject('How was your experience with ' . config('app.name', 'SEOLinkBuildings') . '?')
             ->markdown('emails.trustpilot-review')
