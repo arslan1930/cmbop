@@ -52,3 +52,64 @@ if (!function_exists('get_available_locales')) {
         ];
     }
 }
+
+if (!function_exists('fullLanguage')) {
+    function fullLanguage($code)
+    {
+        $languages = [
+            'en' => 'English',
+            'es' => 'Spanish',
+            'fr' => 'French',
+            'de' => 'German',
+            'it' => 'Italian',
+            'pt' => 'Portuguese',
+            'nl' => 'Dutch',
+            'ru' => 'Russian',
+            'zh' => 'Chinese',
+            'ja' => 'Japanese',
+            'ko' => 'Korean',
+            'ar' => 'Arabic',
+            'tr' => 'Turkish',
+            'pl' => 'Polish',
+            'uk' => 'Ukrainian',
+            'sv' => 'Swedish',
+            'da' => 'Danish',
+            'no' => 'Norwegian',
+            'fi' => 'Finnish',
+            'el' => 'Greek',
+            'cs' => 'Czech',
+            'hu' => 'Hungarian',
+            'ro' => 'Romanian',
+            'bg' => 'Bulgarian',
+            'hr' => 'Croatian',
+            'sk' => 'Slovak',
+            'sl' => 'Slovenian',
+            'lt' => 'Lithuanian',
+            'lv' => 'Latvian',
+            'et' => 'Estonian',
+            'he' => 'Hebrew',
+            'th' => 'Thai',
+            'vi' => 'Vietnamese',
+            'id' => 'Indonesian',
+            'ms' => 'Malay',
+            'ca' => 'Catalan',
+            'gl' => 'Galician',
+            'eu' => 'Basque',
+            'cy' => 'Welsh',
+            'gd' => 'Scottish Gaelic',
+            'ga' => 'Irish',
+            'lb' => 'Luxembourgish',
+            'rm' => 'Romansh',
+            'qu' => 'Quechua',
+            'ay' => 'Aymara',
+            'gn' => 'Guarani',
+            'be' => 'Belarusian',
+            'ku' => 'Kurdish',
+            'ta' => 'Tamil',
+        ];
+
+        $key = strtolower((string) $code);
+
+        return $languages[$key] ?? strtoupper((string) $code);
+    }
+}
