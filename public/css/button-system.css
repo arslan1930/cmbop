@@ -1,0 +1,132 @@
+/**
+ * Button system (audit 3.8 / B1)
+ * Primary · Secondary · Tertiary · Destructive
+ * Rule of thumb: one primary CTA per view.
+ */
+
+:root {
+  --btn-primary-bg: var(--brand-primary, #0b6266);
+  --btn-primary-hover: var(--brand-primary-soft, #3aaeb2);
+  --btn-secondary-border: #cbd5e1;
+  --btn-secondary-text: #334155;
+  --btn-tertiary-text: var(--brand-primary, #0b6266);
+  --btn-danger-bg: var(--brand-danger, #dc2626);
+}
+
+/* Primary — solid teal (main action) */
+.btn-primary,
+.btn-cta-primary {
+  --bs-btn-color: #fff;
+  --bs-btn-bg: var(--btn-primary-bg);
+  --bs-btn-border-color: var(--btn-primary-bg);
+  --bs-btn-hover-color: #fff;
+  --bs-btn-hover-bg: var(--btn-primary-hover);
+  --bs-btn-hover-border-color: var(--btn-primary-hover);
+  --bs-btn-active-color: #fff;
+  --bs-btn-active-bg: #084f52;
+  --bs-btn-active-border-color: #084f52;
+  font-weight: 600;
+}
+
+/* Secondary — outline neutral */
+.btn-cta-secondary,
+.btn-outline-secondary {
+  --bs-btn-color: var(--btn-secondary-text);
+  --bs-btn-border-color: var(--btn-secondary-border);
+  --bs-btn-hover-color: var(--brand-primary, #0b6266);
+  --bs-btn-hover-bg: var(--brand-primary-bg, #e8f8f7);
+  --bs-btn-hover-border-color: var(--brand-primary-border, #b8e8e6);
+  font-weight: 500;
+}
+
+/* Tertiary — text / link style */
+.btn-cta-tertiary,
+.btn-link.btn-cta-tertiary {
+  color: var(--btn-tertiary-text);
+  font-weight: 600;
+  text-decoration: none;
+  border: 0;
+  background: transparent;
+  padding-left: 0.5rem;
+  padding-right: 0.5rem;
+}
+
+.btn-cta-tertiary:hover,
+.btn-link.btn-cta-tertiary:hover {
+  color: var(--btn-primary-hover);
+  text-decoration: underline;
+  background: transparent;
+}
+
+/* Destructive */
+.btn-cta-danger,
+.btn-danger {
+  --bs-btn-bg: var(--btn-danger-bg);
+  --bs-btn-border-color: var(--btn-danger-bg);
+  --bs-btn-hover-bg: #b91c1c;
+  --bs-btn-hover-border-color: #b91c1c;
+  font-weight: 600;
+}
+
+/* Quiet icon actions (B3) — do not compete with Buy */
+.btn-icon-quiet {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #94a3b8;
+  line-height: 1;
+  transition: color 0.15s ease, background-color 0.15s ease;
+}
+
+.btn-icon-quiet:hover {
+  background: #f1f5f9;
+  color: #475569;
+}
+
+.btn-icon-quiet.is-active,
+.btn-icon-quiet.favorite-btn.is-active {
+  color: #dc2626;
+  background: #fef2f2;
+}
+
+.btn-icon-quiet.blacklist-btn.is-active {
+  color: #475569;
+  background: #f1f5f9;
+}
+
+.btn-icon-quiet:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(58, 174, 178, 0.25);
+}
+
+/* Catalog buy stays dominant */
+.buy-now.btn-cta-primary,
+.btn.buy-now {
+  min-width: 7.5rem;
+  font-weight: 600;
+  box-shadow: 0 1px 2px rgba(11, 98, 102, 0.18);
+}
+
+.catalog-row-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.catalog-row-actions-quiet {
+  display: flex;
+  gap: 2px;
+  justify-content: center;
+  opacity: 0.85;
+}
+
+.catalog-row-actions-quiet:hover {
+  opacity: 1;
+}

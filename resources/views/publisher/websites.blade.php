@@ -650,15 +650,15 @@
                         <span class="form-section-title">Identity</span>
                         <div class="row g-3 g-form">
                             <div class="col-md-4">
-                                <label class="form-label">Site Name <span class="text-danger">*</span></label>
+                                <label class="form-label">Site Name <span class="req" aria-hidden="true">*</span></label>
                                 <input type="text" name="siteName" id="siteName" class="form-control" placeholder="Enter site name" value="{{ old('siteName') }}" required>
                             </div>
                             <div class="col-md-4">
-                                <label class="form-label">Site URL <span class="text-danger">*</span></label>
+                                <label class="form-label">Site URL <span class="req" aria-hidden="true">*</span></label>
                                 <input type="url" name="siteUrl" id="siteUrl" class="form-control" placeholder="eg:https://example.com" value="{{ old('siteUrl') }}" required>
                             </div>
                             <div class="col-md-4">
-                                <label class="form-label">Example URL <span class="text-danger">*</span></label>
+                                <label class="form-label">Example URL <span class="req" aria-hidden="true">*</span></label>
                                 <input type="url" name="exampleUrl" id="exampleUrl" class="form-control" placeholder="https://example.com/example" value="{{ old('exampleUrl') }}" required>
                             </div>
                         </div>
@@ -670,30 +670,30 @@
                             <div class="col-md-3">
                                 <label class="form-label">
                                     <abbr class="metric-abbr text-decoration-none" title="Moz Domain Authority — site strength score from 0–100">DA</abbr>
-                                    (Domain Authority) <span class="text-danger">*</span>
+                                    (Domain Authority) <span class="req" aria-hidden="true">*</span>
                                 </label>
                                 <input type="number" name="da" id="da" class="form-control" placeholder="0-100" min="0" max="100" value="{{ old('da') }}" required>
                             </div>
                             <div class="col-md-3">
                                 <label class="form-label">
                                     <abbr class="metric-abbr text-decoration-none" title="Ahrefs Domain Rating — backlink strength score from 0–100">DR</abbr>
-                                    (Domain Rating) <span class="text-danger">*</span>
+                                    (Domain Rating) <span class="req" aria-hidden="true">*</span>
                                 </label>
                                 <input type="number" name="dr" id="dr" class="form-control" placeholder="0-100" min="0" max="100" value="{{ old('dr') }}" required>
                             </div>
                             <div class="col-md-3">
-                                <label class="form-label">Traffic <span class="text-danger">*</span></label>
+                                <label class="form-label">Traffic <span class="req" aria-hidden="true">*</span></label>
                                 <input type="number" name="traffic" id="traffic" class="form-control" placeholder="Visitors/month" value="{{ old('traffic') }}" required>
                             </div>
                             <div class="col-md-3">
-                                <label class="form-label">Turnaround Time <span class="text-danger">*</span></label>
+                                <label class="form-label">Turnaround Time <span class="req" aria-hidden="true">*</span></label>
+                                @php $turnaroundDefault = old('turnaround_time', '3days'); @endphp
                                 <select name="turnaround_time" id="turnaroundTime" class="form-select" required>
-                                    <option value="">Select Turnaround Time</option>
-                                    <option value="24h" {{ old('turnaround_time') == '24h' ? 'selected' : '' }}>24 Hours</option>
-                                    <option value="48h" {{ old('turnaround_time') == '48h' ? 'selected' : '' }}>48 Hours</option>
-                                    <option value="3days" {{ old('turnaround_time') == '3days' ? 'selected' : '' }}>3 Days</option>
-                                    <option value="5days" {{ old('turnaround_time') == '5days' ? 'selected' : '' }}>5 Days</option>
-                                    <option value="7days" {{ old('turnaround_time') == '7days' ? 'selected' : '' }}>7 Days</option>
+                                    <option value="24h" {{ $turnaroundDefault == '24h' ? 'selected' : '' }}>24 Hours</option>
+                                    <option value="48h" {{ $turnaroundDefault == '48h' ? 'selected' : '' }}>48 Hours</option>
+                                    <option value="3days" {{ $turnaroundDefault == '3days' ? 'selected' : '' }}>3 Days</option>
+                                    <option value="5days" {{ $turnaroundDefault == '5days' ? 'selected' : '' }}>5 Days</option>
+                                    <option value="7days" {{ $turnaroundDefault == '7days' ? 'selected' : '' }}>7 Days</option>
                                 </select>
                                 <div class="help-text">Estimated time to publish after order confirmation</div>
                             </div>
@@ -704,7 +704,7 @@
                         <span class="form-section-title">Description</span>
                         <div class="row">
                             <div class="col-12">
-                                <label class="form-label">Site Description (500 words max) <span class="text-danger">*</span></label>
+                                <label class="form-label">Site Description (500 words max) <span class="req" aria-hidden="true">*</span></label>
                                 <div id="quillEditor" class="border rounded" style="height: 200px;" placeholder="Enter site description">{!! old('siteDescription') !!}</div>
                                 <input type="hidden" name="siteDescription" id="siteDescription" required>
                             </div>
@@ -718,7 +718,7 @@
                         <span class="form-section-title">Market & niche</span>
                         <div class="row bg-light p-3 rounded g-3 g-form">
                             <div class="col-md-4">
-                                <label class="form-label">Language <span class="text-danger">*</span></label>
+                                <label class="form-label">Language <span class="req" aria-hidden="true">*</span></label>
                                 <input type="hidden" name="language" id="selectedLanguage" value="{{ old('language', is_array(old('languages')) ? (old('languages')[0] ?? '') : old('languages')) }}">
                                 <div class="single-select-wrapper" id="languageWrapper">
                                     <div class="single-select-input" id="languageInput">
@@ -747,7 +747,7 @@
                                 </div>
                             </div>
                             <div class="col-md-4">
-                                <label class="form-label">Country / Market <span class="text-danger">*</span></label>
+                                <label class="form-label">Country / Market <span class="req" aria-hidden="true">*</span></label>
                                 <input type="hidden" name="country" id="selectedCountry" value="{{ old('country', is_array(old('countries')) ? (old('countries')[0] ?? '') : old('countries')) }}">
                                 <div class="single-select-wrapper" id="countryWrapper">
                                     <div class="single-select-input" id="countryInput">
@@ -777,7 +777,7 @@
                                 </div>
                             </div>
                             <div class="col-md-4">
-                                <label class="form-label">Categories <span class="text-danger">*</span></label>
+                                <label class="form-label">Categories <span class="req" aria-hidden="true">*</span></label>
                                 <input type="hidden" name="categories" id="selectedCategories" value="{{ is_array(old('categories')) ? implode(',', old('categories')) : old('categories') }}">
                                 <div class="multi-select-wrapper" id="categoryWrapper">
                                     <div class="multi-select-input" id="categoryInput">
@@ -814,11 +814,11 @@
                         <span class="form-section-title">Pricing & link policy</span>
                         <div class="row bg-light p-3 rounded g-3 g-form">
                             <div class="col-md-4">
-                                <label class="form-label">Price (€) <span class="text-danger">*</span></label>
+                                <label class="form-label">Price (€) <span class="req" aria-hidden="true">*</span></label>
                                 <input type="number" name="price" id="price" class="form-control" placeholder="Enter price" min="0" step="0.01" value="{{ old('price') }}" required>
                             </div>
                             <div class="col-md-4">
-                                <label class="form-label">Publication Duration <span class="text-danger">*</span></label>
+                                <label class="form-label">Publication Duration <span class="req" aria-hidden="true">*</span></label>
                                 <select name="publicationTime" id="publicationTime" class="form-select" required>
                                     <option value="">Select Duration</option>
                                     <option value="6months" {{ old('publicationTime') == '6months' ? 'selected' : '' }}>6 Months</option>
@@ -827,7 +827,7 @@
                                 </select>
                             </div>
                             <div class="col-md-4">
-                                <label class="form-label">Link Type <span class="text-danger">*</span></label>
+                                <label class="form-label">Link Type <span class="req" aria-hidden="true">*</span></label>
                                 <div class="d-flex gap-3 mt-2">
                                     <div class="form-check">
                                         <input type="radio" name="link_type" id="linkTypeDofollow" value="dofollow" class="form-check-input" {{ old('link_type', 'dofollow') == 'dofollow' ? 'checked' : '' }}>
@@ -879,19 +879,32 @@
                     </div>
 
                     <div class="form-section">
-                        <div class="row bg-light p-3 rounded">
-                            <div class="col-12">
-                                <label class="form-label">Sensitive Topics (Optional)</label>
-                                <div class="d-flex flex-wrap gap-3">
-                                    @foreach(['crypto','trading','CBD','forex'] as $topic)
-                                    <div class="me-3">
-                                        <div class="form-check">
-                                            <input type="checkbox" name="sensitive[{{ $topic }}]" class="form-check-input sensitive-checkbox" id="sensitive{{ $topic }}" {{ old("sensitive.$topic") ? 'checked' : '' }}>
-                                            <label class="form-check-label" for="sensitive{{ $topic }}">{{ ucfirst($topic) }}</label>
+                        @php
+                            $hasSensitiveOld = collect(['crypto','trading','CBD','forex'])->contains(fn ($t) => filled(old("sensitive.$t")) || filled(old("price_sensitive.$t")));
+                        @endphp
+                        <button type="button"
+                                class="disclosure-toggle"
+                                id="sensitiveDisclosureBtn"
+                                aria-expanded="{{ $hasSensitiveOld ? 'true' : 'false' }}"
+                                aria-controls="sensitiveDisclosurePanel">
+                            <i class="fa fa-chevron-{{ $hasSensitiveOld ? 'down' : 'right' }}" aria-hidden="true"></i>
+                            Sensitive topics (optional)
+                        </button>
+                        <p class="small text-muted mb-0 mt-1">Only open if you accept crypto, trading, CBD, or forex placements.</p>
+                        <div class="disclosure-panel" id="sensitiveDisclosurePanel" @unless($hasSensitiveOld) hidden @endunless>
+                            <div class="row bg-light p-3 rounded mt-2">
+                                <div class="col-12">
+                                    <div class="d-flex flex-wrap gap-3">
+                                        @foreach(['crypto','trading','CBD','forex'] as $topic)
+                                        <div class="me-3">
+                                            <div class="form-check">
+                                                <input type="checkbox" name="sensitive[{{ $topic }}]" class="form-check-input sensitive-checkbox" id="sensitive{{ $topic }}" {{ old("sensitive.$topic") ? 'checked' : '' }}>
+                                                <label class="form-check-label" for="sensitive{{ $topic }}">{{ ucfirst($topic) }}</label>
+                                            </div>
+                                            <input type="number" name="price_sensitive[{{ $topic }}]" class="form-control mt-1 sensitive-price" placeholder="Extra price (€)" value="{{ old("price_sensitive.$topic") }}">
                                         </div>
-                                        <input type="number" name="price_sensitive[{{ $topic }}]" class="form-control mt-1 sensitive-price" placeholder="Extra Price" value="{{ old("price_sensitive.$topic") }}">
+                                        @endforeach
                                     </div>
-                                    @endforeach
                                 </div>
                             </div>
                         </div>
@@ -900,13 +913,13 @@
 
                 <div class="wizard-nav">
                     <div>
-                        <button type="button" class="btn btn-outline-secondary shadow-sm d-none" id="wizardBackBtn">Back</button>
+                        <button type="button" class="btn btn-cta-secondary shadow-sm d-none" id="wizardBackBtn">Back</button>
                         <span class="wizard-draft-hint ms-2" id="wizardDraftHint"></span>
                     </div>
                     <div class="d-flex gap-2">
-                        <button type="button" class="btn btn-secondary shadow-sm" id="closeBtn">Close</button>
-                        <button type="button" class="btn btn-primary shadow-sm" id="wizardNextBtn" style="background-color:#3aaeb2;border-color:#3aaeb2;">Next</button>
-                        <button type="submit" class="btn btn-success shadow-sm d-none" id="submitBtn">Submit</button>
+                        <button type="button" class="btn btn-cta-tertiary shadow-sm" id="closeBtn">Close</button>
+                        <button type="button" class="btn btn-primary shadow-sm" id="wizardNextBtn">Next</button>
+                        <button type="submit" class="btn btn-primary shadow-sm d-none" id="submitBtn">Submit</button>
                     </div>
                 </div>
 
@@ -948,6 +961,35 @@ var quill = new Quill('#quillEditor', {
             ['link']
         ]
     }
+});
+
+// FR1 — progressive disclosure for sensitive topics
+$('#sensitiveDisclosureBtn').on('click', function () {
+    const panel = $('#sensitiveDisclosurePanel');
+    const open = panel.prop('hidden');
+    panel.prop('hidden', !open);
+    $(this).attr('aria-expanded', open ? 'true' : 'false');
+    $(this).find('i').toggleClass('fa-chevron-right', !open).toggleClass('fa-chevron-down', open);
+});
+
+// FR3 — inline validation on blur
+function markFieldValidity(el) {
+    if (!el || !el.checkValidity) return;
+    if (el.value === '' && !el.required) {
+        el.classList.remove('is-invalid', 'is-valid');
+        return;
+    }
+    if (el.checkValidity()) {
+        el.classList.remove('is-invalid');
+        el.classList.add('is-valid');
+    } else {
+        el.classList.remove('is-valid');
+        el.classList.add('is-invalid');
+    }
+}
+
+$('#addSiteForm').on('blur', 'input[required], select[required]', function () {
+    markFieldValidity(this);
 });
 
 // ==================== Single Select Component for Country & Language ====================

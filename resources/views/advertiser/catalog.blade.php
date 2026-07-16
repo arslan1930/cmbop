@@ -274,16 +274,23 @@
                             <div class="d-flex gap-2">
                                 <input type="number"
                                        name="price_min"
+                                       id="priceMinInput"
                                        class="form-control form-control-sm no-spinner"
                                        placeholder="Min"
                                        min="0" step="0.01"
                                        value="{{ request('price_min') }}">
                                 <input type="number"
                                        name="price_max"
+                                       id="priceMaxInput"
                                        class="form-control form-control-sm no-spinner"
                                        placeholder="Max"
                                        min="0" step="0.01"
                                        value="{{ request('price_max') }}">
+                            </div>
+                            <div class="filter-presets" data-preset-group="price">
+                                <button type="button" class="filter-preset" data-min="" data-max="50" data-target-min="priceMinInput" data-target-max="priceMaxInput">Under €50</button>
+                                <button type="button" class="filter-preset" data-min="50" data-max="150" data-target-min="priceMinInput" data-target-max="priceMaxInput">€50–150</button>
+                                <button type="button" class="filter-preset" data-min="150" data-max="" data-target-min="priceMinInput" data-target-max="priceMaxInput">€150+</button>
                             </div>
                         </div>
 
@@ -291,17 +298,17 @@
                         <div class="col-md-3">
                             <label class="form-label fw-semibold small text-muted mb-1 d-none d-md-block">&nbsp;</label>
                             <div class="d-flex flex-wrap gap-2">
-                                <button type="button" class="btn btn-sm px-3" id="applyFiltersBtn" style="background-color: #3aaeb2; color: white;">
+                                <button type="button" class="btn btn-sm btn-primary px-3" id="applyFiltersBtn">
                                     <i class="fa-solid fa-filter me-1"></i> Filter
                                 </button>
-                                <button type="button" class="btn btn-sm btn-outline-secondary px-3" id="toggleMoreFiltersBtn" aria-expanded="{{ $moreFiltersOpen ? 'true' : 'false' }}">
+                                <button type="button" class="btn btn-sm btn-cta-secondary px-3" id="toggleMoreFiltersBtn" aria-expanded="{{ $moreFiltersOpen ? 'true' : 'false' }}">
                                     <i class="fa fa-sliders me-1"></i> More filters
                                     @if($moreFiltersOpen)
                                         <span class="badge rounded-pill ms-1" style="background:#0b6266;">{{ collect($moreFilterKeys)->filter(fn($k) => filled(request($k)))->count() }}</span>
                                     @endif
                                 </button>
-                                <a href="{{ route('advertiser.catalog') }}" class="btn btn-sm px-3" style="background-color: #e9ecef; color: #495057;">
-                                    <i class="fa-solid fa-rotate-right me-1"></i> Reset
+                                <a href="{{ route('advertiser.catalog') }}" class="btn btn-sm btn-cta-tertiary px-2">
+                                    Reset
                                 </a>
                             </div>
                         </div>
@@ -364,30 +371,40 @@
                             <div class="col-md-2">
                                 <label class="form-label fw-semibold small text-muted mb-1">
                                     <abbr class="metric-abbr text-decoration-none" title="Moz Domain Authority — site strength score from 0–100">DA</abbr>
-                                    <span class="fw-normal">(Domain Authority)</span>
                                 </label>
                                 <div class="d-flex gap-2">
-                                    <input type="number" name="da_min" class="form-control form-control-sm no-spinner" placeholder="00" min="0" step="1" value="{{ request('da_min') }}">
-                                    <input type="number" name="da_max" class="form-control form-control-sm no-spinner" placeholder="99" min="0" step="1" value="{{ request('da_max') }}">
+                                    <input type="number" name="da_min" id="daMinInput" class="form-control form-control-sm no-spinner" placeholder="Min" min="0" step="1" value="{{ request('da_min') }}">
+                                    <input type="number" name="da_max" id="daMaxInput" class="form-control form-control-sm no-spinner" placeholder="Max" min="0" step="1" value="{{ request('da_max') }}">
+                                </div>
+                                <div class="filter-presets" data-preset-group="da">
+                                    <button type="button" class="filter-preset" data-min="20" data-max="" data-target-min="daMinInput" data-target-max="daMaxInput">DA 20+</button>
+                                    <button type="button" class="filter-preset" data-min="40" data-max="" data-target-min="daMinInput" data-target-max="daMaxInput">DA 40+</button>
                                 </div>
                             </div>
 
                             <div class="col-md-2">
                                 <label class="form-label fw-semibold small text-muted mb-1">
                                     <abbr class="metric-abbr text-decoration-none" title="Ahrefs Domain Rating — backlink strength score from 0–100">DR</abbr>
-                                    <span class="fw-normal">(Domain Rating)</span>
                                 </label>
                                 <div class="d-flex gap-2">
-                                    <input type="number" name="dr_min" class="form-control form-control-sm no-spinner" placeholder="00" min="0" step="1" value="{{ request('dr_min') }}">
-                                    <input type="number" name="dr_max" class="form-control form-control-sm no-spinner" placeholder="99" min="0" step="1" value="{{ request('dr_max') }}">
+                                    <input type="number" name="dr_min" id="drMinInput" class="form-control form-control-sm no-spinner" placeholder="Min" min="0" step="1" value="{{ request('dr_min') }}">
+                                    <input type="number" name="dr_max" id="drMaxInput" class="form-control form-control-sm no-spinner" placeholder="Max" min="0" step="1" value="{{ request('dr_max') }}">
+                                </div>
+                                <div class="filter-presets" data-preset-group="dr">
+                                    <button type="button" class="filter-preset" data-min="30" data-max="" data-target-min="drMinInput" data-target-max="drMaxInput">DR 30+</button>
+                                    <button type="button" class="filter-preset" data-min="50" data-max="" data-target-min="drMinInput" data-target-max="drMaxInput">DR 50+</button>
                                 </div>
                             </div>
 
                             <div class="col-md-3">
                                 <label class="form-label fw-semibold small text-muted mb-1">Monthly Traffic</label>
                                 <div class="d-flex gap-2">
-                                    <input type="number" name="traffic_min" class="form-control form-control-sm no-spinner" placeholder="00" min="0" step="1" value="{{ request('traffic_min') }}">
-                                    <input type="number" name="traffic_max" class="form-control form-control-sm no-spinner" placeholder="999999" min="0" step="1" value="{{ request('traffic_max') }}">
+                                    <input type="number" name="traffic_min" id="trafficMinInput" class="form-control form-control-sm no-spinner" placeholder="Min" min="0" step="1" value="{{ request('traffic_min') }}">
+                                    <input type="number" name="traffic_max" id="trafficMaxInput" class="form-control form-control-sm no-spinner" placeholder="Max" min="0" step="1" value="{{ request('traffic_max') }}">
+                                </div>
+                                <div class="filter-presets" data-preset-group="traffic">
+                                    <button type="button" class="filter-preset" data-min="10000" data-max="" data-target-min="trafficMinInput" data-target-max="trafficMaxInput">10k+</button>
+                                    <button type="button" class="filter-preset" data-min="50000" data-max="" data-target-min="trafficMinInput" data-target-max="trafficMaxInput">50k+</button>
                                 </div>
                             </div>
 
@@ -432,11 +449,28 @@
 document.addEventListener('DOMContentLoaded', function () {
     const btn = document.getElementById('toggleMoreFiltersBtn');
     const drawer = document.getElementById('moreFiltersDrawer');
-    if (!btn || !drawer) return;
-    btn.addEventListener('click', function () {
-        const open = drawer.style.display !== 'none';
-        drawer.style.display = open ? 'none' : 'block';
-        btn.setAttribute('aria-expanded', open ? 'false' : 'true');
+    if (btn && drawer) {
+        btn.addEventListener('click', function () {
+            const open = drawer.style.display !== 'none';
+            drawer.style.display = open ? 'none' : 'block';
+            btn.setAttribute('aria-expanded', open ? 'false' : 'true');
+        });
+    }
+
+    // FR2 — preset chips set min/max inputs
+    document.querySelectorAll('.filter-preset').forEach(function (chip) {
+        chip.addEventListener('click', function () {
+            const minEl = document.getElementById(chip.dataset.targetMin);
+            const maxEl = document.getElementById(chip.dataset.targetMax);
+            if (!minEl || !maxEl) return;
+            minEl.value = chip.dataset.min || '';
+            maxEl.value = chip.dataset.max || '';
+            const group = chip.closest('.filter-presets');
+            if (group) {
+                group.querySelectorAll('.filter-preset').forEach(c => c.classList.remove('is-active'));
+            }
+            chip.classList.add('is-active');
+        });
     });
 });
 </script>
@@ -737,32 +771,34 @@ document.addEventListener('DOMContentLoaded', function () {
                 </td>
 
                 <td class="text-center catalog-stat-cell">
-                    <div class="d-flex flex-column gap-2 align-items-center">
-                        <button class="btn btn-sm buy-now d-inline-flex justify-content-center align-items-center gap-2" 
-                                style="background-color: #3aaeb2; color: white; padding: 6px 12px; font-size: 13px; border-radius: 6px;"
+                    <div class="catalog-row-actions">
+                        <button class="btn btn-sm btn-primary buy-now d-inline-flex justify-content-center align-items-center gap-2"
                                 data-id="{{ $site->id }}"
                                 data-base-price="{{ $site->price }}"
-                                data-name="{{ $site->site_name }}">
-                            <i class="fa-solid fa-cart-plus"></i>
+                                data-name="{{ $site->site_name }}"
+                                aria-label="Buy placement for {{ $site->site_name }}">
+                            <i class="fa-solid fa-cart-plus" aria-hidden="true"></i>
                             <span>Buy</span>
                             <span class="fw-semibold base-price-display">€{{ number_format($site->price, 2) }}</span>
                         </button>
 
-                        <div class="d-flex gap-2 justify-content-center" style="width: fit-content;">
-                            <button class="btn btn-sm favorite-btn {{ $isFavorited ? 'btn-danger' : 'btn-outline-danger' }}"
+                        <div class="catalog-row-actions-quiet">
+                            <button type="button"
+                                    class="btn-icon-quiet favorite-btn {{ $isFavorited ? 'is-active' : '' }}"
                                     data-id="{{ $site->id }}"
                                     data-name="{{ $site->site_name }}"
-                                    title="{{ $isFavorited ? 'Remove from Favorites' : 'Add to Favorites' }}"
-                                    style="padding: 4px 20px; border-radius: 6px;">
-                                <i class="fa-{{ $isFavorited ? 'solid' : 'regular' }} fa-heart"></i>
+                                    aria-label="{{ $isFavorited ? 'Remove from favorites' : 'Add to favorites' }}"
+                                    title="{{ $isFavorited ? 'Remove from Favorites' : 'Add to Favorites' }}">
+                                <i class="fa-{{ $isFavorited ? 'solid' : 'regular' }} fa-heart" aria-hidden="true"></i>
                             </button>
 
-                            <button class="btn btn-sm blacklist-btn {{ $isBlacklisted ? 'btn-dark' : 'btn-outline-secondary' }}"
+                            <button type="button"
+                                    class="btn-icon-quiet blacklist-btn {{ $isBlacklisted ? 'is-active' : '' }}"
                                     data-id="{{ $site->id }}"
                                     data-name="{{ $site->site_name }}"
-                                    title="{{ $isBlacklisted ? 'Remove from Blacklist' : 'Blacklist Site' }}"
-                                    style="padding: 4px 20px; border-radius: 6px;">
-                                <i class="fa-solid fa-ban"></i>
+                                    aria-label="{{ $isBlacklisted ? 'Remove from blacklist' : 'Blacklist site' }}"
+                                    title="{{ $isBlacklisted ? 'Remove from Blacklist' : 'Blacklist Site' }}">
+                                <i class="fa-solid fa-ban" aria-hidden="true"></i>
                             </button>
                         </div>
                     </div>
@@ -1176,16 +1212,9 @@ thead th {
     font-size: 12.5px;
 }
 
-.catalog-site-stack.has-new-badge {
-    padding-right: 3.25rem;
-}
-
-/* Compact NEW pill — theme primary, gentle pulse */
+/* Compact NEW pill — theme primary, gentle pulse (near title) */
 .site-badge-new {
-    position: absolute;
-    top: 8px;
-    right: 8px;
-    z-index: 2;
+    position: static;
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -1204,6 +1233,7 @@ thead th {
     outline: none;
     box-shadow: 0 1px 3px rgba(11, 98, 102, 0.22);
     animation: siteNewPulse 2s ease-in-out infinite;
+    flex-shrink: 0;
 }
 
 .site-badge-new:hover,
@@ -1941,40 +1971,37 @@ function addToCart(id, name, basePrice, additionalPrice = 0) {
     return finalPrice;
 }
 
-// Update UI for favorites and blacklist
+// Update UI for favorites and blacklist (quiet icon actions)
 function updateButtonStates() {
     document.querySelectorAll('.favorite-btn').forEach(btn => {
         let id = parseInt(btn.dataset.id);
+        const icon = btn.querySelector('i');
         if (favorites.includes(id)) {
-            btn.classList.add('btn-danger');
-            btn.classList.remove('btn-outline-danger');
-            btn.querySelector('i').classList.remove('fa-regular');
-            btn.querySelector('i').classList.add('fa-solid');
+            btn.classList.add('is-active');
+            if (icon) { icon.classList.remove('fa-regular'); icon.classList.add('fa-solid'); }
             btn.title = 'Remove from Favorites';
+            btn.setAttribute('aria-label', 'Remove from favorites');
         } else {
-            btn.classList.remove('btn-danger');
-            btn.classList.add('btn-outline-danger');
-            btn.querySelector('i').classList.remove('fa-solid');
-            btn.querySelector('i').classList.add('fa-regular');
+            btn.classList.remove('is-active');
+            if (icon) { icon.classList.remove('fa-solid'); icon.classList.add('fa-regular'); }
             btn.title = 'Add to Favorites';
+            btn.setAttribute('aria-label', 'Add to favorites');
         }
     });
-    
+
     document.querySelectorAll('.blacklist-btn').forEach(btn => {
         let id = parseInt(btn.dataset.id);
         if (blacklist.includes(id)) {
-            btn.classList.add('btn-dark');
-            btn.classList.remove('btn-outline-secondary');
-            btn.style.backgroundColor = '#6c757d';
-            btn.style.color = 'white';
+            btn.classList.add('is-active');
             btn.title = 'Remove from Blacklist';
+            btn.setAttribute('aria-label', 'Remove from blacklist');
         } else {
-            btn.classList.remove('btn-dark');
-            btn.classList.add('btn-outline-secondary');
-            btn.style.backgroundColor = '';
-            btn.style.color = '';
+            btn.classList.remove('is-active');
             btn.title = 'Blacklist Site';
+            btn.setAttribute('aria-label', 'Blacklist site');
         }
+        btn.style.backgroundColor = '';
+        btn.style.color = '';
     });
 }
 
@@ -2214,19 +2241,19 @@ document.addEventListener('DOMContentLoaded', function() {
             
             if (index === -1) {
                 favorites.push(id);
-                this.classList.add('btn-danger');
-                this.classList.remove('btn-outline-danger');
+                this.classList.add('is-active');
                 this.querySelector('i').classList.remove('fa-regular');
                 this.querySelector('i').classList.add('fa-solid');
                 this.title = 'Remove from Favorites';
+                this.setAttribute('aria-label', 'Remove from favorites');
                 showToast(`${name} added to favorites!`, 'success');
             } else {
                 favorites.splice(index, 1);
-                this.classList.remove('btn-danger');
-                this.classList.add('btn-outline-danger');
+                this.classList.remove('is-active');
                 this.querySelector('i').classList.remove('fa-solid');
                 this.querySelector('i').classList.add('fa-regular');
                 this.title = 'Add to Favorites';
+                this.setAttribute('aria-label', 'Add to favorites');
                 showToast(`${name} removed from favorites!`, 'warning');
             }
             
@@ -2247,11 +2274,11 @@ document.addEventListener('DOMContentLoaded', function() {
             
             if (index === -1) {
                 blacklist.push(id);
-                this.classList.add('btn-dark');
-                this.classList.remove('btn-outline-secondary');
-                this.style.backgroundColor = '#6c757d';
-                this.style.color = 'white';
+                this.classList.add('is-active');
+                this.style.backgroundColor = '';
+                this.style.color = '';
                 this.title = 'Remove from Blacklist';
+                this.setAttribute('aria-label', 'Remove from blacklist');
                 showToast(`${name} has been blacklisted!`, 'warning');
                 
                 @if(!request('blacklist_filter'))
@@ -2272,11 +2299,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 @endif
             } else {
                 blacklist.splice(index, 1);
-                this.classList.remove('btn-dark');
-                this.classList.add('btn-outline-secondary');
+                this.classList.remove('is-active');
                 this.style.backgroundColor = '';
                 this.style.color = '';
                 this.title = 'Blacklist Site';
+                this.setAttribute('aria-label', 'Blacklist site');
                 showToast(`${name} removed from blacklist!`, 'success');
                 
                 if (row) {

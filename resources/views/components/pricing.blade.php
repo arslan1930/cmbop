@@ -3,6 +3,7 @@
     <div class="text-center mb-16">
       <h2 class="h2 mb-3"><?= __('messages.pricing_title') ?></h2>
       <p class="lead text-muted"><?= __('messages.pricing_description') ?></p>
+      <p class="text-muted small mb-0">Or skip packages and <a href="{{ route('register') }}" class="fw-semibold" style="color:#0b6266;">browse marketplace placements</a> after signup.</p>
     </div>
 
     <div class="row g-4 justify-content-center">
@@ -22,17 +23,16 @@
                 <li>✔ <?= __('messages.pricing_card_1_item_3') ?></li>
               </ul>
             </div>
-            <a href="#" class="btn btn-outline-secondary w-100 mt-4 py-2"><?= __('messages.pricing_card_1_price_button') ?></a>
+            <a href="{{ route('register') }}" class="btn btn-cta-secondary w-100 mt-4 py-2"><?= __('messages.pricing_card_1_price_button') ?></a>
           </div>
         </div>
       </div>
 
       <!-- Growth Package (Most Popular) -->
       <div class="col-md-4">
-        <div class="card h-100 border" style="border-color:#4ECDCB; border-radius:1rem; box-shadow:0 0.5rem 1rem rgba(0,0,0,0.1);" class="pricing-card position-relative">
-          <!-- Most Popular Badge -->
+        <div class="card h-100 border pricing-card position-relative" style="border-color:#4ECDCB; border-radius:1rem; box-shadow:0 0.5rem 1rem rgba(0,0,0,0.1); min-height: 520px;">
           <div class="position-absolute top-0 end-0 px-3 py-1 text-white" style="background-color:#4ECDCB; border-bottom-left-radius:0.5rem; border-top-right-radius:0.5rem;">Most Popular</div>
-          
+
           <div class="card-body d-flex flex-column justify-content-between text-start mt-4 p-5">
             <div>
               <h5 class="card-title mb-4"><?= __('messages.pricing_card_2_title') ?></h5>
@@ -45,7 +45,7 @@
                 <li>✔ <?= __('messages.pricing_card_2_item_3') ?></li>
               </ul>
             </div>
-            <a href="#" class="btn w-100 mt-4 py-2 text-white" style="background-color:#4ECDCB; border:none;"><?= __('messages.pricing_card_2_price_button') ?></a>
+            <a href="{{ route('register') }}" class="btn btn-primary w-100 mt-4 py-2"><?= __('messages.pricing_card_2_price_button') ?></a>
           </div>
         </div>
       </div>
@@ -65,7 +65,7 @@
                 <li>✔ <?= __('messages.pricing_card_3_item_3') ?></li>
               </ul>
             </div>
-            <a href="#" class="btn btn-outline-secondary w-100 mt-4 py-2"><?= __('messages.pricing_card_3_price_button') ?></a>
+            <a href="{{ url('/contact') }}" class="btn btn-cta-secondary w-100 mt-4 py-2">Contact sales</a>
           </div>
         </div>
       </div>
@@ -73,20 +73,23 @@
     </div>
 
     <div class="text-center mt-5">
-      <p class="text-muted"> {{ __('messages.tagline') }} <a href="contact-us" class="text-danger fw-bold"><?= __('messages.contact_us') ?></a></p>
+      <p class="text-muted mb-0">{{ __('messages.tagline') }} <a href="{{ url('/contact') }}" class="fw-semibold" style="color:#0b6266;"><?= __('messages.contact_us') ?></a></p>
     </div>
   </div>
 
   <style>
-    /* Hover effect: scale & shadow pop */
     .pricing-card {
       transition: transform 0.3s ease, box-shadow 0.3s ease;
-      border-radius: 1rem; /* medium round border for all cards */
+      border-radius: 1rem;
     }
     .pricing-card:hover {
-      transform: scale(1.05);
-      box-shadow: 0 1rem 2rem rgba(0,0,0,0.2);
+      transform: translateY(-4px);
+      box-shadow: 0 1rem 2rem rgba(0,0,0,0.12);
       z-index: 10;
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .pricing-card { transition: none; }
+      .pricing-card:hover { transform: none; }
     }
   </style>
 </section>
