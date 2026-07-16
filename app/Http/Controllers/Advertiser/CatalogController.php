@@ -1146,26 +1146,48 @@ public function checkout(Request $request)
         try {
             // Recalculate every line from DB — never trust session cart prices
             $expandedOrders = $this->cartPricing()->expandCart($cart);
-            
-            DB::beginTransaction();
-            
-            $createdOrders = [];
-            $orderIndex = 0;
-            
+
+            if (!$contentLinks || empty($contentLinks)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Content links are required. Please fill in all Google Docs links.',
+                ]);
+            }
+
+            // Per-site copy index (matches checkout content_links[siteId][])
+            // Do NOT use a global cart index — that maps site B's first copy to [B][1].
             foreach ($expandedOrders as $orderItem) {
                 $site = $orderItem['site'];
-                
-                $link = null;
-                if ($contentLinks && isset($contentLinks[$site->id]) && isset($contentLinks[$site->id][$orderIndex])) {
-                    $link = $contentLinks[$site->id][$orderIndex];
+                $copyIndex = max(0, ((int) ($orderItem['copy_number'] ?? 1)) - 1);
+
+                if (!isset($contentLinks[$site->id][$copyIndex])) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Content link required for copy #' . ($orderItem['copy_number'] ?? 1) . ' of: ' . $site->site_name,
+                    ]);
                 }
-                
-                $orderNumber = str_pad(mt_rand(1, 999999), 6, '0', STR_PAD_LEFT);
-                
-                $paymentStatus = 'pending';
-                $orderStatus = 'pending'; 
-                
-                $orderData = [
+
+                $link = $contentLinks[$site->id][$copyIndex];
+                if (!preg_match('/^https?:\/\/(docs\.google\.com|drive\.google\.com)\/.*$/i', $link)) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Invalid Google Docs link for: ' . $site->site_name,
+                    ]);
+                }
+            }
+
+            DB::beginTransaction();
+
+            $createdOrders = [];
+
+            foreach ($expandedOrders as $orderItem) {
+                $site = $orderItem['site'];
+                $copyIndex = max(0, ((int) ($orderItem['copy_number'] ?? 1)) - 1);
+                $link = $contentLinks[$site->id][$copyIndex];
+
+                $orderNumber = str_pad((string) mt_rand(1, 999999), 6, '0', STR_PAD_LEFT);
+
+                $order = Order::create([
                     'user_id' => $userId,
                     'order_number' => $orderNumber,
                     'reference_code' => $referenceCode,
@@ -1173,14 +1195,12 @@ public function checkout(Request $request)
                     'tax' => 0,
                     'total_amount' => $orderItem['price'],
                     'payment_method' => $paymentMethod,
-                    'payment_status' => $paymentStatus,
-                    'status' => $orderStatus,
+                    'payment_status' => 'pending',
+                    'status' => 'pending',
                     'sensitive_type' => $orderItem['sensitive_type'],
-                    'additional_price' => $orderItem['additional_price']
-                ];
-                
-                $order = Order::create($orderData);
-                
+                    'additional_price' => $orderItem['additional_price'],
+                ]);
+
                 OrderItem::create([
                     'order_id' => $order->id,
                     'site_id' => $site->id,
@@ -1189,13 +1209,12 @@ public function checkout(Request $request)
                     'price' => $orderItem['price'],
                     'content_link' => $link,
                     'sensitive_type' => $orderItem['sensitive_type'],
-                    'additional_price' => $orderItem['additional_price']
+                    'additional_price' => $orderItem['additional_price'],
                 ]);
-                
+
                 $createdOrders[] = $order;
-                $orderIndex++;
             }
-            
+
             DB::commit();
             session()->forget('cart');
 
@@ -1204,27 +1223,26 @@ public function checkout(Request $request)
                     $createdOrder instanceof Order ? $createdOrder->fresh(['items']) : Order::with('items')->find($createdOrder->id)
                 );
             }
-            
+
             // Send email to site owners (for each site in the order)
             $this->sendSiteOwnerEmails($createdOrders);
-            
+
             // Send email to admin for manual payments (wise, crypto, bank)
             $customer = User::find($userId);
             $this->sendAdminManualPaymentEmail($customer, $createdOrders, $paymentMethod);
-            
-            $orderNumbers = implode(', ', array_column($createdOrders, 'order_number'));
-            
+
+            $orderNumbers = implode(', ', array_map(fn (Order $o) => $o->order_number, $createdOrders));
+
             return response()->json([
                 'success' => true,
-                'message' => count($createdOrders) . ' order(s) placed successfully! Order numbers: ' . $orderNumbers
+                'message' => count($createdOrders) . ' order(s) placed successfully! Order numbers: ' . $orderNumbers,
             ]);
-            
         } catch (\Exception $e) {
             DB::rollBack();
             Log::error('Order creation failed: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
-                'message' => $e->getMessage()
+                'message' => 'Unable to place order. Please try again.',
             ]);
         }
     }

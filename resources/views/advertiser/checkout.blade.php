@@ -41,7 +41,6 @@
                         <div class="card-body">
                             <div class="site-summary-list">
                                 @php
-                                    $globalCopyIndex = 0;
                                     $placementNumber = 0;
                                 @endphp
                                 @foreach($cartItems as $index => $item)
@@ -52,7 +51,7 @@
                                     @endphp
                                     <div class="site-summary-card"
                                          data-site-id="{{ $item['id'] }}"
-                                         data-copy-index="{{ $globalCopyIndex }}"
+                                         data-copy-index="{{ $i }}"
                                          data-placement-number="{{ $placementNumber }}">
                                         <div class="site-summary-top">
                                             <div class="d-flex align-items-start gap-2 flex-grow-1 min-w-0">
@@ -87,7 +86,6 @@
                                             @endif
                                         </div>
                                     </div>
-                                    @php $globalCopyIndex++; @endphp
                                     @endfor
                                 @endforeach
                             </div>
@@ -103,13 +101,12 @@
                             <p class="text-muted small mb-3">Paste a Google Docs link for each numbered placement below so the publisher can publish your article.</p>
                             <div class="d-flex flex-column gap-3">
                                 @php
-                                    $globalCopyIndex = 0;
                                     $placementNumber = 0;
                                 @endphp
                                 @foreach($cartItems as $index => $item)
                                     @for($i = 0; $i < $item['quantity']; $i++)
                                     @php $placementNumber++; @endphp
-                                    <div class="content-link-row" data-site-id="{{ $item['id'] }}" data-copy-index="{{ $globalCopyIndex }}" data-placement-number="{{ $placementNumber }}">
+                                    <div class="content-link-row" data-site-id="{{ $item['id'] }}" data-copy-index="{{ $i }}" data-placement-number="{{ $placementNumber }}">
                                         <label class="form-label mb-1 fw-semibold d-flex align-items-center gap-2">
                                             <span class="placement-number" aria-hidden="true">{{ $placementNumber }}</span>
                                             <span>{{ $item['name'] }}</span>
@@ -120,14 +117,13 @@
                                                placeholder="https://docs.google.com/..."
                                                data-site-id="{{ $item['id'] }}"
                                                data-site-name="{{ $item['name'] }}"
-                                               data-copy-index="{{ $globalCopyIndex }}"
+                                               data-copy-index="{{ $i }}"
                                                data-moderation-status="pending"
                                                aria-label="Article link for placement {{ $placementNumber }}: {{ $item['name'] }}"
                                                required>
                                         <small class="text-muted">Google Docs link only · articles are scanned automatically for content policy compliance</small>
                                         <div class="content-moderation-status mt-2" aria-live="polite"></div>
                                     </div>
-                                    @php $globalCopyIndex++; @endphp
                                     @endfor
                                 @endforeach
                             </div>
