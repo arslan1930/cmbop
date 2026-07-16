@@ -4,7 +4,28 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>@yield('title', 'SEOLinkBuildings')</title>
+    @php
+        $pageTitle = trim($__env->yieldContent('title')) ?: 'SEOLinkBuildings';
+        $pageDescription = trim($__env->yieldContent('description'))
+            ?: 'SEOLinkBuildings is a content marketplace and blogger outreach platform for strategic link building and digital PR.';
+        $pageCanonical = trim($__env->yieldContent('canonical')) ?: url()->current();
+        $pageImage = trim($__env->yieldContent('og_image')) ?: asset('assets/img/logo1.png');
+        $pageType = trim($__env->yieldContent('og_type')) ?: 'website';
+    @endphp
+    <title>{{ $pageTitle }}</title>
+    <meta name="description" content="{{ $pageDescription }}">
+    <link rel="canonical" href="{{ $pageCanonical }}">
+    <meta property="og:type" content="{{ $pageType }}">
+    <meta property="og:site_name" content="SEOLinkBuildings">
+    <meta property="og:title" content="{{ $pageTitle }}">
+    <meta property="og:description" content="{{ $pageDescription }}">
+    <meta property="og:url" content="{{ $pageCanonical }}">
+    <meta property="og:image" content="{{ $pageImage }}">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="{{ $pageTitle }}">
+    <meta name="twitter:description" content="{{ $pageDescription }}">
+    <meta name="twitter:image" content="{{ $pageImage }}">
+    @stack('head')
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">

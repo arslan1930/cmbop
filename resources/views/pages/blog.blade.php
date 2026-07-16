@@ -1,5 +1,8 @@
 @extends('layouts.app')
 
+@section('title', 'Blog & Articles — SEOLinkBuildings')
+@section('description', 'Insights on link building, digital PR, and content marketing from the SEOLinkBuildings team.')
+
 @section('content')
 
 <!-- ==================== BLOG HERO ==================== -->

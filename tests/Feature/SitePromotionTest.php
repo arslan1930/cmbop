@@ -119,4 +119,26 @@ class SitePromotionTest extends TestCase
         $this->assertSame(1, $sent);
         Mail::assertQueued(\App\Mail\SiteDiscountEnded::class);
     }
+
+    public function test_feature_from_stripe_payment_applies_without_wallet_debit(): void
+    {
+        $publisher = $this->publisherWithWallet(5);
+        $site = $this->site($publisher);
+
+        $result = app(SitePromotionService::class)->featureFromStripePayment(
+            $site,
+            $publisher,
+            'cs_test_feature_audit_1'
+        );
+
+        $this->assertTrue($result['success']);
+        $site->refresh();
+        $this->assertTrue($site->isFeatured());
+        $this->assertSame(5.0, (float) Wallet::where('user_id', $publisher->id)->value('balance'));
+        $this->assertDatabaseHas('site_feature_purchases', [
+            'site_id' => $site->id,
+            'payment_method' => 'stripe',
+            'stripe_session_id' => 'cs_test_feature_audit_1',
+        ]);
+    }
 }

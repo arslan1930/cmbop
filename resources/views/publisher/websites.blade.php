@@ -2023,26 +2023,62 @@ $('#claimWebsiteForm').on('submit', async function (e) {
 /* —— Site promotions: Feature / Discount / Bulk —— */
 const promoCsrf = '{{ csrf_token() }}';
 
+async function startFeatureStripeCheckout(siteId) {
+    const res = await fetch(`/publisher/sites/${siteId}/feature/checkout`, {
+        method: 'POST',
+        headers: { 'X-CSRF-TOKEN': promoCsrf, 'Accept': 'application/json', 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (data.success && data.checkout_url) {
+        window.location.href = data.checkout_url;
+        return;
+    }
+    Swal.fire({ icon: 'error', title: 'Checkout unavailable', text: data.message || 'Could not start card payment.' });
+}
+
 $(document).on('click', '.btn-feature-site', async function () {
     const id = $(this).data('id');
     const name = $(this).data('name');
-    let wallet = { feature_price: 10, feature_days: 7, balance: 0, top_up_url: '{{ route('advertiser.add-funds') }}' };
+    let wallet = { feature_price: 10, feature_days: 7, balance: 0, top_up_url: '{{ route('advertiser.add-funds') }}', stripe_available: true };
     try {
         const w = await fetch(`{{ route('publisher.promotions.wallet') }}`, { headers: { 'Accept': 'application/json' }});
         wallet = await w.json();
     } catch (e) {}
 
+    const canWallet = Number(wallet.balance || 0) >= Number(wallet.feature_price || 10);
     const result = await Swal.fire({
         title: 'Feature this website?',
         html: `<p>Feature <strong>${name}</strong> for <strong>${wallet.feature_days || 7} days</strong> to boost catalog visibility.</p>
                <p class="mb-1">Cost: <strong>€${Number(wallet.feature_price || 10).toFixed(2)}</strong></p>
                <p class="small text-muted">Publisher balance: €${Number(wallet.balance || 0).toFixed(2)}</p>
-               <p class="small text-muted">Pay from publisher earnings, or <a href="${wallet.top_up_url}" target="_blank">top up</a> with a payment method, then <a href="${wallet.balance_url || '/publisher/balance'}" target="_blank">transfer</a> to your publisher wallet if needed.</p>`,
+               <p class="small text-muted">Pay from earnings, or pay securely by card with Stripe.</p>`,
+        showDenyButton: !!wallet.stripe_available,
         showCancelButton: true,
-        confirmButtonText: 'Pay & Feature',
+        confirmButtonText: canWallet ? 'Pay from wallet' : 'Use card / top up',
+        denyButtonText: wallet.stripe_available ? 'Pay by card' : undefined,
         confirmButtonColor: '#0b6266',
+        denyButtonColor: '#635bff',
     });
+
+    if (result.isDenied) {
+        return startFeatureStripeCheckout(id);
+    }
     if (!result.isConfirmed) return;
+    if (!canWallet) {
+        return Swal.fire({
+            icon: 'info',
+            title: 'Insufficient balance',
+            html: `Top up your wallet or pay by card.<br><br>
+                   <button type="button" class="btn btn-sm btn-primary me-1" id="swalPayCard">Pay by card</button>
+                   <a class="btn btn-sm btn-outline-secondary" href="${wallet.top_up_url}">Add Funds</a>`,
+            didOpen: () => {
+                document.getElementById('swalPayCard')?.addEventListener('click', () => startFeatureStripeCheckout(id));
+            },
+            showConfirmButton: false,
+            showCancelButton: true,
+        });
+    }
 
     const res = await fetch(`/publisher/sites/${id}/feature`, {
         method: 'POST',
@@ -2057,10 +2093,15 @@ $(document).on('click', '.btn-feature-site', async function () {
     } else if (data.needs_top_up) {
         Swal.fire({
             icon: 'info',
-            title: 'Top up required',
+            title: 'Top up or pay by card',
             html: `${data.message}<br><br>
-                   <a class="btn btn-sm btn-primary me-1" href="${wallet.top_up_url}">Add Funds</a>
-                   <a class="btn btn-sm btn-outline-secondary" href="${wallet.balance_url || '/publisher/balance'}">Publisher Balance</a>`,
+                   <button type="button" class="btn btn-sm btn-primary me-1" id="swalPayCard2">Pay by card (€${Number(wallet.feature_price || 10).toFixed(2)})</button>
+                   <a class="btn btn-sm btn-outline-secondary" href="${wallet.top_up_url}">Add Funds</a>`,
+            didOpen: () => {
+                document.getElementById('swalPayCard2')?.addEventListener('click', () => startFeatureStripeCheckout(id));
+            },
+            showConfirmButton: false,
+            showCancelButton: true,
         });
     } else {
         Swal.fire({ icon: 'error', title: 'Could not feature', text: data.message || 'Failed' });

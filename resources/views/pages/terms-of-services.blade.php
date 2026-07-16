@@ -1,5 +1,8 @@
 @extends('layouts.app')
 
+@section('title', 'Terms of Service — SEOLinkBuildings')
+@section('description', 'Terms of service for using the SEOLinkBuildings content marketplace as an advertiser or publisher.')
+
 @section('content')
 
 @php

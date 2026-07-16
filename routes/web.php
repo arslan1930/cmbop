@@ -144,6 +144,18 @@ Route::post('/newsletter/subscribe', [NewsletterController::class, 'subscribe'])
 Route::get('/blog', [BlogController::class, 'index'])->name('blog.index');
 Route::get('/blog/{slug}', [BlogController::class, 'show'])->name('blog.show');
 
+// SEO: sitemap + robots
+Route::get('/sitemap.xml', [\App\Http\Controllers\SitemapController::class, 'index'])->name('sitemap');
+Route::get('/robots.txt', function () {
+    $sitemap = rtrim(config('app.url'), '/').'/sitemap.xml';
+
+    return response(
+        "User-agent: *\nAllow: /\nDisallow: /admin/\nDisallow: /advertiser/\nDisallow: /publisher/\nDisallow: /profile\nDisallow: /chat/\nDisallow: /notifications\n\nSitemap: {$sitemap}\n",
+        200,
+        ['Content-Type' => 'text/plain; charset=UTF-8']
+    );
+})->name('robots');
+
 // Ad banner click tracking (public)
 Route::get('/banners/{banner}/click', BannerClickController::class)
     ->middleware('throttle:60,1')
@@ -700,6 +712,11 @@ Route::middleware(['auth','verified', RoleMiddleware::class . ':publisher'])
             ->name('promotions.wallet');
         Route::post('/sites/{id}/feature', [\App\Http\Controllers\Publisher\SitePromotionController::class, 'feature'])
             ->name('sites.feature');
+        Route::post('/sites/{id}/feature/checkout', [\App\Http\Controllers\Publisher\SitePromotionController::class, 'featureCheckout'])
+            ->middleware('throttle:10,1')
+            ->name('sites.feature.checkout');
+        Route::get('/sites/{id}/feature/success', [\App\Http\Controllers\Publisher\SitePromotionController::class, 'featureSuccess'])
+            ->name('sites.feature.success');
         Route::post('/sites/{id}/bulk-discount', [\App\Http\Controllers\Publisher\SitePromotionController::class, 'joinBulk'])
             ->name('sites.bulk-join');
         Route::delete('/sites/{id}/bulk-discount', [\App\Http\Controllers\Publisher\SitePromotionController::class, 'leaveBulk'])

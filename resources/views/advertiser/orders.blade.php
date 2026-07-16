@@ -881,10 +881,21 @@ document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('ordersTableBody').innerHTML = `
                 <tr>
                     <td colspan="11" class="text-center py-5">
-                        <div class="text-muted">No orders found</div>
-                        <a href="{{ route('advertiser.catalog') }}" class="btn btn-primary btn-sm mt-3">
-                            <i class="fa fa-shopping-cart"></i> Start Shopping
-                        </a>
+                        <div class="mx-auto" style="max-width:420px">
+                            <div class="mx-auto mb-3 d-flex align-items-center justify-content-center"
+                                 style="width:52px;height:52px;border-radius:50%;background:var(--brand-primary-bg,#e8f8f7);color:var(--brand-primary,#0b6266)"
+                                 aria-hidden="true">
+                                <i class="fa-solid fa-receipt"></i>
+                            </div>
+                            <h5 class="mb-2">No orders yet</h5>
+                            <p class="text-muted mb-3">When you buy placements from the catalog, they’ll show up here with status tracking.</p>
+                            <div class="d-flex flex-wrap justify-content-center gap-2">
+                                <a href="{{ route('advertiser.catalog') }}" class="btn btn-primary btn-sm">
+                                    <i class="fa fa-shopping-cart me-1"></i> Browse catalog
+                                </a>
+                                <a href="{{ route('advertiser.content-library') }}" class="btn btn-outline-secondary btn-sm">Content library</a>
+                            </div>
+                        </div>
                     </td>
                 </tr>
             `;

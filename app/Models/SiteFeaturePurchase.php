@@ -13,6 +13,7 @@ class SiteFeaturePurchase extends Model
         'amount',
         'days',
         'payment_method',
+        'stripe_session_id',
         'starts_at',
         'ends_at',
     ];

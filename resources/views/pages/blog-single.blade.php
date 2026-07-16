@@ -1,5 +1,36 @@
 @extends('layouts.app')
 
+@section('title', ($blog->title ?? 'Blog').' — SEOLinkBuildings')
+@section('description', $blog->excerpt ?: \Illuminate\Support\Str::limit(strip_tags($blog->content ?? ''), 160))
+@section('og_type', 'article')
+@section('og_image', !empty($blog->featured_image) ? asset('storage/'.$blog->featured_image) : asset('assets/img/logo1.png'))
+
+@push('head')
+<script type="application/ld+json">
+{!! json_encode([
+    '@context' => 'https://schema.org',
+    '@type' => 'BlogPosting',
+    'headline' => $blog->title,
+    'description' => $blog->excerpt ?: \Illuminate\Support\Str::limit(strip_tags($blog->content ?? ''), 160),
+    'datePublished' => optional($blog->published_at)?->toIso8601String(),
+    'dateModified' => optional($blog->updated_at)?->toIso8601String(),
+    'author' => [
+        '@type' => 'Person',
+        'name' => $blog->author ?: 'SEOLinkBuildings',
+    ],
+    'publisher' => [
+        '@type' => 'Organization',
+        'name' => 'SEOLinkBuildings',
+        'logo' => [
+            '@type' => 'ImageObject',
+            'url' => asset('assets/img/logo1.png'),
+        ],
+    ],
+    'mainEntityOfPage' => url()->current(),
+], JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE) !!}
+</script>
+@endpush
+
 @section('content')
 
 <!-- ==================== BLOG POST HERO ==================== -->

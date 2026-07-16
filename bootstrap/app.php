@@ -18,6 +18,11 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->validateCsrfTokens(except: [
             'auth/apple/callback',
         ]);
+
+        // Security headers (CSP, HSTS, nosniff, frame, referrer) on every web response
+        $middleware->appendToGroup('web', [
+            \App\Http\Middleware\SecurityHeaders::class,
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
         // Production uses branded resources/views/errors/* pages (APP_DEBUG=false).

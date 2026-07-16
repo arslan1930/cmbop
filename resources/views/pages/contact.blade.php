@@ -1,5 +1,8 @@
 @extends('layouts.app')
 
+@section('title', 'Contact us — SEOLinkBuildings')
+@section('description', 'Get in touch with the SEOLinkBuildings team for marketplace support, publisher onboarding, and partnership inquiries.')
+
 @section('content')
 
 @php

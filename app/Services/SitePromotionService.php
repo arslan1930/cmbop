@@ -55,36 +55,88 @@ class SitePromotionService
 
                 $wallet->debit($price);
 
-                $starts = now();
-                $base = $site->featured_until && $site->featured_until->isFuture()
-                    ? $site->featured_until->copy()
-                    : $starts->copy();
-                $ends = $base->copy()->addDays($days);
-
-                $site->forceFill([
-                    'featured_until' => $ends,
-                    'featured_purchased_at' => $starts,
-                ])->save();
-
-                SiteFeaturePurchase::create([
-                    'site_id' => $site->id,
-                    'user_id' => $publisher->id,
-                    'amount' => $price,
-                    'days' => $days,
-                    'payment_method' => 'wallet',
-                    'starts_at' => $starts,
-                    'ends_at' => $ends,
-                ]);
+                $site = $this->applyFeaturePeriod($site, $publisher, $price, $days, 'wallet');
 
                 return [
                     'success' => true,
                     'message' => 'Site featured for '.$days.' days (€'.number_format($price, 2).').',
-                    'site' => $site->fresh(),
+                    'site' => $site,
                 ];
             });
         } catch (\Throwable $e) {
             return ['success' => false, 'message' => $e->getMessage()];
         }
+    }
+
+    /**
+     * Apply featured placement after a successful Stripe card payment (no wallet debit).
+     */
+    public function featureFromStripePayment(Site $site, User $publisher, ?string $stripeSessionId = null): array
+    {
+        $price = $this->featurePrice();
+        $days = $this->featureDays();
+
+        try {
+            return DB::transaction(function () use ($site, $publisher, $price, $days, $stripeSessionId) {
+                if ($stripeSessionId) {
+                    $already = SiteFeaturePurchase::query()
+                        ->where('payment_method', 'stripe')
+                        ->where('stripe_session_id', $stripeSessionId)
+                        ->exists();
+                    if ($already) {
+                        return [
+                            'success' => true,
+                            'message' => 'Feature already applied for this payment.',
+                            'site' => $site->fresh(),
+                        ];
+                    }
+                }
+
+                $locked = Site::query()->whereKey($site->id)->lockForUpdate()->firstOrFail();
+                $featured = $this->applyFeaturePeriod($locked, $publisher, $price, $days, 'stripe', $stripeSessionId);
+
+                return [
+                    'success' => true,
+                    'message' => 'Site featured for '.$days.' days (€'.number_format($price, 2).') via card.',
+                    'site' => $featured,
+                ];
+            });
+        } catch (\Throwable $e) {
+            return ['success' => false, 'message' => $e->getMessage()];
+        }
+    }
+
+    private function applyFeaturePeriod(
+        Site $site,
+        User $publisher,
+        float $price,
+        int $days,
+        string $paymentMethod,
+        ?string $stripeSessionId = null
+    ): Site {
+        $starts = now();
+        $base = $site->featured_until && $site->featured_until->isFuture()
+            ? $site->featured_until->copy()
+            : $starts->copy();
+        $ends = $base->copy()->addDays($days);
+
+        $site->forceFill([
+            'featured_until' => $ends,
+            'featured_purchased_at' => $starts,
+        ])->save();
+
+        SiteFeaturePurchase::create([
+            'site_id' => $site->id,
+            'user_id' => $publisher->id,
+            'amount' => $price,
+            'days' => $days,
+            'payment_method' => $paymentMethod,
+            'stripe_session_id' => $stripeSessionId,
+            'starts_at' => $starts,
+            'ends_at' => $ends,
+        ]);
+
+        return $site->fresh();
     }
 
     public function joinBulkDiscount(Site $site, float $percent): Site

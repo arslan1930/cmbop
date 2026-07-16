@@ -1,2 +1,10 @@
 User-agent: *
-Disallow:
+Allow: /
+Disallow: /admin/
+Disallow: /advertiser/
+Disallow: /publisher/
+Disallow: /profile
+Disallow: /chat/
+Disallow: /notifications
+
+Sitemap: /sitemap.xml
