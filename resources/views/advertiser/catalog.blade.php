@@ -1176,10 +1176,6 @@ thead th {
     font-size: 12.5px;
 }
 
-.catalog-site-cell {
-    position: relative;
-}
-
 .catalog-site-stack.has-new-badge {
     padding-right: 3.25rem;
 }
