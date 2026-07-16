@@ -46,6 +46,7 @@ class Site extends Model
         'owner_id',
         'rating_avg',
         'rating_count',
+        'completed_orders_count',
     ];
 
     protected $casts = [
@@ -69,6 +70,7 @@ class Site extends Model
         'screenshot_fetched_at' => 'datetime',
         'rating_avg' => 'float',
         'rating_count' => 'integer',
+        'completed_orders_count' => 'integer',
     ];
 
     public function enrichmentRuns()
@@ -100,6 +102,30 @@ class Site extends Model
         }
 
         return number_format($avg, 1).' / 5 · '.$count.' '.($count === 1 ? 'rating' : 'ratings');
+    }
+
+    public function completedOrdersLabel(): string
+    {
+        $count = (int) ($this->completed_orders_count ?? 0);
+        if ($count < 1) {
+            return 'No completed orders yet';
+        }
+
+        return $count.' completed '.($count === 1 ? 'order' : 'orders');
+    }
+
+    public static function refreshCompletedOrdersCount(int $siteId): void
+    {
+        $count = OrderItem::query()
+            ->where('site_id', $siteId)
+            ->whereHas('order', function ($q) {
+                $q->where('status', 'completed');
+            })
+            ->count();
+
+        static::query()->where('id', $siteId)->update([
+            'completed_orders_count' => $count,
+        ]);
     }
 
     /**

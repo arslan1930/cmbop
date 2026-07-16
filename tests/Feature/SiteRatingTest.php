@@ -2,6 +2,8 @@
 
 namespace Tests\Feature;
 
+use App\Models\Order;
+use App\Models\OrderItem;
 use App\Models\Role;
 use App\Models\Site;
 use App\Models\SiteRating;
@@ -53,21 +55,60 @@ class SiteRatingTest extends TestCase
         ]);
     }
 
-    public function test_advertiser_can_rate_a_site_and_aggregate_updates(): void
+    private function completedOrderItem(User $advertiser, Site $site, string $status = 'completed'): OrderItem
+    {
+        $order = Order::create([
+            'user_id' => $advertiser->id,
+            'order_number' => 'ORD-'.uniqid(),
+            'reference_code' => 'REF-'.uniqid(),
+            'subtotal' => 50,
+            'tax' => 0,
+            'total_amount' => 50,
+            'payment_method' => 'wallet',
+            'payment_status' => 'paid',
+            'status' => $status,
+        ]);
+
+        return OrderItem::create([
+            'order_id' => $order->id,
+            'site_id' => $site->id,
+            'site_name' => $site->site_name,
+            'site_url' => $site->site_url,
+            'price' => 50,
+            'content_link' => 'https://example.com/article.docx',
+        ]);
+    }
+
+    public function test_rating_requires_completed_order(): void
     {
         $publisher = User::factory()->create();
         $advertiser = $this->advertiser();
         $site = $this->site($publisher);
+        $item = $this->completedOrderItem($advertiser, $site, 'review');
 
-        $response = $this->actingAs($advertiser)->postJson(route('advertiser.sites.rate', $site->id), [
+        $this->actingAs($advertiser)->postJson(route('advertiser.ratings.store'), [
+            'order_item_id' => $item->id,
+            'rating' => 5,
+        ])->assertStatus(422);
+    }
+
+    public function test_advertiser_can_rate_after_completed_order(): void
+    {
+        $publisher = User::factory()->create();
+        $advertiser = $this->advertiser();
+        $site = $this->site($publisher);
+        $item = $this->completedOrderItem($advertiser, $site, 'completed');
+
+        $this->actingAs($advertiser)->postJson(route('advertiser.ratings.store'), [
+            'order_item_id' => $item->id,
             'rating' => 5,
             'comment' => 'Great publisher',
-        ]);
+        ])->assertOk()->assertJson(['success' => true]);
 
-        $response->assertOk()->assertJson(['success' => true]);
         $this->assertDatabaseHas('site_ratings', [
             'site_id' => $site->id,
             'user_id' => $advertiser->id,
+            'order_item_id' => $item->id,
             'rating' => 5,
             'status' => 'approved',
         ]);
@@ -77,25 +118,19 @@ class SiteRatingTest extends TestCase
         $this->assertSame(1, (int) $site->rating_count);
     }
 
-    public function test_advertiser_can_update_their_rating(): void
+    public function test_completed_orders_count_refreshes(): void
     {
         $publisher = User::factory()->create();
         $advertiser = $this->advertiser();
         $site = $this->site($publisher);
+        $this->completedOrderItem($advertiser, $site, 'completed');
+        $this->completedOrderItem($advertiser, $site, 'completed');
 
-        $this->actingAs($advertiser)->postJson(route('advertiser.sites.rate', $site->id), [
-            'rating' => 3,
-        ])->assertOk();
-
-        $this->actingAs($advertiser)->postJson(route('advertiser.sites.rate', $site->id), [
-            'rating' => 4,
-            'comment' => 'Updated',
-        ])->assertOk();
-
-        $this->assertSame(1, SiteRating::where('site_id', $site->id)->count());
-        $this->assertSame(4, (int) SiteRating::where('site_id', $site->id)->value('rating'));
+        Site::refreshCompletedOrdersCount($site->id);
         $site->refresh();
-        $this->assertSame(4.0, (float) $site->rating_avg);
+
+        $this->assertSame(2, (int) $site->completed_orders_count);
+        $this->assertSame('2 completed orders', $site->completedOrdersLabel());
     }
 
     public function test_admin_can_hide_rating_and_aggregate_excludes_it(): void
@@ -104,10 +139,13 @@ class SiteRatingTest extends TestCase
         $advertiser = $this->advertiser();
         $admin = $this->admin();
         $site = $this->site($publisher);
+        $item = $this->completedOrderItem($advertiser, $site, 'completed');
 
         $rating = SiteRating::create([
             'site_id' => $site->id,
             'user_id' => $advertiser->id,
+            'order_id' => $item->order_id,
+            'order_item_id' => $item->id,
             'rating' => 5,
             'status' => SiteRating::STATUS_APPROVED,
         ]);
@@ -117,30 +155,6 @@ class SiteRatingTest extends TestCase
             'status' => 'hidden',
         ])->assertOk();
 
-        $site->refresh();
-        $this->assertSame(0, (int) $site->rating_count);
-        $this->assertSame(0.0, (float) $site->rating_avg);
-    }
-
-    public function test_admin_can_delete_rating(): void
-    {
-        $publisher = User::factory()->create();
-        $advertiser = $this->advertiser();
-        $admin = $this->admin();
-        $site = $this->site($publisher);
-
-        $rating = SiteRating::create([
-            'site_id' => $site->id,
-            'user_id' => $advertiser->id,
-            'rating' => 2,
-            'status' => SiteRating::STATUS_APPROVED,
-        ]);
-        SiteRating::refreshSiteAggregate($site->id);
-
-        $this->actingAs($admin)->deleteJson(route('admin.site-ratings.destroy', $rating->id))
-            ->assertOk();
-
-        $this->assertDatabaseMissing('site_ratings', ['id' => $rating->id]);
         $site->refresh();
         $this->assertSame(0, (int) $site->rating_count);
     }

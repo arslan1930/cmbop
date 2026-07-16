@@ -517,10 +517,13 @@ Route::middleware(['auth','verified', RoleMiddleware::class . ':advertiser'])
         // Blacklist 
         Route::post('/blacklist/save', [CatalogController::class, 'saveBlacklist'])->name('blacklist.save');
 
-        // Publisher site ratings (advertiser)
-        Route::post('/sites/{siteId}/rate', [\App\Http\Controllers\Advertiser\SiteRatingController::class, 'store'])
+        // Publisher site ratings — only after order approval/completion
+        Route::post('/ratings', [\App\Http\Controllers\Advertiser\SiteRatingController::class, 'store'])
             ->middleware('throttle:30,1')
-            ->name('sites.rate');
+            ->name('ratings.store');
+        Route::post('/ratings/batch', [\App\Http\Controllers\Advertiser\SiteRatingController::class, 'storeBatch'])
+            ->middleware('throttle:20,1')
+            ->name('ratings.batch');
 
         // Cart (Session)
         Route::post('/cart/save', [CatalogController::class, 'saveCart'])->name('cart.save');

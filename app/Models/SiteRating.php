@@ -14,6 +14,8 @@ class SiteRating extends Model
     protected $fillable = [
         'site_id',
         'user_id',
+        'order_id',
+        'order_item_id',
         'rating',
         'comment',
         'status',
@@ -36,6 +38,16 @@ class SiteRating extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function order(): BelongsTo
+    {
+        return $this->belongsTo(Order::class);
+    }
+
+    public function orderItem(): BelongsTo
+    {
+        return $this->belongsTo(OrderItem::class);
     }
 
     public function scopeApproved($query)

@@ -445,13 +445,6 @@ if ($request->filled('category')) {
     // Pass the filter state to the view
     $showBlacklistedOnly = $showBlacklistedOnly;
 
-    // Current advertiser ratings keyed by site_id (for expand panel)
-    $myRatings = \App\Models\SiteRating::query()
-        ->where('user_id', $userId)
-        ->whereIn('site_id', $sites->pluck('id'))
-        ->get()
-        ->keyBy('site_id');
-
     return view('advertiser.catalog', compact(
         'sites', 
         'availableLanguages',
@@ -461,8 +454,7 @@ if ($request->filled('category')) {
         'favorites', 
         'blacklist', 
         'cart', 
-        'showBlacklistedOnly',
-        'myRatings'
+        'showBlacklistedOnly'
     ));
 }
 
@@ -1718,10 +1710,21 @@ public function approveOrder(Request $request, $id)
         
         $transferPublishers = [];
         $totalTransferred = 0;
+        $rateable = [];
         
         foreach ($order->items as $orderItem) {
             // Get the site to find the publisher
             $site = Site::find($orderItem->site_id);
+
+            if ($site) {
+                Site::refreshCompletedOrdersCount((int) $site->id);
+                $rateable[] = [
+                    'order_item_id' => $orderItem->id,
+                    'site_id' => $site->id,
+                    'site_name' => $site->site_name,
+                    'domain' => $site->domain,
+                ];
+            }
             
             if ($site && $site->publisher_id) {
                 $publisher = User::find($site->publisher_id);
@@ -1805,7 +1808,9 @@ public function approveOrder(Request $request, $id)
         
         return response()->json([
             'success' => true,
-            'message' => $message
+            'message' => $message,
+            'ask_rating' => true,
+            'rateable' => $rateable,
         ]);
         
     } catch (\Exception $e) {

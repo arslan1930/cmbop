@@ -1009,14 +1009,19 @@ document.addEventListener('DOMContentLoaded', function() {
                     method: 'POST',
                     headers: {
                         'X-CSRF-TOKEN': '{{ csrf_token() }}',
-                        'Content-Type': 'application/json'
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
                     }
                 })
                 .then(response => response.json())
                 .then(data => {
                     if (data.success) {
-                        Swal.fire('Approved!', data.message, 'success');
                         fetchOrders(currentPage);
+                        if (data.ask_rating && Array.isArray(data.rateable) && data.rateable.length) {
+                            askPublisherRatings(data.rateable, data.message || 'Order approved successfully!');
+                        } else {
+                            Swal.fire('Approved!', data.message, 'success');
+                        }
                     } else {
                         Swal.fire('Error!', data.message || 'Failed to approve order', 'error');
                     }
@@ -1028,6 +1033,103 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     };
+
+    function starButtonsHtml(prefix) {
+        let html = `<div class="d-flex justify-content-center gap-1 mb-2" id="${prefix}-stars">`;
+        for (let i = 1; i <= 5; i++) {
+            html += `<button type="button" class="btn btn-link p-0 rate-star-btn" data-value="${i}" style="font-size:28px;color:#cbd5e1;line-height:1;">
+                <i class="fa-regular fa-star"></i>
+            </button>`;
+        }
+        html += `</div><div class="small text-muted mb-2" id="${prefix}-label">Tap a star to rate</div>`;
+        return html;
+    }
+
+    function bindStarPicker(prefix, state) {
+        const wrap = document.getElementById(prefix + '-stars');
+        const label = document.getElementById(prefix + '-label');
+        if (!wrap) return;
+        wrap.querySelectorAll('.rate-star-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                state.rating = parseInt(btn.dataset.value, 10);
+                wrap.querySelectorAll('.rate-star-btn').forEach(b => {
+                    const on = parseInt(b.dataset.value, 10) <= state.rating;
+                    b.style.color = on ? '#f59e0b' : '#cbd5e1';
+                    const icon = b.querySelector('i');
+                    if (icon) {
+                        icon.classList.toggle('fa-solid', on);
+                        icon.classList.toggle('fa-regular', !on);
+                    }
+                });
+                if (label) label.textContent = state.rating + ' / 5';
+            });
+        });
+    }
+
+    async function askPublisherRatings(rateable, approvedMessage) {
+        const ratingsPayload = [];
+        for (let idx = 0; idx < rateable.length; idx++) {
+            const item = rateable[idx];
+            const prefix = 'rate-' + item.order_item_id;
+            const state = { rating: 0 };
+            const result = await Swal.fire({
+                title: 'Rate this publisher',
+                html: `
+                    <p class="mb-1">${approvedMessage && idx === 0 ? `<span class="text-success">${escapeHtml(approvedMessage)}</span><br>` : ''}
+                    How was your experience with <strong>${escapeHtml(item.site_name || 'this site')}</strong>?</p>
+                    <p class="small text-muted mb-3">${escapeHtml(item.domain || '')}</p>
+                    ${starButtonsHtml(prefix)}
+                    <input id="${prefix}-comment" class="swal2-input" placeholder="Optional short feedback" maxlength="500">
+                    <p class="small text-muted mt-2 mb-0">Ratings are only available after you approve a completed order.</p>
+                `,
+                showCancelButton: true,
+                confirmButtonText: 'Submit rating',
+                cancelButtonText: idx < rateable.length - 1 ? 'Skip' : 'Maybe later',
+                confirmButtonColor: '#0b6266',
+                didOpen: () => bindStarPicker(prefix, state),
+                preConfirm: () => {
+                    if (!state.rating) {
+                        Swal.showValidationMessage('Please choose a star rating');
+                        return false;
+                    }
+                    return {
+                        order_item_id: item.order_item_id,
+                        rating: state.rating,
+                        comment: document.getElementById(prefix + '-comment')?.value || '',
+                    };
+                }
+            });
+            if (result.isConfirmed && result.value) {
+                ratingsPayload.push(result.value);
+            }
+        }
+
+        if (!ratingsPayload.length) {
+            Swal.fire({icon:'success', title:'Approved!', text: approvedMessage, timer: 2200, showConfirmButton:false});
+            return;
+        }
+
+        try {
+            const res = await fetch(`{{ route('advertiser.ratings.batch') }}`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                },
+                body: JSON.stringify({ ratings: ratingsPayload })
+            });
+            const data = await res.json();
+            Swal.fire({
+                icon: data.success ? 'success' : 'error',
+                title: data.success ? 'Thank you!' : 'Could not save rating',
+                text: data.message || '',
+                confirmButtonColor: '#0b6266'
+            });
+        } catch (e) {
+            Swal.fire('Error', 'Failed to save rating', 'error');
+        }
+    }
     
     window.viewOrder = function(orderId) {
         fetch(`{{ url("advertiser/orders") }}/${orderId}`, {

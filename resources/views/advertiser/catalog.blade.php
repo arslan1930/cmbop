@@ -843,45 +843,51 @@ document.addEventListener('DOMContentLoaded', function () {
                         @endif
 
                         @php
-                            $myRating = ($myRatings[$site->id] ?? null);
                             $avg = (float) ($site->rating_avg ?? 0);
                             $count = (int) ($site->rating_count ?? 0);
                             $roundedAvg = (int) round($avg);
+                            $completedOrders = (int) ($site->completed_orders_count ?? 0);
                         @endphp
-                        <div class="site-rating-block mt-3" data-site-id="{{ $site->id }}">
-                            <p class="mb-1"><strong>Advertiser rating:</strong></p>
-                            <div class="d-flex align-items-center gap-2 flex-wrap mb-1">
-                                <span class="site-rating-stars" aria-label="Average rating {{ number_format($avg, 1) }} out of 5">
-                                    @for($i = 1; $i <= 5; $i++)
-                                        <i class="fa-{{ $i <= $roundedAvg ? 'solid' : 'regular' }} fa-star {{ $i <= $roundedAvg ? 'text-warning' : 'text-muted' }}" aria-hidden="true"></i>
-                                    @endfor
-                                </span>
-                                <span class="small text-muted site-rating-label">{{ $site->ratingStarsLabel() }}</span>
+                        <div class="site-trust-panel mt-3" data-site-id="{{ $site->id }}">
+                            <div class="site-trust-title">
+                                <i class="fa-solid fa-shield-halved" aria-hidden="true"></i>
+                                <span>Publisher trust</span>
                             </div>
-                            <div class="site-rating-form">
-                                <label class="small text-muted d-block mb-1">Your rating</label>
-                                <div class="site-rate-input d-flex align-items-center gap-1 mb-2" role="radiogroup" aria-label="Rate this publisher">
-                                    @for($i = 1; $i <= 5; $i++)
-                                        <button type="button"
-                                                class="btn btn-sm btn-link p-0 site-rate-star {{ ($myRating && $myRating->rating >= $i) ? 'is-active' : '' }}"
-                                                data-value="{{ $i }}"
-                                                aria-label="Rate {{ $i }} star{{ $i > 1 ? 's' : '' }}">
-                                            <i class="fa-{{ ($myRating && $myRating->rating >= $i) ? 'solid' : 'regular' }} fa-star" aria-hidden="true"></i>
-                                        </button>
-                                    @endfor
+                            <div class="site-trust-grid">
+                                <div class="site-trust-metric" title="Average advertiser rating from completed orders">
+                                    <div class="site-trust-metric__icon"><i class="fa-solid fa-star" aria-hidden="true"></i></div>
+                                    <div>
+                                        <div class="site-trust-metric__label">Rating</div>
+                                        <div class="site-trust-stars" aria-label="Average rating {{ number_format($avg, 1) }} out of 5">
+                                            @for($i = 1; $i <= 5; $i++)
+                                                <i class="fa-{{ $i <= $roundedAvg ? 'solid' : 'regular' }} fa-star" aria-hidden="true"></i>
+                                            @endfor
+                                        </div>
+                                        <div class="site-trust-metric__value">
+                                            {{ $count > 0 ? number_format($avg, 1).'/5' : 'New' }}
+                                            <span>· {{ $count }} {{ $count === 1 ? 'review' : 'reviews' }}</span>
+                                        </div>
+                                    </div>
                                 </div>
-                                <div class="input-group input-group-sm" style="max-width: 360px;">
-                                    <input type="text"
-                                           class="form-control site-rate-comment"
-                                           maxlength="500"
-                                           placeholder="Optional short feedback"
-                                           value="{{ $myRating->comment ?? '' }}">
-                                    <button type="button" class="btn btn-outline-primary site-rate-submit">
-                                        {{ $myRating ? 'Update' : 'Submit' }}
-                                    </button>
+                                <div class="site-trust-metric" title="Orders completed successfully on this site">
+                                    <div class="site-trust-metric__icon site-trust-metric__icon--orders"><i class="fa-solid fa-clipboard-check" aria-hidden="true"></i></div>
+                                    <div>
+                                        <div class="site-trust-metric__label">Completed orders</div>
+                                        <div class="site-trust-metric__value site-trust-metric__value--lg">{{ number_format($completedOrders) }}</div>
+                                        <div class="site-trust-metric__hint">
+                                            @if($completedOrders > 0)
+                                                Proven delivery — advertisers have approved work on this site.
+                                            @else
+                                                No completed orders yet.
+                                            @endif
+                                        </div>
+                                    </div>
                                 </div>
-                                <div class="small text-muted mt-1 site-rate-status" aria-live="polite"></div>
                             </div>
+                            <p class="site-trust-footnote mb-0">
+                                <i class="fa-regular fa-circle-question" aria-hidden="true"></i>
+                                Ratings can be left only after you approve a completed order.
+                            </p>
                         </div>
                     </div>
 
@@ -1398,22 +1404,86 @@ thead th {
     background: linear-gradient(180deg, #f4fbfb 0%, #ffffff 100%);
 }
 
-.site-rating-block {
-    padding: 10px 12px;
-    border: 1px solid #e8eef2;
+.site-trust-panel {
+    padding: 12px 14px;
+    border: 1px solid #d9ecec;
+    border-radius: 12px;
+    background: linear-gradient(180deg, #f4fbfb 0%, #ffffff 100%);
+}
+.site-trust-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 700;
+    font-size: 0.92rem;
+    color: #0b6266;
+    margin-bottom: 10px;
+}
+.site-trust-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 10px;
+}
+@media (min-width: 576px) {
+    .site-trust-grid { grid-template-columns: 1fr 1fr; }
+}
+.site-trust-metric {
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    padding: 8px 10px;
     border-radius: 10px;
-    background: #fbfcfd;
+    background: rgba(255,255,255,0.85);
+    border: 1px solid #e7f1f1;
 }
-.site-rate-star {
-    color: #cbd5e1;
-    font-size: 18px;
-    line-height: 1;
-    text-decoration: none !important;
+.site-trust-metric__icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: #fff7e6;
+    color: #d97706;
+    flex-shrink: 0;
 }
-.site-rate-star.is-active,
-.site-rate-star:hover {
+.site-trust-metric__icon--orders {
+    background: #e8f8f7;
+    color: #0b6266;
+}
+.site-trust-metric__label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    color: #64748b;
+    font-weight: 600;
+}
+.site-trust-metric__value {
+    font-size: 13px;
+    font-weight: 700;
+    color: #0f172a;
+}
+.site-trust-metric__value--lg { font-size: 1.15rem; }
+.site-trust-metric__value span { font-weight: 500; color: #64748b; }
+.site-trust-metric__hint {
+    font-size: 11px;
+    color: #64748b;
+    margin-top: 2px;
+    line-height: 1.35;
+}
+.site-trust-stars {
     color: #f59e0b;
+    font-size: 13px;
+    letter-spacing: 1px;
+    margin: 2px 0;
 }
+.site-trust-stars .fa-regular { color: #cbd5e1; }
+.site-trust-footnote {
+    margin-top: 10px;
+    font-size: 11px;
+    color: #94a3b8;
+}
+.site-trust-footnote i { margin-right: 4px; }
 
 /* Results toolbar + empty recovery */
 .catalog-results-bar {
@@ -2733,85 +2803,6 @@ document.addEventListener('DOMContentLoaded', function() {
         applyCustomStyling();
     });
 
-    // Advertiser site ratings (expand panel)
-    document.querySelectorAll('.site-rating-block').forEach(function (block) {
-        let selected = 0;
-        const activeBtn = block.querySelector('.site-rate-star.is-active:last-of-type');
-        if (activeBtn) selected = parseInt(activeBtn.dataset.value || '0', 10);
-
-        function paintStars(value) {
-            block.querySelectorAll('.site-rate-star').forEach(function (btn) {
-                const v = parseInt(btn.dataset.value, 10);
-                const on = v <= value;
-                btn.classList.toggle('is-active', on);
-                const icon = btn.querySelector('i');
-                if (icon) {
-                    icon.classList.toggle('fa-solid', on);
-                    icon.classList.toggle('fa-regular', !on);
-                }
-            });
-        }
-
-        block.querySelectorAll('.site-rate-star').forEach(function (btn) {
-            btn.addEventListener('click', function (e) {
-                e.preventDefault();
-                e.stopPropagation();
-                selected = parseInt(btn.dataset.value, 10);
-                paintStars(selected);
-            });
-        });
-
-        const submitBtn = block.querySelector('.site-rate-submit');
-        if (submitBtn) {
-            submitBtn.addEventListener('click', async function (e) {
-                e.preventDefault();
-                e.stopPropagation();
-                const statusEl = block.querySelector('.site-rate-status');
-                if (!selected) {
-                    if (statusEl) statusEl.textContent = 'Choose a star rating first.';
-                    return;
-                }
-                submitBtn.disabled = true;
-                try {
-                    const res = await fetch(`/advertiser/sites/${block.dataset.siteId}/rate`, {
-                        method: 'POST',
-                        headers: {
-                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '{{ csrf_token() }}',
-                            'Accept': 'application/json',
-                            'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify({
-                            rating: selected,
-                            comment: block.querySelector('.site-rate-comment')?.value || '',
-                        }),
-                    });
-                    const data = await res.json();
-                    if (!res.ok || !data.success) {
-                        throw new Error(data.message || 'Could not save rating');
-                    }
-                    if (statusEl) statusEl.textContent = data.message || 'Saved';
-                    const label = block.querySelector('.site-rating-label');
-                    if (label && data.label) label.textContent = data.label;
-                    const avgStars = block.querySelector('.site-rating-stars');
-                    if (avgStars && typeof data.rating_avg !== 'undefined') {
-                        const rounded = Math.round(Number(data.rating_avg) || 0);
-                        avgStars.querySelectorAll('i').forEach(function (icon, idx) {
-                            const on = (idx + 1) <= rounded;
-                            icon.classList.toggle('fa-solid', on);
-                            icon.classList.toggle('fa-regular', !on);
-                            icon.classList.toggle('text-warning', on);
-                            icon.classList.toggle('text-muted', !on);
-                        });
-                    }
-                    submitBtn.textContent = 'Update';
-                } catch (err) {
-                    if (statusEl) statusEl.textContent = err.message || 'Failed to save rating';
-                } finally {
-                    submitBtn.disabled = false;
-                }
-            });
-        }
-    });
 });
 </script>
 
