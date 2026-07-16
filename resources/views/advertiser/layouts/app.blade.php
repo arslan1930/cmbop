@@ -581,7 +581,11 @@
 
     <div class="d-flex align-items-center gap-2">
 
-        @include('partials.notification-center')
+        <!-- Dark mode — icon only -->
+        <button type="button" id="toggleDarkMode" class="topbar-icon-btn" title="Dark mode" aria-label="Toggle dark mode">
+            <i class="fa fa-moon" aria-hidden="true"></i>
+            <i class="fa fa-sun d-none" aria-hidden="true"></i>
+        </button>
 
         <!-- Cart — labeled primary commerce action -->
         <button id="toggleCart" class="btn btn-outline-secondary btn-sm topbar-action" type="button" aria-label="Open cart" title="Cart">
@@ -605,11 +609,7 @@
             <span class="balance-amount">€{{ number_format($availableBalance, 2) }}</span>
         </a>
 
-        <!-- Dark mode — icon only -->
-        <button type="button" id="toggleDarkMode" class="topbar-icon-btn" title="Dark mode" aria-label="Toggle dark mode">
-            <i class="fa fa-moon" aria-hidden="true"></i>
-            <i class="fa fa-sun d-none" aria-hidden="true"></i>
-        </button>
+        @include('partials.notification-center')
 
         <div class="dropdown">
             <button class="btn dropdown-toggle d-flex align-items-center gap-1"

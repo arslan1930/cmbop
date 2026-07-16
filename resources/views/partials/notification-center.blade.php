@@ -1,5 +1,5 @@
 {{-- In-app Notification Center (emails are separate and untouched) --}}
-<link rel="stylesheet" href="{{ asset('css/notification-center.css') }}">
+<link rel="stylesheet" href="{{ asset('css/notification-center.css') }}?v={{ @filemtime(public_path('css/notification-center.css')) ?: '2' }}">
 
 <div class="nc-bell-wrap"
      data-notification-center

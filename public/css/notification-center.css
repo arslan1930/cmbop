@@ -1,49 +1,83 @@
-/* In-app Notification Center */
+/* In-app Notification Center — brand-aligned, monochrome icons */
 .nc-bell-wrap {
+  --nc-primary: #4ECDCB;
+  --nc-primary-strong: #0b6266;
+  --nc-primary-soft: #e8f8f7;
+  --nc-primary-border: #b8e8e6;
+  --nc-fg: #212529;
+  --nc-fg-muted: #6c757d;
+  --nc-fg-subtle: #8a94a0;
+  --nc-bg: #ffffff;
+  --nc-bg-soft: #f8f9fa;
+  --nc-bg-hover: #f4f6f8;
+  --nc-border: #dee2e6;
+  --nc-border-soft: #e9ecef;
+  --nc-shadow: 0 12px 40px rgba(15, 23, 42, 0.12);
+  --nc-radius: 12px;
+  --nc-radius-sm: 8px;
+  --nc-danger: #dc3545;
+
   position: relative;
   display: inline-flex;
+}
+
+body.layout-dark .nc-bell-wrap {
+  --nc-fg: #e8eaed;
+  --nc-fg-muted: #9aa3af;
+  --nc-fg-subtle: #7d8794;
+  --nc-bg: #1e1e2f;
+  --nc-bg-soft: #171727;
+  --nc-bg-hover: #2a2a40;
+  --nc-border: #3a3a55;
+  --nc-border-soft: #2f2f48;
+  --nc-primary-soft: #24353a;
+  --nc-primary-border: #3a5558;
+  --nc-shadow: 0 16px 40px rgba(0, 0, 0, 0.45);
 }
 
 .nc-bell-btn {
   width: 44px;
   height: 44px;
-  border-radius: 12px;
-  border: 1px solid #e5e7eb;
-  background: #fff;
-  color: #374151;
+  border-radius: var(--nc-radius-sm);
+  border: 1px solid var(--nc-border);
+  background: var(--nc-bg);
+  color: var(--nc-fg-muted);
   display: inline-flex;
   align-items: center;
   justify-content: center;
   position: relative;
   cursor: pointer;
   box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04);
-  transition: transform .18s ease, box-shadow .18s ease, background .18s ease, border-color .18s ease;
+  transition: transform .18s ease, box-shadow .18s ease, background .18s ease, border-color .18s ease, color .18s ease;
   padding: 0;
 }
 
 .nc-bell-btn:hover {
   transform: translateY(-1px);
-  box-shadow: 0 6px 16px rgba(16, 24, 40, 0.1);
-  border-color: #d1d5db;
-  background: #f9fafb;
+  box-shadow: 0 4px 14px rgba(16, 24, 40, 0.08);
+  border-color: var(--nc-primary-border);
+  background: var(--nc-primary-soft);
+  color: var(--nc-primary-strong);
 }
 
 .nc-bell-btn:focus-visible {
-  outline: 2px solid #4ECDCB;
+  outline: 2px solid var(--nc-primary);
   outline-offset: 2px;
 }
 
 .nc-bell-btn.is-open {
-  background: #eefbfa;
-  border-color: #9fe3e1;
-  color: #0b6266;
-  box-shadow: 0 4px 14px rgba(78, 205, 203, 0.25);
+  background: var(--nc-primary-soft);
+  border-color: var(--nc-primary-border);
+  color: var(--nc-primary-strong);
+  box-shadow: 0 4px 14px rgba(78, 205, 203, 0.18);
 }
 
 .nc-bell-btn svg {
   width: 20px;
   height: 20px;
-  stroke-width: 1.8;
+  stroke: currentColor;
+  stroke-width: 1.75;
+  fill: none;
 }
 
 .nc-badge {
@@ -54,13 +88,13 @@
   height: 18px;
   padding: 0 5px;
   border-radius: 999px;
-  background: #ef4444;
+  background: var(--nc-danger);
   color: #fff;
   font-size: 10px;
   font-weight: 700;
   line-height: 18px;
   text-align: center;
-  border: 2px solid #fff;
+  border: 2px solid var(--nc-bg);
   display: none;
 }
 
@@ -76,7 +110,7 @@
 
 @keyframes nc-pulse {
   0%, 100% { box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04); }
-  50% { box-shadow: 0 0 0 6px rgba(239, 68, 68, 0.12); }
+  50% { box-shadow: 0 0 0 6px rgba(78, 205, 203, 0.18); }
 }
 
 .nc-panel {
@@ -85,10 +119,10 @@
   right: 0;
   width: min(420px, calc(100vw - 24px));
   max-height: 600px;
-  background: #fff;
-  border: 1px solid #e5e7eb;
-  border-radius: 16px;
-  box-shadow: 0 20px 50px rgba(15, 23, 42, 0.16);
+  background: var(--nc-bg);
+  border: 1px solid var(--nc-border-soft);
+  border-radius: var(--nc-radius);
+  box-shadow: var(--nc-shadow);
   z-index: 1080;
   display: none;
   flex-direction: column;
@@ -96,6 +130,7 @@
   opacity: 0;
   transform: translateY(-6px) scale(0.98);
   transition: opacity .16s ease, transform .16s ease;
+  color: var(--nc-fg);
 }
 
 .nc-panel.is-open {
@@ -105,9 +140,9 @@
 }
 
 .nc-header {
-  padding: 14px 16px 10px;
-  border-bottom: 1px solid #f1f5f9;
-  background: #fff;
+  padding: 14px 16px 12px;
+  border-bottom: 1px solid var(--nc-border-soft);
+  background: var(--nc-bg);
   position: sticky;
   top: 0;
   z-index: 2;
@@ -123,8 +158,9 @@
 
 .nc-title {
   font-size: 15px;
-  font-weight: 700;
-  color: #111827;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  color: var(--nc-fg);
   margin: 0;
 }
 
@@ -136,7 +172,7 @@
 .nc-link-btn {
   border: 0;
   background: transparent;
-  color: #0b6266;
+  color: var(--nc-primary-strong);
   font-size: 12px;
   font-weight: 600;
   padding: 4px 6px;
@@ -145,23 +181,27 @@
 }
 
 .nc-link-btn:hover {
-  background: #eefbfa;
+  background: var(--nc-primary-soft);
 }
 
 .nc-search {
   width: 100%;
-  border: 1px solid #e5e7eb;
-  border-radius: 10px;
+  border: 1px solid var(--nc-border);
+  border-radius: var(--nc-radius-sm);
   padding: 8px 12px;
   font-size: 13px;
   outline: none;
-  background: #f9fafb;
-  color: #111827;
+  background: var(--nc-bg-soft);
+  color: var(--nc-fg);
+}
+
+.nc-search::placeholder {
+  color: var(--nc-fg-subtle);
 }
 
 .nc-search:focus {
-  border-color: #4ECDCB;
-  background: #fff;
+  border-color: var(--nc-primary);
+  background: var(--nc-bg);
   box-shadow: 0 0 0 3px rgba(78, 205, 203, 0.18);
 }
 
@@ -170,25 +210,32 @@
   gap: 6px;
   overflow-x: auto;
   padding: 10px 16px;
-  border-bottom: 1px solid #f1f5f9;
-  background: #fff;
+  border-bottom: 1px solid var(--nc-border-soft);
+  background: var(--nc-bg);
 }
 
 .nc-filter {
-  border: 1px solid #e5e7eb;
-  background: #fff;
-  color: #4b5563;
+  border: 1px solid var(--nc-border);
+  background: var(--nc-bg);
+  color: var(--nc-fg-muted);
   border-radius: 999px;
   padding: 4px 10px;
   font-size: 12px;
   font-weight: 600;
   white-space: nowrap;
   cursor: pointer;
+  transition: background .15s ease, border-color .15s ease, color .15s ease;
+}
+
+.nc-filter:hover {
+  border-color: var(--nc-primary-border);
+  color: var(--nc-primary-strong);
+  background: var(--nc-primary-soft);
 }
 
 .nc-filter.is-active {
-  background: #0b6266;
-  border-color: #0b6266;
+  background: var(--nc-primary-strong);
+  border-color: var(--nc-primary-strong);
   color: #fff;
 }
 
@@ -196,29 +243,30 @@
   overflow-y: auto;
   flex: 1;
   max-height: 440px;
-  background: #fafbfc;
+  background: var(--nc-bg-soft);
 }
 
 .nc-group-label {
   position: sticky;
   top: 0;
   z-index: 1;
-  background: #f3f4f6;
-  color: #6b7280;
+  background: var(--nc-bg-soft);
+  color: var(--nc-fg-subtle);
   font-size: 11px;
   font-weight: 700;
   letter-spacing: .04em;
   text-transform: uppercase;
-  padding: 8px 16px;
+  padding: 10px 16px 6px;
 }
 
 .nc-item {
   display: grid;
-  grid-template-columns: 36px 1fr auto;
-  gap: 10px;
+  grid-template-columns: 20px 1fr auto;
+  column-gap: 12px;
+  align-items: start;
   padding: 12px 16px;
-  border-bottom: 1px solid #eef2f7;
-  background: #fff;
+  border-bottom: 1px solid var(--nc-border-soft);
+  background: var(--nc-bg);
   cursor: pointer;
   transition: background .15s ease;
   text-align: left;
@@ -229,49 +277,68 @@
 }
 
 .nc-item:hover {
-  background: #f8fafc;
+  background: var(--nc-bg-hover);
 }
 
 .nc-item.is-unread {
-  background: #f0fbfa;
+  background: var(--nc-bg);
 }
 
-.nc-item.is-unread:hover {
-  background: #e7f8f7;
+.nc-item.is-unread .nc-item-title {
+  font-weight: 650;
+  color: var(--nc-fg);
 }
 
+.nc-item:not(.is-unread) .nc-item-title {
+  font-weight: 500;
+  color: var(--nc-fg);
+}
+
+/* Monochrome Lucide icons — inherit text color, adapt with theme */
 .nc-icon {
-  width: 36px;
-  height: 36px;
-  border-radius: 10px;
+  width: 20px;
+  height: 20px;
+  margin-top: 1px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  background: #eef2f7;
-  color: #374151;
-  font-size: 16px;
+  color: var(--nc-fg-muted);
+  background: transparent;
+  border-radius: 0;
+  flex-shrink: 0;
 }
 
-.nc-icon[data-cat="orders"] { background: #e0f2fe; color: #0369a1; }
-.nc-icon[data-cat="messages"] { background: #ede9fe; color: #6d28d9; }
-.nc-icon[data-cat="payments"] { background: #dcfce7; color: #15803d; }
-.nc-icon[data-cat="system"] { background: #f3f4f6; color: #4b5563; }
-.nc-icon[data-cat="support"] { background: #ffedd5; color: #c2410c; }
-.nc-icon[data-cat="account"] { background: #fce7f3; color: #be185d; }
+.nc-item:hover .nc-icon,
+.nc-item.is-unread .nc-icon {
+  color: var(--nc-fg);
+}
+
+.nc-icon svg {
+  width: 18px;
+  height: 18px;
+  stroke: currentColor;
+  stroke-width: 1.75;
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.nc-item-main {
+  min-width: 0;
+}
 
 .nc-item-title {
   font-size: 13px;
-  font-weight: 700;
-  color: #111827;
-  margin: 0 0 2px;
-  line-height: 1.3;
+  margin: 0 0 3px;
+  line-height: 1.35;
+  letter-spacing: -0.01em;
 }
 
 .nc-item-msg {
   font-size: 12px;
-  color: #6b7280;
+  color: var(--nc-fg-muted);
   margin: 0 0 6px;
-  line-height: 1.4;
+  line-height: 1.45;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
@@ -284,38 +351,53 @@
   gap: 8px;
   align-items: center;
   font-size: 11px;
-  color: #9ca3af;
+  color: var(--nc-fg-subtle);
+}
+
+.nc-item-action {
+  color: var(--nc-primary-strong);
+  font-weight: 600;
+  font-size: 11px;
+}
+
+.nc-item-aside {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+  padding-top: 3px;
 }
 
 .nc-dot {
-  width: 8px;
-  height: 8px;
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
-  background: #4ECDCB;
-  margin-top: 4px;
+  background: var(--nc-primary);
+  flex-shrink: 0;
 }
 
 .nc-item:not(.is-unread) .nc-dot {
   visibility: hidden;
 }
 
-.nc-item-action {
-  color: #0b6266;
-  font-weight: 700;
-  font-size: 11px;
-}
-
 .nc-item-tools {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 2px;
   align-items: flex-end;
+  opacity: 0;
+  transition: opacity .15s ease;
+}
+
+.nc-item:hover .nc-item-tools,
+.nc-item:focus-within .nc-item-tools {
+  opacity: 1;
 }
 
 .nc-tool {
   border: 0;
   background: transparent;
-  color: #9ca3af;
+  color: var(--nc-fg-subtle);
   font-size: 11px;
   padding: 2px 4px;
   border-radius: 4px;
@@ -323,26 +405,27 @@
 }
 
 .nc-tool:hover {
-  background: #f3f4f6;
-  color: #374151;
+  background: var(--nc-bg-soft);
+  color: var(--nc-fg);
 }
 
 .nc-empty, .nc-loading {
-  padding: 40px 20px;
+  padding: 48px 24px;
   text-align: center;
-  color: #9ca3af;
+  color: var(--nc-fg-subtle);
   font-size: 13px;
 }
 
 .nc-skeleton {
   padding: 12px 16px;
-  border-bottom: 1px solid #eef2f7;
+  border-bottom: 1px solid var(--nc-border-soft);
+  background: var(--nc-bg);
 }
 
 .nc-skel-line {
   height: 10px;
   border-radius: 6px;
-  background: linear-gradient(90deg, #f3f4f6 25%, #e5e7eb 50%, #f3f4f6 75%);
+  background: linear-gradient(90deg, var(--nc-bg-soft) 25%, var(--nc-border-soft) 50%, var(--nc-bg-soft) 75%);
   background-size: 200% 100%;
   animation: nc-shimmer 1.2s infinite;
   margin-bottom: 8px;
@@ -357,28 +440,30 @@
 }
 
 .nc-footer {
-  border-top: 1px solid #f1f5f9;
+  border-top: 1px solid var(--nc-border-soft);
   padding: 10px 16px;
-  background: #fff;
+  background: var(--nc-bg);
   text-align: center;
 }
 
 .nc-load-more {
-  border: 1px solid #e5e7eb;
-  background: #fff;
-  border-radius: 8px;
+  border: 1px solid var(--nc-border);
+  background: var(--nc-bg);
+  border-radius: var(--nc-radius-sm);
   padding: 6px 12px;
   font-size: 12px;
   font-weight: 600;
-  color: #374151;
+  color: var(--nc-fg-muted);
   cursor: pointer;
 }
 
 .nc-load-more:hover {
-  background: #f9fafb;
+  background: var(--nc-primary-soft);
+  border-color: var(--nc-primary-border);
+  color: var(--nc-primary-strong);
 }
 
-/* Order activity timeline */
+/* Order activity timeline — same token language */
 .oa-timeline {
   position: relative;
   padding-left: 22px;
@@ -392,7 +477,7 @@
   top: 4px;
   bottom: 4px;
   width: 2px;
-  background: #e5e7eb;
+  background: var(--nc-border-soft, #e5e7eb);
 }
 
 .oa-item {
@@ -409,104 +494,51 @@
   width: 14px;
   height: 14px;
   border-radius: 50%;
-  background: #fff;
-  border: 2px solid #4ECDCB;
-  box-shadow: 0 0 0 3px #eefbfa;
+  background: var(--nc-bg, #fff);
+  border: 2px solid var(--nc-primary, #4ECDCB);
+  box-shadow: 0 0 0 3px var(--nc-primary-soft, #e8f8f7);
 }
-
-.oa-dot[data-color="success"] { border-color: #22c55e; box-shadow: 0 0 0 3px #dcfce7; }
-.oa-dot[data-color="danger"] { border-color: #ef4444; box-shadow: 0 0 0 3px #fee2e2; }
-.oa-dot[data-color="warning"] { border-color: #f59e0b; box-shadow: 0 0 0 3px #fef3c7; }
-.oa-dot[data-color="info"] { border-color: #0ea5e9; box-shadow: 0 0 0 3px #e0f2fe; }
-.oa-dot[data-color="primary"] { border-color: #4ECDCB; box-shadow: 0 0 0 3px #eefbfa; }
 
 .oa-time {
   font-size: 11px;
-  color: #9ca3af;
+  color: var(--nc-fg-subtle, #9ca3af);
   margin-bottom: 2px;
 }
 
 .oa-title {
   font-size: 13px;
-  font-weight: 700;
-  color: #111827;
+  font-weight: 650;
+  color: var(--nc-fg, #111827);
   margin: 0;
 }
 
 .oa-desc {
   font-size: 12px;
-  color: #6b7280;
+  color: var(--nc-fg-muted, #6b7280);
   margin: 2px 0 0;
 }
 
 .oa-badge {
   display: inline-block;
   font-size: 10px;
-  font-weight: 700;
+  font-weight: 600;
   padding: 2px 6px;
   border-radius: 999px;
-  background: #f3f4f6;
-  color: #4b5563;
+  background: var(--nc-bg-soft, #f3f4f6);
+  color: var(--nc-fg-muted, #4b5563);
   margin-left: 6px;
   vertical-align: middle;
 }
 
-body.layout-dark .nc-bell-btn {
+body.layout-dark .oa-timeline::before {
+  background: #3a3a55;
+}
+
+body.layout-dark .oa-dot {
   background: #1e1e2f;
-  border-color: #3a3a55;
-  color: #e5e7eb;
+  box-shadow: 0 0 0 3px #24353a;
 }
 
-body.layout-dark .nc-bell-btn:hover,
-body.layout-dark .nc-bell-btn.is-open {
-  background: #2a2a40;
-  border-color: #4ECDCB;
-  color: #fff;
-}
-
-body.layout-dark .nc-badge { border-color: #1e1e2f; }
-
-body.layout-dark .nc-panel,
-body.layout-dark .nc-header,
-body.layout-dark .nc-filters,
-body.layout-dark .nc-footer,
-body.layout-dark .nc-item {
-  background: #1e1e2f;
-  border-color: #2f2f48;
-  color: #e5e7eb;
-}
-
-body.layout-dark .nc-body,
-body.layout-dark .nc-group-label {
-  background: #171727;
-  color: #9ca3af;
-}
-
-body.layout-dark .nc-title,
-body.layout-dark .nc-item-title,
 body.layout-dark .oa-title {
   color: #f3f4f6;
 }
-
-body.layout-dark .nc-search {
-  background: #171727;
-  border-color: #3a3a55;
-  color: #e5e7eb;
-}
-
-body.layout-dark .nc-filter {
-  background: #171727;
-  border-color: #3a3a55;
-  color: #d1d5db;
-}
-
-body.layout-dark .nc-filter.is-active {
-  background: #4ECDCB;
-  border-color: #4ECDCB;
-  color: #083b3d;
-}
-
-body.layout-dark .nc-item.is-unread { background: #24353a; }
-body.layout-dark .nc-item-msg,
-body.layout-dark .oa-desc { color: #9ca3af; }
-body.layout-dark .oa-timeline::before { background: #3a3a55; }
