@@ -486,16 +486,16 @@ document.addEventListener('DOMContentLoaded', function () {
                 
                 <td style="min-width: 220px; position: relative;">
                     @if($site->verified)
-                        <span class="badge bg-success text-white shadow-sm fw-semibold"
-                              style="position: absolute; top: 6px; right: 6px; font-size: 10px; padding: 4px 8px; border-radius: 6px; letter-spacing: 0.3px; z-index: 1;"
+                        <span class="badge badge-verified"
+                              style="position: absolute; top: 6px; right: 6px; font-size: 10px; padding: 4px 8px; border-radius: 6px; z-index: 1;"
                               title="Site has been verified for quality and authenticity">
                             VERIFIED
                         </span>
                     @endif
 
                     @if($isBlacklisted)
-                        <span class="badge bg-danger text-white shadow-sm fw-semibold blacklist-badge"
-                              style="position: absolute; top: 6px; left: 6px; font-size: 10px; padding: 4px 8px; border-radius: 6px; letter-spacing: 0.3px; z-index: 1;"
+                        <span class="badge badge-danger-action blacklist-badge"
+                              style="position: absolute; top: 6px; left: 6px; font-size: 10px; padding: 4px 8px; border-radius: 6px; z-index: 1;"
                               title="This site is blacklisted">
                             BLACKLISTED
                         </span>
@@ -539,9 +539,8 @@ document.addEventListener('DOMContentLoaded', function () {
                             </i>
 
                             @if($site->created_at->gt(now()->subDays(30)))
-                                <span class="new-badge">
+                                <span class="badge badge-new new-badge">
                                     NEW
-                                    <span class="pulse-dot"></span>
                                 </span>
                             @endif
                         </div>
@@ -1042,27 +1041,22 @@ thead th {
     position: absolute;
     top: 26px;
     right: 6px;
-    background: linear-gradient(135deg, #dc3545, #ff6b6b);
-    color: #fff;
     font-size: 10px;
-    padding: 4px 8px;
+    padding: 3px 8px;
     border-radius: 6px;
-    font-weight: 600;
-    letter-spacing: 0.4px;
     display: inline-flex;
     align-items: center;
-    gap: 4px;
-    box-shadow: 0 2px 6px rgba(0,0,0,0.15);
     z-index: 1;
 }
 
-/* Pulse dot (cleaner, smoother) */
+/* Legacy pulse-dot kept inert if referenced elsewhere */
 .pulse-dot {
     width: 6px;
     height: 6px;
-    background-color: #fff;
+    background-color: currentColor;
     border-radius: 50%;
     position: relative;
+    display: none;
 }
 
 /* Outer pulse ring */
@@ -1252,8 +1246,9 @@ thead th {
 }
 
 .category-badge {
-    background: #e3f2fd;
-    color: #1976d2;
+    background: #e8f8f7;
+    color: #0b6266;
+    border: 1px solid #b8e8e6;
     border-radius: 6px;
     padding: 4px 10px;
     font-size: 10px;
@@ -1266,7 +1261,7 @@ thead th {
 .toggle-cats-btn {
     background: none;
     border: none;
-    color: #1976d2;
+    color: #0b6266;
     font-size: 10px;
     font-weight: 600;
     cursor: pointer;

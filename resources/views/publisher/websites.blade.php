@@ -213,13 +213,13 @@
     }
 
     .btn-primary {
-        background-color: #007bff;
-        border-color: #007bff;
+        background-color: #0b6266;
+        border-color: #0b6266;
     }
 
     .btn-primary:hover {
-        background-color: #4353b3;
-        border-color: #4353b3;
+        background-color: #3aaeb2;
+        border-color: #3aaeb2;
     }
 
     .btn-success {

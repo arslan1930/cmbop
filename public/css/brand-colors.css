@@ -1,0 +1,127 @@
+/**
+ * Brand color system (3.5 / C1–C2)
+ * Primary: teal · Neutral: slate · Semantic: success / warn / danger
+ */
+:root {
+  --brand-primary: #0b6266;
+  --brand-primary-soft: #3aaeb2;
+  --brand-primary-tint: #4ECDCB;
+  --brand-primary-bg: #e8f8f7;
+  --brand-primary-border: #b8e8e6;
+
+  --brand-neutral: #64748b;
+  --brand-neutral-bg: #f1f5f9;
+  --brand-ink: #1f2937;
+
+  --brand-success: #0f766e;
+  --brand-success-bg: #d1fae5;
+  --brand-warning: #d97706;
+  --brand-warning-bg: #fef3c7;
+  --brand-danger: #dc2626;
+  --brand-danger-bg: #fee2e2;
+
+  /* Bootstrap 5.3 variable overrides */
+  --bs-primary: #0b6266;
+  --bs-primary-rgb: 11, 98, 102;
+  --bs-link-color: #0b6266;
+  --bs-link-hover-color: #3aaeb2;
+  --bs-focus-ring-color: rgba(58, 174, 178, 0.35);
+  --bs-info: #3aaeb2;
+  --bs-info-rgb: 58, 174, 178;
+}
+
+.btn-primary {
+  --bs-btn-color: #fff;
+  --bs-btn-bg: var(--brand-primary);
+  --bs-btn-border-color: var(--brand-primary);
+  --bs-btn-hover-color: #fff;
+  --bs-btn-hover-bg: var(--brand-primary-soft);
+  --bs-btn-hover-border-color: var(--brand-primary-soft);
+  --bs-btn-active-color: #fff;
+  --bs-btn-active-bg: #084f52;
+  --bs-btn-active-border-color: #084f52;
+  --bs-btn-disabled-bg: var(--brand-primary);
+  --bs-btn-disabled-border-color: var(--brand-primary);
+}
+
+.btn-outline-primary {
+  --bs-btn-color: var(--brand-primary);
+  --bs-btn-border-color: var(--brand-primary);
+  --bs-btn-hover-color: #fff;
+  --bs-btn-hover-bg: var(--brand-primary);
+  --bs-btn-hover-border-color: var(--brand-primary);
+  --bs-btn-active-color: #fff;
+  --bs-btn-active-bg: var(--brand-primary);
+  --bs-btn-active-border-color: var(--brand-primary);
+}
+
+.bg-primary { background-color: var(--brand-primary) !important; }
+.text-primary { color: var(--brand-primary) !important; }
+.border-primary { border-color: var(--brand-primary) !important; }
+.bg-primary-subtle { background-color: var(--brand-primary-bg) !important; }
+.text-primary-emphasis { color: var(--brand-primary) !important; }
+
+.text-info { color: var(--brand-primary-soft) !important; }
+.bg-info { background-color: var(--brand-primary-soft) !important; }
+.bg-info-subtle { background-color: var(--brand-primary-bg) !important; }
+
+.form-control:focus,
+.form-select:focus,
+.form-check-input:focus {
+  border-color: var(--brand-primary-soft);
+  box-shadow: 0 0 0 0.2rem rgba(58, 174, 178, 0.2);
+}
+
+.form-check-input:checked {
+  background-color: var(--brand-primary);
+  border-color: var(--brand-primary);
+}
+
+.progress-bar.bg-primary {
+  background-color: var(--brand-primary-soft) !important;
+}
+
+/* C2 — Shared badge language */
+.badge-verified {
+  background: var(--brand-success) !important;
+  color: #fff !important;
+  border: none !important;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+}
+
+.badge-new {
+  background: transparent !important;
+  color: var(--brand-primary) !important;
+  border: 1.5px solid var(--brand-primary-tint) !important;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  box-shadow: none !important;
+}
+
+.badge-warn {
+  background: var(--brand-warning-bg) !important;
+  color: #92400e !important;
+  border: 1px solid rgba(217, 119, 6, 0.25) !important;
+  font-weight: 600;
+}
+
+.badge-danger-action {
+  background: var(--brand-danger) !important;
+  color: #fff !important;
+  border: none !important;
+  font-weight: 600;
+}
+
+.badge-neutral {
+  background: var(--brand-neutral-bg) !important;
+  color: var(--brand-neutral) !important;
+  border: 1px solid #e2e8f0 !important;
+  font-weight: 500;
+}
+
+.badge-category {
+  background: var(--brand-primary-bg) !important;
+  color: var(--brand-primary) !important;
+  border: 1px solid var(--brand-primary-border) !important;
+}
