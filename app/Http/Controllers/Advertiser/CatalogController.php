@@ -353,8 +353,19 @@ if ($request->filled('category')) {
         $query->where('created_at', '>=', now()->subDays(30));
     }
 
+    // Sort (default: highest DR first — what buyers typically scan for)
+    $sort = $request->get('sort', 'dr_desc');
+    match ($sort) {
+        'da_desc' => $query->orderByDesc('da')->orderByDesc('id'),
+        'traffic_desc' => $query->orderByDesc('traffic')->orderByDesc('id'),
+        'price_asc' => $query->orderBy('price')->orderByDesc('id'),
+        'price_desc' => $query->orderByDesc('price')->orderByDesc('id'),
+        'newest' => $query->latest('created_at')->orderByDesc('id'),
+        default => $query->orderByDesc('dr')->orderByDesc('id'),
+    };
+
     // ✅ Pagination (20 per page)
-    $sites = $query->latest()->paginate(20)->withQueryString();
+    $sites = $query->paginate(20)->withQueryString();
     
     // Transform sites to show appropriate price based on user role
     foreach ($sites as $site) {

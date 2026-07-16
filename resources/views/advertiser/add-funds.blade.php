@@ -84,7 +84,7 @@
                                 <div class="payment-option" data-method="bank" style="cursor: pointer;">
                                     <div class="payment-option-card" style="border: 2px solid #e5e7eb; border-radius: 12px; padding: 16px; text-align: center; background: white; transition: all 0.2s;">
                                         <div style="width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; background: #eff6ff; border-radius: 8px; margin: 0 auto 8px;">
-                                            <i class="fas fa-university" style="font-size: 28px; color: #3b82f6;"></i>
+                                            <i class="fas fa-university" style="font-size: 28px; color: #0b6266;"></i>
                                         </div>
                                         <span style="font-weight: 600; font-size: 12px; color: #1f2937;">Bank Transfer</span>
                                         <span style="font-size: 10px; color: #6b7280; display: block; margin-top: 4px;">Traditional bank transfer</span>
@@ -239,7 +239,7 @@
                             <div class="card-body">
                                 <div style="display: flex; align-items: center; margin-bottom: 16px;">
                                     <div style="width: 40px; height: 40px; background: #eff6ff; border-radius: 8px; display: flex; align-items: center; justify-content: center; margin-right: 12px;">
-                                        <i class="fas fa-university" style="font-size: 24px; color: #3b82f6;"></i>
+                                        <i class="fas fa-university" style="font-size: 24px; color: #0b6266;"></i>
                                     </div>
                                     <div>
                                         <h3 style="font-size: 18px; font-weight: 600; margin: 0;">Bank Transfer Payment</h3>
@@ -485,7 +485,7 @@
 }
 
 .payment-option.selected .payment-option-card {
-    border-color: #3b82f6 !important;
+    border-color: #0b6266 !important;
     background: #eff6ff !important;
     box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
 }
@@ -509,9 +509,9 @@
 }
 
 .amount-btn.active {
-    background-color: #0d6efd;
+    background-color: #0b6266;
     color: white;
-    border-color: #0d6efd;
+    border-color: #0b6266;
 }
 
 .copy-btn {

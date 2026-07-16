@@ -179,6 +179,35 @@ class DashboardController extends Controller
     }
 
     /**
+     * Sidebar badge counts for pending ops queues (AJAX)
+     */
+    public function getQueueCounts()
+    {
+        try {
+            $pendingDeposits = DepositRequest::where('status', 'pending')->count();
+            $pendingWithdrawals = Withdrawal::where('status', 'pending')->count();
+            $unverifiedSites = Site::where(function ($q) {
+                $q->where('verified', 0)->orWhereNull('verified');
+            })->count();
+            $pendingPayments = Order::where(function ($q) {
+                $q->whereNull('payment_status')
+                    ->orWhereNotIn('payment_status', ['paid', 'refunded']);
+            })->whereIn('status', ['pending', 'processing', 'review'])->count();
+
+            return response()->json([
+                'success' => true,
+                'pending_deposits' => $pendingDeposits,
+                'pending_withdrawals' => $pendingWithdrawals,
+                'unverified_sites' => $unverifiedSites,
+                'pending_payments' => $pendingPayments,
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Admin dashboard queue counts error: ' . $e->getMessage());
+            return response()->json(['success' => false, 'message' => 'Failed to load queue counts'], 500);
+        }
+    }
+
+    /**
      * Items that need admin attention (AJAX)
      */
     public function getActionQueue()

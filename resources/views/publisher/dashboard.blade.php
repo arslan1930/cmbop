@@ -30,7 +30,7 @@
                             <h4 class="mb-1">You have {{ $pendingTasks }} task{{ $pendingTasks === 1 ? '' : 's' }} waiting</h4>
                             <p class="text-muted mb-0">Accept, publish, or reply so advertisers keep moving.</p>
                         </div>
-                        <a href="{{ route('publisher.tasks') }}" class="btn btn-lg text-white px-4" style="background:#0b6266;">
+                        <a href="{{ route('publisher.tasks') }}" class="btn btn-lg btn-primary px-4">
                             Open tasks <i class="fa fa-arrow-right ms-1"></i>
                         </a>
                     </div>
@@ -69,7 +69,7 @@
                                     : 'You have '.$siteCount.' site'.($siteCount === 1 ? '' : 's').' live — add another niche or market.' }}
                             </p>
                         </div>
-                        <a href="{{ route('publisher.websites') }}" class="btn btn-lg text-white px-4" style="background:#0b6266;">
+                        <a href="{{ route('publisher.websites') }}" class="btn btn-lg btn-primary px-4">
                             Add site <i class="fa fa-arrow-right ms-1"></i>
                         </a>
                     </div>
@@ -110,7 +110,31 @@
         }
     </style>
 
-    <!-- Modern Small Graphs Section -->
+    @if($siteCount === 0)
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="dash-panel publisher-empty-metrics">
+                    <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3">
+                        <div>
+                            <h5 class="mb-1">No performance data yet</h5>
+                            <p class="text-muted mb-0">
+                                Charts and metrics appear after you list a website and start receiving orders.
+                            </p>
+                        </div>
+                        <a href="{{ route('publisher.websites') }}" class="btn btn-primary">
+                            Add your first site
+                        </a>
+                    </div>
+                    <ol class="publisher-onboarding-steps mt-3 mb-0">
+                        <li>Add a website with niche, language, and pricing</li>
+                        <li>Wait for verification so advertisers can find you</li>
+                        <li>Accept tasks and earn from completed placements</li>
+                    </ol>
+                </div>
+            </div>
+        </div>
+    @else
+    <!-- Graphs + metrics (only when publisher has inventory) -->
     <div class="row mb-4">
         <div class="col-md-4 mb-3">
             <div class="card border-0 shadow-sm h-100">
@@ -126,7 +150,7 @@
         <div class="col-md-4 mb-3">
             <div class="card border-0 shadow-sm h-100">
                 <div class="card-header bg-white fw-semibold">
-                    <i class="fa fa-trend-up me-2 text-info"></i> Monthly Earnings
+                    <i class="fa fa-chart-area me-2 text-info"></i> Monthly Earnings
                     <span class="float-end text-muted small">Last 6 months</span>
                 </div>
                 <div class="card-body">
@@ -145,25 +169,25 @@
                     <div class="row text-center">
                         <div class="col-6 mb-3">
                             <div class="small text-muted">Conversion Rate</div>
-                            <h4 class="mb-0" id="conversionRate">0%</h4>
+                            <h4 class="mb-0" id="conversionRate">—</h4>
                             <div class="progress mt-2" style="height: 4px;">
                                 <div id="conversionProgress" class="progress-bar bg-success" style="width: 0%"></div>
                             </div>
                         </div>
                         <div class="col-6 mb-3">
                             <div class="small text-muted">Avg. Order Value</div>
-                            <h4 class="mb-0" id="avgOrderValue">€0</h4>
+                            <h4 class="mb-0" id="avgOrderValue">—</h4>
                         </div>
                         <div class="col-6">
                             <div class="small text-muted">Completion Rate</div>
-                            <h4 class="mb-0" id="completionRate">0%</h4>
+                            <h4 class="mb-0" id="completionRate">—</h4>
                             <div class="progress mt-2" style="height: 4px;">
                                 <div id="completionProgress" class="progress-bar bg-info" style="width: 0%"></div>
                             </div>
                         </div>
                         <div class="col-6">
                             <div class="small text-muted">Success Rate</div>
-                            <h4 class="mb-0" id="successRate">0%</h4>
+                            <h4 class="mb-0" id="successRate">—</h4>
                             <div class="progress mt-2" style="height: 4px;">
                                 <div id="successProgress" class="progress-bar bg-primary" style="width: 0%"></div>
                             </div>
@@ -172,18 +196,8 @@
                 </div>
             </div>
         </div>
-        <!-- <div class="col-md-4 mb-3">
-            <div class="card border-0 shadow-sm h-100">
-                <div class="card-header bg-white fw-semibold">
-                    <i class="fa fa-chart-pie me-2 text-success"></i> Order Distribution
-                    <span class="float-end text-muted small">By Status</span>
-                </div>
-                <div class="card-body">
-                    <canvas id="orderStatusChart" height="200"></canvas>
-                </div>
-            </div>
-        </div> -->
     </div>
+    @endif
 </div>
 
 <style>
@@ -262,8 +276,21 @@ body.layout-dark .status-cancelled {
 body.layout-dark .progress {
     background-color: #2d2d3a;
 }
+
+.publisher-empty-metrics {
+    padding: 1.5rem 1.75rem;
+}
+.publisher-onboarding-steps {
+    padding-left: 1.25rem;
+    color: #64748b;
+    font-size: 0.925rem;
+}
+.publisher-onboarding-steps li + li {
+    margin-top: 0.35rem;
+}
 </style>
 
+@if($siteCount > 0)
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
@@ -373,7 +400,9 @@ function loadChartData() {
 }
 
 function updateWeeklyChart(data) {
-    var ctx = document.getElementById('weeklyEarningsChart').getContext('2d');
+    var canvas = document.getElementById('weeklyEarningsChart');
+    if (!canvas) return;
+    var ctx = canvas.getContext('2d');
     
     if (weeklyChart) {
         weeklyChart.destroy();
@@ -386,11 +415,11 @@ function updateWeeklyChart(data) {
             datasets: [{
                 label: 'Earnings (€)',
                 data: data.values || [0, 0, 0, 0, 0, 0, 0],
-                borderColor: '#3b82f6',
-                backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                borderColor: '#0b6266',
+                backgroundColor: 'rgba(11, 98, 102, 0.12)',
                 tension: 0.4,
                 fill: true,
-                pointBackgroundColor: '#3b82f6',
+                pointBackgroundColor: '#0b6266',
                 pointBorderColor: '#fff',
                 pointRadius: 4,
                 pointHoverRadius: 6
@@ -463,7 +492,9 @@ function updateStatusChart(data) {
 }
 
 function updateMonthlyChart(data) {
-    var ctx = document.getElementById('monthlyEarningsChart').getContext('2d');
+    var canvas = document.getElementById('monthlyEarningsChart');
+    if (!canvas) return;
+    var ctx = canvas.getContext('2d');
     
     if (monthlyChart) {
         monthlyChart.destroy();
@@ -476,7 +507,7 @@ function updateMonthlyChart(data) {
             datasets: [{
                 label: 'Earnings (€)',
                 data: data.values || [0, 0, 0, 0, 0, 0],
-                backgroundColor: 'rgba(16, 185, 129, 0.7)',
+                backgroundColor: 'rgba(58, 174, 178, 0.75)',
                 borderRadius: 8,
                 barPercentage: 0.6,
                 categoryPercentage: 0.8
@@ -530,5 +561,6 @@ function escapeHtml(str) {
     });
 }
 </script>
+@endif
 
 @endsection

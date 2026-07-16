@@ -204,7 +204,7 @@
 }
 
 .site-url:hover {
-    color: #0d6efd;
+    color: #0b6266;
     text-decoration: underline;
 }
 

@@ -63,7 +63,7 @@
 
     .tag-badge {
         background: #eef6ff;
-        color: #0d6efd;
+        color: #0b6266;
         padding: 5px 10px;
         border-radius: 6px;
         font-size: 12px;

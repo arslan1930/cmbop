@@ -198,10 +198,10 @@
 @endphp
 <div class="row mb-3">
     <div class="col-md-12">
-        <div class="card border-0 shadow-sm">
-            <div class="card-body">
+        <div class="card border-0 shadow-sm catalog-filters-card">
+            <div class="card-body py-3">
                 <form method="GET" action="{{ route('advertiser.catalog') }}" id="filterForm">
-                    <div class="row g-3 align-items-end">
+                    <div class="row g-2 g-md-3 align-items-end">
                         <!-- Primary: Search (site + category/country/language text) -->
                         <div class="col-md-2">
                             <label class="form-label fw-semibold small text-muted mb-1">Search</label>
@@ -486,12 +486,47 @@ document.addEventListener('DOMContentLoaded', function () {
     <div class="row">
         <div class="col-md-12">
 
+            @php
+                $resultTotal = $sites->total();
+                $hasActiveFilters = count($activeFilterChips) > 0;
+                $sortValue = request('sort', 'dr_desc');
+            @endphp
+
+            <div class="catalog-results-bar d-flex flex-wrap align-items-center justify-content-between gap-2 mb-2">
+                <div class="text-muted small">
+                    @if($resultTotal > 0)
+                        Showing
+                        <strong class="text-dark">{{ $sites->firstItem() }}–{{ $sites->lastItem() }}</strong>
+                        of <strong class="text-dark">{{ number_format($resultTotal) }}</strong>
+                        {{ Str::plural('site', $resultTotal) }}
+                    @else
+                        No sites match your filters
+                    @endif
+                </div>
+                <div class="d-flex align-items-center gap-2">
+                    <label for="catalogSort" class="small text-muted mb-0">Sort</label>
+                    <select id="catalogSort"
+                            name="sort"
+                            form="filterForm"
+                            class="form-select form-select-sm"
+                            style="width: auto; min-width: 160px;"
+                            onchange="document.getElementById('filterForm').submit()">
+                        <option value="dr_desc" @selected($sortValue === 'dr_desc')>DR (high → low)</option>
+                        <option value="da_desc" @selected($sortValue === 'da_desc')>DA (high → low)</option>
+                        <option value="traffic_desc" @selected($sortValue === 'traffic_desc')>Traffic (high → low)</option>
+                        <option value="price_asc" @selected($sortValue === 'price_asc')>Price (low → high)</option>
+                        <option value="price_desc" @selected($sortValue === 'price_desc')>Price (high → low)</option>
+                        <option value="newest" @selected($sortValue === 'newest')>Newest first</option>
+                    </select>
+                </div>
+            </div>
+
             <!-- Publishers Table -->
-            <div class="card border-0 shadow-sm">
+            <div class="card border-0 shadow-sm catalog-results-card">
                 <div class="card-body p-0">
                     
-                    <div class="table-responsive">
-    <table class="table table-borderless align-middle mb-0 data-table">
+                    <div class="table-responsive catalog-table-scroll">
+    <table class="table table-borderless align-middle mb-0 data-table catalog-table">
         <thead class="table-light">
             <tr>
                 <th class="text-start catalog-th" style="min-width: 250px;">
@@ -499,7 +534,7 @@ document.addEventListener('DOMContentLoaded', function () {
                         Site
                         <x-glass-tip
                             title="Site"
-                            body="Publisher website listing. Reveal the URL to inspect the domain before buying."
+                            body="Domains are partially masked to protect publisher inventory. Reveal the URL to inspect before buying — full access stays tied to your order."
                             label="About Site column"
                             placement="bottom" />
                     </span>
@@ -554,7 +589,7 @@ document.addEventListener('DOMContentLoaded', function () {
                             placement="bottom" />
                     </span>
                 </th>
-                <th class="text-center catalog-th" style="min-width: 180px;">
+                <th class="text-center catalog-th catalog-th-action" style="min-width: 180px;">
                     <span class="catalog-th-label">
                         Action
                         <x-glass-tip
@@ -586,17 +621,36 @@ document.addEventListener('DOMContentLoaded', function () {
                         $isNew = $site->created_at->gt(now()->subDays(30));
                     @endphp
 
+                    @php
+                        $rawHost = (string) Str::of($site->site_url)
+                            ->replaceMatches('/^(https?:\/\/)?(www\.)?/', '')
+                            ->before('/');
+                        $hostParts = explode('.', $rawHost);
+                        if (count($hostParts) >= 2) {
+                            $tld = array_pop($hostParts);
+                            $namePart = implode('.', $hostParts);
+                            $visibleLen = min(4, max(2, strlen($namePart)));
+                            $maskedHost = substr($namePart, 0, $visibleLen) . '***.' . $tld;
+                        } else {
+                            $maskedHost = substr($rawHost, 0, 3) . '******';
+                        }
+                    @endphp
+
                     <div class="catalog-site-stack">
                         <!-- URL Row -->
                         <div class="d-flex align-items-center gap-2 flex-wrap">
                             <span class="text-dark catalog-site-url"
-                                  id="url-masked-{{ $site->id }}">
-                                {{ substr(Str::of($site->site_url)->replaceMatches('/^(https?:\/\/)?(www\.)?/', ''), 0, 3) }}******
+                                  id="url-masked-{{ $site->id }}"
+                                  data-glass-tip
+                                  data-glass-tip-title="Masked for publishers"
+                                  data-glass-tip-body="We hide part of the domain so publisher inventory isn’t scraped. Metrics stay visible — reveal the full URL when you’re ready to buy."
+                                  data-glass-tip-placement="top">
+                                {{ $maskedHost }}
                             </span>
 
                             <span class="url-full text-muted d-none catalog-site-url"
                                   id="url-full-{{ $site->id }}">
-                                {{ Str::of($site->site_url)->replaceMatches('/^(https?:\/\/)?(www\.)?/', '') }}
+                                {{ $rawHost }}
                             </span>
 
                             @if($site->verified)
@@ -624,9 +678,10 @@ document.addEventListener('DOMContentLoaded', function () {
                                 </button>
                             @endif
 
-                            <button class="btn btn-sm btn-link text-secondary p-0 toggle-url"
+                            <button class="btn btn-sm btn-link text-secondary p-0 toggle-url btn-icon-quiet"
                                     data-id="{{ $site->id }}"
-                                    title="Toggle URL"
+                                    title="Reveal or hide full URL"
+                                    aria-label="Reveal or hide full URL"
                                     style="font-size: 15px;">
                                 <i class="fa-regular fa-eye"></i>
                             </button>
@@ -775,7 +830,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     </div>
                 </td>
 
-                <td class="text-center catalog-stat-cell">
+                <td class="text-center catalog-stat-cell catalog-td-action">
                     <div class="catalog-row-actions">
                         <button class="btn btn-sm btn-primary buy-now d-inline-flex justify-content-center align-items-center gap-2"
                                 data-id="{{ $site->id }}"
@@ -1011,8 +1066,27 @@ document.addEventListener('DOMContentLoaded', function () {
             @empty
             <tr>
                 <td colspan="7" class="text-center py-5">
-                    <div class="alert alert-light border text-center mb-0">
-                        No publishers available at the moment.
+                    <div class="catalog-empty-state mx-auto">
+                        <div class="catalog-empty-icon" aria-hidden="true">
+                            <i class="fa-solid fa-filter-circle-xmark"></i>
+                        </div>
+                        <h5 class="mb-2">
+                            {{ $hasActiveFilters ? 'No sites match these filters' : 'No publishers available yet' }}
+                        </h5>
+                        <p class="text-muted mb-3">
+                            {{ $hasActiveFilters
+                                ? 'Try broader filters — clear a category, widen price, or remove DA/DR limits.'
+                                : 'New verified sites show up here as publishers list them.' }}
+                        </p>
+                        @if($hasActiveFilters)
+                            <div class="d-flex flex-wrap justify-content-center gap-2 mb-3">
+                                <a href="{{ route('advertiser.catalog') }}" class="btn btn-primary btn-sm">Clear all filters</a>
+                                <a href="{{ route('advertiser.catalog', ['sort' => 'dr_desc']) }}" class="btn btn-outline-secondary btn-sm">Browse top DR</a>
+                            </div>
+                            <p class="small text-muted mb-0">Tip: start with Country + Language only, then narrow by metrics.</p>
+                        @else
+                            <a href="{{ route('advertiser.catalog', ['new_badge' => 1]) }}" class="btn btn-outline-secondary btn-sm">Show new sites</a>
+                        @endif
                     </div>
                 </td>
             </tr>
@@ -1193,6 +1267,44 @@ thead th {
     font-size: 0.875rem;
     padding: 5px 0;
     border-top: 1px solid #e9ecef;
+}
+
+/* Results toolbar + empty recovery */
+.catalog-results-bar {
+    padding: 0.15rem 0.1rem;
+}
+.catalog-empty-state {
+    max-width: 420px;
+    padding: 0.5rem 1rem 1rem;
+}
+.catalog-empty-icon {
+    width: 52px;
+    height: 52px;
+    margin: 0 auto 0.85rem;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--brand-primary-bg, #e8f8f7);
+    color: var(--brand-primary, #0b6266);
+    font-size: 1.25rem;
+}
+
+/* Sticky Buy column while browsing wide tables */
+.catalog-table-scroll {
+    overflow-x: auto;
+}
+.catalog-th-action,
+.catalog-td-action {
+    position: sticky;
+    right: 0;
+    z-index: 2;
+    background: #fff;
+    box-shadow: -8px 0 12px -10px rgba(15, 23, 42, 0.28);
+}
+.catalog-th-action {
+    z-index: 3;
+    background: #f8fafc;
 }
 
 /* Site column — status chips (Verified / New / Blacklisted) */

@@ -274,6 +274,8 @@ Route::middleware(['auth','verified', RoleMiddleware::class . ':admin,marketing'
                 ->name('dashboard.distributions');
             Route::get('/dashboard/action-queue', [AdminDashboardController::class, 'getActionQueue'])
                 ->name('dashboard.action-queue');
+            Route::get('/dashboard/queue-counts', [AdminDashboardController::class, 'getQueueCounts'])
+                ->name('dashboard.queue-counts');
 
             // Users management + role assignment
             Route::get('/users', [UserController::class, 'index'])
@@ -495,107 +497,51 @@ Route::middleware(['auth','verified', RoleMiddleware::class . ':publisher'])
     ->prefix('publisher')->name('publisher.')
     ->group(function () {
 
-        Route::get('/dashboard', function () {
-            return view('publisher.dashboard');
-        })->name('dashboard');
-
-    
-
         // Balance
-    Route::get('/balance', [\App\Http\Controllers\Publisher\BalanceController::class, 'index'])->name('balance');
-    Route::post('/balance/transfer', [\App\Http\Controllers\Publisher\BalanceController::class, 'transferToAdvertiser'])->name('balance.transfer');
-    Route::get('/balance/history', [\App\Http\Controllers\Publisher\BalanceController::class, 'getTransferHistory'])->name('balance.history');
+        Route::get('/balance', [\App\Http\Controllers\Publisher\BalanceController::class, 'index'])->name('balance');
+        Route::post('/balance/transfer', [\App\Http\Controllers\Publisher\BalanceController::class, 'transferToAdvertiser'])->name('balance.transfer');
+        Route::get('/balance/history', [\App\Http\Controllers\Publisher\BalanceController::class, 'getTransferHistory'])->name('balance.history');
 
+        // Dashboard
+        Route::get('/dashboard', [App\Http\Controllers\Publisher\DashboardController::class, 'index'])->name('dashboard');
+        Route::get('/dashboard/statistics', [App\Http\Controllers\Publisher\DashboardController::class, 'getStatistics'])->name('dashboard.statistics');
+        Route::get('/dashboard/recent-orders', [App\Http\Controllers\Publisher\DashboardController::class, 'getRecentOrders'])->name('dashboard.recent');
+        Route::get('/dashboard/weekly-earnings', [App\Http\Controllers\Publisher\DashboardController::class, 'getWeeklyEarnings'])->name('dashboard.weekly-earnings');
+        Route::get('/dashboard/order-status', [App\Http\Controllers\Publisher\DashboardController::class, 'getOrderStatusDistribution'])->name('dashboard.order-status');
+        Route::get('/dashboard/monthly-earnings', [App\Http\Controllers\Publisher\DashboardController::class, 'getMonthlyEarnings'])->name('dashboard.monthly-earnings');
 
-
-            // Dashboard
-    Route::get('/dashboard', [App\Http\Controllers\Publisher\DashboardController::class, 'index'])->name('dashboard');
-    
-    
-    // Dashboard AJAX Endpoints
-    Route::get('/dashboard/statistics', [App\Http\Controllers\Publisher\DashboardController::class, 'getStatistics'])->name('dashboard.statistics');
-    Route::get('/dashboard/recent-orders', [App\Http\Controllers\Publisher\DashboardController::class, 'getRecentOrders'])->name('dashboard.recent');
-    Route::get('/dashboard/earnings-chart', [App\Http\Controllers\Publisher\DashboardController::class, 'getEarningsChart'])->name('dashboard.earnings');
-    Route::get('/dashboard/top-sites', [App\Http\Controllers\Publisher\DashboardController::class, 'getTopSites'])->name('dashboard.top-sites');
-    Route::get('/dashboard/wallet-balance', [App\Http\Controllers\Publisher\DashboardController::class, 'getWalletBalance'])->name('dashboard.wallet');
-    Route::get('/dashboard/pending-tasks', [App\Http\Controllers\Publisher\DashboardController::class, 'getPendingTasks'])->name('dashboard.pending-tasks');
-    
-    // Websites Management
-    Route::get('/websites', [App\Http\Controllers\Publisher\SiteController::class, 'index'])->name('websites');
-    Route::post('/websites/store', [App\Http\Controllers\Publisher\SiteController::class, 'store'])->name('sites.store');
-    Route::get('/websites/ajax', [App\Http\Controllers\Publisher\SiteController::class, 'ajax'])->name('sites.ajax');
-    Route::get('/websites/bulk-template', [App\Http\Controllers\Publisher\SiteController::class, 'bulkTemplate'])->name('sites.bulk-template');
-    Route::post('/websites/bulk-import', [App\Http\Controllers\Publisher\SiteController::class, 'bulkImport'])->name('sites.bulk-import');
-    Route::put('/sites/{id}', [App\Http\Controllers\Publisher\SiteController::class, 'update'])->name('sites.update');
-    Route::delete('/sites/{id}', [App\Http\Controllers\Publisher\SiteController::class, 'destroy'])->name('sites.destroy');
-    
-    // Tasks/Orders
-    Route::get('/tasks', [App\Http\Controllers\Publisher\OrderController::class, 'index'])->name('tasks');
-    Route::get('/orders/data', [App\Http\Controllers\Publisher\OrderController::class, 'getOrders'])->name('orders.data');
-    Route::get('/orders/{id}/details', [App\Http\Controllers\Publisher\OrderController::class, 'getOrderDetails'])->name('orders.details');
-    Route::post('/orders/{id}/accept', [App\Http\Controllers\Publisher\OrderController::class, 'acceptOrder'])->name('orders.accept');
-    Route::post('/orders/{id}/reject', [App\Http\Controllers\Publisher\OrderController::class, 'rejectOrder'])->name('orders.reject');
-    Route::post('/orders/{id}/complete', [App\Http\Controllers\Publisher\OrderController::class, 'submitLiveUrl'])->name('orders.complete');
-    Route::post('/orders/{id}/resubmit', [App\Http\Controllers\Publisher\OrderController::class, 'resubmitLiveUrl'])->name('orders.resubmit');
-    
-    // Dashboard Statistics
-    Route::get('/dashboard/statistics', [App\Http\Controllers\Publisher\DashboardController::class, 'getStatistics'])->name('dashboard.statistics');
-    Route::get('/dashboard/recent-orders', [App\Http\Controllers\Publisher\DashboardController::class, 'getRecentOrders'])->name('dashboard.recent');
-
-    // Chart Data Routes - ADD THESE
-    Route::get('/dashboard/weekly-earnings', [App\Http\Controllers\Publisher\DashboardController::class, 'getWeeklyEarnings'])->name('dashboard.weekly-earnings');
-    Route::get('/dashboard/order-status', [App\Http\Controllers\Publisher\DashboardController::class, 'getOrderStatusDistribution'])->name('dashboard.order-status');
-    Route::get('/dashboard/monthly-earnings', [App\Http\Controllers\Publisher\DashboardController::class, 'getMonthlyEarnings'])->name('dashboard.monthly-earnings');
-
-
-        // FIXED: Update this route to use SiteController instead of closure
-        Route::get('/websites', [SiteController::class, 'index'])->name('websites');
-
-        // Index (main page) - you can keep this or remove it since /websites now does the same
+        // Websites Management
+        Route::get('/websites', [App\Http\Controllers\Publisher\SiteController::class, 'index'])->name('websites');
+        Route::post('/websites/store', [App\Http\Controllers\Publisher\SiteController::class, 'store'])->name('sites.store');
+        Route::get('/websites/ajax', [App\Http\Controllers\Publisher\SiteController::class, 'ajax'])->name('sites.ajax');
+        Route::get('/websites/bulk-template', [App\Http\Controllers\Publisher\SiteController::class, 'bulkTemplate'])->name('sites.bulk-template');
+        Route::post('/websites/bulk-import', [App\Http\Controllers\Publisher\SiteController::class, 'bulkImport'])->name('sites.bulk-import');
         Route::get('/sites', [SiteController::class, 'index'])->name('sites.index');
-
-        // Store
-        // Route::post('/sites/store', [SiteController::class, 'store'])->name('sites.store');
-
-        // AJAX listing
-        // Route::get('/sites/ajax', [SiteController::class, 'ajax'])->name('sites.ajax');
-
-        // Update (used by AJAX)
         Route::put('/sites/{id}', [SiteController::class, 'update'])->name('sites.update');
-
-        // Delete
         Route::delete('/sites/{id}', [SiteController::class, 'destroy'])->name('sites.destroy');
+        Route::get('/countries/{country}/languages', [SiteController::class, 'getCountryLanguages'])->name('countries.languages');
 
-         // Make sure this route is correct
-        Route::get('/countries/{country}/languages', [SiteController::class, 'getCountryLanguages'])->name('publisher.countries.languages');
-
-
-        // OTHER PAGES
+        // Tasks / Orders
         Route::get('/tasks', [OrderController::class, 'index'])->name('tasks');
+        Route::get('/orders/data', [OrderController::class, 'getOrders'])->name('orders.data');
+        Route::get('/orders/statistics', [OrderController::class, 'getStatistics'])->name('orders.statistics');
+        Route::get('/orders/{id}/details', [OrderController::class, 'getOrderDetails'])->name('orders.details');
+        Route::post('/orders/{id}/accept', [OrderController::class, 'acceptOrder'])->name('orders.accept');
+        Route::post('/orders/{id}/reject', [OrderController::class, 'rejectOrder'])->name('orders.reject');
+        Route::post('/orders/{id}/complete', [OrderController::class, 'submitLiveUrl'])->name('orders.complete');
+        Route::post('/orders/{id}/resubmit', [OrderController::class, 'resubmitLiveUrl'])->name('orders.resubmit');
 
-        Route::get('/orders/data', [OrderController::class, 'getOrders'])->name('publisher.orders.data');
-    Route::get('/orders/statistics', [OrderController::class, 'getStatistics'])->name('publisher.orders.statistics');
-    Route::post('/orders/{id}/accept', [OrderController::class, 'acceptOrder'])->name('publisher.orders.accept');
-    Route::post('/orders/{id}/reject', [OrderController::class, 'rejectOrder'])->name('publisher.orders.reject');
-    Route::post('/orders/{id}/complete', [OrderController::class, 'submitLiveUrl'])->name('publisher.orders.complete');
-    Route::post('/orders/{id}/resubmit', [OrderController::class, 'resubmitLiveUrl'])->name('publisher.orders.resubmit');
-
-    // Order details endpoint
-    Route::get('/orders/{id}/details', [OrderController::class, 'getOrderDetails'])->name('publisher.orders.details');
-
-        // Withdraw page
+        // Withdraw
         Route::get('/withdraw', [WithdrawalController::class, 'index'])->name('withdraw');
         Route::post('/withdraw/request', [WithdrawalController::class, 'requestWithdrawal'])->name('withdraw.request');
+        Route::get('/withdrawals/history', [WithdrawalController::class, 'getHistory'])->name('withdrawals.history');
+        Route::get('/withdrawals/statistics', [WithdrawalController::class, 'getStatistics'])->name('withdrawals.statistics');
+        Route::post('/withdrawals/{id}/cancel', [WithdrawalController::class, 'cancelWithdrawal'])->name('withdrawals.cancel');
 
-        // Optional additional routes
-    Route::get('/withdrawals/history', [WithdrawalController::class, 'getHistory'])->name('publisher.withdrawals.history');
-    Route::get('/withdrawals/statistics', [WithdrawalController::class, 'getStatistics'])->name('publisher.withdrawals.statistics');
-    Route::post('/withdrawals/{id}/cancel', [WithdrawalController::class, 'cancelWithdrawal'])->name('publisher.withdrawals.cancel');
-
-    // Reports page
-    Route::get('/reports', [PublisherReportsController::class, 'index'])->name('reports');
-    Route::get('/reports/statistics', [PublisherReportsController::class, 'ge   tStatistics'])->name('reports.statistics');
-    Route::get('/reports/orders', [PublisherReportsController::class, 'getOrders'])->name('reports.orders');
-    Route::get('/reports/orders/{orderItemId}/details', [PublisherReportsController::class, 'getOrderDetails'])->name('reports.order.details');
-    Route::get('/reports/withdrawals', [PublisherReportsController::class, 'getWithdrawals'])->name('reports.withdrawals');
+        // Reports
+        Route::get('/reports', [PublisherReportsController::class, 'index'])->name('reports');
+        Route::get('/reports/statistics', [PublisherReportsController::class, 'getStatistics'])->name('reports.statistics');
+        Route::get('/reports/orders', [PublisherReportsController::class, 'getOrders'])->name('reports.orders');
+        Route::get('/reports/orders/{orderItemId}/details', [PublisherReportsController::class, 'getOrderDetails'])->name('reports.order.details');
+        Route::get('/reports/withdrawals', [PublisherReportsController::class, 'getWithdrawals'])->name('reports.withdrawals');
 });

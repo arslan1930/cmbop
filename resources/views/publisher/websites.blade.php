@@ -37,7 +37,7 @@
     }
 
     .form-control:focus, .form-select:focus {
-        border-color: #007bff;
+        border-color: #0b6266;
         box-shadow: 0 0 0 2px rgba(84, 105, 212, 0.15);
         background-color: #fff;
     }
@@ -125,9 +125,9 @@
     }
 
     .pagination li.active {
-        background-color: #007bff;
+        background-color: #0b6266;
         color: white;
-        border-color: #007bff;
+        border-color: #0b6266;
     }
 
     #formCard {
@@ -300,7 +300,7 @@
     }
     
     .multi-select-input:hover {
-        border-color: #007bff;
+        border-color: #0b6266;
     }
     
     .multi-select-tag {
@@ -370,7 +370,7 @@
     
     .multi-select-search input:focus {
         outline: none;
-        border-color: #007bff;
+        border-color: #0b6266;
     }
     
     .multi-select-option {
@@ -386,7 +386,7 @@
     
     .multi-select-option.selected {
         background-color: #e3f2fd;
-        color: #007bff;
+        color: #0b6266;
     }
     
     .multi-select-option.hidden {
@@ -413,7 +413,7 @@
     }
     
     .single-select-input:hover {
-        border-color: #007bff;
+        border-color: #0b6266;
     }
     
     .single-select-value {
@@ -479,7 +479,7 @@
     
     .single-select-option.selected {
         background-color: #e3f2fd;
-        color: #007bff;
+        color: #0b6266;
     }
     
     .single-select-option.hidden {
@@ -1489,7 +1489,7 @@ function loadSiteDraft() {
         $('#da').val(draft.da || '');
         $('#dr').val(draft.dr || '');
         $('#traffic').val(draft.traffic || '');
-        $('#turnaroundTime').val(draft.turnaround_time || '');
+        $('#turnaroundTime').val(draft.turnaround_time || '3days');
         $('#price').val(draft.price || '');
         $('#publicationTime').val(draft.publicationTime || '');
         if (draft.link_type === 'nofollow') {

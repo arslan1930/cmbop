@@ -23,18 +23,15 @@ class AdminDashboardTest extends TestCase
         return $user;
     }
 
-    public function test_admin_dashboard_loads_ops_queues(): void
+    public function test_admin_dashboard_loads(): void
     {
         $admin = $this->makeAdmin();
 
         $this->actingAs($admin)
             ->get(route('admin.dashboard'))
             ->assertOk()
-            ->assertSee('Ops dashboard')
-            ->assertSee('Pending deposits')
-            ->assertSee('Pending withdrawals')
-            ->assertSee('Unverified sites')
-            ->assertSee('Unpaid orders');
+            ->assertSee('Admin Dashboard')
+            ->assertSee('Needs Attention');
     }
 
     public function test_admin_queue_counts_endpoint(): void

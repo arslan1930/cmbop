@@ -65,14 +65,14 @@ return [
 
 
     // How It Works Section
-    'how_it_works_title' => 'How Our Process Works',
-    'how_it_works_description' => 'Simple, transparent process from start to finish to deliver high-quality backlinks that drive SEO success.',
-    'step_1_title' => '1. Consultation & Strategy',
-    'step_1_description' => 'We start with a consultation to understand your business goals, target audience, and current backlink profile. Based on this, we develop a customized link building strategy tailored to your needs.',
-    'step_2_title' =>   '2. Outreach & Placement',
-    'step_2_description' => 'Our team conducts targeted outreach to authoritative websites in your industry. We secure placements for your links within high-quality, relevant content to ensure maximum SEO impact.',
-    'step_3_title' => '3. Reporting & Optimization',
-    'step_3_description' => 'We provide regular reports on the progress of your link building campaign, including placements secured and their impact on your SEO performance. We continuously optimize our approach based on results to ensure you achieve the best possible outcomes.',
+    'how_it_works_title' => 'How the marketplace works',
+    'how_it_works_description' => 'Browse verified publishers, fund your wallet, and buy placements — all in one place.',
+    'step_1_title' => '1. Browse the catalog',
+    'step_1_description' => 'Filter by country, language, category, and metrics to find publishers that match your niche and budget.',
+    'step_2_title' => '2. Add funds & buy',
+    'step_2_description' => 'Top up your wallet, pick a site, and place your order. Pricing is clear before you checkout.',
+    'step_3_title' => '3. Get your link live',
+    'step_3_description' => 'Publishers deliver the placement. Track status, chat on the order, and review the live URL when it is ready.',
 
 
     // Pricing Section

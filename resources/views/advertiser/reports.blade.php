@@ -192,13 +192,13 @@
 }
 
 .rep-nav-tabs-custom .nav-link:hover {
-    color: #3b82f6;
+    color: #0b6266;
     background: transparent;
 }
 
 .rep-nav-tabs-custom .nav-link.active {
-    color: #3b82f6;
-    border-bottom: 2px solid #3b82f6;
+    color: #0b6266;
+    border-bottom: 2px solid #0b6266;
     background: transparent;
 }
 
@@ -275,11 +275,11 @@ body.layout-dark .rep-nav-tabs-custom .nav-link.active {
 
 body.layout-dark .rep-btn-outline-primary {
     color: #60a5fa;
-    border-color: #3b82f6;
+    border-color: #0b6266;
 }
 
 body.layout-dark .rep-btn-outline-primary:hover {
-    background-color: #3b82f6;
+    background-color: #0b6266;
     color: #1a1a2e;
 }
 
@@ -295,8 +295,8 @@ body.layout-dark .rep-page-link:hover {
 }
 
 body.layout-dark .rep-page-item.active .rep-page-link {
-    background-color: #3b82f6;
-    border-color: #3b82f6;
+    background-color: #0b6266;
+    border-color: #0b6266;
     color: white;
 }
 

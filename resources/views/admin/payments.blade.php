@@ -503,15 +503,15 @@ $(document).ready(function() {
 
 /* Pagination styles */
 .pagination .page-link {
-    color: #0d6efd;
+    color: #0b6266;
     cursor: pointer;
     font-size: 13px;
     padding: 5px 10px;
 }
 
 .pagination .active .page-link {
-    background-color: #0d6efd;
-    border-color: #0d6efd;
+    background-color: #0b6266;
+    border-color: #0b6266;
     color: white;
 }
 
