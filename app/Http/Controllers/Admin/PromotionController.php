@@ -24,7 +24,23 @@ class PromotionController extends Controller
             ->get();
 
         $sizes = config('promotions.banner_sizes', []);
+        $featuredNotices = config('promotions.featured_notices', []);
 
-        return view('admin.promotions.index', compact('stats', 'announcements', 'banners', 'sizes'));
+        $noticeCounts = [];
+        foreach (array_keys($featuredNotices) as $type) {
+            $noticeCounts[$type] = [
+                'live' => SiteAnnouncement::query()->active()->where('type', $type)->count(),
+                'total' => SiteAnnouncement::query()->where('type', $type)->count(),
+            ];
+        }
+
+        return view('admin.promotions.index', compact(
+            'stats',
+            'announcements',
+            'banners',
+            'sizes',
+            'featuredNotices',
+            'noticeCounts'
+        ));
     }
 }

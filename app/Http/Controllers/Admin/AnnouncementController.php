@@ -18,18 +18,45 @@ class AnnouncementController extends Controller
         return view('admin.promotions.announcements.index', compact('announcements'));
     }
 
-    public function create()
+    public function create(Request $request)
     {
+        $presetKey = $request->query('preset');
+        $presets = config('promotions.featured_notices', []);
+        $preset = $presets[$presetKey] ?? null;
+
+        $defaults = [
+            'type' => 'limited_offer',
+            'style' => 'promo',
+            'audience' => 'all',
+            'title' => null,
+            'message' => null,
+            'cta_label' => null,
+            'cta_url' => null,
+            'is_active' => true,
+            'is_dismissible' => true,
+            'priority' => 100,
+            'starts_at' => now(),
+            'ends_at' => null,
+        ];
+
+        if ($preset) {
+            $defaults['type'] = $presetKey;
+            $defaults['style'] = $preset['default_style'] ?? 'info';
+            $defaults['title'] = $preset['default_title'] ?? null;
+            $defaults['message'] = $preset['default_message'] ?? null;
+            $defaults['cta_label'] = $preset['default_cta_label'] ?? null;
+            $ctaUrl = $preset['default_cta_url'] ?? null;
+            $defaults['cta_url'] = $ctaUrl ? url($ctaUrl) : null;
+            $defaults['priority'] = $preset['default_priority'] ?? 100;
+            $days = (int) ($preset['default_ends_in_days'] ?? 0);
+            $defaults['ends_at'] = $days > 0 ? now()->addDays($days) : null;
+        }
+
         return view('admin.promotions.announcements.form', [
-            'announcement' => new SiteAnnouncement([
-                'type' => 'offer',
-                'style' => 'promo',
-                'audience' => 'all',
-                'is_active' => true,
-                'is_dismissible' => true,
-                'priority' => 100,
-            ]),
+            'announcement' => new SiteAnnouncement($defaults),
             'mode' => 'create',
+            'presetKey' => $preset ? $presetKey : null,
+            'presetMeta' => $preset,
         ]);
     }
 
@@ -50,6 +77,8 @@ class AnnouncementController extends Controller
         return view('admin.promotions.announcements.form', [
             'announcement' => $announcement,
             'mode' => 'edit',
+            'presetKey' => null,
+            'presetMeta' => null,
         ]);
     }
 

@@ -14,6 +14,58 @@ class PromotionDemoSeeder extends Seeder
         $admin = User::query()->where('email', 'admin@test.com')->first()
             ?: User::query()->first();
 
+        SiteAnnouncement::query()->updateOrCreate(
+            ['title' => '20% OFF this week'],
+            [
+                'message' => 'Limited-time offer — save 20% on guest posts until Sunday. Inventory is limited.',
+                'type' => 'limited_offer',
+                'style' => 'promo',
+                'audience' => 'all',
+                'cta_label' => 'Shop the offer',
+                'cta_url' => url('/advertiser/catalog'),
+                'is_active' => true,
+                'is_dismissible' => true,
+                'priority' => 10,
+                'starts_at' => now()->subHour(),
+                'ends_at' => now()->addDays(7),
+                'created_by' => $admin?->id,
+            ]
+        );
+
+        SiteAnnouncement::query()->updateOrCreate(
+            ['title' => 'New Spending Analytics is now live!'],
+            [
+                'message' => 'Track spend by order, day, and month from your advertiser dashboard.',
+                'type' => 'new_feature',
+                'style' => 'success',
+                'audience' => 'advertiser',
+                'cta_label' => 'Open analytics',
+                'cta_url' => url('/advertiser/analytics'),
+                'is_active' => true,
+                'is_dismissible' => true,
+                'priority' => 20,
+                'starts_at' => now()->subHour(),
+                'ends_at' => now()->addDays(30),
+                'created_by' => $admin?->id,
+            ]
+        );
+
+        SiteAnnouncement::query()->updateOrCreate(
+            ['title' => 'Scheduled maintenance'],
+            [
+                'message' => 'We will perform maintenance this weekend. Some services may be briefly unavailable.',
+                'type' => 'maintenance',
+                'style' => 'warning',
+                'audience' => 'all',
+                'is_active' => true,
+                'is_dismissible' => true,
+                'priority' => 5,
+                'starts_at' => now()->subHour(),
+                'ends_at' => now()->addDays(3),
+                'created_by' => $admin?->id,
+            ]
+        );
+
         SiteAnnouncement::query()->firstOrCreate(
             ['title' => 'Black Friday Early Access'],
             [
@@ -25,23 +77,9 @@ class PromotionDemoSeeder extends Seeder
                 'cta_url' => url('/advertiser/catalog'),
                 'is_active' => true,
                 'is_dismissible' => true,
-                'priority' => 10,
+                'priority' => 15,
                 'starts_at' => now()->subDay(),
                 'ends_at' => now()->addDays(14),
-                'created_by' => $admin?->id,
-            ]
-        );
-
-        SiteAnnouncement::query()->firstOrCreate(
-            ['title' => 'Platform update'],
-            [
-                'message' => 'Order status emails now notify advertisers, publishers, marketing, and admins.',
-                'type' => 'change',
-                'style' => 'info',
-                'audience' => 'all',
-                'is_active' => true,
-                'is_dismissible' => true,
-                'priority' => 50,
                 'created_by' => $admin?->id,
             ]
         );

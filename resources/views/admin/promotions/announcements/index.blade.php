@@ -5,7 +5,7 @@
     <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-2">
         <div>
             <h1 class="h3 mb-1">Announcements</h1>
-            <p class="text-muted mb-0">Discounts, Black Friday offers, and platform change notices.</p>
+            <p class="text-muted mb-0">Limited-time offers, new features, maintenance notices, and more.</p>
         </div>
         <div class="d-flex gap-2">
             <a href="{{ route('admin.promotions.index') }}" class="btn btn-sm btn-outline-secondary">Promotions Hub</a>

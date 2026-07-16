@@ -133,6 +133,26 @@
                             </div>
 
                             <div class="col-12">
+                                <label class="form-label">Quick templates</label>
+                                <div class="d-flex flex-wrap gap-2">
+                                    <button type="button" class="btn btn-sm btn-outline-primary campaign-template"
+                                        data-subject="🎉 20% OFF this week"
+                                        data-body="<p><strong>Limited-time offer:</strong> Save 20% on guest posts until Sunday. Inventory is limited — claim yours while it lasts.</p>"
+                                        data-cta="Shop the offer"
+                                        data-url="{{ url('/advertiser/catalog') }}">Limited-Time Offer</button>
+                                    <button type="button" class="btn btn-sm btn-outline-success campaign-template"
+                                        data-subject="🚀 New Spending Analytics is now live!"
+                                        data-body="<p>You can now track spend by <strong>order</strong>, <strong>day</strong>, and <strong>month</strong> from your advertiser dashboard.</p>"
+                                        data-cta="Open analytics"
+                                        data-url="{{ url('/advertiser/analytics') }}">New Feature</button>
+                                    <button type="button" class="btn btn-sm btn-outline-warning campaign-template"
+                                        data-subject="📢 Scheduled maintenance notice"
+                                        data-body="<p>We will perform scheduled maintenance this weekend. Some services may be briefly unavailable. Thanks for your patience.</p>"
+                                        data-cta=""
+                                        data-url="">Maintenance Notice</button>
+                                </div>
+                            </div>
+                            <div class="col-12">
                                 <label class="form-label">Subject</label>
                                 <input type="text" name="subject" id="campaignSubject" class="form-control" value="{{ old('subject') }}" required maxlength="180" placeholder="Black Friday update for our partners">
                             </div>
@@ -258,6 +278,15 @@
     document.getElementById('clearSelected').addEventListener('click', function () {
         document.querySelectorAll('.user-check').forEach(function (el) { el.checked = false; });
         updateCount();
+    });
+
+    document.querySelectorAll('.campaign-template').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            document.getElementById('campaignSubject').value = btn.dataset.subject || '';
+            document.getElementById('campaignBody').value = btn.dataset.body || '';
+            form.querySelector('[name=cta_label]').value = btn.dataset.cta || '';
+            form.querySelector('[name=cta_url]').value = btn.dataset.url || '';
+        });
     });
 
     document.getElementById('previewBtn').addEventListener('click', async function () {

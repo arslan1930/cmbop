@@ -5,13 +5,60 @@
  */
 return [
 
+    /*
+    | Featured notice categories shown as quick-create cards in Promotions Center.
+    */
+    'featured_notices' => [
+        'limited_offer' => [
+            'label' => 'Limited-Time Offer',
+            'emoji' => '🎉',
+            'icon' => 'fa-percent',
+            'description' => 'Flash sales and timed discounts, e.g. “20% OFF this week”.',
+            'default_style' => 'promo',
+            'default_title' => '20% OFF this week',
+            'default_message' => 'Limited-time offer — save 20% on guest posts until Sunday. Inventory is limited.',
+            'default_cta_label' => 'Shop the offer',
+            'default_cta_url' => '/advertiser/catalog',
+            'default_priority' => 10,
+            'default_ends_in_days' => 7,
+        ],
+        'new_feature' => [
+            'label' => 'New Feature Announcement',
+            'emoji' => '🚀',
+            'icon' => 'fa-rocket',
+            'description' => 'Product launches and updates, e.g. “New Spending Analytics is now live!”.',
+            'default_style' => 'success',
+            'default_title' => 'New Spending Analytics is now live!',
+            'default_message' => 'Track spend by order, day, and month from your advertiser dashboard.',
+            'default_cta_label' => 'Open analytics',
+            'default_cta_url' => '/advertiser/analytics',
+            'default_priority' => 20,
+            'default_ends_in_days' => 30,
+        ],
+        'maintenance' => [
+            'label' => 'Maintenance Notice',
+            'emoji' => '📢',
+            'icon' => 'fa-tools',
+            'description' => 'Planned downtime or system maintenance windows.',
+            'default_style' => 'warning',
+            'default_title' => 'Scheduled maintenance',
+            'default_message' => 'We will perform maintenance this weekend. Some services may be briefly unavailable.',
+            'default_cta_label' => null,
+            'default_cta_url' => null,
+            'default_priority' => 5,
+            'default_ends_in_days' => 3,
+        ],
+    ],
+
     'announcement_types' => [
-        'discount' => ['label' => 'Discount', 'icon' => 'fa-percent'],
+        'limited_offer' => ['label' => 'Limited-Time Offer', 'icon' => 'fa-percent', 'featured' => true],
+        'new_feature' => ['label' => 'New Feature', 'icon' => 'fa-rocket', 'featured' => true],
+        'maintenance' => ['label' => 'Maintenance Notice', 'icon' => 'fa-tools', 'featured' => true],
+        'discount' => ['label' => 'Discount', 'icon' => 'fa-tag'],
         'black_friday' => ['label' => 'Black Friday', 'icon' => 'fa-bolt'],
         'offer' => ['label' => 'Special Offer', 'icon' => 'fa-tags'],
         'change' => ['label' => 'Platform Change', 'icon' => 'fa-bullhorn'],
         'general' => ['label' => 'General Update', 'icon' => 'fa-info-circle'],
-        'maintenance' => ['label' => 'Maintenance', 'icon' => 'fa-tools'],
     ],
 
     'announcement_styles' => [

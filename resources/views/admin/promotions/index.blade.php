@@ -5,7 +5,7 @@
     <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-2">
         <div>
             <h1 class="h3 mb-1">Promotions Center</h1>
-            <p class="text-muted mb-0">Control site announcements (discounts, Black Friday, changes) and ad banner slots.</p>
+            <p class="text-muted mb-0">Limited-time offers, new feature announcements, maintenance notices, and ad banners.</p>
         </div>
         <div class="d-flex gap-2">
             <a href="{{ route('admin.promotions.announcements.create') }}" class="btn btn-sm btn-primary">
@@ -23,6 +23,34 @@
             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
         </div>
     @endif
+
+    <div class="row g-3 mb-4">
+        @foreach($featuredNotices as $key => $notice)
+            <div class="col-md-4">
+                <div class="card border-0 shadow-sm h-100">
+                    <div class="card-body d-flex flex-column">
+                        <div class="d-flex justify-content-between align-items-start gap-2 mb-2">
+                            <div>
+                                <div class="fs-4 mb-1" aria-hidden="true">{{ $notice['emoji'] }}</div>
+                                <h5 class="mb-1">{{ $notice['label'] }}</h5>
+                            </div>
+                            <span class="badge bg-light text-dark">
+                                {{ $noticeCounts[$key]['live'] ?? 0 }} live
+                            </span>
+                        </div>
+                        <p class="text-muted small flex-grow-1 mb-3">{{ $notice['description'] }}</p>
+                        <div class="small text-muted mb-3">
+                            Example: “{{ $notice['default_title'] }}”
+                        </div>
+                        <a href="{{ route('admin.promotions.announcements.create', ['preset' => $key]) }}"
+                           class="btn btn-sm {{ $key === 'maintenance' ? 'btn-outline-warning' : ($key === 'new_feature' ? 'btn-outline-success' : 'btn-primary') }}">
+                            <i class="fa {{ $notice['icon'] }} me-1"></i> Create {{ $notice['label'] }}
+                        </a>
+                    </div>
+                </div>
+            </div>
+        @endforeach
+    </div>
 
     <div class="row g-3 mb-4">
         <div class="col-6 col-xl-3">

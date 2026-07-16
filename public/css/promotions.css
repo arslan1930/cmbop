@@ -36,6 +36,16 @@
   line-height: 1.4;
 }
 
+.site-announcement__type {
+  display: inline-block;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  margin-right: 0.45rem;
+  opacity: 0.85;
+}
+
 .site-announcement__title {
   display: inline;
   margin-right: 0.35rem;
@@ -43,6 +53,34 @@
 
 .site-announcement__message {
   opacity: 0.95;
+}
+
+.site-announcement__ends {
+  display: inline-block;
+  margin-left: 0.4rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  opacity: 0.9;
+}
+
+.site-announcement-type--limited_offer .site-announcement__type,
+.site-announcement-type--discount .site-announcement__type,
+.site-announcement-type--black_friday .site-announcement__type,
+.site-announcement-type--offer .site-announcement__type {
+  color: inherit;
+}
+
+.site-announcement-type--new_feature.site-announcement--success {
+  box-shadow: inset 4px 0 0 #1f9d55;
+}
+
+.site-announcement-type--maintenance.site-announcement--warning {
+  box-shadow: inset 4px 0 0 #d97706;
+}
+
+.site-announcement-type--limited_offer.site-announcement--promo,
+.site-announcement-type--limited_offer.site-announcement--info {
+  box-shadow: inset 4px 0 0 rgba(255, 255, 255, 0.55);
 }
 
 .site-announcement__cta {

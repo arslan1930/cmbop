@@ -8,8 +8,15 @@
             <i class="fa fa-arrow-left me-1"></i> Back to announcements
         </a>
         <h1 class="h3 mb-1 mt-2">{{ $mode === 'create' ? 'New Announcement' : 'Edit Announcement' }}</h1>
-        <p class="text-muted mb-0">Publish discounts, Black Friday offers, or platform change notices.</p>
+        <p class="text-muted mb-0">Limited-time offers, new features, maintenance notices, and more.</p>
     </div>
+
+    @if(!empty($presetMeta))
+        <div class="alert alert-light border mb-4">
+            <strong>{{ $presetMeta['emoji'] ?? '' }} {{ $presetMeta['label'] }}</strong>
+            <div class="small text-muted mb-0">{{ $presetMeta['description'] }} Prefill is ready — edit and publish.</div>
+        </div>
+    @endif
 
     @if($errors->any())
         <div class="alert alert-danger">
@@ -44,9 +51,18 @@
                             <div class="col-md-4">
                                 <label class="form-label">Type</label>
                                 <select name="type" id="ann_type" class="form-select" required>
-                                    @foreach(config('promotions.announcement_types') as $key => $meta)
-                                        <option value="{{ $key }}" data-icon="{{ $meta['icon'] }}" @selected(old('type', $announcement->type) === $key)>{{ $meta['label'] }}</option>
-                                    @endforeach
+                                    <optgroup label="Featured">
+                                        @foreach(config('promotions.announcement_types') as $key => $meta)
+                                            @continue(empty($meta['featured']))
+                                            <option value="{{ $key }}" data-icon="{{ $meta['icon'] }}" @selected(old('type', $announcement->type) === $key)>{{ $meta['label'] }}</option>
+                                        @endforeach
+                                    </optgroup>
+                                    <optgroup label="More">
+                                        @foreach(config('promotions.announcement_types') as $key => $meta)
+                                            @continue(!empty($meta['featured']))
+                                            <option value="{{ $key }}" data-icon="{{ $meta['icon'] }}" @selected(old('type', $announcement->type) === $key)>{{ $meta['label'] }}</option>
+                                        @endforeach
+                                    </optgroup>
                                 </select>
                             </div>
                             <div class="col-md-4">
