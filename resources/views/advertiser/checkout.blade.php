@@ -102,9 +102,7 @@
                                     This order uses an approved article from your Content Library. You can proceed to payment.
                                 </div>
                                 <div class="fw-semibold">{{ $librarySubmission->title ?: $librarySubmission->original_filename }}</div>
-                                <div class="small text-muted mb-2">
-                                    Uniqueness {{ $librarySubmission->uniqueness_score }}% · Quality {{ $librarySubmission->quality_score }}%
-                                </div>
+                                <div class="small text-muted mb-2">Approved article from your Content Library</div>
                                 <div class="small mb-1"><strong>Anchor:</strong> {{ $librarySubmission->anchor_text }}</div>
                                 <div class="small mb-1"><strong>Target URL:</strong> <a href="{{ $librarySubmission->target_url }}" target="_blank" rel="noopener">{{ $librarySubmission->target_url }}</a></div>
                                 @if(($checkoutSchedule['mode'] ?? 'immediate') === 'scheduled')
@@ -136,7 +134,7 @@
                         <div class="alert alert-warning shadow-sm">
                             Articles must be uploaded and approved in your
                             <a href="{{ route('advertiser.content-library') }}" class="alert-link">Content Library</a>
-                            before checkout. Only Microsoft Word (.docx) files are accepted. Uniqueness must be at least 50%.
+                            before checkout. Only Microsoft Word (.docx) files are accepted.
                         </div>
                         @include('advertiser.partials.content-submission-wizard')
                     @endif

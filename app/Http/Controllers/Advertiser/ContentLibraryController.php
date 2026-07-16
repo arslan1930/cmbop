@@ -123,7 +123,7 @@ class ContentLibraryController extends Controller
             ->firstOrFail();
 
         if (!$submission->canBeOrdered()) {
-            return back()->with('error', 'This article is not approved for publication yet. Uniqueness must be at least 50% and compliance checks must pass.');
+            return back()->with('error', 'This article is not approved for publication yet. Please review the article report and resubmit if needed.');
         }
 
         $anchor = trim(preg_replace('/\s+/', ' ', $data['anchor_text']) ?? '');

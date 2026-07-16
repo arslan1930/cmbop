@@ -1765,7 +1765,7 @@ public function approveOrder(Request $request, $id)
 
 /**
  * Resolve approved content library articles + publication schedule for the cart.
- * Articles must be approved (uniqueness ≥ 50% + compliance) before ordering.
+ * Articles must be approved in Content Library before ordering.
  *
  * @return array{lines: array<int, array{orderItem: array, submission: ContentSubmission}>, schedule: array}|JsonResponse
  */
@@ -1831,7 +1831,7 @@ private function resolveCheckoutContent(array $cart, ?array $contentSubmissions,
 
             if (!$submission->isReadyForCheckout()) {
                 $msg = !$submission->isApproved()
-                    ? 'This article is not approved yet. Uniqueness must be at least 50% and compliance checks must pass.'
+                    ? 'This article is not approved yet. Please review the article report in Content Library.'
                     : 'Add anchor text and a valid HTTPS target URL before ordering.';
 
                 return response()->json(['success' => false, 'message' => $msg], 422);

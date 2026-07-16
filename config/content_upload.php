@@ -64,13 +64,12 @@ return [
 
     'help' => [
         'preferred_format' => 'Please upload your article as a Microsoft Word (.docx) document only. Other formats are not accepted.',
-        'before_upload' => 'Supported format: Microsoft Word (.docx) only. Maximum size: 5 MB. Your article will be evaluated for uniqueness, quality, and content compliance before you can place an order.',
+        'before_upload' => 'Supported format: Microsoft Word (.docx) only. Maximum size: 5 MB. After upload, a report will be available with your article.',
         'anchor_text' => 'Enter the exact anchor text that should appear in the article.',
         'target_url' => 'Enter the website URL that the anchor text should link to.',
         'feature_image' => 'If you would like the publisher to use a featured image, provide a royalty-free image URL from platforms such as Pixabay, Pexels, Unsplash, or similar sources.',
-        'compliance_reject' => 'This article contains content that violates our publishing guidelines.' . "\n\n"
-            . 'Please upload a revised document before continuing.',
-        'uniqueness_reject' => 'Uniqueness is below 50%. Please improve the article and resubmit a more original version before placing an order.',
-        'quality_reject' => 'Content quality is below the required threshold. Please improve the article and resubmit.',
+        'compliance_reject' => 'This article cannot be accepted under our publishing guidelines. Please review the report and upload a revised document.',
+        'uniqueness_reject' => 'Please improve the article and resubmit. See the report on this article for details.',
+        'quality_reject' => 'Please improve the article and resubmit. See the report on this article for details.',
     ],
 ];

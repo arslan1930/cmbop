@@ -5,7 +5,7 @@
     <div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-4">
         <div>
             <h2 class="mb-1 fw-semibold">Content Library</h2>
-            <p class="text-muted mb-0">Upload Microsoft Word (.docx) articles, wait for evaluation, then select websites and place orders.</p>
+            <p class="text-muted mb-0">Upload Microsoft Word (.docx) articles, review the report for each article, then select websites and place orders.</p>
         </div>
         <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#uploadContentModal">
             <i class="fa fa-upload me-1"></i> Upload article
@@ -21,8 +21,7 @@
 
     <div class="alert alert-info border-0 shadow-sm">
         <strong>Before you upload:</strong>
-        {{ $uploadCfg['help']['before_upload'] ?? 'Please upload your article as a Microsoft Word (.docx) document only.' }}
-        Uniqueness below <strong>50%</strong> is not acceptable for publication.
+        {{ $uploadCfg['help']['before_upload'] ?? 'Please upload your article as a Microsoft Word (.docx) document only. Maximum size: 5 MB.' }}
     </div>
 
     <div class="mb-3 d-flex flex-wrap gap-2">
@@ -52,10 +51,20 @@
                             <span class="badge text-bg-{{ $badge }}">{{ ucfirst(str_replace('_', ' ', $status)) }}</span>
                         </div>
                         <div class="small text-muted mb-2">{{ $submission->original_filename }} · {{ number_format($submission->word_count) }} words</div>
-                        <div class="d-flex gap-3 small mb-3">
-                            <div><strong>Uniqueness</strong><br>{{ $submission->uniqueness_score !== null ? $submission->uniqueness_score.'%' : '—' }}</div>
-                            <div><strong>Quality</strong><br>{{ $submission->quality_score !== null ? $submission->quality_score.'%' : '—' }}</div>
-                        </div>
+                        @if($submission->evaluated_at)
+                            <div class="border rounded-3 p-2 bg-light small mb-3">
+                                <div class="fw-semibold mb-1">Article report</div>
+                                <div class="d-flex gap-3 mb-2">
+                                    <div><strong>Uniqueness</strong><br>{{ $submission->uniqueness_score !== null ? $submission->uniqueness_score.'%' : '—' }}</div>
+                                    <div><strong>Quality</strong><br>{{ $submission->quality_score !== null ? $submission->quality_score.'%' : '—' }}</div>
+                                </div>
+                                @if(!empty($submission->evaluation_report['summary'] ?? null))
+                                    <div class="text-muted">{{ $submission->evaluation_report['summary'] }}</div>
+                                @elseif(is_string(data_get($submission->evaluation_report, 'ai_notes')))
+                                    <div class="text-muted">{{ data_get($submission->evaluation_report, 'ai_notes') }}</div>
+                                @endif
+                            </div>
+                        @endif
                         @if($submission->preview_html)
                             <div class="border rounded-3 p-2 bg-light small mb-3" style="max-height:120px;overflow:auto;">{!! $submission->preview_html !!}</div>
                         @endif
@@ -118,7 +127,7 @@
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
-                <button type="submit" class="btn btn-primary" id="libraryUploadBtn">Upload & evaluate</button>
+                <button type="submit" class="btn btn-primary" id="libraryUploadBtn">Upload article</button>
             </div>
         </form>
     </div>
@@ -240,7 +249,7 @@ document.getElementById('libraryUploadForm')?.addEventListener('submit', async f
     btn.disabled = true;
     progress.classList.remove('d-none');
     bar.style.width = '40%';
-    feedback.textContent = 'Uploading and evaluating uniqueness, quality, and compliance…';
+    feedback.textContent = 'Uploading your article…';
 
     try {
         const res = await fetch(@json(route('advertiser.content-library.upload')), {

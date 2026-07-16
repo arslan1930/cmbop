@@ -120,6 +120,8 @@ class ArticleEvaluationService
             $status = ($scan['status'] ?? '') === 'error'
                 ? ContentSubmission::STATUS_ERROR
                 : ContentSubmission::STATUS_REJECTED;
+            $message = $cfg['help']['compliance_reject'] ?? $scan['user_message'];
+            $report['summary'] = $message;
 
             return [
                 'approved' => false,
@@ -128,13 +130,17 @@ class ArticleEvaluationService
                 'uniqueness_score' => $uniquenessScore,
                 'quality_score' => $qualityScore,
                 'report' => $report,
-                'title' => $scan['user_title'] ?? 'Article Cannot Be Accepted',
-                'message' => $cfg['help']['compliance_reject'] ?? $scan['user_message'],
+                'title' => $scan['user_title'] ?? 'Article report',
+                'message' => $message,
                 'log' => $scan['log'] ?? null,
             ];
         }
 
         if ($uniquenessScore < $minUniqueness) {
+            $message = $cfg['help']['uniqueness_reject']
+                ?? 'Please improve the article and resubmit. See the report on this article for details.';
+            $report['summary'] = $message;
+
             return [
                 'approved' => false,
                 'moderation_status' => ContentSubmission::STATUS_NEEDS_IMPROVEMENT,
@@ -142,14 +148,17 @@ class ArticleEvaluationService
                 'uniqueness_score' => $uniquenessScore,
                 'quality_score' => $qualityScore,
                 'report' => $report,
-                'title' => 'Improve uniqueness',
-                'message' => $cfg['help']['uniqueness_reject']
-                    ?? 'Uniqueness is below 50%. Please improve and resubmit.',
+                'title' => 'Article report',
+                'message' => $message,
                 'log' => $scan['log'] ?? null,
             ];
         }
 
         if ($qualityScore < $minQuality) {
+            $message = $cfg['help']['quality_reject']
+                ?? 'Please improve the article and resubmit. See the report on this article for details.';
+            $report['summary'] = $message;
+
             return [
                 'approved' => false,
                 'moderation_status' => ContentSubmission::STATUS_NEEDS_IMPROVEMENT,
@@ -157,12 +166,14 @@ class ArticleEvaluationService
                 'uniqueness_score' => $uniquenessScore,
                 'quality_score' => $qualityScore,
                 'report' => $report,
-                'title' => 'Improve content quality',
-                'message' => $cfg['help']['quality_reject']
-                    ?? 'Content quality is below the required threshold. Please improve and resubmit.',
+                'title' => 'Article report',
+                'message' => $message,
                 'log' => $scan['log'] ?? null,
             ];
         }
+
+        $message = 'Your article was approved for publication. You can now select websites and place an order.';
+        $report['summary'] = $message;
 
         return [
             'approved' => true,
@@ -172,7 +183,7 @@ class ArticleEvaluationService
             'quality_score' => $qualityScore,
             'report' => $report,
             'title' => 'Article approved for publication',
-            'message' => 'Your article passed uniqueness, quality, and compliance checks. You can now select websites and place an order.',
+            'message' => $message,
             'log' => $scan['log'] ?? null,
         ];
     }

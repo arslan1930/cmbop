@@ -37,7 +37,6 @@
 
         <div class="alert alert-warning small mb-3" id="wizardHelpPreferred">
             Please upload your article as a Microsoft Word (.docx) document only. Other formats are not accepted.
-            Your article will be evaluated for uniqueness (minimum 50%), quality, and content compliance before you can place an order.
         </div>
 
         <div class="content-wizard-panels">
