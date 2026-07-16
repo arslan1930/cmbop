@@ -50,12 +50,82 @@
 .next-action .na-title { font-weight: 600; font-size: 14px; }
 .next-action .na-desc { font-size: 12px; color: #6b7280; margin: 0; }
 .status-pill {
-    display: inline-block; padding: 3px 8px; border-radius: 999px;
-    font-size: 11px; font-weight: 600; text-transform: capitalize;
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 5px 10px; border-radius: 999px;
+    font-size: 11px; font-weight: 600; letter-spacing: .01em;
+    text-transform: capitalize; border: 1px solid transparent;
 }
-.status-pill.pending, .status-pill.processing, .status-pill.review { background: #fff3cd; color: #856404; }
-.status-pill.completed { background: #d1e7dd; color: #0f5132; }
-.status-pill.cancelled { background: #f8d7da; color: #842029; }
+.status-pill::before {
+    content: ""; width: 6px; height: 6px; border-radius: 50%;
+    background: currentColor; opacity: .85;
+}
+.status-pill.pending {
+    background: rgba(11, 98, 102, 0.08); color: #0b6266; border-color: rgba(11, 98, 102, 0.12);
+}
+.status-pill.processing,
+.status-pill.review {
+    background: rgba(58, 174, 178, 0.12); color: #176f73; border-color: rgba(58, 174, 178, 0.22);
+}
+.status-pill.completed {
+    background: rgba(15, 118, 110, 0.1); color: #0f766e; border-color: rgba(15, 118, 110, 0.18);
+}
+.status-pill.cancelled {
+    background: rgba(100, 116, 139, 0.1); color: #475569; border-color: rgba(100, 116, 139, 0.18);
+}
+.recent-orders-glass {
+    position: relative;
+    height: 100%;
+    border-radius: 18px;
+    border: 1px solid rgba(255, 255, 255, 0.55);
+    background: linear-gradient(145deg, rgba(255,255,255,0.72), rgba(240,251,251,0.55));
+    box-shadow:
+        0 18px 40px rgba(11, 98, 102, 0.1),
+        inset 0 1px 0 rgba(255,255,255,0.75);
+    backdrop-filter: blur(16px) saturate(1.35);
+    -webkit-backdrop-filter: blur(16px) saturate(1.35);
+    overflow: hidden;
+}
+.recent-orders-glass::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background:
+        radial-gradient(ellipse 55% 40% at 12% 0%, rgba(78, 205, 203, 0.22), transparent 60%),
+        radial-gradient(ellipse 45% 35% at 90% 100%, rgba(11, 98, 102, 0.08), transparent 55%);
+    pointer-events: none;
+}
+.recent-orders-glass .card-body { position: relative; z-index: 1; }
+.recent-orders-glass .table { --bs-table-bg: transparent; }
+.recent-orders-glass .table > :not(caption) > * > * {
+    background: transparent; border-bottom-color: rgba(11, 98, 102, 0.08);
+}
+.recent-orders-glass thead th {
+    font-size: 11px; text-transform: uppercase; letter-spacing: .04em;
+    color: #64748b !important; font-weight: 700; border-bottom-width: 1px;
+}
+.recent-orders-glass tbody tr {
+    transition: background .2s ease;
+}
+.recent-orders-glass tbody tr:hover {
+    background: rgba(255,255,255,0.45);
+}
+.recent-order-num {
+    font-weight: 700; font-size: 15px; color: #0b6266; letter-spacing: .02em;
+}
+.recent-order-site {
+    font-size: 13px; font-weight: 600; color: #1f2937; margin-top: 4px;
+}
+.recent-order-url {
+    font-size: 12px; color: #64748b; text-decoration: none;
+}
+.recent-order-url:hover { color: #0b6266; }
+.recent-orders-title {
+    font-weight: 700; color: #0b6266; letter-spacing: -.01em;
+}
+.recent-orders-link {
+    color: #0b6266; font-weight: 600; text-decoration: none;
+}
+.recent-orders-link:hover { color: #3aaeb2; }
 .help-secondary {
     border: 1px dashed #d7e7e8; border-radius: 12px; padding: 16px;
     background: #fafcfc;
@@ -127,8 +197,20 @@
         </div>
     </div>
 @else
+<style>
+.dash-command-surface {
+    position: relative;
+    border-radius: 20px;
+    padding: 4px;
+    background:
+        radial-gradient(ellipse 50% 60% at 80% 20%, rgba(78, 205, 203, 0.18), transparent 55%),
+        radial-gradient(ellipse 40% 50% at 10% 80%, rgba(11, 98, 102, 0.08), transparent 50%),
+        linear-gradient(180deg, #eef7f7 0%, #f8f9fa 100%);
+}
+</style>
+<div class="dash-command-surface mb-1">
     <!-- KPIs -->
-    <div class="row g-3 mb-4">
+    <div class="row g-3 mb-4 px-1 pt-1">
         <div class="col-6 col-lg-3">
             <div class="kpi-tile">
                 <div class="kpi-icon" style="background:#3aaeb2;"><i class="fa-solid fa-box-open"></i></div>
@@ -202,11 +284,11 @@
 
         <!-- Recent orders -->
         <div class="col-lg-8">
-            <div class="card shadow-sm border-0 h-100">
-                <div class="card-body">
+            <div class="recent-orders-glass">
+                <div class="card-body p-4">
                     <div class="d-flex justify-content-between align-items-center mb-3">
-                        <h5 class="mb-0">Recent orders</h5>
-                        <a href="{{ route('advertiser.orders') }}" class="small" style="color:#0b6266;font-weight:600;">View all</a>
+                        <h5 class="mb-0 recent-orders-title">Recent orders</h5>
+                        <a href="{{ route('advertiser.orders') }}" class="small recent-orders-link">View all</a>
                     </div>
                     @if($recentOrders->isEmpty())
                         <p class="text-muted small mb-0">No orders yet.</p>
@@ -214,31 +296,38 @@
                         <div class="table-responsive">
                             <table class="table table-sm align-middle mb-0">
                                 <thead>
-                                    <tr class="text-muted small">
+                                    <tr>
                                         <th>Order</th>
-                                        <th>Site</th>
                                         <th>Status</th>
                                         <th class="text-end">Total</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     @foreach($recentOrders as $order)
-                                        @php $firstItem = $order->items->first(); @endphp
+                                        @php
+                                            $firstItem = $order->items->first();
+                                            $numericOrder = preg_replace('/\D+/', '', (string) ($order->order_number ?? '')) ?: (string) $order->id;
+                                            $statusLabel = str_replace('_', ' ', (string) $order->status);
+                                        @endphp
                                         <tr>
-                                            <td>
-                                                <div class="fw-semibold">#{{ $order->order_number ?? $order->id }}</div>
-                                                <small class="text-muted">{{ $order->created_at?->format('M j, Y') }}</small>
-                                            </td>
-                                            <td>
-                                                <div class="small fw-semibold">{{ $firstItem->site_name ?? '—' }}</div>
-                                                @if(($order->items->count() ?? 0) > 1)
-                                                    <small class="text-muted">+{{ $order->items->count() - 1 }} more</small>
+                                            <td class="py-3">
+                                                <div class="recent-order-num">#{{ $numericOrder }}</div>
+                                                <div class="recent-order-site">{{ $firstItem->site_name ?? '—' }}</div>
+                                                @if(!empty($firstItem->site_url))
+                                                    <a href="{{ $firstItem->site_url }}" target="_blank" rel="noopener" class="recent-order-url">
+                                                        {{ \Illuminate\Support\Str::limit($firstItem->site_url, 48) }}
+                                                        <i class="fa fa-external-link fa-xs"></i>
+                                                    </a>
                                                 @endif
+                                                @if(($order->items->count() ?? 0) > 1)
+                                                    <div class="small text-muted mt-1">+{{ $order->items->count() - 1 }} more site{{ $order->items->count() - 1 === 1 ? '' : 's' }}</div>
+                                                @endif
+                                                <div class="small text-muted mt-1">{{ $order->created_at?->format('M j, Y') }}</div>
                                             </td>
-                                            <td>
-                                                <span class="status-pill {{ $order->status }}">{{ $order->status }}</span>
+                                            <td class="py-3">
+                                                <span class="status-pill {{ $order->status }}">{{ $statusLabel }}</span>
                                             </td>
-                                            <td class="text-end fw-semibold" style="color:#3aaeb2;">
+                                            <td class="text-end py-3 fw-semibold" style="color:#0b6266;">
                                                 €{{ number_format((float) $order->total_amount, 2) }}
                                             </td>
                                         </tr>
