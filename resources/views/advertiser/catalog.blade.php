@@ -183,6 +183,7 @@
     $moreFilterKeys = ['sponsored','favorites_filter','blacklist_filter','da_min','da_max','dr_min','dr_max','traffic_min','traffic_max','new_badge'];
     $moreFiltersOpen = collect($moreFilterKeys)->contains(fn ($k) => filled(request($k)));
     $activeFilterChips = [];
+    if (request('site')) $activeFilterChips[] = ['label' => 'Recommended site', 'key' => 'site'];
     if (request('search')) $activeFilterChips[] = ['label' => 'Search: '.request('search'), 'key' => 'search'];
     if (request('category')) $activeFilterChips[] = ['label' => 'Category', 'key' => 'category'];
     if (request('country')) $activeFilterChips[] = ['label' => 'Country', 'key' => 'country'];

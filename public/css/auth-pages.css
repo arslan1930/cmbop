@@ -163,14 +163,39 @@
   width: 40px;
   height: 40px;
   border-radius: 11px;
-  background: #ffffff;
-  color: #0b6266;
+  background: #ffffff !important;
+  color: #0b6266 !important;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  font-size: 1rem;
+  font-size: 1.05rem;
+  line-height: 1;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.auth-proof-icon i,
+.auth-proof-icon svg {
+  display: block !important;
+  width: 18px;
+  height: 18px;
+  color: #0b6266 !important;
+  fill: none;
+  stroke: #0b6266;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.auth-proof-icon i {
+  font-family: "Font Awesome 6 Free" !important;
+  font-weight: 900 !important;
+  font-style: normal !important;
+  font-size: 16px !important;
+  line-height: 1 !important;
+  width: auto;
+  height: auto;
+  -webkit-font-smoothing: antialiased;
 }
 
 .auth-proof-list strong {
