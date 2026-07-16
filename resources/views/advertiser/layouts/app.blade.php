@@ -581,12 +581,6 @@
 
     <div class="d-flex align-items-center gap-2">
 
-        <!-- Dark mode — icon only -->
-        <button type="button" id="toggleDarkMode" class="topbar-icon-btn" title="Dark mode" aria-label="Toggle dark mode">
-            <i class="fa fa-moon" aria-hidden="true"></i>
-            <i class="fa fa-sun d-none" aria-hidden="true"></i>
-        </button>
-
         <!-- Cart — labeled primary commerce action -->
         <button id="toggleCart" class="btn btn-outline-secondary btn-sm topbar-action" type="button" aria-label="Open cart" title="Cart">
             <i class="fa fa-shopping-cart" aria-hidden="true"></i>
@@ -726,37 +720,9 @@
         }
     });
 
-    // Dark Mode
-    const darkModeBtn = document.getElementById('toggleDarkMode');
-    const moonIcon = darkModeBtn.querySelector('.fa-moon');
-    const sunIcon = darkModeBtn.querySelector('.fa-sun');
-    const logoSidebar = document.getElementById('logoSidebar');
-    const logoNavbar = document.getElementById('logoNavbar');
-    const mobileSidebarLogo = document.getElementById('mobileSidebarLogo');
-
-    if (localStorage.getItem('layoutDarkMode') === 'true') {
-        document.body.classList.add('layout-dark');
-        moonIcon.classList.add('d-none');
-        sunIcon.classList.remove('d-none');
-        logoSidebar.src = "{{ asset('assets/img/logo2.png') }}";
-        logoNavbar.src = "{{ asset('assets/img/logo2.png') }}";
-        if (mobileSidebarLogo) mobileSidebarLogo.src = "{{ asset('assets/img/logo2.png') }}";
-        darkModeBtn.setAttribute('title', 'Light mode');
-        darkModeBtn.setAttribute('aria-label', 'Switch to light mode');
-    }
-
-    darkModeBtn.addEventListener('click', () => {
-        const isDark = document.body.classList.toggle('layout-dark');
-        moonIcon.classList.toggle('d-none', isDark);
-        sunIcon.classList.toggle('d-none', !isDark);
-        localStorage.setItem('layoutDarkMode', isDark);
-        const logoSrc = isDark ? "{{ asset('assets/img/logo2.png') }}" : "{{ asset('assets/img/logo1.png') }}";
-        logoSidebar.src = logoSrc;
-        logoNavbar.src = logoSrc;
-        if (mobileSidebarLogo) mobileSidebarLogo.src = logoSrc;
-        darkModeBtn.setAttribute('title', isDark ? 'Light mode' : 'Dark mode');
-        darkModeBtn.setAttribute('aria-label', isDark ? 'Switch to light mode' : 'Toggle dark mode');
-    });
+    // Dark mode removed — ensure light theme
+    document.body.classList.remove('layout-dark');
+    try { localStorage.removeItem('layoutDarkMode'); } catch (e) {}
 
     // Tooltips
     var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))

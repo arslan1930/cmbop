@@ -96,8 +96,9 @@
     this.badge = root.querySelector('[data-nc-badge]');
     this.list = root.querySelector('[data-nc-list]');
     this.search = root.querySelector('[data-nc-search]');
-    this.loadMoreBtn = root.querySelector('[data-nc-load-more]');
+    this.showAllLink = root.querySelector('[data-nc-show-all]');
     this.footer = root.querySelector('[data-nc-footer]');
+    this.limit = 3;
 
     this.bind();
     this.refreshCount();
@@ -154,15 +155,6 @@
           self.query = self.search.value.trim();
           self.reload();
         }, 280);
-      });
-    }
-
-    if (this.loadMoreBtn) {
-      this.loadMoreBtn.addEventListener('click', function () {
-        if (self.hasMore && !self.loading) {
-          self.page += 1;
-          self.fetchPage(true);
-        }
       });
     }
   };
@@ -234,8 +226,8 @@
     if (!append) this.renderSkeleton();
 
     const params = new URLSearchParams({
-      page: String(this.page),
-      per_page: '15',
+      page: '1',
+      per_page: String(this.limit),
       status: this.status,
       category: this.filter,
       q: this.query || ''
@@ -253,11 +245,14 @@
           return;
         }
         const batch = data.notifications || [];
-        self.items = append ? self.items.concat(batch) : batch;
-        self.hasMore = !!(data.pagination && data.pagination.has_more);
+        self.items = batch.slice(0, self.limit);
+        self.hasMore = !!(data.pagination && (data.pagination.has_more || data.pagination.total > self.limit));
         self.setUnread(data.unread_count || 0);
         self.renderList();
-        if (self.footer) self.footer.style.display = self.hasMore ? 'block' : 'none';
+        if (self.footer) self.footer.style.display = 'block';
+        if (self.showAllLink) {
+          self.showAllLink.style.display = (data.pagination && data.pagination.total > 0) ? 'inline-flex' : 'none';
+        }
       })
       .catch(function () {
         self.loading = false;
@@ -430,7 +425,8 @@
       readUrl: root.getAttribute('data-read-url'),
       readAllUrl: root.getAttribute('data-read-all-url'),
       archiveUrl: root.getAttribute('data-archive-url'),
-      destroyUrl: root.getAttribute('data-destroy-url')
+      destroyUrl: root.getAttribute('data-destroy-url'),
+      allUrl: root.getAttribute('data-all-url')
     };
     return new NotificationCenter(root, cfg);
   };

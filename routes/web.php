@@ -353,6 +353,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // In-app notification center (does not affect email notifications)
     Route::prefix('notifications')->name('notifications.')->group(function () {
         Route::get('/', [App\Http\Controllers\NotificationController::class, 'index'])->name('index');
+        Route::get('/all', [App\Http\Controllers\NotificationController::class, 'all'])->name('all');
         Route::get('/unread-count', [App\Http\Controllers\NotificationController::class, 'unreadCount'])->name('unread-count');
         Route::post('/read-all', [App\Http\Controllers\NotificationController::class, 'markAllRead'])->name('read-all');
         Route::post('/{id}/read', [App\Http\Controllers\NotificationController::class, 'markRead'])->name('read');

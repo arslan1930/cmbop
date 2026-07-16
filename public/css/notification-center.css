@@ -242,7 +242,7 @@ body.layout-dark .nc-bell-wrap {
 .nc-body {
   overflow-y: auto;
   flex: 1;
-  max-height: 440px;
+  max-height: 320px;
   background: var(--nc-bg-soft);
 }
 
@@ -446,18 +446,24 @@ body.layout-dark .nc-bell-wrap {
   text-align: center;
 }
 
-.nc-load-more {
+.nc-show-all {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
   border: 1px solid var(--nc-border);
   background: var(--nc-bg);
   border-radius: var(--nc-radius-sm);
-  padding: 6px 12px;
-  font-size: 12px;
+  padding: 8px 12px;
+  font-size: 13px;
   font-weight: 600;
-  color: var(--nc-fg-muted);
+  color: var(--nc-primary-strong);
+  text-decoration: none;
   cursor: pointer;
+  transition: background .15s ease, border-color .15s ease;
 }
 
-.nc-load-more:hover {
+.nc-show-all:hover {
   background: var(--nc-primary-soft);
   border-color: var(--nc-primary-border);
   color: var(--nc-primary-strong);

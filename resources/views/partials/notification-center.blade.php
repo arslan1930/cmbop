@@ -1,5 +1,5 @@
 {{-- In-app Notification Center (emails are separate and untouched) --}}
-<link rel="stylesheet" href="{{ asset('css/notification-center.css') }}?v={{ @filemtime(public_path('css/notification-center.css')) ?: '2' }}">
+<link rel="stylesheet" href="{{ asset('css/notification-center.css') }}?v={{ @filemtime(public_path('css/notification-center.css')) ?: '3' }}">
 
 <div class="nc-bell-wrap"
      data-notification-center
@@ -8,7 +8,8 @@
      data-read-url="{{ url('/notifications/__ID__/read') }}"
      data-read-all-url="{{ route('notifications.read-all') }}"
      data-archive-url="{{ url('/notifications/__ID__/archive') }}"
-     data-destroy-url="{{ url('/notifications/__ID__') }}">
+     data-destroy-url="{{ url('/notifications/__ID__') }}"
+     data-all-url="{{ route('notifications.all') }}">
 
     <button type="button"
             class="nc-bell-btn"
@@ -33,31 +34,16 @@
                     <button type="button" class="nc-link-btn" data-nc-mark-all>Mark all read</button>
                 </div>
             </div>
-            <input type="search"
-                   class="nc-search"
-                   data-nc-search
-                   placeholder="Search notifications…"
-                   aria-label="Search notifications">
-        </div>
-
-        <div class="nc-filters" role="tablist" aria-label="Filter notifications">
-            <button type="button" class="nc-filter is-active" data-nc-filter="all">All</button>
-            <button type="button" class="nc-filter" data-nc-filter="unread">Unread</button>
-            <button type="button" class="nc-filter" data-nc-filter="orders">Orders</button>
-            <button type="button" class="nc-filter" data-nc-filter="messages">Messages</button>
-            <button type="button" class="nc-filter" data-nc-filter="payments">Payments</button>
-            <button type="button" class="nc-filter" data-nc-filter="system">System</button>
-            <button type="button" class="nc-filter" data-nc-filter="support">Support</button>
         </div>
 
         <div class="nc-body" data-nc-list>
             <div class="nc-loading">Loading…</div>
         </div>
 
-        <div class="nc-footer" data-nc-footer style="display:none;">
-            <button type="button" class="nc-load-more" data-nc-load-more>Load more</button>
+        <div class="nc-footer" data-nc-footer>
+            <a href="{{ route('notifications.all') }}" class="nc-show-all" data-nc-show-all>Show all</a>
         </div>
     </div>
 </div>
 
-<script src="{{ asset('js/notification-center.js') }}" defer></script>
+<script src="{{ asset('js/notification-center.js') }}?v={{ @filemtime(public_path('js/notification-center.js')) ?: '3' }}" defer></script>

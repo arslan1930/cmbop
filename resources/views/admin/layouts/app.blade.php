@@ -193,11 +193,6 @@
     </div>
 
     <div class="d-flex align-items-center gap-2">
-        <button type="button" id="toggleDarkMode" class="topbar-icon-btn" title="Dark mode" aria-label="Toggle dark mode">
-            <i class="fa fa-moon" aria-hidden="true"></i>
-            <i class="fa fa-sun d-none" aria-hidden="true"></i>
-        </button>
-
         <div class="dropdown">
             <button class="btn dropdown-toggle d-flex align-items-center gap-1"
                     data-bs-toggle="dropdown"
@@ -301,32 +296,8 @@
         }
     });
 
-    const darkModeBtn = document.getElementById('toggleDarkMode');
-    const moonIcon = darkModeBtn.querySelector('.fa-moon');
-    const sunIcon = darkModeBtn.querySelector('.fa-sun');
-    const logoSidebar = document.getElementById('logoSidebar');
-    const logoNavbar = document.getElementById('logoNavbar');
-
-    if (localStorage.getItem('layoutDarkMode') === 'true') {
-        document.body.classList.add('layout-dark');
-        moonIcon.classList.add('d-none');
-        sunIcon.classList.remove('d-none');
-        logoSidebar.src = "{{ asset('assets/img/logo2.png') }}";
-        logoNavbar.src = "{{ asset('assets/img/logo2.png') }}";
-        darkModeBtn.setAttribute('title', 'Light mode');
-        darkModeBtn.setAttribute('aria-label', 'Switch to light mode');
-    }
-
-    darkModeBtn.addEventListener('click', () => {
-        const isDark = document.body.classList.toggle('layout-dark');
-        moonIcon.classList.toggle('d-none', isDark);
-        sunIcon.classList.toggle('d-none', !isDark);
-        localStorage.setItem('layoutDarkMode', isDark);
-        logoSidebar.src = isDark ? "{{ asset('assets/img/logo2.png') }}" : "{{ asset('assets/img/logo1.png') }}";
-        logoNavbar.src = isDark ? "{{ asset('assets/img/logo2.png') }}" : "{{ asset('assets/img/logo1.png') }}";
-        darkModeBtn.setAttribute('title', isDark ? 'Light mode' : 'Dark mode');
-        darkModeBtn.setAttribute('aria-label', isDark ? 'Switch to light mode' : 'Toggle dark mode');
-    });
+    document.body.classList.remove('layout-dark');
+    try { localStorage.removeItem('layoutDarkMode'); } catch (e) {}
 
     function setNavBadge(id, count) {
         const el = document.getElementById(id);

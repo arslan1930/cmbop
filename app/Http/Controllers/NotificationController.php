@@ -14,6 +14,42 @@ class NotificationController extends Controller
     {
     }
 
+    /**
+     * Full notification inbox page ("Show all").
+     */
+    public function all(Request $request)
+    {
+        $user = $request->user();
+        $role = $user->activeRole();
+
+        $layout = match ($role) {
+            'publisher' => 'publisher.layouts.app',
+            'admin', 'marketing' => 'admin.layouts.app',
+            default => 'advertiser.layouts.app',
+        };
+
+        $category = $request->get('category', 'all');
+        $status = $category === 'unread' ? 'unread' : $request->get('status', 'active');
+        $filterCategory = $category === 'unread' ? 'all' : $category;
+
+        $paginator = $this->notifications->listForUser($user->id, [
+            'status' => $status,
+            'category' => $filterCategory,
+            'q' => $request->get('q'),
+        ], 30);
+
+        return view('notifications.all', [
+            'layout' => $layout,
+            'notifications' => $paginator,
+            'unreadCount' => $this->notifications->unreadCount($user->id),
+            'filters' => [
+                'status' => $status,
+                'category' => $category,
+                'q' => $request->get('q', ''),
+            ],
+        ]);
+    }
+
     public function index(Request $request)
     {
         $user = $request->user();
