@@ -526,6 +526,11 @@
             <i class="fa fa-coins"></i> <span>Add Funds</span>
         </a>
         
+        <!-- Analytics -->
+        <a href="{{ route('advertiser.analytics') }}" class="{{ request()->routeIs('advertiser.analytics*') ? 'active' : '' }}">
+            <i class="fa fa-chart-pie"></i> <span>Analytics</span>
+        </a>
+
         <!-- Reports -->
         <a href="{{ route('advertiser.reports') }}" class="{{ request()->routeIs('advertiser.reports') ? 'active' : '' }}">
             <i class="fa fa-chart-line"></i> <span>Reports</span>

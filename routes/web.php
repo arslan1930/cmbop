@@ -30,6 +30,7 @@ use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
 use App\Http\Controllers\Admin\ActivityLogController as AdminActivityLogController;
 use App\Http\Controllers\Advertiser\ProjectController;
 use App\Http\Controllers\Advertiser\CatalogController;
+use App\Http\Controllers\Advertiser\AnalyticsController;
 use App\Http\Controllers\Advertiser\CampaignController;
 use App\Http\Controllers\Advertiser\AddFundsController;
 use App\Http\Controllers\Advertiser\ReportsController;
@@ -411,8 +412,24 @@ Route::middleware(['auth','verified', RoleMiddleware::class . ':advertiser'])
                     return $site;
                 });
 
-            return view('advertiser.dashboard', compact('stats', 'recentOrders', 'recommendedSites'));
+            $analyticsPreview = app(\App\Services\AdvertiserAnalyticsService::class)->build($user);
+            $dashboardInsights = array_slice($analyticsPreview['insights'] ?? [], 0, 3);
+            $dashboardComparisons = $analyticsPreview['comparisons'] ?? null;
+            $hasSpendHistory = (bool) ($analyticsPreview['has_spend'] ?? false);
+
+            return view('advertiser.dashboard', compact(
+                'stats',
+                'recentOrders',
+                'recommendedSites',
+                'dashboardInsights',
+                'dashboardComparisons',
+                'hasSpendHistory'
+            ));
         })->name('dashboard');
+
+        // Advanced analytics & insights
+        Route::get('/analytics', [AnalyticsController::class, 'index'])->name('analytics');
+        Route::get('/analytics/export', [AnalyticsController::class, 'export'])->name('analytics.export');
 
         // Balance routes
         Route::get('/balance', [App\Http\Controllers\Advertiser\BalanceController::class, 'index'])->name('balance');
