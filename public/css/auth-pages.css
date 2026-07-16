@@ -151,8 +151,8 @@
 
 .auth-proof-list li {
   display: flex;
-  align-items: flex-start;
-  gap: 12px;
+  align-items: center;
+  gap: 14px;
   background: rgba(255, 255, 255, 0.12);
   border: 1px solid rgba(255, 255, 255, 0.2);
   border-radius: 14px;
@@ -160,42 +160,38 @@
 }
 
 .auth-proof-icon {
-  width: 40px;
-  height: 40px;
-  border-radius: 11px;
+  width: 46px;
+  height: 46px;
+  min-width: 46px;
+  min-height: 46px;
+  border-radius: 12px;
   background: #ffffff !important;
   color: #0b6266 !important;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
   flex-shrink: 0;
-  font-size: 1.05rem;
-  line-height: 1;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  line-height: 0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
-.auth-proof-icon i,
 .auth-proof-icon svg {
   display: block !important;
-  width: 18px;
-  height: 18px;
-  color: #0b6266 !important;
+  width: 24px !important;
+  height: 24px !important;
+  margin: 0 !important;
+  flex: 0 0 auto;
   fill: none;
   stroke: #0b6266;
-  stroke-width: 2;
+  stroke-width: 2.1;
   stroke-linecap: round;
   stroke-linejoin: round;
+  overflow: visible;
 }
 
-.auth-proof-icon i {
-  font-family: "Font Awesome 6 Free" !important;
-  font-weight: 900 !important;
-  font-style: normal !important;
-  font-size: 16px !important;
-  line-height: 1 !important;
-  width: auto;
-  height: auto;
-  -webkit-font-smoothing: antialiased;
+.auth-proof-icon svg circle[fill] {
+  fill: #0b6266;
+  stroke: none;
 }
 
 .auth-proof-list strong {
