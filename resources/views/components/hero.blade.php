@@ -140,15 +140,9 @@
     height: 100%;
     text-decoration: none;
     color: inherit;
-    /* Soft blend into hero background — no hard cut edges */
-    -webkit-mask-image:
-      linear-gradient(to right, transparent 0%, #000 8%, #000 72%, transparent 100%),
-      linear-gradient(to bottom, transparent 0%, #000 10%, #000 78%, transparent 100%);
-    mask-image:
-      linear-gradient(to right, transparent 0%, #000 8%, #000 72%, transparent 100%),
-      linear-gradient(to bottom, transparent 0%, #000 10%, #000 78%, transparent 100%);
-    -webkit-mask-composite: source-in;
-    mask-composite: intersect;
+    /* Fade only on the right edge into the background */
+    -webkit-mask-image: linear-gradient(to right, #000 0%, #000 78%, transparent 100%);
+    mask-image: linear-gradient(to right, #000 0%, #000 78%, transparent 100%);
     -webkit-mask-repeat: no-repeat;
     mask-repeat: no-repeat;
     -webkit-mask-size: 100% 100%;
@@ -160,9 +154,7 @@
     position: absolute;
     inset: 0;
     pointer-events: none;
-    background:
-      linear-gradient(90deg, rgba(244, 250, 251, 0.55) 0%, transparent 18%, transparent 70%, rgba(255, 255, 255, 0.65) 100%),
-      linear-gradient(180deg, rgba(232, 247, 247, 0.45) 0%, transparent 22%, transparent 70%, rgba(255, 255, 255, 0.7) 100%);
+    background: linear-gradient(90deg, transparent 0%, transparent 72%, rgba(255, 255, 255, 0.75) 100%);
     z-index: 2;
   }
 
@@ -175,20 +167,20 @@
     object-fit: cover;
     object-position: left top;
     border: none;
-    border-radius: 0;
-    box-shadow: none;
+    border-radius: 18px 0 0 0;
+    box-shadow: -12px 18px 40px rgba(11, 98, 102, 0.12);
     transition: transform 0.35s ease, filter 0.35s ease;
   }
 
   .slb-hero-catalog-link:hover .slb-hero-product {
-    transform: scale(1.015);
+    transform: scale(1.01);
     filter: brightness(1.02);
   }
 
   .slb-hero-catalog-hint {
     position: absolute;
-    left: 14%;
-    bottom: 14%;
+    left: 18px;
+    bottom: 18px;
     z-index: 3;
     display: inline-flex;
     align-items: center;
@@ -243,15 +235,26 @@
       margin-left: auto;
       margin-right: auto;
     }
+    .slb-hero-visual {
+      min-height: 320px;
+    }
+    .slb-hero-catalog-link {
+      -webkit-mask-image:
+        linear-gradient(to right, transparent 0%, #000 6%, #000 94%, transparent 100%),
+        linear-gradient(to bottom, transparent 0%, #000 8%, #000 85%, transparent 100%);
+      mask-image:
+        linear-gradient(to right, transparent 0%, #000 6%, #000 94%, transparent 100%),
+        linear-gradient(to bottom, transparent 0%, #000 8%, #000 85%, transparent 100%);
+    }
     .slb-hero-product {
-      min-height: 280px;
-      max-height: 420px;
-      border-radius: 16px 16px 0 0;
-      border-right: 1px solid rgba(11, 98, 102, 0.1);
+      min-height: 300px;
     }
     .slb-hero-catalog-hint {
       opacity: 1;
       transform: none;
+      left: 50%;
+      bottom: 12%;
+      translate: -50% 0;
     }
   }
 
