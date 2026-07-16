@@ -455,19 +455,69 @@ document.addEventListener('DOMContentLoaded', function () {
     <table class="table table-borderless align-middle mb-0">
         <thead class="table-light">
             <tr>
-                <th class="text-center" style="min-width: 250px;">Site</th>
-                <th class="text-center">Category</th>
-                <th class="text-center">Monthly Traffic</th>
-                <th class="text-center">
-                    <abbr class="metric-abbr text-decoration-none" title="Ahrefs Domain Rating — how strong the site’s backlink profile is (0–100)">DR</abbr>
-                    <span class="d-block small text-muted fw-normal">Ahrefs Domain Rating</span>
+                <th class="text-start catalog-th" style="min-width: 250px;">
+                    <span class="catalog-th-label">
+                        Site
+                        <i class="fa fa-circle-info catalog-th-info"
+                           data-bs-toggle="tooltip"
+                           data-bs-placement="top"
+                           title="Publisher website listing. Reveal the URL to inspect the domain before buying."></i>
+                    </span>
                 </th>
-                <th class="text-center">
-                    <abbr class="metric-abbr text-decoration-none" title="Moz Domain Authority — overall site authority score (0–100)">DA</abbr>
-                    <span class="d-block small text-muted fw-normal">Moz Domain Authority</span>
+                <th class="text-center catalog-th">
+                    <span class="catalog-th-label">
+                        Category
+                        <i class="fa fa-circle-info catalog-th-info"
+                           data-bs-toggle="tooltip"
+                           data-bs-placement="top"
+                           title="Topic niches this site accepts for guest posts and placements."></i>
+                    </span>
                 </th>
-                <th class="text-center">Language</th>
-                <th class="text-center" style="min-width: 180px;">Action</th>
+                <th class="text-center catalog-th">
+                    <span class="catalog-th-label">
+                        Traffic
+                        <i class="fa fa-circle-info catalog-th-info"
+                           data-bs-toggle="tooltip"
+                           data-bs-placement="top"
+                           title="Estimated monthly visits (Semrush). Higher traffic usually means more reach."></i>
+                    </span>
+                </th>
+                <th class="text-center catalog-th">
+                    <span class="catalog-th-label">
+                        DR
+                        <i class="fa fa-circle-info catalog-th-info"
+                           data-bs-toggle="tooltip"
+                           data-bs-placement="top"
+                           title="Ahrefs Domain Rating (0–100): how strong the site’s backlink profile is."></i>
+                    </span>
+                </th>
+                <th class="text-center catalog-th">
+                    <span class="catalog-th-label">
+                        DA
+                        <i class="fa fa-circle-info catalog-th-info"
+                           data-bs-toggle="tooltip"
+                           data-bs-placement="top"
+                           title="Moz Domain Authority (0–100): overall site authority score."></i>
+                    </span>
+                </th>
+                <th class="text-center catalog-th">
+                    <span class="catalog-th-label">
+                        Language
+                        <i class="fa fa-circle-info catalog-th-info"
+                           data-bs-toggle="tooltip"
+                           data-bs-placement="top"
+                           title="Primary language of the website’s content and audience."></i>
+                    </span>
+                </th>
+                <th class="text-center catalog-th" style="min-width: 180px;">
+                    <span class="catalog-th-label">
+                        Action
+                        <i class="fa fa-circle-info catalog-th-info"
+                           data-bs-toggle="tooltip"
+                           data-bs-placement="top"
+                           title="Buy a placement, or save/blacklist the site for later."></i>
+                    </span>
+                </th>
             </tr>
         </thead>
         <tbody>
@@ -559,7 +609,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     </div>
                 </td>
 
-                <td>
+                <td class="text-center catalog-stat-cell">
                    @php
     $categoryArray = [];
 
@@ -630,54 +680,41 @@ document.addEventListener('DOMContentLoaded', function () {
 @endif
                 </td>
 
-                <td>
-                    <div class="d-flex align-items-center gap-2">
-                        <img src="{{ asset('assets/img/traffic.svg') }}" alt="Traffic" style="width: 18px; height: 18px;" onerror="this.style.display='none'">
-                        <span class="fw-semibold" title="Monthly Traffic Semrush estimate">
-                            {{ number_format($site->traffic) }}
-                        </span>
+                <td class="text-center catalog-stat-cell">
+                    <div class="catalog-stat">
+                        <img src="{{ asset('assets/img/traffic.svg') }}" alt="" style="width: 16px; height: 16px;" onerror="this.style.display='none'">
+                        <span class="fw-semibold">{{ number_format($site->traffic) }}</span>
                     </div>
                 </td>
 
-                <td>
-                    <div class="d-flex align-items-center gap-2">
-                        <img src="{{ asset('assets/img/ahref.jpeg') }}" alt="Ahrefs Domain Rating" style="width: 18px; height: 18px; border-radius: 2px;" onerror="this.style.display='none'">
-                        <span class="fw-semibold text-info"
-                              data-bs-toggle="tooltip"
-                              data-bs-placement="top"
-                              title="Ahrefs Domain Rating (DR): backlink strength, 0–100">
-                            {{ $site->dr }}
-                        </span>
+                <td class="text-center catalog-stat-cell">
+                    <div class="catalog-stat">
+                        <img src="{{ asset('assets/img/ahref.jpeg') }}" alt="" style="width: 16px; height: 16px; border-radius: 2px;" onerror="this.style.display='none'">
+                        <span class="fw-semibold text-info">{{ $site->dr }}</span>
                     </div>
                 </td>
 
-                <td>
-                    <div class="d-flex align-items-center gap-2">
-                        <img src="{{ asset('assets/img/moz_da.png') }}" alt="Moz Domain Authority" style="width: 18px; height: 18px;" onerror="this.style.display='none'">
-                        <span class="fw-semibold text-primary"
-                              data-bs-toggle="tooltip"
-                              data-bs-placement="top"
-                              title="Moz Domain Authority (DA): site authority, 0–100">
-                            {{ $site->da }}
-                        </span>
+                <td class="text-center catalog-stat-cell">
+                    <div class="catalog-stat">
+                        <img src="{{ asset('assets/img/moz_da.png') }}" alt="" style="width: 16px; height: 16px;" onerror="this.style.display='none'">
+                        <span class="fw-semibold text-primary">{{ $site->da }}</span>
                     </div>
                 </td>
 
-                <td>
+                <td class="text-center catalog-stat-cell">
                     <div class="d-flex flex-column align-items-center gap-1">
-                        <span style="font-size: 24px;">{!! getLanguageFlag($site->language) !!}</span>
+                        <span style="font-size: 22px; line-height: 1;">{!! getLanguageFlag($site->language) !!}</span>
                         <span class="text-muted small text-center">{{ fullLanguage($site->language) }}</span>
                     </div>
                 </td>
 
-                <td>
+                <td class="text-center catalog-stat-cell">
                     <div class="d-flex flex-column gap-2 align-items-center">
                         <button class="btn btn-sm buy-now d-inline-flex justify-content-center align-items-center gap-2" 
-                                style="background-color: #3aaeb2; color: white;"
+                                style="background-color: #3aaeb2; color: white; padding: 6px 12px; font-size: 13px; border-radius: 6px;"
                                 data-id="{{ $site->id }}"
                                 data-base-price="{{ $site->price }}"
-                                data-name="{{ $site->site_name }}"
-                                style="padding: 6px 12px; font-size: 13px; border-radius: 6px;">
+                                data-name="{{ $site->site_name }}">
                             <i class="fa-solid fa-cart-plus"></i>
                             <span>Buy</span>
                             <span class="fw-semibold base-price-display">€{{ number_format($site->price, 2) }}</span>
@@ -951,6 +988,67 @@ document.addEventListener('DOMContentLoaded', function () {
 }
 
 thead th {
+    text-align: center;
+}
+
+.catalog-th {
+    white-space: nowrap;
+    vertical-align: middle;
+}
+
+.catalog-th-label {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    line-height: 1.2;
+}
+
+.catalog-th-info {
+    font-size: 0.75rem;
+    color: #6c757d;
+    cursor: help;
+    opacity: 0.75;
+    transition: color 0.15s ease, opacity 0.15s ease;
+}
+
+.catalog-th-info:hover,
+.catalog-th-label:hover .catalog-th-info {
+    color: #0b6266;
+    opacity: 1;
+}
+
+.catalog-stat-cell {
+    text-align: center !important;
+    vertical-align: middle;
+}
+
+.catalog-stat {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    min-width: 4.5rem;
+    line-height: 1.2;
+}
+
+.catalog-stat .fw-semibold {
+    font-variant-numeric: tabular-nums;
+    font-size: 0.95rem;
+}
+
+.categories-wrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+}
+
+.categories-wrapper .categories-column {
+    align-items: center;
+}
+
+.categories-wrapper .toggle-cats-btn {
     text-align: center;
 }
 
