@@ -162,13 +162,27 @@
 .recommended-site {
     display: flex; align-items: center; justify-content: space-between; gap: 12px;
     padding: 12px 14px; border: 1px solid #e5e7eb; border-radius: 10px;
-    background: #fff; text-decoration: none; color: inherit;
+    background: #fff; color: inherit;
     transition: border-color .2s ease, background .2s ease;
 }
-.recommended-site:hover { border-color: #4ECDCB; background: #f0fbfb; color: inherit; }
-.recommended-site .rs-name { font-weight: 600; font-size: 14px; color: #0f172a; }
+.recommended-site:hover { border-color: #4ECDCB; background: #f0fbfb; }
+.recommended-site .rs-name {
+    font-weight: 400;
+    font-size: 14px;
+    color: #0b6266;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    word-break: break-all;
+}
+.recommended-site .rs-name:hover { color: #3aaeb2; }
 .recommended-site .rs-meta { font-size: 12px; color: #64748b; margin: 0; }
-.recommended-site .rs-price { font-weight: 700; color: #0b6266; white-space: nowrap; }
+.recommended-site .rs-price {
+    font-weight: 600;
+    color: #0b6266;
+    white-space: nowrap;
+    text-decoration: none;
+}
+.recommended-site .rs-price:hover { color: #3aaeb2; }
 </style>
 
 <div class="d-flex flex-wrap align-items-end justify-content-between gap-2 mb-4">
@@ -233,25 +247,20 @@
                     <div class="recommended-sites">
                         @foreach($recommendedSites as $site)
                             @php
-                                $host = (string) \Illuminate\Support\Str::of($site->site_url)
+                                $displayUrl = (string) \Illuminate\Support\Str::of($site->site_url)
                                     ->replaceMatches('/^(https?:\/\/)?(www\.)?/', '')
                                     ->before('/');
-                                $parts = explode('.', $host);
-                                if (count($parts) >= 2) {
-                                    $tld = array_pop($parts);
-                                    $name = implode('.', $parts);
-                                    $masked = substr($name, 0, min(4, max(2, strlen($name)))) . '***.' . $tld;
-                                } else {
-                                    $masked = substr($host, 0, 3) . '******';
-                                }
+                                $href = \Illuminate\Support\Str::startsWith($site->site_url, ['http://', 'https://'])
+                                    ? $site->site_url
+                                    : 'https://' . ltrim((string) $site->site_url, '/');
                             @endphp
-                            <a href="{{ route('advertiser.catalog', ['sort' => 'dr_desc']) }}" class="recommended-site">
+                            <div class="recommended-site">
                                 <div>
-                                    <div class="rs-name">{{ $masked }}</div>
+                                    <a href="{{ $href }}" target="_blank" rel="noopener noreferrer" class="rs-name">{{ $displayUrl }}</a>
                                     <p class="rs-meta mb-0">DR {{ $site->dr }} · {{ fullLanguage($site->language) }}</p>
                                 </div>
-                                <span class="rs-price">€{{ number_format($site->display_price, 2) }}</span>
-                            </a>
+                                <a href="{{ route('advertiser.catalog', ['sort' => 'dr_desc']) }}" class="rs-price">€{{ number_format($site->display_price, 2) }}</a>
+                            </div>
                         @endforeach
                     </div>
                 @endif
@@ -351,25 +360,20 @@
                     <div class="recommended-sites">
                         @foreach($recommendedSites as $site)
                             @php
-                                $host = (string) \Illuminate\Support\Str::of($site->site_url)
+                                $displayUrl = (string) \Illuminate\Support\Str::of($site->site_url)
                                     ->replaceMatches('/^(https?:\/\/)?(www\.)?/', '')
                                     ->before('/');
-                                $parts = explode('.', $host);
-                                if (count($parts) >= 2) {
-                                    $tld = array_pop($parts);
-                                    $name = implode('.', $parts);
-                                    $masked = substr($name, 0, min(4, max(2, strlen($name)))) . '***.' . $tld;
-                                } else {
-                                    $masked = substr($host, 0, 3) . '******';
-                                }
+                                $href = \Illuminate\Support\Str::startsWith($site->site_url, ['http://', 'https://'])
+                                    ? $site->site_url
+                                    : 'https://' . ltrim((string) $site->site_url, '/');
                             @endphp
-                            <a href="{{ route('advertiser.catalog', ['sort' => 'dr_desc']) }}" class="recommended-site">
+                            <div class="recommended-site">
                                 <div>
-                                    <div class="rs-name">{{ $masked }}</div>
+                                    <a href="{{ $href }}" target="_blank" rel="noopener noreferrer" class="rs-name">{{ $displayUrl }}</a>
                                     <p class="rs-meta mb-0">DR {{ $site->dr }}</p>
                                 </div>
-                                <span class="rs-price">€{{ number_format($site->display_price, 2) }}</span>
-                            </a>
+                                <a href="{{ route('advertiser.catalog', ['sort' => 'dr_desc']) }}" class="rs-price">€{{ number_format($site->display_price, 2) }}</a>
+                            </div>
                         @endforeach
                     </div>
                 @endif
