@@ -5,6 +5,8 @@ namespace App\Providers;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\View;
+use Illuminate\Mail\Events\MessageSent;
+use App\Listeners\LogSentEmail;
 use App\Models\Project;
 use SocialiteProviders\Manager\SocialiteWasCalled;
 
@@ -20,6 +22,9 @@ class AppServiceProvider extends ServiceProvider
         Event::listen(function (SocialiteWasCalled $event) {
             $event->extendSocialite('apple', \SocialiteProviders\Apple\Provider::class);
         });
+
+        // Non-invasive email logging for Admin Email Center (does not alter send call sites)
+        Event::listen(MessageSent::class, LogSentEmail::class);
 
         View::composer('*', function ($view) {
 

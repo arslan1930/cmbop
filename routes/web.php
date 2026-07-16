@@ -28,6 +28,7 @@ use App\Http\Controllers\Admin\BlogController as AdminBlogController;
 use App\Http\Controllers\Admin\AdminWithdrawalController;
 use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
 use App\Http\Controllers\Admin\ActivityLogController as AdminActivityLogController;
+use App\Http\Controllers\Admin\EmailCenterController as AdminEmailCenterController;
 use App\Http\Controllers\Advertiser\ProjectController;
 use App\Http\Controllers\Advertiser\CatalogController;
 use App\Http\Controllers\Advertiser\AnalyticsController;
@@ -316,6 +317,12 @@ Route::middleware(['auth','verified', RoleMiddleware::class . ':admin,marketing'
             Route::resource('blogs', AdminBlogController::class);
             Route::get('blogs/{id}/toggle-status', [AdminBlogController::class, 'toggleStatus'])->name('blogs.toggle-status');
             Route::post('blogs/upload-image', [AdminBlogController::class, 'uploadImage'])->name('blogs.upload-image');
+
+            // Email Center — manage/monitor emails without changing send flows
+            Route::get('/emails', [AdminEmailCenterController::class, 'index'])->name('emails.index');
+            Route::get('/emails/preview/{key}', [AdminEmailCenterController::class, 'preview'])->name('emails.preview');
+            Route::post('/emails/test', [AdminEmailCenterController::class, 'sendTest'])->name('emails.test');
+            Route::post('/emails/retry', [AdminEmailCenterController::class, 'retryFailed'])->name('emails.retry');
 
             Route::get('/reports', function () {
                 return view('admin.reports');

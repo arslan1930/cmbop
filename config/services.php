@@ -57,4 +57,8 @@ return [
         'key_id' => env('APPLE_KEY_ID'),
         'private_key' => env('APPLE_PRIVATE_KEY'),
     ],
+
+    'trustpilot' => [
+        'review_url' => env('TRUSTPILOT_REVIEW_URL', 'https://www.trustpilot.com'),
+    ],
 ];

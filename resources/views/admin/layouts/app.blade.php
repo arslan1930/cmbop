@@ -154,6 +154,10 @@
         <i class="fa fa-blog me-2"></i>
         <span>Blogs</span>
     </a>
+
+        <a href="{{ route('admin.emails.index') }}" class="{{ request()->routeIs('admin.emails.*') ? 'active' : '' }}">
+            <i class="fa fa-envelope-open-text"></i> <span>Email Center</span>
+        </a>
         @endif
 
         <a href="{{ route('admin.activity-logs.index') }}" class="{{ request()->routeIs('admin.activity-logs.*') ? 'active' : '' }}">

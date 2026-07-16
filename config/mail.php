@@ -115,4 +115,15 @@ return [
         'name' => env('MAIL_FROM_NAME', env('APP_NAME', 'Laravel')),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Admin Alert Email
+    |--------------------------------------------------------------------------
+    |
+    | Used for operational alerts (e.g. scheduler failure output) and as a
+    | fallback recipient when no admin users are found.
+    |
+    */
+    'admin_email' => env('ADMIN_EMAIL'),
+
 ];
