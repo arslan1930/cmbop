@@ -3,7 +3,12 @@
 @section('content')
 <div class="container-fluid py-3">
 
-    <h4 class="mb-4 fw-bold">Sites Management</h4>
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-4">
+        <h4 class="mb-0 fw-bold">Sites Management</h4>
+        <a href="{{ route('admin.site-enrichment.index') }}" class="btn btn-sm btn-outline-primary">
+            Enrichment &amp; scan failures
+        </a>
+    </div>
 
     @if(!empty($unverifiedFilter))
         <div class="alert alert-warning border-0 shadow-sm d-flex flex-wrap justify-content-between align-items-center gap-2">
@@ -521,6 +526,37 @@ document.addEventListener('click', function(e){
     }
 });
 
+/* ================= ENRICHMENT ================= */
+document.addEventListener('click', async function(e){
+    const enrichBtn = e.target.closest('.enrich-site');
+    const shotBtn = e.target.closest('.refresh-screenshot');
+    if(!enrichBtn && !shotBtn) return;
+
+    const btn = enrichBtn || shotBtn;
+    const id = btn.dataset.id;
+    const url = enrichBtn ? `/admin/sites/${id}/enrich` : `/admin/sites/${id}/refresh-screenshot`;
+    btn.disabled = true;
+    try {
+        const res = await fetch(url, {
+            method: 'POST',
+            headers: {
+                'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                'Accept': 'application/json',
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ sync: true }),
+        });
+        const data = await res.json();
+        toast(data.message || (data.success ? 'Done' : 'Failed'), data.success ? 'success' : 'error');
+        const userId = sessionStorage.getItem('selected_user');
+        if (userId && data.success) fetchUserSites(userId);
+    } catch (err) {
+        toast('Enrichment request failed', 'error');
+    } finally {
+        btn.disabled = false;
+    }
+});
+
 /* ================= HELPER ================= */
 function escapeHtml(str) {
     if(!str) return '';
@@ -604,6 +640,14 @@ function renderSites(data){
                                         <i class="fa fa-check"></i> Verify
                                        </button>`}
                             </div>
+                            <div class="row-2">
+                                <button class="btn btn-sm btn-outline-info enrich-site" data-id="${site.id}" title="Refresh SEO metrics + screenshot">
+                                    <i class="fa fa-sync"></i> Enrich
+                                </button>
+                                <button class="btn btn-sm btn-outline-secondary refresh-screenshot" data-id="${site.id}" title="Refresh homepage screenshot">
+                                    <i class="fa fa-camera"></i> Shot
+                                </button>
+                            </div>
                         </div>
                     </td>
                 </tr>
@@ -615,6 +659,9 @@ function renderSites(data){
                                 <div class="col-md-4"><strong>Domain</strong><div>${escapeHtml(site.domain ?? '-')}</div></div>
                                 <div class="col-md-4"><strong>DA/DR</strong><div>${site.da ?? '-'} / ${site.dr ?? '-'}</div></div>
                                 <div class="col-md-4"><strong>Traffic</strong><div>${site.traffic ?? '-'}</div></div>
+                                <div class="col-md-4"><strong>Enrichment</strong><div>${escapeHtml(site.enrichment_status ?? 'pending')}${site.metrics_fetched_at ? ' · metrics ' + new Date(site.metrics_fetched_at).toLocaleString() : ''}</div></div>
+                                <div class="col-md-4"><strong>Screenshot</strong><div>${site.screenshot_path ? `<img src="/storage/${escapeHtml(site.screenshot_thumb_path || site.screenshot_path)}" style="max-width:160px;border-radius:8px;margin-top:4px;" loading="lazy">` : '—'}</div></div>
+                                ${site.enrichment_error ? `<div class="col-12"><strong>Last scan error</strong><div class="text-danger small">${escapeHtml(site.enrichment_error)}</div></div>` : ''}
                                 <div class="col-md-4"><strong>Countries</strong><div>${(site.countries && site.countries.length ? site.countries : [site.country]).filter(Boolean).map(c => String(c).toUpperCase()).join(', ') || '-'}</div></div>
                                 <div class="col-md-4"><strong>Languages</strong><div>${(site.languages && site.languages.length ? site.languages : [site.language]).filter(Boolean).map(l => String(l).toUpperCase()).join(', ') || '-'}</div></div>
                                 <div class="col-md-4"><strong>Category</strong><div>${escapeHtml(site.category ?? '-')}</div></div>

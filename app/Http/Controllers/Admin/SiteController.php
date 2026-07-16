@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Jobs\EnrichSiteJob;
 use App\Models\User;
 use App\Models\Site;
 use App\Mail\SiteStatusNotification;
@@ -128,6 +129,14 @@ class SiteController extends Controller
             'site_image'
         ]);
 
+        // Manual metric edits from admin — mark as manual so auto-refresh does not overwrite.
+        if ($request->hasAny(['da', 'dr', 'traffic'])) {
+            $data['metrics_manual'] = true;
+            $data['metrics_provider'] = 'manual';
+            $data['metrics_fetched_at'] = now();
+            $data['enrichment_status'] = 'ready';
+        }
+
         // Handle site_image - only update if provided (not null)
         if ($request->has('site_image') && $request->site_image !== null) {
             $data['site_image'] = $request->site_image;
@@ -197,6 +206,11 @@ class SiteController extends Controller
             ['from' => $oldStatus, 'to' => (int) $site->verified],
             $site->site_name
         );
+
+        // After verification, capture screenshot + refresh metrics in the background.
+        if ($site->verified && config('site_enrichment.enabled', true)) {
+            EnrichSiteJob::dispatch($site->id, 'verify', true, true);
+        }
 
         $emailSent = false;
 

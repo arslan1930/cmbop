@@ -17,6 +17,15 @@ class Site extends Model
         'da',
         'dr',
         'traffic',
+        'metrics_provider',
+        'metrics_fetched_at',
+        'screenshot_path',
+        'screenshot_thumb_path',
+        'favicon_path',
+        'screenshot_fetched_at',
+        'enrichment_status',
+        'enrichment_error',
+        'metrics_manual',
         'turnaround_time',
         'country',
         'countries',
@@ -53,7 +62,15 @@ class Site extends Model
         'countries' => 'array',
         'languages' => 'array',
         'site_image' => 'string', // ADDED - cast site_image to string
+        'metrics_manual' => 'boolean',
+        'metrics_fetched_at' => 'datetime',
+        'screenshot_fetched_at' => 'datetime',
     ];
+
+    public function enrichmentRuns()
+    {
+        return $this->hasMany(SiteEnrichmentRun::class);
+    }
 
     /**
      * Get the publisher that owns the site.
@@ -200,6 +217,130 @@ class Site extends Model
             return asset('storage/' . $this->site_image);
         }
         return null;
+    }
+
+    public function getScreenshotUrlAttribute(): ?string
+    {
+        $path = $this->screenshot_path ?: $this->site_image;
+        if (! $path) {
+            return null;
+        }
+
+        return asset('storage/'.$path);
+    }
+
+    public function getScreenshotThumbUrlAttribute(): ?string
+    {
+        $path = $this->screenshot_thumb_path ?: $this->screenshot_path ?: $this->site_image;
+        if (! $path) {
+            return null;
+        }
+
+        return asset('storage/'.$path);
+    }
+
+    public function getLogoUrlAttribute(): ?string
+    {
+        if ($this->favicon_path) {
+            return asset('storage/'.$this->favicon_path);
+        }
+
+        return $this->image_url;
+    }
+
+    /**
+     * Most recent enrichment timestamp for "Last updated" (metrics preferred).
+     * Does not fall back to updated_at — listing edits must not fake metric freshness.
+     */
+    public function getMetricsUpdatedAtAttribute(): ?\Illuminate\Support\Carbon
+    {
+        $candidates = array_filter([
+            $this->metrics_fetched_at,
+            $this->screenshot_fetched_at,
+        ]);
+
+        if ($candidates === []) {
+            return null;
+        }
+
+        return collect($candidates)->max();
+    }
+
+    public function metricsAreFresh(): bool
+    {
+        $at = $this->metrics_fetched_at;
+        if (! $at) {
+            return false;
+        }
+
+        $maxDays = (int) config('site_enrichment.max_age_days', 90);
+
+        return $at->gte(now()->subDays($maxDays));
+    }
+
+    /**
+     * Human label like "2 days ago". Blank when older than max age (do not show stale trust signals).
+     */
+    public function lastUpdatedLabel(): ?string
+    {
+        $at = $this->metrics_updated_at;
+        if (! $at) {
+            return null;
+        }
+
+        $maxDays = (int) config('site_enrichment.max_age_days', 90);
+        if ($at->lt(now()->subDays($maxDays))) {
+            return null;
+        }
+
+        return $at->diffForHumans();
+    }
+
+    public function formattedTraffic(): string
+    {
+        if ($this->traffic === null) {
+            return '—';
+        }
+
+        $n = (int) $this->traffic;
+        if ($n >= 1000000) {
+            return rtrim(rtrim(number_format($n / 1000000, 1), '0'), '.').'M';
+        }
+        if ($n >= 1000) {
+            return rtrim(rtrim(number_format($n / 1000, 1), '0'), '.').'K';
+        }
+
+        return number_format($n);
+    }
+
+    public function averagePublishLabel(): string
+    {
+        $raw = $this->publication_time ?: $this->turnaround_time;
+        if (! filled($raw)) {
+            return '—';
+        }
+
+        if (is_numeric($raw)) {
+            $days = (int) $raw;
+
+            return $days === 1 ? '1 Day' : $days.' Days';
+        }
+
+        return (string) $raw;
+    }
+
+    public function primaryCountryCode(): ?string
+    {
+        $codes = $this->countryCodes();
+
+        return $codes[0] ?? null;
+    }
+
+    public function primaryLanguageCode(): ?string
+    {
+        $codes = $this->languageCodes();
+
+        return $codes[0] ?? null;
     }
 
     /**

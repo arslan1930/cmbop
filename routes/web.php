@@ -280,6 +280,20 @@ Route::middleware(['auth','verified', RoleMiddleware::class . ':admin,marketing'
         Route::post('/sites/{id}/active', [AdminSiteController::class, 'toggleActive'])
             ->name('sites.active');
 
+        // Publisher catalog enrichment (metrics + screenshots)
+        Route::get('/site-enrichment', [\App\Http\Controllers\Admin\SiteEnrichmentController::class, 'index'])
+            ->name('site-enrichment.index');
+        Route::post('/sites/{id}/enrich', [\App\Http\Controllers\Admin\SiteEnrichmentController::class, 'enrich'])
+            ->name('sites.enrich');
+        Route::post('/sites/{id}/refresh-metrics', [\App\Http\Controllers\Admin\SiteEnrichmentController::class, 'refreshMetrics'])
+            ->name('sites.refresh-metrics');
+        Route::post('/sites/{id}/refresh-screenshot', [\App\Http\Controllers\Admin\SiteEnrichmentController::class, 'refreshScreenshot'])
+            ->name('sites.refresh-screenshot');
+        Route::post('/sites/{id}/manual-metrics', [\App\Http\Controllers\Admin\SiteEnrichmentController::class, 'manualMetrics'])
+            ->name('sites.manual-metrics');
+        Route::post('/site-enrichment/rerun-failed', [\App\Http\Controllers\Admin\SiteEnrichmentController::class, 'rerunFailed'])
+            ->name('site-enrichment.rerun-failed');
+
         Route::get('/activity-logs', [AdminActivityLogController::class, 'index'])
             ->name('activity-logs.index');
 

@@ -576,102 +576,105 @@ document.addEventListener('DOMContentLoaded', function () {
                         }
                     @endphp
 
-                    <div class="catalog-site-stack">
-                        <!-- URL Row -->
-                        <div class="d-flex align-items-center gap-2 flex-wrap">
-                            <span class="text-dark catalog-site-url"
-                                  id="url-masked-{{ $site->id }}"
-                                  data-glass-tip
-                                  data-glass-tip-title="Masked for publishers"
-                                  data-glass-tip-body="We hide part of the domain so publisher inventory isn’t scraped. Metrics stay visible — reveal the full URL when you’re ready to buy."
-                                  data-glass-tip-placement="top">
-                                {{ $maskedHost }}
-                            </span>
+                    <div class="catalog-site-stack catalog-publisher-card">
+                        <div class="catalog-publisher-card__media">
+                            <x-publisher-screenshot :site="$site" size="thumb" class="catalog-publisher-shot" />
+                            @if($site->logo_url)
+                                <img src="{{ $site->logo_url }}" alt="" class="catalog-publisher-logo" loading="lazy" onerror="this.style.display='none'">
+                            @endif
+                        </div>
+                        <div class="catalog-publisher-card__body">
+                            <div class="catalog-publisher-name">{{ $site->site_name }}</div>
+                            <!-- URL Row -->
+                            <div class="d-flex align-items-center gap-2 flex-wrap">
+                                <span class="text-dark catalog-site-url"
+                                      id="url-masked-{{ $site->id }}"
+                                      data-glass-tip
+                                      data-glass-tip-title="Masked for publishers"
+                                      data-glass-tip-body="We hide part of the domain so publisher inventory isn’t scraped. Metrics stay visible — reveal the full URL when you’re ready to buy."
+                                      data-glass-tip-placement="top">
+                                    {{ $maskedHost }}
+                                </span>
 
-                            <span class="url-full text-muted d-none catalog-site-url"
-                                  id="url-full-{{ $site->id }}">
-                                {{ $rawHost }}
-                            </span>
+                                <span class="url-full text-muted d-none catalog-site-url"
+                                      id="url-full-{{ $site->id }}">
+                                    {{ $rawHost }}
+                                </span>
 
-                            @if($site->verified)
-                                <button type="button"
-                                        class="site-chip site-chip--verified"
-                                        data-glass-tip
-                                        data-glass-tip-title="Verified Publisher"
-                                        data-glass-tip-body="This publisher has successfully completed our verification process and meets our platform's quality standards."
-                                        data-glass-tip-placement="top"
-                                        aria-label="Verified publisher">
-                                    <i class="fa-solid fa-circle-check" aria-hidden="true"></i>
-                                    <span>Verified</span>
+                                @if($site->verified)
+                                    <button type="button"
+                                            class="site-chip site-chip--verified"
+                                            data-glass-tip
+                                            data-glass-tip-title="Verified Publisher"
+                                            data-glass-tip-body="This publisher has successfully completed our verification process and meets our platform's quality standards."
+                                            data-glass-tip-placement="top"
+                                            aria-label="Verified publisher">
+                                        <i class="fa-solid fa-circle-check" aria-hidden="true"></i>
+                                        <span>Verified</span>
+                                    </button>
+                                @endif
+
+                                @if($isNew)
+                                    <button type="button"
+                                            class="site-badge-new"
+                                            data-glass-tip
+                                            data-glass-tip-title="New Listing"
+                                            data-glass-tip-body="Added in the last 30 days — fresh inventory worth reviewing early."
+                                            data-glass-tip-placement="top"
+                                            aria-label="New listing">
+                                        NEW
+                                    </button>
+                                @endif
+
+                                <button class="btn btn-sm btn-link text-secondary p-0 toggle-url btn-icon-quiet"
+                                        data-id="{{ $site->id }}"
+                                        title="Reveal or hide full URL"
+                                        aria-label="Reveal or hide full URL"
+                                        style="font-size: 15px;">
+                                    <i class="fa-regular fa-eye"></i>
                                 </button>
+
+                                <a href="{{ $site->site_url }}"
+                                   target="_blank"
+                                   rel="noopener noreferrer"
+                                   class="text-muted"
+                                   title="Open website"
+                                   aria-label="Open website in new tab"
+                                   style="display:inline-flex; align-items:center; text-decoration:none;">
+                                    <i class="fa-solid fa-arrow-up-right-from-square" style="font-size: 13px;" aria-hidden="true"></i>
+                                </a>
+
+                                <button type="button"
+                                        class="btn btn-sm btn-link text-muted p-0 expand-arrow"
+                                        id="arrow-{{ $site->id }}"
+                                        aria-label="Expand site details"
+                                        aria-expanded="false"
+                                        style="font-size: 13px; line-height: 1;">
+                                    <i class="fa-solid fa-chevron-down" aria-hidden="true"></i>
+                                </button>
+                            </div>
+
+                            @if($isBlacklisted)
+                            <div class="site-status-row" role="list" aria-label="Site status">
+                                <span class="site-chip site-chip--blacklist"
+                                      role="listitem"
+                                      tabindex="0"
+                                      data-glass-tip
+                                      data-glass-tip-title="Blacklisted"
+                                      data-glass-tip-body="You blacklisted this site — it stays dimmed in your catalog until you remove it."
+                                      data-glass-tip-placement="top"
+                                      aria-label="Blacklisted site details">
+                                    <i class="fa-solid fa-ban" aria-hidden="true"></i>
+                                    <span>Blacklisted</span>
+                                </span>
+                            </div>
                             @endif
 
-                            @if($isNew)
-                                <button type="button"
-                                        class="site-badge-new"
-                                        data-glass-tip
-                                        data-glass-tip-title="New Listing"
-                                        data-glass-tip-body="Added in the last 30 days — fresh inventory worth reviewing early."
-                                        data-glass-tip-placement="top"
-                                        aria-label="New listing">
-                                    NEW
-                                </button>
-                            @endif
+                            <x-publisher-seo-panel :site="$site" class="mt-2" />
 
-                            <button class="btn btn-sm btn-link text-secondary p-0 toggle-url btn-icon-quiet"
-                                    data-id="{{ $site->id }}"
-                                    title="Reveal or hide full URL"
-                                    aria-label="Reveal or hide full URL"
-                                    style="font-size: 15px;">
-                                <i class="fa-regular fa-eye"></i>
-                            </button>
-
-                            <a href="{{ $site->site_url }}"
-                               target="_blank"
-                               rel="noopener noreferrer"
-                               class="text-muted"
-                               title="Open website"
-                               aria-label="Open website in new tab"
-                               style="display:inline-flex; align-items:center; text-decoration:none;">
-                                <i class="fa-solid fa-arrow-up-right-from-square" style="font-size: 13px;" aria-hidden="true"></i>
-                            </a>
-
-                            <button type="button"
-                                    class="btn btn-sm btn-link text-muted p-0 expand-arrow"
-                                    id="arrow-{{ $site->id }}"
-                                    aria-label="Expand site details"
-                                    aria-expanded="false"
-                                    style="font-size: 13px; line-height: 1;">
-                                <i class="fa-solid fa-chevron-down" aria-hidden="true"></i>
-                            </button>
-                        </div>
-
-                        @if($isBlacklisted)
-                        <div class="site-status-row" role="list" aria-label="Site status">
-                            <span class="site-chip site-chip--blacklist"
-                                  role="listitem"
-                                  tabindex="0"
-                                  data-glass-tip
-                                  data-glass-tip-title="Blacklisted"
-                                  data-glass-tip-body="You blacklisted this site — it stays dimmed in your catalog until you remove it."
-                                  data-glass-tip-placement="top"
-                                  aria-label="Blacklisted site details">
-                                <i class="fa-solid fa-ban" aria-hidden="true"></i>
-                                <span>Blacklisted</span>
-                            </span>
-                        </div>
-                        @endif
-
-                        <!-- DoFollow Links -->
-                        <div class="text-muted catalog-site-meta">
-                            Max 03 DoFollow links
-                        </div>
-
-                        <!-- Turnaround Time -->
-                        <div>
-                            <span class="turnaround-badge catalog-site-meta">
-                                Turnaround: {{ $site->turnaround_time ?? 'N/A' }}
-                            </span>
+                            <div class="text-muted catalog-site-meta mt-1">
+                                From {{ $site->formatted_price }} · {{ $site->averagePublishLabel() }}
+                            </div>
                         </div>
                     </div>
                 </td>
@@ -818,30 +821,13 @@ document.addEventListener('DOMContentLoaded', function () {
 
                 <div class="row align-items-start g-4">
                     
-                    {{-- Bigger Image --}}
+                    {{-- Homepage screenshot / site preview --}}
                     <div class="col-md-3 text-center">
-                        <p><strong>Site Image:</strong></p>
-
-                        @if($site->site_image)
-                            <img src="{{ asset('storage/' . $site->site_image) }}"
-                                 alt="{{ $site->site_name }}"
-                                 loading="lazy"
-                                 class="site-image-thumbnail img-fluid"
-                                 style="
-                                    width: 280px;
-                                    height: 180px;
-                                    border-radius: 12px;    
-                                    object-fit: cover;
-                                    object-position: center;
-                                    border: 1px solid #ddd;
-                                    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-                                 ">
-                        @else
-                            <div class="bg-light border rounded d-inline-flex align-items-center justify-content-center"
-                                 style="width: 180px; height: 180px;">
-                                <i class="fa-solid fa-image text-muted" style="font-size: 40px;"></i>
-                            </div>
-                        @endif
+                        <p><strong>Homepage preview:</strong></p>
+                        <x-publisher-screenshot :site="$site" size="full" class="site-image-thumbnail img-fluid catalog-detail-shot" />
+                        <div class="mt-2">
+                            <x-publisher-seo-panel :site="$site" :compact="false" />
+                        </div>
                     </div>
 
                     {{-- Description --}}
@@ -1086,8 +1072,10 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         @endphp
         <article class="catalog-mobile-card {{ $isBlacklisted ? 'is-blacklisted' : '' }}" data-id="{{ $site->id }}">
+            <x-publisher-screenshot :site="$site" size="thumb" class="catalog-mobile-shot mb-2" />
             <div class="d-flex justify-content-between align-items-start gap-2 mb-2">
                 <div class="min-w-0">
+                    <div class="fw-semibold text-dark text-truncate">{{ $site->site_name }}</div>
                     <div class="fw-semibold text-dark text-truncate catalog-site-url" id="url-masked-mobile-{{ $site->id }}">{{ $maskedHost }}</div>
                     <div class="url-full text-muted small d-none text-truncate" id="url-full-mobile-{{ $site->id }}">{{ $rawHost }}</div>
                     <div class="d-flex flex-wrap align-items-center gap-1 mt-1">
@@ -1108,10 +1096,11 @@ document.addEventListener('DOMContentLoaded', function () {
                     <i class="fa-regular fa-eye" aria-hidden="true"></i>
                 </button>
             </div>
-            <div class="catalog-mobile-metrics catalog-power-col">
-                <div><span class="text-muted">Traffic</span><strong>{{ number_format($site->traffic) }}</strong></div>
-                <div><span class="text-muted">DR</span><strong>{{ $site->dr }}</strong></div>
-                <div><span class="text-muted">DA</span><strong>{{ $site->da }}</strong></div>
+            <x-publisher-seo-panel :site="$site" />
+            <div class="catalog-mobile-metrics catalog-power-col mt-2">
+                <div><span class="text-muted">Traffic</span><strong>{{ $site->formattedTraffic() }}</strong></div>
+                <div><span class="text-muted">DR</span><strong>{{ $site->dr ?? '—' }}</strong></div>
+                <div><span class="text-muted">DA</span><strong>{{ $site->da ?? '—' }}</strong></div>
                 <div><span class="text-muted">Lang</span><strong>{{ fullLanguage($site->language) }}</strong></div>
             </div>
             <div class="d-flex align-items-center gap-2 mt-3">
@@ -1170,6 +1159,94 @@ document.addEventListener('DOMContentLoaded', function () {
 </div>
 
 <style>
+.catalog-publisher-card {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+}
+.catalog-publisher-card__media {
+    position: relative;
+    flex: 0 0 112px;
+    width: 112px;
+}
+.catalog-publisher-shot,
+.publisher-screenshot {
+    display: block;
+    width: 100%;
+    aspect-ratio: 16 / 10;
+    object-fit: cover;
+    border-radius: 10px;
+    border: 1px solid #e8eef2;
+    background: #f1f5f9;
+}
+.publisher-screenshot--placeholder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #64748b;
+    font-size: 11px;
+    text-align: center;
+    padding: 8px;
+}
+.catalog-publisher-logo {
+    position: absolute;
+    left: 6px;
+    bottom: 6px;
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    object-fit: cover;
+    border: 1px solid #fff;
+    background: #fff;
+}
+.catalog-publisher-name {
+    font-weight: 650;
+    font-size: 0.95rem;
+    color: #0f172a;
+    margin-bottom: 2px;
+}
+.publisher-seo-panel {
+    background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    padding: 8px 10px;
+}
+.publisher-seo-panel__grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 10px;
+}
+.publisher-seo-metric {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 12px;
+    line-height: 1.2;
+    color: #334155;
+}
+.publisher-seo-metric__label {
+    color: #64748b;
+    font-weight: 500;
+}
+.publisher-seo-metric__value {
+    font-weight: 700;
+    color: #0f172a;
+}
+.publisher-seo-panel__updated {
+    margin-top: 6px;
+    font-size: 11px;
+    color: #64748b;
+}
+.catalog-detail-shot {
+    width: 280px !important;
+    max-width: 100%;
+    height: auto !important;
+    margin: 0 auto;
+}
+.catalog-mobile-shot {
+    width: 100%;
+    border-radius: 12px;
+}
 .table {
     border-radius: 12px;
     overflow: hidden;

@@ -46,5 +46,17 @@ return Application::configure(basePath: dirname(__DIR__))
             ->everyFiveMinutes()
             ->withoutOverlapping();
         $schedule->command('content:purge-expired')->dailyAt('03:30');
+
+        // Publisher catalog enrichment (metrics + screenshots) — non-blocking scheduled refresh
+        $enrichFreq = config('site_enrichment.refresh_frequency', 'weekly');
+        $enrichCommand = $schedule->command('sites:enrich --stale --sync')
+            ->withoutOverlapping()
+            ->sendOutputTo(storage_path('logs/site-enrichment.log'));
+
+        if ($enrichFreq === 'daily') {
+            $enrichCommand->dailyAt('04:15');
+        } else {
+            $enrichCommand->weeklyOn(2, '4:15'); // Tuesday
+        }
     })
     ->create();

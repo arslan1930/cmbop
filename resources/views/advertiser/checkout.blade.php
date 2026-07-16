@@ -56,8 +56,17 @@
                                         <div class="site-summary-top">
                                             <div class="d-flex align-items-start gap-2 flex-grow-1 min-w-0">
                                                 <span class="placement-number" aria-hidden="true">{{ $placementNumber }}</span>
+                                                @if(!empty($item['screenshot_thumb_url']))
+                                                    <img src="{{ $item['screenshot_thumb_url'] }}" alt="" loading="lazy"
+                                                         style="width:64px;height:40px;object-fit:cover;border-radius:6px;border:1px solid #e5e7eb;flex-shrink:0;">
+                                                @endif
                                                 <div class="min-w-0">
-                                                    <div class="site-summary-name">{{ $item['name'] }}</div>
+                                                    <div class="site-summary-name">
+                                                        {{ $item['name'] }}
+                                                        @if(!empty($item['verified']))
+                                                            <span class="badge bg-success-subtle text-success border ms-1" style="font-size:10px;">Verified</span>
+                                                        @endif
+                                                    </div>
                                                     <a href="{{ $item['url'] }}" target="_blank" class="site-summary-url text-decoration-none">
                                                         {{ Str::limit($item['url'], 55) }}
                                                         <i class="fa fa-external-link fa-xs"></i>
@@ -69,6 +78,17 @@
                                                 <div class="site-summary-price-value">€{{ number_format($item['price'], 2) }}</div>
                                             </div>
                                         </div>
+
+                                        @if(!empty($item['site_model']))
+                                            <div class="mt-2 mb-2">
+                                                <x-publisher-seo-panel :site="$item['site_model']" />
+                                            </div>
+                                        @elseif(isset($item['dr']) || isset($item['da']))
+                                            <div class="small text-muted mt-2 mb-2">
+                                                DR {{ $item['dr'] ?? '—' }} · DA {{ $item['da'] ?? '—' }} · {{ $item['traffic_label'] ?? '—' }} traffic
+                                                @if(!empty($item['last_updated'])) · Updated {{ $item['last_updated'] }} @endif
+                                            </div>
+                                        @endif
 
                                         <div class="site-summary-details">
                                             <div class="site-summary-row">

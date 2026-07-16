@@ -207,3 +207,26 @@ if (!function_exists('fullCountry')) {
         return $countries[$key] ?? strtoupper((string) $code);
     }
 }
+
+if (!function_exists('getCountryFlag')) {
+    /**
+     * Convert ISO country code to emoji flag (uk → gb).
+     */
+    function getCountryFlag($countryCode)
+    {
+        $code = strtolower(trim((string) $countryCode));
+        if ($code === '' || $code === 'xx') {
+            return '';
+        }
+        if ($code === 'uk') {
+            $code = 'gb';
+        }
+        $code = strtoupper($code);
+        if (strlen($code) !== 2) {
+            return '';
+        }
+
+        return mb_convert_encoding('&#'.(127397 + ord($code[0])).';', 'UTF-8', 'HTML-ENTITIES')
+            .mb_convert_encoding('&#'.(127397 + ord($code[1])).';', 'UTF-8', 'HTML-ENTITIES');
+    }
+}

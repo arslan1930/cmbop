@@ -122,6 +122,11 @@
             </span>
         </a>
 
+        <a href="{{ route('admin.site-enrichment.index') }}" class="{{ request()->routeIs('admin.site-enrichment.*') ? 'active' : '' }}">
+            <i class="fa fa-chart-line"></i>
+            <span>Enrichment</span>
+        </a>
+
         @if(auth()->user()->isAdmin())
         <!-- payments -->
          <a href="{{ route('admin.payments') }}" class="{{ request()->routeIs('admin.payments') || request()->routeIs('admin.payments.*') ? 'active' : '' }}">
