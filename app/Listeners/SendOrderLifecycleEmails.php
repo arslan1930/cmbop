@@ -21,17 +21,12 @@ class SendOrderLifecycleEmails
         try {
             $order->loadMissing(['user', 'items.site.publisher']);
 
-            // Scheduled orders: notify advertiser/admin only — publishers wait until release.
-            if ($order->status === 'scheduled' || ($order->publication_mode ?? '') === 'scheduled') {
-                $this->emails->notifyOrderLifecycle(
-                    order: $order,
-                    changeKind: 'created',
-                    previousValue: null,
-                    newValue: 'scheduled',
-                    description: 'Your order was scheduled for publication and is queued until the selected date.',
-                );
-
-                return;
+            $description = $this->createdDescription($order);
+            if (($order->publication_mode ?? '') === 'scheduled' && $order->scheduled_publish_at) {
+                $description = 'Order created and charged. Scheduled publication: '
+                    . $order->scheduled_publish_at->timezone($order->schedule_timezone ?: 'UTC')->format('d F Y g:i A')
+                    . ' ' . ($order->schedule_timezone ?: 'UTC')
+                    . '. Publisher should publish on this date.';
             }
 
             $this->emails->notifyOrderLifecycle(
@@ -39,7 +34,7 @@ class SendOrderLifecycleEmails
                 changeKind: 'created',
                 previousValue: null,
                 newValue: (string) $order->status,
-                description: $this->createdDescription($order),
+                description: $description,
             );
 
             // If created already paid (wallet), also announce payment to all roles.

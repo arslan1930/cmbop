@@ -79,6 +79,15 @@ return [
             'default_enabled' => true,
         ],
 
+        // —— Content evaluation ——
+        'content_evaluation_result' => [
+            'name' => 'Content Evaluation Result',
+            'audience' => 'advertiser',
+            'preference' => 'order_emails',
+            'mailable' => \App\Mail\ContentEvaluationResult::class,
+            'default_enabled' => true,
+        ],
+
         // —— Advertiser / order ——
         'order_payment_confirmed' => [
             'name' => 'Payment Successful',

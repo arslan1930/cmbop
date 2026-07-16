@@ -102,7 +102,7 @@ class ContentUploadCheckoutTest extends TestCase
         $this->assertSame('approved', $itemA->moderation_status);
     }
 
-    public function test_scheduled_checkout_queues_order_away_from_publishers(): void
+    public function test_scheduled_checkout_keeps_order_visible_to_publishers(): void
     {
         config(['content_moderation.enabled' => false]);
         Mail::fake();
@@ -135,9 +135,51 @@ class ContentUploadCheckoutTest extends TestCase
 
         $order = Order::where('reference_code', 'SCH1')->first();
         $this->assertNotNull($order);
-        $this->assertSame('scheduled', $order->status);
+        // Charged in advance; visible in publisher queue; publish on scheduled date.
+        $this->assertSame('pending', $order->status);
         $this->assertSame('scheduled', $order->publication_mode);
         $this->assertNotNull($order->scheduled_publish_at);
+    }
+
+    public function test_content_library_order_flow_selects_sites_and_checks_out(): void
+    {
+        config(['content_moderation.enabled' => false]);
+        Mail::fake();
+
+        $advertiser = $this->advertiser();
+        Role::firstOrCreate(['name' => 'admin']);
+        $publisher = $this->publisher();
+        $siteA = $this->activeSite($publisher, 'lib-a', 40);
+        $siteB = $this->activeSite($publisher, 'lib-b', 55);
+        $sub = $this->createApprovedSubmission($advertiser, null);
+
+        $response = $this->actingAs($advertiser)->post(route('advertiser.content-library.order'), [
+            'content_submission_id' => $sub->id,
+            'site_ids' => [$siteA->id, $siteB->id],
+            'anchor_text' => 'growth marketing guide',
+            'target_url' => 'https://example.com/guide',
+            'publication_mode' => 'immediate',
+        ]);
+
+        $response->assertRedirect(route('advertiser.checkout'));
+        $this->assertSame($sub->id, session('checkout_content_submission_id'));
+        $this->assertCount(2, session('cart'));
+
+        $checkout = $this->actingAs($advertiser)
+            ->withSession([
+                'cart' => session('cart'),
+                'checkout_content_submission_id' => $sub->id,
+                'checkout_schedule' => session('checkout_schedule'),
+            ])
+            ->postJson(route('advertiser.checkout.process'), [
+                'payment_method' => 'wise',
+                'reference_code' => 'LIB1',
+                'publication_mode' => 'immediate',
+            ]);
+
+        $checkout->assertOk()->assertJson(['success' => true]);
+        $this->assertSame(2, OrderItem::where('content_submission_id', $sub->id)->count());
+        $this->assertNotNull($sub->fresh()->order_id);
     }
 
     public function test_checkout_rejects_missing_submission_for_second_site(): void

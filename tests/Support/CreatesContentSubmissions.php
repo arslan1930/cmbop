@@ -37,14 +37,14 @@ trait CreatesContentSubmissions
 
     protected function createApprovedSubmission(
         User $user,
-        int $siteId,
+        ?int $siteId = null,
         int $copyIndex = 0,
         string $anchor = 'best software tools',
         string $target = 'https://example.com/tools',
     ): ContentSubmission {
         config(['content_moderation.enabled' => false]);
 
-        $relative = 'content-uploads/' . $user->id . '/test-' . uniqid('', true) . '-' . $siteId . '-' . $copyIndex . '.docx';
+        $relative = 'content-uploads/' . $user->id . '/test-' . uniqid('', true) . '-' . ($siteId ?? 'lib') . '-' . $copyIndex . '.docx';
         $absolute = Storage::disk('local')->path($relative);
         $this->makeDocxFile($absolute);
         // Ensure Laravel disk sees the file even if written via absolute path helpers.
@@ -57,14 +57,19 @@ trait CreatesContentSubmissions
             'site_id' => $siteId,
             'copy_index' => $copyIndex,
             'original_filename' => 'article.docx',
+            'title' => 'Test Article',
             'disk' => 'local',
             'path' => $relative,
             'mime' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
             'extension' => 'docx',
             'size_bytes' => filesize($absolute) ?: 100,
-            'extracted_text' => 'This is a compliant marketing article about software tools and productivity tips for teams.',
-            'preview_html' => '<p>This is a compliant marketing article about software tools and productivity tips for teams.</p>',
-            'word_count' => 14,
+            'extracted_text' => 'This is a compliant marketing article about software tools and productivity tips for teams working on digital projects worldwide.',
+            'preview_html' => '<p>This is a compliant marketing article about software tools and productivity tips for teams working on digital projects worldwide.</p>',
+            'word_count' => 20,
+            'uniqueness_score' => 85,
+            'quality_score' => 80,
+            'evaluation_status' => 'approved',
+            'evaluated_at' => now(),
             'moderation_status' => ContentSubmission::STATUS_APPROVED,
             'anchor_text' => $anchor,
             'target_url' => $target,

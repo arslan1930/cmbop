@@ -148,17 +148,13 @@ class EmailNotificationService
 
         $add($order->user, 'advertiser');
 
-        // Hide from publishers while queued; after release status becomes pending/processing.
-        $includePublishers = $order->status !== 'scheduled';
-
-        if ($includePublishers) {
-            foreach ($order->items as $item) {
-                $publisher = $item->site?->publisher;
-                if (!$publisher && $item->site?->publisher_id) {
-                    $publisher = User::query()->find($item->site->publisher_id);
-                }
-                $add($publisher, 'publisher');
+        // Publishers are notified immediately — including scheduled orders (publish on the date).
+        foreach ($order->items as $item) {
+            $publisher = $item->site?->publisher;
+            if (!$publisher && $item->site?->publisher_id) {
+                $publisher = User::query()->find($item->site->publisher_id);
             }
+            $add($publisher, 'publisher');
         }
 
         foreach ($this->usersWithRole('admin') as $admin) {

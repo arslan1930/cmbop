@@ -4,6 +4,7 @@
 namespace App\Http\Controllers\Publisher;
 
 use App\Http\Controllers\Controller;
+use App\Models\ContentSubmission;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Site;
@@ -18,6 +19,8 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Storage;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class OrderController extends Controller
 {
@@ -27,6 +30,30 @@ class OrderController extends Controller
     public function index()
     {
         return view('publisher.tasks');
+    }
+
+    /**
+     * Download approved article file for an order assigned to this publisher.
+     */
+    public function downloadContent(ContentSubmission $submission): StreamedResponse
+    {
+        $allowed = OrderItem::query()
+            ->where('content_submission_id', $submission->id)
+            ->whereHas('site', fn ($q) => $q->where('publisher_id', auth()->id()))
+            ->exists();
+
+        abort_unless($allowed, 403);
+
+        $disk = Storage::disk($submission->disk ?: 'local');
+        if (!$disk->exists($submission->path)) {
+            abort(404, 'File not found');
+        }
+
+        return $disk->download(
+            $submission->path,
+            $submission->original_filename,
+            ['Content-Type' => $submission->mime ?: 'application/octet-stream']
+        );
     }
 
     /**
@@ -65,11 +92,11 @@ class OrderController extends Controller
             $query = OrderItem::with(['order.user', 'site'])
                 ->whereIn('site_id', $siteIds)
                 ->whereHas('order', function ($q) {
-                    $q->where('status', '!=', 'scheduled')
-                        ->where(function ($inner) {
-                            $inner->where('payment_status', 'paid')
-                                ->orWhere('payment_method', '!=', 'card');
-                        });
+                    // Include scheduled publications — charged in advance; publish on the scheduled date.
+                    $q->where(function ($inner) {
+                        $inner->where('payment_status', 'paid')
+                            ->orWhere('payment_method', '!=', 'card');
+                    });
                 })
                 ->orderBy('created_at', 'desc');
             
@@ -124,7 +151,7 @@ class OrderController extends Controller
                     'sensitive_type' => $item->sensitive_type ?? null,
                     'content_link' => $item->content_link,
                     'content_download_url' => $item->content_submission_id
-                        ? route('advertiser.content-submissions.download', $item->content_submission_id)
+                        ? route('publisher.content.download', $item->content_submission_id)
                         : $item->content_link,
                     'content_original_name' => $item->content_original_name,
                     'anchor_text' => $item->anchor_text,
@@ -149,6 +176,11 @@ class OrderController extends Controller
                         'publication_mode' => $item->order->publication_mode,
                         'scheduled_publish_at' => optional($item->order->scheduled_publish_at)?->toIso8601String(),
                         'schedule_timezone' => $item->order->schedule_timezone,
+                        'scheduled_label' => $item->order->scheduled_publish_at
+                            ? $item->order->scheduled_publish_at
+                                ->timezone($item->order->schedule_timezone ?: 'UTC')
+                                ->format('d F Y g:i A') . ' ' . ($item->order->schedule_timezone ?: 'UTC')
+                            : null,
                     ]
                 ];
             }

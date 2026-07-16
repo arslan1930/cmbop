@@ -688,7 +688,7 @@ public function addToCart(Request $request)
      */
     public function clearCart(Request $request)
     {
-        session()->forget('cart');
+        session()->forget(['cart', 'checkout_content_submission_id', 'checkout_schedule']);
         return response()->json(['success' => true]);
     }
     
@@ -734,11 +734,22 @@ public function checkout(Request $request)
     $total = $checkout['total'];
 
     if (empty($cartItems)) {
-        session()->forget('cart');
+        session()->forget(['cart', 'checkout_content_submission_id', 'checkout_schedule']);
         return redirect()->route('advertiser.catalog')->with('error', 'Your cart is empty or contains inactive sites.');
     }
+
+    $librarySubmission = null;
+    $librarySubmissionId = session('checkout_content_submission_id');
+    if ($librarySubmissionId) {
+        $librarySubmission = ContentSubmission::query()
+            ->where('id', $librarySubmissionId)
+            ->where('user_id', auth()->id())
+            ->whereNull('order_id')
+            ->first();
+    }
+    $checkoutSchedule = session('checkout_schedule', []);
     
-    return view('advertiser.checkout', compact('cartItems', 'total'));
+    return view('advertiser.checkout', compact('cartItems', 'total', 'librarySubmission', 'checkoutSchedule'));
 }
     
     /**
@@ -766,15 +777,16 @@ public function checkout(Request $request)
             $paymentMethod = $request->payment_method;
             $userReferenceCode = $request->reference_code;
 
-            // Resolve uploaded articles + schedule (replaces Google Docs content_links)
+            // Resolve approved library articles + schedule (session fallback from Content Library)
+            $sessionSchedule = session('checkout_schedule', []);
             $checkoutContent = $this->resolveCheckoutContent(
                 $cart,
                 is_array($request->content_submissions) ? $request->content_submissions : null,
                 [
-                    'mode' => $request->input('publication_mode'),
-                    'date' => $request->input('scheduled_date'),
-                    'time' => $request->input('scheduled_time'),
-                    'timezone' => $request->input('timezone'),
+                    'mode' => $request->input('publication_mode', $sessionSchedule['mode'] ?? null),
+                    'date' => $request->input('scheduled_date', $sessionSchedule['date'] ?? null),
+                    'time' => $request->input('scheduled_time', $sessionSchedule['time'] ?? null),
+                    'timezone' => $request->input('timezone', $sessionSchedule['timezone'] ?? null),
                 ],
             );
             if ($checkoutContent instanceof JsonResponse) {
@@ -869,17 +881,15 @@ public function checkout(Request $request)
             ]);
         }
 
-        // Publishers are notified only when the order is live (not while scheduled / unpaid card).
-        if (($schedule['mode'] ?? 'immediate') !== 'scheduled') {
-            foreach ($createdOrders as $createdOrder) {
-                try {
-                    app(InAppNotificationService::class)->notifyOrderCreated($createdOrder->fresh(['items']));
-                } catch (\Throwable $e) {
-                    Log::warning('notifyOrderCreated failed for pending card order', [
-                        'order_id' => $createdOrder->id,
-                        'error' => $e->getMessage(),
-                    ]);
-                }
+        // Notify immediately (including scheduled — publisher must publish on the scheduled date).
+        foreach ($createdOrders as $createdOrder) {
+            try {
+                app(InAppNotificationService::class)->notifyOrderCreated($createdOrder->fresh(['items']));
+            } catch (\Throwable $e) {
+                Log::warning('notifyOrderCreated failed for pending card order', [
+                    'order_id' => $createdOrder->id,
+                    'error' => $e->getMessage(),
+                ]);
             }
         }
 
@@ -917,7 +927,7 @@ public function checkout(Request $request)
                 ->where('payment_status', 'pending')
                 ->update(['stripe_session_id' => $checkoutSession->id]);
 
-            session()->forget('cart');
+            session()->forget(['cart', 'checkout_content_submission_id', 'checkout_schedule']);
 
             Log::info('Pending card orders created; Stripe session ready', [
                 'reference_code' => $referenceCode,
@@ -1040,21 +1050,18 @@ public function checkout(Request $request)
             }
 
             DB::commit();
-            session()->forget('cart');
+            session()->forget(['cart', 'checkout_content_submission_id', 'checkout_schedule']);
 
             $isScheduled = ($schedule['mode'] ?? 'immediate') === 'scheduled';
 
             foreach ($createdOrders as $createdOrder) {
-                if (!$isScheduled) {
-                    app(InAppNotificationService::class)->notifyOrderCreated(
-                        $createdOrder->fresh(['items'])
-                    );
-                }
+                app(InAppNotificationService::class)->notifyOrderCreated(
+                    $createdOrder->fresh(['items'])
+                );
             }
 
-            if (!$isScheduled) {
-                $this->sendSiteOwnerEmails($createdOrders);
-            }
+            // Always notify publishers (scheduled orders are charged in advance; publish on the date).
+            $this->sendSiteOwnerEmails($createdOrders);
 
             $orderNumbers = implode(', ', array_map(
                 fn (Order $order) => $order->order_number,
@@ -1069,7 +1076,7 @@ public function checkout(Request $request)
             ]);
 
             $msg = $isScheduled
-                ? count($createdOrders) . ' order(s) scheduled successfully! Funds reserved. Order numbers: ' . $orderNumbers
+                ? count($createdOrders) . ' order(s) placed and charged. Publisher notified — publication date scheduled. Order numbers: ' . $orderNumbers
                 : count($createdOrders) . ' order(s) placed successfully! Funds have been reserved from your wallet. Order numbers: ' . $orderNumbers;
 
             return response()->json([
@@ -1135,21 +1142,17 @@ public function checkout(Request $request)
             }
 
             DB::commit();
-            session()->forget('cart');
+            session()->forget(['cart', 'checkout_content_submission_id', 'checkout_schedule']);
 
             $isScheduled = ($schedule['mode'] ?? 'immediate') === 'scheduled';
 
             foreach ($createdOrders as $createdOrder) {
-                if (!$isScheduled) {
-                    app(InAppNotificationService::class)->notifyOrderCreated(
-                        $createdOrder instanceof Order ? $createdOrder->fresh(['items']) : Order::with('items')->find($createdOrder->id)
-                    );
-                }
+                app(InAppNotificationService::class)->notifyOrderCreated(
+                    $createdOrder instanceof Order ? $createdOrder->fresh(['items']) : Order::with('items')->find($createdOrder->id)
+                );
             }
 
-            if (!$isScheduled) {
-                $this->sendSiteOwnerEmails($createdOrders);
-            }
+            $this->sendSiteOwnerEmails($createdOrders);
 
             // Send email to admin for manual payments (wise, crypto, bank)
             $customer = User::find($userId);
@@ -1159,9 +1162,9 @@ public function checkout(Request $request)
 
             return response()->json([
                 'success' => true,
-                'message' => count($createdOrders) . ' order(s) '
-                    . ($isScheduled ? 'scheduled' : 'placed')
-                    . ' successfully! Order numbers: ' . $orderNumbers,
+                'message' => count($createdOrders) . ' order(s) placed successfully'
+                    . ($isScheduled ? ' (scheduled publication — publisher notified to publish on the selected date)' : '')
+                    . '! Order numbers: ' . $orderNumbers,
             ]);
         } catch (\Exception $e) {
             DB::rollBack();
@@ -1782,8 +1785,8 @@ public function approveOrder(Request $request, $id)
 }
 
 /**
- * Resolve uploaded content submissions + publication schedule for the cart.
- * Replaces Google Docs URL gatekeeping.
+ * Resolve approved content library articles + publication schedule for the cart.
+ * Articles must be approved (uniqueness ≥ 50% + compliance) before ordering.
  *
  * @return array{lines: array<int, array{orderItem: array, submission: ContentSubmission}>, schedule: array}|JsonResponse
  */
@@ -1799,59 +1802,61 @@ private function resolveCheckoutContent(array $cart, ?array $contentSubmissions,
         return response()->json(['success' => false, 'message' => 'Your cart is empty.']);
     }
 
-    if (!$contentSubmissions || !is_array($contentSubmissions)) {
-        return response()->json([
-            'success' => false,
-            'message' => 'Please upload an approved article for every placement before continuing.',
-        ]);
-    }
-
+    $librarySubmissionId = session('checkout_content_submission_id');
     $lines = [];
     $submissionModels = [];
+    $seen = [];
 
-    foreach ($expandedOrders as $orderItem) {
+    foreach ($expandedOrders as $idx => $orderItem) {
         $site = $orderItem['site'];
         $copyIndex = max(0, ((int) ($orderItem['copy_number'] ?? 1)) - 1);
-        $submissionId = $contentSubmissions[$site->id][$copyIndex]
+
+        // Prefer per-cart content_submission_id, then request map, then library session
+        $cartLine = collect($cart)->first(function ($row) use ($site) {
+            return (int) ($row['id'] ?? 0) === (int) $site->id;
+        });
+
+        $submissionId = $cartLine['content_submission_ids'][$copyIndex]
+            ?? $cartLine['content_submission_id']
+            ?? $contentSubmissions[$site->id][$copyIndex]
             ?? $contentSubmissions[(string) $site->id][$copyIndex]
+            ?? $librarySubmissionId
             ?? null;
 
         if (!$submissionId) {
             return response()->json([
                 'success' => false,
-                'message' => 'Uploaded article required for copy #' . ($orderItem['copy_number'] ?? 1) . ' of: ' . $site->site_name,
+                'message' => 'Select an approved article from your Content Library before placing this order.',
             ]);
         }
 
-        $submission = ContentSubmission::query()
-            ->where('id', $submissionId)
-            ->where('user_id', auth()->id())
-            ->whereNull('order_id')
-            ->first();
+        if (!isset($seen[$submissionId])) {
+            $submission = ContentSubmission::query()
+                ->where('id', $submissionId)
+                ->where('user_id', auth()->id())
+                ->whereNull('order_id')
+                ->first();
 
-        if (!$submission) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Content submission not found for: ' . $site->site_name,
-            ]);
+            if (!$submission) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Approved article not found. Upload and get approval from Content Library first.',
+                ]);
+            }
+
+            if (!$submission->isReadyForCheckout()) {
+                $msg = !$submission->isApproved()
+                    ? 'This article is not approved yet. Uniqueness must be at least 50% and compliance checks must pass.'
+                    : 'Add anchor text and a valid HTTPS target URL before ordering.';
+
+                return response()->json(['success' => false, 'message' => $msg], 422);
+            }
+
+            $seen[$submissionId] = $submission;
+            $submissionModels[] = $submission;
         }
 
-        if ((int) $submission->site_id !== (int) $site->id || (int) $submission->copy_index !== $copyIndex) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Content submission does not match placement for: ' . $site->site_name,
-            ]);
-        }
-
-        if (!$submission->isReadyForCheckout()) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Complete article upload, anchor text, and HTTPS target URL for: ' . $site->site_name,
-            ], 422);
-        }
-
-        $lines[] = ['orderItem' => $orderItem, 'submission' => $submission];
-        $submissionModels[] = $submission;
+        $lines[] = ['orderItem' => $orderItem, 'submission' => $seen[$submissionId]];
     }
 
     $moderation = app(ContentModerationService::class)->assertSubmissionsApproved($submissionModels, auth()->user());
@@ -1890,7 +1895,9 @@ private function resolveCheckoutContent(array $cart, ?array $contentSubmissions,
 
 private function initialOrderStatus(array $schedule): string
 {
-    return ($schedule['mode'] ?? 'immediate') === 'scheduled' ? 'scheduled' : 'pending';
+    // Charged in advance; publishers are notified immediately and must publish on the scheduled date.
+    // Keep status in the normal publisher queue (`pending`).
+    return 'pending';
 }
 
 /**
@@ -1934,12 +1941,19 @@ private function orderItemPayload(int $orderId, Site $site, array $orderItem, Co
 
 private function attachSubmissionToOrder(ContentSubmission $submission, Order $order, OrderItem $item): void
 {
-    $submission->update([
-        'order_id' => $order->id,
-        'order_item_id' => $item->id,
+    // One approved library article can be placed on multiple sites in one checkout.
+    // Keep the first order/item linkage; every OrderItem still stores content_submission_id.
+    $payload = [
         'publication_mode' => $order->publication_mode,
         'scheduled_publish_at' => $order->scheduled_publish_at,
         'timezone' => $order->schedule_timezone ?: $submission->timezone,
-    ]);
+    ];
+
+    if (!$submission->order_id) {
+        $payload['order_id'] = $order->id;
+        $payload['order_item_id'] = $item->id;
+    }
+
+    $submission->update($payload);
 }
 }

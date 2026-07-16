@@ -512,6 +512,11 @@
             <span>Catalog</span>
         </a>
 
+        <a href="{{ route('advertiser.content-library') }}" class="{{ request()->routeIs('advertiser.content-library*') ? 'active' : '' }}">
+            <i class="fa fa-file-word"></i>
+            <span>Content Library</span>
+        </a>
+
         <!-- Orders -->
         <a href="{{ route('advertiser.orders') }}" class="{{ request()->routeIs('advertiser.orders') ? 'active' : '' }}">
             <i class="fa fa-shopping-cart"></i>

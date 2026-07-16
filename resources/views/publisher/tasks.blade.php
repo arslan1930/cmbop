@@ -1156,7 +1156,7 @@ $(document).ready(function() {
                     '<p class="mb-1"><strong>Target URL:</strong></p><p class="mb-2">' + (item.target_url ? '<a href="' + escapeHtml(item.target_url) + '" target="_blank" rel="noopener">' + escapeHtml(item.target_url) + '</a>' : '—') + '</p>' +
                     '<p class="mb-1"><strong>Feature Image URL:</strong></p><p class="mb-2">' + (item.feature_image_url ? '<a href="' + escapeHtml(item.feature_image_url) + '" target="_blank" rel="noopener">' + escapeHtml(item.feature_image_url) + '</a>' : 'Publisher may choose') + '</p>' +
                     '<p class="mb-1"><strong>Content Compliance:</strong></p><p class="mb-2">' + escapeHtml(item.moderation_status || '—') + '</p>' +
-                    (item.order && item.order.scheduled_publish_at ? '<p class="mb-1"><strong>Scheduled for:</strong></p><p class="mb-2">' + escapeHtml(item.order.scheduled_publish_at) + ' ' + escapeHtml(item.order.schedule_timezone || 'UTC') + '</p>' : '') +
+                    (item.order && item.order.scheduled_label ? '<p class="mb-1"><strong>Scheduled for:</strong></p><p class="mb-2 text-warning fw-semibold">Publish on ' + escapeHtml(item.order.scheduled_label) + '</p>' : '') +
                     liveUrlHtml +
                 '</div>' +
             '</div>' +

@@ -87,13 +87,14 @@ class ScheduledOrderService
      */
     public function releaseDueOrders(): Collection
     {
+        // Reminder-only: orders are already visible to publishers and charged in advance.
         $due = Order::query()
             ->with(['user', 'items.site'])
-            ->where('status', 'scheduled')
             ->where('publication_mode', 'scheduled')
             ->whereNotNull('scheduled_publish_at')
             ->where('scheduled_publish_at', '<=', now())
             ->whereNull('schedule_released_at')
+            ->whereNotIn('status', ['cancelled', 'completed'])
             ->limit(100)
             ->get();
 
@@ -102,7 +103,6 @@ class ScheduledOrderService
         foreach ($due as $order) {
             try {
                 $order->update([
-                    'status' => 'pending',
                     'schedule_released_at' => now(),
                 ]);
 
@@ -131,10 +131,10 @@ class ScheduledOrderService
 
         $orders = Order::query()
             ->with(['user', 'items.site'])
-            ->where('status', 'scheduled')
             ->where('publication_mode', 'scheduled')
             ->whereNull('schedule_reminder_sent_at')
             ->whereNull('schedule_released_at')
+            ->whereNotIn('status', ['cancelled', 'completed'])
             ->whereBetween('scheduled_publish_at', [$windowStart, $windowEnd])
             ->limit(100)
             ->get();
@@ -163,23 +163,20 @@ class ScheduledOrderService
 
     public function publishImmediately(Order $order): void
     {
-        if ($order->status !== 'scheduled') {
+        if (($order->publication_mode ?? '') !== 'scheduled') {
             return;
         }
 
         $order->update([
             'publication_mode' => 'immediate',
             'scheduled_publish_at' => null,
-            'status' => 'pending',
             'schedule_released_at' => now(),
         ]);
-
-        $this->notifyReleased($order->fresh(['user', 'items.site']));
     }
 
     public function cancelSchedule(Order $order): void
     {
-        if ($order->status !== 'scheduled') {
+        if (($order->publication_mode ?? '') !== 'scheduled') {
             return;
         }
 
@@ -191,7 +188,7 @@ class ScheduledOrderService
 
     public function reschedule(Order $order, Carbon $atUtc, string $timezone): void
     {
-        if ($order->status !== 'scheduled') {
+        if (($order->publication_mode ?? '') !== 'scheduled') {
             throw new \RuntimeException('Only scheduled orders can be rescheduled.');
         }
 
@@ -213,17 +210,11 @@ class ScheduledOrderService
                 order: $order,
                 changeKind: 'status',
                 previousValue: 'scheduled',
-                newValue: 'pending',
-                description: 'Scheduled publication has started. The order is now available for processing.',
+                newValue: (string) $order->status,
+                description: 'Scheduled publication date has arrived. Please publish the article today.',
             );
         } catch (\Throwable $e) {
-            Log::warning('Release lifecycle email failed', ['order_id' => $order->id, 'error' => $e->getMessage()]);
-        }
-
-        try {
-            $this->inApp->notifyOrderCreated($order);
-        } catch (\Throwable $e) {
-            Log::warning('Release in-app notify failed', ['order_id' => $order->id, 'error' => $e->getMessage()]);
+            Log::warning('Schedule-date reminder email failed', ['order_id' => $order->id, 'error' => $e->getMessage()]);
         }
     }
 }

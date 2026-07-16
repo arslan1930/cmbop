@@ -37,6 +37,7 @@ use App\Http\Controllers\Admin\CampaignController as AdminCampaignController;
 use App\Http\Controllers\Admin\ContentModerationController as AdminContentModerationController;
 use App\Http\Controllers\Advertiser\ContentModerationController as AdvertiserContentModerationController;
 use App\Http\Controllers\Advertiser\ContentSubmissionController;
+use App\Http\Controllers\Advertiser\ContentLibraryController;
 use App\Http\Controllers\BannerClickController;
 use App\Http\Controllers\Advertiser\ProjectController;
 use App\Http\Controllers\Advertiser\CatalogController;
@@ -512,6 +513,15 @@ Route::middleware(['auth','verified', RoleMiddleware::class . ':advertiser'])
             ->middleware('throttle:30,1')
             ->name('content-moderation.scan');
 
+        // Content Library (upload → evaluate → select sites → order)
+        Route::get('/content-library', [ContentLibraryController::class, 'index'])
+            ->name('content-library');
+        Route::post('/content-library/upload', [ContentLibraryController::class, 'upload'])
+            ->middleware('throttle:30,1')
+            ->name('content-library.upload');
+        Route::post('/content-library/order', [ContentLibraryController::class, 'startOrder'])
+            ->name('content-library.order');
+
         // Native content upload workflow
         Route::get('/content-submissions/config', [ContentSubmissionController::class, 'config'])
             ->name('content-submissions.config');
@@ -635,6 +645,8 @@ Route::middleware(['auth','verified', RoleMiddleware::class . ':publisher'])
         Route::post('/orders/{id}/reject', [OrderController::class, 'rejectOrder'])->name('orders.reject');
         Route::post('/orders/{id}/complete', [OrderController::class, 'submitLiveUrl'])->name('orders.complete');
         Route::post('/orders/{id}/resubmit', [OrderController::class, 'resubmitLiveUrl'])->name('orders.resubmit');
+        Route::get('/content/{submission}/download', [OrderController::class, 'downloadContent'])
+            ->name('content.download');
 
         // Withdraw
         Route::get('/withdraw', [WithdrawalController::class, 'index'])->name('withdraw');

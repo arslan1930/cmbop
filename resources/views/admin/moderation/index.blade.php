@@ -51,9 +51,14 @@
                         <hr class="my-3">
                         <h6 class="fw-semibold">Content Upload</h6>
                         <div class="mb-3">
-                            <label class="form-label">Allowed file types (comma-separated)</label>
-                            <input type="text" name="allowed_extensions" class="form-control"
-                                   value="{{ old('allowed_extensions', implode(',', $uploadCfg['allowed_extensions'] ?? ['docx','doc','pdf'])) }}">
+                            <label class="form-label">Allowed file types</label>
+                            <input type="text" name="allowed_extensions" class="form-control" value="docx" readonly>
+                            <div class="form-text">Microsoft Word (.docx) only. Format guidance is shown to advertisers before upload.</div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Minimum uniqueness for approval (%)</label>
+                            <input type="number" name="min_uniqueness" class="form-control" min="0" max="100"
+                                   value="{{ old('min_uniqueness', $uploadCfg['evaluation']['min_uniqueness'] ?? 50) }}">
                         </div>
                         <div class="mb-3">
                             <label class="form-label">Max upload size (KB)</label>

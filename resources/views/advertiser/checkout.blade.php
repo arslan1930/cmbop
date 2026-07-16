@@ -92,7 +92,54 @@
                         </div>
                     </div>
 
-                    @include('advertiser.partials.content-submission-wizard')
+                    @if(!empty($librarySubmission) && $librarySubmission->isReadyForCheckout())
+                        <div class="card border-0 shadow-sm mb-4" id="contentSubmissionWizard" data-library-ready="1">
+                            <div class="card-header bg-white fw-semibold">
+                                <i class="fa fa-file-word me-2"></i> 2. Approved article
+                            </div>
+                            <div class="card-body">
+                                <div class="alert alert-success mb-3">
+                                    This order uses an approved article from your Content Library. You can proceed to payment.
+                                </div>
+                                <div class="fw-semibold">{{ $librarySubmission->title ?: $librarySubmission->original_filename }}</div>
+                                <div class="small text-muted mb-2">
+                                    Uniqueness {{ $librarySubmission->uniqueness_score }}% · Quality {{ $librarySubmission->quality_score }}%
+                                </div>
+                                <div class="small mb-1"><strong>Anchor:</strong> {{ $librarySubmission->anchor_text }}</div>
+                                <div class="small mb-1"><strong>Target URL:</strong> <a href="{{ $librarySubmission->target_url }}" target="_blank" rel="noopener">{{ $librarySubmission->target_url }}</a></div>
+                                @if(($checkoutSchedule['mode'] ?? 'immediate') === 'scheduled')
+                                    <div class="small mt-2">
+                                        <strong>Scheduled for:</strong>
+                                        {{ $checkoutSchedule['date'] ?? '' }} {{ $checkoutSchedule['time'] ?? '' }}
+                                        ({{ $checkoutSchedule['timezone'] ?? 'UTC' }})
+                                        · Charged in advance · Publisher will be notified to publish on this date
+                                    </div>
+                                @endif
+                                <a href="{{ route('advertiser.content-library') }}" class="btn btn-sm btn-outline-secondary mt-3">Back to Content Library</a>
+                            </div>
+                        </div>
+                        <script>
+                        window.ContentCheckout = {
+                            ready: function () { return true; },
+                            payload: function () {
+                                return {
+                                    content_submissions: {},
+                                    publication_mode: @json($checkoutSchedule['mode'] ?? 'immediate'),
+                                    scheduled_date: @json($checkoutSchedule['date'] ?? null),
+                                    scheduled_time: @json($checkoutSchedule['time'] ?? null),
+                                    timezone: @json($checkoutSchedule['timezone'] ?? 'UTC'),
+                                };
+                            }
+                        };
+                        </script>
+                    @else
+                        <div class="alert alert-warning shadow-sm">
+                            Articles must be uploaded and approved in your
+                            <a href="{{ route('advertiser.content-library') }}" class="alert-link">Content Library</a>
+                            before checkout. Only Microsoft Word (.docx) files are accepted. Uniqueness must be at least 50%.
+                        </div>
+                        @include('advertiser.partials.content-submission-wizard')
+                    @endif
 
                     <!-- 3. Payment Methods -->
                     <div class="card border-0 shadow-sm mb-4" id="paymentSectionCard">

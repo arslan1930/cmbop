@@ -81,10 +81,7 @@ class OrderPaymentService
     public function notifyPublishersOfPaidOrders(iterable $orders): void
     {
         try {
-            $orders = collect($orders)->filter(function ($order) {
-                // Do not notify publishers for scheduled (queued) orders until release.
-                return $order && $order->status !== 'scheduled';
-            });
+            $orders = collect($orders)->filter();
             if ($orders->isEmpty()) {
                 return;
             }

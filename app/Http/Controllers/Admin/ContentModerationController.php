@@ -53,6 +53,7 @@ class ContentModerationController extends Controller
             'max_kilobytes' => ['nullable', 'integer', 'min:100', 'max:51200'],
             'scheduling_enabled' => ['sometimes', 'boolean'],
             'retention_months' => ['nullable', 'integer', 'min:1', 'max:24'],
+            'min_uniqueness' => ['nullable', 'integer', 'min:0', 'max:100'],
         ]);
 
         $override = ContentModerationSetting::getValue('config_override', []) ?: [];
@@ -76,18 +77,16 @@ class ContentModerationController extends Controller
         ContentModerationSetting::setValue('disabled_categories', $disabled);
         ContentModerationSetting::setValue('enabled_categories', $enabled);
 
-        $ext = collect(preg_split('/[\s,]+/', (string) ($data['allowed_extensions'] ?? 'docx,doc,pdf')) ?: [])
-            ->map(fn ($e) => strtolower(trim($e, ". \t\n\r")))
-            ->filter()
-            ->values()
-            ->all();
-
         $uploadOverride = ContentModerationSetting::getValue('upload_config', []) ?: [];
-        $uploadOverride['allowed_extensions'] = $ext !== [] ? $ext : ['docx'];
+        // Platform policy: Microsoft Word (.docx) only.
+        $uploadOverride['allowed_extensions'] = ['docx'];
+        $uploadOverride['preferred_extension'] = 'docx';
         $uploadOverride['max_kilobytes'] = (int) ($data['max_kilobytes'] ?? 5120);
         $uploadOverride['retention_months'] = (int) ($data['retention_months'] ?? 6);
         $uploadOverride['scheduling'] = $uploadOverride['scheduling'] ?? config('content_upload.scheduling', []);
         $uploadOverride['scheduling']['enabled'] = $request->boolean('scheduling_enabled');
+        $uploadOverride['evaluation'] = $uploadOverride['evaluation'] ?? config('content_upload.evaluation', []);
+        $uploadOverride['evaluation']['min_uniqueness'] = (int) ($data['min_uniqueness'] ?? 50);
         ContentModerationSetting::setValue('upload_config', $uploadOverride);
 
         ContentModerationSetting::clearCache();

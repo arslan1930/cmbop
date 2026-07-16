@@ -35,9 +35,10 @@
             @endforeach
         </div>
 
-        <p class="text-muted small mb-3" id="wizardHelpPreferred">
-            For the best experience, upload your article as a Microsoft Word (.docx) document.
-        </p>
+        <div class="alert alert-warning small mb-3" id="wizardHelpPreferred">
+            Please upload your article as a Microsoft Word (.docx) document only. Other formats are not accepted.
+            Your article will be evaluated for uniqueness (minimum 50%), quality, and content compliance before you can place an order.
+        </div>
 
         <div class="content-wizard-panels">
             {{-- Step 1: Upload --}}
@@ -59,7 +60,8 @@
                                 </div>
                                 <span class="badge moderation-badge text-bg-secondary">Pending</span>
                             </div>
-                            <input type="file" class="form-control content-upload-input" accept=".docx,.doc,.pdf,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document">
+                            <div class="small text-muted mb-2">Supported format: <strong>.docx</strong> only</div>
+                            <input type="file" class="form-control content-upload-input" accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document">
                             <div class="progress mt-2 d-none upload-progress" style="height:6px;">
                                 <div class="progress-bar" style="width:0%"></div>
                             </div>

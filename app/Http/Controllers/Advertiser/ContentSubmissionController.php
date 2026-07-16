@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Advertiser;
 use App\Http\Controllers\Controller;
 use App\Models\ContentSubmission;
 use App\Models\Order;
+use App\Models\OrderItem;
 use App\Models\Site;
 use App\Services\ContentUpload\ContentUploadService;
 use App\Services\ContentUpload\ScheduledOrderService;
@@ -47,17 +48,13 @@ class ContentSubmissionController extends Controller
         $ext = implode(',', $cfg['allowed_extensions'] ?? ['docx']);
 
         $data = $request->validate([
-            'file' => ['required', 'file', 'max:' . $maxKb, 'mimes:' . $ext],
-            'site_id' => ['required', 'integer', 'exists:sites,id'],
+            'file' => ['required', 'file', 'max:' . $maxKb, 'mimes:docx'],
+            'site_id' => ['nullable', 'integer', 'exists:sites,id'],
             'copy_index' => ['nullable', 'integer', 'min:0', 'max:50'],
             'cart_key' => ['nullable', 'string', 'max:64'],
             'replace_id' => ['nullable', 'integer'],
+            'title' => ['nullable', 'string', 'max:200'],
         ]);
-
-        $site = Site::where('id', $data['site_id'])->where('active', 1)->first();
-        if (!$site) {
-            return response()->json(['success' => false, 'message' => 'Site not found or inactive.'], 422);
-        }
 
         $replace = null;
         if (!empty($data['replace_id'])) {
@@ -71,16 +68,19 @@ class ContentSubmissionController extends Controller
         $result = $this->uploads->uploadAndProcess(
             file: $request->file('file'),
             user: auth()->user(),
-            siteId: (int) $data['site_id'],
+            siteId: isset($data['site_id']) ? (int) $data['site_id'] : null,
             copyIndex: (int) ($data['copy_index'] ?? 0),
             cartKey: $data['cart_key'] ?? null,
             replace: $replace,
+            title: $data['title'] ?? null,
         );
 
         $submission = $result['submission'] ?? null;
 
         return response()->json([
             'success' => (bool) $result['ok'],
+            'accepted' => (bool) ($result['accepted'] ?? $result['ok']),
+            'approved' => (bool) ($result['approved'] ?? false),
             'title' => $result['title'] ?? null,
             'message' => $result['message'] ?? null,
             'report' => $result['report'] ?? null,
@@ -235,7 +235,9 @@ class ContentSubmissionController extends Controller
         $orders = Order::query()
             ->with('items')
             ->where('user_id', auth()->id())
-            ->where('status', 'scheduled')
+            ->where('publication_mode', 'scheduled')
+            ->whereNotNull('scheduled_publish_at')
+            ->whereNotIn('status', ['cancelled', 'completed'])
             ->orderBy('scheduled_publish_at')
             ->get();
 
@@ -245,18 +247,22 @@ class ContentSubmissionController extends Controller
     public function updateSchedule(Request $request, Order $order)
     {
         abort_unless((int) $order->user_id === (int) auth()->id(), 403);
-        abort_unless($order->status === 'scheduled', 422, 'Only scheduled orders can be updated.');
+        abort_unless(($order->publication_mode ?? '') === 'scheduled', 422, 'Only scheduled orders can be updated.');
 
         $action = $request->input('action');
 
         if ($action === 'publish_now') {
-            $this->scheduler->publishImmediately($order);
+            $order->update([
+                'publication_mode' => 'immediate',
+                'scheduled_publish_at' => null,
+                'schedule_released_at' => now(),
+            ]);
 
-            return back()->with('success', 'Order released for processing.');
+            return back()->with('success', 'Order marked for immediate publication.');
         }
 
         if ($action === 'cancel') {
-            $this->scheduler->cancelSchedule($order);
+            $order->update(['status' => 'cancelled']);
 
             return back()->with('success', 'Scheduled order cancelled.');
         }
@@ -299,7 +305,7 @@ class ContentSubmissionController extends Controller
             return;
         }
 
-        // Publisher for the placement site
+        // Publisher for the placement site (legacy site-bound submissions)
         if ($submission->site_id) {
             $site = Site::find($submission->site_id);
             if ($site && (int) $site->publisher_id === (int) $user->id) {
@@ -308,6 +314,16 @@ class ContentSubmissionController extends Controller
         }
 
         if ($submission->order_item_id && $submission->orderItem?->site?->publisher_id == $user->id) {
+            return;
+        }
+
+        // Library articles are linked via order_items.content_submission_id (site_id may be null)
+        $viaOrderItem = OrderItem::query()
+            ->where('content_submission_id', $submission->id)
+            ->whereHas('site', fn ($q) => $q->where('publisher_id', $user->id))
+            ->exists();
+
+        if ($viaOrderItem) {
             return;
         }
 
@@ -325,6 +341,9 @@ class ContentSubmissionController extends Controller
             'extension' => $s->extension,
             'size_bytes' => $s->size_bytes,
             'word_count' => $s->word_count,
+            'uniqueness_score' => $s->uniqueness_score,
+            'quality_score' => $s->quality_score,
+            'evaluation_status' => $s->evaluation_status,
             'moderation_status' => $s->moderation_status,
             'scan_token' => $s->scan_token,
             'preview_html' => $s->preview_html,

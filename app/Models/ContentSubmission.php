@@ -12,6 +12,7 @@ class ContentSubmission extends Model
     public const STATUS_PROCESSING = 'processing';
     public const STATUS_APPROVED = 'approved';
     public const STATUS_REJECTED = 'rejected';
+    public const STATUS_NEEDS_IMPROVEMENT = 'needs_improvement';
     public const STATUS_ERROR = 'error';
 
     public const MODE_IMMEDIATE = 'immediate';
@@ -23,6 +24,7 @@ class ContentSubmission extends Model
         'copy_index',
         'cart_key',
         'original_filename',
+        'title',
         'disk',
         'path',
         'mime',
@@ -31,6 +33,12 @@ class ContentSubmission extends Model
         'extracted_text',
         'preview_html',
         'word_count',
+        'uniqueness_score',
+        'quality_score',
+        'evaluation_status',
+        'evaluation_report',
+        'evaluated_at',
+        'approval_notified_at',
         'moderation_status',
         'moderation_log_id',
         'scan_token',
@@ -51,9 +59,14 @@ class ContentSubmission extends Model
         'copy_index' => 'integer',
         'size_bytes' => 'integer',
         'word_count' => 'integer',
+        'uniqueness_score' => 'integer',
+        'quality_score' => 'integer',
         'wizard_step' => 'integer',
         'draft_payload' => 'array',
+        'evaluation_report' => 'array',
         'scheduled_publish_at' => 'datetime',
+        'evaluated_at' => 'datetime',
+        'approval_notified_at' => 'datetime',
         'expires_at' => 'datetime',
     ];
 
@@ -87,13 +100,22 @@ class ContentSubmission extends Model
         return $this->moderation_status === self::STATUS_APPROVED;
     }
 
+    public function canBeOrdered(): bool
+    {
+        $minUniqueness = (int) config('content_upload.evaluation.min_uniqueness', 50);
+
+        return $this->moderation_status === self::STATUS_APPROVED
+            && (int) ($this->uniqueness_score ?? 0) >= $minUniqueness
+            && $this->path
+            && $this->order_id === null;
+    }
+
     public function isReadyForCheckout(): bool
     {
         $anchor = trim((string) $this->anchor_text);
         $target = trim((string) $this->target_url);
 
-        return $this->isApproved()
-            && $this->path
+        return $this->canBeOrdered()
             && $anchor !== ''
             && $target !== ''
             && filter_var($target, FILTER_VALIDATE_URL)
