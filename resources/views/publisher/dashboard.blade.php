@@ -13,51 +13,110 @@
         </div>
     </div>
 
-    <!-- Quick Actions -->
-    <div class="row">
-        <div class="col-md-4 mb-3">
-            <div class="card border-0 shadow-sm text-center h-100">
-                <div class="card-body">
-                    <div class="bg-primary bg-opacity-10 p-3 rounded-circle d-inline-block mb-3">
-                        <i class="fa fa-plus fa-2x text-primary"></i>
+    @php
+        $pendingTasks = $pendingTasks ?? 0;
+        $siteCount = $siteCount ?? 0;
+        $primaryAction = $primaryAction ?? (($pendingTasks > 0) ? 'tasks' : 'add_site');
+    @endphp
+
+    <!-- Quick Actions: one primary CTA, two secondary -->
+    <div class="row g-3 mb-2">
+        @if($primaryAction === 'tasks')
+            <div class="col-lg-7">
+                <div class="card border-0 shadow-sm h-100 publisher-primary-cta">
+                    <div class="card-body d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3 p-4">
+                        <div>
+                            <div class="text-uppercase small fw-semibold mb-1" style="color:#0b6266;letter-spacing:.04em;">Do this next</div>
+                            <h4 class="mb-1">You have {{ $pendingTasks }} task{{ $pendingTasks === 1 ? '' : 's' }} waiting</h4>
+                            <p class="text-muted mb-0">Accept, publish, or reply so advertisers keep moving.</p>
+                        </div>
+                        <a href="{{ route('publisher.tasks') }}" class="btn btn-lg text-white px-4" style="background:#0b6266;">
+                            Open tasks <i class="fa fa-arrow-right ms-1"></i>
+                        </a>
                     </div>
-                    <h5 class="card-title">Add New Site</h5>
-                    <p class="card-text text-muted small">Register a new website to start receiving orders.</p>
-                    <a href="{{ route('publisher.websites') }}" class="btn btn-outline-primary btn-sm">
-                        Add Site <i class="fa fa-arrow-right ms-1"></i>
-                    </a>
                 </div>
             </div>
-        </div>
-        <div class="col-md-4 mb-3">
-            <div class="card border-0 shadow-sm text-center h-100">
-                <div class="card-body">
-                    <div class="bg-success bg-opacity-10 p-3 rounded-circle d-inline-block mb-3">
-                        <i class="fa fa-tasks fa-2x text-success"></i>
+            <div class="col-6 col-lg-2 flex-lg-grow-1">
+                <div class="card border-0 shadow-sm h-100 publisher-secondary-cta">
+                    <div class="card-body">
+                        <div class="d-flex align-items-center gap-2 mb-2">
+                            <span class="secondary-icon"><i class="fa fa-plus"></i></span>
+                            <h6 class="mb-0">Add site</h6>
+                        </div>
+                        <p class="small text-muted mb-3">{{ $siteCount }} site{{ $siteCount === 1 ? '' : 's' }} listed</p>
+                        <a href="{{ route('publisher.websites') }}" class="btn btn-sm btn-outline-secondary w-100">Add site</a>
                     </div>
-                    <h5 class="card-title">My Tasks</h5>
-                    <p class="card-text text-muted small">View and manage pending orders that need your attention.</p>
-                    <a href="{{ route('publisher.tasks') }}" class="btn btn-outline-success btn-sm">
-                        View Tasks <i class="fa fa-arrow-right ms-1"></i>
-                    </a>
                 </div>
             </div>
-        </div>
-        <div class="col-md-4 mb-3">
-            <div class="card border-0 shadow-sm text-center h-100">
-                <div class="card-body">
-                    <div class="bg-info bg-opacity-10 p-3 rounded-circle d-inline-block mb-3">
-                        <i class="fa fa-chart-line fa-2x text-info"></i>
+            <div class="col-6 col-lg-2 flex-lg-grow-1">
+                <div class="card border-0 shadow-sm h-100 publisher-secondary-cta">
+                    <div class="card-body">
+                        <div class="d-flex align-items-center gap-2 mb-2">
+                            <span class="secondary-icon"><i class="fa fa-chart-line"></i></span>
+                            <h6 class="mb-0">Reports</h6>
+                        </div>
+                        <p class="small text-muted mb-3">Earnings & performance</p>
+                        <a href="{{ route('publisher.reports') }}" class="btn btn-sm btn-outline-secondary w-100">View reports</a>
                     </div>
-                    <h5 class="card-title">View Reports</h5>
-                    <p class="card-text text-muted small">Analyze your earnings and performance metrics.</p>
-                    <a href="{{ route('publisher.reports') }}" class="btn btn-outline-info btn-sm">
-                        View Reports <i class="fa fa-arrow-right ms-1"></i>
-                    </a>
                 </div>
             </div>
-        </div>
+        @else
+            <div class="col-lg-7">
+                <div class="card border-0 shadow-sm h-100 publisher-primary-cta">
+                    <div class="card-body d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3 p-4">
+                        <div>
+                            <div class="text-uppercase small fw-semibold mb-1" style="color:#0b6266;letter-spacing:.04em;">Do this next</div>
+                            <h4 class="mb-1">{{ $siteCount === 0 ? 'Add your first website' : 'Grow your catalog' }}</h4>
+                            <p class="text-muted mb-0">
+                                {{ $siteCount === 0
+                                    ? 'List a site to start receiving advertiser orders.'
+                                    : 'You have '.$siteCount.' site'.($siteCount === 1 ? '' : 's').' live — add another niche or market.' }}
+                            </p>
+                        </div>
+                        <a href="{{ route('publisher.websites') }}" class="btn btn-lg text-white px-4" style="background:#0b6266;">
+                            Add site <i class="fa fa-arrow-right ms-1"></i>
+                        </a>
+                    </div>
+                </div>
+            </div>
+            <div class="col-6 col-lg-2 flex-lg-grow-1">
+                <div class="card border-0 shadow-sm h-100 publisher-secondary-cta">
+                    <div class="card-body">
+                        <div class="d-flex align-items-center gap-2 mb-2">
+                            <span class="secondary-icon"><i class="fa fa-tasks"></i></span>
+                            <h6 class="mb-0">Tasks</h6>
+                        </div>
+                        <p class="small text-muted mb-3">{{ $pendingTasks }} pending</p>
+                        <a href="{{ route('publisher.tasks') }}" class="btn btn-sm btn-outline-secondary w-100">View tasks</a>
+                    </div>
+                </div>
+            </div>
+            <div class="col-6 col-lg-2 flex-lg-grow-1">
+                <div class="card border-0 shadow-sm h-100 publisher-secondary-cta">
+                    <div class="card-body">
+                        <div class="d-flex align-items-center gap-2 mb-2">
+                            <span class="secondary-icon"><i class="fa fa-chart-line"></i></span>
+                            <h6 class="mb-0">Reports</h6>
+                        </div>
+                        <p class="small text-muted mb-3">Earnings & performance</p>
+                        <a href="{{ route('publisher.reports') }}" class="btn btn-sm btn-outline-secondary w-100">View reports</a>
+                    </div>
+                </div>
+            </div>
+        @endif
     </div>
+
+    <style>
+        .publisher-primary-cta {
+            background: linear-gradient(135deg, #f0fbfb 0%, #ffffff 55%);
+            border-left: 4px solid #4ECDCB !important;
+        }
+        .publisher-secondary-cta .secondary-icon {
+            width: 32px; height: 32px; border-radius: 8px;
+            background: #eef7f7; color: #0b6266;
+            display: inline-flex; align-items: center; justify-content: center;
+        }
+    </style>
 
     <!-- Modern Small Graphs Section -->
     <div class="row mb-4">
@@ -375,7 +434,9 @@ function updateWeeklyChart(data) {
 }
 
 function updateStatusChart(data) {
-    var ctx = document.getElementById('orderStatusChart').getContext('2d');
+    var canvas = document.getElementById('orderStatusChart');
+    if (!canvas) return;
+    var ctx = canvas.getContext('2d');
     
     if (statusChart) {
         statusChart.destroy();

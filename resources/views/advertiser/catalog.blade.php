@@ -179,23 +179,40 @@
     </div>
 
     <!-- FILTERS SECTION -->
-<div class="row mb-4">
+@php
+    $moreFilterKeys = ['language','sponsored','favorites_filter','blacklist_filter','da_min','da_max','dr_min','dr_max','traffic_min','traffic_max','new_badge'];
+    $moreFiltersOpen = collect($moreFilterKeys)->contains(fn ($k) => filled(request($k)));
+    $activeFilterChips = [];
+    if (request('search')) $activeFilterChips[] = ['label' => 'Search: '.request('search'), 'key' => 'search'];
+    if (request('category')) $activeFilterChips[] = ['label' => 'Category', 'key' => 'category'];
+    if (request('country')) $activeFilterChips[] = ['label' => 'Country', 'key' => 'country'];
+    if (request('price_min') || request('price_max')) $activeFilterChips[] = ['label' => 'Price', 'key' => 'price'];
+    if (request('language')) $activeFilterChips[] = ['label' => 'Language', 'key' => 'language'];
+    if (request('sponsored') == '1') $activeFilterChips[] = ['label' => 'Sponsored', 'key' => 'sponsored'];
+    if (request('favorites_filter') == '1') $activeFilterChips[] = ['label' => 'Favorites', 'key' => 'favorites_filter'];
+    if (request('blacklist_filter') == '1') $activeFilterChips[] = ['label' => 'Blacklist', 'key' => 'blacklist_filter'];
+    if (request('da_min') || request('da_max')) $activeFilterChips[] = ['label' => 'DA', 'key' => 'da'];
+    if (request('dr_min') || request('dr_max')) $activeFilterChips[] = ['label' => 'DR', 'key' => 'dr'];
+    if (request('traffic_min') || request('traffic_max')) $activeFilterChips[] = ['label' => 'Traffic', 'key' => 'traffic'];
+    if (request('new_badge') == '1') $activeFilterChips[] = ['label' => 'New sites', 'key' => 'new_badge'];
+@endphp
+<div class="row mb-3">
     <div class="col-md-12">
         <div class="card border-0 shadow-sm">
             <div class="card-body">
                 <form method="GET" action="{{ route('advertiser.catalog') }}" id="filterForm">
                     <div class="row g-3 align-items-end">
-                        <!-- Search -->
+                        <!-- Primary: Search -->
                         <div class="col-md-3">
                             <label class="form-label fw-semibold small text-muted mb-1">Search</label>
-                            <input type="text" 
-                                   name="search" 
-                                   class="form-control form-control-sm" 
+                            <input type="text"
+                                   name="search"
+                                   class="form-control form-control-sm"
                                    placeholder="Search by site name or URL"
                                    value="{{ request('search') }}">
                         </div>
 
-                        <!-- Category Filter with Multi-Select -->
+                        <!-- Primary: Category -->
                         <div class="col-md-2">
                             <label class="form-label fw-semibold small text-muted mb-1">Category</label>
                             <div class="multi-select-wrapper">
@@ -223,7 +240,7 @@
                             <input type="hidden" name="category" id="selectedCategory" value="{{ request('category') }}">
                         </div>
 
-                        <!-- Country Filter with Multi-Select -->
+                        <!-- Primary: Country -->
                         <div class="col-md-2">
                             <label class="form-label fw-semibold small text-muted mb-1">Country</label>
                             <div class="multi-select-wrapper">
@@ -251,163 +268,172 @@
                             <input type="hidden" name="country" id="selectedCountry" value="{{ request('country') }}">
                         </div>
 
-                        <!-- Language Filter with Multi-Select -->
+                        <!-- Primary: Price -->
                         <div class="col-md-2">
-                            <label class="form-label fw-semibold small text-muted mb-1">Language</label>
-                            <div class="multi-select-wrapper">
-                                <div class="multi-select-input form-control form-control-sm" onclick="toggleMultiDropdown('languageMultiDropdown')">
-                                    <div class="selected-items" id="selectedLanguagesDisplay">
-                                        <span class="placeholder-text">Select languages...</span>
-                                    </div>
-                                    <i class="fa fa-chevron-down"></i>
-                                </div>
-                                <div class="multi-select-dropdown" id="languageMultiDropdown">
-                                    <div class="search-box">
-                                        <i class="fa fa-search"></i>
-                                        <input type="text" id="languageSearch" class="form-control form-control-sm" placeholder="Search languages..." onkeyup="filterMultiOptions('languageMultiOptions', this.value)">
-                                    </div>
-                                    <div class="options-list" id="languageMultiOptions">
-                                        @foreach($availableLanguages as $code => $name)
-                                            <label class="option-item">
-                                                <input type="checkbox" value="{{ $code }}" data-type="language" data-name="{{ $name }}" onchange="updateMultiFilter(this)">
-                                                <span>{{ $name }}</span>
-                                            </label>
-                                        @endforeach
-                                    </div>
-                                </div>
-                            </div>
-                            <input type="hidden" name="language" id="selectedLanguage" value="{{ request('language') }}">
-                        </div>
-
-                        <!-- Sponsored Filter -->
-                        <div class="col-md-2">
-                            <label class="form-label fw-semibold small text-muted mb-1">Sponsored</label>
-                            <select name="sponsored" class="form-select form-select-sm">
-                                <option value="">All Sites</option>
-                                <option value="1" {{ request('sponsored') == '1' ? 'selected' : '' }}>Sponsored Only</option>
-                            </select>
-                        </div>
-
-                        <!-- Price Range -->
-                        <div class="col-md-2">
-                            <label class="form-label fw-semibold small text-muted mb-1">Price Range(€)</label>
+                            <label class="form-label fw-semibold small text-muted mb-1">Price (€)</label>
                             <div class="d-flex gap-2">
-                                <input type="number" 
-                                       name="price_min" 
-                                       class="form-control form-control-sm no-spinner" 
-                                       placeholder="00.00"
+                                <input type="number"
+                                       name="price_min"
+                                       class="form-control form-control-sm no-spinner"
+                                       placeholder="Min"
                                        min="0" step="0.01"
                                        value="{{ request('price_min') }}">
-                                <input type="number" 
-                                       name="price_max" 
-                                       class="form-control form-control-sm no-spinner" 
-                                       placeholder="999999.00"
+                                <input type="number"
+                                       name="price_max"
+                                       class="form-control form-control-sm no-spinner"
+                                       placeholder="Max"
                                        min="0" step="0.01"
                                        value="{{ request('price_max') }}">
                             </div>
                         </div>
 
-                        <!-- Favorites Filter -->
-                        <div class="col-md-2">
-                            <label class="form-label fw-semibold small text-muted mb-1">Favorites</label>
-                            <select name="favorites_filter" class="form-select form-select-sm">
-                                <option value="">All Sites</option>
-                                <option value="1" {{ request('favorites_filter') == '1' ? 'selected' : '' }}>Favorites Only</option>
-                            </select>
-                        </div>
-
-                        <!-- Blacklist Filter -->
-                        <div class="col-md-2">
-                            <label class="form-label fw-semibold small text-muted mb-1">Blacklist</label>
-                            <select name="blacklist_filter" class="form-select form-select-sm">
-                                <option value="">All Sites</option>
-                                <option value="1" {{ request('blacklist_filter') == '1' ? 'selected' : '' }}>Blacklisted Only</option>
-                            </select>
-                        </div>
-
-                        <!-- DA Range -->
-                        <div class="col-md-2">
-                            <label class="form-label fw-semibold small text-muted mb-1">DA Range</label>
-                            <div class="d-flex gap-2">
-                                <input type="number" 
-                                       name="da_min" 
-                                       class="form-control form-control-sm no-spinner"  
-                                       placeholder="00"
-                                       min="0" step="1"
-                                       value="{{ request('da_min') }}">
-                                <input type="number" 
-                                       name="da_max" 
-                                       class="form-control form-control-sm no-spinner" 
-                                       placeholder="99"
-                                       min="0" step="1"
-                                       value="{{ request('da_max') }}">
-                            </div>
-                        </div>
-
-                        <!-- DR Range -->
-                        <div class="col-md-2">
-                            <label class="form-label fw-semibold small text-muted mb-1">DR Range</label>
-                            <div class="d-flex gap-2">
-                                <input type="number" 
-                                       name="dr_min" 
-                                       class="form-control form-control-sm no-spinner" 
-                                       placeholder="00"
-                                       min="0" step="1"
-                                       value="{{ request('dr_min') }}">
-                                <input type="number" 
-                                       name="dr_max" 
-                                       class="form-control form-control-sm no-spinner" 
-                                       placeholder="99"
-                                       min="0" step="1"
-                                       value="{{ request('dr_max') }}">
-                            </div>
-                        </div>
-
-                        <!-- Traffic Range -->
+                        <!-- Actions -->
                         <div class="col-md-3">
-                            <label class="form-label fw-semibold small text-muted mb-1">Monthly Traffic</label>
-                            <div class="d-flex gap-2">
-                                <input type="number" 
-                                       name="traffic_min" 
-                                       class="form-control form-control-sm no-spinner" 
-                                       placeholder="00"
-                                       min="0" step="1"
-                                       value="{{ request('traffic_min') }}">
-                                <input type="number" 
-                                       name="traffic_max" 
-                                       class="form-control form-control-sm no-spinner" 
-                                       placeholder="999999"
-                                       min="0" step="1"
-                                       value="{{ request('traffic_max') }}">
+                            <label class="form-label fw-semibold small text-muted mb-1 d-none d-md-block">&nbsp;</label>
+                            <div class="d-flex flex-wrap gap-2">
+                                <button type="button" class="btn btn-sm px-3" id="applyFiltersBtn" style="background-color: #3aaeb2; color: white;">
+                                    <i class="fa-solid fa-filter me-1"></i> Filter
+                                </button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary px-3" id="toggleMoreFiltersBtn" aria-expanded="{{ $moreFiltersOpen ? 'true' : 'false' }}">
+                                    <i class="fa fa-sliders me-1"></i> More filters
+                                    @if($moreFiltersOpen)
+                                        <span class="badge rounded-pill ms-1" style="background:#0b6266;">{{ collect($moreFilterKeys)->filter(fn($k) => filled(request($k)))->count() }}</span>
+                                    @endif
+                                </button>
+                                <a href="{{ route('advertiser.catalog') }}" class="btn btn-sm px-3" style="background-color: #e9ecef; color: #495057;">
+                                    <i class="fa-solid fa-rotate-right me-1"></i> Reset
+                                </a>
                             </div>
                         </div>
+                    </div>
 
-                        <!-- New Badge Filter -->
-                        <div class="col-md-2">
-                            <label class="form-label fw-semibold small text-muted mb-1">New Sites</label>
-                            <div class="form-check">
-                                <input class="form-check-input" type="checkbox" name="new_badge" id="new_badge" value="1" {{ request('new_badge') == 1 ? 'checked' : '' }}>
-                                <label class="form-check-label" for="new_badge">
-                                    Show New Sites
-                                </label>
+                    <!-- More filters drawer -->
+                    <div id="moreFiltersDrawer" class="mt-3 pt-3 border-top" style="{{ $moreFiltersOpen ? '' : 'display:none;' }}">
+                        <div class="row g-3 align-items-end">
+                            <div class="col-md-2">
+                                <label class="form-label fw-semibold small text-muted mb-1">Language</label>
+                                <div class="multi-select-wrapper">
+                                    <div class="multi-select-input form-control form-control-sm" onclick="toggleMultiDropdown('languageMultiDropdown')">
+                                        <div class="selected-items" id="selectedLanguagesDisplay">
+                                            <span class="placeholder-text">Select languages...</span>
+                                        </div>
+                                        <i class="fa fa-chevron-down"></i>
+                                    </div>
+                                    <div class="multi-select-dropdown" id="languageMultiDropdown">
+                                        <div class="search-box">
+                                            <i class="fa fa-search"></i>
+                                            <input type="text" id="languageSearch" class="form-control form-control-sm" placeholder="Search languages..." onkeyup="filterMultiOptions('languageMultiOptions', this.value)">
+                                        </div>
+                                        <div class="options-list" id="languageMultiOptions">
+                                            @foreach($availableLanguages as $code => $name)
+                                                <label class="option-item">
+                                                    <input type="checkbox" value="{{ $code }}" data-type="language" data-name="{{ $name }}" onchange="updateMultiFilter(this)">
+                                                    <span>{{ $name }}</span>
+                                                </label>
+                                            @endforeach
+                                        </div>
+                                    </div>
+                                </div>
+                                <input type="hidden" name="language" id="selectedLanguage" value="{{ request('language') }}">
                             </div>
-                        </div>
 
-                        <!-- Action Buttons -->
-                        <div class="d-flex gap-2">
-                            <button type="button" class="btn btn-sm px-4" id="applyFiltersBtn" style="background-color: #3aaeb2; color: white;">
-                                <i class="fa-solid fa-filter me-1"></i> Filter
-                            </button>
-                            <a href="{{ route('advertiser.catalog') }}" class="btn btn-sm px-3" style="background-color: #e9ecef; color: #495057;">
-                                <i class="fa-solid fa-rotate-right me-1"></i> Reset
-                            </a>
+                            <div class="col-md-2">
+                                <label class="form-label fw-semibold small text-muted mb-1">Sponsored</label>
+                                <select name="sponsored" class="form-select form-select-sm">
+                                    <option value="">All Sites</option>
+                                    <option value="1" {{ request('sponsored') == '1' ? 'selected' : '' }}>Sponsored Only</option>
+                                </select>
+                            </div>
+
+                            <div class="col-md-2">
+                                <label class="form-label fw-semibold small text-muted mb-1">Favorites</label>
+                                <select name="favorites_filter" class="form-select form-select-sm">
+                                    <option value="">All Sites</option>
+                                    <option value="1" {{ request('favorites_filter') == '1' ? 'selected' : '' }}>Favorites Only</option>
+                                </select>
+                            </div>
+
+                            <div class="col-md-2">
+                                <label class="form-label fw-semibold small text-muted mb-1">Blacklist</label>
+                                <select name="blacklist_filter" class="form-select form-select-sm">
+                                    <option value="">All Sites</option>
+                                    <option value="1" {{ request('blacklist_filter') == '1' ? 'selected' : '' }}>Blacklisted Only</option>
+                                </select>
+                            </div>
+
+                            <div class="col-md-2">
+                                <label class="form-label fw-semibold small text-muted mb-1">DA Range</label>
+                                <div class="d-flex gap-2">
+                                    <input type="number" name="da_min" class="form-control form-control-sm no-spinner" placeholder="00" min="0" step="1" value="{{ request('da_min') }}">
+                                    <input type="number" name="da_max" class="form-control form-control-sm no-spinner" placeholder="99" min="0" step="1" value="{{ request('da_max') }}">
+                                </div>
+                            </div>
+
+                            <div class="col-md-2">
+                                <label class="form-label fw-semibold small text-muted mb-1">DR Range</label>
+                                <div class="d-flex gap-2">
+                                    <input type="number" name="dr_min" class="form-control form-control-sm no-spinner" placeholder="00" min="0" step="1" value="{{ request('dr_min') }}">
+                                    <input type="number" name="dr_max" class="form-control form-control-sm no-spinner" placeholder="99" min="0" step="1" value="{{ request('dr_max') }}">
+                                </div>
+                            </div>
+
+                            <div class="col-md-3">
+                                <label class="form-label fw-semibold small text-muted mb-1">Monthly Traffic</label>
+                                <div class="d-flex gap-2">
+                                    <input type="number" name="traffic_min" class="form-control form-control-sm no-spinner" placeholder="00" min="0" step="1" value="{{ request('traffic_min') }}">
+                                    <input type="number" name="traffic_max" class="form-control form-control-sm no-spinner" placeholder="999999" min="0" step="1" value="{{ request('traffic_max') }}">
+                                </div>
+                            </div>
+
+                            <div class="col-md-2">
+                                <label class="form-label fw-semibold small text-muted mb-1">New Sites</label>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="new_badge" id="new_badge" value="1" {{ request('new_badge') == 1 ? 'checked' : '' }}>
+                                    <label class="form-check-label" for="new_badge">Show New Sites</label>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </form>
+
+                @if(count($activeFilterChips))
+                    <div class="d-flex flex-wrap align-items-center gap-2 mt-3" id="activeFilterChips">
+                        <span class="small text-muted me-1">Active:</span>
+                        @foreach($activeFilterChips as $chip)
+                            <span class="badge rounded-pill filter-chip">{{ $chip['label'] }}</span>
+                        @endforeach
+                        <a href="{{ route('advertiser.catalog') }}" class="small ms-1" style="color:#0b6266;font-weight:600;">Clear all</a>
+                    </div>
+                @endif
             </div>
         </div>
     </div>
 </div>
+
+<style>
+.filter-chip {
+    background: rgba(78, 205, 203, 0.18) !important;
+    color: #0b6266 !important;
+    font-weight: 600;
+    border: 1px solid #c8ebe9;
+}
+#toggleMoreFiltersBtn[aria-expanded="true"] {
+    border-color: #0b6266;
+    color: #0b6266;
+}
+</style>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const btn = document.getElementById('toggleMoreFiltersBtn');
+    const drawer = document.getElementById('moreFiltersDrawer');
+    if (!btn || !drawer) return;
+    btn.addEventListener('click', function () {
+        const open = drawer.style.display !== 'none';
+        drawer.style.display = open ? 'none' : 'block';
+        btn.setAttribute('aria-expanded', open ? 'false' : 'true');
+    });
+});
+</script>
 
 
 

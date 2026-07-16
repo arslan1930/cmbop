@@ -380,7 +380,15 @@ Route::middleware(['auth','verified', RoleMiddleware::class . ':advertiser'])
                 'cancelled' => (clone $orders)->where('status', 'cancelled')->count(),
             ];
 
-            return view('advertiser.dashboard', compact('stats'));
+            $recentOrders = $user->orders()
+                ->with(['items' => function ($q) {
+                    $q->select('id', 'order_id', 'site_name', 'site_url');
+                }])
+                ->latest()
+                ->take(5)
+                ->get();
+
+            return view('advertiser.dashboard', compact('stats', 'recentOrders'));
         })->name('dashboard');
 
         // Balance routes
