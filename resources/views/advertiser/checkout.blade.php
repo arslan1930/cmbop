@@ -92,13 +92,13 @@
                         </div>
                     </div>
 
-                    <!-- 2. Content Links -->
+                    <!-- 2. Provide Your Article -->
                     <div class="card border-0 shadow-sm mb-4">
                         <div class="card-header bg-white fw-semibold">
-                            <i class="fa fa-link me-2"></i> 2. Content Links
+                            <i class="fa fa-link me-2"></i> 2. Provide Your Article
                         </div>
                         <div class="card-body">
-                            <p class="text-muted small mb-3">Paste a Google Docs link for each placement so the publisher can publish your content.</p>
+                            <p class="text-muted small mb-3">Paste a Google Docs link for each placement so the publisher can publish your article.</p>
                             <div class="d-flex flex-column gap-3">
                                 @php $globalCopyIndex = 0; @endphp
                                 @foreach($cartItems as $index => $item)
