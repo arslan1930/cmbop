@@ -159,6 +159,14 @@
             <i class="fa fa-envelope-open-text"></i> <span>Email Center</span>
         </a>
 
+        <a href="{{ route('admin.campaigns.index') }}" class="{{ request()->routeIs('admin.campaigns.*') ? 'active' : '' }}">
+            <i class="fa fa-paper-plane"></i> <span>Updates / Campaigns</span>
+        </a>
+
+        <a href="{{ route('admin.audiences.index') }}" class="{{ request()->routeIs('admin.audiences.*') ? 'active' : '' }}">
+            <i class="fa fa-address-book"></i> <span>Audiences</span>
+        </a>
+
         <a href="{{ route('admin.promotions.index') }}" class="{{ request()->routeIs('admin.promotions.*') ? 'active' : '' }}">
             <i class="fa fa-bullhorn"></i> <span>Promotions</span>
         </a>

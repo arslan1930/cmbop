@@ -32,6 +32,8 @@ use App\Http\Controllers\Admin\EmailCenterController as AdminEmailCenterControll
 use App\Http\Controllers\Admin\PromotionController as AdminPromotionController;
 use App\Http\Controllers\Admin\AnnouncementController as AdminAnnouncementController;
 use App\Http\Controllers\Admin\AdBannerController as AdminAdBannerController;
+use App\Http\Controllers\Admin\AudienceController as AdminAudienceController;
+use App\Http\Controllers\Admin\CampaignController as AdminCampaignController;
 use App\Http\Controllers\BannerClickController;
 use App\Http\Controllers\Advertiser\ProjectController;
 use App\Http\Controllers\Advertiser\CatalogController;
@@ -345,6 +347,13 @@ Route::middleware(['auth','verified', RoleMiddleware::class . ':admin,marketing'
                 Route::post('banners/{banner}/toggle', [AdminAdBannerController::class, 'toggle'])
                     ->name('banners.toggle');
             });
+
+            // Audience inventory (Advertisers / Publishers) + email campaigns
+            Route::get('/audiences', [AdminAudienceController::class, 'index'])->name('audiences.index');
+            Route::get('/audiences/export', [AdminAudienceController::class, 'export'])->name('audiences.export');
+            Route::get('/campaigns', [AdminCampaignController::class, 'index'])->name('campaigns.index');
+            Route::post('/campaigns/preview', [AdminCampaignController::class, 'preview'])->name('campaigns.preview');
+            Route::post('/campaigns/send', [AdminCampaignController::class, 'send'])->name('campaigns.send');
 
             Route::get('/reports', function () {
                 return view('admin.reports');

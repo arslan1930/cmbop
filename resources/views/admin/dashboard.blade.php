@@ -8,9 +8,18 @@
             <h1 class="h3 mb-1">Admin Dashboard</h1>
             <p class="text-muted mb-0">Platform overview, money flow, and items that need your attention.</p>
         </div>
-        <div class="d-flex gap-2">
+        <div class="d-flex gap-2 flex-wrap">
+            <a href="{{ route('admin.campaigns.index') }}" class="btn btn-sm btn-primary">
+                <i class="fa fa-paper-plane me-1"></i> Updates / Campaigns
+            </a>
+            <a href="{{ route('admin.audiences.index') }}" class="btn btn-sm btn-outline-primary">
+                <i class="fa fa-address-book me-1"></i> Audiences
+            </a>
+            <a href="{{ route('admin.promotions.index') }}" class="btn btn-sm btn-outline-secondary">
+                <i class="fa fa-bullhorn me-1"></i> Promotions
+            </a>
             <a href="{{ route('admin.users.index') }}" class="btn btn-sm btn-outline-primary">
-                <i class="fa fa-bullhorn me-1"></i> Marketing Access
+                <i class="fa fa-user-tag me-1"></i> Marketing Access
             </a>
             <a href="{{ route('admin.sites.index') }}" class="btn btn-sm btn-outline-secondary">
                 <i class="fa fa-globe me-1"></i> Sites
@@ -103,14 +112,17 @@
                             </p>
                         </div>
                         <div class="d-flex flex-wrap gap-2">
-                            <a href="{{ route('admin.promotions.index') }}" class="btn btn-primary btn-sm">
-                                <i class="fa fa-sliders-h me-1"></i> Open Promotions
+                            <a href="{{ route('admin.campaigns.index') }}" class="btn btn-primary btn-sm">
+                                <i class="fa fa-paper-plane me-1"></i> Updates / Campaigns
                             </a>
-                            <a href="{{ route('admin.promotions.announcements.create') }}" class="btn btn-outline-primary btn-sm">
+                            <a href="{{ route('admin.audiences.index') }}" class="btn btn-outline-primary btn-sm">
+                                Audience Lists
+                            </a>
+                            <a href="{{ route('admin.promotions.index') }}" class="btn btn-outline-secondary btn-sm">
+                                Site Banners
+                            </a>
+                            <a href="{{ route('admin.promotions.announcements.create') }}" class="btn btn-outline-secondary btn-sm">
                                 New Announcement
-                            </a>
-                            <a href="{{ route('admin.promotions.banners.create') }}" class="btn btn-outline-secondary btn-sm">
-                                New Banner
                             </a>
                         </div>
                     </div>

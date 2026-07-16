@@ -215,6 +215,15 @@ return [
             'default_enabled' => true,
         ],
 
+        // —— Admin campaigns / updates ——
+        'audience_campaign' => [
+            'name' => 'Updates & Campaigns',
+            'audience' => 'user',
+            'preference' => 'marketing_emails',
+            'mailable' => \App\Mail\AudienceCampaignMail::class,
+            'default_enabled' => true,
+        ],
+
         // —— Digests (scheduled) ——
         'weekly_activity_summary' => [
             'name' => 'Weekly Activity Summary',
