@@ -323,6 +323,7 @@ Route::middleware(['auth','verified', RoleMiddleware::class . ':admin,marketing'
             Route::get('/emails/preview/{key}', [AdminEmailCenterController::class, 'preview'])->name('emails.preview');
             Route::post('/emails/test', [AdminEmailCenterController::class, 'sendTest'])->name('emails.test');
             Route::post('/emails/retry', [AdminEmailCenterController::class, 'retryFailed'])->name('emails.retry');
+            Route::post('/emails/settings', [AdminEmailCenterController::class, 'updateSettings'])->name('emails.settings');
 
             Route::get('/reports', function () {
                 return view('admin.reports');
@@ -353,6 +354,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::post('/profile/billing', [\App\Http\Controllers\ProfileController::class, 'billing'])
         ->name('profile.billing');
+
+    Route::get('/profile/notifications', [\App\Http\Controllers\NotificationPreferenceController::class, 'edit'])
+        ->name('profile.notifications');
+    Route::post('/profile/notifications', [\App\Http\Controllers\NotificationPreferenceController::class, 'update'])
+        ->name('profile.notifications.update');
 
         // Chat routes
     Route::prefix('chat')->group(function () {

@@ -16,7 +16,10 @@ use App\Mail\OrderPaymentConfirmed;
 use App\Mail\OrderRejected;
 use App\Mail\SiteOwnerOrderNotification;
 use App\Mail\SiteStatusNotification;
+use App\Mail\AdminNewUserRegistered;
+use App\Mail\MonthlySpendingSummary;
 use App\Mail\TrustpilotReviewRequest;
+use App\Mail\WeeklyActivitySummary;
 use App\Mail\WelcomeEmail;
 use App\Mail\WithdrawalRequestNotification;
 use App\Mail\WithdrawalStatusUpdated;
@@ -162,8 +165,8 @@ class EmailCatalog
                 'description' => 'Ask happy customers to leave a Trustpilot review after completed orders.',
                 'category' => 'Growth',
                 'mailable' => TrustpilotReviewRequest::class,
-                'status' => 'ready',
-                'importance' => 'High impact for social proof — template ready; not auto-sent yet (avoids changing live notification flow).',
+                'status' => 'active',
+                'importance' => 'Auto-sent when an order status becomes completed (observer — no controller changes). Set TRUSTPILOT_REVIEW_URL.',
             ],
             'password_reset' => [
                 'name' => 'Password Reset',
@@ -172,6 +175,27 @@ class EmailCatalog
                 'mailable' => null,
                 'status' => 'framework',
                 'importance' => 'Managed by Laravel auth — preview shows a branded sample; do not duplicate send logic.',
+            ],
+            'admin_new_user' => [
+                'name' => 'New User Registered',
+                'description' => 'Admins notified when a new user registers.',
+                'category' => 'Admin',
+                'mailable' => AdminNewUserRegistered::class,
+                'status' => 'active',
+            ],
+            'weekly_activity_summary' => [
+                'name' => 'Weekly Activity Summary',
+                'description' => 'Weekly advertiser activity digest (scheduled).',
+                'category' => 'Reports',
+                'mailable' => WeeklyActivitySummary::class,
+                'status' => 'active',
+            ],
+            'monthly_spending_summary' => [
+                'name' => 'Monthly Spending Summary',
+                'description' => 'Monthly advertiser spending digest (scheduled).',
+                'category' => 'Reports',
+                'mailable' => MonthlySpendingSummary::class,
+                'status' => 'active',
             ],
         ];
     }
@@ -271,6 +295,20 @@ class EmailCatalog
                 'Sample Receiver'
             ),
             'trustpilot_review' => new TrustpilotReviewRequest($user, $order),
+            'admin_new_user' => new AdminNewUserRegistered($user, $user),
+            'weekly_activity_summary' => new WeeklyActivitySummary($user, [
+                'orders' => 3,
+                'spend' => 199.5,
+                'completed' => 1,
+                'week_key' => now()->format('o-\WW'),
+            ]),
+            'monthly_spending_summary' => new MonthlySpendingSummary($user, [
+                'month_key' => now()->format('Y-m'),
+                'month_label' => now()->format('F Y'),
+                'spend' => 499.0,
+                'orders' => 7,
+                'aov' => 71.28,
+            ]),
             default => null,
         };
     }

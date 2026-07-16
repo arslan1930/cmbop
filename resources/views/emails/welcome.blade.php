@@ -1,14 +1,14 @@
 @component('mail::message')
-# Welcome, {{ $user->name }}!
+# Welcome aboard, {{ $firstName }}!
 
-Thanks for joining **{{ config('app.name', 'SEOLinkBuildings') }}**. Your account is ready — explore verified publishers and place your first order whenever you’re ready.
+Thanks for joining **{{ $brand['name'] ?? config('app.name') }}**. Your account is ready — explore verified publishers and place your first order whenever you’re ready.
 
-@component('mail::button', ['url' => $catalogUrl])
-Browse Websites
+@component('mail::button', ['url' => $ctaUrl])
+{{ $ctaLabel }}
 @endcomponent
 
-Or go straight to your [dashboard]({{ $dashboardUrl }}).
+Prefer to start from your dashboard? [Open dashboard]({{ $dashboardUrl }})
 
 Thanks,<br>
-{{ config('app.name') }}
+{{ $brand['name'] ?? config('app.name') }} Team
 @endcomponent

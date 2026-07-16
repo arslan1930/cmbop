@@ -3,16 +3,14 @@
 namespace App\Mail;
 
 use App\Models\User;
-use Illuminate\Bus\Queueable;
-use Illuminate\Mail\Mailable;
-use Illuminate\Queue\SerializesModels;
 
-class WelcomeEmail extends Mailable
+class WelcomeEmail extends PlatformMailable
 {
-    use Queueable, SerializesModels;
-
     public function __construct(public User $user)
     {
+        parent::__construct();
+        $this->notificationType = 'welcome';
+        $this->recipientUser = $user;
     }
 
     public function build()
@@ -21,8 +19,12 @@ class WelcomeEmail extends Mailable
             ->markdown('emails.welcome')
             ->with([
                 'user' => $this->user,
+                'firstName' => $this->firstName($this->user),
                 'catalogUrl' => url('/advertiser/catalog'),
                 'dashboardUrl' => url('/advertiser/dashboard'),
+                'ctaUrl' => url('/advertiser/catalog'),
+                'ctaLabel' => 'Browse Websites',
+                'brand' => $this->brand(),
             ]);
     }
 }

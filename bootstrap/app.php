@@ -36,5 +36,9 @@ return Application::configure(basePath: dirname(__DIR__))
         if (filled($adminEmail)) {
             $event->emailOutputOnFailure($adminEmail);
         }
+
+        // Email digests (respect user preferences + admin toggles inside mailables)
+        $schedule->command('emails:send-digests --type=weekly')->weeklyOn(1, '8:00');
+        $schedule->command('emails:send-digests --type=monthly')->monthlyOn(1, '8:15');
     })
     ->create();

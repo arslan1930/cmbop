@@ -41,8 +41,9 @@
         {{-- ══ PROFILE INFO ══ --}}
         <div class="col-lg-6">
             <div class="profile-card">
-                <div class="card-header-custom">
-                    <i class="fas fa-user-circle text-primary"></i> Profile Information
+                <div class="card-header-custom d-flex justify-content-between align-items-center">
+                    <span><i class="fas fa-user-circle text-primary"></i> Profile Information</span>
+                    <a href="{{ route('profile.notifications') }}" class="btn btn-sm btn-outline-primary">Email Preferences</a>
                 </div>
                 <div class="card-body-custom">
                     <form method="POST" action="{{ route('profile.update') }}" id="formProfile">

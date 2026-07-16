@@ -3,19 +3,16 @@
 
 namespace App\Mail;
 
-use Illuminate\Bus\Queueable;
-use Illuminate\Mail\Mailable;
-use Illuminate\Queue\SerializesModels;
 use App\Models\DepositRequest;
 
-class DepositApproved extends Mailable
+class DepositApproved extends PlatformMailable
 {
-    use Queueable, SerializesModels;
     
     public $deposit;
     
     public function __construct(DepositRequest $deposit)
     {
+        parent::__construct();
         $this->deposit = $deposit;
     }
     

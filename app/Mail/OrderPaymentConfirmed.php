@@ -3,15 +3,11 @@
 
 namespace App\Mail;
 
-use Illuminate\Bus\Queueable;
-use Illuminate\Mail\Mailable;
-use Illuminate\Queue\SerializesModels;
 use App\Models\Order;
 use Illuminate\Support\Facades\Log;
 
-class OrderPaymentConfirmed extends Mailable
+class OrderPaymentConfirmed extends PlatformMailable
 {
-    use Queueable, SerializesModels;
 
     public $order;
     public $user;
@@ -20,6 +16,7 @@ class OrderPaymentConfirmed extends Mailable
 
     public function __construct(Order $order)
     {
+        parent::__construct();
         $this->order = $order;
         $this->user = $order->user;
         $this->totalAmount = $order->total_amount;

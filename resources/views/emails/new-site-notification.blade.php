@@ -1,9 +1,5 @@
 @component('mail::message')
 
-<div style="text-align:center; margin-bottom:20px;">
-    <img src="https://seolinkbuildings.com/assets/img/logo1.png" alt="Seolinkbuildings Logo" width="150" style="display:block; margin:0 auto;">
-</div>
-
 # New Site Submitted for Review
 
 A new site has been submitted by **{{ $publisherName }}** ({{ $publisherEmail }}) and requires your review.
@@ -18,8 +14,9 @@ A new site has been submitted by **{{ $publisherName }}** ({{ $publisherEmail }}
 - **Traffic:** {{ number_format($site->traffic) }} monthly
 
 
+@component('mail::button', ['url' => $adminUrl])
 Review Site
-
+@endcomponent
 
 Thanks,<br>
 {{ config('app.name') }}

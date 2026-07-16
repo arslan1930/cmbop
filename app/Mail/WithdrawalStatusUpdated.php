@@ -3,13 +3,9 @@
 
 namespace App\Mail;
 
-use Illuminate\Bus\Queueable;
-use Illuminate\Mail\Mailable;
-use Illuminate\Queue\SerializesModels;
 
-class WithdrawalStatusUpdated extends Mailable
+class WithdrawalStatusUpdated extends PlatformMailable
 {
-    use Queueable, SerializesModels;
 
     public $withdrawal;
     public $oldStatus;
@@ -18,6 +14,7 @@ class WithdrawalStatusUpdated extends Mailable
 
     public function __construct($withdrawal, $oldStatus, $newStatus, $notes)
     {
+        parent::__construct();
         $this->withdrawal = $withdrawal;
         $this->oldStatus = $oldStatus;
         $this->newStatus = $newStatus;

@@ -3,14 +3,10 @@
 
 namespace App\Mail;
 
-use Illuminate\Bus\Queueable;
-use Illuminate\Mail\Mailable;
-use Illuminate\Queue\SerializesModels;
 use App\Models\User;
 
-class SiteOwnerOrderNotification extends Mailable
+class SiteOwnerOrderNotification extends PlatformMailable
 {
-    use Queueable, SerializesModels;
 
     public $site;
     public $orders;
@@ -18,6 +14,7 @@ class SiteOwnerOrderNotification extends Mailable
 
     public function __construct($site, $orders)
     {
+        parent::__construct();
         $this->site = $site;
         $this->orders = $orders;
         // Get the publisher using publisher_id

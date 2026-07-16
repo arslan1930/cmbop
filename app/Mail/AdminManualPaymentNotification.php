@@ -3,13 +3,9 @@
 
 namespace App\Mail;
 
-use Illuminate\Bus\Queueable;
-use Illuminate\Mail\Mailable;
-use Illuminate\Queue\SerializesModels;
 
-class AdminManualPaymentNotification extends Mailable
+class AdminManualPaymentNotification extends PlatformMailable
 {
-    use Queueable, SerializesModels;
 
     public $customer;
     public $orders;
@@ -18,6 +14,7 @@ class AdminManualPaymentNotification extends Mailable
 
     public function __construct($customer, $orders, $paymentMethod, $totalAmount)
     {
+        parent::__construct();
         $this->customer = $customer;
         $this->orders = $orders;
         $this->paymentMethod = $paymentMethod;

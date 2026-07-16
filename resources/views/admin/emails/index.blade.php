@@ -234,6 +234,56 @@
         </div>
     </div>
 
+    {{-- Admin notification toggles --}}
+    <div class="card ec-card mb-4" id="ec-settings">
+        <div class="card-body">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <div>
+                    <h5 class="mb-1">Notification Settings</h5>
+                    <p class="small text-muted mb-0">Enable or disable specific notification types globally. User preferences still apply on top.</p>
+                </div>
+            </div>
+            <form method="post" action="{{ route('admin.emails.settings') }}">
+                @csrf
+                <div class="table-responsive">
+                    <table class="table table-sm align-middle">
+                        <thead>
+                            <tr>
+                                <th>Notification</th>
+                                <th>Audience</th>
+                                <th>User preference</th>
+                                <th class="text-end">Enabled</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach($settings as $setting)
+                                <tr>
+                                    <td class="fw-semibold">{{ $setting['name'] }}</td>
+                                    <td><span class="badge bg-light text-dark">{{ $setting['audience'] }}</span></td>
+                                    <td class="small text-muted">{{ $setting['preference'] ?: '—' }}</td>
+                                    <td class="text-end">
+                                        <div class="form-check form-switch d-inline-flex justify-content-end">
+                                            <input class="form-check-input" type="checkbox" name="enabled[{{ $setting['type'] }}]" value="1" @checked($setting['enabled'])>
+                                        </div>
+                                    </td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+                <div class="d-flex justify-content-between align-items-center mt-2">
+                    <p class="small text-muted mb-0">
+                        Sender: <strong>{{ $brand['sender_name'] ?? '' }}</strong> &lt;{{ $brand['sender_email'] ?? '' }}&gt;
+                        · Reply-To: {{ $brand['reply_to'] ?? '—' }}
+                        · Support: {{ $brand['support_email'] ?? '—' }}
+                        <br><strong>Important:</strong> Change sender/reply-to/support via <code>.env</code> (<code>MAIL_*</code>, <code>MAIL_SUPPORT_EMAIL</code>, <code>MAIL_REPLY_TO_ADDRESS</code>).
+                    </p>
+                    <button class="btn btn-primary btn-sm" type="submit">Save settings</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     @if($failedLogs->isNotEmpty())
         <div class="card ec-card mb-4">
             <div class="card-body">

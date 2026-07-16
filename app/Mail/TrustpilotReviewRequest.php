@@ -4,16 +4,13 @@ namespace App\Mail;
 
 use App\Models\Order;
 use App\Models\User;
-use Illuminate\Bus\Queueable;
-use Illuminate\Mail\Mailable;
-use Illuminate\Queue\SerializesModels;
 
-class TrustpilotReviewRequest extends Mailable
+class TrustpilotReviewRequest extends PlatformMailable
 {
-    use Queueable, SerializesModels;
 
     public function __construct(public User $user, public ?Order $order = null)
     {
+    parent::__construct();
     }
 
     public function build()

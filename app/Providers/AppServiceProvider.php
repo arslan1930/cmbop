@@ -7,7 +7,11 @@ use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\View;
 use Illuminate\Mail\Events\MessageSent;
 use App\Listeners\LogSentEmail;
+use App\Listeners\SendTrustpilotReviewOnOrderCompleted;
+use App\Models\Order;
 use App\Models\Project;
+use App\Models\User;
+use App\Services\EmailNotificationService;
 use SocialiteProviders\Manager\SocialiteWasCalled;
 
 class AppServiceProvider extends ServiceProvider
@@ -25,6 +29,21 @@ class AppServiceProvider extends ServiceProvider
 
         // Non-invasive email logging for Admin Email Center (does not alter send call sites)
         Event::listen(MessageSent::class, LogSentEmail::class);
+
+        // Gap-fill: welcome + admin new-user (HTTP only — skips seeders/artisan)
+        User::created(function (User $user) {
+            if (app()->runningInConsole()) {
+                return;
+            }
+            $emails = app(EmailNotificationService::class);
+            $emails->sendWelcome($user);
+            $emails->notifyAdminsNewUser($user);
+        });
+
+        // Trustpilot after order completion (observes model updates only)
+        Order::updated(function (Order $order) {
+            app(SendTrustpilotReviewOnOrderCompleted::class)->handle($order);
+        });
 
         View::composer('*', function ($view) {
 

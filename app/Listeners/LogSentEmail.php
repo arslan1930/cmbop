@@ -2,6 +2,7 @@
 
 namespace App\Listeners;
 
+use App\Mail\PlatformMailable;
 use App\Models\EmailLog;
 use App\Support\EmailCatalog;
 use Illuminate\Mail\Events\MessageSent;
@@ -14,15 +15,14 @@ class LogSentEmail
         $message = $event->message;
         $to = $this->firstAddress($message->getTo());
         $from = $this->firstAddress($message->getFrom());
-        $mailableClass = $event->data['__laravel_notification']
-            ?? ($event->data['mailable'] ?? null);
 
-        // Prefer Symfony message headers set by our catalog / mailable
         $mailable = null;
+        $mailableInstance = null;
         if (isset($event->data) && is_array($event->data)) {
             foreach ($event->data as $value) {
                 if (is_object($value) && is_subclass_of($value, \Illuminate\Mail\Mailable::class)) {
                     $mailable = $value::class;
+                    $mailableInstance = $value;
                     break;
                 }
             }
@@ -30,11 +30,23 @@ class LogSentEmail
 
         $subject = $message->getSubject() ?: '(no subject)';
         $templateKey = EmailCatalog::keyFromMailable($mailable) ?? EmailCatalog::keyFromSubject($subject);
+        $notificationType = null;
+        $dedupeKey = null;
+        $audience = null;
+
+        if ($mailableInstance instanceof PlatformMailable) {
+            $notificationType = $mailableInstance->notificationType ?: $templateKey;
+            $dedupeKey = $mailableInstance->dedupeKey;
+            $audience = config("email_notifications.types.{$notificationType}.audience");
+        }
 
         EmailLog::create([
             'uuid' => (string) Str::uuid(),
             'mailable' => $mailable,
             'template_key' => $templateKey,
+            'notification_type' => $notificationType,
+            'dedupe_key' => $dedupeKey,
+            'audience' => $audience,
             'to_email' => $to['email'] ?? 'unknown',
             'to_name' => $to['name'] ?? null,
             'from_email' => $from['email'] ?? config('mail.from.address'),

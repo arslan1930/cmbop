@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\EmailLog;
+use App\Models\EmailNotificationSetting;
 use App\Support\EmailCatalog;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Artisan;
@@ -66,14 +67,45 @@ class EmailCenterController extends Controller
 
         $failedLogs = EmailLog::failed()->latest('id')->limit(20)->get();
 
+        $settings = collect(config('email_notifications.types', []))->map(function (array $meta, string $type) {
+            return [
+                'type' => $type,
+                'name' => $meta['name'] ?? $type,
+                'audience' => $meta['audience'] ?? 'user',
+                'enabled' => EmailNotificationSetting::isEnabled($type),
+                'preference' => $meta['preference'] ?? null,
+            ];
+        })->values();
+
+        $brand = config('email_notifications.brand', []);
+
         return view('admin.emails.index', compact(
             'stats',
             'recentLogs',
             'templates',
             'smtp',
             'queue',
-            'failedLogs'
+            'failedLogs',
+            'settings',
+            'brand'
         ));
+    }
+
+    public function updateSettings(Request $request)
+    {
+        $enabled = $request->input('enabled', []);
+        $types = array_keys(config('email_notifications.types', []));
+
+        foreach ($types as $type) {
+            EmailNotificationSetting::updateOrCreate(
+                ['type' => $type],
+                ['enabled' => !empty($enabled[$type])]
+            );
+        }
+
+        EmailNotificationSetting::flushCache();
+
+        return back()->with('success', 'Email notification settings saved.');
     }
 
     public function preview(string $key)
