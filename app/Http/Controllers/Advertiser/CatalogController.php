@@ -1072,65 +1072,83 @@ public function checkout(Request $request)
             // Recalculate every line from DB — never trust session cart prices
             $expandedOrders = $this->cartPricing()->expandCart($cart);
             $totalAmount = round(array_sum(array_column($expandedOrders, 'price')), 2);
-            
-            // Validate content links
+
             if (!$contentLinks || empty($contentLinks)) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Content links are required. Please fill in all Google Docs links.'
+                    'message' => 'Content links are required. Please fill in all Google Docs links.',
                 ]);
             }
-            
-            // Validate all content links
-            $orderIndex = 0;
+
+            // Per-site copy index (matches checkout content_links[siteId][])
             foreach ($expandedOrders as $orderItem) {
                 $site = $orderItem['site'];
-                
-                if (!isset($contentLinks[$site->id]) || !isset($contentLinks[$site->id][$orderIndex])) {
-                    throw new \Exception("Content link required for copy #" . ($orderIndex + 1) . " of: " . $site->site_name);
+                $copyIndex = max(0, ((int) ($orderItem['copy_number'] ?? 1)) - 1);
+
+                if (!isset($contentLinks[$site->id][$copyIndex])) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Content link required for copy #' . ($orderItem['copy_number'] ?? 1) . ' of: ' . $site->site_name,
+                    ]);
                 }
-                
-                $link = $contentLinks[$site->id][$orderIndex];
-                
+
+                $link = $contentLinks[$site->id][$copyIndex];
                 if (!preg_match('/^https?:\/\/(docs\.google\.com|drive\.google\.com)\/.*$/i', $link)) {
-                    throw new \Exception("Invalid Google Docs link for: " . $site->site_name);
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Invalid Google Docs link for: ' . $site->site_name,
+                    ]);
                 }
-                $orderIndex++;
             }
 
             $advertiserRoleId = Wallet::advertiserRoleId();
             if (!$advertiserRoleId) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Advertiser role not configured.'
+                    'message' => 'Advertiser role not configured.',
                 ]);
             }
-            
+
             DB::beginTransaction();
-            
+
+            // Lock wallet row inside the transaction to prevent concurrent overspend
+            $advertiserWallet = Wallet::lockOrCreateForRole((int) $userId, (int) $advertiserRoleId);
+
+            if (round((float) $advertiserWallet->balance, 2) < $totalAmount) {
+                DB::rollBack();
+
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Insufficient wallet balance. Available: €'
+                        . number_format((float) $advertiserWallet->balance, 2)
+                        . '. Required: €' . number_format($totalAmount, 2) . '.',
+                ]);
+            }
+
             // Deduct from balance and add to reserved_balance (welcome bonus is consumed first)
             $advertiserWallet->reserveForOrder($totalAmount);
-            
+
             Log::info('Wallet payment processed - funds reserved', [
                 'user_id' => $userId,
+                'wallet_id' => $advertiserWallet->id,
                 'total_amount' => $totalAmount,
                 'new_balance' => $advertiserWallet->balance,
                 'reserved_balance' => $advertiserWallet->reserved_balance,
                 'bonus_balance' => $advertiserWallet->bonus_balance,
                 'bonus_reserved' => $advertiserWallet->bonus_reserved,
-                'reference_code' => $referenceCode
+                'reference_code' => $referenceCode,
             ]);
-            
+
             $createdOrders = [];
-            $orderIndex = 0;
-            
+
             foreach ($expandedOrders as $orderItem) {
                 $site = $orderItem['site'];
-                $link = $contentLinks[$site->id][$orderIndex];
-                
-                $orderNumber = str_pad(mt_rand(1, 999999), 6, '0', STR_PAD_LEFT);
-                
-                $orderData = [
+                $copyIndex = max(0, ((int) ($orderItem['copy_number'] ?? 1)) - 1);
+                $link = $contentLinks[$site->id][$copyIndex];
+
+                $orderNumber = str_pad((string) mt_rand(1, 999999), 6, '0', STR_PAD_LEFT);
+
+                $order = Order::create([
                     'user_id' => $userId,
                     'order_number' => $orderNumber,
                     'reference_code' => $referenceCode,
@@ -1142,11 +1160,9 @@ public function checkout(Request $request)
                     'status' => 'pending',
                     'sensitive_type' => $orderItem['sensitive_type'],
                     'additional_price' => $orderItem['additional_price'],
-                    'paid_at' => now()
-                ];
-                
-                $order = Order::create($orderData);
-                
+                    'paid_at' => now(),
+                ]);
+
                 OrderItem::create([
                     'order_id' => $order->id,
                     'site_id' => $site->id,
@@ -1155,44 +1171,52 @@ public function checkout(Request $request)
                     'price' => $orderItem['price'],
                     'content_link' => $link,
                     'sensitive_type' => $orderItem['sensitive_type'],
-                    'additional_price' => $orderItem['additional_price']
+                    'additional_price' => $orderItem['additional_price'],
                 ]);
-                
+
                 $createdOrders[] = $order;
-                $orderIndex++;
             }
-            
+
             DB::commit();
             session()->forget('cart');
 
             foreach ($createdOrders as $createdOrder) {
                 app(InAppNotificationService::class)->notifyOrderCreated(
-                    $createdOrder instanceof Order ? $createdOrder->fresh(['items']) : Order::with('items')->find($createdOrder->id)
+                    $createdOrder->fresh(['items'])
                 );
             }
-            
-            // Send email to site owners
+
             $this->sendSiteOwnerEmails($createdOrders);
-            
-            $orderNumbers = implode(', ', array_column($createdOrders, 'order_number'));
-            
+
+            $orderNumbers = implode(', ', array_map(
+                fn (Order $order) => $order->order_number,
+                $createdOrders
+            ));
+
             Log::info('Orders created with wallet payment (funds reserved)', [
                 'reference_code' => $referenceCode,
                 'order_count' => count($createdOrders),
-                'total_reserved' => $totalAmount
+                'total_reserved' => $totalAmount,
             ]);
-            
+
             return response()->json([
                 'success' => true,
-                'message' => count($createdOrders) . ' order(s) placed successfully! Funds have been reserved from your wallet. Order numbers: ' . $orderNumbers
+                'message' => count($createdOrders) . ' order(s) placed successfully! Funds have been reserved from your wallet. Order numbers: ' . $orderNumbers,
             ]);
-            
         } catch (\Exception $e) {
             DB::rollBack();
-            Log::error('Wallet payment failed: ' . $e->getMessage());
+            Log::error('Wallet payment failed: ' . $e->getMessage(), [
+                'user_id' => $userId,
+                'reference_code' => $referenceCode,
+            ]);
+
+            $message = $e->getMessage() === 'Insufficient balance to reserve'
+                ? 'Insufficient wallet balance for this order.'
+                : 'Unable to process wallet payment. Please try again.';
+
             return response()->json([
                 'success' => false,
-                'message' => $e->getMessage()
+                'message' => $message,
             ]);
         }
     }
