@@ -14,9 +14,9 @@ class AnalyticsController extends Controller
 
     public function index(Request $request)
     {
-        $view = $request->get('view', 'month');
+        $view = $request->get('view', 'day');
         if (!in_array($view, ['order', 'day', 'month'], true)) {
-            $view = 'month';
+            $view = 'day';
         }
 
         $analytics = $this->analytics->build($request->user());

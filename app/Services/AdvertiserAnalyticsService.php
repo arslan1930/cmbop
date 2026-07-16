@@ -4,14 +4,13 @@ namespace App\Services;
 
 use App\Models\Order;
 use App\Models\User;
-use Carbon\Carbon;
 use Illuminate\Support\Collection;
 
 class AdvertiserAnalyticsService
 {
     /**
      * Build full spending history for chart toggles (order / day / month).
-     * Covers every paid order from the advertiser's first purchase onward.
+     * Day and month buckets align to dates that actually have paid orders.
      */
     public function build(User $user): array
     {
@@ -41,10 +40,12 @@ class AdvertiserAnalyticsService
             $item = $order->items->first();
 
             return [
-                'label' => $order->order_number ?: ('#' . $order->id),
+                'label' => optional($order->created_at)->format('M j') . ' · ' . ($order->order_number ?: ('#' . $order->id)),
+                'short_label' => $order->order_number ?: ('#' . $order->id),
                 'date' => optional($order->created_at)->toDateString(),
                 'datetime' => optional($order->created_at)->toDateTimeString(),
                 'amount' => round((float) $order->total_amount, 2),
+                'orders' => 1,
                 'website' => $item?->site_name ?? '—',
             ];
         })->values()->all();
@@ -56,23 +57,22 @@ class AdvertiserAnalyticsService
             return [];
         }
 
-        $grouped = $paidOrders->groupBy(fn (Order $o) => $o->created_at->toDateString());
-        $start = $paidOrders->first()->created_at->copy()->startOfDay();
-        $end = $paidOrders->last()->created_at->copy()->startOfDay();
+        return $paidOrders
+            ->groupBy(fn (Order $o) => $o->created_at->toDateString())
+            ->sortKeys()
+            ->map(function (Collection $bucket, string $key) {
+                $day = $bucket->first()->created_at;
 
-        $series = [];
-        for ($day = $start->copy(); $day->lte($end); $day->addDay()) {
-            $key = $day->toDateString();
-            $bucket = $grouped->get($key, collect());
-            $series[] = [
-                'label' => $day->format('M j, Y'),
-                'date' => $key,
-                'amount' => round((float) $bucket->sum('total_amount'), 2),
-                'orders' => $bucket->count(),
-            ];
-        }
-
-        return $series;
+                return [
+                    'label' => $day->format('M j, Y'),
+                    'short_label' => $day->format('M j'),
+                    'date' => $key,
+                    'amount' => round((float) $bucket->sum('total_amount'), 2),
+                    'orders' => $bucket->count(),
+                ];
+            })
+            ->values()
+            ->all();
     }
 
     protected function byMonth(Collection $paidOrders): array
@@ -81,22 +81,21 @@ class AdvertiserAnalyticsService
             return [];
         }
 
-        $grouped = $paidOrders->groupBy(fn (Order $o) => $o->created_at->format('Y-m'));
-        $start = $paidOrders->first()->created_at->copy()->startOfMonth();
-        $end = $paidOrders->last()->created_at->copy()->startOfMonth();
+        return $paidOrders
+            ->groupBy(fn (Order $o) => $o->created_at->format('Y-m'))
+            ->sortKeys()
+            ->map(function (Collection $bucket, string $key) {
+                $month = $bucket->first()->created_at;
 
-        $series = [];
-        for ($month = $start->copy(); $month->lte($end); $month->addMonth()) {
-            $key = $month->format('Y-m');
-            $bucket = $grouped->get($key, collect());
-            $series[] = [
-                'label' => $month->format('M Y'),
-                'date' => $key,
-                'amount' => round((float) $bucket->sum('total_amount'), 2),
-                'orders' => $bucket->count(),
-            ];
-        }
-
-        return $series;
+                return [
+                    'label' => $month->format('M Y'),
+                    'short_label' => $month->format('M Y'),
+                    'date' => $key,
+                    'amount' => round((float) $bucket->sum('total_amount'), 2),
+                    'orders' => $bucket->count(),
+                ];
+            })
+            ->values()
+            ->all();
     }
 }

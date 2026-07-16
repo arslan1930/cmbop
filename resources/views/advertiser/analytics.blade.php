@@ -4,7 +4,7 @@
 @php
     $a = $analytics;
     $hasSpend = $a['has_spend'];
-    $view = $view ?? 'month';
+    $view = $view ?? 'day';
 @endphp
 
 <link href="{{ asset('css/advertiser-analytics.css') }}?v={{ @filemtime(public_path('css/advertiser-analytics.css')) ?: '1' }}" rel="stylesheet">
@@ -14,7 +14,7 @@
     <div class="an-hero">
         <div>
             <h2>Spending History</h2>
-            <p>See how much you spent on each order, day, or month — from your first purchase to now.</p>
+            <p>Each bar shows how much you spent and how many orders that day, month, or order covers.</p>
         </div>
     </div>
 
@@ -57,7 +57,7 @@
                 </div>
             </div>
             <div class="an-chart-wrap">
-                <canvas id="spendChart" height="110"></canvas>
+                <canvas id="spendChart" height="120"></canvas>
             </div>
             <p class="an-hint" id="chartHint"></p>
         </div>
@@ -74,41 +74,77 @@ document.addEventListener('DOMContentLoaded', function () {
         month: @json($a['by_month']),
     };
     const rows = series[view] || [];
-    const labels = rows.map(r => r.label);
+    const labels = rows.map(r => r.short_label || r.label);
     const amounts = rows.map(r => Number(r.amount || 0));
 
     const hints = {
-        order: 'Each bar is one paid order — full history since your first purchase.',
-        day: 'Daily totals for every day from your first order through your latest.',
-        month: 'Monthly totals for every month from your first order through your latest.',
+        order: 'Each bar is one paid order with its amount. Hover for website details.',
+        day: 'Each bar is a day with purchases — amount spent and number of orders are shown on the bar.',
+        month: 'Each bar is a month with purchases — amount spent and number of orders are shown on the bar.',
     };
     document.getElementById('chartHint').textContent = hints[view] || '';
 
     const ctx = document.getElementById('spendChart');
     if (!ctx) return;
 
-    const isOrder = view === 'order';
+    function money(n) {
+        const v = Number(n || 0);
+        return v % 1 === 0 ? ('€' + v.toFixed(0)) : ('€' + v.toFixed(2));
+    }
+
+    function barCaption(row) {
+        if (!row) return '';
+        if (view === 'order') {
+            return money(row.amount);
+        }
+        const count = Number(row.orders || 0);
+        const orderWord = count === 1 ? 'order' : 'orders';
+        return money(row.amount) + ' · ' + count + ' ' + orderWord;
+    }
+
+    const spendLabelsPlugin = {
+        id: 'spendLabels',
+        afterDatasetsDraw(chart) {
+            const { ctx: c } = chart;
+            const meta = chart.getDatasetMeta(0);
+            if (!meta || meta.hidden) return;
+
+            c.save();
+            c.textAlign = 'center';
+            c.textBaseline = 'bottom';
+            c.fillStyle = '#0b6266';
+            c.font = '600 12px system-ui, -apple-system, Segoe UI, sans-serif';
+
+            meta.data.forEach((el, index) => {
+                const row = rows[index];
+                if (!row || Number(row.amount) <= 0) return;
+
+                const caption = barCaption(row);
+                const { x, y } = el.getProps(['x', 'y'], true);
+                // Keep label readable above the bar
+                c.fillText(caption, x, Math.max(14, y - 8));
+            });
+            c.restore();
+        }
+    };
+
     new Chart(ctx, {
-        type: isOrder ? 'bar' : 'line',
+        type: 'bar',
         data: {
             labels,
             datasets: [{
                 label: 'Amount spent (€)',
                 data: amounts,
-                borderColor: '#0b6266',
-                backgroundColor: isOrder ? 'rgba(11, 98, 102, 0.72)' : 'rgba(11, 98, 102, 0.14)',
-                fill: !isOrder,
-                tension: 0.3,
-                pointRadius: isOrder ? 0 : 4,
-                pointHoverRadius: 6,
-                borderWidth: isOrder ? 0 : 2.5,
-                borderRadius: isOrder ? 6 : 0,
-                maxBarThickness: 42,
+                backgroundColor: 'rgba(11, 98, 102, 0.78)',
+                hoverBackgroundColor: 'rgba(11, 98, 102, 0.95)',
+                borderRadius: 8,
+                maxBarThickness: 56,
             }]
         },
         options: {
             responsive: true,
             maintainAspectRatio: true,
+            layout: { padding: { top: 28 } },
             interaction: { mode: 'index', intersect: false },
             plugins: {
                 legend: { display: false },
@@ -118,14 +154,20 @@ document.addEventListener('DOMContentLoaded', function () {
                             const row = rows[items[0].dataIndex];
                             if (!row) return '';
                             if (view === 'order') {
-                                return row.label + (row.website && row.website !== '—' ? ' · ' + row.website : '');
+                                return (row.short_label || row.label)
+                                    + (row.website && row.website !== '—' ? ' · ' + row.website : '');
                             }
                             return row.label;
                         },
-                        label: (item) => '€' + Number(item.raw).toFixed(2) + ' spent'
-                            + (rows[item.dataIndex]?.orders != null
-                                ? ' · ' + rows[item.dataIndex].orders + ' order(s)'
-                                : ''),
+                        label: (item) => {
+                            const row = rows[item.dataIndex];
+                            if (view === 'order') {
+                                return money(row?.amount) + ' spent';
+                            }
+                            const count = Number(row?.orders || 0);
+                            const orderWord = count === 1 ? 'order' : 'orders';
+                            return money(row?.amount) + ' spent across ' + count + ' ' + orderWord;
+                        }
                     }
                 }
             },
@@ -134,17 +176,31 @@ document.addEventListener('DOMContentLoaded', function () {
                     ticks: {
                         maxRotation: 45,
                         autoSkip: true,
-                        maxTicksLimit: view === 'day' ? 14 : 18,
+                        maxTicksLimit: 18,
                     },
                     grid: { display: false },
+                    title: {
+                        display: true,
+                        text: view === 'order' ? 'Orders' : (view === 'day' ? 'Days with purchases' : 'Months with purchases'),
+                        color: '#64748b',
+                        font: { size: 12, weight: '600' },
+                    }
                 },
                 y: {
                     beginAtZero: true,
+                    grace: '18%',
                     ticks: { callback: (v) => '€' + v },
                     grid: { color: 'rgba(148, 163, 184, 0.25)' },
+                    title: {
+                        display: true,
+                        text: 'Money spent',
+                        color: '#64748b',
+                        font: { size: 12, weight: '600' },
+                    }
                 }
             }
-        }
+        },
+        plugins: [spendLabelsPlugin]
     });
 });
 </script>
