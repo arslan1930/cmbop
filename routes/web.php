@@ -304,6 +304,20 @@ Route::middleware(['auth','verified', RoleMiddleware::class . ':admin,marketing'
         Route::delete('/site-ratings/{id}', [\App\Http\Controllers\Admin\SiteRatingController::class, 'destroy'])
             ->name('site-ratings.destroy');
 
+        // Community: problem reports, suggestions, website suggestions, site claims
+        Route::get('/community', [\App\Http\Controllers\Admin\CommunityFeedbackController::class, 'index'])
+            ->name('community.index');
+        Route::patch('/community/problems/{id}', [\App\Http\Controllers\Admin\CommunityFeedbackController::class, 'updateProblem'])
+            ->name('community.problems.update');
+        Route::patch('/community/suggestions/{id}', [\App\Http\Controllers\Admin\CommunityFeedbackController::class, 'updateSuggestion'])
+            ->name('community.suggestions.update');
+        Route::patch('/community/websites/{id}', [\App\Http\Controllers\Admin\CommunityFeedbackController::class, 'updateWebsiteSuggestion'])
+            ->name('community.websites.update');
+        Route::post('/community/claims/{id}/approve', [\App\Http\Controllers\Admin\CommunityFeedbackController::class, 'approveClaim'])
+            ->name('community.claims.approve');
+        Route::post('/community/claims/{id}/reject', [\App\Http\Controllers\Admin\CommunityFeedbackController::class, 'rejectClaim'])
+            ->name('community.claims.reject');
+
         Route::get('/activity-logs', [AdminActivityLogController::class, 'index'])
             ->name('activity-logs.index');
 
@@ -397,6 +411,14 @@ Route::middleware(['auth','verified', RoleMiddleware::class . ':admin,marketing'
             })->name('settings');
         });
     });
+
+// Public + authenticated feedback (report a problem / suggestion box)
+Route::middleware('throttle:10,1')->group(function () {
+    Route::post('/feedback/problem', [\App\Http\Controllers\FeedbackController::class, 'storeProblem'])
+        ->name('feedback.problem');
+    Route::post('/feedback/suggestion', [\App\Http\Controllers\FeedbackController::class, 'storeSuggestion'])
+        ->name('feedback.suggestion');
+});
 
 // ✅ Common routes for all authenticated users
 Route::middleware(['auth', 'verified'])->group(function () {
@@ -509,7 +531,12 @@ Route::middleware(['auth','verified', RoleMiddleware::class . ':advertiser'])
 
         // Catelog routes
         Route::get('/catalog', [CatalogController::class, 'index'])
-        ->name('catalog');    
+        ->name('catalog');
+
+        // Suggest a website missing from the catalog
+        Route::post('/website-suggestions', [\App\Http\Controllers\Advertiser\WebsiteSuggestionController::class, 'store'])
+            ->middleware('throttle:10,1')
+            ->name('website-suggestions.store');
 
         // Favorites 
         Route::post('/favorites/save', [CatalogController::class, 'saveFavorites'])->name('favorites.save');
@@ -681,6 +708,9 @@ Route::middleware(['auth','verified', RoleMiddleware::class . ':publisher'])
             ->name('sites.discount');
         Route::delete('/sites/{id}/discount', [\App\Http\Controllers\Publisher\SitePromotionController::class, 'clearDiscount'])
             ->name('sites.discount.clear');
+        Route::post('/sites/claim', [\App\Http\Controllers\Publisher\SiteClaimController::class, 'store'])
+            ->middleware('throttle:10,1')
+            ->name('sites.claim');
 
         // Tasks / Orders
         Route::get('/tasks', [OrderController::class, 'index'])->name('tasks');

@@ -129,47 +129,57 @@
 </style>
 
 @php
-    function getCountryFlag($countryCode) {
-        $code = strtoupper(trim((string) $countryCode));
-        if (strlen($code) !== 2) return '';
-        if ($code === 'UK') $code = 'GB';
-        $flag = mb_convert_encoding('&#' . (127397 + ord($code[0])) . ';&#' . (127397 + ord($code[1])) . ';', 'UTF-8', 'HTML-ENTITIES');
-        return $flag;
+    if (!function_exists('getCountryFlag')) {
+        function getCountryFlag($countryCode) {
+            $code = strtoupper(trim((string) $countryCode));
+            if (strlen($code) !== 2) return '';
+            if ($code === 'UK') $code = 'GB';
+            $flag = mb_convert_encoding('&#' . (127397 + ord($code[0])) . ';&#' . (127397 + ord($code[1])) . ';', 'UTF-8', 'HTML-ENTITIES');
+            return $flag;
+        }
     }
     
-    function getLanguageName($code) {
-        return fullLanguage($code);
+    if (!function_exists('getLanguageName')) {
+        function getLanguageName($code) {
+            return fullLanguage($code);
+        }
     }
     
-    function getPublicationDuration($value) {
-        $durations = [
-            '6months' => '6 Months',
-            '1year' => '1 Year',
-            'permanent' => 'Permanent'
-        ];
-        return $durations[$value] ?? ucfirst($value);
+    if (!function_exists('getPublicationDuration')) {
+        function getPublicationDuration($value) {
+            $durations = [
+                '6months' => '6 Months',
+                '1year' => '1 Year',
+                'permanent' => 'Permanent'
+            ];
+            return $durations[$value] ?? ucfirst($value);
+        }
     }
     
-    function getTurnaroundLabel($value) {
-        $labels = [
-            '24h' => '24 Hours',
-            '48h' => '48 Hours',
-            '3days' => '3 Days',
-            '5days' => '5 Days',
-            '7days' => '7 Days'
-        ];
-        return $labels[$value] ?? '3 Days';
+    if (!function_exists('getTurnaroundLabel')) {
+        function getTurnaroundLabel($value) {
+            $labels = [
+                '24h' => '24 Hours',
+                '48h' => '48 Hours',
+                '3days' => '3 Days',
+                '5days' => '5 Days',
+                '7days' => '7 Days'
+            ];
+            return $labels[$value] ?? '3 Days';
+        }
     }
     
-    function getTurnaroundClass($value) {
-        $classes = [
-            '24h' => 'turnaround-24h',
-            '48h' => 'turnaround-48h',
-            '3days' => 'turnaround-3days',
-            '5days' => 'turnaround-5days',
-            '7days' => 'turnaround-7days'
-        ];
-        return $classes[$value] ?? 'turnaround-3days';
+    if (!function_exists('getTurnaroundClass')) {
+        function getTurnaroundClass($value) {
+            $classes = [
+                '24h' => 'turnaround-24h',
+                '48h' => 'turnaround-48h',
+                '3days' => 'turnaround-3days',
+                '5days' => 'turnaround-5days',
+                '7days' => 'turnaround-7days'
+            ];
+            return $classes[$value] ?? 'turnaround-3days';
+        }
     }
 @endphp
 

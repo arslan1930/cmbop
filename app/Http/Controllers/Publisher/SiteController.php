@@ -126,7 +126,7 @@ class SiteController extends Controller
         $validator->after(function ($validator) use ($domain) {
             $existingSite = Site::where('domain', $domain)->exists();
             if ($existingSite) {
-                $validator->errors()->add('siteUrl', 'This website domain is already registered in our system by another publisher. Each domain can only be listed once.');
+                $validator->errors()->add('siteUrl', 'This website domain is already registered by another publisher. If you own it, use “Claim a website” on this page so we can verify the listing name and transfer ownership.');
             }
         });
 

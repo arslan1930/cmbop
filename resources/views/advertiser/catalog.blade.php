@@ -434,6 +434,16 @@ document.addEventListener('DOMContentLoaded', function () {
                 </div>
             </div>
 
+            <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+                <p class="small text-muted mb-0">
+                    Searching for a site that isn’t listed yet?
+                </p>
+                <button type="button" class="btn btn-sm btn-outline-success btn-suggest-website"
+                        data-search="{{ request('search') }}">
+                    <i class="fa-solid fa-lightbulb me-1"></i> Suggest a website
+                </button>
+            </div>
+
             @if(isset($bulkDeals) && $bulkDeals->count())
             <div class="card border-0 shadow-sm mb-3 catalog-bulk-section">
                 <div class="card-header bg-white d-flex flex-wrap justify-content-between align-items-center gap-2">
@@ -1160,8 +1170,19 @@ document.addEventListener('DOMContentLoaded', function () {
                             <div class="d-flex flex-wrap justify-content-center gap-2 mb-3">
                                 <a href="{{ route('advertiser.catalog') }}" class="btn btn-primary btn-sm">Clear all filters</a>
                                 <a href="{{ route('advertiser.catalog', ['sort' => 'dr_desc']) }}" class="btn btn-outline-secondary btn-sm">Browse top DR</a>
+                                <button type="button" class="btn btn-outline-success btn-sm btn-suggest-website"
+                                        data-search="{{ request('search') }}">
+                                    <i class="fa-solid fa-lightbulb me-1"></i> Suggest a website
+                                </button>
                             </div>
-                            <p class="small text-muted mb-0">Tip: start with Country + Language only, then narrow by metrics.</p>
+                            <p class="small text-muted mb-0">
+                                Can’t find a site you need?
+                                @if(request('search'))
+                                    Suggest “{{ request('search') }}” and we’ll try to add it.
+                                @else
+                                    Suggest it and we’ll try to include it in the marketplace.
+                                @endif
+                            </p>
                         @else
                             <a href="{{ route('advertiser.catalog', ['new_badge' => 1]) }}" class="btn btn-outline-secondary btn-sm">Show new sites</a>
                         @endif
@@ -1267,7 +1288,13 @@ document.addEventListener('DOMContentLoaded', function () {
                     : 'New verified sites show up here as publishers list them.' }}
             </p>
             @if($hasActiveFilters)
-                <a href="{{ route('advertiser.catalog') }}" class="btn btn-primary btn-sm">Clear all filters</a>
+                <div class="d-flex flex-wrap justify-content-center gap-2">
+                    <a href="{{ route('advertiser.catalog') }}" class="btn btn-primary btn-sm">Clear all filters</a>
+                    <button type="button" class="btn btn-outline-success btn-sm btn-suggest-website"
+                            data-search="{{ request('search') }}">
+                        <i class="fa-solid fa-lightbulb me-1"></i> Suggest a website
+                    </button>
+                </div>
             @endif
         </div>
     @endforelse
@@ -2849,6 +2876,46 @@ document.querySelectorAll('.site-row').forEach(row => {
     }
 });
 @endif
+</script>
+
+<script>
+document.addEventListener('click', async function (e) {
+    const btn = e.target.closest('.btn-suggest-website');
+    if (!btn) return;
+    const prefill = btn.dataset.search || document.querySelector('input[name="search"]')?.value || '';
+    const { value: form } = await Swal.fire({
+        title: 'Suggest a website',
+        html: `<p class="small text-muted mb-2">Can’t find a publisher site? Suggest it and we’ll try to include it.</p>
+               <input id="swal-site-name" class="swal2-input" placeholder="Website name" value="${prefill.replace(/"/g, '&quot;')}">
+               <input id="swal-site-url" class="swal2-input" placeholder="https://example.com">
+               <textarea id="swal-site-notes" class="swal2-textarea" placeholder="Why should we add it? (optional)"></textarea>`,
+        showCancelButton: true,
+        confirmButtonText: 'Submit suggestion',
+        confirmButtonColor: '#0b6266',
+        preConfirm: () => {
+            const website_name = document.getElementById('swal-site-name').value.trim();
+            const website_url = document.getElementById('swal-site-url').value.trim();
+            const notes = document.getElementById('swal-site-notes').value.trim();
+            if (!website_name || !website_url) {
+                Swal.showValidationMessage('Website name and URL are required');
+                return false;
+            }
+            return { website_name, website_url, notes, search_query: prefill };
+        },
+    });
+    if (!form) return;
+    const res = await fetch(`{{ route('advertiser.website-suggestions.store') }}`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+        },
+        body: JSON.stringify(form),
+    });
+    const data = await res.json().catch(() => ({}));
+    Swal.fire({ icon: data.success ? 'success' : 'error', title: data.message || 'Done' });
+});
 </script>
 
 <script>

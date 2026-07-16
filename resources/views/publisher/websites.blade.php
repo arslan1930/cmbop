@@ -599,6 +599,47 @@
         <i class="fa fa-file-csv"></i> Bulk Import (Agency)
     </button>
 
+    <button id="showClaimBtn" type="button" class="btn mb-3 shadow-sm btn-outline-warning ms-1">
+        <i class="fa fa-user-check"></i> Claim a website
+    </button>
+
+    <div class="card shadow-sm border-0 d-none mb-3" id="claimCard">
+        <div class="card-body">
+            <div class="d-flex justify-content-between align-items-start gap-2 mb-2">
+                <div>
+                    <h5 class="mb-1">Claim a website</h5>
+                    <p class="small text-muted mb-0">
+                        If another publisher listed your site, submit a claim. We’ll verify ownership using the
+                        <strong>exact website name</strong> on the listing plus your proof message.
+                    </p>
+                </div>
+                <button type="button" class="btn-close" id="closeClaimCard" aria-label="Close"></button>
+            </div>
+            <form id="claimWebsiteForm" class="row g-3">
+                <div class="col-md-6">
+                    <label class="form-label">Website URL</label>
+                    <input type="url" name="website_url" class="form-control" placeholder="https://example.com" required>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Website name (must match listing)</label>
+                    <input type="text" name="website_name" class="form-control" placeholder="Exact name as shown in catalog" required>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Contact email</label>
+                    <input type="email" name="contact_email" class="form-control" value="{{ auth()->user()->email }}" placeholder="you@example.com">
+                </div>
+                <div class="col-12">
+                    <label class="form-label">Proof of ownership</label>
+                    <textarea name="proof_message" class="form-control" rows="4" minlength="20" required
+                              placeholder="Explain how you own this site (e.g. domain registrar email, CMS access, who listed it incorrectly…)"></textarea>
+                </div>
+                <div class="col-12">
+                    <button type="submit" class="btn btn-warning">Submit claim for review</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     @if(session('error') && !session('bulk_import_failures'))
         <div class="alert alert-danger alert-dismissible fade show">
             {{ session('error') }}
@@ -1948,6 +1989,35 @@ $(document).on('click', '.btn-edit', function() {
     $('html, body').animate({
         scrollTop: $("#formCard").offset().top - 100
     }, 500);
+});
+
+/* —— Claim a website —— */
+const claimCard = $('#claimCard');
+$('#showClaimBtn').on('click', function () {
+    formCard.addClass('d-none');
+    bulkCard.addClass('d-none');
+    claimCard.toggleClass('d-none');
+    formHeaderSpan.text(claimCard.hasClass('d-none') ? 'Add New Website' : 'Claim a website');
+});
+$('#closeClaimCard').on('click', function () {
+    claimCard.addClass('d-none');
+    formHeaderSpan.text('Add New Website');
+});
+$('#claimWebsiteForm').on('submit', async function (e) {
+    e.preventDefault();
+    const fd = new FormData(this);
+    const payload = Object.fromEntries(fd.entries());
+    const res = await fetch(`{{ route('publisher.sites.claim') }}`, {
+        method: 'POST',
+        headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}', 'Accept': 'application/json', 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+    });
+    const data = await res.json().catch(() => ({}));
+    Swal.fire({ icon: data.success ? 'success' : 'error', title: data.message || 'Done' });
+    if (data.success) {
+        this.reset();
+        claimCard.addClass('d-none');
+    }
 });
 
 /* —— Site promotions: Feature / Discount / Bulk —— */

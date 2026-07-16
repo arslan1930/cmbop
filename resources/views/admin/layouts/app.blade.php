@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <title>Admin Dashboard</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
 
     <!-- Bootstrap 5 CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -127,6 +128,10 @@
             <span>Enrichment</span>
         </a>
 
+        <a href="{{ route('admin.community.index') }}" class="{{ request()->routeIs('admin.community.*') ? 'active' : '' }}">
+            <i class="fa fa-comments"></i>
+            <span>Community</span>
+        </a>
         <a href="{{ route('admin.site-ratings.index') }}" class="{{ request()->routeIs('admin.site-ratings.*') ? 'active' : '' }}">
             <i class="fa fa-star"></i>
             <span>Ratings</span>
