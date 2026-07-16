@@ -294,6 +294,16 @@ Route::middleware(['auth','verified', RoleMiddleware::class . ':admin,marketing'
         Route::post('/site-enrichment/rerun-failed', [\App\Http\Controllers\Admin\SiteEnrichmentController::class, 'rerunFailed'])
             ->name('site-enrichment.rerun-failed');
 
+        // Publisher site ratings management
+        Route::get('/site-ratings', [\App\Http\Controllers\Admin\SiteRatingController::class, 'index'])
+            ->name('site-ratings.index');
+        Route::post('/site-ratings', [\App\Http\Controllers\Admin\SiteRatingController::class, 'store'])
+            ->name('site-ratings.store');
+        Route::put('/site-ratings/{id}', [\App\Http\Controllers\Admin\SiteRatingController::class, 'update'])
+            ->name('site-ratings.update');
+        Route::delete('/site-ratings/{id}', [\App\Http\Controllers\Admin\SiteRatingController::class, 'destroy'])
+            ->name('site-ratings.destroy');
+
         Route::get('/activity-logs', [AdminActivityLogController::class, 'index'])
             ->name('activity-logs.index');
 
@@ -506,6 +516,11 @@ Route::middleware(['auth','verified', RoleMiddleware::class . ':advertiser'])
         
         // Blacklist 
         Route::post('/blacklist/save', [CatalogController::class, 'saveBlacklist'])->name('blacklist.save');
+
+        // Publisher site ratings (advertiser)
+        Route::post('/sites/{siteId}/rate', [\App\Http\Controllers\Advertiser\SiteRatingController::class, 'store'])
+            ->middleware('throttle:30,1')
+            ->name('sites.rate');
 
         // Cart (Session)
         Route::post('/cart/save', [CatalogController::class, 'saveCart'])->name('cart.save');

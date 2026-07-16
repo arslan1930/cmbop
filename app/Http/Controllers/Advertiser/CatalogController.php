@@ -445,6 +445,13 @@ if ($request->filled('category')) {
     // Pass the filter state to the view
     $showBlacklistedOnly = $showBlacklistedOnly;
 
+    // Current advertiser ratings keyed by site_id (for expand panel)
+    $myRatings = \App\Models\SiteRating::query()
+        ->where('user_id', $userId)
+        ->whereIn('site_id', $sites->pluck('id'))
+        ->get()
+        ->keyBy('site_id');
+
     return view('advertiser.catalog', compact(
         'sites', 
         'availableLanguages',
@@ -454,7 +461,8 @@ if ($request->filled('category')) {
         'favorites', 
         'blacklist', 
         'cart', 
-        'showBlacklistedOnly'
+        'showBlacklistedOnly',
+        'myRatings'
     ));
 }
 

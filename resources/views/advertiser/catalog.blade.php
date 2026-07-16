@@ -841,6 +841,48 @@ document.addEventListener('DOMContentLoaded', function () {
                                 {{ $site->lastPublicationLabel() }}
                             </p>
                         @endif
+
+                        @php
+                            $myRating = ($myRatings[$site->id] ?? null);
+                            $avg = (float) ($site->rating_avg ?? 0);
+                            $count = (int) ($site->rating_count ?? 0);
+                            $roundedAvg = (int) round($avg);
+                        @endphp
+                        <div class="site-rating-block mt-3" data-site-id="{{ $site->id }}">
+                            <p class="mb-1"><strong>Advertiser rating:</strong></p>
+                            <div class="d-flex align-items-center gap-2 flex-wrap mb-1">
+                                <span class="site-rating-stars" aria-label="Average rating {{ number_format($avg, 1) }} out of 5">
+                                    @for($i = 1; $i <= 5; $i++)
+                                        <i class="fa-{{ $i <= $roundedAvg ? 'solid' : 'regular' }} fa-star {{ $i <= $roundedAvg ? 'text-warning' : 'text-muted' }}" aria-hidden="true"></i>
+                                    @endfor
+                                </span>
+                                <span class="small text-muted site-rating-label">{{ $site->ratingStarsLabel() }}</span>
+                            </div>
+                            <div class="site-rating-form">
+                                <label class="small text-muted d-block mb-1">Your rating</label>
+                                <div class="site-rate-input d-flex align-items-center gap-1 mb-2" role="radiogroup" aria-label="Rate this publisher">
+                                    @for($i = 1; $i <= 5; $i++)
+                                        <button type="button"
+                                                class="btn btn-sm btn-link p-0 site-rate-star {{ ($myRating && $myRating->rating >= $i) ? 'is-active' : '' }}"
+                                                data-value="{{ $i }}"
+                                                aria-label="Rate {{ $i }} star{{ $i > 1 ? 's' : '' }}">
+                                            <i class="fa-{{ ($myRating && $myRating->rating >= $i) ? 'solid' : 'regular' }} fa-star" aria-hidden="true"></i>
+                                        </button>
+                                    @endfor
+                                </div>
+                                <div class="input-group input-group-sm" style="max-width: 360px;">
+                                    <input type="text"
+                                           class="form-control site-rate-comment"
+                                           maxlength="500"
+                                           placeholder="Optional short feedback"
+                                           value="{{ $myRating->comment ?? '' }}">
+                                    <button type="button" class="btn btn-outline-primary site-rate-submit">
+                                        {{ $myRating ? 'Update' : 'Submit' }}
+                                    </button>
+                                </div>
+                                <div class="small text-muted mt-1 site-rate-status" aria-live="polite"></div>
+                            </div>
+                        </div>
                     </div>
 
                     <div class="col-md-2">
@@ -1354,6 +1396,23 @@ thead th {
     border: 1px solid #d9ecec;
     border-radius: 10px;
     background: linear-gradient(180deg, #f4fbfb 0%, #ffffff 100%);
+}
+
+.site-rating-block {
+    padding: 10px 12px;
+    border: 1px solid #e8eef2;
+    border-radius: 10px;
+    background: #fbfcfd;
+}
+.site-rate-star {
+    color: #cbd5e1;
+    font-size: 18px;
+    line-height: 1;
+    text-decoration: none !important;
+}
+.site-rate-star.is-active,
+.site-rate-star:hover {
+    color: #f59e0b;
 }
 
 /* Results toolbar + empty recovery */
@@ -2672,6 +2731,86 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Initial application
         applyCustomStyling();
+    });
+
+    // Advertiser site ratings (expand panel)
+    document.querySelectorAll('.site-rating-block').forEach(function (block) {
+        let selected = 0;
+        const activeBtn = block.querySelector('.site-rate-star.is-active:last-of-type');
+        if (activeBtn) selected = parseInt(activeBtn.dataset.value || '0', 10);
+
+        function paintStars(value) {
+            block.querySelectorAll('.site-rate-star').forEach(function (btn) {
+                const v = parseInt(btn.dataset.value, 10);
+                const on = v <= value;
+                btn.classList.toggle('is-active', on);
+                const icon = btn.querySelector('i');
+                if (icon) {
+                    icon.classList.toggle('fa-solid', on);
+                    icon.classList.toggle('fa-regular', !on);
+                }
+            });
+        }
+
+        block.querySelectorAll('.site-rate-star').forEach(function (btn) {
+            btn.addEventListener('click', function (e) {
+                e.preventDefault();
+                e.stopPropagation();
+                selected = parseInt(btn.dataset.value, 10);
+                paintStars(selected);
+            });
+        });
+
+        const submitBtn = block.querySelector('.site-rate-submit');
+        if (submitBtn) {
+            submitBtn.addEventListener('click', async function (e) {
+                e.preventDefault();
+                e.stopPropagation();
+                const statusEl = block.querySelector('.site-rate-status');
+                if (!selected) {
+                    if (statusEl) statusEl.textContent = 'Choose a star rating first.';
+                    return;
+                }
+                submitBtn.disabled = true;
+                try {
+                    const res = await fetch(`/advertiser/sites/${block.dataset.siteId}/rate`, {
+                        method: 'POST',
+                        headers: {
+                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '{{ csrf_token() }}',
+                            'Accept': 'application/json',
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            rating: selected,
+                            comment: block.querySelector('.site-rate-comment')?.value || '',
+                        }),
+                    });
+                    const data = await res.json();
+                    if (!res.ok || !data.success) {
+                        throw new Error(data.message || 'Could not save rating');
+                    }
+                    if (statusEl) statusEl.textContent = data.message || 'Saved';
+                    const label = block.querySelector('.site-rating-label');
+                    if (label && data.label) label.textContent = data.label;
+                    const avgStars = block.querySelector('.site-rating-stars');
+                    if (avgStars && typeof data.rating_avg !== 'undefined') {
+                        const rounded = Math.round(Number(data.rating_avg) || 0);
+                        avgStars.querySelectorAll('i').forEach(function (icon, idx) {
+                            const on = (idx + 1) <= rounded;
+                            icon.classList.toggle('fa-solid', on);
+                            icon.classList.toggle('fa-regular', !on);
+                            icon.classList.toggle('text-warning', on);
+                            icon.classList.toggle('text-muted', !on);
+                        });
+                    }
+                    submitBtn.textContent = 'Update';
+                } catch (err) {
+                    if (statusEl) statusEl.textContent = err.message || 'Failed to save rating';
+                } finally {
+                    submitBtn.disabled = false;
+                }
+            });
+        }
     });
 });
 </script>

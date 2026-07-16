@@ -43,7 +43,9 @@ class Site extends Model
         'sensitive_prices',
         'verified',
         'active',
-        'owner_id'
+        'owner_id',
+        'rating_avg',
+        'rating_count',
     ];
 
     protected $casts = [
@@ -65,6 +67,8 @@ class Site extends Model
         'metrics_manual' => 'boolean',
         'metrics_fetched_at' => 'datetime',
         'screenshot_fetched_at' => 'datetime',
+        'rating_avg' => 'float',
+        'rating_count' => 'integer',
     ];
 
     public function enrichmentRuns()
@@ -75,6 +79,27 @@ class Site extends Model
     public function orderItems()
     {
         return $this->hasMany(OrderItem::class);
+    }
+
+    public function ratings()
+    {
+        return $this->hasMany(SiteRating::class);
+    }
+
+    public function approvedRatings()
+    {
+        return $this->hasMany(SiteRating::class)->approved();
+    }
+
+    public function ratingStarsLabel(): string
+    {
+        $avg = (float) ($this->rating_avg ?? 0);
+        $count = (int) ($this->rating_count ?? 0);
+        if ($count < 1) {
+            return 'No ratings yet';
+        }
+
+        return number_format($avg, 1).' / 5 · '.$count.' '.($count === 1 ? 'rating' : 'ratings');
     }
 
     /**

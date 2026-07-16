@@ -127,6 +127,11 @@
             <span>Enrichment</span>
         </a>
 
+        <a href="{{ route('admin.site-ratings.index') }}" class="{{ request()->routeIs('admin.site-ratings.*') ? 'active' : '' }}">
+            <i class="fa fa-star"></i>
+            <span>Ratings</span>
+        </a>
+
         @if(auth()->user()->isAdmin())
         <!-- payments -->
          <a href="{{ route('admin.payments') }}" class="{{ request()->routeIs('admin.payments') || request()->routeIs('admin.payments.*') ? 'active' : '' }}">
