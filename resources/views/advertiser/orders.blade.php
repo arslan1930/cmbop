@@ -580,14 +580,30 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function clearFocusMessagesParam() {
         const url = new URL(window.location.href);
-        if (!url.searchParams.has('focus')) return;
+        if (!url.searchParams.has('focus') && !url.searchParams.has('order')) return;
         url.searchParams.delete('focus');
+        url.searchParams.delete('order');
         window.history.replaceState({}, '', url.pathname + (url.search ? url.search : '') + url.hash);
     }
 
     function maybeOpenFocusedChat() {
         const params = new URLSearchParams(window.location.search);
-        if (params.get('focus') !== 'messages') return;
+        const focus = params.get('focus');
+        const orderId = params.get('order');
+
+        if (focus === 'order' && orderId) {
+            clearFocusMessagesParam();
+            viewOrder(orderId);
+            return;
+        }
+
+        if (focus !== 'messages') return;
+
+        if (orderId) {
+            clearFocusMessagesParam();
+            openChat(orderId, '#' + orderId);
+            return;
+        }
 
         fetch('{{ route("chat.unread-summary") }}', {
             headers: { 'Accept': 'application/json' },
@@ -871,11 +887,43 @@ document.addEventListener('DOMContentLoaded', function() {
             steps[0].current = true;
             steps[0].done = false;
         }
-        return `<div class="d-flex flex-wrap gap-2 mt-3 mb-3">${steps.map((step, i) => {
+        const statusSteps = `<div class="d-flex flex-wrap gap-2 mt-3 mb-3">${steps.map((step, i) => {
             const cls = step.done ? 'bg-success text-white' : (step.current ? 'bg-info text-white' : 'bg-light text-muted');
             const arrow = i < steps.length - 1 ? '<span class="text-muted align-self-center">→</span>' : '';
             return `<span class="badge ${cls} px-3 py-2">${i + 1}. ${step.label}</span>${arrow}`;
         }).join('')}</div>`;
+
+        return `${statusSteps}
+            <div class="mt-3">
+                <h6 class="mb-2">Activity Timeline</h6>
+                <div id="orderActivityTimeline" class="bg-white border rounded p-3">
+                    <div class="text-muted small">Loading activity…</div>
+                </div>
+            </div>`;
+    }
+
+    function loadOrderActivityTimeline(orderId) {
+        const container = document.getElementById('orderActivityTimeline');
+        if (!container) return;
+        fetch(`{{ url('/notifications/order') }}/${orderId}/timeline`, {
+            headers: { 'Accept': 'application/json' },
+            credentials: 'same-origin'
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (!data.success) {
+                container.innerHTML = '<div class="text-muted small">Unable to load activity.</div>';
+                return;
+            }
+            if (window.renderOrderActivityTimeline) {
+                window.renderOrderActivityTimeline(container, data.activities || []);
+            } else {
+                container.innerHTML = '<div class="text-muted small">No activity recorded yet.</div>';
+            }
+        })
+        .catch(() => {
+            container.innerHTML = '<div class="text-muted small">Unable to load activity.</div>';
+        });
     }
 
     function renderOrders(orders, pagination) {
@@ -1045,6 +1093,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 renderOrderDetails(data.order);
                 const modal = new bootstrap.Modal(document.getElementById('orderDetailsModal'));
                 modal.show();
+                loadOrderActivityTimeline(orderId);
             } else {
                 Swal.fire('Error', data.message || 'Failed to load order details', 'error');
             }

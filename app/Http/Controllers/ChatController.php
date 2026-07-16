@@ -7,6 +7,7 @@ use App\Models\Order;
 use App\Models\OrderChatMessage;
 use App\Models\User;
 use App\Mail\NewChatMessageNotification;
+use App\Services\InAppNotificationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\DB;
@@ -195,6 +196,7 @@ class ChatController extends Controller
             ]);
             
             // Send email notification
+            $receiver = null;
             if ($isAdvertiser) {
                 // Message from advertiser to publisher
                 $site = $order->items()->first()->site;
@@ -218,6 +220,16 @@ class ChatController extends Controller
             
             DB::commit();
             $message->load('user');
+
+            // In-app notification only (email flow above is unchanged)
+            if ($receiver) {
+                app(InAppNotificationService::class)->notifyNewChatMessage(
+                    $order,
+                    $user,
+                    $receiver,
+                    (string) $request->message
+                );
+            }
             
             return response()->json([
                 'success' => true,

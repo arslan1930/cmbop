@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <title>Advertiser Dashboard</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
 
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
@@ -580,15 +581,7 @@
 
     <div class="d-flex align-items-center gap-2">
 
-        <!-- Messages / notifications bell -->
-        <a href="{{ route('advertiser.orders', ['focus' => 'messages']) }}"
-           id="toggleNotifications"
-           class="topbar-icon-btn text-decoration-none"
-           title="Messages"
-           aria-label="Messages and order notifications">
-            <i class="fa fa-bell" aria-hidden="true"></i>
-            <span id="headerChatBadge" class="notif-badge">0</span>
-        </a>
+        @include('partials.notification-center')
 
         <!-- Cart — labeled primary commerce action -->
         <button id="toggleCart" class="btn btn-outline-secondary btn-sm topbar-action" type="button" aria-label="Open cart" title="Cart">
@@ -779,17 +772,7 @@
         .then(r => r.json())
         .then(data => {
             if (!data.success) return;
-            const chatBadge = document.getElementById('headerChatBadge');
             const navBadge = document.getElementById('navNeedsActionBadge');
-            const unreadChat = data.unread_chat || 0;
-            if (chatBadge) {
-                if (unreadChat > 0) {
-                    chatBadge.style.display = 'flex';
-                    chatBadge.innerText = unreadChat > 99 ? '99+' : unreadChat;
-                } else {
-                    chatBadge.style.display = 'none';
-                }
-            }
             if (navBadge) {
                 if (data.needs_action > 0) {
                     navBadge.style.display = 'inline-block';

@@ -516,14 +516,33 @@ const baseUrl = window.location.origin;
 
 function clearFocusMessagesParam() {
     const url = new URL(window.location.href);
-    if (!url.searchParams.has('focus')) return;
+    if (!url.searchParams.has('focus') && !url.searchParams.has('order')) return;
     url.searchParams.delete('focus');
+    url.searchParams.delete('order');
     window.history.replaceState({}, '', url.pathname + (url.search ? url.search : '') + url.hash);
 }
 
 function maybeOpenFocusedChat() {
     const params = new URLSearchParams(window.location.search);
-    if (params.get('focus') !== 'messages') return;
+    const focus = params.get('focus');
+    const orderId = params.get('order');
+
+    if (focus === 'order' && orderId) {
+        clearFocusMessagesParam();
+        // Find matching task row item id after tasks load; open chat as fallback
+        setTimeout(function() {
+            openChat(orderId, '#' + orderId);
+        }, 400);
+        return;
+    }
+
+    if (focus !== 'messages') return;
+
+    if (orderId) {
+        clearFocusMessagesParam();
+        openChat(orderId, '#' + orderId);
+        return;
+    }
 
     fetch(baseUrl + '/chat/unread-summary', {
         headers: { 'Accept': 'application/json' },
@@ -1063,6 +1082,11 @@ $(document).ready(function() {
                 if (response.success) {
                     renderDetailsModal(response.data);
                     $('#detailsModal').modal('show');
+                    if (response.data && response.data.order_id) {
+                        loadOrderActivityTimeline(response.data.order_id);
+                    } else if (response.data && response.data.order && response.data.order.id) {
+                        loadOrderActivityTimeline(response.data.order.id);
+                    }
                 } else {
                     Swal.fire('Error!', response.message || 'Failed to load order details', 'error');
                 }
@@ -1261,7 +1285,32 @@ $(document).ready(function() {
             if (index < steps.length - 1) html += '<span class="text-muted align-self-center">→</span>';
         });
         html += '</div>';
+        html += '<div class="mt-3"><h6 class="mb-2">Activity Timeline</h6><div id="orderActivityTimeline" class="bg-white border rounded p-3"><div class="text-muted small">Loading activity…</div></div></div>';
         return html;
+    }
+
+    function loadOrderActivityTimeline(orderId) {
+        var container = document.getElementById('orderActivityTimeline');
+        if (!container || !orderId) return;
+        fetch(baseUrl + '/notifications/order/' + orderId + '/timeline', {
+            headers: { 'Accept': 'application/json' },
+            credentials: 'same-origin'
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (!data.success) {
+                container.innerHTML = '<div class="text-muted small">Unable to load activity.</div>';
+                return;
+            }
+            if (window.renderOrderActivityTimeline) {
+                window.renderOrderActivityTimeline(container, data.activities || []);
+            } else {
+                container.innerHTML = '<div class="text-muted small">No activity recorded yet.</div>';
+            }
+        })
+        .catch(function() {
+            container.innerHTML = '<div class="text-muted small">Unable to load activity.</div>';
+        });
     }
 
     function refreshNeedsActionBanner() {

@@ -15,6 +15,7 @@ use App\Mail\SiteOwnerOrderNotification;
 use App\Mail\AdminManualPaymentNotification;
 use App\Mail\ModificationRequested;
 use App\Services\StripePaymentService;
+use App\Services\InAppNotificationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
@@ -936,6 +937,10 @@ public function checkout(Request $request)
             }
 
             DB::commit();
+
+            foreach ($createdOrders as $createdOrder) {
+                app(InAppNotificationService::class)->notifyOrderCreated($createdOrder->fresh(['items']));
+            }
         } catch (\Exception $e) {
             DB::rollBack();
             throw $e;
@@ -1108,6 +1113,12 @@ public function checkout(Request $request)
             
             DB::commit();
             session()->forget('cart');
+
+            foreach ($createdOrders as $createdOrder) {
+                app(InAppNotificationService::class)->notifyOrderCreated(
+                    $createdOrder instanceof Order ? $createdOrder->fresh(['items']) : Order::with('items')->find($createdOrder->id)
+                );
+            }
             
             // Send email to site owners
             $this->sendSiteOwnerEmails($createdOrders);
@@ -1195,6 +1206,12 @@ public function checkout(Request $request)
             
             DB::commit();
             session()->forget('cart');
+
+            foreach ($createdOrders as $createdOrder) {
+                app(InAppNotificationService::class)->notifyOrderCreated(
+                    $createdOrder instanceof Order ? $createdOrder->fresh(['items']) : Order::with('items')->find($createdOrder->id)
+                );
+            }
             
             // Send email to site owners (for each site in the order)
             $this->sendSiteOwnerEmails($createdOrders);
@@ -1508,6 +1525,8 @@ public function requestModification(Request $request, $id)
                 Log::error('Failed to send email: ' . $e->getMessage());
             }
         }
+
+        app(InAppNotificationService::class)->notifyModificationRequested($order, $request->reason);
         
         return response()->json([
             'success' => true,
@@ -1789,6 +1808,20 @@ public function approveOrder(Request $request, $id)
         }
         
         DB::commit();
+
+        foreach ($transferPublishers as $transfer) {
+            $publisherUser = User::find($transfer['publisher_id'] ?? null);
+            if ($publisherUser) {
+                app(InAppNotificationService::class)->notifyOrderCompleted(
+                    $order,
+                    $publisherUser,
+                    (float) ($transfer['amount'] ?? 0)
+                );
+            }
+        }
+        if (empty($transferPublishers)) {
+            app(InAppNotificationService::class)->notifyOrderCompleted($order);
+        }
         
         $message = 'Order approved successfully! ';
         if ($order->payment_method === 'wallet') {

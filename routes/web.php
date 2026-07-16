@@ -350,6 +350,17 @@ Route::middleware(['auth', 'verified'])->group(function () {
     
     });
 
+    // In-app notification center (does not affect email notifications)
+    Route::prefix('notifications')->name('notifications.')->group(function () {
+        Route::get('/', [App\Http\Controllers\NotificationController::class, 'index'])->name('index');
+        Route::get('/unread-count', [App\Http\Controllers\NotificationController::class, 'unreadCount'])->name('unread-count');
+        Route::post('/read-all', [App\Http\Controllers\NotificationController::class, 'markAllRead'])->name('read-all');
+        Route::post('/{id}/read', [App\Http\Controllers\NotificationController::class, 'markRead'])->name('read');
+        Route::post('/{id}/archive', [App\Http\Controllers\NotificationController::class, 'archive'])->name('archive');
+        Route::delete('/{id}', [App\Http\Controllers\NotificationController::class, 'destroy'])->name('destroy');
+        Route::get('/order/{orderId}/timeline', [App\Http\Controllers\NotificationController::class, 'orderTimeline'])->name('order-timeline');
+    });
+
 });
 
 // ✅ Advertiser - Routes for managing campaigns, catalog, and projects

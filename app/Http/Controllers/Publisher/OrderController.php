@@ -12,6 +12,7 @@ use App\Models\Wallet;
 use App\Mail\OrderAccepted;
 use App\Mail\OrderRejected;
 use App\Mail\LiveUrlSubmitted;
+use App\Services\InAppNotificationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -290,6 +291,8 @@ class OrderController extends Controller
                     Log::error('Failed to send order accepted email: ' . $e->getMessage());
                 }
             }
+
+            app(InAppNotificationService::class)->notifyOrderAccepted($order, $orderItem, $site);
             
             Log::info('Order accepted by publisher', [
                 'order_item_id' => $orderItem->id,
@@ -431,6 +434,8 @@ class OrderController extends Controller
                     Log::error('Failed to send order rejected email: ' . $e->getMessage());
                 }
             }
+
+            app(InAppNotificationService::class)->notifyOrderRejected($order, $orderItem, $site, $request->reason);
             
             $refundMessage = '';
             if ($order->payment_method === 'wallet') {
@@ -527,6 +532,8 @@ class OrderController extends Controller
                     Log::error('Failed to send live URL submitted email: ' . $e->getMessage());
                 }
             }
+
+            app(InAppNotificationService::class)->notifyLiveUrlSubmitted($order, $orderItem, $site, $request->live_url);
             
             Log::info('Live URL submitted by publisher, order status changed to review', [
                 'order_item_id' => $orderItem->id,
