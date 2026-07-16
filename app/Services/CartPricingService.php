@@ -135,17 +135,6 @@ class CartPricingService
                 'languages' => $site->languageCodes(),
                 'link_type' => $site->link_type,
                 'content_submission_id' => $item['content_submission_id'] ?? null,
-                // Catalog enrichment (display-only — does not affect pricing/checkout)
-                'da' => $site->da,
-                'dr' => $site->dr,
-                'traffic' => $site->traffic,
-                'traffic_label' => $site->formattedTraffic(),
-                'category' => $site->category,
-                'verified' => (bool) $site->verified,
-                'avg_publish' => $site->averagePublishLabel(),
-                'screenshot_thumb_url' => $site->screenshot_thumb_url,
-                'last_updated' => $site->lastUpdatedLabel(),
-                'site_model' => $site,
             ];
         }
 

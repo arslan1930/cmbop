@@ -816,26 +816,34 @@ document.addEventListener('DOMContentLoaded', function () {
             <div class="col-md-12">
                 <h6 class="mb-3">Site Details</h6>
 
+                {{-- Expandable panel: screenshot + tags/DF links + sample only (no DR/DA/traffic/country) --}}
                 <div class="row align-items-start g-4">
-                    
-                    {{-- Bigger Image --}}
-                    <div class="col-md-3 text-center">
-                        <p><strong>Site Image:</strong></p>
 
-                        @if($site->site_image)
-                            <img src="{{ asset('storage/' . $site->site_image) }}"
-                                 alt="{{ $site->site_name }}"
+                    <div class="col-md-3 text-center">
+                        <p><strong>Homepage preview:</strong></p>
+                        @php
+                            $previewPath = $site->screenshot_path ?: $site->site_image;
+                            $previewUrl = $previewPath ? asset('storage/' . $previewPath) : null;
+                        @endphp
+                        @if($previewUrl)
+                            <img src="{{ $previewUrl }}"
+                                 alt="{{ $site->site_name }} homepage preview"
                                  loading="lazy"
                                  class="site-image-thumbnail img-fluid"
                                  style="
                                     width: 280px;
                                     height: 180px;
-                                    border-radius: 12px;    
+                                    border-radius: 12px;
                                     object-fit: cover;
                                     object-position: center;
                                     border: 1px solid #ddd;
                                     box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-                                 ">
+                                 "
+                                 onerror="this.onerror=null;this.style.display='none';this.nextElementSibling.style.display='inline-flex';">
+                            <div class="bg-light border rounded d-none align-items-center justify-content-center"
+                                 style="width: 180px; height: 180px;">
+                                <i class="fa-solid fa-image text-muted" style="font-size: 40px;"></i>
+                            </div>
                         @else
                             <div class="bg-light border rounded d-inline-flex align-items-center justify-content-center"
                                  style="width: 180px; height: 180px;">
@@ -844,20 +852,20 @@ document.addEventListener('DOMContentLoaded', function () {
                         @endif
                     </div>
 
-                    {{-- Description --}}
                     <div class="col-md-5">
                         <p><strong>Description:</strong></p>
                         <div class="text-muted small">
                             {!! $site->description !!}
                         </div>
+                        <div class="text-muted small mt-3">
+                            <strong>DoFollow links:</strong> Max 03 DoFollow links
+                        </div>
                     </div>
 
-                    {{-- Tags --}}
                     <div class="col-md-2">
                         <p><strong>Tags:</strong></p>
 
                         <div class="d-flex flex-column gap-2">
-                            
                             <div>
                                 @if($site->link_type)
                                     <span class="badge bg-secondary-subtle text-secondary border px-2 py-1"
@@ -964,16 +972,13 @@ document.addEventListener('DOMContentLoaded', function () {
                                     </div>
                                 @endif
                             </div>
-
                         </div>
                     </div>
 
-                    {{-- Example URL --}}
                     <div class="col-md-2">
-                        <p><strong>Example URL:</strong></p>
+                        <p><strong>Sample article:</strong></p>
 
                         <div class="d-flex flex-column gap-2">
-
                             <div class="d-flex align-items-center gap-2">
                                 <a href="{{ $site->example_url ?? '#' }}"
                                    target="_blank"
@@ -987,7 +992,7 @@ document.addEventListener('DOMContentLoaded', function () {
                                        target="_blank"
                                        rel="noopener noreferrer"
                                        class="text-muted d-inline-flex align-items-center"
-                                       title="Open Website">
+                                       title="Open sample article">
                                         <i class="fa-solid fa-arrow-up-right-from-square"
                                            style="font-size: 13px;"></i>
                                     </a>
@@ -1018,7 +1023,6 @@ document.addEventListener('DOMContentLoaded', function () {
                                     </span>
                                 @endif
                             </div>
-
                         </div>
                     </div>
 
