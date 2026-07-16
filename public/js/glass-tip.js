@@ -9,7 +9,7 @@
   var PAD = 10;
   var OFFSET = 10;
   var SHOW_DELAY = 80;
-  var HIDE_DELAY = 120;
+  var HIDE_DELAY = 140;
   var active = null;
   var tipEl = null;
   var showTimer = null;
@@ -18,6 +18,10 @@
 
   function prefersReducedMotion() {
     return window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  }
+
+  function canHover() {
+    return !(window.matchMedia && window.matchMedia('(hover: none)').matches);
   }
 
   function ensureTipEl() {
@@ -31,6 +35,14 @@
       '<strong class="glass-tip-title"></strong>' +
       '<p class="glass-tip-body"></p>';
     document.body.appendChild(tipEl);
+
+    tipEl.addEventListener('mouseenter', function () {
+      clearTimers();
+    });
+    tipEl.addEventListener('mouseleave', function () {
+      if (active && active.getAttribute('data-glass-tip-pinned') !== '1') hide(false);
+    });
+
     return tipEl;
   }
 
@@ -44,7 +56,6 @@
     var body =
       (trigger.getAttribute('data-glass-tip-body') ||
         trigger.getAttribute('data-glass-tip') ||
-        trigger.getAttribute('title') ||
         '').trim();
     return { title: title, body: body };
   }
@@ -90,10 +101,7 @@
       left = Math.max(PAD, Math.min(left, vw - tipRect.width - PAD));
       top = Math.max(PAD, Math.min(top, vh - tipRect.height - PAD));
 
-      var overflow =
-        Math.max(0, PAD - (rect.left + rect.width / 2 - tipRect.width / 2)) +
-        Math.max(0, (rect.left + rect.width / 2 + tipRect.width / 2) - (vw - PAD));
-
+      var overflow = 0;
       if (placement === 'top' && rect.top - tipRect.height - OFFSET < PAD) overflow += 1000;
       if (placement === 'bottom' && rect.bottom + tipRect.height + OFFSET > vh - PAD) overflow += 1000;
       if (placement === 'left' && rect.left - tipRect.width - OFFSET < PAD) overflow += 1000;
@@ -110,20 +118,21 @@
 
     var arrow = tip.querySelector('.glass-tip-arrow');
     if (arrow) {
+      arrow.style.top = '';
+      arrow.style.bottom = '';
+      arrow.style.left = '';
+      arrow.style.right = '';
+
       if (best.placement === 'top' || best.placement === 'bottom') {
         var ax = rect.left + rect.width / 2 - best.left;
         ax = Math.max(14, Math.min(ax, tipRect.width - 14));
         arrow.style.left = ax + 'px';
-        arrow.style.top = '';
-        arrow.style.bottom = '';
         if (best.placement === 'top') arrow.style.bottom = '-5px';
         else arrow.style.top = '-5px';
       } else {
         var ay = rect.top + rect.height / 2 - best.top;
         ay = Math.max(14, Math.min(ay, tipRect.height - 14));
         arrow.style.top = ay + 'px';
-        arrow.style.left = '';
-        arrow.style.right = '';
         if (best.placement === 'left') arrow.style.right = '-5px';
         else arrow.style.left = '-5px';
       }
@@ -167,7 +176,6 @@
       measureAndPlace(trigger);
       tip.style.visibility = '';
 
-      // Second pass after paint for accurate size
       requestAnimationFrame(function () {
         measureAndPlace(trigger);
         tip.classList.add('is-visible');
@@ -176,6 +184,7 @@
       if (active && active !== trigger) {
         active.classList.remove('is-open');
         active.setAttribute('aria-expanded', 'false');
+        active.removeAttribute('data-glass-tip-pinned');
       }
       active = trigger;
       trigger.classList.add('is-open');
@@ -186,6 +195,7 @@
   function hide(immediate) {
     clearTimers();
     var delay = immediate || prefersReducedMotion() ? 0 : HIDE_DELAY;
+    var current = active;
 
     hideTimer = setTimeout(function () {
       var tip = tipEl;
@@ -194,67 +204,46 @@
 
       var finish = function () {
         tip.hidden = true;
-        if (active) {
-          active.classList.remove('is-open');
-          active.setAttribute('aria-expanded', 'false');
-          active.removeAttribute('aria-describedby');
-          active = null;
+        if (current) {
+          current.classList.remove('is-open');
+          current.setAttribute('aria-expanded', 'false');
+          current.removeAttribute('aria-describedby');
+          if (active === current) active = null;
         }
       };
 
-      if (prefersReducedMotion()) {
-        finish();
-      } else {
-        setTimeout(finish, 180);
-      }
+      if (prefersReducedMotion()) finish();
+      else setTimeout(finish, 180);
     }, delay);
   }
 
-  function isTrigger(el) {
-    return el && el.closest && el.closest('[data-glass-tip]');
-  }
-
-  function onPointerEnter(e) {
-    var trigger = isTrigger(e.target);
-    if (!trigger || window.matchMedia('(hover: none)').matches) return;
+  function onTriggerEnter(e) {
+    var trigger = e.currentTarget;
+    if (!canHover()) return;
     show(trigger, false);
   }
 
-  function onPointerLeave(e) {
-    var trigger = isTrigger(e.target);
-    if (!trigger) return;
+  function onTriggerLeave(e) {
+    var trigger = e.currentTarget;
     var next = e.relatedTarget;
     if (tipEl && next && tipEl.contains(next)) return;
     if (trigger.contains(next)) return;
-    // Keep open if toggled via click
     if (trigger.getAttribute('data-glass-tip-pinned') === '1') return;
     hide(false);
   }
 
-  function onFocus(e) {
-    var trigger = isTrigger(e.target);
-    if (!trigger) return;
-    show(trigger, true);
+  function onTriggerFocus(e) {
+    show(e.currentTarget, true);
   }
 
-  function onBlur(e) {
-    var trigger = isTrigger(e.target);
-    if (!trigger) return;
+  function onTriggerBlur(e) {
+    var trigger = e.currentTarget;
     if (trigger.getAttribute('data-glass-tip-pinned') === '1') return;
     hide(true);
   }
 
-  function onClick(e) {
-    var trigger = isTrigger(e.target);
-    if (!trigger) {
-      if (active) {
-        active.removeAttribute('data-glass-tip-pinned');
-        hide(true);
-      }
-      return;
-    }
-
-    // Toggle pin for click / touch accessibility
+  function onTriggerClick(e) {
+    var trigger = e.currentTarget;
     e.preventDefault();
     e.stopPropagation();
 
@@ -280,54 +269,59 @@
     }
   }
 
+  function onDocumentClick(e) {
+    if (!active) return;
+    if (active.contains(e.target)) return;
+    if (tipEl && tipEl.contains(e.target)) return;
+    active.removeAttribute('data-glass-tip-pinned');
+    hide(true);
+  }
+
   function onScrollOrResize() {
     if (active && tipEl && tipEl.classList.contains('is-visible')) {
       measureAndPlace(active);
     }
   }
 
+  function bindTrigger(el) {
+    if (el.getAttribute('data-glass-tip-ready') === '1') return;
+    el.setAttribute('data-glass-tip-ready', '1');
+
+    if (!el.hasAttribute('tabindex') && el.tagName !== 'BUTTON' && el.tagName !== 'A') {
+      el.setAttribute('tabindex', '0');
+    }
+    if (!el.hasAttribute('aria-expanded')) {
+      el.setAttribute('aria-expanded', 'false');
+    }
+    if (!el.hasAttribute('role') && el.tagName !== 'BUTTON' && el.tagName !== 'A') {
+      el.setAttribute('role', 'button');
+    }
+
+    // Migrate legacy title → glass tip body, then remove native tooltip
+    if (el.hasAttribute('title') && !el.getAttribute('data-glass-tip-body') && !el.getAttribute('data-glass-tip')) {
+      el.setAttribute('data-glass-tip-body', el.getAttribute('title'));
+    }
+    el.removeAttribute('title');
+
+    el.addEventListener('mouseenter', onTriggerEnter);
+    el.addEventListener('mouseleave', onTriggerLeave);
+    el.addEventListener('focus', onTriggerFocus);
+    el.addEventListener('blur', onTriggerBlur);
+    el.addEventListener('click', onTriggerClick);
+  }
+
   function enhanceTriggers(root) {
-    (root || document).querySelectorAll('[data-glass-tip]').forEach(function (el) {
-      if (el.getAttribute('data-glass-tip-ready') === '1') return;
-      el.setAttribute('data-glass-tip-ready', '1');
-
-      if (!el.hasAttribute('tabindex') && el.tagName !== 'BUTTON' && el.tagName !== 'A') {
-        el.setAttribute('tabindex', '0');
-      }
-      if (!el.hasAttribute('aria-expanded')) {
-        el.setAttribute('aria-expanded', 'false');
-      }
-      if (!el.hasAttribute('role') && el.tagName !== 'BUTTON' && el.tagName !== 'A') {
-        el.setAttribute('role', 'button');
-      }
-
-      // Avoid native browser tooltips fighting glass tip
-      if (el.hasAttribute('title') && !el.getAttribute('data-glass-tip-body') && !el.getAttribute('data-glass-tip')) {
-        el.setAttribute('data-glass-tip-body', el.getAttribute('title'));
-      }
-      el.removeAttribute('title');
-    });
+    (root || document).querySelectorAll('[data-glass-tip]').forEach(bindTrigger);
   }
 
   function init() {
     ensureTipEl();
     enhanceTriggers(document);
 
-    document.addEventListener('pointerenter', onPointerEnter, true);
-    document.addEventListener('pointerleave', onPointerLeave, true);
-    document.addEventListener('focusin', onFocus, true);
-    document.addEventListener('focusout', onBlur, true);
-    document.addEventListener('click', onClick, true);
+    document.addEventListener('click', onDocumentClick, true);
     document.addEventListener('keydown', onKeydown, true);
     window.addEventListener('scroll', onScrollOrResize, true);
     window.addEventListener('resize', onScrollOrResize);
-
-    tipEl.addEventListener('pointerenter', function () {
-      clearTimers();
-    });
-    tipEl.addEventListener('pointerleave', function () {
-      if (active && active.getAttribute('data-glass-tip-pinned') !== '1') hide(false);
-    });
   }
 
   window.GlassTip = {
