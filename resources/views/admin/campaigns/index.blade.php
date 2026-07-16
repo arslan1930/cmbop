@@ -251,6 +251,7 @@
 
 <script>
 (function () {
+    const form = document.getElementById('campaignForm');
     const audience = document.getElementById('campaignAudience');
     const wrap = document.getElementById('selectedUsersWrap');
     const countEl = document.getElementById('selectedCount');
@@ -290,7 +291,6 @@
     });
 
     document.getElementById('previewBtn').addEventListener('click', async function () {
-        const form = document.getElementById('campaignForm');
         const fd = new FormData();
         fd.append('_token', form.querySelector('[name=_token]').value);
         fd.append('subject', document.getElementById('campaignSubject').value || 'Preview');
