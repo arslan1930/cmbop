@@ -49,21 +49,27 @@
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        @php $globalCopyIndex = 0; @endphp
+                                        @php
+                                            $globalCopyIndex = 0;
+                                            $placementNumber = 0;
+                                        @endphp
                                         @foreach($cartItems as $index => $item)
                                             @for($i = 0; $i < $item['quantity']; $i++)
-                                            <tr data-site-id="{{ $item['id'] }}" data-copy-index="{{ $globalCopyIndex }}">
+                                            @php $placementNumber++; @endphp
+                                            <tr data-site-id="{{ $item['id'] }}" data-copy-index="{{ $globalCopyIndex }}" data-placement-number="{{ $placementNumber }}">
                                                 <td>
-                                                    <div class="fw-semibold">{{ $item['name'] }}</div>
-                                                    <div>
-                                                        <a href="{{ $item['url'] }}" target="_blank" class="text-decoration-none small text-muted">
-                                                            {{ Str::limit($item['url'], 50) }}
-                                                            <i class="fa fa-external-link fa-xs"></i>
-                                                        </a>
+                                                    <div class="d-flex align-items-start gap-2">
+                                                        <span class="placement-number" aria-hidden="true">{{ $placementNumber }}</span>
+                                                        <div>
+                                                            <div class="fw-semibold">{{ $item['name'] }}</div>
+                                                            <div>
+                                                                <a href="{{ $item['url'] }}" target="_blank" class="text-decoration-none small text-muted">
+                                                                    {{ Str::limit($item['url'], 50) }}
+                                                                    <i class="fa fa-external-link fa-xs"></i>
+                                                                </a>
+                                                            </div>
+                                                        </div>
                                                     </div>
-                                                    @if($item['quantity'] > 1)
-                                                        <small class="text-muted d-block mt-1">Copy {{ $i + 1 }} of {{ $item['quantity'] }}</small>
-                                                    @endif
                                                 </td>
                                                 <td>
                                                     @if($item['sensitive_type'])
