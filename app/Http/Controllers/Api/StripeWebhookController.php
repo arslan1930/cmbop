@@ -187,6 +187,13 @@ class StripeWebhookController extends Controller
 
                     $wallet = Wallet::lockOrCreateForRole($lockedDeposit->user_id, $advertiserRoleId);
                     $wallet->credit((float) $lockedDeposit->amount);
+                    app(\App\Services\Wallet\WalletLedgerService::class)->recordDeposit(
+                        $wallet,
+                        (float) $lockedDeposit->amount,
+                        $lockedDeposit,
+                        'card',
+                        $lockedDeposit->reference_code
+                    );
                 });
                 
                 Log::info('Deposit completed', ['deposit_id' => $deposit->id]);
@@ -232,6 +239,13 @@ class StripeWebhookController extends Controller
 
                     $wallet = Wallet::lockOrCreateForRole($userId, $advertiserRoleId);
                     $wallet->credit((float) $finalAmount);
+                    app(\App\Services\Wallet\WalletLedgerService::class)->recordDeposit(
+                        $wallet,
+                        (float) $finalAmount,
+                        $deposit,
+                        'card',
+                        $deposit->reference_code
+                    );
                     
                     Log::info('Deposit created from webhook', ['deposit_id' => $deposit->id]);
                 });

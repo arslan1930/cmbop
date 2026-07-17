@@ -81,13 +81,13 @@ class CountryLanguageSeeder extends Seeder
             'uy' => ['es'],
             've' => ['es'],
 
-            // Chinese markets
-            'cn' => ['zh'],
-            'tw' => ['zh'],
+            // Chinese markets (English guest-post / international sites allowed)
+            'cn' => ['zh', 'en'],
+            'tw' => ['zh', 'en'],
             'hk' => ['zh', 'en'],
-            'mo' => ['zh', 'pt'],
+            'mo' => ['zh', 'pt', 'en'],
 
-            // Gulf region
+            // Gulf region (Arabic primary, English widely used)
             'ae' => ['ar', 'en'],
             'sa' => ['ar', 'en'],
             'qa' => ['ar', 'en'],

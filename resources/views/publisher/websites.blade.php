@@ -873,7 +873,7 @@
                             </div>
                             <div class="col-md-4">
                                 <label class="form-label">Categories <span class="req" aria-hidden="true">*</span></label>
-                                <input type="hidden" name="categories" id="selectedCategories" value="{{ is_array(old('categories')) ? implode(',', old('categories')) : old('categories') }}">
+                                <input type="hidden" name="categories" id="selectedCategories" value="{{ is_array(old('categories')) ? implode('|', old('categories')) : old('categories') }}">
                                 <div class="multi-select-wrapper" id="categoryWrapper">
                                     <div class="multi-select-input" id="categoryInput">
                                         <span class="multi-select-placeholder">Select categories (max 7)...</span>
@@ -1283,8 +1283,8 @@ function initMultiSelect(wrapperId, inputId, dropdownId, optionsId, hiddenInputI
             });
         }
         
-        // Update hidden input
-        hiddenInput.val(selectedItems.map(item => item.value).join(','));
+        // Prefer `|` so category names that contain commas stay intact
+        hiddenInput.val(selectedItems.map(item => item.value).join('|'));
         hiddenInput.trigger('change');
     }
     
@@ -1632,7 +1632,8 @@ function loadSiteDraft() {
             }
         }
         if (draft.categories) {
-            const cats = String(draft.categories).split(',').map(c => c.trim()).filter(Boolean);
+            const raw = String(draft.categories);
+            const cats = raw.split(raw.includes('|') ? '|' : ',').map(c => c.trim()).filter(Boolean);
             categoryMultiSelect.clearSelections();
             cats.forEach(val => {
                 const opt = $(`#categoryOptions .multi-select-option[data-value="${val}"]`);
@@ -1978,8 +1979,9 @@ $(document).on('click', '.btn-edit', function() {
             }
         });
     } else if (site.category) {
-        // Fallback for single/comma-separated category
-        String(site.category).split(',').map(v => v.trim()).filter(Boolean).forEach(categoryName => {
+        // Fallback for pipe/comma-separated legacy category column
+        const raw = String(site.category);
+        raw.split(raw.includes('|') ? '|' : ',').map(v => v.trim()).filter(Boolean).forEach(categoryName => {
             let option = $(`#categoryOptions .multi-select-option[data-value="${categoryName}"]`);
             if (option.length) {
                 categoryMultiSelect.addItem(categoryName, option.data('label'));

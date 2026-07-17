@@ -1,12 +1,13 @@
 @extends('layouts.app')
 
-@section('title', 'Blog & Articles — SEOLinkBuildings')
-@section('description', 'Insights on link building, digital PR, and content marketing from the SEOLinkBuildings team.')
+@section('title', __('messages.meta_blog_title'))
+@section('description', __('messages.meta_blog_description'))
+@section('canonical', localized_url('blog'))
 
 @section('content')
 
 <!-- ==================== BLOG HERO ==================== -->
-<section style="position:relative; width:100%; padding:140px 0 60px; overflow:hidden; background:linear-gradient(180deg, #f0f5ff 0%, #f5faff 100%);">
+<section style="position:relative; width:100%; padding:48px 0 60px; overflow:hidden; background:linear-gradient(180deg, #f0f5ff 0%, #f5faff 100%);">
 
     <!-- Background Shapes -->
     <div style="position:absolute; top:10%; left:-100px; width:250px; height:250px; border-radius:50%; background:#4ECDCB; opacity:0.08; z-index:1;"></div>
@@ -20,14 +21,14 @@
         <div class="text-center">
             <div class="mb-3">
                 <span style="background:rgba(78,205,203,0.15); color:#38b2ac; padding:6px 16px; border-radius:50px; font-size:0.85rem; font-weight:600; letter-spacing:0.5px;">
-                    <i class="fa fa-newspaper-o me-2"></i> Latest Insights
+                    <i class="fa fa-newspaper-o me-2"></i> {{ __('messages.blog_kicker') }}
                 </span>
             </div>
-            <h1 style="font-size:3rem; font-weight:800; color:#1a1a2e; letter-spacing:-1px; margin-bottom:1rem;">
-                {{ 'Blog & Articles' }}
+            <h1 style="font-size:clamp(1.75rem, 3.5vw, 2.75rem); font-weight:800; color:#1a1a2e; letter-spacing:-1px; margin-bottom:1rem;">
+                {{ __('messages.blog_heading') }}
             </h1>
             <p style="font-size:1.1rem; color:#666; max-width:600px; margin:0 auto;">
-                Expert insights, SEO strategies, and industry news to help you build powerful backlinks and grow your authority.
+                {{ __('messages.blog_intro') }}
             </p>
         </div>
     </div>
@@ -125,14 +126,14 @@
                                                         </small>
                                                     </div>
                                                     <h3 class="card-title h4 mb-3">
-                                                        <a href="{{ route('blog.show', ['slug' => $post->slug]) }}" class="text-decoration-none" style="color:#1a1a2e; font-weight:700;">
+                                                        <a href="{{ localized_url('blog/'.$post->slug) }}" class="text-decoration-none" style="color:#1a1a2e; font-weight:700;">
                                                             {{ $post->title }}
                                                         </a>
                                                     </h3>
                                                     <p class="card-text text-muted" style="line-height:1.7;">
                                                         {{ Str::limit(strip_tags($post->content), 120) }}
                                                     </p>
-                                                    <a href="{{ route('blog.show', ['slug' => $post->slug]) }}" class="btn btn-link text-decoration-none p-0" style="color:#4ECDCB; font-weight:600;">
+                                                    <a href="{{ localized_url('blog/'.$post->slug) }}" class="btn btn-link text-decoration-none p-0" style="color:#4ECDCB; font-weight:600;">
                                                         Read More <i class="fa fa-arrow-right ms-1"></i>
                                                     </a>
                                                 </div>
@@ -149,14 +150,14 @@
                                                         </small>
                                                     </div>
                                                     <h3 class="card-title h4 mb-3">
-                                                        <a href="{{ route('blog.show', ['slug' => $post->slug]) }}" class="text-decoration-none" style="color:#1a1a2e; font-weight:700;">
+                                                        <a href="{{ localized_url('blog/'.$post->slug) }}" class="text-decoration-none" style="color:#1a1a2e; font-weight:700;">
                                                             {{ $post->title }}
                                                         </a>
                                                     </h3>
                                                     <p class="card-text text-muted" style="line-height:1.7;">
                                                         {{ Str::limit(strip_tags($post->content), 150) }}
                                                     </p>
-                                                    <a href="{{ route('blog.show', ['slug' => $post->slug]) }}" class="btn btn-link text-decoration-none p-0" style="color:#4ECDCB; font-weight:600;">
+                                                    <a href="{{ localized_url('blog/'.$post->slug) }}" class="btn btn-link text-decoration-none p-0" style="color:#4ECDCB; font-weight:600;">
                                                         Read More <i class="fa fa-arrow-right ms-1"></i>
                                                     </a>
                                                 </div>
@@ -196,7 +197,7 @@
                             <i class="fa fa-clock-o me-2" style="color:#4ECDCB;"></i> Recent Posts
                         </h3>
                         @foreach($recentPosts as $recent)
-                            <a href="{{ route('blog.show', ['slug' => $recent->slug]) }}" class="text-decoration-none d-block mb-3">
+                            <a href="{{ localized_url('blog/'.$recent->slug) }}" class="text-decoration-none d-block mb-3">
                                 <div class="d-flex gap-3 align-items-start">
                                     @if($recent->featured_image)
                                         <img src="{{ Storage::url($recent->featured_image) }}" 

@@ -34,7 +34,7 @@
 @section('content')
 
 <!-- ==================== BLOG POST HERO ==================== -->
-<section style="position:relative; width:100%; padding:140px 0 60px; overflow:hidden; background:linear-gradient(180deg, #f0f5ff 0%, #f5faff 100%);">
+<section style="position:relative; width:100%; padding:48px 0 60px; overflow:hidden; background:linear-gradient(180deg, #f0f5ff 0%, #f5faff 100%);">
 
     <!-- Background Shapes -->
     <div style="position:absolute; top:10%; left:-100px; width:250px; height:250px; border-radius:50%; background:#4ECDCB; opacity:0.08; z-index:1;"></div>
@@ -47,8 +47,8 @@
     <div class="container" style="position:relative; z-index:5; max-width:1000px;">
         <!-- Blog Home Button -->
         <div class="mb-4">
-            <a href="{{ route('blog.index') }}" class="btn btn-outline-secondary rounded-pill px-4" style="background: white; border-color: #e0e0e0; color: #555; font-size: 0.9rem;">
-                <i class="fa fa-arrow-left me-2"></i> Back to Blog
+            <a href="{{ localized_url('blog') }}" class="btn btn-outline-secondary rounded-pill px-4" style="background: white; border-color: #e0e0e0; color: #555; font-size: 0.9rem;">
+                <i class="fa fa-arrow-left me-2"></i> {{ __('messages.blog_back') }}
             </a>
         </div>
         
@@ -112,11 +112,11 @@
                 <!-- Share Section -->
                 <div class="mt-5 pt-3 border-top">
                     <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
-                        <a href="{{ route('blog.index') }}" class="btn btn-outline-secondary rounded-pill px-4">
-                            <i class="fa fa-arrow-left me-2"></i> Back to Blog
+                        <a href="{{ localized_url('blog') }}" class="btn btn-outline-secondary rounded-pill px-4">
+                            <i class="fa fa-arrow-left me-2"></i> {{ __('messages.blog_back') }}
                         </a>
                         <div class="d-flex gap-2">
-                            <span class="text-muted me-2">Share this post:</span>
+                            <span class="text-muted me-2">{{ __('messages.blog_share') }}</span>
                             <a href="https://www.facebook.com/sharer/sharer.php?u={{ urlencode(url()->current()) }}" target="_blank" class="btn btn-sm btn-outline-primary rounded-circle" style="width: 35px; height: 35px; padding: 0; line-height: 33px;">
                                 <i class="fa fa-facebook-f"></i>
                             </a>
@@ -136,19 +136,21 @@
 
 <!-- ==================== RECOMMENDED POSTS SECTION ==================== -->
 @php
-    $recommendedPosts = \App\Models\Blog::where('status', 'published')
-        ->where('id', '!=', $blog->id)
-        ->orderBy('published_at', 'desc')
-        ->limit(3)
-        ->get();
+    $recommendedPosts = isset($related)
+        ? $related
+        : \App\Models\Blog::published()
+            ->where('id', '!=', $blog->id)
+            ->orderByDesc('published_at')
+            ->limit(3)
+            ->get();
 @endphp
 
 @if($recommendedPosts->count() > 0)
     <section style="background: #f8f9fa; padding: 60px 0;">
         <div class="container">
             <div class="text-center mb-5">
-                <h2 style="font-weight: 700; color: #1a1a2e;">You May Also Like</h2>
-                <p style="color: #666;">Continue reading with these related articles</p>
+                <h2 style="font-weight: 700; color: #1a1a2e;">{{ __('messages.blog_related_title') }}</h2>
+                <p style="color: #666;">{{ __('messages.blog_related_subtitle') }}</p>
             </div>
             <div class="row">
                 @foreach($recommendedPosts as $recommended)
@@ -165,14 +167,14 @@
                             @endif
                             <div class="card-body p-4">
                                 <h5 class="card-title" style="font-weight: 700;">
-                                    <a href="{{ route('blog.show', ['slug' => $recommended->slug]) }}" class="text-decoration-none text-dark">
+                                    <a href="{{ localized_url('blog/'.$recommended->slug) }}" class="text-decoration-none text-dark">
                                         {{ Str::limit($recommended->title, 60) }}
                                     </a>
                                 </h5>
                                 <p class="card-text text-muted" style="font-size: 0.9rem;">
                                     {{ Str::limit(strip_tags($recommended->content), 100) }}
                                 </p>
-                                <a href="{{ route('blog.show', ['slug' => $recommended->slug]) }}" class="btn btn-link text-decoration-none p-0" style="color: #4ECDCB; font-weight: 600;">
+                                <a href="{{ localized_url('blog/'.$recommended->slug) }}" class="btn btn-link text-decoration-none p-0" style="color: #4ECDCB; font-weight: 600;">
                                     Read More <i class="fa fa-arrow-right ms-1"></i>
                                 </a>
                             </div>

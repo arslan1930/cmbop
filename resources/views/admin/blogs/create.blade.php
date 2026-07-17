@@ -55,7 +55,7 @@
 
                     <div class="col-md-4">
                         <div class="mb-3">
-                            <label class="form-label fw-semibold">Featured Image <span class="text-danger">*</span></label>
+                            <label class="form-label fw-semibold">Featured Image <span class="text-muted small">(optional)</span></label>
                             <div class="border rounded p-3 text-center" style="background: #f8f9fa;">
                                 <div id="featuredImagePreview" class="mb-2">
                                     <div id="noImagePlaceholder" class="text-center">

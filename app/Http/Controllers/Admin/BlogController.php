@@ -43,7 +43,7 @@ class BlogController extends Controller
             $validated = $request->validate([
                 'title' => 'required|string|max:255',
                 'content' => 'required|string',
-                'featured_image' => 'required|image|mimes:jpeg,png,jpg,gif,webp|max:5120',
+                'featured_image' => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:5120',
                 'tags' => 'nullable|string',
                 'status' => 'required|in:draft,published'
             ]);
@@ -53,13 +53,11 @@ class BlogController extends Controller
                 throw new \Exception('You must be logged in to create a blog post.');
             }
 
-            // Handle featured image upload
+            // Handle featured image upload (optional for drafts / text-first SEO posts)
             $featuredImage = null;
             if ($request->hasFile('featured_image')) {
                 $featuredImage = $request->file('featured_image')->store('blogs/featured', 'public');
                 Log::info('Featured image uploaded', ['path' => $featuredImage]);
-            } else {
-                throw new \Exception('Featured image is required.');
             }
 
             // Process tags
@@ -79,7 +77,7 @@ class BlogController extends Controller
                 $counter++;
             }
 
-            // Create blog post
+            // Create blog post (tags cast to array on the model)
             $blog = Blog::create([
                 'title' => $request->title,
                 'slug' => $slug,
@@ -87,7 +85,7 @@ class BlogController extends Controller
                 'content' => $request->content,
                 'featured_image' => $featuredImage,
                 'author' => auth()->user()->name,
-                'tags' => is_array($tags) ? json_encode($tags) : $tags,
+                'tags' => $tags,
                 'status' => $request->status,
                 'published_at' => $request->status === 'published' ? now() : null,
                 'created_by' => auth()->id(),
@@ -180,12 +178,12 @@ class BlogController extends Controller
                 $tags = array_values($tags);
             }
 
-            // Prepare update data
+            // Prepare update data (tags cast to array on the model)
             $data = [
                 'title' => $request->title,
                 'excerpt' => Str::limit(strip_tags($request->content), 160),
                 'content' => $request->content,
-                'tags' => is_array($tags) ? json_encode($tags) : $tags,
+                'tags' => $tags,
                 'status' => $request->status,
                 'updated_by' => auth()->id()
             ];

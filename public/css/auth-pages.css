@@ -14,8 +14,10 @@
   font-family: 'Plus Jakarta Sans', 'Poppins', sans-serif;
   color: var(--auth-ink);
   position: relative;
-  min-height: calc(100vh - 140px);
-  padding: 2.5rem 0 3.5rem;
+  /* Body already clears the fixed navbar; keep extra breathing room under the header line */
+  min-height: calc(100vh - var(--public-navbar-height, 88px) - 48px);
+  padding: 2rem 0 3.5rem;
+  margin-top: 0;
   overflow: hidden;
   background:
     radial-gradient(ellipse 70% 50% at 10% 0%, rgba(58, 174, 178, 0.18), transparent 55%),
@@ -346,8 +348,7 @@
   gap: 10px;
 }
 
-.auth-google,
-.auth-apple {
+.auth-google {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -368,24 +369,6 @@
   background: #f8fafc;
   box-shadow: 0 4px 12px rgba(15, 23, 42, 0.06);
   color: #0f172a !important;
-}
-
-.auth-apple {
-  background: #111111;
-  border-color: #111111;
-  color: #ffffff !important;
-}
-
-.auth-apple:hover {
-  background: #000000;
-  border-color: #000000;
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.18);
-  color: #ffffff !important;
-}
-
-.auth-apple svg {
-  display: block;
-  flex-shrink: 0;
 }
 
 .auth-divider {

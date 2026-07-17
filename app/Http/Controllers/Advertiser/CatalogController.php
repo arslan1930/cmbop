@@ -1089,7 +1089,17 @@ public function checkout(Request $request)
             }
 
             // Deduct from balance and add to reserved_balance (welcome bonus is consumed first)
+            $bonusBefore = (float) $advertiserWallet->bonus_balance;
             $advertiserWallet->reserveForOrder($totalAmount);
+            $bonusUsed = max(0, round($bonusBefore - (float) $advertiserWallet->bonus_balance, 2));
+
+            app(\App\Services\Wallet\WalletLedgerService::class)->recordPurchase(
+                $advertiserWallet,
+                $totalAmount,
+                $bonusUsed,
+                null,
+                $referenceCode
+            );
 
             Log::info('Wallet payment processed - funds reserved', [
                 'user_id' => $userId,

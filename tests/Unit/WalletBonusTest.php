@@ -91,9 +91,20 @@ class WalletBonusTest extends TestCase
     {
         $wallet = $this->makeWallet(20, 20);
 
-        $this->expectException(\Exception::class);
-        $this->expectExceptionMessage('Insufficient withdrawable balance');
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage(Wallet::PROMOTIONAL_BONUS_MESSAGE);
 
         $wallet->deductWithdrawable(1);
+    }
+
+    public function test_partial_cash_withdrawal_leaves_bonus_intact(): void
+    {
+        $wallet = $this->makeWallet(70, 20);
+        $wallet->deductWithdrawable(50);
+
+        $wallet->refresh();
+        $this->assertEquals(20.0, (float) $wallet->balance);
+        $this->assertEquals(20.0, (float) $wallet->bonus_balance);
+        $this->assertSame(0.0, $wallet->withdrawableBalance());
     }
 }

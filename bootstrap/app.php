@@ -14,13 +14,10 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware) {
-        // Apple Sign In may POST the callback (form_post response mode)
-        $middleware->validateCsrfTokens(except: [
-            'auth/apple/callback',
-        ]);
-
+        // Public-site locale detection (SaaS dashboards stay English via SetLocale rules)
         // Security headers (CSP, HSTS, nosniff, frame, referrer) on every web response
         $middleware->appendToGroup('web', [
+            \App\Http\Middleware\SetLocale::class,
             \App\Http\Middleware\SecurityHeaders::class,
         ]);
     })

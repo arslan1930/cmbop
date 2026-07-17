@@ -1,25 +1,8 @@
-@php
-    // Manually set locale based on URL
-    $segments = request()->segments();
-    $availableLocales = ['de', 'fr', 'nl'];
-    
-    if (!empty($segments) && in_array($segments[0], $availableLocales)) {
-        $locale = $segments[0];
-        app()->setLocale($locale);
-    } else {
-        app()->setLocale('en');
-    }
-    
-    // Also set in session
-    session(['locale' => app()->getLocale()]);
-@endphp
-
 @extends('layouts.app')
 
-@section('title', 'SEOLinkBuildings - Content Marketplace & Blogger Outreach Platform')
-
-<!-- Meta Description -->
-@section('description', 'SEOLinkBuildings is a leading content marketplace and blogger outreach platform that helps businesses grow their online presence through strategic link building and digital PR services.')
+@section('title', __('messages.meta_home_title'))
+@section('description', __('messages.meta_home_description'))
+@section('canonical', localized_url('/'))
 
 @push('head')
 <script type="application/ld+json">

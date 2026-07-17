@@ -3,16 +3,16 @@
 namespace App\Providers;
 
 use Illuminate\Support\ServiceProvider;
-use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\View;
 use App\Listeners\HandleOrderBillingDocuments;
 use App\Listeners\SendOrderLifecycleEmails;
 use App\Listeners\SendTrustpilotReviewOnOrderCompleted;
+use App\Models\Blog;
 use App\Models\Order;
 use App\Models\Project;
 use App\Models\User;
 use App\Services\EmailNotificationService;
-use SocialiteProviders\Manager\SocialiteWasCalled;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -23,10 +23,6 @@ class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
-        Event::listen(function (SocialiteWasCalled $event) {
-            $event->extendSocialite('apple', \SocialiteProviders\Apple\Provider::class);
-        });
-
         // Email logging: LogSentEmail is auto-discovered (MessageSent)
 
         // Gap-fill: welcome + admin new-user (HTTP only — skips seeders/artisan)
@@ -64,6 +60,24 @@ class AppServiceProvider extends ServiceProvider
             }
 
             $view->with('sidebarProjects', $projects);
+        });
+
+        // Recent published posts for the public footer "Latest Updates" section
+        View::composer('components.footer', function ($view) {
+            $posts = collect();
+
+            try {
+                if (Schema::hasTable('blogs')) {
+                    $posts = Blog::published()
+                        ->orderByDesc('published_at')
+                        ->limit(4)
+                        ->get(['id', 'title', 'slug', 'published_at', 'created_at']);
+                }
+            } catch (\Throwable) {
+                $posts = collect();
+            }
+
+            $view->with('footerRecentBlogs', $posts);
         });
     }
 }

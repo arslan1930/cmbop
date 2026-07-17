@@ -9,6 +9,7 @@ use App\Models\Wallet;
 use App\Models\User;
 use App\Mail\DepositRequestSubmitted;
 use App\Services\StripePaymentService;
+use App\Services\Wallet\WalletOverviewService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
@@ -18,18 +19,45 @@ use Stripe\Checkout\Session;
 
 class AddFundsController extends Controller
 {
+    public function __construct(
+        protected WalletOverviewService $overview
+    ) {
+    }
+
     public function index()
     {
-        $pendingRequests = DepositRequest::where('user_id', auth()->id())
+        $user = auth()->user();
+        $advertiserRoleId = Wallet::advertiserRoleId() ?? 1;
+
+        $wallet = Wallet::firstOrCreate(
+            ['user_id' => $user->id, 'role_id' => $advertiserRoleId],
+            [
+                'balance' => 0,
+                'reserved_balance' => 0,
+                'bonus_balance' => 0,
+                'bonus_reserved' => 0,
+                'currency' => 'EUR',
+            ]
+        );
+
+        $pendingRequests = DepositRequest::where('user_id', $user->id)
             ->where('status', 'pending')
             ->latest()
             ->get();
-            
-        $allRequests = DepositRequest::where('user_id', auth()->id())
-            ->orderBy('created_at', 'desc')
-            ->paginate(10);
 
-        return view('advertiser.add-funds', compact('pendingRequests', 'allRequests'));
+        $summary = $this->overview->summary($user->id, $wallet);
+        $analytics = $this->overview->analytics($user->id, 'month');
+
+        return view('advertiser.add-funds', [
+            'pendingRequests' => $pendingRequests,
+            'wallet' => $wallet,
+            'summary' => $summary,
+            'analytics' => $analytics,
+            'advertiserBalance' => (float) $wallet->balance,
+            'advertiserBonusBalance' => $wallet->lockedBonusBalance(),
+            'advertiserWithdrawableBalance' => $wallet->withdrawableBalance(),
+            'promotionalBonusMessage' => Wallet::PROMOTIONAL_BONUS_MESSAGE,
+        ]);
     }
     
     public function createCheckoutSession(Request $request)
@@ -157,6 +185,13 @@ class AddFundsController extends Controller
 
                     $wallet = Wallet::lockOrCreateForRole(auth()->id(), $advertiserRoleId);
                     $wallet->credit((float) $deposit->amount);
+                    app(\App\Services\Wallet\WalletLedgerService::class)->recordDeposit(
+                        $wallet,
+                        (float) $deposit->amount,
+                        $deposit,
+                        'card',
+                        $deposit->reference_code
+                    );
                     $creditedAmount = (float) $deposit->amount;
                 });
 

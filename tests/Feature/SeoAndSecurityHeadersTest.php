@@ -30,7 +30,7 @@ class SeoAndSecurityHeadersTest extends TestCase
     {
         $this->get('/contact')
             ->assertOk()
-            ->assertSee('Contact us — SEOLinkBuildings', false);
+            ->assertSee('Contact — SEOLinkBuildings', false);
     }
 
     public function test_sitemap_and_robots_are_available(): void
@@ -43,6 +43,11 @@ class SeoAndSecurityHeadersTest extends TestCase
         $this->get('/sitemap.xml')
             ->assertOk()
             ->assertHeader('Content-Type', 'application/xml')
+            ->assertSee('sitemap-en.xml', false)
+            ->assertSee('sitemap-de.xml', false);
+
+        $this->get('/sitemap-en.xml')
+            ->assertOk()
             ->assertSee('/blog/sitemap-post', false)
             ->assertSee('/contact', false);
 

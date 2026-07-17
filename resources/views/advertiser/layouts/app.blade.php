@@ -610,7 +610,7 @@
         </a>
 
         <!-- Add Funds -->
-        <a href="{{ route('advertiser.add-funds') }}" class="{{ request()->routeIs('advertiser.add-funds') ? 'active' : '' }}">
+        <a href="{{ route('advertiser.add-funds') }}" class="{{ request()->routeIs('advertiser.add-funds*') || request()->routeIs('advertiser.balance*') ? 'active' : '' }}">
             <i class="fa fa-coins"></i> <span>Add Funds</span>
         </a>
 
@@ -683,7 +683,7 @@
                 . ($headerBonus > 0 ? ' · Free credit €' . number_format($headerBonus, 2) . ' (orders only, not withdrawable)' : '')
                 . ($reservedBalance > 0 ? ' · On hold: €' . number_format($reservedBalance, 2) : '');
         @endphp
-        <a href="{{ route('advertiser.balance') }}" class="balance-block text-decoration-none" data-bs-toggle="tooltip" data-bs-placement="bottom" title="{{ $headerBalanceTitle }}" aria-label="Spendable balance {{ number_format($availableBalance, 2) }} euros{{ $headerBonus > 0 ? ', including '.number_format($headerBonus, 2).' free credit' : '' }}">
+        <a href="{{ route('advertiser.add-funds') }}" class="balance-block text-decoration-none" data-bs-toggle="tooltip" data-bs-placement="bottom" title="{{ $headerBalanceTitle }}" aria-label="Spendable balance {{ number_format($availableBalance, 2) }} euros{{ $headerBonus > 0 ? ', including '.number_format($headerBonus, 2).' free credit' : '' }}">
             <span class="balance-label">Spendable</span>
             <span class="balance-amount">€{{ number_format($availableBalance, 2) }}</span>
             @if($headerBonus > 0)

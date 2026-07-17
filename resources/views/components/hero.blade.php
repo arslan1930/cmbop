@@ -15,7 +15,7 @@
 
       <p class="slb-hero-tagline">{{ __('messages.hero_tagline') }}</p>
 
-      <a href="{{ localized_url('register') }}" class="slb-hero-cta">
+      <a href="{{ url('/register') }}" class="slb-hero-cta">
         {{ __('messages.get_started') }}
       </a>
     </div>
@@ -42,7 +42,8 @@
   .slb-hero {
     position: relative;
     width: 100%;
-    margin-top: 72px;
+    /* Public layout already offsets the fixed navbar via body padding-top */
+    margin-top: 0;
     min-height: min(92vh, 900px);
     overflow: hidden;
     display: flex;

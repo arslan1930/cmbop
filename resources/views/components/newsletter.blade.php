@@ -124,7 +124,7 @@ document.getElementById('newsletterForm').addEventListener('submit', async funct
     submitBtn.textContent = '...';
 
     try {
-        const response = await fetch(@json(route('newsletter.subscribe')), {
+        const response = await fetch(@json(localized_url('newsletter/subscribe')), {
             method: 'POST',
             headers: {
                 'Accept': 'application/json',

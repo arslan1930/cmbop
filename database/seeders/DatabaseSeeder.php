@@ -14,6 +14,7 @@ class DatabaseSeeder extends Seeder
             LanguagesTableSeeder::class,
             CategoriesTableSeeder::class,
             CountryLanguageSeeder::class,
+            BlogSeeder::class,
         ]);
     }
 }

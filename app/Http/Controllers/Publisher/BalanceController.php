@@ -41,95 +41,15 @@ class BalanceController extends Controller
     }
 
     /**
-     * Transfer from Publisher to Advertiser wallet
+     * Role-to-role transfers are disabled.
      */
     public function transferToAdvertiser(Request $request)
     {
-        try {
-            $request->validate([
-                'amount' => 'required|numeric|min:1'
-            ]);
-            
-            $userId = auth()->id();
-            
-            // Role IDs: 2 = Publisher, 1 = Advertiser
-            $publisherRoleId = 2;
-            $advertiserRoleId = 1;
-            
-            // Get publisher wallet (source)
-            $publisherWallet = Wallet::where('user_id', $userId)
-                ->where('role_id', $publisherRoleId)
-                ->first();
-            
-            $withdrawable = $publisherWallet ? $publisherWallet->withdrawableBalance() : 0;
-
-            if (!$publisherWallet || $withdrawable < $request->amount) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Insufficient transferable balance in Publisher wallet. Available to transfer: €' . number_format($withdrawable, 2)
-                ]);
-            }
-            
-            DB::beginTransaction();
-            
-            // Deduct withdrawable funds only
-            $publisherWallet->deductWithdrawable((float) $request->amount);
-            
-            // Get or create advertiser wallet (destination)
-            $advertiserWallet = Wallet::where('user_id', $userId)
-                ->where('role_id', $advertiserRoleId)
-                ->first();
-            
-            if (!$advertiserWallet) {
-                $advertiserWallet = Wallet::create([
-                    'user_id' => $userId,
-                    'role_id' => $advertiserRoleId,
-                    'balance' => 0,
-                    'reserved_balance' => 0,
-                    'currency' => 'EUR'
-                ]);
-            }
-
-            $publisherWallet->debit($amount);
-            $advertiserWallet->credit($amount);
-            
-            // Create transfer record
-            $transfer = BalanceTransfer::create([
-                'user_id' => $userId,
-                'from_role' => 'publisher',
-                'to_role' => 'advertiser',
-                'amount' => $amount,
-                'fee' => 0,
-                'net_amount' => $amount,
-                'reference_code' => BalanceTransfer::generateReferenceCode(),
-                'status' => 'completed',
-                'notes' => null
-            ]);
-            
-            DB::commit();
-            
-            Log::info('Transfer from Publisher to Advertiser completed', [
-                'user_id' => $userId,
-                'amount' => $amount,
-                'reference' => $transfer->reference_code
-            ]);
-            
-            return response()->json([
-                'success' => true,
-                'message' => '€' . number_format($amount, 2) . ' transferred from Publisher to Advertiser wallet successfully!',
-                'publisher_balance' => $publisherWallet->balance,
-                'advertiser_balance' => $advertiserWallet->balance,
-                'transfer' => $transfer
-            ]);
-            
-        } catch (\Exception $e) {
-            DB::rollBack();
-            Log::error('Transfer failed: ' . $e->getMessage());
-            return response()->json([
-                'success' => false,
-                'message' => 'Transfer failed: ' . $e->getMessage()
-            ]);
-        }
+        return response()->json([
+            'success' => false,
+            'code' => 'transfers_disabled',
+            'message' => 'Role-to-role fund transfers have been disabled. Available funds can be spent on the marketplace or withdrawn. Bonus credit can only be used for purchases on this website.',
+        ], 410);
     }
 
     /**

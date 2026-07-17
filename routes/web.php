@@ -52,111 +52,88 @@ use App\Http\Controllers\Advertiser\ReportsController;
 use App\Http\Controllers\InvoiceController;
 // BlogController for public blog pages
 use App\Http\Controllers\BlogController;
+use App\Http\Controllers\MarketingPageController;
 use App\Http\Controllers\NewsletterController;
+use App\Http\Controllers\SitemapController;
+use App\Support\PublicI18n;
 
 use App\Http\Controllers\Auth\SocialiteController;
+use Illuminate\Support\Facades\Redirect;
 
 
 /*
 |--------------------------------------------------------------------------
-| Public Routes with Multi-language Support
+| Public marketing routes (multilingual: en unprefixed, de|fr|nl prefixed)
+| Authenticated SaaS + login/register stay English-only.
 |--------------------------------------------------------------------------
 */
 
-// Redirect if there are multiple locale segments (e.g., /nl/fr, /de/en, etc.)
+// Stacked locale cleanup: /nl/fr → /nl
 Route::get('/{locale}/{nested}', function ($locale, $nested) {
-    $availableLocales = ['de', 'fr', 'nl'];
-    
-    // If first segment is a locale and second segment is also a locale, redirect to the first one
-    if (in_array($locale, $availableLocales) && in_array($nested, $availableLocales)) {
-        // Get the remaining path segments
-        $segments = request()->segments();
-        // Remove the first two segments
-        $remainingSegments = array_slice($segments, 2);
-        // Build the new path
-        $newPath = $remainingSegments ? '/' . implode('/', $remainingSegments) : '';
-        
-        return Redirect::to('/' . $locale . $newPath);
+    $prefixed = PublicI18n::prefixed();
+
+    if (in_array($locale, $prefixed, true) && in_array($nested, $prefixed, true)) {
+        $remaining = array_slice(request()->segments(), 2);
+        $newPath = $remaining ? '/'.implode('/', $remaining) : '';
+
+        return Redirect::to('/'.$locale.$newPath, 301);
     }
-    
-    // Otherwise, try to match the route normally
+
     return app()->make('router')->dispatch(request());
 })->where(['locale' => 'de|fr|nl', 'nested' => 'de|fr|nl']);
 
-// Routes with optional locale prefix
-Route::group(['prefix' => '{locale?}', 'where' => ['locale' => 'de|fr|nl']], function () {
-    
-    // Homepage
-    Route::get('/', function () {
-        return view('home');
-    })->name('home');
+// Locale-prefixed auth → English auth (SaaS stays English)
+Route::get('/{locale}/login', fn () => Redirect::to('/login', 301))
+    ->where('locale', 'de|fr|nl')
+    ->name('locale.login.redirect');
+Route::get('/{locale}/register', fn () => Redirect::to('/register', 301))
+    ->where('locale', 'de|fr|nl')
+    ->name('locale.register.redirect');
 
-    // Contact page
-    Route::get('/contact', function () {
-        return view('pages.contact');
-    })->name('contact');
-
-    // Privacy Policy
-    Route::get('/privacy-policy', function () {
-        return view('pages.privacy-policy');
-    })->name('privacy-policy');
-
-    // Terms of Service
-    Route::get('/terms-of-services', function () {
-        return view('pages.terms-of-services');
-    })->name('terms-of-services');
-
+$registerPublicMarketingRoutes = function () {
+    Route::get('/', fn () => view('home'))->name('home');
+    Route::get('/contact', fn () => view('pages.contact'))->name('contact');
+    Route::get('/about', [MarketingPageController::class, 'about'])->name('about');
+    Route::get('/faq', [MarketingPageController::class, 'faq'])->name('faq');
+    Route::get('/pricing', [MarketingPageController::class, 'pricing'])->name('pricing');
+    Route::get('/marketplace', [MarketingPageController::class, 'marketplace'])->name('marketplace');
+    Route::get('/how-it-works', [MarketingPageController::class, 'howItWorks'])->name('how-it-works');
+    Route::get('/become-a-publisher', [MarketingPageController::class, 'becomePublisher'])->name('become-a-publisher');
+    Route::get('/why-choose-us', [MarketingPageController::class, 'whyChooseUs'])->name('why-choose-us');
+    Route::get('/privacy-policy', fn () => view('pages.privacy-policy'))->name('privacy-policy');
+    Route::get('/terms-of-services', fn () => view('pages.terms-of-services'))->name('terms-of-services');
+    Route::get('/cookie-policy', [MarketingPageController::class, 'cookiePolicy'])->name('cookie-policy');
+    Route::get('/refund-policy', [MarketingPageController::class, 'refundPolicy'])->name('refund-policy');
+    Route::get('/blog', [BlogController::class, 'index'])->name('blog.index');
+    Route::get('/blog/{slug}', [BlogController::class, 'show'])->name('blog.show');
     Route::post('/newsletter/subscribe', [NewsletterController::class, 'subscribe'])
         ->middleware('throttle:10,1')
         ->name('newsletter.subscribe');
+};
 
-    // Localized blog URLs (canonical names live on the non-prefixed routes below)
-    Route::get('/blog', [BlogController::class, 'index'])->name('locale.blog.index');
-    Route::get('/blog/{slug}', [BlogController::class, 'show'])->name('locale.blog.show');
+// English (canonical, no prefix)
+Route::group([], $registerPublicMarketingRoutes);
 
-    // Localized auth pages (canonical login/register names are on the non-prefixed routes)
-    Route::middleware('guest')->group(function () {
-        Route::get('/login', [LoginController::class, 'show'])->name('locale.login');
-        Route::get('/register', [RegisterController::class, 'show'])->name('locale.register');
-    });
-});
+// Prefixed locales
+Route::group([
+    'prefix' => '{locale}',
+    'where' => ['locale' => 'de|fr|nl'],
+    'as' => 'locale.',
+], $registerPublicMarketingRoutes);
 
-
-// Routes start 
-Route::get('/', function () {
-    return view('home');
-});
-
-// OTHER PAGES
-Route::get('/contact', function () {
-    return view('pages.contact');
-});
-
-Route::get('/privacy-policy', function () {
-    return view('pages.privacy-policy');
-});
-
-Route::get('/terms-of-services', function () {
-    return view('pages.terms-of-services');
-});
-
-Route::post('/newsletter/subscribe', [NewsletterController::class, 'subscribe'])
-    ->middleware('throttle:10,1');
-
-// ========== PUBLIC BLOG ROUTES ==========
-Route::get('/blog', [BlogController::class, 'index'])->name('blog.index');
-Route::get('/blog/{slug}', [BlogController::class, 'show'])->name('blog.show');
-
-// SEO: sitemap + robots
-Route::get('/sitemap.xml', [\App\Http\Controllers\SitemapController::class, 'index'])->name('sitemap');
+// SEO: sitemap index + per-locale sitemaps + robots
+Route::get('/sitemap.xml', [SitemapController::class, 'index'])->name('sitemap');
+Route::get('/sitemap-{locale}.xml', [SitemapController::class, 'locale'])
+    ->where('locale', 'en|de|fr|nl')
+    ->name('sitemap.locale');
 Route::get('/robots.txt', function () {
-    $sitemap = rtrim(config('app.url'), '/').'/sitemap.xml';
+    $base = rtrim(config('app.url'), '/');
+    $body = "User-agent: *\nAllow: /\n"
+        ."Disallow: /admin/\nDisallow: /advertiser/\nDisallow: /publisher/\n"
+        ."Disallow: /profile\nDisallow: /chat/\nDisallow: /notifications\n\n"
+        ."Sitemap: {$base}/sitemap.xml\n";
 
-    return response(
-        "User-agent: *\nAllow: /\nDisallow: /admin/\nDisallow: /advertiser/\nDisallow: /publisher/\nDisallow: /profile\nDisallow: /chat/\nDisallow: /notifications\n\nSitemap: {$sitemap}\n",
-        200,
-        ['Content-Type' => 'text/plain; charset=UTF-8']
-    );
+    return response($body, 200, ['Content-Type' => 'text/plain; charset=UTF-8']);
 })->name('robots');
 
 // Ad banner click tracking (public)
@@ -187,9 +164,6 @@ Route::middleware('guest')->group(function () {
     // Google Social Login Routes
     Route::get('auth/google', [SocialiteController::class, 'redirectToGoogle'])->name('auth.google');
     Route::get('auth/google/callback', [SocialiteController::class, 'handleGoogleCallback'])->name('auth.google.callback');
-
-    Route::get('auth/apple', [SocialiteController::class, 'redirectToApple'])->name('auth.apple');
-    Route::match(['get', 'post'], 'auth/apple/callback', [SocialiteController::class, 'handleAppleCallback'])->name('auth.apple.callback');
 });
 
 
@@ -543,10 +517,15 @@ Route::middleware(['auth','verified', RoleMiddleware::class . ':advertiser'])
         // Spending history chart
         Route::get('/analytics', [AnalyticsController::class, 'index'])->name('analytics');
 
-        // Balance routes
+        // Balance / wallet routes
         Route::get('/balance', [App\Http\Controllers\Advertiser\BalanceController::class, 'index'])->name('balance');
         Route::post('/balance/transfer', [App\Http\Controllers\Advertiser\BalanceController::class, 'transferToPublisher'])->name('balance.transfer');
         Route::get('/balance/history', [App\Http\Controllers\Advertiser\BalanceController::class, 'getTransferHistory'])->name('balance.history');
+        Route::get('/balance/transactions', [App\Http\Controllers\Advertiser\BalanceController::class, 'transactions'])->name('balance.transactions');
+        Route::get('/balance/transactions/{source}/{id}', [App\Http\Controllers\Advertiser\BalanceController::class, 'transactionShow'])->name('balance.transactions.show');
+        Route::get('/balance/analytics', [App\Http\Controllers\Advertiser\BalanceController::class, 'analytics'])->name('balance.analytics');
+        Route::get('/balance/export', [App\Http\Controllers\Advertiser\BalanceController::class, 'export'])->name('balance.export');
+        Route::post('/balance/withdraw', [App\Http\Controllers\Advertiser\BalanceController::class, 'requestWithdrawal'])->name('balance.withdraw');
 
         // Campaigns routes
         Route::get('/campaigns', [ProjectController::class, 'index'])

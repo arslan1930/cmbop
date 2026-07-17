@@ -145,10 +145,11 @@
 
                                 <div class="mb-3">
                                     <div class="form-check mb-2">
-                                        <input type="checkbox" class="form-check-input" name="terms" id="terms" required>
+                                        <input type="checkbox" class="form-check-input" name="terms" id="terms" value="1" required>
                                         <label class="form-check-label" for="terms">
                                             <span class="text-danger">*</span> I agree to the <a href="{{ route('terms-of-services') }}" target="_blank" rel="noopener" class="auth-meta-link">Terms of Service</a>.
                                         </label>
+                                        <div class="invalid-feedback d-block" id="termsError"></div>
                                     </div>
                                     <div class="form-check mb-2">
                                         <input type="checkbox" class="form-check-input" name="marketing" id="marketing">
@@ -180,12 +181,6 @@
                                             <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
                                         </svg>
                                         Continue with Google
-                                    </a>
-                                    <a href="{{ route('auth.apple') }}" class="auth-apple" aria-label="Continue with Apple">
-                                        <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" fill="currentColor">
-                                            <path d="M16.365 1.43c0 1.14-.42 2.2-1.22 3.02-.92.95-2.22 1.68-3.45 1.58-.15-1.1.4-2.26 1.2-3.08.92-.95 2.3-1.64 3.47-1.52zM20.48 17.2c-.58 1.33-.86 1.92-1.61 3.1-1.04 1.62-2.24 3.63-3.87 3.65-1.45.02-1.83-.94-3.81-.93-1.98.01-2.4.95-3.85.93-1.63-.02-2.88-1.84-3.92-3.46C1.78 17.98.5 13.7 2.2 10.86c.9-1.5 2.5-2.45 4.25-2.48 1.67-.03 3.25 1.12 3.81 1.12.56 0 2.5-1.38 4.22-1.18.72.03 2.74.29 4.04 2.18-.1.07-2.41 1.41-2.38 4.2.03 3.33 2.92 4.44 2.95 4.45-.02.07-.46 1.58-1.61 4.05z"/>
-                                        </svg>
-                                        Continue with Apple
                                     </a>
                                 </div>
 
@@ -251,88 +246,96 @@ document.getElementById('registerForm').addEventListener('submit', async functio
     e.preventDefault();
 
     const submitBtn = document.getElementById('submitBtn');
-    if(submitBtn.disabled) return;
+    if (submitBtn.disabled) return;
     submitBtn.disabled = true;
     submitBtn.innerText = 'Creating account...';
 
-    document.querySelectorAll('.form-control').forEach(input=>{
+    document.querySelectorAll('.form-control, .form-check-input').forEach(input => {
         input.classList.remove('is-invalid');
     });
 
-    ['nameError','emailError','passwordError','password_confirmationError','roleError'].forEach(id=>{
+    ['nameError','emailError','passwordError','password_confirmationError','roleError','termsError'].forEach(id => {
         const el = document.getElementById(id);
-        if(el) el.innerText='';
+        if (el) el.innerText = '';
     });
 
     const toastContainer = document.getElementById('toastContainer');
+    const showToast = (message, type = 'danger') => {
+        const toast = document.createElement('div');
+        toast.className = 'toast align-items-center text-white border-0 bg-' + type;
+        toast.innerHTML = `<div class="d-flex"><div class="toast-body">${message}</div><button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button></div>`;
+        toastContainer.appendChild(toast);
+        new bootstrap.Toast(toast, { delay: 6000 }).show();
+    };
 
     const role = document.getElementById('roleInput').value;
-    if(!role){
-        const toast = document.createElement('div');
-        toast.className='toast align-items-center text-white border-0';
-        toast.innerHTML=`<div class="d-flex"><div class="toast-body">Please select a role.</div><button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button></div>`;
-        toast.classList.add('bg-warning');
-        toastContainer.appendChild(toast);
-        new bootstrap.Toast(toast,{delay:4000}).show();
-        submitBtn.disabled=false;
-        submitBtn.innerText='Create Account';
+    if (!role) {
+        showToast('Please select a role.', 'warning');
+        submitBtn.disabled = false;
+        submitBtn.innerText = 'Create Account';
         return;
     }
 
-    const sendingToast = document.createElement('div');
-    sendingToast.className='toast align-items-center text-white border-0';
-    sendingToast.innerHTML=`<div class="d-flex"><div class="toast-body">Sending verification email...</div></div>`;
-    sendingToast.classList.add('bg-info');
-    toastContainer.appendChild(sendingToast);
-    new bootstrap.Toast(sendingToast,{delay:3000}).show();
+    if (!document.getElementById('terms').checked) {
+        document.getElementById('terms').classList.add('is-invalid');
+        document.getElementById('termsError').innerText = 'You must agree to the Terms and Services.';
+        showToast('Please accept the Terms of Service to continue.', 'warning');
+        submitBtn.disabled = false;
+        submitBtn.innerText = 'Create Account';
+        return;
+    }
 
     const formData = new FormData(this);
     let data;
     try {
-        const res = await fetch("{{ route('register') }}", {
-            method:'POST',
-            headers:{ 'X-CSRF-TOKEN':'{{ csrf_token() }}' },
+        const res = await fetch("{{ url('/register') }}", {
+            method: 'POST',
+            headers: {
+                'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                'Accept': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+            },
             body: formData
         });
+
+        const contentType = res.headers.get('content-type') || '';
+        if (!contentType.includes('application/json')) {
+            throw new Error('Unexpected server response');
+        }
         data = await res.json();
-    } catch(e){
-        alert('Server error occurred. Check logs.');
-        submitBtn.disabled=false;
-        submitBtn.innerText='Create Account';
+    } catch (err) {
+        showToast('Server error occurred. Please refresh and try again.', 'danger');
+        submitBtn.disabled = false;
+        submitBtn.innerText = 'Create Account';
         return;
     }
 
-    sendingToast.remove();
-
-    const toastEl=document.createElement('div');
-    toastEl.className='toast align-items-center text-white border-0';
-    toastEl.innerHTML=`<div class="d-flex"><div class="toast-body">${data.message}</div><button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button></div>`;
-    toastContainer.appendChild(toastEl);
-
-    if(data.status==='success'){
-        toastEl.classList.add('bg-success');
-        new bootstrap.Toast(toastEl,{delay:7000}).show();
+    if (data.status === 'success') {
+        showToast(data.message || 'Registration successful!', 'success');
         this.reset();
-        document.getElementById('roleInput').value='advertiser';
-        document.querySelectorAll('#roleSelect .role-card').forEach(c=>{
+        document.getElementById('roleInput').value = 'advertiser';
+        document.querySelectorAll('#roleSelect .role-card').forEach(c => {
             const isAdv = c.dataset.value === 'advertiser';
             c.classList.toggle('selected', isAdv);
             c.setAttribute('aria-checked', isAdv ? 'true' : 'false');
         });
-    } else if(data.status==='error'){
-        toastEl.classList.add('bg-danger');
-        new bootstrap.Toast(toastEl,{delay:5000}).show();
-    } else if(data.status==='validation'){
-        for(let key in data.errors){
-            const input=document.querySelector(`[name="${key}"]`);
-            const errorDiv=document.getElementById(key+'Error');
-            if(input) input.classList.add('is-invalid');
-            if(errorDiv) errorDiv.innerText=data.errors[key][0];
+    } else if (data.status === 'validation') {
+        const errors = data.errors || {};
+        const messages = [];
+        for (const key in errors) {
+            const input = document.querySelector(`[name="${key}"]`);
+            const errorDiv = document.getElementById(key + 'Error');
+            if (input) input.classList.add('is-invalid');
+            if (errorDiv) errorDiv.innerText = errors[key][0];
+            if (errors[key][0]) messages.push(errors[key][0]);
         }
+        showToast(messages[0] || data.message || 'Please fix the highlighted fields.', 'warning');
+    } else {
+        showToast(data.message || 'Something went wrong. Please try again.', 'danger');
     }
 
-    submitBtn.disabled=false;
-    submitBtn.innerText='Create Account';
+    submitBtn.disabled = false;
+    submitBtn.innerText = 'Create Account';
 });
 </script>
 @endsection

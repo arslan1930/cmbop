@@ -5,7 +5,7 @@
     <div class="row mb-4">
         <div class="col-md-6">
             <h1 class="h3 mb-0">Blogs</h1>
-            <p class="text-muted">Manage your blog posts</p>
+            <p class="text-muted">Create, publish, and manage SEO blog posts and daily updates for the public blog page.</p>
         </div>
         <div class="col-md-6 text-end">
             <a href="{{ route('admin.blogs.create') }}" class="btn btn-primary">

@@ -13,27 +13,27 @@
 <section class="py-20 bg-light">
   <div class="container py-5">
     <div class="text-center mb-5">
-      <h2 class="h2 mb-3">Buy placements that match your market</h2>
-      <p class="lead text-muted mb-2">Browse verified publisher sites, pick a price that fits, and checkout from your wallet.</p>
-      <p class="text-muted mb-4">Marketplace placements start from <strong style="color:#0b6266;">€{{ $fromPrice }}</strong>.</p>
+      <h2 class="h2 mb-3">{{ __('messages.pricing_hero_title') }}</h2>
+      <p class="lead text-muted mb-2">{{ __('messages.pricing_hero_lead') }}</p>
+      <p class="text-muted mb-4">{{ __('messages.pricing_hero_from') }} <strong style="color:#0b6266;">€{{ $fromPrice }}</strong>.</p>
       <div class="d-flex flex-wrap justify-content-center gap-2">
-        <a href="{{ route('register') }}" class="btn btn-primary btn-lg px-4">
-          Create free account
+        <a href="{{ url('/register') }}" class="btn btn-primary btn-lg px-4">
+          {{ __('messages.pricing_cta_create') }}
         </a>
-        <a href="{{ route('login') }}" class="btn btn-cta-secondary btn-lg px-4">
-          Browse after login
+        <a href="{{ url('/login') }}" class="btn btn-cta-secondary btn-lg px-4">
+          {{ __('messages.pricing_cta_browse') }}
         </a>
       </div>
-      <p class="small text-muted mt-3 mb-0">New advertisers get €20 free credit for first orders (not withdrawable).</p>
+      <p class="small text-muted mt-3 mb-0">{{ __('messages.pricing_bonus_note') }}</p>
     </div>
 
     <div class="pricing-managed dash-panel mx-auto mb-4" style="max-width: 920px;">
       <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3">
         <div>
-          <h3 class="h5 mb-1">Prefer a managed Digital PR package?</h3>
-          <p class="text-muted small mb-0">Our team can run outreach campaigns if you want hands-off delivery.</p>
+          <h3 class="h5 mb-1">{{ __('messages.pricing_managed_title') }}</h3>
+          <p class="text-muted small mb-0">{{ __('messages.pricing_managed_body') }}</p>
         </div>
-        <a href="{{ url('/contact') }}" class="btn btn-outline-secondary">Talk to sales</a>
+        <a href="{{ localized_url('contact') }}" class="btn btn-outline-secondary">{{ __('messages.pricing_talk_sales') }}</a>
       </div>
     </div>
 
@@ -49,14 +49,14 @@
               <li class="mb-2"><i class="fa-solid fa-check text-primary me-2" aria-hidden="true"></i>{{ __('messages.pricing_card_1_item_2') }}</li>
               <li class="mb-2"><i class="fa-solid fa-check text-primary me-2" aria-hidden="true"></i>{{ __('messages.pricing_card_1_item_3') }}</li>
             </ul>
-            <a href="{{ route('register') }}" class="btn btn-cta-secondary w-100">Start with marketplace</a>
+            <a href="{{ url('/register') }}" class="btn btn-cta-secondary w-100">{{ __('messages.pricing_start_marketplace') }}</a>
           </div>
         </div>
       </div>
 
       <div class="col-md-4">
         <div class="card h-100 border pricing-card position-relative" style="border-color:#4ECDCB; border-radius:1rem; box-shadow:0 0.5rem 1rem rgba(0,0,0,0.08);">
-          <div class="position-absolute top-0 end-0 px-3 py-1 text-white" style="background-color:#0b6266; border-bottom-left-radius:0.5rem; border-top-right-radius:0.5rem;">Most popular</div>
+          <div class="position-absolute top-0 end-0 px-3 py-1 text-white" style="background-color:#0b6266; border-bottom-left-radius:0.5rem; border-top-right-radius:0.5rem;">{{ __('messages.pricing_most_popular') }}</div>
           <div class="card-body d-flex flex-column text-start p-4 mt-3">
             <h5 class="card-title mb-2">{{ __('messages.pricing_card_2_title') }}</h5>
             <p class="card-text text-muted small mb-3">{{ __('messages.pricing_card_2_description') }}</p>
@@ -66,7 +66,7 @@
               <li class="mb-2"><i class="fa-solid fa-check text-primary me-2" aria-hidden="true"></i>{{ __('messages.pricing_card_2_item_2') }}</li>
               <li class="mb-2"><i class="fa-solid fa-check text-primary me-2" aria-hidden="true"></i>{{ __('messages.pricing_card_2_item_3') }}</li>
             </ul>
-            <a href="{{ route('register') }}" class="btn btn-primary w-100">Create account</a>
+            <a href="{{ url('/register') }}" class="btn btn-primary w-100">{{ __('messages.pricing_create_account') }}</a>
           </div>
         </div>
       </div>
@@ -82,7 +82,7 @@
               <li class="mb-2"><i class="fa-solid fa-check text-primary me-2" aria-hidden="true"></i>{{ __('messages.pricing_card_3_item_2') }}</li>
               <li class="mb-2"><i class="fa-solid fa-check text-primary me-2" aria-hidden="true"></i>{{ __('messages.pricing_card_3_item_3') }}</li>
             </ul>
-            <a href="{{ url('/contact') }}" class="btn btn-cta-secondary w-100">Contact sales</a>
+            <a href="{{ localized_url('contact') }}" class="btn btn-cta-secondary w-100">{{ __('messages.pricing_talk_sales') }}</a>
           </div>
         </div>
       </div>

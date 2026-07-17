@@ -110,6 +110,13 @@ class DepositController extends Controller
             }
             $wallet = Wallet::lockOrCreateForRole($deposit->user_id, $advertiserRoleId);
             $wallet->credit((float) $deposit->amount);
+            app(\App\Services\Wallet\WalletLedgerService::class)->recordDeposit(
+                $wallet,
+                (float) $deposit->amount,
+                $deposit,
+                $deposit->payment_method,
+                $deposit->reference_code
+            );
             
             // Update deposit status to completed
             $deposit->update(['status' => 'completed']);

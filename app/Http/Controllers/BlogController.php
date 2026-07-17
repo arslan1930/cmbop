@@ -14,10 +14,10 @@ class BlogController extends Controller
      */
     public function index()
     {
-        $blog = Blog::where('status', 'published')
-                    ->orderBy('published_at', 'desc')
-                    ->paginate(12);
-        
+        $blog = Blog::published()
+            ->orderByDesc('published_at')
+            ->paginate(12);
+
         return view('pages.blog', compact('blog'));
     }
 
@@ -26,13 +26,16 @@ class BlogController extends Controller
      */
     public function show($slug)
     {
-        $blog = Blog::where('slug', $slug)
-                    ->where('status', 'published')
-                    ->firstOrFail();
-        
-        // Increment view count (add views column to your blogs table first)
-        // $blog->increment('views');
-        
-        return view('pages.blog-single', compact('blog'));
+        $blog = Blog::published()
+            ->where('slug', $slug)
+            ->firstOrFail();
+
+        $related = Blog::published()
+            ->where('id', '!=', $blog->id)
+            ->orderByDesc('published_at')
+            ->limit(3)
+            ->get();
+
+        return view('pages.blog-single', compact('blog', 'related'));
     }
 }

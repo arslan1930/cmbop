@@ -1,24 +1,13 @@
 @extends('layouts.app')
 
-@section('title', 'Terms of Service — SEOLinkBuildings')
-@section('description', 'Terms of service for using the SEOLinkBuildings content marketplace as an advertiser or publisher.')
+@section('title', __('messages.terms_of_service').' — SEOLinkBuildings')
+@section('description', __('messages.meta_default_description'))
+@section('canonical', localized_url('terms-of-services'))
 
 @section('content')
 
-@php
-  // Get locale from URL segment
-  $segments = request()->segments();
-  $availableLocales = ['de', 'fr', 'nl'];
-  $currentLocale = 'en';
-  
-  if (!empty($segments) && in_array($segments[0], $availableLocales)) {
-    $currentLocale = $segments[0];
-    app()->setLocale($currentLocale);
-  }
-@endphp
-
 <!-- ==================== TERMS HERO ==================== -->
-<section style="position:relative; width:100%; padding:140px 0 60px; overflow:hidden; background:linear-gradient(180deg, #f0f5ff 0%, #f5faff 100%);">
+<section style="position:relative; width:100%; padding:48px 0 60px; overflow:hidden; background:linear-gradient(180deg, #f0f5ff 0%, #f5faff 100%);">
 
     <!-- Background Shapes -->
     <div style="position:absolute; top:10%; left:-100px; width:250px; height:250px; border-radius:50%; background:#FF4757; opacity:0.08; z-index:1;"></div>

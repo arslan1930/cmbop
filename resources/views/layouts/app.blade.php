@@ -1,20 +1,25 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     @php
-        $pageTitle = trim($__env->yieldContent('title')) ?: 'SEOLinkBuildings';
+        $pageTitle = trim($__env->yieldContent('title')) ?: __('messages.meta_default_title');
         $pageDescription = trim($__env->yieldContent('description'))
-            ?: 'SEOLinkBuildings is a content marketplace and blogger outreach platform for strategic link building and digital PR.';
+            ?: __('messages.meta_default_description');
         $pageCanonical = trim($__env->yieldContent('canonical')) ?: url()->current();
         $pageImage = trim($__env->yieldContent('og_image')) ?: asset('assets/img/logo1.png');
         $pageType = trim($__env->yieldContent('og_type')) ?: 'website';
+        $hreflangTags = \App\Support\PublicI18n::hreflangTags(request());
     @endphp
     <title>{{ $pageTitle }}</title>
     <meta name="description" content="{{ $pageDescription }}">
     <link rel="canonical" href="{{ $pageCanonical }}">
+    @foreach($hreflangTags as $tag)
+        <link rel="alternate" hreflang="{{ $tag['hreflang'] }}" href="{{ $tag['href'] }}">
+    @endforeach
+    <meta property="og:locale" content="{{ app()->getLocale() === 'en' ? 'en_US' : app()->getLocale().'_'.strtoupper(app()->getLocale()) }}">
     <meta property="og:type" content="{{ $pageType }}">
     <meta property="og:site_name" content="SEOLinkBuildings">
     <meta property="og:title" content="{{ $pageTitle }}">
@@ -60,6 +65,7 @@
 <body>
 
 @include('components.navbar')
+@include('components.language-suggestion')
 
 <div class="container-fluid px-3 px-md-4">
     @include('components.site-announcements', ['audience' => 'public'])

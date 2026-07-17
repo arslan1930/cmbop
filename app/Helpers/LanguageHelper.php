@@ -1,47 +1,38 @@
 <?php
 
+use App\Support\PublicI18n;
 use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\Request;
 
-if (!function_exists('get_language_switcher_url')) {
+if (! function_exists('get_language_switcher_url')) {
     function get_language_switcher_url($locale)
     {
-        $availableLocales = ['de', 'fr', 'nl'];
-        
-        // Get current URL segments
-        $segments = Request::segments();
-        
-        // Remove current locale from path if present
-        if (!empty($segments) && in_array($segments[0], $availableLocales)) {
-            array_shift($segments);
-        }
-        
-        $pathWithoutLocale = implode('/', $segments);
-        
-        // Build URL based on target locale
-        if ($locale === 'en') {
-            return $pathWithoutLocale ? url($pathWithoutLocale) : url('/');
-        } else {
-            return $pathWithoutLocale ? url($locale . '/' . $pathWithoutLocale) : url($locale);
-        }
+        return PublicI18n::switchUrl(Request::instance(), (string) $locale);
     }
 }
 
-if (!function_exists('localized_url')) {
+if (! function_exists('localized_url')) {
     function localized_url($path = '', $locale = null)
     {
-        $locale = $locale ?? App::getLocale();
-        $path = ltrim($path, '/');
-        
-        if ($locale === 'en') {
-            return $path ? url($path) : url('/');
-        }
-        
-        return $path ? url($locale . '/' . $path) : url($locale);
+        return PublicI18n::urlForLocale((string) $path, $locale);
     }
 }
 
-if (!function_exists('get_available_locales')) {
+if (! function_exists('public_locale')) {
+    function public_locale(): string
+    {
+        return App::getLocale();
+    }
+}
+
+if (! function_exists('show_public_language_switcher')) {
+    function show_public_language_switcher(): bool
+    {
+        return PublicI18n::shouldShowLanguageSwitcher(Request::instance());
+    }
+}
+
+if (! function_exists('get_available_locales')) {
     function get_available_locales()
     {
         return [

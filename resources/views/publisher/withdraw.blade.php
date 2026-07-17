@@ -4,9 +4,11 @@
 
 @php
     $wallet = auth()->user()->activeWallet();
-    $availableBalance = $wallet ? $wallet->balance : 0;
-    $reservedBalance = $wallet ? $wallet->reserved_balance : 0;
-    $totalEarnings = $availableBalance + $reservedBalance;
+    $availableBalance = $wallet ? $wallet->withdrawableBalance() : 0;
+    $bonusBalance = $wallet ? $wallet->lockedBonusBalance() : 0;
+    $reservedBalance = $wallet ? (float) $wallet->reserved_balance : 0;
+    $totalEarnings = ($wallet ? (float) $wallet->balance : 0) + $reservedBalance;
+    $promotionalBonusMessage = \App\Models\Wallet::PROMOTIONAL_BONUS_MESSAGE;
 
     $recentWithdrawals = \App\Models\Withdrawal::where('user_id', auth()->id())
         ->orderBy('created_at', 'desc')
@@ -118,10 +120,10 @@
                                    max="{{ $availableBalance }}"
                                    required>
                             <div class="form-text">
-                                You can withdraw up to <strong>€{{ number_format($availableBalance, 2) }}</strong>.
+                                Available for Withdrawal: <strong>€{{ number_format($availableBalance, 2) }}</strong>.
                                 @if($bonusBalance > 0)
-                                    <span class="d-block mt-1">
-                                        Your €{{ number_format($bonusBalance, 2) }} free credit is for buying orders only and cannot be withdrawn.
+                                    <span class="d-block mt-1 text-warning">
+                                        {{ $promotionalBonusMessage }}
                                     </span>
                                 @endif
                             </div>
@@ -360,7 +362,11 @@ document.addEventListener('DOMContentLoaded', function() {
             return false;
         }
         if (amount > maxAmount) {
-            showError(`Maximum withdrawal amount is €${maxAmount.toFixed(2)}`);
+            if (maxAmount <= 0) {
+                showError(@json($promotionalBonusMessage));
+            } else {
+                showError(`Maximum withdrawal amount is €${maxAmount.toFixed(2)}. Bonus credit cannot be withdrawn.`);
+            }
             return false;
         }
         if (!method) {
