@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 
 class ContentSubmission extends Model
@@ -209,8 +210,16 @@ class ContentSubmission extends Model
             return false;
         }
 
-        return $item->hasLiveUrl()
-            || in_array((string) $item->publisher_status, ['completed'], true);
+        if ($item->hasLiveUrl()) {
+            return true;
+        }
+
+        // publisher_status exists in some environments but is not guaranteed by migrations.
+        if (Schema::hasColumn('order_items', 'publisher_status')) {
+            return in_array((string) $item->publisher_status, ['completed'], true);
+        }
+
+        return false;
     }
 
     /**

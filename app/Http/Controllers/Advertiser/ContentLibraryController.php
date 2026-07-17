@@ -11,6 +11,7 @@ use App\Services\CartPricingService;
 use App\Services\ContentUpload\ContentUploadService;
 use App\Services\ContentUpload\ScheduledOrderService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\Rule;
 
 class ContentLibraryController extends Controller
@@ -84,12 +85,16 @@ class ContentLibraryController extends Controller
                         $q->whereNull('expires_at')->orWhere('expires_at', '>', now());
                     });
             } elseif ($availability === 'in_progress') {
+                $hasPublisherStatus = Schema::hasColumn('order_items', 'publisher_status');
                 $query->whereNotNull('order_id')
-                    ->whereDoesntHave('orderItems', function ($item) {
-                        $item->where(function ($inner) {
-                            $inner->where(function ($live) {
+                    ->whereDoesntHave('orderItems', function ($item) use ($hasPublisherStatus) {
+                        $item->where(function ($q) use ($hasPublisherStatus) {
+                            $q->where(function ($live) {
                                 $live->whereNotNull('live_url')->where('live_url', '!=', '');
-                            })->orWhere('publisher_status', 'completed');
+                            });
+                            if ($hasPublisherStatus) {
+                                $q->orWhere('publisher_status', 'completed');
+                            }
                         });
                     });
             } elseif ($availability === 'expired') {
@@ -103,12 +108,16 @@ class ContentLibraryController extends Controller
                     ContentSubmission::STATUS_ERROR,
                 ]);
             } elseif ($availability === 'published') {
+                $hasPublisherStatus = Schema::hasColumn('order_items', 'publisher_status');
                 $query->whereNotNull('order_id')
-                    ->whereHas('orderItems', function ($item) {
-                        $item->where(function ($inner) {
-                            $inner->where(function ($live) {
+                    ->whereHas('orderItems', function ($item) use ($hasPublisherStatus) {
+                        $item->where(function ($q) use ($hasPublisherStatus) {
+                            $q->where(function ($live) {
                                 $live->whereNotNull('live_url')->where('live_url', '!=', '');
-                            })->orWhere('publisher_status', 'completed');
+                            });
+                            if ($hasPublisherStatus) {
+                                $q->orWhere('publisher_status', 'completed');
+                            }
                         });
                     });
             }
