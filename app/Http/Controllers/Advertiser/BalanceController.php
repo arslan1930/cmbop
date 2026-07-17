@@ -4,7 +4,6 @@ namespace App\Http\Controllers\Advertiser;
 
 use App\Http\Controllers\Controller;
 use App\Mail\WithdrawalRequestNotification;
-use App\Models\BalanceTransfer;
 use App\Models\Invoice;
 use App\Models\User;
 use App\Models\Wallet;
