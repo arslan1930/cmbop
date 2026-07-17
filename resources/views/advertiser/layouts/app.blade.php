@@ -573,6 +573,11 @@
             <span>Catalog</span>
         </a>
 
+        <a href="{{ route('advertiser.saved-sites') }}" class="{{ request()->routeIs('advertiser.saved-sites*') ? 'active' : '' }}">
+            <i class="fa fa-heart"></i>
+            <span>Saved Sites</span>
+        </a>
+
         <div class="nav-group">
             <a href="{{ route('advertiser.content-library') }}" class="{{ request()->routeIs('advertiser.content-library*') ? 'active' : '' }}">
                 <i class="fa fa-file-word"></i>
@@ -607,6 +612,11 @@
         <!-- Add Funds -->
         <a href="{{ route('advertiser.add-funds') }}" class="{{ request()->routeIs('advertiser.add-funds') ? 'active' : '' }}">
             <i class="fa fa-coins"></i> <span>Add Funds</span>
+        </a>
+
+        <a href="{{ route('advertiser.billing.index') }}" class="{{ request()->routeIs('advertiser.billing*') ? 'active' : '' }}">
+            <i class="fa fa-file-invoice"></i>
+            <span>Billing &amp; Invoices</span>
         </a>
         
         <!-- Spending History -->

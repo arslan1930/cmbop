@@ -41,7 +41,10 @@ use App\Http\Controllers\Advertiser\ContentLibraryController;
 use App\Http\Controllers\BannerClickController;
 use App\Http\Controllers\Advertiser\ProjectController;
 use App\Http\Controllers\Advertiser\CatalogController;
+use App\Http\Controllers\Advertiser\SavedSitesController;
+use App\Http\Controllers\Advertiser\BillingController as AdvertiserBillingController;
 use App\Http\Controllers\Advertiser\AnalyticsController;
+use App\Http\Controllers\Admin\InvoiceController as AdminInvoiceController;
 use App\Http\Controllers\Advertiser\CampaignController;
 use App\Http\Controllers\Advertiser\AddFundsController;
 use App\Http\Controllers\Advertiser\ReportsController;
@@ -107,14 +110,14 @@ Route::group(['prefix' => '{locale?}', 'where' => ['locale' => 'de|fr|nl']], fun
         ->middleware('throttle:10,1')
         ->name('newsletter.subscribe');
 
-    // Blog routes
-    Route::get('/blog', [BlogController::class, 'index'])->name('blog.index');
-    Route::get('/blog/{slug}', [BlogController::class, 'show'])->name('blog.show');
+    // Localized blog URLs (canonical names live on the non-prefixed routes below)
+    Route::get('/blog', [BlogController::class, 'index'])->name('locale.blog.index');
+    Route::get('/blog/{slug}', [BlogController::class, 'show'])->name('locale.blog.show');
 
-    // Auth routes (GET only)
+    // Localized auth pages (canonical login/register names are on the non-prefixed routes)
     Route::middleware('guest')->group(function () {
-        Route::get('/login', [LoginController::class, 'show'])->name('login');
-        Route::get('/register', [RegisterController::class, 'show'])->name('register');
+        Route::get('/login', [LoginController::class, 'show'])->name('locale.login');
+        Route::get('/register', [RegisterController::class, 'show'])->name('locale.register');
     });
 });
 
@@ -365,6 +368,14 @@ Route::middleware(['auth','verified', RoleMiddleware::class . ':admin,marketing'
             Route::get('/payments/{id}', [AdminPaymentController::class, 'show'])->name('payments.show');
             Route::post('/payments/{id}/update-status', [AdminPaymentController::class, 'updatePaymentStatus'])->name('payments.updateStatus');
 
+            // Billing invoices (PDF system — separate from payment gateway)
+            Route::get('/invoices', [AdminInvoiceController::class, 'index'])->name('invoices.index');
+            Route::post('/invoices/generate', [AdminInvoiceController::class, 'generate'])->name('invoices.generate');
+            Route::get('/invoices/{invoice}', [AdminInvoiceController::class, 'show'])->name('invoices.show');
+            Route::get('/invoices/{invoice}/download', [AdminInvoiceController::class, 'download'])->name('invoices.download');
+            Route::post('/invoices/{invoice}/resend', [AdminInvoiceController::class, 'resend'])->name('invoices.resend');
+            Route::post('/invoices/{invoice}/cancel', [AdminInvoiceController::class, 'cancel'])->name('invoices.cancel');
+
             // Deposits
             Route::get('/deposits', [AdminDepositController::class, 'index'])->name('deposits');
             Route::get('/deposits/{id}', [AdminDepositController::class, 'show'])->name('deposits.show');
@@ -556,6 +567,17 @@ Route::middleware(['auth','verified', RoleMiddleware::class . ':advertiser'])
         // Blacklist 
         Route::post('/blacklist/save', [CatalogController::class, 'saveBlacklist'])->name('blacklist.save');
 
+        // Dedicated Saved Sites manager (favorites + blacklist)
+        Route::get('/saved-sites', [SavedSitesController::class, 'index'])->name('saved-sites');
+        Route::post('/saved-sites/favorites/remove', [SavedSitesController::class, 'removeFavorite'])
+            ->name('saved-sites.favorites.remove');
+        Route::post('/saved-sites/blacklist/remove', [SavedSitesController::class, 'removeBlacklist'])
+            ->name('saved-sites.blacklist.remove');
+        Route::post('/saved-sites/move/blacklist', [SavedSitesController::class, 'moveToBlacklist'])
+            ->name('saved-sites.move.blacklist');
+        Route::post('/saved-sites/move/favorites', [SavedSitesController::class, 'moveToFavorites'])
+            ->name('saved-sites.move.favorites');
+
         // Publisher site ratings — only after order approval/completion
         Route::post('/ratings', [\App\Http\Controllers\Advertiser\SiteRatingController::class, 'store'])
             ->middleware('throttle:30,1')
@@ -665,6 +687,12 @@ Route::middleware(['auth','verified', RoleMiddleware::class . ':advertiser'])
 
         // Invoice route
         Route::get('/invoice/{referenceCode}', [InvoiceController::class, 'showInvoice'])->name('invoice');
+
+        // Billing & Invoices (automated PDF invoices / receipts)
+        Route::get('/billing', [AdvertiserBillingController::class, 'index'])->name('billing.index');
+        Route::get('/billing/invoices/{invoice}', [AdvertiserBillingController::class, 'show'])->name('billing.show');
+        Route::get('/billing/invoices/{invoice}/download', [AdvertiserBillingController::class, 'download'])->name('billing.download');
+        Route::get('/billing/invoices/{invoice}/view', [AdvertiserBillingController::class, 'viewPdf'])->name('billing.view');
 
        
 

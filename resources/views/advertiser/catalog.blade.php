@@ -2435,15 +2435,25 @@ function initializeMultiSelects() {
     updateMultiDisplay('language');
 }
 
-// Apply Filters button - submit the form with all selected values
-document.getElementById('applyFiltersBtn').addEventListener('click', function() {
-    // Update hidden inputs with selected values
+function submitCatalogFilters() {
     document.getElementById('selectedCategory').value = selectedMultiFilters.category.join(',');
     document.getElementById('selectedCountry').value = selectedMultiFilters.country.join(',');
     document.getElementById('selectedLanguage').value = selectedMultiFilters.language.join(',');
-    
-    // Submit form
     document.getElementById('filterForm').submit();
+}
+
+// Apply Filters button - submit the form with all selected values
+document.getElementById('applyFiltersBtn').addEventListener('click', function() {
+    submitCatalogFilters();
+});
+
+// Favorites / Blacklist selects apply immediately so heart & block workflows are obvious
+['favorites_filter', 'blacklist_filter'].forEach(function (name) {
+    const select = document.querySelector('select[name="' + name + '"]');
+    if (!select) return;
+    select.addEventListener('change', function () {
+        submitCatalogFilters();
+    });
 });
 
 // Close dropdown when clicking outside
@@ -2557,26 +2567,75 @@ function updateBuyButtonPrice(siteId, basePrice, additionalPrice = 0) {
 
 // Save favorites to database
 function saveFavorites() {
-    fetch('{{ route("advertiser.favorites.save") }}', {
+    return fetch('{{ route("advertiser.favorites.save") }}', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
+            'Accept': 'application/json',
             'X-CSRF-TOKEN': '{{ csrf_token() }}'
         },
         body: JSON.stringify({ favorites: favorites })
-    }).catch(err => console.error('Error saving favorites:', err));
+    }).then(async (res) => {
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || !data.success) {
+            throw new Error(data.message || data.error || 'Could not save favorites');
+        }
+        return data;
+    }).catch(err => {
+        console.error('Error saving favorites:', err);
+        showToast(err.message || 'Could not save favorites', 'error');
+    });
 }
 
 // Save blacklist to database
 function saveBlacklist() {
-    fetch('{{ route("advertiser.blacklist.save") }}', {
+    return fetch('{{ route("advertiser.blacklist.save") }}', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
+            'Accept': 'application/json',
             'X-CSRF-TOKEN': '{{ csrf_token() }}'
         },
         body: JSON.stringify({ blacklist: blacklist })
-    }).catch(err => console.error('Error saving blacklist:', err));
+    }).then(async (res) => {
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || !data.success) {
+            throw new Error(data.message || data.error || 'Could not save blacklist');
+        }
+        return data;
+    }).catch(err => {
+        console.error('Error saving blacklist:', err);
+        showToast(err.message || 'Could not save blacklist', 'error');
+    });
+}
+
+function hideCatalogSite(siteId) {
+    document.querySelectorAll(`.site-row[data-id="${siteId}"], .catalog-mobile-card[data-id="${siteId}"]`).forEach((el) => {
+        el.style.transition = 'opacity 0.3s ease';
+        el.style.opacity = '0';
+        setTimeout(() => { el.style.display = 'none'; }, 300);
+    });
+    const expandedRow = document.querySelector('.expanded-row-' + siteId);
+    if (expandedRow) {
+        expandedRow.style.transition = 'opacity 0.3s ease';
+        expandedRow.style.opacity = '0';
+        setTimeout(() => { expandedRow.style.display = 'none'; }, 300);
+    }
+}
+
+function showCatalogSite(siteId) {
+    document.querySelectorAll(`.site-row[data-id="${siteId}"], .catalog-mobile-card[data-id="${siteId}"]`).forEach((el) => {
+        el.style.display = '';
+        el.style.opacity = '';
+        el.style.transition = '';
+        el.classList.remove('blacklisted-row', 'is-blacklisted');
+    });
+    const expandedRow = document.querySelector('.expanded-row-' + siteId);
+    if (expandedRow) {
+        expandedRow.style.display = '';
+        expandedRow.style.opacity = '';
+        expandedRow.style.transition = '';
+    }
 }
 
 document.addEventListener('DOMContentLoaded', function() {
@@ -2764,7 +2823,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 
-    // Favorite functionality
+    // Favorite functionality (desktop table + mobile cards stay in sync)
     document.querySelectorAll('.favorite-btn').forEach(button => {
         button.addEventListener('click', function(e) {
             e.preventDefault();
@@ -2772,30 +2831,25 @@ document.addEventListener('DOMContentLoaded', function() {
             let id = parseInt(this.dataset.id);
             let name = this.dataset.name;
             let index = favorites.indexOf(id);
-            
+
             if (index === -1) {
                 favorites.push(id);
-                this.classList.add('is-active');
-                this.querySelector('i').classList.remove('fa-regular');
-                this.querySelector('i').classList.add('fa-solid');
-                this.title = 'Remove from Favorites';
-                this.setAttribute('aria-label', 'Remove from favorites');
                 showToast(`${name} added to favorites!`, 'success');
             } else {
                 favorites.splice(index, 1);
-                this.classList.remove('is-active');
-                this.querySelector('i').classList.remove('fa-solid');
-                this.querySelector('i').classList.add('fa-regular');
-                this.title = 'Add to Favorites';
-                this.setAttribute('aria-label', 'Add to favorites');
                 showToast(`${name} removed from favorites!`, 'warning');
+                // On Favorites Only view, remove the site from the list immediately
+                @if(request('favorites_filter') == '1')
+                hideCatalogSite(id);
+                @endif
             }
-            
+
+            updateButtonStates();
             saveFavorites();
         });
     });
 
-    // Blacklist functionality
+    // Blacklist functionality — hide from catalog; show again under Blacklisted Only / after unblock
     document.querySelectorAll('.blacklist-btn').forEach(button => {
         button.addEventListener('click', function(e) {
             e.preventDefault();
@@ -2803,76 +2857,37 @@ document.addEventListener('DOMContentLoaded', function() {
             let id = parseInt(this.dataset.id);
             let name = this.dataset.name;
             let index = blacklist.indexOf(id);
-            let row = this.closest('.site-row');
-            let expandedRow = document.querySelector('.expanded-row-' + id);
-            
+
             if (index === -1) {
                 blacklist.push(id);
-                this.classList.add('is-active');
-                this.style.backgroundColor = '';
-                this.style.color = '';
-                this.title = 'Remove from Blacklist';
-                this.setAttribute('aria-label', 'Remove from blacklist');
                 showToast(`${name} has been blacklisted!`, 'warning');
-                
+                // Main catalog: remove immediately (desktop row + mobile card)
                 @if(!request('blacklist_filter'))
-                if (row) {
-                    row.style.transition = 'opacity 0.3s ease';
-                    row.style.opacity = '0';
-                    setTimeout(() => {
-                        row.style.display = 'none';
-                    }, 300);
-                }
-                if (expandedRow) {
-                    expandedRow.style.transition = 'opacity 0.3s ease';
-                    expandedRow.style.opacity = '0';
-                    setTimeout(() => {
-                        expandedRow.style.display = 'none';
-                    }, 300);
-                }
+                hideCatalogSite(id);
                 @endif
             } else {
                 blacklist.splice(index, 1);
-                this.classList.remove('is-active');
-                this.style.backgroundColor = '';
-                this.style.color = '';
-                this.title = 'Blacklist Site';
-                this.setAttribute('aria-label', 'Blacklist site');
                 showToast(`${name} removed from blacklist!`, 'success');
-                
-                if (row) {
-                    row.style.display = '';
-                    row.style.opacity = '';
-                    row.style.transition = '';
-                }
-                if (expandedRow) {
-                    expandedRow.style.display = '';
-                    expandedRow.style.opacity = '';
-                    expandedRow.style.transition = '';
-                }
+                @if(request('blacklist_filter') == '1')
+                // Blacklisted Only view: site no longer belongs here
+                hideCatalogSite(id);
+                @else
+                showCatalogSite(id);
+                @endif
             }
-            
+
+            updateButtonStates();
             saveBlacklist();
         });
     });
 });
 
-// Hide blacklisted sites on page load
+// Safety net: hide any blacklisted sites still rendered on the main catalog
 @if(!request('blacklist_filter'))
-document.querySelectorAll('.site-row').forEach(row => {
-    let id = parseInt(row.dataset.id);
+document.querySelectorAll('.site-row[data-id], .catalog-mobile-card[data-id]').forEach(el => {
+    let id = parseInt(el.dataset.id);
     if (blacklist.includes(id)) {
-        row.style.opacity = '0';
-        setTimeout(() => {
-            row.style.display = 'none';
-        }, 100);
-        let expandedRow = document.querySelector('.expanded-row-' + id);
-        if (expandedRow) {
-            expandedRow.style.opacity = '0';
-            setTimeout(() => {
-                expandedRow.style.display = 'none';
-            }, 100);
-        }
+        hideCatalogSite(id);
     }
 });
 @endif
@@ -2915,64 +2930,6 @@ document.addEventListener('click', async function (e) {
     });
     const data = await res.json().catch(() => ({}));
     Swal.fire({ icon: data.success ? 'success' : 'error', title: data.message || 'Done' });
-});
-</script>
-
-<script>
-// Force change hover color for Sponsored, Favorites, and Blacklist dropdowns
-document.addEventListener('DOMContentLoaded', function() {
-    // Target the specific select elements
-    const selectElements = document.querySelectorAll('select[name="sponsored"], select[name="favorites_filter"], select[name="blacklist_filter"]');
-    
-    selectElements.forEach(select => {
-        // Store original options
-        let originalOptions = [];
-        
-        // Function to apply custom styling to options
-        function applyCustomStyling() {
-            // Get all options
-            const options = select.querySelectorAll('option');
-            
-            options.forEach(option => {
-                // Remove existing event listeners by cloning and replacing
-                const newOption = option.cloneNode(true);
-                option.parentNode.replaceChild(newOption, option);
-                
-                // Apply custom hover effect
-                newOption.addEventListener('mouseenter', function() {
-                    this.style.backgroundColor = '#3aaeb2';
-                    this.style.color = 'white';
-                });
-                
-                newOption.addEventListener('mouseleave', function() {
-                    if (!this.selected) {
-                        this.style.backgroundColor = '';
-                        this.style.color = '';
-                    }
-                });
-                
-                // Set selected option style
-                if (newOption.selected) {
-                    newOption.style.backgroundColor = '#3aaeb2';
-                    newOption.style.color = 'white';
-                }
-            });
-        }
-        
-        // Apply styling when dropdown opens
-        select.addEventListener('mousedown', function() {
-            setTimeout(applyCustomStyling, 10);
-        });
-        
-        // Apply styling on change
-        select.addEventListener('change', function() {
-            setTimeout(applyCustomStyling, 10);
-        });
-        
-        // Initial application
-        applyCustomStyling();
-    });
-
 });
 </script>
 
