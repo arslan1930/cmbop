@@ -6,9 +6,11 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Order;
 use App\Models\User;
+use App\Models\Wallet;
 use App\Mail\OrderPaymentConfirmed;
 use App\Services\ActivityLogger;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
@@ -146,7 +148,12 @@ class PaymentController extends Controller
             
             // Send email notification to user when payment is marked as paid
             if ($request->payment_status === 'paid' && $oldStatus !== 'paid') {
+                $this->consumeReservedCheckoutBonus($order);
                 $this->sendPaymentConfirmationEmail($order);
+            }
+
+            if (in_array($request->payment_status, ['failed', 'refunded'], true) && $oldStatus !== $request->payment_status) {
+                $this->refundReservedCheckoutBonus($order);
             }
             
             DB::commit();
@@ -202,6 +209,44 @@ class PaymentController extends Controller
             }
         } catch (\Exception $e) {
             Log::error('Failed to send payment confirmation email: ' . $e->getMessage());
+        }
+    }
+
+    private function consumeReservedCheckoutBonus(Order $order): void
+    {
+        $key = 'checkout_bonus:' . $order->user_id . ':' . $order->reference_code;
+        $bonus = round((float) Cache::pull($key, 0), 2);
+        if ($bonus <= 0) {
+            return;
+        }
+
+        $roleId = Wallet::advertiserRoleId();
+        if (! $roleId) {
+            return;
+        }
+
+        $wallet = Wallet::where('user_id', $order->user_id)->where('role_id', $roleId)->lockForUpdate()->first();
+        if ($wallet && (float) $wallet->bonus_reserved > 0) {
+            $wallet->consumeReserved(min($bonus, (float) $wallet->bonus_reserved));
+        }
+    }
+
+    private function refundReservedCheckoutBonus(Order $order): void
+    {
+        $key = 'checkout_bonus:' . $order->user_id . ':' . $order->reference_code;
+        $bonus = round((float) Cache::pull($key, 0), 2);
+        if ($bonus <= 0) {
+            return;
+        }
+
+        $roleId = Wallet::advertiserRoleId();
+        if (! $roleId) {
+            return;
+        }
+
+        $wallet = Wallet::where('user_id', $order->user_id)->where('role_id', $roleId)->lockForUpdate()->first();
+        if ($wallet && (float) $wallet->bonus_reserved > 0) {
+            $wallet->refundReserved(min($bonus, (float) $wallet->bonus_reserved));
         }
     }
 }

@@ -68,6 +68,8 @@ class RegisterPageTest extends TestCase
         $this->assertNotNull($wallet);
         $this->assertEquals(20.0, (float) $wallet->bonus_balance);
         $this->assertEquals(20.0, (float) $wallet->balance);
+        $this->assertSame(0.0, $wallet->withdrawableBalance());
+        $this->assertSame(20.0, $wallet->lockedBonusBalance());
     }
 
     public function test_register_validation_returns_json_errors(): void

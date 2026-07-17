@@ -46,18 +46,65 @@ class WalletBonusTest extends TestCase
         $this->assertSame(20.0, $wallet->fresh()->lockedBonusBalance());
     }
 
-    public function test_spending_consumes_bonus_first(): void
+    public function test_spending_consumes_bonus_first_when_enabled(): void
     {
         $wallet = $this->makeWallet(70, 20);
 
-        $wallet->reserveForOrder(30);
+        $used = $wallet->reserveForOrder(30, true);
 
         $wallet->refresh();
+        $this->assertSame(20.0, $used);
         $this->assertEquals(40.0, (float) $wallet->balance);
         $this->assertEquals(30.0, (float) $wallet->reserved_balance);
         $this->assertEquals(0.0, (float) $wallet->bonus_balance);
         $this->assertEquals(20.0, (float) $wallet->bonus_reserved);
         $this->assertSame(40.0, $wallet->withdrawableBalance());
+    }
+
+    public function test_spending_without_bonus_uses_cash_only(): void
+    {
+        $wallet = $this->makeWallet(70, 20);
+
+        $used = $wallet->reserveForOrder(30, false);
+
+        $wallet->refresh();
+        $this->assertSame(0.0, $used);
+        $this->assertEquals(40.0, (float) $wallet->balance);
+        $this->assertEquals(30.0, (float) $wallet->reserved_balance);
+        $this->assertEquals(20.0, (float) $wallet->bonus_balance);
+        $this->assertEquals(0.0, (float) $wallet->bonus_reserved);
+        $this->assertSame(20.0, $wallet->withdrawableBalance());
+    }
+
+    public function test_cannot_spend_cash_only_when_only_bonus_remains(): void
+    {
+        $wallet = $this->makeWallet(20, 20);
+
+        $this->expectException(\Exception::class);
+        $wallet->reserveForOrder(10, false);
+    }
+
+    public function test_repair_orphaned_welcome_bonus_from_ledger(): void
+    {
+        $wallet = $this->makeWallet(20, 0);
+        \Illuminate\Support\Facades\DB::table('wallet_transactions')->insert([
+            'user_id' => $wallet->user_id,
+            'wallet_id' => $wallet->id,
+            'type' => 'bonus_credit',
+            'direction' => 'credit',
+            'amount' => 20,
+            'bonus_amount' => 20,
+            'currency' => 'EUR',
+            'status' => 'completed',
+            'description' => 'Welcome promotional bonus',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $this->assertTrue($wallet->repairOrphanedWelcomeBonus());
+        $wallet->refresh();
+        $this->assertSame(20.0, (float) $wallet->bonus_balance);
+        $this->assertSame(0.0, $wallet->withdrawableBalance());
     }
 
     public function test_refund_restores_spend_only_bonus(): void

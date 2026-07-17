@@ -230,22 +230,102 @@ class Wallet extends Model
     }
 
     /**
-     * Move funds to reserved balance for a wallet checkout (consumes bonus first).
+     * Move funds to reserved balance for a wallet checkout.
+     * When $useBonus is true, promotional credit is consumed first.
+     * When false, only withdrawable cash may be reserved (bonus stays untouched).
+     *
+     * @return float Bonus amount reserved
      */
-    public function reserveForOrder(float $amount): void
+    public function reserveForOrder(float $amount, bool $useBonus = true): float
     {
         $amount = round($amount, 2);
-        if ($amount > (float) $this->balance) {
+        if ($amount <= 0) {
+            return 0.0;
+        }
+
+        if ($amount > round((float) $this->balance, 2)) {
             throw new \Exception('Insufficient balance to reserve');
         }
 
-        $fromBonus = min($amount, (float) $this->bonus_balance);
+        $fromBonus = $useBonus ? min($amount, (float) $this->bonus_balance) : 0.0;
+        $fromCash = round($amount - $fromBonus, 2);
+
+        if ($fromCash > $this->withdrawableBalance() + 0.00001) {
+            throw new \Exception(
+                $useBonus
+                    ? 'Insufficient wallet balance to reserve'
+                    : 'Insufficient available (cash) balance. Enable “Use bonus balance” to apply your promotional credit.'
+            );
+        }
 
         $this->balance = round((float) $this->balance - $amount, 2);
         $this->reserved_balance = round((float) $this->reserved_balance + $amount, 2);
         $this->bonus_balance = round((float) $this->bonus_balance - $fromBonus, 2);
         $this->bonus_reserved = round((float) $this->bonus_reserved + $fromBonus, 2);
         $this->save();
+
+        return round($fromBonus, 2);
+    }
+
+    /**
+     * Reserve promotional credit only (partial payment toward an order paid by card/manual).
+     *
+     * @return float Amount reserved from bonus
+     */
+    public function reserveBonusOnly(float $amount): float
+    {
+        $amount = round(min(max(0, $amount), $this->lockedBonusBalance()), 2);
+        if ($amount <= 0) {
+            return 0.0;
+        }
+
+        $this->balance = round((float) $this->balance - $amount, 2);
+        $this->reserved_balance = round((float) $this->reserved_balance + $amount, 2);
+        $this->bonus_balance = round((float) $this->bonus_balance - $amount, 2);
+        $this->bonus_reserved = round((float) $this->bonus_reserved + $amount, 2);
+        $this->save();
+
+        return $amount;
+    }
+
+    /**
+     * Repair wallets where welcome credit landed in balance but bonus_balance was left at 0
+     * (e.g. bonus columns added after registration without a backfill).
+     */
+    public function repairOrphanedWelcomeBonus(): bool
+    {
+        if (! Schema::hasColumn('wallets', 'bonus_balance')) {
+            return false;
+        }
+
+        $balance = round((float) $this->balance, 2);
+        $bonus = round((float) $this->bonus_balance, 2);
+        if ($bonus > 0 || $balance <= 0) {
+            return false;
+        }
+
+        $ledgerBonus = 0.0;
+        if (Schema::hasTable('wallet_transactions')) {
+            $ledgerBonus = (float) DB::table('wallet_transactions')
+                ->where('wallet_id', $this->id)
+                ->where('type', 'bonus_credit')
+                ->sum('bonus_amount');
+            if ($ledgerBonus <= 0) {
+                $ledgerBonus = (float) DB::table('wallet_transactions')
+                    ->where('wallet_id', $this->id)
+                    ->where('type', 'bonus_credit')
+                    ->sum('amount');
+            }
+        }
+
+        if ($ledgerBonus <= 0) {
+            return false;
+        }
+
+        $this->bonus_balance = round(min($balance, $ledgerBonus), 2);
+        $this->save();
+
+        return true;
     }
 
     /**

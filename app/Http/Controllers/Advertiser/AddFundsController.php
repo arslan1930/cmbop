@@ -45,6 +45,9 @@ class AddFundsController extends Controller
             ->latest()
             ->get();
 
+        $wallet->repairOrphanedWelcomeBonus();
+        $wallet->refresh();
+
         $summary = $this->overview->summary($user->id, $wallet);
         $analytics = $this->overview->analytics($user->id, 'month');
 

@@ -6,8 +6,10 @@ use App\Mail\SiteOwnerOrderNotification;
 use App\Models\Order;
 use App\Models\Site;
 use App\Models\User;
+use App\Models\Wallet;
 use App\Services\InAppNotificationService;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
@@ -68,8 +70,45 @@ class OrderPaymentService
                 $newlyPaid->push($order->fresh('items'));
             }
 
+            if ($newlyPaid->isNotEmpty()) {
+                $this->consumeBonusAppliedFromStripeSession($newlyPaid->first(), $session);
+            }
+
             return $newlyPaid;
         });
+    }
+
+    /**
+     * When a card checkout applied promotional credit, permanently consume the reserved bonus.
+     */
+    protected function consumeBonusAppliedFromStripeSession(Order $order, object $session): void
+    {
+        $meta = [];
+        if (isset($session->metadata)) {
+            $meta = is_array($session->metadata)
+                ? $session->metadata
+                : (method_exists($session->metadata, 'toArray') ? $session->metadata->toArray() : (array) $session->metadata);
+        }
+
+        $bonus = round((float) ($meta['bonus_applied'] ?? 0), 2);
+        $cacheKey = 'checkout_bonus:' . $order->user_id . ':' . $order->reference_code;
+        if ($bonus <= 0) {
+            $bonus = round((float) Cache::get($cacheKey, 0), 2);
+        }
+        if ($bonus <= 0) {
+            return;
+        }
+
+        $roleId = Wallet::advertiserRoleId();
+        if (! $roleId) {
+            return;
+        }
+
+        $wallet = Wallet::where('user_id', $order->user_id)->where('role_id', $roleId)->lockForUpdate()->first();
+        if ($wallet && (float) $wallet->bonus_reserved > 0) {
+            $wallet->consumeReserved(min($bonus, (float) $wallet->bonus_reserved));
+        }
+        Cache::forget($cacheKey);
     }
 
     /**
