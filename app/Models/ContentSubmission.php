@@ -10,13 +10,19 @@ use Illuminate\Support\Facades\Storage;
 class ContentSubmission extends Model
 {
     public const STATUS_PENDING = 'pending';
+
     public const STATUS_PROCESSING = 'processing';
+
     public const STATUS_APPROVED = 'approved';
+
     public const STATUS_REJECTED = 'rejected';
+
     public const STATUS_NEEDS_IMPROVEMENT = 'needs_improvement';
+
     public const STATUS_ERROR = 'error';
 
     public const MODE_IMMEDIATE = 'immediate';
+
     public const MODE_SCHEDULED = 'scheduled';
 
     protected $fillable = [
@@ -130,6 +136,38 @@ class ContentSubmission extends Model
             && filled($this->language);
     }
 
+    public function isInUse(): bool
+    {
+        return $this->order_id !== null;
+    }
+
+    public function isExpired(): bool
+    {
+        return $this->expires_at !== null && $this->expires_at->isPast();
+    }
+
+    /**
+     * Library-facing availability for filters and badges.
+     *
+     * @return 'available'|'ordered'|'expired'|'unavailable'
+     */
+    public function libraryAvailability(): string
+    {
+        if ($this->isInUse()) {
+            return 'ordered';
+        }
+
+        if ($this->isExpired()) {
+            return 'expired';
+        }
+
+        if ($this->canBeOrdered()) {
+            return 'available';
+        }
+
+        return 'unavailable';
+    }
+
     /**
      * Whether this article's market matches a publisher site.
      */
@@ -167,7 +205,7 @@ class ContentSubmission extends Model
 
     public function isReadyForCheckout(): bool
     {
-        if (!$this->canBeOrdered()) {
+        if (! $this->canBeOrdered()) {
             return false;
         }
 

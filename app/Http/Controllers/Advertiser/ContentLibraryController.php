@@ -19,14 +19,20 @@ class ContentLibraryController extends Controller
         private ContentUploadService $uploads,
         private CartPricingService $pricing,
         private ScheduledOrderService $scheduler,
-    ) {
-    }
+    ) {}
 
     public function index(Request $request)
     {
         $cfg = $this->uploads->effectiveConfig();
         $status = $request->query('status');
+        $availability = strtolower(trim((string) $request->query('availability', 'all')));
         $languageFilter = strtolower(trim((string) $request->query('language', '')));
+        $countryFilter = strtolower(trim((string) $request->query('country', '')));
+        $search = trim((string) $request->query('q', ''));
+
+        if (! in_array($availability, ['all', 'available', 'ordered', 'expired'], true)) {
+            $availability = 'all';
+        }
 
         $query = ContentSubmission::query()
             ->where('user_id', auth()->id())
@@ -40,35 +46,104 @@ class ContentLibraryController extends Controller
             $query->where('language', $languageFilter);
         }
 
+        if ($countryFilter !== '' && $countryFilter !== 'all') {
+            $query->where('country', $countryFilter);
+        }
+
+        if ($search !== '') {
+            $like = '%'.str_replace(['%', '_'], ['\\%', '\\_'], $search).'%';
+            $query->where(function ($q) use ($like) {
+                $q->where('title', 'like', $like)
+                    ->orWhere('original_filename', 'like', $like);
+            });
+        }
+
+        $minUniqueness = (int) config('content_upload.evaluation.min_uniqueness', 50);
+
+        if ($availability === 'ordered') {
+            $query->whereNotNull('order_id');
+        } elseif ($availability === 'expired') {
+            $query->whereNull('order_id')
+                ->whereNotNull('expires_at')
+                ->where('expires_at', '<', now());
+        } elseif ($availability === 'available') {
+            $query->whereNull('order_id')
+                ->where('moderation_status', ContentSubmission::STATUS_APPROVED)
+                ->where('uniqueness_score', '>=', $minUniqueness)
+                ->whereNotNull('path')
+                ->whereNotNull('country')
+                ->where('country', '!=', '')
+                ->whereNotNull('language')
+                ->where('language', '!=', '')
+                ->where(function ($q) {
+                    $q->whereNull('expires_at')->orWhere('expires_at', '>', now());
+                });
+        }
+
         $submissions = $query->paginate(12)->withQueryString();
 
-        $groupedByLanguage = ContentSubmission::query()
-            ->where('user_id', auth()->id())
+        $baseScope = ContentSubmission::query()->where('user_id', auth()->id());
+
+        $groupedByLanguage = (clone $baseScope)
             ->whereNotNull('language')
             ->selectRaw('language, COUNT(*) as total')
             ->groupBy('language')
             ->pluck('total', 'language');
 
+        $groupedByCountry = (clone $baseScope)
+            ->whereNotNull('country')
+            ->selectRaw('country, COUNT(*) as total')
+            ->groupBy('country')
+            ->pluck('total', 'country');
+
         $sites = Site::query()
             ->where('active', 1)
             ->orderBy('site_name')
             ->limit(500)
-            ->get(['id', 'site_name', 'site_url', 'price', 'sensitive_prices', 'link_type', 'country', 'countries', 'language', 'languages']);
+            ->get();
+
+        $pricedSites = $sites->map(function (Site $site) {
+            $pricing = $this->pricing->priceForAdvertiser($site, null);
+
+            return [
+                'id' => $site->id,
+                'site_name' => $site->site_name,
+                'site_url' => $site->site_url,
+                'link_type' => $site->link_type ?? 'dofollow',
+                'countries' => $site->countryCodes(),
+                'languages' => $site->languageCodes(),
+                'advertiser_price' => $pricing['total'],
+                'list_total' => $pricing['list_total'],
+                'discount_percent' => $pricing['discount_percent'],
+                'discount_labels' => $pricing['discount_labels'],
+            ];
+        });
 
         $countries = Country::marketplace()->orderBy('name')->get(['code', 'name']);
         $languages = Language::marketplace()->orderBy('name')->get(['code', 'name']);
 
         return view('advertiser.content-library', [
             'submissions' => $submissions,
-            'sites' => $sites,
+            'sites' => $pricedSites,
             'uploadCfg' => $cfg,
             'statusFilter' => $status ?: 'all',
+            'availabilityFilter' => $availability,
             'languageFilter' => $languageFilter ?: 'all',
+            'countryFilter' => $countryFilter ?: 'all',
+            'searchQuery' => $search,
             'groupedByLanguage' => $groupedByLanguage,
+            'groupedByCountry' => $groupedByCountry,
             'countries' => $countries,
             'languages' => $languages,
             'openUpload' => $request->boolean('upload'),
             'editSubmission' => $this->resolveEditableSubmission($request->query('edit')),
+            'libraryFilterBase' => [
+                'status' => $status ?: 'all',
+                'availability' => $availability,
+                'language' => $languageFilter ?: 'all',
+                'country' => $countryFilter ?: 'all',
+                'q' => $search,
+            ],
         ]);
     }
 
@@ -80,7 +155,7 @@ class ContentLibraryController extends Controller
         $allowedLanguages = array_map('strtolower', config('markets.allowed_language_codes', []));
 
         $data = $request->validate([
-            'file' => ['required', 'file', 'max:' . $maxKb, 'mimes:docx'],
+            'file' => ['required', 'file', 'max:'.$maxKb, 'mimes:docx'],
             'title' => ['nullable', 'string', 'max:200'],
             'country' => ['required', 'string', 'max:10', Rule::in($allowedCountries)],
             'language' => ['required', 'string', 'max:10', Rule::in($allowedLanguages)],
@@ -88,7 +163,7 @@ class ContentLibraryController extends Controller
         ]);
 
         $replace = null;
-        if (!empty($data['replace_id'])) {
+        if (! empty($data['replace_id'])) {
             $replace = ContentSubmission::query()
                 ->where('id', $data['replace_id'])
                 ->where('user_id', auth()->id())
@@ -108,7 +183,7 @@ class ContentLibraryController extends Controller
             language: $data['language'],
         );
 
-        if (!$result['ok']) {
+        if (! $result['ok']) {
             return response()->json([
                 'success' => false,
                 'title' => $result['title'] ?? 'Upload failed',
@@ -156,7 +231,7 @@ class ContentLibraryController extends Controller
             ->whereNull('order_id')
             ->firstOrFail();
 
-        if (!$submission->canBeOrdered()) {
+        if (! $submission->canBeOrdered()) {
             return back()->with('error', 'Only approved Content Library articles can be ordered. Please edit and resubmit if corrections are needed.');
         }
 
@@ -165,10 +240,10 @@ class ContentLibraryController extends Controller
         $hasLink = $anchor !== '' || $target !== '';
 
         if ($hasLink) {
-            if ($anchor === '' || $target === '' || !str_starts_with(strtolower($target), 'https://')) {
+            if ($anchor === '' || $target === '' || ! str_starts_with(strtolower($target), 'https://')) {
                 return back()->withInput()->with('error', 'Please provide both anchor text and a valid HTTPS target URL, or leave both empty to continue without a link.');
             }
-        } elseif (!$request->boolean('allow_no_link')) {
+        } elseif (! $request->boolean('allow_no_link')) {
             return back()->withInput()->with('error', 'No link was provided. Confirm that you want to continue without a link, or add anchor text and URL.');
         }
 
@@ -184,13 +259,13 @@ class ContentLibraryController extends Controller
             return back()->withInput()->with(
                 'error',
                 'This article is for '
-                . strtoupper((string) $submission->country) . ' / ' . strtoupper((string) $submission->language)
-                . '. It does not match: ' . $names . '. Choose matching websites or upload an article for that market.'
+                .strtoupper((string) $submission->country).' / '.strtoupper((string) $submission->language)
+                .'. It does not match: '.$names.'. Choose matching websites or upload an article for that market.'
             );
         }
 
         $nofollowSites = $selectedSites->where('link_type', 'nofollow')->values();
-        if ($nofollowSites->isNotEmpty() && $hasLink && !$request->boolean('acknowledge_nofollow')) {
+        if ($nofollowSites->isNotEmpty() && $hasLink && ! $request->boolean('acknowledge_nofollow')) {
             return back()->withInput()->with(
                 'error',
                 'One or more selected websites publish nofollow links only. Please acknowledge this to continue.'
@@ -204,7 +279,7 @@ class ContentLibraryController extends Controller
             $data['timezone'] ?? null,
         );
 
-        if (!$schedule['ok']) {
+        if (! $schedule['ok']) {
             return back()->withInput()->with('error', $schedule['message'] ?? 'Invalid publication schedule.');
         }
 
@@ -256,7 +331,7 @@ class ContentLibraryController extends Controller
 
     protected function resolveEditableSubmission(mixed $id): ?ContentSubmission
     {
-        if (!$id) {
+        if (! $id) {
             return null;
         }
 
@@ -274,7 +349,7 @@ class ContentLibraryController extends Controller
 
     protected function serialize(?ContentSubmission $s): ?array
     {
-        if (!$s) {
+        if (! $s) {
             return null;
         }
 
@@ -296,6 +371,7 @@ class ContentLibraryController extends Controller
             'has_link' => $s->hasLink(),
             'can_order' => $s->canBeOrdered(),
             'needs_correction' => $s->needsCorrection(),
+            'availability' => $s->libraryAvailability(),
             'download_url' => route('advertiser.content-submissions.download', $s),
             'created_at' => optional($s->created_at)?->toDateTimeString(),
         ];

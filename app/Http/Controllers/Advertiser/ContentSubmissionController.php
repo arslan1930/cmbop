@@ -11,6 +11,7 @@ use App\Services\ContentUpload\ContentUploadService;
 use App\Services\ContentUpload\ScheduledOrderService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\Rule;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class ContentSubmissionController extends Controller
@@ -18,8 +19,7 @@ class ContentSubmissionController extends Controller
     public function __construct(
         private ContentUploadService $uploads,
         private ScheduledOrderService $scheduler,
-    ) {
-    }
+    ) {}
 
     public function config()
     {
@@ -51,18 +51,18 @@ class ContentSubmissionController extends Controller
         $allowedLanguages = array_map('strtolower', config('markets.allowed_language_codes', []));
 
         $data = $request->validate([
-            'file' => ['required', 'file', 'max:' . $maxKb, 'mimes:docx'],
+            'file' => ['required', 'file', 'max:'.$maxKb, 'mimes:docx'],
             'site_id' => ['nullable', 'integer', 'exists:sites,id'],
             'copy_index' => ['nullable', 'integer', 'min:0', 'max:50'],
             'cart_key' => ['nullable', 'string', 'max:64'],
             'replace_id' => ['nullable', 'integer'],
             'title' => ['nullable', 'string', 'max:200'],
-            'country' => ['required', 'string', 'max:10', \Illuminate\Validation\Rule::in($allowedCountries)],
-            'language' => ['required', 'string', 'max:10', \Illuminate\Validation\Rule::in($allowedLanguages)],
+            'country' => ['required', 'string', 'max:10', Rule::in($allowedCountries)],
+            'language' => ['required', 'string', 'max:10', Rule::in($allowedLanguages)],
         ]);
 
         $replace = null;
-        if (!empty($data['replace_id'])) {
+        if (! empty($data['replace_id'])) {
             $replace = ContentSubmission::query()
                 ->where('id', $data['replace_id'])
                 ->where('user_id', auth()->id())
@@ -108,7 +108,8 @@ class ContentSubmissionController extends Controller
         $imageExt = $cfg['feature_image']['allowed_extensions'] ?? ['jpg', 'jpeg', 'png', 'gif', 'webp'];
 
         $data = $request->validate([
-            'anchor_text' => ['nullable', 'string', 'max:' . $anchorMax],
+            'title' => ['nullable', 'string', 'max:200'],
+            'anchor_text' => ['nullable', 'string', 'max:'.$anchorMax],
             'target_url' => ['nullable', 'string', 'max:1000'],
             'feature_image_url' => ['nullable', 'string', 'max:1000'],
             'publication_mode' => ['nullable', 'in:immediate,scheduled'],
@@ -119,13 +120,18 @@ class ContentSubmissionController extends Controller
             'draft_payload' => ['nullable', 'array'],
         ]);
 
+        if (array_key_exists('title', $data)) {
+            $title = trim((string) $data['title']);
+            $data['title'] = $title !== '' ? $title : null;
+        }
+
         if (array_key_exists('anchor_text', $data)) {
             $data['anchor_text'] = trim(preg_replace('/\s+/', ' ', (string) $data['anchor_text']) ?? '');
         }
 
-        if (!empty($data['target_url'])) {
+        if (! empty($data['target_url'])) {
             $url = trim($data['target_url']);
-            if (!filter_var($url, FILTER_VALIDATE_URL) || !str_starts_with(strtolower($url), 'https://')) {
+            if (! filter_var($url, FILTER_VALIDATE_URL) || ! str_starts_with(strtolower($url), 'https://')) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Target URL must be a valid HTTPS URL.',
@@ -134,11 +140,11 @@ class ContentSubmissionController extends Controller
             $data['target_url'] = $url;
         }
 
-        if (!empty($data['feature_image_url'])) {
+        if (! empty($data['feature_image_url'])) {
             $img = trim($data['feature_image_url']);
             $path = parse_url($img, PHP_URL_PATH) ?: '';
             $ext = strtolower(pathinfo($path, PATHINFO_EXTENSION));
-            if (!filter_var($img, FILTER_VALIDATE_URL) || !in_array($ext, $imageExt, true)) {
+            if (! filter_var($img, FILTER_VALIDATE_URL) || ! in_array($ext, $imageExt, true)) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Feature image must be a direct image URL (jpg, png, gif, or webp).',
@@ -149,14 +155,14 @@ class ContentSubmissionController extends Controller
             $data['feature_image_url'] = null;
         }
 
-        if (($data['publication_mode'] ?? null) === 'scheduled' || !empty($data['scheduled_date'])) {
+        if (($data['publication_mode'] ?? null) === 'scheduled' || ! empty($data['scheduled_date'])) {
             $schedule = $this->scheduler->normalizeSchedule(
                 $data['publication_mode'] ?? 'scheduled',
                 $data['scheduled_date'] ?? null,
                 $data['scheduled_time'] ?? null,
                 $data['timezone'] ?? $submission->timezone,
             );
-            if (!$schedule['ok']) {
+            if (! $schedule['ok']) {
                 return response()->json(['success' => false, 'message' => $schedule['message']], 422);
             }
             $data['publication_mode'] = $schedule['mode'];
@@ -210,7 +216,7 @@ class ContentSubmissionController extends Controller
         $this->authorizeDownload($submission);
 
         $disk = Storage::disk($submission->disk ?: 'local');
-        if (!$disk->exists($submission->path)) {
+        if (! $disk->exists($submission->path)) {
             abort(404, 'File not found');
         }
 
@@ -291,7 +297,7 @@ class ContentSubmissionController extends Controller
             $data['timezone'] ?? $order->schedule_timezone,
         );
 
-        if (!$schedule['ok']) {
+        if (! $schedule['ok']) {
             return back()->with('error', $schedule['message']);
         }
 
