@@ -11,6 +11,7 @@ use App\Models\Site;
 use App\Models\User;
 use Database\Seeders\CategoriesTableSeeder;
 use Database\Seeders\CountriesTableSeeder;
+use Database\Seeders\CountryLanguageSeeder;
 use Database\Seeders\LanguagesTableSeeder;
 use Database\Seeders\RolesTableSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -129,5 +130,54 @@ class PublisherSiteStoreTest extends TestCase
 
         $site = Site::where('domain', 'comma-cat.example')->firstOrFail();
         $this->assertSame([$name], $site->categories);
+    }
+
+    public function test_english_language_map_includes_chinese_gulf_and_english_regions(): void
+    {
+        $this->seed(CountryLanguageSeeder::class);
+
+        $response = $this->actingAs($this->publisher)->get(route('publisher.websites'));
+        $response->assertOk();
+
+        $map = $response->viewData('languageCountryMap');
+        $this->assertIsArray($map);
+        $this->assertArrayHasKey('en', $map);
+
+        $codes = collect($map['en'])->pluck('code')->map(fn ($c) => strtolower((string) $c))->all();
+
+        foreach (['us', 'uk', 'au', 'nz', 'za', 'sg', 'cn', 'tw', 'hk', 'mo', 'ae', 'sa', 'qa', 'kw', 'bh', 'om'] as $code) {
+            $this->assertContains($code, $codes, "Expected English map to include {$code}");
+        }
+    }
+
+    public function test_publisher_can_add_english_site_for_china_and_gulf(): void
+    {
+        Queue::fake();
+        $this->seed(CountryLanguageSeeder::class);
+
+        $category = Category::query()->firstOrFail()->name;
+
+        foreach (['cn' => 'china-en.example', 'ae' => 'gulf-en.example'] as $country => $domain) {
+            $this->actingAs($this->publisher)->post(route('publisher.sites.store'), [
+                'siteName' => 'English '.$country,
+                'siteUrl' => 'https://'.$domain,
+                'exampleUrl' => 'https://'.$domain.'/post',
+                'da' => 45,
+                'dr' => 50,
+                'traffic' => 5000,
+                'country' => $country,
+                'language' => 'en',
+                'categories' => $category,
+                'price' => 90,
+                'turnaround_time' => '3days',
+                'publicationTime' => 'permanent',
+                'link_type' => 'dofollow',
+                'siteDescription' => str_repeat('English guest post site for marketplace testing. ', 3),
+            ])->assertSessionHas('success');
+
+            $site = Site::where('domain', $domain)->firstOrFail();
+            $this->assertSame($country, $site->country);
+            $this->assertSame('en', $site->language);
+        }
     }
 }

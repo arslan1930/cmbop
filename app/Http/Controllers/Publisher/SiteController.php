@@ -38,7 +38,39 @@ class SiteController extends Controller
                 ->all();
         }
 
+        // English sites can target every English-speaking market we list:
+        // English regions + Chinese markets + Gulf + any pivot EN countries.
+        $languageCountryMap['en'] = $this->englishMarketplaceCountries();
+
         return view('publisher.websites', compact('countries', 'categories', 'languages', 'languageCountryMap'));
+    }
+
+    /**
+     * Countries where publishers may list English-language sites.
+     *
+     * @return list<array{code: string, name: string}>
+     */
+    private function englishMarketplaceCountries(): array
+    {
+        $codes = array_values(array_unique(array_merge(
+            config('markets.english_region_country_codes', []),
+            config('markets.chinese_country_codes', []),
+            config('markets.gulf_country_codes', []),
+            Language::where('code', 'en')
+                ->first()
+                ?->countries()
+                ->marketplace()
+                ->pluck('code')
+                ->all() ?? []
+        )));
+
+        return Country::marketplace()
+            ->whereIn('code', $codes)
+            ->orderBy('name')
+            ->get(['code', 'name'])
+            ->map(fn ($c) => ['code' => strtolower((string) $c->code), 'name' => $c->name])
+            ->values()
+            ->all();
     }
 
     public function getCountryLanguages($countryCode)
