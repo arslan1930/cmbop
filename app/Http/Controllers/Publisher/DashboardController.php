@@ -83,6 +83,13 @@ class DashboardController extends Controller
                 ->pluck('order_id')
                 ->unique()
                 ->toArray();
+
+            $completedOrders = Order::whereIn('id', $orderIds)->where('status', 'completed')->count();
+            $cancelledOrders = Order::whereIn('id', $orderIds)->where('status', 'cancelled')->count();
+            $resolvedOrders = $completedOrders + $cancelledOrders;
+            $successRate = $resolvedOrders > 0
+                ? round(($completedOrders / $resolvedOrders) * 100, 1)
+                : 0;
             
             $completedOrders = Order::whereIn('id', $orderIds)->where('status', 'completed')->count();
             $cancelledOrders = Order::whereIn('id', $orderIds)->where('status', 'cancelled')->count();
@@ -144,8 +151,14 @@ class DashboardController extends Controller
                 ]);
             }
             
-            // Get recent order items (last 5)
+            // Get recent order items (last 5); hide unpaid card checkouts
             $recentOrderItems = OrderItem::whereIn('site_id', $siteIds)
+                ->whereHas('order', function ($q) {
+                    $q->where(function ($inner) {
+                        $inner->where('payment_status', 'paid')
+                            ->orWhere('payment_method', '!=', 'card');
+                    });
+                })
                 ->with(['order', 'site'])
                 ->orderBy('created_at', 'desc')
                 ->take(5)
@@ -257,7 +270,16 @@ class DashboardController extends Controller
                 ]);
             }
             
-            $orderIds = OrderItem::whereIn('site_id', $siteIds)->pluck('order_id')->unique();
+            // Exclude unpaid card checkouts from publisher-facing charts
+            $orderIds = OrderItem::whereIn('site_id', $siteIds)
+                ->whereHas('order', function ($q) {
+                    $q->where(function ($inner) {
+                        $inner->where('payment_status', 'paid')
+                            ->orWhere('payment_method', '!=', 'card');
+                    });
+                })
+                ->pluck('order_id')
+                ->unique();
             
             $statuses = [
                 'pending' => Order::whereIn('id', $orderIds)->where('status', 'pending')->count(),
