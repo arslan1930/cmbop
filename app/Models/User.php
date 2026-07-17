@@ -24,9 +24,6 @@ class User extends Authenticatable implements MustVerifyEmail
         'google_id',
         'google_token',
         'google_refresh_token',
-        'apple_id',
-        'apple_token',
-        'apple_refresh_token',
         'avatar',
         'active_role_id',
         'email_verified_at'
@@ -42,8 +39,6 @@ class User extends Authenticatable implements MustVerifyEmail
         'remember_token',
         'google_token',
         'google_refresh_token',
-        'apple_token',
-        'apple_refresh_token',
     ];
 
     /**
@@ -57,11 +52,11 @@ class User extends Authenticatable implements MustVerifyEmail
     ];
 
     /**
-     * Override: Google / Apple users are automatically verified
+     * Override: Google users are automatically verified
      */
     public function hasVerifiedEmail()
     {
-        if ($this->google_id || $this->apple_id) {
+        if ($this->google_id) {
             return true;
         }
 

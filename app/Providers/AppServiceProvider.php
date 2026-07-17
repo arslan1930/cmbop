@@ -3,7 +3,6 @@
 namespace App\Providers;
 
 use Illuminate\Support\ServiceProvider;
-use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\View;
 use App\Listeners\HandleOrderBillingDocuments;
 use App\Listeners\SendOrderLifecycleEmails;
@@ -12,7 +11,6 @@ use App\Models\Order;
 use App\Models\Project;
 use App\Models\User;
 use App\Services\EmailNotificationService;
-use SocialiteProviders\Manager\SocialiteWasCalled;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -23,10 +21,6 @@ class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
-        Event::listen(function (SocialiteWasCalled $event) {
-            $event->extendSocialite('apple', \SocialiteProviders\Apple\Provider::class);
-        });
-
         // Email logging: LogSentEmail is auto-discovered (MessageSent)
 
         // Gap-fill: welcome + admin new-user (HTTP only — skips seeders/artisan)

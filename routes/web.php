@@ -187,9 +187,6 @@ Route::middleware('guest')->group(function () {
     // Google Social Login Routes
     Route::get('auth/google', [SocialiteController::class, 'redirectToGoogle'])->name('auth.google');
     Route::get('auth/google/callback', [SocialiteController::class, 'handleGoogleCallback'])->name('auth.google.callback');
-
-    Route::get('auth/apple', [SocialiteController::class, 'redirectToApple'])->name('auth.apple');
-    Route::match(['get', 'post'], 'auth/apple/callback', [SocialiteController::class, 'handleAppleCallback'])->name('auth.apple.callback');
 });
 
 

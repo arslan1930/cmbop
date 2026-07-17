@@ -19,15 +19,15 @@ class SecurityHeaders
         $csp = implode('; ', [
             "default-src 'self'",
             // Quill (cdn.quilljs.com) powers publisher/admin rich-text editors; Chart.js/SweetAlert via jsDelivr
-            "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://cdn.quilljs.com https://code.jquery.com https://www.google.com https://www.gstatic.com https://www.recaptcha.net https://js.stripe.com https://appleid.cdn-apple.com",
+            "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://cdn.quilljs.com https://code.jquery.com https://www.google.com https://www.gstatic.com https://www.recaptcha.net https://js.stripe.com",
             "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://cdn.quilljs.com https://fonts.googleapis.com",
             "img-src 'self' data: blob: https:",
             "font-src 'self' data: https://fonts.gstatic.com https://cdnjs.cloudflare.com https://cdn.jsdelivr.net",
             "connect-src 'self' https:",
-            "frame-src 'self' https://www.google.com https://www.recaptcha.net https://js.stripe.com https://hooks.stripe.com https://appleid.apple.com",
+            "frame-src 'self' https://www.google.com https://www.recaptcha.net https://js.stripe.com https://hooks.stripe.com",
             "frame-ancestors 'self'",
             "base-uri 'self'",
-            "form-action 'self' https://checkout.stripe.com https://appleid.apple.com",
+            "form-action 'self' https://checkout.stripe.com",
             "object-src 'none'",
         ]);
 
