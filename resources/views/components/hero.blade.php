@@ -42,7 +42,8 @@
   .slb-hero {
     position: relative;
     width: 100%;
-    margin-top: 72px;
+    /* Public layout already offsets the fixed navbar via body padding-top */
+    margin-top: 0;
     min-height: min(92vh, 900px);
     overflow: hidden;
     display: flex;

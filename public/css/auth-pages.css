@@ -14,8 +14,10 @@
   font-family: 'Plus Jakarta Sans', 'Poppins', sans-serif;
   color: var(--auth-ink);
   position: relative;
-  min-height: calc(100vh - 140px);
-  padding: 2.5rem 0 3.5rem;
+  /* Body already clears the fixed navbar; keep extra breathing room under the header line */
+  min-height: calc(100vh - var(--public-navbar-height, 88px) - 48px);
+  padding: 2rem 0 3.5rem;
+  margin-top: 0;
   overflow: hidden;
   background:
     radial-gradient(ellipse 70% 50% at 10% 0%, rgba(58, 174, 178, 0.18), transparent 55%),
