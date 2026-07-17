@@ -16,8 +16,68 @@
         }
         return route('advertiser.content-library', $params);
     };
+    $statusLabels = [
+        'available' => 'Available',
+        'in_progress' => 'In progress',
+        'published' => 'Published',
+        'needs_fix' => 'Needs fix',
+        'expired' => 'Expired',
+        'archived' => 'Archived',
+        'unavailable' => 'Unavailable',
+    ];
+    $statusBadge = [
+        'available' => 'success',
+        'in_progress' => 'primary',
+        'published' => 'success',
+        'needs_fix' => 'warning',
+        'expired' => 'secondary',
+        'archived' => 'secondary',
+        'unavailable' => 'light',
+    ];
 @endphp
 <style>
+    .library-table { background: #fff; border-radius: 12px; overflow: hidden; }
+    .library-table table { margin-bottom: 0; }
+    .library-table th {
+        font-size: .72rem;
+        letter-spacing: .04em;
+        text-transform: uppercase;
+        color: #64748b;
+        font-weight: 600;
+        border-bottom-width: 1px;
+        white-space: nowrap;
+    }
+    .library-table td { vertical-align: middle; }
+    .library-title { font-weight: 600; color: #0f172a; max-width: 280px; }
+    .library-live-link {
+        display: block;
+        font-size: .8rem;
+        margin-top: .2rem;
+        max-width: 320px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    .library-live-link a { color: var(--brand-primary, #0b6266); }
+    .library-market {
+        font-size: .78rem;
+        background: var(--brand-primary-bg, #e8f8f7);
+        color: var(--brand-primary, #0b6266);
+        border-radius: 999px;
+        padding: 3px 9px;
+        white-space: nowrap;
+    }
+    .library-scores { font-variant-numeric: tabular-nums; white-space: nowrap; color: #475569; }
+    .site-link-type {
+        font-size: .72rem;
+        padding: 1px 7px;
+        border-radius: 999px;
+        background: #f1f5f9;
+        color: #64748b;
+    }
+    .site-link-type.is-nofollow { background: #fef3c7; color: #92400e; }
+    .site-order-row.is-filtered-out { display: none !important; }
+    #uploadResultPreview { display: none; }
     .library-preview {
         border: 1px solid var(--brand-primary-border, #b8e8e6);
         background: #fff;
@@ -29,76 +89,15 @@
         line-height: 1.55;
         color: #334155;
     }
-    .library-preview p { margin-bottom: .65rem; }
-    .library-preview a { color: var(--brand-primary, #0b6266); word-break: break-all; }
-    .library-preview-label {
-        font-size: .72rem;
-        letter-spacing: .04em;
-        text-transform: uppercase;
-        color: var(--brand-primary-soft, #3aaeb2);
-        font-weight: 600;
-        margin-bottom: .35rem;
-    }
-    .library-link-chip {
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-        background: var(--brand-primary-bg, #e8f8f7);
-        color: var(--brand-primary, #0b6266);
-        border-radius: 999px;
-        padding: 4px 10px;
-        font-size: .78rem;
-        max-width: 100%;
-    }
-    .site-link-type {
-        font-size: .72rem;
-        padding: 1px 7px;
-        border-radius: 999px;
-        background: #f1f5f9;
-        color: #64748b;
-    }
-    .site-link-type.is-nofollow {
-        background: #fef3c7;
-        color: #92400e;
-    }
-    #uploadResultPreview { display: none; }
-    .library-check-list {
-        list-style: none;
-        padding: 0;
-        margin: .5rem 0 0;
-    }
-    .library-check-list li {
-        display: flex;
-        gap: .45rem;
-        align-items: flex-start;
-        font-size: .78rem;
-        margin-bottom: .3rem;
-        color: #475569;
-    }
-    .library-check-list .check-pass { color: #15803d; }
-    .library-check-list .check-fail { color: #b91c1c; }
-    .library-check-list .check-warn { color: #b45309; }
-    .library-availability {
-        font-size: .7rem;
-        letter-spacing: .03em;
-        text-transform: uppercase;
-        font-weight: 700;
-    }
-    .site-order-row.is-filtered-out { display: none !important; }
-    .library-title-edit {
-        display: none;
-        gap: .4rem;
-        align-items: center;
-        margin-bottom: .5rem;
-    }
-    .library-title-edit.is-open { display: flex; }
+    .library-actions .btn { white-space: nowrap; }
+    .library-filter-bar .form-select { min-width: 140px; }
 </style>
 
 <div class="container-fluid">
-    <div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-4">
+    <div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-3">
         <div>
             <h2 class="mb-1 fw-semibold">Content Library</h2>
-            <p class="text-muted mb-0">Upload Microsoft Word (.docx) articles by country and language. Only approved articles can be ordered.</p>
+            <p class="text-muted mb-0 small">One article → one website. Upload a .docx, then order when approved.</p>
         </div>
         <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#uploadContentModal" id="openUploadModalBtn">
             <i class="fa fa-upload me-1"></i> Upload article
@@ -113,243 +112,210 @@
     @endif
     <div id="libraryFlash" class="alert d-none" role="status"></div>
 
-    <div class="alert alert-info border-0 shadow-sm">
-        <strong>Before you upload:</strong>
-        {{ $uploadCfg['help']['before_upload'] ?? 'Please upload your article as a Microsoft Word (.docx) document only. Maximum size: 5 MB.' }}
-    </div>
-
-    <form method="GET" action="{{ route('advertiser.content-library') }}" class="row g-2 align-items-end mb-3">
-        <input type="hidden" name="status" value="{{ $statusFilter ?? 'all' }}">
-        <input type="hidden" name="availability" value="{{ $availabilityFilter ?? 'all' }}">
-        <input type="hidden" name="language" value="{{ $languageFilter ?? 'all' }}">
-        <input type="hidden" name="country" value="{{ $countryFilter ?? 'all' }}">
-        <div class="col-md-6 col-lg-5">
+    <form method="GET" action="{{ route('advertiser.content-library') }}" class="library-filter-bar row g-2 align-items-end mb-3">
+        <div class="col-md-4 col-lg-3">
             <label class="form-label small text-muted mb-1" for="librarySearchInput">Search</label>
-            <input type="search" name="q" id="librarySearchInput" class="form-control"
-                   value="{{ $searchQuery ?? '' }}"
-                   placeholder="Search by title or filename">
+            <input type="search" name="q" id="librarySearchInput" class="form-control form-control-sm"
+                   value="{{ $searchQuery ?? '' }}" placeholder="Title or filename">
+        </div>
+        <div class="col-6 col-md-2">
+            <label class="form-label small text-muted mb-1">Status</label>
+            <select name="availability" class="form-select form-select-sm" onchange="this.form.submit()">
+                @foreach([
+                    'all' => 'Active',
+                    'available' => 'Available',
+                    'in_progress' => 'In progress',
+                    'published' => 'Published',
+                    'needs_fix' => 'Needs fix',
+                    'expired' => 'Expired',
+                    'archived' => 'Archived',
+                ] as $key => $label)
+                    <option value="{{ $key }}" @selected(($availabilityFilter ?? 'all') === $key)>{{ $label }}</option>
+                @endforeach
+            </select>
+        </div>
+        <div class="col-6 col-md-2">
+            <label class="form-label small text-muted mb-1">Country</label>
+            <select name="country" class="form-select form-select-sm" onchange="this.form.submit()">
+                <option value="all" @selected(($countryFilter ?? 'all') === 'all')>All</option>
+                @foreach(($groupedByCountry ?? []) as $countryCode => $count)
+                    <option value="{{ $countryCode }}" @selected(($countryFilter ?? 'all') === $countryCode)>
+                        {{ strtoupper($countryCode) }} ({{ $count }})
+                    </option>
+                @endforeach
+            </select>
+        </div>
+        <div class="col-6 col-md-2">
+            <label class="form-label small text-muted mb-1">Language</label>
+            <select name="language" class="form-select form-select-sm" onchange="this.form.submit()">
+                <option value="all" @selected(($languageFilter ?? 'all') === 'all')>All</option>
+                @foreach(($groupedByLanguage ?? []) as $langCode => $count)
+                    <option value="{{ $langCode }}" @selected(($languageFilter ?? 'all') === $langCode)>
+                        {{ strtoupper($langCode) }} ({{ $count }})
+                    </option>
+                @endforeach
+            </select>
         </div>
         <div class="col-auto">
-            <button type="submit" class="btn btn-outline-primary">Search</button>
-            @if(!empty($searchQuery))
-                <a href="{{ $libraryRoute(['q' => '']) }}" class="btn btn-link">Clear</a>
+            <button type="submit" class="btn btn-sm btn-outline-primary">Apply</button>
+            @if(!empty($searchQuery) || ($availabilityFilter ?? 'all') !== 'all' || ($countryFilter ?? 'all') !== 'all' || ($languageFilter ?? 'all') !== 'all')
+                <a href="{{ route('advertiser.content-library') }}" class="btn btn-sm btn-link">Reset</a>
             @endif
         </div>
     </form>
 
-    <div class="mb-2 d-flex flex-wrap gap-2">
-        @foreach(['all' => 'All', 'available' => 'Available', 'ordered' => 'Ordered', 'expired' => 'Expired'] as $key => $label)
-            <a href="{{ $libraryRoute(['availability' => $key]) }}"
-               class="btn btn-sm {{ ($availabilityFilter ?? 'all') === $key ? 'btn-primary' : 'btn-outline-primary' }}">{{ $label }}</a>
-        @endforeach
-    </div>
-
-    <div class="mb-2 d-flex flex-wrap gap-2">
-        @foreach(['all' => 'All statuses', 'approved' => 'Approved', 'needs_improvement' => 'Needs improvement', 'rejected' => 'Rejected', 'processing' => 'Processing'] as $key => $label)
-            <a href="{{ $libraryRoute(['status' => $key]) }}"
-               class="btn btn-sm {{ ($statusFilter ?? 'all') === $key ? 'btn-dark' : 'btn-outline-secondary' }}">{{ $label }}</a>
-        @endforeach
-    </div>
-
-    <div class="mb-2 d-flex flex-wrap gap-2 align-items-center">
-        <span class="small text-muted me-1">Country:</span>
-        <a href="{{ $libraryRoute(['country' => 'all']) }}"
-           class="btn btn-sm {{ ($countryFilter ?? 'all') === 'all' ? 'btn-primary' : 'btn-outline-primary' }}">All</a>
-        @foreach(($groupedByCountry ?? []) as $countryCode => $count)
-            <a href="{{ $libraryRoute(['country' => $countryCode]) }}"
-               class="btn btn-sm {{ ($countryFilter ?? 'all') === $countryCode ? 'btn-primary' : 'btn-outline-primary' }}">
-                {{ strtoupper($countryCode) }} <span class="opacity-75">({{ $count }})</span>
-            </a>
-        @endforeach
-    </div>
-
-    <div class="mb-3 d-flex flex-wrap gap-2 align-items-center">
-        <span class="small text-muted me-1">Language:</span>
-        <a href="{{ $libraryRoute(['language' => 'all']) }}"
-           class="btn btn-sm {{ ($languageFilter ?? 'all') === 'all' ? 'btn-primary' : 'btn-outline-primary' }}">All</a>
-        @foreach(($groupedByLanguage ?? []) as $langCode => $count)
-            <a href="{{ $libraryRoute(['language' => $langCode]) }}"
-               class="btn btn-sm {{ ($languageFilter ?? 'all') === $langCode ? 'btn-primary' : 'btn-outline-primary' }}">
-                {{ strtoupper($langCode) }} <span class="opacity-75">({{ $count }})</span>
-            </a>
-        @endforeach
-    </div>
-
-    <div class="row g-3">
-        @forelse($submissions as $submission)
-            @php
-                $status = $submission->moderation_status;
-                $badge = match($status) {
-                    'approved' => 'success',
-                    'needs_improvement' => 'warning',
-                    'rejected' => 'danger',
-                    'processing' => 'info',
-                    default => 'secondary',
-                };
-                $availability = $submission->libraryAvailability();
-                $availabilityBadge = match($availability) {
-                    'available' => 'success',
-                    'ordered' => 'primary',
-                    'expired' => 'secondary',
-                    default => 'light',
-                };
-                $checks = collect($submission->evaluation_report['checks'] ?? [])
-                    ->filter(fn ($c) => is_array($c) && !empty($c['label']))
-                    ->take(6);
-                $failedChecks = $checks->filter(fn ($c) => ($c['status'] ?? '') === 'fail');
-            @endphp
-            <div class="col-md-6 col-xl-4" id="library-card-{{ $submission->id }}">
-                <div class="card border-0 shadow-sm h-100">
-                    <div class="card-body d-flex flex-column">
-                        <div class="d-flex justify-content-between gap-2 mb-2">
-                            <h5 class="h6 mb-0 library-card-title" data-title-display="{{ $submission->id }}">
+    <div class="library-table border shadow-sm">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Title</th>
+                        <th>Market</th>
+                        <th>Status</th>
+                        <th>Scores</th>
+                        <th class="text-end">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                @forelse($submissions as $submission)
+                    @php
+                        $availability = $submission->libraryAvailability();
+                        $placement = $submission->placementItem();
+                        $liveUrl = $submission->liveUrl();
+                        $siteName = $placement?->site?->site_name;
+                        $badge = $statusBadge[$availability] ?? 'secondary';
+                        $label = $statusLabels[$availability] ?? ucfirst(str_replace('_', ' ', $availability));
+                    @endphp
+                    <tr id="library-row-{{ $submission->id }}">
+                        <td>
+                            <div class="library-title text-truncate" data-title-display="{{ $submission->id }}" title="{{ $submission->title ?: $submission->original_filename }}">
                                 {{ $submission->title ?: $submission->original_filename }}
-                            </h5>
-                            <div class="d-flex flex-column align-items-end gap-1">
-                                <span class="badge text-bg-{{ $badge }}">{{ ucfirst(str_replace('_', ' ', $status)) }}</span>
-                                <span class="badge text-bg-{{ $availabilityBadge }} library-availability">
-                                    {{ ucfirst($availability) }}
-                                </span>
                             </div>
-                        </div>
-
-                        @if(!$submission->isInUse())
-                            <div class="library-title-edit" data-title-edit="{{ $submission->id }}">
-                                <input type="text" class="form-control form-control-sm" maxlength="200"
-                                       value="{{ $submission->title }}"
-                                       placeholder="Article title"
-                                       data-title-input="{{ $submission->id }}">
-                                <button type="button" class="btn btn-sm btn-primary" onclick="saveLibraryTitle({{ $submission->id }})">Save</button>
-                                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="toggleLibraryTitleEdit({{ $submission->id }}, false)">Cancel</button>
-                            </div>
-                        @endif
-
-                        <div class="small text-muted mb-2">
-                            {{ $submission->original_filename }} · {{ number_format($submission->word_count) }} words
-                            @if($submission->country || $submission->language)
-                                · <span class="library-link-chip">{{ strtoupper((string) $submission->country) }}/{{ strtoupper((string) $submission->language) }}</span>
-                            @endif
-                            @if($submission->isInUse() && $submission->order_id)
-                                · <a href="{{ route('advertiser.orders') }}">Order #{{ $submission->order_id }}</a>
-                            @endif
-                            @if($submission->expires_at)
-                                · Expires {{ $submission->expires_at->format('M j, Y') }}
-                            @endif
-                        </div>
-
-                        @if($submission->preview_html)
-                            <div class="mb-3">
-                                <div class="library-preview-label">Article preview</div>
-                                <div class="library-preview">{!! $submission->preview_html !!}</div>
-                            </div>
-                        @else
-                            <div class="alert alert-light border small mb-3 mb-0">No preview available for this article.</div>
-                        @endif
-
-                        @if($submission->hasLink())
-                            <div class="mb-3">
-                                <span class="library-link-chip" title="{{ $submission->target_url }}">
-                                    <i class="fa fa-link"></i>
-                                    <span class="text-truncate">{{ $submission->anchor_text }}</span>
-                                </span>
-                            </div>
-                        @else
-                            <div class="small text-muted mb-3"><i class="fa fa-unlink me-1"></i> No link detected in this article</div>
-                        @endif
-
-                        @if($submission->evaluated_at)
-                            <div class="border rounded-3 p-2 bg-light small mb-3">
-                                <div class="fw-semibold mb-1">Article report</div>
-                                <div class="d-flex gap-3 mb-2">
-                                    <div><strong>Uniqueness</strong><br>{{ $submission->uniqueness_score !== null ? $submission->uniqueness_score.'%' : '—' }}</div>
-                                    <div><strong>Quality</strong><br>{{ $submission->quality_score !== null ? $submission->quality_score.'%' : '—' }}</div>
+                            @if($availability === 'published' && $liveUrl)
+                                <div class="library-live-link">
+                                    @if($siteName)
+                                        <span class="text-muted">Published on {{ $siteName }}</span><br>
+                                    @else
+                                        <span class="text-muted">Published</span><br>
+                                    @endif
+                                    <a href="{{ $liveUrl }}" target="_blank" rel="noopener noreferrer">{{ $liveUrl }}</a>
                                 </div>
-                                @if(!empty($submission->evaluation_report['summary'] ?? null))
-                                    <div class="text-muted mb-1">{{ $submission->evaluation_report['summary'] }}</div>
-                                @endif
-                                @if($checks->isNotEmpty())
-                                    <ul class="library-check-list">
-                                        @foreach(($failedChecks->isNotEmpty() ? $failedChecks : $checks->take(4)) as $check)
-                                            @php
-                                                $checkStatus = $check['status'] ?? 'info';
-                                                $iconClass = match($checkStatus) {
-                                                    'pass' => 'fa-check-circle check-pass',
-                                                    'fail' => 'fa-times-circle check-fail',
-                                                    'warn', 'warning' => 'fa-exclamation-circle check-warn',
-                                                    default => 'fa-info-circle text-muted',
-                                                };
-                                            @endphp
-                                            <li>
-                                                <i class="fa {{ $iconClass }} mt-1"></i>
-                                                <span>
-                                                    <strong>{{ $check['label'] }}</strong>
-                                                    @if(!empty($check['detail']))
-                                                        — {{ $check['detail'] }}
-                                                    @endif
-                                                </span>
-                                            </li>
-                                        @endforeach
-                                    </ul>
-                                @endif
+                            @elseif($availability === 'in_progress' && $submission->order_id)
+                                <div class="library-live-link text-muted">
+                                    Order #{{ $submission->order_id }}
+                                    @if($siteName) · {{ $siteName }} @endif
+                                </div>
+                            @elseif($availability === 'needs_fix')
+                                <div class="library-live-link text-warning">
+                                    {{ $submission->evaluation_report['summary'] ?? 'Fix issues and resubmit.' }}
+                                </div>
+                            @endif
+                            <div class="library-title-edit d-none mt-2" data-title-edit="{{ $submission->id }}">
+                                <div class="input-group input-group-sm" style="max-width:320px;">
+                                    <input type="text" class="form-control" maxlength="200"
+                                           value="{{ $submission->title }}"
+                                           data-title-input="{{ $submission->id }}">
+                                    <button type="button" class="btn btn-primary" onclick="saveLibraryTitle({{ $submission->id }})">Save</button>
+                                    <button type="button" class="btn btn-outline-secondary" onclick="toggleLibraryTitleEdit({{ $submission->id }}, false)">Cancel</button>
+                                </div>
                             </div>
-                        @endif
+                        </td>
+                        <td>
+                            <span class="library-market">
+                                {{ strtoupper((string) $submission->country) }}/{{ strtoupper((string) $submission->language) }}
+                            </span>
+                        </td>
+                        <td>
+                            <span class="badge text-bg-{{ $badge }}">{{ $label }}</span>
+                        </td>
+                        <td class="library-scores">
+                            @if($submission->evaluated_at)
+                                {{ $submission->uniqueness_score !== null ? $submission->uniqueness_score.'%' : '—' }}
+                                ·
+                                {{ $submission->quality_score !== null ? $submission->quality_score.'%' : '—' }}
+                            @else
+                                —
+                            @endif
+                        </td>
+                        <td class="text-end library-actions">
+                            <div class="d-inline-flex flex-wrap gap-1 justify-content-end">
+                                @if($submission->canBeOrdered())
+                                    <button type="button" class="btn btn-sm btn-primary"
+                                            onclick="openOrderModal({{ $submission->id }}, @js($submission->title ?: $submission->original_filename), @js($submission->anchor_text), @js($submission->target_url), @js($submission->feature_image_url), {{ $submission->hasLink() ? 'true' : 'false' }}, @js($submission->country), @js($submission->language))">
+                                        Order
+                                    </button>
+                                @elseif($availability === 'needs_fix')
+                                    <a class="btn btn-sm btn-outline-primary"
+                                       href="{{ route('advertiser.content-library', ['edit' => $submission->id, 'upload' => 1]) }}">
+                                        Resubmit
+                                    </a>
+                                @elseif($availability === 'in_progress' || $availability === 'published')
+                                    <a class="btn btn-sm btn-outline-secondary" href="{{ route('advertiser.orders') }}">View order</a>
+                                @endif
 
-                        <div class="mt-auto d-flex flex-wrap gap-2">
-                            <a href="{{ route('advertiser.content-submissions.download', $submission) }}" class="btn btn-sm btn-outline-secondary">
-                                <i class="fa fa-download"></i> Document
-                            </a>
-                            @if($submission->preview_html)
-                                <button type="button" class="btn btn-sm btn-outline-secondary"
-                                        onclick='openPreviewModal(@json($submission->title ?: $submission->original_filename), @json($submission->preview_html))'>
-                                    Full preview
-                                </button>
+                                <div class="dropdown">
+                                    <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                        More
+                                    </button>
+                                    <ul class="dropdown-menu dropdown-menu-end">
+                                        @if($submission->preview_html)
+                                            <li>
+                                                <button type="button" class="dropdown-item"
+                                                        onclick='openPreviewModal(@json($submission->title ?: $submission->original_filename), @json($submission->preview_html))'>
+                                                    Preview
+                                                </button>
+                                            </li>
+                                        @endif
+                                        <li>
+                                            <a class="dropdown-item" href="{{ route('advertiser.content-submissions.download', $submission) }}">Download</a>
+                                        </li>
+                                        @if(!$submission->isInUse() && !$submission->isArchived())
+                                            <li>
+                                                <button type="button" class="dropdown-item" onclick="toggleLibraryTitleEdit({{ $submission->id }}, true)">Rename</button>
+                                            </li>
+                                        @endif
+                                        @if($submission->isArchived())
+                                            <li>
+                                                <button type="button" class="dropdown-item" onclick="restoreLibraryArticle({{ $submission->id }})">Restore</button>
+                                            </li>
+                                        @elseif($availability !== 'in_progress')
+                                            <li>
+                                                <button type="button" class="dropdown-item" onclick="archiveLibraryArticle({{ $submission->id }})">Archive</button>
+                                            </li>
+                                        @endif
+                                        @if(!$submission->isInUse())
+                                            <li><hr class="dropdown-divider"></li>
+                                            <li>
+                                                <button type="button" class="dropdown-item text-danger"
+                                                        onclick="deleteLibraryArticle({{ $submission->id }}, @js($submission->title ?: $submission->original_filename))">
+                                                    Delete
+                                                </button>
+                                            </li>
+                                        @endif
+                                    </ul>
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
+                @empty
+                    <tr>
+                        <td colspan="5" class="text-center text-muted py-5">
+                            @if(($availabilityFilter ?? 'all') === 'archived')
+                                No archived articles.
+                            @elseif(!empty($searchQuery) || ($availabilityFilter ?? 'all') !== 'all' || ($countryFilter ?? 'all') !== 'all' || ($languageFilter ?? 'all') !== 'all')
+                                No articles match these filters.
+                            @else
+                                No articles yet. Upload a .docx to get started.
                             @endif
-                            @if(!$submission->isInUse())
-                                <button type="button" class="btn btn-sm btn-outline-secondary"
-                                        onclick="toggleLibraryTitleEdit({{ $submission->id }}, true)">
-                                    Rename
-                                </button>
-                            @endif
-                            @if($submission->needsCorrection())
-                                <a class="btn btn-sm btn-outline-primary"
-                                   href="{{ route('advertiser.content-library', array_filter(['edit' => $submission->id, 'upload' => 1])) }}">
-                                    Edit & resubmit
-                                </a>
-                            @endif
-                            @if($submission->canBeOrdered())
-                                <button type="button" class="btn btn-sm btn-primary"
-                                        onclick="openOrderModal({{ $submission->id }}, @js($submission->title ?: $submission->original_filename), @js($submission->anchor_text), @js($submission->target_url), @js($submission->feature_image_url), {{ $submission->hasLink() ? 'true' : 'false' }}, @js($submission->country), @js($submission->language))">
-                                    Select websites & order
-                                </button>
-                            @elseif($availability === 'ordered')
-                                <span class="btn btn-sm btn-outline-secondary disabled">In use on an order</span>
-                            @endif
-                            @if(!$submission->isInUse())
-                                <button type="button" class="btn btn-sm btn-outline-danger"
-                                        onclick="deleteLibraryArticle({{ $submission->id }}, @js($submission->title ?: $submission->original_filename))">
-                                    Delete
-                                </button>
-                            @endif
-                        </div>
-                    </div>
-                </div>
-            </div>
-        @empty
-            <div class="col-12">
-                <div class="card border-0 shadow-sm">
-                    <div class="card-body text-center py-5 text-muted">
-                        @if(!empty($searchQuery) || ($availabilityFilter ?? 'all') !== 'all' || ($statusFilter ?? 'all') !== 'all' || ($countryFilter ?? 'all') !== 'all' || ($languageFilter ?? 'all') !== 'all')
-                            No articles match these filters.
-                        @else
-                            No articles yet. Upload a .docx to get started.
-                        @endif
-                    </div>
-                </div>
-            </div>
-        @endforelse
+                        </td>
+                    </tr>
+                @endforelse
+                </tbody>
+            </table>
+        </div>
     </div>
 
-    <div class="mt-4">{{ $submissions->links() }}</div>
+    <div class="mt-3">{{ $submissions->links() }}</div>
 </div>
 
 {{-- Upload modal --}}
@@ -361,9 +327,9 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
-                <div class="alert alert-warning small">
+                <div class="alert alert-warning small mb-3">
                     {{ $uploadCfg['help']['preferred_format'] ?? 'Please upload your article as a Microsoft Word (.docx) document only.' }}
-                    Select country and language before uploading.
+                    Each approved article can be ordered on one website.
                 </div>
                 <div class="mb-3">
                     <label class="form-label">Title <span class="text-muted">(optional)</span></label>
@@ -399,14 +365,11 @@
                 <div class="mb-3">
                     <label class="form-label">Microsoft Word document (.docx)</label>
                     <input type="file" name="file" id="libraryFileInput" class="form-control" accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document" required>
-                    <div class="form-text">Other formats are not accepted. Anchor text and URL are filled automatically when found in the article.</div>
                 </div>
                 <input type="hidden" name="replace_id" id="replaceIdInput" value="{{ $editSubmission->id ?? '' }}">
                 <div id="libraryUploadFeedback" class="small" aria-live="polite"></div>
                 <div class="progress d-none mt-2" id="libraryUploadProgress" style="height:6px;"><div class="progress-bar" style="width:0%"></div></div>
-
                 <div id="uploadResultPreview" class="mt-3">
-                    <div class="library-preview-label">Article preview</div>
                     <div class="library-preview" id="uploadResultPreviewBody"></div>
                     <div class="small text-muted mt-2" id="uploadResultLinkInfo"></div>
                 </div>
@@ -434,27 +397,26 @@
     </div>
 </div>
 
-{{-- Order modal --}}
+{{-- Order modal: single site --}}
 <div class="modal fade" id="orderContentModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-lg">
         <form class="modal-content" method="POST" action="{{ route('advertiser.content-library.order') }}" id="libraryOrderForm">
             @csrf
             <div class="modal-header">
-                <h5 class="modal-title">Place order with <span id="orderArticleTitle"></span></h5>
+                <h5 class="modal-title">Order <span id="orderArticleTitle"></span></h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
                 <input type="hidden" name="content_submission_id" id="orderSubmissionId">
+                <div class="alert alert-info small">Select <strong>one</strong> website for this article.</div>
                 <div class="row g-3 mb-3">
                     <div class="col-md-6">
                         <label class="form-label">Anchor text <span class="text-muted">(optional)</span></label>
                         <input type="text" name="anchor_text" id="orderAnchor" class="form-control" maxlength="120">
-                        <div class="form-text">Filled automatically from the article when a link is found. You can edit it.</div>
                     </div>
                     <div class="col-md-6">
                         <label class="form-label">Target URL (HTTPS) <span class="text-muted">(optional)</span></label>
                         <input type="url" name="target_url" id="orderTarget" class="form-control" placeholder="https://">
-                        <div class="form-text">Filled automatically from the article when a link is found.</div>
                     </div>
                     <div class="col-12">
                         <label class="form-label">Feature Image URL <span class="text-muted">(optional)</span></label>
@@ -464,7 +426,6 @@
 
                 <div id="noLinkNotice" class="alert alert-warning d-none">
                     No link was found in this article (and none was entered).
-                    You can still continue without a link if you want.
                     <div class="form-check mt-2">
                         <input class="form-check-input" type="checkbox" name="allow_no_link" value="1" id="allowNoLink">
                         <label class="form-check-label" for="allowNoLink">Continue without a link</label>
@@ -472,8 +433,7 @@
                 </div>
 
                 <div id="nofollowNotice" class="alert alert-warning d-none">
-                    One or more selected websites accept <strong>nofollow</strong> links only.
-                    Your placement will be published as nofollow on those sites.
+                    The selected website accepts <strong>nofollow</strong> links only.
                     <div class="form-check mt-2">
                         <input class="form-check-input" type="checkbox" name="acknowledge_nofollow" value="1" id="acknowledgeNofollow">
                         <label class="form-check-label" for="acknowledgeNofollow">I understand and want to continue</label>
@@ -481,16 +441,16 @@
                 </div>
 
                 <div class="mb-3">
-                    <label class="form-label fw-semibold">Select websites for publication</label>
+                    <label class="form-label fw-semibold">Website</label>
                     <input type="search" id="siteOrderSearch" class="form-control form-control-sm mb-2"
-                           placeholder="Search matching websites by name or URL">
+                           placeholder="Search by name or URL">
                     <div class="small text-muted mb-2" id="siteOrderCount"></div>
                     <div class="border rounded-3 p-3" style="max-height:260px;overflow:auto;" id="siteOrderList">
                         @forelse($sites as $site)
                             <div class="form-check mb-2 site-order-row"
                                  data-site-name="{{ strtolower($site['site_name']) }}"
                                  data-site-url="{{ strtolower($site['site_url'] ?? '') }}">
-                                <input class="form-check-input site-order-check" type="checkbox" name="site_ids[]"
+                                <input class="form-check-input site-order-check" type="radio" name="site_id"
                                        value="{{ $site['id'] }}" id="site_{{ $site['id'] }}"
                                        data-link-type="{{ $site['link_type'] ?? 'dofollow' }}"
                                        data-countries="{{ implode(',', $site['countries'] ?? []) }}"
@@ -520,7 +480,7 @@
                     </div>
                     <div class="form-check">
                         <input class="form-check-input" type="radio" name="publication_mode" id="libPubScheduled" value="scheduled">
-                        <label class="form-check-label" for="libPubScheduled">Schedule Publication (charged in advance; publisher notified now)</label>
+                        <label class="form-check-label" for="libPubScheduled">Schedule Publication</label>
                     </div>
                 </div>
                 <div id="libScheduleFields" class="row g-2 d-none">
@@ -563,12 +523,6 @@ function showLibraryFlash(message, ok) {
     window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
-function openReplaceUpload(id) {
-    document.getElementById('replaceIdInput').value = id;
-    document.getElementById('uploadResultPreview').style.display = 'none';
-    new bootstrap.Modal(document.getElementById('uploadContentModal')).show();
-}
-
 function openPreviewModal(title, html) {
     document.getElementById('articlePreviewTitle').textContent = title || 'Article preview';
     document.getElementById('articlePreviewBody').innerHTML = html || '';
@@ -577,10 +531,8 @@ function openPreviewModal(title, html) {
 
 function toggleLibraryTitleEdit(id, open) {
     const edit = document.querySelector('[data-title-edit="' + id + '"]');
-    const title = document.querySelector('[data-title-display="' + id + '"]');
-    if (!edit || !title) return;
-    edit.classList.toggle('is-open', !!open);
-    title.style.display = open ? 'none' : '';
+    if (!edit) return;
+    edit.classList.toggle('d-none', !open);
     if (open) {
         const input = document.querySelector('[data-title-input="' + id + '"]');
         input?.focus();
@@ -609,7 +561,10 @@ async function saveLibraryTitle(id) {
         }
         const display = document.querySelector('[data-title-display="' + id + '"]');
         const nextTitle = (data.submission && data.submission.title) || title || (data.submission && data.submission.original_filename) || 'Article';
-        if (display) display.textContent = nextTitle;
+        if (display) {
+            display.textContent = nextTitle;
+            display.title = nextTitle;
+        }
         toggleLibraryTitleEdit(id, false);
         showLibraryFlash('Article renamed.', true);
     } catch (e) {
@@ -624,21 +579,53 @@ async function deleteLibraryArticle(id, label) {
     try {
         const res = await fetch(libraryUpdateUrl + '/' + id, {
             method: 'DELETE',
-            headers: {
-                'X-CSRF-TOKEN': libraryCsrf,
-                'Accept': 'application/json',
-            },
+            headers: { 'X-CSRF-TOKEN': libraryCsrf, 'Accept': 'application/json' },
         });
         const data = await res.json();
         if (!res.ok || !data.success) {
             showLibraryFlash(data.message || 'Could not delete article.', false);
             return;
         }
-        const card = document.getElementById('library-card-' + id);
-        if (card) card.remove();
+        document.getElementById('library-row-' + id)?.remove();
         showLibraryFlash('Article deleted.', true);
     } catch (e) {
         showLibraryFlash('Network error while deleting.', false);
+    }
+}
+
+async function archiveLibraryArticle(id) {
+    try {
+        const res = await fetch(libraryUpdateUrl + '/' + id + '/archive', {
+            method: 'POST',
+            headers: { 'X-CSRF-TOKEN': libraryCsrf, 'Accept': 'application/json' },
+        });
+        const data = await res.json();
+        if (!res.ok || !data.success) {
+            showLibraryFlash(data.message || 'Could not archive article.', false);
+            return;
+        }
+        document.getElementById('library-row-' + id)?.remove();
+        showLibraryFlash('Article archived.', true);
+    } catch (e) {
+        showLibraryFlash('Network error while archiving.', false);
+    }
+}
+
+async function restoreLibraryArticle(id) {
+    try {
+        const res = await fetch(libraryUpdateUrl + '/' + id + '/restore', {
+            method: 'POST',
+            headers: { 'X-CSRF-TOKEN': libraryCsrf, 'Accept': 'application/json' },
+        });
+        const data = await res.json();
+        if (!res.ok || !data.success) {
+            showLibraryFlash(data.message || 'Could not restore article.', false);
+            return;
+        }
+        document.getElementById('library-row-' + id)?.remove();
+        showLibraryFlash('Article restored.', true);
+    } catch (e) {
+        showLibraryFlash('Network error while restoring.', false);
     }
 }
 
@@ -653,16 +640,12 @@ function syncNoLinkNotice() {
 }
 
 function syncNofollowNotice() {
-    const checks = document.querySelectorAll('.site-order-check:checked');
-    let hasNofollow = false;
-    checks.forEach(function (el) {
-        if ((el.dataset.linkType || '') === 'nofollow') hasNofollow = true;
-    });
+    const selected = document.querySelector('.site-order-check:checked');
     const notice = document.getElementById('nofollowNotice');
     const ack = document.getElementById('acknowledgeNofollow');
     const hasLink = (document.getElementById('orderAnchor').value || '').trim() !== ''
         || (document.getElementById('orderTarget').value || '').trim() !== '';
-    const show = hasNofollow && hasLink;
+    const show = !!(selected && (selected.dataset.linkType || '') === 'nofollow' && hasLink);
     notice.classList.toggle('d-none', !show);
     if (!show) ack.checked = false;
 }
@@ -683,7 +666,7 @@ function filterSiteOrderList() {
     });
     const countEl = document.getElementById('siteOrderCount');
     if (countEl) {
-        countEl.textContent = visible + ' matching website' + (visible === 1 ? '' : 's');
+        countEl.textContent = visible + ' matching website' + (visible === 1 ? '' : 's') + ' · pick one';
     }
 }
 
@@ -728,6 +711,11 @@ document.querySelectorAll('.site-order-check').forEach(function (el) {
 });
 
 document.getElementById('libraryOrderForm')?.addEventListener('submit', function (e) {
+    if (!document.querySelector('.site-order-check:checked')) {
+        e.preventDefault();
+        showLibraryFlash('Please select one website.', false);
+        return;
+    }
     const anchor = (document.getElementById('orderAnchor').value || '').trim();
     const target = (document.getElementById('orderTarget').value || '').trim();
     if (!anchor && !target && !document.getElementById('allowNoLink').checked) {
@@ -737,9 +725,9 @@ document.getElementById('libraryOrderForm')?.addEventListener('submit', function
         document.getElementById('allowNoLink').focus();
         return;
     }
-    const hasNofollow = Array.from(document.querySelectorAll('.site-order-check:checked'))
-        .some(function (el) { return (el.dataset.linkType || '') === 'nofollow'; });
-    if (hasNofollow && (anchor || target) && !document.getElementById('acknowledgeNofollow').checked) {
+    const selected = document.querySelector('.site-order-check:checked');
+    if (selected && (selected.dataset.linkType || '') === 'nofollow' && (anchor || target)
+        && !document.getElementById('acknowledgeNofollow').checked) {
         e.preventDefault();
         syncNofollowNotice();
         document.getElementById('nofollowNotice').classList.remove('d-none');
@@ -792,14 +780,12 @@ document.getElementById('libraryUploadForm')?.addEventListener('submit', async f
         feedback.innerHTML = '<span class="text-success">' + (data.message || 'Uploaded') + '</span>';
         if (data.submission && data.submission.preview_html) {
             previewBody.innerHTML = data.submission.preview_html;
-            if (data.has_link && data.submission.anchor_text) {
-                linkInfo.textContent = 'Detected link: ' + data.submission.anchor_text + ' → ' + (data.submission.target_url || '');
-            } else {
-                linkInfo.textContent = 'No link detected in this article. You can add one when placing an order, or continue without a link.';
-            }
+            linkInfo.textContent = data.has_link && data.submission.anchor_text
+                ? ('Detected link: ' + data.submission.anchor_text)
+                : 'No link detected. You can add one when ordering.';
             previewWrap.style.display = 'block';
         }
-        setTimeout(function () { window.location.href = @json(route('advertiser.content-library')); }, 1600);
+        setTimeout(function () { window.location.href = @json(route('advertiser.content-library')); }, 1200);
     } catch (err) {
         feedback.innerHTML = '<span class="text-danger">Network error while uploading.</span>';
         btn.disabled = false;

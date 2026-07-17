@@ -62,6 +62,7 @@ class ContentSubmission extends Model
         'order_id',
         'order_item_id',
         'expires_at',
+        'archived_at',
     ];
 
     protected $casts = [
@@ -77,6 +78,7 @@ class ContentSubmission extends Model
         'evaluated_at' => 'datetime',
         'approval_notified_at' => 'datetime',
         'expires_at' => 'datetime',
+        'archived_at' => 'datetime',
     ];
 
     public function user(): BelongsTo
@@ -131,6 +133,7 @@ class ContentSubmission extends Model
             && (int) ($this->uniqueness_score ?? 0) >= $minUniqueness
             && $this->path
             && $this->order_id === null
+            && ! $this->isArchived()
             && ($this->expires_at === null || $this->expires_at->isFuture())
             && filled($this->country)
             && filled($this->language);
@@ -146,15 +149,91 @@ class ContentSubmission extends Model
         return $this->expires_at !== null && $this->expires_at->isPast();
     }
 
+    public function isArchived(): bool
+    {
+        return $this->archived_at !== null;
+    }
+
+    public function archive(): void
+    {
+        if ($this->isArchived()) {
+            return;
+        }
+
+        $this->forceFill(['archived_at' => now()])->save();
+    }
+
+    public function restoreFromArchive(): void
+    {
+        if (! $this->isArchived()) {
+            return;
+        }
+
+        $this->forceFill(['archived_at' => null])->save();
+    }
+
+    /**
+     * Primary placement item used for library status + live URL.
+     */
+    public function placementItem(): ?OrderItem
+    {
+        if ($this->relationLoaded('orderItem') && $this->orderItem) {
+            return $this->orderItem;
+        }
+
+        if ($this->relationLoaded('orderItems')) {
+            return $this->orderItems->sortBy('id')->first();
+        }
+
+        if ($this->order_item_id) {
+            return $this->orderItem()->with('site')->first();
+        }
+
+        return $this->orderItems()->with('site')->orderBy('id')->first();
+    }
+
+    public function liveUrl(): ?string
+    {
+        $item = $this->placementItem();
+        if (! $item || ! $item->hasLiveUrl()) {
+            return null;
+        }
+
+        return trim((string) $item->live_url) ?: null;
+    }
+
+    public function isPublished(): bool
+    {
+        $item = $this->placementItem();
+        if (! $item) {
+            return false;
+        }
+
+        return $item->hasLiveUrl()
+            || in_array((string) $item->publisher_status, ['completed'], true);
+    }
+
     /**
      * Library-facing availability for filters and badges.
      *
-     * @return 'available'|'ordered'|'expired'|'unavailable'
+     * @return 'available'|'in_progress'|'published'|'expired'|'archived'|'needs_fix'|'unavailable'
      */
     public function libraryAvailability(): string
     {
+        if ($this->isArchived()) {
+            return 'archived';
+        }
+
+        if ($this->needsCorrection()) {
+            return 'needs_fix';
+        }
+
+        if ($this->isPublished()) {
+            return 'published';
+        }
+
         if ($this->isInUse()) {
-            return 'ordered';
+            return 'in_progress';
         }
 
         if ($this->isExpired()) {

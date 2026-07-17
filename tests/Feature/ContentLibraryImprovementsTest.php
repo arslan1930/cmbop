@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Order;
+use App\Models\OrderItem;
 use App\Models\Role;
 use App\Models\Site;
 use App\Models\User;
@@ -60,7 +61,7 @@ class ContentLibraryImprovementsTest extends TestCase
         ]);
     }
 
-    public function test_library_filters_by_availability_search_and_country(): void
+    public function test_library_compact_table_filters_and_status_labels(): void
     {
         $advertiser = $this->advertiser();
         $publisher = $this->publisher();
@@ -72,25 +73,45 @@ class ContentLibraryImprovementsTest extends TestCase
         $ordered = $this->createApprovedSubmission($advertiser, $site->id, 0, 'anchor b', 'https://example.com/b');
         $ordered->update(['title' => 'Ordered Piece']);
         $order = $this->makeOrder($advertiser);
-        $ordered->update(['order_id' => $order->id]);
+        $item = OrderItem::create([
+            'order_id' => $order->id,
+            'site_id' => $site->id,
+            'site_name' => $site->site_name,
+            'site_url' => $site->site_url,
+            'price' => 46,
+            'content_link' => 'https://example.com/article.docx',
+            'content_submission_id' => $ordered->id,
+        ]);
+        $ordered->update([
+            'order_id' => $order->id,
+            'order_item_id' => $item->id,
+        ]);
 
         $uk = $this->createApprovedSubmission($advertiser, null, 0, 'anchor c', 'https://example.com/c', 'gb', 'en');
         $uk->update(['title' => 'UK Guide']);
+
+        $this->actingAs($advertiser)
+            ->get(route('advertiser.content-library'))
+            ->assertOk()
+            ->assertSee('Title')
+            ->assertSee('Market')
+            ->assertSee('Scores')
+            ->assertSee('Growth Playbook')
+            ->assertSee('Available');
 
         $this->actingAs($advertiser)
             ->get(route('advertiser.content-library', ['availability' => 'available']))
             ->assertOk()
             ->assertSee('Growth Playbook')
             ->assertSee('UK Guide')
-            ->assertDontSee('Ordered Piece')
-            ->assertSee('Available');
+            ->assertDontSee('Ordered Piece');
 
         $this->actingAs($advertiser)
-            ->get(route('advertiser.content-library', ['availability' => 'ordered']))
+            ->get(route('advertiser.content-library', ['availability' => 'in_progress']))
             ->assertOk()
             ->assertSee('Ordered Piece')
             ->assertDontSee('Growth Playbook')
-            ->assertSee('Ordered');
+            ->assertSee('In progress');
 
         $this->actingAs($advertiser)
             ->get(route('advertiser.content-library', ['q' => 'Growth']))
@@ -103,6 +124,72 @@ class ContentLibraryImprovementsTest extends TestCase
             ->assertOk()
             ->assertSee('UK Guide')
             ->assertDontSee('Growth Playbook');
+    }
+
+    public function test_library_shows_published_live_link(): void
+    {
+        $advertiser = $this->advertiser();
+        $publisher = $this->publisher();
+        $site = $this->activeSite($publisher, 'live');
+        $submission = $this->createApprovedSubmission($advertiser, $site->id);
+        $submission->update(['title' => 'Live Article']);
+        $order = $this->makeOrder($advertiser);
+        $item = OrderItem::create([
+            'order_id' => $order->id,
+            'site_id' => $site->id,
+            'site_name' => $site->site_name,
+            'site_url' => $site->site_url,
+            'price' => 46,
+            'content_link' => 'https://example.com/article.docx',
+            'content_submission_id' => $submission->id,
+            'live_url' => 'https://live.example/post',
+            'live_url_submitted_at' => now(),
+        ]);
+        $submission->update([
+            'order_id' => $order->id,
+            'order_item_id' => $item->id,
+        ]);
+
+        $this->actingAs($advertiser)
+            ->get(route('advertiser.content-library', ['availability' => 'published']))
+            ->assertOk()
+            ->assertSee('Live Article')
+            ->assertSee('Published')
+            ->assertSee('https://live.example/post')
+            ->assertSee('Published on '.$site->site_name);
+    }
+
+    public function test_advertiser_can_archive_and_restore_article(): void
+    {
+        $advertiser = $this->advertiser();
+        $submission = $this->createApprovedSubmission($advertiser);
+        $submission->update(['title' => 'Archive Me']);
+
+        $this->actingAs($advertiser)
+            ->postJson(route('advertiser.content-submissions.archive', $submission))
+            ->assertOk()
+            ->assertJsonPath('success', true);
+
+        $this->assertNotNull($submission->fresh()->archived_at);
+        $this->assertFalse($submission->fresh()->canBeOrdered());
+
+        $this->actingAs($advertiser)
+            ->get(route('advertiser.content-library'))
+            ->assertOk()
+            ->assertDontSee('Archive Me');
+
+        $this->actingAs($advertiser)
+            ->get(route('advertiser.content-library', ['availability' => 'archived']))
+            ->assertOk()
+            ->assertSee('Archive Me');
+
+        $this->actingAs($advertiser)
+            ->postJson(route('advertiser.content-submissions.restore', $submission))
+            ->assertOk()
+            ->assertJsonPath('success', true);
+
+        $this->assertNull($submission->fresh()->archived_at);
+        $this->assertTrue($submission->fresh()->canBeOrdered());
     }
 
     public function test_library_shows_cart_pricing_not_raw_markup_only(): void
@@ -118,7 +205,8 @@ class ContentLibraryImprovementsTest extends TestCase
             ->get(route('advertiser.content-library'))
             ->assertOk()
             ->assertSee('€'.$expected)
-            ->assertSee('id="siteOrderSearch"', false);
+            ->assertSee('id="siteOrderSearch"', false)
+            ->assertSee('name="site_id"', false);
     }
 
     public function test_advertiser_can_rename_and_delete_unlinked_library_article(): void
@@ -168,14 +256,18 @@ class ContentLibraryImprovementsTest extends TestCase
         $available = $this->createApprovedSubmission($advertiser);
         $this->assertSame('available', $available->libraryAvailability());
 
-        $ordered = $this->createApprovedSubmission($advertiser);
+        $inProgress = $this->createApprovedSubmission($advertiser);
         $order = $this->makeOrder($advertiser);
-        $ordered->update(['order_id' => $order->id]);
-        $this->assertSame('ordered', $ordered->fresh()->libraryAvailability());
+        $inProgress->update(['order_id' => $order->id]);
+        $this->assertSame('in_progress', $inProgress->fresh()->libraryAvailability());
 
         $expired = $this->createApprovedSubmission($advertiser);
         $expired->update(['expires_at' => now()->subDay()]);
         $this->assertSame('expired', $expired->fresh()->libraryAvailability());
+
+        $archived = $this->createApprovedSubmission($advertiser);
+        $archived->archive();
+        $this->assertSame('archived', $archived->fresh()->libraryAvailability());
     }
 
     private function makeOrder(User $advertiser): Order

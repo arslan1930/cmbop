@@ -240,6 +240,36 @@ class ContentSubmissionController extends Controller
         return response()->json(['success' => true]);
     }
 
+    public function archive(ContentSubmission $submission)
+    {
+        $this->authorizeSubmission($submission);
+
+        if ($submission->order_id && ! $submission->isPublished()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Articles in progress cannot be archived until the order is completed or cancelled.',
+            ], 422);
+        }
+
+        $submission->archive();
+
+        return response()->json([
+            'success' => true,
+            'submission' => $this->serializeSubmission($submission->fresh()),
+        ]);
+    }
+
+    public function restore(ContentSubmission $submission)
+    {
+        $this->authorizeSubmission($submission);
+        $submission->restoreFromArchive();
+
+        return response()->json([
+            'success' => true,
+            'submission' => $this->serializeSubmission($submission->fresh()),
+        ]);
+    }
+
     /**
      * Advertiser scheduled-order management.
      */
@@ -376,6 +406,9 @@ class ContentSubmissionController extends Controller
             'wizard_step' => $s->wizard_step,
             'ready' => $s->isReadyForCheckout(),
             'needs_correction' => $s->needsCorrection(),
+            'archived' => $s->isArchived(),
+            'availability' => $s->libraryAvailability(),
+            'live_url' => $s->liveUrl(),
             'download_url' => route('advertiser.content-submissions.download', $s),
         ];
     }

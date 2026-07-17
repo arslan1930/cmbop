@@ -615,6 +615,10 @@ Route::middleware(['auth','verified', RoleMiddleware::class . ':advertiser'])
             ->name('content-submissions.download');
         Route::delete('/content-submissions/{submission}', [ContentSubmissionController::class, 'destroy'])
             ->name('content-submissions.destroy');
+        Route::post('/content-submissions/{submission}/archive', [ContentSubmissionController::class, 'archive'])
+            ->name('content-submissions.archive');
+        Route::post('/content-submissions/{submission}/restore', [ContentSubmissionController::class, 'restore'])
+            ->name('content-submissions.restore');
 
         Route::get('/scheduled-orders', [ContentSubmissionController::class, 'scheduledOrders'])
             ->name('scheduled-orders');

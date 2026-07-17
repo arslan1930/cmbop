@@ -2065,48 +2065,52 @@ private function resolveCheckoutContent(array $cart, ?array $contentSubmissions,
             ]);
         }
 
-        if (!isset($seen[$submissionId])) {
-            $submission = ContentSubmission::query()
-                ->where('id', $submissionId)
-                ->where('user_id', auth()->id())
-                ->whereNull('order_id')
-                ->first();
-
-            if (!$submission) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Approved article not found. Upload and get approval from Content Library first.',
-                ]);
-            }
-
-            if (!$submission->isApproved() || !$submission->canBeOrdered()) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Only approved Content Library articles can be ordered. Edit and resubmit articles that need correction.',
-                ], 422);
-            }
-
-            if (!$submission->isReadyForCheckout()) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Add anchor text and a valid HTTPS target URL, or confirm continuing without a link.',
-                ], 422);
-            }
-
-            if (!$submission->matchesSite($site)) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Article country/language must match the website market ('
-                        . strtoupper((string) ($site->country ?: 'any')) . ' / '
-                        . strtoupper((string) ($site->language ?: 'any')) . ').',
-                ], 422);
-            }
-
-            $seen[$submissionId] = $submission;
-            $submissionModels[] = $submission;
+        if (isset($seen[$submissionId])) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Each Content Library article can only be ordered on one website.',
+            ], 422);
         }
 
-        $lines[] = ['orderItem' => $orderItem, 'submission' => $seen[$submissionId]];
+        $submission = ContentSubmission::query()
+            ->where('id', $submissionId)
+            ->where('user_id', auth()->id())
+            ->whereNull('order_id')
+            ->first();
+
+        if (!$submission) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Approved article not found. Upload and get approval from Content Library first.',
+            ]);
+        }
+
+        if (!$submission->isApproved() || !$submission->canBeOrdered()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Only approved Content Library articles can be ordered. Edit and resubmit articles that need correction.',
+            ], 422);
+        }
+
+        if (!$submission->isReadyForCheckout()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Add anchor text and a valid HTTPS target URL, or confirm continuing without a link.',
+            ], 422);
+        }
+
+        if (!$submission->matchesSite($site)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Article country/language must match the website market ('
+                    . strtoupper((string) ($site->country ?: 'any')) . ' / '
+                    . strtoupper((string) ($site->language ?: 'any')) . ').',
+            ], 422);
+        }
+
+        $seen[$submissionId] = $submission;
+        $submissionModels[] = $submission;
+        $lines[] = ['orderItem' => $orderItem, 'submission' => $submission];
     }
 
     $moderation = app(ContentModerationService::class)->assertSubmissionsApproved($submissionModels, auth()->user());

@@ -14,8 +14,8 @@ use Tests\TestCase;
 
 class ContentUploadCheckoutTest extends TestCase
 {
-    use RefreshDatabase;
     use CreatesContentSubmissions;
+    use RefreshDatabase;
 
     private function advertiser(): User
     {
@@ -41,9 +41,9 @@ class ContentUploadCheckoutTest extends TestCase
     {
         return Site::create([
             'publisher_id' => $publisher->id,
-            'site_name' => 'Site ' . $slug,
-            'site_url' => 'https://' . $slug . '.example',
-            'domain' => $slug . '.example',
+            'site_name' => 'Site '.$slug,
+            'site_url' => 'https://'.$slug.'.example',
+            'domain' => $slug.'.example',
             'da' => 30,
             'dr' => 30,
             'traffic' => 500,
@@ -155,9 +155,20 @@ class ContentUploadCheckoutTest extends TestCase
         $siteB = $this->activeSite($publisher, 'lib-b', 55);
         $sub = $this->createApprovedSubmission($advertiser, null);
 
+        $multi = $this->actingAs($advertiser)->from(route('advertiser.content-library'))
+            ->post(route('advertiser.content-library.order'), [
+                'content_submission_id' => $sub->id,
+                'site_ids' => [$siteA->id, $siteB->id],
+                'anchor_text' => 'growth marketing guide',
+                'target_url' => 'https://example.com/guide',
+                'publication_mode' => 'immediate',
+            ]);
+        $multi->assertRedirect(route('advertiser.content-library'));
+        $multi->assertSessionHas('error');
+
         $response = $this->actingAs($advertiser)->post(route('advertiser.content-library.order'), [
             'content_submission_id' => $sub->id,
-            'site_ids' => [$siteA->id, $siteB->id],
+            'site_id' => $siteA->id,
             'anchor_text' => 'growth marketing guide',
             'target_url' => 'https://example.com/guide',
             'publication_mode' => 'immediate',
@@ -165,7 +176,7 @@ class ContentUploadCheckoutTest extends TestCase
 
         $response->assertRedirect(route('advertiser.checkout'));
         $this->assertSame($sub->id, session('checkout_content_submission_id'));
-        $this->assertCount(2, session('cart'));
+        $this->assertCount(1, session('cart'));
 
         $checkout = $this->actingAs($advertiser)
             ->withSession([
@@ -180,7 +191,7 @@ class ContentUploadCheckoutTest extends TestCase
             ]);
 
         $checkout->assertOk()->assertJson(['success' => true]);
-        $this->assertSame(2, OrderItem::where('content_submission_id', $sub->id)->count());
+        $this->assertSame(1, OrderItem::where('content_submission_id', $sub->id)->count());
         $this->assertNotNull($sub->fresh()->order_id);
     }
 
