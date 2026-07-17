@@ -20,8 +20,10 @@ use App\Services\InAppNotificationService;
 use App\Services\CartPricingService;
 use App\Services\ContentModeration\ContentModerationService;
 use App\Services\ContentUpload\ScheduledOrderService;
+use App\Services\OrderPaymentService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
@@ -813,6 +815,15 @@ public function checkout(Request $request)
     $librarySubmission = $this->resolveLibrarySubmissionForCheckout($cart);
     $checkoutSchedule = session('checkout_schedule', []);
 
+    $checkoutWallet = auth()->user()->activeWallet();
+    if ($checkoutWallet) {
+        $checkoutWallet->repairOrphanedWelcomeBonus();
+        $checkoutWallet->refresh();
+    }
+    $checkoutBonusBalance = $checkoutWallet ? $checkoutWallet->lockedBonusBalance() : 0.0;
+    $checkoutCashBalance = $checkoutWallet ? $checkoutWallet->withdrawableBalance() : 0.0;
+    $checkoutSpendableBalance = (float) ($checkoutWallet?->balance ?? 0);
+
     $approvedArticles = ContentSubmission::query()
         ->where('user_id', auth()->id())
         ->whereNull('order_id')
@@ -845,6 +856,10 @@ public function checkout(Request $request)
         'correctionArticles',
         'marketplaceCountries',
         'marketplaceLanguages',
+        'checkoutWallet',
+        'checkoutBonusBalance',
+        'checkoutCashBalance',
+        'checkoutSpendableBalance',
     ));
 }
     
@@ -897,21 +912,22 @@ public function checkout(Request $request)
 
             // Generate reference code
             $referenceCode = $userReferenceCode ?? str_pad(mt_rand(1, 999999), 6, '0', STR_PAD_LEFT);
+            $useBonus = $request->boolean('use_bonus');
             
             // For manual payment methods (wise, crypto, bank) - create orders immediately
             if (in_array($paymentMethod, ['wise', 'crypto', 'bank'])) {
-                return $this->createOrdersImmediately($cart, $paymentMethod, $checkoutContent, $referenceCode, $userId);
+                return $this->createOrdersImmediately($cart, $paymentMethod, $checkoutContent, $referenceCode, $userId, $useBonus);
             }
             
             // For wallet payment - check balance and reserve funds
             if ($paymentMethod === 'wallet') {
-                return $this->processWalletPayment($cart, $checkoutContent, $referenceCode, $userId);
+                return $this->processWalletPayment($cart, $checkoutContent, $referenceCode, $userId, $useBonus);
             }
             
             // For card payments - create durable pending orders BEFORE Stripe checkout
             // so webhook/success can finalize payment without relying on browser session.
             if ($paymentMethod === 'card') {
-                return $this->processCardPayment($cart, $checkoutContent, $referenceCode, $userId);
+                return $this->processCardPayment($cart, $checkoutContent, $referenceCode, $userId, $useBonus);
             }
             
             return response()->json([
@@ -934,15 +950,28 @@ public function checkout(Request $request)
      *
      * @param  array{lines: array<int, array{orderItem: array, submission: ContentSubmission}>, schedule: array}  $checkoutContent
      */
-    private function processCardPayment($cart, array $checkoutContent, $referenceCode, $userId)
+    private function processCardPayment($cart, array $checkoutContent, $referenceCode, $userId, bool $useBonus = false)
     {
         $expandedOrders = array_column($checkoutContent['lines'], 'orderItem');
         $createdOrders = collect();
         $totalAmount = round(array_sum(array_column($expandedOrders, 'price')), 2);
         $schedule = $checkoutContent['schedule'];
+        $bonusApplied = 0.0;
+        $amountDue = $totalAmount;
 
         DB::beginTransaction();
         try {
+            if ($useBonus) {
+                $advertiserRoleId = Wallet::advertiserRoleId();
+                if ($advertiserRoleId) {
+                    $wallet = Wallet::lockOrCreateForRole((int) $userId, (int) $advertiserRoleId);
+                    $wallet->repairOrphanedWelcomeBonus();
+                    $wallet->refresh();
+                    $bonusApplied = $wallet->reserveBonusOnly(min($wallet->lockedBonusBalance(), $totalAmount));
+                    $amountDue = round(max(0, $totalAmount - $bonusApplied), 2);
+                }
+            }
+
             foreach ($checkoutContent['lines'] as $line) {
                 $orderItem = $line['orderItem'];
                 $submission = $line['submission'];
@@ -970,6 +999,9 @@ public function checkout(Request $request)
             }
 
             DB::commit();
+            if ($bonusApplied > 0) {
+                $this->rememberCheckoutBonus((int) $userId, (string) $referenceCode, $bonusApplied);
+            }
         } catch (\Exception $e) {
             DB::rollBack();
             Log::error('Failed creating pending card orders', [
@@ -980,6 +1012,33 @@ public function checkout(Request $request)
             return response()->json([
                 'success' => false,
                 'message' => 'Unable to start card payment. Please try again.',
+            ]);
+        }
+
+        // Fully covered by bonus — finalize without Stripe.
+        if ($amountDue <= 0 && $bonusApplied > 0) {
+            $this->consumeCheckoutBonus((int) $userId, (string) $referenceCode, $bonusApplied);
+            Order::where('reference_code', $referenceCode)
+                ->where('user_id', $userId)
+                ->where('payment_method', 'card')
+                ->where('payment_status', 'pending')
+                ->update([
+                    'payment_status' => 'paid',
+                    'payment_method' => 'wallet',
+                    'paid_at' => now(),
+                ]);
+
+            $paidOrders = Order::with('items')
+                ->where('reference_code', $referenceCode)
+                ->where('user_id', $userId)
+                ->get();
+
+            session()->forget(['cart', 'checkout_content_submission_id', 'checkout_schedule', 'pending_card_reference']);
+            app(OrderPaymentService::class)->notifyPublishersOfPaidOrders($paidOrders);
+
+            return response()->json([
+                'success' => true,
+                'message' => count($paidOrders) . ' order(s) placed using your bonus balance. Reference: ' . $referenceCode,
             ]);
         }
 
@@ -996,9 +1055,10 @@ public function checkout(Request $request)
                         'currency' => 'eur',
                         'product_data' => [
                             'name' => 'Order Package - ' . $createdOrders->count() . ' item(s)',
-                            'description' => 'Order reference: ' . $referenceCode,
+                            'description' => 'Order reference: ' . $referenceCode
+                                . ($bonusApplied > 0 ? ' (bonus −€' . number_format($bonusApplied, 2) . ')' : ''),
                         ],
-                        'unit_amount' => StripePaymentService::toCents($totalAmount),
+                        'unit_amount' => StripePaymentService::toCents($amountDue),
                     ],
                     'quantity' => 1,
                 ]],
@@ -1010,7 +1070,9 @@ public function checkout(Request $request)
                     'reference_code' => $referenceCode,
                     'user_id' => (string) $userId,
                     'order_count' => (string) $createdOrders->count(),
-                    'expected_amount' => (string) $totalAmount,
+                    'expected_amount' => (string) $amountDue,
+                    'order_total' => (string) $totalAmount,
+                    'bonus_applied' => (string) $bonusApplied,
                 ],
             ]);
 
@@ -1029,6 +1091,8 @@ public function checkout(Request $request)
                 'session_id' => $checkoutSession->id,
                 'order_count' => $createdOrders->count(),
                 'total_amount' => $totalAmount,
+                'amount_due' => $amountDue,
+                'bonus_applied' => $bonusApplied,
                 'user_id' => $userId,
             ]);
 
@@ -1038,8 +1102,12 @@ public function checkout(Request $request)
                 'checkout_url' => $checkoutSession->url,
                 'session_id' => $checkoutSession->id,
                 'reference_code' => $referenceCode,
+                'bonus_applied' => $bonusApplied,
+                'amount_due' => $amountDue,
             ]);
         } catch (\Exception $e) {
+            $this->refundCheckoutBonus((int) $userId, (string) $referenceCode);
+
             // Stripe session failed — release content + remove unpaid pending orders
             foreach ($createdOrders as $order) {
                 try {
@@ -1071,7 +1139,7 @@ public function checkout(Request $request)
      *
      * @param  array{lines: array, schedule: array}  $checkoutContent
      */
-    private function processWalletPayment($cart, array $checkoutContent, $referenceCode, $userId)
+    private function processWalletPayment($cart, array $checkoutContent, $referenceCode, $userId, bool $useBonus = false)
     {
         try {
             $expandedOrders = array_column($checkoutContent['lines'], 'orderItem');
@@ -1090,22 +1158,32 @@ public function checkout(Request $request)
 
             // Lock wallet row inside the transaction to prevent concurrent overspend
             $advertiserWallet = Wallet::lockOrCreateForRole((int) $userId, (int) $advertiserRoleId);
+            $advertiserWallet->repairOrphanedWelcomeBonus();
+            $advertiserWallet->refresh();
 
-            if (round((float) $advertiserWallet->balance, 2) < $totalAmount) {
+            $spendable = round((float) $advertiserWallet->balance, 2);
+            $cashAvailable = $advertiserWallet->withdrawableBalance();
+            $bonusAvailable = $advertiserWallet->lockedBonusBalance();
+            $effectiveAvailable = $useBonus ? $spendable : $cashAvailable;
+
+            if ($effectiveAvailable < $totalAmount) {
                 DB::rollBack();
+
+                $hint = (! $useBonus && $bonusAvailable > 0)
+                    ? ' Tip: enable “Use bonus balance” (€' . number_format($bonusAvailable, 2) . ') to apply your promotional credit.'
+                    : '';
 
                 return response()->json([
                     'success' => false,
-                    'message' => 'Insufficient wallet balance. Available: €'
-                        . number_format((float) $advertiserWallet->balance, 2)
-                        . '. Required: €' . number_format($totalAmount, 2) . '.',
+                    'message' => 'Insufficient wallet balance. Available cash: €'
+                        . number_format($cashAvailable, 2)
+                        . ($bonusAvailable > 0 ? ' · Bonus: €' . number_format($bonusAvailable, 2) : '')
+                        . '. Required: €' . number_format($totalAmount, 2) . '.' . $hint,
                 ]);
             }
 
-            // Deduct from balance and add to reserved_balance (welcome bonus is consumed first)
-            $bonusBefore = (float) $advertiserWallet->bonus_balance;
-            $advertiserWallet->reserveForOrder($totalAmount);
-            $bonusUsed = max(0, round($bonusBefore - (float) $advertiserWallet->bonus_balance, 2));
+            // Reserve funds; bonus is only used when the checkout checkbox is enabled
+            $bonusUsed = $advertiserWallet->reserveForOrder($totalAmount, $useBonus);
 
             app(\App\Services\Wallet\WalletLedgerService::class)->recordPurchase(
                 $advertiserWallet,
@@ -1212,12 +1290,27 @@ public function checkout(Request $request)
      *
      * @param  array{lines: array, schedule: array}  $checkoutContent
      */
-    private function createOrdersImmediately($cart, $paymentMethod, array $checkoutContent, $referenceCode, $userId)
+    private function createOrdersImmediately($cart, $paymentMethod, array $checkoutContent, $referenceCode, $userId, bool $useBonus = false)
     {
         try {
             $schedule = $checkoutContent['schedule'];
+            $expandedOrders = array_column($checkoutContent['lines'], 'orderItem');
+            $totalAmount = round(array_sum(array_column($expandedOrders, 'price')), 2);
+            $bonusApplied = 0.0;
+            $amountDue = $totalAmount;
 
             DB::beginTransaction();
+
+            if ($useBonus) {
+                $advertiserRoleId = Wallet::advertiserRoleId();
+                if ($advertiserRoleId) {
+                    $wallet = Wallet::lockOrCreateForRole((int) $userId, (int) $advertiserRoleId);
+                    $wallet->repairOrphanedWelcomeBonus();
+                    $wallet->refresh();
+                    $bonusApplied = $wallet->reserveBonusOnly(min($wallet->lockedBonusBalance(), $totalAmount));
+                    $amountDue = round(max(0, $totalAmount - $bonusApplied), 2);
+                }
+            }
 
             $createdOrders = [];
 
@@ -1248,6 +1341,9 @@ public function checkout(Request $request)
             }
 
             DB::commit();
+            if ($bonusApplied > 0) {
+                $this->rememberCheckoutBonus((int) $userId, (string) $referenceCode, $bonusApplied);
+            }
             session()->forget(['cart', 'checkout_content_submission_id', 'checkout_schedule']);
 
             $isScheduled = ($schedule['mode'] ?? 'immediate') === 'scheduled';
@@ -1265,12 +1361,17 @@ public function checkout(Request $request)
             $this->sendAdminManualPaymentEmail($customer, $createdOrders, $paymentMethod);
 
             $orderNumbers = implode(', ', array_map(fn (Order $o) => $o->order_number, $createdOrders));
+            $bonusNote = $bonusApplied > 0
+                ? ' Bonus €' . number_format($bonusApplied, 2) . ' applied — please transfer €' . number_format($amountDue, 2) . '.'
+                : '';
 
             return response()->json([
                 'success' => true,
                 'message' => count($createdOrders) . ' order(s) placed successfully'
                     . ($isScheduled ? ' (scheduled publication — publisher notified to publish on the selected date)' : '')
-                    . '! Order numbers: ' . $orderNumbers,
+                    . '! Order numbers: ' . $orderNumbers . $bonusNote,
+                'bonus_applied' => $bonusApplied,
+                'amount_due' => $amountDue,
             ]);
         } catch (\Exception $e) {
             DB::rollBack();
@@ -2138,6 +2239,55 @@ private function resolveLibrarySubmissionForCheckout(array $cart): ?ContentSubmi
         ->first();
 }
 
+private function checkoutBonusCacheKey(int $userId, string $referenceCode): string
+{
+    return 'checkout_bonus:' . $userId . ':' . $referenceCode;
+}
+
+private function rememberCheckoutBonus(int $userId, string $referenceCode, float $amount): void
+{
+    Cache::put($this->checkoutBonusCacheKey($userId, $referenceCode), round($amount, 2), now()->addHours(12));
+}
+
+private function consumeCheckoutBonus(int $userId, string $referenceCode, ?float $amount = null): void
+{
+    $key = $this->checkoutBonusCacheKey($userId, $referenceCode);
+    $bonus = $amount ?? (float) Cache::pull($key, 0);
+    if ($bonus <= 0) {
+        return;
+    }
+
+    $roleId = Wallet::advertiserRoleId();
+    if (! $roleId) {
+        return;
+    }
+
+    $wallet = Wallet::where('user_id', $userId)->where('role_id', $roleId)->first();
+    if ($wallet && (float) $wallet->bonus_reserved > 0) {
+        $wallet->consumeReserved(min($bonus, (float) $wallet->bonus_reserved));
+    }
+    Cache::forget($key);
+}
+
+private function refundCheckoutBonus(int $userId, string $referenceCode): void
+{
+    $key = $this->checkoutBonusCacheKey($userId, $referenceCode);
+    $bonus = (float) Cache::pull($key, 0);
+    if ($bonus <= 0) {
+        return;
+    }
+
+    $roleId = Wallet::advertiserRoleId();
+    if (! $roleId) {
+        return;
+    }
+
+    $wallet = Wallet::where('user_id', $userId)->where('role_id', $roleId)->first();
+    if ($wallet && (float) $wallet->bonus_reserved > 0) {
+        $wallet->refundReserved(min($bonus, (float) $wallet->bonus_reserved));
+    }
+}
+
 private function cancelUnpaidCardOrdersAndRestoreCart(string $referenceCode): void
 {
     $canceled = Order::with('items')
@@ -2151,6 +2301,8 @@ private function cancelUnpaidCardOrdersAndRestoreCart(string $referenceCode): vo
     if ($canceled->isEmpty()) {
         return;
     }
+
+    $this->refundCheckoutBonus((int) auth()->id(), $referenceCode);
 
     $restoredCart = session('cart', []);
     $submissionId = session('checkout_content_submission_id');

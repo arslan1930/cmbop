@@ -672,22 +672,25 @@
             <span id="cartBadge" class="cart-badge" style="display: none;">0</span>
         </button>
 
-        <!-- Balance — one clear available amount -->
+        <!-- Balance — Available (cash) + Bonus (promo) kept separate -->
         @php
             $activeWallet = auth()->user()->activeWallet();
-            $availableBalance = (float) ($activeWallet?->balance ?? 0);
-            $reservedBalance = (float) ($activeWallet?->reserved_balance ?? 0);
+            if ($activeWallet) {
+                $activeWallet->repairOrphanedWelcomeBonus();
+                $activeWallet->refresh();
+            }
             $headerBonus = $activeWallet ? $activeWallet->lockedBonusBalance() : 0;
-            $spendableCash = max(0, $availableBalance - $headerBonus);
-            $headerBalanceTitle = 'Spendable: €' . number_format($availableBalance, 2)
-                . ($headerBonus > 0 ? ' · Free credit €' . number_format($headerBonus, 2) . ' (orders only, not withdrawable)' : '')
+            $spendableCash = $activeWallet ? $activeWallet->withdrawableBalance() : 0;
+            $reservedBalance = (float) ($activeWallet?->reserved_balance ?? 0);
+            $headerBalanceTitle = 'Available (cash): €' . number_format($spendableCash, 2)
+                . ($headerBonus > 0 ? ' · Bonus: €' . number_format($headerBonus, 2) . ' (orders only, not withdrawable)' : '')
                 . ($reservedBalance > 0 ? ' · On hold: €' . number_format($reservedBalance, 2) : '');
         @endphp
-        <a href="{{ route('advertiser.add-funds') }}" class="balance-block text-decoration-none" data-bs-toggle="tooltip" data-bs-placement="bottom" title="{{ $headerBalanceTitle }}" aria-label="Spendable balance {{ number_format($availableBalance, 2) }} euros{{ $headerBonus > 0 ? ', including '.number_format($headerBonus, 2).' free credit' : '' }}">
-            <span class="balance-label">Spendable</span>
-            <span class="balance-amount">€{{ number_format($availableBalance, 2) }}</span>
+        <a href="{{ route('advertiser.add-funds') }}" class="balance-block text-decoration-none" data-bs-toggle="tooltip" data-bs-placement="bottom" title="{{ $headerBalanceTitle }}" aria-label="Available balance {{ number_format($spendableCash, 2) }} euros{{ $headerBonus > 0 ? ', bonus '.number_format($headerBonus, 2) : '' }}">
+            <span class="balance-label">Available</span>
+            <span class="balance-amount">€{{ number_format($spendableCash, 2) }}</span>
             @if($headerBonus > 0)
-                <span class="balance-credit">Credit €{{ number_format($headerBonus, 2) }}</span>
+                <span class="balance-credit">Bonus €{{ number_format($headerBonus, 2) }}</span>
             @endif
         </a>
 

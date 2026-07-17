@@ -125,7 +125,7 @@
                                             <span style="font-weight: 700; font-size: 14px; color: #0b6266;">Wallet Balance</span>
                                             <span style="font-size: 11px; font-weight: 600; color: #0b6266; background: #c8ebe9; padding: 2px 8px; border-radius: 999px;">Recommended</span>
                                         </div>
-                                        <span style="font-size: 12px; color: #6b7280; display: block; margin-top: 2px;">Pay instantly from your available balance</span>
+                                        <span style="font-size: 12px; color: #6b7280; display: block; margin-top: 2px;">Pay from available cash — optionally apply bonus credit</span>
                                     </div>
                                     <i class="fa fa-check-circle payment-check" style="color:#4ECDCB; font-size:20px; opacity:0;"></i>
                                 </div>
@@ -202,64 +202,50 @@
                                 
                                 <div style="background: #f9fafb; border-radius: 12px; padding: 20px; border: 1px solid #e5e7eb;">
                                     @php
-                                        $checkoutWallet = auth()->user()->activeWallet();
-                                        $checkoutBonus = $checkoutWallet ? $checkoutWallet->lockedBonusBalance() : 0;
+                                        $checkoutCash = $checkoutCashBalance ?? 0;
+                                        $checkoutBonus = $checkoutBonusBalance ?? 0;
+                                        $checkoutSpendable = $checkoutSpendableBalance ?? (($checkoutCash + $checkoutBonus));
                                     @endphp
                                     <div style="margin-bottom: 16px;">
-                                        <p style="font-size: 14px; color: #6b7280; margin-bottom: 8px;">
-                                            Your wallet
-                                            <i class="fas fa-info-circle text-muted ms-1"
-                                               data-bs-toggle="tooltip"
-                                               data-bs-placement="top"
-                                               title="You can use this full amount to pay for this order."></i>
-                                        </p>
-                                        <p style="font-size: 24px; font-weight: 700; color: #16a34a; margin: 0;">
-                                            €{{ number_format($checkoutWallet?->balance ?? 0, 2) }}
-                                        </p>
+                                        <p style="font-size: 14px; color: #6b7280; margin-bottom: 8px;">Your wallet</p>
+                                        <div class="d-flex justify-content-between mb-1">
+                                            <span class="small text-muted">Available (cash)</span>
+                                            <strong style="color:#0b6266;">€{{ number_format($checkoutCash, 2) }}</strong>
+                                        </div>
+                                        <div class="d-flex justify-content-between">
+                                            <span class="small text-muted">Bonus (orders only)</span>
+                                            <strong style="color:#d97706;">€{{ number_format($checkoutBonus, 2) }}</strong>
+                                        </div>
                                         @if($checkoutBonus > 0)
-                                            <p style="font-size: 12px; color: #6b7280; margin: 6px 0 0;">
-                                                Includes €{{ number_format($checkoutBonus, 2) }} free credit
-                                                <i class="fas fa-info-circle text-muted ms-1"
-                                                   data-bs-toggle="tooltip"
-                                                   data-bs-placement="top"
-                                                   title="Free credit is a welcome gift for orders. You can spend it here, but you cannot withdraw it as cash."></i>
-                                                — spend on orders only, not withdrawable
+                                            <p style="font-size: 12px; color: #6b7280; margin: 8px 0 0;">
+                                                Bonus credit cannot be withdrawn. Enable “Use bonus balance” in the Order Total to apply it.
                                             </p>
                                         @endif
                                     </div>
                                     
                                     <div style="margin-bottom: 16px;">
                                         <p style="font-size: 14px; color: #6b7280; margin-bottom: 8px;">Amount to Pay:</p>
-                                        <p style="font-size: 20px; font-weight: 600; color: #1f2937; margin: 0;">
+                                        <p style="font-size: 20px; font-weight: 600; color: #1f2937; margin: 0;" id="walletAmountDue">
                                             €{{ number_format($total, 2) }}
                                         </p>
                                     </div>
                                     
-                                    @php
-                                        $balance = auth()->user()->activeWallet()?->balance ?? 0;
-                                        $totalAmount = $total;
-                                        $hasInsufficientBalance = $balance < $totalAmount;
-                                    @endphp
-                                    
-                                    @if($hasInsufficientBalance)
-                                        <div style="background: #fee2e2; padding: 12px; border-radius: 8px; margin-bottom: 16px;">
-                                            <div style="display: flex; align-items: center;">
-                                                <i class="fas fa-exclamation-triangle" style="color: #dc2626; margin-right: 8px;"></i>
-                                                <p style="font-size: 12px; color: #991b1b; margin: 0;">
-                                                    Insufficient balance. Please add funds or choose another payment method.
-                                                </p>
-                                            </div>
+                                    <div id="walletBalanceOk" style="background: #dcfce7; padding: 12px; border-radius: 8px; margin-bottom: 16px; display:none;">
+                                        <div style="display: flex; align-items: center;">
+                                            <i class="fas fa-check-circle" style="color: #16a34a; margin-right: 8px;"></i>
+                                            <p style="font-size: 12px; color: #166534; margin: 0;">
+                                                Sufficient balance for this order.
+                                            </p>
                                         </div>
-                                    @else
-                                        <div style="background: #dcfce7; padding: 12px; border-radius: 8px; margin-bottom: 16px;">
-                                            <div style="display: flex; align-items: center;">
-                                                <i class="fas fa-check-circle" style="color: #16a34a; margin-right: 8px;"></i>
-                                                <p style="font-size: 12px; color: #166534; margin: 0;">
-                                                    Sufficient balance available. Payment will be deducted from your wallet.
-                                                </p>
-                                            </div>
+                                    </div>
+                                    <div id="walletBalanceLow" style="background: #fee2e2; padding: 12px; border-radius: 8px; margin-bottom: 16px;">
+                                        <div style="display: flex; align-items: center;">
+                                            <i class="fas fa-exclamation-triangle" style="color: #dc2626; margin-right: 8px;"></i>
+                                            <p style="font-size: 12px; color: #991b1b; margin: 0;" id="walletBalanceLowMsg">
+                                                Insufficient balance. Add funds or apply your bonus credit.
+                                            </p>
                                         </div>
-                                    @endif
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -432,9 +418,26 @@
                                 <span class="text-muted">Tax (0%):</span>
                                 <span id="taxAmount">€0.00</span>
                             </div>
+                            @php $bonusForCheckout = (float) ($checkoutBonusBalance ?? 0); @endphp
+                            @if($bonusForCheckout > 0)
+                                <div class="form-check d-flex align-items-start gap-2 py-2 px-3 mb-2 rounded"
+                                     style="background:#fffbeb;border:1px solid #fde68a;">
+                                    <input class="form-check-input mt-1" type="checkbox" id="useBonusBalance" value="1">
+                                    <label class="form-check-label small" for="useBonusBalance" style="cursor:pointer;">
+                                        <strong>Use bonus balance</strong>
+                                        <span class="d-block text-muted">
+                                            Apply up to €{{ number_format($bonusForCheckout, 2) }} promotional credit (not withdrawable)
+                                        </span>
+                                    </label>
+                                </div>
+                                <div class="d-flex justify-content-between mb-2 d-none" id="bonusAppliedRow">
+                                    <span class="text-success">Bonus applied:</span>
+                                    <span class="text-success fw-semibold" id="bonusAppliedAmount">−€0.00</span>
+                                </div>
+                            @endif
                             <hr>
                             <div class="d-flex justify-content-between mb-1">
-                                <strong>Total:</strong>
+                                <strong>Amount due:</strong>
                                 <strong class="checkout-theme-price fs-5" id="grandTotal">€{{ number_format($total, 2) }}</strong>
                             </div>
                             @if(!empty($savings) && $savings > 0)
@@ -838,8 +841,63 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     let selectedMethod = null;
-    const totalAmount = {{ $total }};
-    const walletBalance = {{ auth()->user()->activeWallet()?->balance ?? 0 }};
+    const totalAmount = {{ (float) $total }};
+    const walletCash = {{ (float) ($checkoutCashBalance ?? 0) }};
+    const walletBonus = {{ (float) ($checkoutBonusBalance ?? 0) }};
+    const walletSpendable = {{ (float) ($checkoutSpendableBalance ?? 0) }};
+    const useBonusEl = document.getElementById('useBonusBalance');
+    const bonusAppliedRow = document.getElementById('bonusAppliedRow');
+    const bonusAppliedAmount = document.getElementById('bonusAppliedAmount');
+    const grandTotalEl = document.getElementById('grandTotal');
+    const walletAmountDueEl = document.getElementById('walletAmountDue');
+
+    function bonusToApply() {
+        if (!useBonusEl || !useBonusEl.checked || walletBonus <= 0) return 0;
+        return Math.min(walletBonus, totalAmount);
+    }
+
+    function amountDue() {
+        return Math.max(0, Math.round((totalAmount - bonusToApply()) * 100) / 100);
+    }
+
+    function moneyFmt(n) {
+        return '€' + Number(n || 0).toFixed(2);
+    }
+
+    function refreshBonusUi() {
+        const applied = bonusToApply();
+        const due = amountDue();
+        if (grandTotalEl) grandTotalEl.textContent = moneyFmt(due);
+        if (walletAmountDueEl) walletAmountDueEl.textContent = moneyFmt(due);
+        if (bonusAppliedRow && bonusAppliedAmount) {
+            if (applied > 0) {
+                bonusAppliedRow.classList.remove('d-none');
+                bonusAppliedAmount.textContent = '−' + moneyFmt(applied);
+            } else {
+                bonusAppliedRow.classList.add('d-none');
+            }
+        }
+
+        const ok = document.getElementById('walletBalanceOk');
+        const low = document.getElementById('walletBalanceLow');
+        const lowMsg = document.getElementById('walletBalanceLowMsg');
+        const availableForWallet = useBonusEl && useBonusEl.checked ? walletSpendable : walletCash;
+        const sufficient = availableForWallet + 0.00001 >= totalAmount;
+        if (ok && low) {
+            ok.style.display = sufficient ? 'block' : 'none';
+            low.style.display = sufficient ? 'none' : 'block';
+            if (lowMsg && !sufficient) {
+                lowMsg.textContent = (!useBonusEl || !useBonusEl.checked) && walletBonus > 0
+                    ? 'Insufficient cash balance. Check “Use bonus balance” or add funds.'
+                    : 'Insufficient balance. Please add funds or choose another payment method.';
+            }
+        }
+    }
+
+    if (useBonusEl) {
+        useBonusEl.addEventListener('change', refreshBonusUi);
+    }
+    refreshBonusUi();
 
     paymentOptions.forEach(option => {
         option.addEventListener('keydown', function(e) {
@@ -880,6 +938,7 @@ document.addEventListener('DOMContentLoaded', function() {
             
             const paymentError = document.getElementById('paymentError');
             if (paymentError) paymentError.style.display = 'none';
+            refreshBonusUi();
         });
     });
 
@@ -962,7 +1021,8 @@ document.addEventListener('DOMContentLoaded', function() {
             },
             body: JSON.stringify(Object.assign({
                 payment_method: selectedMethod,
-                reference_code: referenceCode
+                reference_code: referenceCode,
+                use_bonus: !!(useBonusEl && useBonusEl.checked)
             }, contentPayload || {}))
         })
         .then(response => response.json())
@@ -973,12 +1033,17 @@ document.addEventListener('DOMContentLoaded', function() {
                 } else if (selectedMethod === 'bank') {
                     // Use the invoice.blade.php template
                     const invoiceUrl = '/advertiser/invoice/' + referenceCode;
+                    const due = (typeof data.amount_due === 'number') ? data.amount_due : amountDue();
+                    const bonusLine = (data.bonus_applied > 0)
+                        ? `<strong>Bonus applied:</strong> €${Number(data.bonus_applied).toFixed(2)}<br>`
+                        : '';
                     
                     Swal.fire({
                         title: 'Order Placed Successfully!',
                         html: `Your order has been placed.<br><br>
                                <strong>Reference Code:</strong> REF${referenceCode}<br>
-                               <strong>Total Amount:</strong> €${totalAmount.toFixed(2)}<br><br>
+                               ${bonusLine}
+                               <strong>Amount to transfer:</strong> €${Number(due).toFixed(2)}<br><br>
                                <a href="${invoiceUrl}" target="_blank" class="btn btn-primary">
                                    <i class="fa fa-file-invoice"></i> View Invoice
                                </a>`,
