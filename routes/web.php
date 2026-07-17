@@ -543,10 +543,15 @@ Route::middleware(['auth','verified', RoleMiddleware::class . ':advertiser'])
         // Spending history chart
         Route::get('/analytics', [AnalyticsController::class, 'index'])->name('analytics');
 
-        // Balance routes
+        // Balance / wallet routes
         Route::get('/balance', [App\Http\Controllers\Advertiser\BalanceController::class, 'index'])->name('balance');
         Route::post('/balance/transfer', [App\Http\Controllers\Advertiser\BalanceController::class, 'transferToPublisher'])->name('balance.transfer');
         Route::get('/balance/history', [App\Http\Controllers\Advertiser\BalanceController::class, 'getTransferHistory'])->name('balance.history');
+        Route::get('/balance/transactions', [App\Http\Controllers\Advertiser\BalanceController::class, 'transactions'])->name('balance.transactions');
+        Route::get('/balance/transactions/{source}/{id}', [App\Http\Controllers\Advertiser\BalanceController::class, 'transactionShow'])->name('balance.transactions.show');
+        Route::get('/balance/analytics', [App\Http\Controllers\Advertiser\BalanceController::class, 'analytics'])->name('balance.analytics');
+        Route::get('/balance/export', [App\Http\Controllers\Advertiser\BalanceController::class, 'export'])->name('balance.export');
+        Route::post('/balance/withdraw', [App\Http\Controllers\Advertiser\BalanceController::class, 'requestWithdrawal'])->name('balance.withdraw');
 
         // Campaigns routes
         Route::get('/campaigns', [ProjectController::class, 'index'])

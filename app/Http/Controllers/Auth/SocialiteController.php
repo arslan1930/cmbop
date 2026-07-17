@@ -136,6 +136,18 @@ class SocialiteController extends Controller
 
             DB::table('wallets')->insert($wallets);
 
+            $advertiserWallet = \App\Models\Wallet::where('user_id', $user->id)
+                ->where('role_id', $advertiserRole->id)
+                ->first();
+            if ($advertiserWallet && $welcomeBonus > 0) {
+                app(\App\Services\Wallet\WalletLedgerService::class)->recordBonusCredit(
+                    $advertiserWallet,
+                    (float) $welcomeBonus,
+                    'Welcome promotional bonus',
+                    ['source' => 'socialite']
+                );
+            }
+
             UserConsent::create([
                 'user_id' => $user->id,
                 'terms_accepted' => true,

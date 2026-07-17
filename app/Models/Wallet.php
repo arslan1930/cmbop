@@ -10,6 +10,8 @@ class Wallet extends Model
 {
     use HasFactory;
 
+    public const PROMOTIONAL_BONUS_MESSAGE = 'This promotional bonus can only be used for purchases within our marketplace and cannot be withdrawn.';
+
     protected $fillable = [
         'user_id',
         'role_id',
@@ -250,15 +252,30 @@ class Wallet extends Model
 
     /**
      * Deduct withdrawable funds only (withdrawals / role transfers out).
+     * Bonus / promotional credit can never be deducted here.
      */
     public function deductWithdrawable(float $amount): void
     {
         $amount = round($amount, 2);
-        if ($amount > $this->withdrawableBalance()) {
-            throw new \Exception('Insufficient withdrawable balance');
+        $withdrawable = $this->withdrawableBalance();
+
+        if ($amount > $withdrawable) {
+            if ($this->lockedBonusBalance() > 0 && $withdrawable <= 0) {
+                throw new \RuntimeException(self::PROMOTIONAL_BONUS_MESSAGE);
+            }
+
+            throw new \RuntimeException('Insufficient withdrawable balance');
         }
 
         $this->balance = round((float) $this->balance - $amount, 2);
         $this->save();
+    }
+
+    /**
+     * Whether an amount can be withdrawn/transferred (excludes bonus).
+     */
+    public function canWithdraw(float $amount): bool
+    {
+        return round($amount, 2) > 0 && round($amount, 2) <= $this->withdrawableBalance();
     }
 }

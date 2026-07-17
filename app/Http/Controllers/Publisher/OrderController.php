@@ -378,7 +378,17 @@ class OrderController extends Controller
             
             // For wallet payments: Move from reserved_balance to balance (restore spend-only bonus if used)
             if ($order->payment_method === 'wallet') {
+                $bonusReservedBefore = (float) $advertiserWallet->bonus_reserved;
                 $advertiserWallet->refundReserved($orderAmount);
+                $bonusRestored = max(0, round($bonusReservedBefore - (float) $advertiserWallet->bonus_reserved, 2));
+
+                app(\App\Services\Wallet\WalletLedgerService::class)->recordRefund(
+                    $advertiserWallet,
+                    (float) $orderAmount,
+                    $bonusRestored,
+                    $order,
+                    $order->reference_code ?? $order->order_number
+                );
                 
                 Log::info('Wallet refund: funds moved from reserved to balance', [
                     'order_id' => $order->id,
@@ -392,6 +402,13 @@ class OrderController extends Controller
             // For all other payment methods (card, wise, crypto, bank): Direct refund to balance
             else {
                 $advertiserWallet->credit((float) $orderAmount);
+                app(\App\Services\Wallet\WalletLedgerService::class)->recordRefund(
+                    $advertiserWallet,
+                    (float) $orderAmount,
+                    0,
+                    $order,
+                    $order->reference_code ?? $order->order_number
+                );
                 
                 Log::info('Direct refund to advertiser balance', [
                     'order_id' => $order->id,

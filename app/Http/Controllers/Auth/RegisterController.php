@@ -111,6 +111,20 @@ class RegisterController extends Controller
 
             DB::table('wallets')->insert($wallets);
 
+            if ($welcomeBonus > 0) {
+                $advertiserWallet = \App\Models\Wallet::where('user_id', $user->id)
+                    ->where('role_id', $advertiserRole->id)
+                    ->first();
+                if ($advertiserWallet) {
+                    app(\App\Services\Wallet\WalletLedgerService::class)->recordBonusCredit(
+                        $advertiserWallet,
+                        (float) $welcomeBonus,
+                        'Welcome promotional bonus',
+                        ['source' => 'registration']
+                    );
+                }
+            }
+
             // Save user consents
             UserConsent::create([
                 'user_id'            => $user->id,

@@ -157,6 +157,13 @@ class AddFundsController extends Controller
 
                     $wallet = Wallet::lockOrCreateForRole(auth()->id(), $advertiserRoleId);
                     $wallet->credit((float) $deposit->amount);
+                    app(\App\Services\Wallet\WalletLedgerService::class)->recordDeposit(
+                        $wallet,
+                        (float) $deposit->amount,
+                        $deposit,
+                        'card',
+                        $deposit->reference_code
+                    );
                     $creditedAmount = (float) $deposit->amount;
                 });
 

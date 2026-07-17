@@ -576,7 +576,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const paymentError = document.getElementById('paymentError');
     const summaryAmount = document.getElementById('summaryAmount');
     const summaryTotal = document.getElementById('summaryTotal');
-    
+
     // Amount button click
     amountBtns.forEach(btn => {
         btn.addEventListener('click', function() {
@@ -587,7 +587,7 @@ document.addEventListener('DOMContentLoaded', function() {
             customAmountInput.value = '';
         });
     });
-    
+
     // Custom amount input
     customAmountInput.addEventListener('input', function() {
         const amount = parseFloat(this.value);
@@ -608,7 +608,7 @@ document.addEventListener('DOMContentLoaded', function() {
             this.value = '';
         }
     });
-    
+
     function setSelectedAmount(amount) {
         selectedAmount = amount;
         selectedAmountValue.innerText = `€${amount.toFixed(2)}`;
@@ -645,6 +645,19 @@ document.addEventListener('DOMContentLoaded', function() {
     function updateSummary(amount) {
         summaryAmount.innerText = `€${amount.toFixed(2)}`;
         summaryTotal.innerText = `€${amount.toFixed(2)}`;
+    }
+
+    // Prefill from Wallet page (?amount=)
+    const prefillAmount = parseFloat(new URLSearchParams(window.location.search).get('amount') || '');
+    if (!isNaN(prefillAmount) && prefillAmount >= 10) {
+        const matchingBtn = Array.from(amountBtns).find(b => parseFloat(b.dataset.amount) === prefillAmount);
+        if (matchingBtn) {
+            matchingBtn.click();
+        } else {
+            customAmountInput.value = prefillAmount;
+            setSelectedAmount(prefillAmount);
+            amountBtns.forEach(b => b.classList.remove('active'));
+        }
     }
     
     // Payment option click

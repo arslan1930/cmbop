@@ -57,12 +57,22 @@ class WithdrawalController extends Controller
             }
             
             if ($amount > $availableBalance) {
+                if ($wallet->lockedBonusBalance() > 0 && $availableBalance <= 0) {
+                    return response()->json([
+                        'success' => false,
+                        'code' => 'bonus_not_withdrawable',
+                        'message' => Wallet::PROMOTIONAL_BONUS_MESSAGE,
+                        'available_for_withdrawal' => $availableBalance,
+                    ]);
+                }
+
                 $promoNote = $wallet->lockedBonusBalance() > 0
-                    ? ' (€' . number_format($wallet->lockedBonusBalance(), 2) . ' site credit is spend-only and cannot be withdrawn.)'
+                    ? ' '.Wallet::PROMOTIONAL_BONUS_MESSAGE
                     : '';
 
                 return response()->json([
                     'success' => false,
+                    'code' => $wallet->lockedBonusBalance() > 0 ? 'bonus_not_withdrawable' : 'insufficient_balance',
                     'message' => 'Insufficient withdrawable balance for this withdrawal. Available to withdraw: €' . number_format($availableBalance, 2) . '.' . $promoNote
                 ]);
             }
@@ -122,11 +132,21 @@ class WithdrawalController extends Controller
 
             // Re-lock wallet inside the transaction before debiting
             $wallet = Wallet::where('id', $wallet->id)->lockForUpdate()->first();
-            if (!$wallet || (float) $wallet->balance < $amount) {
+            if (!$wallet || ! $wallet->canWithdraw((float) $amount)) {
                 DB::rollBack();
+                $lockedBonus = $wallet?->lockedBonusBalance() ?? 0;
+                $available = $wallet?->withdrawableBalance() ?? 0;
+                if ($lockedBonus > 0 && $available <= 0) {
+                    return response()->json([
+                        'success' => false,
+                        'code' => 'bonus_not_withdrawable',
+                        'message' => Wallet::PROMOTIONAL_BONUS_MESSAGE,
+                    ]);
+                }
+
                 return response()->json([
                     'success' => false,
-                    'message' => 'Insufficient balance for this withdrawal. Available balance: €' . number_format($wallet?->balance ?? 0, 2)
+                    'message' => 'Insufficient withdrawable balance for this withdrawal. Available to withdraw: €' . number_format($available, 2)
                 ]);
             }
             
@@ -141,8 +161,16 @@ class WithdrawalController extends Controller
                 'status' => 'pending'
             ]);
             
-            // Deduct from withdrawable wallet balance only
+            // Deduct from withdrawable wallet balance only (never bonus)
             $wallet->deductWithdrawable($amount);
+
+            app(\App\Services\Wallet\WalletLedgerService::class)->recordWithdrawal(
+                $wallet,
+                (float) $amount,
+                $withdrawal,
+                'pending',
+                'WD-'.$withdrawal->id
+            );
             
             DB::commit();
             
