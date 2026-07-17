@@ -613,6 +613,11 @@
         <a href="{{ route('advertiser.add-funds') }}" class="{{ request()->routeIs('advertiser.add-funds') ? 'active' : '' }}">
             <i class="fa fa-coins"></i> <span>Add Funds</span>
         </a>
+
+        <a href="{{ route('advertiser.billing.index') }}" class="{{ request()->routeIs('advertiser.billing*') ? 'active' : '' }}">
+            <i class="fa fa-file-invoice"></i>
+            <span>Billing &amp; Invoices</span>
+        </a>
         
         <!-- Spending History -->
         <a href="{{ route('advertiser.analytics') }}" class="{{ request()->routeIs('advertiser.analytics*') ? 'active' : '' }}">

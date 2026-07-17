@@ -5,6 +5,7 @@ namespace App\Providers;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\View;
+use App\Listeners\HandleOrderBillingDocuments;
 use App\Listeners\SendOrderLifecycleEmails;
 use App\Listeners\SendTrustpilotReviewOnOrderCompleted;
 use App\Models\Order;
@@ -41,10 +42,12 @@ class AppServiceProvider extends ServiceProvider
         // Order lifecycle emails → Advertiser + Publisher + Marketing + Admin
         Order::created(function (Order $order) {
             app(SendOrderLifecycleEmails::class)->created($order);
+            app(HandleOrderBillingDocuments::class)->created($order);
         });
 
         Order::updated(function (Order $order) {
             app(SendOrderLifecycleEmails::class)->updated($order);
+            app(HandleOrderBillingDocuments::class)->updated($order);
             app(SendTrustpilotReviewOnOrderCompleted::class)->handle($order);
         });
 

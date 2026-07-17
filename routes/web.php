@@ -42,7 +42,9 @@ use App\Http\Controllers\BannerClickController;
 use App\Http\Controllers\Advertiser\ProjectController;
 use App\Http\Controllers\Advertiser\CatalogController;
 use App\Http\Controllers\Advertiser\SavedSitesController;
+use App\Http\Controllers\Advertiser\BillingController as AdvertiserBillingController;
 use App\Http\Controllers\Advertiser\AnalyticsController;
+use App\Http\Controllers\Admin\InvoiceController as AdminInvoiceController;
 use App\Http\Controllers\Advertiser\CampaignController;
 use App\Http\Controllers\Advertiser\AddFundsController;
 use App\Http\Controllers\Advertiser\ReportsController;
@@ -366,6 +368,14 @@ Route::middleware(['auth','verified', RoleMiddleware::class . ':admin,marketing'
             Route::get('/payments/{id}', [AdminPaymentController::class, 'show'])->name('payments.show');
             Route::post('/payments/{id}/update-status', [AdminPaymentController::class, 'updatePaymentStatus'])->name('payments.updateStatus');
 
+            // Billing invoices (PDF system — separate from payment gateway)
+            Route::get('/invoices', [AdminInvoiceController::class, 'index'])->name('invoices.index');
+            Route::post('/invoices/generate', [AdminInvoiceController::class, 'generate'])->name('invoices.generate');
+            Route::get('/invoices/{invoice}', [AdminInvoiceController::class, 'show'])->name('invoices.show');
+            Route::get('/invoices/{invoice}/download', [AdminInvoiceController::class, 'download'])->name('invoices.download');
+            Route::post('/invoices/{invoice}/resend', [AdminInvoiceController::class, 'resend'])->name('invoices.resend');
+            Route::post('/invoices/{invoice}/cancel', [AdminInvoiceController::class, 'cancel'])->name('invoices.cancel');
+
             // Deposits
             Route::get('/deposits', [AdminDepositController::class, 'index'])->name('deposits');
             Route::get('/deposits/{id}', [AdminDepositController::class, 'show'])->name('deposits.show');
@@ -677,6 +687,12 @@ Route::middleware(['auth','verified', RoleMiddleware::class . ':advertiser'])
 
         // Invoice route
         Route::get('/invoice/{referenceCode}', [InvoiceController::class, 'showInvoice'])->name('invoice');
+
+        // Billing & Invoices (automated PDF invoices / receipts)
+        Route::get('/billing', [AdvertiserBillingController::class, 'index'])->name('billing.index');
+        Route::get('/billing/invoices/{invoice}', [AdvertiserBillingController::class, 'show'])->name('billing.show');
+        Route::get('/billing/invoices/{invoice}/download', [AdvertiserBillingController::class, 'download'])->name('billing.download');
+        Route::get('/billing/invoices/{invoice}/view', [AdvertiserBillingController::class, 'viewPdf'])->name('billing.view');
 
        
 
