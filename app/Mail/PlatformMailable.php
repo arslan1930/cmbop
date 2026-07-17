@@ -12,6 +12,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Mail\Mailable;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 
 /**
  * Base mailable for the platform email layer.
@@ -171,13 +172,26 @@ abstract class PlatformMailable extends Mailable implements ShouldQueue
 
     protected function isDuplicate(string $key): bool
     {
-        $minutes = (int) config('email_notifications.dedupe_window_minutes', 10);
+        try {
+            if (! Schema::hasTable((new EmailLog)->getTable())) {
+                return false;
+            }
 
-        return EmailLog::query()
-            ->where('dedupe_key', $key)
-            ->where('status', EmailLog::STATUS_DELIVERED)
-            ->where('created_at', '>=', now()->subMinutes($minutes))
-            ->exists();
+            $minutes = (int) config('email_notifications.dedupe_window_minutes', 10);
+
+            return EmailLog::query()
+                ->where('dedupe_key', $key)
+                ->where('status', EmailLog::STATUS_DELIVERED)
+                ->where('created_at', '>=', now()->subMinutes($minutes))
+                ->exists();
+        } catch (\Throwable $e) {
+            Log::warning('Email dedupe check failed; allowing send', [
+                'dedupe' => $key,
+                'error' => $e->getMessage(),
+            ]);
+
+            return false;
+        }
     }
 
     protected function brand(): array

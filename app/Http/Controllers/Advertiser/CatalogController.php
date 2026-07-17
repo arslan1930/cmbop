@@ -1776,6 +1776,11 @@ public function approveOrder(Request $request, $id)
         
         $publisherRoleId = Wallet::publisherRoleId();
         $advertiserRoleId = Wallet::advertiserRoleId();
+
+        $advertiserWallet = null;
+        if ($order->payment_method === 'wallet' && $advertiserRoleId) {
+            $advertiserWallet = Wallet::lockOrCreateForRole((int) $order->user_id, (int) $advertiserRoleId);
+        }
         
         $transferPublishers = [];
         $totalTransferred = 0;
@@ -1800,9 +1805,10 @@ public function approveOrder(Request $request, $id)
                 
                 if ($publisher && $publisherRoleId) {
                     $publisherWallet = Wallet::lockOrCreateForRole($publisher->id, $publisherRoleId);
-                    
-                    // Add the order amount to publisher's wallet balance
-                    $amount = (float) $orderItem->price;
+
+                    // Publisher payout excludes the platform markup retained on the base price
+                    $amount = (float) $orderItem->publisherPayoutAmount();
+                    $platformFee = (float) $orderItem->platformFeeAmount();
                     $publisherWallet->credit($amount);
                     
                     $totalTransferred += $amount;

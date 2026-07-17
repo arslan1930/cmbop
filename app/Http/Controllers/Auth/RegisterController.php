@@ -148,18 +148,36 @@ class RegisterController extends Controller
             }
         }
 
+        $verificationSent = false;
         try {
+            // Framework listener SendEmailVerificationNotification → User::sendEmailVerificationNotification()
             event(new Registered($user));
+            $verificationSent = true;
         } catch (\Throwable $e) {
-            Log::warning('Registered event failed after signup', [
+            Log::error('Registered/verification email failed after signup', [
                 'user_id' => $user->id,
+                'email' => $user->email,
                 'error' => $e->getMessage(),
             ]);
+
+            // Direct retry if the event path failed
+            try {
+                $user->sendEmailVerificationNotification();
+                $verificationSent = true;
+            } catch (\Throwable $retry) {
+                Log::error('Direct verification email retry also failed', [
+                    'user_id' => $user->id,
+                    'error' => $retry->getMessage(),
+                ]);
+            }
         }
 
         return response()->json([
             'status' => 'success',
-            'message' => 'Registration successful! A verification email has been sent. Please verify your email to login.',
+            'message' => $verificationSent
+                ? 'Registration successful! A verification email has been sent. Please verify your email to login.'
+                : 'Registration successful! We could not send the verification email automatically — please use “Resend verification” on the login page.',
+            'verification_sent' => $verificationSent,
         ]);
     }
 }

@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Facades\Schema;
 
 class EmailNotificationPreference extends Model
 {
@@ -34,12 +35,20 @@ class EmailNotificationPreference extends Model
             return $default;
         }
 
-        $row = static::query()
-            ->where('user_id', $user->id)
-            ->where('preference_key', $preferenceKey)
-            ->first();
+        try {
+            if (! Schema::hasTable((new static)->getTable())) {
+                return $default;
+            }
 
-        return $row ? (bool) $row->enabled : $default;
+            $row = static::query()
+                ->where('user_id', $user->id)
+                ->where('preference_key', $preferenceKey)
+                ->first();
+
+            return $row ? (bool) $row->enabled : $default;
+        } catch (\Throwable) {
+            return $default;
+        }
     }
 
     public static function forUser(User $user): array

@@ -4,8 +4,10 @@ namespace Tests\Feature;
 
 use App\Models\Role;
 use App\Models\User;
+use App\Notifications\VerifyEmail;
 use Database\Seeders\RolesTableSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
@@ -41,6 +43,8 @@ class RegisterPageTest extends TestCase
 
     public function test_register_succeeds_for_advertiser_with_welcome_bonus(): void
     {
+        Notification::fake();
+
         $response = $this->postJson('/register', [
             'name' => 'Alice Advertiser',
             'email' => 'alice-reg@example.com',
@@ -51,10 +55,13 @@ class RegisterPageTest extends TestCase
         ]);
 
         $response->assertOk()
-            ->assertJsonPath('status', 'success');
+            ->assertJsonPath('status', 'success')
+            ->assertJsonPath('verification_sent', true);
 
         $user = User::where('email', 'alice-reg@example.com')->first();
         $this->assertNotNull($user);
+
+        Notification::assertSentTo($user, VerifyEmail::class);
 
         $advertiserRoleId = Role::where('name', 'advertiser')->value('id');
         $wallet = $user->wallets()->where('role_id', $advertiserRoleId)->first();
@@ -80,6 +87,8 @@ class RegisterPageTest extends TestCase
 
     public function test_register_succeeds_when_wallet_bonus_columns_are_missing(): void
     {
+        Notification::fake();
+
         Schema::table('wallets', function ($table) {
             if (Schema::hasColumn('wallets', 'bonus_balance')) {
                 $table->dropColumn(['bonus_balance', 'bonus_reserved']);

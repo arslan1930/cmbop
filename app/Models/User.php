@@ -2,11 +2,13 @@
 
 namespace App\Models;
 
+use App\Notifications\VerifyEmail;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Facades\Log;
 
 class User extends Authenticatable implements MustVerifyEmail
 {
@@ -61,6 +63,32 @@ class User extends Authenticatable implements MustVerifyEmail
         }
 
         return !is_null($this->email_verified_at);
+    }
+
+    /**
+     * Send the email verification notification (branded, sync — not queued).
+     */
+    public function sendEmailVerificationNotification(): void
+    {
+        if ($this->hasVerifiedEmail()) {
+            return;
+        }
+
+        try {
+            $this->notify(new VerifyEmail);
+            Log::info('Email verification notification sent', [
+                'user_id' => $this->id,
+                'email' => $this->email,
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('Failed to send email verification notification', [
+                'user_id' => $this->id,
+                'email' => $this->email,
+                'error' => $e->getMessage(),
+            ]);
+
+            throw $e;
+        }
     }
 
     /** ------------------ Roles ------------------ */

@@ -265,3 +265,50 @@ ALTER TABLE `sites` ADD COLUMN `turnaround_time` ENUM('24h','48h','3days','5days
 -- Drop Apple Sign-In columns if present (ignore if already gone)
 -- ALTER TABLE `users` DROP COLUMN `apple_id`;
 -- ALTER TABLE `users` DROP COLUMN `apple_token`;
+
+-- ---------------------------------------------------------------------------
+-- In-app notifications + order timeline (bell / activity feed)
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS `in_app_notifications` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `user_id` bigint unsigned NOT NULL,
+  `type` varchar(64) NOT NULL,
+  `category` varchar(32) NOT NULL DEFAULT 'system',
+  `title` varchar(255) NOT NULL,
+  `message` text DEFAULT NULL,
+  `icon` varchar(64) DEFAULT NULL,
+  `priority` varchar(16) NOT NULL DEFAULT 'normal',
+  `status` varchar(16) NOT NULL DEFAULT 'unread',
+  `related_type` varchar(255) DEFAULT NULL,
+  `related_id` bigint unsigned DEFAULT NULL,
+  `action_label` varchar(255) DEFAULT NULL,
+  `action_url` varchar(1024) DEFAULT NULL,
+  `meta` json DEFAULT NULL,
+  `read_at` timestamp NULL DEFAULT NULL,
+  `archived_at` timestamp NULL DEFAULT NULL,
+  `created_at` timestamp NULL DEFAULT NULL,
+  `updated_at` timestamp NULL DEFAULT NULL,
+  `deleted_at` timestamp NULL DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `in_app_notifications_user_status_created_index` (`user_id`,`status`,`created_at`),
+  CONSTRAINT `in_app_notifications_user_id_foreign` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS `order_activities` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `order_id` bigint unsigned NOT NULL,
+  `actor_id` bigint unsigned DEFAULT NULL,
+  `actor_name` varchar(255) DEFAULT NULL,
+  `actor_role` varchar(40) DEFAULT NULL,
+  `event` varchar(80) NOT NULL,
+  `title` varchar(255) NOT NULL,
+  `description` text DEFAULT NULL,
+  `icon` varchar(64) DEFAULT NULL,
+  `badge_color` varchar(32) DEFAULT NULL,
+  `meta` json DEFAULT NULL,
+  `created_at` timestamp NULL DEFAULT NULL,
+  `updated_at` timestamp NULL DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `order_activities_order_id_index` (`order_id`),
+  CONSTRAINT `order_activities_order_id_foreign` FOREIGN KEY (`order_id`) REFERENCES `orders` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
