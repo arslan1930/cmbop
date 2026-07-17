@@ -2357,6 +2357,13 @@ private function cancelConflictingUnpaidCardOrders(int $userId, array $submissio
         return;
     }
 
+    // Legacy Hostinger DBs may not have run the content-upload migration yet.
+    if (! Schema::hasColumn('order_items', 'content_submission_id')) {
+        Log::warning('Skipping conflicting card-order cleanup: order_items.content_submission_id missing');
+
+        return;
+    }
+
     $orderIds = OrderItem::query()
         ->whereIn('content_submission_id', $submissionIds)
         ->whereHas('order', function ($q) use ($userId) {
@@ -2417,6 +2424,10 @@ private function releaseContentSubmissionsForOrder(Order $order): void
         ->where('order_id', $order->id)
         ->get()
         ->each(fn (ContentSubmission $submission) => $submission->releaseFromOrder());
+
+    if (! Schema::hasColumn('order_items', 'content_submission_id')) {
+        return;
+    }
 
     $linkedIds = OrderItem::query()
         ->where('order_id', $order->id)

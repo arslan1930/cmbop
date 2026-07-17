@@ -241,6 +241,26 @@ ALTER TABLE `wallets`
   ADD COLUMN IF NOT EXISTS `bonus_reserved` decimal(12,2) NOT NULL DEFAULT 0.00 AFTER `bonus_balance`;
 
 -- ---------------------------------------------------------------------------
+-- order_items: content library / upload linkage (fixes Unknown column content_submission_id)
+-- Ignore "Duplicate column" if already present. FK only if content_submissions exists.
+-- ---------------------------------------------------------------------------
+ALTER TABLE `order_items` ADD COLUMN `content_submission_id` BIGINT UNSIGNED NULL;
+ALTER TABLE `order_items` ADD COLUMN `content_disk` VARCHAR(40) NULL;
+ALTER TABLE `order_items` ADD COLUMN `content_path` VARCHAR(255) NULL;
+ALTER TABLE `order_items` ADD COLUMN `content_original_name` VARCHAR(255) NULL;
+ALTER TABLE `order_items` ADD COLUMN `content_mime` VARCHAR(120) NULL;
+ALTER TABLE `order_items` ADD COLUMN `anchor_text` VARCHAR(160) NULL;
+ALTER TABLE `order_items` ADD COLUMN `target_url` VARCHAR(1000) NULL;
+ALTER TABLE `order_items` ADD COLUMN `feature_image_url` VARCHAR(1000) NULL;
+ALTER TABLE `order_items` ADD COLUMN `moderation_status` VARCHAR(40) NULL;
+
+-- Optional FK (skip if content_submissions table is missing or constraint already exists)
+-- ALTER TABLE `order_items`
+--   ADD CONSTRAINT `order_items_content_submission_id_foreign`
+--   FOREIGN KEY (`content_submission_id`) REFERENCES `content_submissions` (`id`)
+--   ON DELETE SET NULL;
+
+-- ---------------------------------------------------------------------------
 -- sites: columns required by Add New Website (run on Hostinger if missing)
 -- Ignore "Duplicate column" errors — that means the column already exists.
 -- ---------------------------------------------------------------------------
