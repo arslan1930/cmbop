@@ -266,6 +266,17 @@ ALTER TABLE `sites` ADD COLUMN `turnaround_time` ENUM('24h','48h','3days','5days
 -- ALTER TABLE `users` DROP COLUMN `apple_id`;
 -- ALTER TABLE `users` DROP COLUMN `apple_token`;
 
+-- Payout / withdrawal profile (locked billing destinations)
+ALTER TABLE `users` ADD COLUMN `payout_business_name` varchar(255) NULL;
+ALTER TABLE `users` ADD COLUMN `payout_paypal_email` varchar(255) NULL;
+ALTER TABLE `users` ADD COLUMN `payout_bank_holder_name` varchar(255) NULL;
+ALTER TABLE `users` ADD COLUMN `payout_bank_name` varchar(255) NULL;
+ALTER TABLE `users` ADD COLUMN `payout_bank_account` varchar(255) NULL;
+ALTER TABLE `users` ADD COLUMN `payout_bank_swift` varchar(50) NULL;
+ALTER TABLE `users` ADD COLUMN `payout_crypto_trx_wallet` varchar(255) NULL;
+ALTER TABLE `users` ADD COLUMN `payout_crypto_trx_verified_at` timestamp NULL;
+ALTER TABLE `users` ADD COLUMN `payout_profile_locked_at` timestamp NULL;
+
 -- ---------------------------------------------------------------------------
 -- In-app notifications + order timeline (bell / activity feed)
 -- ---------------------------------------------------------------------------

@@ -887,48 +887,40 @@ document.addEventListener('DOMContentLoaded', function () {
                 <div class="row align-items-start g-4">
 
                     <div class="col-md-3 text-center">
-                        <p><strong>Homepage preview:</strong></p>
+                        <p class="small text-muted mb-2"><strong>Homepage preview</strong></p>
                         @php
-                            $previewPath = $site->screenshot_path ?: $site->site_image;
+                            // Prefer admin-uploaded site_image, then auto screenshot
+                            $previewPath = $site->site_image ?: $site->screenshot_path;
                             $previewUrl = $previewPath ? asset('storage/' . $previewPath) : null;
                         @endphp
                         @if($previewUrl)
-                            <img src="{{ $previewUrl }}"
-                                 alt="{{ $site->site_name }} homepage preview"
-                                 loading="lazy"
-                                 class="site-image-thumbnail img-fluid"
-                                 style="
-                                    width: 280px;
-                                    height: 180px;
-                                    border-radius: 12px;
-                                    object-fit: cover;
-                                    object-position: center;
-                                    border: 1px solid #ddd;
-                                    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-                                 "
-                                 onerror="this.onerror=null;this.style.display='none';this.nextElementSibling.style.display='inline-flex';">
-                            <div class="bg-light border rounded d-none align-items-center justify-content-center"
-                                 style="width: 180px; height: 180px;">
-                                <i class="fa-solid fa-image text-muted" style="font-size: 40px;"></i>
+                            <div class="site-preview-zoom">
+                                <img src="{{ $previewUrl }}"
+                                     alt="{{ $site->site_name }} homepage preview"
+                                     loading="lazy"
+                                     class="site-image-thumbnail"
+                                     onerror="this.onerror=null;this.closest('.site-preview-zoom').classList.add('is-broken');">
+                            </div>
+                            <div class="site-preview-fallback bg-light border rounded d-none align-items-center justify-content-center">
+                                <i class="fa-solid fa-image text-muted" style="font-size: 32px;"></i>
                             </div>
                         @else
-                            <div class="bg-light border rounded d-inline-flex align-items-center justify-content-center"
-                                 style="width: 180px; height: 180px;">
-                                <i class="fa-solid fa-image text-muted" style="font-size: 40px;"></i>
+                            <div class="site-preview-fallback bg-light border rounded d-inline-flex align-items-center justify-content-center">
+                                <i class="fa-solid fa-image text-muted" style="font-size: 32px;"></i>
                             </div>
                         @endif
                     </div>
 
                     <div class="col-md-5">
-                        <p><strong>Description:</strong></p>
+                        <p class="mb-1"><strong class="small">Description</strong></p>
                         <div class="text-muted small">
                             {!! $site->description !!}
                         </div>
-                        <div class="text-muted small mt-3">
+                        <div class="text-muted small mt-2">
                             <strong>DoFollow links:</strong> Max 03 DoFollow links
                         </div>
                         @if($site->lastPublicationLabel())
-                            <p class="text-muted small mb-0 mt-2" style="color:#94a3b8 !important;">
+                            <p class="text-muted small mb-0 mt-1" style="color:#94a3b8 !important;">
                                 {{ $site->lastPublicationLabel() }}
                             </p>
                         @endif
@@ -937,48 +929,23 @@ document.addEventListener('DOMContentLoaded', function () {
                             $avg = (float) ($site->rating_avg ?? 0);
                             $count = (int) ($site->rating_count ?? 0);
                             $roundedAvg = (int) round($avg);
-                            $completedOrders = (int) ($site->completed_orders_count ?? 0);
+                            $completionPct = $site->completionRatePercent();
                         @endphp
-                        <div class="site-trust-panel mt-3" data-site-id="{{ $site->id }}">
-                            <div class="site-trust-title">
-                                <i class="fa-solid fa-shield-halved" aria-hidden="true"></i>
-                                <span>Publisher trust</span>
-                            </div>
-                            <div class="site-trust-grid">
-                                <div class="site-trust-metric" title="Average advertiser rating from completed orders">
-                                    <div class="site-trust-metric__icon"><i class="fa-solid fa-star" aria-hidden="true"></i></div>
-                                    <div>
-                                        <div class="site-trust-metric__label">Rating</div>
-                                        <div class="site-trust-stars" aria-label="Average rating {{ number_format($avg, 1) }} out of 5">
-                                            @for($i = 1; $i <= 5; $i++)
-                                                <i class="fa-{{ $i <= $roundedAvg ? 'solid' : 'regular' }} fa-star" aria-hidden="true"></i>
-                                            @endfor
-                                        </div>
-                                        <div class="site-trust-metric__value">
-                                            {{ $count > 0 ? number_format($avg, 1).'/5' : 'New' }}
-                                            <span>· {{ $count }} {{ $count === 1 ? 'review' : 'reviews' }}</span>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="site-trust-metric" title="Orders completed successfully on this site">
-                                    <div class="site-trust-metric__icon site-trust-metric__icon--orders"><i class="fa-solid fa-clipboard-check" aria-hidden="true"></i></div>
-                                    <div>
-                                        <div class="site-trust-metric__label">Completed orders</div>
-                                        <div class="site-trust-metric__value site-trust-metric__value--lg">{{ number_format($completedOrders) }}</div>
-                                        <div class="site-trust-metric__hint">
-                                            @if($completedOrders > 0)
-                                                Proven delivery — advertisers have approved work on this site.
-                                            @else
-                                                No completed orders yet.
-                                            @endif
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                            <p class="site-trust-footnote mb-0">
-                                <i class="fa-regular fa-circle-question" aria-hidden="true"></i>
-                                Ratings can be left only after you approve a completed order.
-                            </p>
+                        <div class="site-trust-compact mt-2" data-site-id="{{ $site->id }}">
+                            <span class="site-trust-compact__stars" aria-label="Average rating {{ $count > 0 ? number_format($avg, 1) : 'new' }} out of 5">
+                                @for($i = 1; $i <= 5; $i++)
+                                    <i class="fa-{{ $i <= $roundedAvg && $count > 0 ? 'solid' : 'regular' }} fa-star" aria-hidden="true"></i>
+                                @endfor
+                                <span class="site-trust-compact__score">{{ $count > 0 ? number_format($avg, 1) : 'New' }}</span>
+                            </span>
+                            <span class="site-trust-compact__sep" aria-hidden="true">·</span>
+                            <span class="site-trust-compact__orders" title="Share of orders completed successfully">
+                                @if($completionPct !== null)
+                                    {{ $completionPct }}% completed
+                                @else
+                                    No completions yet
+                                @endif
+                            </span>
                         </div>
                     </div>
 
@@ -1512,86 +1479,63 @@ thead th {
     background: linear-gradient(180deg, #f4fbfb 0%, #ffffff 100%);
 }
 
-.site-trust-panel {
-    padding: 12px 14px;
-    border: 1px solid #d9ecec;
+.site-preview-zoom {
+    width: 100%;
+    max-width: 260px;
+    margin: 0 auto;
     border-radius: 12px;
-    background: linear-gradient(180deg, #f4fbfb 0%, #ffffff 100%);
+    overflow: hidden;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 2px 10px rgba(15, 23, 42, 0.06);
+    background: #f8fafc;
+    aspect-ratio: 16 / 10;
 }
-.site-trust-title {
-    display: flex;
+.site-preview-zoom img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center top;
+    display: block;
+    transition: transform .45s cubic-bezier(.22, 1, .36, 1);
+    will-change: transform;
+}
+.site-preview-zoom:hover img {
+    transform: scale(1.12);
+}
+.site-preview-zoom.is-broken { display: none; }
+.site-preview-zoom.is-broken + .site-preview-fallback { display: inline-flex !important; }
+.site-preview-fallback {
+    width: 180px;
+    height: 120px;
+    margin: 0 auto;
+}
+.site-trust-compact {
+    display: inline-flex;
+    flex-wrap: wrap;
     align-items: center;
-    gap: 8px;
-    font-weight: 700;
-    font-size: 0.92rem;
-    color: #0b6266;
-    margin-bottom: 10px;
+    gap: 6px 8px;
+    font-size: 11px;
+    line-height: 1.3;
+    color: #64748b;
 }
-.site-trust-grid {
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: 10px;
-}
-@media (min-width: 576px) {
-    .site-trust-grid { grid-template-columns: 1fr 1fr; }
-}
-.site-trust-metric {
-    display: flex;
-    gap: 10px;
-    align-items: flex-start;
-    padding: 8px 10px;
-    border-radius: 10px;
-    background: rgba(255,255,255,0.85);
-    border: 1px solid #e7f1f1;
-}
-.site-trust-metric__icon {
-    width: 32px;
-    height: 32px;
-    border-radius: 8px;
+.site-trust-compact__stars {
     display: inline-flex;
     align-items: center;
-    justify-content: center;
-    background: #fff7e6;
-    color: #d97706;
-    flex-shrink: 0;
-}
-.site-trust-metric__icon--orders {
-    background: #e8f8f7;
-    color: #0b6266;
-}
-.site-trust-metric__label {
+    gap: 2px;
+    color: #f59e0b;
     font-size: 11px;
-    text-transform: uppercase;
-    letter-spacing: .04em;
-    color: #64748b;
+}
+.site-trust-compact__stars .fa-regular { color: #cbd5e1; }
+.site-trust-compact__score {
+    margin-left: 4px;
+    color: #475569;
     font-weight: 600;
 }
-.site-trust-metric__value {
-    font-size: 13px;
-    font-weight: 700;
-    color: #0f172a;
+.site-trust-compact__sep { color: #cbd5e1; }
+.site-trust-compact__orders {
+    color: #0b6266;
+    font-weight: 600;
 }
-.site-trust-metric__value--lg { font-size: 1.15rem; }
-.site-trust-metric__value span { font-weight: 500; color: #64748b; }
-.site-trust-metric__hint {
-    font-size: 11px;
-    color: #64748b;
-    margin-top: 2px;
-    line-height: 1.35;
-}
-.site-trust-stars {
-    color: #f59e0b;
-    font-size: 13px;
-    letter-spacing: 1px;
-    margin: 2px 0;
-}
-.site-trust-stars .fa-regular { color: #cbd5e1; }
-.site-trust-footnote {
-    margin-top: 10px;
-    font-size: 11px;
-    color: #94a3b8;
-}
-.site-trust-footnote i { margin-right: 4px; }
 
 .catalog-bulk-section .bulk-deal-card {
     border: 1px solid #d9ecec;

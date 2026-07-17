@@ -392,6 +392,15 @@ if ($request->filled('category')) {
                             ->where('orders.status', 'completed');
                     });
             }),
+        'cancelled_orders_count' => \App\Models\OrderItem::query()
+            ->selectRaw('COUNT(*)')
+            ->whereColumn('order_items.site_id', 'sites.id')
+            ->whereExists(function ($sub) {
+                $sub->selectRaw('1')
+                    ->from('orders')
+                    ->whereColumn('orders.id', 'order_items.order_id')
+                    ->where('orders.status', 'cancelled');
+            }),
     ]);
 
     // ✅ Pagination (20 per page)

@@ -8,13 +8,23 @@
 <style>
 .help-fab {
     position: fixed;
-    right: 22px;
+    right: 0;
     bottom: 22px;
     z-index: 1080;
     display: flex;
     flex-direction: column;
     align-items: flex-end;
     gap: 10px;
+    padding-right: 22px;
+    transform: translateX(calc(100% - 28px));
+    opacity: 0.45;
+    transition: transform .22s ease, opacity .22s ease;
+}
+.help-fab:hover,
+.help-fab:focus-within,
+.help-fab.is-open {
+    transform: translateX(0);
+    opacity: 1;
 }
 .help-fab__btn {
     border: 0;
@@ -71,16 +81,16 @@
 .help-fab__pane.is-active { display: block; }
 .help-fab__hint { font-size: 12px; color: var(--brand-neutral, #64748b); margin-bottom: 10px; }
 @media (max-width: 576px) {
-    .help-fab { right: 14px; bottom: 14px; }
+    .help-fab { bottom: 14px; padding-right: 14px; transform: translateX(calc(100% - 24px)); }
     .help-fab__btn span { display: none; }
 }
 @media (prefers-reduced-motion: reduce) {
-    .help-fab__btn, .help-fab__panel, .help-fab__tab { transition: none; }
+    .help-fab, .help-fab__btn, .help-fab__panel, .help-fab__tab { transition: none; }
     .help-fab__btn:hover { transform: none; }
 }
 </style>
 
-<div class="help-fab" id="helpFeedbackWidget">
+<div class="help-fab" id="helpFeedbackWidget" title="Help & feedback">
     <div class="help-fab__panel" id="helpFeedbackPanel" role="dialog" aria-label="Help and feedback" aria-hidden="true">
         <div class="help-fab__tabs" role="tablist">
             <button type="button" class="help-fab__tab is-active" data-pane="problem" role="tab" aria-selected="true" aria-controls="helpPaneProblem">Report a problem</button>
@@ -128,15 +138,17 @@
 
 <script>
 (function () {
+    const root = document.getElementById('helpFeedbackWidget');
     const panel = document.getElementById('helpFeedbackPanel');
     const toggle = document.getElementById('helpFeedbackToggle');
-    if (!panel || !toggle) return;
+    if (!root || !panel || !toggle) return;
 
     const csrf = document.querySelector('meta[name="csrf-token"]')?.content
         || '{{ csrf_token() }}';
 
     function setOpen(open) {
         panel.classList.toggle('is-open', open);
+        root.classList.toggle('is-open', open);
         toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
         panel.setAttribute('aria-hidden', open ? 'false' : 'true');
         if (open) {
@@ -149,7 +161,6 @@
         setOpen(!panel.classList.contains('is-open'));
     });
 
-    // Close on Escape (return focus to the toggle) and on outside click.
     document.addEventListener('keydown', function (e) {
         if (e.key === 'Escape' && panel.classList.contains('is-open')) {
             setOpen(false);
@@ -210,7 +221,7 @@
             }
             if (data.success) {
                 form.reset();
-                panel.classList.remove('is-open');
+                setOpen(false);
             }
         } catch (e) {
             if (window.Swal) Swal.fire({ icon: 'error', title: 'Network error', text: 'Please try again.' });

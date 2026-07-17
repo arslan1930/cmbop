@@ -115,10 +115,30 @@
 .wallet-detail-row span { color: #64748b; font-size: 13px; }
 .wallet-detail-row strong { color: #0f172a; font-size: 13px; text-align: right; }
 
+.chart-range-btn.active {
+    background: #0b6266; border-color: #0b6266; color: #fff;
+}
+.wallet-chart-tooltip {
+    position: absolute; z-index: 1090; min-width: 220px; max-width: 280px;
+    padding: 12px 14px; border-radius: 12px; background: #fff;
+    border: 1px solid #d9e7e8; box-shadow: 0 12px 28px rgba(15, 23, 42, 0.12);
+    opacity: 0; transition: opacity .15s ease; pointer-events: none;
+}
+.wallet-chart-tooltip__title {
+    font-weight: 700; color: #0b6266; margin-bottom: 8px; font-size: 13px;
+}
+.wallet-chart-tooltip__row {
+    display: flex; justify-content: space-between; gap: 12px;
+    font-size: 12px; color: #64748b; padding: 3px 0;
+}
+.wallet-chart-tooltip__row strong { color: #0f172a; }
+.wallet-chart-empty h5 { color: #0b6266; }
+
 @media (max-width: 767.98px) {
     .wallet-kpi .kpi-value { font-size: 1.25rem; }
     .wallet-actions { width: 100%; }
     .wallet-actions .btn { flex: 1 1 auto; }
+    #walletChartWrap { height: 260px !important; }
 }
 </style>
 
@@ -158,9 +178,9 @@
         </div>
     </div>
 
-    {{-- Primary balances --}}
-    <div class="row g-3 mb-3">
-        <div class="col-md-4">
+    {{-- Balances: Available / Bonus / Pending / Lifetime Deposits --}}
+    <div class="row g-3 mb-4">
+        <div class="col-md-3">
             <div class="wallet-kpi">
                 <span class="kpi-icon kpi-icon--available"><i class="fa fa-wallet"></i></span>
                 <span>
@@ -170,7 +190,7 @@
                 </span>
             </div>
         </div>
-        <div class="col-md-4">
+        <div class="col-md-3">
             <div class="wallet-kpi">
                 <span class="kpi-icon kpi-icon--bonus"><i class="fa fa-gift"></i></span>
                 <span>
@@ -180,7 +200,7 @@
                 </span>
             </div>
         </div>
-        <div class="col-md-4">
+        <div class="col-md-3">
             <div class="wallet-kpi">
                 <span class="kpi-icon kpi-icon--pending"><i class="fa fa-clock"></i></span>
                 <span>
@@ -190,47 +210,13 @@
                 </span>
             </div>
         </div>
-    </div>
-
-    {{-- Lifetime KPIs --}}
-    <div class="row g-3 mb-4">
-        <div class="col-6 col-lg-3">
+        <div class="col-md-3">
             <div class="wallet-kpi">
                 <span class="kpi-icon kpi-icon--deposits"><i class="fa fa-arrow-down"></i></span>
                 <span>
                     <span class="kpi-label">Lifetime Deposits</span>
-                    <span class="kpi-value" style="font-size:1.2rem;" id="kpiDeposits">€{{ number_format($lifetimeDeposits, 2) }}</span>
+                    <span class="kpi-value" id="kpiDeposits">€{{ number_format($lifetimeDeposits, 2) }}</span>
                     <span class="kpi-desc">Approved &amp; completed</span>
-                </span>
-            </div>
-        </div>
-        <div class="col-6 col-lg-3">
-            <div class="wallet-kpi">
-                <span class="kpi-icon kpi-icon--spending"><i class="fa fa-shopping-cart"></i></span>
-                <span>
-                    <span class="kpi-label">Lifetime Spending</span>
-                    <span class="kpi-value" style="font-size:1.2rem;" id="kpiSpending">€{{ number_format($lifetimeSpending, 2) }}</span>
-                    <span class="kpi-desc">Orders paid from wallet</span>
-                </span>
-            </div>
-        </div>
-        <div class="col-6 col-lg-3">
-            <div class="wallet-kpi">
-                <span class="kpi-icon kpi-icon--withdrawals"><i class="fa fa-arrow-up"></i></span>
-                <span>
-                    <span class="kpi-label">Lifetime Withdrawals</span>
-                    <span class="kpi-value" style="font-size:1.2rem;" id="kpiWithdrawals">€{{ number_format($lifetimeWithdrawals, 2) }}</span>
-                    <span class="kpi-desc">Requested to date</span>
-                </span>
-            </div>
-        </div>
-        <div class="col-6 col-lg-3">
-            <div class="wallet-kpi">
-                <span class="kpi-icon kpi-icon--pending-wd"><i class="fa fa-hourglass-half"></i></span>
-                <span>
-                    <span class="kpi-label">Pending Withdrawals</span>
-                    <span class="kpi-value" style="font-size:1.2rem;" id="kpiPendingWd">€{{ number_format($pendingWithdrawals, 2) }}</span>
-                    <span class="kpi-desc">In review or processing</span>
                 </span>
             </div>
         </div>
@@ -646,17 +632,40 @@
                     <div>
                         <i class="fa fa-chart-area me-2 text-primary"></i> Spending Overview
                     </div>
-                    <div class="btn-group btn-group-sm" role="group" aria-label="Chart range">
-                        @foreach(['week' => 'Week', 'month' => 'Month', 'quarter' => 'Quarter', 'year' => 'Year', 'lifetime' => 'Lifetime'] as $key => $label)
-                            <button type="button" class="btn btn-outline-secondary chart-range-btn {{ ($key === 'month') ? 'active' : '' }}" data-range="{{ $key }}">{{ $label }}</button>
+                    <div class="d-flex flex-wrap gap-1 align-items-center" role="group" aria-label="Chart range">
+                        @foreach(['7d' => '7D', '30d' => '30D', '90d' => '90D', 'year' => 'This Year', 'lifetime' => 'Lifetime', 'custom' => 'Custom'] as $key => $label)
+                            <button type="button" class="btn btn-sm btn-outline-secondary chart-range-btn {{ ($key === '30d') ? 'active' : '' }}" data-range="{{ $key }}">{{ $label }}</button>
                         @endforeach
                     </div>
                 </div>
                 <div class="card-body">
-                    <canvas id="walletChart" height="120"></canvas>
+                    <div id="chartCustomRange" class="row g-2 mb-3" style="display:none;">
+                        <div class="col-auto"><input type="date" id="chartFrom" class="form-control form-control-sm"></div>
+                        <div class="col-auto"><input type="date" id="chartTo" class="form-control form-control-sm"></div>
+                        <div class="col-auto"><button type="button" class="btn btn-sm btn-primary" id="chartCustomApply">Apply</button></div>
+                    </div>
+                    <div id="walletChartEmpty" class="wallet-chart-empty text-center py-5" style="display:none;">
+                        <div class="mb-2" style="font-size:2rem;opacity:.35;"><i class="fa fa-chart-area"></i></div>
+                        <h5 class="fw-semibold mb-1">No spending history yet.</h5>
+                        <p class="text-muted small mb-3">Place your first marketplace order to see analytics here.</p>
+                        <a href="{{ route('advertiser.catalog') }}" class="btn btn-primary btn-sm">Start Your First Order</a>
+                    </div>
+                    <div id="walletChartWrap" style="position:relative;height:320px;">
+                        <canvas id="walletChart"></canvas>
+                    </div>
+                    <p class="small text-muted mt-2 mb-0">Scroll to zoom · drag to pan · click a point for order details · double-click to reset</p>
                 </div>
             </div>
         </div>
+    </div>
+
+    {{-- Spending point details panel --}}
+    <div class="offcanvas offcanvas-end wallet-offcanvas" tabindex="-1" id="spendDetailOffcanvas" aria-labelledby="spendDetailLabel">
+        <div class="offcanvas-header">
+            <h5 class="offcanvas-title fw-semibold" id="spendDetailLabel">Spending Details</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+        </div>
+        <div class="offcanvas-body" id="spendDetailBody"></div>
     </div>
 
     {{-- History --}}
@@ -744,6 +753,7 @@
 </div>
 
 {{-- Withdraw Modal --}}
+@php $payout = $payoutProfile ?? auth()->user()->payoutProfile(); @endphp
 <div class="modal fade" id="withdrawModal" tabindex="-1" aria-labelledby="withdrawModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-lg">
         <div class="modal-content" style="border-radius:14px;">
@@ -765,19 +775,33 @@
                             {{ $bonus > 0 ? $promotionalBonusMessage : 'You have no available balance to withdraw.' }}
                         </div>
                     @else
+                        <div class="alert alert-light border small mb-3">
+                            <i class="fa fa-info-circle me-1 text-primary"></i>
+                            Business name, PayPal email, and bank account holder name are locked after the first successful save.
+                            Crypto TRX wallets must be entered twice to verify. Contact support to change locked details.
+                        </div>
                         <div class="row g-3">
                             <div class="col-md-6">
                                 <label class="form-label fw-semibold">Amount (€)</label>
                                 <input type="number" name="amount" id="withdrawAmount" class="form-control" step="0.01" min="0.01" max="{{ $available }}" required>
                             </div>
                             <div class="col-md-6">
-                                <label class="form-label fw-semibold">Payment Method</label>
+                                <label class="form-label fw-semibold">Send payout via</label>
                                 <select name="payment_method" id="withdrawMethod" class="form-select" required>
                                     <option value="bank">Bank Transfer</option>
                                     <option value="paypal">PayPal</option>
                                     <option value="wise">Wise</option>
-                                    <option value="crypto">Crypto</option>
+                                    <option value="crypto">Crypto (TRX / USDT TRC20)</option>
                                 </select>
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label fw-semibold">Business / Billing Name</label>
+                                <input type="text" name="business_name" id="withdrawBusinessName" class="form-control"
+                                       value="{{ $payout['business_name'] ?? '' }}"
+                                       @if(!empty($payout['business_name'])) readonly @endif required>
+                                @if(!empty($payout['business_name']))
+                                    <small class="text-muted">Locked — contact support to change.</small>
+                                @endif
                             </div>
                         </div>
                         <div id="withdrawMethodFields" class="row g-3 mt-1"></div>
@@ -808,6 +832,8 @@
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.2.0/dist/chartjs-plugin-zoom.min.js"></script>
 <script>
 (function () {
     const csrf = '{{ csrf_token() }}';
@@ -817,8 +843,11 @@
         analytics: @json(route('advertiser.balance.analytics')),
         export: @json(route('advertiser.balance.export')),
         withdraw: @json(route('advertiser.balance.withdraw')),
+        addFunds: @json(route('advertiser.add-funds')),
+        catalog: @json(route('advertiser.catalog')),
     };
     const promoMessage = @json($promotionalBonusMessage);
+    const payoutProfile = @json($payout ?? ($payoutProfile ?? []));
     let availableBalance = {{ json_encode($available) }};
     let bonusBalance = {{ json_encode($bonus) }};
     let advertiserBalance = {{ json_encode($spendable) }};
@@ -827,6 +856,8 @@
     let currentPage = 1;
     let walletChart = null;
     let chartData = @json($analytics);
+    let activeChartRange = '30d';
+    let chartOrderIndex = {};
 
     function money(n) {
         return '€' + (parseFloat(n || 0)).toFixed(2);
@@ -842,29 +873,62 @@
         return 'wallet-status wallet-status--' + String(status || 'pending').toLowerCase();
     }
 
+    function lockedHint() {
+        return '<small class="text-muted">Locked — contact support to change.</small>';
+    }
+
     function renderWithdrawFields(method) {
         const wrap = $('#withdrawMethodFields');
+        const p = payoutProfile || {};
         if (method === 'bank') {
+            const holderLocked = !!p.bank_holder_name;
             wrap.html(`
-                <div class="col-md-6"><label class="form-label small fw-semibold">Bank Name</label><input class="form-control" name="bank_name" required></div>
-                <div class="col-md-6"><label class="form-label small fw-semibold">Account Holder</label><input class="form-control" name="account_holder" required></div>
-                <div class="col-md-6"><label class="form-label small fw-semibold">Account Number / IBAN</label><input class="form-control" name="account_number" required></div>
-                <div class="col-md-6"><label class="form-label small fw-semibold">SWIFT / BIC</label><input class="form-control" name="swift_code"></div>
+                <div class="col-md-6"><label class="form-label small fw-semibold">Bank Name</label>
+                    <input class="form-control" name="bank_name" value="${escapeHtml(p.bank_name || '')}" required></div>
+                <div class="col-md-6"><label class="form-label small fw-semibold">Account Holder Name</label>
+                    <input class="form-control" name="account_holder" value="${escapeHtml(p.bank_holder_name || '')}" ${holderLocked ? 'readonly' : ''} required>
+                    ${holderLocked ? lockedHint() : ''}</div>
+                <div class="col-md-6"><label class="form-label small fw-semibold">Account Number / IBAN</label>
+                    <input class="form-control" name="account_number" value="${escapeHtml(p.bank_account || '')}" required></div>
+                <div class="col-md-6"><label class="form-label small fw-semibold">SWIFT / BIC</label>
+                    <input class="form-control" name="swift_code" value="${escapeHtml(p.bank_swift || '')}"></div>
             `);
         } else if (method === 'paypal') {
-            wrap.html(`<div class="col-12"><label class="form-label small fw-semibold">PayPal Email</label><input type="email" class="form-control" name="paypal_email" required></div>`);
-        } else if (method === 'wise') {
-            wrap.html(`<div class="col-12"><label class="form-label small fw-semibold">Wise Email</label><input type="email" class="form-control" name="wise_email" required></div>`);
-        } else {
+            const locked = !!p.paypal_email;
             wrap.html(`
-                <div class="col-md-4"><label class="form-label small fw-semibold">Crypto</label>
+                <div class="col-12"><label class="form-label small fw-semibold">PayPal Email</label>
+                    <input type="email" class="form-control" name="paypal_email" value="${escapeHtml(p.paypal_email || '')}" ${locked ? 'readonly' : ''} required>
+                    ${locked ? lockedHint() : '<small class="text-muted">This email cannot be changed later without contacting support.</small>'}
+                </div>
+            `);
+        } else if (method === 'wise') {
+            wrap.html(`
+                <div class="col-12"><label class="form-label small fw-semibold">Wise Email</label>
+                    <input type="email" class="form-control" name="wise_email" required>
+                </div>
+            `);
+        } else {
+            const locked = !!p.crypto_trx_wallet;
+            wrap.html(`
+                <div class="col-md-4"><label class="form-label small fw-semibold">Network</label>
                     <select class="form-select" name="crypto_type" required>
-                        <option value="USDT">USDT</option><option value="BTC">BTC</option>
-                        <option value="ETH">ETH</option><option value="BNB">BNB</option>
+                        <option value="USDT_TRC20">USDT (TRC20)</option>
+                        <option value="TRX">TRX</option>
                     </select>
                 </div>
-                <div class="col-md-8"><label class="form-label small fw-semibold">Wallet Address</label><input class="form-control" name="wallet_address" required></div>
+                <div class="col-md-8"><label class="form-label small fw-semibold">TRX / TRC20 Wallet</label>
+                    <input class="form-control" name="wallet_address" id="withdrawWallet" value="${escapeHtml(p.crypto_trx_wallet || '')}" ${locked ? 'readonly' : ''} required autocomplete="off">
+                    ${locked ? lockedHint() : '<small class="text-muted">Enter twice below to verify.</small>'}
+                </div>
+                ${locked ? '' : `
+                <div class="col-12"><label class="form-label small fw-semibold">Confirm TRX Wallet</label>
+                    <input class="form-control" name="wallet_address_confirm" id="withdrawWalletConfirm" required autocomplete="off">
+                    <small class="text-muted">Must match exactly — wallets are verified twice.</small>
+                </div>`}
             `);
+            if (locked) {
+                wrap.append(`<input type="hidden" name="wallet_address_confirm" value="${escapeHtml(p.crypto_trx_wallet || '')}">`);
+            }
         }
     }
 
@@ -944,30 +1008,238 @@
         $('#historyPagination').html(html);
     }
 
+    const crosshairPlugin = {
+        id: 'spendCrosshair',
+        afterDraw(chart) {
+            if (chart.tooltip && chart.tooltip._active && chart.tooltip._active.length) {
+                const ctx = chart.ctx;
+                const x = chart.tooltip._active[0].element.x;
+                const topY = chart.chartArea.top;
+                const bottomY = chart.chartArea.bottom;
+                ctx.save();
+                ctx.beginPath();
+                ctx.moveTo(x, topY);
+                ctx.lineTo(x, bottomY);
+                ctx.lineWidth = 1;
+                ctx.strokeStyle = 'rgba(11, 98, 102, 0.35)';
+                ctx.setLineDash([4, 4]);
+                ctx.stroke();
+                ctx.restore();
+            }
+        }
+    };
+
+    function buildOrderIndex(data) {
+        chartOrderIndex = {};
+        (data.order_details || []).forEach(function (o) {
+            if (!chartOrderIndex[o.bucket]) chartOrderIndex[o.bucket] = [];
+            chartOrderIndex[o.bucket].push(o);
+        });
+    }
+
+    function openSpendDetails(point) {
+        const body = $('#spendDetailBody');
+        const key = point.key;
+        const orders = chartOrderIndex[key] || [];
+        const canvasEl = document.getElementById('spendDetailOffcanvas');
+        const canvas = bootstrap.Offcanvas.getOrCreateInstance(canvasEl);
+        canvas.show();
+
+        if (!orders.length) {
+            body.html(`
+                <div class="mb-3">
+                    <div class="wallet-detail-row"><span>Period</span><strong>${escapeHtml(point.label)}</strong></div>
+                    <div class="wallet-detail-row"><span>Total Spend</span><strong>${money(point.total_spend)}</strong></div>
+                    <div class="wallet-detail-row"><span>Orders</span><strong>${point.order_count || 0}</strong></div>
+                </div>
+                <p class="text-muted small mb-0">No order details for this period.</p>
+            `);
+            return;
+        }
+
+        let html = `
+            <div class="mb-3 pb-2 border-bottom">
+                <div class="small text-muted">${escapeHtml(point.label)}</div>
+                <div class="fw-semibold">${money(point.total_spend)} · ${point.order_count} order${point.order_count === 1 ? '' : 's'}</div>
+            </div>
+        `;
+        orders.forEach(function (o) {
+            html += `
+                <div class="mb-3 p-3 rounded" style="border:1px solid #e5eef0;background:#fbfdfe;">
+                    <div class="wallet-detail-row"><span>Order ID</span><strong>${escapeHtml(o.order_number || o.id)}</strong></div>
+                    <div class="wallet-detail-row"><span>Order Name</span><strong>${escapeHtml(o.site_name || 'Marketplace order')}</strong></div>
+                    <div class="wallet-detail-row"><span>Publisher Website</span><strong>${escapeHtml(o.site_url || '—')}</strong></div>
+                    <div class="wallet-detail-row"><span>Amount Paid</span><strong>${money(o.amount)}</strong></div>
+                    <div class="wallet-detail-row"><span>Order Status</span><strong><span class="${statusClass(o.status)}">${escapeHtml(o.status || '')}</span></strong></div>
+                    <div class="wallet-detail-row"><span>Payment Status</span><strong><span class="${statusClass(o.payment_status)}">${escapeHtml(o.payment_status || '')}</span></strong></div>
+                    <div class="wallet-detail-row"><span>Order Date</span><strong>${o.date ? new Date(o.date).toLocaleString() : '—'}</strong></div>
+                    <div class="wallet-detail-row"><span>Completion Date</span><strong>${o.completed_at ? new Date(o.completed_at).toLocaleString() : '—'}</strong></div>
+                    <div class="wallet-detail-row"><span>Invoice Number</span><strong>${escapeHtml(o.invoice_number || '—')}</strong></div>
+                    <a class="btn btn-sm btn-primary w-100 mt-2" href="${escapeHtml(o.order_url)}">View Order</a>
+                </div>
+            `;
+        });
+        body.html(html);
+    }
+
+    function externalTooltipHandler(context) {
+        let tip = document.getElementById('walletChartTooltip');
+        if (!tip) {
+            tip = document.createElement('div');
+            tip.id = 'walletChartTooltip';
+            tip.className = 'wallet-chart-tooltip';
+            document.body.appendChild(tip);
+        }
+        const { chart, tooltip } = context;
+        if (tooltip.opacity === 0) {
+            tip.style.opacity = '0';
+            tip.style.pointerEvents = 'none';
+            return;
+        }
+        const idx = tooltip.dataPoints?.[0]?.dataIndex;
+        const points = chart.$spendPoints || [];
+        const point = points[idx];
+        if (!point) return;
+
+        tip.innerHTML = `
+            <div class="wallet-chart-tooltip__title">${escapeHtml(point.label)}</div>
+            <div class="wallet-chart-tooltip__row"><span>Total Spend</span><strong>${money(point.total_spend)}</strong></div>
+            <div class="wallet-chart-tooltip__row"><span>Orders</span><strong>${point.order_count}</strong></div>
+            <div class="wallet-chart-tooltip__row"><span>Avg Order Value</span><strong>${money(point.avg_order)}</strong></div>
+            <div class="wallet-chart-tooltip__row"><span>Largest Order</span><strong>${money(point.largest_order)}</strong></div>
+            <button type="button" class="btn btn-sm btn-primary w-100 mt-2 wallet-chart-tooltip__btn" data-idx="${idx}">Quick View</button>
+        `;
+        const rect = chart.canvas.getBoundingClientRect();
+        const left = rect.left + window.pageXOffset + tooltip.caretX + 14;
+        const top = rect.top + window.pageYOffset + tooltip.caretY - 20;
+        tip.style.opacity = '1';
+        tip.style.pointerEvents = 'auto';
+        tip.style.left = left + 'px';
+        tip.style.top = top + 'px';
+        tip.querySelector('.wallet-chart-tooltip__btn')?.addEventListener('click', function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+            openSpendDetails(point);
+        });
+    }
+
     function renderChart(data) {
-        const ctx = document.getElementById('walletChart');
-        if (!ctx) return;
+        const canvas = document.getElementById('walletChart');
+        if (!canvas) return;
+        chartData = data || {};
+        buildOrderIndex(chartData);
+        const points = chartData.points || [];
+        const hasSpend = !!chartData.has_spend;
+
+        if (!hasSpend) {
+            $('#walletChartEmpty').show();
+            $('#walletChartWrap').hide();
+            if (walletChart) {
+                walletChart.destroy();
+                walletChart = null;
+            }
+            return;
+        }
+
+        $('#walletChartEmpty').hide();
+        $('#walletChartWrap').show();
+
         if (walletChart) walletChart.destroy();
-        walletChart = new Chart(ctx, {
+
+        const values = points.map(p => p.total_spend);
+        walletChart = new Chart(canvas, {
             type: 'line',
             data: {
-                labels: data.labels || [],
-                datasets: [
-                    { label: 'Deposits', data: data.deposits || [], borderColor: '#059669', backgroundColor: 'rgba(5,150,105,.12)', tension: .35, fill: true },
-                    { label: 'Orders', data: data.orders || [], borderColor: '#0b6266', backgroundColor: 'rgba(11,98,102,.10)', tension: .35, fill: true },
-                    { label: 'Withdrawals', data: data.withdrawals || [], borderColor: '#dc2626', backgroundColor: 'rgba(220,38,38,.08)', tension: .35, fill: false },
-                    { label: 'Bonus Usage', data: data.bonus_usage || [], borderColor: '#d97706', backgroundColor: 'rgba(217,119,6,.08)', tension: .35, fill: false },
-                ]
+                labels: chartData.labels || points.map(p => p.label),
+                datasets: [{
+                    label: 'Spending',
+                    data: values,
+                    borderColor: '#0b6266',
+                    backgroundColor: (ctx) => {
+                        const chart = ctx.chart;
+                        const {ctx: c, chartArea} = chart;
+                        if (!chartArea) return 'rgba(11,98,102,.10)';
+                        const g = c.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
+                        g.addColorStop(0, 'rgba(58,174,178,.28)');
+                        g.addColorStop(1, 'rgba(11,98,102,.02)');
+                        return g;
+                    },
+                    borderWidth: 2.5,
+                    tension: 0.35,
+                    fill: true,
+                    pointRadius: 4,
+                    pointHoverRadius: 7,
+                    pointBackgroundColor: '#fff',
+                    pointBorderColor: '#0b6266',
+                    pointBorderWidth: 2,
+                    pointHoverBorderWidth: 3,
+                    pointHitRadius: 14,
+                    cursor: 'pointer',
+                }]
             },
             options: {
                 responsive: true,
-                maintainAspectRatio: true,
-                plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, usePointStyle: true } } },
+                maintainAspectRatio: false,
+                animation: { duration: 650, easing: 'easeOutQuart' },
+                interaction: { mode: 'index', intersect: false },
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        enabled: false,
+                        external: externalTooltipHandler,
+                    },
+                    zoom: {
+                        pan: { enabled: true, mode: 'x', modifierKey: null },
+                        zoom: {
+                            wheel: { enabled: true, speed: 0.08 },
+                            pinch: { enabled: true },
+                            drag: { enabled: true, backgroundColor: 'rgba(11,98,102,.08)', borderColor: 'rgba(11,98,102,.35)', borderWidth: 1 },
+                            mode: 'x',
+                        },
+                        limits: { x: { min: 'original', max: 'original' } },
+                    }
+                },
                 scales: {
-                    y: { beginAtZero: true, ticks: { callback: (v) => '€' + v } },
-                    x: { grid: { display: false } }
+                    y: {
+                        beginAtZero: true,
+                        grid: { color: 'rgba(148,163,184,.18)' },
+                        ticks: { callback: (v) => '€' + v, color: '#64748b', font: { size: 11 } },
+                        border: { display: false },
+                    },
+                    x: {
+                        grid: { display: false },
+                        ticks: { color: '#64748b', font: { size: 11 }, maxRotation: 0, autoSkip: true, maxTicksLimit: 10 },
+                        border: { display: false },
+                    }
+                },
+                onHover: (evt, elements) => {
+                    evt.native.target.style.cursor = elements.length ? 'pointer' : 'grab';
+                },
+                onClick: (evt, elements) => {
+                    if (!elements.length) return;
+                    const idx = elements[0].index;
+                    const point = points[idx];
+                    if (point) openSpendDetails(point);
                 }
-            }
+            },
+            plugins: [crosshairPlugin],
+        });
+        walletChart.$spendPoints = points;
+
+        canvas.ondblclick = function () {
+            if (walletChart && walletChart.resetZoom) walletChart.resetZoom();
+        };
+    }
+
+    function fetchAnalytics(range, from, to) {
+        const params = { range: range };
+        if (range === 'custom') {
+            params.from = from || $('#chartFrom').val();
+            params.to = to || $('#chartTo').val();
+            if (!params.from || !params.to) return;
+        }
+        $.get(routes.analytics, params).done(function (res) {
+            if (res.success) renderChart(res.analytics);
         });
     }
 
@@ -1031,10 +1303,17 @@
         $('.chart-range-btn').on('click', function () {
             $('.chart-range-btn').removeClass('active');
             $(this).addClass('active');
-            const range = $(this).data('range');
-            $.get(routes.analytics, { range: range }).done(function (res) {
-                if (res.success) renderChart(res.analytics);
-            });
+            activeChartRange = $(this).data('range');
+            if (activeChartRange === 'custom') {
+                $('#chartCustomRange').show();
+                return;
+            }
+            $('#chartCustomRange').hide();
+            fetchAnalytics(activeChartRange);
+        });
+
+        $('#chartCustomApply').on('click', function () {
+            fetchAnalytics('custom');
         });
 
         $('.add-fund-amt').on('click', function () {
@@ -1087,6 +1366,16 @@
                 return;
             }
 
+            const method = $('#withdrawMethod').val();
+            if (method === 'crypto' && !payoutProfile.crypto_trx_wallet) {
+                const a = ($('#withdrawWallet').val() || '').trim();
+                const b = ($('#withdrawWalletConfirm').val() || '').trim();
+                if (!a || a !== b) {
+                    Swal.fire('Verify wallet', 'TRX wallet must be entered twice and both values must match.', 'warning');
+                    return;
+                }
+            }
+
             const data = $(this).serialize() + '&_token=' + encodeURIComponent(csrf);
             $('#withdrawSubmitBtn').prop('disabled', true).text('Submitting…');
             $.post(routes.withdraw, data)
@@ -1100,21 +1389,15 @@
                     }
                 })
                 .fail(function (xhr) {
-                    const msg = xhr.responseJSON?.message || promoMessage;
+                    let msg = xhr.responseJSON?.message || promoMessage;
+                    if (xhr.responseJSON?.errors) {
+                        msg = Object.values(xhr.responseJSON.errors).flat().join(' ');
+                    }
                     Swal.fire('Unable to withdraw', msg, 'warning');
                 })
                 .always(function () {
                     $('#withdrawSubmitBtn').prop('disabled', availableBalance <= 0).text('Submit Withdrawal');
                 });
-        });
-                        } else {
-                            Swal.fire('Error', res.message || promoMessage, 'error');
-                        }
-                    })
-                    .fail(function (xhr) {
-                        Swal.fire('Error', xhr.responseJSON?.message || 'Transfer failed', 'error');
-                    });
-            });
         });
     });
 })();

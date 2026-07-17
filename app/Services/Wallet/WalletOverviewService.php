@@ -85,20 +85,24 @@ class WalletOverviewService
         ];
     }
 
-    public function analytics(int $userId, string $range = 'month'): array
+    public function analytics(int $userId, string $range = 'month', ?string $fromDate = null, ?string $toDate = null): array
     {
-        [$from, $to, $bucket] = $this->rangeBounds($range);
+        [$from, $to, $bucket] = $this->rangeBounds($range, $fromDate, $toDate);
 
         $labels = [];
         $cursor = $from->copy();
         while ($cursor <= $to) {
             $key = $bucket === 'day' ? $cursor->format('Y-m-d') : $cursor->format('Y-m');
             $labels[$key] = [
+                'key' => $key,
                 'label' => $bucket === 'day' ? $cursor->format('M j') : $cursor->format('M Y'),
                 'deposits' => 0.0,
                 'orders' => 0.0,
                 'withdrawals' => 0.0,
                 'bonus_usage' => 0.0,
+                'order_count' => 0,
+                'largest_order' => 0.0,
+                'order_ids' => [],
             ];
             $cursor = $bucket === 'day' ? $cursor->addDay() : $cursor->addMonth();
         }
@@ -116,18 +120,48 @@ class WalletOverviewService
             }
         }
 
-        $orderRows = Order::where('user_id', $userId)
-            ->where('payment_method', 'wallet')
+        $orderRows = Order::with(['items.site'])
+            ->where('user_id', $userId)
             ->whereIn('payment_status', ['paid', 'completed'])
             ->whereNotIn('status', ['cancelled', 'rejected', 'failed'])
             ->whereBetween('created_at', [$from, $to])
-            ->get(['total_amount', 'created_at']);
+            ->get();
+
+        $pointOrders = [];
 
         foreach ($orderRows as $row) {
             $key = $bucket === 'day' ? $row->created_at->format('Y-m-d') : $row->created_at->format('Y-m');
+            $amount = (float) $row->total_amount;
             if (isset($labels[$key])) {
-                $labels[$key]['orders'] += (float) $row->total_amount;
+                $labels[$key]['orders'] += $amount;
+                $labels[$key]['order_count']++;
+                $labels[$key]['largest_order'] = max($labels[$key]['largest_order'], $amount);
+                $labels[$key]['order_ids'][] = $row->id;
             }
+
+            $site = $row->items->first()?->site;
+            $invoice = Invoice::where('user_id', $userId)
+                ->where(function ($q) use ($row) {
+                    $q->where('order_id', $row->id)
+                        ->orWhere('order_number', $row->order_number)
+                        ->orWhere('reference_code', $row->reference_code);
+                })
+                ->first();
+
+            $pointOrders[] = [
+                'id' => $row->id,
+                'order_number' => $row->order_number,
+                'bucket' => $key,
+                'amount' => $amount,
+                'status' => $row->status,
+                'payment_status' => $row->payment_status,
+                'date' => $row->created_at?->toIso8601String(),
+                'completed_at' => $row->status === 'completed' ? ($row->updated_at?->toIso8601String()) : null,
+                'site_name' => $site?->site_name,
+                'site_url' => $site?->site_url ?? $site?->domain,
+                'invoice_number' => $invoice?->invoice_number,
+                'order_url' => url('/advertiser/orders?focus=order&order='.$row->id),
+            ];
         }
 
         $withdrawalRows = Withdrawal::where('user_id', $userId)
@@ -155,13 +189,35 @@ class WalletOverviewService
             }
         }
 
+        $series = array_values($labels);
+        $hasSpend = collect($series)->sum('orders') > 0;
+
         return [
             'range' => $range,
-            'labels' => array_column(array_values($labels), 'label'),
-            'deposits' => array_map(fn ($r) => round($r['deposits'], 2), array_values($labels)),
-            'orders' => array_map(fn ($r) => round($r['orders'], 2), array_values($labels)),
-            'withdrawals' => array_map(fn ($r) => round($r['withdrawals'], 2), array_values($labels)),
-            'bonus_usage' => array_map(fn ($r) => round($r['bonus_usage'], 2), array_values($labels)),
+            'from' => $from->toDateString(),
+            'to' => $to->toDateString(),
+            'has_spend' => $hasSpend,
+            'labels' => array_column($series, 'label'),
+            'keys' => array_column($series, 'key'),
+            'deposits' => array_map(fn ($r) => round($r['deposits'], 2), $series),
+            'orders' => array_map(fn ($r) => round($r['orders'], 2), $series),
+            'withdrawals' => array_map(fn ($r) => round($r['withdrawals'], 2), $series),
+            'bonus_usage' => array_map(fn ($r) => round($r['bonus_usage'], 2), $series),
+            'points' => array_map(function ($r) {
+                $count = (int) $r['order_count'];
+                $spend = round((float) $r['orders'], 2);
+
+                return [
+                    'key' => $r['key'],
+                    'label' => $r['label'],
+                    'total_spend' => $spend,
+                    'order_count' => $count,
+                    'avg_order' => $count > 0 ? round($spend / $count, 2) : 0,
+                    'largest_order' => round((float) $r['largest_order'], 2),
+                    'order_ids' => $r['order_ids'],
+                ];
+            }, $series),
+            'order_details' => $pointOrders,
         ];
     }
 
@@ -445,15 +501,28 @@ class WalletOverviewService
         };
     }
 
-    protected function rangeBounds(string $range): array
+    protected function rangeBounds(string $range, ?string $fromDate = null, ?string $toDate = null): array
     {
+        if ($range === 'custom' && $fromDate && $toDate) {
+            $from = Carbon::parse($fromDate)->startOfDay();
+            $to = Carbon::parse($toDate)->endOfDay();
+            if ($from->gt($to)) {
+                [$from, $to] = [$to->copy()->startOfDay(), $from->copy()->endOfDay()];
+            }
+            $days = $from->diffInDays($to);
+            $bucket = $days > 90 ? 'month' : 'day';
+
+            return [$from, $to, $bucket];
+        }
+
         $to = now()->endOfDay();
+
         return match ($range) {
-            'week' => [now()->subDays(6)->startOfDay(), $to, 'day'],
-            'quarter' => [now()->subMonths(2)->startOfMonth(), $to, 'month'],
-            'year' => [now()->subMonths(11)->startOfMonth(), $to, 'month'],
-            'lifetime' => [now()->subYears(3)->startOfMonth(), $to, 'month'],
-            default => [now()->subDays(29)->startOfDay(), $to, 'day'],
+            'week', '7d' => [now()->subDays(6)->startOfDay(), $to, 'day'],
+            '90d', 'quarter' => [now()->subDays(89)->startOfDay(), $to, 'day'],
+            'year' => [now()->startOfYear()->startOfDay(), $to, 'month'],
+            'lifetime' => [now()->subYears(5)->startOfMonth(), $to, 'month'],
+            default => [now()->subDays(29)->startOfDay(), $to, 'day'], // 30d / month
         };
     }
 }
