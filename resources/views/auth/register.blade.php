@@ -1,334 +1,207 @@
 @extends('layouts.app')
 
-@section('title', 'Register - Seolinkbuildings')
+@section('title', 'Create Account - SEOLinkBuildings')
 
 @section('content')
-<style>
-    .register-banner-wrapper {
-        background: #eaf6f7;
-        padding: 0;
-        height: 100%;
-        display: flex;
-        flex-direction: column;
-    }
-    .register-banner-logo {
-        background: #eaf6f7;
-        padding: 1.5rem 1.25rem;
-        text-align: center;
-    }
-    .register-banner-logo img {
-        max-height: 44px;
-        width: auto;
-    }
-    .register-banner {
-        background: linear-gradient(165deg, #3aaeb2 0%, #2c8a8d 100%);
-        padding: 1.85rem 1.5rem;
-        color: #fff;
-        flex: 1;
-        display: flex;
-        flex-direction: column;
-        box-shadow: 0 8px 24px rgba(58, 174, 178, 0.18);
-    }
-    .audit-header {
-        display: flex;
-        align-items: center;
-        gap: 0.85rem;
-        margin-bottom: 1rem;
-    }
-    .audit-header .audit-icon {
-        width: 44px;
-        height: 44px;
-        border-radius: 10px;
-        background: rgba(255,255,255,0.15);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 1.15rem;
-        color: #fff;
-        flex-shrink: 0;
-    }
-    .audit-header h3 {
-        font-weight: 700;
-        margin: 0;
-        font-family: Georgia, 'Times New Roman', serif;
-        font-size: 1.35rem;
-        line-height: 1.25;
-        color: #fff;
-    }
-    .audit-desc {
-        font-size: 0.9rem;
-        color: #e6f4f5;
-        line-height: 1.55;
-        margin-bottom: 1.25rem;
-    }
-    .feature-list {
-        list-style: none;
-        padding: 0;
-        margin-bottom: 1.5rem;
-    }
-    .feature-list li {
-        display: flex;
-        align-items: flex-start;
-        gap: 0.65rem;
-        margin-bottom: 0.7rem;
-        font-size: 0.88rem;
-        color: #e6f4f5;
-        font-weight: 600;
-        line-height: 1.45;
-    }
-    .feature-list li .check-icon {
-        width: 22px;
-        height: 22px;
-        border-radius: 6px;
-        background: rgba(46, 204, 113, 0.22);
-        color: #2ecc71;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        flex-shrink: 0;
-        font-size: 0.75rem;
-        margin-top: 1px;
-    }
-    .bonus-card {
-        background: rgba(255,255,255,0.08);
-        border: 1px solid rgba(255,255,255,0.15);
-        border-radius: 12px;
-        padding: 1.1rem 1.15rem;
-        margin-bottom: 1rem;
-    }
-    .bonus-header {
-        display: flex;
-        align-items: center;
-        gap: 0.65rem;
-        margin-bottom: 0.6rem;
-    }
-    .bonus-header .gift-icon {
-        width: 34px;
-        height: 34px;
-        border-radius: 50%;
-        background: #f4c430;
-        color: #2c8a8d;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 0.95rem;
-        flex-shrink: 0;
-    }
-    .bonus-header .bonus-title {
-        font-weight: 700;
-        color: #fff;
-        font-size: 0.95rem;
-    }
-    .bonus-amount {
-        font-family: Georgia, serif;
-        font-weight: 700;
-        color: #f4c430;
-        font-size: 1.55rem;
-        margin-bottom: 0.4rem;
-        line-height: 1.2;
-    }
-    .bonus-desc {
-        font-size: 0.78rem;
-        color: #e6f4f5;
-        line-height: 1.45;
-        margin: 0;
-    }
-    .flags-row {
-        text-align: center;
-        margin-top: auto;
-        padding-top: 1rem;
-        font-size: 1.2rem;
-    }
-    .flags-row small {
-        font-size: 0.75rem;
-        vertical-align: middle;
-        opacity: 0.9;
-        color: #e6f4f5;
-    }
-</style>
+<link href="{{ asset('css/auth-pages.css') }}?v={{ @filemtime(public_path('css/auth-pages.css')) ?: '1' }}" rel="stylesheet">
 
-<div class="container py-5">
-    <div class="row justify-content-center">
-        <div class="col-xl-10 py-5">
-            <div class="card shadow rounded-3 overflow-hidden">
-                <div class="row g-0">
+<div class="auth-page">
+    <div class="container auth-shell">
+        <div class="row justify-content-center">
+            <div class="col-xl-10">
+                <div class="auth-card">
+                    <div class="row g-0">
 
-                    {{-- Left Column: HTML Banner --}}
-                    <div class="col-md-5 d-none d-md-block">
-                        <div class="register-banner-wrapper">
-
-                            {{-- Logo --}}
-                            <div class="register-banner-logo">
-                                <img src="{{ asset('assets/img/logo1.png') }}" alt="SEO Buildings">
-                            </div>
-
-                            {{-- Banner content --}}
-                            <div class="register-banner">
-
-                                {{-- Audit header --}}
-                                <div class="audit-header">
-                                    <div class="audit-icon"><i class="fa-solid fa-chart-line"></i></div>
-                                    <h3>Free SEO Audit<br>Report</h3>
+                        {{-- Brand panel --}}
+                        <div class="col-md-5 d-none d-md-block">
+                            <div class="auth-panel h-100">
+                                <div class="auth-brand">
+                                    <img src="{{ asset('assets/img/logo1.png') }}" alt="SEOLinkBuildings">
                                 </div>
 
-                                <p class="audit-desc">
-                                    Register today and receive a complimentary SEO audit covering your backlink profile, technical health, and authority metrics.
+                                <div class="auth-panel-kicker">Start free today</div>
+                                <h1 class="auth-panel-title">Start building better backlinks</h1>
+                                <p class="auth-panel-copy">
+                                    Create your free account to discover verified publishers, manage guest post campaigns, track your spending, and grow your SEO with confidence.
                                 </p>
 
-                                {{-- Feature list --}}
-                                <ul class="feature-list">
+                                <ul class="auth-proof-list" aria-label="What you get with SEOLinkBuildings">
                                     <li>
-                                        <span class="check-icon"><i class="fa-solid fa-check"></i></span>
-                                        Backlink quality &amp; toxicity review
+                                        <span class="auth-proof-icon" aria-hidden="true">
+                                            <svg width="24" height="24" viewBox="0 0 24 24" focusable="false"><path d="M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-7"/><path d="M12 22V12"/><path d="M2.5 9.5h19v2.5H2.5z"/><path d="M7.5 9.5C6 9.5 5 8.2 5 7.2S6.2 5 7.5 5c2 0 2.5 2 4.5 4.5C14 7 14.5 5 16.5 5 17.8 5 19 6.2 19 7.2s-1 2.3-2.5 2.3"/></svg>
+                                        </span>
+                                        <div>
+                                            <strong>€20 welcome credit</strong>
+                                            <span>Spend on your first orders — not withdrawable</span>
+                                        </div>
                                     </li>
                                     <li>
-                                        <span class="check-icon"><i class="fa-solid fa-check"></i></span>
-                                        Domain authority &amp; competitor overview
+                                        <span class="auth-proof-icon" aria-hidden="true">
+                                            <svg width="24" height="24" viewBox="0 0 24 24" focusable="false"><path d="M4 19V5"/><path d="M4 19h16"/><path d="M7 15l3.5-4 3 2.5L18 7"/></svg>
+                                        </span>
+                                        <div>
+                                            <strong>Free SEO audit</strong>
+                                            <span>Backlink quality, authority, and next steps</span>
+                                        </div>
                                     </li>
                                     <li>
-                                        <span class="check-icon"><i class="fa-solid fa-check"></i></span>
-                                        Actionable growth recommendations
+                                        <span class="auth-proof-icon" aria-hidden="true">
+                                            <svg width="24" height="24" viewBox="0 0 24 24" focusable="false"><path d="M12 3l7 3v5c0 5-3.5 8.5-7 10-3.5-1.5-7-5-7-10V6l7-3z"/><path d="M9.5 12.2l1.8 1.8 3.7-3.8"/></svg>
+                                        </span>
+                                        <div>
+                                            <strong>Verified publishers</strong>
+                                            <span>EU &amp; major NA network — no PBNs</span>
+                                        </div>
                                     </li>
                                 </ul>
 
-                                {{-- Bonus card --}}
-                                <div class="bonus-card">
-                                    <div class="bonus-header">
-                                        <div class="gift-icon"><i class="fa-solid fa-gift"></i></div>
-                                        <div class="bonus-title">Welcome Bonus</div>
-                                    </div>
-                                    <div class="bonus-amount">€20 Free Credit</div>
-                                    <p class="bonus-desc">Get €20 to buy your first orders. This gift credit is for spending on the site only — not for withdrawal.</p>
-                                </div>
-
-                                {{-- Flags --}}
-                                <div class="flags-row">
-                                    🇩🇪 🇫🇷 🇪🇸 🇮🇹 🇵🇹 🇧🇪 🇨🇭 <small>more...</small>
-                                </div>
-
+                                <blockquote class="auth-quote">
+                                    Join advertisers who buy placements with clear pricing and tracked delivery.
+                                    <cite>SEOLinkBuildings marketplace</cite>
+                                </blockquote>
                             </div>
                         </div>
-                    </div>
 
-                    {{-- Right Column: Registration Form --}}
-                    <div class="col-md-7 p-4 p-md-5">
-                        <h2 class="text-center mb-4">Sign Up for Free</h2>
+                        {{-- Form --}}
+                        <div class="col-md-7 auth-form-col">
+                            <h2 class="auth-form-title">Create your account</h2>
+                            <p class="auth-form-sub">Build authority with verified publishers — free to start, no card required.</p>
 
-                        <form id="registerForm" onsubmit="return false;">
-                            @csrf
-
-                            {{-- Name --}}
-                            <div class="mb-3">
-                                <label for="name" class="form-label">Name <span class="text-danger">*</span></label>
-                                <input type="text" name="name" id="name" class="form-control" placeholder="Enter your name" required>
-                                <div class="invalid-feedback" id="nameError"></div>
+                            <div class="auth-mobile-strip d-md-none" aria-label="Why join SEOLinkBuildings">
+                                <strong>Start with €20 free credit</strong>
+                                <ul>
+                                    <li>
+                                        <span class="mi" aria-hidden="true">
+                                            <svg width="22" height="22" viewBox="0 0 24 24" focusable="false"><path d="M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-7"/><path d="M12 22V12"/><path d="M2.5 9.5h19v2.5H2.5z"/><path d="M7.5 9.5C6 9.5 5 8.2 5 7.2S6.2 5 7.5 5c2 0 2.5 2 4.5 4.5C14 7 14.5 5 16.5 5 17.8 5 19 6.2 19 7.2s-1 2.3-2.5 2.3"/></svg>
+                                        </span>
+                                        Welcome bonus for first orders
+                                    </li>
+                                    <li>
+                                        <span class="mi" aria-hidden="true">
+                                            <svg width="22" height="22" viewBox="0 0 24 24" focusable="false"><path d="M4 19V5"/><path d="M4 19h16"/><path d="M7 15l3.5-4 3 2.5L18 7"/></svg>
+                                        </span>
+                                        Free SEO audit on signup
+                                    </li>
+                                    <li>
+                                        <span class="mi" aria-hidden="true">
+                                            <svg width="22" height="22" viewBox="0 0 24 24" focusable="false"><path d="M12 3l7 3v5c0 5-3.5 8.5-7 10-3.5-1.5-7-5-7-10V6l7-3z"/><path d="M9.5 12.2l1.8 1.8 3.7-3.8"/></svg>
+                                        </span>
+                                        Verified European publishers
+                                    </li>
+                                </ul>
                             </div>
 
-                            {{-- Email --}}
-                            <div class="mb-3">
-                                <label for="email" class="form-label">Email <span class="text-danger">*</span></label>
-                                <input type="email" name="email" id="email" class="form-control" placeholder="john@example.com" required>
-                                <div class="invalid-feedback" id="emailError"></div>
-                            </div>
+                            <form id="registerForm" onsubmit="return false;" novalidate>
+                                @csrf
 
-                            {{-- Password + Confirm Password --}}
-                            <div class="row g-2 mb-3">
-                                <div class="col">
-                                    <label for="password" class="form-label">Password <span class="text-danger">*</span></label>
-                                    <div class="input-group">
-                                        <input type="password" name="password" id="password" class="form-control pe-5" placeholder="Enter password" required>
-                                        <span class="input-group-text" style="cursor:pointer" onclick="togglePassword('password', this)"><i class="fa-solid fa-eye"></i></span>
-                                        <div class="invalid-feedback" id="passwordError"></div>
+                                <div class="mb-3">
+                                    <label for="name" class="auth-label">Name <span class="text-danger">*</span></label>
+                                    <input type="text" name="name" id="name" class="form-control auth-input" placeholder="Your full name" autocomplete="name" required>
+                                    <div class="invalid-feedback" id="nameError"></div>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label for="email" class="auth-label">Email <span class="text-danger">*</span></label>
+                                    <input type="email" name="email" id="email" class="form-control auth-input" placeholder="you@company.com" autocomplete="email" required>
+                                    <div class="invalid-feedback" id="emailError"></div>
+                                </div>
+
+                                <div class="row g-2 mb-3">
+                                    <div class="col-md-6">
+                                        <label for="password" class="auth-label">Password <span class="text-danger">*</span></label>
+                                        <div class="input-group">
+                                            <input type="password" name="password" id="password" class="form-control auth-input pe-5" placeholder="Create a password" autocomplete="new-password" required>
+                                            <button type="button" class="input-group-text" style="cursor:pointer" onclick="togglePassword('password', this)" aria-label="Show or hide password"><i class="fa-solid fa-eye" aria-hidden="true"></i></button>
+                                            <div class="invalid-feedback" id="passwordError"></div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label for="password_confirmation" class="auth-label">Confirm password <span class="text-danger">*</span></label>
+                                        <div class="input-group">
+                                            <input type="password" name="password_confirmation" id="password_confirmation" class="form-control auth-input pe-5" placeholder="Repeat password" autocomplete="new-password" required>
+                                            <button type="button" class="input-group-text" style="cursor:pointer" onclick="togglePassword('password_confirmation', this)" aria-label="Show or hide password confirmation"><i class="fa-solid fa-eye" aria-hidden="true"></i></button>
+                                            <div class="invalid-feedback" id="password_confirmationError"></div>
+                                        </div>
                                     </div>
                                 </div>
-                                <div class="col">
-                                    <label for="password_confirmation" class="form-label">Confirm Password <span class="text-danger">*</span></label>
-                                    <div class="input-group">
-                                        <input type="password" name="password_confirmation" id="password_confirmation" class="form-control pe-5" placeholder="Confirm password" required>
-                                        <span class="input-group-text" style="cursor:pointer" onclick="togglePassword('password_confirmation', this)"><i class="fa-solid fa-eye"></i></span>
-                                        <div class="invalid-feedback" id="password_confirmationError"></div>
+
+                                <div class="mb-3">
+                                    <label class="auth-label">Register as <span class="text-danger">*</span></label>
+                                    <div class="auth-role-grid" id="roleSelect" role="radiogroup" aria-label="Choose account type">
+                                        <div class="auth-role-card role-card selected" data-value="advertiser" role="radio" aria-checked="true" tabindex="0">
+                                            <i class="fa-solid fa-bullseye role-main" aria-hidden="true"></i>
+                                            Advertiser
+                                            <i class="fa-solid fa-check role-check" aria-hidden="true"></i>
+                                        </div>
+                                        <div class="auth-role-card role-card" data-value="publisher" role="radio" aria-checked="false" tabindex="0">
+                                            <i class="fa-solid fa-file-lines role-main" aria-hidden="true"></i>
+                                            Publisher
+                                            <i class="fa-solid fa-check role-check" aria-hidden="true"></i>
+                                        </div>
+                                    </div>
+                                    <input type="hidden" name="role" id="roleInput" value="advertiser">
+                                    <div class="invalid-feedback" id="roleError"></div>
+                                </div>
+
+                                <div class="mb-3">
+                                    <div class="form-check mb-2">
+                                        <input type="checkbox" class="form-check-input" name="terms" id="terms" required>
+                                        <label class="form-check-label" for="terms">
+                                            <span class="text-danger">*</span> I agree to the <a href="{{ route('terms-of-services') }}" target="_blank" rel="noopener" class="auth-meta-link">Terms of Service</a>.
+                                        </label>
+                                    </div>
+                                    <div class="form-check mb-2">
+                                        <input type="checkbox" class="form-check-input" name="marketing" id="marketing">
+                                        <label class="form-check-label" for="marketing">
+                                            I consent to receiving marketing communications about services and offers.
+                                        </label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input type="checkbox" class="form-check-input" name="newsletter" id="newsletter">
+                                        <label class="form-check-label" for="newsletter">
+                                            Send me the newsletter. See our <a href="{{ url('/privacy-policy') }}" target="_blank" class="auth-meta-link">Privacy Policy</a>.
+                                        </label>
                                     </div>
                                 </div>
-                            </div>
 
-                            {{-- Role Selection --}}
-                            <div class="mb-3">
-                                <label class="form-label">Register as <span class="text-danger">*</span></label>
-                                <div class="d-flex gap-2" id="roleSelect">
-                                    <div class="role-card selected p-2 border rounded text-center flex-fill" data-value="advertiser">
-                                        <i class="fa-solid fa-bullseye mb-1"></i><br>
-                                        Advertiser
-                                        <i class="fa-solid fa-check text-primary d-none mt-1"></i>
-                                    </div>
-                                    <div class="role-card p-2 border rounded text-center flex-fill" data-value="publisher">
-                                        <i class="fa-solid fa-file-lines mb-1"></i><br>
-                                        Publisher
-                                        <i class="fa-solid fa-check text-primary d-none mt-1"></i>
-                                    </div>
+                                <div class="d-flex flex-column flex-sm-row gap-2 mb-1">
+                                    <button type="submit" class="auth-cta flex-fill" id="submitBtn">Create Account</button>
+                                    <a href="{{ url('/login') }}" class="auth-secondary-btn flex-fill">Sign In</a>
                                 </div>
-                                <input type="hidden" name="role" id="roleInput" value="">
-                                <div class="invalid-feedback" id="roleError"></div>
-                            </div>
 
-                            {{-- Consents --}}
-                            <div class="mb-3">
-                                <div class="form-check">
-                                    <input type="checkbox" class="form-check-input" name="terms" id="terms" required>
-                                    <label class="form-check-label" for="terms">
-                                        <span class="text-danger">*</span> I agree to the <span class="text-decoration-underline"><a href="{{ route('terms-of-services') }}" target="_blank" rel="noopener">Terms of Service</a></span>.
-                                    </label>
+                                <div class="auth-divider"><span>or</span></div>
+
+                                <div class="auth-social-stack mb-2">
+                                    <a href="{{ route('auth.google') }}" class="auth-google">
+                                        <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
+                                            <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+                                            <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+                                            <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+                                            <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+                                        </svg>
+                                        Continue with Google
+                                    </a>
+                                    <a href="{{ route('auth.apple') }}" class="auth-apple" aria-label="Continue with Apple">
+                                        <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" fill="currentColor">
+                                            <path d="M16.365 1.43c0 1.14-.42 2.2-1.22 3.02-.92.95-2.22 1.68-3.45 1.58-.15-1.1.4-2.26 1.2-3.08.92-.95 2.3-1.64 3.47-1.52zM20.48 17.2c-.58 1.33-.86 1.92-1.61 3.1-1.04 1.62-2.24 3.63-3.87 3.65-1.45.02-1.83-.94-3.81-.93-1.98.01-2.4.95-3.85.93-1.63-.02-2.88-1.84-3.92-3.46C1.78 17.98.5 13.7 2.2 10.86c.9-1.5 2.5-2.45 4.25-2.48 1.67-.03 3.25 1.12 3.81 1.12.56 0 2.5-1.38 4.22-1.18.72.03 2.74.29 4.04 2.18-.1.07-2.41 1.41-2.38 4.2.03 3.33 2.92 4.44 2.95 4.45-.02.07-.46 1.58-1.61 4.05z"/>
+                                        </svg>
+                                        Continue with Apple
+                                    </a>
                                 </div>
-                                <div class="form-check">
-                                    <input type="checkbox" class="form-check-input" name="marketing" id="marketing">
-                                    <label class="form-check-label" for="marketing">
-                                        I consent to receiving marketing communications, including information about services, offers, and promotional content.
-                                    </label>
+
+                                <div class="auth-trust-row" aria-label="Trust indicators">
+                                    <span><i class="fa-solid fa-check" aria-hidden="true"></i> Verified Publishers</span>
+                                    <span><i class="fa-solid fa-check" aria-hidden="true"></i> Secure Payments</span>
+                                    <span><i class="fa-solid fa-check" aria-hidden="true"></i> Transparent Pricing</span>
+                                    <span><i class="fa-solid fa-check" aria-hidden="true"></i> Real-Time Order Tracking</span>
+                                    <span><i class="fa-solid fa-check" aria-hidden="true"></i> Dedicated Support</span>
                                 </div>
-                                <div class="form-check">
-                                    <input type="checkbox" class="form-check-input" name="newsletter" id="newsletter">
-                                    <label class="form-check-label" for="newsletter">
-                                        I would like to receive the company newsletter. For more info, see our <a href="{{ url('/privacy-policy') }}" target="_blank">Privacy Policy</a>.
-                                    </label>
+
+                                <div class="auth-foot-links">
+                                    <a href="{{ url('/') }}" class="auth-meta-link">← Back to Home</a>
                                 </div>
-                            </div>
-
-                            {{-- reCAPTCHA --}}
-                            <!-- <div class="mb-3">
-                                <div class="g-recaptcha" data-sitekey="{{ config('services.recaptcha.site_key') }}"></div>
-                            </div> -->
-
-                            {{-- Submit Button --}}
-                            <div class="d-flex gap-2 mb-3">
-                                <button type="submit" class="btn btn-primary flex-fill" id="submitBtn">Register</button>
-                                <a href="{{ url('/login') }}" class="btn btn-outline-secondary flex-fill">Login</a>
-                            </div>
-
-                            {{-- Divider --}}
-                            <div class="position-relative my-4">
-                                <hr>
-                                <div class="position-absolute top-50 start-50 translate-middle bg-white px-3" style="margin-top: -0.5px;">
-                                    <span class="text-muted">or</span>
-                                </div>
-                            </div>
-
-                            {{-- Google Registration Button --}}
-                            <div class="mb-3">
-                                <a href="{{ route('auth.google') }}" class="btn btn-outline-danger w-100 d-flex align-items-center justify-content-center gap-2">
-                                    <svg width="20" height="20" viewBox="0 0 24 24">
-                                        <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
-                                        <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
-                                        <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
-                                        <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
-                                    </svg>
-                                    Continue with Google
-                                </a>
-                            </div>
-
-                            <div class="text-center">
-                                <a href="{{ url('/') }}" class="text-decoration-underline">Back to Home</a>
-                            </div>
-
-                        </form>
+                            </form>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -338,7 +211,6 @@
 
 {{-- Toast Container --}}
 <div class="toast-container position-fixed top-0 end-0 p-3" id="toastContainer"></div>
-
 
 <script>
 function togglePassword(id, iconSpan){
@@ -353,27 +225,35 @@ function togglePassword(id, iconSpan){
     }
 }
 
-// Role card selection
+function selectRoleCard(card){
+    document.querySelectorAll('#roleSelect .role-card').forEach(c=>{
+        c.classList.remove('selected');
+        c.setAttribute('aria-checked', 'false');
+    });
+    card.classList.add('selected');
+    card.setAttribute('aria-checked', 'true');
+    document.getElementById('roleInput').value = card.dataset.value;
+}
+
 document.querySelectorAll('#roleSelect .role-card').forEach(card=>{
     card.addEventListener('click', function(){
-        document.querySelectorAll('#roleSelect .role-card').forEach(c=>{
-            c.classList.remove('selected');
-            c.querySelector('i.fa-check').classList.add('d-none');
-        });
-        this.classList.add('selected');
-        this.querySelector('i.fa-check').classList.remove('d-none');
-        document.getElementById('roleInput').value = this.dataset.value;
+        selectRoleCard(this);
+    });
+    card.addEventListener('keydown', function(e){
+        if(e.key === 'Enter' || e.key === ' '){
+            e.preventDefault();
+            selectRoleCard(this);
+        }
     });
 });
 
-// AJAX form submit
 document.getElementById('registerForm').addEventListener('submit', async function(e){
     e.preventDefault();
 
     const submitBtn = document.getElementById('submitBtn');
     if(submitBtn.disabled) return;
     submitBtn.disabled = true;
-    submitBtn.innerText = 'Submitting...';
+    submitBtn.innerText = 'Creating account...';
 
     document.querySelectorAll('.form-control').forEach(input=>{
         input.classList.remove('is-invalid');
@@ -386,7 +266,6 @@ document.getElementById('registerForm').addEventListener('submit', async functio
 
     const toastContainer = document.getElementById('toastContainer');
 
-    // Validate role
     const role = document.getElementById('roleInput').value;
     if(!role){
         const toast = document.createElement('div');
@@ -396,24 +275,10 @@ document.getElementById('registerForm').addEventListener('submit', async functio
         toastContainer.appendChild(toast);
         new bootstrap.Toast(toast,{delay:4000}).show();
         submitBtn.disabled=false;
-        submitBtn.innerText='Register';
+        submitBtn.innerText='Create Account';
         return;
     }
 
-    // Validate reCAPTCHA
-    // if(!grecaptcha.getResponse()){
-    //     const toast = document.createElement('div');
-    //     toast.className='toast align-items-center text-white border-0';
-    //     toast.innerHTML=`<div class="d-flex"><div class="toast-body">Please complete the reCAPTCHA.</div><button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button></div>`;
-    //     toast.classList.add('bg-warning');
-    //     toastContainer.appendChild(toast);
-    //     new bootstrap.Toast(toast,{delay:4000}).show();
-    //     submitBtn.disabled=false;
-    //     submitBtn.innerText='Register';
-    //     return;
-    // }
-
-    // Show sending toast
     const sendingToast = document.createElement('div');
     sendingToast.className='toast align-items-center text-white border-0';
     sendingToast.innerHTML=`<div class="d-flex"><div class="toast-body">Sending verification email...</div></div>`;
@@ -433,7 +298,7 @@ document.getElementById('registerForm').addEventListener('submit', async functio
     } catch(e){
         alert('Server error occurred. Check logs.');
         submitBtn.disabled=false;
-        submitBtn.innerText='Register';
+        submitBtn.innerText='Create Account';
         return;
     }
 
@@ -448,12 +313,15 @@ document.getElementById('registerForm').addEventListener('submit', async functio
         toastEl.classList.add('bg-success');
         new bootstrap.Toast(toastEl,{delay:7000}).show();
         this.reset();
-        document.getElementById('roleInput').value='';
-        // grecaptcha.reset();
+        document.getElementById('roleInput').value='advertiser';
+        document.querySelectorAll('#roleSelect .role-card').forEach(c=>{
+            const isAdv = c.dataset.value === 'advertiser';
+            c.classList.toggle('selected', isAdv);
+            c.setAttribute('aria-checked', isAdv ? 'true' : 'false');
+        });
     } else if(data.status==='error'){
         toastEl.classList.add('bg-danger');
         new bootstrap.Toast(toastEl,{delay:5000}).show();
-        // grecaptcha.reset();
     } else if(data.status==='validation'){
         for(let key in data.errors){
             const input=document.querySelector(`[name="${key}"]`);
@@ -461,11 +329,10 @@ document.getElementById('registerForm').addEventListener('submit', async functio
             if(input) input.classList.add('is-invalid');
             if(errorDiv) errorDiv.innerText=data.errors[key][0];
         }
-        // grecaptcha.reset();
     }
 
     submitBtn.disabled=false;
-    submitBtn.innerText='Register';
+    submitBtn.innerText='Create Account';
 });
 </script>
 @endsection

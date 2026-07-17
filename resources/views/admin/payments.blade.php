@@ -150,10 +150,10 @@
                             <i class="fa fa-exchange-alt text-muted"></i>
                         </span>
                         <select id="update_payment_status" class="form-select border-start-0">
-                            <option value="pending">⏳ Pending</option>
-                            <option value="paid">✅ Paid</option>
-                            <option value="failed">❌ Failed</option>
-                            <option value="refunded">🔄 Refunded</option>
+                            <option value="pending">Pending</option>
+                            <option value="paid">Paid</option>
+                            <option value="failed">Failed</option>
+                            <option value="refunded">Refunded</option>
                         </select>
                     </div>
                 </div>
@@ -503,15 +503,15 @@ $(document).ready(function() {
 
 /* Pagination styles */
 .pagination .page-link {
-    color: #0d6efd;
+    color: #0b6266;
     cursor: pointer;
     font-size: 13px;
     padding: 5px 10px;
 }
 
 .pagination .active .page-link {
-    background-color: #0d6efd;
-    border-color: #0d6efd;
+    background-color: #0b6266;
+    border-color: #0b6266;
     color: white;
 }
 
@@ -530,22 +530,8 @@ $(document).ready(function() {
 }
 
 /* Dark mode support */
-body.layout-dark .admin-payments-container code {
-    background-color: #2d2d2d;
-    color: #e0e0e0;
-}
 
-body.layout-dark .bg-light {
-    background-color: #2d2d2d !important;
-}
 
-body.layout-dark .text-muted {
-    color: #9ca3af !important;
-}
 
-body.layout-dark .table-light {
-    background-color: #374151;
-    color: #e5e7eb;
-}
 </style>
 @endsection

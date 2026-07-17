@@ -208,7 +208,7 @@
     </style>
 </head>
 <body>
-    <button class="print-btn" onclick="window.print()">📄 Print Invoice</button>
+    <button class="print-btn" onclick="window.print()" type="button" aria-label="Print invoice">Print Invoice</button>
     
     <div class="invoice-container">
         <div class="invoice-header">

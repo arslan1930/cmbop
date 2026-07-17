@@ -1,0 +1,150 @@
+/**
+ * Advertiser spending history chart
+ */
+.an-page {
+  --an-teal: #0b6266;
+  --an-soft: #3aaeb2;
+  --an-mint: #e8f8f7;
+  --an-line: #e2e8f0;
+  --an-ink: #0f172a;
+  --an-muted: #64748b;
+}
+
+.an-hero {
+  margin-bottom: 1.25rem;
+}
+
+.an-hero h2 {
+  margin: 0;
+  font-weight: 700;
+  color: var(--an-teal);
+  letter-spacing: -0.02em;
+}
+
+.an-hero p {
+  margin: 6px 0 0;
+  color: var(--an-muted);
+  font-size: 0.95rem;
+  max-width: 52ch;
+}
+
+.an-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 1rem;
+}
+
+.an-summary > div {
+  background: linear-gradient(180deg, #f4fbfb, #fff);
+  border: 1px solid var(--an-line);
+  border-radius: 14px;
+  padding: 14px 16px;
+}
+
+.an-summary .label {
+  display: block;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--an-muted);
+  margin-bottom: 4px;
+}
+
+.an-summary .value {
+  font-size: 1.4rem;
+  font-weight: 750;
+  color: var(--an-teal);
+  line-height: 1.15;
+}
+
+.an-summary .value-sm {
+  font-size: 1.05rem;
+}
+
+.an-card {
+  background: #fff;
+  border: 1px solid var(--an-line);
+  border-radius: 16px;
+  padding: 1.15rem 1.25rem 1rem;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.04);
+}
+
+.an-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 1rem;
+}
+
+.an-toolbar h5 {
+  margin: 0;
+  font-weight: 700;
+  color: var(--an-ink);
+}
+
+.an-toggle {
+  display: inline-flex;
+  background: #f1f5f9;
+  border-radius: 999px;
+  padding: 3px;
+  gap: 2px;
+}
+
+.an-toggle a {
+  text-decoration: none;
+  color: #475569;
+  font-size: 0.85rem;
+  font-weight: 600;
+  padding: 7px 14px;
+  border-radius: 999px;
+  transition: background .15s ease, color .15s ease;
+}
+
+.an-toggle a:hover {
+  color: var(--an-teal);
+}
+
+.an-toggle a.active {
+  background: #fff;
+  color: var(--an-teal);
+  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.08);
+}
+
+.an-chart-wrap {
+  position: relative;
+  min-height: 320px;
+}
+
+.an-hint {
+  margin: 0.75rem 0 0;
+  font-size: 0.82rem;
+  color: var(--an-muted);
+}
+
+.an-empty {
+  text-align: center;
+  padding: 3rem 1.5rem;
+  border: 1px dashed #b8e8e6;
+  border-radius: 18px;
+  background: linear-gradient(180deg, #f4fbfb, #fff);
+}
+
+.an-empty h3 {
+  color: var(--an-teal);
+  margin-bottom: 0.5rem;
+}
+
+.an-empty p {
+  color: var(--an-muted);
+  max-width: 40ch;
+  margin: 0 auto 1.25rem;
+}
+
+@media (max-width: 767.98px) {
+  .an-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

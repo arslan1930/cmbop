@@ -192,13 +192,13 @@
 }
 
 .rep-nav-tabs-custom .nav-link:hover {
-    color: #3b82f6;
+    color: #0b6266;
     background: transparent;
 }
 
 .rep-nav-tabs-custom .nav-link.active {
-    color: #3b82f6;
-    border-bottom: 2px solid #3b82f6;
+    color: #0b6266;
+    border-bottom: 2px solid #0b6266;
     background: transparent;
 }
 
@@ -254,57 +254,15 @@
 }
 
 /* Dark mode styles */
-body.layout-dark .rep-sensitive-badge {
-    background-color: #4a3a1e;
-    color: #fbbf24;
-}
 
-body.layout-dark .rep-nav-tabs-custom {
-    background: #1e1e2f;
-    border-bottom-color: #333;
-}
 
-body.layout-dark .rep-nav-tabs-custom .nav-link {
-    color: #aaa;
-}
 
-body.layout-dark .rep-nav-tabs-custom .nav-link.active {
-    color: #4ECDCB;
-    border-bottom-color: #4ECDCB;
-}
 
-body.layout-dark .rep-btn-outline-primary {
-    color: #60a5fa;
-    border-color: #3b82f6;
-}
 
-body.layout-dark .rep-btn-outline-primary:hover {
-    background-color: #3b82f6;
-    color: #1a1a2e;
-}
 
-body.layout-dark .rep-page-link {
-    background-color: #2d2d3a;
-    border-color: #40404f;
-    color: #aaa;
-}
 
-body.layout-dark .rep-page-link:hover {
-    background-color: #40404f;
-    color: #fff;
-}
 
-body.layout-dark .rep-page-item.active .rep-page-link {
-    background-color: #3b82f6;
-    border-color: #3b82f6;
-    color: white;
-}
 
-body.layout-dark .rep-page-item.disabled .rep-page-link {
-    background-color: #2d2d3a;
-    border-color: #40404f;
-    color: #666;
-}
 </style>
 
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>

@@ -122,7 +122,7 @@
         </div>
         <div class="card-body p-0">
             <div class="table-responsive">
-                <table class="table table-hover align-middle mb-0">
+                <table class="table table-hover align-middle mb-0 data-table">
                     <thead class="table-light">
                         <tr>
                             <th>Order ID</th>
@@ -211,6 +211,7 @@
                 </h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
+            <div id="chatOrderDetails" class="chat-order-details d-none" aria-live="polite"></div>
             <div class="modal-body p-0">
                 <div id="chatMessages" class="p-3" style="height: 400px; overflow-y: auto; background: #f8f9fa;">
                     <div class="text-center text-muted py-5">
@@ -236,6 +237,31 @@
 </div>
 
 <style>
+.chat-order-details {
+    padding: 10px 16px;
+    background: #f4f6f8;
+    border-bottom: 1px solid #e6eaee;
+    color: #8a94a0;
+    font-size: 0.78rem;
+    line-height: 1.45;
+}
+.chat-order-details .chat-detail-primary {
+    color: #6c757d;
+    font-weight: 500;
+}
+.chat-order-details .chat-detail-sep {
+    color: #c5ccd4;
+    margin: 0 0.35rem;
+}
+.chat-order-details a {
+    color: #8a94a0;
+    text-decoration: none;
+}
+.chat-order-details a:hover {
+    color: #6c757d;
+    text-decoration: underline;
+}
+
 .table td, .table th {
     padding: 12px 15px;
     vertical-align: middle;
@@ -371,54 +397,15 @@
 }
 
 /* Dark mode styles */
-body.layout-dark .card-header {
-    border-bottom-color: #333;
-}
 
-body.layout-dark .status-pending {
-    background-color: #4a3a1e;
-    color: #fbbf24;
-}
 
-body.layout-dark .status-processing {
-    background-color: #1e3a5f;
-    color: #60a5fa;
-}
 
-body.layout-dark .status-review {
-    background-color: #1a5a5a;
-    color: #8bcbff;
-}
 
-body.layout-dark .status-completed {
-    background-color: #1e5a2e;
-    color: #4ade80;
-}
 
-body.layout-dark .status-cancelled {
-    background-color: #5a1e1e;
-    color: #f87171;
-}
 
-body.layout-dark .payment-paid {
-    background-color: #1e5a2e;
-    color: #4ade80;
-}
 
-body.layout-dark .payment-pending {
-    background-color: #4a3a1e;
-    color: #fbbf24;
-}
 
-body.layout-dark .payment-failed {
-    background-color: #5a1e1e;
-    color: #f87171;
-}
 
-body.layout-dark .sensitive-badge {
-    background-color: #4a3a1e;
-    color: #fbbf24;
-}
 
 td a {
     word-break: break-all;
@@ -445,7 +432,8 @@ let currentChatOrderId = null;
 
 document.addEventListener('DOMContentLoaded', function() {
     fetchOrders();
-    
+    maybeOpenFocusedChat();
+
     document.getElementById('resetFilters').addEventListener('click', function() {
         document.getElementById('searchInput').value = '';
         document.getElementById('statusFilter').value = '';
@@ -478,9 +466,113 @@ document.addEventListener('DOMContentLoaded', function() {
         currentChatOrderId = orderId;
         document.getElementById('chatOrderId').value = orderId;
         document.getElementById('chatOrderNumber').innerText = orderNumber;
+        const detailsEl = document.getElementById('chatOrderDetails');
+        if (detailsEl) {
+            detailsEl.classList.add('d-none');
+            detailsEl.innerHTML = '';
+        }
         loadChatMessages(orderId);
         $('#chatModal').modal('show');
     };
+
+    function formatChatDate(value, withTime = false) {
+        if (!value) return '—';
+        const date = new Date(value);
+        if (Number.isNaN(date.getTime())) return '—';
+        return withTime
+            ? date.toLocaleString(undefined, { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+            : date.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+    }
+
+    function renderChatOrderDetails(details) {
+        const el = document.getElementById('chatOrderDetails');
+        if (!el) return;
+        if (!details) {
+            el.classList.add('d-none');
+            el.innerHTML = '';
+            return;
+        }
+
+        const parts = [];
+        const websiteName = escapeHtml(details.website_name || '—');
+        if (details.website_url) {
+            parts.push(`<span class="chat-detail-primary">${websiteName}</span> · <a href="${escapeHtml(details.website_url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(details.website_url)}</a>`);
+        } else {
+            parts.push(`<span class="chat-detail-primary">${websiteName}</span>`);
+        }
+
+        parts.push(`Order date: ${escapeHtml(formatChatDate(details.order_date))}`);
+        parts.push(`Started: ${escapeHtml(formatChatDate(details.started_at, true))}`);
+
+        if (details.df_links !== null && details.df_links !== undefined) {
+            const dfLabel = details.df_links === 1 ? '1 DF link' : `${details.df_links} DF links`;
+            const linkType = details.link_type ? ` (${escapeHtml(details.link_type)})` : '';
+            parts.push(`${escapeHtml(dfLabel)}${linkType}`);
+        } else if (details.link_type) {
+            parts.push(`Link type: ${escapeHtml(details.link_type)}`);
+        }
+
+        if (details.da != null || details.dr != null) {
+            parts.push(`DA ${details.da != null ? details.da : '—'} · DR ${details.dr != null ? details.dr : '—'}`);
+        }
+
+        if (details.sensitive_type) {
+            parts.push(`Sensitive: ${escapeHtml(details.sensitive_type)}`);
+        }
+
+        if (details.status) {
+            parts.push(`Status: ${escapeHtml(details.status)}`);
+        }
+
+        el.innerHTML = parts.join('<span class="chat-detail-sep">·</span>');
+        el.classList.remove('d-none');
+    }
+
+    function clearFocusMessagesParam() {
+        const url = new URL(window.location.href);
+        if (!url.searchParams.has('focus') && !url.searchParams.has('order')) return;
+        url.searchParams.delete('focus');
+        url.searchParams.delete('order');
+        window.history.replaceState({}, '', url.pathname + (url.search ? url.search : '') + url.hash);
+    }
+
+    function maybeOpenFocusedChat() {
+        const params = new URLSearchParams(window.location.search);
+        const focus = params.get('focus');
+        const orderId = params.get('order');
+
+        if (focus === 'order' && orderId) {
+            clearFocusMessagesParam();
+            viewOrder(orderId);
+            return;
+        }
+
+        if (focus !== 'messages') return;
+
+        if (orderId) {
+            clearFocusMessagesParam();
+            openChat(orderId, '#' + orderId);
+            return;
+        }
+
+        fetch('{{ route("chat.unread-summary") }}', {
+            headers: { 'Accept': 'application/json' },
+            credentials: 'same-origin'
+        })
+        .then(r => r.json())
+        .then(data => {
+            clearFocusMessagesParam();
+            if (data.success && data.latest_unread_order) {
+                openChat(data.latest_unread_order.id, data.latest_unread_order.order_number);
+                return;
+            }
+            const table = document.getElementById('ordersTableBody');
+            if (table) {
+                table.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+        })
+        .catch(() => clearFocusMessagesParam());
+    }
 
     function loadChatMessages(orderId) {
         fetch(`/chat/messages/${orderId}`, {
@@ -493,6 +585,7 @@ document.addEventListener('DOMContentLoaded', function() {
         .then(response => response.json())
         .then(data => {
             if (data.success) {
+                renderChatOrderDetails(data.order_details || null);
                 renderChatMessages(data.messages, data.current_user_id);
                 const chatDiv = document.getElementById('chatMessages');
                 chatDiv.scrollTop = chatDiv.scrollHeight;
@@ -744,11 +837,43 @@ document.addEventListener('DOMContentLoaded', function() {
             steps[0].current = true;
             steps[0].done = false;
         }
-        return `<div class="d-flex flex-wrap gap-2 mt-3 mb-3">${steps.map((step, i) => {
+        const statusSteps = `<div class="d-flex flex-wrap gap-2 mt-3 mb-3">${steps.map((step, i) => {
             const cls = step.done ? 'bg-success text-white' : (step.current ? 'bg-info text-white' : 'bg-light text-muted');
             const arrow = i < steps.length - 1 ? '<span class="text-muted align-self-center">→</span>' : '';
             return `<span class="badge ${cls} px-3 py-2">${i + 1}. ${step.label}</span>${arrow}`;
         }).join('')}</div>`;
+
+        return `${statusSteps}
+            <div class="mt-3">
+                <h6 class="mb-2">Activity Timeline</h6>
+                <div id="orderActivityTimeline" class="bg-white border rounded p-3">
+                    <div class="text-muted small">Loading activity…</div>
+                </div>
+            </div>`;
+    }
+
+    function loadOrderActivityTimeline(orderId) {
+        const container = document.getElementById('orderActivityTimeline');
+        if (!container) return;
+        fetch(`{{ url('/notifications/order') }}/${orderId}/timeline`, {
+            headers: { 'Accept': 'application/json' },
+            credentials: 'same-origin'
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (!data.success) {
+                container.innerHTML = '<div class="text-muted small">Unable to load activity.</div>';
+                return;
+            }
+            if (window.renderOrderActivityTimeline) {
+                window.renderOrderActivityTimeline(container, data.activities || []);
+            } else {
+                container.innerHTML = '<div class="text-muted small">No activity recorded yet.</div>';
+            }
+        })
+        .catch(() => {
+            container.innerHTML = '<div class="text-muted small">Unable to load activity.</div>';
+        });
     }
 
     function renderOrders(orders, pagination) {
@@ -756,10 +881,21 @@ document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('ordersTableBody').innerHTML = `
                 <tr>
                     <td colspan="11" class="text-center py-5">
-                        <div class="text-muted">No orders found</div>
-                        <a href="{{ route('advertiser.catalog') }}" class="btn btn-primary btn-sm mt-3">
-                            <i class="fa fa-shopping-cart"></i> Start Shopping
-                        </a>
+                        <div class="mx-auto" style="max-width:420px">
+                            <div class="mx-auto mb-3 d-flex align-items-center justify-content-center"
+                                 style="width:52px;height:52px;border-radius:50%;background:var(--brand-primary-bg,#e8f8f7);color:var(--brand-primary,#0b6266)"
+                                 aria-hidden="true">
+                                <i class="fa-solid fa-receipt"></i>
+                            </div>
+                            <h5 class="mb-2">No orders yet</h5>
+                            <p class="text-muted mb-3">When you buy placements from the catalog, they’ll show up here with status tracking.</p>
+                            <div class="d-flex flex-wrap justify-content-center gap-2">
+                                <a href="{{ route('advertiser.catalog') }}" class="btn btn-primary btn-sm">
+                                    <i class="fa fa-shopping-cart me-1"></i> Browse catalog
+                                </a>
+                                <a href="{{ route('advertiser.content-library') }}" class="btn btn-outline-secondary btn-sm">Content library</a>
+                            </div>
+                        </div>
                     </td>
                 </tr>
             `;
@@ -787,7 +923,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const hasLiveUrl = liveUrl && liveUrl !== '';
             const isUnderReview = order.status === 'review';
             const unreadBadge = order.unread_chat > 0
-                ? `<span class="chat-unread-dot">${order.unread_chat}</span>`
+                ? `<span class="chat-unread-dot pulse-badge is-pulsing">${order.unread_chat}</span>`
                 : '';
             
             html += `
@@ -884,14 +1020,19 @@ document.addEventListener('DOMContentLoaded', function() {
                     method: 'POST',
                     headers: {
                         'X-CSRF-TOKEN': '{{ csrf_token() }}',
-                        'Content-Type': 'application/json'
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
                     }
                 })
                 .then(response => response.json())
                 .then(data => {
                     if (data.success) {
-                        Swal.fire('Approved!', data.message, 'success');
                         fetchOrders(currentPage);
+                        if (data.ask_rating && Array.isArray(data.rateable) && data.rateable.length) {
+                            askPublisherRatings(data.rateable, data.message || 'Order approved successfully!');
+                        } else {
+                            Swal.fire('Approved!', data.message, 'success');
+                        }
                     } else {
                         Swal.fire('Error!', data.message || 'Failed to approve order', 'error');
                     }
@@ -903,6 +1044,103 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     };
+
+    function starButtonsHtml(prefix) {
+        let html = `<div class="d-flex justify-content-center gap-1 mb-2" id="${prefix}-stars">`;
+        for (let i = 1; i <= 5; i++) {
+            html += `<button type="button" class="btn btn-link p-0 rate-star-btn" data-value="${i}" style="font-size:28px;color:#cbd5e1;line-height:1;">
+                <i class="fa-regular fa-star"></i>
+            </button>`;
+        }
+        html += `</div><div class="small text-muted mb-2" id="${prefix}-label">Tap a star to rate</div>`;
+        return html;
+    }
+
+    function bindStarPicker(prefix, state) {
+        const wrap = document.getElementById(prefix + '-stars');
+        const label = document.getElementById(prefix + '-label');
+        if (!wrap) return;
+        wrap.querySelectorAll('.rate-star-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                state.rating = parseInt(btn.dataset.value, 10);
+                wrap.querySelectorAll('.rate-star-btn').forEach(b => {
+                    const on = parseInt(b.dataset.value, 10) <= state.rating;
+                    b.style.color = on ? '#f59e0b' : '#cbd5e1';
+                    const icon = b.querySelector('i');
+                    if (icon) {
+                        icon.classList.toggle('fa-solid', on);
+                        icon.classList.toggle('fa-regular', !on);
+                    }
+                });
+                if (label) label.textContent = state.rating + ' / 5';
+            });
+        });
+    }
+
+    async function askPublisherRatings(rateable, approvedMessage) {
+        const ratingsPayload = [];
+        for (let idx = 0; idx < rateable.length; idx++) {
+            const item = rateable[idx];
+            const prefix = 'rate-' + item.order_item_id;
+            const state = { rating: 0 };
+            const result = await Swal.fire({
+                title: 'Rate this publisher',
+                html: `
+                    <p class="mb-1">${approvedMessage && idx === 0 ? `<span class="text-success">${escapeHtml(approvedMessage)}</span><br>` : ''}
+                    How was your experience with <strong>${escapeHtml(item.site_name || 'this site')}</strong>?</p>
+                    <p class="small text-muted mb-3">${escapeHtml(item.domain || '')}</p>
+                    ${starButtonsHtml(prefix)}
+                    <input id="${prefix}-comment" class="swal2-input" placeholder="Optional short feedback" maxlength="500">
+                    <p class="small text-muted mt-2 mb-0">Ratings are only available after you approve a completed order.</p>
+                `,
+                showCancelButton: true,
+                confirmButtonText: 'Submit rating',
+                cancelButtonText: idx < rateable.length - 1 ? 'Skip' : 'Maybe later',
+                confirmButtonColor: '#0b6266',
+                didOpen: () => bindStarPicker(prefix, state),
+                preConfirm: () => {
+                    if (!state.rating) {
+                        Swal.showValidationMessage('Please choose a star rating');
+                        return false;
+                    }
+                    return {
+                        order_item_id: item.order_item_id,
+                        rating: state.rating,
+                        comment: document.getElementById(prefix + '-comment')?.value || '',
+                    };
+                }
+            });
+            if (result.isConfirmed && result.value) {
+                ratingsPayload.push(result.value);
+            }
+        }
+
+        if (!ratingsPayload.length) {
+            Swal.fire({icon:'success', title:'Approved!', text: approvedMessage, timer: 2200, showConfirmButton:false});
+            return;
+        }
+
+        try {
+            const res = await fetch(`{{ route('advertiser.ratings.batch') }}`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                },
+                body: JSON.stringify({ ratings: ratingsPayload })
+            });
+            const data = await res.json();
+            Swal.fire({
+                icon: data.success ? 'success' : 'error',
+                title: data.success ? 'Thank you!' : 'Could not save rating',
+                text: data.message || '',
+                confirmButtonColor: '#0b6266'
+            });
+        } catch (e) {
+            Swal.fire('Error', 'Failed to save rating', 'error');
+        }
+    }
     
     window.viewOrder = function(orderId) {
         fetch(`{{ url("advertiser/orders") }}/${orderId}`, {
@@ -918,6 +1156,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 renderOrderDetails(data.order);
                 const modal = new bootstrap.Modal(document.getElementById('orderDetailsModal'));
                 modal.show();
+                loadOrderActivityTimeline(orderId);
             } else {
                 Swal.fire('Error', data.message || 'Failed to load order details', 'error');
             }
@@ -1002,8 +1241,16 @@ document.addEventListener('DOMContentLoaded', function() {
                         <p class="mb-1"><small>Base Price: €${basePrice.toFixed(2)}</small></p>
                         ${additionalPrice > 0 ? `<p class="mb-1"><small class="text-warning">+ ${escapeHtml(item.sensitive_type)}: €${additionalPrice.toFixed(2)}</small></p>` : ''}
                         <p class="mb-2"><strong class="text-primary">Total: €${parseFloat(item.price).toFixed(2)}</strong></p>
-                        <p class="mb-1"><strong>Content Link:</strong></p>
-                        <p class="mb-2"><a href="${escapeHtml(item.content_link)}" target="_blank" class="text-primary text-break">${escapeHtml(item.content_link)} <i class="fa fa-external-link fa-xs"></i></a></p>
+                        <p class="mb-1"><strong>Uploaded Document:</strong></p>
+                        <p class="mb-2">${item.content_link ? `<a href="${escapeHtml(item.content_link)}" class="text-primary"><i class="fa fa-download me-1"></i>${escapeHtml(item.content_original_name || 'Download article')}</a>` : '—'}</p>
+                        <p class="mb-1"><strong>Anchor Text:</strong></p>
+                        <p class="mb-2">${escapeHtml(item.anchor_text || '—')}</p>
+                        <p class="mb-1"><strong>Target URL:</strong></p>
+                        <p class="mb-2">${item.target_url ? `<a href="${escapeHtml(item.target_url)}" target="_blank" rel="noopener">${escapeHtml(item.target_url)}</a>` : '—'}</p>
+                        <p class="mb-1"><strong>Feature Image URL:</strong></p>
+                        <p class="mb-2">${item.feature_image_url ? `<a href="${escapeHtml(item.feature_image_url)}" target="_blank" rel="noopener">${escapeHtml(item.feature_image_url)}</a>` : 'Publisher may choose'}</p>
+                        <p class="mb-1"><strong>Compliance:</strong></p>
+                        <p class="mb-2">${escapeHtml(item.moderation_status || '—')}</p>
                         ${liveUrlHtml}
                     </div>
                 </div>

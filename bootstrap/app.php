@@ -14,10 +14,21 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware) {
-        // Configure middleware here if needed
+        // Apple Sign In may POST the callback (form_post response mode)
+        $middleware->validateCsrfTokens(except: [
+            'auth/apple/callback',
+        ]);
+
+        // Security headers (CSP, HSTS, nosniff, frame, referrer) on every web response
+        $middleware->appendToGroup('web', [
+            \App\Http\Middleware\SecurityHeaders::class,
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
-        // Configure exception handling here if needed
+        // Production uses branded resources/views/errors/* pages (APP_DEBUG=false).
+        $exceptions->shouldRenderJsonWhen(function ($request, \Throwable $e) {
+            return $request->expectsJson();
+        });
     })
     ->withSchedule(function (Schedule $schedule) {
         // 48-hour window — every 15 minutes is enough; everyMinute was unnecessarily aggressive
@@ -30,5 +41,32 @@ return Application::configure(basePath: dirname(__DIR__))
         if (filled($adminEmail)) {
             $event->emailOutputOnFailure($adminEmail);
         }
+
+        // Email digests (respect user preferences + admin toggles inside mailables)
+        $schedule->command('emails:send-digests --type=weekly')->weeklyOn(1, '8:00');
+        $schedule->command('emails:send-digests --type=monthly')->monthlyOn(1, '8:15');
+
+        // Content upload: release scheduled orders + 24h reminders; purge expired files
+        $schedule->command('orders:release-scheduled')
+            ->everyFiveMinutes()
+            ->withoutOverlapping();
+        $schedule->command('content:purge-expired')->dailyAt('03:30');
+
+        // Publisher catalog enrichment (metrics + screenshots) — non-blocking scheduled refresh
+        $enrichFreq = config('site_enrichment.refresh_frequency', 'weekly');
+        $enrichCommand = $schedule->command('sites:enrich --stale --sync')
+            ->withoutOverlapping()
+            ->sendOutputTo(storage_path('logs/site-enrichment.log'));
+
+        if ($enrichFreq === 'daily') {
+            $enrichCommand->dailyAt('04:15');
+        } else {
+            $enrichCommand->weeklyOn(2, '4:15'); // Tuesday
+        }
+
+        // Notify publishers when timed site discounts expire
+        $schedule->command('sites:notify-expired-discounts')
+            ->hourly()
+            ->withoutOverlapping();
     })
     ->create();

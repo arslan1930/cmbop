@@ -33,7 +33,7 @@
 
     <!-- Logo -->
     <a class="navbar-brand fw-bold d-flex align-items-center" href="{{ $currentLocale == 'en' ? '/' : '/' . $currentLocale }}">
-      <img src="{{ asset('assets/img/logo1.png') }}" alt="Seolinkbuildings Logo" style="height:42px; margin-right:0.5rem; transition: all 0.3s ease;">
+      <img src="{{ asset('assets/img/logo1.png') }}" alt="SEOLinkBuildings" style="height:42px; margin-right:0.5rem; transition: all 0.3s ease;">
     </a>
 
     <!-- Toggle Button for Mobile -->
@@ -124,7 +124,7 @@
 
     <!-- Logo -->
     <a class="navbar-brand fw-bold d-flex align-items-center" href="{{ $currentLocale == 'en' ? '/' : '/' . $currentLocale }}">
-      <img src="{{ asset('assets/img/logo1.png') }}" alt="Seolinkbuildings Logo" style="height:42px; margin-right:0.5rem; transition: all 0.3s ease;">
+      <img src="{{ asset('assets/img/logo1.png') }}" alt="SEOLinkBuildings" style="height:42px; margin-right:0.5rem; transition: all 0.3s ease;">
     </a>
 
     <!-- Toggle Button for Mobile -->

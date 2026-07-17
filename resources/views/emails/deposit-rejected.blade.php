@@ -1,8 +1,4 @@
 @component('mail::message')
-<div style="text-align:center; margin-bottom:20px;">
-    <img src="https://seolinkbuildings.com/assets/img/logo1.png" alt="Seolinkbuildings Logo" width="150" style="display:block; margin:0 auto;">
-</div>
-
 # Deposit Request Update
 
 Dear {{ $deposit->user->name }},
@@ -13,7 +9,7 @@ We regret to inform you that your deposit request has been **rejected**.
 
 - **Amount:** €{{ number_format($deposit->amount, 2) }}
 - **Reference Code:** {{ $deposit->reference_code }}
-- **Rejected At:** {{ $deposit->rejected_at->format('M d, Y H:i') }}
+- **Rejected At:** {{ optional($deposit->rejected_at)->format('M d, Y H:i') ?? now()->format('M d, Y H:i') }}
 
 @if($deposit->admin_notes)
 ## Admin Notes:

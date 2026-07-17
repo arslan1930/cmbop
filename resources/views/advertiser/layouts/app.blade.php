@@ -4,15 +4,52 @@
     <meta charset="UTF-8">
     <title>Advertiser Dashboard</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
 
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="{{ asset('css/type-system.css') }}?v={{ @filemtime(public_path('css/type-system.css')) ?: '1' }}" rel="stylesheet">
+    <link href="{{ asset('css/brand-colors.css') }}?v={{ @filemtime(public_path('css/brand-colors.css')) ?: '1' }}" rel="stylesheet">
+    <link href="{{ asset('css/spacing-system.css') }}?v={{ @filemtime(public_path('css/spacing-system.css')) ?: '1' }}" rel="stylesheet">
+    <link href="{{ asset('css/button-system.css') }}?v={{ @filemtime(public_path('css/button-system.css')) ?: '1' }}" rel="stylesheet">
+    <link href="{{ asset('css/form-system.css') }}?v={{ @filemtime(public_path('css/form-system.css')) ?: '1' }}" rel="stylesheet">
+    <link href="{{ asset('css/app-shell.css') }}?v={{ @filemtime(public_path('css/app-shell.css')) ?: '1' }}" rel="stylesheet">
+    <link href="{{ asset('css/multi-select.css') }}?v={{ @filemtime(public_path('css/multi-select.css')) ?: '1' }}" rel="stylesheet">
+    <link href="{{ asset('css/glass-tip.css') }}?v={{ @filemtime(public_path('css/glass-tip.css')) ?: '1' }}" rel="stylesheet">
+    <link href="{{ asset('css/pulse-badge.css') }}?v={{ @filemtime(public_path('css/pulse-badge.css')) ?: '1' }}" rel="stylesheet">
+    <script src="{{ asset('js/pulse-badge.js') }}?v={{ @filemtime(public_path('js/pulse-badge.js')) ?: '1' }}"></script>
+    <script src="{{ asset('js/glass-tip.js') }}?v={{ @filemtime(public_path('js/glass-tip.js')) ?: '1' }}" defer></script>
 
     <style>
         body, html {
             min-height: 100%;
             margin: 0;
             background-color: #f8f9fa;
+            font-family: 'Poppins', system-ui, sans-serif;
+        }
+
+        body.role-shell-advertiser {
+            --role-accent: #0b6266;
+        }
+        body.role-shell-publisher {
+            --role-accent: #c45c26;
+        }
+        body.role-shell-advertiser .top-navbar,
+        body.role-shell-publisher .top-navbar {
+            border-top: 3px solid var(--role-accent);
+        }
+        body.role-shell-advertiser #sidebar,
+        body.role-shell-publisher #sidebar {
+            border-left: 3px solid var(--role-accent);
+        }
+        .role-switch-btn {
+            border-color: var(--role-accent, #0b6266) !important;
+            color: var(--role-accent, #0b6266) !important;
+        }
+        .role-switch-btn:hover {
+            background: var(--role-accent, #0b6266) !important;
+            color: #fff !important;
         }
 
         #sidebar,
@@ -54,6 +91,122 @@
             border-radius: 6px;
             background-color: #4ECDCB;
             color: #fff;
+        }
+
+        #sidebar .nav-group {
+            margin: 0 10px 8px;
+        }
+        #sidebar .nav-sub {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            margin: 4px 0 2px 12px;
+            padding: 6px 0 2px 10px;
+            border-left: 2px solid var(--brand-primary-border, #b8e8e6);
+        }
+        #sidebar .nav-sub-link {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 7px 12px !important;
+            border-radius: 8px;
+            color: var(--brand-primary, #0b6266) !important;
+            background: transparent;
+            border: 1px solid transparent;
+            font-size: 0.86rem;
+            font-weight: 500;
+            text-decoration: none;
+            transition: background .18s ease, border-color .18s ease, color .18s ease;
+        }
+        #sidebar .nav-sub-link:hover {
+            background: var(--brand-primary-bg, #e8f8f7) !important;
+            border-color: var(--brand-primary-border, #b8e8e6);
+            color: var(--brand-primary, #0b6266) !important;
+        }
+        #sidebar .nav-sub-link i {
+            color: var(--brand-primary-soft, #3aaeb2);
+            width: 14px;
+            text-align: center;
+        }
+        #sidebar .nav-sub-soon {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            padding: 7px 12px;
+            border-radius: 8px;
+            color: #94a3b8;
+            font-size: 0.86rem;
+            font-weight: 500;
+            cursor: default;
+            user-select: none;
+        }
+        #sidebar .nav-sub-soon .soon-pill {
+            font-size: 0.65rem;
+            letter-spacing: .03em;
+            text-transform: uppercase;
+            color: var(--brand-primary, #0b6266);
+            background: var(--brand-primary-bg, #e8f8f7);
+            border: 1px solid var(--brand-primary-border, #b8e8e6);
+            border-radius: 999px;
+            padding: 2px 7px;
+            white-space: nowrap;
+        }
+        #sidebar.collapsed .nav-sub { display: none; }
+
+        /* Neutral count vs actionable alert badges (N3) */
+        .nav-count-badge {
+            background: #e9ecef !important;
+            color: #495057 !important;
+            font-weight: 600;
+            font-size: 11px;
+        }
+        #sidebar a.active .nav-count-badge,
+        #sidebar a:hover .nav-count-badge {
+            background: rgba(255,255,255,0.25) !important;
+            color: #fff !important;
+        }
+        .nav-alert-badge {
+            background: #ffc107 !important;
+            color: #212529 !important;
+            font-weight: 700;
+            font-size: 11px;
+        }
+
+        .topbar-icon-btn {
+            width: 36px;
+            height: 36px;
+            border-radius: 8px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0;
+            position: relative;
+            color: #495057;
+            border: 1px solid #dee2e6;
+            background: #fff;
+        }
+        .topbar-icon-btn:hover {
+            background: #f8f9fa;
+            color: #0b6266;
+            border-color: #b8e8e6;
+        }
+        .topbar-icon-btn .notif-badge {
+            position: absolute;
+            top: -4px;
+            right: -4px;
+            background: #dc3545;
+            color: #fff;
+            border-radius: 999px;
+            min-width: 16px;
+            height: 16px;
+            font-size: 10px;
+            font-weight: 700;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 0 4px;
+            line-height: 1;
         }
 
         #sidebar.collapsed { width: 70px; min-width: 70px; }
@@ -98,52 +251,69 @@
         #toggleSidebar span.arrow { display: inline-block; font-size: 18px; }
         #toggleSidebar.collapsed span.arrow { transform: rotate(180deg); }
 
-        body.layout-dark #sidebar {
-            background-color: #1e1e2f !important;
-            border-color: #333 !important;
-        }
 
-        body.layout-dark #sidebar a { color: #ccc; }
-        body.layout-dark #sidebar a.active,
-        body.layout-dark #sidebar a:hover {
-            background-color: #4ECDCB;
-            color: #fff;
-        }
 
-        body.layout-dark .top-navbar { background-color: #1e1e2f; border-bottom-color: #333; }
-        body.layout-dark .top-navbar .btn-outline-secondary {
-            color: #ccc;
-            border-color: #555;
-        }
-        body.layout-dark .top-navbar .btn-outline-secondary:hover {
-            background-color: #333;
-            color: #fff;
-        }
 
-        body.layout-dark #content { background-color: #121221; color: #ddd; }
 
         .balance-block {
-            min-width: 120px;
-            height: 40px;
-            border-radius: 6px;
-            display: flex;
+            min-width: auto;
+            height: 36px;
+            border-radius: 8px;
+            display: inline-flex;
             align-items: center;
-            justify-content: space-between;
+            gap: 6px;
             font-weight: 600;
-            padding: 0 10px;
-            color: #fff;
-            background-color: #0d6efd;
+            padding: 0 12px;
+            color: #0b6266;
+            background-color: #e8f8f7;
+            border: 1px solid #b8e8e6;
+            text-decoration: none;
+            white-space: nowrap;
+        }
+        .balance-block:hover {
+            background-color: #d7f3f1;
+            color: #0b6266;
+        }
+        .balance-block .balance-label {
+            font-size: 11px;
+            font-weight: 500;
+            color: #3aaeb2;
+            text-transform: uppercase;
+            letter-spacing: 0.02em;
+        }
+        .balance-block .balance-amount {
+            font-size: 14px;
+            color: #0b6266;
+        }
+        .balance-block .balance-credit {
+            font-size: 11px;
+            font-weight: 600;
+            color: #0f766e;
+            line-height: 1.1;
+        }
+
+        .topbar-action {
+            height: 36px;
+            border-radius: 8px;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 0 12px;
+            font-size: 13px;
+            font-weight: 500;
+            position: relative;
         }
 
         #toggleCart {
-            width: 36px;
+            width: auto;
             height: 36px;
-            border-radius: 40%;
-            display: flex;
+            border-radius: 8px;
+            display: inline-flex;
             justify-content: center;
             align-items: center;
-            padding: 0;
+            padding: 0 12px;
             position: relative;
+            gap: 6px;
         }
 
         .cart-badge {
@@ -153,34 +323,17 @@
             background-color: #dc3545;
             color: white;
             border-radius: 50%;
-            width: 18px;
+            min-width: 18px;
             height: 18px;
             font-size: 10px;
             display: flex;
             align-items: center;
             justify-content: center;
             font-weight: bold;
+            padding: 0 4px;
         }
 
-        #toggleDarkMode {
-            width: 36px;
-            height: 36px;
-            border-radius: 40%;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            padding: 0;
-        }
-
-        #toggleNotifications {
-            width: 36px;
-            height: 36px;
-            border-radius: 40%;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            padding: 0;
-        }
+        /* Dark mode uses .topbar-icon-btn; keep IDs for JS */
 
         /* Cart Sidebar */
         .cart-sidebar {
@@ -197,10 +350,6 @@
             flex-direction: column;
         }
 
-        body.layout-dark .cart-sidebar {
-            background-color: #1e1e2f;
-            color: #ddd;
-        }
 
         .cart-sidebar.open {
             right: 0;
@@ -254,9 +403,6 @@
             color: #666;
         }
 
-        body.layout-dark .cart-item-price {
-            color: #aaa;
-        }
 
         .cart-item-quantity {
             display: flex;
@@ -290,16 +436,7 @@
             font-weight: 500;
         }
 
-        body.layout-dark .cart-item-quantity button {
-            background: #2d2d3f;
-            border-color: #444;
-            color: #ddd;
-        }
 
-        body.layout-dark .cart-item-quantity button:hover {
-            background: #3d3d4f;
-            border-color: #555;
-        }
 
         .cart-item-remove {
             color: #dc3545;
@@ -307,10 +444,13 @@
             margin-left: 10px;
             width: 28px;
             height: 28px;
-            display: flex;
+            display: inline-flex;
             align-items: center;
             justify-content: center;
             border-radius: 4px;
+            border: 0;
+            background: transparent;
+            padding: 0;
             transition: all 0.2s ease;
         }
 
@@ -319,10 +459,6 @@
             color: white;
         }
 
-        body.layout-dark .cart-item-remove:hover {
-            background-color: #dc3545;
-            color: white;
-        }
 
         .overlay {
             position: fixed;
@@ -348,9 +484,6 @@
             display: none; /* hidden by default, shown on mobile */
         }
         
-        body.layout-dark .mobile-sidebar-logo {
-            border-bottom-color: rgba(255,255,255,0.1);
-        }
         
         .mobile-sidebar-logo img {
             height: 40px;
@@ -396,7 +529,7 @@
     </style>
 </head>
 
-<body>
+<body class="role-shell-advertiser">
 
 <!-- Sidebar -->
 <div id="sidebar">
@@ -415,10 +548,11 @@
             @endphp
 
             @if($otherRole)
-                <form method="POST" action="{{ route('switch.role') }}">
+                <form method="POST" action="{{ route('switch.role') }}" class="role-switch-form">
                     @csrf
                     <input type="hidden" name="active_role_id" value="{{ $otherRole->id }}">
-                    <button type="submit" class="btn btn-sm btn-outline-primary">
+                    <button type="submit" class="btn btn-sm btn-outline-primary role-switch-btn"
+                            data-role-name="{{ ucfirst($otherRole->name) }}">
                         Switch to {{ ucfirst($otherRole->name) }}
                     </button>
                 </form>
@@ -426,7 +560,7 @@
         </div>
         
         <div class="text-center my-3 d-none d-md-block">
-            <img id="logoSidebar" src="{{ asset('assets/img/logo1.png') }}" height="42">
+            <img id="logoSidebar" src="{{ asset('assets/img/logo1.png') }}" height="42" alt="SEOLinkBuildings">
         </div>
 
         <a href="{{ route('advertiser.dashboard') }}" class="{{ request()->routeIs('advertiser.dashboard') ? 'active' : '' }}">
@@ -436,16 +570,38 @@
         <!-- Catalog -->
         <a href="{{ route('advertiser.catalog') }}" class="{{ request()->routeIs('advertiser.catalog') ? 'active' : '' }}">
             <i class="fa fa-list"></i> 
-            <span>All Publishers</span>
+            <span>Catalog</span>
         </a>
+
+        <div class="nav-group">
+            <a href="{{ route('advertiser.content-library') }}" class="{{ request()->routeIs('advertiser.content-library*') ? 'active' : '' }}">
+                <i class="fa fa-file-word"></i>
+                <span>Content Library</span>
+            </a>
+            <div class="nav-sub">
+                <a href="{{ route('advertiser.content-library', ['upload' => 1]) }}" class="nav-sub-link">
+                    <i class="fa fa-upload"></i>
+                    <span>Upload article</span>
+                </a>
+                <div class="nav-sub-soon" title="Coming soon">
+                    <span><i class="fa fa-pen-nib me-1"></i> Order an article</span>
+                    <span class="soon-pill">Coming soon</span>
+                </div>
+            </div>
+        </div>
 
         <!-- Orders -->
         <a href="{{ route('advertiser.orders') }}" class="{{ request()->routeIs('advertiser.orders') ? 'active' : '' }}">
             <i class="fa fa-shopping-cart"></i>
             <span class="d-flex align-items-center w-100">
                 <span>Orders</span>
-                <span id="navNeedsActionBadge" class="badge bg-warning text-dark rounded-pill ms-auto" style="display:none;">0</span>
+                <span id="navNeedsActionBadge" class="badge nav-alert-badge pulse-badge rounded-pill ms-auto" style="display:none;" data-pulse-display="inline-block">0</span>
             </span>
+        </a>
+
+        <a href="{{ route('advertiser.scheduled-orders') }}" class="{{ request()->routeIs('advertiser.scheduled-orders*') ? 'active' : '' }}">
+            <i class="fa fa-calendar-alt"></i>
+            <span>Scheduled</span>
         </a>
 
         <!-- Add Funds -->
@@ -453,6 +609,11 @@
             <i class="fa fa-coins"></i> <span>Add Funds</span>
         </a>
         
+        <!-- Spending History -->
+        <a href="{{ route('advertiser.analytics') }}" class="{{ request()->routeIs('advertiser.analytics*') ? 'active' : '' }}">
+            <i class="fa fa-chart-area"></i> <span>Spending</span>
+        </a>
+
         <!-- Reports -->
         <a href="{{ route('advertiser.reports') }}" class="{{ request()->routeIs('advertiser.reports') ? 'active' : '' }}">
             <i class="fa fa-chart-line"></i> <span>Reports</span>
@@ -464,13 +625,13 @@
 <div class="top-navbar">
 
     <div class="mobile-left d-flex align-items-center gap-2">
-        <button id="toggleSidebar" class="btn btn-sm btn-outline-secondary">
-            <span class="arrow"><i class="fa fa-chevron-left"></i></span>
+        <button id="toggleSidebar" class="btn btn-sm btn-outline-secondary" type="button" aria-label="Toggle sidebar navigation" title="Toggle sidebar">
+            <span class="arrow" aria-hidden="true"><i class="fa fa-chevron-left"></i></span>
         </button>
 
         <!-- Navbar logo - will be hidden on mobile via CSS -->
         <a href="/" class="d-flex align-items-center">
-            <img id="logoNavbar" src="{{ asset('assets/img/logo1.png') }}" height="45">
+            <img id="logoNavbar" src="{{ asset('assets/img/logo1.png') }}" height="45" alt="SEOLinkBuildings">
         </a>
 
         <div class="d-none d-md-block">
@@ -480,10 +641,11 @@
             @endphp
 
             @if($otherRole)
-                <form method="POST" action="{{ route('switch.role') }}">
+                <form method="POST" action="{{ route('switch.role') }}" class="role-switch-form">
                     @csrf
                     <input type="hidden" name="active_role_id" value="{{ $otherRole->id }}">
-                    <button type="submit" class="btn btn-sm btn-outline-primary">
+                    <button type="submit" class="btn btn-sm btn-outline-primary role-switch-btn"
+                            data-role-name="{{ ucfirst($otherRole->name) }}">
                         Switch to {{ ucfirst($otherRole->name) }}
                     </button>
                 </form>
@@ -493,95 +655,81 @@
 
     <div class="d-flex align-items-center gap-2">
 
-        <!-- Chat / action alerts -->
-        <div class="position-relative">
-            <a href="{{ route('advertiser.orders') }}" id="toggleNotifications" class="btn btn-outline-secondary btn-sm" title="Unread chat & orders needing review">
-                <i class="fa fa-comments"></i>
-                <span id="headerChatBadge" class="cart-badge" style="display: none;">0</span>
-            </a>
-        </div>
-        
-        <!-- Cart Icon with Badge -->
-        <div class="position-relative">
-            <button id="toggleCart" class="btn btn-outline-secondary btn-sm" title="Cart">
-                <i class="fa fa-shopping-cart"></i>
-                <span id="cartBadge" class="cart-badge" style="display: none;">0</span>
-            </button>
-        </div>
-
-        <button id="toggleDarkMode" class="btn btn-outline-secondary btn-sm" title="Toggle Dark Mode">
-            <i class="fa fa-moon"></i>
-            <i class="fa fa-sun d-none"></i>
+        <!-- Cart — labeled primary commerce action -->
+        <button id="toggleCart" class="btn btn-outline-secondary btn-sm topbar-action" type="button" aria-label="Open cart" title="Cart">
+            <i class="fa fa-shopping-cart" aria-hidden="true"></i>
+            <span class="d-none d-sm-inline">Cart</span>
+            <span id="cartBadge" class="cart-badge" style="display: none;">0</span>
         </button>
-         
-        <!-- Balance route -->
-        <a href="{{ route('advertiser.balance') }}">
+
+        <!-- Balance — one clear available amount -->
         @php
             $activeWallet = auth()->user()->activeWallet();
+            $availableBalance = (float) ($activeWallet?->balance ?? 0);
+            $reservedBalance = (float) ($activeWallet?->reserved_balance ?? 0);
             $headerBonus = $activeWallet ? $activeWallet->lockedBonusBalance() : 0;
-            $headerBalanceTitle = $headerBonus > 0
-                ? 'Ready to spend / On hold for open orders. Includes €' . number_format($headerBonus, 2) . ' free credit (orders only, not cash).'
-                : 'Ready to spend / On hold for open orders.';
+            $spendableCash = max(0, $availableBalance - $headerBonus);
+            $headerBalanceTitle = 'Spendable: €' . number_format($availableBalance, 2)
+                . ($headerBonus > 0 ? ' · Free credit €' . number_format($headerBonus, 2) . ' (orders only, not withdrawable)' : '')
+                . ($reservedBalance > 0 ? ' · On hold: €' . number_format($reservedBalance, 2) : '');
         @endphp
-        <div class="balance-block" data-bs-toggle="tooltip" data-bs-placement="bottom" title="{{ $headerBalanceTitle }}">
-            <span>€{{ $activeWallet?->balance ?? '0.00' }}</span>
-            <span>/</span>
-            <span>€{{ $activeWallet?->reserved_balance ?? '0.00' }}</span>
-        </div>
+        <a href="{{ route('advertiser.balance') }}" class="balance-block text-decoration-none" data-bs-toggle="tooltip" data-bs-placement="bottom" title="{{ $headerBalanceTitle }}" aria-label="Spendable balance {{ number_format($availableBalance, 2) }} euros{{ $headerBonus > 0 ? ', including '.number_format($headerBonus, 2).' free credit' : '' }}">
+            <span class="balance-label">Spendable</span>
+            <span class="balance-amount">€{{ number_format($availableBalance, 2) }}</span>
+            @if($headerBonus > 0)
+                <span class="balance-credit">Credit €{{ number_format($headerBonus, 2) }}</span>
+            @endif
         </a>
 
+        @include('partials.notification-center')
+
         <div class="dropdown">
-    <button class="btn dropdown-toggle d-flex align-items-center gap-1"
-            data-bs-toggle="dropdown">
-        
-        @php
-            $user = auth()->user();
-        @endphp
-        
-        {{-- If user has avatar (Google avatar), display it --}}
-        @if($user->avatar)
-            <img src="{{ $user->avatar }}" 
-                 alt="{{ $user->name }}"
-                 class="rounded-circle"
-                 style="width: 36px; height: 36px; object-fit: cover;">
-        @else
-            {{-- Check if user has uploaded avatar from profile --}}
-            @if($user->profile_avatar ?? false)
-                <img src="{{ asset('storage/' . $user->profile_avatar) }}" 
-                     alt="{{ $user->name }}"
-                     class="rounded-circle"
-                     style="width: 36px; height: 36px; object-fit: cover;">
-            @else
-                {{-- Fallback to initials --}}
-                <div class="rounded-circle text-white d-flex justify-content-center align-items-center"
-                     style="width: 36px; height: 36px; font-weight: 600; background: linear-gradient(to right, #0d6efd, #6f42c1);">
-                    {{ strtoupper(substr($user->name, 0, 1)) }}
-                </div>
-            @endif
-        @endif
-    </button>
-    
-    <!-- Rest of the dropdown menu remains the same -->
-    <ul class="dropdown-menu dropdown-menu-end">
-        <li class="px-3 py-2">
-            <strong>{{ auth()->user()->name }}</strong><br>
-            <small>{{ auth()->user()->email }}</small>
-        </li>
-        <li><hr class="dropdown-divider"></li>
-        <li>
-            <a class="dropdown-item" href="{{ route('profile') }}">
-                <i class="fa fa-user"></i> Profile
-            </a>
-        </li>
-        <li><hr class="dropdown-divider"></li>
-        <li>
-            <form method="POST" action="{{ route('logout') }}">
-                @csrf
-                <button class="dropdown-item text-danger">Logout</button>
-            </form>
-        </li>
-    </ul>
-</div>
+            <button class="btn dropdown-toggle d-flex align-items-center gap-1"
+                    data-bs-toggle="dropdown"
+                    aria-expanded="false"
+                    aria-label="Account menu">
+                @php $user = auth()->user(); @endphp
+                @if($user->avatar)
+                    <img src="{{ $user->avatar }}"
+                         alt=""
+                         class="rounded-circle"
+                         style="width: 36px; height: 36px; object-fit: cover;">
+                @elseif($user->profile_avatar ?? false)
+                    <img src="{{ asset('storage/' . $user->profile_avatar) }}"
+                         alt=""
+                         class="rounded-circle"
+                         style="width: 36px; height: 36px; object-fit: cover;">
+                @else
+                    <div class="rounded-circle text-white d-flex justify-content-center align-items-center"
+                         style="width: 36px; height: 36px; font-weight: 600; background: #4ECDCB;"
+                         aria-hidden="true">
+                        {{ strtoupper(substr($user->name, 0, 1)) }}
+                    </div>
+                @endif
+            </button>
+
+            <ul class="dropdown-menu dropdown-menu-end">
+                <li class="px-3 py-2">
+                    <strong>{{ auth()->user()->name }}</strong><br>
+                    <small class="text-muted">{{ auth()->user()->email }}</small>
+                </li>
+                <li><hr class="dropdown-divider"></li>
+                <li>
+                    <a class="dropdown-item" href="{{ route('profile') }}">
+                        <i class="fa fa-user" aria-hidden="true"></i> Profile
+                    </a>
+                </li>
+                <li><hr class="dropdown-divider"></li>
+                <li>
+                    <form method="POST" action="{{ route('logout') }}">
+                        @csrf
+                        <button class="dropdown-item text-danger" type="submit">
+                            <i class="fa fa-sign-out-alt" aria-hidden="true"></i> Logout
+                        </button>
+                    </form>
+                </li>
+            </ul>
+        </div>
     </div>
 </div>
 
@@ -592,8 +740,8 @@
 <div id="cartSidebar" class="cart-sidebar">
     <div class="cart-header">
         <h5 class="mb-0">Your Cart</h5>
-        <button id="closeCart" class="btn btn-sm btn-outline-secondary">
-            <i class="fa fa-times"></i>
+        <button id="closeCart" class="btn btn-sm btn-outline-secondary" type="button" aria-label="Close cart">
+            <i class="fa fa-times" aria-hidden="true"></i>
         </button>
     </div>
     <div class="cart-body" id="cartItemsContainer">
@@ -604,19 +752,28 @@
             <strong>Total:</strong>
             <strong id="cartTotalAmount">€0.00</strong>
         </div>
-        <button id="checkoutFromCart" class="btn btn-success w-100">
+        <button id="checkoutFromCart" class="btn btn-primary w-100">
             <i class="fa fa-credit-card"></i> Proceed to Checkout
         </button>
     </div>
 </div>
 
 <div id="content">
+    @include('components.site-announcements', ['audience' => 'advertiser'])
+    @include('components.ad-banners', ['placement' => 'dashboard', 'audience' => 'advertiser'])
+    @include('components.ad-banners', ['placement' => 'content_top', 'audience' => 'advertiser'])
     @yield('content')
+    @include('components.ad-banners', ['placement' => 'content_bottom', 'audience' => 'advertiser'])
 </div>
 
 <footer>
-    © 2026 SEOLinkBuildings
+    © {{ date('Y') }} SEOLinkBuildings
+    <span class="mx-2">·</span>
+    <button type="button" class="btn btn-link btn-sm p-0 align-baseline" onclick="document.getElementById('helpFeedbackToggle')?.click()">Report a problem</button>
+    <span class="mx-1">·</span>
+    <button type="button" class="btn btn-link btn-sm p-0 align-baseline" onclick="document.getElementById('helpFeedbackToggle')?.click()">Suggestion box</button>
 </footer>
+@include('components.help-feedback-widget')
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
@@ -650,36 +807,12 @@
         }
     });
 
-    // Dark Mode
-    const darkModeBtn = document.getElementById('toggleDarkMode');
-    const moonIcon = darkModeBtn.querySelector('.fa-moon');
-    const sunIcon = darkModeBtn.querySelector('.fa-sun');
-    const logoSidebar = document.getElementById('logoSidebar');
-    const logoNavbar = document.getElementById('logoNavbar');
-    const mobileSidebarLogo = document.getElementById('mobileSidebarLogo');
+    // Dark mode removed — ensure light theme
+    document.body.classList.remove('layout-dark');
+    try { localStorage.removeItem('layoutDarkMode'); } catch (e) {}
 
-    if (localStorage.getItem('layoutDarkMode') === 'true') {
-        document.body.classList.add('layout-dark');
-        moonIcon.classList.add('d-none');
-        sunIcon.classList.remove('d-none');
-        logoSidebar.src = "{{ asset('assets/img/logo2.png') }}";
-        logoNavbar.src = "{{ asset('assets/img/logo2.png') }}";
-        if (mobileSidebarLogo) mobileSidebarLogo.src = "{{ asset('assets/img/logo2.png') }}";
-    }
-
-    darkModeBtn.addEventListener('click', () => {
-        const isDark = document.body.classList.toggle('layout-dark');
-        moonIcon.classList.toggle('d-none', isDark);
-        sunIcon.classList.toggle('d-none', !isDark);
-        localStorage.setItem('layoutDarkMode', isDark);
-        const logoSrc = isDark ? "{{ asset('assets/img/logo2.png') }}" : "{{ asset('assets/img/logo1.png') }}";
-        logoSidebar.src = logoSrc;
-        logoNavbar.src = logoSrc;
-        if (mobileSidebarLogo) mobileSidebarLogo.src = logoSrc;
-    });
-
-    // Tooltips
-    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
+    // Bootstrap tooltips (skip glass-tip triggers — they use GlassTip)
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]:not([data-glass-tip])'))
     tooltipTriggerList.map(function (el) {
         return new bootstrap.Tooltip(el)
     });
@@ -692,23 +825,17 @@
         .then(r => r.json())
         .then(data => {
             if (!data.success) return;
-            const chatBadge = document.getElementById('headerChatBadge');
             const navBadge = document.getElementById('navNeedsActionBadge');
-            const totalAlert = (data.unread_chat || 0) + (data.needs_action || 0);
-            if (chatBadge) {
-                if (totalAlert > 0) {
-                    chatBadge.style.display = 'flex';
-                    chatBadge.innerText = totalAlert > 99 ? '99+' : totalAlert;
-                } else {
-                    chatBadge.style.display = 'none';
-                }
-            }
-            if (navBadge) {
+            if (navBadge && window.PulseBadge) {
+                window.PulseBadge.sync(navBadge, data.needs_action || 0);
+            } else if (navBadge) {
                 if (data.needs_action > 0) {
                     navBadge.style.display = 'inline-block';
                     navBadge.innerText = data.needs_action > 99 ? '99+' : data.needs_action;
+                    navBadge.classList.add('pulse-badge', 'is-pulsing');
                 } else {
                     navBadge.style.display = 'none';
+                    navBadge.classList.remove('is-pulsing');
                 }
             }
         })
@@ -792,17 +919,17 @@
                             <div class="cart-item-price">€${item.price.toFixed(2)} each</div>
                         </div>
                         <div class="cart-item-quantity">
-                            <button class="decrease-qty" data-id="${item.id}" data-sensitive-type="${item.sensitive_type || ''}">
-                                <i class="fa fa-minus"></i>
+                            <button type="button" class="decrease-qty" data-id="${item.id}" data-sensitive-type="${item.sensitive_type || ''}" aria-label="Decrease quantity">
+                                <i class="fa fa-minus" aria-hidden="true"></i>
                             </button>
-                            <span class="quantity-number">${item.quantity}</span>
-                            <button class="increase-qty" data-id="${item.id}" data-sensitive-type="${item.sensitive_type || ''}">
-                                <i class="fa fa-plus"></i>
+                            <span class="quantity-number" aria-label="Quantity ${item.quantity}">${item.quantity}</span>
+                            <button type="button" class="increase-qty" data-id="${item.id}" data-sensitive-type="${item.sensitive_type || ''}" aria-label="Increase quantity">
+                                <i class="fa fa-plus" aria-hidden="true"></i>
                             </button>
                         </div>
-                        <div class="cart-item-remove" data-id="${item.id}" data-sensitive-type="${item.sensitive_type || ''}">
-                            <i class="fa fa-times"></i>
-                        </div>
+                        <button type="button" class="cart-item-remove" data-id="${item.id}" data-sensitive-type="${item.sensitive_type || ''}" aria-label="Remove ${escapeHtml(item.name)} from cart">
+                            <i class="fa fa-times" aria-hidden="true"></i>
+                        </button>
                     </div>
                 `;
             });
@@ -953,6 +1080,30 @@
     
     // Load cart on page load
     loadCart();
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script>
+document.querySelectorAll('.role-switch-form').forEach(function(form) {
+    form.addEventListener('submit', function(e) {
+        e.preventDefault();
+        const btn = form.querySelector('.role-switch-btn');
+        const roleName = (btn && btn.dataset.roleName) || 'the other role';
+        Swal.fire({
+            title: 'Switch role?',
+            html: 'You are about to switch to <strong>' + roleName + '</strong>. Your current page will change to that workspace.',
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonText: 'Switch to ' + roleName,
+            cancelButtonText: 'Stay here',
+            confirmButtonColor: '#0b6266',
+            cancelButtonColor: '#6b7280',
+            reverseButtons: true
+        }).then(function(result) {
+            if (result.isConfirmed) form.submit();
+        });
+    });
+});
 </script>
 
 </body>

@@ -4,6 +4,7 @@
 namespace App\Http\Controllers\Publisher;
 
 use App\Http\Controllers\Controller;
+use App\Models\ContentSubmission;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Site;
@@ -12,11 +13,14 @@ use App\Models\Wallet;
 use App\Mail\OrderAccepted;
 use App\Mail\OrderRejected;
 use App\Mail\LiveUrlSubmitted;
+use App\Services\InAppNotificationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Storage;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class OrderController extends Controller
 {
@@ -26,6 +30,30 @@ class OrderController extends Controller
     public function index()
     {
         return view('publisher.tasks');
+    }
+
+    /**
+     * Download approved article file for an order assigned to this publisher.
+     */
+    public function downloadContent(ContentSubmission $submission): StreamedResponse
+    {
+        $allowed = OrderItem::query()
+            ->where('content_submission_id', $submission->id)
+            ->whereHas('site', fn ($q) => $q->where('publisher_id', auth()->id()))
+            ->exists();
+
+        abort_unless($allowed, 403);
+
+        $disk = Storage::disk($submission->disk ?: 'local');
+        if (!$disk->exists($submission->path)) {
+            abort(404, 'File not found');
+        }
+
+        return $disk->download(
+            $submission->path,
+            $submission->original_filename,
+            ['Content-Type' => $submission->mime ?: 'application/octet-stream']
+        );
     }
 
     /**
@@ -64,6 +92,7 @@ class OrderController extends Controller
             $query = OrderItem::with(['order.user', 'site'])
                 ->whereIn('site_id', $siteIds)
                 ->whereHas('order', function ($q) {
+                    // Include scheduled publications — charged in advance; publish on the scheduled date.
                     $q->where(function ($inner) {
                         $inner->where('payment_status', 'paid')
                             ->orWhere('payment_method', '!=', 'card');
@@ -121,6 +150,14 @@ class OrderController extends Controller
                     'additional_price' => (float) ($item->additional_price ?? 0),
                     'sensitive_type' => $item->sensitive_type ?? null,
                     'content_link' => $item->content_link,
+                    'content_download_url' => $item->content_submission_id
+                        ? route('publisher.content.download', $item->content_submission_id)
+                        : $item->content_link,
+                    'content_original_name' => $item->content_original_name,
+                    'anchor_text' => $item->anchor_text,
+                    'target_url' => $item->target_url,
+                    'feature_image_url' => $item->feature_image_url,
+                    'moderation_status' => $item->moderation_status,
                     'live_url' => $item->live_url,
                     'live_url_submitted_at' => $item->live_url_submitted_at ?? null,
                     'auto_approve_triggered' => (bool) ($item->auto_approve_triggered ?? false),
@@ -135,7 +172,15 @@ class OrderController extends Controller
                         'payment_method' => $item->order->payment_method,
                         'payment_status' => $item->order->payment_status,
                         'reference_code' => $item->order->reference_code,
-                        'total_amount' => (float) $item->order->total_amount
+                        'total_amount' => (float) $item->order->total_amount,
+                        'publication_mode' => $item->order->publication_mode,
+                        'scheduled_publish_at' => optional($item->order->scheduled_publish_at)?->toIso8601String(),
+                        'schedule_timezone' => $item->order->schedule_timezone,
+                        'scheduled_label' => $item->order->scheduled_publish_at
+                            ? $item->order->scheduled_publish_at
+                                ->timezone($item->order->schedule_timezone ?: 'UTC')
+                                ->format('d F Y g:i A') . ' ' . ($item->order->schedule_timezone ?: 'UTC')
+                            : null,
                     ]
                 ];
             }
@@ -290,6 +335,8 @@ class OrderController extends Controller
                     Log::error('Failed to send order accepted email: ' . $e->getMessage());
                 }
             }
+
+            app(InAppNotificationService::class)->notifyOrderAccepted($order, $orderItem, $site);
             
             Log::info('Order accepted by publisher', [
                 'order_item_id' => $orderItem->id,
@@ -431,6 +478,8 @@ class OrderController extends Controller
                     Log::error('Failed to send order rejected email: ' . $e->getMessage());
                 }
             }
+
+            app(InAppNotificationService::class)->notifyOrderRejected($order, $orderItem, $site, $request->reason);
             
             $refundMessage = '';
             if ($order->payment_method === 'wallet') {
@@ -527,6 +576,8 @@ class OrderController extends Controller
                     Log::error('Failed to send live URL submitted email: ' . $e->getMessage());
                 }
             }
+
+            app(InAppNotificationService::class)->notifyLiveUrlSubmitted($order, $orderItem, $site, $request->live_url);
             
             Log::info('Live URL submitted by publisher, order status changed to review', [
                 'order_item_id' => $orderItem->id,

@@ -4,15 +4,53 @@
     <meta charset="UTF-8">
     <title>Publisher Dashboard</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
 
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="{{ asset('css/type-system.css') }}?v={{ @filemtime(public_path('css/type-system.css')) ?: '1' }}" rel="stylesheet">
+    <link href="{{ asset('css/brand-colors.css') }}?v={{ @filemtime(public_path('css/brand-colors.css')) ?: '1' }}" rel="stylesheet">
+    <link href="{{ asset('css/spacing-system.css') }}?v={{ @filemtime(public_path('css/spacing-system.css')) ?: '1' }}" rel="stylesheet">
+    <link href="{{ asset('css/button-system.css') }}?v={{ @filemtime(public_path('css/button-system.css')) ?: '1' }}" rel="stylesheet">
+    <link href="{{ asset('css/form-system.css') }}?v={{ @filemtime(public_path('css/form-system.css')) ?: '1' }}" rel="stylesheet">
+    <link href="{{ asset('css/app-shell.css') }}?v={{ @filemtime(public_path('css/app-shell.css')) ?: '1' }}" rel="stylesheet">
+    <link href="{{ asset('css/multi-select.css') }}?v={{ @filemtime(public_path('css/multi-select.css')) ?: '1' }}" rel="stylesheet">
+    <link href="{{ asset('css/single-select.css') }}?v={{ @filemtime(public_path('css/single-select.css')) ?: '1' }}" rel="stylesheet">
+    <link href="{{ asset('css/glass-tip.css') }}?v={{ @filemtime(public_path('css/glass-tip.css')) ?: '1' }}" rel="stylesheet">
+    <link href="{{ asset('css/pulse-badge.css') }}?v={{ @filemtime(public_path('css/pulse-badge.css')) ?: '1' }}" rel="stylesheet">
+    <script src="{{ asset('js/pulse-badge.js') }}?v={{ @filemtime(public_path('js/pulse-badge.js')) ?: '1' }}"></script>
+    <script src="{{ asset('js/single-select.js') }}?v={{ @filemtime(public_path('js/single-select.js')) ?: '1' }}" defer></script>
 
     <style>
         body, html {
             min-height: 100%;
             margin: 0;
             background-color: #f8f9fa;
+            font-family: 'Poppins', system-ui, sans-serif;
+        }
+
+        body.role-shell-advertiser {
+            --role-accent: #0b6266;
+        }
+        body.role-shell-publisher {
+            --role-accent: #c45c26;
+        }
+        body.role-shell-advertiser .top-navbar,
+        body.role-shell-publisher .top-navbar {
+            border-top: 3px solid var(--role-accent);
+        }
+        body.role-shell-advertiser #sidebar,
+        body.role-shell-publisher #sidebar {
+            border-left: 3px solid var(--role-accent);
+        }
+        .role-switch-btn {
+            border-color: var(--role-accent, #c45c26) !important;
+            color: var(--role-accent, #c45c26) !important;
+        }
+        .role-switch-btn:hover {
+            background: var(--role-accent, #c45c26) !important;
+            color: #fff !important;
         }
 
         #sidebar,
@@ -54,6 +92,60 @@
             border-radius: 6px;
             background-color: #4ECDCB;
             color: #fff;
+        }
+
+        .nav-count-badge {
+            background: #e9ecef !important;
+            color: #495057 !important;
+            font-weight: 600;
+            font-size: 11px;
+        }
+        #sidebar a.active .nav-count-badge,
+        #sidebar a:hover .nav-count-badge {
+            background: rgba(255,255,255,0.25) !important;
+            color: #fff !important;
+        }
+        .nav-alert-badge {
+            background: #ffc107 !important;
+            color: #212529 !important;
+            font-weight: 700;
+            font-size: 11px;
+        }
+
+        .topbar-icon-btn {
+            width: 36px;
+            height: 36px;
+            border-radius: 8px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0;
+            position: relative;
+            color: #495057;
+            border: 1px solid #dee2e6;
+            background: #fff;
+        }
+        .topbar-icon-btn:hover {
+            background: #f8f9fa;
+            color: #0b6266;
+            border-color: #b8e8e6;
+        }
+        .topbar-icon-btn .notif-badge {
+            position: absolute;
+            top: -4px;
+            right: -4px;
+            background: #dc3545;
+            color: #fff;
+            border-radius: 999px;
+            min-width: 16px;
+            height: 16px;
+            font-size: 10px;
+            font-weight: 700;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 0 4px;
+            line-height: 1;
         }
 
         #sidebar.collapsed { width: 70px; min-width: 70px; }
@@ -98,62 +190,47 @@
         #toggleSidebar span.arrow { display: inline-block; font-size: 18px; }
         #toggleSidebar.collapsed span.arrow { transform: rotate(180deg); }
 
-        body.layout-dark #sidebar {
-            background-color: #1e1e2f !important;
-            border-color: #333 !important;
-        }
 
-        body.layout-dark #sidebar a { color: #ccc; }
-        body.layout-dark #sidebar a.active,
-        body.layout-dark #sidebar a:hover {
-            background-color: #4ECDCB;
-            color: #fff;
-        }
 
-        body.layout-dark .top-navbar { background-color: #1e1e2f; border-bottom-color: #333; }
-        body.layout-dark .top-navbar .btn-outline-secondary {
-            color: #ccc;
-            border-color: #555;
-        }
-        body.layout-dark .top-navbar .btn-outline-secondary:hover {
-            background-color: #333;
-            color: #fff;
-        }
 
-        body.layout-dark #content { background-color: #121221; color: #ddd; }
 
         .balance-block {
-            min-width: 120px;
-            height: 40px;
-            border-radius: 6px;
-            display: flex;
+            min-width: auto;
+            height: 36px;
+            border-radius: 8px;
+            display: inline-flex;
             align-items: center;
-            justify-content: space-between;
+            gap: 6px;
             font-weight: 600;
-            padding: 0 10px;
-            color: #fff;
-            background-color: #0d6efd;
+            padding: 0 12px;
+            color: #0b6266;
+            background-color: #e8f8f7;
+            border: 1px solid #b8e8e6;
+            text-decoration: none;
+            white-space: nowrap;
+        }
+        .balance-block:hover {
+            background-color: #d7f3f1;
+            color: #0b6266;
+        }
+        .balance-block .balance-label {
+            font-size: 11px;
+            font-weight: 500;
+            color: #3aaeb2;
+            text-transform: uppercase;
+            letter-spacing: 0.02em;
+        }
+        .balance-block .balance-amount {
+            font-size: 14px;
+            color: #0b6266;
+        }
+        .balance-block .balance-credit {
+            font-size: 11px;
+            font-weight: 600;
+            color: #0f766e;
+            line-height: 1.1;
         }
 
-        #toggleDarkMode {
-            width: 36px;
-            height: 36px;
-            border-radius: 50%;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            padding: 0;
-        }
-
-        #toggleNotifications {
-            width: 36px;
-            height: 36px;
-            border-radius: 50%;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            padding: 0;
-        }
 
         /* Mobile Sidebar Logo Styling */
         .mobile-sidebar-logo {
@@ -164,9 +241,6 @@
             display: none; /* hidden by default, shown on mobile */
         }
         
-        body.layout-dark .mobile-sidebar-logo {
-            border-bottom-color: rgba(255,255,255,0.1);
-        }
         
         .mobile-sidebar-logo img {
             height: 40px;
@@ -207,7 +281,7 @@
     </style>
 </head>
 
-<body>
+<body class="role-shell-publisher">
 
 <!-- Sidebar -->
 <div id="sidebar">
@@ -226,10 +300,11 @@
             @endphp
 
             @if($otherRole)
-                <form method="POST" action="{{ route('switch.role') }}">
+                <form method="POST" action="{{ route('switch.role') }}" class="role-switch-form">
                     @csrf
                     <input type="hidden" name="active_role_id" value="{{ $otherRole->id }}">
-                    <button type="submit" class="btn btn-sm btn-outline-primary">
+                    <button type="submit" class="btn btn-sm btn-outline-primary role-switch-btn"
+                            data-role-name="{{ ucfirst($otherRole->name) }}">
                         Switch to {{ ucfirst($otherRole->name) }}
                     </button>
                 </form>
@@ -238,7 +313,7 @@
         
 
         <div class="text-center my-3 d-none d-md-block">
-            <img id="logoSidebar" src="{{ asset('assets/img/logo1.png') }}" height="42">
+            <img id="logoSidebar" src="{{ asset('assets/img/logo1.png') }}" height="42" alt="SEOLinkBuildings">
         </div>
 
         <a href="{{ route('publisher.dashboard') }}" class="{{ request()->routeIs('publisher.dashboard') ? 'active' : '' }}">
@@ -247,14 +322,16 @@
            
         <!-- Websites + number of websites simple count bg of red as a batch  -->
         <a href="{{ route('publisher.websites') }}" class="{{ request()->routeIs('publisher.websites') ? 'active' : '' }}">
-            <!-- sites icon-->
             <i class="fa fa-globe"></i>
             <span class="d-flex align-items-center w-100">
                 <span>My Sites</span>
                 @auth
-                    <span class="badge bg-danger rounded-pill ms-auto">
-                        {{ auth()->user()->sites()->count() }}
-                    </span>
+                    @php $siteCount = auth()->user()->sites()->count(); @endphp
+                    @if($siteCount > 0)
+                        <span class="badge nav-count-badge rounded-pill ms-auto" title="Total sites">
+                            {{ $siteCount }}
+                        </span>
+                    @endif
                 @endauth
             </span>
         </a>
@@ -263,7 +340,7 @@
             <i class="fa fa-tasks"></i>
             <span class="d-flex align-items-center w-100">
                 <span>Tasks</span>
-                <span id="navNeedsActionBadge" class="badge bg-warning text-dark rounded-pill ms-auto" style="display:none;">0</span>
+                <span id="navNeedsActionBadge" class="badge nav-alert-badge pulse-badge rounded-pill ms-auto" style="display:none;" data-pulse-display="inline-block">0</span>
             </span>
         </a>
 
@@ -284,13 +361,13 @@
 <div class="top-navbar">
 
     <div class="mobile-left d-flex align-items-center gap-2">
-        <button id="toggleSidebar" class="btn btn-sm btn-outline-secondary">
-            <span class="arrow"><i class="fa fa-chevron-left"></i></span>
+        <button id="toggleSidebar" class="btn btn-sm btn-outline-secondary" type="button" aria-label="Toggle sidebar navigation" title="Toggle sidebar">
+            <span class="arrow" aria-hidden="true"><i class="fa fa-chevron-left"></i></span>
         </button>
 
         <!-- Navbar logo - will be hidden on mobile via CSS -->
         <a href="/" class="d-flex align-items-center">
-            <img id="logoNavbar" src="{{ asset('assets/img/logo1.png') }}" height="45">
+            <img id="logoNavbar" src="{{ asset('assets/img/logo1.png') }}" height="45" alt="SEOLinkBuildings">
         </a>
 
         <div class="d-none d-md-block">
@@ -300,10 +377,11 @@
             @endphp
 
             @if($otherRole)
-                <form method="POST" action="{{ route('switch.role') }}">
+                <form method="POST" action="{{ route('switch.role') }}" class="role-switch-form">
                     @csrf
                     <input type="hidden" name="active_role_id" value="{{ $otherRole->id }}">
-                    <button type="submit" class="btn btn-sm btn-outline-primary">
+                    <button type="submit" class="btn btn-sm btn-outline-primary role-switch-btn"
+                            data-role-name="{{ ucfirst($otherRole->name) }}">
                         Switch to {{ ucfirst($otherRole->name) }}
                     </button>
                 </form>
@@ -311,109 +389,106 @@
         </div>
     </div>
 
-    <div class="d-flex align-items-center gap-2 ">
+    <div class="d-flex align-items-center gap-2">
 
-        <div class="position-relative">
-            <a href="{{ route('publisher.tasks') }}" id="toggleNotifications" class="btn btn-outline-secondary btn-sm" title="Unread chat & tasks needing action">
-                <i class="fa fa-comments"></i>
-                <span id="headerChatBadge" class="badge bg-danger rounded-pill position-absolute top-0 start-100 translate-middle" style="display:none; font-size:10px;">0</span>
-            </a>
-        </div>
-
-        <button id="toggleDarkMode" class="btn btn-outline-secondary btn-sm" title="Toggle Dark Mode">
-            <i class="fa fa-moon"></i>
-            <i class="fa fa-sun d-none"></i>
-        </button>
-
-        <!-- link to balance route -->
-         <a href="{{ route('publisher.balance') }}">
         @php
             $activeWallet = auth()->user()->activeWallet();
+            $availableBalance = (float) ($activeWallet?->balance ?? 0);
+            $reservedBalance = (float) ($activeWallet?->reserved_balance ?? 0);
             $headerWithdrawable = $activeWallet ? $activeWallet->withdrawableBalance() : 0;
             $headerBonus = $activeWallet ? $activeWallet->lockedBonusBalance() : 0;
-            $headerBalanceTitle = $headerBonus > 0
-                ? 'Ready to use / On hold. You can withdraw €' . number_format($headerWithdrawable, 2) . '. €' . number_format($headerBonus, 2) . ' free credit is for orders only.'
-                : 'Ready to use / On hold for open orders. Ready money can be withdrawn.';
+            $headerBalanceTitle = 'Spendable: €' . number_format($availableBalance, 2)
+                . ' · Withdrawable: €' . number_format($headerWithdrawable, 2)
+                . ($reservedBalance > 0 ? ' · On hold: €' . number_format($reservedBalance, 2) : '')
+                . ($headerBonus > 0 ? ' · Free credit €' . number_format($headerBonus, 2) . ' (orders only, not withdrawable)' : '');
         @endphp
-        <div class="balance-block" data-bs-toggle="tooltip" data-bs-placement="bottom" title="{{ $headerBalanceTitle }}">
-            <span>€{{ $activeWallet?->balance ?? '0.00' }}</span>
-            <span>/</span>
-            <span>€{{ $activeWallet?->reserved_balance ?? '0.00' }}</span>
-        </div>
+        <a href="{{ route('publisher.balance') }}" class="balance-block text-decoration-none" data-bs-toggle="tooltip" data-bs-placement="bottom" title="{{ $headerBalanceTitle }}" aria-label="Spendable balance {{ number_format($availableBalance, 2) }} euros, withdrawable {{ number_format($headerWithdrawable, 2) }}">
+            <span class="balance-label">Spendable</span>
+            <span class="balance-amount">€{{ number_format($availableBalance, 2) }}</span>
+            @if($headerBonus > 0)
+                <span class="balance-credit">Credit €{{ number_format($headerBonus, 2) }}</span>
+            @endif
         </a>
 
-        <div class="dropdown">
-    <button class="btn dropdown-toggle d-flex align-items-center gap-1"
-            data-bs-toggle="dropdown">
-        
-        @php
-            $user = auth()->user();
-        @endphp
-        
-        {{-- If user has avatar (Google avatar), display it --}}
-        @if($user->avatar)
-            <img src="{{ $user->avatar }}" 
-                 alt="{{ $user->name }}"
-                 class="rounded-circle"
-                 style="width: 36px; height: 36px; object-fit: cover;">
-        @else
-            {{-- Otherwise show initials with gradient background --}}
-            <div class="rounded-circle text-white d-flex justify-content-center align-items-center"
-                 style="width: 36px; height: 36px; font-weight: 600; background: linear-gradient(to right, #0d6efd, #6f42c1);">
-                {{ strtoupper(substr($user->name, 0, 1)) }}
-            </div>
-        @endif
-    </button>
+        @include('partials.notification-center')
 
-    <ul class="dropdown-menu dropdown-menu-end">
-        {{-- User info with avatar thumbnail in dropdown --}}
-        <li class="px-3 py-2">
-            <div class="d-flex align-items-center gap-2">
+        <div class="dropdown">
+            <button class="btn dropdown-toggle d-flex align-items-center gap-1"
+                    data-bs-toggle="dropdown"
+                    aria-expanded="false"
+                    aria-label="Account menu">
+                @php $user = auth()->user(); @endphp
                 @if($user->avatar)
-                    <img src="{{ $user->avatar }}" 
-                         alt="{{ $user->name }}"
+                    <img src="{{ $user->avatar }}"
+                         alt=""
                          class="rounded-circle"
-                         style="width: 32px; height: 32px; object-fit: cover;">
+                         style="width: 36px; height: 36px; object-fit: cover;">
                 @else
                     <div class="rounded-circle text-white d-flex justify-content-center align-items-center"
-                         style="width: 32px; height: 32px; font-weight: 600; background: linear-gradient(to right, #0d6efd, #6f42c1);">
+                         style="width: 36px; height: 36px; font-weight: 600; background: #4ECDCB;"
+                         aria-hidden="true">
                         {{ strtoupper(substr($user->name, 0, 1)) }}
                     </div>
                 @endif
-                <div>
-                    <strong>{{ $user->name }}</strong><br>
-                    <small>{{ $user->email }}</small>
-                </div>
-            </div>
-        </li>
-        <li><hr class="dropdown-divider"></li>
-        <!-- Profile + icon -->
-        <li>
-            <a class="dropdown-item" href="{{ route('profile') }}">
-                <i class="fa fa-user"></i> Profile
-            </a>
-        </li>
-        <li><hr class="dropdown-divider"></li>
-        <li>
-            <form method="POST" action="{{ route('logout') }}">
-                @csrf
-                <button class="dropdown-item text-danger">
-                    <i class="fa fa-sign-out-alt"></i> Logout
-                </button>
-            </form>
-        </li>
-    </ul>
-</div>
+            </button>
+
+            <ul class="dropdown-menu dropdown-menu-end">
+                <li class="px-3 py-2">
+                    <div class="d-flex align-items-center gap-2">
+                        @if($user->avatar)
+                            <img src="{{ $user->avatar }}"
+                                 alt=""
+                                 class="rounded-circle"
+                                 style="width: 32px; height: 32px; object-fit: cover;">
+                        @else
+                            <div class="rounded-circle text-white d-flex justify-content-center align-items-center"
+                                 style="width: 32px; height: 32px; font-weight: 600; background: #4ECDCB;"
+                                 aria-hidden="true">
+                                {{ strtoupper(substr($user->name, 0, 1)) }}
+                            </div>
+                        @endif
+                        <div>
+                            <strong>{{ $user->name }}</strong><br>
+                            <small class="text-muted">{{ $user->email }}</small>
+                        </div>
+                    </div>
+                </li>
+                <li><hr class="dropdown-divider"></li>
+                <li>
+                    <a class="dropdown-item" href="{{ route('profile') }}">
+                        <i class="fa fa-user" aria-hidden="true"></i> Profile
+                    </a>
+                </li>
+                <li><hr class="dropdown-divider"></li>
+                <li>
+                    <form method="POST" action="{{ route('logout') }}">
+                        @csrf
+                        <button class="dropdown-item text-danger" type="submit">
+                            <i class="fa fa-sign-out-alt" aria-hidden="true"></i> Logout
+                        </button>
+                    </form>
+                </li>
+            </ul>
+        </div>
     </div>
 </div>
 
 <div id="content">
+    @include('components.site-announcements', ['audience' => 'publisher'])
+    @include('components.ad-banners', ['placement' => 'dashboard', 'audience' => 'publisher'])
+    @include('components.ad-banners', ['placement' => 'content_top', 'audience' => 'publisher'])
     @yield('content')
+    @include('components.ad-banners', ['placement' => 'content_bottom', 'audience' => 'publisher'])
 </div>
 
 <footer>
-    © 2026 SEOLinkBuildings
+    © {{ date('Y') }} SEOLinkBuildings
+    <span class="mx-2">·</span>
+    <button type="button" class="btn btn-link btn-sm p-0 align-baseline" onclick="document.getElementById('helpFeedbackToggle')?.click()">Report a problem</button>
+    <span class="mx-1">·</span>
+    <button type="button" class="btn btn-link btn-sm p-0 align-baseline" onclick="document.getElementById('helpFeedbackToggle')?.click()">Suggestion box</button>
 </footer>
+@include('components.help-feedback-widget')
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
@@ -446,32 +521,8 @@
         }
     });
 
-    const darkModeBtn = document.getElementById('toggleDarkMode');
-    const moonIcon = darkModeBtn.querySelector('.fa-moon');
-    const sunIcon = darkModeBtn.querySelector('.fa-sun');
-    const logoSidebar = document.getElementById('logoSidebar');
-    const logoNavbar = document.getElementById('logoNavbar');
-    const mobileSidebarLogo = document.getElementById('mobileSidebarLogo');
-
-    if (localStorage.getItem('layoutDarkMode') === 'true') {
-        document.body.classList.add('layout-dark');
-        moonIcon.classList.add('d-none');
-        sunIcon.classList.remove('d-none');
-        logoSidebar.src = "{{ asset('assets/img/logo2.png') }}";
-        logoNavbar.src = "{{ asset('assets/img/logo2.png') }}";
-        if (mobileSidebarLogo) mobileSidebarLogo.src = "{{ asset('assets/img/logo2.png') }}";
-    }
-
-    darkModeBtn.addEventListener('click', () => {
-        const isDark = document.body.classList.toggle('layout-dark');
-        moonIcon.classList.toggle('d-none', isDark);
-        sunIcon.classList.toggle('d-none', !isDark);
-        localStorage.setItem('layoutDarkMode', isDark);
-        const logoSrc = isDark ? "{{ asset('assets/img/logo2.png') }}" : "{{ asset('assets/img/logo1.png') }}";
-        logoSidebar.src = logoSrc;
-        logoNavbar.src = logoSrc;
-        if (mobileSidebarLogo) mobileSidebarLogo.src = logoSrc;
-    });
+    document.body.classList.remove('layout-dark');
+    try { localStorage.removeItem('layoutDarkMode'); } catch (e) {}
 
     var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
     tooltipTriggerList.map(function (el) {
@@ -486,23 +537,17 @@
         .then(r => r.json())
         .then(data => {
             if (!data.success) return;
-            const chatBadge = document.getElementById('headerChatBadge');
             const navBadge = document.getElementById('navNeedsActionBadge');
-            const totalAlert = (data.unread_chat || 0) + (data.needs_action || 0);
-            if (chatBadge) {
-                if (totalAlert > 0) {
-                    chatBadge.style.display = 'inline-block';
-                    chatBadge.innerText = totalAlert > 99 ? '99+' : totalAlert;
-                } else {
-                    chatBadge.style.display = 'none';
-                }
-            }
-            if (navBadge) {
+            if (navBadge && window.PulseBadge) {
+                window.PulseBadge.sync(navBadge, data.needs_action || 0);
+            } else if (navBadge) {
                 if (data.needs_action > 0) {
                     navBadge.style.display = 'inline-block';
                     navBadge.innerText = data.needs_action > 99 ? '99+' : data.needs_action;
+                    navBadge.classList.add('pulse-badge', 'is-pulsing');
                 } else {
                     navBadge.style.display = 'none';
+                    navBadge.classList.remove('is-pulsing');
                 }
             }
         })
@@ -510,6 +555,27 @@
     }
     refreshHeaderAlerts();
     setInterval(refreshHeaderAlerts, 45000);
+
+    document.querySelectorAll('.role-switch-form').forEach(function(form) {
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+            const btn = form.querySelector('.role-switch-btn');
+            const roleName = (btn && btn.dataset.roleName) || 'the other role';
+            Swal.fire({
+                title: 'Switch role?',
+                html: 'You are about to switch to <strong>' + roleName + '</strong>. Your current page will change to that workspace.',
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonText: 'Switch to ' + roleName,
+                cancelButtonText: 'Stay here',
+                confirmButtonColor: '#c45c26',
+                cancelButtonColor: '#6b7280',
+                reverseButtons: true
+            }).then(function(result) {
+                if (result.isConfirmed) form.submit();
+            });
+        });
+    });
 </script>
 
 </body>

@@ -8,9 +8,18 @@
             <h1 class="h3 mb-1">Admin Dashboard</h1>
             <p class="text-muted mb-0">Platform overview, money flow, and items that need your attention.</p>
         </div>
-        <div class="d-flex gap-2">
+        <div class="d-flex gap-2 flex-wrap">
+            <a href="{{ route('admin.campaigns.index') }}" class="btn btn-sm btn-primary">
+                <i class="fa fa-paper-plane me-1"></i> Updates / Campaigns
+            </a>
+            <a href="{{ route('admin.audiences.index') }}" class="btn btn-sm btn-outline-primary">
+                <i class="fa fa-address-book me-1"></i> Audiences
+            </a>
+            <a href="{{ route('admin.promotions.index') }}" class="btn btn-sm btn-outline-secondary">
+                <i class="fa fa-bullhorn me-1"></i> Promotions
+            </a>
             <a href="{{ route('admin.users.index') }}" class="btn btn-sm btn-outline-primary">
-                <i class="fa fa-bullhorn me-1"></i> Marketing Access
+                <i class="fa fa-user-tag me-1"></i> Marketing Access
             </a>
             <a href="{{ route('admin.sites.index') }}" class="btn btn-sm btn-outline-secondary">
                 <i class="fa fa-globe me-1"></i> Sites
@@ -83,6 +92,68 @@
                     <div class="small text-muted mt-2">
                         <span id="kpiDeposits">0</span> deposits ·
                         <span id="kpiWithdrawals">0</span> withdrawals
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Promotions widget -->
+    <div class="row g-3 mb-4">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex flex-wrap justify-content-between align-items-start gap-3">
+                        <div>
+                            <div class="text-muted small mb-1"><i class="fa fa-bullhorn me-1 text-primary"></i>Promotions Center</div>
+                            <h5 class="mb-1">Announcements &amp; Ad Banners</h5>
+                            <p class="text-muted mb-0 small">
+                                Control discounts, Black Friday offers, platform changes, and sized website banners from one place.
+                            </p>
+                        </div>
+                        <div class="d-flex flex-wrap gap-2">
+                            <a href="{{ route('admin.campaigns.index') }}" class="btn btn-primary btn-sm">
+                                <i class="fa fa-paper-plane me-1"></i> Updates / Campaigns
+                            </a>
+                            <a href="{{ route('admin.audiences.index') }}" class="btn btn-outline-primary btn-sm">
+                                Audience Lists
+                            </a>
+                            <a href="{{ route('admin.promotions.index') }}" class="btn btn-outline-secondary btn-sm">
+                                Site Banners
+                            </a>
+                            <a href="{{ route('admin.promotions.announcements.create') }}" class="btn btn-outline-secondary btn-sm">
+                                New Announcement
+                            </a>
+                        </div>
+                    </div>
+                    @php
+                        $promoStats = app(\App\Services\PromotionService::class)->dashboardStats();
+                    @endphp
+                    <div class="row g-3 mt-2">
+                        <div class="col-6 col-md-3">
+                            <div class="border rounded-3 p-3 h-100">
+                                <div class="small text-muted">Live announcements</div>
+                                <div class="fs-4 fw-semibold">{{ $promoStats['announcements_live'] }}</div>
+                            </div>
+                        </div>
+                        <div class="col-6 col-md-3">
+                            <div class="border rounded-3 p-3 h-100">
+                                <div class="small text-muted">Live banners</div>
+                                <div class="fs-4 fw-semibold">{{ $promoStats['banners_live'] }}</div>
+                            </div>
+                        </div>
+                        <div class="col-6 col-md-3">
+                            <div class="border rounded-3 p-3 h-100">
+                                <div class="small text-muted">Banner impressions</div>
+                                <div class="fs-4 fw-semibold">{{ number_format($promoStats['banner_impressions']) }}</div>
+                            </div>
+                        </div>
+                        <div class="col-6 col-md-3">
+                            <div class="border rounded-3 p-3 h-100">
+                                <div class="small text-muted">Banner clicks</div>
+                                <div class="fs-4 fw-semibold">{{ number_format($promoStats['banner_clicks']) }}</div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -253,7 +324,7 @@ async function loadTrends() {
                 {
                     label: 'Revenue (€)',
                     data: json.revenue,
-                    borderColor: '#0d6efd',
+                    borderColor: '#0b6266',
                     backgroundColor: 'rgba(13,110,253,0.12)',
                     fill: true,
                     tension: 0.35,
@@ -302,7 +373,7 @@ async function loadDistributions() {
     const json = await res.json();
     if (!json.success) return;
 
-    const palette = ['#0d6efd', '#198754', '#ffc107', '#dc3545', '#6f42c1', '#20c997', '#fd7e14'];
+    const palette = ['#0b6266', '#198754', '#ffc107', '#dc3545', '#6f42c1', '#20c997', '#fd7e14'];
 
     orderStatusChart = new Chart(document.getElementById('orderStatusChart'), {
         type: 'doughnut',
@@ -322,7 +393,7 @@ async function loadDistributions() {
             labels: json.roles.labels,
             datasets: [{
                 data: json.roles.values,
-                backgroundColor: ['#0d6efd', '#198754', '#6c757d']
+                backgroundColor: ['#0b6266', '#198754', '#6c757d']
             }]
         },
         options: { plugins: { legend: { position: 'bottom' } } }

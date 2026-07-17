@@ -6,6 +6,7 @@ use App\Mail\SiteOwnerOrderNotification;
 use App\Models\Order;
 use App\Models\Site;
 use App\Models\User;
+use App\Services\InAppNotificationService;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -52,6 +53,7 @@ class OrderPaymentService
                     continue;
                 }
 
+                // Keep publisher-visible pending status (scheduled date is in publication_mode).
                 $order->update([
                     'stripe_session_id' => $session->id ?? $order->stripe_session_id,
                     'stripe_payment_intent_id' => $session->payment_intent ?? $order->stripe_payment_intent_id,
@@ -60,7 +62,6 @@ class OrderPaymentService
                         : json_encode($session),
                     'paid_at' => now(),
                     'payment_status' => 'paid',
-                    // Keep status pending so publisher workflow starts from accept
                     'status' => 'pending',
                 ]);
 
@@ -82,6 +83,19 @@ class OrderPaymentService
             $orders = collect($orders)->filter();
             if ($orders->isEmpty()) {
                 return;
+            }
+
+            foreach ($orders as $order) {
+                try {
+                    app(InAppNotificationService::class)->notifyOrderCreated(
+                        $order instanceof Order ? $order->fresh(['items']) : $order
+                    );
+                } catch (\Throwable $e) {
+                    Log::warning('notifyOrderCreated failed after card payment', [
+                        'order_id' => $order->id ?? null,
+                        'error' => $e->getMessage(),
+                    ]);
+                }
             }
 
             $siteOrders = [];

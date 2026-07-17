@@ -43,20 +43,7 @@
                         <div class="col-md-6">
                             <label class="form-label">Country <span class="text-danger">*</span></label>
                             <select name="country" id="country" class="form-select" required>
-                                <option value="">Select Country</option>
-                                <option value="United States">United States</option>
-                                <option value="United Kingdom">United Kingdom</option>
-                                <option value="Germany">Germany</option>
-                                <option value="France">France</option>
-                                <option value="Italy">Italy</option>
-                                <option value="Spain">Spain</option>
-                                <option value="Netherlands">Netherlands</option>
-                                <option value="Belgium">Belgium</option>
-                                <option value="Austria">Austria</option>
-                                <option value="Switzerland">Switzerland</option>
-                                <option value="Pakistan">Pakistan</option>
-                                <option value="India">India</option>
-                                <option value="UAE">UAE</option>
+                                @include('partials.marketplace-country-options', ['selectedCountry' => old('country', auth()->user()->country ?? '')])
                             </select>
                         </div>
                         <div class="col-md-6">

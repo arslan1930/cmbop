@@ -4,19 +4,16 @@
 namespace App\Mail;
 
 use App\Models\Order;
-use Illuminate\Bus\Queueable;
-use Illuminate\Mail\Mailable;
-use Illuminate\Queue\SerializesModels;
 
-class ModificationRequested extends Mailable
+class ModificationRequested extends PlatformMailable
 {
-    use Queueable, SerializesModels;
 
     public $order;
     public $reason;
 
     public function __construct(Order $order, $reason)
     {
+        parent::__construct();
         $this->order = $order;
         $this->reason = $reason;
     }

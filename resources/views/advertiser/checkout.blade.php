@@ -33,140 +33,151 @@
             <div class="row">
                 <!-- Left Column - Order Summary & Payment Methods -->
                 <div class="col-lg-8">
-                    <!-- Order Summary -->
+                    <!-- 1. Order Summary -->
                     <div class="card border-0 shadow-sm mb-4">
                         <div class="card-header bg-white fw-semibold">
-                            <i class="fa fa-shopping-cart me-2"></i> Order Summary
+                            <i class="fa fa-shopping-cart me-2"></i> 1. Order Summary
                         </div>
-                        <div class="card-body p-0">
-                            <div class="table-responsive">
-                                <table class="table table-borderless align-middle mb-0">
-                                    <thead class="table-light">
-                                        <tr>
-                                            <th style="min-width: 250px;">Site Details</th>
-                                            <th style="min-width: 120px;">Sensitive Price</th>
-                                            <th>Price</th>
-                                            <th style="min-width: 250px;">Content Link</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        @php $globalCopyIndex = 0; @endphp
-                                        @foreach($cartItems as $index => $item)
-                                            @for($i = 0; $i < $item['quantity']; $i++)
-                                            <tr data-site-id="{{ $item['id'] }}" data-copy-index="{{ $globalCopyIndex }}">
-                                                <td>
-                                                    <div class="fw-semibold">{{ $item['name'] }}</div>
-                                                    <div>
-                                                        <a href="{{ $item['url'] }}" target="_blank" class="text-decoration-none small text-muted">
-                                                            {{ Str::limit($item['url'], 50) }}
-                                                            <i class="fa fa-external-link fa-xs"></i>
-                                                        </a>
-                                                    </div>
-                                                    @if($item['quantity'] > 1)
-                                                        <small class="text-muted d-block mt-1">Copy {{ $i + 1 }} of {{ $item['quantity'] }}</small>
-                                                    @endif
-                                                </td>
-                                                <td>
-                                                    @if($item['sensitive_type'])
-                                                        <span class="text-success small fw-semibold">
-                                                            <i class="fa fa-plus-circle"></i> {{ ucfirst($item['sensitive_type']) }} (+€{{ number_format($item['additional_price'], 2) }})
-                                                        </span>
-                                                    @else
-                                                        <span class="text-muted small">—</span>
-                                                    @endif
-                                                </td>
-                                                <td class="fw-semibold text-primary">
-                                                    €{{ number_format($item['price'], 2) }}
-                                                    @if($item['additional_price'] > 0)
-                                                        <div class="small text-muted mt-1">
-                                                            Base: €{{ number_format($item['base_price'], 2) }} + {{ $item['sensitive_type'] }}: €{{ number_format($item['additional_price'], 2) }}
-                                                        </div>
-                                                    @endif
-                                                </td>
-                                                <td>
-                                                    <input type="url" 
-                                                           name="content_links[{{ $item['id'] }}][]" 
-                                                           class="form-control form-control-sm content-link" 
-                                                           placeholder="https://docs.google.com/..."
-                                                           data-site-id="{{ $item['id'] }}"
-                                                           data-site-name="{{ $item['name'] }}"
-                                                           data-copy-index="{{ $globalCopyIndex }}"
-                                                           required>
-                                                    <small class="text-muted">Google Docs link only</small>
-                                                </td>
-                                            </tr>
-                                            @php $globalCopyIndex++; @endphp
-                                            @endfor
-                                        @endforeach
-                                    </tbody>
-                                </table>
+                        <div class="card-body">
+                            <div class="site-summary-list">
+                                @php
+                                    $placementNumber = 0;
+                                @endphp
+                                @foreach($cartItems as $index => $item)
+                                    @for($i = 0; $i < $item['quantity']; $i++)
+                                    @php
+                                        $placementNumber++;
+                                        $hasSensitive = !empty($item['sensitive_type']) && ($item['additional_price'] ?? 0) > 0;
+                                    @endphp
+                                    <div class="site-summary-card"
+                                         data-site-id="{{ $item['id'] }}"
+                                         data-copy-index="{{ $i }}"
+                                         data-placement-number="{{ $placementNumber }}">
+                                        <div class="site-summary-top">
+                                            <div class="d-flex align-items-start gap-2 flex-grow-1 min-w-0">
+                                                <span class="placement-number" aria-hidden="true">{{ $placementNumber }}</span>
+                                                <div class="min-w-0">
+                                                    <div class="site-summary-name">{{ $item['name'] }}</div>
+                                                    <a href="{{ $item['url'] }}" target="_blank" class="site-summary-url text-decoration-none">
+                                                        {{ Str::limit($item['url'], 55) }}
+                                                        <i class="fa fa-external-link fa-xs"></i>
+                                                    </a>
+                                                </div>
+                                            </div>
+                                            <div class="site-summary-price text-end">
+                                                <div class="site-summary-price-label">Placement total</div>
+                                                @if(!empty($item['line_savings']) && $item['line_savings'] > 0)
+                                                    <div class="small text-muted text-decoration-line-through">€{{ number_format($item['line_list_total'] ?? ($item['list_total'] * $item['quantity']), 2) }}</div>
+                                                @endif
+                                                <div class="site-summary-price-value">€{{ number_format($item['total'] ?? $item['price'], 2) }}</div>
+                                                @if(!empty($item['discount_labels']))
+                                                    <div class="small text-success">{{ implode(' · ', $item['discount_labels']) }}</div>
+                                                @endif
+                                            </div>
+                                        </div>
+
+                                        <div class="site-summary-details">
+                                            <div class="site-summary-row">
+                                                <span>Base price</span>
+                                                <span class="site-summary-amount">€{{ number_format($item['base_price'], 2) }}</span>
+                                            </div>
+                                            @if(!empty($item['line_savings']) && $item['line_savings'] > 0)
+                                            <div class="site-summary-row">
+                                                <span>Discount savings</span>
+                                                <span class="site-summary-amount text-success">−€{{ number_format($item['line_savings'], 2) }}</span>
+                                            </div>
+                                            @endif
+                                            @if($hasSensitive)
+                                                <div class="site-summary-row site-summary-sensitive">
+                                                    <span>
+                                                        Sensitive topic
+                                                        <strong>{{ ucfirst($item['sensitive_type']) }}</strong>
+                                                    </span>
+                                                    <span class="site-summary-amount site-summary-amount-accent">+€{{ number_format($item['additional_price'], 2) }}</span>
+                                                </div>
+                                            @endif
+                                        </div>
+                                    </div>
+                                    @endfor
+                                @endforeach
                             </div>
                         </div>
                     </div>
 
-                    <!-- Payment Methods -->
-                    <div class="card border-0 shadow-sm mb-4">
+                    @include('advertiser.partials.checkout-content-assignment')
+
+                    <!-- 3. Payment Methods -->
+                    <div class="card border-0 shadow-sm mb-4" id="paymentSectionCard">
                         <div class="card-header bg-white fw-semibold">
-                            <i class="fa fa-credit-card me-2"></i> Select Payment Method
+                            <i class="fa fa-credit-card me-2"></i> 3. Payment
                         </div>
                         <div class="card-body">
-                            <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px;">
-                                <!-- Wise Payment -->
-                                <div class="payment-option" data-method="wise" style="cursor: pointer;">
-                                    <div class="payment-option-card" style="border: 2px solid #e5e7eb; border-radius: 12px; padding: 16px; text-align: center; background: white; transition: all 0.2s;">
-                                        <div style="width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; background: #eff6ff; border-radius: 8px; margin: 0 auto 8px;">
-                                            <img src="{{ asset('assets/img/wiseImg-logo.png') }}" alt="Wise Logo" style="width: 32px; height: 32px; object-fit: contain;">
-                                        </div>
-                                        <span style="font-weight: 600; font-size: 12px; color: #1f2937;">Wise Transfer</span>
-                                        <span style="font-size: 10px; color: #6b7280; display: block; margin-top: 4px;">Bank transfer via Wise</span>
-                                    </div>
-                                </div>
+                            <p class="text-muted small mb-3">Recommended for fastest checkout.</p>
 
-                                <!-- Crypto Payment -->
-                                <div class="payment-option" data-method="crypto" style="cursor: pointer;">
-                                    <div class="payment-option-card" style="border: 2px solid #e5e7eb; border-radius: 12px; padding: 16px; text-align: center; background: white; transition: all 0.2s;">
-                                        <div style="width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; background: #fef3c7; border-radius: 8px; margin: 0 auto 8px;">
-                                            <i class="fab fa-bitcoin" style="font-size: 28px; color: #eab308;"></i>
-                                        </div>
-                                        <span style="font-weight: 600; font-size: 12px; color: #1f2937;">Cryptocurrency</span>
-                                        <span style="font-size: 10px; color: #6b7280; display: block; margin-top: 4px;">BTC, USDT, Binance Pay</span>
+                            <!-- Recommended: Wallet -->
+                            <div class="payment-option payment-option-recommended mb-3" data-method="wallet" style="cursor: pointer;" role="button" tabindex="0" aria-label="Pay with wallet balance">
+                                <div class="payment-option-card recommended" style="border: 2px solid #4ECDCB; border-radius: 12px; padding: 16px; background: #f0fbfb; transition: all 0.2s; display:flex; align-items:center; gap:14px;">
+                                    <div style="width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; background: #dcfce7; border-radius: 8px; flex-shrink:0;">
+                                        <i class="fas fa-wallet" style="font-size: 24px; color: #16a34a;"></i>
                                     </div>
+                                    <div class="flex-grow-1">
+                                        <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                                            <span style="font-weight: 700; font-size: 14px; color: #0b6266;">Wallet Balance</span>
+                                            <span style="font-size: 11px; font-weight: 600; color: #0b6266; background: #c8ebe9; padding: 2px 8px; border-radius: 999px;">Recommended</span>
+                                        </div>
+                                        <span style="font-size: 12px; color: #6b7280; display: block; margin-top: 2px;">Pay instantly from your available balance</span>
+                                    </div>
+                                    <i class="fa fa-check-circle payment-check" style="color:#4ECDCB; font-size:20px; opacity:0;"></i>
                                 </div>
+                            </div>
 
-                                <!-- Bank Transfer -->
-                                <div class="payment-option" data-method="bank" style="cursor: pointer;">
-                                    <div class="payment-option-card" style="border: 2px solid #e5e7eb; border-radius: 12px; padding: 16px; text-align: center; background: white; transition: all 0.2s;">
-                                        <div style="width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; background: #eff6ff; border-radius: 8px; margin: 0 auto 8px;">
-                                            <i class="fas fa-university" style="font-size: 28px; color: #3b82f6;"></i>
-                                        </div>
-                                        <span style="font-weight: 600; font-size: 12px; color: #1f2937;">Bank Transfer</span>
-                                        <span style="font-size: 10px; color: #6b7280; display: block; margin-top: 4px;">Traditional bank transfer</span>
-                                    </div>
-                                </div>
+                            <button type="button" class="btn btn-link p-0 text-decoration-none" id="toggleOtherPayments" style="color:#0b6266; font-weight:600;">
+                                <i class="fa fa-chevron-down me-1" id="otherPaymentsChevron"></i> Other methods
+                            </button>
 
-                                <!-- Credit Card -->
-                                <div class="payment-option" data-method="card" style="cursor: pointer;">
-                                    <div class="payment-option-card" style="border: 2px solid #e5e7eb; border-radius: 12px; padding: 16px; text-align: center; background: white; transition: all 0.2s;">
-                                        <div style="width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; background: #f3f4f6; border-radius: 8px; margin: 0 auto 8px;">
-                                            <i class="fab fa-stripe" style="font-size: 28px; color: #635bff;"></i>
+                            <div id="otherPaymentMethods" style="display: none; margin-top: 14px;">
+                                <div class="other-payments-grid">
+                                    <div class="payment-option" data-method="wise" style="cursor: pointer;" role="button" tabindex="0" aria-label="Pay with Wise transfer">
+                                        <div class="payment-option-card" style="border: 2px solid #e5e7eb; border-radius: 12px; padding: 16px; text-align: center; background: white; transition: all 0.2s;">
+                                            <div style="width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; background: #eff6ff; border-radius: 8px; margin: 0 auto 8px;">
+                                                <img src="{{ asset('assets/img/wiseImg-logo.png') }}" alt="" style="width: 32px; height: 32px; object-fit: contain;">
+                                            </div>
+                                            <span style="font-weight: 600; font-size: 12px; color: #1f2937;">Wise Transfer</span>
+                                            <span style="font-size: 10px; color: #6b7280; display: block; margin-top: 4px;">Bank transfer via Wise</span>
                                         </div>
-                                        <span style="font-weight: 600; font-size: 12px; color: #1f2937;">Credit/Debit Card</span>
-                                        <span style="font-size: 10px; color: #6b7280; display: block; margin-top: 4px;">Secure Stripe checkout</span>
                                     </div>
-                                </div>
-                                
-                                <!-- Wallet Balance Payment -->
-                                <div class="payment-option" data-method="wallet" style="cursor: pointer;">
-                                    <div class="payment-option-card" style="border: 2px solid #e5e7eb; border-radius: 12px; padding: 16px; text-align: center; background: white; transition: all 0.2s;">
-                                        <div style="width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; background: #dcfce7; border-radius: 8px; margin: 0 auto 8px;">
-                                            <i class="fas fa-wallet" style="font-size: 28px; color: #16a34a;"></i>
+
+                                    <div class="payment-option" data-method="crypto" style="cursor: pointer;" role="button" tabindex="0" aria-label="Pay with cryptocurrency">
+                                        <div class="payment-option-card" style="border: 2px solid #e5e7eb; border-radius: 12px; padding: 16px; text-align: center; background: white; transition: all 0.2s;">
+                                            <div style="width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; background: #fef3c7; border-radius: 8px; margin: 0 auto 8px;">
+                                                <i class="fab fa-bitcoin" style="font-size: 28px; color: #eab308;" aria-hidden="true"></i>
+                                            </div>
+                                            <span style="font-weight: 600; font-size: 12px; color: #1f2937;">Cryptocurrency</span>
+                                            <span style="font-size: 10px; color: #6b7280; display: block; margin-top: 4px;">BTC, USDT, Binance Pay</span>
                                         </div>
-                                        <span style="font-weight: 600; font-size: 12px; color: #1f2937;">Wallet Balance</span>
-                                        <span style="font-size: 10px; color: #6b7280; display: block; margin-top: 4px;">Use your wallet balance</span>
+                                    </div>
+
+                                    <div class="payment-option" data-method="bank" style="cursor: pointer;" role="button" tabindex="0" aria-label="Pay with bank transfer">
+                                        <div class="payment-option-card" style="border: 2px solid #e5e7eb; border-radius: 12px; padding: 16px; text-align: center; background: white; transition: all 0.2s;">
+                                            <div style="width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; background: #eff6ff; border-radius: 8px; margin: 0 auto 8px;">
+                                                <i class="fas fa-university" style="font-size: 28px; color: #0b6266;" aria-hidden="true"></i>
+                                            </div>
+                                            <span style="font-weight: 600; font-size: 12px; color: #1f2937;">Bank Transfer</span>
+                                            <span style="font-size: 10px; color: #6b7280; display: block; margin-top: 4px;">Traditional bank transfer</span>
+                                        </div>
+                                    </div>
+
+                                    <div class="payment-option" data-method="card" style="cursor: pointer;" role="button" tabindex="0" aria-label="Pay with credit or debit card">
+                                        <div class="payment-option-card" style="border: 2px solid #e5e7eb; border-radius: 12px; padding: 16px; text-align: center; background: white; transition: all 0.2s;">
+                                            <div style="width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; background: #f3f4f6; border-radius: 8px; margin: 0 auto 8px;">
+                                                <i class="fab fa-stripe" style="font-size: 28px; color: #635bff;" aria-hidden="true"></i>
+                                            </div>
+                                            <span style="font-weight: 600; font-size: 12px; color: #1f2937;">Credit/Debit Card</span>
+                                            <span style="font-size: 10px; color: #6b7280; display: block; margin-top: 4px;">Secure Stripe checkout</span>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
-                            
 
                             <div id="paymentError" style="display: none; margin-top: 12px; font-size: 14px; color: #dc2626;">
                                 Please select a payment method
@@ -345,7 +356,7 @@
                             <div class="card-body">
                                 <div style="display: flex; align-items: center; margin-bottom: 16px;">
                                     <div style="width: 40px; height: 40px; background: #eff6ff; border-radius: 8px; display: flex; align-items: center; justify-content: center; margin-right: 12px;">
-                                        <i class="fas fa-university" style="font-size: 24px; color: #3b82f6;"></i>
+                                        <i class="fas fa-university" style="font-size: 24px; color: #0b6266;"></i>
                                     </div>
                                     <div>
                                         <h3 style="font-size: 18px; font-weight: 600; margin: 0;">Bank Transfer Payment</h3>
@@ -422,10 +433,15 @@
                                 <span id="taxAmount">€0.00</span>
                             </div>
                             <hr>
-                            <div class="d-flex justify-content-between mb-3">
+                            <div class="d-flex justify-content-between mb-1">
                                 <strong>Total:</strong>
-                                <strong class="text-primary fs-5" id="grandTotal">€{{ number_format($total, 2) }}</strong>
+                                <strong class="checkout-theme-price fs-5" id="grandTotal">€{{ number_format($total, 2) }}</strong>
                             </div>
+                            @if(!empty($savings) && $savings > 0)
+                                <div class="small text-success mb-3">You save €{{ number_format($savings, 2) }} with active discounts</div>
+                            @else
+                                <div class="mb-3"></div>
+                            @endif
 
                             <!-- Reference Code -->
                             <div class="alert alert-secondary py-2 px-3 mb-3" style="background-color: #f8f9fa;">
@@ -445,7 +461,7 @@
                                 <small>Please include <strong id="refCodeDisplay">REF{{ sprintf('%06d', mt_rand(1, 999999)) }}</strong> in your payment note for manual payments. For card payments, reference is auto-recorded.</small>
                             </div>
 
-                            <button type="button" id="placeOrderBtn" class="btn btn-success w-100 mt-3">
+                            <button type="button" id="placeOrderBtn" class="btn btn-primary w-100 mt-3">
                                 <i class="fa fa-check-circle"></i> Place Order
                             </button>
 
@@ -487,20 +503,7 @@
                         <div class="col-md-6">
                             <label class="form-label">Country <span class="text-danger">*</span></label>
                             <select name="country" id="country" class="form-select" required>
-                                <option value="">Select Country</option>
-                                <option value="United States">United States</option>
-                                <option value="United Kingdom">United Kingdom</option>
-                                <option value="Germany">Germany</option>
-                                <option value="France">France</option>
-                                <option value="Italy">Italy</option>
-                                <option value="Spain">Spain</option>
-                                <option value="Netherlands">Netherlands</option>
-                                <option value="Belgium">Belgium</option>
-                                <option value="Austria">Austria</option>
-                                <option value="Switzerland">Switzerland</option>
-                                <option value="Pakistan">Pakistan</option>
-                                <option value="India">India</option>
-                                <option value="UAE">UAE</option>
+                                @include('partials.marketplace-country-options', ['selectedCountry' => old('country', auth()->user()->country ?? '')])
                             </select>
                         </div>
                         <div class="col-md-6">
@@ -546,16 +549,6 @@
     border-bottom: 1px solid #eee;
 }
 
-.btn-success {
-    background-color: #28a745;
-    border-color: #28a745;
-}
-
-.btn-success:hover {
-    background-color: #218838;
-    border-color: #1e7e34;
-}
-
 .content-link {
     font-size: 12px;
 }
@@ -569,15 +562,199 @@
     cursor: pointer;
 }
 
+.other-payments-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 12px;
+}
+
+@media (min-width: 576px) {
+    .other-payments-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (min-width: 992px) {
+    .other-payments-grid {
+        grid-template-columns: repeat(4, 1fr);
+    }
+}
+
 .payment-option.selected .payment-option-card {
-    border-color: #3b82f6 !important;
-    background: #eff6ff !important;
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    border-color: #0b6266 !important;
+    background: #f0fbfb !important;
+    box-shadow: 0 4px 6px -1px rgba(11, 98, 102, 0.12);
+}
+
+.payment-option.selected .payment-check {
+    opacity: 1 !important;
+}
+
+.content-link-row {
+    padding-bottom: 4px;
+    border-bottom: 1px solid #f1f5f9;
+}
+
+.content-link-row:last-child {
+    border-bottom: none;
+    padding-bottom: 0;
+}
+
+.placement-number {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: #0b6266;
+    color: #fff;
+    font-size: 12px;
+    font-weight: 700;
+    flex-shrink: 0;
+    line-height: 1;
+}
+
+.site-summary-list {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.site-summary-card {
+    border: 1px solid #cfe8e9;
+    border-radius: 12px;
+    padding: 16px;
+    background: #fff;
+    box-shadow: 0 1px 0 rgba(11, 98, 102, 0.04);
+    border-left: 4px solid #4ECDCB;
+}
+
+.site-summary-top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 12px;
+}
+
+.site-summary-name {
+    font-weight: 600;
+    color: #212529;
+    font-size: 15px;
+    margin-bottom: 2px;
+}
+
+.site-summary-url {
+    font-size: 12px;
+    color: #6b7280;
+}
+
+.site-summary-url:hover {
+    color: #0b6266;
+}
+
+.site-summary-price-label {
+    font-size: 11px;
+    color: #6b7280;
+    margin-bottom: 2px;
+}
+
+.site-summary-price-value,
+.checkout-theme-price {
+    font-weight: 800;
+    font-size: 1.35rem;
+    color: #3aaeb2;
+    letter-spacing: -0.02em;
+}
+
+.site-summary-price {
+    background: rgba(78, 205, 203, 0.12);
+    border-radius: 10px;
+    padding: 8px 12px;
+    min-width: 120px;
+}
+
+.site-summary-details {
+    border-top: 1px dashed #d7e7e8;
+    padding-top: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.site-summary-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    font-size: 13px;
+    color: #4b5563;
+}
+
+.site-summary-amount {
+    font-weight: 600;
+    color: #3aaeb2;
+}
+
+.site-summary-amount-accent {
+    color: #0b6266;
+}
+
+.site-summary-sensitive {
+    background: rgba(78, 205, 203, 0.12);
+    border-radius: 8px;
+    padding: 8px 10px;
+}
+
+@media (max-width: 575.98px) {
+    .site-summary-top {
+        flex-direction: column;
+    }
+    .site-summary-price {
+        text-align: left !important;
+        width: 100%;
+        padding-left: 32px;
+    }
 }
 
 .copy-btn {
     cursor: pointer;
     transition: background 0.2s;
+}
+
+.cm-box {
+    border-radius: 10px;
+    padding: 10px 12px;
+    font-size: 13px;
+}
+.cm-loading {
+    background: #f0f9ff;
+    border: 1px solid #bae6fd;
+    color: #075985;
+}
+.cm-pass {
+    background: #ecfdf5;
+    border: 1px solid #a7f3d0;
+    color: #065f46;
+}
+.cm-fail {
+    background: #fef2f2;
+    border: 1px solid #fecaca;
+    color: #991b1b;
+}
+.cm-checks {
+    padding-left: 1.1rem;
+    margin: 0;
+}
+.cm-checks li {
+    margin-bottom: 0.2rem;
+}
+.content-link.is-invalid {
+    border-color: #dc2626;
+}
+.content-link.is-valid {
+    border-color: #16a34a;
 }
 
 .copy-btn:hover {
@@ -640,14 +817,40 @@ document.addEventListener('DOMContentLoaded', function() {
     const bankDetails = document.getElementById('bankPaymentDetails');
     const cardDetails = document.getElementById('cardPaymentDetails');
     const placeOrderBtn = document.getElementById('placeOrderBtn');
+    const toggleOtherPayments = document.getElementById('toggleOtherPayments');
+    const otherPaymentMethods = document.getElementById('otherPaymentMethods');
+    const otherPaymentsChevron = document.getElementById('otherPaymentsChevron');
+
+    if (toggleOtherPayments && otherPaymentMethods) {
+        toggleOtherPayments.addEventListener('click', function() {
+            const open = otherPaymentMethods.style.display !== 'none';
+            otherPaymentMethods.style.display = open ? 'none' : 'block';
+            if (otherPaymentsChevron) {
+                otherPaymentsChevron.classList.toggle('fa-chevron-down', open);
+                otherPaymentsChevron.classList.toggle('fa-chevron-up', !open);
+            }
+            toggleOtherPayments.childNodes.forEach(node => {
+                if (node.nodeType === Node.TEXT_NODE) {
+                    node.textContent = open ? ' Other methods' : ' Hide other methods';
+                }
+            });
+        });
+    }
     
     let selectedMethod = null;
     const totalAmount = {{ $total }};
     const walletBalance = {{ auth()->user()->activeWallet()?->balance ?? 0 }};
 
     paymentOptions.forEach(option => {
+        option.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                this.click();
+            }
+        });
         option.addEventListener('click', function() {
             const method = this.dataset.method;
+            if (!method) return;
             selectedMethod = method;
             
             paymentOptions.forEach(opt => opt.classList.remove('selected'));
@@ -666,6 +869,14 @@ document.addEventListener('DOMContentLoaded', function() {
             else if (method === 'card' && cardDetails) cardDetails.style.display = 'block';
             
             if (paymentDetailsSection) paymentDetailsSection.style.display = 'block';
+
+            if (method !== 'wallet' && otherPaymentMethods && otherPaymentMethods.style.display === 'none') {
+                otherPaymentMethods.style.display = 'block';
+                if (otherPaymentsChevron) {
+                    otherPaymentsChevron.classList.remove('fa-chevron-down');
+                    otherPaymentsChevron.classList.add('fa-chevron-up');
+                }
+            }
             
             const paymentError = document.getElementById('paymentError');
             if (paymentError) paymentError.style.display = 'none';
@@ -689,11 +900,33 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 
-    function validateGoogleDocsLink(url) {
-        if (!url) return false;
-        const googleDocsPattern = /^https?:\/\/(docs\.google\.com|drive\.google\.com)\/.*$/i;
-        return googleDocsPattern.test(url);
+    function escapeHtml(str) {
+        return String(str || '').replace(/[&<>"']/g, function (ch) {
+            return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]);
+        });
     }
+
+    function contentReady() {
+        return window.ContentCheckout && typeof window.ContentCheckout.ready === 'function'
+            ? window.ContentCheckout.ready()
+            : false;
+    }
+
+    function syncPlaceOrderForModeration() {
+        if (!placeOrderBtn) return;
+        if (!contentReady()) {
+            placeOrderBtn.disabled = true;
+            if (!placeOrderBtn.dataset.busy) {
+                placeOrderBtn.innerHTML = '<i class="fa fa-file-alt"></i> Select an approved article to continue';
+            }
+        } else if (!placeOrderBtn.dataset.busy) {
+            placeOrderBtn.disabled = !selectedMethod;
+            placeOrderBtn.innerHTML = '<i class="fa fa-check-circle"></i> Place Order';
+        }
+    }
+    window.syncPlaceOrderForModeration = syncPlaceOrderForModeration;
+
+    setInterval(syncPlaceOrderForModeration, 1200);
 
     // Get billing info from user profile
     function getBillingInfo() {
@@ -719,18 +952,18 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // Submit order function
-    function submitOrder(contentLinksData) {
+    function submitOrder() {
+        const contentPayload = window.ContentCheckout.payload();
         fetch('{{ route("advertiser.checkout.process") }}', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 'X-CSRF-TOKEN': '{{ csrf_token() }}'
             },
-            body: JSON.stringify({
+            body: JSON.stringify(Object.assign({
                 payment_method: selectedMethod,
-                content_links: contentLinksData,
                 reference_code: referenceCode
-            })
+            }, contentPayload || {}))
         })
         .then(response => response.json())
         .then(data => {
@@ -775,9 +1008,17 @@ document.addEventListener('DOMContentLoaded', function() {
                     });
                 }
             } else {
-                Swal.fire('Error', data.message || 'Failed to process order', 'error');
+                const modTitle = data.moderation?.title || 'Error';
+                const modMsg = data.moderation?.failures?.[0]?.message || data.message || 'Failed to process order';
+                Swal.fire({
+                    icon: 'error',
+                    title: modTitle,
+                    html: `<div style="white-space:pre-line;text-align:left;">${escapeHtml(modMsg)}</div>`
+                });
+                placeOrderBtn.dataset.busy = '';
                 placeOrderBtn.disabled = false;
                 placeOrderBtn.innerHTML = '<i class="fa fa-check-circle"></i> Place Order';
+                syncPlaceOrderForModeration();
             }
         })
         .catch(error => {
@@ -794,37 +1035,13 @@ document.addEventListener('DOMContentLoaded', function() {
             Swal.fire('Error', 'Please select a payment method', 'warning');
             return;
         }
-        
-        // Collect content links
-        const contentLinksData = {};
-        let missingLinks = [];
-        let invalidLinks = [];
-        
-        const allContentLinks = document.querySelectorAll('.content-link');
-        allContentLinks.forEach(function(linkInput) {
-            const siteId = linkInput.dataset.siteId;
-            const siteName = linkInput.dataset.siteName;
-            const linkValue = linkInput.value.trim();
-            
-            if (linkValue === '') {
-                missingLinks.push(siteName);
-            } else if (!validateGoogleDocsLink(linkValue)) {
-                invalidLinks.push(siteName);
-            } else {
-                if (!contentLinksData[siteId]) {
-                    contentLinksData[siteId] = [];
-                }
-                contentLinksData[siteId].push(linkValue);
-            }
-        });
-        
-        if (missingLinks.length > 0) {
-            Swal.fire('Missing Links', 'Please provide links for: ' + missingLinks.join(', '), 'warning');
-            return;
-        }
-        
-        if (invalidLinks.length > 0) {
-            Swal.fire('Invalid Links', 'Please provide valid Google Docs links for: ' + invalidLinks.join(', '), 'error');
+
+        if (!contentReady()) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Content submission incomplete',
+                text: 'Upload an approved article and complete anchor text, target URL, and schedule steps for every placement.'
+            });
             return;
         }
         
@@ -832,9 +1049,10 @@ document.addEventListener('DOMContentLoaded', function() {
         if (selectedMethod === 'bank') {
             getBillingInfo().then(billingResponse => {
                 if (billingResponse.success && billingResponse.data.has_info) {
+                    placeOrderBtn.dataset.busy = '1';
                     placeOrderBtn.disabled = true;
                     placeOrderBtn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Processing...';
-                    submitOrder(contentLinksData);
+                    submitOrder();
                 } else {
                     const modal = new bootstrap.Modal(document.getElementById('billingInfoModal'));
                     modal.show();
@@ -860,9 +1078,10 @@ document.addEventListener('DOMContentLoaded', function() {
                         saveBillingInfo(formData).then(data => {
                             if (data.success) {
                                 modal.hide();
+                                placeOrderBtn.dataset.busy = '1';
                                 placeOrderBtn.disabled = true;
                                 placeOrderBtn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Processing...';
-                                submitOrder(contentLinksData);
+                                submitOrder();
                             } else {
                                 Swal.fire('Error', data.message || 'Failed to save billing information', 'error');
                             }
@@ -871,11 +1090,14 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             });
         } else {
+            placeOrderBtn.dataset.busy = '1';
             placeOrderBtn.disabled = true;
             placeOrderBtn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Processing...';
-            submitOrder(contentLinksData);
+            submitOrder();
         }
     });
+
+    syncPlaceOrderForModeration();
 });
 </script>
 

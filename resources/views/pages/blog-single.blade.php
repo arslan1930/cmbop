@@ -1,5 +1,36 @@
 @extends('layouts.app')
 
+@section('title', ($blog->title ?? 'Blog').' — SEOLinkBuildings')
+@section('description', $blog->excerpt ?: \Illuminate\Support\Str::limit(strip_tags($blog->content ?? ''), 160))
+@section('og_type', 'article')
+@section('og_image', !empty($blog->featured_image) ? asset('storage/'.$blog->featured_image) : asset('assets/img/logo1.png'))
+
+@push('head')
+<script type="application/ld+json">
+{!! json_encode([
+    '@context' => 'https://schema.org',
+    '@type' => 'BlogPosting',
+    'headline' => $blog->title,
+    'description' => $blog->excerpt ?: \Illuminate\Support\Str::limit(strip_tags($blog->content ?? ''), 160),
+    'datePublished' => optional($blog->published_at)?->toIso8601String(),
+    'dateModified' => optional($blog->updated_at)?->toIso8601String(),
+    'author' => [
+        '@type' => 'Person',
+        'name' => $blog->author ?: 'SEOLinkBuildings',
+    ],
+    'publisher' => [
+        '@type' => 'Organization',
+        'name' => 'SEOLinkBuildings',
+        'logo' => [
+            '@type' => 'ImageObject',
+            'url' => asset('assets/img/logo1.png'),
+        ],
+    ],
+    'mainEntityOfPage' => url()->current(),
+], JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE) !!}
+</script>
+@endpush
+
 @section('content')
 
 <!-- ==================== BLOG POST HERO ==================== -->
@@ -134,14 +165,14 @@
                             @endif
                             <div class="card-body p-4">
                                 <h5 class="card-title" style="font-weight: 700;">
-                                    <a href="{{ route('blog.show', $recommended->slug) }}" class="text-decoration-none text-dark">
+                                    <a href="{{ route('blog.show', ['slug' => $recommended->slug]) }}" class="text-decoration-none text-dark">
                                         {{ Str::limit($recommended->title, 60) }}
                                     </a>
                                 </h5>
                                 <p class="card-text text-muted" style="font-size: 0.9rem;">
                                     {{ Str::limit(strip_tags($recommended->content), 100) }}
                                 </p>
-                                <a href="{{ route('blog.show', $recommended->slug) }}" class="btn btn-link text-decoration-none p-0" style="color: #4ECDCB; font-weight: 600;">
+                                <a href="{{ route('blog.show', ['slug' => $recommended->slug]) }}" class="btn btn-link text-decoration-none p-0" style="color: #4ECDCB; font-weight: 600;">
                                     Read More <i class="fa fa-arrow-right ms-1"></i>
                                 </a>
                             </div>

@@ -1,0 +1,113 @@
+/**
+ * Shared app shell tokens for advertiser / publisher / admin layouts (P2 #21)
+ * Dark mode removed — product is light-only (force-light in role layouts).
+ */
+:root {
+  --shell-sidebar-width: 220px;
+  --shell-sidebar-collapsed: 70px;
+  --shell-topbar-height: 70px;
+  --shell-border: #e2e8f0;
+  --shell-bg: #f8f9fa;
+  --shell-ink: #1f2937;
+  --shell-sidebar-bg: #fff;
+  --shell-topbar-bg: #fff;
+  --shell-accent: #4ECDCB;
+}
+
+.balance-block {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  min-height: 36px;
+  padding: 4px 10px;
+  border-radius: 8px;
+  background: #e8f8f7;
+  text-decoration: none;
+  white-space: nowrap;
+  line-height: 1.15;
+}
+
+.balance-block:hover {
+  background-color: #d7f3f1;
+  color: var(--brand-primary, #0b6266);
+}
+
+.balance-block .balance-label {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--brand-primary-soft, #3aaeb2);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.balance-block .balance-amount {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--brand-primary, #0b6266);
+}
+
+.balance-block .balance-credit {
+  font-size: 11px;
+  font-weight: 600;
+  color: #0f766e;
+  line-height: 1.1;
+}
+
+/* Status language (P2 #17) — badge-status-* or legacy .status-badge.status-* */
+.badge-status,
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: 5px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  border: 1px solid transparent;
+}
+
+.badge-status-pending,
+.status-badge.status-pending,
+.status-pending {
+  background: #f1f5f9 !important;
+  color: #475569 !important;
+  border-color: #e2e8f0 !important;
+}
+
+.badge-status-processing,
+.badge-status-review,
+.status-badge.status-processing,
+.status-badge.status-review,
+.status-processing,
+.status-review {
+  background: #e8f8f7 !important;
+  color: #0b6266 !important;
+  border-color: #b8e8e6 !important;
+}
+
+.badge-status-completed,
+.status-badge.status-completed,
+.status-completed,
+.payment-paid {
+  background: #d1fae5 !important;
+  color: #0f766e !important;
+  border-color: rgba(15, 118, 110, 0.22) !important;
+}
+
+.badge-status-cancelled,
+.badge-status-failed,
+.status-badge.status-cancelled,
+.status-cancelled,
+.payment-failed {
+  background: #fee2e2 !important;
+  color: #b91c1c !important;
+  border-color: rgba(220, 38, 38, 0.22) !important;
+}
+
+.payment-pending {
+  background: #f1f5f9 !important;
+  color: #475569 !important;
+  border-color: #e2e8f0 !important;
+}

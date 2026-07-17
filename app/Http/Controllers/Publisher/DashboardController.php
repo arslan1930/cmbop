@@ -20,7 +20,27 @@ class DashboardController extends Controller
      */
     public function index()
     {
-        return view('publisher.dashboard');
+        $userId = auth()->id();
+        $siteIds = Site::where('publisher_id', $userId)->pluck('id');
+        $siteCount = $siteIds->count();
+
+        $pendingTasks = 0;
+        if ($siteCount > 0) {
+            $pendingTasks = OrderItem::whereIn('site_id', $siteIds)
+                ->whereHas('order', function ($q) {
+                    $q->where(function ($inner) {
+                        $inner->where('payment_status', 'paid')
+                            ->orWhere('payment_method', '!=', 'card');
+                    })->whereIn('status', ['pending', 'processing', 'review']);
+                })
+                ->count();
+        }
+
+        return view('publisher.dashboard', [
+            'siteCount' => $siteCount,
+            'pendingTasks' => $pendingTasks,
+            'primaryAction' => $pendingTasks > 0 ? 'tasks' : 'add_site',
+        ]);
     }
     
     /**
@@ -64,15 +84,20 @@ class DashboardController extends Controller
                 ->unique()
                 ->toArray();
             
+            $completedOrders = Order::whereIn('id', $orderIds)->where('status', 'completed')->count();
+            $cancelledOrders = Order::whereIn('id', $orderIds)->where('status', 'cancelled')->count();
+            $totalOrders = count($orderIds);
+
             // Calculate statistics
             $stats = [
-                'total_orders' => count($orderIds),
+                'total_orders' => $totalOrders,
                 'pending_orders' => Order::whereIn('id', $orderIds)->where('status', 'pending')->count(),
                 'processing_orders' => Order::whereIn('id', $orderIds)->where('status', 'processing')->count(),
                 'review_orders' => Order::whereIn('id', $orderIds)->where('status', 'review')->count(),
                 'completed_orders' => $completedOrders,
                 'cancelled_orders' => $cancelledOrders,
                 'total_sites' => count($siteIds),
+                'success_rate' => $totalOrders > 0 ? round(($completedOrders / $totalOrders) * 100, 1) : 0,
                 'total_earnings' => round((float) OrderItem::whereIn('site_id', $siteIds)
                     ->whereHas('order', function($q) {
                         $q->where('status', 'completed')

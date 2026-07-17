@@ -4,13 +4,25 @@
     <meta charset="UTF-8">
     <title>Admin Dashboard</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
 
     <!-- Bootstrap 5 CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="{{ asset('css/type-system.css') }}?v={{ @filemtime(public_path('css/type-system.css')) ?: '1' }}" rel="stylesheet">
+    <link href="{{ asset('css/brand-colors.css') }}?v={{ @filemtime(public_path('css/brand-colors.css')) ?: '1' }}" rel="stylesheet">
+    <link href="{{ asset('css/spacing-system.css') }}?v={{ @filemtime(public_path('css/spacing-system.css')) ?: '1' }}" rel="stylesheet">
+    <link href="{{ asset('css/button-system.css') }}?v={{ @filemtime(public_path('css/button-system.css')) ?: '1' }}" rel="stylesheet">
+    <link href="{{ asset('css/form-system.css') }}?v={{ @filemtime(public_path('css/form-system.css')) ?: '1' }}" rel="stylesheet">
+    <link href="{{ asset('css/app-shell.css') }}?v={{ @filemtime(public_path('css/app-shell.css')) ?: '1' }}" rel="stylesheet">
+    <link href="{{ asset('css/glass-tip.css') }}?v={{ @filemtime(public_path('css/glass-tip.css')) ?: '1' }}" rel="stylesheet">
+    <link href="{{ asset('css/pulse-badge.css') }}?v={{ @filemtime(public_path('css/pulse-badge.css')) ?: '1' }}" rel="stylesheet">
+    <script src="{{ asset('js/pulse-badge.js') }}?v={{ @filemtime(public_path('js/pulse-badge.js')) ?: '1' }}"></script>
+    <script src="{{ asset('js/glass-tip.js') }}?v={{ @filemtime(public_path('js/glass-tip.js')) ?: '1' }}" defer></script>
 
     <style>
-        body, html { min-height: 100%; margin: 0; background-color: #f8f9fa; }
+        body, html { min-height: 100%; margin: 0; background-color: #f8f9fa; font-family: 'Poppins', system-ui, sans-serif; }
 
         #sidebar, #content, .top-navbar, footer, #toggleSidebar span.arrow { transition: all 0.3s ease-in-out; }
 
@@ -23,7 +35,7 @@
 
         #sidebar .menu { flex-grow: 1; }
         #sidebar a { display: flex; align-items: center; gap: 10px; padding: 12px 20px; color: #555; text-decoration: none; font-weight: 500; }
-        #sidebar a.active, #sidebar a:hover { border-radius: 6px; background-color: #0d6efd; color: #fff; }
+        #sidebar a.active, #sidebar a:hover { border-radius: 6px; background-color: #4ECDCB; color: #fff; }
         #sidebar.collapsed { width: 70px; min-width: 70px; }
         #sidebar.collapsed a { justify-content: center; font-size: 0; }
         #sidebar.collapsed a i { font-size: 18px; }
@@ -47,19 +59,33 @@
         #toggleSidebar span.arrow { display: inline-block; font-size: 18px; }
         #toggleSidebar.collapsed span.arrow { transform: rotate(180deg); }
 
-        /* Dark Mode */
-        body.layout-dark #sidebar { background-color: #1e1e2f !important; border-color: #333 !important; }
-        body.layout-dark #sidebar a { color: #ccc; }
-        body.layout-dark #sidebar a.active, body.layout-dark #sidebar a:hover { background-color: #4ECDCB; color: #fff; }
-        body.layout-dark .top-navbar { background-color: #1e1e2f; border-bottom-color: #333; }
-        body.layout-dark .top-navbar .btn-outline-secondary { color: #ccc; border-color: #555; }
-        body.layout-dark .top-navbar .btn-outline-secondary:hover { background-color: #333; color: #fff; }
-        body.layout-dark #content { background-color: #121221; color: #ddd; }
+        /* Unused in admin top bar — kept for consistency */
+        .balance-block { display: none; }
 
-        /* Balance block */
-        .balance-block { min-width: 120px; height: 40px; border-radius: 6px; display: flex; align-items: center; justify-content: space-between; font-weight: 600; padding: 0 10px; color: #fff; background-color: #0d6efd; }
+        .topbar-icon-btn {
+            width: 36px;
+            height: 36px;
+            border-radius: 8px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0;
+            position: relative;
+            color: #495057;
+            border: 1px solid #dee2e6;
+            background: #fff;
+        }
+        .topbar-icon-btn:hover {
+            background: #f8f9fa;
+            color: #0b6266;
+            border-color: #b8e8e6;
+        }
 
-        #toggleDarkMode { width: 36px; height: 36px; border-radius: 50%; display: flex; justify-content: center; align-items: center; padding: 0; }
+        .top-navbar .dropdown-menu .dropdown-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
 
         @media (max-width: 768px) {
             #sidebar { top: 70px; height: calc(100vh - 70px); left: -220px; }
@@ -76,7 +102,7 @@
 <div id="sidebar">
     <div class="menu">
         <div class="text-center my-3">
-            <img id="logoSidebar" src="{{ asset('assets/img/logo1.png') }}" height="42" alt="Logo">
+            <img id="logoSidebar" src="{{ asset('assets/img/logo1.png') }}" height="42" alt="SEOLinkBuildings">
         </div>
 
         <a href="{{ route('admin.dashboard') }}" class="{{ request()->routeIs('admin.dashboard') ? 'active' : '' }}">
@@ -95,6 +121,20 @@
                 <span>Sites</span>
                 <span id="navBadgeSites" class="badge bg-warning text-dark rounded-pill ms-auto" style="display:none;">0</span>
             </span>
+        </a>
+
+        <a href="{{ route('admin.site-enrichment.index') }}" class="{{ request()->routeIs('admin.site-enrichment.*') ? 'active' : '' }}">
+            <i class="fa fa-chart-line"></i>
+            <span>Enrichment</span>
+        </a>
+
+        <a href="{{ route('admin.community.index') }}" class="{{ request()->routeIs('admin.community.*') ? 'active' : '' }}">
+            <i class="fa fa-comments"></i>
+            <span>Community</span>
+        </a>
+        <a href="{{ route('admin.site-ratings.index') }}" class="{{ request()->routeIs('admin.site-ratings.*') ? 'active' : '' }}">
+            <i class="fa fa-star"></i>
+            <span>Ratings</span>
         </a>
 
         @if(auth()->user()->isAdmin())
@@ -129,6 +169,26 @@
         <i class="fa fa-blog me-2"></i>
         <span>Blogs</span>
     </a>
+
+        <a href="{{ route('admin.emails.index') }}" class="{{ request()->routeIs('admin.emails.*') ? 'active' : '' }}">
+            <i class="fa fa-envelope-open-text"></i> <span>Email Center</span>
+        </a>
+
+        <a href="{{ route('admin.campaigns.index') }}" class="{{ request()->routeIs('admin.campaigns.*') ? 'active' : '' }}">
+            <i class="fa fa-paper-plane"></i> <span>Updates / Campaigns</span>
+        </a>
+
+        <a href="{{ route('admin.audiences.index') }}" class="{{ request()->routeIs('admin.audiences.*') ? 'active' : '' }}">
+            <i class="fa fa-address-book"></i> <span>Audiences</span>
+        </a>
+
+        <a href="{{ route('admin.promotions.index') }}" class="{{ request()->routeIs('admin.promotions.*') ? 'active' : '' }}">
+            <i class="fa fa-bullhorn"></i> <span>Promotions</span>
+        </a>
+
+        <a href="{{ route('admin.moderation.index') }}" class="{{ request()->routeIs('admin.moderation.*') ? 'active' : '' }}">
+            <i class="fa fa-shield-alt"></i> <span>Content Moderation</span>
+        </a>
         @endif
 
         <a href="{{ route('admin.activity-logs.index') }}" class="{{ request()->routeIs('admin.activity-logs.*') ? 'active' : '' }}">
@@ -144,12 +204,12 @@
 <!-- Top Navbar -->
 <div class="top-navbar">
     <div class="mobile-left d-flex align-items-center gap-2">
-        <button id="toggleSidebar" class="btn btn-sm btn-outline-secondary">
-            <span class="arrow"><i class="fa fa-chevron-left"></i></span>
+        <button id="toggleSidebar" class="btn btn-sm btn-outline-secondary" type="button" aria-label="Toggle sidebar navigation" title="Toggle sidebar">
+            <span class="arrow" aria-hidden="true"><i class="fa fa-chevron-left"></i></span>
         </button>
 
         <a href="/" class="d-flex align-items-center">
-            <img id="logoNavbar" src="{{ asset('assets/img/logo1.png') }}" height="45" alt="Logo">
+            <img id="logoNavbar" src="{{ asset('assets/img/logo1.png') }}" height="45" alt="SEOLinkBuildings">
         </a>
 
         <!-- Admin / Marketing mode label -->
@@ -160,71 +220,65 @@
         </div>
     </div>
 
-    <div class="d-flex align-items-center gap-2 ">
-        <button id="toggleDarkMode" class="btn btn-outline-secondary btn-sm" title="Toggle Dark Mode">
-            <i class="fa fa-moon"></i>
-            <i class="fa fa-sun d-none"></i>
-        </button>
-
+    <div class="d-flex align-items-center gap-2">
         <div class="dropdown">
-    <button class="btn dropdown-toggle d-flex align-items-center gap-1" data-bs-toggle="dropdown">
-        @php
-            $user = auth()->user();
-        @endphp
-        
-        {{-- If user has avatar (Google avatar), display it --}}
-        @if($user->avatar)
-            <img src="{{ $user->avatar }}" 
-                 alt="{{ $user->name }}"
-                 class="rounded-circle"
-                 style="width: 36px; height: 36px; object-fit: cover;">
-        @else
-            {{-- Otherwise show initials with gradient background --}}
-            <div class="rounded-circle text-white d-flex justify-content-center align-items-center"
-                 style="width: 36px; height: 36px; font-weight: 600; background: linear-gradient(135deg, #0d6efd, #6f42c1);">
-                {{ strtoupper(substr($user->name, 0, 1)) }}
-            </div>
-        @endif
-    </button>
-
-    <ul class="dropdown-menu dropdown-menu-end">
-        {{-- User info with avatar in dropdown (optional but nice) --}}
-        <li class="px-3 py-2">
-            <div class="d-flex align-items-center gap-2">
+            <button class="btn dropdown-toggle d-flex align-items-center gap-1"
+                    data-bs-toggle="dropdown"
+                    aria-expanded="false"
+                    aria-label="Account menu">
+                @php $user = auth()->user(); @endphp
                 @if($user->avatar)
-                    <img src="{{ $user->avatar }}" 
-                         alt="{{ $user->name }}"
+                    <img src="{{ $user->avatar }}"
+                         alt=""
                          class="rounded-circle"
-                         style="width: 32px; height: 32px; object-fit: cover;">
+                         style="width: 36px; height: 36px; object-fit: cover;">
                 @else
                     <div class="rounded-circle text-white d-flex justify-content-center align-items-center"
-                         style="width: 32px; height: 32px; font-weight: 600; background: linear-gradient(135deg, #0d6efd, #6f42c1);">
+                         style="width: 36px; height: 36px; font-weight: 600; background: #4ECDCB;"
+                         aria-hidden="true">
                         {{ strtoupper(substr($user->name, 0, 1)) }}
                     </div>
                 @endif
-                <div>
-                    <strong>{{ $user->name }}</strong><br>
-                    <small>{{ $user->email }}</small>
-                </div>
-            </div>
-        </li>
-        <li><hr class="dropdown-divider"></li>
-        <li>
-            <a class="dropdown-item" href="{{ route('profile') }}">
-                <i class="fa fa-user"></i> Profile
-            </a>
-        </li>
-        <li><hr class="dropdown-divider"></li>
-        <li>
-            <form method="POST" action="{{ route('logout') }}">
-                @csrf
-                <button class="dropdown-item text-danger">
-                    <i class="fa fa-sign-out-alt"></i> Logout
-                </button>
-            </form>
-        </li>
-    </ul>
-</div>
+            </button>
+
+            <ul class="dropdown-menu dropdown-menu-end">
+                <li class="px-3 py-2">
+                    <div class="d-flex align-items-center gap-2">
+                        @if($user->avatar)
+                            <img src="{{ $user->avatar }}"
+                                 alt=""
+                                 class="rounded-circle"
+                                 style="width: 32px; height: 32px; object-fit: cover;">
+                        @else
+                            <div class="rounded-circle text-white d-flex justify-content-center align-items-center"
+                                 style="width: 32px; height: 32px; font-weight: 600; background: #4ECDCB;"
+                                 aria-hidden="true">
+                                {{ strtoupper(substr($user->name, 0, 1)) }}
+                            </div>
+                        @endif
+                        <div>
+                            <strong>{{ $user->name }}</strong><br>
+                            <small class="text-muted">{{ $user->email }}</small>
+                        </div>
+                    </div>
+                </li>
+                <li><hr class="dropdown-divider"></li>
+                <li>
+                    <a class="dropdown-item" href="{{ route('profile') }}">
+                        <i class="fa fa-user" aria-hidden="true"></i> Profile
+                    </a>
+                </li>
+                <li><hr class="dropdown-divider"></li>
+                <li>
+                    <form method="POST" action="{{ route('logout') }}">
+                        @csrf
+                        <button class="dropdown-item text-danger" type="submit">
+                            <i class="fa fa-sign-out-alt" aria-hidden="true"></i> Logout
+                        </button>
+                    </form>
+                </li>
+            </ul>
+        </div>
     </div>
 </div>
 
@@ -235,7 +289,7 @@
 
 <!-- Footer -->
 <footer>
-    © 2026 SEOLinkBuildings
+    © {{ date('Y') }} SEOLinkBuildings
 </footer>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
@@ -270,28 +324,8 @@
         }
     });
 
-    const darkModeBtn = document.getElementById('toggleDarkMode');
-    const moonIcon = darkModeBtn.querySelector('.fa-moon');
-    const sunIcon = darkModeBtn.querySelector('.fa-sun');
-    const logoSidebar = document.getElementById('logoSidebar');
-    const logoNavbar = document.getElementById('logoNavbar');
-
-    if (localStorage.getItem('layoutDarkMode') === 'true') {
-        document.body.classList.add('layout-dark');
-        moonIcon.classList.add('d-none');
-        sunIcon.classList.remove('d-none');
-        logoSidebar.src = "{{ asset('assets/img/logo2.png') }}";
-        logoNavbar.src = "{{ asset('assets/img/logo2.png') }}";
-    }
-
-    darkModeBtn.addEventListener('click', () => {
-        const isDark = document.body.classList.toggle('layout-dark');
-        moonIcon.classList.toggle('d-none', isDark);
-        sunIcon.classList.toggle('d-none', !isDark);
-        localStorage.setItem('layoutDarkMode', isDark);
-        logoSidebar.src = isDark ? "{{ asset('assets/img/logo2.png') }}" : "{{ asset('assets/img/logo1.png') }}";
-        logoNavbar.src = isDark ? "{{ asset('assets/img/logo2.png') }}" : "{{ asset('assets/img/logo1.png') }}";
-    });
+    document.body.classList.remove('layout-dark');
+    try { localStorage.removeItem('layoutDarkMode'); } catch (e) {}
 
     function setNavBadge(id, count) {
         const el = document.getElementById(id);

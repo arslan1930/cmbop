@@ -3,15 +3,11 @@
 
 namespace App\Mail;
 
-use Illuminate\Bus\Queueable;
-use Illuminate\Mail\Mailable;
-use Illuminate\Queue\SerializesModels;
 use App\Models\Order;
 use App\Models\User;
 
-class NewChatMessageNotification extends Mailable
+class NewChatMessageNotification extends PlatformMailable
 {
-    use Queueable, SerializesModels;
 
     public $order;
     public $sender;
@@ -20,6 +16,7 @@ class NewChatMessageNotification extends Mailable
 
     public function __construct(Order $order, User $sender, $message, $receiverName)
     {
+        parent::__construct();
         $this->order = $order;
         $this->sender = $sender;
         $this->message = $message;

@@ -77,6 +77,10 @@ class AutoApproveOrders extends Command
                 
                 // Get the site to find publisher
                 $site = Site::find($lockedItem->site_id);
+
+                if ($site) {
+                    Site::refreshCompletedOrdersCount((int) $site->id);
+                }
                 
                 if ($site && $site->publisher_id && $publisherRoleId) {
                     $publisher = User::find($site->publisher_id);

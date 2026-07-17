@@ -285,6 +285,7 @@
                 </h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
+            <div id="chatOrderDetails" class="chat-order-details d-none" aria-live="polite"></div>
             <div class="modal-body p-0">
                 <div id="chatMessages" class="p-3" style="height: 400px; overflow-y: auto; background: #f8f9fa;">
                     <div class="text-center text-muted py-5">
@@ -310,6 +311,31 @@
 </div>
 
 <style>
+.chat-order-details {
+    padding: 10px 16px;
+    background: #f4f6f8;
+    border-bottom: 1px solid #e6eaee;
+    color: #8a94a0;
+    font-size: 0.78rem;
+    line-height: 1.45;
+}
+.chat-order-details .chat-detail-primary {
+    color: #6c757d;
+    font-weight: 500;
+}
+.chat-order-details .chat-detail-sep {
+    color: #c5ccd4;
+    margin: 0 0.35rem;
+}
+.chat-order-details a {
+    color: #8a94a0;
+    text-decoration: none;
+}
+.chat-order-details a:hover {
+    color: #6c757d;
+    text-decoration: underline;
+}
+
 .table td, .table th {
     padding: 12px 15px;
     vertical-align: middle;
@@ -413,39 +439,12 @@
 }
 
 /* Dark mode styles */
-body.layout-dark .card-header {
-    border-bottom-color: #333;
-}
 
-body.layout-dark .status-pending {
-    background-color: #4a3a1e;
-    color: #fbbf24;
-}
 
-body.layout-dark .status-processing {
-    background-color: #1e3a5f;
-    color: #60a5fa;
-}
 
-body.layout-dark .status-review {
-    background-color: #0c4a6e;
-    color: #7dd3fc;
-}
 
-body.layout-dark .status-completed {
-    background-color: #1e5a2e;
-    color: #4ade80;
-}
 
-body.layout-dark .status-cancelled {
-    background-color: #5a1e1e;
-    color: #f87171;
-}
 
-body.layout-dark .sensitive-badge {
-    background-color: #4a3a1e;
-    color: #fbbf24;
-}
 
 td a {
     word-break: break-all;
@@ -477,10 +476,60 @@ let refreshInterval = null;
 // Get the base URL dynamically
 const baseUrl = window.location.origin;
 
+function clearFocusMessagesParam() {
+    const url = new URL(window.location.href);
+    if (!url.searchParams.has('focus') && !url.searchParams.has('order')) return;
+    url.searchParams.delete('focus');
+    url.searchParams.delete('order');
+    window.history.replaceState({}, '', url.pathname + (url.search ? url.search : '') + url.hash);
+}
+
+function maybeOpenFocusedChat() {
+    const params = new URLSearchParams(window.location.search);
+    const focus = params.get('focus');
+    const orderId = params.get('order');
+
+    if (focus === 'order' && orderId) {
+        clearFocusMessagesParam();
+        // Find matching task row item id after tasks load; open chat as fallback
+        setTimeout(function() {
+            openChat(orderId, '#' + orderId);
+        }, 400);
+        return;
+    }
+
+    if (focus !== 'messages') return;
+
+    if (orderId) {
+        clearFocusMessagesParam();
+        openChat(orderId, '#' + orderId);
+        return;
+    }
+
+    fetch(baseUrl + '/chat/unread-summary', {
+        headers: { 'Accept': 'application/json' },
+        credentials: 'same-origin'
+    })
+    .then(r => r.json())
+    .then(data => {
+        clearFocusMessagesParam();
+        if (data.success && data.latest_unread_order) {
+            openChat(data.latest_unread_order.id, data.latest_unread_order.order_number);
+            return;
+        }
+        const table = document.getElementById('tasksTableBody');
+        if (table) {
+            table.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+    })
+    .catch(() => clearFocusMessagesParam());
+}
+
 $(document).ready(function() {
     loadTasks();
     loadStatistics();
     refreshNeedsActionBanner();
+    maybeOpenFocusedChat();
 
     $('#showNeedsActionBtn').on('click', function() {
         $('#statusFilter').val('');
@@ -537,9 +586,68 @@ $(document).ready(function() {
         currentChatOrderId = orderId;
         document.getElementById('chatOrderId').value = orderId;
         document.getElementById('chatOrderNumber').innerText = orderNumber;
+        const detailsEl = document.getElementById('chatOrderDetails');
+        if (detailsEl) {
+            detailsEl.classList.add('d-none');
+            detailsEl.innerHTML = '';
+        }
         loadChatMessages(orderId);
         $('#chatModal').modal('show');
     };
+
+    function formatChatDate(value, withTime) {
+        if (!value) return '—';
+        const date = new Date(value);
+        if (Number.isNaN(date.getTime())) return '—';
+        if (withTime) {
+            return date.toLocaleString(undefined, { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+        }
+        return date.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+    }
+
+    function renderChatOrderDetails(details) {
+        const el = document.getElementById('chatOrderDetails');
+        if (!el) return;
+        if (!details) {
+            el.classList.add('d-none');
+            el.innerHTML = '';
+            return;
+        }
+
+        const parts = [];
+        const websiteName = escapeHtml(details.website_name || '—');
+        if (details.website_url) {
+            parts.push('<span class="chat-detail-primary">' + websiteName + '</span> · <a href="' + escapeHtml(details.website_url) + '" target="_blank" rel="noopener noreferrer">' + escapeHtml(details.website_url) + '</a>');
+        } else {
+            parts.push('<span class="chat-detail-primary">' + websiteName + '</span>');
+        }
+
+        parts.push('Order date: ' + escapeHtml(formatChatDate(details.order_date, false)));
+        parts.push('Started: ' + escapeHtml(formatChatDate(details.started_at, true)));
+
+        if (details.df_links !== null && details.df_links !== undefined) {
+            const dfLabel = details.df_links === 1 ? '1 DF link' : (details.df_links + ' DF links');
+            const linkType = details.link_type ? (' (' + escapeHtml(details.link_type) + ')') : '';
+            parts.push(escapeHtml(dfLabel) + linkType);
+        } else if (details.link_type) {
+            parts.push('Link type: ' + escapeHtml(details.link_type));
+        }
+
+        if (details.da != null || details.dr != null) {
+            parts.push('DA ' + (details.da != null ? details.da : '—') + ' · DR ' + (details.dr != null ? details.dr : '—'));
+        }
+
+        if (details.sensitive_type) {
+            parts.push('Sensitive: ' + escapeHtml(details.sensitive_type));
+        }
+
+        if (details.status) {
+            parts.push('Status: ' + escapeHtml(details.status));
+        }
+
+        el.innerHTML = parts.join('<span class="chat-detail-sep">·</span>');
+        el.classList.remove('d-none');
+    }
 
     function loadStatistics() {
         $.ajax({
@@ -570,6 +678,7 @@ $(document).ready(function() {
         .then(response => response.json())
         .then(data => {
             if (data.success) {
+                renderChatOrderDetails(data.order_details || null);
                 renderChatMessages(data.messages, data.current_user_id);
                 const chatDiv = document.getElementById('chatMessages');
                 chatDiv.scrollTop = chatDiv.scrollHeight;
@@ -853,7 +962,14 @@ $(document).ready(function() {
 
     function renderTasksTable(orderItems) {
         if (!orderItems || orderItems.length === 0) {
-            $('#tasksTableBody').html('<tr><td colspan="9" class="text-center py-5"><i class="fa fa-inbox fa-3x text-muted"></i><p class="mt-2">No tasks found</p></td></tr>');
+            $('#tasksTableBody').html(
+                '<tr><td colspan="9" class="text-center py-5">' +
+                '<i class="fa fa-inbox fa-3x text-muted" aria-hidden="true"></i>' +
+                '<p class="mt-2 mb-1 fw-semibold">No tasks yet</p>' +
+                '<p class="text-muted small mb-3">When advertisers order your sites, new tasks will show up here.</p>' +
+                '<a href="{{ route("publisher.websites") }}" class="btn btn-primary btn-sm">Manage my sites</a>' +
+                '</td></tr>'
+            );
             $('#resultsCount').html('');
             return;
         }
@@ -872,10 +988,10 @@ $(document).ready(function() {
             var awaitingAdvertiser = orderStatus === 'review' || (orderStatus === 'processing' && hasLiveUrl && !modificationRequested);
             var statusMeta = getPublisherStatusMeta(orderStatus, hasLiveUrl, modificationRequested, item.live_url_submitted_at);
             var unreadBadge = item.unread_chat > 0
-                ? '<span class="chat-unread-dot">' + item.unread_chat + '</span>'
+                ? '<span class="chat-unread-dot pulse-badge is-pulsing">' + item.unread_chat + '</span>'
                 : '';
             var chatBtn = '<button class="btn btn-primary btn-action-sm" onclick="openChat(' + item.order_id + ', \'' + orderNumber + '\')"><i class="fa fa-comments"></i> Chat' + unreadBadge + '</button>';
-            var viewBtn = '<button class="btn btn-info btn-action-sm view-details" data-id="' + item.id + '"><i class="fa fa-eye"></i> View</button>';
+            var viewBtn = '<button class="btn btn-outline-secondary btn-action-sm view-details" data-id="' + item.id + '"><i class="fa fa-eye"></i> View</button>';
             var liveBtn = hasLiveUrl
                 ? '<a href="' + escapeHtml(item.live_url) + '" target="_blank" class="btn btn-secondary btn-action-sm"><i class="fa fa-external-link"></i> Live</a>'
                 : '';
@@ -912,7 +1028,7 @@ $(document).ready(function() {
                 '<td>' + (additionalPrice > 0 ? '<span class="sensitive-badge"><i class="fa fa-plus-circle"></i> ' + escapeHtml(sensitiveType || 'Extra') + ' (+€' + additionalPrice.toFixed(2) + ')</span>' : '<span class="text-muted">—</span>') + '</td>' +
                 '<td class="fw-semibold total-price" style="color: #10b981;">€' + totalPrice.toFixed(2) + '</td>' +
                 '<td><span class="status-badge ' + statusMeta.statusClass + '">' + statusMeta.statusText + '</span><div class="next-step-hint">' + statusMeta.nextStep + '</div></td>' +
-                '<td class="link-cell">' + (item.content_link ? '<a href="' + item.content_link + '" target="_blank" class="btn btn-sm btn-outline-primary"><i class="fa fa-external-link me-1"></i> View</a>' : '<span class="text-muted">Not submitted</span>') + '</td>' +
+                '<td class="link-cell">' + ((item.content_download_url || item.content_link) ? '<a href="' + (item.content_download_url || item.content_link) + '" class="btn btn-sm btn-outline-primary"><i class="fa fa-download me-1"></i> ' + (item.content_original_name ? 'Document' : 'View') + '</a>' : '<span class="text-muted">Not submitted</span>') + '</td>' +
                 '<td>' + actions + '</td>' +
                 '</tr>';
         });
@@ -935,6 +1051,11 @@ $(document).ready(function() {
                 if (response.success) {
                     renderDetailsModal(response.data);
                     $('#detailsModal').modal('show');
+                    if (response.data && response.data.order_id) {
+                        loadOrderActivityTimeline(response.data.order_id);
+                    } else if (response.data && response.data.order && response.data.order.id) {
+                        loadOrderActivityTimeline(response.data.order.id);
+                    }
                 } else {
                     Swal.fire('Error!', response.message || 'Failed to load order details', 'error');
                 }
@@ -1029,8 +1150,13 @@ $(document).ready(function() {
                     '<p class="mb-1"><small>Base Price: €' + basePrice.toFixed(2) + '</small></p>' +
                     (additionalPrice > 0 ? '<p class="mb-1"><small class="text-warning">+ ' + escapeHtml(sensitiveType) + ': €' + additionalPrice.toFixed(2) + '</small></p>' : '') +
                     '<p class="mb-2"><strong class="text-primary">Total: €' + totalPrice.toFixed(2) + '</strong></p>' +
-                    '<p class="mb-1"><strong>Content Link:</strong></p>' +
-                    '<p class="mb-2"><a href="' + escapeHtml(item.content_link) + '" target="_blank" class="text-primary text-break">' + escapeHtml(item.content_link) + ' <i class="fa fa-external-link fa-xs"></i></a></p>' +
+                    '<p class="mb-1"><strong>Uploaded Document:</strong></p>' +
+                    '<p class="mb-2">' + ((item.content_download_url || item.content_link) ? '<a href="' + escapeHtml(item.content_download_url || item.content_link) + '" class="text-primary"><i class="fa fa-download me-1"></i>' + escapeHtml(item.content_original_name || 'Download article') + '</a>' : '—') + '</p>' +
+                    '<p class="mb-1"><strong>Anchor Text:</strong></p><p class="mb-2">' + escapeHtml(item.anchor_text || '—') + '</p>' +
+                    '<p class="mb-1"><strong>Target URL:</strong></p><p class="mb-2">' + (item.target_url ? '<a href="' + escapeHtml(item.target_url) + '" target="_blank" rel="noopener">' + escapeHtml(item.target_url) + '</a>' : '—') + '</p>' +
+                    '<p class="mb-1"><strong>Feature Image URL:</strong></p><p class="mb-2">' + (item.feature_image_url ? '<a href="' + escapeHtml(item.feature_image_url) + '" target="_blank" rel="noopener">' + escapeHtml(item.feature_image_url) + '</a>' : 'Publisher may choose') + '</p>' +
+                    '<p class="mb-1"><strong>Content Compliance:</strong></p><p class="mb-2">' + escapeHtml(item.moderation_status || '—') + '</p>' +
+                    (item.order && item.order.scheduled_label ? '<p class="mb-1"><strong>Scheduled for:</strong></p><p class="mb-2 text-warning fw-semibold">Publish on ' + escapeHtml(item.order.scheduled_label) + '</p>' : '') +
                     liveUrlHtml +
                 '</div>' +
             '</div>' +
@@ -1133,7 +1259,32 @@ $(document).ready(function() {
             if (index < steps.length - 1) html += '<span class="text-muted align-self-center">→</span>';
         });
         html += '</div>';
+        html += '<div class="mt-3"><h6 class="mb-2">Activity Timeline</h6><div id="orderActivityTimeline" class="bg-white border rounded p-3"><div class="text-muted small">Loading activity…</div></div></div>';
         return html;
+    }
+
+    function loadOrderActivityTimeline(orderId) {
+        var container = document.getElementById('orderActivityTimeline');
+        if (!container || !orderId) return;
+        fetch(baseUrl + '/notifications/order/' + orderId + '/timeline', {
+            headers: { 'Accept': 'application/json' },
+            credentials: 'same-origin'
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (!data.success) {
+                container.innerHTML = '<div class="text-muted small">Unable to load activity.</div>';
+                return;
+            }
+            if (window.renderOrderActivityTimeline) {
+                window.renderOrderActivityTimeline(container, data.activities || []);
+            } else {
+                container.innerHTML = '<div class="text-muted small">No activity recorded yet.</div>';
+            }
+        })
+        .catch(function() {
+            container.innerHTML = '<div class="text-muted small">Unable to load activity.</div>';
+        });
     }
 
     function refreshNeedsActionBanner() {

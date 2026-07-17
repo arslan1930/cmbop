@@ -14,7 +14,13 @@ use App\Mail\OrderConfirmation;
 use App\Mail\SiteOwnerOrderNotification;
 use App\Mail\AdminManualPaymentNotification;
 use App\Mail\ModificationRequested;
+use App\Models\ContentSubmission;
 use App\Services\StripePaymentService;
+use App\Services\InAppNotificationService;
+use App\Services\CartPricingService;
+use App\Services\ContentModeration\ContentModerationService;
+use App\Services\ContentUpload\ScheduledOrderService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
@@ -25,6 +31,11 @@ use Stripe\Checkout\Session;
 
 class CatalogController extends Controller
 {
+
+private function cartPricing(): CartPricingService
+{
+    return app(CartPricingService::class);
+}
 
 /**
  * Get price based on user role
@@ -54,139 +65,27 @@ private function getPriceForUser($originalPrice, $sitePublisherId = null)
 }
 
 /**
- * Get all available countries with their full names
+ * Marketplace countries (Europe + major North America).
  */
 private function getAvailableCountries()
 {
-    return [
-    'at' => 'Austria',
-    'bh' => 'Bahrain',
-    'by' => 'Belarus',
-    'be' => 'Belgium',
-    'br' => 'Brazil',
-    'bg' => 'Bulgaria',
-    'cn' => 'China',
-    'hr' => 'Croatia',
-    'cy' => 'Cyprus',
-    'cz' => 'Czech Republic',
-    'dk' => 'Denmark',
-    'eg' => 'Egypt',
-    'fi' => 'Finland',
-    'fr' => 'France',
-    'de' => 'Germany',
-    'gr' => 'Greece',
-    'hk' => 'Hong Kong',
-    'hu' => 'Hungary',
-    'iq' => 'Iraq',
-    'ie' => 'Ireland',
-    'it' => 'Italy',
-    'jp' => 'Japan',
-    'jo' => 'Jordan',
-    'kw' => 'Kuwait',
-    'lv' => 'Latvia',
-    'lb' => 'Lebanon',
-    'lt' => 'Lithuania',
-    'lu' => 'Luxembourg',
-    'ma' => 'Morocco',
-    'nl' => 'Netherlands',
-    'no' => 'Norway',
-    'om' => 'Oman',
-    'pl' => 'Poland',
-    'pt' => 'Portugal',
-    'qa' => 'Qatar',
-    'ro' => 'Romania',
-    'ru' => 'Russia',
-    'sa' => 'Saudi Arabia',
-    'sg' => 'Singapore',
-    'sk' => 'Slovakia',
-    'si' => 'Slovenia',
-    'kr' => 'South Korea',
-    'es' => 'Spain',
-    'se' => 'Sweden',
-    'ch' => 'Switzerland',
-    'ua' => 'Ukraine',
-    'uk' => 'United Kingdom',
-    'us' => 'United States',
-    'ae' => 'United Arab Emirates',
-    'ye' => 'Yemen',
-    'ar' => 'Argentina',
-    'bo' => 'Bolivia',
-    'cl' => 'Chile',
-    'co' => 'Colombia',
-    'cr' => 'Costa Rica',
-    'cu' => 'Cuba',
-    'do' => 'Dominican Republic',
-    'ec' => 'Ecuador',
-    'sv' => 'El Salvador',
-    'gt' => 'Guatemala',
-    'hn' => 'Honduras',
-    'mx' => 'Mexico',
-    'ni' => 'Nicaragua',
-    'pa' => 'Panama',
-    'py' => 'Paraguay', 
-    'pe' => 'Peru',
-    'pr' => 'Puerto Rico',
-    'uy' => 'Uruguay',
-    've' => 'Venezuela',
-    ];
+    return \App\Models\Country::marketplace()
+        ->orderBy('name')
+        ->pluck('name', 'code')
+        ->mapWithKeys(fn ($name, $code) => [strtolower($code) => $name])
+        ->all();
 }
 
 /**
- * Get all available languages with their full names
+ * Marketplace languages.
  */
 private function getAvailableLanguages()
 {
-    return [
-        'en' => 'English',
-    'es' => 'Spanish',
-    'fr' => 'French',
-    'de' => 'German',
-    'it' => 'Italian',
-    'pt' => 'Portuguese',
-    'nl' => 'Dutch',
-    'ru' => 'Russian',
-    'zh' => 'Chinese',
-    'ja' => 'Japanese',
-    'ko' => 'Korean',
-    'ar' => 'Arabic',
-    'tr' => 'Turkish',
-    'pl' => 'Polish',
-    'uk' => 'Ukrainian',
-    'sv' => 'Swedish',
-    'da' => 'Danish',
-    'no' => 'Norwegian',
-    'fi' => 'Finnish',
-    'el' => 'Greek',
-    'cs' => 'Czech',
-    'hu' => 'Hungarian',
-    'ro' => 'Romanian',
-    'bg' => 'Bulgarian',
-    'hr' => 'Croatian',
-    'sk' => 'Slovak',
-    'sl' => 'Slovenian',
-    'lt' => 'Lithuanian',
-    'lv' => 'Latvian',
-    'et' => 'Estonian',
-    'he' => 'Hebrew',
-    'th' => 'Thai',
-    'vi' => 'Vietnamese',
-    'id' => 'Indonesian',
-    'ms' => 'Malay',
-    'ca' => 'Catalan',
-    'gl' => 'Galician',
-    'eu' => 'Basque',
-    'cy' => 'Welsh',
-    'gd' => 'Scottish Gaelic',
-    'ga' => 'Irish',
-    'lb' => 'Luxembourgish',
-    'rm' => 'Romansh',
-    'qu' => 'Quechua',
-    'ay' => 'Aymara',
-    'gn' => 'Guarani',
-    'be' => 'Belarusian',
-    'ku' => 'Kurdish',
-    'ta' => 'Tamil',
-    ];
+    return \App\Models\Language::marketplace()
+        ->orderBy('name')
+        ->pluck('name', 'code')
+        ->mapWithKeys(fn ($name, $code) => [strtolower($code) => $name])
+        ->all();
 }
 
 /**
@@ -303,14 +202,41 @@ public function index(Request $request)
         }
     }
 
-    // 🔍 Search (by URL or category)
+    // Deep-link from dashboard Recommended → exact site for buy
+    if ($request->filled('site')) {
+        $query->where('id', (int) $request->site);
+    }
+
+    // 🔍 Search by site name/URL, category, country name/code, or language name/code
     if ($request->filled('search')) {
-        $search = $request->search;
-        $query->where(function ($q) use ($search) {
+        $search = trim($request->search);
+        $matchedCountries = [];
+        foreach ($this->getAvailableCountries() as $code => $name) {
+            if (stripos($name, $search) !== false || strcasecmp((string) $code, $search) === 0) {
+                $matchedCountries[] = strtolower((string) $code);
+            }
+        }
+        $matchedLanguages = [];
+        foreach ($this->getAvailableLanguages() as $code => $name) {
+            if (stripos($name, $search) !== false || strcasecmp((string) $code, $search) === 0) {
+                $matchedLanguages[] = strtolower((string) $code);
+            }
+        }
+
+        $query->where(function ($q) use ($search, $matchedCountries, $matchedLanguages) {
             $q->where('site_url', 'like', "%{$search}%")
               ->orWhere('category', 'like', "%{$search}%")
               ->orWhere('site_name', 'like', "%{$search}%")
               ->orWhere('categories', 'like', "%{$search}%");
+
+            foreach ($matchedCountries as $code) {
+                $q->orWhere('country', $code)
+                  ->orWhereJsonContains('countries', $code);
+            }
+            foreach ($matchedLanguages as $code) {
+                $q->orWhere('language', $code)
+                  ->orWhereJsonContains('languages', $code);
+            }
         });
     }
 
@@ -366,32 +292,45 @@ if ($request->filled('category') && !empty($request->category)) {
     });
 }
 
-// 🌍 Country filter - Support multiple countries
+// 🌍 Country filter - Support multiple countries (JSON + legacy column)
 if ($request->filled('country') && !empty($request->country)) {
-    $countries = explode(',', $request->country);
-    $query->whereIn('country', $countries);
+    $countries = array_values(array_filter(array_map(function ($c) {
+        return strtolower(trim($c));
+    }, explode(',', $request->country))));
+    $query->where(function ($q) use ($countries) {
+        foreach ($countries as $code) {
+            $q->orWhere('country', $code)
+              ->orWhereJsonContains('countries', $code);
+        }
+    });
 }
 
-// 🌍 Language filter - Support multiple languages
+// 🌍 Language filter - Support multiple languages (JSON + legacy column)
 if ($request->filled('language') && !empty($request->language)) {
-    $languages = explode(',', $request->language);
-    $query->whereIn('language', $languages);
+    $languages = array_values(array_filter(array_map(function ($l) {
+        return strtolower(trim($l));
+    }, explode(',', $request->language))));
+    $query->where(function ($q) use ($languages) {
+        foreach ($languages as $code) {
+            $q->orWhere('language', $code)
+              ->orWhereJsonContains('languages', $code);
+        }
+    });
 }
 
     // In your CatalogController index method
 if ($request->filled('category')) {
     $categories = explode(',', $request->category);
-    $query->whereIn('category', $categories);
-}
-
-if ($request->filled('country')) {
-    $countries = explode(',', $request->country);
-    $query->whereIn('country', $countries);
-}
-
-if ($request->filled('language')) {
-    $languages = explode(',', $request->language);
-    $query->whereIn('language', $languages);
+    $query->where(function ($q) use ($categories) {
+        foreach ($categories as $category) {
+            $category = trim($category);
+            if ($category === '') {
+                continue;
+            }
+            $q->orWhere('category', 'like', '%' . $category . '%')
+              ->orWhereJsonContains('categories', $category);
+        }
+    });
 }
 
     // 💰 Price range filter
@@ -423,8 +362,38 @@ if ($request->filled('language')) {
         $query->where('created_at', '>=', now()->subDays(30));
     }
 
+    // Featured placements rise to the top, then chosen sort
+    $query->orderByRaw('(featured_until IS NOT NULL AND featured_until > ?) DESC', [now()]);
+
+    // Sort (default: highest DR first — what buyers typically scan for)
+    $sort = $request->get('sort', 'dr_desc');
+    match ($sort) {
+        'da_desc' => $query->orderByDesc('da')->orderByDesc('id'),
+        'traffic_desc' => $query->orderByDesc('traffic')->orderByDesc('id'),
+        'price_asc' => $query->orderBy('price')->orderByDesc('id'),
+        'price_desc' => $query->orderByDesc('price')->orderByDesc('id'),
+        'newest' => $query->latest('created_at')->orderByDesc('id'),
+        default => $query->orderByDesc('dr')->orderByDesc('id'),
+    };
+
+    // Last completed / published placement per site (expand-panel impression copy)
+    $query->addSelect([
+        'last_completed_at' => \App\Models\OrderItem::query()
+            ->selectRaw('MAX(COALESCE(order_items.live_url_submitted_at, order_items.updated_at))')
+            ->whereColumn('order_items.site_id', 'sites.id')
+            ->where(function ($q) {
+                $q->whereNotNull('order_items.live_url')
+                    ->orWhereExists(function ($sub) {
+                        $sub->selectRaw('1')
+                            ->from('orders')
+                            ->whereColumn('orders.id', 'order_items.order_id')
+                            ->where('orders.status', 'completed');
+                    });
+            }),
+    ]);
+
     // ✅ Pagination (20 per page)
-    $sites = $query->latest()->paginate(20)->withQueryString();
+    $sites = $query->paginate(20)->withQueryString();
     
     // Transform sites to show appropriate price based on user role
     foreach ($sites as $site) {
@@ -479,6 +448,25 @@ if ($request->filled('language')) {
     // Pass the filter state to the view
     $showBlacklistedOnly = $showBlacklistedOnly;
 
+    // Bulk discount marketplace section (joined publishers)
+    $bulkDeals = Site::query()
+        ->where('active', 1)
+        ->where('bulk_discount_enabled', 1)
+        ->whereNotNull('bulk_discount_percent')
+        ->when(! empty($blacklist) && ! $showBlacklistedOnly, fn ($q) => $q->whereNotIn('id', $blacklist))
+        ->orderByDesc('bulk_discount_percent')
+        ->orderByDesc('dr')
+        ->limit(12)
+        ->get();
+
+    foreach ($bulkDeals as $dealSite) {
+        $dealSite->original_price = $dealSite->price;
+        $dealSite->price = $this->getPriceForUser($dealSite->price, $dealSite->publisher_id);
+    }
+
+    $featurePrice = (float) config('site_promotions.feature.price', 10);
+    $featureDays = (int) config('site_promotions.feature.days', 7);
+
     return view('advertiser.catalog', compact(
         'sites', 
         'availableLanguages',
@@ -488,7 +476,10 @@ if ($request->filled('language')) {
         'favorites', 
         'blacklist', 
         'cart', 
-        'showBlacklistedOnly'
+        'showBlacklistedOnly',
+        'bulkDeals',
+        'featurePrice',
+        'featureDays'
     ));
 }
 
@@ -625,25 +616,30 @@ public function addToCart(Request $request)
             ], 404);
         }
 
-        $pricing = $this->cartPricing()->priceForAdvertiser($site, $sensitiveType);
-        
         $cart = session()->get('cart', []);
         
         $existingItem = null;
+        $nextQty = 1;
         foreach ($cart as $key => $item) {
-            if ($item['id'] == $id && ($item['sensitive_type'] ?? null) == $pricing['sensitive_type']) {
+            if ($item['id'] == $id && ($item['sensitive_type'] ?? null) == ($sensitiveType ?: null)) {
                 $existingItem = $key;
+                $nextQty = max(1, (int) ($item['quantity'] ?? 1)) + 1;
                 break;
             }
         }
+
+        $pricing = $this->cartPricing()->priceForAdvertiser($site, $sensitiveType, $nextQty);
         
         if ($existingItem !== null) {
-            $cart[$existingItem]['quantity']++;
-            // Refresh stored price in case the listing changed since last add
+            $cart[$existingItem]['quantity'] = $nextQty;
+            // Refresh stored unit price (includes bulk/custom discounts for this qty)
             $cart[$existingItem]['price'] = $pricing['total'];
             $cart[$existingItem]['base_price'] = $pricing['base'];
             $cart[$existingItem]['additional_price'] = $pricing['additional'];
+            $cart[$existingItem]['sensitive_type'] = $pricing['sensitive_type'];
             $cart[$existingItem]['name'] = $site->site_name;
+            $cart[$existingItem]['list_total'] = $pricing['list_total'];
+            $cart[$existingItem]['discount_percent'] = $pricing['discount_percent'];
         } else {
             $cart[] = [
                 'id' => $site->id,
@@ -652,7 +648,9 @@ public function addToCart(Request $request)
                 'base_price' => $pricing['base'],
                 'additional_price' => $pricing['additional'],
                 'sensitive_type' => $pricing['sensitive_type'],
-                'quantity' => 1
+                'quantity' => 1,
+                'list_total' => $pricing['list_total'],
+                'discount_percent' => $pricing['discount_percent'],
             ];
         }
         
@@ -738,7 +736,7 @@ public function addToCart(Request $request)
      */
     public function clearCart(Request $request)
     {
-        session()->forget('cart');
+        session()->forget(['cart', 'checkout_content_submission_id', 'checkout_schedule']);
         return response()->json(['success' => true]);
     }
     
@@ -749,23 +747,7 @@ public function checkout(Request $request)
 {
     // Abandoned Stripe checkout: cancel unpaid pending card orders for this reference
     if ($request->boolean('canceled') && $request->filled('ref')) {
-        $canceled = Order::where('user_id', auth()->id())
-            ->where('reference_code', $request->ref)
-            ->where('payment_method', 'card')
-            ->where('payment_status', 'pending')
-            ->where('status', 'pending')
-            ->get();
-
-        foreach ($canceled as $order) {
-            $order->update(['status' => 'cancelled']);
-        }
-
-        if ($canceled->isNotEmpty()) {
-            Log::info('Cancelled unpaid card orders after Stripe cancel', [
-                'reference_code' => $request->ref,
-                'order_count' => $canceled->count(),
-            ]);
-        }
+        $this->cancelUnpaidCardOrdersAndRestoreCart((string) $request->ref);
     }
 
     $cart = session()->get('cart', []);
@@ -782,13 +764,49 @@ public function checkout(Request $request)
 
     $cartItems = $checkout['items'];
     $total = $checkout['total'];
+    $savings = $checkout['savings'] ?? 0;
 
     if (empty($cartItems)) {
-        session()->forget('cart');
+        session()->forget(['cart', 'checkout_content_submission_id', 'checkout_schedule']);
         return redirect()->route('advertiser.catalog')->with('error', 'Your cart is empty or contains inactive sites.');
     }
-    
-    return view('advertiser.checkout', compact('cartItems', 'total'));
+
+    $librarySubmission = $this->resolveLibrarySubmissionForCheckout($cart);
+    $checkoutSchedule = session('checkout_schedule', []);
+
+    $approvedArticles = ContentSubmission::query()
+        ->where('user_id', auth()->id())
+        ->whereNull('order_id')
+        ->where('moderation_status', ContentSubmission::STATUS_APPROVED)
+        ->latest('id')
+        ->get();
+
+    $correctionArticles = ContentSubmission::query()
+        ->where('user_id', auth()->id())
+        ->whereNull('order_id')
+        ->whereIn('moderation_status', [
+            ContentSubmission::STATUS_NEEDS_IMPROVEMENT,
+            ContentSubmission::STATUS_REJECTED,
+            ContentSubmission::STATUS_ERROR,
+        ])
+        ->latest('id')
+        ->limit(50)
+        ->get();
+
+    $marketplaceCountries = \App\Models\Country::marketplace()->orderBy('name')->get(['code', 'name']);
+    $marketplaceLanguages = \App\Models\Language::marketplace()->orderBy('name')->get(['code', 'name']);
+
+    return view('advertiser.checkout', compact(
+        'cartItems',
+        'total',
+        'savings',
+        'librarySubmission',
+        'checkoutSchedule',
+        'approvedArticles',
+        'correctionArticles',
+        'marketplaceCountries',
+        'marketplaceLanguages',
+    ));
 }
     
     /**
@@ -814,118 +832,47 @@ public function checkout(Request $request)
             
             $userId = auth()->id();
             $paymentMethod = $request->payment_method;
-            $contentLinks = $request->content_links;
             $userReferenceCode = $request->reference_code;
-            
+
+            // If a previous Stripe attempt linked the article, unlock it before re-resolving content.
+            $this->cancelConflictingUnpaidCardOrders(
+                (int) $userId,
+                $this->collectSubmissionIdsFromRequest($cart, $request)
+            );
+
+            // Resolve approved library articles + schedule (session fallback from Content Library)
+            $sessionSchedule = session('checkout_schedule', []);
+            $checkoutContent = $this->resolveCheckoutContent(
+                $cart,
+                is_array($request->content_submissions) ? $request->content_submissions : null,
+                [
+                    'mode' => $request->input('publication_mode', $sessionSchedule['mode'] ?? null),
+                    'date' => $request->input('scheduled_date', $sessionSchedule['date'] ?? null),
+                    'time' => $request->input('scheduled_time', $sessionSchedule['time'] ?? null),
+                    'timezone' => $request->input('timezone', $sessionSchedule['timezone'] ?? null),
+                ],
+            );
+            if ($checkoutContent instanceof JsonResponse) {
+                return $checkoutContent;
+            }
+
             // Generate reference code
             $referenceCode = $userReferenceCode ?? str_pad(mt_rand(1, 999999), 6, '0', STR_PAD_LEFT);
             
             // For manual payment methods (wise, crypto, bank) - create orders immediately
             if (in_array($paymentMethod, ['wise', 'crypto', 'bank'])) {
-                return $this->createOrdersImmediately($cart, $paymentMethod, $contentLinks, $referenceCode, $userId);
+                return $this->createOrdersImmediately($cart, $paymentMethod, $checkoutContent, $referenceCode, $userId);
             }
             
             // For wallet payment - check balance and reserve funds
             if ($paymentMethod === 'wallet') {
-                return $this->processWalletPayment($cart, $contentLinks, $referenceCode, $userId);
+                return $this->processWalletPayment($cart, $checkoutContent, $referenceCode, $userId);
             }
             
             // For card payments - create durable pending orders BEFORE Stripe checkout
             // so webhook/success can finalize payment without relying on browser session.
             if ($paymentMethod === 'card') {
-                // Validate content links
-                if (!$contentLinks || empty($contentLinks)) {
-                    return response()->json([
-                        'success' => false,
-                        'message' => 'Content links are required. Please fill in all Google Docs links.'
-                    ]);
-                }
-                
-                // Validate all content links
-                $expandedOrders = [];
-                foreach ($cart as $item) {
-                    for ($i = 0; $i < $item['quantity']; $i++) {
-                        $expandedOrders[] = [
-                            'id' => $item['id'],
-                            'name' => $item['name'],
-                            'price' => $item['price'], // Use the stored price from cart
-                            'sensitive_type' => $item['sensitive_type'] ?? null,
-                            'additional_price' => $item['additional_price'] ?? 0,
-                            'copy_number' => $i + 1
-                        ];
-                    }
-                }
-                
-                $orderIndex = 0;
-                foreach ($expandedOrders as $orderItem) {
-                    $site = Site::where('id', $orderItem['id'])->where('active', 1)->first();
-                    if (!$site) {
-                        throw new \Exception("Site not found: " . $orderItem['name']);
-                    }
-                    
-                    if (!isset($contentLinks[$site->id]) || !isset($contentLinks[$site->id][$orderIndex])) {
-                        throw new \Exception("Content link required for copy #" . ($orderIndex + 1) . " of: " . $site->site_name);
-                    }
-                    
-                    $link = $contentLinks[$site->id][$orderIndex];
-                    
-                    if (!preg_match('/^https?:\/\/(docs\.google\.com|drive\.google\.com)\/.*$/i', $link)) {
-                        throw new \Exception("Invalid Google Docs link for: " . $site->site_name);
-                    }
-                    $orderIndex++;
-                }
-                
-                // Store cart and content links in session for later
-                session([
-                    'pending_card_payment' => true,
-                    'pending_cart' => $cart,
-                    'pending_content_links' => $contentLinks,
-                    'pending_reference_code' => $referenceCode,
-                    'pending_user_id' => $userId
-                ]);
-                
-                $totalAmount = round(array_sum(array_column($expandedOrders, 'price')), 2);
-                
-                // Create Stripe Checkout Session
-                Stripe::setApiKey(config('services.stripe.secret'));
-                
-                $checkoutSession = Session::create([
-                    'payment_method_types' => ['card'],
-                    'line_items' => [[
-                        'price_data' => [
-                            'currency' => 'eur',
-                            'product_data' => [
-                                'name' => 'Order Package - ' . count($expandedOrders) . ' item(s)',
-                                'description' => 'Order reference: ' . $referenceCode,
-                            ],
-                            'unit_amount' => StripePaymentService::toCents($totalAmount),
-                        ],
-                        'quantity' => 1,
-                    ]],
-                    'mode' => 'payment',
-                    'success_url' => route('advertiser.checkout.process') . '?session_id={CHECKOUT_SESSION_ID}&ref=' . $referenceCode,
-                    'cancel_url' => route('advertiser.checkout'),
-                    'metadata' => [
-                        'type' => 'order_payment',
-                        'reference_code' => $referenceCode,
-                        'user_id' => (string) $userId,
-                        'order_count' => count($expandedOrders)
-                    ],
-                ]);
-                
-                Log::info('Stripe session created for card payment (orders not yet created)', [
-                    'reference_code' => $referenceCode,
-                    'session_id' => $checkoutSession->id,
-                    'total_amount' => $totalAmount
-                ]);
-                
-                return response()->json([
-                    'success' => true,
-                    'requires_payment' => true,
-                    'checkout_url' => $checkoutSession->url,
-                    'session_id' => $checkoutSession->id,
-                    'reference_code' => $referenceCode
-                ]);
+                return $this->processCardPayment($cart, $checkoutContent, $referenceCode, $userId);
             }
             
             return response()->json([
@@ -945,67 +892,25 @@ public function checkout(Request $request)
     /**
      * Create pending card orders in DB, then redirect to Stripe Checkout.
      * Payment finalization is handled by webhook (authoritative) or success URL (fallback).
+     *
+     * @param  array{lines: array<int, array{orderItem: array, submission: ContentSubmission}>, schedule: array}  $checkoutContent
      */
-    private function processCardPayment($cart, $contentLinks, $referenceCode, $userId)
+    private function processCardPayment($cart, array $checkoutContent, $referenceCode, $userId)
     {
-        if (!$contentLinks || empty($contentLinks)) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Content links are required. Please fill in all Google Docs links.'
-            ]);
-        }
-
-        $platformMarkupRate = 1.15;
-        $expandedOrders = [];
-
-        foreach ($cart as $item) {
-            $site = Site::where('id', $item['id'])->where('active', 1)->first();
-            if (!$site) {
-                throw new \Exception('Site not found: ' . ($item['name'] ?? $item['id']));
-            }
-
-            $additionalPrice = (float) ($item['additional_price'] ?? 0);
-            $sensitiveType = $item['sensitive_type'] ?? null;
-            // Recalculate advertiser price from DB listing (do not trust client cart prices)
-            $finalBasePrice = round((float) $site->price * $platformMarkupRate, 2);
-            $finalTotalPrice = round($finalBasePrice + $additionalPrice, 2);
-
-            for ($i = 0; $i < (int) $item['quantity']; $i++) {
-                $expandedOrders[] = [
-                    'site' => $site,
-                    'price' => $finalTotalPrice,
-                    'additional_price' => $additionalPrice,
-                    'sensitive_type' => $sensitiveType,
-                    'copy_number' => $i + 1,
-                ];
-            }
-        }
-
-        $orderIndex = 0;
-        foreach ($expandedOrders as $orderItem) {
-            $site = $orderItem['site'];
-            if (!isset($contentLinks[$site->id][$orderIndex])) {
-                throw new \Exception('Content link required for copy #' . ($orderIndex + 1) . ' of: ' . $site->site_name);
-            }
-
-            $link = $contentLinks[$site->id][$orderIndex];
-            if (!preg_match('/^https?:\/\/(docs\.google\.com|drive\.google\.com)\/.*$/i', $link)) {
-                throw new \Exception('Invalid Google Docs link for: ' . $site->site_name);
-            }
-            $orderIndex++;
-        }
-
+        $expandedOrders = array_column($checkoutContent['lines'], 'orderItem');
         $createdOrders = collect();
+        $totalAmount = round(array_sum(array_column($expandedOrders, 'price')), 2);
+        $schedule = $checkoutContent['schedule'];
 
         DB::beginTransaction();
         try {
-            $orderIndex = 0;
-            foreach ($expandedOrders as $orderItem) {
+            foreach ($checkoutContent['lines'] as $line) {
+                $orderItem = $line['orderItem'];
+                $submission = $line['submission'];
                 $site = $orderItem['site'];
-                $link = $contentLinks[$site->id][$orderIndex];
                 $orderNumber = str_pad((string) mt_rand(1, 999999), 6, '0', STR_PAD_LEFT);
 
-                $order = Order::create([
+                $order = Order::create(array_merge([
                     'user_id' => $userId,
                     'order_number' => $orderNumber,
                     'reference_code' => $referenceCode,
@@ -1014,33 +919,33 @@ public function checkout(Request $request)
                     'total_amount' => $orderItem['price'],
                     'payment_method' => 'card',
                     'payment_status' => 'pending',
-                    'status' => 'pending',
+                    'status' => $this->initialOrderStatus($schedule),
                     'sensitive_type' => $orderItem['sensitive_type'],
                     'additional_price' => $orderItem['additional_price'],
-                ]);
+                ], $this->scheduleOrderFields($schedule)));
 
-                OrderItem::create([
-                    'order_id' => $order->id,
-                    'site_id' => $site->id,
-                    'site_name' => $site->site_name,
-                    'site_url' => $site->site_url,
-                    'price' => $orderItem['price'],
-                    'content_link' => $link,
-                    'sensitive_type' => $orderItem['sensitive_type'],
-                    'additional_price' => $orderItem['additional_price'],
-                ]);
+                $item = OrderItem::create($this->orderItemPayload($order->id, $site, $orderItem, $submission));
+                $this->attachSubmissionToOrder($submission, $order, $item);
 
                 $createdOrders->push($order);
-                $orderIndex++;
             }
 
             DB::commit();
         } catch (\Exception $e) {
             DB::rollBack();
-            throw $e;
+            Log::error('Failed creating pending card orders', [
+                'reference_code' => $referenceCode,
+                'error' => $e->getMessage(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Unable to start card payment. Please try again.',
+            ]);
         }
 
-        $totalAmount = round($createdOrders->sum('total_amount'), 2);
+        // Publishers are notified only after Stripe payment is confirmed
+        // (see OrderPaymentService::notifyPublishersOfPaidOrders).
 
         try {
             Stripe::setApiKey(config('services.stripe.secret'));
@@ -1054,7 +959,7 @@ public function checkout(Request $request)
                             'name' => 'Order Package - ' . $createdOrders->count() . ' item(s)',
                             'description' => 'Order reference: ' . $referenceCode,
                         ],
-                        'unit_amount' => (int) round($totalAmount * 100),
+                        'unit_amount' => StripePaymentService::toCents($totalAmount),
                     ],
                     'quantity' => 1,
                 ]],
@@ -1066,21 +971,26 @@ public function checkout(Request $request)
                     'reference_code' => $referenceCode,
                     'user_id' => (string) $userId,
                     'order_count' => (string) $createdOrders->count(),
+                    'expected_amount' => (string) $totalAmount,
                 ],
             ]);
 
             Order::where('reference_code', $referenceCode)
+                ->where('user_id', $userId)
                 ->where('payment_method', 'card')
                 ->where('payment_status', 'pending')
                 ->update(['stripe_session_id' => $checkoutSession->id]);
 
-            session()->forget('cart');
+            // Keep cart until payment succeeds so Stripe cancel can return to checkout.
+            // Store a pending marker so a second card attempt can be detected if needed.
+            session()->put('pending_card_reference', $referenceCode);
 
             Log::info('Pending card orders created; Stripe session ready', [
                 'reference_code' => $referenceCode,
                 'session_id' => $checkoutSession->id,
                 'order_count' => $createdOrders->count(),
                 'total_amount' => $totalAmount,
+                'user_id' => $userId,
             ]);
 
             return response()->json([
@@ -1091,10 +1001,18 @@ public function checkout(Request $request)
                 'reference_code' => $referenceCode,
             ]);
         } catch (\Exception $e) {
-            // Stripe session failed — remove the unpaid pending orders we just created
+            // Stripe session failed — release content + remove unpaid pending orders
             foreach ($createdOrders as $order) {
-                $order->items()->delete();
-                $order->delete();
+                try {
+                    $this->releaseContentSubmissionsForOrder($order);
+                    $order->items()->delete();
+                    $order->delete();
+                } catch (\Throwable $cleanupError) {
+                    Log::warning('Failed cleaning up pending card order after Stripe error', [
+                        'order_id' => $order->id,
+                        'error' => $cleanupError->getMessage(),
+                    ]);
+                }
             }
 
             Log::error('Stripe session creation failed; pending orders rolled back', [
@@ -1102,78 +1020,72 @@ public function checkout(Request $request)
                 'error' => $e->getMessage(),
             ]);
 
-            throw $e;
+            return response()->json([
+                'success' => false,
+                'message' => 'Unable to start Stripe checkout. Please try again or choose another payment method.',
+            ]);
         }
     }
 
     /**
      * Process wallet payment - deduct from balance and move to reserved_balance
+     *
+     * @param  array{lines: array, schedule: array}  $checkoutContent
      */
-    private function processWalletPayment($cart, $contentLinks, $referenceCode, $userId)
+    private function processWalletPayment($cart, array $checkoutContent, $referenceCode, $userId)
     {
         try {
-            // Recalculate every line from DB — never trust session cart prices
-            $expandedOrders = $this->cartPricing()->expandCart($cart);
+            $expandedOrders = array_column($checkoutContent['lines'], 'orderItem');
             $totalAmount = round(array_sum(array_column($expandedOrders, 'price')), 2);
-            
-            // Validate content links
-            if (!$contentLinks || empty($contentLinks)) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Content links are required. Please fill in all Google Docs links.'
-                ]);
-            }
-            
-            // Validate all content links
-            $orderIndex = 0;
-            foreach ($expandedOrders as $orderItem) {
-                $site = $orderItem['site'];
-                
-                if (!isset($contentLinks[$site->id]) || !isset($contentLinks[$site->id][$orderIndex])) {
-                    throw new \Exception("Content link required for copy #" . ($orderIndex + 1) . " of: " . $site->site_name);
-                }
-                
-                $link = $contentLinks[$site->id][$orderIndex];
-                
-                if (!preg_match('/^https?:\/\/(docs\.google\.com|drive\.google\.com)\/.*$/i', $link)) {
-                    throw new \Exception("Invalid Google Docs link for: " . $site->site_name);
-                }
-                $orderIndex++;
-            }
+            $schedule = $checkoutContent['schedule'];
 
             $advertiserRoleId = Wallet::advertiserRoleId();
             if (!$advertiserRoleId) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Advertiser role not configured.'
+                    'message' => 'Advertiser role not configured.',
                 ]);
             }
-            
+
             DB::beginTransaction();
-            
+
+            // Lock wallet row inside the transaction to prevent concurrent overspend
+            $advertiserWallet = Wallet::lockOrCreateForRole((int) $userId, (int) $advertiserRoleId);
+
+            if (round((float) $advertiserWallet->balance, 2) < $totalAmount) {
+                DB::rollBack();
+
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Insufficient wallet balance. Available: €'
+                        . number_format((float) $advertiserWallet->balance, 2)
+                        . '. Required: €' . number_format($totalAmount, 2) . '.',
+                ]);
+            }
+
             // Deduct from balance and add to reserved_balance (welcome bonus is consumed first)
             $advertiserWallet->reserveForOrder($totalAmount);
-            
+
             Log::info('Wallet payment processed - funds reserved', [
                 'user_id' => $userId,
+                'wallet_id' => $advertiserWallet->id,
                 'total_amount' => $totalAmount,
                 'new_balance' => $advertiserWallet->balance,
                 'reserved_balance' => $advertiserWallet->reserved_balance,
                 'bonus_balance' => $advertiserWallet->bonus_balance,
                 'bonus_reserved' => $advertiserWallet->bonus_reserved,
-                'reference_code' => $referenceCode
+                'reference_code' => $referenceCode,
             ]);
-            
+
             $createdOrders = [];
-            $orderIndex = 0;
-            
-            foreach ($expandedOrders as $orderItem) {
+
+            foreach ($checkoutContent['lines'] as $line) {
+                $orderItem = $line['orderItem'];
+                $submission = $line['submission'];
                 $site = $orderItem['site'];
-                $link = $contentLinks[$site->id][$orderIndex];
-                
-                $orderNumber = str_pad(mt_rand(1, 999999), 6, '0', STR_PAD_LEFT);
-                
-                $orderData = [
+                $orderNumber = str_pad((string) mt_rand(1, 999999), 6, '0', STR_PAD_LEFT);
+
+                $order = Order::create(array_merge([
                     'user_id' => $userId,
                     'order_number' => $orderNumber,
                     'reference_code' => $referenceCode,
@@ -1182,86 +1094,91 @@ public function checkout(Request $request)
                     'total_amount' => $orderItem['price'],
                     'payment_method' => 'wallet',
                     'payment_status' => 'paid',
-                    'status' => 'pending',
+                    'status' => $this->initialOrderStatus($schedule),
                     'sensitive_type' => $orderItem['sensitive_type'],
                     'additional_price' => $orderItem['additional_price'],
-                    'paid_at' => now()
-                ];
-                
-                $order = Order::create($orderData);
-                
-                OrderItem::create([
-                    'order_id' => $order->id,
-                    'site_id' => $site->id,
-                    'site_name' => $site->site_name,
-                    'site_url' => $site->site_url,
-                    'price' => $orderItem['price'],
-                    'content_link' => $link,
-                    'sensitive_type' => $orderItem['sensitive_type'],
-                    'additional_price' => $orderItem['additional_price']
-                ]);
-                
+                    'paid_at' => now(),
+                ], $this->scheduleOrderFields($schedule)));
+
+                $item = OrderItem::create($this->orderItemPayload($order->id, $site, $orderItem, $submission));
+                $this->attachSubmissionToOrder($submission, $order, $item);
+
                 $createdOrders[] = $order;
-                $orderIndex++;
             }
-            
+
             DB::commit();
-            session()->forget('cart');
-            
-            // Send email to site owners
+            session()->forget(['cart', 'checkout_content_submission_id', 'checkout_schedule']);
+
+            $isScheduled = ($schedule['mode'] ?? 'immediate') === 'scheduled';
+
+            foreach ($createdOrders as $createdOrder) {
+                app(InAppNotificationService::class)->notifyOrderCreated(
+                    $createdOrder->fresh(['items'])
+                );
+            }
+
+            // Always notify publishers (scheduled orders are charged in advance; publish on the date).
             $this->sendSiteOwnerEmails($createdOrders);
-            
-            $orderNumbers = implode(', ', array_column($createdOrders, 'order_number'));
-            
+
+            $orderNumbers = implode(', ', array_map(
+                fn (Order $order) => $order->order_number,
+                $createdOrders
+            ));
+
             Log::info('Orders created with wallet payment (funds reserved)', [
                 'reference_code' => $referenceCode,
                 'order_count' => count($createdOrders),
-                'total_reserved' => $totalAmount
+                'total_reserved' => $totalAmount,
+                'scheduled' => $isScheduled,
             ]);
-            
+
+            $msg = $isScheduled
+                ? count($createdOrders) . ' order(s) placed and charged. Publisher notified — publication date scheduled. Order numbers: ' . $orderNumbers
+                : count($createdOrders) . ' order(s) placed successfully! Funds have been reserved from your wallet. Order numbers: ' . $orderNumbers;
+
             return response()->json([
                 'success' => true,
-                'message' => count($createdOrders) . ' order(s) placed successfully! Funds have been reserved from your wallet. Order numbers: ' . $orderNumbers
+                'message' => $msg,
             ]);
-            
         } catch (\Exception $e) {
             DB::rollBack();
-            Log::error('Wallet payment failed: ' . $e->getMessage());
+            Log::error('Wallet payment failed: ' . $e->getMessage(), [
+                'user_id' => $userId,
+                'reference_code' => $referenceCode,
+            ]);
+
+            $message = $e->getMessage() === 'Insufficient balance to reserve'
+                ? 'Insufficient wallet balance for this order.'
+                : 'Unable to process wallet payment. Please try again.';
+
             return response()->json([
                 'success' => false,
-                'message' => $e->getMessage()
+                'message' => $message,
             ]);
         }
     }
     
     /**
      * Create orders immediately for non-card payments (wise, crypto, bank)
+     *
+     * @param  array{lines: array, schedule: array}  $checkoutContent
      */
-    private function createOrdersImmediately($cart, $paymentMethod, $contentLinks, $referenceCode, $userId)
+    private function createOrdersImmediately($cart, $paymentMethod, array $checkoutContent, $referenceCode, $userId)
     {
         try {
-            // Recalculate every line from DB — never trust session cart prices
-            $expandedOrders = $this->cartPricing()->expandCart($cart);
-            
+            $schedule = $checkoutContent['schedule'];
+
             DB::beginTransaction();
-            
+
             $createdOrders = [];
-            $orderIndex = 0;
-            
-            foreach ($expandedOrders as $orderItem) {
+
+            foreach ($checkoutContent['lines'] as $line) {
+                $orderItem = $line['orderItem'];
+                $submission = $line['submission'];
                 $site = $orderItem['site'];
-                
-                $link = null;
-                if ($contentLinks && isset($contentLinks[$site->id]) && isset($contentLinks[$site->id][$orderIndex])) {
-                    $link = $contentLinks[$site->id][$orderIndex];
-                }
-                
-                $orderNumber = str_pad(mt_rand(1, 999999), 6, '0', STR_PAD_LEFT);
-                
-                $paymentStatus = 'pending';
-                $orderStatus = 'pending'; 
-                
-                $orderData = [
+                $orderNumber = str_pad((string) mt_rand(1, 999999), 6, '0', STR_PAD_LEFT);
+
+                $order = Order::create(array_merge([
                     'user_id' => $userId,
                     'order_number' => $orderNumber,
                     'reference_code' => $referenceCode,
@@ -1269,52 +1186,49 @@ public function checkout(Request $request)
                     'tax' => 0,
                     'total_amount' => $orderItem['price'],
                     'payment_method' => $paymentMethod,
-                    'payment_status' => $paymentStatus,
-                    'status' => $orderStatus,
+                    'payment_status' => 'pending',
+                    'status' => $this->initialOrderStatus($schedule),
                     'sensitive_type' => $orderItem['sensitive_type'],
-                    'additional_price' => $orderItem['additional_price']
-                ];
-                
-                $order = Order::create($orderData);
-                
-                OrderItem::create([
-                    'order_id' => $order->id,
-                    'site_id' => $site->id,
-                    'site_name' => $site->site_name,
-                    'site_url' => $site->site_url,
-                    'price' => $orderItem['price'],
-                    'content_link' => $link,
-                    'sensitive_type' => $orderItem['sensitive_type'],
-                    'additional_price' => $orderItem['additional_price']
-                ]);
-                
+                    'additional_price' => $orderItem['additional_price'],
+                ], $this->scheduleOrderFields($schedule)));
+
+                $item = OrderItem::create($this->orderItemPayload($order->id, $site, $orderItem, $submission));
+                $this->attachSubmissionToOrder($submission, $order, $item);
+
                 $createdOrders[] = $order;
-                $orderIndex++;
             }
-            
+
             DB::commit();
-            session()->forget('cart');
-            
-            // Send email to site owners (for each site in the order)
+            session()->forget(['cart', 'checkout_content_submission_id', 'checkout_schedule']);
+
+            $isScheduled = ($schedule['mode'] ?? 'immediate') === 'scheduled';
+
+            foreach ($createdOrders as $createdOrder) {
+                app(InAppNotificationService::class)->notifyOrderCreated(
+                    $createdOrder instanceof Order ? $createdOrder->fresh(['items']) : Order::with('items')->find($createdOrder->id)
+                );
+            }
+
             $this->sendSiteOwnerEmails($createdOrders);
-            
+
             // Send email to admin for manual payments (wise, crypto, bank)
             $customer = User::find($userId);
             $this->sendAdminManualPaymentEmail($customer, $createdOrders, $paymentMethod);
-            
-            $orderNumbers = implode(', ', array_column($createdOrders, 'order_number'));
-            
+
+            $orderNumbers = implode(', ', array_map(fn (Order $o) => $o->order_number, $createdOrders));
+
             return response()->json([
                 'success' => true,
-                'message' => count($createdOrders) . ' order(s) placed successfully! Order numbers: ' . $orderNumbers
+                'message' => count($createdOrders) . ' order(s) placed successfully'
+                    . ($isScheduled ? ' (scheduled publication — publisher notified to publish on the selected date)' : '')
+                    . '! Order numbers: ' . $orderNumbers,
             ]);
-            
         } catch (\Exception $e) {
             DB::rollBack();
             Log::error('Order creation failed: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
-                'message' => $e->getMessage()
+                'message' => 'Unable to place order. Please try again.',
             ]);
         }
     }
@@ -1397,7 +1311,10 @@ public function checkout(Request $request)
                 'pending_content_links',
                 'pending_reference_code',
                 'pending_user_id',
+                'pending_card_reference',
                 'cart',
+                'checkout_content_submission_id',
+                'checkout_schedule',
             ]);
 
             $orderNumbers = $orders->pluck('order_number')->implode(', ');
@@ -1607,6 +1524,8 @@ public function requestModification(Request $request, $id)
                 Log::error('Failed to send email: ' . $e->getMessage());
             }
         }
+
+        app(InAppNotificationService::class)->notifyModificationRequested($order, $request->reason);
         
         return response()->json([
             'success' => true,
@@ -1825,10 +1744,21 @@ public function approveOrder(Request $request, $id)
         
         $transferPublishers = [];
         $totalTransferred = 0;
+        $rateable = [];
         
         foreach ($order->items as $orderItem) {
             // Get the site to find the publisher
             $site = Site::find($orderItem->site_id);
+
+            if ($site) {
+                Site::refreshCompletedOrdersCount((int) $site->id);
+                $rateable[] = [
+                    'order_item_id' => $orderItem->id,
+                    'site_id' => $site->id,
+                    'site_name' => $site->site_name,
+                    'domain' => $site->domain,
+                ];
+            }
             
             if ($site && $site->publisher_id) {
                 $publisher = User::find($site->publisher_id);
@@ -1888,6 +1818,20 @@ public function approveOrder(Request $request, $id)
         }
         
         DB::commit();
+
+        foreach ($transferPublishers as $transfer) {
+            $publisherUser = User::find($transfer['publisher_id'] ?? null);
+            if ($publisherUser) {
+                app(InAppNotificationService::class)->notifyOrderCompleted(
+                    $order,
+                    $publisherUser,
+                    (float) ($transfer['amount'] ?? 0)
+                );
+            }
+        }
+        if (empty($transferPublishers)) {
+            app(InAppNotificationService::class)->notifyOrderCompleted($order);
+        }
         
         $message = 'Order approved successfully! ';
         if ($order->payment_method === 'wallet') {
@@ -1898,7 +1842,9 @@ public function approveOrder(Request $request, $id)
         
         return response()->json([
             'success' => true,
-            'message' => $message
+            'message' => $message,
+            'ask_rating' => true,
+            'rateable' => $rateable,
         ]);
         
     } catch (\Exception $e) {
@@ -1908,6 +1854,375 @@ public function approveOrder(Request $request, $id)
             'success' => false,
             'message' => 'Failed to approve order: ' . $e->getMessage()
         ], 500);
+    }
+}
+
+/**
+ * Resolve approved content library articles + publication schedule for the cart.
+ * Articles must be approved in Content Library before ordering.
+ *
+ * @return array{lines: array<int, array{orderItem: array, submission: ContentSubmission}>, schedule: array}|JsonResponse
+ */
+private function resolveCheckoutContent(array $cart, ?array $contentSubmissions, array $scheduleInput): array|JsonResponse
+{
+    try {
+        $expandedOrders = $this->cartPricing()->expandCart($cart);
+    } catch (\Exception $e) {
+        return response()->json(['success' => false, 'message' => $e->getMessage()]);
+    }
+
+    if ($expandedOrders === []) {
+        return response()->json(['success' => false, 'message' => 'Your cart is empty.']);
+    }
+
+    $librarySubmissionId = session('checkout_content_submission_id');
+    $lines = [];
+    $submissionModels = [];
+    $seen = [];
+
+    foreach ($expandedOrders as $idx => $orderItem) {
+        $site = $orderItem['site'];
+        $copyIndex = max(0, ((int) ($orderItem['copy_number'] ?? 1)) - 1);
+        $sensitiveType = $orderItem['sensitive_type'] ?? null;
+
+        // Prefer per-cart content_submission_id, then request map, then library session
+        $cartLine = collect($cart)->first(function ($row) use ($site, $sensitiveType) {
+            if ((int) ($row['id'] ?? 0) !== (int) $site->id) {
+                return false;
+            }
+            $rowSensitive = $row['sensitive_type'] ?? null;
+
+            return $rowSensitive == $sensitiveType;
+        });
+
+        $submissionId = data_get($cartLine, "content_submission_ids.$copyIndex")
+            ?? data_get($cartLine, 'content_submission_id')
+            ?? data_get($contentSubmissions, $site->id . '.' . $copyIndex)
+            ?? data_get($contentSubmissions, (string) $site->id . '.' . $copyIndex)
+            ?? $librarySubmissionId
+            ?? null;
+
+        if (!$submissionId) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Select an approved article from your Content Library before placing this order.',
+            ]);
+        }
+
+        if (!isset($seen[$submissionId])) {
+            $submission = ContentSubmission::query()
+                ->where('id', $submissionId)
+                ->where('user_id', auth()->id())
+                ->whereNull('order_id')
+                ->first();
+
+            if (!$submission) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Approved article not found. Upload and get approval from Content Library first.',
+                ]);
+            }
+
+            if (!$submission->isApproved() || !$submission->canBeOrdered()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Only approved Content Library articles can be ordered. Edit and resubmit articles that need correction.',
+                ], 422);
+            }
+
+            if (!$submission->isReadyForCheckout()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Add anchor text and a valid HTTPS target URL, or confirm continuing without a link.',
+                ], 422);
+            }
+
+            if (!$submission->matchesSite($site)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Article country/language must match the website market ('
+                        . strtoupper((string) ($site->country ?: 'any')) . ' / '
+                        . strtoupper((string) ($site->language ?: 'any')) . ').',
+                ], 422);
+            }
+
+            $seen[$submissionId] = $submission;
+            $submissionModels[] = $submission;
+        }
+
+        $lines[] = ['orderItem' => $orderItem, 'submission' => $seen[$submissionId]];
+    }
+
+    $moderation = app(ContentModerationService::class)->assertSubmissionsApproved($submissionModels, auth()->user());
+    if (!$moderation['ok']) {
+        $first = $moderation['failures'][0] ?? null;
+
+        return response()->json([
+            'success' => false,
+            'message' => $first['message'] ?? config('content_upload.help.compliance_reject'),
+            'moderation' => [
+                'title' => $first['title'] ?? 'Article Cannot Be Accepted',
+                'failures' => $moderation['failures'],
+            ],
+        ], 422);
+    }
+
+    $schedule = app(ScheduledOrderService::class)->normalizeSchedule(
+        $scheduleInput['mode'] ?? 'immediate',
+        $scheduleInput['date'] ?? null,
+        $scheduleInput['time'] ?? null,
+        $scheduleInput['timezone'] ?? null,
+    );
+
+    if (!$schedule['ok']) {
+        return response()->json([
+            'success' => false,
+            'message' => $schedule['message'] ?? 'Invalid publication schedule.',
+        ], 422);
+    }
+
+    return [
+        'lines' => $lines,
+        'schedule' => $schedule,
+    ];
+}
+
+private function initialOrderStatus(array $schedule): string
+{
+    // Charged in advance; publishers are notified immediately and must publish on the scheduled date.
+    // Keep status in the normal publisher queue (`pending`).
+    return 'pending';
+}
+
+/**
+ * @return array<string, mixed>
+ */
+private function scheduleOrderFields(array $schedule): array
+{
+    return [
+        'publication_mode' => $schedule['mode'] ?? 'immediate',
+        'scheduled_publish_at' => $schedule['at'] ?? null,
+        'schedule_timezone' => $schedule['timezone'] ?? 'UTC',
+    ];
+}
+
+/**
+ * @param  array<string, mixed>  $orderItem
+ * @return array<string, mixed>
+ */
+private function orderItemPayload(int $orderId, Site $site, array $orderItem, ContentSubmission $submission): array
+{
+    return [
+        'order_id' => $orderId,
+        'site_id' => $site->id,
+        'site_name' => $site->site_name,
+        'site_url' => $site->site_url,
+        'price' => $orderItem['price'],
+        'content_link' => route('advertiser.content-submissions.download', $submission),
+        'content_submission_id' => $submission->id,
+        'content_disk' => $submission->disk,
+        'content_path' => $submission->path,
+        'content_original_name' => $submission->original_filename,
+        'content_mime' => $submission->mime,
+        'anchor_text' => $submission->anchor_text,
+        'target_url' => $submission->target_url,
+        'feature_image_url' => $submission->feature_image_url,
+        'moderation_status' => $submission->moderation_status,
+        'sensitive_type' => $orderItem['sensitive_type'],
+        'additional_price' => $orderItem['additional_price'],
+    ];
+}
+
+private function attachSubmissionToOrder(ContentSubmission $submission, Order $order, OrderItem $item): void
+{
+    // One approved library article can be placed on multiple sites in one checkout.
+    // Keep the first order/item linkage; every OrderItem still stores content_submission_id.
+    $payload = [
+        'publication_mode' => $order->publication_mode,
+        'scheduled_publish_at' => $order->scheduled_publish_at,
+        'timezone' => $order->schedule_timezone ?: $submission->timezone,
+    ];
+
+    if (!$submission->order_id) {
+        $payload['order_id'] = $order->id;
+        $payload['order_item_id'] = $item->id;
+    }
+
+    $submission->update($payload);
+}
+
+/**
+ * @param  array<int, mixed>  $cart
+ */
+private function resolveLibrarySubmissionForCheckout(array $cart): ?ContentSubmission
+{
+    $librarySubmissionId = session('checkout_content_submission_id');
+
+    if (!$librarySubmissionId) {
+        foreach ($cart as $row) {
+            if (!empty($row['content_submission_id'])) {
+                $librarySubmissionId = $row['content_submission_id'];
+                break;
+            }
+            $nested = data_get($row, 'content_submission_ids.0');
+            if ($nested) {
+                $librarySubmissionId = $nested;
+                break;
+            }
+        }
+    }
+
+    if (!$librarySubmissionId) {
+        return null;
+    }
+
+    return ContentSubmission::query()
+        ->where('id', $librarySubmissionId)
+        ->where('user_id', auth()->id())
+        ->whereNull('order_id')
+        ->first();
+}
+
+private function cancelUnpaidCardOrdersAndRestoreCart(string $referenceCode): void
+{
+    $canceled = Order::with('items')
+        ->where('user_id', auth()->id())
+        ->where('reference_code', $referenceCode)
+        ->where('payment_method', 'card')
+        ->where('payment_status', 'pending')
+        ->whereIn('status', ['pending', 'cancelled'])
+        ->get();
+
+    if ($canceled->isEmpty()) {
+        return;
+    }
+
+    $restoredCart = session('cart', []);
+    $submissionId = session('checkout_content_submission_id');
+
+    foreach ($canceled as $order) {
+        $this->releaseContentSubmissionsForOrder($order);
+        if ($order->status !== 'cancelled') {
+            $order->update(['status' => 'cancelled']);
+        }
+
+        foreach ($order->items as $item) {
+            if (!$item->site_id) {
+                continue;
+            }
+            $exists = collect($restoredCart)->contains(
+                fn ($row) => (int) ($row['id'] ?? 0) === (int) $item->site_id
+            );
+            if (!$exists) {
+                $restoredCart[] = [
+                    'id' => $item->site_id,
+                    'name' => $item->site_name,
+                    'url' => $item->site_url,
+                    'quantity' => 1,
+                    'content_submission_id' => $item->content_submission_id,
+                ];
+            }
+            $submissionId = $submissionId ?: $item->content_submission_id;
+        }
+    }
+
+    if ($restoredCart !== []) {
+        session()->put('cart', $restoredCart);
+    }
+    if ($submissionId) {
+        session()->put('checkout_content_submission_id', $submissionId);
+    }
+    session()->forget('pending_card_reference');
+
+    Log::info('Cancelled unpaid card orders after Stripe cancel', [
+        'reference_code' => $referenceCode,
+        'order_count' => $canceled->count(),
+    ]);
+}
+
+/**
+ * @param  array<int, int|string>  $submissionIds
+ */
+private function cancelConflictingUnpaidCardOrders(int $userId, array $submissionIds): void
+{
+    $submissionIds = array_values(array_unique(array_filter(array_map('intval', $submissionIds))));
+    if ($submissionIds === []) {
+        return;
+    }
+
+    $orderIds = OrderItem::query()
+        ->whereIn('content_submission_id', $submissionIds)
+        ->whereHas('order', function ($q) use ($userId) {
+            $q->where('user_id', $userId)
+                ->where('payment_method', 'card')
+                ->where('payment_status', 'pending')
+                ->where('status', 'pending');
+        })
+        ->pluck('order_id')
+        ->unique()
+        ->all();
+
+    if ($orderIds === []) {
+        return;
+    }
+
+    foreach (Order::with('items')->whereIn('id', $orderIds)->get() as $order) {
+        $this->releaseContentSubmissionsForOrder($order);
+        $order->update(['status' => 'cancelled']);
+    }
+}
+
+/**
+ * @param  array<int, mixed>  $cart
+ * @return array<int, int>
+ */
+private function collectSubmissionIdsFromRequest(array $cart, Request $request): array
+{
+    $ids = [];
+    foreach ($cart as $row) {
+        if (!empty($row['content_submission_id'])) {
+            $ids[] = (int) $row['content_submission_id'];
+        }
+        foreach ((array) ($row['content_submission_ids'] ?? []) as $sid) {
+            $ids[] = (int) $sid;
+        }
+    }
+
+    $map = $request->input('content_submissions');
+    if (is_array($map)) {
+        foreach ($map as $copies) {
+            foreach ((array) $copies as $sid) {
+                $ids[] = (int) $sid;
+            }
+        }
+    }
+
+    if ($sessionId = session('checkout_content_submission_id')) {
+        $ids[] = (int) $sessionId;
+    }
+
+    return array_values(array_unique(array_filter($ids)));
+}
+
+private function releaseContentSubmissionsForOrder(Order $order): void
+{
+    ContentSubmission::query()
+        ->where('order_id', $order->id)
+        ->get()
+        ->each(fn (ContentSubmission $submission) => $submission->releaseFromOrder());
+
+    $linkedIds = OrderItem::query()
+        ->where('order_id', $order->id)
+        ->whereNotNull('content_submission_id')
+        ->pluck('content_submission_id')
+        ->all();
+
+    if ($linkedIds !== []) {
+        ContentSubmission::query()
+            ->whereIn('id', $linkedIds)
+            ->whereNotNull('order_id')
+            ->get()
+            ->each(fn (ContentSubmission $submission) => $submission->releaseFromOrder());
     }
 }
 }

@@ -1,5 +1,8 @@
 @extends('layouts.app')
 
+@section('title', 'Privacy Policy — SEOLinkBuildings')
+@section('description', 'Read how SEOLinkBuildings collects, uses, and protects your personal data on our content marketplace platform.')
+
 @section('content')
 
 @php

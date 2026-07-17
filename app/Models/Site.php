@@ -17,9 +17,20 @@ class Site extends Model
         'da',
         'dr',
         'traffic',
+        'metrics_provider',
+        'metrics_fetched_at',
+        'screenshot_path',
+        'screenshot_thumb_path',
+        'favicon_path',
+        'screenshot_fetched_at',
+        'enrichment_status',
+        'enrichment_error',
+        'metrics_manual',
         'turnaround_time',
         'country',
+        'countries',
         'language',
+        'languages',
         'category',
         'categories', // NEW - for multiple categories
         'price',
@@ -32,7 +43,18 @@ class Site extends Model
         'sensitive_prices',
         'verified',
         'active',
-        'owner_id'
+        'owner_id',
+        'rating_avg',
+        'rating_count',
+        'completed_orders_count',
+        'featured_until',
+        'featured_purchased_at',
+        'bulk_discount_enabled',
+        'bulk_discount_percent',
+        'custom_discount_percent',
+        'custom_discount_starts_at',
+        'custom_discount_ends_at',
+        'custom_discount_notified_at',
     ];
 
     protected $casts = [
@@ -48,8 +70,136 @@ class Site extends Model
         'publication_time' => 'string',
         'sensitive_prices' => 'array', // if stored as JSON
         'categories' => 'array', // NEW - cast categories to array
+        'countries' => 'array',
+        'languages' => 'array',
         'site_image' => 'string', // ADDED - cast site_image to string
+        'metrics_manual' => 'boolean',
+        'metrics_fetched_at' => 'datetime',
+        'screenshot_fetched_at' => 'datetime',
+        'rating_avg' => 'float',
+        'rating_count' => 'integer',
+        'completed_orders_count' => 'integer',
+        'featured_until' => 'datetime',
+        'featured_purchased_at' => 'datetime',
+        'bulk_discount_enabled' => 'boolean',
+        'bulk_discount_percent' => 'float',
+        'custom_discount_percent' => 'float',
+        'custom_discount_starts_at' => 'datetime',
+        'custom_discount_ends_at' => 'datetime',
+        'custom_discount_notified_at' => 'datetime',
     ];
+
+    public function enrichmentRuns()
+    {
+        return $this->hasMany(SiteEnrichmentRun::class);
+    }
+
+    public function orderItems()
+    {
+        return $this->hasMany(OrderItem::class);
+    }
+
+    public function ratings()
+    {
+        return $this->hasMany(SiteRating::class);
+    }
+
+    public function approvedRatings()
+    {
+        return $this->hasMany(SiteRating::class)->approved();
+    }
+
+    public function ratingStarsLabel(): string
+    {
+        $avg = (float) ($this->rating_avg ?? 0);
+        $count = (int) ($this->rating_count ?? 0);
+        if ($count < 1) {
+            return 'No ratings yet';
+        }
+
+        return number_format($avg, 1).' / 5 · '.$count.' '.($count === 1 ? 'rating' : 'ratings');
+    }
+
+    public function completedOrdersLabel(): string
+    {
+        $count = (int) ($this->completed_orders_count ?? 0);
+        if ($count < 1) {
+            return 'No completed orders yet';
+        }
+
+        return $count.' completed '.($count === 1 ? 'order' : 'orders');
+    }
+
+    public static function refreshCompletedOrdersCount(int $siteId): void
+    {
+        $count = OrderItem::query()
+            ->where('site_id', $siteId)
+            ->whereHas('order', function ($q) {
+                $q->where('status', 'completed');
+            })
+            ->count();
+
+        static::query()->where('id', $siteId)->update([
+            'completed_orders_count' => $count,
+        ]);
+    }
+
+    public function isFeatured(): bool
+    {
+        return $this->featured_until !== null && $this->featured_until->isFuture();
+    }
+
+    public function hasActiveCustomDiscount(): bool
+    {
+        if (! $this->custom_discount_percent || ! $this->custom_discount_ends_at) {
+            return false;
+        }
+
+        $startsOk = ! $this->custom_discount_starts_at || $this->custom_discount_starts_at->lte(now());
+
+        return $startsOk && $this->custom_discount_ends_at->isFuture();
+    }
+
+    public function activeCustomDiscountPercent(): ?float
+    {
+        return $this->hasActiveCustomDiscount()
+            ? (float) $this->custom_discount_percent
+            : null;
+    }
+
+    public function joinsBulkDiscount(): bool
+    {
+        return (bool) $this->bulk_discount_enabled
+            && $this->bulk_discount_percent !== null
+            && (float) $this->bulk_discount_percent > 0;
+    }
+
+    public function featurePurchases()
+    {
+        return $this->hasMany(SiteFeaturePurchase::class);
+    }
+
+    /**
+     * Human label for the publisher's most recent completed placement.
+     * Uses last_completed_at when loaded via withMax, otherwise null.
+     */
+    public function lastPublicationLabel(): ?string
+    {
+        $raw = $this->getAttribute('last_completed_at');
+        if (! $raw) {
+            return null;
+        }
+
+        try {
+            $at = $raw instanceof \Illuminate\Support\Carbon
+                ? $raw
+                : \Illuminate\Support\Carbon::parse($raw);
+        } catch (\Throwable) {
+            return null;
+        }
+
+        return 'Last published '.$at->diffForHumans();
+    }
 
     /**
      * Get the publisher that owns the site.
@@ -118,10 +268,30 @@ class Site extends Model
                 $query->where('price', '<=', (float)$max);
             })
             ->when($filters['country'] ?? null, function ($query, $country) {
-                $query->where('country', $country);
+                $codes = is_array($country) ? $country : [$country];
+                $query->where(function ($q) use ($codes) {
+                    foreach ($codes as $code) {
+                        $code = strtolower(trim((string) $code));
+                        if ($code === '') {
+                            continue;
+                        }
+                        $q->orWhere('country', $code)
+                          ->orWhereJsonContains('countries', $code);
+                    }
+                });
             })
             ->when($filters['language'] ?? null, function ($query, $language) {
-                $query->where('language', $language);
+                $codes = is_array($language) ? $language : [$language];
+                $query->where(function ($q) use ($codes) {
+                    foreach ($codes as $code) {
+                        $code = strtolower(trim((string) $code));
+                        if ($code === '') {
+                            continue;
+                        }
+                        $q->orWhere('language', $code)
+                          ->orWhereJsonContains('languages', $code);
+                    }
+                });
             })
             ->when($filters['category'] ?? null, function ($query, $category) {
                 $query->where(function ($q) use ($category) {
@@ -176,6 +346,130 @@ class Site extends Model
             return asset('storage/' . $this->site_image);
         }
         return null;
+    }
+
+    public function getScreenshotUrlAttribute(): ?string
+    {
+        $path = $this->screenshot_path ?: $this->site_image;
+        if (! $path) {
+            return null;
+        }
+
+        return asset('storage/'.$path);
+    }
+
+    public function getScreenshotThumbUrlAttribute(): ?string
+    {
+        $path = $this->screenshot_thumb_path ?: $this->screenshot_path ?: $this->site_image;
+        if (! $path) {
+            return null;
+        }
+
+        return asset('storage/'.$path);
+    }
+
+    public function getLogoUrlAttribute(): ?string
+    {
+        if ($this->favicon_path) {
+            return asset('storage/'.$this->favicon_path);
+        }
+
+        return $this->image_url;
+    }
+
+    /**
+     * Most recent enrichment timestamp for "Last updated" (metrics preferred).
+     * Does not fall back to updated_at — listing edits must not fake metric freshness.
+     */
+    public function getMetricsUpdatedAtAttribute(): ?\Illuminate\Support\Carbon
+    {
+        $candidates = array_filter([
+            $this->metrics_fetched_at,
+            $this->screenshot_fetched_at,
+        ]);
+
+        if ($candidates === []) {
+            return null;
+        }
+
+        return collect($candidates)->max();
+    }
+
+    public function metricsAreFresh(): bool
+    {
+        $at = $this->metrics_fetched_at;
+        if (! $at) {
+            return false;
+        }
+
+        $maxDays = (int) config('site_enrichment.max_age_days', 90);
+
+        return $at->gte(now()->subDays($maxDays));
+    }
+
+    /**
+     * Human label like "2 days ago". Blank when older than max age (do not show stale trust signals).
+     */
+    public function lastUpdatedLabel(): ?string
+    {
+        $at = $this->metrics_updated_at;
+        if (! $at) {
+            return null;
+        }
+
+        $maxDays = (int) config('site_enrichment.max_age_days', 90);
+        if ($at->lt(now()->subDays($maxDays))) {
+            return null;
+        }
+
+        return $at->diffForHumans();
+    }
+
+    public function formattedTraffic(): string
+    {
+        if ($this->traffic === null) {
+            return '—';
+        }
+
+        $n = (int) $this->traffic;
+        if ($n >= 1000000) {
+            return rtrim(rtrim(number_format($n / 1000000, 1), '0'), '.').'M';
+        }
+        if ($n >= 1000) {
+            return rtrim(rtrim(number_format($n / 1000, 1), '0'), '.').'K';
+        }
+
+        return number_format($n);
+    }
+
+    public function averagePublishLabel(): string
+    {
+        $raw = $this->publication_time ?: $this->turnaround_time;
+        if (! filled($raw)) {
+            return '—';
+        }
+
+        if (is_numeric($raw)) {
+            $days = (int) $raw;
+
+            return $days === 1 ? '1 Day' : $days.' Days';
+        }
+
+        return (string) $raw;
+    }
+
+    public function primaryCountryCode(): ?string
+    {
+        $codes = $this->countryCodes();
+
+        return $codes[0] ?? null;
+    }
+
+    public function primaryLanguageCode(): ?string
+    {
+        $codes = $this->languageCodes();
+
+        return $codes[0] ?? null;
     }
 
     /**
@@ -249,5 +543,62 @@ class Site extends Model
     {
         $categories = $this->getCategoriesArrayAttribute();
         return in_array($categoryName, $categories);
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    public function countryCodes(): array
+    {
+        $codes = collect($this->countries ?? [])
+            ->filter()
+            ->map(fn ($c) => strtolower(trim((string) $c)))
+            ->all();
+
+        if ($this->country) {
+            $codes[] = strtolower(trim((string) $this->country));
+        }
+
+        return array_values(array_unique(array_filter($codes)));
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    public function languageCodes(): array
+    {
+        $codes = collect($this->languages ?? [])
+            ->filter()
+            ->map(fn ($c) => strtolower(trim((string) $c)))
+            ->all();
+
+        if ($this->language) {
+            $codes[] = strtolower(trim((string) $this->language));
+        }
+
+        return array_values(array_unique(array_filter($codes)));
+    }
+
+    public function acceptsMarket(string $country, string $language): bool
+    {
+        $country = strtolower(trim($country));
+        $language = strtolower(trim($language));
+
+        if ($country === '' || $language === '') {
+            return false;
+        }
+
+        $countries = $this->countryCodes();
+        $languages = $this->languageCodes();
+
+        // If a site has no market metadata, allow any approved article (legacy listings).
+        if ($countries === [] && $languages === []) {
+            return true;
+        }
+
+        $countryOk = $countries === [] || in_array($country, $countries, true);
+        $languageOk = $languages === [] || in_array($language, $languages, true);
+
+        return $countryOk && $languageOk;
     }
 }

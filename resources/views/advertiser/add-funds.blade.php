@@ -52,10 +52,10 @@
                     <!-- Payment Methods -->
                     <div class="mb-4">
                         <label class="form-label fw-semibold mb-3">Select Payment Method</label>
-                        <div class="row g-3">
+                        <div class="row g-3 payment-methods-row">
                             <!-- Wise Payment -->
-                            <div class="col-6 col-md-3">
-                                <div class="payment-option" data-method="wise" style="cursor: pointer;">
+                            <div class="col-12 col-sm-6 col-xl-4">
+                                <div class="payment-option" data-method="wise" style="cursor: pointer;" role="button" tabindex="0" aria-label="Pay with Wise transfer">
                                     <div class="payment-option-card" style="border: 2px solid #e5e7eb; border-radius: 12px; padding: 16px; text-align: center; background: white; transition: all 0.2s;">
                                         <div style="width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; background: #eff6ff; border-radius: 8px; margin: 0 auto 8px;">
                                             <img src="{{ asset('assets/img/wiseImg-logo.png') }}" alt="Wise Logo" style="width: 32px; height: 32px; object-fit: contain;">
@@ -67,8 +67,8 @@
                             </div>
 
                             <!-- Crypto Payment -->
-                            <div class="col-6 col-md-3">
-                                <div class="payment-option" data-method="crypto" style="cursor: pointer;">
+                            <div class="col-12 col-sm-6 col-xl-4">
+                                <div class="payment-option" data-method="crypto" style="cursor: pointer;" role="button" tabindex="0" aria-label="Pay with cryptocurrency">
                                     <div class="payment-option-card" style="border: 2px solid #e5e7eb; border-radius: 12px; padding: 16px; text-align: center; background: white; transition: all 0.2s;">
                                         <div style="width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; background: #fef3c7; border-radius: 8px; margin: 0 auto 8px;">
                                             <i class="fab fa-bitcoin" style="font-size: 28px; color: #eab308;"></i>
@@ -80,11 +80,11 @@
                             </div>
 
                             <!-- Bank Transfer -->
-                            <div class="col-6 col-md-3">
-                                <div class="payment-option" data-method="bank" style="cursor: pointer;">
+                            <div class="col-12 col-sm-6 col-xl-4">
+                                <div class="payment-option" data-method="bank" style="cursor: pointer;" role="button" tabindex="0" aria-label="Pay with bank transfer">
                                     <div class="payment-option-card" style="border: 2px solid #e5e7eb; border-radius: 12px; padding: 16px; text-align: center; background: white; transition: all 0.2s;">
                                         <div style="width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; background: #eff6ff; border-radius: 8px; margin: 0 auto 8px;">
-                                            <i class="fas fa-university" style="font-size: 28px; color: #3b82f6;"></i>
+                                            <i class="fas fa-university" style="font-size: 28px; color: #0b6266;"></i>
                                         </div>
                                         <span style="font-weight: 600; font-size: 12px; color: #1f2937;">Bank Transfer</span>
                                         <span style="font-size: 10px; color: #6b7280; display: block; margin-top: 4px;">Traditional bank transfer</span>
@@ -93,8 +93,8 @@
                             </div>
 
                             <!-- Card Payment with Stripe Checkout -->
-                            <div class="col-6 col-md-3">
-                                <div class="payment-option" data-method="card" style="cursor: pointer;">
+                            <div class="col-12 col-sm-6 col-xl-4">
+                                <div class="payment-option" data-method="card" style="cursor: pointer;" role="button" tabindex="0" aria-label="Pay with credit or debit card">
                                     <div class="payment-option-card" style="border: 2px solid #e5e7eb; border-radius: 12px; padding: 16px; text-align: center; background: white; transition: all 0.2s;">
                                         <div style="width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; background: #f3f4f6; border-radius: 8px; margin: 0 auto 8px;">
                                             <i class="fab fa-stripe" style="font-size: 28px; color: #635bff;"></i>
@@ -104,26 +104,18 @@
                                     </div>
                                 </div>
                             </div>
-                            <!-- Paypal Comimg Soon -->
-                            <div class="col-6 col-md-3">
-                            <div class="payment-option" style="cursor:not-allowed;">
-                                <div class="payment-option-card" style="border:2px solid #e5e7eb;border-radius:12px;padding:16px;text-align:center;background:white;transition:all 0.2s;position:relative;">
-                                    
-                                    <div style="width:48px;height:48px;display:flex;align-items:center;justify-content:center;background:#eff6ff;border-radius:8px;margin:0 auto 8px;">
-                                        <i class="fab fa-paypal" style="font-size:28px;color:#0070ba;"></i>
+                            <!-- Paypal Coming Soon -->
+                            <div class="col-12 col-sm-6 col-xl-4">
+                                <div class="payment-option" style="cursor:not-allowed;" aria-disabled="true" aria-label="PayPal coming soon">
+                                    <div class="payment-option-card" style="border:2px solid #e5e7eb;border-radius:12px;padding:16px;text-align:center;background:white;transition:all 0.2s;position:relative;">
+                                        <div style="width:48px;height:48px;display:flex;align-items:center;justify-content:center;background:#eff6ff;border-radius:8px;margin:0 auto 8px;">
+                                            <i class="fab fa-paypal" style="font-size:28px;color:#0070ba;" aria-hidden="true"></i>
+                                        </div>
+                                        <span style="font-weight:600;font-size:12px;color:#1f2937;">PayPal</span>
+                                        <span style="font-size:10px;color:#6b7280;display:block;margin-top:4px;">Coming Soon</span>
                                     </div>
-
-                                    <span style="font-weight:600;font-size:12px;color:#1f2937;">
-                                        PayPal
-                                    </span>
-
-                                    <span style="font-size:10px;color:#6b7280;display:block;margin-top:4px;">
-                                        Coming Soon
-                                    </span>
-
                                 </div>
                             </div>
-                        </div>
                               
                         </div>
 
@@ -239,7 +231,7 @@
                             <div class="card-body">
                                 <div style="display: flex; align-items: center; margin-bottom: 16px;">
                                     <div style="width: 40px; height: 40px; background: #eff6ff; border-radius: 8px; display: flex; align-items: center; justify-content: center; margin-right: 12px;">
-                                        <i class="fas fa-university" style="font-size: 24px; color: #3b82f6;"></i>
+                                        <i class="fas fa-university" style="font-size: 24px; color: #0b6266;"></i>
                                     </div>
                                     <div>
                                         <h3 style="font-size: 18px; font-weight: 600; margin: 0;">Bank Transfer Payment</h3>
@@ -485,7 +477,7 @@
 }
 
 .payment-option.selected .payment-option-card {
-    border-color: #3b82f6 !important;
+    border-color: #0b6266 !important;
     background: #eff6ff !important;
     box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
 }
@@ -509,9 +501,9 @@
 }
 
 .amount-btn.active {
-    background-color: #0d6efd;
+    background-color: #0b6266;
     color: white;
-    border-color: #0d6efd;
+    border-color: #0b6266;
 }
 
 .copy-btn {

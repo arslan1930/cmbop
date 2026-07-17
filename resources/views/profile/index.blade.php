@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', 'Profile - Seolinkbuildings')
+@section('title', 'Profile - SEOLinkBuildings')
 
 @push('styles')
 <style>
@@ -41,8 +41,9 @@
         {{-- ══ PROFILE INFO ══ --}}
         <div class="col-lg-6">
             <div class="profile-card">
-                <div class="card-header-custom">
-                    <i class="fas fa-user-circle text-primary"></i> Profile Information
+                <div class="card-header-custom d-flex justify-content-between align-items-center">
+                    <span><i class="fas fa-user-circle text-primary"></i> Profile Information</span>
+                    <a href="{{ route('profile.notifications') }}" class="btn btn-sm btn-outline-primary">Email Preferences</a>
                 </div>
                 <div class="card-body-custom">
                     <form method="POST" action="{{ route('profile.update') }}" id="formProfile">
@@ -304,7 +305,7 @@
                         </div>
 
                         <div class="d-flex align-items-center gap-2 mt-3">
-                            <button class="btn btn-success btn-profile" type="submit">
+                            <button class="btn btn-primary btn-profile" type="submit">
                                 <i class="fas fa-file-invoice me-1"></i> Save Billing
                             </button>
                             <span class="save-status" id="saveBillingStatus"></span>

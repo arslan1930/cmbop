@@ -1,0 +1,178 @@
+/**
+ * Glass tip — subtle helper panel (GitHub / Notion / Linear style)
+ * Lightweight, muted, non-intrusive. Theme-aware + reduced-motion safe.
+ */
+
+:root {
+  --glass-tip-icon: var(--brand-neutral, #64748b);
+  --glass-tip-icon-hover: var(--brand-primary, #0b6266);
+  --glass-tip-bg: #f3f4f6; /* soft light grey — blends with page */
+  --glass-tip-border: #e5e7eb;
+  --glass-tip-shadow: 0 4px 14px rgba(15, 23, 42, 0.06);
+  --glass-tip-title: var(--brand-ink, #1f2937);
+  --glass-tip-text: #6b7280;
+  --glass-tip-blur: 6px;
+}
+
+html[data-bs-theme="dark"],
+body.layout-dark,
+[data-theme="dark"] {
+  --glass-tip-icon: #94a3b8;
+  --glass-tip-icon-hover: #5eead4;
+  --glass-tip-bg: #1f2937;
+  --glass-tip-border: #374151;
+  --glass-tip-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+  --glass-tip-title: #e5e7eb;
+  --glass-tip-text: #9ca3af;
+}
+
+.glass-tip-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  margin: 0;
+  border: 0;
+  background: transparent;
+  color: var(--glass-tip-icon);
+  line-height: 1;
+  cursor: help;
+  vertical-align: middle;
+  border-radius: 999px;
+  transition: color 0.16s ease, opacity 0.16s ease;
+  opacity: 0.72;
+  outline: none;
+}
+
+.glass-tip-trigger:hover,
+.glass-tip-trigger:focus-visible,
+.glass-tip-trigger.is-open {
+  color: var(--glass-tip-icon-hover);
+  opacity: 1;
+}
+
+.glass-tip-trigger:focus-visible {
+  box-shadow: 0 0 0 2px rgba(58, 174, 178, 0.22);
+}
+
+.glass-tip-icon {
+  width: 16px;
+  height: 16px;
+  display: block;
+  flex-shrink: 0;
+  pointer-events: none;
+}
+
+.glass-tip-trigger--lg .glass-tip-icon {
+  width: 18px;
+  height: 18px;
+}
+
+[data-glass-tip].site-chip,
+[data-glass-tip].site-badge-new,
+.site-chip[data-glass-tip],
+.site-badge-new[data-glass-tip] {
+  cursor: help;
+}
+
+.glass-tip {
+  position: fixed;
+  z-index: 1080;
+  max-width: 280px;
+  min-width: 160px;
+  padding: 10px 12px;
+  border-radius: 11px;
+  border: 1px solid var(--glass-tip-border);
+  background: var(--glass-tip-bg);
+  backdrop-filter: blur(var(--glass-tip-blur));
+  -webkit-backdrop-filter: blur(var(--glass-tip-blur));
+  box-shadow: var(--glass-tip-shadow);
+  color: var(--glass-tip-text);
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(5px);
+  transition: opacity 0.17s ease, transform 0.17s ease;
+  will-change: opacity, transform;
+}
+
+.glass-tip.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+.glass-tip[data-placement="bottom"].is-visible {
+  transform: translateY(0);
+}
+
+.glass-tip:not(.is-visible)[data-placement="bottom"] {
+  transform: translateY(-5px);
+}
+
+.glass-tip-title {
+  display: block;
+  margin: 0 0 3px;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0;
+  color: var(--glass-tip-title);
+  line-height: 1.4;
+}
+
+.glass-tip-body {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.55;
+  color: var(--glass-tip-text);
+}
+
+.glass-tip-body:only-child,
+.glass-tip:not(:has(.glass-tip-title)) .glass-tip-body {
+  margin-top: 0;
+}
+
+.glass-tip-arrow {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  background: var(--glass-tip-bg);
+  border: 1px solid var(--glass-tip-border);
+  transform: rotate(45deg);
+  pointer-events: none;
+}
+
+.glass-tip[data-placement="top"] .glass-tip-arrow {
+  bottom: -4px;
+  border-top: 0;
+  border-left: 0;
+}
+
+.glass-tip[data-placement="bottom"] .glass-tip-arrow {
+  top: -4px;
+  border-bottom: 0;
+  border-right: 0;
+}
+
+.glass-tip[data-placement="left"] .glass-tip-arrow {
+  right: -4px;
+  border-bottom: 0;
+  border-left: 0;
+}
+
+.glass-tip[data-placement="right"] .glass-tip-arrow {
+  left: -4px;
+  border-top: 0;
+  border-right: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .glass-tip-trigger,
+  .glass-tip {
+    transition: none !important;
+  }
+
+  .glass-tip {
+    transform: none !important;
+  }
+}

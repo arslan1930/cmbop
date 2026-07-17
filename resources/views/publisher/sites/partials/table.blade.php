@@ -63,7 +63,7 @@
 
     .tag-badge {
         background: #eef6ff;
-        color: #0d6efd;
+        color: #0b6266;
         padding: 5px 10px;
         border-radius: 6px;
         font-size: 12px;
@@ -129,61 +129,61 @@
 </style>
 
 @php
-    function getCountryFlag($countryCode) {
-        $code = strtoupper($countryCode);
-        if ($code === 'UK') $code = 'GB';
-        $flag = mb_convert_encoding('&#' . (127397 + ord($code[0])) . ';&#' . (127397 + ord($code[1])) . ';', 'UTF-8', 'HTML-ENTITIES');
-        return $flag;
+    if (!function_exists('getCountryFlag')) {
+        function getCountryFlag($countryCode) {
+            $code = strtoupper(trim((string) $countryCode));
+            if (strlen($code) !== 2) return '';
+            if ($code === 'UK') $code = 'GB';
+            $flag = mb_convert_encoding('&#' . (127397 + ord($code[0])) . ';&#' . (127397 + ord($code[1])) . ';', 'UTF-8', 'HTML-ENTITIES');
+            return $flag;
+        }
     }
     
-    function getLanguageName($code) {
-        $languages = [
-            'en' => 'English', 'es' => 'Spanish', 'fr' => 'French', 'de' => 'German',
-            'it' => 'Italian', 'pt' => 'Portuguese', 'nl' => 'Dutch', 'ru' => 'Russian',
-            'zh' => 'Chinese', 'ja' => 'Japanese', 'ko' => 'Korean', 'ar' => 'Arabic',
-            'hi' => 'Hindi', 'tr' => 'Turkish', 'pl' => 'Polish', 'uk' => 'Ukrainian',
-            'sv' => 'Swedish', 'da' => 'Danish', 'no' => 'Norwegian', 'fi' => 'Finnish',
-            'el' => 'Greek', 'cs' => 'Czech', 'hu' => 'Hungarian', 'ro' => 'Romanian',
-            'bg' => 'Bulgarian', 'hr' => 'Croatian', 'sk' => 'Slovak', 'sl' => 'Slovenian',
-            'lt' => 'Lithuanian', 'lv' => 'Latvian', 'et' => 'Estonian', 'he' => 'Hebrew',
-            'th' => 'Thai', 'vi' => 'Vietnamese', 'id' => 'Indonesian', 'ms' => 'Malay',
-        ];
-        return $languages[strtolower($code)] ?? strtoupper($code);
+    if (!function_exists('getLanguageName')) {
+        function getLanguageName($code) {
+            return fullLanguage($code);
+        }
     }
     
-    function getPublicationDuration($value) {
-        $durations = [
-            '6months' => '6 Months',
-            '1year' => '1 Year',
-            'permanent' => 'Permanent'
-        ];
-        return $durations[$value] ?? ucfirst($value);
+    if (!function_exists('getPublicationDuration')) {
+        function getPublicationDuration($value) {
+            $durations = [
+                '6months' => '6 Months',
+                '1year' => '1 Year',
+                'permanent' => 'Permanent'
+            ];
+            return $durations[$value] ?? ucfirst($value);
+        }
     }
     
-    function getTurnaroundLabel($value) {
-        $labels = [
-            '24h' => '24 Hours',
-            '48h' => '48 Hours',
-            '3days' => '3 Days',
-            '5days' => '5 Days',
-            '7days' => '7 Days'
-        ];
-        return $labels[$value] ?? '3 Days';
+    if (!function_exists('getTurnaroundLabel')) {
+        function getTurnaroundLabel($value) {
+            $labels = [
+                '24h' => '24 Hours',
+                '48h' => '48 Hours',
+                '3days' => '3 Days',
+                '5days' => '5 Days',
+                '7days' => '7 Days'
+            ];
+            return $labels[$value] ?? '3 Days';
+        }
     }
     
-    function getTurnaroundClass($value) {
-        $classes = [
-            '24h' => 'turnaround-24h',
-            '48h' => 'turnaround-48h',
-            '3days' => 'turnaround-3days',
-            '5days' => 'turnaround-5days',
-            '7days' => 'turnaround-7days'
-        ];
-        return $classes[$value] ?? 'turnaround-3days';
+    if (!function_exists('getTurnaroundClass')) {
+        function getTurnaroundClass($value) {
+            $classes = [
+                '24h' => 'turnaround-24h',
+                '48h' => 'turnaround-48h',
+                '3days' => 'turnaround-3days',
+                '5days' => 'turnaround-5days',
+                '7days' => 'turnaround-7days'
+            ];
+            return $classes[$value] ?? 'turnaround-3days';
+        }
     }
 @endphp
 
-<table class="table table-striped modern-table">
+<table class="table table-striped modern-table sites-responsive-table">
     <thead>
         <tr>
             <th>#</th>
@@ -202,67 +202,125 @@
     <tbody>
         @foreach($sites as $index => $site)
         <tr class="main-row" data-id="{{ $site->id }}">
-            <td>{{ $sites->firstItem() + $index }}</td>
-            <td>{{ $site->site_name }}</td>
-            <td>{{ $site->site_url }}</td>
-            <td>{{ ucfirst($site->category) }}</td>
-            <td>{{ $site->da }}</td>
-            <td>{{ $site->dr }}</td>
-            <td>{{ number_format($site->traffic, 0, '.', ',') }}</td>
-            
-            
-            
-            
+            <td data-label="#">{{ $sites->firstItem() + $index }}</td>
+            <td data-label="Site">{{ $site->site_name }}</td>
+            <td data-label="URL">{{ $site->site_url }}</td>
+            <td data-label="Category">{{ ucfirst($site->category) }}</td>
+            <td data-label="DA">{{ $site->da }}</td>
+            <td data-label="DR">{{ $site->dr }}</td>
+            <td data-label="Traffic">{{ number_format($site->traffic, 0, '.', ',') }}</td>
+
             <!-- Country Flag + Language Combined Column -->
-            <td>
-                <div class="d-flex flex-column align-items-center">
-                    <span class="country-flag">{!! getCountryFlag($site->country) !!}</span>
-                    <span class="language-name">{{ getLanguageName($site->language) }}</span>
+            <td data-label="Market">
+                <div class="d-flex flex-column align-items-md-center gap-1">
+                    <span class="country-flag" aria-hidden="true">
+                        @php
+                            $siteCountries = is_array($site->countries) && count($site->countries)
+                                ? $site->countries
+                                : array_filter([$site->country]);
+                        @endphp
+                        @foreach($siteCountries as $code)
+                            {!! getCountryFlag($code) !!}
+                        @endforeach
+                    </span>
+                    <span class="language-name">
+                        @php
+                            $siteLanguages = is_array($site->languages) && count($site->languages)
+                                ? $site->languages
+                                : array_filter([$site->language]);
+                        @endphp
+                        {{ collect($siteLanguages)->map(fn ($c) => getLanguageName($c))->implode(', ') }}
+                    </span>
                 </div>
             </td>
             
-            <!-- Status Column -->
-            <td>
+            <!-- Status Column — icon + text (A3) -->
+            <td data-label="Status">
                 @if($site->verified)
-                    <span class="badge bg-success" data-bs-toggle="tooltip" title="Site is verified and active">
-                        Verified
+                    <span class="badge bg-success status-badge" data-bs-toggle="tooltip" title="Site is verified and active">
+                        <i class="fa-solid fa-circle-check me-1" aria-hidden="true"></i>Verified
                     </span>
                 @elseif($site->active)
-                    <span class="badge bg-info" data-bs-toggle="tooltip" title="Site is active but not verified">
-                        Active
+                    <span class="badge bg-info status-badge" data-bs-toggle="tooltip" title="Site is active but not verified">
+                        <i class="fa-solid fa-circle-play me-1" aria-hidden="true"></i>Active
                     </span>
                 @else
-                    <span class="badge bg-secondary" data-bs-toggle="tooltip" title="Site is pending review">
-                        Pending
+                    <span class="badge bg-secondary status-badge" data-bs-toggle="tooltip" title="Site is pending review">
+                        <i class="fa-regular fa-clock me-1" aria-hidden="true"></i>Pending
                     </span>
                 @endif
             </td>
 
             <!-- Price Column -->
-            <td>€{{ number_format($site->price, 2) }}</td>
+            <td data-label="Price">
+                €{{ number_format($site->price, 2) }}
+                @if($site->isFeatured())
+                    <div><span class="badge bg-warning text-dark mt-1">Featured</span></div>
+                @endif
+                @if($site->hasActiveCustomDiscount())
+                    <div><span class="badge bg-danger mt-1">−{{ rtrim(rtrim(number_format((float)$site->custom_discount_percent,1),'0'),'.') }}% offer</span></div>
+                @endif
+                @if($site->joinsBulkDiscount())
+                    <div><span class="badge bg-success mt-1">Bulk −{{ rtrim(rtrim(number_format((float)$site->bulk_discount_percent,1),'0'),'.') }}%</span></div>
+                @endif
+            </td>
             
             <!-- Actions Column -->
-            <td>
+            <td data-label="Actions">
+                <div class="d-flex flex-wrap gap-1 justify-content-center">
                 <!-- View button -->
-                <button class="btn btn-sm btn-outline-primary action-view" data-id="{{ $site->id }}">
-                    <i class="fa fa-eye me-1"></i><span class="btn-text">View</span>
+                <button class="btn btn-sm btn-outline-primary action-view" data-id="{{ $site->id }}" aria-label="View {{ $site->site_name }}">
+                    <i class="fa fa-eye me-1" aria-hidden="true"></i><span class="btn-text">View</span>
                 </button>
 
                 <!-- Edit button -->
-                <button class="btn btn-sm btn-primary btn-edit" data-site='@json($site)'>
+                <button class="btn btn-sm btn-primary btn-edit" data-site='@json($site)' aria-label="Edit {{ $site->site_name }}">
                     Edit
                 </button>
+
+                @if($site->active || $site->verified)
+                <button type="button" class="btn btn-sm btn-warning btn-feature-site"
+                        data-id="{{ $site->id }}"
+                        data-name="{{ $site->site_name }}"
+                        title="Feature this site for 7 days (€10)">
+                    <i class="fa fa-bolt"></i> Feature
+                </button>
+                <button type="button" class="btn btn-sm btn-outline-success btn-discount-site"
+                        data-id="{{ $site->id }}"
+                        data-name="{{ $site->site_name }}"
+                        data-percent="{{ $site->custom_discount_percent }}"
+                        data-ends="{{ optional($site->custom_discount_ends_at)?->toIso8601String() }}"
+                        title="Set a timed discount">
+                    <i class="fa fa-percent"></i> Discount
+                </button>
+                @if($site->hasActiveCustomDiscount())
+                <button type="button" class="btn btn-sm btn-outline-danger btn-discount-clear"
+                        data-id="{{ $site->id }}"
+                        title="End discount now">
+                    Clear
+                </button>
+                @endif
+                @if($site->joinsBulkDiscount())
+                <button type="button" class="btn btn-sm btn-outline-secondary btn-bulk-leave"
+                        data-id="{{ $site->id }}">Leave bulk</button>
+                @else
+                <button type="button" class="btn btn-sm btn-outline-success btn-bulk-join"
+                        data-id="{{ $site->id }}"
+                        data-name="{{ $site->site_name }}">Join bulk</button>
+                @endif
+                @endif
 
                 <!-- Delete button (only if pending) -->    
                 @if(!$site->verified && !$site->active)
                 <form action="{{ route('publisher.sites.destroy', $site->id) }}" method="POST" style="display:inline-block;" class="delete-form">
                     @csrf
                     @method('DELETE')
-                    <button type="button" class="btn btn-sm btn-danger btn-delete">
+                    <button type="button" class="btn btn-sm btn-danger btn-delete" aria-label="Delete {{ $site->site_name }}">
                         Delete
                     </button>
                 </form>
                 @endif
+                </div>
             </td>
         </tr>
 
@@ -424,10 +482,13 @@ $(document).ready(function(){
         $('select[name="publicationTime"]').val(site.publication_time);
         $('input[name="link_type"][value="' + site.link_type + '"]').prop('checked', true);
 
-        // Tags
-        $('input[name="sponsored"]').prop('checked', site.sponsored == 1);
-        $('input[name="partner_material"]').prop('checked', site.partner_material == 1);
-        $('input[name="as_you_prefer"]').prop('checked', site.as_you_prefer == 1);
+        // Tags (single radio on add/edit form)
+        let siteTag = '';
+        if (site.sponsored == 1) siteTag = 'sponsored';
+        else if (site.partner_material == 1) siteTag = 'partner_material';
+        else if (site.as_you_prefer == 1) siteTag = 'as_you_prefer';
+        $(`input[name="site_tag"][value="${siteTag}"]`).prop('checked', true);
+        if (!siteTag) $('#tagNone').prop('checked', true);
 
         // Sensitive topics
         if(site.sensitive_prices){

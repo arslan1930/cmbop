@@ -1,92 +1,113 @@
+@php
+    $minPublisherPrice = \App\Models\Site::query()
+        ->where('active', 1)
+        ->where(function ($q) {
+            $q->where('verified', 1)->orWhere('verified', true);
+        })
+        ->min('price');
+    $fromPrice = $minPublisherPrice
+        ? number_format(round((float) $minPublisherPrice * \App\Services\CartPricingService::PLATFORM_MARKUP_RATE, 2), 0)
+        : '50';
+@endphp
+
 <section class="py-20 bg-light">
   <div class="container py-5">
-    <div class="text-center mb-16">
-      <h2 class="h2 mb-3"><?= __('messages.pricing_title') ?></h2>
-      <p class="lead text-muted"><?= __('messages.pricing_description') ?></p>
+    <div class="text-center mb-5">
+      <h2 class="h2 mb-3">Buy placements that match your market</h2>
+      <p class="lead text-muted mb-2">Browse verified publisher sites, pick a price that fits, and checkout from your wallet.</p>
+      <p class="text-muted mb-4">Marketplace placements start from <strong style="color:#0b6266;">€{{ $fromPrice }}</strong>.</p>
+      <div class="d-flex flex-wrap justify-content-center gap-2">
+        <a href="{{ route('register') }}" class="btn btn-primary btn-lg px-4">
+          Create free account
+        </a>
+        <a href="{{ route('login') }}" class="btn btn-cta-secondary btn-lg px-4">
+          Browse after login
+        </a>
+      </div>
+      <p class="small text-muted mt-3 mb-0">New advertisers get €20 free credit for first orders (not withdrawable).</p>
     </div>
 
-    <div class="row g-4 justify-content-center">
-
-      <!-- Starter Package -->
-      <div class="col-md-4">
-        <div class="card h-100 border rounded-3 shadow-sm pricing-card" style="min-height: 520px;">
-          <div class="card-body d-flex flex-column justify-content-between text-start p-5">
-            <div>
-              <h5 class="card-title mb-4"><?= __('messages.pricing_card_1_title') ?></h5>
-              <p class="card-text mb-4"><?= __('messages.pricing_card_1_description') ?></p>
-              <div class="h3 mb-4">€499<span class="text-muted fs-6">/month</span></div>
-              <p class="fw-semibold mb-3"><?= __('messages.pricing_card_1_item_title') ?></p>
-              <ul class="list-unstyled mb-4 ps-3">
-                <li>✔ <?= __('messages.pricing_card_1_item_1') ?></li>
-                <li>✔ <?= __('messages.pricing_card_1_item_2') ?></li>
-                <li>✔ <?= __('messages.pricing_card_1_item_3') ?></li>
-              </ul>
-            </div>
-            <a href="#" class="btn btn-outline-secondary w-100 mt-4 py-2"><?= __('messages.pricing_card_1_price_button') ?></a>
-          </div>
+    <div class="pricing-managed dash-panel mx-auto mb-4" style="max-width: 920px;">
+      <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3">
+        <div>
+          <h3 class="h5 mb-1">Prefer a managed Digital PR package?</h3>
+          <p class="text-muted small mb-0">Our team can run outreach campaigns if you want hands-off delivery.</p>
         </div>
+        <a href="{{ url('/contact') }}" class="btn btn-outline-secondary">Talk to sales</a>
       </div>
-
-      <!-- Growth Package (Most Popular) -->
-      <div class="col-md-4">
-        <div class="card h-100 border" style="border-color:#4ECDCB; border-radius:1rem; box-shadow:0 0.5rem 1rem rgba(0,0,0,0.1);" class="pricing-card position-relative">
-          <!-- Most Popular Badge -->
-          <div class="position-absolute top-0 end-0 px-3 py-1 text-white" style="background-color:#4ECDCB; border-bottom-left-radius:0.5rem; border-top-right-radius:0.5rem;">Most Popular</div>
-          
-          <div class="card-body d-flex flex-column justify-content-between text-start mt-4 p-5">
-            <div>
-              <h5 class="card-title mb-4"><?= __('messages.pricing_card_2_title') ?></h5>
-              <p class="card-text mb-4"><?= __('messages.pricing_card_2_description') ?></p>
-              <div class="h3 mb-4">€1,499<span class="text-muted fs-6">/month</span></div>
-              <p class="fw-semibold mb-3"><?= __('messages.pricing_card_2_item_title') ?></p>
-              <ul class="list-unstyled mb-4 ps-3">
-                <li>✔ <?= __('messages.pricing_card_2_item_1') ?></li>
-                <li>✔ <?= __('messages.pricing_card_2_item_2') ?></li>
-                <li>✔ <?= __('messages.pricing_card_2_item_3') ?></li>
-              </ul>
-            </div>
-            <a href="#" class="btn w-100 mt-4 py-2 text-white" style="background-color:#4ECDCB; border:none;"><?= __('messages.pricing_card_2_price_button') ?></a>
-          </div>
-        </div>
-      </div>
-
-      <!-- Premium Package -->
-      <div class="col-md-4">
-        <div class="card h-100 border rounded-3 shadow-sm pricing-card" style="min-height: 520px;">
-          <div class="card-body d-flex flex-column justify-content-between text-start p-5">
-            <div>
-              <h5 class="card-title mb-4"><?= __('messages.pricing_card_3_title') ?></h5>
-              <p class="card-text mb-4"><?= __('messages.pricing_card_3_description') ?></p>
-              <div class="h3 mb-4">€2,799<span class="text-muted fs-6">/month</span></div>
-              <p class="fw-semibold mb-3"><?= __('messages.pricing_card_3_item_title') ?></p>
-              <ul class="list-unstyled mb-4 ps-3">
-                <li>✔ <?= __('messages.pricing_card_3_item_1') ?></li>
-                <li>✔ <?= __('messages.pricing_card_3_item_2') ?></li>
-                <li>✔ <?= __('messages.pricing_card_3_item_3') ?></li>
-              </ul>
-            </div>
-            <a href="#" class="btn btn-outline-secondary w-100 mt-4 py-2"><?= __('messages.pricing_card_3_price_button') ?></a>
-          </div>
-        </div>
-      </div>
-
     </div>
 
-    <div class="text-center mt-5">
-      <p class="text-muted"> {{ __('messages.tagline') }} <a href="contact-us" class="text-danger fw-bold"><?= __('messages.contact_us') ?></a></p>
+    <div class="row g-4 justify-content-center pricing-packages">
+      <div class="col-md-4">
+        <div class="card h-100 border rounded-3 shadow-sm pricing-card">
+          <div class="card-body d-flex flex-column text-start p-4">
+            <h5 class="card-title mb-2">{{ __('messages.pricing_card_1_title') }}</h5>
+            <p class="card-text text-muted small mb-3">{{ __('messages.pricing_card_1_description') }}</p>
+            <div class="h4 mb-3">€499<span class="text-muted fs-6">/mo</span></div>
+            <ul class="list-unstyled small mb-4 flex-grow-1">
+              <li class="mb-2"><i class="fa-solid fa-check text-primary me-2" aria-hidden="true"></i>{{ __('messages.pricing_card_1_item_1') }}</li>
+              <li class="mb-2"><i class="fa-solid fa-check text-primary me-2" aria-hidden="true"></i>{{ __('messages.pricing_card_1_item_2') }}</li>
+              <li class="mb-2"><i class="fa-solid fa-check text-primary me-2" aria-hidden="true"></i>{{ __('messages.pricing_card_1_item_3') }}</li>
+            </ul>
+            <a href="{{ route('register') }}" class="btn btn-cta-secondary w-100">Start with marketplace</a>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-md-4">
+        <div class="card h-100 border pricing-card position-relative" style="border-color:#4ECDCB; border-radius:1rem; box-shadow:0 0.5rem 1rem rgba(0,0,0,0.08);">
+          <div class="position-absolute top-0 end-0 px-3 py-1 text-white" style="background-color:#0b6266; border-bottom-left-radius:0.5rem; border-top-right-radius:0.5rem;">Most popular</div>
+          <div class="card-body d-flex flex-column text-start p-4 mt-3">
+            <h5 class="card-title mb-2">{{ __('messages.pricing_card_2_title') }}</h5>
+            <p class="card-text text-muted small mb-3">{{ __('messages.pricing_card_2_description') }}</p>
+            <div class="h4 mb-3">€1,499<span class="text-muted fs-6">/mo</span></div>
+            <ul class="list-unstyled small mb-4 flex-grow-1">
+              <li class="mb-2"><i class="fa-solid fa-check text-primary me-2" aria-hidden="true"></i>{{ __('messages.pricing_card_2_item_1') }}</li>
+              <li class="mb-2"><i class="fa-solid fa-check text-primary me-2" aria-hidden="true"></i>{{ __('messages.pricing_card_2_item_2') }}</li>
+              <li class="mb-2"><i class="fa-solid fa-check text-primary me-2" aria-hidden="true"></i>{{ __('messages.pricing_card_2_item_3') }}</li>
+            </ul>
+            <a href="{{ route('register') }}" class="btn btn-primary w-100">Create account</a>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-md-4">
+        <div class="card h-100 border rounded-3 shadow-sm pricing-card">
+          <div class="card-body d-flex flex-column text-start p-4">
+            <h5 class="card-title mb-2">{{ __('messages.pricing_card_3_title') }}</h5>
+            <p class="card-text text-muted small mb-3">{{ __('messages.pricing_card_3_description') }}</p>
+            <div class="h4 mb-3">€2,799<span class="text-muted fs-6">/mo</span></div>
+            <ul class="list-unstyled small mb-4 flex-grow-1">
+              <li class="mb-2"><i class="fa-solid fa-check text-primary me-2" aria-hidden="true"></i>{{ __('messages.pricing_card_3_item_1') }}</li>
+              <li class="mb-2"><i class="fa-solid fa-check text-primary me-2" aria-hidden="true"></i>{{ __('messages.pricing_card_3_item_2') }}</li>
+              <li class="mb-2"><i class="fa-solid fa-check text-primary me-2" aria-hidden="true"></i>{{ __('messages.pricing_card_3_item_3') }}</li>
+            </ul>
+            <a href="{{ url('/contact') }}" class="btn btn-cta-secondary w-100">Contact sales</a>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 
   <style>
-    /* Hover effect: scale & shadow pop */
     .pricing-card {
       transition: transform 0.3s ease, box-shadow 0.3s ease;
-      border-radius: 1rem; /* medium round border for all cards */
+      border-radius: 1rem;
     }
     .pricing-card:hover {
-      transform: scale(1.05);
-      box-shadow: 0 1rem 2rem rgba(0,0,0,0.2);
+      transform: translateY(-4px);
+      box-shadow: 0 1rem 2rem rgba(0,0,0,0.12);
       z-index: 10;
+    }
+    .pricing-managed {
+      padding: 1.25rem 1.5rem;
+      background: #fff;
+      border: 1px solid #e2e8f0;
+      border-radius: 14px;
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .pricing-card { transition: none; }
+      .pricing-card:hover { transform: none; }
     }
   </style>
 </section>

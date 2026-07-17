@@ -7,6 +7,7 @@ use App\Models\Order;
 use App\Models\OrderChatMessage;
 use App\Models\User;
 use App\Mail\NewChatMessageNotification;
+use App\Services\InAppNotificationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\DB;
@@ -26,13 +27,24 @@ class ChatController extends Controller
 
             $unreadChat = 0;
             $needsAction = 0;
+            $latestUnreadOrder = null;
 
             if ($activeRole === 'advertiser') {
                 $orderIds = Order::where('user_id', $user->id)->pluck('id');
-                $unreadChat = OrderChatMessage::whereIn('order_id', $orderIds)
+                $unreadQuery = OrderChatMessage::whereIn('order_id', $orderIds)
                     ->where('sender_type', 'publisher')
-                    ->where('is_read', false)
-                    ->count();
+                    ->where('is_read', false);
+                $unreadChat = (clone $unreadQuery)->count();
+                $latestUnread = (clone $unreadQuery)->orderByDesc('created_at')->first();
+                if ($latestUnread) {
+                    $order = Order::find($latestUnread->order_id);
+                    if ($order) {
+                        $latestUnreadOrder = [
+                            'id' => $order->id,
+                            'order_number' => $order->order_number,
+                        ];
+                    }
+                }
                 $needsAction = Order::where('user_id', $user->id)
                     ->where('status', 'review')
                     ->whereHas('items', function ($q) {
@@ -43,10 +55,20 @@ class ChatController extends Controller
                 $orderIds = Order::whereHas('items.site', function ($q) use ($user) {
                     $q->where('publisher_id', $user->id);
                 })->pluck('id');
-                $unreadChat = OrderChatMessage::whereIn('order_id', $orderIds)
+                $unreadQuery = OrderChatMessage::whereIn('order_id', $orderIds)
                     ->where('sender_type', 'advertiser')
-                    ->where('is_read', false)
-                    ->count();
+                    ->where('is_read', false);
+                $unreadChat = (clone $unreadQuery)->count();
+                $latestUnread = (clone $unreadQuery)->orderByDesc('created_at')->first();
+                if ($latestUnread) {
+                    $order = Order::find($latestUnread->order_id);
+                    if ($order) {
+                        $latestUnreadOrder = [
+                            'id' => $order->id,
+                            'order_number' => $order->order_number,
+                        ];
+                    }
+                }
 
                 $publisherItems = \App\Models\OrderItem::whereHas('site', function ($q) use ($user) {
                     $q->where('publisher_id', $user->id);
@@ -72,6 +94,7 @@ class ChatController extends Controller
                 'success' => true,
                 'unread_chat' => $unreadChat,
                 'needs_action' => $needsAction,
+                'latest_unread_order' => $latestUnreadOrder,
                 'role' => $activeRole,
             ]);
         } catch (\Exception $e) {
@@ -119,11 +142,14 @@ class ChatController extends Controller
                     ->where('is_read', false)
                     ->update(['is_read' => true, 'read_at' => now()]);
             }
+
+            $order->loadMissing(['items.site']);
             
             return response()->json([
                 'success' => true,
                 'messages' => $messages,
-                'current_user_id' => $user->id
+                'current_user_id' => $user->id,
+                'order_details' => $this->buildOrderChatDetails($order),
             ]);
             
         } catch (\Exception $e) {
@@ -170,6 +196,7 @@ class ChatController extends Controller
             ]);
             
             // Send email notification
+            $receiver = null;
             if ($isAdvertiser) {
                 // Message from advertiser to publisher
                 $site = $order->items()->first()->site;
@@ -193,6 +220,16 @@ class ChatController extends Controller
             
             DB::commit();
             $message->load('user');
+
+            // In-app notification only (email flow above is unchanged)
+            if ($receiver) {
+                app(InAppNotificationService::class)->notifyNewChatMessage(
+                    $order,
+                    $user,
+                    $receiver,
+                    (string) $request->message
+                );
+            }
             
             return response()->json([
                 'success' => true,
@@ -208,5 +245,36 @@ class ChatController extends Controller
                 'message' => 'Failed to send message: ' . $e->getMessage()
             ], 500);
         }
+    }
+
+    /**
+     * Compact order/site context shown above the chat thread.
+     */
+    private function buildOrderChatDetails(Order $order): array
+    {
+        $item = $order->items->first();
+        $site = $item?->site;
+
+        $linkType = $site?->link_type
+            ?? ($item ? 'dofollow' : null);
+        $dfLinks = $linkType === 'dofollow' ? 1 : ($linkType === 'nofollow' ? 0 : null);
+
+        $startedAt = $order->paid_at ?? $order->created_at;
+
+        return [
+            'order_number' => $order->order_number,
+            'status' => $order->status,
+            'website_name' => $item?->site_name ?: ($site?->site_name ?: '—'),
+            'website_url' => $item?->site_url ?: ($site?->site_url ?: null),
+            'order_date' => optional($order->created_at)?->toIso8601String(),
+            'started_at' => optional($startedAt)?->toIso8601String(),
+            'link_type' => $linkType,
+            'df_links' => $dfLinks,
+            'da' => $site?->da,
+            'dr' => $site?->dr,
+            'sensitive_type' => $item?->sensitive_type,
+            'content_link' => $item?->content_link,
+            'live_url' => $item?->live_url,
+        ];
     }
 }

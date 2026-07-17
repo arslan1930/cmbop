@@ -33,6 +33,7 @@ class ChatUnreadSummaryTest extends TestCase
                 'success' => true,
                 'unread_chat' => 0,
                 'needs_action' => 0,
+                'latest_unread_order' => null,
             ]);
     }
 }

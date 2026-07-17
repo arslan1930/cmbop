@@ -4,6 +4,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 
@@ -21,7 +22,16 @@ class OrderItem extends Model
         'site_name', 
         'site_url', 
         'price', 
-        'content_link', 
+        'content_link',
+        'content_submission_id',
+        'content_disk',
+        'content_path',
+        'content_original_name',
+        'content_mime',
+        'anchor_text',
+        'target_url',
+        'feature_image_url',
+        'moderation_status',
         'live_url',
         'live_url_submitted_at',  
         'sensitive_type',
@@ -59,6 +69,11 @@ class OrderItem extends Model
     public function site()
     {
         return $this->belongsTo(Site::class);
+    }
+
+    public function contentSubmission(): BelongsTo
+    {
+        return $this->belongsTo(ContentSubmission::class);
     }
     
     /**

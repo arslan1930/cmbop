@@ -17,7 +17,7 @@
             <div class="col-md-3">
                 <a href="{{ $currentLocale == 'en' ? url('/') : url('/' . $currentLocale) }}">
                     <img src="{{ asset('assets/img/logo1.png') }}" 
-                         alt="SEO Link Buildings Logo" 
+                         alt="SEOLinkBuildings" 
                          style="max-width: 200px;">
                 </a>
                 <p class="mt-3 small">
@@ -50,6 +50,8 @@
                 <h5 class="mb-3">{{ __('messages.company') }}</h5>
                 <ul class="list-unstyled small">
                     <li><a href="{{ $currentLocale == 'en' ? url('contact') : url('/' . $currentLocale . '/contact') }}" class="text-dark text-decoration-none d-block mb-2">{{ __('messages.contact') }}</a></li>
+                    <li><button type="button" class="btn btn-link text-dark text-decoration-none d-block mb-2 p-0 small" onclick="document.getElementById('helpFeedbackToggle')?.click()">Report a problem</button></li>
+                    <li><button type="button" class="btn btn-link text-dark text-decoration-none d-block mb-2 p-0 small" onclick="document.getElementById('helpFeedbackToggle')?.click()">Suggestion box</button></li>
                     <!-- <li><a href="{{ $currentLocale == 'en' ? url('blog') : url('/' . $currentLocale . '/blog') }}" class="text-dark text-decoration-none d-block mb-2">{{ __('messages.blog') }}</a></li> -->
                     <li><a href="{{ $currentLocale == 'en' ? url('privacy-policy') : url('/' . $currentLocale . '/privacy-policy') }}" class="text-dark text-decoration-none d-block mb-2">{{ __('messages.privacy_policy') }}</a></li>
                     <li><a href="{{ $currentLocale == 'en' ? url('terms-of-services') : url('/' . $currentLocale . '/terms-of-services') }}" class="text-dark text-decoration-none d-block mb-2">{{ __('messages.terms_of_service') }}</a></li>

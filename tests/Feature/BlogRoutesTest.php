@@ -33,7 +33,7 @@ class BlogRoutesTest extends TestCase
             'created_by' => $author->id,
         ]);
 
-        $this->get(route('blog.show', $blog->slug))
+        $this->get(route('blog.show', ['slug' => $blog->slug]))
             ->assertOk()
             ->assertViewIs('pages.blog-single')
             ->assertSee('Test Post');
@@ -53,11 +53,11 @@ class BlogRoutesTest extends TestCase
             'created_by' => $author->id,
         ]);
 
-        $this->get(route('blog.show', 'draft-post'))->assertNotFound();
+        $this->get(route('blog.show', ['slug' => 'draft-post']))->assertNotFound();
     }
 
     public function test_blog_show_returns_404_for_unknown_slug(): void
     {
-        $this->get(route('blog.show', 'missing-'.Str::random(8)))->assertNotFound();
+        $this->get(route('blog.show', ['slug' => 'missing-'.Str::random(8)]))->assertNotFound();
     }
 }

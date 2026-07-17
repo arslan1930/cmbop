@@ -275,67 +275,27 @@
 }
 
 .publisher-reports-container .publisher-reports-tabs .nav-link:hover {
-    color: #3b82f6;
+    color: #0b6266;
     background: transparent;
 }
 
 .publisher-reports-container .publisher-reports-tabs .nav-link.active {
-    color: #3b82f6;
-    border-bottom: 2px solid #3b82f6;
+    color: #0b6266;
+    border-bottom: 2px solid #0b6266;
     background: transparent;
 }
 
 /* Dark mode styles */
-body.layout-dark .publisher-reports-container .card-header {
-    border-bottom-color: #333;
-}
 
-body.layout-dark .publisher-reports-container .publisher-reports-tabs {
-    background: #1e1e2f;
-    border-bottom-color: #333;
-}
 
-body.layout-dark .publisher-reports-container .publisher-reports-tabs .nav-link {
-    color: #aaa;
-}
 
-body.layout-dark .publisher-reports-container .publisher-reports-tabs .nav-link.active {
-    color: #4ECDCB;
-    border-bottom-color: #4ECDCB;
-}
 
-body.layout-dark .publisher-reports-container .status-pending {
-    background-color: #4a3a1e;
-    color: #fbbf24;
-}
 
-body.layout-dark .publisher-reports-container .status-processing {
-    background-color: #1e3a5f;
-    color: #60a5fa;
-}
 
-body.layout-dark .publisher-reports-container .status-completed {
-    background-color: #1e5a2e;
-    color: #4ade80;
-}
 
-body.layout-dark .publisher-reports-container .status-cancelled {
-    background-color: #5a1e1e;
-    color: #f87171;
-}
 
-body.layout-dark .publisher-reports-container .sensitive-badge {
-    background-color: #4a3a1e;
-    color: #fbbf24;
-}
 
-body.layout-dark .publisher-reports-container .earned-amount {
-    color: #4ade80;
-}
 
-body.layout-dark .publisher-reports-container .withdrawn-amount {
-    color: #f87171;
-}
 </style>
 
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>

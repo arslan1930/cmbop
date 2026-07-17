@@ -4,12 +4,17 @@
 
       <div class="row align-items-center">
 
-        <!-- Left: Image -->
+        {{-- Icon panel instead of stock photo (TR3) --}}
         <div class="col-lg-5 mb-4 mb-lg-0">
-          <img src="{{ asset('assets/img/cta-newsletter.png') }}" 
-               alt="{{ __('messages.newsletter_image_alt') }}" 
-               class="img-fluid rounded" 
-               loading="lazy">
+          <div class="newsletter-proof">
+            <div class="newsletter-proof-icon" aria-hidden="true">
+              <i class="fa-solid fa-envelope-open-text"></i>
+            </div>
+            <h4 class="h5 mb-2" style="color:#0b6266;">Stay ahead of new markets</h4>
+            <p class="text-muted small mb-0">
+              Product updates and placement tips from the SEOLinkBuildings marketplace — no stock-photo fluff.
+            </p>
+          </div>
         </div>
 
         <!-- Right: Content -->
@@ -29,9 +34,10 @@
                      name="email"
                      placeholder="{{ __('messages.newsletter_email_placeholder') }}"
                      class="form-control me-sm-2"
-                     required>
+                     required
+                     aria-label="Email for newsletter">
 
-              <button type="submit" id="newsletterSubmitBtn" class="btn" style="background-color: #4ECDCB; color: white; border: none; padding: 0.5rem 1rem; border-radius: 0.375rem;">
+              <button type="submit" id="newsletterSubmitBtn" class="btn btn-primary">
                 {{ __('messages.newsletter_subscribe_btn') }}
               </button>
             </div>
@@ -70,6 +76,29 @@
     </div>
   </div>
 </section>
+
+<style>
+.newsletter-proof {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 1rem 0.5rem;
+}
+.newsletter-proof-icon {
+  width: 72px;
+  height: 72px;
+  border-radius: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(180deg, #e8f8f7 0%, #d4f1f0 100%);
+  color: #0b6266;
+  font-size: 1.75rem;
+  border: 1px solid rgba(11, 98, 102, 0.12);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.75);
+}
+</style>
 
 <script>
 document.getElementById('newsletterForm').addEventListener('submit', async function(e) {

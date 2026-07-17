@@ -3,22 +3,19 @@
 
 namespace App\Mail;
 
-use Illuminate\Bus\Queueable;
-use Illuminate\Mail\Mailable;
-use Illuminate\Queue\SerializesModels;
 use App\Models\Site;
 use App\Models\Country;
 use App\Models\Language;
 
-class NewSiteNotification extends Mailable
+class NewSiteNotification extends PlatformMailable
 {
-    use Queueable, SerializesModels;
     
     public $site;
     public $action;
     
     public function __construct(Site $site, $action = 'create')
     {
+        parent::__construct();
         $this->site = $site;
         $this->action = $action;
     }

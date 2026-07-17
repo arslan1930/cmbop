@@ -21,6 +21,11 @@ class Order extends Model
         'payment_method', 
         'payment_status', 
         'status',
+        'publication_mode',
+        'scheduled_publish_at',
+        'schedule_timezone',
+        'schedule_released_at',
+        'schedule_reminder_sent_at',
         'sensitive_type',
         'additional_price',
         'last_chat_message',     // Add this
@@ -30,6 +35,9 @@ class Order extends Model
     protected $casts = [
         'stripe_response' => 'array',
         'paid_at' => 'datetime',
+        'scheduled_publish_at' => 'datetime',
+        'schedule_released_at' => 'datetime',
+        'schedule_reminder_sent_at' => 'datetime',
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
         'additional_price' => 'decimal:2',
@@ -38,6 +46,11 @@ class Order extends Model
         'total_amount' => 'decimal:2',
         'last_chat_at' => 'datetime'  // Add this
     ];
+
+    public function isScheduled(): bool
+    {
+        return $this->status === 'scheduled' || $this->publication_mode === 'scheduled';
+    }
 
     public function user()
     {

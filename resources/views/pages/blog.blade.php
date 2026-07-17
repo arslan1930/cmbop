@@ -1,5 +1,8 @@
 @extends('layouts.app')
 
+@section('title', 'Blog & Articles — SEOLinkBuildings')
+@section('description', 'Insights on link building, digital PR, and content marketing from the SEOLinkBuildings team.')
+
 @section('content')
 
 <!-- ==================== BLOG HERO ==================== -->
@@ -122,14 +125,14 @@
                                                         </small>
                                                     </div>
                                                     <h3 class="card-title h4 mb-3">
-                                                        <a href="{{ route('blog.show', $post->slug) }}" class="text-decoration-none" style="color:#1a1a2e; font-weight:700;">
+                                                        <a href="{{ route('blog.show', ['slug' => $post->slug]) }}" class="text-decoration-none" style="color:#1a1a2e; font-weight:700;">
                                                             {{ $post->title }}
                                                         </a>
                                                     </h3>
                                                     <p class="card-text text-muted" style="line-height:1.7;">
                                                         {{ Str::limit(strip_tags($post->content), 120) }}
                                                     </p>
-                                                    <a href="{{ route('blog.show', $post->slug) }}" class="btn btn-link text-decoration-none p-0" style="color:#4ECDCB; font-weight:600;">
+                                                    <a href="{{ route('blog.show', ['slug' => $post->slug]) }}" class="btn btn-link text-decoration-none p-0" style="color:#4ECDCB; font-weight:600;">
                                                         Read More <i class="fa fa-arrow-right ms-1"></i>
                                                     </a>
                                                 </div>
@@ -146,14 +149,14 @@
                                                         </small>
                                                     </div>
                                                     <h3 class="card-title h4 mb-3">
-                                                        <a href="{{ route('blog.show', $post->slug) }}" class="text-decoration-none" style="color:#1a1a2e; font-weight:700;">
+                                                        <a href="{{ route('blog.show', ['slug' => $post->slug]) }}" class="text-decoration-none" style="color:#1a1a2e; font-weight:700;">
                                                             {{ $post->title }}
                                                         </a>
                                                     </h3>
                                                     <p class="card-text text-muted" style="line-height:1.7;">
                                                         {{ Str::limit(strip_tags($post->content), 150) }}
                                                     </p>
-                                                    <a href="{{ route('blog.show', $post->slug) }}" class="btn btn-link text-decoration-none p-0" style="color:#4ECDCB; font-weight:600;">
+                                                    <a href="{{ route('blog.show', ['slug' => $post->slug]) }}" class="btn btn-link text-decoration-none p-0" style="color:#4ECDCB; font-weight:600;">
                                                         Read More <i class="fa fa-arrow-right ms-1"></i>
                                                     </a>
                                                 </div>
@@ -193,7 +196,7 @@
                             <i class="fa fa-clock-o me-2" style="color:#4ECDCB;"></i> Recent Posts
                         </h3>
                         @foreach($recentPosts as $recent)
-                            <a href="{{ route('blog.show', $recent->slug) }}" class="text-decoration-none d-block mb-3">
+                            <a href="{{ route('blog.show', ['slug' => $recent->slug]) }}" class="text-decoration-none d-block mb-3">
                                 <div class="d-flex gap-3 align-items-start">
                                     @if($recent->featured_image)
                                         <img src="{{ Storage::url($recent->featured_image) }}" 

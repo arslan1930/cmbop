@@ -3,13 +3,9 @@
 
 namespace App\Mail;
 
-use Illuminate\Bus\Queueable;
-use Illuminate\Mail\Mailable;
-use Illuminate\Queue\SerializesModels;
 
-class WithdrawalRequestNotification extends Mailable
+class WithdrawalRequestNotification extends PlatformMailable
 {
-    use Queueable, SerializesModels;
 
     public $withdrawal;
     public $user;
@@ -17,6 +13,7 @@ class WithdrawalRequestNotification extends Mailable
 
     public function __construct($withdrawal, $user)
     {
+        parent::__construct();
         $this->withdrawal = $withdrawal;
         $this->user = $user;
         $this->platformChargePercent = (float) config('billing.withdrawal_fee_percent', 0);

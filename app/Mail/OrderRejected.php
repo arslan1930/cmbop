@@ -5,13 +5,9 @@ namespace App\Mail;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Site;
-use Illuminate\Bus\Queueable;
-use Illuminate\Mail\Mailable;
-use Illuminate\Queue\SerializesModels;
 
-class OrderRejected extends Mailable
+class OrderRejected extends PlatformMailable
 {
-    use Queueable, SerializesModels;
 
     public $order;
     public $orderItem;
@@ -20,6 +16,7 @@ class OrderRejected extends Mailable
 
     public function __construct(Order $order, OrderItem $orderItem, Site $site, $reason)
     {
+        parent::__construct();
         $this->order = $order;
         $this->orderItem = $orderItem;
         $this->site = $site;

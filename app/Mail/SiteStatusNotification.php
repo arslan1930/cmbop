@@ -2,14 +2,10 @@
 
 namespace App\Mail;
 
-use Illuminate\Bus\Queueable;
-use Illuminate\Mail\Mailable;
-use Illuminate\Queue\SerializesModels;
 use App\Models\Site;
 
-class SiteStatusNotification extends Mailable
+class SiteStatusNotification extends PlatformMailable
 {
-    use Queueable, SerializesModels;
     
     public $site;
     public $action;
@@ -17,6 +13,7 @@ class SiteStatusNotification extends Mailable
     
     public function __construct(Site $site, $action, $oldData = null)
     {
+        parent::__construct();
         $this->site = $site;
         $this->action = $action;
         $this->oldData = $oldData;
