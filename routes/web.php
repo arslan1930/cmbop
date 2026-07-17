@@ -110,14 +110,14 @@ Route::group(['prefix' => '{locale?}', 'where' => ['locale' => 'de|fr|nl']], fun
         ->middleware('throttle:10,1')
         ->name('newsletter.subscribe');
 
-    // Blog routes
-    Route::get('/blog', [BlogController::class, 'index'])->name('blog.index');
-    Route::get('/blog/{slug}', [BlogController::class, 'show'])->name('blog.show');
+    // Localized blog URLs (canonical names live on the non-prefixed routes below)
+    Route::get('/blog', [BlogController::class, 'index'])->name('locale.blog.index');
+    Route::get('/blog/{slug}', [BlogController::class, 'show'])->name('locale.blog.show');
 
-    // Auth routes (GET only)
+    // Localized auth pages (canonical login/register names are on the non-prefixed routes)
     Route::middleware('guest')->group(function () {
-        Route::get('/login', [LoginController::class, 'show'])->name('login');
-        Route::get('/register', [RegisterController::class, 'show'])->name('register');
+        Route::get('/login', [LoginController::class, 'show'])->name('locale.login');
+        Route::get('/register', [RegisterController::class, 'show'])->name('locale.register');
     });
 });
 
