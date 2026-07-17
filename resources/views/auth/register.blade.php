@@ -265,7 +265,12 @@ document.getElementById('registerForm').addEventListener('submit', async functio
         toast.className = 'toast align-items-center text-white border-0 bg-' + type;
         toast.innerHTML = `<div class="d-flex"><div class="toast-body">${message}</div><button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button></div>`;
         toastContainer.appendChild(toast);
-        new bootstrap.Toast(toast, { delay: 6000 }).show();
+        if (window.bootstrap && bootstrap.Toast) {
+            new bootstrap.Toast(toast, { delay: 6000 }).show();
+        } else {
+            toast.classList.add('show');
+            setTimeout(() => toast.remove(), 6000);
+        }
     };
 
     const role = document.getElementById('roleInput').value;

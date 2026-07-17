@@ -6,9 +6,12 @@ use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Models\Role;
 use App\Models\UserConsent;
+use App\Models\Wallet;
+use App\Services\Wallet\WalletLedgerService;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Laravel\Socialite\Facades\Socialite;
 
@@ -83,56 +86,45 @@ class SocialiteController extends Controller
             $user->roles()->sync([$advertiserRole->id, $publisherRole->id]);
 
             $welcomeBonus = 20.00;
-            $wallets = [
-                [
-                    'user_id' => $user->id,
-                    'role_id' => $advertiserRole->id,
-                    'balance' => $welcomeBonus,
-                    'reserved_balance' => 0.00,
-                    'bonus_balance' => $welcomeBonus,
-                    'bonus_reserved' => 0.00,
-                    'currency' => 'EUR',
-                    'created_at' => now(),
-                    'updated_at' => now(),
-                ],
-                [
-                    'user_id' => $user->id,
-                    'role_id' => $publisherRole->id,
-                    'balance' => 0.00,
-                    'reserved_balance' => 0.00,
-                    'bonus_balance' => 0.00,
-                    'bonus_reserved' => 0.00,
-                    'currency' => 'EUR',
-                    'created_at' => now(),
-                    'updated_at' => now(),
-                ],
-            ];
+            Wallet::insertRegistrationPair(
+                $user->id,
+                $advertiserRole->id,
+                $publisherRole->id,
+                $welcomeBonus
+            );
 
-            DB::table('wallets')->insert($wallets);
-
-            $advertiserWallet = \App\Models\Wallet::where('user_id', $user->id)
-                ->where('role_id', $advertiserRole->id)
-                ->first();
-            if ($advertiserWallet && $welcomeBonus > 0) {
-                app(\App\Services\Wallet\WalletLedgerService::class)->recordBonusCredit(
-                    $advertiserWallet,
-                    (float) $welcomeBonus,
-                    'Welcome promotional bonus',
-                    ['source' => 'socialite']
-                );
+            if (Schema::hasTable('user_consents')) {
+                UserConsent::create([
+                    'user_id' => $user->id,
+                    'terms_accepted' => true,
+                    'marketing_consent' => false,
+                    'newsletter_consent' => false,
+                    'consented_at' => now(),
+                    'ip_address' => request()->ip(),
+                    'user_agent' => request()->userAgent(),
+                ]);
             }
 
-            UserConsent::create([
-                'user_id' => $user->id,
-                'terms_accepted' => true,
-                'marketing_consent' => false,
-                'newsletter_consent' => false,
-                'consented_at' => now(),
-                'ip_address' => request()->ip(),
-                'user_agent' => request()->userAgent(),
-            ]);
-
             DB::commit();
+
+            try {
+                $advertiserWallet = Wallet::where('user_id', $user->id)
+                    ->where('role_id', $advertiserRole->id)
+                    ->first();
+                if ($advertiserWallet && $welcomeBonus > 0) {
+                    app(WalletLedgerService::class)->recordBonusCredit(
+                        $advertiserWallet,
+                        (float) $welcomeBonus,
+                        'Welcome promotional bonus',
+                        ['source' => 'socialite']
+                    );
+                }
+            } catch (\Throwable $e) {
+                Log::warning('Welcome bonus ledger write failed during Google signup', [
+                    'user_id' => $user->id,
+                    'error' => $e->getMessage(),
+                ]);
+            }
 
             Auth::login($user);
 

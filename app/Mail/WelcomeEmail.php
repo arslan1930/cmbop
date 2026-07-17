@@ -15,15 +15,19 @@ class WelcomeEmail extends PlatformMailable
 
     public function build()
     {
-        return $this->subject('Welcome to ' . config('app.name', 'SEOLinkBuildings'))
+        $needsVerification = ! $this->user->hasVerifiedEmail();
+
+        return $this->subject('Welcome to '.config('app.name', 'SEOLinkBuildings'))
             ->markdown('emails.welcome')
             ->with([
                 'user' => $this->user,
                 'firstName' => $this->firstName($this->user),
                 'catalogUrl' => url('/advertiser/catalog'),
                 'dashboardUrl' => url('/advertiser/dashboard'),
-                'ctaUrl' => url('/advertiser/catalog'),
-                'ctaLabel' => 'Browse Websites',
+                'ctaUrl' => $needsVerification ? url('/email/verify') : url('/advertiser/catalog'),
+                'ctaLabel' => $needsVerification ? 'Verify your email' : 'Browse Websites',
+                'needsVerification' => $needsVerification,
+                'loginUrl' => url('/login'),
                 'brand' => $this->brand(),
             ]);
     }

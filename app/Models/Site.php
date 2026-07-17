@@ -4,6 +4,9 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 class Site extends Model
 {
@@ -130,6 +133,27 @@ class Site extends Model
         return $count.' completed '.($count === 1 ? 'order' : 'orders');
     }
 
+    /**
+     * Completion rate among terminal orders (completed vs cancelled).
+     * Returns null when there is no history yet.
+     */
+    public function completionRatePercent(): ?int
+    {
+        $completed = (int) ($this->completed_orders_count ?? 0);
+        $cancelled = (int) ($this->cancelled_orders_count
+            ?? OrderItem::query()
+                ->where('site_id', $this->id)
+                ->whereHas('order', fn ($q) => $q->where('status', 'cancelled'))
+                ->count());
+
+        $total = $completed + $cancelled;
+        if ($total < 1) {
+            return null;
+        }
+
+        return (int) round(($completed / $total) * 100);
+    }
+
     public static function refreshCompletedOrdersCount(int $siteId): void
     {
         $count = OrderItem::query()
@@ -146,11 +170,19 @@ class Site extends Model
 
     public function isFeatured(): bool
     {
+        if (! static::hasSitesColumn('featured_until')) {
+            return false;
+        }
+
         return $this->featured_until !== null && $this->featured_until->isFuture();
     }
 
     public function hasActiveCustomDiscount(): bool
     {
+        if (! static::hasSitesColumn('custom_discount_percent')) {
+            return false;
+        }
+
         if (! $this->custom_discount_percent || ! $this->custom_discount_ends_at) {
             return false;
         }
@@ -169,6 +201,10 @@ class Site extends Model
 
     public function joinsBulkDiscount(): bool
     {
+        if (! static::hasSitesColumn('bulk_discount_enabled')) {
+            return false;
+        }
+
         return (bool) $this->bulk_discount_enabled
             && $this->bulk_discount_percent !== null
             && (float) $this->bulk_discount_percent > 0;
@@ -486,6 +522,92 @@ class Site extends Model
     public function scopeForPublisher(Builder $query, int $publisherId): Builder
     {
         return $query->where('publisher_id', $publisherId);
+    }
+
+    /**
+     * Assign listing attributes only when the DB column exists.
+     * Fits legacy `category` VARCHAR(50) by storing a short primary value
+     * while keeping the full list in `categories` when available.
+     *
+     * @param  array<string, mixed>  $attributes
+     */
+    public function applyMarketplaceListing(array $attributes): void
+    {
+        $categories = $attributes['categories'] ?? null;
+        if (array_key_exists('category', $attributes)) {
+            $attributes['category'] = static::fitCategoryColumn(
+                (string) $attributes['category'],
+                is_array($categories) ? $categories : null
+            );
+        }
+
+        foreach ($attributes as $column => $value) {
+            if (! static::hasSitesColumn($column)) {
+                continue;
+            }
+            $this->{$column} = $value;
+        }
+    }
+
+    /**
+     * Value safe for sites.category when the column is still VARCHAR(50).
+     *
+     * @param  list<string>|null  $categoryList
+     */
+    public static function fitCategoryColumn(string $primaryCategory, ?array $categoryList = null): string
+    {
+        $max = static::categoryColumnMaxLength();
+        if ($max === null || strlen($primaryCategory) <= $max) {
+            return $primaryCategory;
+        }
+
+        foreach ($categoryList ?? [] as $name) {
+            $name = trim((string) $name);
+            if ($name !== '' && strlen($name) <= $max) {
+                return $name;
+            }
+        }
+
+        return substr($primaryCategory, 0, $max);
+    }
+
+    public static function hasSitesColumn(string $column): bool
+    {
+        return Schema::hasColumn((new static)->getTable(), $column);
+    }
+
+    /**
+     * Forget cached category column metadata (tests / after schema changes).
+     */
+    public static function flushSchemaColumnCache(): void
+    {
+        Cache::forget('sites_category_column_max_length');
+    }
+
+    /**
+     * Max length for sites.category, or null when TEXT/unlimited.
+     */
+    public static function categoryColumnMaxLength(): ?int
+    {
+        return Cache::remember('sites_category_column_max_length', 300, function () {
+            try {
+                $driver = Schema::getConnection()->getDriverName();
+                if ($driver === 'mysql' || $driver === 'mariadb') {
+                    $row = DB::selectOne("SHOW COLUMNS FROM `sites` WHERE Field = 'category'");
+                    $type = strtolower((string) ($row->Type ?? ''));
+                    if (preg_match('/^(var)?char\((\d+)\)$/', $type, $m)) {
+                        return (int) $m[2];
+                    }
+
+                    return null; // text / mediumtext / longtext
+                }
+
+                // SQLite / others: treat as unlimited for marketplace listings
+                return null;
+            } catch (\Throwable) {
+                return 50; // conservative fallback for unknown/legacy schemas
+            }
+        });
     }
 
     /**

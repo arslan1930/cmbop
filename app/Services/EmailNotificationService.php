@@ -48,10 +48,17 @@ class EmailNotificationService
 
         $fallback = config('mail.admin_email') ?: config('email_notifications.brand.support_email');
         if ($this->adminUsers()->isEmpty() && filled($fallback)) {
-            $mailable = new AdminNewUserRegistered($user, null);
-            $mailable->notificationType = 'admin_new_user';
-            $mailable->dedupeKey = 'admin_new_user:' . $user->id . ':fallback';
-            Mail::to($fallback)->send($mailable);
+            try {
+                $mailable = new AdminNewUserRegistered($user, null);
+                $mailable->notificationType = 'admin_new_user';
+                $mailable->dedupeKey = 'admin_new_user:' . $user->id . ':fallback';
+                Mail::to($fallback)->send($mailable);
+            } catch (\Throwable $e) {
+                Log::warning('Fallback admin new-user email failed', [
+                    'user_id' => $user->id,
+                    'error' => $e->getMessage(),
+                ]);
+            }
         }
     }
 

@@ -69,6 +69,14 @@ return [
             'default_enabled' => true,
             'framework' => true,
         ],
+        'email_verification' => [
+            'name' => 'Email Verification',
+            'audience' => 'user',
+            'preference' => 'security_alerts',
+            'mailable' => null,
+            'default_enabled' => true,
+            'framework' => true,
+        ],
 
         // —— Order lifecycle (fan-out to Advertiser, Publisher, Marketing, Admin) ——
         'order_status_changed' => [

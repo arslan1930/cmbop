@@ -654,22 +654,53 @@ class OrderController extends Controller
             // Update order status back to 'review'
             $order = Order::find($orderItem->order_id);
             $order->update([
-                'status' => 'review'
+                'status' => 'review',
             ]);
-            
+
             DB::commit();
-            
+
+            $order = $order->fresh(['user', 'items']);
+            $orderItem = $orderItem->fresh();
+
+            try {
+                $advertiser = User::find($order->user_id);
+                if ($advertiser?->email) {
+                    Mail::to($advertiser->email)->send(
+                        new LiveUrlSubmitted($order, $orderItem, $site, $request->live_url)
+                    );
+                }
+            } catch (\Throwable $e) {
+                Log::warning('Failed to send live URL resubmit email', [
+                    'order_id' => $order->id,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+
+            try {
+                app(InAppNotificationService::class)->notifyLiveUrlSubmitted(
+                    $order,
+                    $orderItem,
+                    $site,
+                    $request->live_url
+                );
+            } catch (\Throwable $e) {
+                Log::warning('Failed to create live URL resubmit in-app notification', [
+                    'order_id' => $order->id,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+
             return response()->json([
                 'success' => true,
-                'message' => 'Live URL resubmitted successfully!'
+                'message' => 'Live URL resubmitted successfully!',
             ]);
-            
         } catch (\Exception $e) {
             DB::rollBack();
-            Log::error('Error resubmitting: ' . $e->getMessage());
+            Log::error('Error resubmitting: '.$e->getMessage());
+
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to resubmit: ' . $e->getMessage()
+                'message' => 'Failed to resubmit: '.$e->getMessage(),
             ], 500);
         }
     }

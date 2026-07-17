@@ -170,44 +170,46 @@ class SiteController extends Controller
             DB::transaction(function () use ($request, $domain, $cleanDescription, $categoriesArray, $primaryCategory, $countryCodes, $languageCodes, &$site) {
                 $site = new Site();
 
-                $site->publisher_id = auth()->id();
-                $site->site_name = $request->siteName;
-                $site->site_url = $request->siteUrl;
-                $site->domain = $domain;
-                $site->example_url = $request->exampleUrl;
-                // Manual publisher metrics — never auto-fetched/overwritten
-                $site->da = (int) $request->da;
-                $site->dr = (int) $request->dr;
-                $site->traffic = (int) $request->traffic;
-                $site->metrics_manual = true;
-                $site->metrics_provider = 'manual';
-                $site->metrics_fetched_at = now();
-                $site->country = $countryCodes[0];
-                $site->countries = $countryCodes;
-                $site->language = $languageCodes[0];
-                $site->languages = $languageCodes;
-                $site->category = $primaryCategory;
-                $site->categories = $categoriesArray;
-                $site->price = $request->price;
-                $site->turnaround_time = $request->turnaround_time;
-                $site->publication_time = $request->publicationTime;
-                $site->link_type = $request->link_type;
-
-                $this->applySiteTag($site, $request);
-
-                $site->description = $cleanDescription;
-                $site->verified = false;
-                $site->active = false;
-                $site->enrichment_status = 'pending';
-
                 $sensitivePrices = [];
                 foreach (['crypto', 'trading', 'CBD', 'forex'] as $topic) {
                     if ($request->input("sensitive.$topic")) {
                         $sensitivePrices[$topic] = $request->input("price_sensitive.$topic");
                     }
                 }
-                // Model casts sensitive_prices as array — do not json_encode here
-                $site->sensitive_prices = ! empty($sensitivePrices) ? $sensitivePrices : null;
+
+                // Manual publisher metrics — never auto-fetched/overwritten.
+                // applyMarketplaceListing skips columns missing on older Hostinger DBs
+                // and fits legacy category VARCHAR(50) when multi-category strings are long.
+                $site->applyMarketplaceListing([
+                    'publisher_id' => auth()->id(),
+                    'site_name' => $request->siteName,
+                    'site_url' => $request->siteUrl,
+                    'domain' => $domain,
+                    'example_url' => $request->exampleUrl,
+                    'da' => (int) $request->da,
+                    'dr' => (int) $request->dr,
+                    'traffic' => (int) $request->traffic,
+                    'metrics_manual' => true,
+                    'metrics_provider' => 'manual',
+                    'metrics_fetched_at' => now(),
+                    'country' => $countryCodes[0],
+                    'countries' => $countryCodes,
+                    'language' => $languageCodes[0],
+                    'languages' => $languageCodes,
+                    'category' => $primaryCategory,
+                    'categories' => $categoriesArray,
+                    'price' => $request->price,
+                    'turnaround_time' => $request->turnaround_time,
+                    'publication_time' => $request->publicationTime,
+                    'link_type' => $request->link_type,
+                    'description' => $cleanDescription,
+                    'verified' => false,
+                    'active' => false,
+                    'enrichment_status' => 'pending',
+                    'sensitive_prices' => ! empty($sensitivePrices) ? $sensitivePrices : null,
+                ]);
+
+                $this->applySiteTag($site, $request);
 
                 $site->save();
             });
@@ -218,8 +220,13 @@ class SiteController extends Controller
                 'error' => $e->getMessage(),
             ]);
 
+            $hint = 'We could not save this website. Please check your details and try again.';
+            if (str_contains($e->getMessage(), 'Unknown column') || str_contains($e->getMessage(), 'Data too long')) {
+                $hint = 'We could not save this website because the database is missing a recent update. Please contact support (or run the sites column migration SQL).';
+            }
+
             return redirect()->back()
-                ->withErrors(['siteUrl' => 'We could not save this website. Please check your details and try again.'])
+                ->withErrors(['siteUrl' => $hint])
                 ->withInput();
         }
 
@@ -352,36 +359,37 @@ class SiteController extends Controller
 
         try {
             DB::transaction(function () use ($site, $request, $cleanDescription, $categoriesArray, $primaryCategory, $countryCodes, $languageCodes) {
-                $site->example_url = $request->exampleUrl;
-                $site->da = (int) $request->da;
-                $site->dr = (int) $request->dr;
-                $site->traffic = (int) $request->traffic;
-                $site->metrics_manual = true;
-                $site->metrics_provider = 'manual';
-                $site->country = $countryCodes[0];
-                $site->countries = $countryCodes;
-                $site->language = $languageCodes[0];
-                $site->languages = $languageCodes;
-                $site->category = $primaryCategory;
-                $site->categories = $categoriesArray;
-                $site->price = $request->price;
-                $site->turnaround_time = $request->turnaround_time;
-                $site->publication_time = $request->publicationTime;
-                $site->link_type = $request->link_type;
-
-                $this->applySiteTag($site, $request);
-
-                $site->description = $cleanDescription;
-                $site->verified = false;
-                $site->active = false;
-
                 $sensitivePrices = [];
                 foreach (['crypto', 'trading', 'CBD', 'forex'] as $topic) {
                     if ($request->input("sensitive.$topic")) {
                         $sensitivePrices[$topic] = $request->input("price_sensitive.$topic");
                     }
                 }
-                $site->sensitive_prices = ! empty($sensitivePrices) ? $sensitivePrices : null;
+
+                $site->applyMarketplaceListing([
+                    'example_url' => $request->exampleUrl,
+                    'da' => (int) $request->da,
+                    'dr' => (int) $request->dr,
+                    'traffic' => (int) $request->traffic,
+                    'metrics_manual' => true,
+                    'metrics_provider' => 'manual',
+                    'country' => $countryCodes[0],
+                    'countries' => $countryCodes,
+                    'language' => $languageCodes[0],
+                    'languages' => $languageCodes,
+                    'category' => $primaryCategory,
+                    'categories' => $categoriesArray,
+                    'price' => $request->price,
+                    'turnaround_time' => $request->turnaround_time,
+                    'publication_time' => $request->publicationTime,
+                    'link_type' => $request->link_type,
+                    'description' => $cleanDescription,
+                    'verified' => false,
+                    'active' => false,
+                    'sensitive_prices' => ! empty($sensitivePrices) ? $sensitivePrices : null,
+                ]);
+
+                $this->applySiteTag($site, $request);
 
                 $site->save();
             });
@@ -631,31 +639,37 @@ class SiteController extends Controller
             try {
                 DB::transaction(function () use ($parsed, $publisherId) {
                     $site = new Site();
-                    $site->publisher_id     = $publisherId;
-                    $site->site_name        = $parsed['site_name'];
-                    $site->site_url         = $parsed['site_url'];
-                    $site->domain           = $parsed['domain'];
-                    $site->example_url      = $parsed['example_url'];
-                    $site->da               = $parsed['da'];
-                    $site->dr               = $parsed['dr'];
-                    $site->traffic          = $parsed['traffic'];
-                    $site->country          = $parsed['country'];
-                    $site->countries        = $parsed['countries'];
-                    $site->language         = $parsed['language'];
-                    $site->languages        = $parsed['languages'];
-                    $site->category         = $parsed['primary_category'];
-                    $site->categories       = $parsed['categories'];
-                    $site->price            = $parsed['price'];
-                    $site->turnaround_time  = $parsed['turnaround_time'];
-                    $site->publication_time = $parsed['publication_time'];
-                    $site->link_type        = $parsed['link_type'];
-                    $site->sponsored        = $parsed['sponsored'];
-                    $site->partner_material = $parsed['partner_material'];
-                    $site->as_you_prefer    = $parsed['as_you_prefer'];
-                    $site->description      = $parsed['description'];
-                    $site->sensitive_prices = $parsed['sensitive_prices'];
-                    $site->verified         = false;
-                    $site->active           = false;
+                    $site->applyMarketplaceListing([
+                        'publisher_id' => $publisherId,
+                        'site_name' => $parsed['site_name'],
+                        'site_url' => $parsed['site_url'],
+                        'domain' => $parsed['domain'],
+                        'example_url' => $parsed['example_url'],
+                        'da' => $parsed['da'],
+                        'dr' => $parsed['dr'],
+                        'traffic' => $parsed['traffic'],
+                        'metrics_manual' => true,
+                        'metrics_provider' => 'manual',
+                        'metrics_fetched_at' => now(),
+                        'country' => $parsed['country'],
+                        'countries' => $parsed['countries'],
+                        'language' => $parsed['language'],
+                        'languages' => $parsed['languages'],
+                        'category' => $parsed['primary_category'],
+                        'categories' => $parsed['categories'],
+                        'price' => $parsed['price'],
+                        'turnaround_time' => $parsed['turnaround_time'],
+                        'publication_time' => $parsed['publication_time'],
+                        'link_type' => $parsed['link_type'],
+                        'sponsored' => $parsed['sponsored'],
+                        'partner_material' => $parsed['partner_material'],
+                        'as_you_prefer' => $parsed['as_you_prefer'],
+                        'description' => $parsed['description'],
+                        'sensitive_prices' => $parsed['sensitive_prices'],
+                        'verified' => false,
+                        'active' => false,
+                        'enrichment_status' => 'pending',
+                    ]);
                     $site->save();
                 });
                 $created++;

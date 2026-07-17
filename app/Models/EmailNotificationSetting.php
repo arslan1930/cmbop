@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Schema;
 
 class EmailNotificationSetting extends Model
 {
@@ -15,16 +16,24 @@ class EmailNotificationSetting extends Model
 
     public static function isEnabled(string $type): bool
     {
-        $defaults = config("email_notifications.types.{$type}.default_enabled", true);
+        $defaults = (bool) config("email_notifications.types.{$type}.default_enabled", true);
 
-        return Cache::remember("email_setting_enabled_{$type}", 60, function () use ($type, $defaults) {
-            $row = static::query()->where('type', $type)->first();
-            if (!$row) {
-                return (bool) $defaults;
+        try {
+            if (! Schema::hasTable((new static)->getTable())) {
+                return $defaults;
             }
 
-            return (bool) $row->enabled;
-        });
+            return Cache::remember("email_setting_enabled_{$type}", 60, function () use ($type, $defaults) {
+                $row = static::query()->where('type', $type)->first();
+                if (! $row) {
+                    return $defaults;
+                }
+
+                return (bool) $row->enabled;
+            });
+        } catch (\Throwable) {
+            return $defaults;
+        }
     }
 
     public static function flushCache(?string $type = null): void

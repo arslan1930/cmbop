@@ -3,17 +3,19 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
-use App\Models\User;
 use App\Models\Role;
+use App\Models\User;
 use App\Models\UserConsent;
+use App\Models\Wallet;
 use App\Services\Wallet\WalletLedgerService;
-use Illuminate\Http\Request;
-use Illuminate\Validation\Rules\Password;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Validator;
-use Illuminate\Support\Facades\RateLimiter;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Auth\Events\Registered;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\Rules\Password;
 
 class RegisterController extends Controller
 {
@@ -73,6 +75,9 @@ class RegisterController extends Controller
             ], 500);
         }
 
+        $welcomeBonus = ($request->role === 'advertiser') ? 20.00 : 0.00;
+        $user = null;
+
         DB::beginTransaction();
 
         try {
@@ -88,82 +93,91 @@ class RegisterController extends Controller
             $user->active_role_id = $activeRole->id;
             $user->save();
 
-            $welcomeBonus = ($request->role === 'advertiser') ? 20.00 : 0.00;
+            Wallet::insertRegistrationPair(
+                $user->id,
+                $advertiserRole->id,
+                $publisherRole->id,
+                $welcomeBonus
+            );
 
-            $wallets = [
-                [
+            if (Schema::hasTable('user_consents')) {
+                UserConsent::create([
                     'user_id' => $user->id,
-                    'role_id' => $advertiserRole->id,
-                    'balance' => $welcomeBonus,
-                    'reserved_balance' => 0.00,
-                    'bonus_balance' => $welcomeBonus,
-                    'bonus_reserved' => 0.00,
-                    'currency' => 'EUR',
-                    'created_at' => now(),
-                    'updated_at' => now(),
-                ],
-                [
-                    'user_id' => $user->id,
-                    'role_id' => $publisherRole->id,
-                    'balance' => 0.00,
-                    'reserved_balance' => 0.00,
-                    'bonus_balance' => 0.00,
-                    'bonus_reserved' => 0.00,
-                    'currency' => 'EUR',
-                    'created_at' => now(),
-                    'updated_at' => now(),
-                ],
-            ];
-
-            DB::table('wallets')->insert($wallets);
-
-            if ($welcomeBonus > 0) {
-                try {
-                    $advertiserWallet = \App\Models\Wallet::where('user_id', $user->id)
-                        ->where('role_id', $advertiserRole->id)
-                        ->first();
-                    if ($advertiserWallet) {
-                        app(WalletLedgerService::class)->recordBonusCredit(
-                            $advertiserWallet,
-                            (float) $welcomeBonus,
-                            'Welcome promotional bonus',
-                            ['source' => 'registration']
-                        );
-                    }
-                } catch (\Throwable $e) {
-                    Log::warning('Welcome bonus ledger write failed during registration', [
-                        'user_id' => $user->id,
-                        'error' => $e->getMessage(),
-                    ]);
-                }
+                    'terms_accepted' => $request->boolean('terms'),
+                    'marketing_consent' => $request->boolean('marketing'),
+                    'newsletter_consent' => $request->boolean('newsletter'),
+                    'consented_at' => now(),
+                    'ip_address' => $request->ip(),
+                    'user_agent' => $request->userAgent(),
+                ]);
             }
 
-            UserConsent::create([
-                'user_id' => $user->id,
-                'terms_accepted' => $request->boolean('terms'),
-                'marketing_consent' => $request->boolean('marketing'),
-                'newsletter_consent' => $request->boolean('newsletter'),
-                'consented_at' => now(),
-                'ip_address' => $request->ip(),
-                'user_agent' => $request->userAgent(),
-            ]);
-
-            event(new Registered($user));
-
             DB::commit();
-
-            return response()->json([
-                'status' => 'success',
-                'message' => 'Registration successful! A verification email has been sent. Please verify your email to login.',
-            ]);
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             DB::rollBack();
-            Log::error('Registration failed', ['error' => $e->getMessage()]);
+            Log::error('Registration failed', [
+                'error' => $e->getMessage(),
+                'email' => $request->email,
+            ]);
 
             return response()->json([
                 'status' => 'error',
                 'message' => 'Something went wrong. Please try again.',
             ], 500);
         }
+
+        // Side-effects after commit — never roll back a created account
+        if ($welcomeBonus > 0) {
+            try {
+                $advertiserWallet = Wallet::where('user_id', $user->id)
+                    ->where('role_id', $advertiserRole->id)
+                    ->first();
+                if ($advertiserWallet) {
+                    app(WalletLedgerService::class)->recordBonusCredit(
+                        $advertiserWallet,
+                        (float) $welcomeBonus,
+                        'Welcome promotional bonus',
+                        ['source' => 'registration']
+                    );
+                }
+            } catch (\Throwable $e) {
+                Log::warning('Welcome bonus ledger write failed during registration', [
+                    'user_id' => $user->id,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
+
+        $verificationSent = false;
+        try {
+            // Framework listener SendEmailVerificationNotification → User::sendEmailVerificationNotification()
+            event(new Registered($user));
+            $verificationSent = true;
+        } catch (\Throwable $e) {
+            Log::error('Registered/verification email failed after signup', [
+                'user_id' => $user->id,
+                'email' => $user->email,
+                'error' => $e->getMessage(),
+            ]);
+
+            // Direct retry if the event path failed
+            try {
+                $user->sendEmailVerificationNotification();
+                $verificationSent = true;
+            } catch (\Throwable $retry) {
+                Log::error('Direct verification email retry also failed', [
+                    'user_id' => $user->id,
+                    'error' => $retry->getMessage(),
+                ]);
+            }
+        }
+
+        return response()->json([
+            'status' => 'success',
+            'message' => $verificationSent
+                ? 'Registration successful! A verification email has been sent. Please verify your email to login.'
+                : 'Registration successful! We could not send the verification email automatically — please use “Resend verification” on the login page.',
+            'verification_sent' => $verificationSent,
+        ]);
     }
 }

@@ -4,11 +4,12 @@ namespace App\Listeners;
 
 use App\Models\Order;
 use App\Services\EmailNotificationService;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 /**
  * Fan-out order lifecycle emails to Advertiser, Publisher, Marketing, and Admin.
- * Hooks model events only — does not change controller business logic.
+ * Runs after DB commit so order items (and publishers) exist on create.
  */
 class SendOrderLifecycleEmails
 {
@@ -18,81 +19,108 @@ class SendOrderLifecycleEmails
 
     public function created(Order $order): void
     {
-        try {
-            $order->loadMissing(['user', 'items.site.publisher']);
+        $orderId = $order->id;
 
-            $description = $this->createdDescription($order);
-            if (($order->publication_mode ?? '') === 'scheduled' && $order->scheduled_publish_at) {
-                $description = 'Order created and charged. Scheduled publication: '
-                    . $order->scheduled_publish_at->timezone($order->schedule_timezone ?: 'UTC')->format('d F Y g:i A')
-                    . ' ' . ($order->schedule_timezone ?: 'UTC')
-                    . '. Publisher should publish on this date.';
-            }
+        $this->afterCommit(function () use ($orderId) {
+            try {
+                $order = Order::with(['user', 'items.site.publisher'])->find($orderId);
+                if (! $order) {
+                    return;
+                }
 
-            $this->emails->notifyOrderLifecycle(
-                order: $order,
-                changeKind: 'created',
-                previousValue: null,
-                newValue: (string) $order->status,
-                description: $description,
-            );
+                $description = $this->createdDescription($order);
+                if (($order->publication_mode ?? '') === 'scheduled' && $order->scheduled_publish_at) {
+                    $description = 'Order created and charged. Scheduled publication: '
+                        .$order->scheduled_publish_at->timezone($order->schedule_timezone ?: 'UTC')->format('d F Y g:i A')
+                        .' '.($order->schedule_timezone ?: 'UTC')
+                        .'. Publisher should publish on this date.';
+                }
 
-            // If created already paid (wallet), also announce payment to all roles.
-            if ($order->payment_status === 'paid') {
                 $this->emails->notifyOrderLifecycle(
                     order: $order,
-                    changeKind: 'payment_status',
-                    previousValue: 'pending',
-                    newValue: 'paid',
-                    description: 'Payment was successful for this order.',
+                    changeKind: 'created',
+                    previousValue: null,
+                    newValue: (string) $order->status,
+                    description: $description,
                 );
+
+                // If created already paid (wallet), also announce payment to all roles.
+                if ($order->payment_status === 'paid') {
+                    $this->emails->notifyOrderLifecycle(
+                        order: $order,
+                        changeKind: 'payment_status',
+                        previousValue: 'pending',
+                        newValue: 'paid',
+                        description: 'Payment was successful for this order.',
+                    );
+                }
+            } catch (\Throwable $e) {
+                Log::warning('Order created lifecycle email failed', [
+                    'order_id' => $orderId,
+                    'error' => $e->getMessage(),
+                ]);
             }
-        } catch (\Throwable $e) {
-            Log::warning('Order created lifecycle email failed', [
-                'order_id' => $order->id,
-                'error' => $e->getMessage(),
-            ]);
-        }
+        });
     }
 
     public function updated(Order $order): void
     {
-        try {
-            $order->loadMissing(['user', 'items.site.publisher']);
+        if (! $order->wasChanged('status') && ! $order->wasChanged('payment_status')) {
+            return;
+        }
 
-            if ($order->wasChanged('status')) {
-                $from = (string) $order->getOriginal('status');
-                $to = (string) $order->status;
-                if ($from !== $to) {
+        $orderId = $order->id;
+        $statusChanged = $order->wasChanged('status');
+        $statusFrom = $statusChanged ? (string) $order->getOriginal('status') : null;
+        $statusTo = $statusChanged ? (string) $order->status : null;
+        $paymentChanged = $order->wasChanged('payment_status');
+        $paymentFrom = $paymentChanged ? (string) $order->getOriginal('payment_status') : null;
+        $paymentTo = $paymentChanged ? (string) $order->payment_status : null;
+
+        $this->afterCommit(function () use ($orderId, $statusFrom, $statusTo, $paymentFrom, $paymentTo) {
+            try {
+                $order = Order::with(['user', 'items.site.publisher'])->find($orderId);
+                if (! $order) {
+                    return;
+                }
+
+                if ($statusFrom !== null && $statusFrom !== $statusTo) {
                     $this->emails->notifyOrderLifecycle(
                         order: $order,
                         changeKind: 'status',
-                        previousValue: $from,
-                        newValue: $to,
-                        description: $this->statusDescription($from, $to),
+                        previousValue: $statusFrom,
+                        newValue: $statusTo,
+                        description: $this->statusDescription($statusFrom, $statusTo),
                     );
                 }
-            }
 
-            if ($order->wasChanged('payment_status')) {
-                $from = (string) $order->getOriginal('payment_status');
-                $to = (string) $order->payment_status;
-                if ($from !== $to) {
+                if ($paymentFrom !== null && $paymentFrom !== $paymentTo) {
                     $this->emails->notifyOrderLifecycle(
                         order: $order,
                         changeKind: 'payment_status',
-                        previousValue: $from,
-                        newValue: $to,
-                        description: $this->paymentDescription($from, $to),
+                        previousValue: $paymentFrom,
+                        newValue: $paymentTo,
+                        description: $this->paymentDescription($paymentFrom, $paymentTo),
                     );
                 }
+            } catch (\Throwable $e) {
+                Log::warning('Order updated lifecycle email failed', [
+                    'order_id' => $orderId,
+                    'error' => $e->getMessage(),
+                ]);
             }
-        } catch (\Throwable $e) {
-            Log::warning('Order updated lifecycle email failed', [
-                'order_id' => $order->id,
-                'error' => $e->getMessage(),
-            ]);
+        });
+    }
+
+    protected function afterCommit(callable $callback): void
+    {
+        if (DB::transactionLevel() > 0) {
+            DB::afterCommit($callback);
+
+            return;
         }
+
+        $callback();
     }
 
     protected function createdDescription(Order $order): string
@@ -101,7 +129,7 @@ class SendOrderLifecycleEmails
             return 'A new paid order has been created and is waiting for the next step.';
         }
 
-        return 'A new order has been created. Payment status: ' . ucfirst((string) $order->payment_status) . '.';
+        return 'A new order has been created. Payment status: '.ucfirst((string) $order->payment_status).'.';
     }
 
     protected function statusDescription(string $from, string $to): string

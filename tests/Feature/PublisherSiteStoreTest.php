@@ -15,6 +15,7 @@ use Database\Seeders\CountryLanguageSeeder;
 use Database\Seeders\LanguagesTableSeeder;
 use Database\Seeders\RolesTableSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Queue;
 use Tests\TestCase;
 
@@ -179,5 +180,86 @@ class PublisherSiteStoreTest extends TestCase
             $this->assertSame($country, $site->country);
             $this->assertSame('en', $site->language);
         }
+    }
+
+    public function test_fit_category_column_uses_first_name_when_pipe_join_exceeds_varchar_50(): void
+    {
+        Cache::put('sites_category_column_max_length', 50, 60);
+
+        $list = ['Business & Finance', 'Technology', 'Health & Wellness', 'Travel & Tourism'];
+        $joined = implode('|', $list);
+        $this->assertGreaterThan(50, strlen($joined));
+
+        $fitted = Site::fitCategoryColumn($joined, $list);
+        $this->assertSame('Business & Finance', $fitted);
+        $this->assertLessThanOrEqual(50, strlen($fitted));
+
+        Site::flushSchemaColumnCache();
+    }
+
+    public function test_store_skips_missing_optional_columns(): void
+    {
+        Queue::fake();
+
+        // Simulate older Hostinger DB without enrichment / JSON helpers
+        $optional = [
+            'metrics_manual',
+            'metrics_provider',
+            'metrics_fetched_at',
+            'enrichment_status',
+            'enrichment_error',
+            'countries',
+            'languages',
+            'categories',
+        ];
+
+        foreach ($optional as $column) {
+            if (! \Illuminate\Support\Facades\Schema::hasColumn('sites', $column)) {
+                continue;
+            }
+            try {
+                \Illuminate\Support\Facades\Schema::table('sites', function ($table) use ($column) {
+                    $table->dropColumn($column);
+                });
+            } catch (\Throwable) {
+                // SQLite may refuse dropping indexed columns; skip that column
+            }
+        }
+
+        Cache::put('sites_category_column_max_length', 50, 60);
+
+        $cats = Category::query()->orderByRaw('LENGTH(name) DESC')->limit(4)->pluck('name')->all();
+        $joined = implode('|', $cats);
+        $this->assertGreaterThan(50, strlen($joined));
+
+        $country = Country::marketplace()->firstOrFail();
+        $language = Language::marketplace()->firstOrFail();
+        $domain = 'legacy-schema-'.uniqid().'.example';
+
+        $response = $this->actingAs($this->publisher)->post(route('publisher.sites.store'), [
+            'siteName' => 'Legacy Schema Site',
+            'siteUrl' => 'https://'.$domain,
+            'exampleUrl' => 'https://'.$domain.'/post',
+            'da' => 33,
+            'dr' => 34,
+            'traffic' => 1200,
+            'country' => strtolower($country->code),
+            'language' => strtolower($language->code),
+            'categories' => $joined,
+            'price' => 75,
+            'turnaround_time' => '48h',
+            'publicationTime' => 'permanent',
+            'link_type' => 'dofollow',
+            'siteDescription' => str_repeat('Legacy schema publisher listing description. ', 3),
+        ]);
+
+        $response->assertSessionHas('success');
+        $response->assertSessionHasNoErrors();
+
+        $site = Site::where('domain', $domain)->first();
+        $this->assertNotNull($site);
+        $this->assertLessThanOrEqual(50, strlen((string) $site->category));
+
+        Site::flushSchemaColumnCache();
     }
 }
