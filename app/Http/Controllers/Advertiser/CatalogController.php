@@ -527,51 +527,76 @@ private function isPublisherOwner($sitePublisherId)
 
     
     /**
-     * Save favorites to DATABASE
+     * Save favorites to DATABASE (full replace for this advertiser).
      */
     public function saveFavorites(Request $request)
     {
         try {
+            $data = $request->validate([
+                'favorites' => 'nullable|array',
+                'favorites.*' => 'integer|exists:sites,id',
+            ]);
+
             $userId = auth()->id();
-            $favorites = $request->favorites;
-            
+            $favorites = array_values(array_unique(array_map('intval', $data['favorites'] ?? [])));
+
             UserFavorite::where('user_id', $userId)->delete();
-            
+
             foreach ($favorites as $siteId) {
                 UserFavorite::create([
                     'user_id' => $userId,
-                    'site_id' => $siteId
+                    'site_id' => $siteId,
                 ]);
             }
-            
-            return response()->json(['success' => true]);
+
+            return response()->json([
+                'success' => true,
+                'favorites' => $favorites,
+                'count' => count($favorites),
+            ]);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            throw $e;
         } catch (\Exception $e) {
-            Log::error('Error saving favorites: ' . $e->getMessage());
+            Log::error('Error saving favorites: '.$e->getMessage());
+
             return response()->json(['success' => false, 'error' => $e->getMessage()], 500);
         }
     }
-    
+
     /**
-     * Save blacklist to DATABASE
+     * Save blacklist to DATABASE (full replace for this advertiser).
+     * Blacklisted sites are hidden from the main catalog and shown under Blacklisted Only.
      */
     public function saveBlacklist(Request $request)
     {
         try {
+            $data = $request->validate([
+                'blacklist' => 'nullable|array',
+                'blacklist.*' => 'integer|exists:sites,id',
+            ]);
+
             $userId = auth()->id();
-            $blacklist = $request->blacklist;
-            
+            $blacklist = array_values(array_unique(array_map('intval', $data['blacklist'] ?? [])));
+
             UserBlacklist::where('user_id', $userId)->delete();
-            
+
             foreach ($blacklist as $siteId) {
                 UserBlacklist::create([
                     'user_id' => $userId,
-                    'site_id' => $siteId
+                    'site_id' => $siteId,
                 ]);
             }
-            
-            return response()->json(['success' => true]);
+
+            return response()->json([
+                'success' => true,
+                'blacklist' => $blacklist,
+                'count' => count($blacklist),
+            ]);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            throw $e;
         } catch (\Exception $e) {
-            Log::error('Error saving blacklist: ' . $e->getMessage());
+            Log::error('Error saving blacklist: '.$e->getMessage());
+
             return response()->json(['success' => false, 'error' => $e->getMessage()], 500);
         }
     }

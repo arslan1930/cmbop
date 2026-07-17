@@ -61,6 +61,11 @@ class Order extends Model
     {
         return $this->hasMany(OrderItem::class);
     }
+
+    public function invoices()
+    {
+        return $this->hasMany(Invoice::class);
+    }
     
     /**
      * Get all chat messages for this order

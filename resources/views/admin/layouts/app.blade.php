@@ -147,6 +147,11 @@
             </span>
         </a>
 
+        <a href="{{ route('admin.invoices.index') }}" class="{{ request()->routeIs('admin.invoices.*') ? 'active' : '' }}">
+            <i class="fa fa-file-invoice-dollar"></i>
+            <span>Invoices</span>
+        </a>
+
         <a href="{{ route('admin.deposits') }}" class="{{ request()->routeIs('admin.deposits') || request()->routeIs('admin.deposits.*') ? 'active' : '' }}">
             <i class="fa fa-wallet"></i>
             <span class="d-flex align-items-center w-100">
