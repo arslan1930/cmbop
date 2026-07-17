@@ -207,9 +207,11 @@ class SiteController extends Controller
             $site->site_name
         );
 
-        // After verification, capture screenshot + refresh metrics in the background.
+        // After verification: always refresh homepage screenshot.
+        // Skip automated metrics when the publisher entered DA/DR/traffic manually.
         if ($site->verified && config('site_enrichment.enabled', true)) {
-            EnrichSiteJob::dispatch($site->id, 'verify', true, true);
+            $runMetrics = ! (bool) $site->metrics_manual;
+            EnrichSiteJob::dispatch($site->id, 'verify', $runMetrics, true);
         }
 
         $emailSent = false;

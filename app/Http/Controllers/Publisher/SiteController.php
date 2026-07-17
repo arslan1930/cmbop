@@ -10,6 +10,7 @@ use App\Models\Language;
 use App\Models\Category;
 use App\Models\User;
 use App\Models\Role;
+use App\Jobs\CaptureSiteScreenshotJob;
 use App\Mail\NewSiteNotification;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\DB;
@@ -59,15 +60,16 @@ class SiteController extends Controller
 
     public function store(Request $request)
     {
-        // Normalize URL
-        $url = $request->siteUrl;
-        if (!preg_match("~^(?:f|ht)tps?://~i", $url)) {
-            $url = "https://" . $url;
-        }
+        // Normalize URLs before validation (publishers often omit https://)
+        $siteUrl = $this->normalizeHttpUrl((string) $request->input('siteUrl', ''));
+        $exampleUrl = $this->normalizeHttpUrl((string) $request->input('exampleUrl', ''));
+        $request->merge([
+            'siteUrl' => $siteUrl,
+            'exampleUrl' => $exampleUrl,
+        ]);
 
-        $host = parse_url($url, PHP_URL_HOST);
-
-        if (!$host) {
+        $host = parse_url($siteUrl, PHP_URL_HOST);
+        if (! $host) {
             return back()->withErrors(['siteUrl' => 'Invalid URL'])->withInput();
         }
 
@@ -75,22 +77,19 @@ class SiteController extends Controller
 
         // Handle categories - get as array from multi-select
         $categories = $this->parseCategoryList($request->input('categories', $request->input('category')));
-        
-        // Store ALL categories as comma-separated string in category column (for backward compatibility and easy searching)
-        $primaryCategory = !empty($categories) ? implode(',', $categories) : $request->category;
-        
-        // Store as array (model cast will handle JSON conversion)
-        $categoriesArray = !empty($categories) ? $categories : null;
+        // Pipe-join avoids breaking names that contain commas (e.g. "Marketing, PR & Advertising")
+        $primaryCategory = ! empty($categories) ? implode('|', $categories) : (string) $request->category;
+        $categoriesArray = ! empty($categories) ? $categories : null;
 
-        // Single country + single language per website
-        $countryCodes  = array_slice($this->parseCodeList($request->input('country', $request->input('countries'))), 0, 1);
+        // Single country + single language per website (manual entry — never auto-overwritten)
+        $countryCodes = array_slice($this->parseCodeList($request->input('country', $request->input('countries'))), 0, 1);
         $languageCodes = array_slice($this->parseCodeList($request->input('language', $request->input('languages'))), 0, 1);
 
         $request->merge([
-            'country'    => $countryCodes[0] ?? null,
-            'language'   => $languageCodes[0] ?? null,
-            'countries'  => $countryCodes,
-            'languages'  => $languageCodes,
+            'country' => $countryCodes[0] ?? null,
+            'language' => $languageCodes[0] ?? null,
+            'countries' => $countryCodes,
+            'languages' => $languageCodes,
             'categories' => $categories,
         ]);
 
@@ -98,34 +97,31 @@ class SiteController extends Controller
         $allowedLanguages = Language::marketplace()->pluck('code')->map(fn ($c) => strtolower($c))->all();
 
         $validator = Validator::make($request->all(), [
-            'siteName'        => 'required|string|max:255',
-            'siteUrl'         => 'required|url|max:255',
-            'exampleUrl'      => 'required|url|max:255',
-            'da'              => 'required|integer|min:0|max:100',
-            'dr'              => 'required|integer|min:0|max:100',
-            'traffic'         => 'required|integer|min:0',
-            'country'         => 'required|string|size:2|in:' . implode(',', $allowedCountries),
-            'language'        => 'required|string|size:2|in:' . implode(',', $allowedLanguages),
-            'categories'      => 'required|array|min:1|max:7',
-            'price'           => 'required|numeric|min:0',
+            'siteName' => 'required|string|max:255',
+            'siteUrl' => 'required|url|max:255',
+            'exampleUrl' => 'required|url|max:255',
+            'da' => 'required|integer|min:0|max:100',
+            'dr' => 'required|integer|min:0|max:100',
+            'traffic' => 'required|integer|min:0',
+            'country' => 'required|string|size:2|in:'.implode(',', $allowedCountries),
+            'language' => 'required|string|size:2|in:'.implode(',', $allowedLanguages),
+            'categories' => 'required|array|min:1|max:7',
+            'price' => 'required|numeric|min:0',
             'turnaround_time' => 'required|string|in:24h,48h,3days,5days,7days',
             'publicationTime' => 'required|string|max:20|in:6months,1year,permanent',
-            'link_type'       => 'required|in:dofollow,nofollow',
+            'link_type' => 'required|in:dofollow,nofollow',
             'siteDescription' => 'required|string|min:50',
             'price_sensitive.*' => 'nullable|numeric|min:0',
         ]);
 
-        // Prevent duplicates for same publisher
         $validator->after(function ($validator) use ($domain) {
             if (Site::where('publisher_id', auth()->id())->where('domain', $domain)->exists()) {
                 $validator->errors()->add('siteUrl', 'You have already added this website.');
             }
         });
 
-        // Prevent adding a domain that already exists in the system
         $validator->after(function ($validator) use ($domain) {
-            $existingSite = Site::where('domain', $domain)->exists();
-            if ($existingSite) {
+            if (Site::where('domain', $domain)->exists()) {
                 $validator->errors()->add('siteUrl', 'This website domain is already registered by another publisher. If you own it, use “Claim a website” on this page so we can verify the listing name and transfer ownership.');
             }
         });
@@ -134,76 +130,104 @@ class SiteController extends Controller
             return redirect()->back()->withErrors($validator)->withInput();
         }
 
-        // Sanitize description
         $cleanDescription = strip_tags($request->siteDescription, '<p><a><b><strong><i><ul><ol><li><br>');
 
         $site = null;
 
-        DB::transaction(function () use ($request, $domain, $cleanDescription, $categoriesArray, $primaryCategory, $countryCodes, $languageCodes, &$site) {
-            $site = new Site();
+        try {
+            DB::transaction(function () use ($request, $domain, $cleanDescription, $categoriesArray, $primaryCategory, $countryCodes, $languageCodes, &$site) {
+                $site = new Site();
 
-            $site->publisher_id      = auth()->id();
-            $site->site_name         = $request->siteName;
-            $site->site_url          = $request->siteUrl;
-            $site->domain            = $domain;
-            $site->example_url       = $request->exampleUrl;
-            $site->da                = $request->da;
-            $site->dr                = $request->dr;
-            $site->traffic           = $request->traffic;
-            $site->country           = $countryCodes[0]; // legacy primary
-            $site->countries         = $countryCodes;
-            $site->language          = $languageCodes[0]; // legacy primary
-            $site->languages         = $languageCodes;
-            $site->category          = $primaryCategory; // Store all categories as comma-separated string
-            $site->categories        = $categoriesArray;   // Store as array (model cast handles JSON)
-            $site->price             = $request->price;
-            $site->turnaround_time   = $request->turnaround_time;
-            $site->publication_time  = $request->publicationTime;
-            $site->link_type         = $request->link_type;
+                $site->publisher_id = auth()->id();
+                $site->site_name = $request->siteName;
+                $site->site_url = $request->siteUrl;
+                $site->domain = $domain;
+                $site->example_url = $request->exampleUrl;
+                // Manual publisher metrics — never auto-fetched/overwritten
+                $site->da = (int) $request->da;
+                $site->dr = (int) $request->dr;
+                $site->traffic = (int) $request->traffic;
+                $site->metrics_manual = true;
+                $site->metrics_provider = 'manual';
+                $site->metrics_fetched_at = now();
+                $site->country = $countryCodes[0];
+                $site->countries = $countryCodes;
+                $site->language = $languageCodes[0];
+                $site->languages = $languageCodes;
+                $site->category = $primaryCategory;
+                $site->categories = $categoriesArray;
+                $site->price = $request->price;
+                $site->turnaround_time = $request->turnaround_time;
+                $site->publication_time = $request->publicationTime;
+                $site->link_type = $request->link_type;
 
-            // Tags (single-choice radio → mutually exclusive flags)
-            $this->applySiteTag($site, $request);
+                $this->applySiteTag($site, $request);
 
-            $site->description       = $cleanDescription;
-            $site->verified          = false;
-            $site->active            = false;
+                $site->description = $cleanDescription;
+                $site->verified = false;
+                $site->active = false;
+                $site->enrichment_status = 'pending';
 
-            // Sensitive prices
-            $sensitivePrices = [];
-            foreach (['crypto','trading','CBD','forex'] as $topic) {
-                if ($request->input("sensitive.$topic")) {
-                    $sensitivePrices[$topic] = $request->input("price_sensitive.$topic");
+                $sensitivePrices = [];
+                foreach (['crypto', 'trading', 'CBD', 'forex'] as $topic) {
+                    if ($request->input("sensitive.$topic")) {
+                        $sensitivePrices[$topic] = $request->input("price_sensitive.$topic");
+                    }
                 }
+                // Model casts sensitive_prices as array — do not json_encode here
+                $site->sensitive_prices = ! empty($sensitivePrices) ? $sensitivePrices : null;
+
+                $site->save();
+            });
+        } catch (\Throwable $e) {
+            Log::error('Publisher site store failed', [
+                'user_id' => auth()->id(),
+                'domain' => $domain,
+                'error' => $e->getMessage(),
+            ]);
+
+            return redirect()->back()
+                ->withErrors(['siteUrl' => 'We could not save this website. Please check your details and try again.'])
+                ->withInput();
+        }
+
+        // Homepage screenshot only (compress + WebP). Metrics stay manual.
+        if ($site && config('site_enrichment.enabled', true)) {
+            try {
+                CaptureSiteScreenshotJob::dispatch($site->id, 'publisher_create');
+            } catch (\Throwable $e) {
+                Log::warning('Failed to queue site screenshot job', [
+                    'site_id' => $site->id,
+                    'error' => $e->getMessage(),
+                ]);
             }
-            $site->sensitive_prices = !empty($sensitivePrices) ? json_encode($sensitivePrices) : null;
+        }
 
-            $site->save();
-        });
-
-        // Send email notification
         if ($site) {
             try {
-                $admins = User::where('active_role_id', function($query) {
+                $admins = User::where('active_role_id', function ($query) {
                     $query->select('id')
-                          ->from('roles')
-                          ->where('name', 'admin')
-                          ->limit(1);
+                        ->from('roles')
+                        ->where('name', 'admin')
+                        ->limit(1);
                 })->get();
-                
+
                 if ($admins->count() > 0) {
                     foreach ($admins as $admin) {
                         Mail::to($admin->email)->send(new NewSiteNotification($site));
                     }
                 } else {
-                    $defaultAdminEmail = config('mail.admin_email', 'admin@yourdomain.com');
-                    Mail::to($defaultAdminEmail)->send(new NewSiteNotification($site));
+                    $defaultAdminEmail = config('mail.admin_email');
+                    if ($defaultAdminEmail) {
+                        Mail::to($defaultAdminEmail)->send(new NewSiteNotification($site));
+                    }
                 }
             } catch (\Exception $e) {
-                Log::error('Failed to send email notification: ' . $e->getMessage());
+                Log::error('Failed to send email notification: '.$e->getMessage());
             }
         }
 
-        return redirect()->back()->with('success', 'Site submitted successfully! Admin will review and activate it within 24-48 hours.');
+        return redirect()->back()->with('success', 'Site submitted successfully! Admin will review and activate it within 24-48 hours. A homepage screenshot is being generated automatically.');
     }
 
     public function ajax(Request $request)
@@ -228,24 +252,24 @@ class SiteController extends Controller
     {
         $site = Site::where('publisher_id', auth()->id())->findOrFail($id);
 
-        // Handle categories - get as array from multi-select
-        $categories = $this->parseCategoryList($request->input('categories', $request->input('category')));
-        
-        // Store ALL categories as comma-separated string in category column
-        $primaryCategory = !empty($categories) ? implode(',', $categories) : $site->category;
-        
-        // Store as array (model cast handles JSON)
-        $categoriesArray = !empty($categories) ? $categories : null;
+        if ($request->filled('exampleUrl')) {
+            $request->merge([
+                'exampleUrl' => $this->normalizeHttpUrl((string) $request->input('exampleUrl')),
+            ]);
+        }
 
-        // Single country + single language per website
-        $countryCodes  = array_slice($this->parseCodeList($request->input('country', $request->input('countries'))), 0, 1);
+        $categories = $this->parseCategoryList($request->input('categories', $request->input('category')));
+        $primaryCategory = ! empty($categories) ? implode('|', $categories) : $site->category;
+        $categoriesArray = ! empty($categories) ? $categories : null;
+
+        $countryCodes = array_slice($this->parseCodeList($request->input('country', $request->input('countries'))), 0, 1);
         $languageCodes = array_slice($this->parseCodeList($request->input('language', $request->input('languages'))), 0, 1);
 
         $request->merge([
-            'country'    => $countryCodes[0] ?? null,
-            'language'   => $languageCodes[0] ?? null,
-            'countries'  => $countryCodes,
-            'languages'  => $languageCodes,
+            'country' => $countryCodes[0] ?? null,
+            'language' => $languageCodes[0] ?? null,
+            'countries' => $countryCodes,
+            'languages' => $languageCodes,
             'categories' => $categories,
         ]);
 
@@ -253,35 +277,31 @@ class SiteController extends Controller
         $allowedLanguages = Language::marketplace()->pluck('code')->map(fn ($c) => strtolower($c))->all();
 
         $validator = Validator::make($request->all(), [
-            'exampleUrl'      => 'required|url|max:255',
-            'da'              => 'required|integer|min:0|max:100',
-            'dr'              => 'required|integer|min:0|max:100',
-            'traffic'         => 'required|integer|min:0',
-            'country'         => 'required|string|size:2|in:' . implode(',', $allowedCountries),
-            'language'        => 'required|string|size:2|in:' . implode(',', $allowedLanguages),
-            'categories'      => 'required|array|min:1|max:7',
-            'price'           => 'required|numeric|min:0',
+            'exampleUrl' => 'required|url|max:255',
+            'da' => 'required|integer|min:0|max:100',
+            'dr' => 'required|integer|min:0|max:100',
+            'traffic' => 'required|integer|min:0',
+            'country' => 'required|string|size:2|in:'.implode(',', $allowedCountries),
+            'language' => 'required|string|size:2|in:'.implode(',', $allowedLanguages),
+            'categories' => 'required|array|min:1|max:7',
+            'price' => 'required|numeric|min:0',
             'turnaround_time' => 'required|string|in:24h,48h,3days,5days,7days',
             'publicationTime' => 'required|string|max:20|in:6months,1year,permanent',
-            'link_type'       => 'required|in:dofollow,nofollow',
+            'link_type' => 'required|in:dofollow,nofollow',
             'siteDescription' => 'required|string|min:50',
             'price_sensitive.*' => 'nullable|numeric|min:0',
         ]);
 
-        // Check if domain is being changed
         $validator->after(function ($validator) use ($request, $site) {
             $newDomain = null;
-            if ($request->has('siteUrl')) {
-                $url = $request->siteUrl;
-                if (!preg_match("~^(?:f|ht)tps?://~i", $url)) {
-                    $url = "https://" . $url;
-                }
+            if ($request->filled('siteUrl')) {
+                $url = $this->normalizeHttpUrl((string) $request->siteUrl);
                 $host = parse_url($url, PHP_URL_HOST);
                 if ($host) {
                     $newDomain = preg_replace('/^www\./', '', strtolower($host));
                 }
             }
-            
+
             if ($newDomain && $newDomain !== $site->domain) {
                 $existingSite = Site::where('domain', $newDomain)
                     ->where('id', '!=', $site->id)
@@ -298,41 +318,51 @@ class SiteController extends Controller
 
         $cleanDescription = strip_tags($request->siteDescription, '<p><a><b><strong><i><ul><ol><li><br>');
 
-        DB::transaction(function () use ($site, $request, $cleanDescription, $categoriesArray, $primaryCategory, $countryCodes, $languageCodes) {
-            $site->example_url       = $request->exampleUrl;
-            $site->da                = $request->da;
-            $site->dr                = $request->dr;
-            $site->traffic           = $request->traffic;
-            $site->country           = $countryCodes[0];
-            $site->countries         = $countryCodes;
-            $site->language          = $languageCodes[0];
-            $site->languages         = $languageCodes;
-            $site->category          = $primaryCategory; // Store all categories as comma-separated string
-            $site->categories        = $categoriesArray;   // Store as array (model cast handles JSON)
-            $site->price             = $request->price;
-            $site->turnaround_time   = $request->turnaround_time;
-            $site->publication_time  = $request->publicationTime;
-            $site->link_type         = $request->link_type;
+        try {
+            DB::transaction(function () use ($site, $request, $cleanDescription, $categoriesArray, $primaryCategory, $countryCodes, $languageCodes) {
+                $site->example_url = $request->exampleUrl;
+                $site->da = (int) $request->da;
+                $site->dr = (int) $request->dr;
+                $site->traffic = (int) $request->traffic;
+                $site->metrics_manual = true;
+                $site->metrics_provider = 'manual';
+                $site->country = $countryCodes[0];
+                $site->countries = $countryCodes;
+                $site->language = $languageCodes[0];
+                $site->languages = $languageCodes;
+                $site->category = $primaryCategory;
+                $site->categories = $categoriesArray;
+                $site->price = $request->price;
+                $site->turnaround_time = $request->turnaround_time;
+                $site->publication_time = $request->publicationTime;
+                $site->link_type = $request->link_type;
 
-            // Tags (single-choice radio → mutually exclusive flags)
-            $this->applySiteTag($site, $request);
+                $this->applySiteTag($site, $request);
 
-            $site->description       = $cleanDescription;
+                $site->description = $cleanDescription;
+                $site->verified = false;
+                $site->active = false;
 
-            // Reset approval when edited
-            $site->verified = false;
-            $site->active = false;
-
-            $sensitivePrices = [];
-            foreach (['crypto','trading','CBD','forex'] as $topic) {
-                if ($request->input("sensitive.$topic")) {
-                    $sensitivePrices[$topic] = $request->input("price_sensitive.$topic");
+                $sensitivePrices = [];
+                foreach (['crypto', 'trading', 'CBD', 'forex'] as $topic) {
+                    if ($request->input("sensitive.$topic")) {
+                        $sensitivePrices[$topic] = $request->input("price_sensitive.$topic");
+                    }
                 }
-            }
-            $site->sensitive_prices = !empty($sensitivePrices) ? json_encode($sensitivePrices) : null;
+                $site->sensitive_prices = ! empty($sensitivePrices) ? $sensitivePrices : null;
 
-            $site->save();
-        });
+                $site->save();
+            });
+        } catch (\Throwable $e) {
+            Log::error('Publisher site update failed', [
+                'site_id' => $site->id,
+                'error' => $e->getMessage(),
+            ]);
+
+            return redirect()->back()
+                ->withErrors(['siteUrl' => 'We could not update this website. Please check your details and try again.'])
+                ->withInput();
+        }
 
         // Send email notification for update
         try {
@@ -828,7 +858,25 @@ class SiteController extends Controller
     }
 
     /**
+     * Ensure URLs validate even when publishers omit the scheme.
+     */
+    private function normalizeHttpUrl(string $url): string
+    {
+        $url = trim($url);
+        if ($url === '') {
+            return $url;
+        }
+
+        if (! preg_match('~^(?:f|ht)tps?://~i', $url)) {
+            $url = 'https://'.$url;
+        }
+
+        return $url;
+    }
+
+    /**
      * Parse category names from array, JSON, CSV, or pipe-separated string.
+     * Prefer `|` as the delimiter so names containing commas stay intact.
      */
     private function parseCategoryList($value): array
     {
@@ -838,8 +886,12 @@ class SiteController extends Controller
             $decoded = json_decode($value, true);
             if (is_array($decoded)) {
                 $parts = $decoded;
+            } elseif (str_contains($value, '|')) {
+                $parts = explode('|', $value);
             } else {
-                $parts = preg_split('/[|,]/', $value) ?: [];
+                // If the whole string is a known category (may contain commas), keep it intact.
+                $known = Category::query()->where('name', $value)->exists();
+                $parts = $known ? [$value] : (preg_split('/,/', $value) ?: []);
             }
         } else {
             $parts = [];

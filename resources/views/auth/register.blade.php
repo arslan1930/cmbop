@@ -145,10 +145,11 @@
 
                                 <div class="mb-3">
                                     <div class="form-check mb-2">
-                                        <input type="checkbox" class="form-check-input" name="terms" id="terms" required>
+                                        <input type="checkbox" class="form-check-input" name="terms" id="terms" value="1" required>
                                         <label class="form-check-label" for="terms">
                                             <span class="text-danger">*</span> I agree to the <a href="{{ route('terms-of-services') }}" target="_blank" rel="noopener" class="auth-meta-link">Terms of Service</a>.
                                         </label>
+                                        <div class="invalid-feedback d-block" id="termsError"></div>
                                     </div>
                                     <div class="form-check mb-2">
                                         <input type="checkbox" class="form-check-input" name="marketing" id="marketing">
@@ -251,88 +252,96 @@ document.getElementById('registerForm').addEventListener('submit', async functio
     e.preventDefault();
 
     const submitBtn = document.getElementById('submitBtn');
-    if(submitBtn.disabled) return;
+    if (submitBtn.disabled) return;
     submitBtn.disabled = true;
     submitBtn.innerText = 'Creating account...';
 
-    document.querySelectorAll('.form-control').forEach(input=>{
+    document.querySelectorAll('.form-control, .form-check-input').forEach(input => {
         input.classList.remove('is-invalid');
     });
 
-    ['nameError','emailError','passwordError','password_confirmationError','roleError'].forEach(id=>{
+    ['nameError','emailError','passwordError','password_confirmationError','roleError','termsError'].forEach(id => {
         const el = document.getElementById(id);
-        if(el) el.innerText='';
+        if (el) el.innerText = '';
     });
 
     const toastContainer = document.getElementById('toastContainer');
+    const showToast = (message, type = 'danger') => {
+        const toast = document.createElement('div');
+        toast.className = 'toast align-items-center text-white border-0 bg-' + type;
+        toast.innerHTML = `<div class="d-flex"><div class="toast-body">${message}</div><button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button></div>`;
+        toastContainer.appendChild(toast);
+        new bootstrap.Toast(toast, { delay: 6000 }).show();
+    };
 
     const role = document.getElementById('roleInput').value;
-    if(!role){
-        const toast = document.createElement('div');
-        toast.className='toast align-items-center text-white border-0';
-        toast.innerHTML=`<div class="d-flex"><div class="toast-body">Please select a role.</div><button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button></div>`;
-        toast.classList.add('bg-warning');
-        toastContainer.appendChild(toast);
-        new bootstrap.Toast(toast,{delay:4000}).show();
-        submitBtn.disabled=false;
-        submitBtn.innerText='Create Account';
+    if (!role) {
+        showToast('Please select a role.', 'warning');
+        submitBtn.disabled = false;
+        submitBtn.innerText = 'Create Account';
         return;
     }
 
-    const sendingToast = document.createElement('div');
-    sendingToast.className='toast align-items-center text-white border-0';
-    sendingToast.innerHTML=`<div class="d-flex"><div class="toast-body">Sending verification email...</div></div>`;
-    sendingToast.classList.add('bg-info');
-    toastContainer.appendChild(sendingToast);
-    new bootstrap.Toast(sendingToast,{delay:3000}).show();
+    if (!document.getElementById('terms').checked) {
+        document.getElementById('terms').classList.add('is-invalid');
+        document.getElementById('termsError').innerText = 'You must agree to the Terms and Services.';
+        showToast('Please accept the Terms of Service to continue.', 'warning');
+        submitBtn.disabled = false;
+        submitBtn.innerText = 'Create Account';
+        return;
+    }
 
     const formData = new FormData(this);
     let data;
     try {
-        const res = await fetch("{{ route('register') }}", {
-            method:'POST',
-            headers:{ 'X-CSRF-TOKEN':'{{ csrf_token() }}' },
+        const res = await fetch("{{ url('/register') }}", {
+            method: 'POST',
+            headers: {
+                'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                'Accept': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+            },
             body: formData
         });
+
+        const contentType = res.headers.get('content-type') || '';
+        if (!contentType.includes('application/json')) {
+            throw new Error('Unexpected server response');
+        }
         data = await res.json();
-    } catch(e){
-        alert('Server error occurred. Check logs.');
-        submitBtn.disabled=false;
-        submitBtn.innerText='Create Account';
+    } catch (err) {
+        showToast('Server error occurred. Please refresh and try again.', 'danger');
+        submitBtn.disabled = false;
+        submitBtn.innerText = 'Create Account';
         return;
     }
 
-    sendingToast.remove();
-
-    const toastEl=document.createElement('div');
-    toastEl.className='toast align-items-center text-white border-0';
-    toastEl.innerHTML=`<div class="d-flex"><div class="toast-body">${data.message}</div><button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button></div>`;
-    toastContainer.appendChild(toastEl);
-
-    if(data.status==='success'){
-        toastEl.classList.add('bg-success');
-        new bootstrap.Toast(toastEl,{delay:7000}).show();
+    if (data.status === 'success') {
+        showToast(data.message || 'Registration successful!', 'success');
         this.reset();
-        document.getElementById('roleInput').value='advertiser';
-        document.querySelectorAll('#roleSelect .role-card').forEach(c=>{
+        document.getElementById('roleInput').value = 'advertiser';
+        document.querySelectorAll('#roleSelect .role-card').forEach(c => {
             const isAdv = c.dataset.value === 'advertiser';
             c.classList.toggle('selected', isAdv);
             c.setAttribute('aria-checked', isAdv ? 'true' : 'false');
         });
-    } else if(data.status==='error'){
-        toastEl.classList.add('bg-danger');
-        new bootstrap.Toast(toastEl,{delay:5000}).show();
-    } else if(data.status==='validation'){
-        for(let key in data.errors){
-            const input=document.querySelector(`[name="${key}"]`);
-            const errorDiv=document.getElementById(key+'Error');
-            if(input) input.classList.add('is-invalid');
-            if(errorDiv) errorDiv.innerText=data.errors[key][0];
+    } else if (data.status === 'validation') {
+        const errors = data.errors || {};
+        const messages = [];
+        for (const key in errors) {
+            const input = document.querySelector(`[name="${key}"]`);
+            const errorDiv = document.getElementById(key + 'Error');
+            if (input) input.classList.add('is-invalid');
+            if (errorDiv) errorDiv.innerText = errors[key][0];
+            if (errors[key][0]) messages.push(errors[key][0]);
         }
+        showToast(messages[0] || data.message || 'Please fix the highlighted fields.', 'warning');
+    } else {
+        showToast(data.message || 'Something went wrong. Please try again.', 'danger');
     }
 
-    submitBtn.disabled=false;
-    submitBtn.innerText='Create Account';
+    submitBtn.disabled = false;
+    submitBtn.innerText = 'Create Account';
 });
 </script>
 @endsection
