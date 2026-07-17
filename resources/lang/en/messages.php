@@ -34,7 +34,6 @@ return [
     'cookie_policy' => 'Cookie Policy',
     'refund_policy' => 'Refund Policy',
     'address' => 'Address',
-    'contact' => 'Contact',
     'legal' => 'Legal',
     'language' => 'Language',
     'report_problem' => 'Report a problem',
@@ -84,13 +83,13 @@ return [
     'meta_contact_description' => 'Get in touch with the SEOLinkBuildings team for sales, partnerships, and support.',
 
     // About
-    'about_kicker' => 'About us',
-    'about_title' => 'Built for modern link building teams',
-    'about_subtitle' => 'SEOLinkBuildings connects advertisers with verified publishers across Europe and major English-speaking markets.',
-    'about_mission_title' => 'Our mission',
-    'about_mission_body' => 'Make high-quality placements accessible with clear pricing, wallet checkout, and transparent delivery tracking.',
-    'about_approach_title' => 'Our approach',
-    'about_approach_body' => 'We focus on relevance, editorial standards, and multilingual markets — not PBNs or opaque packages.',
+    'about_page_kicker' => 'About us',
+    'about_page_title' => 'Built for modern link building teams',
+    'about_page_subtitle' => 'SEOLinkBuildings connects advertisers with verified publishers across Europe and major English-speaking markets.',
+    'about_page_mission_title' => 'Our mission',
+    'about_page_mission_body' => 'Make high-quality placements accessible with clear pricing, wallet checkout, and transparent delivery tracking.',
+    'about_page_approach_title' => 'Our approach',
+    'about_page_approach_body' => 'We focus on relevance, editorial standards, and multilingual markets — not PBNs or opaque packages.',
 
     // FAQ
     'faq_kicker' => 'Help center',

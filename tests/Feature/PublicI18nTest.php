@@ -66,4 +66,16 @@ class PublicI18nTest extends TestCase
             ->assertSee('localeSuggestBanner', false)
             ->assertSee('Deutsch', false);
     }
+
+    public function test_about_and_contact_titles_do_not_collide(): void
+    {
+        $this->get('/de/about')
+            ->assertOk()
+            ->assertSee('Gebaut für moderne Linkbuilding-Teams', false);
+
+        $this->get('/de/contact')
+            ->assertOk()
+            ->assertSee('Über SEOLinkBuildings', false)
+            ->assertDontSee('Gebaut für moderne Linkbuilding-Teams', false);
+    }
 }

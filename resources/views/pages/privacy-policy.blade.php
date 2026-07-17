@@ -1,24 +1,13 @@
 @extends('layouts.app')
 
-@section('title', 'Privacy Policy — SEOLinkBuildings')
-@section('description', 'Read how SEOLinkBuildings collects, uses, and protects your personal data on our content marketplace platform.')
+@section('title', __('messages.privacy_policy').' — SEOLinkBuildings')
+@section('description', __('messages.meta_default_description'))
+@section('canonical', localized_url('privacy-policy'))
 
 @section('content')
 
-@php
-  // Get locale from URL segment
-  $segments = request()->segments();
-  $availableLocales = ['de', 'fr', 'nl'];
-  $currentLocale = 'en';
-  
-  if (!empty($segments) && in_array($segments[0], $availableLocales)) {
-    $currentLocale = $segments[0];
-    app()->setLocale($currentLocale);
-  }
-@endphp
-
 <!-- ==================== PRIVACY HERO ==================== -->
-<section style="position:relative; width:100%; padding:140px 0 60px; overflow:hidden; background:linear-gradient(180deg, #f0f5ff 0%, #f5faff 100%);">
+<section style="position:relative; width:100%; padding:48px 0 60px; overflow:hidden; background:linear-gradient(180deg, #f0f5ff 0%, #f5faff 100%);">
 
     <!-- Background Shapes -->
     <div style="position:absolute; top:10%; left:-100px; width:250px; height:250px; border-radius:50%; background:#FF4757; opacity:0.08; z-index:1;"></div>
