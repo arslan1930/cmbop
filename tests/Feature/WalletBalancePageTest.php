@@ -66,10 +66,14 @@ class WalletBalancePageTest extends TestCase
         $response->assertSee('Available Balance', false);
         $response->assertSee('Bonus Balance', false);
         $response->assertSee('Pending Balance', false);
+        $response->assertSee('Lifetime Deposits', false);
+        $response->assertSee('Spending Overview', false);
         $response->assertSee('Balance History', false);
         $response->assertSee('depositSection', false);
         $response->assertSee(Wallet::PROMOTIONAL_BONUS_MESSAGE, false);
         $response->assertDontSee('Transfer to Publisher Wallet', false);
+        $response->assertDontSee('Lifetime Spending', false);
+        $response->assertDontSee('Lifetime Withdrawals', false);
     }
 
     public function test_cannot_withdraw_bonus_only_balance(): void
@@ -77,6 +81,7 @@ class WalletBalancePageTest extends TestCase
         $response = $this->actingAs($this->user)->postJson(route('advertiser.balance.withdraw'), [
             'amount' => 10,
             'payment_method' => 'paypal',
+            'business_name' => 'Acme Media',
             'paypal_email' => 'user@example.com',
         ]);
 
@@ -102,6 +107,7 @@ class WalletBalancePageTest extends TestCase
         $response = $this->actingAs($this->user)->postJson(route('advertiser.balance.withdraw'), [
             'amount' => 30,
             'payment_method' => 'paypal',
+            'business_name' => 'Acme Media',
             'paypal_email' => 'user@example.com',
         ]);
 
@@ -122,6 +128,61 @@ class WalletBalancePageTest extends TestCase
             'type' => 'withdrawal',
             'amount' => 30,
         ]);
+        $this->user->refresh();
+        $this->assertSame('Acme Media', $this->user->payout_business_name);
+        $this->assertSame('user@example.com', $this->user->payout_paypal_email);
+        $this->assertNotNull($this->user->payout_profile_locked_at);
+    }
+
+    public function test_locked_payout_fields_cannot_be_changed(): void
+    {
+        Mail::fake();
+        $this->wallet->addBalance(50);
+        $this->user->forceFill([
+            'payout_business_name' => 'Locked Biz',
+            'payout_paypal_email' => 'locked@example.com',
+            'payout_profile_locked_at' => now(),
+        ])->save();
+
+        $response = $this->actingAs($this->user)->postJson(route('advertiser.balance.withdraw'), [
+            'amount' => 10,
+            'payment_method' => 'paypal',
+            'business_name' => 'Different Biz',
+            'paypal_email' => 'other@example.com',
+        ]);
+
+        $response->assertStatus(422);
+        $response->assertJsonPath('success', false);
+        $this->assertStringContainsString('locked', strtolower((string) $response->json('message')));
+    }
+
+    public function test_crypto_withdraw_requires_double_wallet_entry(): void
+    {
+        Mail::fake();
+        $this->wallet->addBalance(50);
+
+        $bad = $this->actingAs($this->user)->postJson(route('advertiser.balance.withdraw'), [
+            'amount' => 10,
+            'payment_method' => 'crypto',
+            'business_name' => 'Crypto Co',
+            'crypto_type' => 'USDT_TRC20',
+            'wallet_address' => 'TXabc123',
+            'wallet_address_confirm' => 'TXdifferent',
+        ]);
+        $bad->assertStatus(422);
+
+        $ok = $this->actingAs($this->user)->postJson(route('advertiser.balance.withdraw'), [
+            'amount' => 10,
+            'payment_method' => 'crypto',
+            'business_name' => 'Crypto Co',
+            'crypto_type' => 'USDT_TRC20',
+            'wallet_address' => 'TXabc123',
+            'wallet_address_confirm' => 'TXabc123',
+        ]);
+        $ok->assertOk();
+        $this->user->refresh();
+        $this->assertSame('TXabc123', $this->user->payout_crypto_trx_wallet);
+        $this->assertNotNull($this->user->payout_crypto_trx_verified_at);
     }
 
     public function test_role_transfers_are_disabled(): void
@@ -158,13 +219,16 @@ class WalletBalancePageTest extends TestCase
     public function test_analytics_endpoint_accepts_ranges(): void
     {
         $response = $this->actingAs($this->user)->getJson(route('advertiser.balance.analytics', [
-            'range' => 'week',
+            'range' => '7d',
         ]));
 
         $response->assertOk();
         $response->assertJsonPath('success', true);
         $response->assertJsonStructure([
-            'analytics' => ['labels', 'deposits', 'orders', 'withdrawals', 'bonus_usage'],
+            'analytics' => [
+                'labels', 'deposits', 'orders', 'withdrawals', 'bonus_usage',
+                'points', 'order_details', 'has_spend', 'keys',
+            ],
         ]);
     }
 }

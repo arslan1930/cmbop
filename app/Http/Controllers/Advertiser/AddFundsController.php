@@ -57,6 +57,7 @@ class AddFundsController extends Controller
             'advertiserBonusBalance' => $wallet->lockedBonusBalance(),
             'advertiserWithdrawableBalance' => $wallet->withdrawableBalance(),
             'promotionalBonusMessage' => Wallet::PROMOTIONAL_BONUS_MESSAGE,
+            'payoutProfile' => $user->payoutProfile(),
         ]);
     }
     

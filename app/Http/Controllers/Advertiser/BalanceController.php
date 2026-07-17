@@ -77,13 +77,19 @@ class BalanceController extends Controller
     public function analytics(Request $request)
     {
         $range = $request->get('range', 'month');
-        if (! in_array($range, ['week', 'month', 'quarter', 'year', 'lifetime'], true)) {
+        $allowed = ['week', '7d', 'month', '30d', '90d', 'quarter', 'year', 'lifetime', 'custom'];
+        if (! in_array($range, $allowed, true)) {
             $range = 'month';
         }
 
         return response()->json([
             'success' => true,
-            'analytics' => $this->overview->analytics(auth()->id(), $range),
+            'analytics' => $this->overview->analytics(
+                auth()->id(),
+                $range,
+                $request->get('from'),
+                $request->get('to')
+            ),
         ]);
     }
 
@@ -173,7 +179,8 @@ class BalanceController extends Controller
                 ], 422);
             }
 
-            $paymentDetails = $this->validatedPaymentDetails($request);
+            $paymentDetails = $this->validatedPaymentDetails($request, $user);
+            $this->persistPayoutProfile($user, $request->payment_method, $paymentDetails);
 
             $feePercent = (float) config('billing.withdrawal_fee_percent', 0);
             $fee = round(($amount * $feePercent) / 100, 2);
@@ -264,8 +271,22 @@ class BalanceController extends Controller
         return $this->transactions($request->merge(['type' => 'transfer_out']));
     }
 
-    protected function validatedPaymentDetails(Request $request): array
+    protected function validatedPaymentDetails(Request $request, User $user): array
     {
+        $locked = $user->payoutProfileLocked();
+        $profile = $user->payoutProfile();
+
+        $request->validate([
+            'business_name' => 'required|string|max:255',
+            'payment_method' => 'required|in:bank,paypal,wise,crypto',
+        ]);
+
+        if ($locked && $profile['business_name'] && $request->business_name !== $profile['business_name']) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'business_name' => 'Business name is locked. Contact support to change it.',
+            ]);
+        }
+
         switch ($request->payment_method) {
             case 'bank':
                 $request->validate([
@@ -274,8 +295,14 @@ class BalanceController extends Controller
                     'account_number' => 'required|string|max:255',
                     'swift_code' => 'nullable|string|max:50',
                 ]);
+                if ($locked && $profile['bank_holder_name'] && $request->account_holder !== $profile['bank_holder_name']) {
+                    throw \Illuminate\Validation\ValidationException::withMessages([
+                        'account_holder' => 'Bank account holder name is locked. Contact support to change it.',
+                    ]);
+                }
 
                 return [
+                    'business_name' => $request->business_name,
                     'bank_name' => $request->bank_name,
                     'account_holder' => $request->account_holder,
                     'account_number' => $request->account_number,
@@ -283,24 +310,88 @@ class BalanceController extends Controller
                 ];
             case 'paypal':
                 $request->validate(['paypal_email' => 'required|email|max:255']);
+                if ($locked && $profile['paypal_email'] && $request->paypal_email !== $profile['paypal_email']) {
+                    throw \Illuminate\Validation\ValidationException::withMessages([
+                        'paypal_email' => 'PayPal email is locked. Contact support to change it.',
+                    ]);
+                }
 
-                return ['email' => $request->paypal_email];
+                return [
+                    'business_name' => $request->business_name,
+                    'email' => $request->paypal_email,
+                ];
             case 'wise':
                 $request->validate(['wise_email' => 'required|email|max:255']);
 
-                return ['email' => $request->wise_email];
+                return [
+                    'business_name' => $request->business_name,
+                    'email' => $request->wise_email,
+                ];
             case 'crypto':
                 $request->validate([
-                    'crypto_type' => 'required|string|in:BTC,ETH,USDT,BNB',
+                    'crypto_type' => 'required|string|in:TRX,USDT_TRC20',
                     'wallet_address' => 'required|string|max:255',
+                    'wallet_address_confirm' => 'required|string|max:255|same:wallet_address',
+                ], [
+                    'wallet_address_confirm.same' => 'TRX wallet addresses must match exactly (enter twice to verify).',
                 ]);
 
+                if ($locked && $profile['crypto_trx_wallet'] && $request->wallet_address !== $profile['crypto_trx_wallet']) {
+                    throw \Illuminate\Validation\ValidationException::withMessages([
+                        'wallet_address' => 'Crypto TRX wallet is locked. Contact support to change it.',
+                    ]);
+                }
+
                 return [
+                    'business_name' => $request->business_name,
                     'crypto_type' => $request->crypto_type,
                     'wallet_address' => $request->wallet_address,
+                    'network' => 'TRX / TRC20',
+                    'double_verified' => true,
                 ];
             default:
                 return [];
+        }
+    }
+
+    protected function persistPayoutProfile(User $user, string $method, array $details): void
+    {
+        $updates = [];
+
+        if (empty($user->payout_business_name) && ! empty($details['business_name'])) {
+            $updates['payout_business_name'] = $details['business_name'];
+        }
+
+        if ($method === 'paypal' && empty($user->payout_paypal_email) && ! empty($details['email'])) {
+            $updates['payout_paypal_email'] = $details['email'];
+        }
+
+        if ($method === 'bank') {
+            if (empty($user->payout_bank_holder_name) && ! empty($details['account_holder'])) {
+                $updates['payout_bank_holder_name'] = $details['account_holder'];
+            }
+            if (empty($user->payout_bank_name) && ! empty($details['bank_name'])) {
+                $updates['payout_bank_name'] = $details['bank_name'];
+            }
+            if (empty($user->payout_bank_account) && ! empty($details['account_number'])) {
+                $updates['payout_bank_account'] = $details['account_number'];
+            }
+            if (empty($user->payout_bank_swift) && ! empty($details['swift_code'])) {
+                $updates['payout_bank_swift'] = $details['swift_code'];
+            }
+        }
+
+        if ($method === 'crypto' && empty($user->payout_crypto_trx_wallet) && ! empty($details['wallet_address'])) {
+            $updates['payout_crypto_trx_wallet'] = $details['wallet_address'];
+            $updates['payout_crypto_trx_verified_at'] = now();
+        }
+
+        if ($updates !== [] && empty($user->payout_profile_locked_at)) {
+            $updates['payout_profile_locked_at'] = now();
+        }
+
+        if ($updates !== []) {
+            $user->forceFill($updates)->save();
         }
     }
 

@@ -133,6 +133,27 @@ class Site extends Model
         return $count.' completed '.($count === 1 ? 'order' : 'orders');
     }
 
+    /**
+     * Completion rate among terminal orders (completed vs cancelled).
+     * Returns null when there is no history yet.
+     */
+    public function completionRatePercent(): ?int
+    {
+        $completed = (int) ($this->completed_orders_count ?? 0);
+        $cancelled = (int) ($this->cancelled_orders_count
+            ?? OrderItem::query()
+                ->where('site_id', $this->id)
+                ->whereHas('order', fn ($q) => $q->where('status', 'cancelled'))
+                ->count());
+
+        $total = $completed + $cancelled;
+        if ($total < 1) {
+            return null;
+        }
+
+        return (int) round(($completed / $total) * 100);
+    }
+
     public static function refreshCompletedOrdersCount(int $siteId): void
     {
         $count = OrderItem::query()

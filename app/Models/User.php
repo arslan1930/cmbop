@@ -21,14 +21,23 @@ class User extends Authenticatable implements MustVerifyEmail
      */
     protected $fillable = [
         'name',
-        'email', 
+        'email',
         'password',
         'google_id',
         'google_token',
         'google_refresh_token',
         'avatar',
         'active_role_id',
-        'email_verified_at'
+        'email_verified_at',
+        'payout_business_name',
+        'payout_paypal_email',
+        'payout_bank_holder_name',
+        'payout_bank_name',
+        'payout_bank_account',
+        'payout_bank_swift',
+        'payout_crypto_trx_wallet',
+        'payout_crypto_trx_verified_at',
+        'payout_profile_locked_at',
     ];
 
     /**
@@ -51,7 +60,34 @@ class User extends Authenticatable implements MustVerifyEmail
     protected $casts = [
         'email_verified_at' => 'datetime',
         'password' => 'hashed',
+        'payout_crypto_trx_verified_at' => 'datetime',
+        'payout_profile_locked_at' => 'datetime',
     ];
+
+    public function payoutProfileLocked(): bool
+    {
+        return $this->payout_profile_locked_at !== null;
+    }
+
+    /**
+     * Snapshot of locked payout destinations for withdrawal forms.
+     *
+     * @return array<string, mixed>
+     */
+    public function payoutProfile(): array
+    {
+        return [
+            'business_name' => $this->payout_business_name,
+            'paypal_email' => $this->payout_paypal_email,
+            'bank_holder_name' => $this->payout_bank_holder_name,
+            'bank_name' => $this->payout_bank_name,
+            'bank_account' => $this->payout_bank_account,
+            'bank_swift' => $this->payout_bank_swift,
+            'crypto_trx_wallet' => $this->payout_crypto_trx_wallet,
+            'crypto_trx_verified' => $this->payout_crypto_trx_verified_at !== null,
+            'locked' => $this->payoutProfileLocked(),
+        ];
+    }
 
     /**
      * Override: Google users are automatically verified
