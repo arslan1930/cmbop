@@ -312,3 +312,33 @@ CREATE TABLE IF NOT EXISTS `order_activities` (
   KEY `order_activities_order_id_index` (`order_id`),
   CONSTRAINT `order_activities_order_id_foreign` FOREIGN KEY (`order_id`) REFERENCES `orders` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- ---------------------------------------------------------------------------
+-- Site promotions (fixes: Unknown column featured_until)
+-- ---------------------------------------------------------------------------
+ALTER TABLE `sites` ADD COLUMN `featured_until` timestamp NULL DEFAULT NULL;
+ALTER TABLE `sites` ADD COLUMN `featured_purchased_at` timestamp NULL DEFAULT NULL;
+ALTER TABLE `sites` ADD COLUMN `bulk_discount_enabled` tinyint(1) NOT NULL DEFAULT 0;
+ALTER TABLE `sites` ADD COLUMN `bulk_discount_percent` decimal(5,2) NULL DEFAULT NULL;
+ALTER TABLE `sites` ADD COLUMN `custom_discount_percent` decimal(5,2) NULL DEFAULT NULL;
+ALTER TABLE `sites` ADD COLUMN `custom_discount_starts_at` timestamp NULL DEFAULT NULL;
+ALTER TABLE `sites` ADD COLUMN `custom_discount_ends_at` timestamp NULL DEFAULT NULL;
+ALTER TABLE `sites` ADD COLUMN `custom_discount_notified_at` timestamp NULL DEFAULT NULL;
+
+CREATE TABLE IF NOT EXISTS `site_feature_purchases` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `site_id` bigint unsigned NOT NULL,
+  `user_id` bigint unsigned NOT NULL,
+  `amount` decimal(10,2) NOT NULL,
+  `days` smallint unsigned NOT NULL DEFAULT 7,
+  `payment_method` varchar(40) NOT NULL DEFAULT 'wallet',
+  `starts_at` timestamp NULL DEFAULT NULL,
+  `ends_at` timestamp NULL DEFAULT NULL,
+  `created_at` timestamp NULL DEFAULT NULL,
+  `updated_at` timestamp NULL DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `site_feature_purchases_site_id_foreign` (`site_id`),
+  KEY `site_feature_purchases_user_id_foreign` (`user_id`),
+  CONSTRAINT `site_feature_purchases_site_id_foreign` FOREIGN KEY (`site_id`) REFERENCES `sites` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `site_feature_purchases_user_id_foreign` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

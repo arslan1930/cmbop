@@ -149,11 +149,19 @@ class Site extends Model
 
     public function isFeatured(): bool
     {
+        if (! static::hasSitesColumn('featured_until')) {
+            return false;
+        }
+
         return $this->featured_until !== null && $this->featured_until->isFuture();
     }
 
     public function hasActiveCustomDiscount(): bool
     {
+        if (! static::hasSitesColumn('custom_discount_percent')) {
+            return false;
+        }
+
         if (! $this->custom_discount_percent || ! $this->custom_discount_ends_at) {
             return false;
         }
@@ -172,6 +180,10 @@ class Site extends Model
 
     public function joinsBulkDiscount(): bool
     {
+        if (! static::hasSitesColumn('bulk_discount_enabled')) {
+            return false;
+        }
+
         return (bool) $this->bulk_discount_enabled
             && $this->bulk_discount_percent !== null
             && (float) $this->bulk_discount_percent > 0;

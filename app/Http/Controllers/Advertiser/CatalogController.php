@@ -362,8 +362,10 @@ if ($request->filled('category')) {
         $query->where('created_at', '>=', now()->subDays(30));
     }
 
-    // Featured placements rise to the top, then chosen sort
-    $query->orderByRaw('(featured_until IS NOT NULL AND featured_until > ?) DESC', [now()]);
+    // Featured placements rise to the top (skip if promotions columns not migrated yet)
+    if (\Illuminate\Support\Facades\Schema::hasColumn('sites', 'featured_until')) {
+        $query->orderByRaw('(featured_until IS NOT NULL AND featured_until > ?) DESC', [now()]);
+    }
 
     // Sort (default: highest DR first — what buyers typically scan for)
     $sort = $request->get('sort', 'dr_desc');
@@ -449,19 +451,22 @@ if ($request->filled('category')) {
     $showBlacklistedOnly = $showBlacklistedOnly;
 
     // Bulk discount marketplace section (joined publishers)
-    $bulkDeals = Site::query()
-        ->where('active', 1)
-        ->where('bulk_discount_enabled', 1)
-        ->whereNotNull('bulk_discount_percent')
-        ->when(! empty($blacklist) && ! $showBlacklistedOnly, fn ($q) => $q->whereNotIn('id', $blacklist))
-        ->orderByDesc('bulk_discount_percent')
-        ->orderByDesc('dr')
-        ->limit(12)
-        ->get();
+    $bulkDeals = collect();
+    if (\Illuminate\Support\Facades\Schema::hasColumn('sites', 'bulk_discount_enabled')) {
+        $bulkDeals = Site::query()
+            ->where('active', 1)
+            ->where('bulk_discount_enabled', 1)
+            ->whereNotNull('bulk_discount_percent')
+            ->when(! empty($blacklist) && ! $showBlacklistedOnly, fn ($q) => $q->whereNotIn('id', $blacklist))
+            ->orderByDesc('bulk_discount_percent')
+            ->orderByDesc('dr')
+            ->limit(12)
+            ->get();
 
-    foreach ($bulkDeals as $dealSite) {
-        $dealSite->original_price = $dealSite->price;
-        $dealSite->price = $this->getPriceForUser($dealSite->price, $dealSite->publisher_id);
+        foreach ($bulkDeals as $dealSite) {
+            $dealSite->original_price = $dealSite->price;
+            $dealSite->price = $this->getPriceForUser($dealSite->price, $dealSite->publisher_id);
+        }
     }
 
     $featurePrice = (float) config('site_promotions.feature.price', 10);
