@@ -442,25 +442,48 @@
                                     </div>
                                     <div>
                                         <h3 style="font-size: 18px; font-weight: 600; margin: 0;">Card Payment</h3>
-                                        <p style="font-size: 12px; color: #6b7280; margin: 4px 0 0;">Secure card payment via Stripe</p>
+                                        <p style="font-size: 12px; color: #6b7280; margin: 4px 0 0;">Pay with a saved card or enter a new one via Stripe</p>
                                     </div>
                                 </div>
-                                
-                                <div class="alert alert-info py-3 px-3 mb-3">
-                                    <div class="d-flex align-items-center">
-                                        <i class="fab fa-cc-visa fa-2x me-2 text-primary"></i>
-                                        <i class="fab fa-cc-mastercard fa-2x me-2 text-warning"></i>
-                                        <i class="fab fa-cc-amex fa-2x me-2 text-info"></i>
-                                        <i class="fab fa-cc-discover fa-2x me-2 text-secondary"></i>
+
+                                @php $checkoutSavedCards = $savedCards ?? []; @endphp
+                                @if(count($checkoutSavedCards) > 0)
+                                    <div class="mb-3" id="savedCardsCheckoutList">
+                                        <label class="form-label fw-semibold small">Saved cards</label>
+                                        @foreach($checkoutSavedCards as $card)
+                                            <label class="d-flex align-items-center gap-2 border rounded-3 p-3 mb-2"
+                                                   style="cursor:pointer; {{ !empty($card['is_default']) ? 'border-color:#4ECDCB !important;background:#f0fbfb;' : '' }}">
+                                                <input type="radio" name="saved_card_choice" class="form-check-input saved-card-radio"
+                                                       value="{{ $card['id'] }}"
+                                                       {{ !empty($card['is_default']) ? 'checked' : '' }}>
+                                                <i class="fab fa-cc-{{ strtolower($card['brand']) === 'american express' ? 'amex' : strtolower($card['brand']) }} fa-lg text-muted"></i>
+                                                <span class="small">
+                                                    <strong class="text-capitalize">{{ $card['brand'] }}</strong>
+                                                    •••• {{ $card['last4'] }}
+                                                    <span class="text-muted">· {{ sprintf('%02d/%d', $card['exp_month'], $card['exp_year'] % 100) }}</span>
+                                                    @if(!empty($card['is_default']))
+                                                        <span class="badge bg-success-subtle text-success ms-1">Default</span>
+                                                    @endif
+                                                </span>
+                                            </label>
+                                        @endforeach
+                                        <label class="d-flex align-items-center gap-2 border rounded-3 p-3 mb-0" style="cursor:pointer;">
+                                            <input type="radio" name="saved_card_choice" class="form-check-input saved-card-radio" value="new"
+                                                   {{ count($checkoutSavedCards) === 0 ? 'checked' : '' }}>
+                                            <span class="small fw-semibold">Use a new card (Stripe Checkout)</span>
+                                        </label>
+                                        <p class="small text-muted mt-2 mb-0">You can save the new card for next time on Stripe’s secure page.</p>
                                     </div>
-                                </div>
-                                
-                                <div style="background: #f9fafb; border-radius: 12px; padding: 20px; border: 1px solid #e5e7eb;">
-                                    <div class="alert alert-success mt-3 py-2">
-                                        <i class="fas fa-shield-alt me-1"></i>
-                                        <small>Your payment is secure and encrypted. We accept Visa, Mastercard, American Express, and Discover.</small>
+                                @else
+                                    <div class="alert alert-light border small mb-3">
+                                        No saved cards yet. You’ll pay on Stripe’s secure page and can tick
+                                        <strong>Save payment details for future purchases</strong>.
+                                        Manage cards anytime under
+                                        <a href="{{ route('advertiser.add-funds', ['tab' => 'cards']) }}">Add Funds → Cards</a>.
                                     </div>
-                                </div>
+                                @endif
+
+                                @include('partials.payment-trust', ['compact' => true])
                             </div>
                         </div>
                     </div>
@@ -533,6 +556,9 @@
                             <button type="button" id="placeOrderBtn" class="btn btn-primary w-100 mt-3">
                                 <i class="fa fa-check-circle"></i> Place Order
                             </button>
+                            <div class="mt-3">
+                                @include('partials.payment-trust', ['compact' => true, 'showMethods' => false])
+                            </div>
 
                             <a href="{{ route('advertiser.catalog') }}" class="btn btn-outline-secondary w-100 mt-2">
                                 <i class="fa fa-arrow-left"></i> Continue Shopping
@@ -1149,12 +1175,39 @@ document.addEventListener('DOMContentLoaded', function() {
             body: JSON.stringify(Object.assign({
                 payment_method: selectedMethod,
                 reference_code: referenceCode,
-                use_bonus: !!(useBonusEl && useBonusEl.checked)
+                use_bonus: !!(useBonusEl && useBonusEl.checked),
+                payment_method_id: (function () {
+                    if (selectedMethod !== 'card') return null;
+                    const picked = document.querySelector('input[name="saved_card_choice"]:checked');
+                    if (!picked || picked.value === 'new') return null;
+                    return picked.value;
+                })()
             }, contentPayload || {}))
         })
         .then(response => response.json())
         .then(data => {
             if (data.success) {
+                if (data.requires_action && data.client_secret && data.stripe_key) {
+                    const script = document.createElement('script');
+                    script.src = 'https://js.stripe.com/v3/';
+                    script.onload = function () {
+                        const stripe = Stripe(data.stripe_key);
+                        stripe.confirmCardPayment(data.client_secret, {
+                            return_url: data.return_url
+                        }).then(function (result) {
+                            if (result.error) {
+                                Swal.fire('Payment', result.error.message || 'Authentication failed', 'error');
+                                placeOrderBtn.dataset.busy = '';
+                                placeOrderBtn.disabled = false;
+                                placeOrderBtn.innerHTML = '<i class="fa fa-check-circle"></i> Place Order';
+                            } else if (result.paymentIntent && result.paymentIntent.status === 'succeeded') {
+                                window.location.href = data.return_url + '&payment_intent=' + encodeURIComponent(result.paymentIntent.id);
+                            }
+                        });
+                    };
+                    document.head.appendChild(script);
+                    return;
+                }
                 if (data.requires_payment && data.checkout_url) {
                     window.location.href = data.checkout_url;
                 } else if (data.message) {

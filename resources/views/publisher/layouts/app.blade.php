@@ -483,11 +483,16 @@
 </div>
 
 <footer>
-    © {{ date('Y') }} SEOLinkBuildings
-    <span class="mx-2">·</span>
-    <button type="button" class="btn btn-link btn-sm p-0 align-baseline" onclick="document.getElementById('helpFeedbackToggle')?.click()">Report a problem</button>
-    <span class="mx-1">·</span>
-    <button type="button" class="btn btn-link btn-sm p-0 align-baseline" onclick="document.getElementById('helpFeedbackToggle')?.click()">Suggestion box</button>
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2 w-100 px-2">
+        <div>
+            © {{ date('Y') }} SEOLinkBuildings
+            <span class="mx-2">·</span>
+            <button type="button" class="btn btn-link btn-sm p-0 align-baseline" onclick="document.getElementById('helpFeedbackToggle')?.click()">Report a problem</button>
+            <span class="mx-1">·</span>
+            <button type="button" class="btn btn-link btn-sm p-0 align-baseline" onclick="document.getElementById('helpFeedbackToggle')?.click()">Suggestion box</button>
+        </div>
+        @include('partials.payment-trust', ['compact' => true, 'showMethods' => true])
+    </div>
 </footer>
 @include('components.help-feedback-widget')
 

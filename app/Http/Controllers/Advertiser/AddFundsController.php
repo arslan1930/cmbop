@@ -9,6 +9,7 @@ use App\Mail\DepositRequestSubmitted;
 use App\Models\DepositRequest;
 use App\Models\User;
 use App\Models\Wallet;
+use App\Services\StripeCustomerService;
 use App\Services\StripePaymentService;
 use App\Services\Wallet\WalletLedgerService;
 use App\Services\Wallet\WalletOverviewService;
@@ -18,6 +19,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Validation\ValidationException;
 use Stripe\Checkout\Session;
+use Stripe\PaymentIntent;
 use Stripe\Stripe;
 
 class AddFundsController extends Controller
@@ -70,6 +72,9 @@ class AddFundsController extends Controller
             'payoutProfile' => $user->payoutProfile(),
             'prefillAmount' => $prefillAmount >= 10 ? $prefillAmount : null,
             'prefillMethod' => $prefillMethod,
+            'savedCards' => app(StripeCustomerService::class)->listCards($user),
+            'stripeConfigured' => app(StripeCustomerService::class)->configured(),
+            'cardsTab' => $request->query('tab') === 'cards',
         ]);
     }
 
@@ -98,8 +103,7 @@ class AddFundsController extends Controller
             // Generate a unique session reference (NO deposit record created here)
             $sessionReference = 'deposit_'.uniqid();
 
-            // Create Stripe Checkout Session WITHOUT creating deposit record first
-            $checkoutSession = Session::create([
+            $sessionPayload = [
                 'payment_method_types' => ['card'],
                 'line_items' => [[
                     'price_data' => [
@@ -122,8 +126,14 @@ class AddFundsController extends Controller
                     'reference_code' => $referenceCode,
                     'session_reference' => $sessionReference,
                 ],
-                'customer_email' => $user->email,
-            ]);
+            ];
+
+            $sessionPayload = array_merge(
+                $sessionPayload,
+                app(StripeCustomerService::class)->checkoutCustomerOptions($user, true)
+            );
+
+            $checkoutSession = Session::create($sessionPayload);
 
             return response()->json([
                 'success' => true,
@@ -144,8 +154,38 @@ class AddFundsController extends Controller
     public function checkoutSuccess(Request $request)
     {
         $sessionId = $request->session_id;
+        $paymentIntentId = $request->query('payment_intent');
         $amount = $request->amount;
         $referenceCode = $request->ref;
+
+        // 3DS return from saved-card PaymentIntent
+        if ($paymentIntentId && ! $sessionId) {
+            try {
+                Stripe::setApiKey(config('services.stripe.secret'));
+                $intent = PaymentIntent::retrieve($paymentIntentId);
+                if ($intent->status !== 'succeeded') {
+                    return redirect()->route('advertiser.add-funds')
+                        ->with('error', 'Card payment was not completed.');
+                }
+                if ((string) ($intent->metadata->user_id ?? '') !== (string) auth()->id()) {
+                    return redirect()->route('advertiser.add-funds')
+                        ->with('error', 'Payment does not belong to this account.');
+                }
+                $amountEuros = isset($amount)
+                    ? round((float) $amount, 2)
+                    : StripePaymentService::fromCents($intent->amount_received ?: $intent->amount);
+                $ref = $referenceCode ?: (string) ($intent->metadata->reference_code ?? str_pad((string) mt_rand(1, 999999), 6, '0', STR_PAD_LEFT));
+                $credited = $this->creditWalletFromPaymentIntent(auth()->id(), $paymentIntentId, $amountEuros, $ref);
+
+                return redirect()->route('advertiser.add-funds')
+                    ->with('success', 'Payment successful! €'.number_format($credited, 2).' added to your wallet.');
+            } catch (\Throwable $e) {
+                Log::error('Saved-card deposit success error: '.$e->getMessage());
+
+                return redirect()->route('advertiser.add-funds')
+                    ->with('error', 'Failed to verify payment. Please contact support.');
+            }
+        }
 
         if (! $sessionId) {
             return redirect()->route('advertiser.add-funds')
@@ -223,6 +263,136 @@ class AddFundsController extends Controller
             return redirect()->route('advertiser.add-funds')
                 ->with('error', 'Failed to verify payment. Please contact support.');
         }
+    }
+
+    /**
+     * Instant wallet top-up with a saved Stripe card.
+     */
+    public function payWithSavedCard(Request $request)
+    {
+        $request->validate([
+            'amount' => 'required|numeric|min:10',
+            'payment_method_id' => 'required|string',
+            'reference_code' => 'required|string',
+        ]);
+
+        if (! app(StripeCustomerService::class)->configured()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Card payments are not configured.',
+            ], 503);
+        }
+
+        $user = auth()->user();
+        $amountEuros = round((float) $request->amount, 2);
+        $referenceCode = (string) $request->reference_code;
+
+        try {
+            $payResult = app(StripeCustomerService::class)->payWithSavedCard(
+                $user,
+                (string) $request->payment_method_id,
+                StripePaymentService::toCents($amountEuros),
+                [
+                    'type' => 'wallet_deposit',
+                    'user_id' => (string) $user->id,
+                    'amount' => (string) $amountEuros,
+                    'reference_code' => $referenceCode,
+                ],
+                route('advertiser.checkout.success').'?ref='.urlencode($referenceCode).'&amount='.$amountEuros,
+                'Wallet deposit '.$referenceCode
+            );
+
+            if ($payResult['status'] === 'succeeded') {
+                $this->creditWalletFromPaymentIntent($user->id, $payResult['payment_intent_id'], $amountEuros, $referenceCode);
+
+                return response()->json([
+                    'success' => true,
+                    'message' => '€'.number_format($amountEuros, 2).' added to your wallet with your saved card.',
+                    'redirect_url' => route('advertiser.add-funds'),
+                ]);
+            }
+
+            if (! empty($payResult['redirect_url'])) {
+                return response()->json([
+                    'success' => true,
+                    'requires_payment' => true,
+                    'checkout_url' => $payResult['redirect_url'],
+                ]);
+            }
+
+            if (! empty($payResult['client_secret'])) {
+                return response()->json([
+                    'success' => true,
+                    'requires_action' => true,
+                    'client_secret' => $payResult['client_secret'],
+                    'stripe_key' => config('services.stripe.key'),
+                    'return_url' => route('advertiser.checkout.success').'?ref='.urlencode($referenceCode).'&amount='.$amountEuros,
+                ]);
+            }
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Could not charge this card. Try another card or Stripe Checkout.',
+            ], 422);
+        } catch (\Throwable $e) {
+            Log::error('Saved card wallet deposit failed: '.$e->getMessage());
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Saved card payment failed. Please try again or use a new card.',
+            ], 422);
+        }
+    }
+
+    protected function creditWalletFromPaymentIntent(int $userId, string $paymentIntentId, float $amountEuros, string $referenceCode): float
+    {
+        $credited = 0.0;
+
+        DB::transaction(function () use ($userId, $paymentIntentId, $amountEuros, &$referenceCode, &$credited) {
+            $existing = DepositRequest::where('stripe_payment_intent_id', $paymentIntentId)
+                ->lockForUpdate()
+                ->first();
+            if ($existing) {
+                $credited = (float) $existing->amount;
+
+                return;
+            }
+
+            if (DepositRequest::where('reference_code', $referenceCode)->exists()) {
+                do {
+                    $referenceCode = str_pad((string) mt_rand(1, 999999), 6, '0', STR_PAD_LEFT);
+                } while (DepositRequest::where('reference_code', $referenceCode)->exists());
+            }
+
+            $deposit = DepositRequest::create([
+                'user_id' => $userId,
+                'reference_code' => $referenceCode,
+                'amount' => $amountEuros,
+                'payment_method' => 'card',
+                'status' => 'completed',
+                'stripe_payment_intent_id' => $paymentIntentId,
+                'approved_at' => now(),
+                'paid_at' => now(),
+            ]);
+
+            $advertiserRoleId = Wallet::advertiserRoleId();
+            if (! $advertiserRoleId) {
+                throw new \RuntimeException('Advertiser role not configured');
+            }
+
+            $wallet = Wallet::lockOrCreateForRole($userId, $advertiserRoleId);
+            $wallet->credit((float) $deposit->amount);
+            app(WalletLedgerService::class)->recordDeposit(
+                $wallet,
+                (float) $deposit->amount,
+                $deposit,
+                'card',
+                $deposit->reference_code
+            );
+            $credited = (float) $deposit->amount;
+        });
+
+        return $credited;
     }
 
     public function store(Request $request)

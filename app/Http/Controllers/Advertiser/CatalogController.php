@@ -26,6 +26,7 @@ use App\Services\InAppNotificationService;
 use App\Services\LiveUrlHealthChecker;
 use App\Services\Marketplace\LanguageCountryMap;
 use App\Services\OrderPaymentService;
+use App\Services\StripeCustomerService;
 use App\Services\StripePaymentService;
 use App\Services\Wallet\WalletLedgerService;
 use App\Support\AdvertiserOrderStatus;
@@ -38,6 +39,7 @@ use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\ValidationException;
 use Stripe\Checkout\Session;
+use Stripe\PaymentIntent;
 use Stripe\Stripe;
 
 class CatalogController extends Controller
@@ -1217,6 +1219,8 @@ class CatalogController extends Controller
             ->get()
             ->keyBy('id');
 
+        $savedCards = app(StripeCustomerService::class)->listCards(auth()->user());
+
         return view('advertiser.checkout', compact(
             'cartItems',
             'total',
@@ -1233,6 +1237,7 @@ class CatalogController extends Controller
             'checkoutCashBalance',
             'checkoutSpendableBalance',
             'checkoutArticles',
+            'savedCards',
         ));
     }
 
@@ -1431,10 +1436,95 @@ class CatalogController extends Controller
         // Publishers are notified only after Stripe payment is confirmed
         // (see OrderPaymentService::notifyPublishersOfPaidOrders).
 
+        $savedPaymentMethodId = (string) request()->input('payment_method_id', '');
+        $user = User::find($userId);
+
+        // One-click: charge a saved card (Stripe Customer PaymentMethod).
+        if ($savedPaymentMethodId !== '' && $user) {
+            try {
+                $stripeCustomers = app(StripeCustomerService::class);
+                $payResult = $stripeCustomers->payWithSavedCard(
+                    $user,
+                    $savedPaymentMethodId,
+                    StripePaymentService::toCents($amountDue),
+                    [
+                        'type' => 'order_payment',
+                        'reference_code' => $referenceCode,
+                        'user_id' => (string) $userId,
+                        'bonus_applied' => (string) $bonusApplied,
+                    ],
+                    route('advertiser.checkout.process').'?ref='.urlencode($referenceCode),
+                    'Order package '.$referenceCode
+                );
+
+                Order::where('reference_code', $referenceCode)
+                    ->where('user_id', $userId)
+                    ->where('payment_method', 'card')
+                    ->where('payment_status', 'pending')
+                    ->update(['stripe_payment_intent_id' => $payResult['payment_intent_id']]);
+
+                session()->put('pending_card_reference', $referenceCode);
+
+                if ($payResult['status'] === 'succeeded') {
+                    $intent = PaymentIntent::retrieve($payResult['payment_intent_id']);
+                    $paymentService = app(OrderPaymentService::class);
+                    $newlyPaid = $paymentService->markOrdersPaidFromPaymentIntent($referenceCode, $intent);
+                    if ($newlyPaid->isNotEmpty()) {
+                        $paymentService->notifyPublishersOfPaidOrders($newlyPaid);
+                    }
+                    session()->forget([
+                        'cart', 'checkout_content_submission_id', 'checkout_schedule',
+                        'pending_card_reference', GuestPostWizardController::SESSION_KEY,
+                    ]);
+
+                    return response()->json([
+                        'success' => true,
+                        'message' => count($newlyPaid).' order(s) paid with your saved card. Reference: '.$referenceCode,
+                        'reference_code' => $referenceCode,
+                    ]);
+                }
+
+                if (! empty($payResult['redirect_url'])) {
+                    return response()->json([
+                        'success' => true,
+                        'requires_payment' => true,
+                        'checkout_url' => $payResult['redirect_url'],
+                        'reference_code' => $referenceCode,
+                    ]);
+                }
+
+                if (! empty($payResult['client_secret'])) {
+                    return response()->json([
+                        'success' => true,
+                        'requires_action' => true,
+                        'client_secret' => $payResult['client_secret'],
+                        'stripe_key' => config('services.stripe.key'),
+                        'reference_code' => $referenceCode,
+                        'return_url' => route('advertiser.checkout.process').'?ref='.urlencode($referenceCode),
+                    ]);
+                }
+
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Card payment could not be completed. Try another card or Stripe Checkout.',
+                ], 422);
+            } catch (\Throwable $e) {
+                Log::error('Saved card order payment failed: '.$e->getMessage(), [
+                    'reference_code' => $referenceCode,
+                    'user_id' => $userId,
+                ]);
+
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Saved card payment failed. You can pay with a new card instead.',
+                ], 422);
+            }
+        }
+
         try {
             Stripe::setApiKey(config('services.stripe.secret'));
 
-            $checkoutSession = Session::create([
+            $sessionPayload = [
                 'payment_method_types' => ['card'],
                 'line_items' => [[
                     'price_data' => [
@@ -1465,9 +1555,20 @@ class CatalogController extends Controller
                         'type' => 'order_payment',
                         'reference_code' => $referenceCode,
                         'user_id' => (string) $userId,
+                        'bonus_applied' => (string) $bonusApplied,
                     ],
                 ],
-            ]);
+            ];
+
+            if ($user) {
+                // Customer + "Save card" checkbox in Stripe Checkout (consent via payment_method_save).
+                $sessionPayload = array_merge(
+                    $sessionPayload,
+                    app(StripeCustomerService::class)->checkoutCustomerOptions($user, true)
+                );
+            }
+
+            $checkoutSession = Session::create($sessionPayload);
 
             Order::where('reference_code', $referenceCode)
                 ->where('user_id', $userId)
@@ -1788,17 +1889,14 @@ class CatalogController extends Controller
     {
         try {
             $sessionId = $request->query('session_id');
+            $paymentIntentId = $request->query('payment_intent');
             $referenceCode = $request->query('ref');
 
             Log::info('Stripe success callback received', [
                 'session_id' => $sessionId,
+                'payment_intent' => $paymentIntentId,
                 'reference_code' => $referenceCode,
             ]);
-
-            if (! $sessionId || $sessionId === '{CHECKOUT_SESSION_ID}') {
-                return redirect()->route('advertiser.checkout')
-                    ->with('error', 'Invalid payment session.');
-            }
 
             if (! $referenceCode) {
                 return redirect()->route('advertiser.checkout')
@@ -1806,29 +1904,64 @@ class CatalogController extends Controller
             }
 
             Stripe::setApiKey(config('services.stripe.secret'));
+            $paymentService = app(OrderPaymentService::class);
+            $newlyPaid = collect();
 
-            try {
-                $stripeSession = Session::retrieve($sessionId);
-            } catch (\Exception $e) {
-                Log::error('Failed to retrieve Stripe session', [
-                    'session_id' => $sessionId,
-                    'error' => $e->getMessage(),
-                ]);
+            // Saved-card / PaymentIntent return (3DS) path
+            if ($paymentIntentId && $paymentIntentId !== '{PAYMENT_INTENT_ID}') {
+                try {
+                    $intent = PaymentIntent::retrieve($paymentIntentId);
+                } catch (\Exception $e) {
+                    return redirect()->route('advertiser.checkout')
+                        ->with('error', 'Unable to verify card payment. Please contact support.');
+                }
 
-                return redirect()->route('advertiser.checkout')
-                    ->with('error', 'Unable to verify payment. Please contact support.');
-            }
+                if (($intent->metadata->reference_code ?? null) && $intent->metadata->reference_code !== $referenceCode) {
+                    return redirect()->route('advertiser.checkout')
+                        ->with('error', 'Payment reference mismatch.');
+                }
 
-            if ($stripeSession->payment_status !== 'paid') {
-                return redirect()->route('advertiser.checkout')
-                    ->with('error', 'Payment not completed.');
-            }
+                if ((string) ($intent->metadata->user_id ?? '') !== (string) auth()->id()) {
+                    return redirect()->route('advertiser.checkout')
+                        ->with('error', 'Payment does not belong to this account.');
+                }
 
-            // Ensure the session belongs to this reference / user
-            $sessionRef = $stripeSession->metadata->reference_code ?? null;
-            if ($sessionRef && $sessionRef !== $referenceCode) {
-                return redirect()->route('advertiser.checkout')
-                    ->with('error', 'Payment reference mismatch.');
+                if ($intent->status !== 'succeeded') {
+                    return redirect()->route('advertiser.orders', ['payment_status' => 'failed'])
+                        ->with('error', 'Card payment was not completed.');
+                }
+
+                $newlyPaid = $paymentService->markOrdersPaidFromPaymentIntent($referenceCode, $intent);
+            } else {
+                if (! $sessionId || $sessionId === '{CHECKOUT_SESSION_ID}') {
+                    return redirect()->route('advertiser.checkout')
+                        ->with('error', 'Invalid payment session.');
+                }
+
+                try {
+                    $stripeSession = Session::retrieve($sessionId);
+                } catch (\Exception $e) {
+                    Log::error('Failed to retrieve Stripe session', [
+                        'session_id' => $sessionId,
+                        'error' => $e->getMessage(),
+                    ]);
+
+                    return redirect()->route('advertiser.checkout')
+                        ->with('error', 'Unable to verify payment. Please contact support.');
+                }
+
+                if ($stripeSession->payment_status !== 'paid') {
+                    return redirect()->route('advertiser.checkout')
+                        ->with('error', 'Payment not completed.');
+                }
+
+                $sessionRef = $stripeSession->metadata->reference_code ?? null;
+                if ($sessionRef && $sessionRef !== $referenceCode) {
+                    return redirect()->route('advertiser.checkout')
+                        ->with('error', 'Payment reference mismatch.');
+                }
+
+                $newlyPaid = $paymentService->markOrdersPaidFromStripeSession($referenceCode, $stripeSession);
             }
 
             $orders = Order::with('items')
@@ -1841,14 +1974,12 @@ class CatalogController extends Controller
                 Log::error('No pending card orders found on success callback', [
                     'reference_code' => $referenceCode,
                     'session_id' => $sessionId,
+                    'payment_intent' => $paymentIntentId,
                 ]);
 
                 return redirect()->route('advertiser.checkout')
                     ->with('error', 'Order not found. Please contact support with your payment reference.');
             }
-
-            $paymentService = app(OrderPaymentService::class);
-            $newlyPaid = $paymentService->markOrdersPaidFromStripeSession($referenceCode, $stripeSession);
 
             if ($newlyPaid->isNotEmpty()) {
                 $paymentService->notifyPublishersOfPaidOrders($newlyPaid);
@@ -2195,7 +2326,7 @@ class CatalogController extends Controller
 
             Stripe::setApiKey(config('services.stripe.secret'));
 
-            $checkoutSession = Session::create([
+            $retryPayload = [
                 'payment_method_types' => ['card'],
                 'line_items' => [[
                     'price_data' => [
@@ -2228,7 +2359,17 @@ class CatalogController extends Controller
                         'user_id' => (string) auth()->id(),
                     ],
                 ],
-            ]);
+            ];
+
+            $retryUser = auth()->user();
+            if ($retryUser) {
+                $retryPayload = array_merge(
+                    $retryPayload,
+                    app(StripeCustomerService::class)->checkoutCustomerOptions($retryUser, true)
+                );
+            }
+
+            $checkoutSession = Session::create($retryPayload);
 
             Order::whereIn('id', $package->pluck('id'))
                 ->update([

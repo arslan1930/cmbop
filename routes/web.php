@@ -28,6 +28,7 @@ use App\Http\Controllers\Advertiser\ContentLibraryController;
 use App\Http\Controllers\Advertiser\ContentModerationController as AdvertiserContentModerationController;
 use App\Http\Controllers\Advertiser\ContentSubmissionController;
 use App\Http\Controllers\Advertiser\GuestPostWizardController;
+use App\Http\Controllers\Advertiser\PaymentMethodController;
 use App\Http\Controllers\Advertiser\ProjectController;
 use App\Http\Controllers\Advertiser\ReportsController;
 use App\Http\Controllers\Advertiser\SavedSitesController;
@@ -697,9 +698,17 @@ Route::middleware(['auth', 'verified', RoleMiddleware::class.':advertiser'])
         Route::post('/add-funds', [AddFundsController::class, 'store'])->name('add-funds.store');
         Route::get('/add-funds/status/{id}', [AddFundsController::class, 'getStatus'])->name('add-funds.status');
 
+        // Saved cards (Stripe Customer + PaymentMethods)
+        Route::get('/payment-methods', [PaymentMethodController::class, 'index'])->name('payment-methods.index');
+        Route::post('/payment-methods/setup', [PaymentMethodController::class, 'createSetupSession'])->name('payment-methods.setup');
+        Route::get('/payment-methods/setup-success', [PaymentMethodController::class, 'setupSuccess'])->name('payment-methods.setup-success');
+        Route::post('/payment-methods/{paymentMethodId}/default', [PaymentMethodController::class, 'setDefault'])->name('payment-methods.default');
+        Route::delete('/payment-methods/{paymentMethodId}', [PaymentMethodController::class, 'destroy'])->name('payment-methods.destroy');
+
         // Stripe Checkout routes
         Route::post('/create-checkout-session', [AddFundsController::class, 'createCheckoutSession'])->name('create-checkout-session');
         Route::get('/checkout-success', [AddFundsController::class, 'checkoutSuccess'])->name('checkout.success');
+        Route::post('/add-funds/pay-saved-card', [AddFundsController::class, 'payWithSavedCard'])->name('add-funds.pay-saved-card');
 
         // Order payment with Stripe
         Route::post('/create-order-payment', [CatalogController::class, 'createOrderPayment'])->name('create-order-payment');

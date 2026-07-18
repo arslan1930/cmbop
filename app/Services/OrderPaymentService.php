@@ -80,6 +80,82 @@ class OrderPaymentService
     }
 
     /**
+     * Mark pending/failed card orders paid from a confirmed PaymentIntent (saved card).
+     *
+     * @return Collection<int, Order>
+     */
+    public function markOrdersPaidFromPaymentIntent(string $referenceCode, object $intent): Collection
+    {
+        return DB::transaction(function () use ($referenceCode, $intent) {
+            $orders = Order::with('items')
+                ->where('reference_code', $referenceCode)
+                ->where('payment_method', 'card')
+                ->lockForUpdate()
+                ->get();
+
+            if ($orders->isEmpty()) {
+                return collect();
+            }
+
+            $newlyPaid = collect();
+            foreach ($orders as $order) {
+                if ($order->payment_status === 'paid') {
+                    continue;
+                }
+                if (! in_array($order->payment_status, ['pending', 'failed'], true)) {
+                    continue;
+                }
+
+                $order->update([
+                    'stripe_payment_intent_id' => $intent->id ?? $order->stripe_payment_intent_id,
+                    'stripe_response' => method_exists($intent, 'toArray')
+                        ? json_encode($intent->toArray())
+                        : json_encode($intent),
+                    'paid_at' => now(),
+                    'payment_status' => 'paid',
+                    'status' => 'pending',
+                ]);
+                $newlyPaid->push($order->fresh('items'));
+            }
+
+            if ($newlyPaid->isNotEmpty()) {
+                $meta = [];
+                if (isset($intent->metadata)) {
+                    $meta = is_array($intent->metadata)
+                        ? $intent->metadata
+                        : (method_exists($intent->metadata, 'toArray') ? $intent->metadata->toArray() : (array) $intent->metadata);
+                }
+                $bonus = round((float) ($meta['bonus_applied'] ?? 0), 2);
+                if ($bonus <= 0) {
+                    $bonus = round((float) Cache::get('checkout_bonus:'.$newlyPaid->first()->user_id.':'.$referenceCode, 0), 2);
+                }
+                if ($bonus > 0) {
+                    $this->consumeBonusAmount($newlyPaid->first(), $bonus);
+                }
+            }
+
+            return $newlyPaid;
+        });
+    }
+
+    protected function consumeBonusAmount(Order $order, float $bonus): void
+    {
+        $cacheKey = 'checkout_bonus:'.$order->user_id.':'.$order->reference_code;
+        $roleId = Wallet::advertiserRoleId();
+        if (! $roleId) {
+            Cache::forget($cacheKey);
+
+            return;
+        }
+
+        $wallet = Wallet::where('user_id', $order->user_id)->where('role_id', $roleId)->lockForUpdate()->first();
+        if ($wallet && (float) $wallet->bonus_reserved > 0) {
+            $wallet->consumeReserved(min($bonus, (float) $wallet->bonus_reserved));
+        }
+        Cache::forget($cacheKey);
+    }
+
+    /**
      * When a card checkout applied promotional credit, permanently consume the reserved bonus.
      */
     protected function consumeBonusAppliedFromStripeSession(Order $order, object $session): void
