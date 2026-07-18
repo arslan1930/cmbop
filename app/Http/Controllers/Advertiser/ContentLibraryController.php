@@ -226,8 +226,8 @@ class ContentLibraryController extends Controller
     }
 
     /**
-     * Start ordering an approved article via the Catalog, filtered to its market.
-     * One article can be published on one matching website only.
+     * Start ordering an approved article via the Catalog, filtered to its language.
+     * Multiple websites are allowed; each website needs its own approved article.
      */
     public function orderInCatalog(Request $request, ?ContentSubmission $submission = null)
     {
@@ -249,7 +249,8 @@ class ContentLibraryController extends Controller
 
         $language = strtolower(trim((string) $submission->language));
 
-        session()->forget(['cart', 'checkout_schedule']);
+        // Keep existing cart sites; this article will attach to the next matching website added.
+        session()->forget(['checkout_schedule']);
         session()->put('checkout_content_submission_id', $submission->id);
         session()->put('ordering_from_library', true);
 
@@ -262,7 +263,7 @@ class ContentLibraryController extends Controller
         ])->with(
             'success',
             'Ordering “'.$title.'” for '.strtoupper($language)
-            .' websites (all matching countries). Choose one website in the catalog, then checkout.'
+            .' websites. Add one or more sites — each website needs its own approved article (assign extras in your cart).'
         );
     }
 

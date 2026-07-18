@@ -575,6 +575,8 @@ Route::middleware(['auth','verified', RoleMiddleware::class . ':advertiser'])
         Route::get('/cart/get', [CatalogController::class, 'getCart'])->name('cart.get');
         Route::get('/cart/count', [CatalogController::class, 'getCartCount'])->name('cart.count');
         Route::post('/cart/add', [CatalogController::class, 'addToCart'])->name('cart.add');
+        Route::post('/cart/assign-article', [CatalogController::class, 'assignCartArticle'])
+            ->name('cart.assign-article');
         Route::post('/cart/remove', [CatalogController::class, 'removeFromCart'])->name('cart.remove');
         Route::post('/cart/update', [CatalogController::class, 'updateCartQuantity'])->name('cart.update');
         Route::post('/cart/clear', [CatalogController::class, 'clearCart'])->name('cart.clear');

@@ -123,7 +123,7 @@
 <div class="container-fluid">
     <div class="mb-3">
         <h2 class="mb-1 fw-semibold">Content Library</h2>
-        <p class="text-muted mb-0 small">Upload a .docx (language first, then country). Preview and edit, then Order opens the catalog for that language across all matching countries — one website only.</p>
+        <p class="text-muted mb-0 small">Upload a .docx (language first, then country). Preview and edit, then Order opens the catalog for that language. You can add multiple websites — each needs its own approved article.</p>
         <div class="library-page-actions">
             <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#uploadContentModal" id="openUploadModalBtn">
                 <i class="fa fa-upload me-1"></i> Upload article

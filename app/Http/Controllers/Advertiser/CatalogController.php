@@ -553,6 +553,73 @@ private function resolveActiveLibraryOrdering(Request $request): ?ContentSubmiss
     return $submission;
 }
 
+/**
+ * Cart payload for the advertiser drawer (items + assignable articles).
+ *
+ * @return array{cart: array<int, array>, approved_articles: array<int, array>, ordering_from_library: bool, active_article: ?array}
+ */
+private function cartPayloadForClient(): array
+{
+    $cart = array_values(session()->get('cart', []));
+
+    // Refresh site market metadata on lines when missing.
+    $siteIds = collect($cart)->pluck('id')->filter()->unique()->values();
+    $sites = $siteIds->isEmpty()
+        ? collect()
+        : Site::query()->whereIn('id', $siteIds)->get()->keyBy('id');
+
+    foreach ($cart as $i => $line) {
+        $site = $sites->get((int) ($line['id'] ?? 0));
+        if (! $site) {
+            continue;
+        }
+        $cart[$i]['name'] = $line['name'] ?? $site->site_name;
+        $cart[$i]['url'] = $line['url'] ?? $site->site_url;
+        $cart[$i]['language'] = $line['language'] ?? $site->language;
+        $cart[$i]['country'] = $line['country'] ?? $site->country;
+        $cart[$i]['link_type'] = $line['link_type'] ?? $site->link_type;
+    }
+    session()->put('cart', $cart);
+
+    $approved = ContentSubmission::query()
+        ->where('user_id', auth()->id())
+        ->whereNull('order_id')
+        ->whereNull('archived_at')
+        ->where('moderation_status', ContentSubmission::STATUS_APPROVED)
+        ->latest('id')
+        ->limit(100)
+        ->get()
+        ->filter(fn (ContentSubmission $s) => $s->canBeOrdered())
+        ->values();
+
+    $articles = $approved->map(fn (ContentSubmission $s) => [
+        'id' => $s->id,
+        'title' => $s->title ?: $s->original_filename,
+        'country' => $s->country,
+        'language' => $s->language,
+        'word_count' => $s->word_count,
+    ])->all();
+
+    $active = null;
+    if (session('ordering_from_library') && session('checkout_content_submission_id')) {
+        $activeModel = $approved->firstWhere('id', (int) session('checkout_content_submission_id'));
+        if ($activeModel) {
+            $active = [
+                'id' => $activeModel->id,
+                'title' => $activeModel->title ?: $activeModel->original_filename,
+                'language' => $activeModel->language,
+            ];
+        }
+    }
+
+    return [
+        'cart' => $cart,
+        'approved_articles' => $articles,
+        'ordering_from_library' => (bool) session('ordering_from_library'),
+        'active_article' => $active,
+        'content_library_url' => route('advertiser.content-library', ['upload' => 1]),
+    ];
+}
 
 /**
  * Helper method to determine if current user is viewing as advertiser
@@ -677,153 +744,274 @@ private function isPublisherOwner($sitePublisherId)
     public function saveCart(Request $request)
     {
         try {
-            session()->put('cart', $request->cart);
+            $incoming = $request->input('cart', []);
+            if (! is_array($incoming)) {
+                $incoming = [];
+            }
+
+            // Preserve article assignments when the client omits them.
+            $existingByKey = [];
+            foreach (session()->get('cart', []) as $row) {
+                if (! is_array($row)) {
+                    continue;
+                }
+                $key = ((int) ($row['id'] ?? 0)).'|'.((string) ($row['sensitive_type'] ?? ''));
+                $existingByKey[$key] = $row;
+            }
+
+            $merged = [];
+            foreach ($incoming as $row) {
+                if (! is_array($row) || empty($row['id'])) {
+                    continue;
+                }
+                $key = ((int) $row['id']).'|'.((string) ($row['sensitive_type'] ?? ''));
+                $prev = $existingByKey[$key] ?? [];
+                if (empty($row['content_submission_id']) && ! empty($prev['content_submission_id'])) {
+                    $row['content_submission_id'] = $prev['content_submission_id'];
+                }
+                if (empty($row['language']) && ! empty($prev['language'])) {
+                    $row['language'] = $prev['language'];
+                }
+                if (empty($row['country']) && ! empty($prev['country'])) {
+                    $row['country'] = $prev['country'];
+                }
+                $merged[] = $row;
+            }
+
+            session()->put('cart', array_values($merged));
+
             return response()->json(['success' => true]);
         } catch (\Exception $e) {
-            Log::error('Error saving cart: ' . $e->getMessage());
+            Log::error('Error saving cart: '.$e->getMessage());
+
             return response()->json(['success' => false, 'error' => $e->getMessage()], 500);
         }
     }
-    
+
     /**
-     * Get cart from SESSION
+     * Get cart from SESSION (enriched with article options for the drawer).
      */
     public function getCart(Request $request)
     {
-        $cart = session()->get('cart', []);
-        return response()->json($cart);
+        return response()->json($this->cartPayloadForClient());
     }
-    
+
     /**
- * Add to cart (SESSION) — prices are always recalculated from the DB.
- */
-public function addToCart(Request $request)
-{
-    try {
-        $id = $request->id;
-        $sensitiveType = $request->sensitive_type;
+     * Assign / clear an approved Content Library article on a cart line.
+     */
+    public function assignCartArticle(Request $request)
+    {
+        $data = $request->validate([
+            'id' => ['required', 'integer'],
+            'sensitive_type' => ['nullable', 'string', 'max:50'],
+            'content_submission_id' => ['nullable', 'integer'],
+        ]);
 
-        $site = Site::where('id', $id)->where('active', 1)->first();
-        if (!$site) {
-            return response()->json([
-                'success' => false,
-                'error' => 'Site not found or inactive.'
-            ], 404);
-        }
-
-        $librarySubmission = null;
-        if (session('ordering_from_library') && session('checkout_content_submission_id')) {
-            $librarySubmission = ContentSubmission::query()
-                ->where('id', (int) session('checkout_content_submission_id'))
-                ->where('user_id', auth()->id())
-                ->whereNull('order_id')
-                ->first();
-
-            if (! $librarySubmission || ! $librarySubmission->canBeOrdered()) {
-                session()->forget(['checkout_content_submission_id', 'ordering_from_library']);
-
-                return response()->json([
-                    'success' => false,
-                    'error' => 'The Content Library article is no longer available to order.',
-                ], 422);
-            }
-
-            if (! $librarySubmission->matchesSite($site)) {
-                return response()->json([
-                    'success' => false,
-                    'error' => 'This article is written for '
-                        .strtoupper((string) $librarySubmission->language)
-                        .'. Choose a website that publishes in that language.',
-                ], 422);
-            }
-        }
-
-        // Library ordering: one article → exactly one website (qty 1).
-        if ($librarySubmission) {
-            $pricing = $this->cartPricing()->priceForAdvertiser($site, $sensitiveType, 1);
-            $cart = [[
-                'id' => $site->id,
-                'name' => $site->site_name,
-                'url' => $site->site_url,
-                'price' => $pricing['total'],
-                'base_price' => $pricing['base'],
-                'additional_price' => $pricing['additional'],
-                'sensitive_type' => $pricing['sensitive_type'],
-                'quantity' => 1,
-                'list_total' => $pricing['list_total'],
-                'discount_percent' => $pricing['discount_percent'],
-                'content_submission_id' => $librarySubmission->id,
-                'link_type' => $site->link_type,
-                'country' => $site->country,
-                'language' => $site->language,
-            ]];
-            session()->put('cart', $cart);
-
-            return response()->json([
-                'success' => true,
-                'cart_count' => 1,
-                'cart_total' => $pricing['total'],
-                'message' => 'Website selected for your article. You can checkout when ready.',
-            ]);
-        }
+        $siteId = (int) $data['id'];
+        $sensitiveType = $data['sensitive_type'] ?? null;
+        $submissionId = isset($data['content_submission_id']) ? (int) $data['content_submission_id'] : 0;
 
         $cart = session()->get('cart', []);
-        
-        $existingItem = null;
-        $nextQty = 1;
+        $lineKey = null;
         foreach ($cart as $key => $item) {
-            if ($item['id'] == $id && ($item['sensitive_type'] ?? null) == ($sensitiveType ?: null)) {
-                $existingItem = $key;
-                $nextQty = max(1, (int) ($item['quantity'] ?? 1)) + 1;
+            if ((int) ($item['id'] ?? 0) === $siteId
+                && (($item['sensitive_type'] ?? null) == ($sensitiveType ?: null))) {
+                $lineKey = $key;
                 break;
             }
         }
 
-        $pricing = $this->cartPricing()->priceForAdvertiser($site, $sensitiveType, $nextQty);
-        
-        if ($existingItem !== null) {
-            $cart[$existingItem]['quantity'] = $nextQty;
-            // Refresh stored unit price (includes bulk/custom discounts for this qty)
-            $cart[$existingItem]['price'] = $pricing['total'];
-            $cart[$existingItem]['base_price'] = $pricing['base'];
-            $cart[$existingItem]['additional_price'] = $pricing['additional'];
-            $cart[$existingItem]['sensitive_type'] = $pricing['sensitive_type'];
-            $cart[$existingItem]['name'] = $site->site_name;
-            $cart[$existingItem]['list_total'] = $pricing['list_total'];
-            $cart[$existingItem]['discount_percent'] = $pricing['discount_percent'];
-        } else {
-            $cart[] = [
-                'id' => $site->id,
-                'name' => $site->site_name,
-                'price' => $pricing['total'],
-                'base_price' => $pricing['base'],
-                'additional_price' => $pricing['additional'],
-                'sensitive_type' => $pricing['sensitive_type'],
-                'quantity' => 1,
-                'list_total' => $pricing['list_total'],
-                'discount_percent' => $pricing['discount_percent'],
-            ];
+        if ($lineKey === null) {
+            return response()->json(['success' => false, 'error' => 'That website is not in your cart.'], 404);
         }
-        
-        session()->put('cart', $cart);
-        
-        $cartCount = array_sum(array_column($cart, 'quantity'));
-        $cartTotal = array_sum(array_map(function($item) {
-            return $item['price'] * $item['quantity'];
-        }, $cart));
-        
-        return response()->json([
+
+        $site = Site::query()->where('id', $siteId)->where('active', 1)->first();
+        if (! $site) {
+            return response()->json(['success' => false, 'error' => 'Site not found or inactive.'], 404);
+        }
+
+        if ($submissionId <= 0) {
+            unset($cart[$lineKey]['content_submission_id']);
+            session()->put('cart', array_values($cart));
+
+            return response()->json(array_merge(['success' => true, 'message' => 'Article cleared for this website.'], $this->cartPayloadForClient()));
+        }
+
+        $submission = ContentSubmission::query()
+            ->where('id', $submissionId)
+            ->where('user_id', auth()->id())
+            ->whereNull('order_id')
+            ->first();
+
+        if (! $submission || ! $submission->canBeOrdered()) {
+            return response()->json([
+                'success' => false,
+                'error' => 'Choose an approved Content Library article that is still available to order.',
+            ], 422);
+        }
+
+        if (! $submission->matchesSite($site)) {
+            return response()->json([
+                'success' => false,
+                'error' => 'This article’s language does not match this website. Pick an article in '
+                    .strtoupper((string) ($site->language ?: 'the site language')).'.',
+            ], 422);
+        }
+
+        foreach ($cart as $key => $item) {
+            if ((int) $key === (int) $lineKey) {
+                continue;
+            }
+            if ((int) ($item['content_submission_id'] ?? 0) === $submissionId) {
+                return response()->json([
+                    'success' => false,
+                    'error' => 'That article is already assigned to another website in your cart. Each article can only be used once.',
+                ], 422);
+            }
+        }
+
+        $cart[$lineKey]['content_submission_id'] = $submission->id;
+        $cart[$lineKey]['language'] = $site->language;
+        $cart[$lineKey]['country'] = $site->country;
+        session()->put('cart', array_values($cart));
+
+        return response()->json(array_merge([
             'success' => true,
-            'cart_count' => $cartCount,
-            'cart_total' => $cartTotal
-        ]);
-    } catch (\InvalidArgumentException $e) {
-        return response()->json(['success' => false, 'error' => $e->getMessage()], 422);
-    } catch (\Exception $e) {
-        Log::error('Error adding to cart: ' . $e->getMessage());
-        return response()->json(['success' => false, 'error' => $e->getMessage()], 500);
+            'message' => 'Article assigned to this website.',
+        ], $this->cartPayloadForClient()));
     }
-}
+
+    /**
+     * Add to cart (SESSION) — prices are always recalculated from the DB.
+     * Multiple sites are allowed; each site needs its own Content Library article.
+     */
+    public function addToCart(Request $request)
+    {
+        try {
+            $id = $request->id;
+            $sensitiveType = $request->sensitive_type;
+
+            $site = Site::where('id', $id)->where('active', 1)->first();
+            if (! $site) {
+                return response()->json([
+                    'success' => false,
+                    'error' => 'Site not found or inactive.',
+                ], 404);
+            }
+
+            $cart = session()->get('cart', []);
+            $attachArticleId = null;
+            $librarySubmission = null;
+
+            if (session('ordering_from_library') && session('checkout_content_submission_id')) {
+                $librarySubmission = ContentSubmission::query()
+                    ->where('id', (int) session('checkout_content_submission_id'))
+                    ->where('user_id', auth()->id())
+                    ->whereNull('order_id')
+                    ->first();
+
+                if (! $librarySubmission || ! $librarySubmission->canBeOrdered()) {
+                    session()->forget(['checkout_content_submission_id', 'ordering_from_library']);
+                    $librarySubmission = null;
+                } else {
+                    $alreadyAssigned = collect($cart)->contains(
+                        fn ($line) => (int) ($line['content_submission_id'] ?? 0) === (int) $librarySubmission->id
+                    );
+
+                    if (! $alreadyAssigned) {
+                        if (! $librarySubmission->matchesSite($site)) {
+                            return response()->json([
+                                'success' => false,
+                                'error' => 'This article is written for '
+                                    .strtoupper((string) $librarySubmission->language)
+                                    .'. Choose a website that publishes in that language, or assign a different article in your cart.',
+                            ], 422);
+                        }
+                        $attachArticleId = (int) $librarySubmission->id;
+                    }
+                }
+            }
+
+            $existingItem = null;
+            $nextQty = 1;
+            foreach ($cart as $key => $item) {
+                if ($item['id'] == $id && ($item['sensitive_type'] ?? null) == ($sensitiveType ?: null)) {
+                    $existingItem = $key;
+                    $nextQty = max(1, (int) ($item['quantity'] ?? 1)) + 1;
+                    break;
+                }
+            }
+
+            // When attaching a library article, keep that line at qty 1 (one article = one placement).
+            if ($attachArticleId && $existingItem !== null) {
+                $nextQty = max(1, (int) ($cart[$existingItem]['quantity'] ?? 1));
+            }
+
+            $pricing = $this->cartPricing()->priceForAdvertiser($site, $sensitiveType, $nextQty);
+
+            if ($existingItem !== null) {
+                $cart[$existingItem]['quantity'] = $nextQty;
+                $cart[$existingItem]['price'] = $pricing['total'];
+                $cart[$existingItem]['base_price'] = $pricing['base'];
+                $cart[$existingItem]['additional_price'] = $pricing['additional'];
+                $cart[$existingItem]['sensitive_type'] = $pricing['sensitive_type'];
+                $cart[$existingItem]['name'] = $site->site_name;
+                $cart[$existingItem]['url'] = $site->site_url;
+                $cart[$existingItem]['list_total'] = $pricing['list_total'];
+                $cart[$existingItem]['discount_percent'] = $pricing['discount_percent'];
+                $cart[$existingItem]['link_type'] = $site->link_type;
+                $cart[$existingItem]['country'] = $site->country;
+                $cart[$existingItem]['language'] = $site->language;
+                if ($attachArticleId && empty($cart[$existingItem]['content_submission_id'])) {
+                    $cart[$existingItem]['content_submission_id'] = $attachArticleId;
+                }
+            } else {
+                $line = [
+                    'id' => $site->id,
+                    'name' => $site->site_name,
+                    'url' => $site->site_url,
+                    'price' => $pricing['total'],
+                    'base_price' => $pricing['base'],
+                    'additional_price' => $pricing['additional'],
+                    'sensitive_type' => $pricing['sensitive_type'],
+                    'quantity' => 1,
+                    'list_total' => $pricing['list_total'],
+                    'discount_percent' => $pricing['discount_percent'],
+                    'link_type' => $site->link_type,
+                    'country' => $site->country,
+                    'language' => $site->language,
+                ];
+                if ($attachArticleId) {
+                    $line['content_submission_id'] = $attachArticleId;
+                }
+                $cart[] = $line;
+            }
+
+            session()->put('cart', array_values($cart));
+
+            $cartCount = array_sum(array_column($cart, 'quantity'));
+            $cartTotal = array_sum(array_map(function ($item) {
+                return $item['price'] * $item['quantity'];
+            }, $cart));
+
+            $message = $attachArticleId
+                ? 'Website added with your article. Add more sites anytime — each needs its own approved article.'
+                : 'Website added to cart. Assign an approved article for each site before checkout.';
+
+            return response()->json(array_merge([
+                'success' => true,
+                'cart_count' => $cartCount,
+                'cart_total' => $cartTotal,
+                'message' => $message,
+            ], $this->cartPayloadForClient()));
+        } catch (\InvalidArgumentException $e) {
+            return response()->json(['success' => false, 'error' => $e->getMessage()], 422);
+        } catch (\Exception $e) {
+            Log::error('Error adding to cart: '.$e->getMessage());
+
+            return response()->json(['success' => false, 'error' => $e->getMessage()], 500);
+        }
+    }
     
     /**
      * Remove from cart (SESSION)

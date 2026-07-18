@@ -113,6 +113,16 @@ class ContentLibraryCatalogOrderTest extends TestCase
         $frSite = $this->activeSite($publisher, 'fr-cart', 50, 'fr', 'fr');
         $article = $this->createApprovedSubmission($advertiser, null, 0, 'anchor text', 'https://example.com/a', 'us', 'en');
 
+        // Before the article is attached, a French site is rejected for an English article.
+        $this->actingAs($advertiser)
+            ->withSession([
+                'checkout_content_submission_id' => $article->id,
+                'ordering_from_library' => true,
+            ])
+            ->postJson(route('advertiser.cart.add'), ['id' => $frSite->id])
+            ->assertStatus(422)
+            ->assertJsonPath('success', false);
+
         // English article can place on GB English site (different country, same language).
         $this->actingAs($advertiser)
             ->withSession([
@@ -127,17 +137,7 @@ class ContentLibraryCatalogOrderTest extends TestCase
         $this->assertSame($article->id, session('cart')[0]['content_submission_id'] ?? null);
         $this->assertSame($gbSite->id, session('cart')[0]['id'] ?? null);
 
-        // French site still rejected for English article.
-        $this->actingAs($advertiser)
-            ->withSession([
-                'checkout_content_submission_id' => $article->id,
-                'ordering_from_library' => true,
-            ])
-            ->postJson(route('advertiser.cart.add'), ['id' => $frSite->id])
-            ->assertStatus(422)
-            ->assertJsonPath('success', false);
-
-        // Second English site replaces the first (still one site only).
+        // Second English site can be added; article already used so it is not auto-attached.
         $this->actingAs($advertiser)
             ->withSession([
                 'cart' => session('cart'),
@@ -145,15 +145,17 @@ class ContentLibraryCatalogOrderTest extends TestCase
                 'ordering_from_library' => true,
             ])
             ->postJson(route('advertiser.cart.add'), ['id' => $usSite->id])
-            ->assertOk()
-            ->assertJsonPath('cart_count', 1);
+            ->assertOk();
 
-        $this->assertCount(1, session('cart'));
-        $this->assertSame($usSite->id, session('cart')[0]['id'] ?? null);
+        $this->assertCount(2, session('cart'));
+        $usLine = collect(session('cart'))->firstWhere('id', $usSite->id);
+        $this->assertEmpty($usLine['content_submission_id'] ?? null);
 
+        // Checkout the line that already has the article assigned.
+        $checkoutCart = [collect(session('cart'))->firstWhere('id', $gbSite->id)];
         $checkout = $this->actingAs($advertiser)
             ->withSession([
-                'cart' => session('cart'),
+                'cart' => $checkoutCart,
                 'checkout_content_submission_id' => $article->id,
                 'ordering_from_library' => true,
             ])

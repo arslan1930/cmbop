@@ -63,7 +63,8 @@
                 @endif
                 <div class="small mt-1 mb-0">
                     Showing websites in this language across all matching countries
-                    (e.g. English → US, UK, AU, …). Pick <strong>one</strong> site, then checkout.
+                    (e.g. English → US, UK, AU, …). Add multiple sites if you like —
+                    each site needs a <strong>different</strong> approved article (assign in your cart).
                 </div>
             </div>
             <div class="d-flex flex-wrap gap-2">
