@@ -7,7 +7,6 @@ use App\Models\Order;
 use App\Models\Site;
 use App\Models\User;
 use App\Models\Wallet;
-use App\Services\InAppNotificationService;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -53,6 +52,7 @@ class OrderPaymentService
                         'order_id' => $order->id,
                         'payment_status' => $order->payment_status,
                     ]);
+
                     continue;
                 }
 
@@ -92,7 +92,7 @@ class OrderPaymentService
         }
 
         $bonus = round((float) ($meta['bonus_applied'] ?? 0), 2);
-        $cacheKey = 'checkout_bonus:' . $order->user_id . ':' . $order->reference_code;
+        $cacheKey = 'checkout_bonus:'.$order->user_id.':'.$order->reference_code;
         if ($bonus <= 0) {
             $bonus = round((float) Cache::get($cacheKey, 0), 2);
         }
@@ -120,7 +120,7 @@ class OrderPaymentService
      */
     public function markOrdersFailedFromReference(string $referenceCode, ?string $reason = null): Collection
     {
-        return DB::transaction(function () use ($referenceCode, $reason) {
+        $failed = DB::transaction(function () use ($referenceCode, $reason) {
             $orders = Order::query()
                 ->where('reference_code', $referenceCode)
                 ->where('payment_method', 'card')
@@ -132,25 +132,38 @@ class OrderPaymentService
                 return collect();
             }
 
-            $failed = collect();
+            $marked = collect();
             foreach ($orders as $order) {
                 $order->update([
                     'payment_status' => 'failed',
                 ]);
-                $failed->push($order->fresh());
+                $marked->push($order->fresh());
             }
 
-            $userId = (int) $failed->first()->user_id;
+            $userId = (int) $marked->first()->user_id;
             $this->refundBonusReservedForReference($userId, $referenceCode);
 
             Log::info('Marked card orders payment_status=failed', [
                 'reference_code' => $referenceCode,
-                'order_count' => $failed->count(),
+                'order_count' => $marked->count(),
                 'reason' => $reason,
             ]);
 
-            return $failed;
+            return $marked;
         });
+
+        if ($failed->isNotEmpty()) {
+            try {
+                app(InAppNotificationService::class)->notifyPaymentFailed($failed, $reason);
+            } catch (\Throwable $e) {
+                Log::warning('notifyPaymentFailed failed after card payment failure', [
+                    'reference_code' => $referenceCode,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
+
+        return $failed;
     }
 
     /**
@@ -188,11 +201,12 @@ class OrderPaymentService
                 return;
             }
 
+            $freshOrders = collect();
             foreach ($orders as $order) {
                 try {
-                    app(InAppNotificationService::class)->notifyOrderCreated(
-                        $order instanceof Order ? $order->fresh(['items']) : $order
-                    );
+                    $fresh = $order instanceof Order ? $order->fresh(['items']) : $order;
+                    $freshOrders->push($fresh);
+                    app(InAppNotificationService::class)->notifyOrderCreated($fresh);
                 } catch (\Throwable $e) {
                     Log::warning('notifyOrderCreated failed after card payment', [
                         'order_id' => $order->id ?? null,
@@ -201,13 +215,21 @@ class OrderPaymentService
                 }
             }
 
+            try {
+                app(InAppNotificationService::class)->notifyAdvertiserOrdersPaid($freshOrders);
+            } catch (\Throwable $e) {
+                Log::warning('notifyAdvertiserOrdersPaid failed after payment', [
+                    'error' => $e->getMessage(),
+                ]);
+            }
+
             $siteOrders = [];
             foreach ($orders as $order) {
                 foreach ($order->items as $item) {
                     $siteId = $item->site_id;
-                    if (!isset($siteOrders[$siteId])) {
+                    if (! isset($siteOrders[$siteId])) {
                         $site = Site::find($siteId);
-                        if (!$site) {
+                        if (! $site) {
                             continue;
                         }
                         $siteOrders[$siteId] = [
@@ -223,11 +245,12 @@ class OrderPaymentService
                 $site = $siteData['site'];
                 $publisher = $site->publisher_id ? User::find($site->publisher_id) : null;
 
-                if (!$publisher || !$publisher->email) {
+                if (! $publisher || ! $publisher->email) {
                     Log::warning('Cannot notify publisher for paid order', [
                         'site_id' => $site->id,
                         'publisher_id' => $site->publisher_id,
                     ]);
+
                     continue;
                 }
 
@@ -243,7 +266,7 @@ class OrderPaymentService
                 }
             }
         } catch (\Exception $e) {
-            Log::error('notifyPublishersOfPaidOrders failed: ' . $e->getMessage());
+            Log::error('notifyPublishersOfPaidOrders failed: '.$e->getMessage());
         }
     }
 }

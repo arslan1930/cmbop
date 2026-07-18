@@ -1,14 +1,15 @@
 <?php
+
 // app/Http/Controllers/Admin/AdminWithdrawalController.php
 
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Models\Withdrawal;
-use App\Models\User;
-use App\Models\Wallet;
 use App\Mail\WithdrawalStatusUpdated;
+use App\Models\Wallet;
+use App\Models\Withdrawal;
 use App\Services\ActivityLogger;
+use App\Services\InAppNotificationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -35,12 +36,12 @@ class AdminWithdrawalController extends Controller
             // Search filter
             if ($request->filled('search')) {
                 $search = $request->search;
-                $query->where(function($q) use ($search) {
+                $query->where(function ($q) use ($search) {
                     $q->where('id', 'like', "%{$search}%")
-                      ->orWhereHas('user', function($sub) use ($search) {
-                          $sub->where('name', 'like', "%{$search}%")
-                              ->orWhere('email', 'like', "%{$search}%");
-                      });
+                        ->orWhereHas('user', function ($sub) use ($search) {
+                            $sub->where('name', 'like', "%{$search}%")
+                                ->orWhere('email', 'like', "%{$search}%");
+                        });
                 });
             }
 
@@ -66,10 +67,11 @@ class AdminWithdrawalController extends Controller
             $withdrawals = $query->paginate($perPage);
 
             // Transform payment_details to array if it's a string
-            $withdrawals->getCollection()->transform(function($withdrawal) {
+            $withdrawals->getCollection()->transform(function ($withdrawal) {
                 if (is_string($withdrawal->payment_details)) {
                     $withdrawal->payment_details = json_decode($withdrawal->payment_details, true);
                 }
+
                 return $withdrawal;
             });
 
@@ -82,15 +84,16 @@ class AdminWithdrawalController extends Controller
                     'per_page' => $withdrawals->perPage(),
                     'total' => $withdrawals->total(),
                     'from' => $withdrawals->firstItem(),
-                    'to' => $withdrawals->lastItem()
-                ]
+                    'to' => $withdrawals->lastItem(),
+                ],
             ]);
 
         } catch (\Exception $e) {
-            Log::error('Error fetching withdrawals: ' . $e->getMessage());
+            Log::error('Error fetching withdrawals: '.$e->getMessage());
+
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to fetch withdrawals: ' . $e->getMessage()
+                'message' => 'Failed to fetch withdrawals: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -102,21 +105,22 @@ class AdminWithdrawalController extends Controller
     {
         try {
             $withdrawal = Withdrawal::with('user')->findOrFail($id);
-            
+
             // Decode payment_details if it's a string
             if (is_string($withdrawal->payment_details)) {
                 $withdrawal->payment_details = json_decode($withdrawal->payment_details, true);
             }
-            
+
             return response()->json([
                 'success' => true,
-                'data' => $withdrawal
+                'data' => $withdrawal,
             ]);
         } catch (\Exception $e) {
-            Log::error('Error fetching withdrawal: ' . $e->getMessage());
+            Log::error('Error fetching withdrawal: '.$e->getMessage());
+
             return response()->json([
                 'success' => false,
-                'message' => 'Withdrawal not found'
+                'message' => 'Withdrawal not found',
             ], 404);
         }
     }
@@ -129,7 +133,7 @@ class AdminWithdrawalController extends Controller
         try {
             $request->validate([
                 'status' => 'required|in:pending,processing,completed,cancelled',
-                'notes' => 'nullable|string'
+                'notes' => 'nullable|string',
             ]);
 
             DB::beginTransaction();
@@ -151,11 +155,11 @@ class AdminWithdrawalController extends Controller
 
                 if ($wallet) {
                     $wallet->credit((float) $withdrawal->amount);
-                    
+
                     Log::info('Withdrawal cancelled - amount refunded', [
                         'withdrawal_id' => $withdrawal->id,
                         'user_id' => $withdrawal->user_id,
-                        'refunded_amount' => $withdrawal->amount
+                        'refunded_amount' => $withdrawal->amount,
                     ]);
                 }
             }
@@ -168,33 +172,44 @@ class AdminWithdrawalController extends Controller
             // Send email notification to publisher
             $this->sendStatusUpdateEmail($withdrawal, $oldStatus, $newStatus, $request->notes);
 
+            if ($oldStatus !== $newStatus) {
+                $notifications = app(InAppNotificationService::class);
+                $freshWithdrawal = $withdrawal->fresh();
+                if ($newStatus === 'completed') {
+                    $notifications->notifyWithdrawalPaid($freshWithdrawal);
+                } elseif ($newStatus === 'cancelled') {
+                    $notifications->notifyWithdrawalRejected($freshWithdrawal);
+                }
+            }
+
             Log::info('Withdrawal status updated', [
                 'withdrawal_id' => $withdrawal->id,
                 'old_status' => $oldStatus,
                 'new_status' => $newStatus,
                 'admin_id' => auth()->id(),
-                'notes' => $request->notes
+                'notes' => $request->notes,
             ]);
 
             ActivityLogger::log(
                 'withdrawal.status_updated',
-                auth()->user()->name . ' set withdrawal #' . $withdrawal->id . ' to ' . $newStatus,
+                auth()->user()->name.' set withdrawal #'.$withdrawal->id.' to '.$newStatus,
                 $withdrawal,
                 ['from' => $oldStatus, 'to' => $newStatus, 'amount' => $withdrawal->amount],
-                'Withdrawal #' . $withdrawal->id
+                'Withdrawal #'.$withdrawal->id
             );
 
             return response()->json([
                 'success' => true,
-                'message' => 'Withdrawal status updated successfully'
+                'message' => 'Withdrawal status updated successfully',
             ]);
 
         } catch (\Exception $e) {
             DB::rollBack();
-            Log::error('Error updating withdrawal status: ' . $e->getMessage());
+            Log::error('Error updating withdrawal status: '.$e->getMessage());
+
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to update status: ' . $e->getMessage()
+                'message' => 'Failed to update status: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -206,7 +221,7 @@ class AdminWithdrawalController extends Controller
     {
         try {
             $user = $withdrawal->user;
-            
+
             if ($user && $user->email) {
                 // Only send email if status actually changed and it's not the initial pending status
                 if ($oldStatus !== $newStatus && $newStatus !== 'pending') {
@@ -214,12 +229,12 @@ class AdminWithdrawalController extends Controller
                     Log::info('Withdrawal status update email sent to publisher', [
                         'withdrawal_id' => $withdrawal->id,
                         'user_email' => $user->email,
-                        'new_status' => $newStatus
+                        'new_status' => $newStatus,
                     ]);
                 }
             }
         } catch (\Exception $e) {
-            Log::error('Failed to send withdrawal status update email: ' . $e->getMessage());
+            Log::error('Failed to send withdrawal status update email: '.$e->getMessage());
         }
     }
 
@@ -237,18 +252,19 @@ class AdminWithdrawalController extends Controller
                 'cancelled' => Withdrawal::where('status', 'cancelled')->count(),
                 'total_amount_requested' => Withdrawal::sum('amount'),
                 'total_fees_collected' => Withdrawal::sum('fee'),
-                'total_amount_paid' => Withdrawal::where('status', 'completed')->sum('net_amount')
+                'total_amount_paid' => Withdrawal::where('status', 'completed')->sum('net_amount'),
             ];
-            
+
             return response()->json([
                 'success' => true,
-                'data' => $stats
+                'data' => $stats,
             ]);
         } catch (\Exception $e) {
-            Log::error('Error fetching withdrawal statistics: ' . $e->getMessage());
+            Log::error('Error fetching withdrawal statistics: '.$e->getMessage());
+
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to fetch statistics'
+                'message' => 'Failed to fetch statistics',
             ]);
         }
     }

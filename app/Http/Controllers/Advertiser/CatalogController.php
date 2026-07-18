@@ -1619,13 +1619,15 @@ class CatalogController extends Controller
 
             $isScheduled = ($schedule['mode'] ?? 'immediate') === 'scheduled';
 
+            $freshPaid = collect();
             foreach ($createdOrders as $createdOrder) {
-                app(InAppNotificationService::class)->notifyOrderCreated(
-                    $createdOrder->fresh(['items'])
-                );
+                $fresh = $createdOrder->fresh(['items']);
+                $freshPaid->push($fresh);
+                app(InAppNotificationService::class)->notifyOrderCreated($fresh);
             }
+            app(InAppNotificationService::class)->notifyAdvertiserOrdersPaid($freshPaid);
 
-            // Always notify publishers (scheduled orders are charged in advance; publish on the date).
+            // Wallet is paid immediately — notify publishers (scheduled orders publish on the date).
             $this->sendSiteOwnerEmails($createdOrders);
 
             $orderNumbers = implode(', ', array_map(
@@ -1729,13 +1731,12 @@ class CatalogController extends Controller
 
             $isScheduled = ($schedule['mode'] ?? 'immediate') === 'scheduled';
 
+            // Timeline only — publishers are notified after admin marks payment paid.
             foreach ($createdOrders as $createdOrder) {
                 app(InAppNotificationService::class)->notifyOrderCreated(
                     $createdOrder instanceof Order ? $createdOrder->fresh(['items']) : Order::with('items')->find($createdOrder->id)
                 );
             }
-
-            $this->sendSiteOwnerEmails($createdOrders);
 
             // Send email to admin for manual payments (wise, crypto, bank)
             $customer = User::find($userId);
@@ -1749,8 +1750,10 @@ class CatalogController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => count($createdOrders).' order(s) placed successfully'
-                    .($isScheduled ? ' (scheduled publication — publisher notified to publish on the selected date)' : '')
-                    .'! Order numbers: '.$orderNumbers.$bonusNote,
+                    .($isScheduled ? ' (scheduled publication — we will notify the publisher after payment is confirmed)' : '')
+                    .'! Order numbers: '.$orderNumbers
+                    .'. Complete payment so the publisher can start.'
+                    .$bonusNote,
                 'bonus_applied' => $bonusApplied,
                 'amount_due' => $amountDue,
             ]);

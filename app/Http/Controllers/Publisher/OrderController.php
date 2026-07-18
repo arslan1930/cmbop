@@ -505,7 +505,11 @@ class OrderController extends Controller
                 }
             }
 
-            app(InAppNotificationService::class)->notifyOrderRejected($order, $orderItem, $site, $request->reason);
+            $notifications = app(InAppNotificationService::class);
+            $notifications->notifyOrderRejected($order, $orderItem, $site, $request->reason);
+            if ($refundProcessed) {
+                $notifications->notifyRefundCredited($order, $orderAmount, $request->reason);
+            }
 
             $refundMessage = '';
             if ($order->payment_method === 'wallet') {

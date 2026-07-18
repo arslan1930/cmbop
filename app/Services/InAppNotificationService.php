@@ -2,14 +2,17 @@
 
 namespace App\Services;
 
+use App\Models\DepositRequest;
 use App\Models\InAppNotification;
 use App\Models\Order;
 use App\Models\OrderActivity;
 use App\Models\OrderItem;
 use App\Models\Site;
 use App\Models\User;
+use App\Models\Withdrawal;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 
@@ -136,15 +139,22 @@ class InAppNotificationService
         $site = $site ?: ($item?->site_id ? Site::find($item->site_id) : null);
         $siteName = $item?->site_name ?: ($site?->site_name ?: 'a website');
 
-        $this->recordOrderActivity(
-            $order,
-            'order.created',
-            'Order created',
-            "Order #{$order->order_number} placed for {$siteName}.",
-            ['icon' => 'package', 'badge_color' => 'primary']
-        );
+        $alreadyLogged = OrderActivity::where('order_id', $order->id)
+            ->where('event', 'order.created')
+            ->exists();
 
-        if ($site?->publisher_id) {
+        if (! $alreadyLogged) {
+            $this->recordOrderActivity(
+                $order,
+                'order.created',
+                'Order created',
+                "Order #{$order->order_number} placed for {$siteName}.",
+                ['icon' => 'package', 'badge_color' => 'primary']
+            );
+        }
+
+        // Publishers only get a bell ping after payment is confirmed (wallet/card/manual paid).
+        if ($site?->publisher_id && $order->payment_status === 'paid') {
             $this->notify(
                 $site->publisher_id,
                 self::TYPE_ORDER_CREATED,
@@ -161,6 +171,285 @@ class InAppNotificationService
                 ]
             );
         }
+    }
+
+    /**
+     * One advertiser confirmation when checkout payment succeeds (wallet / card / manual paid).
+     *
+     * @param  iterable<Order>  $orders
+     */
+    public function notifyAdvertiserOrdersPaid(iterable $orders): void
+    {
+        $orders = Collection::make($orders)->filter();
+        if ($orders->isEmpty()) {
+            return;
+        }
+
+        /** @var Order $first */
+        $first = $orders->first();
+        if (! $first->user_id) {
+            return;
+        }
+
+        $count = $orders->count();
+        $total = round((float) $orders->sum(fn (Order $o) => (float) $o->total_amount), 2);
+        $method = (string) ($first->payment_method ?? '');
+        $numbers = $orders->pluck('order_number')->filter()->values();
+        $orderLabel = $count === 1
+            ? "Order #{$first->order_number}"
+            : $count.' orders';
+
+        $message = match ($method) {
+            'wallet' => $count === 1
+                ? '€'.number_format($total, 2).' was reserved from your wallet. The publisher has been notified.'
+                : '€'.number_format($total, 2).' was reserved from your wallet for '.$count.' orders. Publishers have been notified.',
+            default => $count === 1
+                ? 'Payment of €'.number_format($total, 2).' succeeded. The publisher has been notified.'
+                : 'Payment of €'.number_format($total, 2).' succeeded for '.$count.' orders. Publishers have been notified.',
+        };
+
+        $this->notify(
+            (int) $first->user_id,
+            self::TYPE_PAYMENT_RECEIVED,
+            $orderLabel.' placed',
+            $message,
+            [
+                'category' => self::CATEGORY_PAYMENTS,
+                'icon' => 'wallet',
+                'priority' => InAppNotification::PRIORITY_HIGH,
+                'related' => $first,
+                'action_label' => 'View orders',
+                'action_url' => route('advertiser.orders', [
+                    'focus' => 'order',
+                    'order' => $first->id,
+                ], false),
+                'meta' => [
+                    'reference_code' => $first->reference_code,
+                    'order_numbers' => $numbers->all(),
+                    'amount' => $total,
+                    'payment_method' => $method,
+                ],
+            ]
+        );
+    }
+
+    /**
+     * Clear wallet credit notice after reject / admin refund (money moved).
+     */
+    public function notifyRefundCredited(Order $order, float $amount, ?string $reason = null): void
+    {
+        if (! $order->user_id || $amount <= 0) {
+            return;
+        }
+
+        $amountLabel = '€'.number_format($amount, 2);
+        $message = "{$amountLabel} was credited back to your wallet for order #{$order->order_number}.";
+        if ($reason) {
+            $message .= ' Reason: '.$reason;
+        }
+
+        $this->notify(
+            (int) $order->user_id,
+            self::TYPE_PAYMENT_RECEIVED,
+            "{$amountLabel} back to your wallet",
+            $message,
+            [
+                'category' => self::CATEGORY_PAYMENTS,
+                'icon' => 'wallet',
+                'priority' => InAppNotification::PRIORITY_HIGH,
+                'related' => $order,
+                'action_label' => 'View balance',
+                'action_url' => route('advertiser.balance', [], false),
+                'meta' => [
+                    'order_number' => $order->order_number,
+                    'amount' => $amount,
+                    'reason' => $reason,
+                ],
+            ]
+        );
+    }
+
+    /**
+     * Stripe / card payment failed — one in-app notice with Pay again.
+     *
+     * @param  iterable<Order>  $orders
+     */
+    public function notifyPaymentFailed(iterable $orders, ?string $reason = null): void
+    {
+        $orders = Collection::make($orders)->filter();
+        if ($orders->isEmpty()) {
+            return;
+        }
+
+        /** @var Order $first */
+        $first = $orders->first();
+        if (! $first->user_id) {
+            return;
+        }
+
+        // One bell item per checkout reference (avoid N notices for multi-line carts).
+        $recentDuplicate = InAppNotification::query()
+            ->where('user_id', $first->user_id)
+            ->where('type', self::TYPE_PAYMENT_FAILED)
+            ->where('related_type', Order::class)
+            ->whereIn('related_id', $orders->pluck('id')->all())
+            ->where('created_at', '>=', now()->subMinutes(10))
+            ->exists();
+
+        if ($recentDuplicate) {
+            return;
+        }
+
+        $count = $orders->count();
+        $title = $count === 1
+            ? "Payment failed for order #{$first->order_number}"
+            : "Payment failed for {$count} orders";
+        $message = $reason
+            ?: 'Your card payment did not go through. You can pay again from your orders.';
+
+        $this->notify(
+            (int) $first->user_id,
+            self::TYPE_PAYMENT_FAILED,
+            $title,
+            $message,
+            [
+                'category' => self::CATEGORY_PAYMENTS,
+                'icon' => 'alert-triangle',
+                'priority' => InAppNotification::PRIORITY_HIGH,
+                'related' => $first,
+                'action_label' => 'Pay again',
+                'action_url' => route('advertiser.orders', [
+                    'payment_status' => 'failed',
+                    'focus' => 'order',
+                    'order' => $first->id,
+                ], false),
+                'meta' => [
+                    'reference_code' => $first->reference_code,
+                    'reason' => $reason,
+                ],
+            ]
+        );
+    }
+
+    public function notifyDepositApproved(DepositRequest $deposit): void
+    {
+        if (! $deposit->user_id) {
+            return;
+        }
+
+        $amount = '€'.number_format((float) $deposit->amount, 2);
+
+        $this->notify(
+            (int) $deposit->user_id,
+            self::TYPE_PAYMENT_RECEIVED,
+            "Deposit approved — {$amount}",
+            "{$amount} has been added to your wallet.",
+            [
+                'category' => self::CATEGORY_PAYMENTS,
+                'icon' => 'wallet',
+                'priority' => InAppNotification::PRIORITY_HIGH,
+                'related' => $deposit,
+                'action_label' => 'View balance',
+                'action_url' => route('advertiser.balance', [], false),
+                'meta' => [
+                    'amount' => (float) $deposit->amount,
+                    'reference_code' => $deposit->reference_code,
+                ],
+            ]
+        );
+    }
+
+    public function notifyDepositRejected(DepositRequest $deposit): void
+    {
+        if (! $deposit->user_id) {
+            return;
+        }
+
+        $amount = '€'.number_format((float) $deposit->amount, 2);
+        $notes = trim((string) ($deposit->admin_notes ?? ''));
+        $message = "Your {$amount} deposit request was rejected.";
+        if ($notes !== '') {
+            $message .= ' '.$notes;
+        }
+
+        $this->notify(
+            (int) $deposit->user_id,
+            self::TYPE_PAYMENT_FAILED,
+            "Deposit rejected — {$amount}",
+            $message,
+            [
+                'category' => self::CATEGORY_PAYMENTS,
+                'icon' => 'alert-triangle',
+                'priority' => InAppNotification::PRIORITY_HIGH,
+                'related' => $deposit,
+                'action_label' => 'Add funds',
+                'action_url' => route('advertiser.add-funds', [], false),
+                'meta' => [
+                    'amount' => (float) $deposit->amount,
+                    'reference_code' => $deposit->reference_code,
+                ],
+            ]
+        );
+    }
+
+    public function notifyWithdrawalPaid(Withdrawal $withdrawal): void
+    {
+        if (! $withdrawal->user_id) {
+            return;
+        }
+
+        $amount = '€'.number_format((float) $withdrawal->amount, 2);
+        $net = isset($withdrawal->net_amount)
+            ? '€'.number_format((float) $withdrawal->net_amount, 2)
+            : $amount;
+
+        $this->notify(
+            (int) $withdrawal->user_id,
+            self::TYPE_PAYMENT_RECEIVED,
+            "Withdrawal paid — {$net}",
+            "Your withdrawal of {$amount} has been marked as paid.",
+            [
+                'category' => self::CATEGORY_PAYMENTS,
+                'icon' => 'wallet',
+                'priority' => InAppNotification::PRIORITY_HIGH,
+                'related' => $withdrawal,
+                'action_label' => 'View withdrawals',
+                'action_url' => route('publisher.withdraw', [], false),
+                'meta' => [
+                    'amount' => (float) $withdrawal->amount,
+                    'net_amount' => (float) ($withdrawal->net_amount ?? $withdrawal->amount),
+                    'status' => $withdrawal->status,
+                ],
+            ]
+        );
+    }
+
+    public function notifyWithdrawalRejected(Withdrawal $withdrawal): void
+    {
+        if (! $withdrawal->user_id) {
+            return;
+        }
+
+        $amount = '€'.number_format((float) $withdrawal->amount, 2);
+
+        $this->notify(
+            (int) $withdrawal->user_id,
+            self::TYPE_PAYMENT_FAILED,
+            "Withdrawal cancelled — {$amount}",
+            "{$amount} was returned to your publisher wallet.",
+            [
+                'category' => self::CATEGORY_PAYMENTS,
+                'icon' => 'alert-triangle',
+                'priority' => InAppNotification::PRIORITY_HIGH,
+                'related' => $withdrawal,
+                'action_label' => 'View balance',
+                'action_url' => route('publisher.balance', [], false),
+                'meta' => [
+                    'amount' => (float) $withdrawal->amount,
+                    'status' => $withdrawal->status,
+                ],
+            ]
+        );
     }
 
     public function notifyOrderAccepted(Order $order, OrderItem $item, Site $site): void
@@ -333,15 +622,13 @@ class InAppNotificationService
             }
         }
 
-        // Advertiser in-app notice (especially important for auto-approve).
-        if ($order->user_id) {
+        // Advertiser bell only for auto-approve (they already know when they click Approve).
+        if ($autoApproved && $order->user_id) {
             $this->notify(
                 (int) $order->user_id,
                 self::TYPE_ORDER_COMPLETED,
                 "Order #{$order->order_number} completed",
-                $autoApproved
-                    ? 'Your guest post was auto-approved after the review window. The live URL stays on your order.'
-                    : 'You approved the published guest post. This placement is complete.',
+                'Your guest post was auto-approved after the review window. The live URL stays on your order.',
                 [
                     'category' => self::CATEGORY_ORDERS,
                     'icon' => 'badge-check',
