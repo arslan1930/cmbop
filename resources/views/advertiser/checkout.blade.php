@@ -2,18 +2,22 @@
 
 @section('content')
 <div class="container-fluid">
-    @if(request()->boolean('wizard') || ! empty(\App\Http\Controllers\Advertiser\GuestPostWizardController::stateFromSession()['language']))
-        <div class="wizard-chrome mb-3">
-            <div class="d-flex flex-wrap justify-content-between align-items-start gap-2">
-                <div>
-                    <h2 class="h5 mb-1">Place a guest post · Step 4 of 4</h2>
-                    <p class="muted mb-0">Pay from your wallet or card to place the order.</p>
-                </div>
-                <a href="{{ route('advertiser.wizard.content') }}" class="btn btn-sm btn-outline-secondary">Back to content</a>
-            </div>
-            @include('advertiser.wizard._stepper', ['step' => 4])
-        </div>
-    @endif
+    @php
+        $checkoutInWizard = request()->boolean('wizard')
+            || ! empty(\App\Http\Controllers\Advertiser\GuestPostWizardController::stateFromSession()['language']);
+    @endphp
+    @include('advertiser.partials.ordering-path', [
+        'step' => 4,
+        'title' => 'Place a guest post · Pay',
+        'subtitle' => 'One job here: confirm articles and pay. Live URL tracking starts after the order is placed.',
+        'linkAll' => true,
+        'contentRoute' => $checkoutInWizard
+            ? route('advertiser.wizard.content')
+            : route('advertiser.content-library'),
+        'actions' => $checkoutInWizard
+            ? '<a href="'.e(route('advertiser.wizard.content')).'" class="btn btn-sm btn-outline-secondary">Back to content</a>'
+            : '<button type="button" class="btn btn-sm btn-outline-secondary" onclick="openCart()">Review cart</button>',
+    ])
 
     <!-- HEADER -->
     <div class="row mb-4">

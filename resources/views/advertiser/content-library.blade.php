@@ -121,11 +121,20 @@
 </style>
 
 <div class="container-fluid">
+    @include('advertiser.partials.ordering-path', [
+        'step' => 3,
+        'title' => 'Place a guest post · Content',
+        'subtitle' => 'One job here: upload and approve articles. Each publisher site needs its own matching-language article.',
+        'linkAll' => true,
+        'contentRoute' => route('advertiser.content-library'),
+        'actions' => '<button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#uploadContentModal" id="openUploadModalBtnTop"><i class="fa fa-upload me-1"></i> Upload article</button>'
+            .'<a href="'.e(route('advertiser.catalog')).'" class="btn btn-sm btn-outline-primary">Browse publishers</a>',
+    ])
+
     <div class="mb-3">
         <h2 class="mb-1 fw-semibold">Content Library</h2>
         <p class="text-muted mb-0 small">
-            Start here: <strong>upload</strong> a .docx (language first, then country) → wait for <strong>approval</strong> →
-            click <strong>Order</strong> to pick matching publishers → assign one article per site in your cart → <strong>pay</strong>.
+            Upload a .docx (language first, then country) → wait for approval → order matching publishers → assign in cart → pay.
             Multi-site orders need a different approved article for each website.
         </p>
         <div class="library-page-actions">

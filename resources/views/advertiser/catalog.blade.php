@@ -50,47 +50,38 @@
     @php
         $inGuestPostWizard = request()->boolean('wizard')
             || ! empty(\App\Http\Controllers\Advertiser\GuestPostWizardController::stateFromSession()['language']);
+        $siteReadiness = $siteReadiness ?? [];
     @endphp
     @if(request()->boolean('wizard') && ! empty(\App\Http\Controllers\Advertiser\GuestPostWizardController::stateFromSession()['language']))
         @include('advertiser.wizard._catalog_chrome')
-    @elseif(! $inGuestPostWizard && empty($orderingSubmission))
-        <div class="alert alert-light border small d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
-            <span>New here? Use the guided <strong>Place a guest post</strong> flow (market → publishers → content → pay).</span>
-            <a href="{{ route('advertiser.wizard.start') }}" class="btn btn-sm btn-outline-primary">Start guided flow</a>
-        </div>
+    @elseif(!empty($orderingSubmission))
+        @include('advertiser.partials.ordering-path', [
+            'step' => 2,
+            'title' => 'Place a guest post · Publishers',
+            'subtitle' => 'Ordering “'.($orderingSubmission->title ?: $orderingSubmission->original_filename).'” ('
+                .strtoupper((string) $orderingSubmission->language).'). Add sites, then assign articles in your cart.',
+            'linkAll' => true,
+            'contentRoute' => route('advertiser.content-library'),
+            'actions' => '<button type="button" class="btn btn-sm btn-primary" onclick="openCart()">Review cart</button>'
+                .'<a href="'.e(route('advertiser.catalog', ['cancel_library_order' => 1])).'" class="btn btn-sm btn-outline-secondary">Cancel</a>'
+                .'<a href="'.e(route('advertiser.content-library')).'" class="btn btn-sm btn-outline-secondary">Back to library</a>',
+        ])
+    @else
+        @include('advertiser.partials.ordering-path', [
+            'step' => 2,
+            'title' => 'Place a guest post · Publishers',
+            'subtitle' => 'One job here: pick publishers. Article readiness is shown next to Buy — assign in your cart before Pay.',
+            'linkAll' => true,
+            'contentRoute' => route('advertiser.content-library'),
+            'actions' => '<a href="'.e(route('advertiser.wizard.start')).'" class="btn btn-sm btn-outline-primary">Start guided flow</a>',
+        ])
     @endif
 
-    @if(!empty($orderingSubmission))
-        <div class="alert alert-info border-0 shadow-sm d-flex flex-wrap justify-content-between align-items-center gap-2">
-            <div>
-                <strong>Ordering from Content Library:</strong>
-                {{ $orderingSubmission->title ?: $orderingSubmission->original_filename }}
-                · language
-                <span class="badge text-bg-light border">
-                    {{ strtoupper((string) $orderingSubmission->language) }}
-                </span>
-                @if($orderingSubmission->country)
-                    <span class="badge text-bg-light border">
-                        preferred {{ strtoupper((string) $orderingSubmission->country) }}
-                    </span>
-                @endif
-                <div class="small mt-1 mb-0">
-                    Showing websites in this language across all matching countries
-                    (e.g. English → US, UK, AU, …). Add multiple sites if you like —
-                    each site needs a <strong>different</strong> approved article (assign in your cart).
-                </div>
-            </div>
-            <div class="d-flex flex-wrap gap-2">
-                <a href="{{ route('advertiser.checkout') }}" class="btn btn-sm btn-primary">Go to checkout</a>
-                <a href="{{ route('advertiser.catalog', ['cancel_library_order' => 1]) }}" class="btn btn-sm btn-outline-secondary">Cancel</a>
-                <a href="{{ route('advertiser.content-library') }}" class="btn btn-sm btn-outline-secondary">Back to library</a>
-            </div>
-        </div>
-    @elseif(($approvedArticleCount ?? 0) === 0)
+    @if(($approvedArticleCount ?? 0) === 0 && empty($orderingSubmission))
         <div class="alert alert-info border-0 shadow-sm d-flex flex-wrap justify-content-between align-items-center gap-2">
             <div class="small mb-0">
-                Checkout needs an <strong>approved</strong> Content Library article for each website.
-                Upload one first, then add publishers here and assign the article in your cart.
+                Each website needs its own <strong>approved</strong> article. You can still add publishers —
+                readiness chips show what’s missing, and the cart checklist walks you through assignment.
             </div>
             <a href="{{ route('advertiser.content-library', ['upload' => 1]) }}" class="btn btn-sm btn-primary">
                 <i class="fa fa-upload me-1"></i> Upload article
@@ -99,13 +90,12 @@
     @endif
 
     @if(($catalogBonusBalance ?? 0) > 0)
-        <div class="alert alert-warning border-0 shadow-sm small mb-3">
-            <strong>Spendable €{{ number_format((float) ($catalogSpendableBalance ?? 0), 2) }}</strong>
-            = cash €{{ number_format((float) ($catalogCashBalance ?? 0), 2) }}
-            + bonus €{{ number_format((float) $catalogBonusBalance, 2) }}.
-            Bonus credit is for marketplace purchases only (not withdrawable).
-            At checkout, enable <strong>Use bonus balance</strong> to apply it — cart total shows in the header while you browse.
-        </div>
+        <p class="small text-muted mb-3">
+            Spendable <strong>€{{ number_format((float) ($catalogSpendableBalance ?? 0), 2) }}</strong>
+            (cash €{{ number_format((float) ($catalogCashBalance ?? 0), 2) }}
+            + bonus €{{ number_format((float) $catalogBonusBalance, 2) }}).
+            Apply bonus at checkout.
+        </p>
     @endif
 
     <!-- HEADER -->
@@ -116,7 +106,7 @@
                 @if(!empty($orderingSubmission))
                     Showing {{ strtoupper((string) $orderingSubmission->language) }} publishers in all matching countries.
                 @else
-                    Browse verified publishers and explore available placement opportunities.
+                    Browse verified publishers. Check article readiness beside Buy before you add sites.
                 @endif
             </p>
         </div>
@@ -927,6 +917,20 @@ document.addEventListener('DOMContentLoaded', function () {
                                 <span class="fw-semibold base-price-display">€{{ number_format($site->price, 2) }}</span>
                             @endif
                         </button>
+                        @php $readyMeta = $siteReadiness[$site->id] ?? null; @endphp
+                        @if($readyMeta)
+                            @if($readyMeta['ready'])
+                                <span class="catalog-article-ready is-ready" title="You have an approved article that matches this site’s language">
+                                    {{ $readyMeta['label'] }}
+                                </span>
+                            @else
+                                <a href="{{ route('advertiser.content-library', ['upload' => 1, 'language' => $readyMeta['code']]) }}"
+                                   class="catalog-article-ready is-needed"
+                                   title="Upload an approved article in this language, then assign it in your cart">
+                                    {{ $readyMeta['label'] }}
+                                </a>
+                            @endif
+                        @endif
 
                         <div class="catalog-row-actions-quiet">
                             <button type="button"

@@ -503,7 +503,7 @@ class CatalogController extends Controller
         $featurePrice = (float) config('site_promotions.feature.price', 10);
         $featureDays = (int) config('site_promotions.feature.days', 7);
 
-        $approvedArticleCount = ContentSubmission::query()
+        $orderableArticles = ContentSubmission::query()
             ->where('user_id', auth()->id())
             ->whereNull('order_id')
             ->whereNull('archived_at')
@@ -512,7 +512,27 @@ class CatalogController extends Controller
             ->limit(50)
             ->get()
             ->filter(fn (ContentSubmission $s) => $s->canBeOrdered())
-            ->count();
+            ->values();
+
+        $approvedArticleCount = $orderableArticles->count();
+
+        $siteReadiness = [];
+        foreach ($sites as $site) {
+            $match = $orderableArticles->first(fn (ContentSubmission $article) => $article->matchesSite($site));
+            $langCodes = method_exists($site, 'languageCodes') ? $site->languageCodes() : [];
+            $neededCode = strtolower((string) ($site->language ?: ($langCodes[0] ?? 'en')));
+            if ($neededCode === '') {
+                $neededCode = 'en';
+            }
+            $langLabel = fullLanguage($neededCode);
+            $siteReadiness[$site->id] = [
+                'ready' => (bool) $match,
+                'code' => $neededCode,
+                'label' => $match
+                    ? 'Ready · '.$langLabel.' article'
+                    : 'Needs '.$langLabel.' article',
+            ];
+        }
 
         $catalogWallet = auth()->user()->activeWallet();
         $catalogBonusBalance = $catalogWallet ? (float) $catalogWallet->lockedBonusBalance() : 0.0;
@@ -534,6 +554,7 @@ class CatalogController extends Controller
             'featureDays',
             'orderingSubmission',
             'approvedArticleCount',
+            'siteReadiness',
             'catalogBonusBalance',
             'catalogCashBalance',
             'catalogSpendableBalance'

@@ -77,7 +77,7 @@ class GuestPostWizardTest extends TestCase
             ->assertOk()
             ->assertSee('Place a guest post', false)
             ->assertSee(route('advertiser.wizard.start'), false)
-            ->assertSee('Choose market', false);
+            ->assertSee('Market', false);
     }
 
     public function test_wizard_start_without_market_goes_to_market_step(): void

@@ -823,8 +823,11 @@
             <i class="fa fa-times" aria-hidden="true"></i>
         </button>
     </div>
-    <div class="cart-body" id="cartItemsContainer">
-        <div class="text-center text-muted">Your cart is empty</div>
+    <div class="cart-body">
+        <div id="cartChecklist" class="cart-checklist d-none" aria-live="polite"></div>
+        <div id="cartItemsContainer">
+            <div class="text-center text-muted">Your cart is empty</div>
+        </div>
     </div>
     <div class="cart-footer">
         <div id="cartReadyNote" class="cart-ready-note d-none"></div>
@@ -832,9 +835,12 @@
             <strong>Total:</strong>
             <strong id="cartTotalAmount">€0.00</strong>
         </div>
-        <button id="checkoutFromCart" class="btn btn-primary w-100">
+        <button id="checkoutFromCart" class="btn btn-primary w-100" type="button">
             <i class="fa fa-credit-card"></i> Proceed to Checkout
         </button>
+        <div id="cartProceedHint" class="small text-muted mt-2 d-none">
+            Finish the checklist above — every website needs its own article.
+        </div>
     </div>
 </div>
 
@@ -1061,6 +1067,9 @@
         // Update cart sidebar
         const container = document.getElementById('cartItemsContainer');
         const readyNote = document.getElementById('cartReadyNote');
+        const checklistEl = document.getElementById('cartChecklist');
+        const proceedBtn = document.getElementById('checkoutFromCart');
+        const proceedHint = document.getElementById('cartProceedHint');
         if (cart.length === 0) {
             container.innerHTML = `
                 <div class="text-center text-muted px-2">
@@ -1074,10 +1083,36 @@
                 readyNote.classList.add('d-none');
                 readyNote.textContent = '';
             }
+            if (checklistEl) {
+                checklistEl.classList.add('d-none');
+                checklistEl.innerHTML = '';
+            }
+            if (proceedBtn) {
+                proceedBtn.disabled = true;
+            }
+            if (proceedHint) {
+                proceedHint.classList.add('d-none');
+            }
         } else {
             let html = '';
             const sortedCart = [...cart].sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')));
             const missing = cartLinesMissingArticles().length;
+            if (checklistEl) {
+                let list = '<div class="small fw-semibold mb-1">Before Pay</div><ul class="mb-0 ps-0">';
+                sortedCart.forEach((item) => {
+                    const assigned = !!parseInt(item.content_submission_id || 0, 10);
+                    const lang = String(item.language || '').toUpperCase();
+                    const cls = assigned ? 'is-ok' : 'is-todo';
+                    const mark = assigned ? '✓' : '!';
+                    const detail = assigned
+                        ? 'Article assigned'
+                        : ('Needs ' + (lang ? lang + ' ' : '') + 'article');
+                    list += `<li class="${cls}"><span class="mark" aria-hidden="true">${mark}</span><span><strong>${escapeHtml(item.name || 'Website')}</strong> — ${escapeHtml(detail)}</span></li>`;
+                });
+                list += '</ul>';
+                checklistEl.innerHTML = list;
+                checklistEl.classList.remove('d-none');
+            }
             if (readyNote) {
                 if (missing > 0) {
                     readyNote.classList.remove('d-none');
@@ -1086,8 +1121,14 @@
                         : (missing + ' websites still need their own approved articles before checkout.');
                 } else {
                     readyNote.classList.remove('d-none');
-                    readyNote.textContent = 'Each website has its own article assigned. You can proceed to checkout.';
+                    readyNote.textContent = 'Checklist complete — you can proceed to Pay.';
                 }
+            }
+            if (proceedBtn) {
+                proceedBtn.disabled = missing > 0;
+            }
+            if (proceedHint) {
+                proceedHint.classList.toggle('d-none', missing === 0);
             }
             
             sortedCart.forEach((item) => {
@@ -1249,6 +1290,7 @@
         cartOverlay.classList.add('show');
         updateCartDisplay();
     }
+    window.openCart = openCart;
     
     function closeCart() {
         cartSidebar.classList.remove('open');
@@ -1300,7 +1342,7 @@
         assignCartArticle(id, sensitiveType, submissionId);
     });
     
-    // Checkout from cart
+    // Checkout from cart — blockers stay visible in the checklist (button disabled when incomplete)
     document.getElementById('checkoutFromCart').addEventListener('click', function() {
         if (cart.length === 0) {
             showToast('Your cart is empty!', 'error');
@@ -1308,16 +1350,13 @@
         }
         const missing = cartLinesMissingArticles();
         if (missing.length > 0) {
-            showToast(
-                missing.length === 1
-                    ? 'Assign an approved article to each website before checkout.'
-                    : ('Assign approved articles to ' + missing.length + ' websites before checkout.'),
-                'error'
-            );
             openCart();
             return;
         }
-        window.location.href = '{{ route("advertiser.checkout") }}';
+        const wizardPay = @json(route('advertiser.wizard.pay'));
+        const plainCheckout = @json(route('advertiser.checkout'));
+        const inWizard = {{ request()->boolean('wizard') || !empty(\App\Http\Controllers\Advertiser\GuestPostWizardController::stateFromSession()['language'] ?? null) ? 'true' : 'false' }};
+        window.location.href = inWizard ? wizardPay : plainCheckout;
     });
     
     // Load cart on page load

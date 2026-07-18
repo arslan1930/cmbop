@@ -215,22 +215,29 @@
                     <a href="{{ route('advertiser.wizard.market') }}" class="get-started-step">
                         <span class="step-num">1</span>
                         <div>
-                            <div class="step-title">Choose market</div>
+                            <div class="step-title">Market</div>
                             <p class="step-desc">Pick language and niche so we can filter publishers.</p>
                         </div>
                     </a>
                     <a href="{{ route('advertiser.wizard.start') }}" class="get-started-step">
                         <span class="step-num">2</span>
                         <div>
-                            <div class="step-title">Choose publishers</div>
-                            <p class="step-desc">Add matching sites from the catalog to your cart.</p>
+                            <div class="step-title">Publishers</div>
+                            <p class="step-desc">Add matching sites from the catalog — readiness shows next to Buy.</p>
                         </div>
                     </a>
                     <a href="{{ route('advertiser.wizard.start') }}" class="get-started-step">
                         <span class="step-num">3</span>
                         <div>
-                            <div class="step-title">Assign content &amp; pay</div>
-                            <p class="step-desc">Upload or pick approved articles, then checkout.</p>
+                            <div class="step-title">Content</div>
+                            <p class="step-desc">Upload or assign an approved article per website in your cart.</p>
+                        </div>
+                    </a>
+                    <a href="{{ route('advertiser.wizard.start') }}" class="get-started-step">
+                        <span class="step-num">4</span>
+                        <div>
+                            <div class="step-title">Pay</div>
+                            <p class="step-desc">Checkout when the cart checklist is complete.</p>
                         </div>
                     </a>
                 </div>
