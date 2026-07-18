@@ -7,9 +7,16 @@ use App\Models\Site;
 class CartPricingService
 {
     /**
-     * Advertiser-facing markup. The extra portion is the platform fee.
+     * @deprecated Use PlatformFeeService tiered fees. Kept for legacy call sites / tests.
      */
     public const PLATFORM_MARKUP_RATE = 1.15;
+
+    private readonly PlatformFeeService $fees;
+
+    public function __construct(?PlatformFeeService $fees = null)
+    {
+        $this->fees = $fees ?? new PlatformFeeService;
+    }
 
     /**
      * Resolve advertiser unit pricing from the live site listing.
@@ -23,12 +30,18 @@ class CartPricingService
      *   list_total: float,
      *   discount_percent: float,
      *   discount_amount: float,
-     *   discount_labels: array<int, string>
+     *   discount_labels: array<int, string>,
+     *   publisher_price: float,
+     *   platform_fee_percent: float,
+     *   platform_fee_amount: float
      * }
      */
     public function priceForAdvertiser(Site $site, ?string $sensitiveType = null, int $quantity = 1): array
     {
-        $base = round((float) $site->price * self::PLATFORM_MARKUP_RATE, 2);
+        $publisherPrice = round((float) $site->price, 2);
+        $feePercent = $this->fees->feePercentForBase($publisherPrice);
+        $feeAmount = $this->fees->feeAmountForBase($publisherPrice);
+        $base = $this->fees->advertiserBase($publisherPrice);
         $additional = $this->resolveSensitiveAdditional($site, $sensitiveType);
         $listTotal = round($base + $additional, 2);
 
@@ -66,6 +79,9 @@ class CartPricingService
             'discount_percent' => $discountPercent,
             'discount_amount' => $discountAmount,
             'discount_labels' => $labels,
+            'publisher_price' => $publisherPrice,
+            'platform_fee_percent' => $feePercent,
+            'platform_fee_amount' => $feeAmount,
         ];
     }
 
@@ -148,6 +164,9 @@ class CartPricingService
                     'discount_percent' => $pricing['discount_percent'],
                     'discount_amount' => $pricing['discount_amount'],
                     'discount_labels' => $pricing['discount_labels'],
+                    'publisher_price' => $pricing['publisher_price'],
+                    'platform_fee_percent' => $pricing['platform_fee_percent'],
+                    'platform_fee_amount' => $pricing['platform_fee_amount'],
                 ];
             }
         }
@@ -197,6 +216,9 @@ class CartPricingService
                 'discount_amount' => $pricing['discount_amount'],
                 'line_savings' => $lineSave,
                 'discount_labels' => $pricing['discount_labels'],
+                'publisher_price' => $pricing['publisher_price'],
+                'platform_fee_percent' => $pricing['platform_fee_percent'],
+                'platform_fee_amount' => $pricing['platform_fee_amount'],
                 'country' => $site->country,
                 'countries' => $site->countryCodes(),
                 'language' => $site->language,

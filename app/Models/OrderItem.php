@@ -12,8 +12,7 @@ use Illuminate\Support\Facades\DB;
 class OrderItem extends Model
 {
     /**
-     * Advertiser-facing markup multiplier. The extra portion is the platform fee.
-     * Example: listing €100 → advertiser pays €115; publisher receives €100.
+     * @deprecated Legacy flat markup. Prefer snapshotted publisher_price / PlatformFeeService.
      */
     public const PLATFORM_MARKUP_RATE = 1.15;
 
@@ -40,6 +39,9 @@ class OrderItem extends Model
         'live_url_checked_at',
         'sensitive_type',
         'additional_price',
+        'publisher_price',
+        'platform_fee_percent',
+        'platform_fee_amount',
         'publisher_status',
         'accepted_at',
         'rejected_at',
@@ -56,6 +58,9 @@ class OrderItem extends Model
     protected $casts = [
         'price' => 'decimal:2',
         'additional_price' => 'decimal:2',
+        'publisher_price' => 'decimal:2',
+        'platform_fee_percent' => 'decimal:2',
+        'platform_fee_amount' => 'decimal:2',
         'accepted_at' => 'datetime',
         'rejected_at' => 'datetime',
         'completed_at' => 'datetime',
@@ -152,16 +157,32 @@ class OrderItem extends Model
     }
 
     /**
-     * Publisher listing/base price before the platform markup.
+     * Publisher listing/base price (snapshotted at checkout when available).
      */
     public function publisherBasePrice(): float
     {
-        return round($this->markedUpBasePrice() / self::PLATFORM_MARKUP_RATE, 2);
+        if ($this->publisher_price !== null && $this->publisher_price !== '') {
+            return round((float) $this->publisher_price, 2);
+        }
+
+        $rate = self::PLATFORM_MARKUP_RATE;
+        try {
+            if (function_exists('app') && app()->bound('config')) {
+                $configured = config('pricing.legacy_markup_rate');
+                if ($configured) {
+                    $rate = (float) $configured;
+                }
+            }
+        } catch (\Throwable) {
+            // Pure unit tests without a bootstrapped container.
+        }
+
+        return round($this->markedUpBasePrice() / $rate, 2);
     }
 
     /**
      * Amount credited to the publisher on approval.
-     * Publisher gets original base + sensitive add-ons; platform keeps the 15% markup.
+     * Publisher gets their entered base + sensitive add-ons; platform keeps the hidden fee.
      */
     public function publisherPayoutAmount(): float
     {
@@ -176,19 +197,33 @@ class OrderItem extends Model
      */
     public function platformFeeAmount(): float
     {
+        if ($this->platform_fee_amount !== null && $this->platform_fee_amount !== '') {
+            return round((float) $this->platform_fee_amount, 2);
+        }
+
         return round($this->markedUpBasePrice() - $this->publisherBasePrice(), 2);
     }
 
     /**
      * SQL expression for publisher payout amounts (for SUM/aggregates).
-     * Removes the 15% platform markup from the stored advertiser price.
+     * Prefers snapshotted publisher_price; falls back to legacy flat markup reversal.
      */
     public static function publisherPayoutSqlExpression()
     {
         $rate = self::PLATFORM_MARKUP_RATE;
+        try {
+            if (function_exists('app') && app()->bound('config')) {
+                $configured = config('pricing.legacy_markup_rate');
+                if ($configured) {
+                    $rate = (float) $configured;
+                }
+            }
+        } catch (\Throwable) {
+            // keep legacy constant
+        }
 
         return DB::raw(
-            "(price - COALESCE(additional_price, 0)) / {$rate} + COALESCE(additional_price, 0)"
+            'COALESCE(publisher_price, (price - COALESCE(additional_price, 0)) / '.$rate.') + COALESCE(additional_price, 0)'
         );
     }
 

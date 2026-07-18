@@ -6,7 +6,7 @@
         })
         ->min('price');
     $fromPrice = $minPublisherPrice
-        ? number_format(round((float) $minPublisherPrice * \App\Services\CartPricingService::PLATFORM_MARKUP_RATE, 2), 0)
+        ? number_format(app(\App\Services\PlatformFeeService::class)->advertiserBase((float) $minPublisherPrice), 0)
         : '50';
 @endphp
 

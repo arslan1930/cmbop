@@ -64,7 +64,7 @@ use App\Http\Middleware\RoleMiddleware;
 use App\Models\ContentSubmission;
 use App\Models\Site;
 use App\Models\User;
-use App\Services\CartPricingService;
+use App\Services\PlatformFeeService;
 use App\Support\PublicI18n;
 use Illuminate\Auth\Events\Verified;
 use Illuminate\Http\Request;
@@ -513,10 +513,8 @@ Route::middleware(['auth', 'verified', RoleMiddleware::class.':advertiser'])
                 ->take(3)
                 ->get()
                 ->map(function ($site) {
-                    $site->display_price = round(
-                        (float) $site->price * CartPricingService::PLATFORM_MARKUP_RATE,
-                        2
-                    );
+                    $site->display_price = app(PlatformFeeService::class)
+                        ->advertiserBase((float) $site->price);
 
                     return $site;
                 });

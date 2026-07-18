@@ -26,6 +26,7 @@ use App\Services\InAppNotificationService;
 use App\Services\LiveUrlHealthChecker;
 use App\Services\Marketplace\LanguageCountryMap;
 use App\Services\OrderPaymentService;
+use App\Services\PlatformFeeService;
 use App\Services\StripeCustomerService;
 use App\Services\StripePaymentService;
 use App\Services\Wallet\WalletLedgerService;
@@ -52,7 +53,7 @@ class CatalogController extends Controller
     /**
      * Get price based on user role
      * - Publishers see original price
-     * - Advertisers see marked up price (+15% platform fee)
+     * - Advertisers see base + hidden tiered portal fee
      * - Sensitive prices are NOT marked up
      */
     private function getPriceForUser($originalPrice, $sitePublisherId = null)
@@ -72,8 +73,8 @@ class CatalogController extends Controller
             return $originalPrice;
         }
 
-        // Advertisers see marked up price (+15% platform fee)
-        return round($originalPrice * OrderItem::PLATFORM_MARKUP_RATE, 2);
+        return app(PlatformFeeService::class)
+            ->advertiserBase((float) $originalPrice);
     }
 
     /**
@@ -362,9 +363,11 @@ class CatalogController extends Controller
         // 💰 Price range filter
         if ($request->filled('price_min')) {
             $minPrice = $request->price_min;
-            // For advertisers, we need to filter based on marked up price
+            // For advertisers, filter on tiered advertiser-facing base price
             if ($userRole && $userRole->name === 'advertiser') {
-                $query->whereRaw('price * '.CartPricingService::PLATFORM_MARKUP_RATE.' >= ?', [$minPrice]);
+                $advPriceSql = app(PlatformFeeService::class)
+                    ->advertiserBaseSqlExpression('price');
+                $query->whereRaw("({$advPriceSql}) >= ?", [$minPrice]);
             } else {
                 $query->where('price', '>=', $minPrice);
             }
@@ -372,7 +375,9 @@ class CatalogController extends Controller
         if ($request->filled('price_max')) {
             $maxPrice = $request->price_max;
             if ($userRole && $userRole->name === 'advertiser') {
-                $query->whereRaw('price * '.CartPricingService::PLATFORM_MARKUP_RATE.' <= ?', [$maxPrice]);
+                $advPriceSql = app(PlatformFeeService::class)
+                    ->advertiserBaseSqlExpression('price');
+                $query->whereRaw("({$advPriceSql}) <= ?", [$maxPrice]);
             } else {
                 $query->where('price', '<=', $maxPrice);
             }
@@ -2922,6 +2927,9 @@ class CatalogController extends Controller
             'moderation_status' => $submission->moderation_status,
             'sensitive_type' => $orderItem['sensitive_type'],
             'additional_price' => $orderItem['additional_price'],
+            'publisher_price' => $orderItem['publisher_price'] ?? null,
+            'platform_fee_percent' => $orderItem['platform_fee_percent'] ?? null,
+            'platform_fee_amount' => $orderItem['platform_fee_amount'] ?? null,
         ];
     }
 
