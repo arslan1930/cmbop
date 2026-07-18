@@ -2,15 +2,14 @@
   $blogIndexUrl = localized_url('blog');
 @endphp
 
-<footer class="bg-light text-dark pt-5 pb-4">
+<footer class="bg-light text-dark pt-5 pb-4 slb-footer">
     <div class="container">
         <div class="row gy-4">
 
             <div class="col-lg-3 col-md-6">
-                <a href="{{ localized_url('/') }}">
+                <a href="{{ localized_url('/') }}" class="slb-footer-brand d-inline-block">
                     <img src="{{ asset('assets/img/logo1.png') }}?v={{ @filemtime(public_path('assets/img/logo1.png')) ?: '1' }}"
-                         alt="SEOLinkBuildings"
-                         style="max-width: 200px;">
+                         alt="SEOLinkBuildings">
                 </a>
                 <p class="mt-3 small">
                     {{ __('messages.professional_services') }}

@@ -15,7 +15,7 @@
   $registerUrl = url('/register');
 @endphp
 
-<nav id="mainNavbar" class="navbar navbar-expand-lg navbar-light bg-light shadow-sm fixed-top">
+<nav id="mainNavbar" class="navbar navbar-expand-lg navbar-light bg-light shadow-sm fixed-top slb-nav">
   <div class="container">
 
     <a class="navbar-brand fw-bold d-flex align-items-center" href="{{ $homeUrl }}" aria-label="SEOLinkBuildings home">

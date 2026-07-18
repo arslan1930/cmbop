@@ -2,10 +2,12 @@
     $catalogHref = Route::has('advertiser.catalog')
         ? route('advertiser.catalog')
         : url('/advertiser/catalog');
+    $publisherHref = localized_url('become-a-publisher');
 @endphp
 
 <section class="slb-hero">
   <div class="slb-hero-bg" aria-hidden="true"></div>
+  <div class="slb-hero-grid" aria-hidden="true"></div>
 
   <div class="container-fluid slb-hero-inner">
     <div class="slb-hero-copy">
@@ -20,13 +22,23 @@
 
       <p class="slb-hero-tagline">{{ __('messages.hero_tagline') }}</p>
 
-      <a href="{{ url('/register') }}" class="slb-hero-cta">
-        {{ __('messages.get_started') }}
+      <div class="slb-hero-cta-group">
+        <a href="{{ url('/register') }}" class="slb-hero-cta">
+          {{ __('messages.get_started') }}
+        </a>
+        <a href="{{ $publisherHref }}" class="slb-hero-cta-secondary">
+          {{ __('messages.nav_become_publisher') }}
+        </a>
+      </div>
+
+      <a href="{{ $catalogHref }}" class="slb-hero-catalog-text">
+        {{ __('messages.nav_marketplace') }}
+        <i class="fa fa-arrow-right" aria-hidden="true"></i>
       </a>
     </div>
 
     <div class="slb-hero-visual">
-      <a href="{{ $catalogHref }}" class="slb-hero-catalog-link" aria-label="Open the SEOLinkBuildings catalog">
+      <a href="{{ $catalogHref }}" class="slb-hero-catalog-link" aria-label="{{ __('messages.nav_marketplace') }}">
         <img
           src="{{ asset('assets/img/dashboard.png') }}"
           alt="SEOLinkBuildings catalog preview"
@@ -34,10 +46,6 @@
           loading="eager"
           decoding="async"
         >
-        <span class="slb-hero-catalog-hint">
-          <i class="fa fa-external-link-alt" aria-hidden="true"></i>
-          Explore catalog
-        </span>
       </a>
     </div>
   </div>
@@ -53,16 +61,28 @@
     display: flex;
     align-items: center;
     padding: 40px 0 0;
-    background: linear-gradient(135deg, #e8f7f7 0%, #f4fafb 42%, #ffffff 100%);
+    background: linear-gradient(145deg, #e7f6f6 0%, #f5fbfb 38%, #ffffff 100%);
   }
 
   .slb-hero-bg {
     position: absolute;
     inset: 0;
     background:
-      radial-gradient(ellipse 60% 55% at 88% 42%, rgba(78, 205, 203, 0.26), transparent 72%),
-      radial-gradient(ellipse 40% 45% at 8% 78%, rgba(11, 98, 102, 0.08), transparent 65%);
+      radial-gradient(ellipse 58% 52% at 88% 40%, rgba(78, 205, 203, 0.28), transparent 72%),
+      radial-gradient(ellipse 42% 48% at 6% 80%, rgba(11, 98, 102, 0.1), transparent 65%);
     pointer-events: none;
+  }
+
+  .slb-hero-grid {
+    position: absolute;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(11, 98, 102, 0.035) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(11, 98, 102, 0.035) 1px, transparent 1px);
+    background-size: 48px 48px;
+    mask-image: radial-gradient(ellipse 70% 70% at 70% 40%, black, transparent 85%);
+    pointer-events: none;
+    opacity: 0.9;
   }
 
   .slb-hero-inner {
@@ -96,6 +116,7 @@
 
   .slb-hero-title {
     margin: 0;
+    font-family: var(--slb-font-display, 'Sora', sans-serif);
     font-size: clamp(2.35rem, 4.6vw, 3.75rem);
     line-height: 1.05;
     font-weight: 800;
@@ -105,6 +126,7 @@
 
   .slb-hero-support {
     margin: 0;
+    font-family: var(--slb-font-display, 'Sora', sans-serif);
     font-size: clamp(1.15rem, 2vw, 1.45rem);
     line-height: 1.35;
     font-weight: 600;
@@ -122,20 +144,31 @@
     animation: slbHeroFade 0.7s ease 0.16s both;
   }
 
-  .slb-hero-cta {
+  .slb-hero-cta-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-top: 1.75rem;
+    animation: slbHeroFade 0.7s ease 0.24s both;
+  }
+
+  .slb-hero-cta,
+  .slb-hero-cta-secondary {
     display: inline-flex;
     align-items: center;
-    margin-top: 1.75rem;
-    padding: 14px 32px;
-    font-size: 1rem;
+    justify-content: center;
+    padding: 14px 28px;
+    font-size: 0.98rem;
     font-weight: 700;
+    border-radius: 12px;
+    text-decoration: none;
+    transition: transform 0.25s ease, box-shadow 0.25s ease, background 0.25s ease, color 0.25s ease, border-color 0.25s ease;
+  }
+
+  .slb-hero-cta {
     color: #fff;
     background: #0b6266;
-    border-radius: 10px;
-    text-decoration: none;
     box-shadow: 0 10px 24px rgba(11, 98, 102, 0.22);
-    transition: transform 0.25s ease, box-shadow 0.25s ease, background 0.25s ease;
-    animation: slbHeroFade 0.7s ease 0.24s both;
   }
 
   .slb-hero-cta:hover {
@@ -143,6 +176,45 @@
     background: #3aaeb2;
     transform: translateY(-2px);
     box-shadow: 0 14px 28px rgba(58, 174, 178, 0.28);
+  }
+
+  .slb-hero-cta-secondary {
+    color: #0b6266;
+    background: rgba(255, 255, 255, 0.72);
+    border: 1px solid rgba(11, 98, 102, 0.18);
+    backdrop-filter: blur(8px);
+  }
+
+  .slb-hero-cta-secondary:hover {
+    color: #0b6266;
+    border-color: rgba(11, 98, 102, 0.35);
+    background: #fff;
+    transform: translateY(-2px);
+  }
+
+  .slb-hero-catalog-text {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 1.1rem;
+    font-size: 0.92rem;
+    font-weight: 600;
+    color: #0b6266;
+    text-decoration: none;
+    animation: slbHeroFade 0.7s ease 0.3s both;
+  }
+
+  .slb-hero-catalog-text:hover {
+    color: #3aaeb2;
+  }
+
+  .slb-hero-catalog-text i {
+    font-size: 0.75rem;
+    transition: transform 0.2s ease;
+  }
+
+  .slb-hero-catalog-text:hover i {
+    transform: translateX(3px);
   }
 
   .slb-hero-visual {
@@ -179,30 +251,6 @@
     box-shadow: -22px 30px 80px rgba(11, 98, 102, 0.28);
   }
 
-  .slb-hero-catalog-hint {
-    position: absolute;
-    left: 18px;
-    bottom: 18px;
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    padding: 10px 14px;
-    border-radius: 999px;
-    background: rgba(11, 98, 102, 0.92);
-    color: #fff;
-    font-size: 13px;
-    font-weight: 600;
-    backdrop-filter: blur(8px);
-    box-shadow: 0 8px 20px rgba(11, 98, 102, 0.25);
-    opacity: 1;
-    transition: transform 0.25s ease, background 0.25s ease;
-  }
-
-  .slb-hero-catalog-link:hover .slb-hero-catalog-hint {
-    background: #0b6266;
-    transform: translateY(-2px);
-  }
-
   @keyframes slbHeroFade {
     from { opacity: 0; transform: translateY(10px); }
     to { opacity: 1; transform: translateY(0); }
@@ -233,6 +281,9 @@
       margin-left: auto;
       margin-right: auto;
     }
+    .slb-hero-cta-group {
+      justify-content: center;
+    }
     .slb-hero-product {
       min-height: 280px;
       max-height: 420px;
@@ -245,7 +296,8 @@
     .slb-hero-brand-stack,
     .slb-hero-support,
     .slb-hero-tagline,
-    .slb-hero-cta,
+    .slb-hero-cta-group,
+    .slb-hero-catalog-text,
     .slb-hero-visual,
     .slb-hero-product {
       animation: none !important;
