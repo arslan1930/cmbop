@@ -72,6 +72,7 @@
                             <option value="paid" {{ request('payment_status') == 'paid' ? 'selected' : '' }}>Paid</option>
                             <option value="pending" {{ request('payment_status') == 'pending' ? 'selected' : '' }}>Pending</option>
                             <option value="failed" {{ request('payment_status') == 'failed' ? 'selected' : '' }}>Failed</option>
+                            <option value="refunded" {{ request('payment_status') == 'refunded' ? 'selected' : '' }}>Refunded</option>
                         </select>
                     </div>
 
@@ -176,25 +177,25 @@
     </div>
 </div>
 
-<!-- Modification Modal -->
+<!-- Request changes Modal -->
 <div class="modal fade" id="modificationModal" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
             <div class="modal-header bg-warning text-dark">
-                <h5 class="modal-title">Request Modification</h5>
+                <h5 class="modal-title">Request changes</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
                 <input type="hidden" id="modificationOrderId">
                 <div class="mb-3">
-                    <label for="modificationReason" class="form-label">Reason for Modification <span class="text-danger">*</span></label>
-                    <textarea id="modificationReason" class="form-control" rows="4" placeholder="Please explain what changes are needed..."></textarea>
-                    <small class="text-muted mt-2 d-block">The publisher will be notified and can resubmit the live URL.</small>
+                    <label for="modificationReason" class="form-label">What needs to change? <span class="text-danger">*</span></label>
+                    <textarea id="modificationReason" class="form-control" rows="4" placeholder="Explain the fixes needed on the live post…"></textarea>
+                    <small class="text-muted mt-2 d-block">The publisher will see this reason, update the post, and resubmit the live URL. Auto-approve pauses until they resubmit.</small>
                 </div>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                <button type="button" class="btn btn-warning" id="confirmModification">Request Modification</button>
+                <button type="button" class="btn btn-warning" id="confirmModification">Send change request</button>
             </div>
         </div>
     </div>
@@ -464,6 +465,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Chat functionality
     window.openChat = function(orderId, orderNumber) {
         currentChatOrderId = orderId;
+        window._chatOrderId = orderId;
         document.getElementById('chatOrderId').value = orderId;
         document.getElementById('chatOrderNumber').innerText = orderNumber;
         const detailsEl = document.getElementById('chatOrderDetails');
@@ -473,6 +475,48 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         loadChatMessages(orderId);
         $('#chatModal').modal('show');
+    };
+
+    window.raiseIssue = function(orderId, orderNumber, statusLabel) {
+        openChat(orderId, orderNumber || ('#' + orderId));
+        const input = document.getElementById('chatMessageInput');
+        if (input) {
+            const label = statusLabel || 'unknown';
+            input.value = `I'd like to raise an issue with order #${orderNumber} (status: ${label}). Please help resolve this.`;
+            setTimeout(() => input.focus(), 300);
+        }
+    };
+
+    window.recheckLiveUrl = function(orderId) {
+        const btn = document.getElementById('recheckLiveUrlBtn');
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fa fa-spinner fa-spin me-1"></i>Checking…';
+        }
+        fetch(`{{ url('advertiser/orders') }}/${orderId}/recheck-live-url`, {
+            method: 'POST',
+            headers: {
+                'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                'Accept': 'application/json',
+                'Content-Type': 'application/json',
+            },
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                Swal.fire('Checked', data.message || 'URL check finished.', data.live_url_check?.ok ? 'success' : 'warning');
+                viewOrder(orderId);
+            } else {
+                Swal.fire('Error', data.message || 'Could not recheck URL.', 'error');
+            }
+        })
+        .catch(() => Swal.fire('Error', 'Could not recheck URL.', 'error'))
+        .finally(() => {
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fa fa-refresh me-1"></i>Recheck';
+            }
+        });
     };
 
     function formatChatDate(value, withTime = false) {
@@ -490,41 +534,36 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!details) {
             el.classList.add('d-none');
             el.innerHTML = '';
+            window._chatOrderId = null;
             return;
         }
 
-        const parts = [];
+        window._chatOrderId = details.order_id || window._chatOrderId || null;
         const websiteName = escapeHtml(details.website_name || '—');
-        if (details.website_url) {
-            parts.push(`<span class="chat-detail-primary">${websiteName}</span> · <a href="${escapeHtml(details.website_url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(details.website_url)}</a>`);
-        } else {
-            parts.push(`<span class="chat-detail-primary">${websiteName}</span>`);
+        const statusLabel = escapeHtml(details.status_label || details.status || '—');
+        const nextAction = escapeHtml(details.next_action || '');
+        const autoHint = details.auto_approve_hint
+            ? `<div class="small text-muted mt-1">${escapeHtml(details.auto_approve_hint)}</div>`
+            : '';
+
+        let actions = '';
+        if (details.can_approve || details.can_request_changes) {
+            const oid = window._chatOrderId;
+            actions = `<div class="d-flex flex-wrap gap-2 mt-2">
+                ${details.can_approve ? `<button type="button" class="btn btn-sm btn-success" onclick="approveOrder(${oid})"><i class="fa fa-check-circle me-1"></i>Approve</button>` : ''}
+                ${details.can_request_changes ? `<button type="button" class="btn btn-sm btn-warning" onclick="requestModification(${oid})"><i class="fa fa-edit me-1"></i>Request changes</button>` : ''}
+                ${details.live_url ? `<a class="btn btn-sm btn-outline-secondary" href="${escapeHtml(details.live_url)}" target="_blank" rel="noopener">Open live URL</a>` : ''}
+            </div>`;
         }
 
-        parts.push(`Order date: ${escapeHtml(formatChatDate(details.order_date))}`);
-        parts.push(`Started: ${escapeHtml(formatChatDate(details.started_at, true))}`);
-
-        if (details.df_links !== null && details.df_links !== undefined) {
-            const dfLabel = details.df_links === 1 ? '1 DF link' : `${details.df_links} DF links`;
-            const linkType = details.link_type ? ` (${escapeHtml(details.link_type)})` : '';
-            parts.push(`${escapeHtml(dfLabel)}${linkType}`);
-        } else if (details.link_type) {
-            parts.push(`Link type: ${escapeHtml(details.link_type)}`);
-        }
-
-        if (details.da != null || details.dr != null) {
-            parts.push(`DA ${details.da != null ? details.da : '—'} · DR ${details.dr != null ? details.dr : '—'}`);
-        }
-
-        if (details.sensitive_type) {
-            parts.push(`Sensitive: ${escapeHtml(details.sensitive_type)}`);
-        }
-
-        if (details.status) {
-            parts.push(`Status: ${escapeHtml(details.status)}`);
-        }
-
-        el.innerHTML = parts.join('<span class="chat-detail-sep">·</span>');
+        el.innerHTML = `
+            <div class="small">
+                <div><span class="chat-detail-primary">${websiteName}</span>
+                ${details.website_url ? ` · <a href="${escapeHtml(details.website_url)}" target="_blank" rel="noopener">${escapeHtml(details.website_url)}</a>` : ''}</div>
+                <div class="mt-1"><strong>${statusLabel}</strong>${nextAction ? ` — ${nextAction}` : ''}</div>
+                ${autoHint}
+                ${actions}
+            </div>`;
         el.classList.remove('d-none');
     }
 
@@ -726,7 +765,7 @@ document.addEventListener('DOMContentLoaded', function() {
         })
         .finally(() => {
             btn.disabled = false;
-            btn.innerHTML = 'Request Modification';
+            btn.innerHTML = 'Send change request';
         });
     });
 
@@ -796,54 +835,138 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function getAdvertiserStatusMeta(order) {
+        if (order.status_label && order.next_action) {
+            return {
+                label: order.status_label,
+                next: order.next_action,
+                cls: getStatusClass(order.status),
+                autoHint: order.auto_approve_hint || null,
+            };
+        }
+
         const item = order.items && order.items[0] ? order.items[0] : null;
         const hasLiveUrl = !!(item && item.live_url);
+        const modRequested = item && item.modification_requested === 'yes';
+        const payment = order.payment_status;
         const status = order.status;
-        if (status === 'pending') {
-            return { label: 'Waiting for payment', next: 'Complete payment so the publisher can start', cls: 'status-pending' };
+        let autoHint = null;
+        if (status === 'review' && hasLiveUrl && !modRequested && item && typeof item.auto_approve_hours_remaining === 'number') {
+            const hours = item.auto_approve_hours_remaining;
+            autoHint = hours > 0
+                ? (hours >= 24
+                    ? `Auto-approves in about ${Math.ceil(hours / 24)} day(s) if you take no action`
+                    : `Auto-approves in about ${hours} hour(s) if you take no action`)
+                : 'Ready for auto-approve — approve now or request changes';
         }
-        if (status === 'processing') {
-            return { label: 'Publisher working', next: 'They will publish your content and send a live URL', cls: 'status-processing' };
-        }
-        if (status === 'review') {
-            return { label: 'Needs your review', next: hasLiveUrl ? 'Check the live URL, then approve or request changes' : 'Waiting for live URL', cls: 'status-review' };
-        }
-        if (status === 'completed') {
-            return { label: 'Completed', next: 'All done — publisher has been paid', cls: 'status-completed' };
+
+        if (status === 'cancelled' && payment === 'refunded') {
+            return { label: 'Cancelled · refunded', next: 'Refunded to your wallet (usually instant). No further action needed.', cls: 'status-cancelled', autoHint: null };
         }
         if (status === 'cancelled') {
-            return { label: 'Cancelled', next: 'No further action needed', cls: 'status-cancelled' };
+            return { label: 'Cancelled', next: 'No further action needed.', cls: 'status-cancelled', autoHint: null };
         }
-        return { label: capitalize(status), next: '', cls: getStatusClass(status) };
+        if (payment === 'failed') {
+            return { label: 'Payment failed', next: 'Pay again from Orders, or choose another payment method.', cls: 'status-cancelled', autoHint: null };
+        }
+        if (status === 'pending' && payment !== 'paid') {
+            return { label: 'Awaiting payment', next: 'Complete payment so the publisher can start.', cls: 'status-pending', autoHint: null };
+        }
+        if (status === 'pending' && payment === 'paid') {
+            return { label: 'Paid · waiting for publisher', next: 'Publisher will accept the order and start working.', cls: 'status-pending', autoHint: null };
+        }
+        if (status === 'processing' && modRequested) {
+            return { label: 'Revision requested', next: 'Waiting on the publisher to update the post and resubmit the live URL.', cls: 'status-processing', autoHint: null };
+        }
+        if (status === 'processing') {
+            const accepted = item && item.accepted_at;
+            return {
+                label: accepted ? 'Accepted · processing' : 'Processing',
+                next: 'Publisher is preparing and publishing your content, then will send a live URL.',
+                cls: 'status-processing',
+                autoHint: null,
+            };
+        }
+        if (status === 'review') {
+            return {
+                label: 'URL delivered · your review',
+                next: hasLiveUrl ? 'Check the live URL, then approve or request changes.' : 'Waiting for live URL.',
+                cls: 'status-review',
+                autoHint,
+            };
+        }
+        if (status === 'completed') {
+            return { label: 'Completed', next: 'All done — the publisher has been paid for this placement.', cls: 'status-completed', autoHint: null };
+        }
+        return { label: capitalize(status), next: '', cls: getStatusClass(status), autoHint: null };
     }
 
     function buildAdvertiserTimeline(order) {
         const item = order.items && order.items[0] ? order.items[0] : {};
-        const hasLiveUrl = !!(item.live_url);
         const status = order.status;
+        const paid = ['paid', 'completed', 'refunded'].includes(order.payment_status)
+            || ['processing', 'review', 'completed'].includes(status);
+        const acceptedOrLater = ['processing', 'review', 'completed'].includes(status) || !!item.accepted_at;
+        const urlDelivered = status === 'review' || status === 'completed';
+        const completed = status === 'completed';
+        const modRequested = item.modification_requested === 'yes';
+
+        if (status === 'cancelled' && order.payment_status === 'refunded') {
+            return `<div class="alert alert-secondary mt-3 mb-0 py-2 small">Cancelled · refunded to your wallet (usually instant).</div>
+                <div class="mt-3">
+                    <h6 class="mb-2">Activity Timeline</h6>
+                    <div id="orderActivityTimeline" class="bg-white border rounded p-3">
+                        <div class="text-muted small">Loading activity…</div>
+                    </div>
+                </div>`;
+        }
         if (status === 'cancelled') {
-            return `<div class="alert alert-secondary mt-3 mb-0 py-2 small">This order was cancelled.</div>`;
+            return `<div class="alert alert-secondary mt-3 mb-0 py-2 small">This order was cancelled.</div>
+                <div class="mt-3">
+                    <h6 class="mb-2">Activity Timeline</h6>
+                    <div id="orderActivityTimeline" class="bg-white border rounded p-3">
+                        <div class="text-muted small">Loading activity…</div>
+                    </div>
+                </div>`;
         }
+
         const steps = [
-            { label: 'Paid', done: ['processing', 'review', 'completed'].includes(status) || order.payment_status === 'paid' },
-            { label: 'Publisher working', done: ['review', 'completed'].includes(status) || (status === 'processing' && hasLiveUrl) },
-            { label: 'Your review', done: status === 'completed', current: status === 'review' },
-            { label: 'Completed', done: status === 'completed' }
+            { label: 'Paid', done: paid, current: false },
+            { label: 'Accepted', done: acceptedOrLater, current: false },
+            { label: modRequested && status === 'processing' ? 'Revision' : 'Processing', done: urlDelivered || completed, current: false },
+            { label: 'URL delivered', done: completed, current: false },
+            { label: 'Completed', done: completed, current: false },
         ];
-        if (status === 'processing' && !hasLiveUrl) {
-            steps[1].current = true;
-        }
-        if (status === 'pending') {
+
+        if (status === 'pending' && !paid) {
             steps[0].current = true;
             steps[0].done = false;
+        } else if (status === 'pending' && paid) {
+            steps[1].current = true;
+        } else if (status === 'processing' && modRequested) {
+            steps[2].current = true;
+            steps[2].done = false;
+            steps[3].done = false;
+        } else if (status === 'processing') {
+            steps[2].current = true;
+        } else if (status === 'review') {
+            steps[3].current = true;
+            steps[3].done = false;
+        } else if (status === 'completed') {
+            steps[4].current = true;
         }
+
         const statusSteps = `<div class="d-flex flex-wrap gap-2 mt-3 mb-3">${steps.map((step, i) => {
             const cls = step.done ? 'bg-success text-white' : (step.current ? 'bg-info text-white' : 'bg-light text-muted');
             const arrow = i < steps.length - 1 ? '<span class="text-muted align-self-center">→</span>' : '';
             return `<span class="badge ${cls} px-3 py-2">${i + 1}. ${step.label}</span>${arrow}`;
         }).join('')}</div>`;
 
-        return `${statusSteps}
+        const meta = getAdvertiserStatusMeta(order);
+        const hint = meta.autoHint
+            ? `<div class="small text-muted mb-2"><i class="fa fa-clock-o me-1"></i>${escapeHtml(meta.autoHint)}</div>`
+            : '';
+
+        return `${statusSteps}${hint}
             <div class="mt-3">
                 <h6 class="mb-2">Activity Timeline</h6>
                 <div id="orderActivityTimeline" class="bg-white border rounded p-3">
@@ -945,7 +1068,8 @@ document.addEventListener('DOMContentLoaded', function() {
                     <td>${order.reference_code || '-'}</td>
                     <td>
                         <span class="status-badge ${statusMeta.cls}">${statusMeta.label}</span>
-                        <div class="next-step-hint">${statusMeta.next}</div>
+                        <div class="next-step-hint">${escapeHtml(statusMeta.next)}</div>
+                        ${statusMeta.autoHint ? `<div class="next-step-hint text-muted"><i class="fa fa-clock-o me-1"></i>${escapeHtml(statusMeta.autoHint)}</div>` : ''}
                     </td>
                     <td class="link-cell">
                         <a href="${contentLink}" 
@@ -999,7 +1123,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                 <button class="btn btn-sm btn-warning action-btn d-flex align-items-center"
                                     onclick="requestModification(${order.id})">
                                     <i class="fa fa-edit me-1"></i>
-                                    <span>Modify</span>
+                                    <span>Request changes</span>
                                 </button>` : ''
                             }
                         </div>
@@ -1214,6 +1338,16 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
+    function liveUrlHealthBadge(item) {
+        if (item.live_url_check_ok === true) {
+            return '<span class="badge bg-success">Reachable</span>';
+        }
+        if (item.live_url_check_ok === false) {
+            return '<span class="badge bg-warning text-dark">Unreachable / unverified</span>';
+        }
+        return '<span class="badge bg-secondary">Not checked yet</span>';
+    }
+
     function renderOrderDetails(order) {
         const item = order.items[0];
         const liveUrl = item.live_url || null;
@@ -1223,21 +1357,54 @@ document.addEventListener('DOMContentLoaded', function() {
         const hasLiveUrl = liveUrl && liveUrl !== '';
         const statusMeta = getAdvertiserStatusMeta(order);
         const timelineHtml = buildAdvertiserTimeline(order);
-        
-        const liveUrlHtml = liveUrl 
+        const modRequested = item.modification_requested === 'yes';
+
+        let healthHtml = '';
+        if (liveUrl) {
+            const checked = item.live_url_checked_at
+                ? ` · checked ${formatDate(item.live_url_checked_at)}`
+                : '';
+            const http = item.live_url_http_status ? ` · HTTP ${item.live_url_http_status}` : '';
+            healthHtml = `
+                <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+                    ${liveUrlHealthBadge(item)}
+                    <span class="small text-muted">We check the link is publicly reachable. Search indexing can take longer.${http}${checked}</span>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" id="recheckLiveUrlBtn" onclick="recheckLiveUrl(${order.id})">
+                        <i class="fa fa-refresh me-1"></i>Recheck
+                    </button>
+                </div>`;
+        }
+
+        const liveUrlHtml = liveUrl
             ? `<p class="mb-1"><strong>Live URL:</strong></p>
-               <p class="mb-2"><a href="${escapeHtml(liveUrl)}" target="_blank" class="text-success">${escapeHtml(liveUrl)} <i class="fa fa-external-link fa-xs"></i></a></p>`
+               <p class="mb-1"><a href="${escapeHtml(liveUrl)}" target="_blank" class="text-success">${escapeHtml(liveUrl)} <i class="fa fa-external-link fa-xs"></i></a></p>
+               ${healthHtml}`
             : `<p class="mb-2 text-muted">Live URL not submitted yet</p>`;
-        
-        const sensitiveHtml = additionalPrice > 0 
+
+        const revisionHtml = modRequested && item.completion_notes
+            ? `<div class="alert alert-warning py-2 small mt-2 mb-0"><strong>Your change request:</strong> ${escapeHtml(item.completion_notes)}</div>`
+            : '';
+
+        const sensitiveHtml = additionalPrice > 0
             ? `<p class="mb-1"><strong>Sensitive Price:</strong></p>
                <p class="mb-2 text-warning"><i class="fa fa-plus-circle"></i> ${escapeHtml(item.sensitive_type || 'Extra')}: €${additionalPrice.toFixed(2)}</p>`
             : '';
-        
+
+        const refundRulesHtml = `
+            <div class="border rounded p-3 mt-3 bg-light">
+                <h6 class="mb-2">If something goes wrong</h6>
+                <ul class="small mb-2 ps-3">
+                    <li>Publisher declines → automatic wallet refund</li>
+                    <li>Ask for changes if the live post needs fixes (before auto-approve)</li>
+                    <li>Still stuck → Raise an issue (chat) or contact support</li>
+                </ul>
+                <a href="{{ route('refund-policy') }}" target="_blank" rel="noopener" class="small">Refund policy</a>
+            </div>`;
+
         let actionButtons = '';
         if (order.can_retry_payment) {
             actionButtons = `
-                <div class="mt-4 text-center d-flex gap-3 justify-content-center">
+                <div class="mt-4 text-center d-flex gap-3 justify-content-center flex-wrap">
                     <button class="btn btn-primary" onclick="retryOrderPayment(${order.id})">
                         <i class="fa fa-credit-card"></i> Pay again
                     </button>
@@ -1245,17 +1412,31 @@ document.addEventListener('DOMContentLoaded', function() {
             `;
         } else if (isUnderReview && hasLiveUrl) {
             actionButtons = `
-                <div class="mt-4 text-center d-flex gap-3 justify-content-center">
+                <div class="mt-4 text-center d-flex gap-3 justify-content-center flex-wrap">
                     <button class="btn btn-success" onclick="approveOrder(${order.id})">
-                        <i class="fa fa-check-circle"></i> Approve Order
+                        <i class="fa fa-check-circle"></i> Approve
                     </button>
                     <button class="btn btn-warning" onclick="requestModification(${order.id})">
-                        <i class="fa fa-edit"></i> Request Modification
+                        <i class="fa fa-edit"></i> Request changes
+                    </button>
+                    <button class="btn btn-outline-danger" onclick="raiseIssue(${order.id}, '${escapeHtml(order.order_number)}', '${escapeHtml(statusMeta.label)}')">
+                        <i class="fa fa-flag"></i> Raise an issue
                     </button>
                 </div>
             `;
+        } else if (!['completed', 'cancelled'].includes(order.status) || order.payment_status === 'refunded') {
+            actionButtons = `
+                <div class="mt-4 text-center d-flex gap-3 justify-content-center flex-wrap">
+                    <button class="btn btn-outline-secondary" onclick="openChat(${order.id}, '${escapeHtml(order.order_number)}')">
+                        <i class="fa fa-comments"></i> Chat
+                    </button>
+                    ${order.status !== 'completed' ? `<button class="btn btn-outline-danger" onclick="raiseIssue(${order.id}, '${escapeHtml(order.order_number)}', '${escapeHtml(statusMeta.label)}')">
+                        <i class="fa fa-flag"></i> Raise an issue
+                    </button>` : ''}
+                </div>
+            `;
         }
-        
+
         const html = `
             <div class="row mb-4">
                 <div class="col-md-6">
@@ -1271,16 +1452,18 @@ document.addEventListener('DOMContentLoaded', function() {
                 <div class="col-md-6">
                     <div class="bg-light p-3 rounded">
                         <h6 class="mb-3">What's happening</h6>
-                        <p class="mb-1"><strong>Status:</strong> <span class="status-badge ${statusMeta.cls}">${statusMeta.label}</span></p>
-                        <p class="mb-2 text-muted small">${statusMeta.next}</p>
+                        <p class="mb-1"><strong>Status:</strong> <span class="status-badge ${statusMeta.cls}">${escapeHtml(statusMeta.label)}</span></p>
+                        <p class="mb-2 text-muted small">${escapeHtml(statusMeta.next)}</p>
+                        ${statusMeta.autoHint ? `<p class="mb-2 small text-muted"><i class="fa fa-clock-o me-1"></i>${escapeHtml(statusMeta.autoHint)}</p>` : ''}
                         <p class="mb-1"><strong>Price:</strong> <span class="fw-bold">€${basePrice.toFixed(2)}</span></p>
                         ${additionalPrice > 0 ? `<p class="mb-1"><strong>Sensitive Price:</strong> <span class="text-warning">+ €${additionalPrice.toFixed(2)}</span></p>` : ''}
                         <p class="mb-1"><strong>Total Amount:</strong> <span class="fw-bold text-primary fs-5">€${parseFloat(order.total_amount).toFixed(2)}</span></p>
+                        ${revisionHtml}
                     </div>
                 </div>
             </div>
             ${timelineHtml}
-            
+
             <h6 class="mb-3">Order Items</h6>
             <div class="border rounded p-3">
                 <div class="row">
@@ -1310,10 +1493,11 @@ document.addEventListener('DOMContentLoaded', function() {
                     </div>
                 </div>
             </div>
-            
+
+            ${refundRulesHtml}
             ${actionButtons}
         `;
-        
+
         document.getElementById('orderDetailsContent').innerHTML = html;
     }
 

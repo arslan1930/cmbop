@@ -1,4 +1,5 @@
 <?php
+
 // app/Console/Commands/AutoApproveOrders.php
 
 namespace App\Console\Commands;
@@ -19,6 +20,7 @@ use Illuminate\Support\Facades\Mail;
 class AutoApproveOrders extends Command
 {
     protected $signature = 'orders:auto-approve';
+
     protected $description = 'Auto approve orders after 48 hours of live URL submission';
 
     public function handle()
@@ -60,12 +62,14 @@ class AutoApproveOrders extends Command
                 $order = Order::where('id', $orderItem->order_id)->lockForUpdate()->first();
                 if (! $order || $order->status === 'completed' || $order->status === 'cancelled') {
                     DB::rollBack();
+
                     continue;
                 }
 
                 $lockedItem = OrderItem::where('id', $orderItem->id)->lockForUpdate()->first();
                 if (! $lockedItem || $lockedItem->auto_approve_triggered) {
                     DB::rollBack();
+
                     continue;
                 }
 
@@ -146,10 +150,11 @@ class AutoApproveOrders extends Command
                     $notifications->notifyOrderCompleted(
                         $mailOrder,
                         $mailPublisher,
-                        (float) $transferAmount
+                        (float) $transferAmount,
+                        true
                     );
                 } else {
-                    $notifications->notifyOrderCompleted($order->fresh());
+                    $notifications->notifyOrderCompleted($order->fresh(), null, null, true);
                 }
 
                 $this->info("✓ Auto-approved order #{$order->order_number}");

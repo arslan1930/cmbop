@@ -16,24 +16,41 @@ use Illuminate\Support\Facades\Log;
 class InAppNotificationService
 {
     public const TYPE_MESSAGE = 'message';
+
     public const TYPE_CHAT_REPLY = 'chat_reply';
+
     public const TYPE_ORDER_CREATED = 'order_created';
+
     public const TYPE_ORDER_ACCEPTED = 'order_accepted';
+
     public const TYPE_ORDER_REJECTED = 'order_rejected';
+
     public const TYPE_GUEST_POST_PUBLISHED = 'guest_post_published';
+
     public const TYPE_ORDER_COMPLETED = 'order_completed';
+
     public const TYPE_ORDER_UPDATED = 'order_updated';
+
     public const TYPE_MODIFICATION_REQUESTED = 'modification_requested';
+
     public const TYPE_PAYMENT_RECEIVED = 'payment_received';
+
     public const TYPE_PAYMENT_FAILED = 'payment_failed';
+
     public const TYPE_SYSTEM = 'system';
+
     public const TYPE_ACCOUNT = 'account';
 
     public const CATEGORY_ORDERS = 'orders';
+
     public const CATEGORY_MESSAGES = 'messages';
+
     public const CATEGORY_PAYMENTS = 'payments';
+
     public const CATEGORY_SYSTEM = 'system';
+
     public const CATEGORY_SUPPORT = 'support';
+
     public const CATEGORY_ACCOUNT = 'account';
 
     /**
@@ -239,7 +256,7 @@ class InAppNotificationService
 
         foreach ($order->items as $item) {
             $site = Site::find($item->site_id);
-            if (!$site?->publisher_id) {
+            if (! $site?->publisher_id) {
                 continue;
             }
 
@@ -260,18 +277,20 @@ class InAppNotificationService
         }
     }
 
-    public function notifyOrderCompleted(Order $order, ?User $publisher = null, ?float $amount = null): void
+    public function notifyOrderCompleted(Order $order, ?User $publisher = null, ?float $amount = null, bool $autoApproved = false): void
     {
         $alreadyLogged = OrderActivity::where('order_id', $order->id)
             ->where('event', 'order.completed')
             ->exists();
 
-        if (!$alreadyLogged) {
+        if (! $alreadyLogged) {
             $this->recordOrderActivity(
                 $order,
                 'order.completed',
                 'Order completed',
-                'Advertiser approved the published content.',
+                $autoApproved
+                    ? 'Order was auto-approved after the review window.'
+                    : 'Advertiser approved the published content.',
                 ['icon' => 'badge-check', 'badge_color' => 'success']
             );
         }
@@ -279,7 +298,9 @@ class InAppNotificationService
         if ($publisher) {
             $msg = $amount !== null
                 ? 'Payment of €'.number_format($amount, 2).' was credited to your wallet.'
-                : 'The advertiser approved the order.';
+                : ($autoApproved
+                    ? 'The order was auto-approved after the review window.'
+                    : 'The advertiser approved the order.');
 
             $this->notify(
                 $publisher->id,
@@ -310,6 +331,25 @@ class InAppNotificationService
                     ]
                 );
             }
+        }
+
+        // Advertiser in-app notice (especially important for auto-approve).
+        if ($order->user_id) {
+            $this->notify(
+                (int) $order->user_id,
+                self::TYPE_ORDER_COMPLETED,
+                "Order #{$order->order_number} completed",
+                $autoApproved
+                    ? 'Your guest post was auto-approved after the review window. The live URL stays on your order.'
+                    : 'You approved the published guest post. This placement is complete.',
+                [
+                    'category' => self::CATEGORY_ORDERS,
+                    'icon' => 'badge-check',
+                    'related' => $order,
+                    'action_label' => 'View order',
+                    'action_url' => route('advertiser.orders', ['focus' => 'order', 'order' => $order->id], false),
+                ]
+            );
         }
     }
 
@@ -382,11 +422,11 @@ class InAppNotificationService
             });
         }
 
-        if (!empty($filters['category']) && $filters['category'] !== 'all') {
+        if (! empty($filters['category']) && $filters['category'] !== 'all') {
             $query->where('category', $filters['category']);
         }
 
-        if (!empty($filters['q'])) {
+        if (! empty($filters['q'])) {
             $q = trim((string) $filters['q']);
             $query->where(function ($builder) use ($q) {
                 $builder->where('title', 'like', "%{$q}%")

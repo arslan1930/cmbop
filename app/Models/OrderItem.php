@@ -1,12 +1,13 @@
 <?php
+
 // app/Models/OrderItem.php
 
 namespace App\Models;
 
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Facades\DB;
-use Carbon\Carbon;
 
 class OrderItem extends Model
 {
@@ -17,11 +18,11 @@ class OrderItem extends Model
     public const PLATFORM_MARKUP_RATE = 1.15;
 
     protected $fillable = [
-        'order_id', 
-        'site_id', 
-        'site_name', 
-        'site_url', 
-        'price', 
+        'order_id',
+        'site_id',
+        'site_name',
+        'site_url',
+        'price',
         'content_link',
         'content_submission_id',
         'content_disk',
@@ -33,7 +34,10 @@ class OrderItem extends Model
         'feature_image_url',
         'moderation_status',
         'live_url',
-        'live_url_submitted_at',  
+        'live_url_submitted_at',
+        'live_url_http_status',
+        'live_url_check_ok',
+        'live_url_checked_at',
         'sensitive_type',
         'additional_price',
         'publisher_status',
@@ -46,7 +50,7 @@ class OrderItem extends Model
         'modification_requested',
         'modification_requested_at',
         'auto_approve_triggered',
-        'auto_approve_at'
+        'auto_approve_at',
     ];
 
     protected $casts = [
@@ -56,10 +60,24 @@ class OrderItem extends Model
         'rejected_at' => 'datetime',
         'completed_at' => 'datetime',
         'live_url_submitted_at' => 'datetime',
+        'live_url_checked_at' => 'datetime',
+        'live_url_check_ok' => 'boolean',
         'modification_requested_at' => 'datetime',
         'auto_approve_at' => 'datetime',
-        'auto_approve_triggered' => 'boolean'
+        'auto_approve_triggered' => 'boolean',
     ];
+
+    /**
+     * Apply a live URL health-check result onto this item (not saved).
+     *
+     * @param  array{ok: bool, status: ?int, checked_at: \Illuminate\Support\Carbon}  $result
+     */
+    public function applyLiveUrlHealthCheck(array $result): void
+    {
+        $this->live_url_check_ok = (bool) ($result['ok'] ?? false);
+        $this->live_url_http_status = $result['status'] ?? null;
+        $this->live_url_checked_at = $result['checked_at'] ?? now();
+    }
 
     public function order()
     {
@@ -75,7 +93,7 @@ class OrderItem extends Model
     {
         return $this->belongsTo(ContentSubmission::class);
     }
-    
+
     /**
      * Get the publisher (site owner) for this order item
      */
@@ -84,9 +102,10 @@ class OrderItem extends Model
         if ($this->site) {
             return User::find($this->site->publisher_id);
         }
+
         return null;
     }
-    
+
     /**
      * Get the publisher ID for this order item
      */
@@ -94,25 +113,27 @@ class OrderItem extends Model
     {
         return $this->site?->publisher_id;
     }
-    
+
     /**
      * Get the publisher name for this order item
      */
     public function getPublisherNameAttribute()
     {
         $publisher = $this->publisher;
+
         return $publisher ? $publisher->name : 'Unknown Publisher';
     }
-    
+
     /**
      * Get the publisher email for this order item
      */
     public function getPublisherEmailAttribute()
     {
         $publisher = $this->publisher;
+
         return $publisher ? $publisher->email : null;
     }
-    
+
     /**
      * Helper method to get base price (price - additional_price).
      * For advertisers this is the marked-up base (includes platform fee).
@@ -170,15 +191,15 @@ class OrderItem extends Model
             "(price - COALESCE(additional_price, 0)) / {$rate} + COALESCE(additional_price, 0)"
         );
     }
-    
+
     /**
      * Helper method to check if item has sensitive pricing
      */
     public function hasSensitivePricing()
     {
-        return !is_null($this->sensitive_type) && $this->additional_price > 0;
+        return ! is_null($this->sensitive_type) && $this->additional_price > 0;
     }
-    
+
     /**
      * Helper method to get formatted price breakdown
      */
@@ -189,26 +210,26 @@ class OrderItem extends Model
                 'base_price' => $this->base_price,
                 'additional_price' => $this->additional_price,
                 'sensitive_type' => $this->sensitive_type,
-                'total_price' => $this->price
+                'total_price' => $this->price,
             ];
         }
-        
+
         return [
             'base_price' => $this->price,
             'additional_price' => 0,
             'sensitive_type' => null,
-            'total_price' => $this->price
+            'total_price' => $this->price,
         ];
     }
-    
+
     /**
      * Check if live URL has been submitted
      */
     public function hasLiveUrl()
     {
-        return !is_null($this->live_url) && $this->live_url !== '';
+        return ! is_null($this->live_url) && $this->live_url !== '';
     }
-    
+
     /**
      * Check if modification was requested
      */
@@ -216,7 +237,7 @@ class OrderItem extends Model
     {
         return $this->modification_requested === 'yes';
     }
-    
+
     /**
      * Check if auto-approve has been triggered
      */
@@ -224,52 +245,53 @@ class OrderItem extends Model
     {
         return (bool) $this->auto_approve_triggered;
     }
-    
+
     /**
      * Check if order is ready for auto-approve
      */
     public function isReadyForAutoApprove()
     {
         // Must have live URL submitted
-        if (!$this->hasLiveUrl()) {
+        if (! $this->hasLiveUrl()) {
             return false;
         }
-        
+
         // Must not have modification requested
         if ($this->isModificationRequested()) {
             return false;
         }
-        
+
         // Must not already be auto-approved
         if ($this->isAutoApproved()) {
             return false;
         }
-        
+
         // Must have submission timestamp
-        if (!$this->live_url_submitted_at) {
+        if (! $this->live_url_submitted_at) {
             return false;
         }
-        
+
         // Must have 48 hours passed (absolute: Carbon 3 returns signed diffs by default)
         $hoursPassed = $this->live_url_submitted_at->diffInHours(Carbon::now(), true);
+
         return $hoursPassed >= 48;
     }
-    
+
     /**
      * Get hours remaining for auto-approve
      */
     public function getAutoApproveHoursRemaining()
     {
-        if (!$this->live_url_submitted_at || $this->isModificationRequested() || $this->isAutoApproved()) {
+        if (! $this->live_url_submitted_at || $this->isModificationRequested() || $this->isAutoApproved()) {
             return 0;
         }
-        
+
         $hoursPassed = $this->live_url_submitted_at->diffInHours(Carbon::now(), true);
         $remaining = 48 - $hoursPassed;
-        
+
         return $remaining > 0 ? $remaining : 0;
     }
-    
+
     /**
      * Get auto-approve status text
      */
@@ -278,31 +300,31 @@ class OrderItem extends Model
         if ($this->isAutoApproved()) {
             return 'Approved';
         }
-        
+
         if ($this->isModificationRequested()) {
             return 'Paused - Modification Requested';
         }
-        
-        if (!$this->live_url_submitted_at) {
+
+        if (! $this->live_url_submitted_at) {
             return 'Not Started';
         }
-        
+
         $hoursRemaining = $this->getAutoApproveHoursRemaining();
-        
+
         if ($hoursRemaining <= 0) {
             return 'Ready for Approval';
         }
-        
+
         $days = floor($hoursRemaining / 24);
         $hours = $hoursRemaining % 24;
-        
+
         if ($days > 0) {
             return "Auto-approve in {$days}d {$hours}h";
         }
-        
+
         return "Auto-approve in {$hoursRemaining}h";
     }
-    
+
     /**
      * Mark order item as auto-approved
      */
@@ -311,10 +333,10 @@ class OrderItem extends Model
         $this->auto_approve_triggered = true;
         $this->auto_approve_at = Carbon::now();
         $this->save();
-        
+
         return $this;
     }
-    
+
     /**
      * Request modification (stops auto-approve)
      */
@@ -325,10 +347,10 @@ class OrderItem extends Model
         $this->auto_approve_triggered = false;
         $this->completion_notes = $reason ?? 'Modification requested by advertiser';
         $this->save();
-        
+
         return $this;
     }
-    
+
     /**
      * Resubmit live URL after modification (resets timer)
      */
@@ -340,10 +362,10 @@ class OrderItem extends Model
         $this->modification_requested_at = null;
         $this->auto_approve_triggered = false;
         $this->save();
-        
+
         return $this;
     }
-    
+
     /**
      * Get status badge class for display
      */
@@ -362,7 +384,7 @@ class OrderItem extends Model
                 return 'bg-secondary text-white';
         }
     }
-    
+
     /**
      * Get order status (from parent order)
      */
@@ -370,51 +392,51 @@ class OrderItem extends Model
     {
         return $this->order?->status ?? 'pending';
     }
-    
+
     /**
      * Get formatted status for display
      */
     public function getFormattedStatusAttribute()
     {
         $orderStatus = $this->order_status;
-        
+
         if ($orderStatus === 'review' && $this->isModificationRequested()) {
             return 'Modification Requested';
         }
-        
+
         $statuses = [
             'pending' => 'Pending',
             'processing' => 'In Progress',
             'review' => 'Under Review',
             'completed' => 'Completed',
-            'cancelled' => 'Cancelled'
+            'cancelled' => 'Cancelled',
         ];
-        
+
         return $statuses[$orderStatus] ?? ucfirst($orderStatus);
     }
-    
+
     /**
      * Get status badge class from order status
      */
     public function getFormattedStatusBadgeClassAttribute()
     {
         $orderStatus = $this->order_status;
-        
+
         if ($orderStatus === 'review' && $this->isModificationRequested()) {
             return 'bg-warning text-dark';
         }
-        
+
         $classes = [
             'pending' => 'status-pending',
             'processing' => 'status-processing',
             'review' => 'status-review',
             'completed' => 'status-completed',
-            'cancelled' => 'status-cancelled'
+            'cancelled' => 'status-cancelled',
         ];
-        
+
         return $classes[$orderStatus] ?? 'status-pending';
     }
-    
+
     /**
      * Get status text for display
      */
