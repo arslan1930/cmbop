@@ -123,7 +123,11 @@
 <div class="container-fluid">
     <div class="mb-3">
         <h2 class="mb-1 fw-semibold">Content Library</h2>
-        <p class="text-muted mb-0 small">Upload a .docx (language first, then country). Preview and edit, then Order opens the catalog for that language. You can add multiple websites — each needs its own approved article.</p>
+        <p class="text-muted mb-0 small">
+            Start here: <strong>upload</strong> a .docx (language first, then country) → wait for <strong>approval</strong> →
+            click <strong>Order</strong> to pick matching publishers → assign one article per site in your cart → <strong>pay</strong>.
+            Multi-site orders need a different approved article for each website.
+        </p>
         <div class="library-page-actions">
             <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#uploadContentModal" id="openUploadModalBtn">
                 <i class="fa fa-upload me-1"></i> Upload article
@@ -355,7 +359,13 @@
                             @elseif(!empty($searchQuery) || ($availabilityFilter ?? 'all') !== 'all' || ($countryFilter ?? 'all') !== 'all' || ($languageFilter ?? 'all') !== 'all')
                                 No articles match these filters.
                             @else
-                                No articles yet. Upload a .docx to get started.
+                                <div class="py-2">
+                                    <p class="mb-2">No articles yet. Upload a .docx to start your first guest post.</p>
+                                    <p class="small text-muted mb-3 mb-md-2">After approval, use <strong>Order</strong> to open the catalog for that language, assign the article in your cart, and checkout.</p>
+                                    <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#uploadContentModal">
+                                        <i class="fa fa-upload me-1"></i> Upload article
+                                    </button>
+                                </div>
                             @endif
                         </td>
                     </tr>

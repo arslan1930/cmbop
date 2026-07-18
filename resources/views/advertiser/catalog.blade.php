@@ -73,6 +73,16 @@
                 <a href="{{ route('advertiser.content-library') }}" class="btn btn-sm btn-outline-secondary">Back to library</a>
             </div>
         </div>
+    @elseif(($approvedArticleCount ?? 0) === 0)
+        <div class="alert alert-info border-0 shadow-sm d-flex flex-wrap justify-content-between align-items-center gap-2">
+            <div class="small mb-0">
+                Checkout needs an <strong>approved</strong> Content Library article for each website.
+                Upload one first, then add publishers here and assign the article in your cart.
+            </div>
+            <a href="{{ route('advertiser.content-library', ['upload' => 1]) }}" class="btn btn-sm btn-primary">
+                <i class="fa fa-upload me-1"></i> Upload article
+            </a>
+        </div>
     @endif
 
     <!-- HEADER -->

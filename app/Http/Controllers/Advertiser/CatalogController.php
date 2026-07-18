@@ -497,6 +497,17 @@ if ($request->filled('category')) {
     $featurePrice = (float) config('site_promotions.feature.price', 10);
     $featureDays = (int) config('site_promotions.feature.days', 7);
 
+    $approvedArticleCount = ContentSubmission::query()
+        ->where('user_id', auth()->id())
+        ->whereNull('order_id')
+        ->whereNull('archived_at')
+        ->where('moderation_status', ContentSubmission::STATUS_APPROVED)
+        ->latest('id')
+        ->limit(50)
+        ->get()
+        ->filter(fn (ContentSubmission $s) => $s->canBeOrdered())
+        ->count();
+
     return view('advertiser.catalog', compact(
         'sites', 
         'availableLanguages',
@@ -510,7 +521,8 @@ if ($request->filled('category')) {
         'bulkDeals',
         'featurePrice',
         'featureDays',
-        'orderingSubmission'
+        'orderingSubmission',
+        'approvedArticleCount'
     ));
 }
 

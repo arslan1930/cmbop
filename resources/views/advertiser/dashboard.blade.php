@@ -6,7 +6,11 @@
     $stats = $stats ?? ['total' => 0, 'completed' => 0, 'in_progress' => 0, 'cancelled' => 0];
     $recentOrders = $recentOrders ?? collect();
     $recommendedSites = $recommendedSites ?? collect();
+    $hasOrderableArticle = (bool) ($hasOrderableArticle ?? false);
     $isNewAdvertiser = ($stats['total'] ?? 0) === 0;
+    $placeGuestPostUrl = $hasOrderableArticle
+        ? route('advertiser.catalog')
+        : route('advertiser.content-library', ['upload' => 1]);
 @endphp
 
 <style>
@@ -190,15 +194,15 @@
         <h4 class="mb-1">Welcome back, {{ auth()->user()->name }}!</h4>
         <small class="text-muted">
             @if($isNewAdvertiser)
-                Ready to place your first order? Follow the path below.
+                Upload an article, pick publishers, then checkout — start below.
             @else
                 Your command center — KPIs, next actions, and recent orders.
             @endif
         </small>
     </div>
     @unless($isNewAdvertiser)
-        <a href="{{ route('advertiser.catalog') }}" class="dash-primary-cta">
-            <i class="fa fa-list"></i> Browse catalog
+        <a href="{{ $placeGuestPostUrl }}" class="dash-primary-cta">
+            <i class="fa {{ $hasOrderableArticle ? 'fa-list' : 'fa-file-word' }}"></i> Place a guest post
         </a>
     @endunless
 </div>
@@ -208,32 +212,32 @@
         <div class="col-lg-7">
             <div class="dash-panel h-100">
                 <h5 class="mb-1">Get started</h5>
-                <p class="text-muted small mb-3">Three steps to your first placement.</p>
+                <p class="text-muted small mb-3">Three steps to your first guest post.</p>
                 <div class="get-started-steps mb-3">
-                    <a href="{{ route('advertiser.catalog') }}" class="get-started-step">
+                    <a href="{{ route('advertiser.content-library', ['upload' => 1]) }}" class="get-started-step">
                         <span class="step-num">1</span>
                         <div>
-                            <div class="step-title">Browse the catalog</div>
-                            <p class="step-desc">Find sites that match your niche and market.</p>
-                        </div>
-                    </a>
-                    <a href="{{ route('advertiser.add-funds') }}" class="get-started-step">
-                        <span class="step-num">2</span>
-                        <div>
-                            <div class="step-title">Add funds</div>
-                            <p class="step-desc">Top up your wallet so checkout is one click.</p>
+                            <div class="step-title">Upload your article</div>
+                            <p class="step-desc">Add a .docx in Content Library. It is checked and approved automatically.</p>
                         </div>
                     </a>
                     <a href="{{ route('advertiser.catalog') }}" class="get-started-step">
+                        <span class="step-num">2</span>
+                        <div>
+                            <div class="step-title">Choose publishers</div>
+                            <p class="step-desc">Use Order from the library (filtered by language) or browse the catalog freely.</p>
+                        </div>
+                    </a>
+                    <a href="{{ route('advertiser.checkout') }}" class="get-started-step">
                         <span class="step-num">3</span>
                         <div>
-                            <div class="step-title">Place your first order</div>
-                            <p class="step-desc">Add a site to cart, attach your article, and pay.</p>
+                            <div class="step-title">Checkout &amp; pay</div>
+                            <p class="step-desc">Assign an approved article to each site in your cart, then pay from your wallet.</p>
                         </div>
                     </a>
                 </div>
-                <a href="{{ route('advertiser.catalog') }}" class="get-started-cta w-100 justify-content-center">
-                    <i class="fa fa-list"></i> Browse catalog
+                <a href="{{ route('advertiser.content-library', ['upload' => 1]) }}" class="get-started-cta w-100 justify-content-center">
+                    <i class="fa fa-file-word"></i> Place a guest post
                 </a>
             </div>
         </div>
@@ -333,10 +337,16 @@
             <div class="dash-panel h-100">
                 <h5 class="mb-3">Next actions</h5>
                 <div class="d-flex flex-column gap-2 mb-3">
-                    <a href="{{ route('advertiser.catalog') }}" class="next-action">
+                    <a href="{{ $placeGuestPostUrl }}" class="next-action">
                         <div>
-                            <div class="na-title">Browse catalog</div>
-                            <p class="na-desc">Primary path — find verified placements</p>
+                            <div class="na-title">Place a guest post</div>
+                            <p class="na-desc">
+                                @if($hasOrderableArticle)
+                                    Pick publishers and assign your approved article
+                                @else
+                                    Upload an article, then choose publishers
+                                @endif
+                            </p>
                         </div>
                         <i class="fa fa-chevron-right text-muted" aria-hidden="true"></i>
                     </a>

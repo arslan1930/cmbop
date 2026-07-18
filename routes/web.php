@@ -512,10 +512,21 @@ Route::middleware(['auth','verified', RoleMiddleware::class . ':advertiser'])
                     return $site;
                 });
 
+            $hasOrderableArticle = \App\Models\ContentSubmission::query()
+                ->where('user_id', $user->id)
+                ->whereNull('order_id')
+                ->whereNull('archived_at')
+                ->where('moderation_status', \App\Models\ContentSubmission::STATUS_APPROVED)
+                ->latest('id')
+                ->limit(20)
+                ->get()
+                ->contains(fn (\App\Models\ContentSubmission $s) => $s->canBeOrdered());
+
             return view('advertiser.dashboard', compact(
                 'stats',
                 'recentOrders',
-                'recommendedSites'
+                'recommendedSites',
+                'hasOrderableArticle'
             ));
         })->name('dashboard');
 

@@ -633,10 +633,6 @@
                     <i class="fa fa-upload"></i>
                     <span>Upload article</span>
                 </a>
-                <div class="nav-sub-soon" title="Coming soon">
-                    <span><i class="fa fa-pen-nib me-1"></i> Order an article</span>
-                    <span class="soon-pill">Coming soon</span>
-                </div>
             </div>
         </div>
 
@@ -788,7 +784,10 @@
 <!-- Cart Sidebar -->
 <div id="cartSidebar" class="cart-sidebar">
     <div class="cart-header">
-        <h5 class="mb-0">Your Cart</h5>
+        <div>
+            <h5 class="mb-0">Your Cart</h5>
+            <div class="small text-muted mt-1">Each website needs its own approved article.</div>
+        </div>
         <button id="closeCart" class="btn btn-sm btn-outline-secondary" type="button" aria-label="Close cart">
             <i class="fa fa-times" aria-hidden="true"></i>
         </button>
@@ -904,6 +903,7 @@
     
     let approvedArticles = [];
     let contentLibraryUploadUrl = @json(route('advertiser.content-library', ['upload' => 1]));
+    let catalogUrl = @json(route('advertiser.catalog'));
 
     function applyCartPayload(data) {
         if (Array.isArray(data)) {
@@ -1020,7 +1020,14 @@
         const container = document.getElementById('cartItemsContainer');
         const readyNote = document.getElementById('cartReadyNote');
         if (cart.length === 0) {
-            container.innerHTML = '<div class="text-center text-muted">Your cart is empty</div>';
+            container.innerHTML = `
+                <div class="text-center text-muted px-2">
+                    <p class="mb-2">Your cart is empty.</p>
+                    <p class="small mb-0">
+                        Browse the <a href="${catalogUrl}">catalog</a> for publishers,
+                        or <a href="${contentLibraryUploadUrl}">upload an article</a> in Content Library first.
+                    </p>
+                </div>`;
             if (readyNote) {
                 readyNote.classList.add('d-none');
                 readyNote.textContent = '';
@@ -1033,11 +1040,11 @@
                 if (missing > 0) {
                     readyNote.classList.remove('d-none');
                     readyNote.innerHTML = missing === 1
-                        ? '1 website still needs an approved article before checkout.'
-                        : (missing + ' websites still need approved articles before checkout.');
+                        ? '1 website still needs its own approved article before checkout.'
+                        : (missing + ' websites still need their own approved articles before checkout.');
                 } else {
                     readyNote.classList.remove('d-none');
-                    readyNote.textContent = 'Each website has an article assigned. You can proceed to checkout.';
+                    readyNote.textContent = 'Each website has its own article assigned. You can proceed to checkout.';
                 }
             }
             
@@ -1144,6 +1151,9 @@
                     ? `${name} + ${sensitiveType}`
                     : name;
                 showToast(data.message || `${label} added to cart.`, 'success');
+                if (cartLinesMissingArticles().length > 0) {
+                    openCart();
+                }
             },
             error: function(xhr) {
                 const msg = xhr.responseJSON?.error || xhr.responseJSON?.message || 'Could not add to cart.';

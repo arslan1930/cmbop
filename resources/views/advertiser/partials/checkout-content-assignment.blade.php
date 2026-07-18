@@ -63,9 +63,9 @@
     </div>
     <div class="card-body">
         <div class="alert alert-info border-0 small">
-            Orders can proceed only with an <strong>approved</strong> Content Library article that matches each website’s <strong>language</strong>
+            Each website needs its own <strong>approved</strong> Content Library article matching that site’s <strong>language</strong>
             (e.g. English articles work on US, UK, AU, and other English sites).
-            Articles needing correction must be edited and resubmitted first. Approval is automatic after compliance and uniqueness checks.
+            Upload or fix articles in the library first — approval is automatic after compliance and uniqueness checks.
         </div>
 
         <div class="d-flex flex-column gap-3" id="contentAssignmentList">
