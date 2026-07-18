@@ -219,7 +219,6 @@ class CheckoutSystemFixTest extends TestCase
             ->get(route('advertiser.content-library.order', $sub));
 
         $response->assertRedirect(route('advertiser.catalog', [
-            'country' => 'us',
             'language' => 'en',
             'content_submission_id' => $sub->id,
             'filters_open' => 1,

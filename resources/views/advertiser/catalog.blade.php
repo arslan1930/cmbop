@@ -52,12 +52,18 @@
             <div>
                 <strong>Ordering from Content Library:</strong>
                 {{ $orderingSubmission->title ?: $orderingSubmission->original_filename }}
-                · market
+                · language
                 <span class="badge text-bg-light border">
-                    {{ strtoupper((string) $orderingSubmission->country) }}/{{ strtoupper((string) $orderingSubmission->language) }}
+                    {{ strtoupper((string) $orderingSubmission->language) }}
                 </span>
+                @if($orderingSubmission->country)
+                    <span class="badge text-bg-light border">
+                        preferred {{ strtoupper((string) $orderingSubmission->country) }}
+                    </span>
+                @endif
                 <div class="small mt-1 mb-0">
-                    Only websites matching this country and language are shown. Pick <strong>one</strong> site, then checkout.
+                    Showing websites in this language across all matching countries
+                    (e.g. English → US, UK, AU, …). Pick <strong>one</strong> site, then checkout.
                 </div>
             </div>
             <div class="d-flex flex-wrap gap-2">
@@ -74,7 +80,7 @@
             <h2 class="mb-1 fw-semibold">Catalog</h2>
             <p class="text-muted mb-0">
                 @if(!empty($orderingSubmission))
-                    Showing publishers for {{ strtoupper((string) $orderingSubmission->country) }}/{{ strtoupper((string) $orderingSubmission->language) }}.
+                    Showing {{ strtoupper((string) $orderingSubmission->language) }} publishers in all matching countries.
                 @else
                     Browse verified publishers and explore available placement opportunities.
                 @endif

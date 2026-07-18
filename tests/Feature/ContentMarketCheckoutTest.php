@@ -103,7 +103,7 @@ class ContentMarketCheckoutTest extends TestCase
             ]);
 
         $response->assertStatus(422)->assertJson(['success' => false]);
-        $this->assertStringContainsString('country/language', strtolower((string) $response->json('message')));
+        $this->assertStringContainsString('language', strtolower((string) $response->json('message')));
     }
 
     public function test_library_order_rejects_mismatched_sites(): void

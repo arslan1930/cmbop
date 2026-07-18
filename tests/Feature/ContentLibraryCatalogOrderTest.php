@@ -60,12 +60,13 @@ class ContentLibraryCatalogOrderTest extends TestCase
         ]);
     }
 
-    public function test_order_opens_catalog_filtered_to_article_market(): void
+    public function test_order_opens_catalog_filtered_to_article_language_all_countries(): void
     {
         $advertiser = $this->advertiser();
         $publisher = $this->publisher();
         $usSite = $this->activeSite($publisher, 'us-site', 40, 'us', 'en');
         $gbSite = $this->activeSite($publisher, 'gb-site', 50, 'gb', 'en');
+        $deSite = $this->activeSite($publisher, 'de-site', 45, 'de', 'de');
         $article = $this->createApprovedSubmission($advertiser, null, 0, 'anchor', 'https://example.com/a', 'gb', 'en');
         $article->update(['title' => 'UK Guide']);
 
@@ -73,7 +74,6 @@ class ContentLibraryCatalogOrderTest extends TestCase
             ->get(route('advertiser.content-library.order', $article));
 
         $response->assertRedirect(route('advertiser.catalog', [
-            'country' => 'gb',
             'language' => 'en',
             'content_submission_id' => $article->id,
             'filters_open' => 1,
@@ -87,7 +87,6 @@ class ContentLibraryCatalogOrderTest extends TestCase
                 'ordering_from_library' => true,
             ])
             ->get(route('advertiser.catalog', [
-                'country' => 'gb',
                 'language' => 'en',
                 'content_submission_id' => $article->id,
                 'filters_open' => 1,
@@ -96,12 +95,12 @@ class ContentLibraryCatalogOrderTest extends TestCase
         $catalog->assertOk()
             ->assertSee('Ordering from Content Library')
             ->assertSee('UK Guide')
-            ->assertSee('GB/EN')
             ->assertSee($gbSite->site_name)
-            ->assertDontSee($usSite->site_name);
+            ->assertSee($usSite->site_name)
+            ->assertDontSee($deSite->site_name);
     }
 
-    public function test_library_add_to_cart_requires_matching_market_and_one_site(): void
+    public function test_library_add_to_cart_allows_any_matching_language_country(): void
     {
         config(['content_moderation.enabled' => false]);
         Mail::fake();
@@ -111,44 +110,46 @@ class ContentLibraryCatalogOrderTest extends TestCase
         $publisher = $this->publisher();
         $usSite = $this->activeSite($publisher, 'us-cart', 40, 'us', 'en');
         $gbSite = $this->activeSite($publisher, 'gb-cart', 55, 'gb', 'en');
+        $frSite = $this->activeSite($publisher, 'fr-cart', 50, 'fr', 'fr');
         $article = $this->createApprovedSubmission($advertiser, null, 0, 'anchor text', 'https://example.com/a', 'us', 'en');
 
+        // English article can place on GB English site (different country, same language).
         $this->actingAs($advertiser)
             ->withSession([
                 'checkout_content_submission_id' => $article->id,
                 'ordering_from_library' => true,
             ])
             ->postJson(route('advertiser.cart.add'), ['id' => $gbSite->id])
-            ->assertStatus(422)
-            ->assertJsonPath('success', false);
-
-        $this->actingAs($advertiser)
-            ->withSession([
-                'checkout_content_submission_id' => $article->id,
-                'ordering_from_library' => true,
-            ])
-            ->postJson(route('advertiser.cart.add'), ['id' => $usSite->id])
             ->assertOk()
             ->assertJsonPath('success', true)
             ->assertJsonPath('cart_count', 1);
 
         $this->assertSame($article->id, session('cart')[0]['content_submission_id'] ?? null);
-        $this->assertSame($usSite->id, session('cart')[0]['id'] ?? null);
+        $this->assertSame($gbSite->id, session('cart')[0]['id'] ?? null);
 
-        // Second site replaces the first (still one site only).
-        $otherUs = $this->activeSite($publisher, 'us-cart-2', 60, 'us', 'en');
+        // French site still rejected for English article.
+        $this->actingAs($advertiser)
+            ->withSession([
+                'checkout_content_submission_id' => $article->id,
+                'ordering_from_library' => true,
+            ])
+            ->postJson(route('advertiser.cart.add'), ['id' => $frSite->id])
+            ->assertStatus(422)
+            ->assertJsonPath('success', false);
+
+        // Second English site replaces the first (still one site only).
         $this->actingAs($advertiser)
             ->withSession([
                 'cart' => session('cart'),
                 'checkout_content_submission_id' => $article->id,
                 'ordering_from_library' => true,
             ])
-            ->postJson(route('advertiser.cart.add'), ['id' => $otherUs->id])
+            ->postJson(route('advertiser.cart.add'), ['id' => $usSite->id])
             ->assertOk()
             ->assertJsonPath('cart_count', 1);
 
         $this->assertCount(1, session('cart'));
-        $this->assertSame($otherUs->id, session('cart')[0]['id'] ?? null);
+        $this->assertSame($usSite->id, session('cart')[0]['id'] ?? null);
 
         $checkout = $this->actingAs($advertiser)
             ->withSession([

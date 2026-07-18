@@ -63,7 +63,8 @@
     </div>
     <div class="card-body">
         <div class="alert alert-info border-0 small">
-            Orders can proceed only with an <strong>approved</strong> Content Library article that matches each website’s country and language.
+            Orders can proceed only with an <strong>approved</strong> Content Library article that matches each website’s <strong>language</strong>
+            (e.g. English articles work on US, UK, AU, and other English sites).
             Articles needing correction must be edited and resubmitted first. Approval is automatic after compliance and uniqueness checks.
         </div>
 
@@ -72,12 +73,10 @@
                 @php
                     $siteCountries = $p['countries'] ?: array_filter([$p['country']]);
                     $siteLanguages = $p['languages'] ?: array_filter([$p['language']]);
-                    $matching = $approvedArticles->filter(function ($article) use ($siteCountries, $siteLanguages) {
-                        $c = strtolower((string) $article->country);
+                    $matching = $approvedArticles->filter(function ($article) use ($siteLanguages) {
                         $l = strtolower((string) $article->language);
-                        $countryOk = $siteCountries === [] || in_array($c, array_map('strtolower', $siteCountries), true);
-                        $languageOk = $siteLanguages === [] || in_array($l, array_map('strtolower', $siteLanguages), true);
-                        return $countryOk && $languageOk;
+                        // Language-first: English article → any English-language site/country.
+                        return $siteLanguages === [] || in_array($l, array_map('strtolower', $siteLanguages), true);
                     });
                 @endphp
                 <div class="content-assign-card placement-assign"
@@ -105,7 +104,7 @@
                     </div>
 
                     <div class="mb-3">
-                        <label class="form-label">Approved article (same country + language)</label>
+                        <label class="form-label">Approved article (same language)</label>
                         <select class="form-select article-select">
                             <option value="">— Select approved article —</option>
                             @forelse($matching as $article)
@@ -138,18 +137,6 @@
                         <div class="fw-semibold small mb-2">Or upload a new .docx for this market</div>
                         <div class="row g-2 mb-2">
                             <div class="col-md-6">
-                                <label class="form-label small">Country</label>
-                                <select class="form-select form-select-sm upload-country" required>
-                                    <option value="">Select country</option>
-                                    @foreach($marketplaceCountries as $country)
-                                        <option value="{{ strtolower($country->code) }}"
-                                            @selected(in_array(strtolower($country->code), array_map('strtolower', $siteCountries), true))>
-                                            {{ $country->name }}
-                                        </option>
-                                    @endforeach
-                                </select>
-                            </div>
-                            <div class="col-md-6">
                                 <label class="form-label small">Language</label>
                                 <select class="form-select form-select-sm upload-language" required>
                                     <option value="">Select language</option>
@@ -161,9 +148,21 @@
                                     @endforeach
                                 </select>
                             </div>
+                            <div class="col-md-6">
+                                <label class="form-label small">Country</label>
+                                <select class="form-select form-select-sm upload-country" required>
+                                    <option value="">Select language first</option>
+                                    @foreach($marketplaceCountries as $country)
+                                        <option value="{{ strtolower($country->code) }}"
+                                            @selected(in_array(strtolower($country->code), array_map('strtolower', $siteCountries), true))>
+                                            {{ $country->name }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                            </div>
                         </div>
                         <input type="file" class="form-control form-control-sm upload-file mb-2" accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document">
-                        <div class="small text-muted mb-2">Select country and language before uploading. Order unlocks only after automatic approval.</div>
+                        <div class="small text-muted mb-2">Select language first, then country. Matching is by language (English → all English countries).</div>
                         <button type="button" class="btn btn-sm btn-outline-primary upload-btn">Upload & check</button>
                         <div class="upload-feedback small mt-2" aria-live="polite"></div>
                     </div>
@@ -240,7 +239,39 @@
 (function () {
     const uploadUrl = @json(route('advertiser.content-submissions.upload'));
     const csrf = @json(csrf_token());
+    const languageCountryMap = @json($languageCountryMap ?? new \stdClass());
     const cards = Array.from(document.querySelectorAll('.placement-assign'));
+
+    function refreshUploadCountries(card) {
+        const langSelect = card.querySelector('.upload-language');
+        const countrySelect = card.querySelector('.upload-country');
+        if (!langSelect || !countrySelect) return;
+        const lang = (langSelect.value || '').toLowerCase();
+        const preferred = (countrySelect.value || '').toLowerCase();
+        const options = languageCountryMap[lang] || [];
+        countrySelect.innerHTML = '';
+        if (!lang) {
+            countrySelect.innerHTML = '<option value="">Select language first</option>';
+            return;
+        }
+        const placeholder = document.createElement('option');
+        placeholder.value = '';
+        placeholder.textContent = 'Select country';
+        countrySelect.appendChild(placeholder);
+        options.forEach(function (item) {
+            const opt = document.createElement('option');
+            opt.value = item.code;
+            opt.textContent = item.name;
+            if (preferred && preferred === item.code) opt.selected = true;
+            countrySelect.appendChild(opt);
+        });
+    }
+    cards.forEach(function (card) {
+        card.querySelector('.upload-language')?.addEventListener('change', function () {
+            refreshUploadCountries(card);
+        });
+        refreshUploadCountries(card);
+    });
 
     function syncSchedule() {
         document.getElementById('assignScheduleFields').classList.toggle(

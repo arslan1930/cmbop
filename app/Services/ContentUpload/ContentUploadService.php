@@ -332,18 +332,23 @@ class ContentUploadService
         $language = strtolower(trim((string) ($language ?: $replace?->language)));
 
         if ($country === '' || $language === '') {
-            return 'Please select the article country and language before uploading.';
+            return 'Please select the article language first, then a matching country.';
         }
 
         $allowedCountries = array_map('strtolower', config('markets.allowed_country_codes', []));
         $allowedLanguages = array_map('strtolower', config('markets.allowed_language_codes', []));
 
+        if ($allowedLanguages !== [] && ! in_array($language, $allowedLanguages, true)) {
+            return 'Selected language is not available in the marketplace.';
+        }
+
         if ($allowedCountries !== [] && ! in_array($country, $allowedCountries, true)) {
             return 'Selected country is not available in the marketplace.';
         }
 
-        if ($allowedLanguages !== [] && ! in_array($language, $allowedLanguages, true)) {
-            return 'Selected language is not available in the marketplace.';
+        $map = app(\App\Services\Marketplace\LanguageCountryMap::class);
+        if (! $map->languageAcceptsCountry($language, $country)) {
+            return 'Selected country is not available for this language. Choose a country that matches the article language (e.g. English → US, UK, AU, …).';
         }
 
         return null;

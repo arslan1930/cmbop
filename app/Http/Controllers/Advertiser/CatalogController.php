@@ -175,14 +175,18 @@ public function index(Request $request)
     $userId = auth()->id();
     $currentUser = auth()->user();
 
-    // Content Library → Catalog: lock country/language to the approved article's market.
+    // Content Library → Catalog: lock language only (same as publisher flow).
+    // English articles can browse all English-country sites; country stays optional.
     $orderingSubmission = $this->resolveActiveLibraryOrdering($request);
     if ($orderingSubmission) {
         $request->merge([
-            'country' => strtolower((string) $orderingSubmission->country),
             'language' => strtolower((string) $orderingSubmission->language),
             'filters_open' => 1,
         ]);
+        // Do not force article country — language opens every matching-country market.
+        if (! $request->filled('country')) {
+            $request->request->remove('country');
+        }
     }
     
     // Get current user's role
@@ -727,10 +731,9 @@ public function addToCart(Request $request)
             if (! $librarySubmission->matchesSite($site)) {
                 return response()->json([
                     'success' => false,
-                    'error' => 'This article is for '
-                        .strtoupper((string) $librarySubmission->country).' / '
+                    'error' => 'This article is written for '
                         .strtoupper((string) $librarySubmission->language)
-                        .'. Choose a website in that market.',
+                        .'. Choose a website that publishes in that language.',
                 ], 422);
             }
         }
@@ -952,6 +955,7 @@ public function checkout(Request $request)
 
     $marketplaceCountries = \App\Models\Country::marketplace()->orderBy('name')->get(['code', 'name']);
     $marketplaceLanguages = \App\Models\Language::marketplace()->orderBy('name')->get(['code', 'name']);
+    $languageCountryMap = app(\App\Services\Marketplace\LanguageCountryMap::class)->map();
 
     $articleIds = collect($cartItems)
         ->pluck('content_submission_id')
@@ -979,6 +983,7 @@ public function checkout(Request $request)
         'correctionArticles',
         'marketplaceCountries',
         'marketplaceLanguages',
+        'languageCountryMap',
         'checkoutWallet',
         'checkoutBonusBalance',
         'checkoutCashBalance',
@@ -2226,9 +2231,9 @@ private function resolveCheckoutContent(array $cart, ?array $contentSubmissions,
         if (!$submission->matchesSite($site)) {
             return response()->json([
                 'success' => false,
-                'message' => 'Article country/language must match the website market ('
-                    . strtoupper((string) ($site->country ?: 'any')) . ' / '
-                    . strtoupper((string) ($site->language ?: 'any')) . ').',
+                'message' => 'Article language must match the website language ('
+                    . strtoupper((string) ($site->language ?: 'any')) . '). '
+                    . 'English articles can be placed on any English-language website.',
             ], 422);
         }
 

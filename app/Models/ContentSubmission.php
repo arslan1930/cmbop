@@ -330,18 +330,19 @@ class ContentSubmission extends Model
     }
 
     /**
-     * Whether this article's market matches a publisher site.
+     * Whether this article can be placed on a publisher site.
+     * Matching is language-first (same as catalog/publisher flow):
+     * English articles can publish on any English-language website/country.
      */
     public function matchesSite(Site $site): bool
     {
-        $country = strtolower(trim((string) $this->country));
         $language = strtolower(trim((string) $this->language));
 
-        if ($country === '' || $language === '') {
+        if ($language === '') {
             return false;
         }
 
-        return $site->acceptsMarket($country, $language);
+        return $site->acceptsLanguage($language);
     }
 
     /**

@@ -7,6 +7,7 @@ use App\Models\ContentSubmission;
 use App\Models\Country;
 use App\Models\Language;
 use App\Services\ContentUpload\ContentUploadService;
+use App\Services\Marketplace\LanguageCountryMap;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\Rule;
@@ -15,6 +16,7 @@ class ContentLibraryController extends Controller
 {
     public function __construct(
         private ContentUploadService $uploads,
+        private LanguageCountryMap $languageCountryMap,
     ) {}
 
     public function index(Request $request)
@@ -138,6 +140,7 @@ class ContentLibraryController extends Controller
 
         $countries = Country::marketplace()->orderBy('name')->get(['code', 'name']);
         $languages = Language::marketplace()->orderBy('name')->get(['code', 'name']);
+        $languageCountryMap = $this->languageCountryMap->map();
 
         return view('advertiser.content-library', [
             'submissions' => $submissions,
@@ -151,6 +154,7 @@ class ContentLibraryController extends Controller
             'groupedByCountry' => $groupedByCountry,
             'countries' => $countries,
             'languages' => $languages,
+            'languageCountryMap' => $languageCountryMap,
             'openUpload' => $request->boolean('upload'),
             'editSubmission' => $this->resolveEditableSubmission($request->query('edit')),
             'libraryFilterBase' => [
@@ -243,7 +247,6 @@ class ContentLibraryController extends Controller
                 ->with('error', 'Only approved Content Library articles can be ordered. Please edit and resubmit if corrections are needed.');
         }
 
-        $country = strtolower(trim((string) $submission->country));
         $language = strtolower(trim((string) $submission->language));
 
         session()->forget(['cart', 'checkout_schedule']);
@@ -253,14 +256,13 @@ class ContentLibraryController extends Controller
         $title = $submission->title ?: $submission->original_filename;
 
         return redirect()->route('advertiser.catalog', [
-            'country' => $country,
             'language' => $language,
             'content_submission_id' => $submission->id,
             'filters_open' => 1,
         ])->with(
             'success',
-            'Ordering “'.$title.'” for '.strtoupper($country).'/'.strtoupper($language)
-            .'. Choose one matching website in the catalog, then checkout.'
+            'Ordering “'.$title.'” for '.strtoupper($language)
+            .' websites (all matching countries). Choose one website in the catalog, then checkout.'
         );
     }
 

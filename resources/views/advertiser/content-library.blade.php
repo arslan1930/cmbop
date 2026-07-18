@@ -123,7 +123,7 @@
 <div class="container-fluid">
     <div class="mb-3">
         <h2 class="mb-1 fw-semibold">Content Library</h2>
-        <p class="text-muted mb-0 small">Upload a .docx. Preview and edit your article (images &amp; links), then Order opens the catalog for that country/language — one website only.</p>
+        <p class="text-muted mb-0 small">Upload a .docx (language first, then country). Preview and edit, then Order opens the catalog for that language across all matching countries — one website only.</p>
         <div class="library-page-actions">
             <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#uploadContentModal" id="openUploadModalBtn">
                 <i class="fa fa-upload me-1"></i> Upload article
@@ -388,18 +388,6 @@
                 </div>
                 <div class="row g-2 mb-3">
                     <div class="col-md-6">
-                        <label class="form-label">Country <span class="text-danger">*</span></label>
-                        <select name="country" id="libraryCountry" class="form-select" required>
-                            <option value="">Select country</option>
-                            @foreach(($countries ?? []) as $country)
-                                <option value="{{ strtolower($country->code) }}"
-                                    @selected(strtolower((string) ($editSubmission->country ?? '')) === strtolower($country->code))>
-                                    {{ $country->name }}
-                                </option>
-                            @endforeach
-                        </select>
-                    </div>
-                    <div class="col-md-6">
                         <label class="form-label">Language <span class="text-danger">*</span></label>
                         <select name="language" id="libraryLanguage" class="form-select" required>
                             <option value="">Select language</option>
@@ -410,6 +398,14 @@
                                 </option>
                             @endforeach
                         </select>
+                        <div class="form-text">English articles can be ordered on any English-country website.</div>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Country <span class="text-danger">*</span></label>
+                        <select name="country" id="libraryCountry" class="form-select" required disabled>
+                            <option value="">Select language first</option>
+                        </select>
+                        <div class="form-text">Countries update to markets that match the language.</div>
                     </div>
                 </div>
                 <div class="mb-3">
@@ -485,8 +481,49 @@ const libraryContentUrl = @json(url('/advertiser/content-submissions'));
 const libraryImageUploadUrl = @json(route('advertiser.content-submissions.editor-image'));
 const libraryOrderUrlBase = @json(url('/advertiser/content-library'));
 const libraryCsrf = @json(csrf_token());
+const libraryLanguageCountryMap = @json($languageCountryMap ?? new \stdClass());
+const libraryPreferredCountry = @json(strtolower((string) ($editSubmission->country ?? '')));
 let articleQuill = null;
 let articleEditorSubmissionId = null;
+
+function refreshLibraryCountries(preferredCountry) {
+    const langSelect = document.getElementById('libraryLanguage');
+    const countrySelect = document.getElementById('libraryCountry');
+    if (!langSelect || !countrySelect) return;
+    const lang = (langSelect.value || '').toLowerCase();
+    const options = libraryLanguageCountryMap[lang] || [];
+    const keep = (preferredCountry || countrySelect.value || '').toLowerCase();
+    countrySelect.innerHTML = '';
+    if (!lang) {
+        countrySelect.disabled = true;
+        countrySelect.innerHTML = '<option value="">Select language first</option>';
+        return;
+    }
+    countrySelect.disabled = false;
+    const placeholder = document.createElement('option');
+    placeholder.value = '';
+    placeholder.textContent = 'Select country';
+    countrySelect.appendChild(placeholder);
+    options.forEach(function (item) {
+        const opt = document.createElement('option');
+        opt.value = item.code;
+        opt.textContent = item.name;
+        if (keep && keep === item.code) opt.selected = true;
+        countrySelect.appendChild(opt);
+    });
+    if (keep && !Array.from(countrySelect.options).some(function (o) { return o.value === keep; })) {
+        countrySelect.value = '';
+    }
+}
+document.getElementById('libraryLanguage')?.addEventListener('change', function () {
+    refreshLibraryCountries('');
+});
+document.addEventListener('DOMContentLoaded', function () {
+    refreshLibraryCountries(libraryPreferredCountry);
+});
+document.getElementById('uploadContentModal')?.addEventListener('shown.bs.modal', function () {
+    refreshLibraryCountries(libraryPreferredCountry || document.getElementById('libraryCountry')?.value || '');
+});
 
 function showLibraryFlash(message, ok) {
     const el = document.getElementById('libraryFlash');
