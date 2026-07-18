@@ -8,9 +8,7 @@
     $recommendedSites = $recommendedSites ?? collect();
     $hasOrderableArticle = (bool) ($hasOrderableArticle ?? false);
     $isNewAdvertiser = ($stats['total'] ?? 0) === 0;
-    $placeGuestPostUrl = $hasOrderableArticle
-        ? route('advertiser.catalog')
-        : route('advertiser.content-library', ['upload' => 1]);
+    $placeGuestPostUrl = route('advertiser.wizard.start');
 @endphp
 
 <style>
@@ -194,7 +192,7 @@
         <h4 class="mb-1">Welcome back, {{ auth()->user()->name }}!</h4>
         <small class="text-muted">
             @if($isNewAdvertiser)
-                Upload an article, pick publishers, then checkout — start below.
+                Place a guest post in four guided steps — or jump into Catalog / Content Library anytime.
             @else
                 Your command center — KPIs, next actions, and recent orders.
             @endif
@@ -202,7 +200,7 @@
     </div>
     @unless($isNewAdvertiser)
         <a href="{{ $placeGuestPostUrl }}" class="dash-primary-cta">
-            <i class="fa {{ $hasOrderableArticle ? 'fa-list' : 'fa-file-word' }}"></i> Place a guest post
+            <i class="fa fa-route"></i> Place a guest post
         </a>
     @endunless
 </div>
@@ -212,33 +210,39 @@
         <div class="col-lg-7">
             <div class="dash-panel h-100">
                 <h5 class="mb-1">Get started</h5>
-                <p class="text-muted small mb-3">Three steps to your first guest post.</p>
+                <p class="text-muted small mb-3">Guided path to your first guest post.</p>
                 <div class="get-started-steps mb-3">
-                    <a href="{{ route('advertiser.content-library', ['upload' => 1]) }}" class="get-started-step">
+                    <a href="{{ route('advertiser.wizard.market') }}" class="get-started-step">
                         <span class="step-num">1</span>
                         <div>
-                            <div class="step-title">Upload your article</div>
-                            <p class="step-desc">Add a .docx in Content Library. It is checked and approved automatically.</p>
+                            <div class="step-title">Choose market</div>
+                            <p class="step-desc">Pick language and niche so we can filter publishers.</p>
                         </div>
                     </a>
-                    <a href="{{ route('advertiser.catalog') }}" class="get-started-step">
+                    <a href="{{ route('advertiser.wizard.start') }}" class="get-started-step">
                         <span class="step-num">2</span>
                         <div>
                             <div class="step-title">Choose publishers</div>
-                            <p class="step-desc">Use Order from the library (filtered by language) or browse the catalog freely.</p>
+                            <p class="step-desc">Add matching sites from the catalog to your cart.</p>
                         </div>
                     </a>
-                    <a href="{{ route('advertiser.checkout') }}" class="get-started-step">
+                    <a href="{{ route('advertiser.wizard.start') }}" class="get-started-step">
                         <span class="step-num">3</span>
                         <div>
-                            <div class="step-title">Checkout &amp; pay</div>
-                            <p class="step-desc">Assign an approved article to each site in your cart, then pay from your wallet.</p>
+                            <div class="step-title">Assign content &amp; pay</div>
+                            <p class="step-desc">Upload or pick approved articles, then checkout.</p>
                         </div>
                     </a>
                 </div>
-                <a href="{{ route('advertiser.content-library', ['upload' => 1]) }}" class="get-started-cta w-100 justify-content-center">
-                    <i class="fa fa-file-word"></i> Place a guest post
+                <a href="{{ route('advertiser.wizard.start') }}" class="get-started-cta w-100 justify-content-center">
+                    <i class="fa fa-route"></i> Place a guest post
                 </a>
+                <p class="small text-muted text-center mt-3 mb-0">
+                    Advanced:
+                    <a href="{{ route('advertiser.catalog') }}">Catalog</a>
+                    ·
+                    <a href="{{ route('advertiser.content-library') }}">Content Library</a>
+                </p>
             </div>
         </div>
         <div class="col-lg-5">
@@ -340,13 +344,7 @@
                     <a href="{{ $placeGuestPostUrl }}" class="next-action">
                         <div>
                             <div class="na-title">Place a guest post</div>
-                            <p class="na-desc">
-                                @if($hasOrderableArticle)
-                                    Pick publishers and assign your approved article
-                                @else
-                                    Upload an article, then choose publishers
-                                @endif
-                            </p>
+                            <p class="na-desc">Guided flow: market → publishers → content → pay</p>
                         </div>
                         <i class="fa fa-chevron-right text-muted" aria-hidden="true"></i>
                     </a>

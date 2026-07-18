@@ -360,11 +360,16 @@
                                 No articles match these filters.
                             @else
                                 <div class="py-2">
-                                    <p class="mb-2">No articles yet. Upload a .docx to start your first guest post.</p>
-                                    <p class="small text-muted mb-3 mb-md-2">After approval, use <strong>Order</strong> to open the catalog for that language, assign the article in your cart, and checkout.</p>
-                                    <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#uploadContentModal">
-                                        <i class="fa fa-upload me-1"></i> Upload article
-                                    </button>
+                                    <p class="mb-2">No articles yet. Upload a .docx here, or start the guided Place a guest post flow.</p>
+                                    <p class="small text-muted mb-3 mb-md-2">After approval, assign the article in your cart (or continue the wizard) and checkout.</p>
+                                    <div class="d-flex flex-wrap gap-2 justify-content-center">
+                                        <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#uploadContentModal">
+                                            <i class="fa fa-upload me-1"></i> Upload article
+                                        </button>
+                                        <a href="{{ route('advertiser.wizard.start') }}" class="btn btn-sm btn-outline-primary">
+                                            Place a guest post
+                                        </a>
+                                    </div>
                                 </div>
                             @endif
                         </td>

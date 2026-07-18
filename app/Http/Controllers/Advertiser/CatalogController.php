@@ -21,6 +21,7 @@ use App\Services\CartPricingService;
 use App\Services\ContentModeration\ContentModerationService;
 use App\Services\ContentUpload\ScheduledOrderService;
 use App\Services\OrderPaymentService;
+use App\Http\Controllers\Advertiser\GuestPostWizardController;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -1102,7 +1103,7 @@ private function isPublisherOwner($sitePublisherId)
      */
     public function clearCart(Request $request)
     {
-        session()->forget(['cart', 'checkout_content_submission_id', 'checkout_schedule', 'ordering_from_library']);
+        session()->forget(['cart', 'checkout_content_submission_id', 'checkout_schedule', 'ordering_from_library', GuestPostWizardController::SESSION_KEY]);
         return response()->json(['success' => true]);
     }
     
@@ -1133,7 +1134,7 @@ public function checkout(Request $request)
     $savings = $checkout['savings'] ?? 0;
 
     if (empty($cartItems)) {
-        session()->forget(['cart', 'checkout_content_submission_id', 'checkout_schedule']);
+        session()->forget(['cart', 'checkout_content_submission_id', 'checkout_schedule', GuestPostWizardController::SESSION_KEY]);
         return redirect()->route('advertiser.catalog')->with('error', 'Your cart is empty or contains inactive sites.');
     }
 
@@ -1377,7 +1378,7 @@ public function checkout(Request $request)
                 ->where('user_id', $userId)
                 ->get();
 
-            session()->forget(['cart', 'checkout_content_submission_id', 'checkout_schedule', 'pending_card_reference']);
+            session()->forget(['cart', 'checkout_content_submission_id', 'checkout_schedule', 'pending_card_reference', GuestPostWizardController::SESSION_KEY]);
             app(OrderPaymentService::class)->notifyPublishersOfPaidOrders($paidOrders);
 
             return response()->json([
@@ -1585,7 +1586,7 @@ public function checkout(Request $request)
             }
 
             DB::commit();
-            session()->forget(['cart', 'checkout_content_submission_id', 'checkout_schedule']);
+            session()->forget(['cart', 'checkout_content_submission_id', 'checkout_schedule', GuestPostWizardController::SESSION_KEY]);
 
             $isScheduled = ($schedule['mode'] ?? 'immediate') === 'scheduled';
 
@@ -1695,7 +1696,7 @@ public function checkout(Request $request)
             if ($bonusApplied > 0) {
                 $this->rememberCheckoutBonus((int) $userId, (string) $referenceCode, $bonusApplied);
             }
-            session()->forget(['cart', 'checkout_content_submission_id', 'checkout_schedule']);
+            session()->forget(['cart', 'checkout_content_submission_id', 'checkout_schedule', GuestPostWizardController::SESSION_KEY]);
 
             $isScheduled = ($schedule['mode'] ?? 'immediate') === 'scheduled';
 

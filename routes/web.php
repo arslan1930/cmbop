@@ -41,6 +41,7 @@ use App\Http\Controllers\Advertiser\ContentLibraryController;
 use App\Http\Controllers\BannerClickController;
 use App\Http\Controllers\Advertiser\ProjectController;
 use App\Http\Controllers\Advertiser\CatalogController;
+use App\Http\Controllers\Advertiser\GuestPostWizardController;
 use App\Http\Controllers\Advertiser\SavedSitesController;
 use App\Http\Controllers\Advertiser\BillingController as AdvertiserBillingController;
 use App\Http\Controllers\Advertiser\AnalyticsController;
@@ -546,6 +547,22 @@ Route::middleware(['auth','verified', RoleMiddleware::class . ':advertiser'])
         // Campaigns routes
         Route::get('/campaigns', [ProjectController::class, 'index'])
         ->name('campaigns');
+
+        // Place a guest post wizard (market → publishers → content → pay)
+        Route::get('/place-guest-post', [GuestPostWizardController::class, 'start'])
+            ->name('wizard.start');
+        Route::get('/place-guest-post/market', [GuestPostWizardController::class, 'market'])
+            ->name('wizard.market');
+        Route::post('/place-guest-post/market', [GuestPostWizardController::class, 'saveMarket'])
+            ->name('wizard.market.save');
+        Route::get('/place-guest-post/publishers', [GuestPostWizardController::class, 'publishers'])
+            ->name('wizard.publishers');
+        Route::get('/place-guest-post/content', [GuestPostWizardController::class, 'content'])
+            ->name('wizard.content');
+        Route::get('/place-guest-post/pay', [GuestPostWizardController::class, 'pay'])
+            ->name('wizard.pay');
+        Route::post('/place-guest-post/exit', [GuestPostWizardController::class, 'exit'])
+            ->name('wizard.exit');
 
         // Catelog routes
         Route::get('/catalog', [CatalogController::class, 'index'])

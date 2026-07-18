@@ -47,6 +47,19 @@
         <div class="alert alert-danger">{{ session('error') }}</div>
     @endif
 
+    @php
+        $inGuestPostWizard = request()->boolean('wizard')
+            || ! empty(\App\Http\Controllers\Advertiser\GuestPostWizardController::stateFromSession()['language']);
+    @endphp
+    @if(request()->boolean('wizard') && ! empty(\App\Http\Controllers\Advertiser\GuestPostWizardController::stateFromSession()['language']))
+        @include('advertiser.wizard._catalog_chrome')
+    @elseif(! $inGuestPostWizard && empty($orderingSubmission))
+        <div class="alert alert-light border small d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+            <span>New here? Use the guided <strong>Place a guest post</strong> flow (market → publishers → content → pay).</span>
+            <a href="{{ route('advertiser.wizard.start') }}" class="btn btn-sm btn-outline-primary">Start guided flow</a>
+        </div>
+    @endif
+
     @if(!empty($orderingSubmission))
         <div class="alert alert-info border-0 shadow-sm d-flex flex-wrap justify-content-between align-items-center gap-2">
             <div>

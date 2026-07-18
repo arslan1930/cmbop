@@ -25,7 +25,7 @@ class AdvertiserStartFlowGuidanceTest extends TestCase
         return $user->fresh();
     }
 
-    public function test_new_advertiser_dashboard_teaches_upload_first_path(): void
+    public function test_new_advertiser_dashboard_teaches_wizard_path(): void
     {
         $advertiser = $this->advertiser();
 
@@ -33,13 +33,13 @@ class AdvertiserStartFlowGuidanceTest extends TestCase
             ->get(route('advertiser.dashboard'))
             ->assertOk()
             ->assertSee('Place a guest post', false)
-            ->assertSee('Upload your article', false)
-            ->assertSee(route('advertiser.content-library', ['upload' => 1]), false)
+            ->assertSee('Choose market', false)
+            ->assertSee(route('advertiser.wizard.start'), false)
             ->assertDontSee('Order an article', false)
             ->assertDontSee('Coming soon', false);
     }
 
-    public function test_returning_advertiser_without_article_cta_points_to_library_upload(): void
+    public function test_returning_advertiser_cta_points_to_wizard(): void
     {
         $advertiser = $this->advertiser();
         $this->makeCompletedOrder($advertiser);
@@ -48,10 +48,10 @@ class AdvertiserStartFlowGuidanceTest extends TestCase
             ->get(route('advertiser.dashboard'))
             ->assertOk()
             ->assertSee('Place a guest post', false)
-            ->assertSee(route('advertiser.content-library', ['upload' => 1]), false);
+            ->assertSee(route('advertiser.wizard.start'), false);
     }
 
-    public function test_returning_advertiser_with_orderable_article_cta_points_to_catalog(): void
+    public function test_returning_advertiser_with_orderable_article_still_uses_wizard_cta(): void
     {
         $advertiser = $this->advertiser();
         $this->makeCompletedOrder($advertiser);
@@ -61,7 +61,7 @@ class AdvertiserStartFlowGuidanceTest extends TestCase
             ->get(route('advertiser.dashboard'))
             ->assertOk()
             ->assertSee('Place a guest post', false)
-            ->assertSee(route('advertiser.catalog'), false);
+            ->assertSee(route('advertiser.wizard.start'), false);
     }
 
     public function test_catalog_shows_missing_article_guidance_when_none_approved(): void
