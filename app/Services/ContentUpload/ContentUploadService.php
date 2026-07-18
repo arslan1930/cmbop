@@ -18,15 +18,14 @@ class ContentUploadService
     public function __construct(
         private DocumentTextExtractor $extractor,
         private ArticleEvaluationService $evaluation,
-    ) {
-    }
+    ) {}
 
     public function effectiveConfig(): array
     {
         $base = config('content_upload', []);
         $override = ContentModerationSetting::getValue('upload_config', []) ?: [];
 
-        if (!is_array($override) || $override === []) {
+        if (! is_array($override) || $override === []) {
             return $base;
         }
 
@@ -74,17 +73,23 @@ class ContentUploadService
         $extension = strtolower($file->getClientOriginalExtension() ?: $file->extension() ?: '');
         $disk = (string) ($cfg['disk'] ?? 'local');
         $dir = trim((string) ($cfg['directory'] ?? 'content-uploads'), '/');
-        $filename = Str::uuid()->toString() . '.' . $extension;
-        $path = $file->storeAs($dir . '/' . $user->id, $filename, $disk);
+        $filename = Str::uuid()->toString().'.'.$extension;
+        $path = $file->storeAs($dir.'/'.$user->id, $filename, $disk);
 
-        if (!$path) {
+        if (! $path) {
             return ['ok' => false, 'accepted' => false, 'approved' => false, 'title' => 'Upload failed', 'message' => 'Unable to store the file. Please try again.'];
         }
 
         $absolute = Storage::disk($disk)->path($path);
-        $extracted = $this->extractor->extract($absolute, $extension);
+        $extracted = $this->extractor->extract(
+            $absolute,
+            $extension,
+            function (string $binary, string $ext, string $originalName) use ($user): ?string {
+                return $this->storeArticleImage($binary, $ext, $originalName, $user);
+            }
+        );
 
-        if (!$extracted['ok']) {
+        if (! $extracted['ok']) {
             Storage::disk($disk)->delete($path);
 
             return [
@@ -191,13 +196,13 @@ class ContentUploadService
             }
 
             $user = $submission->user;
-            if (!$user?->email) {
+            if (! $user?->email) {
                 return;
             }
 
             $mailable = new ContentEvaluationResult($submission, $result);
             $mailable->notificationType = 'content_evaluation_result';
-            $mailable->dedupeKey = 'content_eval:' . $submission->id . ':' . $submission->moderation_status;
+            $mailable->dedupeKey = 'content_eval:'.$submission->id.':'.$submission->moderation_status;
 
             Mail::to($user->email)->send($mailable);
 
@@ -208,6 +213,117 @@ class ContentUploadService
                 'error' => $e->getMessage(),
             ]);
         }
+    }
+
+    /**
+     * Store an inline article image for preview/editor and return a public URL.
+     */
+    public function storeArticleImage(string $binary, string $ext, string $originalName, User $user): ?string
+    {
+        $ext = strtolower(ltrim($ext, '.'));
+        if (! in_array($ext, ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'], true)) {
+            $ext = 'png';
+        }
+
+        $dir = 'content-articles/'.$user->id;
+        $filename = Str::uuid()->toString().'.'.$ext;
+        $path = $dir.'/'.$filename;
+
+        if (! Storage::disk('public')->put($path, $binary)) {
+            return null;
+        }
+
+        return Storage::disk('public')->url($path);
+    }
+
+    /**
+     * Save edited article HTML (docs editor), refresh text/links, and re-evaluate.
+     *
+     * @return array{ok:bool, approved:bool, submission?:ContentSubmission, message?:string, title?:string, report?:array, links?:array, has_link?:bool}
+     */
+    public function updateArticleContent(ContentSubmission $submission, string $html, ?string $title = null): array
+    {
+        if ($submission->order_id) {
+            return ['ok' => false, 'approved' => false, 'message' => 'This article is already linked to an order and cannot be edited.'];
+        }
+
+        $sanitizer = new ArticleHtmlSanitizer;
+        $clean = $sanitizer->sanitize($html);
+        if ($clean === '') {
+            return ['ok' => false, 'approved' => false, 'message' => 'Article content cannot be empty.'];
+        }
+
+        $text = $sanitizer->htmlToPlainText($clean);
+        if ($sanitizer->countWords($text) < 1 && ! str_contains($clean, '<img')) {
+            return ['ok' => false, 'approved' => false, 'message' => 'Article content cannot be empty.'];
+        }
+
+        $links = $sanitizer->extractLinksFromHtml($clean);
+        $firstLink = $links[0] ?? null;
+
+        $attrs = [
+            'preview_html' => $clean,
+            'extracted_text' => $text,
+            'word_count' => $sanitizer->countWords($text),
+            'moderation_status' => ContentSubmission::STATUS_PROCESSING,
+            'evaluation_status' => 'processing',
+        ];
+
+        if ($title !== null) {
+            $title = trim($title);
+            $attrs['title'] = $title !== '' ? $title : $submission->title;
+        }
+
+        if ($firstLink) {
+            $attrs['anchor_text'] = $firstLink['anchor'];
+            $attrs['target_url'] = $firstLink['url'];
+        }
+
+        $payload = $submission->draft_payload ?? [];
+        if (! is_array($payload)) {
+            $payload = [];
+        }
+        $history = is_array($payload['content_history'] ?? null) ? $payload['content_history'] : [];
+        $history[] = [
+            'at' => now()->toIso8601String(),
+            'action' => 'edited',
+            'word_count' => $attrs['word_count'],
+            'has_images' => str_contains($clean, '<img'),
+            'link_count' => count($links),
+        ];
+        $payload['content_history'] = array_slice($history, -20);
+        $attrs['draft_payload'] = $payload;
+
+        $submission->fill($attrs)->save();
+
+        $user = $submission->user;
+        $result = $this->evaluation->evaluate($submission->fresh(), $user);
+
+        $submission->update([
+            'moderation_status' => $result['moderation_status'],
+            'evaluation_status' => $result['evaluation_status'],
+            'uniqueness_score' => $result['uniqueness_score'],
+            'quality_score' => $result['quality_score'],
+            'evaluation_report' => $result['report'],
+            'evaluated_at' => now(),
+            'moderation_log_id' => $result['log']?->id,
+            'scan_token' => $result['log']?->scan_token,
+            'wizard_step' => $result['approved'] ? max(2, (int) $submission->wizard_step) : 1,
+        ]);
+
+        $fresh = $submission->fresh();
+        $this->notifyAdvertiserOfEvaluation($fresh, $result);
+
+        return [
+            'ok' => true,
+            'approved' => (bool) $result['approved'],
+            'submission' => $fresh,
+            'title' => $result['title'],
+            'message' => $result['message'],
+            'report' => $result['report'],
+            'links' => $links,
+            'has_link' => $firstLink !== null,
+        ];
     }
 
     public function validateMarket(?string $country, ?string $language, ?ContentSubmission $replace = null): ?string
@@ -222,11 +338,11 @@ class ContentUploadService
         $allowedCountries = array_map('strtolower', config('markets.allowed_country_codes', []));
         $allowedLanguages = array_map('strtolower', config('markets.allowed_language_codes', []));
 
-        if ($allowedCountries !== [] && !in_array($country, $allowedCountries, true)) {
+        if ($allowedCountries !== [] && ! in_array($country, $allowedCountries, true)) {
             return 'Selected country is not available in the marketplace.';
         }
 
-        if ($allowedLanguages !== [] && !in_array($language, $allowedLanguages, true)) {
+        if ($allowedLanguages !== [] && ! in_array($language, $allowedLanguages, true)) {
             return 'Selected language is not available in the marketplace.';
         }
 
@@ -240,16 +356,16 @@ class ContentUploadService
         $allowedExt = array_map('strtolower', $cfg['allowed_extensions'] ?? ['docx']);
         $allowedMimes = $cfg['allowed_mimes'] ?? [];
 
-        if (!$file->isValid()) {
+        if (! $file->isValid()) {
             return 'The upload failed. Please try again.';
         }
 
         if ($file->getSize() > $maxKb * 1024) {
-            return 'File is too large. Maximum size is ' . round($maxKb / 1024, 1) . ' MB.';
+            return 'File is too large. Maximum size is '.round($maxKb / 1024, 1).' MB.';
         }
 
         $extension = strtolower($file->getClientOriginalExtension() ?: '');
-        if (!in_array($extension, $allowedExt, true)) {
+        if (! in_array($extension, $allowedExt, true)) {
             return $cfg['help']['preferred_format']
                 ?? 'Please upload a Microsoft Word (.docx) document only.';
         }
@@ -263,7 +379,7 @@ class ContentUploadService
             || str_contains($mime, 'officedocument.word')
             || $mime === 'application/octet-stream';
 
-        if (!$mimeOk) {
+        if (! $mimeOk) {
             return 'File MIME type is not allowed. Please upload a .docx file.';
         }
 
@@ -273,7 +389,7 @@ class ContentUploadService
         }
 
         // docx is a ZIP package
-        if ($extension === 'docx' && !str_starts_with($head, 'PK')) {
+        if ($extension === 'docx' && ! str_starts_with($head, 'PK')) {
             return 'This does not look like a valid .docx file. Please re-save as Microsoft Word (.docx) and try again.';
         }
 

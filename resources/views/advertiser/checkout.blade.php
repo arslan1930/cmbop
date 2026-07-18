@@ -49,10 +49,20 @@
                                         $placementNumber++;
                                         $hasSensitive = !empty($item['sensitive_type']) && ($item['additional_price'] ?? 0) > 0;
                                     @endphp
+                                    @php
+                                        $summaryArticleId = (int) ($item['content_submission_id'] ?? ($librarySubmission->id ?? 0));
+                                        $summaryArticle = $summaryArticleId && isset($checkoutArticles)
+                                            ? ($checkoutArticles[$summaryArticleId] ?? null)
+                                            : null;
+                                        if (! $summaryArticle && $librarySubmission && (int) $librarySubmission->id === $summaryArticleId) {
+                                            $summaryArticle = $librarySubmission;
+                                        }
+                                    @endphp
                                     <div class="site-summary-card"
                                          data-site-id="{{ $item['id'] }}"
                                          data-copy-index="{{ $i }}"
-                                         data-placement-number="{{ $placementNumber }}">
+                                         data-placement-number="{{ $placementNumber }}"
+                                         data-content-submission-id="{{ $summaryArticleId ?: '' }}">
                                         <div class="site-summary-top">
                                             <div class="d-flex align-items-start gap-2 flex-grow-1 min-w-0">
                                                 <span class="placement-number" aria-hidden="true">{{ $placementNumber }}</span>
@@ -97,6 +107,50 @@
                                                 </div>
                                             @endif
                                         </div>
+
+                                        @if($summaryArticle)
+                                            <div class="order-summary-article mt-3">
+                                                <div class="d-flex flex-wrap justify-content-between gap-2 mb-2">
+                                                    <div>
+                                                        <div class="small text-uppercase text-muted fw-semibold">Article</div>
+                                                        <div class="fw-semibold">{{ $summaryArticle->title ?: $summaryArticle->original_filename }}</div>
+                                                        <div class="small text-muted">
+                                                            {{ strtoupper((string) $summaryArticle->country) }}/{{ strtoupper((string) $summaryArticle->language) }}
+                                                            @if($summaryArticle->word_count)
+                                                                · {{ $summaryArticle->word_count }} words
+                                                            @endif
+                                                            @if($summaryArticle->uniqueness_score !== null)
+                                                                · {{ $summaryArticle->uniqueness_score }}% unique
+                                                            @endif
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                @if($summaryArticle->preview_html)
+                                                    <div class="order-summary-article-preview">
+                                                        {!! $summaryArticle->preview_html !!}
+                                                    </div>
+                                                @endif
+                                                @php $history = $summaryArticle->articleHistory(); @endphp
+                                                @if(!empty($history))
+                                                    <div class="order-summary-article-history mt-2">
+                                                        <div class="small text-uppercase text-muted fw-semibold mb-1">Article history</div>
+                                                        <ul class="order-summary-history-list">
+                                                            @foreach(array_slice($history, -6) as $event)
+                                                                <li>
+                                                                    <span class="history-label">{{ $event['label'] }}</span>
+                                                                    @if(!empty($event['detail']))
+                                                                        <span class="history-detail">{{ \Illuminate\Support\Str::limit($event['detail'], 80) }}</span>
+                                                                    @endif
+                                                                    @if(!empty($event['at']))
+                                                                        <span class="history-at">{{ \Illuminate\Support\Carbon::parse($event['at'])->timezone(config('app.timezone'))->format('M j, Y H:i') }}</span>
+                                                                    @endif
+                                                                </li>
+                                                            @endforeach
+                                                        </ul>
+                                                    </div>
+                                                @endif
+                                            </div>
+                                        @endif
                                     </div>
                                     @endfor
                                 @endforeach
@@ -710,6 +764,83 @@
     padding: 8px 10px;
 }
 
+.order-summary-article {
+    border-top: 1px dashed #dbe4ee;
+    padding-top: 12px;
+}
+
+.order-summary-article-preview {
+    max-height: 110px;
+    overflow: hidden;
+    position: relative;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    background: #f8fafc;
+    padding: 10px 12px;
+    font-size: .8rem;
+    line-height: 1.45;
+    color: #475569;
+}
+
+.order-summary-article-preview::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 36px;
+    background: linear-gradient(transparent, #f8fafc);
+    pointer-events: none;
+}
+
+.order-summary-article-preview img {
+    max-width: 100%;
+    max-height: 64px;
+    width: auto;
+    height: auto;
+    border-radius: 6px;
+    display: block;
+    margin: .35rem 0;
+}
+
+.order-summary-article-preview p {
+    margin-bottom: .35rem;
+}
+
+.order-summary-history-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.order-summary-history-list li {
+    display: grid;
+    grid-template-columns: 88px 1fr auto;
+    gap: 8px;
+    align-items: baseline;
+    font-size: .75rem;
+    padding: 4px 0;
+    border-bottom: 1px solid #f1f5f9;
+}
+
+.order-summary-history-list .history-label {
+    font-weight: 600;
+    color: #0b6266;
+}
+
+.order-summary-history-list .history-detail {
+    color: #64748b;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.order-summary-history-list .history-at {
+    color: #94a3b8;
+    white-space: nowrap;
+}
+
 @media (max-width: 575.98px) {
     .site-summary-top {
         flex-direction: column;
@@ -718,6 +849,10 @@
         text-align: left !important;
         width: 100%;
         padding-left: 32px;
+    }
+    .order-summary-history-list li {
+        grid-template-columns: 1fr;
+        gap: 2px;
     }
 }
 

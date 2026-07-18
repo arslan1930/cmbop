@@ -261,6 +261,32 @@
         };
     }
 
+    function syncOrderSummaryArticle(card, selected) {
+        const siteId = card.dataset.siteId;
+        const copyIndex = card.dataset.copyIndex || '0';
+        const summary = document.querySelector(
+            '.site-summary-card[data-site-id="' + siteId + '"][data-copy-index="' + copyIndex + '"]'
+        );
+        if (!summary) return;
+        let box = summary.querySelector('.order-summary-article');
+        if (!selected || !selected.preview) {
+            if (box) box.remove();
+            return;
+        }
+        if (!box) {
+            box = document.createElement('div');
+            box.className = 'order-summary-article mt-3';
+            summary.appendChild(box);
+        }
+        const opt = card.querySelector('.article-select')?.selectedOptions?.[0];
+        const title = opt ? opt.textContent.trim() : 'Selected article';
+        box.innerHTML =
+            '<div class="small text-uppercase text-muted fw-semibold">Article</div>' +
+            '<div class="fw-semibold mb-2">' + title.replace(/</g, '&lt;') + '</div>' +
+            '<div class="order-summary-article-preview"></div>';
+        box.querySelector('.order-summary-article-preview').innerHTML = selected.preview;
+    }
+
     function refreshCard(card) {
         const selected = selectedSubmission(card);
         const status = card.querySelector('.assign-status');
@@ -270,6 +296,7 @@
             status.className = 'badge text-bg-secondary assign-status';
             status.textContent = 'Select approved article';
             previewBox.classList.add('d-none');
+            syncOrderSummaryArticle(card, null);
             return;
         }
         card.querySelector('.assign-anchor').value = selected.anchor || card.querySelector('.assign-anchor').value;
@@ -280,6 +307,7 @@
         }
         status.className = 'badge text-bg-success assign-status';
         status.textContent = 'Approved article selected';
+        syncOrderSummaryArticle(card, selected);
     }
 
     function allReady() {

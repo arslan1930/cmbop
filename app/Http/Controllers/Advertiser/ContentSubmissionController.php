@@ -95,6 +95,73 @@ class ContentSubmissionController extends Controller
         ], $result['ok'] ? 200 : 422);
     }
 
+    public function updateContent(Request $request, ContentSubmission $submission)
+    {
+        $this->authorizeSubmission($submission);
+
+        if ($submission->order_id) {
+            return response()->json(['success' => false, 'message' => 'This article is already linked to an order.'], 422);
+        }
+
+        if ($submission->isArchived()) {
+            return response()->json(['success' => false, 'message' => 'Restore this article before editing.'], 422);
+        }
+
+        $data = $request->validate([
+            'preview_html' => ['required', 'string', 'max:500000'],
+            'title' => ['nullable', 'string', 'max:200'],
+        ]);
+
+        $result = $this->uploads->updateArticleContent(
+            $submission,
+            $data['preview_html'],
+            $data['title'] ?? null,
+        );
+
+        if (! $result['ok']) {
+            return response()->json([
+                'success' => false,
+                'message' => $result['message'] ?? 'Could not save article.',
+            ], 422);
+        }
+
+        return response()->json([
+            'success' => true,
+            'approved' => (bool) ($result['approved'] ?? false),
+            'title' => $result['title'] ?? null,
+            'message' => $result['message'] ?? 'Article saved.',
+            'report' => $result['report'] ?? null,
+            'has_link' => (bool) ($result['has_link'] ?? false),
+            'links' => $result['links'] ?? [],
+            'submission' => $this->serializeSubmission($result['submission']),
+        ]);
+    }
+
+    public function uploadEditorImage(Request $request)
+    {
+        $request->validate([
+            'image' => ['required', 'image', 'mimes:jpeg,png,jpg,gif,webp', 'max:5120'],
+        ]);
+
+        $file = $request->file('image');
+        $binary = file_get_contents($file->getRealPath());
+        if ($binary === false) {
+            return response()->json(['success' => false, 'message' => 'Unable to read image.'], 422);
+        }
+
+        $ext = strtolower($file->getClientOriginalExtension() ?: 'png');
+        $url = $this->uploads->storeArticleImage($binary, $ext, $file->getClientOriginalName(), auth()->user());
+
+        if (! $url) {
+            return response()->json(['success' => false, 'message' => 'Unable to store image.'], 500);
+        }
+
+        return response()->json([
+            'success' => true,
+            'url' => $url,
+        ]);
+    }
+
     public function updateDraft(Request $request, ContentSubmission $submission)
     {
         $this->authorizeSubmission($submission);
@@ -409,7 +476,12 @@ class ContentSubmissionController extends Controller
             'archived' => $s->isArchived(),
             'availability' => $s->libraryAvailability(),
             'live_url' => $s->liveUrl(),
+            'can_order' => $s->canBeOrdered(),
+            'history' => $s->articleHistory(),
             'download_url' => route('advertiser.content-submissions.download', $s),
+            'created_at' => optional($s->created_at)?->toIso8601String(),
+            'evaluated_at' => optional($s->evaluated_at)?->toIso8601String(),
+            'updated_at' => optional($s->updated_at)?->toIso8601String(),
         ];
     }
 }

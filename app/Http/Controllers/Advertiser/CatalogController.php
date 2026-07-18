@@ -953,6 +953,22 @@ public function checkout(Request $request)
     $marketplaceCountries = \App\Models\Country::marketplace()->orderBy('name')->get(['code', 'name']);
     $marketplaceLanguages = \App\Models\Language::marketplace()->orderBy('name')->get(['code', 'name']);
 
+    $articleIds = collect($cartItems)
+        ->pluck('content_submission_id')
+        ->filter()
+        ->map(fn ($id) => (int) $id)
+        ->unique()
+        ->values();
+    if ($librarySubmission) {
+        $articleIds = $articleIds->push((int) $librarySubmission->id)->unique()->values();
+    }
+    $checkoutArticles = ContentSubmission::query()
+        ->with(['orderItems.site', 'orderItems.order'])
+        ->where('user_id', auth()->id())
+        ->whereIn('id', $articleIds->all() ?: [0])
+        ->get()
+        ->keyBy('id');
+
     return view('advertiser.checkout', compact(
         'cartItems',
         'total',
@@ -967,6 +983,7 @@ public function checkout(Request $request)
         'checkoutBonusBalance',
         'checkoutCashBalance',
         'checkoutSpendableBalance',
+        'checkoutArticles',
     ));
 }
     

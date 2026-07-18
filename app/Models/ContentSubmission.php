@@ -203,6 +203,79 @@ class ContentSubmission extends Model
         return trim((string) $item->live_url) ?: null;
     }
 
+    /**
+     * Timeline events for order summary / library UX.
+     *
+     * @return array<int, array{at:?string, label:string, detail:?string}>
+     */
+    public function articleHistory(): array
+    {
+        $events = [];
+
+        $events[] = [
+            'at' => optional($this->created_at)?->toIso8601String(),
+            'label' => 'Uploaded',
+            'detail' => $this->original_filename ?: ($this->title ?: 'Article'),
+        ];
+
+        $payload = is_array($this->draft_payload) ? $this->draft_payload : [];
+        $edits = is_array($payload['content_history'] ?? null) ? $payload['content_history'] : [];
+        foreach ($edits as $edit) {
+            if (! is_array($edit)) {
+                continue;
+            }
+            $events[] = [
+                'at' => $edit['at'] ?? null,
+                'label' => 'Edited',
+                'detail' => trim(implode(' · ', array_filter([
+                    isset($edit['word_count']) ? ((int) $edit['word_count']).' words' : null,
+                    ! empty($edit['has_images']) ? 'with images' : null,
+                    isset($edit['link_count']) ? ((int) $edit['link_count']).' link(s)' : null,
+                ]))) ?: null,
+            ];
+        }
+
+        if ($this->evaluated_at) {
+            $scoreBits = array_filter([
+                $this->uniqueness_score !== null ? 'Uniqueness '.$this->uniqueness_score.'%' : null,
+                $this->quality_score !== null ? 'Quality '.$this->quality_score.'%' : null,
+                $this->moderation_status ? str_replace('_', ' ', (string) $this->moderation_status) : null,
+            ]);
+            $events[] = [
+                'at' => $this->evaluated_at->toIso8601String(),
+                'label' => 'Evaluated',
+                'detail' => $scoreBits !== [] ? implode(' · ', $scoreBits) : null,
+            ];
+        }
+
+        $items = $this->relationLoaded('orderItems')
+            ? $this->orderItems
+            : $this->orderItems()->with(['site', 'order'])->orderBy('id')->get();
+
+        foreach ($items as $item) {
+            $siteName = $item->site?->name ?: ($item->site?->url ?: 'Website');
+            $status = $item->publisher_status ?? $item->status ?? null;
+            $events[] = [
+                'at' => optional($item->created_at)?->toIso8601String(),
+                'label' => 'Ordered',
+                'detail' => trim($siteName.($status ? ' · '.str_replace('_', ' ', (string) $status) : '')),
+            ];
+            if ($item->hasLiveUrl()) {
+                $events[] = [
+                    'at' => optional($item->updated_at)?->toIso8601String(),
+                    'label' => 'Published',
+                    'detail' => $item->live_url,
+                ];
+            }
+        }
+
+        usort($events, function (array $a, array $b): int {
+            return strcmp((string) ($a['at'] ?? ''), (string) ($b['at'] ?? ''));
+        });
+
+        return $events;
+    }
+
     public function isPublished(): bool
     {
         $item = $this->placementItem();

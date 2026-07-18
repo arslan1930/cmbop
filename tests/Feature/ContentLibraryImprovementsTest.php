@@ -8,6 +8,8 @@ use App\Models\Role;
 use App\Models\Site;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Tests\Support\CreatesContentSubmissions;
 use Tests\TestCase;
 
@@ -264,6 +266,67 @@ class ContentLibraryImprovementsTest extends TestCase
         $archived = $this->createApprovedSubmission($advertiser);
         $archived->archive();
         $this->assertSame('archived', $archived->fresh()->libraryAvailability());
+    }
+
+    public function test_upload_button_sits_under_content_library_heading(): void
+    {
+        $advertiser = $this->advertiser();
+
+        $html = $this->actingAs($advertiser)
+            ->get(route('advertiser.content-library'))
+            ->assertOk()
+            ->getContent();
+
+        $headingPos = strpos($html, 'Content Library');
+        $uploadPos = strpos($html, 'id="openUploadModalBtn"');
+        $this->assertNotFalse($headingPos);
+        $this->assertNotFalse($uploadPos);
+        $this->assertGreaterThan($headingPos, $uploadPos);
+        $this->assertStringContainsString('articleQuillEditor', $html);
+        $this->assertStringContainsString('Edit article', $html);
+    }
+
+    public function test_advertiser_can_edit_article_html_with_links_and_images(): void
+    {
+        config(['content_moderation.enabled' => false]);
+        $advertiser = $this->advertiser();
+        $submission = $this->createApprovedSubmission($advertiser);
+
+        $html = '<p>Updated article body with a <a href="https://example.com/new-guide">helpful guide</a> for marketers.</p>'
+            .'<p><img src="/storage/content-articles/demo.png" alt="Chart"></p>'
+            .'<p>More compliant content about software tools and productivity for digital teams worldwide.</p>';
+
+        $this->actingAs($advertiser)
+            ->putJson(route('advertiser.content-submissions.content', $submission), [
+                'preview_html' => $html,
+                'title' => 'Edited Doc Title',
+            ])
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('submission.title', 'Edited Doc Title');
+
+        $fresh = $submission->fresh();
+        $this->assertSame('Edited Doc Title', $fresh->title);
+        $this->assertStringContainsString('helpful guide', (string) $fresh->preview_html);
+        $this->assertStringContainsString('<img', (string) $fresh->preview_html);
+        $this->assertStringContainsString('https://example.com/new-guide', (string) $fresh->target_url);
+        $this->assertNotEmpty($fresh->draft_payload['content_history'] ?? null);
+        $this->assertNotEmpty($fresh->articleHistory());
+    }
+
+    public function test_advertiser_can_upload_editor_image(): void
+    {
+        Storage::fake('public');
+        $advertiser = $this->advertiser();
+        $file = UploadedFile::fake()->image('figure.png', 40, 40);
+
+        $this->actingAs($advertiser)
+            ->postJson(route('advertiser.content-submissions.editor-image'), [
+                'image' => $file,
+            ])
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonStructure(['url']);
     }
 
     private function makeOrder(User $advertiser): Order

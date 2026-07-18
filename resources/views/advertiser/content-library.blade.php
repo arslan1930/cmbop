@@ -68,7 +68,6 @@
         white-space: nowrap;
     }
     .library-scores { font-variant-numeric: tabular-nums; white-space: nowrap; color: #475569; }
-        #uploadResultPreview { display: none; }
     .library-preview {
         border: 1px solid var(--brand-primary-border, #b8e8e6);
         background: #fff;
@@ -80,19 +79,56 @@
         line-height: 1.55;
         color: #334155;
     }
+    .library-preview img,
+    .article-editor-preview img,
+    #articlePreviewBody img,
+    .ql-editor img {
+        max-width: 100%;
+        height: auto;
+        border-radius: 8px;
+        margin: .5rem 0;
+        display: block;
+    }
     .library-actions .btn { white-space: nowrap; }
     .library-filter-bar .form-select { min-width: 140px; }
+    .library-page-actions { margin-top: .75rem; }
+    .article-docs-shell {
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+        overflow: hidden;
+        background: #f8fafc;
+    }
+    .article-docs-shell .ql-toolbar.ql-snow {
+        border: none;
+        border-bottom: 1px solid #e2e8f0;
+        background: #fff;
+    }
+    .article-docs-shell .ql-container.ql-snow {
+        border: none;
+        background: #fff;
+        min-height: 320px;
+        font-size: 1rem;
+    }
+    .article-docs-shell .ql-editor {
+        min-height: 320px;
+        line-height: 1.65;
+        padding: 1.25rem 1.5rem;
+    }
+    .article-editor-meta {
+        font-size: .8rem;
+        color: #64748b;
+    }
 </style>
 
 <div class="container-fluid">
-    <div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-3">
-        <div>
-            <h2 class="mb-1 fw-semibold">Content Library</h2>
-            <p class="text-muted mb-0 small">Upload a .docx. When approved, Order opens the catalog for that country/language — one website only.</p>
+    <div class="mb-3">
+        <h2 class="mb-1 fw-semibold">Content Library</h2>
+        <p class="text-muted mb-0 small">Upload a .docx. Preview and edit your article (images &amp; links), then Order opens the catalog for that country/language — one website only.</p>
+        <div class="library-page-actions">
+            <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#uploadContentModal" id="openUploadModalBtn">
+                <i class="fa fa-upload me-1"></i> Upload article
+            </button>
         </div>
-        <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#uploadContentModal" id="openUploadModalBtn">
-            <i class="fa fa-upload me-1"></i> Upload article
-        </button>
     </div>
 
     @if(session('success'))
@@ -257,6 +293,29 @@
                                                 </button>
                                             </li>
                                         @endif
+                                        @if(!$submission->isInUse() && !$submission->isArchived())
+                                            @php
+                                                $editorPayload = base64_encode(json_encode([
+                                                    'id' => $submission->id,
+                                                    'title' => $submission->title,
+                                                    'country' => $submission->country,
+                                                    'language' => $submission->language,
+                                                    'preview_html' => $submission->preview_html,
+                                                    'word_count' => $submission->word_count,
+                                                    'moderation_status' => $submission->moderation_status,
+                                                    'can_order' => $submission->canBeOrdered(),
+                                                    'anchor_text' => $submission->anchor_text,
+                                                    'target_url' => $submission->target_url,
+                                                ], JSON_UNESCAPED_UNICODE));
+                                            @endphp
+                                            <li>
+                                                <button type="button" class="dropdown-item"
+                                                        data-editor-payload="{{ $editorPayload }}"
+                                                        onclick="openArticleEditor(JSON.parse(atob(this.dataset.editorPayload)))">
+                                                    Edit article
+                                                </button>
+                                            </li>
+                                        @endif
                                         <li>
                                             <a class="dropdown-item" href="{{ route('advertiser.content-submissions.download', $submission) }}">Download</a>
                                         </li>
@@ -320,7 +379,7 @@
             <div class="modal-body">
                 <div class="alert alert-warning small mb-3">
                     {{ $uploadCfg['help']['preferred_format'] ?? 'Please upload your article as a Microsoft Word (.docx) document only.' }}
-                    Each approved article can be ordered on one website.
+                    After upload you can preview and edit the article (add/remove images and links) before ordering.
                 </div>
                 <div class="mb-3">
                     <label class="form-label">Title <span class="text-muted">(optional)</span></label>
@@ -360,16 +419,46 @@
                 <input type="hidden" name="replace_id" id="replaceIdInput" value="{{ $editSubmission->id ?? '' }}">
                 <div id="libraryUploadFeedback" class="small" aria-live="polite"></div>
                 <div class="progress d-none mt-2" id="libraryUploadProgress" style="height:6px;"><div class="progress-bar" style="width:0%"></div></div>
-                <div id="uploadResultPreview" class="mt-3">
-                    <div class="library-preview" id="uploadResultPreviewBody"></div>
-                    <div class="small text-muted mt-2" id="uploadResultLinkInfo"></div>
-                </div>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
-                <button type="submit" class="btn btn-primary" id="libraryUploadBtn">Upload article</button>
+                <button type="submit" class="btn btn-primary" id="libraryUploadBtn">Upload &amp; preview</button>
             </div>
         </form>
+    </div>
+</div>
+
+{{-- Docs-style editor modal --}}
+<div class="modal fade" id="articleEditorModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div>
+                    <h5 class="modal-title mb-0">Edit article</h5>
+                    <div class="article-editor-meta" id="articleEditorMeta"></div>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label">Title</label>
+                    <input type="text" class="form-control" id="articleEditorTitle" maxlength="200" placeholder="Article title">
+                </div>
+                <div class="alert alert-light border small mb-3">
+                    Edit like a document: format text, insert or remove images, and add or remove links. Saving re-checks the article for approval.
+                </div>
+                <div class="article-docs-shell mb-3">
+                    <div id="articleQuillEditor"></div>
+                </div>
+                <div id="articleEditorFeedback" class="small" aria-live="polite"></div>
+            </div>
+            <div class="modal-footer flex-wrap gap-2">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-outline-primary" id="articleEditorPreviewBtn">Preview</button>
+                <button type="button" class="btn btn-primary" id="articleEditorSaveBtn">Save &amp; re-check</button>
+                <a href="#" class="btn btn-success d-none" id="articleEditorOrderBtn">Order</a>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -388,9 +477,16 @@
     </div>
 </div>
 
+<link href="https://cdn.jsdelivr.net/npm/quill@2.0.2/dist/quill.snow.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/quill@2.0.2/dist/quill.js"></script>
 <script>
 const libraryUpdateUrl = @json(url('/advertiser/content-submissions'));
+const libraryContentUrl = @json(url('/advertiser/content-submissions'));
+const libraryImageUploadUrl = @json(route('advertiser.content-submissions.editor-image'));
+const libraryOrderUrlBase = @json(url('/advertiser/content-library'));
 const libraryCsrf = @json(csrf_token());
+let articleQuill = null;
+let articleEditorSubmissionId = null;
 
 function showLibraryFlash(message, ok) {
     const el = document.getElementById('libraryFlash');
@@ -406,6 +502,133 @@ function openPreviewModal(title, html) {
     document.getElementById('articlePreviewBody').innerHTML = html || '';
     new bootstrap.Modal(document.getElementById('articlePreviewModal')).show();
 }
+
+function ensureArticleQuill() {
+    if (articleQuill || typeof Quill === 'undefined') {
+        return articleQuill;
+    }
+
+    const toolbarOptions = [
+        [{ header: [1, 2, 3, false] }],
+        ['bold', 'italic', 'underline'],
+        [{ list: 'ordered' }, { list: 'bullet' }],
+        ['link', 'image'],
+        ['clean'],
+    ];
+
+    articleQuill = new Quill('#articleQuillEditor', {
+        theme: 'snow',
+        placeholder: 'Edit your article…',
+        modules: { toolbar: toolbarOptions },
+    });
+
+    const toolbar = articleQuill.getModule('toolbar');
+    toolbar.addHandler('image', function () {
+        const input = document.createElement('input');
+        input.setAttribute('type', 'file');
+        input.setAttribute('accept', 'image/png,image/jpeg,image/gif,image/webp');
+        input.click();
+        input.onchange = async function () {
+            const file = input.files && input.files[0];
+            if (!file) return;
+            const feedback = document.getElementById('articleEditorFeedback');
+            feedback.textContent = 'Uploading image…';
+            const fd = new FormData();
+            fd.append('image', file);
+            try {
+                const res = await fetch(libraryImageUploadUrl, {
+                    method: 'POST',
+                    headers: { 'X-CSRF-TOKEN': libraryCsrf, 'Accept': 'application/json' },
+                    body: fd,
+                });
+                const data = await res.json();
+                if (!res.ok || !data.success || !data.url) {
+                    feedback.innerHTML = '<span class="text-danger">' + (data.message || data.error || 'Image upload failed') + '</span>';
+                    return;
+                }
+                const range = articleQuill.getSelection(true) || { index: articleQuill.getLength() };
+                articleQuill.insertEmbed(range.index, 'image', data.url, 'user');
+                articleQuill.setSelection(range.index + 1);
+                feedback.innerHTML = '<span class="text-success">Image added. You can remove it with Backspace/Delete.</span>';
+            } catch (e) {
+                feedback.innerHTML = '<span class="text-danger">Network error while uploading image.</span>';
+            }
+        };
+    });
+
+    return articleQuill;
+}
+
+function openArticleEditor(submission) {
+    if (!submission || !submission.id) return;
+    articleEditorSubmissionId = submission.id;
+    ensureArticleQuill();
+    document.getElementById('articleEditorTitle').value = submission.title || '';
+    const market = ((submission.country || '') + '/' + (submission.language || '')).toUpperCase();
+    const status = submission.moderation_status || '';
+    document.getElementById('articleEditorMeta').textContent =
+        market + (status ? ' · ' + status.replace(/_/g, ' ') : '') +
+        (submission.word_count ? ' · ' + submission.word_count + ' words' : '');
+    document.getElementById('articleEditorFeedback').textContent = '';
+    if (articleQuill) {
+        articleQuill.root.innerHTML = submission.preview_html || '<p><br></p>';
+    }
+    const orderBtn = document.getElementById('articleEditorOrderBtn');
+    if (submission.can_order) {
+        orderBtn.href = libraryOrderUrlBase + '/' + submission.id + '/order';
+        orderBtn.classList.remove('d-none');
+    } else {
+        orderBtn.classList.add('d-none');
+    }
+    const uploadModalEl = document.getElementById('uploadContentModal');
+    const uploadModal = bootstrap.Modal.getInstance(uploadModalEl);
+    if (uploadModal) uploadModal.hide();
+    new bootstrap.Modal(document.getElementById('articleEditorModal')).show();
+}
+
+async function saveArticleEditor() {
+    if (!articleEditorSubmissionId || !articleQuill) return;
+    const feedback = document.getElementById('articleEditorFeedback');
+    const btn = document.getElementById('articleEditorSaveBtn');
+    const html = articleQuill.root.innerHTML;
+    const title = (document.getElementById('articleEditorTitle').value || '').trim();
+    btn.disabled = true;
+    feedback.textContent = 'Saving and re-checking…';
+    try {
+        const res = await fetch(libraryContentUrl + '/' + articleEditorSubmissionId + '/content', {
+            method: 'PUT',
+            headers: {
+                'X-CSRF-TOKEN': libraryCsrf,
+                'Accept': 'application/json',
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ preview_html: html, title: title }),
+        });
+        const data = await res.json();
+        if (!res.ok || !data.success) {
+            feedback.innerHTML = '<span class="text-danger">' + (data.message || 'Could not save article.') + '</span>';
+            btn.disabled = false;
+            return;
+        }
+        feedback.innerHTML = '<span class="text-success">' + (data.message || 'Article saved.') + '</span>';
+        if (data.submission) {
+            openArticleEditor(data.submission);
+        }
+        setTimeout(function () { window.location.reload(); }, 900);
+    } catch (e) {
+        feedback.innerHTML = '<span class="text-danger">Network error while saving.</span>';
+        btn.disabled = false;
+    }
+}
+
+document.getElementById('articleEditorSaveBtn')?.addEventListener('click', saveArticleEditor);
+document.getElementById('articleEditorPreviewBtn')?.addEventListener('click', function () {
+    if (!articleQuill) return;
+    openPreviewModal(
+        document.getElementById('articleEditorTitle').value || 'Article preview',
+        articleQuill.root.innerHTML
+    );
+});
 
 function toggleLibraryTitleEdit(id, open) {
     const edit = document.querySelector('[data-title-edit="' + id + '"]');
@@ -515,9 +738,6 @@ document.getElementById('libraryUploadForm')?.addEventListener('submit', async f
     const btn = document.getElementById('libraryUploadBtn');
     const progress = document.getElementById('libraryUploadProgress');
     const bar = progress.querySelector('.progress-bar');
-    const previewWrap = document.getElementById('uploadResultPreview');
-    const previewBody = document.getElementById('uploadResultPreviewBody');
-    const linkInfo = document.getElementById('uploadResultLinkInfo');
 
     if (!file) return;
     if (!/\.docx$/i.test(file.name)) {
@@ -534,7 +754,6 @@ document.getElementById('libraryUploadForm')?.addEventListener('submit', async f
     progress.classList.remove('d-none');
     bar.style.width = '40%';
     feedback.textContent = 'Uploading your article…';
-    previewWrap.style.display = 'none';
 
     try {
         const res = await fetch(@json(route('advertiser.content-library.upload')), {
@@ -549,15 +768,17 @@ document.getElementById('libraryUploadForm')?.addEventListener('submit', async f
             btn.disabled = false;
             return;
         }
-        feedback.innerHTML = '<span class="text-success">' + (data.message || 'Uploaded') + '</span>';
-        if (data.submission && data.submission.preview_html) {
-            previewBody.innerHTML = data.submission.preview_html;
-            linkInfo.textContent = data.has_link && data.submission.anchor_text
-                ? ('Detected link: ' + data.submission.anchor_text)
-                : 'No link detected. You can add one when ordering.';
-            previewWrap.style.display = 'block';
+        feedback.innerHTML = '<span class="text-success">' + (data.message || 'Uploaded') + ' Opening editor…</span>';
+        if (data.submission) {
+            openArticleEditor(Object.assign({}, data.submission, {
+                can_order: !!(data.submission.can_order || data.approved),
+            }));
+        } else {
+            setTimeout(function () { window.location.href = @json(route('advertiser.content-library')); }, 800);
         }
-        setTimeout(function () { window.location.href = @json(route('advertiser.content-library')); }, 1200);
+        btn.disabled = false;
+        progress.classList.add('d-none');
+        bar.style.width = '0%';
     } catch (err) {
         feedback.innerHTML = '<span class="text-danger">Network error while uploading.</span>';
         btn.disabled = false;

@@ -611,6 +611,11 @@ Route::middleware(['auth','verified', RoleMiddleware::class . ':advertiser'])
             ->name('content-submissions.upload');
         Route::patch('/content-submissions/{submission}', [ContentSubmissionController::class, 'updateDraft'])
             ->name('content-submissions.update');
+        Route::put('/content-submissions/{submission}/content', [ContentSubmissionController::class, 'updateContent'])
+            ->name('content-submissions.content');
+        Route::post('/content-submissions/editor-image', [ContentSubmissionController::class, 'uploadEditorImage'])
+            ->middleware('throttle:30,1')
+            ->name('content-submissions.editor-image');
         Route::get('/content-submissions/{submission}/preview', [ContentSubmissionController::class, 'preview'])
             ->name('content-submissions.preview');
         Route::get('/content-submissions/{submission}/download', [ContentSubmissionController::class, 'download'])
