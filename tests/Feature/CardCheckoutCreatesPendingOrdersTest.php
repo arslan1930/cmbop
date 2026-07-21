@@ -7,6 +7,7 @@ use App\Models\Role;
 use App\Models\Site;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Cache;
 use Mockery;
 use Stripe\ApiRequestor;
 use Stripe\HttpClient\ClientInterface;
@@ -139,14 +140,9 @@ class CardCheckoutCreatesPendingOrdersTest extends TestCase
             ])
             ->assertJsonStructure(['checkout_url']);
 
-        $order = Order::where('reference_code', 'CARD42')->first();
-        $this->assertNotNull($order);
-        $this->assertSame('card', $order->payment_method);
-        $this->assertSame('pending', $order->payment_status);
-        $this->assertSame('pending', $order->status);
-        $this->assertSame('cs_test_card_fix_2', $order->stripe_session_id);
-        $this->assertSame($submission->id, $order->items()->first()->content_submission_id);
-        // Cart is kept until Stripe payment succeeds so cancel can return to checkout.
+        // Add Funds style: no order rows until Stripe payment succeeds.
+        $this->assertSame(0, Order::where('reference_code', 'CARD42')->count());
+        $this->assertNotNull(Cache::get('pending_card_checkout:CARD42'));
         $this->assertFalse(session()->missing('cart'));
         $this->assertSame('CARD42', session('pending_card_reference'));
     }
@@ -197,6 +193,7 @@ class CardCheckoutCreatesPendingOrdersTest extends TestCase
 
         $response->assertOk()->assertJson(['success' => false]);
         $this->assertSame(0, Order::where('reference_code', 'FAIL99')->count());
+        $this->assertNull(Cache::get('pending_card_checkout:FAIL99'));
     }
 
     public function test_card_checkout_falls_back_to_guest_session_when_customer_session_fails(): void
@@ -263,7 +260,8 @@ class CardCheckoutCreatesPendingOrdersTest extends TestCase
                 'session_id' => 'cs_test_guest_fallback',
             ]);
 
-        $this->assertSame(1, Order::where('reference_code', 'FALLBK')->where('payment_status', 'pending')->count());
+        $this->assertSame(0, Order::where('reference_code', 'FALLBK')->count());
+        $this->assertNotNull(Cache::get('pending_card_checkout:FALLBK'));
     }
 
     public function test_card_checkout_rejects_when_stripe_not_configured(): void

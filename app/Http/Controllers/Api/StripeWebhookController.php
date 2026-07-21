@@ -1,4 +1,5 @@
 <?php
+
 // app/Http/Controllers/Api/StripeWebhookController.php
 
 namespace App\Http\Controllers\Api;
@@ -6,29 +7,31 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\DepositRequest;
 use App\Models\Order;
-use App\Models\Wallet;
 use App\Models\StripeWebhookLog;
+use App\Models\Wallet;
 use App\Services\OrderPaymentService;
 use App\Services\StripePaymentService;
+use App\Services\Wallet\WalletLedgerService;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
-use Stripe\Webhook;
+use Illuminate\Support\Facades\Log;
 use Stripe\Exception\SignatureVerificationException;
+use Stripe\Webhook;
 
 class StripeWebhookController extends Controller
 {
     public function handleWebhook(Request $request)
     {
         Log::info('Stripe webhook received');
-        
+
         $payload = $request->getContent();
         $sigHeader = $request->header('Stripe-Signature');
         $endpointSecret = config('services.stripe.webhook_secret');
 
         try {
-            if (!$endpointSecret) {
+            if (! $endpointSecret) {
                 Log::error('Stripe webhook secret not configured');
+
                 return response()->json(['error' => 'Webhook not configured'], 500);
             }
 
@@ -38,12 +41,13 @@ class StripeWebhookController extends Controller
 
             Log::info('Processing webhook event', [
                 'event_id' => $eventId,
-                'event_type' => $eventType
+                'event_type' => $eventType,
             ]);
 
             // Prevent duplicate processing
             if (StripeWebhookLog::where('event_id', $eventId)->exists()) {
                 Log::info('Webhook already processed', ['event_id' => $eventId]);
+
                 return response()->json(['status' => 'duplicate'], 200);
             }
 
@@ -52,7 +56,7 @@ class StripeWebhookController extends Controller
                 'event_id' => $eventId,
                 'event_type' => $eventType,
                 'payload' => json_encode($event),
-                'processed' => false
+                'processed' => false,
             ]);
 
             // Handle checkout.session.completed event
@@ -74,10 +78,12 @@ class StripeWebhookController extends Controller
             return response()->json(['status' => 'success'], 200);
 
         } catch (SignatureVerificationException $e) {
-            Log::error('Stripe webhook signature verification failed: ' . $e->getMessage());
+            Log::error('Stripe webhook signature verification failed: '.$e->getMessage());
+
             return response()->json(['error' => 'Invalid signature'], 400);
         } catch (\Exception $e) {
-            Log::error('Stripe webhook error: ' . $e->getMessage());
+            Log::error('Stripe webhook error: '.$e->getMessage());
+
             return response()->json(['error' => $e->getMessage()], 500);
         }
     }
@@ -88,41 +94,41 @@ class StripeWebhookController extends Controller
     private function routePaymentToCorrectTable($session)
     {
         $metadata = $session->metadata ?? [];
-        
+
         // METHOD 1: Check explicit 'type' field in metadata
         $paymentType = $metadata->type ?? $metadata['type'] ?? null;
-        
+
         Log::info('Routing payment', [
             'payment_type' => $paymentType,
-            'metadata' => json_decode(json_encode($metadata), true)
+            'metadata' => json_decode(json_encode($metadata), true),
         ]);
-        
+
         // Route based on payment type
         switch ($paymentType) {
             case 'wallet_deposit':
             case 'deposit':
                 $this->handleWalletDeposit($session);
                 break;
-                
+
             case 'order_payment':
             case 'order':
                 $this->handleOrderPayment($session);
                 break;
-                
+
             default:
                 // METHOD 2: Check for specific identifiers if type is not set
                 $this->detectPaymentTypeByMetadata($session);
                 break;
         }
     }
-    
+
     /**
      * Detect payment type by checking metadata fields
      */
     private function detectPaymentTypeByMetadata($session)
     {
         $metadata = $session->metadata ?? [];
-        
+
         // Check for deposit-specific fields
         if (isset($metadata->deposit_id) || isset($metadata['deposit_id'])) {
             Log::info('Detected deposit payment by deposit_id field');
@@ -132,10 +138,9 @@ class StripeWebhookController extends Controller
         elseif (isset($metadata->reference_code) || isset($metadata['reference_code'])) {
             Log::info('Detected order payment by reference_code field');
             $this->handleOrderPayment($session);
-        }
-        else {
+        } else {
             Log::warning('Unable to determine payment type', [
-                'metadata' => json_decode(json_encode($metadata), true)
+                'metadata' => json_decode(json_encode($metadata), true),
             ]);
         }
     }
@@ -147,35 +152,37 @@ class StripeWebhookController extends Controller
     {
         try {
             $metadata = $session->metadata ?? [];
-            
+
             // Try to get deposit_id from metadata (could be object or array)
             $depositId = is_object($metadata) ? ($metadata->deposit_id ?? null) : ($metadata['deposit_id'] ?? null);
             $amount = is_object($metadata) ? ($metadata->amount ?? null) : ($metadata['amount'] ?? null);
             $referenceCode = is_object($metadata) ? ($metadata->reference_code ?? null) : ($metadata['reference_code'] ?? null);
-            
+
             Log::info('Processing wallet deposit', [
                 'deposit_id' => $depositId,
                 'session_id' => $session->id,
-                'amount' => $amount
+                'amount' => $amount,
             ]);
 
             // If deposit_id is provided in metadata, use it
             if ($depositId) {
                 $deposit = DepositRequest::find($depositId);
-                
-                if (!$deposit) {
+
+                if (! $deposit) {
                     Log::warning('Deposit not found', ['deposit_id' => $depositId]);
+
                     return;
                 }
-                
+
                 if ($deposit->status === 'completed') {
                     Log::info('Deposit already completed, skipping');
+
                     return;
                 }
-                
+
                 DB::transaction(function () use ($deposit, $session) {
                     $lockedDeposit = DepositRequest::where('id', $deposit->id)->lockForUpdate()->first();
-                    if (!$lockedDeposit || $lockedDeposit->status === 'completed') {
+                    if (! $lockedDeposit || $lockedDeposit->status === 'completed') {
                         return;
                     }
 
@@ -189,13 +196,13 @@ class StripeWebhookController extends Controller
                     ]);
 
                     $advertiserRoleId = Wallet::advertiserRoleId();
-                    if (!$advertiserRoleId) {
+                    if (! $advertiserRoleId) {
                         throw new \RuntimeException('Advertiser role not configured');
                     }
 
                     $wallet = Wallet::lockOrCreateForRole($lockedDeposit->user_id, $advertiserRoleId);
                     $wallet->credit((float) $lockedDeposit->amount);
-                    app(\App\Services\Wallet\WalletLedgerService::class)->recordDeposit(
+                    app(WalletLedgerService::class)->recordDeposit(
                         $wallet,
                         (float) $lockedDeposit->amount,
                         $lockedDeposit,
@@ -203,16 +210,17 @@ class StripeWebhookController extends Controller
                         $lockedDeposit->reference_code
                     );
                 });
-                
+
                 Log::info('Deposit completed', ['deposit_id' => $deposit->id]);
+
                 return;
             }
-            
+
             // If no deposit_id, create one (fallback for direct payments)
             $userId = is_object($metadata) ? ($metadata->user_id ?? null) : ($metadata['user_id'] ?? null);
-            $stripeAmount = \App\Services\StripePaymentService::fromCents($session->amount_total);
+            $stripeAmount = StripePaymentService::fromCents($session->amount_total);
             $finalAmount = isset($amount) ? round((float) $amount, 2) : $stripeAmount;
-            
+
             if ($userId) {
                 DB::transaction(function () use ($userId, $session, $finalAmount, $referenceCode) {
                     // Idempotency: skip if this Stripe session was already credited
@@ -224,6 +232,7 @@ class StripeWebhookController extends Controller
                             'deposit_id' => $existing->id,
                             'session_id' => $session->id,
                         ]);
+
                         return;
                     }
 
@@ -241,26 +250,26 @@ class StripeWebhookController extends Controller
                     ]);
 
                     $advertiserRoleId = Wallet::advertiserRoleId();
-                    if (!$advertiserRoleId) {
+                    if (! $advertiserRoleId) {
                         throw new \RuntimeException('Advertiser role not configured');
                     }
 
                     $wallet = Wallet::lockOrCreateForRole($userId, $advertiserRoleId);
                     $wallet->credit((float) $finalAmount);
-                    app(\App\Services\Wallet\WalletLedgerService::class)->recordDeposit(
+                    app(WalletLedgerService::class)->recordDeposit(
                         $wallet,
                         (float) $finalAmount,
                         $deposit,
                         'card',
                         $deposit->reference_code
                     );
-                    
+
                     Log::info('Deposit created from webhook', ['deposit_id' => $deposit->id]);
                 });
             }
-            
+
         } catch (\Exception $e) {
-            Log::error('Error processing wallet deposit: ' . $e->getMessage());
+            Log::error('Error processing wallet deposit: '.$e->getMessage());
         }
     }
 
@@ -310,16 +319,17 @@ class StripeWebhookController extends Controller
                 'session_id' => $session->id,
             ]);
 
-            if (!$referenceCode) {
+            if (! $referenceCode) {
                 Log::warning('No reference_code found for order payment');
+
                 return;
             }
 
             $paymentService = app(OrderPaymentService::class);
-            $newlyPaid = $paymentService->markOrdersPaidFromStripeSession($referenceCode, $session);
+            $newlyPaid = $paymentService->finalizeStripeFirstCheckout($referenceCode, $session);
 
             if ($newlyPaid->isEmpty()) {
-                // Orders may already be paid by the success URL, or not created yet.
+                // Orders may already be paid by the success URL, or package expired.
                 $existingPaid = Order::where('reference_code', $referenceCode)
                     ->where('payment_method', 'card')
                     ->where('payment_status', 'paid')
@@ -330,13 +340,15 @@ class StripeWebhookController extends Controller
                         'reference_code' => $referenceCode,
                         'paid_count' => $existingPaid,
                     ]);
+
                     return;
                 }
 
-                Log::warning('No pending card orders found for webhook', [
+                Log::warning('No card orders materialized for webhook', [
                     'reference_code' => $referenceCode,
                     'session_id' => $session->id,
                 ]);
+
                 return;
             }
 
@@ -347,7 +359,7 @@ class StripeWebhookController extends Controller
                 'orders_updated' => $newlyPaid->count(),
             ]);
         } catch (\Exception $e) {
-            Log::error('Error processing order payment: ' . $e->getMessage());
+            Log::error('Error processing order payment: '.$e->getMessage());
         }
     }
 }

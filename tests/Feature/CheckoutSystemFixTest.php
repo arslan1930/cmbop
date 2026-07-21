@@ -10,6 +10,7 @@ use App\Models\Site;
 use App\Models\User;
 use App\Models\Wallet;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Mail;
 use Mockery;
 use Stripe\ApiRequestor;
@@ -180,8 +181,10 @@ class CheckoutSystemFixTest extends TestCase
             ->assertOk()
             ->assertJson(['success' => true]);
 
-        $this->assertNotNull($sub->fresh()->order_id);
-        $this->assertFalse($sub->fresh()->canBeOrdered());
+        // Stripe-first (Add Funds style): article stays free until payment succeeds.
+        $this->assertNull($sub->fresh()->order_id);
+        $this->assertTrue($sub->fresh()->canBeOrdered());
+        $this->assertNotNull(Cache::get('pending_card_checkout:CAN1'));
 
         $page = $this->actingAs($advertiser)
             ->get(route('advertiser.checkout', ['canceled' => 1, 'ref' => 'CAN1']));
@@ -189,7 +192,8 @@ class CheckoutSystemFixTest extends TestCase
         $page->assertOk();
         $this->assertNull($sub->fresh()->order_id);
         $this->assertTrue($sub->fresh()->canBeOrdered());
-        $this->assertSame('cancelled', Order::where('reference_code', 'CAN1')->first()->status);
+        $this->assertSame(0, Order::where('reference_code', 'CAN1')->count());
+        $this->assertNull(Cache::get('pending_card_checkout:CAN1'));
         $this->assertNotEmpty(session('cart'));
         $this->assertSame($sub->id, session('checkout_content_submission_id'));
     }
