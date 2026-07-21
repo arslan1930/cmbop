@@ -567,6 +567,112 @@
             margin-bottom: 12px;
         }
     }
+
+    /* Live bulk: collapsed one-row summaries */
+    .live-bulk-site {
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+        background: #fff;
+        overflow: hidden;
+        transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    }
+    .live-bulk-site.is-expanded {
+        border-color: color-mix(in srgb, var(--brand-teal, #1ABC9C) 35%, #e2e8f0);
+        box-shadow: 0 0 0 1px color-mix(in srgb, var(--brand-teal, #1ABC9C) 12%, transparent);
+    }
+    .live-bulk-site.is-collapsed .live-bulk-body {
+        display: none;
+    }
+    .live-bulk-site.is-collapsed .live-bulk-bar {
+        border-bottom: none;
+        background: #fff;
+    }
+    .live-bulk-bar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.65rem;
+        padding: 0.65rem 0.9rem;
+        background: #f8fafc;
+        border-bottom: 1px solid #e2e8f0;
+        cursor: pointer;
+        user-select: none;
+        min-height: 2.75rem;
+    }
+    .live-bulk-site.is-collapsed:hover .live-bulk-bar,
+    .live-bulk-site.is-pinned .live-bulk-bar {
+        background: #f8fafc;
+    }
+    .live-bulk-bar-main {
+        display: flex;
+        align-items: center;
+        gap: 0.55rem;
+        min-width: 0;
+        flex: 1;
+        border: 0;
+        background: transparent;
+        padding: 0;
+        text-align: left;
+        color: inherit;
+    }
+    .live-bulk-bar-main:focus-visible {
+        outline: 2px solid color-mix(in srgb, var(--brand-teal, #1ABC9C) 55%, transparent);
+        outline-offset: 2px;
+        border-radius: 6px;
+    }
+    .live-bulk-chevron {
+        flex-shrink: 0;
+        color: #94a3b8;
+        font-size: 0.7rem;
+        transition: transform 0.15s ease;
+        width: 0.85rem;
+        text-align: center;
+    }
+    .live-bulk-site.is-collapsed .live-bulk-chevron {
+        transform: rotate(-90deg);
+    }
+    .live-bulk-title {
+        font-weight: 700;
+        color: #0f172a;
+        font-size: 0.9rem;
+        flex-shrink: 0;
+    }
+    .live-bulk-status {
+        display: none;
+        flex-shrink: 0;
+        font-size: 0.68rem;
+        font-weight: 700;
+        letter-spacing: 0.02em;
+        text-transform: uppercase;
+        color: var(--brand-teal, #1ABC9C);
+        background: color-mix(in srgb, var(--brand-teal, #1ABC9C) 12%, #fff);
+        border: 1px solid color-mix(in srgb, var(--brand-teal, #1ABC9C) 28%, #e2e8f0);
+        border-radius: 999px;
+        padding: 0.12rem 0.45rem;
+    }
+    .live-bulk-site.is-pinned .live-bulk-status {
+        display: inline-block;
+    }
+    .live-bulk-summary {
+        color: #64748b;
+        font-size: 0.82rem;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        min-width: 0;
+        flex: 1;
+    }
+    .live-bulk-site.is-expanded .live-bulk-summary {
+        display: none;
+    }
+    .live-bulk-actions {
+        display: flex;
+        gap: 0.35rem;
+        flex-shrink: 0;
+    }
+    .live-bulk-body {
+        padding: 1rem 1.1rem 1.15rem;
+    }
 </style>
 
 <div class="container-fluid">
@@ -727,15 +833,19 @@
     </div>
 
     <template id="liveBulkSiteTemplate">
-        <div class="live-bulk-site border rounded p-3 bg-white" data-live-bulk-card>
-            <div class="d-flex justify-content-between align-items-center mb-2">
-                <button type="button" class="btn btn-link btn-sm text-decoration-none p-0 live-bulk-toggle" aria-expanded="true">
+        <div class="live-bulk-site is-expanded" data-live-bulk-card>
+            <div class="live-bulk-bar">
+                <button type="button" class="live-bulk-bar-main live-bulk-toggle" aria-expanded="true" title="Click to pin open while editing">
+                    <i class="fa fa-chevron-down live-bulk-chevron" aria-hidden="true"></i>
                     <strong class="live-bulk-title">Site <span class="live-bulk-num">1</span></strong>
-                    <span class="text-muted small ms-2 live-bulk-summary"></span>
+                    <span class="live-bulk-status">Pinned</span>
+                    <span class="live-bulk-summary"></span>
                 </button>
-                <button type="button" class="btn btn-sm btn-outline-danger live-bulk-remove" title="Remove">
-                    <i class="fa fa-trash"></i>
-                </button>
+                <div class="live-bulk-actions">
+                    <button type="button" class="btn btn-sm btn-outline-danger live-bulk-remove" title="Remove">
+                        <i class="fa fa-trash"></i>
+                    </button>
+                </div>
             </div>
             <div class="live-bulk-body">
                 <div class="row g-2">
@@ -1901,9 +2011,96 @@ closeBulkBtn.on('click', function() {
 const LIVE_BULK_MAX = 25;
 const liveBulkSitesEl = document.getElementById('liveBulkSites');
 const liveBulkTemplate = document.getElementById('liveBulkSiteTemplate');
+const liveBulkFinePointer = window.matchMedia('(hover: hover) and (pointer: fine)');
+let liveBulkActiveCard = null;
+let liveBulkHoverCard = null;
 
 function liveBulkCards() {
     return liveBulkSitesEl ? Array.from(liveBulkSitesEl.querySelectorAll('[data-live-bulk-card]')) : [];
+}
+
+function liveBulkHostFromUrl(raw) {
+    const value = String(raw || '').trim();
+    if (!value) return '';
+    try {
+        const withScheme = /^https?:\/\//i.test(value) ? value : ('https://' + value);
+        return new URL(withScheme).hostname.replace(/^www\./i, '');
+    } catch (e) {
+        return value.replace(/^https?:\/\//i, '').replace(/^www\./i, '').split('/')[0];
+    }
+}
+
+function liveBulkBuildSummary(card) {
+    const name = (card.querySelector('[data-field="siteName"]')?.value || '').trim();
+    const host = liveBulkHostFromUrl(card.querySelector('[data-field="siteUrl"]')?.value);
+    const dr = (card.querySelector('[data-field="dr"]')?.value || '').trim();
+    const price = (card.querySelector('[data-field="price"]')?.value || '').trim();
+    const niches = card.querySelector('.live-bulk-categories')?.selectedOptions?.length || 0;
+    const parts = [];
+    if (name) parts.push(name);
+    if (host) parts.push(host);
+    if (dr !== '') parts.push('DR ' + dr);
+    if (niches > 0) parts.push(niches === 1 ? '1 niche' : (niches + ' niches'));
+    if (price !== '') parts.push('€' + price);
+    return parts.length ? parts.join(' · ') : 'Empty — fill details';
+}
+
+function liveBulkRefreshSummaries() {
+    liveBulkCards().forEach(card => {
+        const summary = card.querySelector('.live-bulk-summary');
+        if (summary) summary.textContent = liveBulkBuildSummary(card);
+    });
+}
+
+function liveBulkIsPinned(card) {
+    return card.classList.contains('is-pinned');
+}
+
+function liveBulkApplyOpenState(card, open) {
+    const toggle = card.querySelector('.live-bulk-toggle');
+    card.classList.toggle('is-expanded', open);
+    card.classList.toggle('is-collapsed', !open);
+    if (toggle) toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+}
+
+function liveBulkSetPinned(card, pinned) {
+    card.classList.toggle('is-pinned', !!pinned);
+}
+
+function liveBulkSyncVisibility() {
+    const cards = liveBulkCards();
+    cards.forEach(card => {
+        const open = liveBulkIsPinned(card)
+            || card === liveBulkHoverCard
+            || (card === liveBulkActiveCard && !liveBulkHoverCard);
+        liveBulkApplyOpenState(card, open);
+    });
+}
+
+function liveBulkCollapseAllExcept(exceptCard, { clearPins = false } = {}) {
+    liveBulkCards().forEach(card => {
+        if (card === exceptCard) return;
+        if (clearPins) liveBulkSetPinned(card, false);
+    });
+    liveBulkActiveCard = exceptCard || null;
+    liveBulkHoverCard = null;
+    liveBulkSyncVisibility();
+}
+
+function liveBulkFocusCard(card, { pin = false, clearOtherPins = true } = {}) {
+    if (!card) return;
+    if (clearOtherPins) {
+        liveBulkCards().forEach(c => {
+            if (c !== card) liveBulkSetPinned(c, false);
+        });
+    }
+    if (pin) liveBulkSetPinned(card, true);
+    liveBulkActiveCard = card;
+    liveBulkHoverCard = null;
+    liveBulkSyncVisibility();
+    try {
+        card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    } catch (e) { /* ignore */ }
 }
 
 function liveBulkUpdateCount() {
@@ -1922,10 +2119,8 @@ function liveBulkUpdateCount() {
                 input.name = `sites[${i}][${field}]`;
             }
         });
-        const url = card.querySelector('[data-field="siteUrl"]')?.value || '';
-        const summary = card.querySelector('.live-bulk-summary');
-        if (summary) summary.textContent = url ? url : '';
     });
+    liveBulkRefreshSummaries();
 }
 
 function liveBulkBindLanguageFilter(card) {
@@ -1963,6 +2158,46 @@ function liveBulkBindCategories(card) {
             selected.slice(7).forEach(opt => { opt.selected = false; });
             alert('Maximum 7 niches per site.');
         }
+        liveBulkRefreshSummaries();
+    });
+}
+
+function liveBulkBindCollapseInteractions(card) {
+    const toggle = card.querySelector('.live-bulk-toggle');
+    toggle?.addEventListener('click', function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        if (liveBulkIsPinned(card)) {
+            liveBulkSetPinned(card, false);
+            // Keep this card as the active editing target after unpin.
+            liveBulkActiveCard = card;
+            liveBulkHoverCard = null;
+            liveBulkSyncVisibility();
+            return;
+        }
+        liveBulkFocusCard(card, { pin: true, clearOtherPins: false });
+    });
+
+    card.addEventListener('mouseenter', function () {
+        if (!liveBulkFinePointer.matches) return;
+        if (liveBulkIsPinned(card) && card.classList.contains('is-expanded')) return;
+        liveBulkHoverCard = card;
+        liveBulkSyncVisibility();
+    });
+
+    card.addEventListener('mouseleave', function () {
+        if (!liveBulkFinePointer.matches) return;
+        if (liveBulkHoverCard === card) {
+            liveBulkHoverCard = null;
+            liveBulkSyncVisibility();
+        }
+    });
+
+    // Focus inside a collapsed/hovered card should pin it so fields stay usable.
+    card.querySelector('.live-bulk-body')?.addEventListener('focusin', function () {
+        if (!liveBulkIsPinned(card)) {
+            liveBulkFocusCard(card, { pin: true, clearOtherPins: false });
+        }
     });
 }
 
@@ -1977,6 +2212,7 @@ function liveBulkAddCard(prefill = null) {
     liveBulkSitesEl.appendChild(node);
     liveBulkBindLanguageFilter(node);
     liveBulkBindCategories(node);
+    liveBulkBindCollapseInteractions(node);
 
     if (prefill && typeof prefill === 'object') {
         Object.keys(prefill).forEach(key => {
@@ -1997,25 +2233,32 @@ function liveBulkAddCard(prefill = null) {
         }
     }
 
-    node.querySelector('.live-bulk-toggle')?.addEventListener('click', function () {
-        const body = node.querySelector('.live-bulk-body');
-        if (!body) return;
-        const open = body.style.display !== 'none';
-        body.style.display = open ? 'none' : '';
-        this.setAttribute('aria-expanded', open ? 'false' : 'true');
-    });
-
-    node.querySelector('.live-bulk-remove')?.addEventListener('click', function () {
+    node.querySelector('.live-bulk-remove')?.addEventListener('click', function (e) {
+        e.preventDefault();
+        e.stopPropagation();
         if (liveBulkCards().length <= 1) {
             alert('Keep at least one site card, or close this panel.');
             return;
         }
+        const wasActive = liveBulkActiveCard === node;
+        const wasHover = liveBulkHoverCard === node;
         node.remove();
+        if (wasHover) liveBulkHoverCard = null;
+        if (wasActive || !liveBulkActiveCard || !liveBulkActiveCard.isConnected) {
+            const remaining = liveBulkCards();
+            liveBulkActiveCard = remaining[remaining.length - 1] || null;
+        }
         liveBulkUpdateCount();
+        liveBulkSyncVisibility();
     });
 
-    node.querySelector('[data-field="siteUrl"]')?.addEventListener('input', liveBulkUpdateCount);
+    node.querySelectorAll('[data-field]').forEach(el => {
+        el.addEventListener('input', liveBulkRefreshSummaries);
+        el.addEventListener('change', liveBulkRefreshSummaries);
+    });
 
+    // New site becomes the only open row; previous cards collapse to summaries.
+    liveBulkCollapseAllExcept(node, { clearPins: true });
     liveBulkUpdateCount();
     return node;
 }
@@ -2067,7 +2310,7 @@ $('#liveBulkForm').on('submit', function (e) {
         if (!cats || cats.selectedOptions.length < 1) {
             e.preventDefault();
             alert('Site ' + (i + 1) + ': select at least one niche/category.');
-            card.querySelector('.live-bulk-body').style.display = '';
+            liveBulkFocusCard(card, { pin: true });
             cats?.focus();
             return;
         }
@@ -2075,12 +2318,9 @@ $('#liveBulkForm').on('submit', function (e) {
         if (desc && desc.value.trim().length < 50) {
             e.preventDefault();
             alert('Site ' + (i + 1) + ': description must be at least 50 characters.');
-            card.querySelector('.live-bulk-body').style.display = '';
+            liveBulkFocusCard(card, { pin: true });
             desc.focus();
             return;
-        }
-        if (!card.checkValidity || !card.querySelector('[data-field="siteUrl"]').checkValidity()) {
-            // rely on HTML5 for other required fields
         }
         const required = card.querySelectorAll('[required]');
         for (const el of required) {
@@ -2088,7 +2328,7 @@ $('#liveBulkForm').on('submit', function (e) {
             if (!el.value || (typeof el.value === 'string' && !el.value.trim())) {
                 e.preventDefault();
                 alert('Site ' + (i + 1) + ': please fill all required fields.');
-                card.querySelector('.live-bulk-body').style.display = '';
+                liveBulkFocusCard(card, { pin: true });
                 el.focus();
                 return;
             }
