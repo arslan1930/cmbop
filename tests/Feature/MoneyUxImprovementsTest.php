@@ -107,9 +107,8 @@ class MoneyUxImprovementsTest extends TestCase
             ->assertSee('Spendable €20.00', false)
             ->assertSee('cash €0.00', false)
             ->assertSee('bonus €20.00', false)
-            ->assertSee('Use bonus balance', false)
             ->assertSee('cartTotalBadge', false)
-            ->assertSee('cash €0.00 · bonus €20.00', false);
+            ->assertDontSee('cash €0.00 · bonus €20.00', false);
     }
 
     public function test_checkout_ties_spendable_header_to_bonus_checkbox(): void

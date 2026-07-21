@@ -11,18 +11,32 @@ class InAppNotification extends Model
     use SoftDeletes;
 
     public const STATUS_UNREAD = 'unread';
+
     public const STATUS_READ = 'read';
+
     public const STATUS_ARCHIVED = 'archived';
 
     public const PRIORITY_LOW = 'low';
+
     public const PRIORITY_NORMAL = 'normal';
+
     public const PRIORITY_HIGH = 'high';
+
     public const PRIORITY_URGENT = 'urgent';
+
+    public const AUDIENCE_ALL = 'all';
+
+    public const AUDIENCE_ADVERTISER = 'advertiser';
+
+    public const AUDIENCE_PUBLISHER = 'publisher';
+
+    public const AUDIENCE_ADMIN = 'admin';
 
     protected $table = 'in_app_notifications';
 
     protected $fillable = [
         'user_id',
+        'audience',
         'type',
         'category',
         'title',
@@ -53,6 +67,24 @@ class InAppNotification extends Model
     public function scopeForUser($query, int $userId)
     {
         return $query->where('user_id', $userId);
+    }
+
+    /**
+     * Limit to notifications intended for the active marketplace role.
+     * Staff roles (admin/marketing) see everything for the user.
+     */
+    public function scopeForAudience($query, ?string $role)
+    {
+        $role = $role ? strtolower(trim($role)) : null;
+        if (! $role || in_array($role, ['admin', 'marketing'], true)) {
+            return $query;
+        }
+
+        return $query->where(function ($q) use ($role) {
+            $q->where('audience', $role)
+                ->orWhere('audience', self::AUDIENCE_ALL)
+                ->orWhereNull('audience');
+        });
     }
 
     public function scopeVisible($query)
@@ -97,6 +129,7 @@ class InAppNotification extends Model
     {
         return [
             'id' => $this->id,
+            'audience' => $this->audience ?: self::AUDIENCE_ALL,
             'type' => $this->type,
             'category' => $this->category,
             'title' => $this->title,

@@ -22,6 +22,7 @@
     <link href="{{ asset('css/multi-select.css') }}?v={{ @filemtime(public_path('css/multi-select.css')) ?: '1' }}" rel="stylesheet">
     <link href="{{ asset('css/glass-tip.css') }}?v={{ @filemtime(public_path('css/glass-tip.css')) ?: '1' }}" rel="stylesheet">
     <link href="{{ asset('css/pulse-badge.css') }}?v={{ @filemtime(public_path('css/pulse-badge.css')) ?: '1' }}" rel="stylesheet">
+    <link href="{{ asset('css/notification-center.css') }}?v={{ @filemtime(public_path('css/notification-center.css')) ?: '5' }}" rel="stylesheet">
     <script src="{{ asset('js/pulse-badge.js') }}?v={{ @filemtime(public_path('js/pulse-badge.js')) ?: '1' }}"></script>
     <script src="{{ asset('js/glass-tip.js') }}?v={{ @filemtime(public_path('js/glass-tip.js')) ?: '1' }}" defer></script>
 
@@ -296,13 +297,7 @@
         .balance-block .balance-amount {
             font-size: 14px;
             color: #0b6266;
-        }
-        .balance-block .balance-split {
-            font-size: 10px;
-            font-weight: 500;
-            color: #64748b;
-            letter-spacing: 0;
-            text-transform: none;
+            font-weight: 600;
         }
 
         .cart-total-label {
@@ -740,25 +735,17 @@
             <span id="cartBadge" class="cart-badge" style="{{ $headerCartCount > 0 ? 'display:flex;' : 'display:none;' }}">{{ $headerCartCount > 0 ? $headerCartCount : 0 }}</span>
         </button>
 
-        <!-- Balance — spendable = cash + promotional bonus -->
+        <!-- Balance -->
         @php
             $activeWallet = auth()->user()->activeWallet();
             $spendableBalance = (float) ($activeWallet?->balance ?? 0);
-            $cashBalance = $activeWallet ? (float) $activeWallet->withdrawableBalance() : 0.0;
-            $bonusBalance = $activeWallet ? (float) $activeWallet->lockedBonusBalance() : 0.0;
             $reservedBalance = (float) ($activeWallet?->reserved_balance ?? 0);
             $headerBalanceTitle = 'Spendable €' . number_format($spendableBalance, 2)
-                . ' = cash €' . number_format($cashBalance, 2)
-                . ' + bonus €' . number_format($bonusBalance, 2)
-                . ' (bonus is for purchases only; enable Use bonus at checkout).'
-                . ($reservedBalance > 0 ? ' On hold: €' . number_format($reservedBalance, 2) . '.' : '');
+                . ($reservedBalance > 0 ? ' · On hold: €' . number_format($reservedBalance, 2) : '');
         @endphp
         <a href="{{ route('advertiser.add-funds') }}" class="balance-block text-decoration-none" data-bs-toggle="tooltip" data-bs-placement="bottom" title="{{ $headerBalanceTitle }}" aria-label="Spendable balance {{ number_format($spendableBalance, 2) }} euros">
             <span class="balance-label">Spendable</span>
             <span class="balance-amount">€{{ number_format($spendableBalance, 2) }}</span>
-            @if($bonusBalance > 0)
-                <span class="balance-split d-none d-md-inline">cash €{{ number_format($cashBalance, 2) }} · bonus €{{ number_format($bonusBalance, 2) }}</span>
-            @endif
         </a>
 
         @include('partials.notification-center')
@@ -1456,6 +1443,7 @@ document.querySelectorAll('.role-switch-form').forEach(function(form) {
     });
 });
 </script>
+<script src="{{ asset('js/notification-center.js') }}?v={{ @filemtime(public_path('js/notification-center.js')) ?: '5' }}" defer></script>
 
 </body>
 </html>
