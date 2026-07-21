@@ -17,11 +17,16 @@
                 @if(!empty($cats))
                     · niches: {{ implode(', ', array_slice($cats, 0, 3)) }}{{ count($cats) > 3 ? '…' : '' }}
                 @endif
-                . Add sites to your cart, then continue.
+                . Add sites to your cart anytime — unfinished items stay in the cart until you pay.
             </p>
         </div>
         <div class="d-flex flex-wrap gap-2">
             <a href="{{ route('advertiser.wizard.market') }}" class="btn btn-sm btn-outline-secondary">Change market</a>
+            @if($cartCount > 0)
+                <button type="button" class="btn btn-sm btn-outline-primary" onclick="openCart()">
+                    Open cart ({{ $cartCount }})
+                </button>
+            @endif
             <a href="{{ route('advertiser.wizard.content') }}"
                id="wizardContinueContent"
                class="btn btn-sm btn-primary">

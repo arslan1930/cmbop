@@ -3,7 +3,6 @@
 namespace Tests\Feature;
 
 use App\Models\InAppNotification;
-use App\Models\Order;
 use App\Models\Role;
 use App\Models\User;
 use App\Services\InAppNotificationService;
@@ -78,5 +77,59 @@ class InAppNotificationTest extends TestCase
             ->assertOk();
 
         $this->assertSoftDeleted('in_app_notifications', ['id' => $notification->id]);
+    }
+
+    public function test_dual_role_user_only_sees_active_role_notifications(): void
+    {
+        $advertiserRole = Role::firstOrCreate(['name' => 'advertiser']);
+        $publisherRole = Role::firstOrCreate(['name' => 'publisher']);
+
+        $user = User::factory()->create([
+            'active_role_id' => $advertiserRole->id,
+            'email_verified_at' => now(),
+        ]);
+        $user->roles()->syncWithoutDetaching([$advertiserRole->id, $publisherRole->id]);
+
+        $service = app(InAppNotificationService::class);
+
+        $service->notify(
+            $user,
+            InAppNotificationService::TYPE_PAYMENT_RECEIVED,
+            'Advertiser payment',
+            'Paid as advertiser.',
+            ['action_url' => '/advertiser/orders']
+        );
+        $service->notify(
+            $user,
+            InAppNotificationService::TYPE_ORDER_CREATED,
+            'Publisher task',
+            'New publisher order.',
+            ['action_url' => '/publisher/tasks']
+        );
+        $service->notify(
+            $user,
+            InAppNotificationService::TYPE_SYSTEM,
+            'Shared tip',
+            'Visible in both modes.',
+            ['category' => InAppNotificationService::CATEGORY_SYSTEM]
+        );
+
+        $this->actingAs($user)
+            ->getJson(route('notifications.index'))
+            ->assertOk()
+            ->assertJsonPath('unread_count', 2)
+            ->assertJsonFragment(['title' => 'Advertiser payment'])
+            ->assertJsonFragment(['title' => 'Shared tip'])
+            ->assertJsonMissing(['title' => 'Publisher task']);
+
+        $user->forceFill(['active_role_id' => $publisherRole->id])->save();
+
+        $this->actingAs($user->fresh())
+            ->getJson(route('notifications.index'))
+            ->assertOk()
+            ->assertJsonPath('unread_count', 2)
+            ->assertJsonFragment(['title' => 'Publisher task'])
+            ->assertJsonFragment(['title' => 'Shared tip'])
+            ->assertJsonMissing(['title' => 'Advertiser payment']);
     }
 }

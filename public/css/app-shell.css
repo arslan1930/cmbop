@@ -350,19 +350,6 @@ body > footer.collapsed {
   font-weight: 600;
   color: var(--brand-primary, #0b6266);
 }
-.balance-block .balance-credit {
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--brand-success, #0f766e);
-  line-height: 1.1;
-}
-.balance-block .balance-split {
-  font-size: 10px;
-  font-weight: 500;
-  color: var(--brand-neutral, #64748b);
-  letter-spacing: 0;
-  text-transform: none;
-}
 
 /* Status language — teal/slate, no yellow/green Bootstrap noise */
 .badge-status,

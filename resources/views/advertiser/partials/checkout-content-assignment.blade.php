@@ -64,8 +64,7 @@
     <div class="card-body">
         <div class="alert alert-info border-0 small">
             Each website needs its own <strong>approved</strong> Content Library article
-            (any language).
-            (e.g. English articles work on US, UK, AU, and other English sites).
+            (any language — you can place an English article on any site).
             Upload or fix articles in the library first — approval is automatic after compliance and uniqueness checks.
         </div>
 
@@ -120,9 +119,10 @@
                                     ({{ strtoupper($article->country) }}/{{ strtoupper($article->language) }})
                                 </option>
                             @empty
-                                <option value="" disabled>No approved articles for this market yet</option>
+                                <option value="" disabled>No approved articles yet</option>
                             @endforelse
                         </select>
+                        <div class="language-mismatch-hint small text-warning mt-1 d-none" role="status"></div>
                     </div>
 
                     <div class="article-preview-box d-none mb-3">
@@ -131,15 +131,14 @@
                     </div>
 
                     <div class="border rounded-3 p-3 bg-light mb-3">
-                        <div class="fw-semibold small mb-2">Or upload a new .docx for this market</div>
+                        <div class="fw-semibold small mb-2">Or upload a new .docx</div>
                         <div class="row g-2 mb-2">
                             <div class="col-md-6">
                                 <label class="form-label small">Language</label>
                                 <select class="form-select form-select-sm upload-language" required>
                                     <option value="">Select language</option>
                                     @foreach($marketplaceLanguages as $language)
-                                        <option value="{{ strtolower($language->code) }}"
-                                            @selected(in_array(strtolower($language->code), array_map('strtolower', $siteLanguages), true))>
+                                        <option value="{{ strtolower($language->code) }}">
                                             {{ $language->name }}
                                         </option>
                                     @endforeach
@@ -149,17 +148,11 @@
                                 <label class="form-label small">Country</label>
                                 <select class="form-select form-select-sm upload-country" required>
                                     <option value="">Select language first</option>
-                                    @foreach($marketplaceCountries as $country)
-                                        <option value="{{ strtolower($country->code) }}"
-                                            @selected(in_array(strtolower($country->code), array_map('strtolower', $siteCountries), true))>
-                                            {{ $country->name }}
-                                        </option>
-                                    @endforeach
                                 </select>
                             </div>
                         </div>
                         <input type="file" class="form-control form-control-sm upload-file mb-2" accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document">
-                        <div class="small text-muted mb-2">Select language first, then country. Matching is by language (English → all English countries).</div>
+                        <div class="small text-muted mb-2">Choose language and country for this article yourself — nothing is pre-filled from the site.</div>
                         <button type="button" class="btn btn-sm btn-outline-primary upload-btn">Upload & check</button>
                         <div class="upload-feedback small mt-2" aria-live="polite"></div>
                     </div>
@@ -239,12 +232,59 @@
     const languageCountryMap = @json($languageCountryMap ?? new \stdClass());
     const cards = Array.from(document.querySelectorAll('.placement-assign'));
 
+    function siteLanguageCodes(card) {
+        try {
+            return JSON.parse(card.dataset.languages || '[]')
+                .map(function (code) { return String(code || '').toLowerCase(); })
+                .filter(Boolean);
+        } catch (e) {
+            return [];
+        }
+    }
+
+    function languageMismatchMessage(siteLangs, articleLang) {
+        const article = String(articleLang || '').toLowerCase();
+        if (!article || !siteLangs.length) return '';
+        if (siteLangs.indexOf(article) !== -1) return '';
+        const siteLabel = siteLangs.map(function (code) { return code.toUpperCase(); }).join('/');
+        return 'Site is ' + siteLabel + ', article is ' + article.toUpperCase() + ' — continue?';
+    }
+
+    function confirmLanguageMismatch(message) {
+        if (!message) return Promise.resolve(true);
+        if (window.Swal && typeof window.Swal.fire === 'function') {
+            return window.Swal.fire({
+                title: 'Language differs',
+                text: message,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonText: 'Continue',
+                cancelButtonText: 'Choose another',
+                confirmButtonColor: '#0b6266',
+                cancelButtonColor: '#6b7280',
+                reverseButtons: true,
+            }).then(function (result) { return !!result.isConfirmed; });
+        }
+        return Promise.resolve(window.confirm(message));
+    }
+
+    function setMismatchHint(card, message) {
+        const hint = card.querySelector('.language-mismatch-hint');
+        if (!hint) return;
+        if (message) {
+            hint.textContent = message.replace(' — continue?', '. You can still place this article.');
+            hint.classList.remove('d-none');
+        } else {
+            hint.textContent = '';
+            hint.classList.add('d-none');
+        }
+    }
+
     function refreshUploadCountries(card) {
         const langSelect = card.querySelector('.upload-language');
         const countrySelect = card.querySelector('.upload-country');
         if (!langSelect || !countrySelect) return;
         const lang = (langSelect.value || '').toLowerCase();
-        const preferred = (countrySelect.value || '').toLowerCase();
         const options = languageCountryMap[lang] || [];
         countrySelect.innerHTML = '';
         if (!lang) {
@@ -259,7 +299,6 @@
             const opt = document.createElement('option');
             opt.value = item.code;
             opt.textContent = item.name;
-            if (preferred && preferred === item.code) opt.selected = true;
             countrySelect.appendChild(opt);
         });
     }
@@ -417,10 +456,37 @@
     }
 
     cards.forEach(function (card) {
-        card.querySelector('.article-select')?.addEventListener('change', function () {
-            refreshCard(card);
-            syncReadyBadge();
-        });
+        const select = card.querySelector('.article-select');
+        if (select) {
+            select.dataset.prevValue = select.value || '';
+            select.addEventListener('change', function () {
+                const previous = select.dataset.prevValue || '';
+                const selected = selectedSubmission(card);
+                if (!selected) {
+                    select.dataset.prevValue = '';
+                    setMismatchHint(card, '');
+                    refreshCard(card);
+                    syncReadyBadge();
+                    return;
+                }
+                const warn = languageMismatchMessage(siteLanguageCodes(card), selected.language);
+                confirmLanguageMismatch(warn).then(function (ok) {
+                    if (!ok) {
+                        select.value = previous;
+                        return;
+                    }
+                    select.dataset.prevValue = select.value || '';
+                    setMismatchHint(card, warn);
+                    refreshCard(card);
+                    syncReadyBadge();
+                });
+            });
+        }
+        const initiallySelected = selectedSubmission(card);
+        if (initiallySelected) {
+            const warn = languageMismatchMessage(siteLanguageCodes(card), initiallySelected.language);
+            setMismatchHint(card, warn);
+        }
         refreshCard(card);
 
         card.querySelector('.upload-btn')?.addEventListener('click', async function () {
@@ -462,7 +528,7 @@
                     syncReadyBadge();
                     return;
                 }
-                const select = card.querySelector('.article-select');
+                const articleSelect = card.querySelector('.article-select');
                 const opt = document.createElement('option');
                 opt.value = s.id;
                 opt.dataset.approved = '1';
@@ -475,8 +541,18 @@
                 opt.dataset.wordCount = s.word_count || '';
                 opt.dataset.title = s.title || s.original_filename || 'Article';
                 opt.textContent = (s.title || s.original_filename) + ' (' + String(s.country || country).toUpperCase() + '/' + String(s.language || language).toUpperCase() + ')';
-                select.appendChild(opt);
-                select.value = String(s.id);
+                articleSelect.appendChild(opt);
+                const warn = languageMismatchMessage(siteLanguageCodes(card), s.language || language);
+                const ok = await confirmLanguageMismatch(warn);
+                if (!ok) {
+                    opt.remove();
+                    feedback.innerHTML = '<span class="text-success">Approved and added to your list. Pick it when you are ready.</span>';
+                    syncReadyBadge();
+                    return;
+                }
+                articleSelect.value = String(s.id);
+                articleSelect.dataset.prevValue = String(s.id);
+                setMismatchHint(card, warn);
                 feedback.innerHTML = '<span class="text-success">Approved. Article selected for this website.</span>';
                 refreshCard(card);
                 syncReadyBadge();

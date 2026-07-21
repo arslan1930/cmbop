@@ -186,18 +186,13 @@ class CatalogController extends Controller
         $userId = auth()->id();
         $currentUser = auth()->user();
 
-        // Content Library → Catalog: lock language only (same as publisher flow).
-        // English articles can browse all English-country sites; country stays optional.
+        // Content Library → Catalog: keep the active article in session for cart assign.
+        // Do not pre-filter language/country — advertisers pick filters manually.
         $orderingSubmission = $this->resolveActiveLibraryOrdering($request);
         if ($orderingSubmission) {
             $request->merge([
-                'language' => strtolower((string) $orderingSubmission->language),
                 'filters_open' => 1,
             ]);
-            // Do not force article country — language opens every matching-country market.
-            if (! $request->filled('country')) {
-                $request->request->remove('country');
-            }
         }
 
         // Get current user's role
@@ -531,13 +526,12 @@ class CatalogController extends Controller
             if ($neededCode === '') {
                 $neededCode = 'en';
             }
-            $langLabel = fullLanguage($neededCode);
             $siteReadiness[$site->id] = [
                 'ready' => (bool) $match,
                 'code' => $neededCode,
                 'label' => $match
-                    ? 'Ready · '.$langLabel.' article'
-                    : 'Needs '.$langLabel.' article',
+                    ? 'Ready · article available'
+                    : 'Needs approved article',
             ];
         }
 
