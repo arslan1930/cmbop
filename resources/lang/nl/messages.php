@@ -9,9 +9,10 @@ return [
 
 
     // HERO SECTION 
-    'hero_title' => 'Verkrijg krachtige backlinks van vertrouwde websites',
+    'hero_title' => 'SEOLinkBuildings',
+    'hero_support' => 'Verkrijg krachtige backlinks van vertrouwde websites.',
     'get_started' => 'Begin nu',
-    'hero_tagline' => 'om het wereldwijde linkbuilding-platform te verkennen, gebouwd voor SEO, digitale PR en contentdistributie',
+    'hero_tagline' => 'De wereldwijde linkbuilding-marktplaats voor SEO, digitale PR en contentdistributie.',
 
 
     // Footer
@@ -145,7 +146,7 @@ return [
     'newsletter_email_placeholder' => 'Uw e-mailadres',
     'newsletter_subscribe_btn' => 'Abonneren',
     'newsletter_consent_text' => 'Ik abonneer me op de SEOLinkBuildings-nieuwsbrief en bevestig dat ik het Privacybeleid heb gelezen.',
-    'newsletter_gdpr_text' => 'De verantwoordelijke voor persoonsgegevens van personen die de website Seolinkbuildings.com en alle subpagina\'s gebruiken, is SEOLinkBuildings. We verwerken uw e-mailadres voor het verzenden van de nieuwsbrief op basis van uw toestemming.',
+    'newsletter_gdpr_text' => 'De verantwoordelijke voor persoonsgegevens van personen die de website seolinkbuildings.com en alle subpagina\'s gebruiken, is SEOLinkBuildings. We verwerken uw e-mailadres voor het verzenden van de nieuwsbrief op basis van uw toestemming.',
     'newsletter_agreement_text' => 'Door u aan te melden voor de nieuwsbrief, gaat u akkoord met het ontvangen van commerciële informatie via elektronische communicatie van SEOLinkBuildings. U kunt zich op elk moment uitschrijven via de link in elke nieuwsbrief.',
     'newsletter_consent_required' => 'Gelieve akkoord te gaan met het privacybeleid om u te abonneren.',
     'newsletter_success_message' => 'Bedankt — u bent geabonneerd op onze nieuwsbrief.',

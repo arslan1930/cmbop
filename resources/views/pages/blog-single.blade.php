@@ -3,7 +3,7 @@
 @section('title', ($blog->title ?? 'Blog').' — SEOLinkBuildings')
 @section('description', $blog->excerpt ?: \Illuminate\Support\Str::limit(strip_tags($blog->content ?? ''), 160))
 @section('og_type', 'article')
-@section('og_image', !empty($blog->featured_image) ? asset('storage/'.$blog->featured_image) : asset('assets/img/logo1.png'))
+@section('og_image', !empty($blog->featured_image) ? asset('storage/'.$blog->featured_image) : asset('assets/brand/web/og-share-1200x630.png'))
 
 @push('head')
 <script type="application/ld+json">

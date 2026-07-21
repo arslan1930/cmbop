@@ -10,9 +10,10 @@ return [
 
 
     // Hero Section Translations
-    'hero_title' => 'Erhalten Sie starke Backlinks von vertrauenswürdigen Websites',
+    'hero_title' => 'SEOLinkBuildings',
+    'hero_support' => 'Erhalten Sie starke Backlinks von vertrauenswürdigen Websites.',
     'get_started' => 'Loslegen',
-    'hero_tagline' => 'Entdecken Sie die globale Linkbuilding-Plattform für SEO, digitale PR und Content-Verteilung',
+    'hero_tagline' => 'Der globale Linkbuilding-Marktplatz für SEO, digitale PR und Content-Verteilung.',
 
     // Footer
     'professional_services' => 'Professionelle Linkbuilding-Dienstleistungen, die messbare Ergebnisse für Ihr Unternehmen liefern.',
@@ -145,7 +146,7 @@ return [
     'newsletter_email_placeholder' => 'Ihre E-Mail-Adresse',
     'newsletter_subscribe_btn' => 'Abonnieren',
     'newsletter_consent_text' => 'Ich abonniere den SEOLinkBuildings-Newsletter und bestätige, dass ich die Datenschutzrichtlinie gelesen habe.',
-    'newsletter_gdpr_text' => 'Der Verantwortliche für personenbezogene Daten von Nutzern der Website Seolinkbuildings.com und aller Unterseiten ist SEOLinkBuildings. Wir verarbeiten Ihre E-Mail-Adresse zum Zweck des Newsletter-Versands auf der Grundlage Ihrer Einwilligung.',
+    'newsletter_gdpr_text' => 'Der Verantwortliche für personenbezogene Daten von Nutzern der Website seolinkbuildings.com und aller Unterseiten ist SEOLinkBuildings. Wir verarbeiten Ihre E-Mail-Adresse zum Zweck des Newsletter-Versands auf der Grundlage Ihrer Einwilligung.',
     'newsletter_agreement_text' => 'Mit der Anmeldung zum Newsletter erklären Sie sich damit einverstanden, kommerzielle Informationen per elektronischer Kommunikation von SEOLinkBuildings zu erhalten. Sie können sich jederzeit über den Link in jedem Newsletter abmelden.',
     'newsletter_consent_required' => 'Bitte stimmen Sie der Datenschutzerklärung zu, um den Newsletter zu abonnieren.',
     'newsletter_success_message' => 'Danke — Sie sind für unseren Newsletter angemeldet.',

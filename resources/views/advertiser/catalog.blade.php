@@ -40,11 +40,75 @@
 <div class="container-fluid">
     @include('components.ad-banners', ['placement' => 'marketplace', 'audience' => 'advertiser'])
 
+    @if(session('success'))
+        <div class="alert alert-success">{{ session('success') }}</div>
+    @endif
+    @if(session('error'))
+        <div class="alert alert-danger">{{ session('error') }}</div>
+    @endif
+
+    @php
+        $inGuestPostWizard = request()->boolean('wizard')
+            || ! empty(\App\Http\Controllers\Advertiser\GuestPostWizardController::stateFromSession()['language']);
+        $siteReadiness = $siteReadiness ?? [];
+    @endphp
+    @if(request()->boolean('wizard') && ! empty(\App\Http\Controllers\Advertiser\GuestPostWizardController::stateFromSession()['language']))
+        @include('advertiser.wizard._catalog_chrome')
+    @elseif(!empty($orderingSubmission))
+        @include('advertiser.partials.ordering-path', [
+            'step' => 2,
+            'title' => 'Place a guest post · Publishers',
+            'subtitle' => 'Ordering “'.($orderingSubmission->title ?: $orderingSubmission->original_filename).'” ('
+                .strtoupper((string) $orderingSubmission->language).'). Add sites, then assign articles in your cart.',
+            'linkAll' => true,
+            'contentRoute' => route('advertiser.content-library'),
+            'actions' => '<button type="button" class="btn btn-sm btn-primary" onclick="openCart()">Review cart</button>'
+                .'<a href="'.e(route('advertiser.catalog', ['cancel_library_order' => 1])).'" class="btn btn-sm btn-outline-secondary">Cancel</a>'
+                .'<a href="'.e(route('advertiser.content-library')).'" class="btn btn-sm btn-outline-secondary">Back to library</a>',
+        ])
+    @else
+        @include('advertiser.partials.ordering-path', [
+            'step' => 2,
+            'title' => 'Place a guest post · Publishers',
+            'subtitle' => 'One job here: pick publishers. Article readiness is shown next to Buy — assign in your cart before Pay.',
+            'linkAll' => true,
+            'contentRoute' => route('advertiser.content-library'),
+            'actions' => '<a href="'.e(route('advertiser.wizard.start')).'" class="btn btn-sm btn-outline-primary">Start guided flow</a>',
+        ])
+    @endif
+
+    @if(($approvedArticleCount ?? 0) === 0 && empty($orderingSubmission))
+        <div class="alert alert-info border-0 shadow-sm d-flex flex-wrap justify-content-between align-items-center gap-2">
+            <div class="small mb-0">
+                Each website needs its own <strong>approved</strong> article. You can still add publishers —
+                readiness chips show what’s missing, and the cart checklist walks you through assignment.
+            </div>
+            <a href="{{ route('advertiser.content-library', ['upload' => 1]) }}" class="btn btn-sm btn-primary">
+                <i class="fa fa-upload me-1"></i> Upload article
+            </a>
+        </div>
+    @endif
+
+    @if(($catalogBonusBalance ?? 0) > 0)
+        <p class="small text-muted mb-3">
+            Spendable <strong>€{{ number_format((float) ($catalogSpendableBalance ?? 0), 2) }}</strong>
+            (cash €{{ number_format((float) ($catalogCashBalance ?? 0), 2) }}
+            + bonus €{{ number_format((float) $catalogBonusBalance, 2) }}).
+            Apply bonus at checkout.
+        </p>
+    @endif
+
     <!-- HEADER -->
     <div class="row mb-3">
         <div class="col-md-12">
             <h2 class="mb-1 fw-semibold">Catalog</h2>
-            <p class="text-muted mb-0">Browse verified publishers and explore available placement opportunities.</p>
+            <p class="text-muted mb-0">
+                @if(!empty($orderingSubmission))
+                    Showing {{ strtoupper((string) $orderingSubmission->language) }} publishers in all matching countries.
+                @else
+                    Browse verified publishers. Check article readiness beside Buy before you add sites.
+                @endif
+            </p>
         </div>
     </div>
 
@@ -853,6 +917,20 @@ document.addEventListener('DOMContentLoaded', function () {
                                 <span class="fw-semibold base-price-display">€{{ number_format($site->price, 2) }}</span>
                             @endif
                         </button>
+                        @php $readyMeta = $siteReadiness[$site->id] ?? null; @endphp
+                        @if($readyMeta)
+                            @if($readyMeta['ready'])
+                                <span class="catalog-article-ready is-ready" title="You have an approved article that matches this site’s language">
+                                    {{ $readyMeta['label'] }}
+                                </span>
+                            @else
+                                <a href="{{ route('advertiser.content-library', ['upload' => 1, 'language' => $readyMeta['code']]) }}"
+                                   class="catalog-article-ready is-needed"
+                                   title="Upload an approved article in this language, then assign it in your cart">
+                                    {{ $readyMeta['label'] }}
+                                </a>
+                            @endif
+                        @endif
 
                         <div class="catalog-row-actions-quiet">
                             <button type="button"

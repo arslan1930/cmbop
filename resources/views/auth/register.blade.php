@@ -16,7 +16,7 @@
                         <div class="col-md-5 d-none d-md-block">
                             <div class="auth-panel h-100">
                                 <div class="auth-brand">
-                                    <img src="{{ asset('assets/img/logo1.png') }}" alt="SEOLinkBuildings">
+                                    <img src="{{ asset('assets/img/logo1.png') }}?v={{ @filemtime(public_path('assets/img/logo1.png')) ?: '1' }}" alt="SEOLinkBuildings">
                                 </div>
 
                                 <div class="auth-panel-kicker">Start free today</div>

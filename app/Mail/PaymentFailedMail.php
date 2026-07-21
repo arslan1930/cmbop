@@ -23,6 +23,17 @@ class PaymentFailedMail extends PlatformMailable
             ?: 'Payment verification failed.';
         $symbol = config('billing.currency_symbol', '€');
 
+        $retryUrl = route('advertiser.orders', ['payment_status' => 'failed']);
+        if ($order && $order->payment_method === 'card'
+            && $order->payment_status === 'failed'
+            && $order->status === 'pending') {
+            $retryUrl = route('advertiser.orders', [
+                'payment_status' => 'failed',
+                'focus' => 'order',
+                'order' => $order->id,
+            ]);
+        }
+
         $mail = $this->subject('Payment Failed')
             ->markdown('emails.billing.payment-failed', [
                 'document' => $this->document,
@@ -30,7 +41,7 @@ class PaymentFailedMail extends PlatformMailable
                 'user' => $this->document->user,
                 'reason' => $reason,
                 'symbol' => $symbol,
-                'retryUrl' => route('advertiser.checkout'),
+                'retryUrl' => $retryUrl,
             ]);
 
         $path = app(InvoicePdfGenerator::class)->absolutePath($this->document);

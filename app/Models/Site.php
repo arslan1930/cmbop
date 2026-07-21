@@ -723,4 +723,29 @@ class Site extends Model
 
         return $countryOk && $languageOk;
     }
+
+    /**
+     * Language-first market check used by Content Library ordering:
+     * an English article can place on any English-language site (any English country).
+     */
+    public function acceptsLanguage(string $language): bool
+    {
+        $language = strtolower(trim($language));
+        if ($language === '') {
+            return false;
+        }
+
+        $countries = $this->countryCodes();
+        $languages = $this->languageCodes();
+
+        if ($countries === [] && $languages === []) {
+            return true;
+        }
+
+        if ($languages === []) {
+            return true;
+        }
+
+        return in_array($language, $languages, true);
+    }
 }

@@ -8,9 +8,10 @@ return [
     'logout' => 'Se déconnecter',
 
     // Hero Section Translations
-    'hero_title' => 'Obtenez des backlinks puissants depuis des sites web de confiance',
+    'hero_title' => 'SEOLinkBuildings',
+    'hero_support' => 'Obtenez des backlinks puissants depuis des sites web de confiance.',
     'get_started' => 'Commencer',
-    'hero_tagline' => 'pour explorer la plateforme mondiale de création de liens conçue pour le SEO, les RP numériques et la distribution de contenu',
+    'hero_tagline' => 'La marketplace mondiale de création de liens pour le SEO, les RP numériques et la distribution de contenu.',
 
     // Footer
     'professional_services' => 'Des services de création de liens professionnels qui offrent des résultats mesurables pour votre entreprise.',
@@ -144,7 +145,7 @@ return [
     'newsletter_email_placeholder' => 'Votre adresse e-mail',
     'newsletter_subscribe_btn' => "S'abonner",
     'newsletter_consent_text' => "Je m'abonne à la newsletter SEOLinkBuildings et confirme avoir lu la Politique de confidentialité.",
-    'newsletter_gdpr_text' => 'Le responsable des données personnelles des personnes qui utilisent le site Seolinkbuildings.com et toutes ses sous-pages est SEOLinkBuildings. Nous traitons votre adresse e-mail dans le but de vous envoyer la newsletter sur la base de votre consentement.',
+    'newsletter_gdpr_text' => 'Le responsable des données personnelles des personnes qui utilisent le site seolinkbuildings.com et toutes ses sous-pages est SEOLinkBuildings. Nous traitons votre adresse e-mail dans le but de vous envoyer la newsletter sur la base de votre consentement.',
     'newsletter_agreement_text' => "En vous inscrivant à la newsletter, vous acceptez de recevoir des informations commerciales par voie électronique de la part de SEOLinkBuildings. Vous pouvez vous désabonner à tout moment en utilisant le lien dans chaque newsletter.",
     'newsletter_consent_required' => "Veuillez accepter la politique de confidentialité pour vous abonner.",
     'newsletter_success_message' => 'Merci — vous êtes inscrit(e) à notre newsletter.',

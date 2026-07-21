@@ -7,7 +7,6 @@ use App\Models\Order;
 use App\Models\Site;
 use App\Models\User;
 use App\Models\Wallet;
-use App\Services\InAppNotificationService;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -47,11 +46,13 @@ class OrderPaymentService
                     continue;
                 }
 
-                if ($order->payment_status !== 'pending') {
+                // Allow pending (first attempt) and failed (Pay again / recovered session).
+                if (! in_array($order->payment_status, ['pending', 'failed'], true)) {
                     Log::warning('Skipping order with unexpected payment status', [
                         'order_id' => $order->id,
                         'payment_status' => $order->payment_status,
                     ]);
+
                     continue;
                 }
 
@@ -79,6 +80,82 @@ class OrderPaymentService
     }
 
     /**
+     * Mark pending/failed card orders paid from a confirmed PaymentIntent (saved card).
+     *
+     * @return Collection<int, Order>
+     */
+    public function markOrdersPaidFromPaymentIntent(string $referenceCode, object $intent): Collection
+    {
+        return DB::transaction(function () use ($referenceCode, $intent) {
+            $orders = Order::with('items')
+                ->where('reference_code', $referenceCode)
+                ->where('payment_method', 'card')
+                ->lockForUpdate()
+                ->get();
+
+            if ($orders->isEmpty()) {
+                return collect();
+            }
+
+            $newlyPaid = collect();
+            foreach ($orders as $order) {
+                if ($order->payment_status === 'paid') {
+                    continue;
+                }
+                if (! in_array($order->payment_status, ['pending', 'failed'], true)) {
+                    continue;
+                }
+
+                $order->update([
+                    'stripe_payment_intent_id' => $intent->id ?? $order->stripe_payment_intent_id,
+                    'stripe_response' => method_exists($intent, 'toArray')
+                        ? json_encode($intent->toArray())
+                        : json_encode($intent),
+                    'paid_at' => now(),
+                    'payment_status' => 'paid',
+                    'status' => 'pending',
+                ]);
+                $newlyPaid->push($order->fresh('items'));
+            }
+
+            if ($newlyPaid->isNotEmpty()) {
+                $meta = [];
+                if (isset($intent->metadata)) {
+                    $meta = is_array($intent->metadata)
+                        ? $intent->metadata
+                        : (method_exists($intent->metadata, 'toArray') ? $intent->metadata->toArray() : (array) $intent->metadata);
+                }
+                $bonus = round((float) ($meta['bonus_applied'] ?? 0), 2);
+                if ($bonus <= 0) {
+                    $bonus = round((float) Cache::get('checkout_bonus:'.$newlyPaid->first()->user_id.':'.$referenceCode, 0), 2);
+                }
+                if ($bonus > 0) {
+                    $this->consumeBonusAmount($newlyPaid->first(), $bonus);
+                }
+            }
+
+            return $newlyPaid;
+        });
+    }
+
+    protected function consumeBonusAmount(Order $order, float $bonus): void
+    {
+        $cacheKey = 'checkout_bonus:'.$order->user_id.':'.$order->reference_code;
+        $roleId = Wallet::advertiserRoleId();
+        if (! $roleId) {
+            Cache::forget($cacheKey);
+
+            return;
+        }
+
+        $wallet = Wallet::where('user_id', $order->user_id)->where('role_id', $roleId)->lockForUpdate()->first();
+        if ($wallet && (float) $wallet->bonus_reserved > 0) {
+            $wallet->consumeReserved(min($bonus, (float) $wallet->bonus_reserved));
+        }
+        Cache::forget($cacheKey);
+    }
+
+    /**
      * When a card checkout applied promotional credit, permanently consume the reserved bonus.
      */
     protected function consumeBonusAppliedFromStripeSession(Order $order, object $session): void
@@ -91,7 +168,7 @@ class OrderPaymentService
         }
 
         $bonus = round((float) ($meta['bonus_applied'] ?? 0), 2);
-        $cacheKey = 'checkout_bonus:' . $order->user_id . ':' . $order->reference_code;
+        $cacheKey = 'checkout_bonus:'.$order->user_id.':'.$order->reference_code;
         if ($bonus <= 0) {
             $bonus = round((float) Cache::get($cacheKey, 0), 2);
         }
@@ -112,6 +189,82 @@ class OrderPaymentService
     }
 
     /**
+     * Mark pending card orders as payment_status=failed (session expired / declined).
+     * Refunds any reserved checkout bonus for the reference. Leaves order rows intact for Pay again.
+     *
+     * @return Collection<int, Order>
+     */
+    public function markOrdersFailedFromReference(string $referenceCode, ?string $reason = null): Collection
+    {
+        $failed = DB::transaction(function () use ($referenceCode, $reason) {
+            $orders = Order::query()
+                ->where('reference_code', $referenceCode)
+                ->where('payment_method', 'card')
+                ->where('payment_status', 'pending')
+                ->lockForUpdate()
+                ->get();
+
+            if ($orders->isEmpty()) {
+                return collect();
+            }
+
+            $marked = collect();
+            foreach ($orders as $order) {
+                $order->update([
+                    'payment_status' => 'failed',
+                ]);
+                $marked->push($order->fresh());
+            }
+
+            $userId = (int) $marked->first()->user_id;
+            $this->refundBonusReservedForReference($userId, $referenceCode);
+
+            Log::info('Marked card orders payment_status=failed', [
+                'reference_code' => $referenceCode,
+                'order_count' => $marked->count(),
+                'reason' => $reason,
+            ]);
+
+            return $marked;
+        });
+
+        if ($failed->isNotEmpty()) {
+            try {
+                app(InAppNotificationService::class)->notifyPaymentFailed($failed, $reason);
+            } catch (\Throwable $e) {
+                Log::warning('notifyPaymentFailed failed after card payment failure', [
+                    'reference_code' => $referenceCode,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
+
+        return $failed;
+    }
+
+    /**
+     * Refund promotional credit reserved for a card checkout reference.
+     */
+    public function refundBonusReservedForReference(int $userId, string $referenceCode): void
+    {
+        $cacheKey = 'checkout_bonus:'.$userId.':'.$referenceCode;
+        $bonus = round((float) Cache::pull($cacheKey, 0), 2);
+        if ($bonus <= 0) {
+            return;
+        }
+
+        $roleId = Wallet::advertiserRoleId();
+        if (! $roleId) {
+            return;
+        }
+
+        $wallet = Wallet::where('user_id', $userId)->where('role_id', $roleId)->lockForUpdate()->first();
+        if ($wallet && (float) $wallet->bonus_reserved > 0) {
+            $wallet->refundReserved(min($bonus, (float) $wallet->bonus_reserved));
+        }
+    }
+
+    /**
      * Notify publishers only after payment is confirmed.
      *
      * @param  iterable<Order>  $orders
@@ -124,11 +277,12 @@ class OrderPaymentService
                 return;
             }
 
+            $freshOrders = collect();
             foreach ($orders as $order) {
                 try {
-                    app(InAppNotificationService::class)->notifyOrderCreated(
-                        $order instanceof Order ? $order->fresh(['items']) : $order
-                    );
+                    $fresh = $order instanceof Order ? $order->fresh(['items']) : $order;
+                    $freshOrders->push($fresh);
+                    app(InAppNotificationService::class)->notifyOrderCreated($fresh);
                 } catch (\Throwable $e) {
                     Log::warning('notifyOrderCreated failed after card payment', [
                         'order_id' => $order->id ?? null,
@@ -137,13 +291,21 @@ class OrderPaymentService
                 }
             }
 
+            try {
+                app(InAppNotificationService::class)->notifyAdvertiserOrdersPaid($freshOrders);
+            } catch (\Throwable $e) {
+                Log::warning('notifyAdvertiserOrdersPaid failed after payment', [
+                    'error' => $e->getMessage(),
+                ]);
+            }
+
             $siteOrders = [];
             foreach ($orders as $order) {
                 foreach ($order->items as $item) {
                     $siteId = $item->site_id;
-                    if (!isset($siteOrders[$siteId])) {
+                    if (! isset($siteOrders[$siteId])) {
                         $site = Site::find($siteId);
-                        if (!$site) {
+                        if (! $site) {
                             continue;
                         }
                         $siteOrders[$siteId] = [
@@ -159,11 +321,12 @@ class OrderPaymentService
                 $site = $siteData['site'];
                 $publisher = $site->publisher_id ? User::find($site->publisher_id) : null;
 
-                if (!$publisher || !$publisher->email) {
+                if (! $publisher || ! $publisher->email) {
                     Log::warning('Cannot notify publisher for paid order', [
                         'site_id' => $site->id,
                         'publisher_id' => $site->publisher_id,
                     ]);
+
                     continue;
                 }
 
@@ -179,7 +342,7 @@ class OrderPaymentService
                 }
             }
         } catch (\Exception $e) {
-            Log::error('notifyPublishersOfPaidOrders failed: ' . $e->getMessage());
+            Log::error('notifyPublishersOfPaidOrders failed: '.$e->getMessage());
         }
     }
 }

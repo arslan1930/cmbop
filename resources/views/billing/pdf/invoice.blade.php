@@ -152,13 +152,22 @@
                 <div><strong>{{ $invoice->customer_name }}</strong></div>
                 <div class="muted">{{ $invoice->customer_email }}</div>
                 @php $bill = $invoice->billing_snapshot ?? []; @endphp
-                @if(!empty($bill['company'])) <div>{{ $bill['company'] }}</div> @endif
+                @if(!empty($bill['company'])) <div><strong>{{ $bill['company'] }}</strong></div> @endif
                 @if(!empty($bill['address'])) <div class="muted">{{ $bill['address'] }}</div> @endif
-                @if(!empty($bill['city']) || !empty($bill['postal_code']))
-                    <div class="muted">{{ trim(($bill['city'] ?? '').' '.($bill['postal_code'] ?? '')) }}</div>
+                @if(!empty($bill['city']) || !empty($bill['state']) || !empty($bill['postal_code']))
+                    @php
+                        $billLocality = trim(implode(', ', array_filter([
+                            $bill['city'] ?? null,
+                            $bill['state'] ?? null,
+                            $bill['postal_code'] ?? null,
+                        ])));
+                    @endphp
+                    @if($billLocality !== '')
+                        <div class="muted">{{ $billLocality }}</div>
+                    @endif
                 @endif
                 @if(!empty($bill['country'])) <div class="muted">{{ $bill['country'] }}</div> @endif
-                @if(!empty($bill['vat_number'])) <div class="muted">VAT: {{ $bill['vat_number'] }}</div> @endif
+                @if(!empty($bill['vat_number'])) <div class="muted">VAT / Tax ID: {{ $bill['vat_number'] }}</div> @endif
             </div>
         </td>
         <td style="padding-left:8px;">

@@ -8,6 +8,7 @@ use App\Models\DepositRequest;
 use App\Models\Order;
 use App\Models\Wallet;
 use App\Models\StripeWebhookLog;
+use App\Services\OrderPaymentService;
 use App\Services\StripePaymentService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -58,6 +59,13 @@ class StripeWebhookController extends Controller
             if ($eventType === 'checkout.session.completed') {
                 $session = $event->data->object;
                 $this->routePaymentToCorrectTable($session);
+            }
+
+            // Session expiry is definitive. Do not mark failed on payment_intent.payment_failed:
+            // Checkout allows in-session card retries and bonus may still be reserved.
+            if ($eventType === 'checkout.session.expired') {
+                $session = $event->data->object;
+                $this->handleOrderCheckoutFailed($session, 'Checkout session expired');
             }
 
             // Mark as processed
@@ -253,6 +261,34 @@ class StripeWebhookController extends Controller
             
         } catch (\Exception $e) {
             Log::error('Error processing wallet deposit: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Mark pending card orders failed when a Checkout Session expires or payment fails.
+     */
+    private function handleOrderCheckoutFailed($session, string $reason): void
+    {
+        try {
+            $metadata = $session->metadata ?? [];
+            $paymentType = is_object($metadata)
+                ? ($metadata->type ?? null)
+                : ($metadata['type'] ?? null);
+            $referenceCode = is_object($metadata)
+                ? ($metadata->reference_code ?? null)
+                : ($metadata['reference_code'] ?? null);
+
+            if (! $referenceCode) {
+                return;
+            }
+
+            if ($paymentType && ! in_array($paymentType, ['order_payment', 'order'], true)) {
+                return;
+            }
+
+            app(OrderPaymentService::class)->markOrdersFailedFromReference($referenceCode, $reason);
+        } catch (\Exception $e) {
+            Log::error('Error marking order checkout failed: '.$e->getMessage());
         }
     }
 

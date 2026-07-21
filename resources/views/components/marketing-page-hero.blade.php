@@ -6,6 +6,7 @@
 
 <section class="marketing-hero">
   <div class="container marketing-hero-inner">
+    @include('components.marketing-brand-line')
     @if($kicker)
       <div class="mb-3">
         <span class="marketing-kicker">{{ $kicker }}</span>

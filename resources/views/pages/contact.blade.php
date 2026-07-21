@@ -6,27 +6,10 @@
 
 @section('content')
 
-<!-- ==================== CONTACT HERO ==================== -->
-<section style="position:relative; width:100%; padding:48px 0 60px; overflow:hidden; background:linear-gradient(180deg, #f0f5ff 0%, #f5faff 100%);">
-
-    <!-- Background Shapes -->
-    <div style="position:absolute; top:10%; left:-100px; width:250px; height:250px; border-radius:50%; background:#FF4757; opacity:0.08; z-index:1;"></div>
-    <div style="position:absolute; bottom:-80px; right:-60px; width:220px; height:220px; border-radius:50%; background:#FFD93D; opacity:0.15; z-index:1;"></div>
-    <div style="position:absolute; top:30%; right:10%; width:60px; height:60px; border-radius:50%; border:10px solid #4ECDCB; opacity:0.4; z-index:1;"></div>
-    <div style="position:absolute; top:15%; right:25%; width:10px; height:10px; border-radius:50%; background:#4ECDCB; opacity:0.6; z-index:1;"></div>
-    <div style="position:absolute; bottom:20%; left:15%; width:12px; height:12px; border-radius:50%; background:#FF4757; opacity:0.4; z-index:1;"></div>
-
-    <div class="container" style="position:relative; z-index:5; max-width:900px;">
-        <div class="text-center">
-            <h1 style="font-size:3rem; font-weight:800; color:#1a1a2e; letter-spacing:-1px; margin-bottom:1rem;">
-                {{ __('messages.contact_hero_title') }}
-            </h1>
-            <p style="font-size:1.1rem; color:#666; max-width:600px; margin:0 auto;">
-                {{ __('messages.contact_hero_subtitle') }}
-            </p>
-        </div>
-    </div>
-</section>
+@include('components.marketing-page-hero', [
+    'title' => __('messages.contact_hero_title'),
+    'subtitle' => __('messages.contact_hero_subtitle'),
+])
 
 
 <!-- ==================== CONTACT CONTENT ==================== -->

@@ -6,6 +6,10 @@
         <div class="col-md-8">
             <h2 class="mb-1 fw-semibold">Billing &amp; Invoices</h2>
             <p class="text-muted mb-0">Download invoices, payment receipts, and refund documents anytime.</p>
+            <p class="small text-muted mb-0 mt-1">
+                Invoices use your company name, address, and optional VAT / tax ID from checkout billing or
+                <a href="{{ route('profile') }}">profile</a>.
+            </p>
         </div>
         <div class="col-md-4 text-md-end">
             <a href="{{ route('advertiser.orders') }}" class="btn btn-sm btn-outline-secondary">View orders</a>

@@ -63,8 +63,9 @@
     </div>
     <div class="card-body">
         <div class="alert alert-info border-0 small">
-            Orders can proceed only with an <strong>approved</strong> Content Library article that matches each website’s country and language.
-            Articles needing correction must be edited and resubmitted first. Approval is automatic after compliance and uniqueness checks.
+            Each website needs its own <strong>approved</strong> Content Library article matching that site’s <strong>language</strong>
+            (e.g. English articles work on US, UK, AU, and other English sites).
+            Upload or fix articles in the library first — approval is automatic after compliance and uniqueness checks.
         </div>
 
         <div class="d-flex flex-column gap-3" id="contentAssignmentList">
@@ -72,12 +73,10 @@
                 @php
                     $siteCountries = $p['countries'] ?: array_filter([$p['country']]);
                     $siteLanguages = $p['languages'] ?: array_filter([$p['language']]);
-                    $matching = $approvedArticles->filter(function ($article) use ($siteCountries, $siteLanguages) {
-                        $c = strtolower((string) $article->country);
+                    $matching = $approvedArticles->filter(function ($article) use ($siteLanguages) {
                         $l = strtolower((string) $article->language);
-                        $countryOk = $siteCountries === [] || in_array($c, array_map('strtolower', $siteCountries), true);
-                        $languageOk = $siteLanguages === [] || in_array($l, array_map('strtolower', $siteLanguages), true);
-                        return $countryOk && $languageOk;
+                        // Language-first: English article → any English-language site/country.
+                        return $siteLanguages === [] || in_array($l, array_map('strtolower', $siteLanguages), true);
                     });
                 @endphp
                 <div class="content-assign-card placement-assign"
@@ -105,7 +104,7 @@
                     </div>
 
                     <div class="mb-3">
-                        <label class="form-label">Approved article (same country + language)</label>
+                        <label class="form-label">Approved article (same language)</label>
                         <select class="form-select article-select">
                             <option value="">— Select approved article —</option>
                             @forelse($matching as $article)
@@ -113,9 +112,12 @@
                                     data-approved="1"
                                     data-anchor="{{ e($article->anchor_text) }}"
                                     data-target="{{ e($article->target_url) }}"
-                                    data-preview="{{ e($article->preview_html) }}"
+                                    data-preview-b64="{{ base64_encode((string) $article->preview_html) }}"
+                                    data-history-b64="{{ base64_encode(json_encode($article->articleHistory(), JSON_UNESCAPED_UNICODE)) }}"
                                     data-country="{{ $article->country }}"
                                     data-language="{{ $article->language }}"
+                                    data-word-count="{{ (int) $article->word_count }}"
+                                    data-title="{{ e($article->title ?: $article->original_filename) }}"
                                     @selected((int) $p['preselected'] === (int) $article->id)>
                                     {{ $article->title ?: $article->original_filename }}
                                     ({{ strtoupper($article->country) }}/{{ strtoupper($article->language) }})
@@ -135,18 +137,6 @@
                         <div class="fw-semibold small mb-2">Or upload a new .docx for this market</div>
                         <div class="row g-2 mb-2">
                             <div class="col-md-6">
-                                <label class="form-label small">Country</label>
-                                <select class="form-select form-select-sm upload-country" required>
-                                    <option value="">Select country</option>
-                                    @foreach($marketplaceCountries as $country)
-                                        <option value="{{ strtolower($country->code) }}"
-                                            @selected(in_array(strtolower($country->code), array_map('strtolower', $siteCountries), true))>
-                                            {{ $country->name }}
-                                        </option>
-                                    @endforeach
-                                </select>
-                            </div>
-                            <div class="col-md-6">
                                 <label class="form-label small">Language</label>
                                 <select class="form-select form-select-sm upload-language" required>
                                     <option value="">Select language</option>
@@ -158,9 +148,21 @@
                                     @endforeach
                                 </select>
                             </div>
+                            <div class="col-md-6">
+                                <label class="form-label small">Country</label>
+                                <select class="form-select form-select-sm upload-country" required>
+                                    <option value="">Select language first</option>
+                                    @foreach($marketplaceCountries as $country)
+                                        <option value="{{ strtolower($country->code) }}"
+                                            @selected(in_array(strtolower($country->code), array_map('strtolower', $siteCountries), true))>
+                                            {{ $country->name }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                            </div>
                         </div>
                         <input type="file" class="form-control form-control-sm upload-file mb-2" accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document">
-                        <div class="small text-muted mb-2">Select country and language before uploading. Order unlocks only after automatic approval.</div>
+                        <div class="small text-muted mb-2">Select language first, then country. Matching is by language (English → all English countries).</div>
                         <button type="button" class="btn btn-sm btn-outline-primary upload-btn">Upload & check</button>
                         <div class="upload-feedback small mt-2" aria-live="polite"></div>
                     </div>
@@ -237,7 +239,39 @@
 (function () {
     const uploadUrl = @json(route('advertiser.content-submissions.upload'));
     const csrf = @json(csrf_token());
+    const languageCountryMap = @json($languageCountryMap ?? new \stdClass());
     const cards = Array.from(document.querySelectorAll('.placement-assign'));
+
+    function refreshUploadCountries(card) {
+        const langSelect = card.querySelector('.upload-language');
+        const countrySelect = card.querySelector('.upload-country');
+        if (!langSelect || !countrySelect) return;
+        const lang = (langSelect.value || '').toLowerCase();
+        const preferred = (countrySelect.value || '').toLowerCase();
+        const options = languageCountryMap[lang] || [];
+        countrySelect.innerHTML = '';
+        if (!lang) {
+            countrySelect.innerHTML = '<option value="">Select language first</option>';
+            return;
+        }
+        const placeholder = document.createElement('option');
+        placeholder.value = '';
+        placeholder.textContent = 'Select country';
+        countrySelect.appendChild(placeholder);
+        options.forEach(function (item) {
+            const opt = document.createElement('option');
+            opt.value = item.code;
+            opt.textContent = item.name;
+            if (preferred && preferred === item.code) opt.selected = true;
+            countrySelect.appendChild(opt);
+        });
+    }
+    cards.forEach(function (card) {
+        card.querySelector('.upload-language')?.addEventListener('change', function () {
+            refreshUploadCountries(card);
+        });
+        refreshUploadCountries(card);
+    });
 
     function syncSchedule() {
         document.getElementById('assignScheduleFields').classList.toggle(
@@ -248,17 +282,96 @@
     document.getElementById('assignPubScheduled')?.addEventListener('change', syncSchedule);
     document.getElementById('assignPubImmediate')?.addEventListener('change', syncSchedule);
 
+    function decodeB64(value) {
+        if (!value) return '';
+        try {
+            return atob(value);
+        } catch (e) {
+            return '';
+        }
+    }
+
     function selectedSubmission(card) {
         const select = card.querySelector('.article-select');
         const opt = select.options[select.selectedIndex];
         if (!select.value) return null;
+        let history = [];
+        try {
+            history = JSON.parse(decodeB64(opt.dataset.historyB64 || '') || '[]');
+        } catch (e) {
+            history = [];
+        }
         return {
             id: parseInt(select.value, 10),
             approved: opt.dataset.approved === '1',
             anchor: opt.dataset.anchor || '',
             target: opt.dataset.target || '',
-            preview: opt.dataset.preview || '',
+            preview: decodeB64(opt.dataset.previewB64 || ''),
+            history: Array.isArray(history) ? history : [],
+            title: opt.dataset.title || (opt.textContent || '').trim(),
+            wordCount: opt.dataset.wordCount || '',
+            country: opt.dataset.country || '',
+            language: opt.dataset.language || '',
         };
+    }
+
+    function formatHistoryAt(at) {
+        if (!at) return '';
+        try {
+            const d = new Date(at);
+            if (Number.isNaN(d.getTime())) return '';
+            return d.toLocaleString(undefined, { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+        } catch (e) {
+            return '';
+        }
+    }
+
+    function syncOrderSummaryArticle(card, selected) {
+        const siteId = card.dataset.siteId;
+        const copyIndex = card.dataset.copyIndex || '0';
+        const summary = document.querySelector(
+            '.site-summary-card[data-site-id="' + siteId + '"][data-copy-index="' + copyIndex + '"]'
+        );
+        if (!summary) return;
+        let box = summary.querySelector('.order-summary-article');
+        if (!selected || (!selected.preview && !selected.title)) {
+            if (box) box.remove();
+            return;
+        }
+        if (!box) {
+            box = document.createElement('div');
+            box.className = 'order-summary-article mt-3';
+            summary.appendChild(box);
+        }
+        const market = ((selected.country || '') + '/' + (selected.language || '')).toUpperCase();
+        const metaBits = [market, selected.wordCount ? (selected.wordCount + ' words') : ''].filter(Boolean).join(' · ');
+        const history = (selected.history || []).slice(-6);
+        let historyHtml = '';
+        if (history.length) {
+            historyHtml = '<div class="order-summary-article-history mt-2">' +
+                '<div class="small text-uppercase text-muted fw-semibold mb-1">Article history</div>' +
+                '<ul class="order-summary-history-list">' +
+                history.map(function (event) {
+                    return '<li>' +
+                        '<span class="history-label">' + (event.label || '').replace(/</g, '&lt;') + '</span>' +
+                        '<span class="history-detail">' + (event.detail ? String(event.detail).replace(/</g, '&lt;') : '') + '</span>' +
+                        '<span class="history-at">' + formatHistoryAt(event.at) + '</span>' +
+                        '</li>';
+                }).join('') +
+                '</ul></div>';
+        }
+        box.innerHTML =
+            '<div class="d-flex flex-wrap justify-content-between gap-2 mb-2"><div>' +
+            '<div class="small text-uppercase text-muted fw-semibold">Article</div>' +
+            '<div class="fw-semibold">' + String(selected.title || 'Selected article').replace(/</g, '&lt;') + '</div>' +
+            (metaBits ? '<div class="small text-muted">' + metaBits.replace(/</g, '&lt;') + '</div>' : '') +
+            '</div></div>' +
+            (selected.preview ? '<div class="order-summary-article-preview"></div>' : '') +
+            historyHtml;
+        const previewEl = box.querySelector('.order-summary-article-preview');
+        if (previewEl && selected.preview) {
+            previewEl.innerHTML = selected.preview;
+        }
     }
 
     function refreshCard(card) {
@@ -270,6 +383,7 @@
             status.className = 'badge text-bg-secondary assign-status';
             status.textContent = 'Select approved article';
             previewBox.classList.add('d-none');
+            syncOrderSummaryArticle(card, null);
             return;
         }
         card.querySelector('.assign-anchor').value = selected.anchor || card.querySelector('.assign-anchor').value;
@@ -280,6 +394,7 @@
         }
         status.className = 'badge text-bg-success assign-status';
         status.textContent = 'Approved article selected';
+        syncOrderSummaryArticle(card, selected);
     }
 
     function allReady() {
@@ -356,9 +471,12 @@
                 opt.dataset.approved = '1';
                 opt.dataset.anchor = s.anchor_text || '';
                 opt.dataset.target = s.target_url || '';
-                opt.dataset.preview = s.preview_html || '';
+                opt.dataset.previewB64 = btoa(unescape(encodeURIComponent(s.preview_html || '')));
+                opt.dataset.historyB64 = btoa(unescape(encodeURIComponent(JSON.stringify(s.history || []))));
                 opt.dataset.country = s.country || country;
                 opt.dataset.language = s.language || language;
+                opt.dataset.wordCount = s.word_count || '';
+                opt.dataset.title = s.title || s.original_filename || 'Article';
                 opt.textContent = (s.title || s.original_filename) + ' (' + String(s.country || country).toUpperCase() + '/' + String(s.language || language).toUpperCase() + ')';
                 select.appendChild(opt);
                 select.value = String(s.id);

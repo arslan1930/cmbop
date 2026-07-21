@@ -9,10 +9,11 @@
         $pageDescription = trim($__env->yieldContent('description'))
             ?: __('messages.meta_default_description');
         $pageCanonical = trim($__env->yieldContent('canonical')) ?: url()->current();
-        $pageImage = trim($__env->yieldContent('og_image')) ?: asset('assets/img/logo1.png');
+        $pageImage = trim($__env->yieldContent('og_image')) ?: asset('assets/brand/web/og-share-1200x630.png');
         $pageType = trim($__env->yieldContent('og_type')) ?: 'website';
         $hreflangTags = \App\Support\PublicI18n::hreflangTags(request());
     @endphp
+    @include('components.favicon')
     <title>{{ $pageTitle }}</title>
     <meta name="description" content="{{ $pageDescription }}">
     <link rel="canonical" href="{{ $pageCanonical }}">
@@ -32,7 +33,7 @@
     <meta name="twitter:image" content="{{ $pageImage }}">
     @stack('head')
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&family=Sora:wght@500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
     <link href="{{ asset('css/type-system.css') }}?v={{ @filemtime(public_path('css/type-system.css')) ?: '1' }}" rel="stylesheet">
     <link href="{{ asset('css/brand-colors.css') }}?v={{ @filemtime(public_path('css/brand-colors.css')) ?: '1' }}" rel="stylesheet">
@@ -40,6 +41,7 @@
     <link href="{{ asset('css/button-system.css') }}?v={{ @filemtime(public_path('css/button-system.css')) ?: '1' }}" rel="stylesheet">
     <link href="{{ asset('css/form-system.css') }}?v={{ @filemtime(public_path('css/form-system.css')) ?: '1' }}" rel="stylesheet">
     <link href="{{ asset('css/glass-tip.css') }}?v={{ @filemtime(public_path('css/glass-tip.css')) ?: '1' }}" rel="stylesheet">
+    <link href="{{ asset('css/marketing-saas.css') }}?v={{ @filemtime(public_path('css/marketing-saas.css')) ?: '1' }}" rel="stylesheet">
     <script src="{{ asset('js/glass-tip.js') }}?v={{ @filemtime(public_path('js/glass-tip.js')) ?: '1' }}" defer></script>
     <script src="https://www.google.com/recaptcha/api.js" async defer></script>
     <style>
@@ -62,7 +64,7 @@
         }
     </style>
 </head>
-<body>
+<body class="slb-marketing">
 
 @include('components.navbar')
 @include('components.language-suggestion')

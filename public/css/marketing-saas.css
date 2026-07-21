@@ -1,0 +1,267 @@
+/**
+ * Marketing SaaS chrome + home presentation layer.
+ * Visual only — does not change app routes or authenticated product UI.
+ */
+
+:root {
+  --slb-ink: #0f172a;
+  --slb-muted: #5b6b7c;
+  --slb-surface: #f3faf9;
+  --slb-surface-2: #ffffff;
+  --slb-line: rgba(11, 98, 102, 0.12);
+  --slb-glow: rgba(58, 174, 178, 0.22);
+  --slb-radius: 16px;
+  --slb-font-display: 'Sora', 'Poppins', system-ui, sans-serif;
+}
+
+body.slb-marketing {
+  color: var(--slb-ink);
+  background:
+    radial-gradient(1200px 480px at 90% -10%, rgba(78, 205, 203, 0.16), transparent 60%),
+    radial-gradient(900px 420px at -10% 20%, rgba(11, 98, 102, 0.06), transparent 55%),
+    #fbfefe;
+}
+
+body.slb-marketing h1,
+body.slb-marketing h2,
+body.slb-marketing h3,
+body.slb-marketing .h1,
+body.slb-marketing .h2,
+body.slb-marketing .h3 {
+  font-family: var(--slb-font-display);
+  letter-spacing: -0.03em;
+}
+
+/* —— Navbar —— */
+#mainNavbar.slb-nav {
+  background: rgba(255, 255, 255, 0.82) !important;
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border-bottom: 1px solid var(--slb-line);
+  box-shadow: none !important;
+}
+
+#mainNavbar.slb-nav.navbar-scrolled {
+  background: rgba(255, 255, 255, 0.94) !important;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.06) !important;
+}
+
+#mainNavbar.slb-nav .nav-link {
+  font-weight: 500;
+  color: #334155 !important;
+  border-radius: 999px;
+  padding: 0.45rem 0.85rem !important;
+}
+
+#mainNavbar.slb-nav .nav-link:hover {
+  color: var(--brand-primary) !important;
+  background: rgba(11, 98, 102, 0.06) !important;
+}
+
+#mainNavbar.slb-nav .navbar-cta-primary {
+  background: var(--brand-primary) !important;
+  color: #fff !important;
+  border-radius: 999px;
+  font-weight: 600;
+  padding: 0.5rem 1.1rem !important;
+  box-shadow: 0 8px 20px rgba(11, 98, 102, 0.18);
+}
+
+#mainNavbar.slb-nav .navbar-cta-primary:hover {
+  background: var(--brand-primary-soft) !important;
+  color: #fff !important;
+}
+
+#mainNavbar.slb-nav .navbar-cta-outline {
+  border: 1px solid var(--slb-line);
+  color: var(--brand-primary) !important;
+  border-radius: 999px;
+  font-weight: 600;
+  background: transparent;
+}
+
+#mainNavbar.slb-nav .navbar-cta-outline:hover {
+  border-color: var(--brand-primary-soft);
+  background: rgba(11, 98, 102, 0.05) !important;
+  color: var(--brand-primary) !important;
+}
+
+#mainNavbar.slb-nav .navbar-lang-btn {
+  border-radius: 999px;
+  border-color: var(--slb-line);
+  background: #fff;
+}
+
+/* —— Footer —— */
+footer.slb-footer {
+  background:
+    linear-gradient(180deg, #f7fcfb 0%, #eef8f7 100%) !important;
+  border-top: 1px solid var(--slb-line);
+  position: relative;
+}
+
+footer.slb-footer::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(58, 174, 178, 0.55), transparent);
+}
+
+footer.slb-footer h5 {
+  font-family: var(--slb-font-display);
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--brand-primary);
+  letter-spacing: -0.02em;
+}
+
+footer.slb-footer a.text-dark {
+  color: #475569 !important;
+  transition: color 0.2s ease;
+}
+
+footer.slb-footer a.text-dark:hover {
+  color: var(--brand-primary) !important;
+}
+
+footer.slb-footer .slb-footer-brand img {
+  max-width: 200px;
+  height: auto;
+}
+
+/* —— Shared home section shell —— */
+.slb-section {
+  position: relative;
+  padding: clamp(3.5rem, 7vw, 5.5rem) 0;
+}
+
+.slb-section-kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--brand-primary);
+  margin-bottom: 0.75rem;
+}
+
+.slb-section-title {
+  font-family: var(--slb-font-display);
+  font-size: clamp(1.75rem, 3.2vw, 2.5rem);
+  font-weight: 700;
+  color: var(--slb-ink);
+  letter-spacing: -0.03em;
+  margin-bottom: 0.75rem;
+}
+
+.slb-section-lead {
+  font-size: 1.05rem;
+  line-height: 1.6;
+  color: var(--slb-muted);
+  max-width: 40rem;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* Features as clean interaction rows (brand-aligned, not rainbow cards) */
+.slb-features {
+  background:
+    radial-gradient(700px 280px at 10% 0%, rgba(78, 205, 203, 0.12), transparent 70%),
+    var(--slb-surface);
+}
+
+.slb-feature {
+  height: 100%;
+  padding: 1.5rem 1.35rem;
+  border-radius: var(--slb-radius);
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid var(--slb-line);
+  transition: transform 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
+}
+
+.slb-feature:hover {
+  transform: translateY(-3px);
+  border-color: rgba(11, 98, 102, 0.22);
+  box-shadow: 0 16px 36px rgba(15, 23, 42, 0.06);
+}
+
+.slb-feature-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 1rem;
+  background: linear-gradient(160deg, #e8f8f7, #d7f2f1);
+  color: var(--brand-primary);
+  border: 1px solid var(--slb-line);
+  font-size: 1.15rem;
+}
+
+.slb-feature h3 {
+  font-size: 1.1rem;
+  font-weight: 700;
+  margin-bottom: 0.65rem;
+  color: var(--slb-ink);
+}
+
+.slb-feature p,
+.slb-feature li {
+  color: var(--slb-muted);
+  font-size: 0.95rem;
+  line-height: 1.55;
+}
+
+.slb-feature ul {
+  list-style: none;
+  padding: 0;
+  margin: 0.75rem 0 0;
+}
+
+.slb-feature li {
+  position: relative;
+  padding-left: 1.25rem;
+  margin-bottom: 0.4rem;
+}
+
+.slb-feature li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0.55em;
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 50%;
+  background: var(--brand-primary-soft);
+}
+
+/* How it works polish */
+.how-it-works.slb-how {
+  background:
+    linear-gradient(180deg, #ffffff 0%, #f7fcfb 100%);
+}
+
+.how-it-works.slb-how .how-step-icon {
+  width: 72px;
+  height: 72px;
+  border-radius: 20px;
+  background:
+    linear-gradient(160deg, rgba(232, 248, 247, 1), rgba(212, 241, 240, 1));
+  box-shadow: 0 12px 28px rgba(11, 98, 102, 0.08);
+}
+
+/* Subtle reveal utility */
+@media (prefers-reduced-motion: no-preference) {
+  .slb-reveal {
+    animation: slbReveal 0.7s ease both;
+  }
+}
+
+@keyframes slbReveal {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}

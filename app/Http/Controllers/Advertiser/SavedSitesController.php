@@ -6,7 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Site;
 use App\Models\UserBlacklist;
 use App\Models\UserFavorite;
-use App\Services\CartPricingService;
+use App\Services\PlatformFeeService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -143,10 +143,8 @@ class SavedSitesController extends Controller
 
     private function decorateSite(Site $site): Site
     {
-        $site->display_price = round(
-            (float) $site->price * CartPricingService::PLATFORM_MARKUP_RATE,
-            2
-        );
+        $site->display_price = app(PlatformFeeService::class)
+            ->advertiserBase((float) $site->price);
 
         return $site;
     }

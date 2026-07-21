@@ -6,39 +6,10 @@
 
 @section('content')
 
-<!-- ==================== TERMS HERO ==================== -->
-<section style="position:relative; width:100%; padding:48px 0 60px; overflow:hidden; background:linear-gradient(180deg, #f0f5ff 0%, #f5faff 100%);">
-
-    <!-- Background Shapes -->
-    <div style="position:absolute; top:10%; left:-100px; width:250px; height:250px; border-radius:50%; background:#FF4757; opacity:0.08; z-index:1;"></div>
-    <div style="position:absolute; bottom:-80px; right:-60px; width:220px; height:220px; border-radius:50%; background:#FFD93D; opacity:0.15; z-index:1;"></div>
-    <div style="position:absolute; top:30%; right:10%; width:60px; height:60px; border-radius:50%; border:10px solid #4ECDCB; opacity:0.4; z-index:1;"></div>
-    <div style="position:absolute; top:15%; right:25%; width:10px; height:10px; border-radius:50%; background:#4ECDCB; opacity:0.6; z-index:1;"></div>
-    <div style="position:absolute; bottom:20%; left:15%; width:12px; height:12px; border-radius:50%; background:#FF4757; opacity:0.4; z-index:1;"></div>
-
-    <div class="container" style="position:relative; z-index:5; max-width:900px;">
-        <div class="text-center">
-            <!-- Document Icon -->
-            <div style="display:inline-flex; align-items:center; justify-content:center; width:70px; height:70px; background:linear-gradient(135deg, #4ECDCB, #38b2ac); border-radius:18px; margin-bottom:1.25rem; box-shadow:0 12px 30px rgba(78,205,203,0.35);">
-                <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
-            </div>
-            <h1 style="font-size:3rem; font-weight:800; color:#1a1a2e; letter-spacing:-1px; margin-bottom:1rem;">
-                {{ __('messages.terms_hero_title') }}
-            </h1>
-            <p style="font-size:1.1rem; color:#666; max-width:680px; margin:0 auto; line-height:1.7;">
-                {{ __('messages.terms_hero_subtitle') }}
-            </p>
-            <div class="d-flex justify-content-center gap-4 flex-wrap mt-4">
-                <p style="color:#999; margin:0; font-size:0.9rem;">
-                    <strong style="color:#1a1a2e;">{{ __('messages.effective_date') }}:</strong> {{ __('messages.effective_date_value') }}
-                </p>
-                <p style="color:#999; margin:0; font-size:0.9rem;">
-                    <strong style="color:#1a1a2e;">{{ __('messages.last_updated') }}:</strong> {{ __('messages.last_updated_value') }}
-                </p>
-            </div>
-        </div>
-    </div>
-</section>
+@include('components.marketing-page-hero', [
+    'title' => __('messages.terms_hero_title'),
+    'subtitle' => __('messages.terms_hero_subtitle').' '.__('messages.effective_date').': '.__('messages.effective_date_value').'.',
+])
 
 
 <!-- ==================== TERMS CONTENT ==================== -->

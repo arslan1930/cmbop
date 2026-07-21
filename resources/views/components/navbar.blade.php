@@ -15,11 +15,13 @@
   $registerUrl = url('/register');
 @endphp
 
-<nav id="mainNavbar" class="navbar navbar-expand-lg navbar-light bg-light shadow-sm fixed-top">
+<nav id="mainNavbar" class="navbar navbar-expand-lg navbar-light bg-light shadow-sm fixed-top slb-nav">
   <div class="container">
 
-    <a class="navbar-brand fw-bold d-flex align-items-center" href="{{ $homeUrl }}">
-      <img src="{{ asset('assets/img/logo1.png') }}" alt="SEOLinkBuildings" class="navbar-logo">
+    <a class="navbar-brand fw-bold d-flex align-items-center" href="{{ $homeUrl }}" aria-label="SEOLinkBuildings home">
+      <img src="{{ asset('assets/img/logo1.png') }}?v={{ @filemtime(public_path('assets/img/logo1.png')) ?: '1' }}"
+           alt="SEOLinkBuildings"
+           class="navbar-logo">
     </a>
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarContent"
@@ -145,7 +147,9 @@
 
   #mainNavbar .navbar-logo {
     height: 42px;
-    margin-right: 0.5rem;
+    width: auto;
+    max-width: min(220px, 58vw);
+    object-fit: contain;
     transition: height 0.3s ease;
   }
 

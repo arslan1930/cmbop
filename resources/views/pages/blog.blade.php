@@ -6,33 +6,11 @@
 
 @section('content')
 
-<!-- ==================== BLOG HERO ==================== -->
-<section style="position:relative; width:100%; padding:48px 0 60px; overflow:hidden; background:linear-gradient(180deg, #f0f5ff 0%, #f5faff 100%);">
-
-    <!-- Background Shapes -->
-    <div style="position:absolute; top:10%; left:-100px; width:250px; height:250px; border-radius:50%; background:#4ECDCB; opacity:0.08; z-index:1;"></div>
-    <div style="position:absolute; bottom:-80px; right:-60px; width:220px; height:220px; border-radius:50%; background:#FFD93D; opacity:0.15; z-index:1;"></div>
-    <div style="position:absolute; top:30%; right:10%; width:60px; height:60px; border-radius:50%; border:10px solid #4ECDCB; opacity:0.4; z-index:1;"></div>
-    <div style="position:absolute; top:15%; right:25%; width:10px; height:10px; border-radius:50%; background:#4ECDCB; opacity:0.6; z-index:1;"></div>
-    <div style="position:absolute; bottom:20%; left:15%; width:12px; height:12px; border-radius:50%; background:#FF4757; opacity:0.4; z-index:1;"></div>
-    <div style="position:absolute; top:40%; left:20%; width:8px; height:8px; border-radius:50%; background:#FFD93D; opacity:0.5; z-index:1;"></div>
-
-    <div class="container" style="position:relative; z-index:5; max-width:900px;">
-        <div class="text-center">
-            <div class="mb-3">
-                <span style="background:rgba(78,205,203,0.15); color:#38b2ac; padding:6px 16px; border-radius:50px; font-size:0.85rem; font-weight:600; letter-spacing:0.5px;">
-                    <i class="fa fa-newspaper-o me-2"></i> {{ __('messages.blog_kicker') }}
-                </span>
-            </div>
-            <h1 style="font-size:clamp(1.75rem, 3.5vw, 2.75rem); font-weight:800; color:#1a1a2e; letter-spacing:-1px; margin-bottom:1rem;">
-                {{ __('messages.blog_heading') }}
-            </h1>
-            <p style="font-size:1.1rem; color:#666; max-width:600px; margin:0 auto;">
-                {{ __('messages.blog_intro') }}
-            </p>
-        </div>
-    </div>
-</section>
+@include('components.marketing-page-hero', [
+    'kicker' => __('messages.blog_kicker'),
+    'title' => __('messages.blog_heading'),
+    'subtitle' => __('messages.blog_intro'),
+])
 
 <!-- ==================== BLOG CONTENT ==================== -->
 <div class="container py-5" style="max-width:1200px;">

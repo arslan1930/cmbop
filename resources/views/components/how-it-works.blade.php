@@ -1,8 +1,9 @@
-<section class="py-20 bg-white how-it-works">
+<section class="py-20 bg-white how-it-works slb-how">
   <div class="container py-5">
-    <div class="text-center mb-5">
-      <h2 class="h2 mb-3">{{ __('messages.how_it_works_title') }}</h2>
-      <p class="lead text-muted mb-0 mx-auto" style="max-width: 640px;">{{ __('messages.how_it_works_description') }}</p>
+    <div class="text-center mb-5 slb-reveal">
+      <div class="slb-section-kicker">{{ __('messages.nav_how_it_works') }}</div>
+      <h2 class="slb-section-title mb-3">{{ __('messages.how_it_works_title') }}</h2>
+      <p class="slb-section-lead mb-0">{{ __('messages.how_it_works_description') }}</p>
     </div>
 
     <div class="row text-center g-4">

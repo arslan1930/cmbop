@@ -5,18 +5,25 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 
 class ContentSubmission extends Model
 {
     public const STATUS_PENDING = 'pending';
+
     public const STATUS_PROCESSING = 'processing';
+
     public const STATUS_APPROVED = 'approved';
+
     public const STATUS_REJECTED = 'rejected';
+
     public const STATUS_NEEDS_IMPROVEMENT = 'needs_improvement';
+
     public const STATUS_ERROR = 'error';
 
     public const MODE_IMMEDIATE = 'immediate';
+
     public const MODE_SCHEDULED = 'scheduled';
 
     protected $fillable = [
@@ -56,6 +63,7 @@ class ContentSubmission extends Model
         'order_id',
         'order_item_id',
         'expires_at',
+        'archived_at',
     ];
 
     protected $casts = [
@@ -71,6 +79,7 @@ class ContentSubmission extends Model
         'evaluated_at' => 'datetime',
         'approval_notified_at' => 'datetime',
         'expires_at' => 'datetime',
+        'archived_at' => 'datetime',
     ];
 
     public function user(): BelongsTo
@@ -125,24 +134,215 @@ class ContentSubmission extends Model
             && (int) ($this->uniqueness_score ?? 0) >= $minUniqueness
             && $this->path
             && $this->order_id === null
+            && ! $this->isArchived()
             && ($this->expires_at === null || $this->expires_at->isFuture())
             && filled($this->country)
             && filled($this->language);
     }
 
-    /**
-     * Whether this article's market matches a publisher site.
-     */
-    public function matchesSite(Site $site): bool
+    public function isInUse(): bool
     {
-        $country = strtolower(trim((string) $this->country));
-        $language = strtolower(trim((string) $this->language));
+        return $this->order_id !== null;
+    }
 
-        if ($country === '' || $language === '') {
+    public function isExpired(): bool
+    {
+        return $this->expires_at !== null && $this->expires_at->isPast();
+    }
+
+    public function isArchived(): bool
+    {
+        return $this->archived_at !== null;
+    }
+
+    public function archive(): void
+    {
+        if ($this->isArchived()) {
+            return;
+        }
+
+        $this->forceFill(['archived_at' => now()])->save();
+    }
+
+    public function restoreFromArchive(): void
+    {
+        if (! $this->isArchived()) {
+            return;
+        }
+
+        $this->forceFill(['archived_at' => null])->save();
+    }
+
+    /**
+     * Primary placement item used for library status + live URL.
+     */
+    public function placementItem(): ?OrderItem
+    {
+        if ($this->relationLoaded('orderItem') && $this->orderItem) {
+            return $this->orderItem;
+        }
+
+        if ($this->relationLoaded('orderItems')) {
+            return $this->orderItems->sortBy('id')->first();
+        }
+
+        if ($this->order_item_id) {
+            return $this->orderItem()->with('site')->first();
+        }
+
+        return $this->orderItems()->with('site')->orderBy('id')->first();
+    }
+
+    public function liveUrl(): ?string
+    {
+        $item = $this->placementItem();
+        if (! $item || ! $item->hasLiveUrl()) {
+            return null;
+        }
+
+        return trim((string) $item->live_url) ?: null;
+    }
+
+    /**
+     * Timeline events for order summary / library UX.
+     *
+     * @return array<int, array{at:?string, label:string, detail:?string}>
+     */
+    public function articleHistory(): array
+    {
+        $events = [];
+
+        $events[] = [
+            'at' => optional($this->created_at)?->toIso8601String(),
+            'label' => 'Uploaded',
+            'detail' => $this->original_filename ?: ($this->title ?: 'Article'),
+        ];
+
+        $payload = is_array($this->draft_payload) ? $this->draft_payload : [];
+        $edits = is_array($payload['content_history'] ?? null) ? $payload['content_history'] : [];
+        foreach ($edits as $edit) {
+            if (! is_array($edit)) {
+                continue;
+            }
+            $events[] = [
+                'at' => $edit['at'] ?? null,
+                'label' => 'Edited',
+                'detail' => trim(implode(' · ', array_filter([
+                    isset($edit['word_count']) ? ((int) $edit['word_count']).' words' : null,
+                    ! empty($edit['has_images']) ? 'with images' : null,
+                    isset($edit['link_count']) ? ((int) $edit['link_count']).' link(s)' : null,
+                ]))) ?: null,
+            ];
+        }
+
+        if ($this->evaluated_at) {
+            $scoreBits = array_filter([
+                $this->uniqueness_score !== null ? 'Uniqueness '.$this->uniqueness_score.'%' : null,
+                $this->quality_score !== null ? 'Quality '.$this->quality_score.'%' : null,
+                $this->moderation_status ? str_replace('_', ' ', (string) $this->moderation_status) : null,
+            ]);
+            $events[] = [
+                'at' => $this->evaluated_at->toIso8601String(),
+                'label' => 'Evaluated',
+                'detail' => $scoreBits !== [] ? implode(' · ', $scoreBits) : null,
+            ];
+        }
+
+        $items = $this->relationLoaded('orderItems')
+            ? $this->orderItems
+            : $this->orderItems()->with(['site', 'order'])->orderBy('id')->get();
+
+        foreach ($items as $item) {
+            $siteName = $item->site?->name ?: ($item->site?->url ?: 'Website');
+            $status = $item->publisher_status ?? $item->status ?? null;
+            $events[] = [
+                'at' => optional($item->created_at)?->toIso8601String(),
+                'label' => 'Ordered',
+                'detail' => trim($siteName.($status ? ' · '.str_replace('_', ' ', (string) $status) : '')),
+            ];
+            if ($item->hasLiveUrl()) {
+                $events[] = [
+                    'at' => optional($item->updated_at)?->toIso8601String(),
+                    'label' => 'Published',
+                    'detail' => $item->live_url,
+                ];
+            }
+        }
+
+        usort($events, function (array $a, array $b): int {
+            return strcmp((string) ($a['at'] ?? ''), (string) ($b['at'] ?? ''));
+        });
+
+        return $events;
+    }
+
+    public function isPublished(): bool
+    {
+        $item = $this->placementItem();
+        if (! $item) {
             return false;
         }
 
-        return $site->acceptsMarket($country, $language);
+        if ($item->hasLiveUrl()) {
+            return true;
+        }
+
+        // publisher_status exists in some environments but is not guaranteed by migrations.
+        if (Schema::hasColumn('order_items', 'publisher_status')) {
+            return in_array((string) $item->publisher_status, ['completed'], true);
+        }
+
+        return false;
+    }
+
+    /**
+     * Library-facing availability for filters and badges.
+     *
+     * @return 'available'|'in_progress'|'published'|'expired'|'archived'|'needs_fix'|'unavailable'
+     */
+    public function libraryAvailability(): string
+    {
+        if ($this->isArchived()) {
+            return 'archived';
+        }
+
+        if ($this->needsCorrection()) {
+            return 'needs_fix';
+        }
+
+        if ($this->isPublished()) {
+            return 'published';
+        }
+
+        if ($this->isInUse()) {
+            return 'in_progress';
+        }
+
+        if ($this->isExpired()) {
+            return 'expired';
+        }
+
+        if ($this->canBeOrdered()) {
+            return 'available';
+        }
+
+        return 'unavailable';
+    }
+
+    /**
+     * Whether this article can be placed on a publisher site.
+     * Matching is language-first (same as catalog/publisher flow):
+     * English articles can publish on any English-language website/country.
+     */
+    public function matchesSite(Site $site): bool
+    {
+        $language = strtolower(trim((string) $this->language));
+
+        if ($language === '') {
+            return false;
+        }
+
+        return $site->acceptsLanguage($language);
     }
 
     /**
@@ -167,7 +367,7 @@ class ContentSubmission extends Model
 
     public function isReadyForCheckout(): bool
     {
-        if (!$this->canBeOrdered()) {
+        if (! $this->canBeOrdered()) {
             return false;
         }
 

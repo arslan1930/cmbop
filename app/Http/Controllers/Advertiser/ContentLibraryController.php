@@ -6,29 +6,44 @@ use App\Http\Controllers\Controller;
 use App\Models\ContentSubmission;
 use App\Models\Country;
 use App\Models\Language;
-use App\Models\Site;
-use App\Services\CartPricingService;
+use App\Services\ContentUpload\ArticlePreviewHtml;
 use App\Services\ContentUpload\ContentUploadService;
-use App\Services\ContentUpload\ScheduledOrderService;
+use App\Services\Marketplace\LanguageCountryMap;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\Rule;
 
 class ContentLibraryController extends Controller
 {
     public function __construct(
         private ContentUploadService $uploads,
-        private CartPricingService $pricing,
-        private ScheduledOrderService $scheduler,
-    ) {
-    }
+        private LanguageCountryMap $languageCountryMap,
+    ) {}
 
     public function index(Request $request)
     {
         $cfg = $this->uploads->effectiveConfig();
-        $status = $request->query('status');
+        $status = strtolower(trim((string) $request->query('status', 'all')));
+        $availability = strtolower(trim((string) $request->query('availability', 'all')));
         $languageFilter = strtolower(trim((string) $request->query('language', '')));
+        $countryFilter = strtolower(trim((string) $request->query('country', '')));
+        $search = trim((string) $request->query('q', ''));
+
+        if (! in_array($status, ['all', 'approved', 'rejected', 'needs_improvement'], true)) {
+            $status = 'all';
+        }
+
+        if (! in_array($availability, ['all', 'available', 'in_progress', 'published', 'expired', 'archived', 'needs_fix', 'ordered'], true)) {
+            $availability = 'all';
+        }
+
+        // Backward-compatible alias from earlier UI.
+        if ($availability === 'ordered') {
+            $availability = 'in_progress';
+        }
 
         $query = ContentSubmission::query()
+            ->with(['orderItem.site', 'orderItems.site'])
             ->where('user_id', auth()->id())
             ->latest('id');
 
@@ -40,35 +55,120 @@ class ContentLibraryController extends Controller
             $query->where('language', $languageFilter);
         }
 
-        $submissions = $query->paginate(12)->withQueryString();
+        if ($countryFilter !== '' && $countryFilter !== 'all') {
+            $query->where('country', $countryFilter);
+        }
 
-        $groupedByLanguage = ContentSubmission::query()
-            ->where('user_id', auth()->id())
+        if ($search !== '') {
+            $like = '%'.str_replace(['%', '_'], ['\\%', '\\_'], $search).'%';
+            $query->where(function ($q) use ($like) {
+                $q->where('title', 'like', $like)
+                    ->orWhere('original_filename', 'like', $like);
+            });
+        }
+
+        $minUniqueness = (int) config('content_upload.evaluation.min_uniqueness', 50);
+
+        if ($availability === 'archived') {
+            $query->whereNotNull('archived_at');
+        } else {
+            $query->whereNull('archived_at');
+
+            if ($availability === 'available') {
+                $query->whereNull('order_id')
+                    ->where('moderation_status', ContentSubmission::STATUS_APPROVED)
+                    ->where('uniqueness_score', '>=', $minUniqueness)
+                    ->whereNotNull('path')
+                    ->whereNotNull('country')
+                    ->where('country', '!=', '')
+                    ->whereNotNull('language')
+                    ->where('language', '!=', '')
+                    ->where(function ($q) {
+                        $q->whereNull('expires_at')->orWhere('expires_at', '>', now());
+                    });
+            } elseif ($availability === 'in_progress') {
+                $hasPublisherStatus = Schema::hasColumn('order_items', 'publisher_status');
+                $query->whereNotNull('order_id')
+                    ->whereDoesntHave('orderItems', function ($item) use ($hasPublisherStatus) {
+                        $item->where(function ($q) use ($hasPublisherStatus) {
+                            $q->where(function ($live) {
+                                $live->whereNotNull('live_url')->where('live_url', '!=', '');
+                            });
+                            if ($hasPublisherStatus) {
+                                $q->orWhere('publisher_status', 'completed');
+                            }
+                        });
+                    });
+            } elseif ($availability === 'expired') {
+                $query->whereNull('order_id')
+                    ->whereNotNull('expires_at')
+                    ->where('expires_at', '<', now());
+            } elseif ($availability === 'needs_fix') {
+                $query->whereIn('moderation_status', [
+                    ContentSubmission::STATUS_NEEDS_IMPROVEMENT,
+                    ContentSubmission::STATUS_REJECTED,
+                    ContentSubmission::STATUS_ERROR,
+                ]);
+            } elseif ($availability === 'published') {
+                $hasPublisherStatus = Schema::hasColumn('order_items', 'publisher_status');
+                $query->whereNotNull('order_id')
+                    ->whereHas('orderItems', function ($item) use ($hasPublisherStatus) {
+                        $item->where(function ($q) use ($hasPublisherStatus) {
+                            $q->where(function ($live) {
+                                $live->whereNotNull('live_url')->where('live_url', '!=', '');
+                            });
+                            if ($hasPublisherStatus) {
+                                $q->orWhere('publisher_status', 'completed');
+                            }
+                        });
+                    });
+            }
+        }
+
+        $submissions = $query->paginate(20)->withQueryString();
+
+        $baseScope = ContentSubmission::query()->where('user_id', auth()->id());
+
+        $groupedByLanguage = (clone $baseScope)
+            ->whereNull('archived_at')
             ->whereNotNull('language')
             ->selectRaw('language, COUNT(*) as total')
             ->groupBy('language')
             ->pluck('total', 'language');
 
-        $sites = Site::query()
-            ->where('active', 1)
-            ->orderBy('site_name')
-            ->limit(500)
-            ->get(['id', 'site_name', 'site_url', 'price', 'sensitive_prices', 'link_type', 'country', 'countries', 'language', 'languages']);
+        $groupedByCountry = (clone $baseScope)
+            ->whereNull('archived_at')
+            ->whereNotNull('country')
+            ->selectRaw('country, COUNT(*) as total')
+            ->groupBy('country')
+            ->pluck('total', 'country');
 
         $countries = Country::marketplace()->orderBy('name')->get(['code', 'name']);
         $languages = Language::marketplace()->orderBy('name')->get(['code', 'name']);
+        $languageCountryMap = $this->languageCountryMap->map();
 
         return view('advertiser.content-library', [
             'submissions' => $submissions,
-            'sites' => $sites,
             'uploadCfg' => $cfg,
-            'statusFilter' => $status ?: 'all',
+            'statusFilter' => $status,
+            'availabilityFilter' => $availability,
             'languageFilter' => $languageFilter ?: 'all',
+            'countryFilter' => $countryFilter ?: 'all',
+            'searchQuery' => $search,
             'groupedByLanguage' => $groupedByLanguage,
+            'groupedByCountry' => $groupedByCountry,
             'countries' => $countries,
             'languages' => $languages,
+            'languageCountryMap' => $languageCountryMap,
             'openUpload' => $request->boolean('upload'),
             'editSubmission' => $this->resolveEditableSubmission($request->query('edit')),
+            'libraryFilterBase' => [
+                'status' => $status,
+                'availability' => $availability,
+                'language' => $languageFilter ?: 'all',
+                'country' => $countryFilter ?: 'all',
+                'q' => $search,
+            ],
         ]);
     }
 
@@ -80,7 +180,7 @@ class ContentLibraryController extends Controller
         $allowedLanguages = array_map('strtolower', config('markets.allowed_language_codes', []));
 
         $data = $request->validate([
-            'file' => ['required', 'file', 'max:' . $maxKb, 'mimes:docx'],
+            'file' => ['required', 'file', 'max:'.$maxKb, 'mimes:docx'],
             'title' => ['nullable', 'string', 'max:200'],
             'country' => ['required', 'string', 'max:10', Rule::in($allowedCountries)],
             'language' => ['required', 'string', 'max:10', Rule::in($allowedLanguages)],
@@ -88,11 +188,12 @@ class ContentLibraryController extends Controller
         ]);
 
         $replace = null;
-        if (!empty($data['replace_id'])) {
+        if (! empty($data['replace_id'])) {
             $replace = ContentSubmission::query()
                 ->where('id', $data['replace_id'])
                 ->where('user_id', auth()->id())
                 ->whereNull('order_id')
+                ->whereNull('archived_at')
                 ->first();
         }
 
@@ -108,7 +209,7 @@ class ContentLibraryController extends Controller
             language: $data['language'],
         );
 
-        if (!$result['ok']) {
+        if (! $result['ok']) {
             return response()->json([
                 'success' => false,
                 'title' => $result['title'] ?? 'Upload failed',
@@ -130,133 +231,50 @@ class ContentLibraryController extends Controller
     }
 
     /**
-     * Build a cart from an approved article + selected websites, then go to checkout.
+     * Start ordering an approved article via the Catalog, filtered to its language.
+     * Multiple websites are allowed; each website needs its own approved article.
      */
-    public function startOrder(Request $request)
+    public function orderInCatalog(Request $request, ?ContentSubmission $submission = null)
     {
-        $data = $request->validate([
-            'content_submission_id' => ['required', 'integer'],
-            'site_ids' => ['required', 'array', 'min:1'],
-            'site_ids.*' => ['integer', 'exists:sites,id'],
-            'anchor_text' => ['nullable', 'string', 'max:120'],
-            'target_url' => ['nullable', 'url', 'max:1000'],
-            'feature_image_url' => ['nullable', 'url', 'max:1000'],
-            'allow_no_link' => ['nullable', 'boolean'],
-            'acknowledge_nofollow' => ['nullable', 'boolean'],
-            'publication_mode' => ['nullable', 'in:immediate,scheduled'],
-            'scheduled_date' => ['nullable', 'date_format:Y-m-d'],
-            'scheduled_time' => ['nullable', 'date_format:H:i'],
-            'timezone' => ['nullable', 'timezone'],
-            'quantities' => ['nullable', 'array'],
-        ]);
-
-        $submission = ContentSubmission::query()
-            ->where('id', $data['content_submission_id'])
-            ->where('user_id', auth()->id())
-            ->whereNull('order_id')
-            ->firstOrFail();
-
-        if (!$submission->canBeOrdered()) {
-            return back()->with('error', 'Only approved Content Library articles can be ordered. Please edit and resubmit if corrections are needed.');
+        if (! $submission) {
+            $id = (int) $request->input('content_submission_id', 0);
+            $submission = ContentSubmission::query()
+                ->where('id', $id)
+                ->where('user_id', auth()->id())
+                ->firstOrFail();
         }
 
-        $anchor = trim(preg_replace('/\s+/', ' ', (string) ($data['anchor_text'] ?? '')) ?? '');
-        $target = trim((string) ($data['target_url'] ?? ''));
-        $hasLink = $anchor !== '' || $target !== '';
+        abort_unless((int) $submission->user_id === (int) auth()->id(), 403);
 
-        if ($hasLink) {
-            if ($anchor === '' || $target === '' || !str_starts_with(strtolower($target), 'https://')) {
-                return back()->withInput()->with('error', 'Please provide both anchor text and a valid HTTPS target URL, or leave both empty to continue without a link.');
-            }
-        } elseif (!$request->boolean('allow_no_link')) {
-            return back()->withInput()->with('error', 'No link was provided. Confirm that you want to continue without a link, or add anchor text and URL.');
+        if (! $submission->canBeOrdered()) {
+            return redirect()
+                ->route('advertiser.content-library')
+                ->with('error', 'Only approved Content Library articles can be ordered. Please edit and resubmit if corrections are needed.');
         }
 
-        $selectedSites = Site::query()
-            ->whereIn('id', $data['site_ids'])
-            ->where('active', 1)
-            ->get();
+        $language = strtolower(trim((string) $submission->language));
 
-        $mismatched = $selectedSites->reject(fn (Site $site) => $submission->matchesSite($site));
-        if ($mismatched->isNotEmpty()) {
-            $names = $mismatched->pluck('site_name')->take(3)->implode(', ');
-
-            return back()->withInput()->with(
-                'error',
-                'This article is for '
-                . strtoupper((string) $submission->country) . ' / ' . strtoupper((string) $submission->language)
-                . '. It does not match: ' . $names . '. Choose matching websites or upload an article for that market.'
-            );
-        }
-
-        $nofollowSites = $selectedSites->where('link_type', 'nofollow')->values();
-        if ($nofollowSites->isNotEmpty() && $hasLink && !$request->boolean('acknowledge_nofollow')) {
-            return back()->withInput()->with(
-                'error',
-                'One or more selected websites publish nofollow links only. Please acknowledge this to continue.'
-            );
-        }
-
-        $schedule = $this->scheduler->normalizeSchedule(
-            $data['publication_mode'] ?? 'immediate',
-            $data['scheduled_date'] ?? null,
-            $data['scheduled_time'] ?? null,
-            $data['timezone'] ?? null,
-        );
-
-        if (!$schedule['ok']) {
-            return back()->withInput()->with('error', $schedule['message'] ?? 'Invalid publication schedule.');
-        }
-
-        $submission->update([
-            'anchor_text' => $hasLink ? $anchor : null,
-            'target_url' => $hasLink ? $target : null,
-            'feature_image_url' => $data['feature_image_url'] ?? null,
-            'publication_mode' => $schedule['mode'],
-            'scheduled_publish_at' => $schedule['at'],
-            'timezone' => $schedule['timezone'],
-        ]);
-
-        $cart = [];
-        foreach ($selectedSites as $site) {
-            $qty = max(1, (int) ($data['quantities'][$site->id] ?? 1));
-            $pricing = $this->pricing->priceForAdvertiser($site, null);
-            $cart[] = [
-                'id' => $site->id,
-                'name' => $site->site_name,
-                'url' => $site->site_url,
-                'price' => $pricing['total'],
-                'base_price' => $pricing['base'],
-                'additional_price' => $pricing['additional'],
-                'sensitive_type' => null,
-                'quantity' => $qty,
-                'content_submission_id' => $submission->id,
-                'link_type' => $site->link_type,
-                'country' => $site->country,
-                'language' => $site->language,
-            ];
-        }
-
-        if ($cart === []) {
-            return back()->with('error', 'Please select at least one active website.');
-        }
-
-        session()->put('cart', $cart);
+        // Keep existing cart sites; this article will attach to the next matching website added.
+        session()->forget(['checkout_schedule']);
         session()->put('checkout_content_submission_id', $submission->id);
-        session()->put('checkout_schedule', [
-            'mode' => $schedule['mode'],
-            'date' => $data['scheduled_date'] ?? null,
-            'time' => $data['scheduled_time'] ?? '09:00',
-            'timezone' => $schedule['timezone'],
-        ]);
+        session()->put('ordering_from_library', true);
 
-        return redirect()->route('advertiser.checkout')
-            ->with('success', 'Approved article selected. Complete payment to place your order.');
+        $title = $submission->title ?: $submission->original_filename;
+
+        return redirect()->route('advertiser.catalog', [
+            'language' => $language,
+            'content_submission_id' => $submission->id,
+            'filters_open' => 1,
+        ])->with(
+            'success',
+            'Ordering “'.$title.'” for '.strtoupper($language)
+            .' websites. Add one or more sites — each website needs its own approved article (assign extras in your cart).'
+        );
     }
 
     protected function resolveEditableSubmission(mixed $id): ?ContentSubmission
     {
-        if (!$id) {
+        if (! $id) {
             return null;
         }
 
@@ -264,6 +282,7 @@ class ContentLibraryController extends Controller
             ->where('id', (int) $id)
             ->where('user_id', auth()->id())
             ->whereNull('order_id')
+            ->whereNull('archived_at')
             ->whereIn('moderation_status', [
                 ContentSubmission::STATUS_NEEDS_IMPROVEMENT,
                 ContentSubmission::STATUS_REJECTED,
@@ -274,7 +293,7 @@ class ContentLibraryController extends Controller
 
     protected function serialize(?ContentSubmission $s): ?array
     {
-        if (!$s) {
+        if (! $s) {
             return null;
         }
 
@@ -290,12 +309,15 @@ class ContentLibraryController extends Controller
             'moderation_status' => $s->moderation_status,
             'evaluation_status' => $s->evaluation_status,
             'evaluation_report' => $s->evaluation_report,
-            'preview_html' => $s->preview_html,
+            'preview_html' => ArticlePreviewHtml::normalize((string) ($s->preview_html ?? '')),
             'anchor_text' => $s->anchor_text,
             'target_url' => $s->target_url,
             'has_link' => $s->hasLink(),
             'can_order' => $s->canBeOrdered(),
             'needs_correction' => $s->needsCorrection(),
+            'archived' => $s->isArchived(),
+            'availability' => $s->libraryAvailability(),
+            'live_url' => $s->liveUrl(),
             'download_url' => route('advertiser.content-submissions.download', $s),
             'created_at' => optional($s->created_at)?->toDateTimeString(),
         ];

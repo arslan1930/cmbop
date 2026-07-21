@@ -19,8 +19,8 @@ use Tests\TestCase;
 
 class CheckoutSystemFixTest extends TestCase
 {
-    use RefreshDatabase;
     use CreatesContentSubmissions;
+    use RefreshDatabase;
 
     protected function tearDown(): void
     {
@@ -53,9 +53,9 @@ class CheckoutSystemFixTest extends TestCase
     {
         return Site::create([
             'publisher_id' => $publisher->id,
-            'site_name' => 'Site ' . $slug,
-            'site_url' => 'https://' . $slug . '.example',
-            'domain' => $slug . '.example',
+            'site_name' => 'Site '.$slug,
+            'site_url' => 'https://'.$slug.'.example',
+            'domain' => $slug.'.example',
             'da' => 30,
             'dr' => 30,
             'traffic' => 500,
@@ -80,7 +80,7 @@ class CheckoutSystemFixTest extends TestCase
         $body = json_encode([
             'id' => $sessionId,
             'object' => 'checkout.session',
-            'url' => 'https://checkout.stripe.com/c/pay/' . $sessionId,
+            'url' => 'https://checkout.stripe.com/c/pay/'.$sessionId,
             'payment_status' => 'unpaid',
             'mode' => 'payment',
             'metadata' => [],
@@ -203,29 +203,29 @@ class CheckoutSystemFixTest extends TestCase
         $response->assertOk();
         $response->assertSee('Approved article', false);
         $response->assertSee($sub->title ?: $sub->original_filename, false);
+        $response->assertSee('order-summary-article', false);
+        $response->assertSee('Article history', false);
+        $response->assertSee('Uploaded', false);
     }
 
-    public function test_library_rejects_scheduled_order_without_date(): void
+    public function test_library_order_redirects_to_catalog_for_article_market(): void
     {
         config(['content_moderation.enabled' => false]);
 
         $advertiser = $this->advertiser();
-        $publisher = $this->publisher();
-        $site = $this->activeSite($publisher, 'sched-bad', 40);
         $sub = $this->createApprovedSubmission($advertiser, null);
 
-        $response = $this->actingAs($advertiser)->from(route('advertiser.content-library'))
-            ->post(route('advertiser.content-library.order'), [
-                'content_submission_id' => $sub->id,
-                'site_ids' => [$site->id],
-                'anchor_text' => 'valid anchor text',
-                'target_url' => 'https://example.com/page',
-                'publication_mode' => 'scheduled',
-            ]);
+        $response = $this->actingAs($advertiser)
+            ->get(route('advertiser.content-library.order', $sub));
 
-        $response->assertRedirect(route('advertiser.content-library'));
-        $response->assertSessionHas('error');
-        $this->assertNull(session('cart'));
+        $response->assertRedirect(route('advertiser.catalog', [
+            'language' => 'en',
+            'content_submission_id' => $sub->id,
+            'filters_open' => 1,
+        ]));
+        $response->assertSessionHas('success');
+        $this->assertSame($sub->id, session('checkout_content_submission_id'));
+        $this->assertTrue((bool) session('ordering_from_library'));
     }
 
     public function test_null_safe_resolve_when_content_map_missing_second_site(): void
@@ -239,7 +239,7 @@ class CheckoutSystemFixTest extends TestCase
         $siteB = $this->activeSite($publisher, 'b', 50);
         $sub = $this->createApprovedSubmission($advertiser, null);
 
-        // Cart has content_submission_id; request map is incomplete — should still succeed via cart/session.
+        // Same library article on two cart lines must be rejected (one article → one site).
         $response = $this->actingAs($advertiser)
             ->withSession([
                 'cart' => [
@@ -257,8 +257,9 @@ class CheckoutSystemFixTest extends TestCase
                 ],
             ]);
 
-        $response->assertOk()->assertJson(['success' => true]);
-        $this->assertSame(2, OrderItem::where('content_submission_id', $sub->id)->count());
+        $response->assertStatus(422)->assertJson(['success' => false]);
+        $this->assertStringContainsString('one website', strtolower((string) $response->json('message')));
+        $this->assertSame(0, OrderItem::where('content_submission_id', $sub->id)->count());
     }
 
     public function test_expired_article_cannot_be_ordered(): void

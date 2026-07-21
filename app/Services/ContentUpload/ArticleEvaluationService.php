@@ -2,6 +2,7 @@
 
 namespace App\Services\ContentUpload;
 
+use App\Models\ContentModerationLog;
 use App\Models\ContentModerationSetting;
 use App\Models\ContentSubmission;
 use App\Models\User;
@@ -11,15 +12,19 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
 /**
- * Advanced article evaluation: uniqueness, quality, and compliance.
- * Uploads are always accepted; publication (ordering) requires approval.
+ * Article evaluation: gambling/adult compliance + language match are blocking;
+ * uniqueness/quality are advisory only.
  */
 class ArticleEvaluationService
 {
+    private ArticleLanguageGuard $languageGuard;
+
     public function __construct(
         private ContentModerationService $moderation,
         private ContentQualityAnalyzer $quality,
+        ?ArticleLanguageGuard $languageGuard = null,
     ) {
+        $this->languageGuard = $languageGuard ?? new ArticleLanguageGuard;
     }
 
     /**
@@ -30,7 +35,7 @@ class ArticleEvaluationService
         $base = config('content_upload', []);
         $override = ContentModerationSetting::getValue('upload_config', []) ?: [];
 
-        return (!is_array($override) || $override === [])
+        return (! is_array($override) || $override === [])
             ? $base
             : array_replace_recursive($base, $override);
     }
@@ -45,7 +50,9 @@ class ArticleEvaluationService
      *   report:array,
      *   title:string,
      *   message:string,
-     *   log:?\App\Models\ContentModerationLog
+     *   log:?ContentModerationLog,
+     *   highlighted_html?:?string,
+     *   matched_terms?:array<int,string>
      * }
      */
     public function evaluate(ContentSubmission $submission, ?User $user = null): array
@@ -56,29 +63,79 @@ class ArticleEvaluationService
         $minQuality = max(0, min(100, (int) ($evalCfg['min_quality'] ?? 50)));
 
         $text = trim((string) $submission->extracted_text);
-        $html = (string) ($submission->preview_html ?? '');
+        $html = ArticlePreviewHtml::normalize((string) ($submission->preview_html ?? ''));
         $title = $submission->title
             ?: pathinfo((string) $submission->original_filename, PATHINFO_FILENAME)
             ?: 'Article';
 
-        // 1) Policy compliance (casino / gambling / adult / etc.)
+        // 0) Language must match selection (blocking)
+        $languageCheck = $this->languageGuard->assertMatches(
+            $text,
+            (string) ($submission->language ?? '')
+        );
+        if (! $languageCheck['ok']) {
+            $message = (string) $languageCheck['message'];
+            $report = [
+                'word_count' => str_word_count($text),
+                'summary' => $message,
+                'language' => $languageCheck,
+                'fix_hints' => [
+                    $message,
+                    'Tip: English articles must use the English language selection (with a matching country).',
+                ],
+                'matched_terms' => [],
+                'checks' => [[
+                    'key' => 'language_match',
+                    'label' => 'Article language',
+                    'status' => 'fail',
+                    'detail' => $message,
+                ]],
+                'passed_compliance' => true,
+                'passed_language' => false,
+                'passed_uniqueness' => true,
+                'passed_quality' => true,
+            ];
+
+            return [
+                'approved' => false,
+                'moderation_status' => ContentSubmission::STATUS_REJECTED,
+                'evaluation_status' => 'rejected',
+                'uniqueness_score' => 0,
+                'quality_score' => 0,
+                'report' => $report,
+                'title' => 'Language mismatch',
+                'message' => $message,
+                'log' => null,
+                'highlighted_html' => null,
+                'matched_terms' => [],
+                'blocked_urls' => [],
+            ];
+        }
+
+        // 1) Policy compliance (casino / gambling / betting / adult) — includes cloaked hrefs
+        $linkUrls = $this->moderation->linksFromSubmissionHtml(
+            $html,
+            $submission->target_url ? (string) $submission->target_url : null
+        );
+
         $scan = $this->moderation->scanExtractedContent(
             text: $text,
             html: $html,
-            sourceLabel: 'upload:' . $submission->id,
+            sourceLabel: 'upload:'.$submission->id,
             user: $user ?? $submission->user,
             title: $title,
+            links: $linkUrls,
         );
 
-        // 2) Quality heuristics
+        // 2) Quality heuristics (advisory)
         $quality = $this->quality->analyze(
             $text,
             $html,
-            [],
+            $linkUrls,
             array_merge(config('content_moderation.quality', []), ['block_on_quality_failure' => false])
         );
 
-        // 3) Uniqueness vs platform corpus + internal originality
+        // 3) Uniqueness vs platform corpus (advisory)
         $uniqueness = $this->scoreUniqueness($text, $submission->id, (int) ($evalCfg['corpus_limit'] ?? 200));
 
         // 4) Optional AI narrative enrichment
@@ -89,17 +146,32 @@ class ArticleEvaluationService
 
         $checks = $quality['checks'] ?? [];
         $checks[] = [
+            'key' => 'language_match',
+            'label' => 'Article language',
+            'status' => 'pass',
+            'detail' => 'Matches selected language ('.strtoupper((string) $submission->language).')',
+        ];
+        $checks[] = [
             'key' => 'uniqueness',
             'label' => 'Uniqueness',
-            'status' => $uniquenessScore >= $minUniqueness ? 'pass' : 'fail',
-            'detail' => $uniquenessScore . '% unique (minimum ' . $minUniqueness . '%)',
+            'status' => $uniquenessScore >= $minUniqueness ? 'pass' : 'warn',
+            'detail' => $uniquenessScore.'% unique (advisory — does not block approval)',
         ];
         $checks[] = [
             'key' => 'overall_quality',
             'label' => 'Overall Quality',
-            'status' => $qualityScore >= $minQuality ? 'pass' : 'fail',
-            'detail' => $qualityScore . '% quality score (minimum ' . $minQuality . '%)',
+            'status' => $qualityScore >= $minQuality ? 'pass' : 'warn',
+            'detail' => $qualityScore.'% quality score (advisory — does not block approval)',
         ];
+
+        $matchedTerms = array_values(array_unique(array_map(
+            'strval',
+            $scan['matched_terms'] ?? ($scan['report']['matched_terms'] ?? [])
+        )));
+        $blockedUrls = array_values(array_unique(array_map(
+            'strval',
+            $scan['blocked_urls'] ?? ($scan['report']['blocked_urls'] ?? [])
+        )));
 
         $report = [
             'word_count' => $quality['word_count'] ?? str_word_count($text),
@@ -110,18 +182,46 @@ class ArticleEvaluationService
             'checks' => $checks,
             'uniqueness' => $uniqueness,
             'compliance' => $scan['report'] ?? [],
+            'language' => $languageCheck,
             'ai_notes' => $aiNotes,
+            'matched_terms' => $matchedTerms,
+            'blocked_urls' => $blockedUrls,
+            'fix_hints' => $scan['report']['fix_hints'] ?? [],
             'passed_compliance' => (bool) $scan['passed'],
+            'passed_language' => true,
             'passed_uniqueness' => $uniquenessScore >= $minUniqueness,
             'passed_quality' => $qualityScore >= $minQuality,
         ];
 
-        if (!$scan['passed']) {
+        if (! $scan['passed']) {
             $status = ($scan['status'] ?? '') === 'error'
                 ? ContentSubmission::STATUS_ERROR
                 : ContentSubmission::STATUS_REJECTED;
-            $message = $cfg['help']['compliance_reject'] ?? $scan['user_message'];
+            $message = $scan['user_message']
+                ?: ($cfg['help']['compliance_reject'] ?? 'Please revise restricted content and resubmit.');
             $report['summary'] = $message;
+            $category = $scan['log']?->detected_category;
+            $policyLabel = $category === 'adult'
+                ? 'Adult / 18+ / porn'
+                : 'Casino / gambling / betting';
+            $report['checks'][] = [
+                'key' => 'restricted_content',
+                'label' => $policyLabel,
+                'status' => 'fail',
+                'detail' => $blockedUrls !== []
+                    ? 'Blocked links: '.implode(', ', array_slice($blockedUrls, 0, 5))
+                    : ($matchedTerms !== []
+                        ? 'Found: '.implode(', ', array_slice($matchedTerms, 0, 10))
+                        : 'Restricted content detected'),
+            ];
+
+            $highlighted = $html;
+            if ($matchedTerms !== []) {
+                $highlighted = ArticlePreviewHtml::highlightTerms($highlighted, $matchedTerms);
+            }
+            if ($blockedUrls !== []) {
+                $highlighted = ArticlePreviewHtml::highlightBlockedLinks($highlighted, $blockedUrls);
+            }
 
             return [
                 'approved' => false,
@@ -130,48 +230,16 @@ class ArticleEvaluationService
                 'uniqueness_score' => $uniquenessScore,
                 'quality_score' => $qualityScore,
                 'report' => $report,
-                'title' => $scan['user_title'] ?? 'Article report',
+                'title' => $scan['user_title'] ?? 'Article needs changes',
                 'message' => $message,
                 'log' => $scan['log'] ?? null,
+                'highlighted_html' => $highlighted,
+                'matched_terms' => $matchedTerms,
+                'blocked_urls' => $blockedUrls,
             ];
         }
 
-        if ($uniquenessScore < $minUniqueness) {
-            $message = $cfg['help']['uniqueness_reject']
-                ?? 'Please improve the article and resubmit. See the report on this article for details.';
-            $report['summary'] = $message;
-
-            return [
-                'approved' => false,
-                'moderation_status' => ContentSubmission::STATUS_NEEDS_IMPROVEMENT,
-                'evaluation_status' => 'needs_improvement',
-                'uniqueness_score' => $uniquenessScore,
-                'quality_score' => $qualityScore,
-                'report' => $report,
-                'title' => 'Article report',
-                'message' => $message,
-                'log' => $scan['log'] ?? null,
-            ];
-        }
-
-        if ($qualityScore < $minQuality) {
-            $message = $cfg['help']['quality_reject']
-                ?? 'Please improve the article and resubmit. See the report on this article for details.';
-            $report['summary'] = $message;
-
-            return [
-                'approved' => false,
-                'moderation_status' => ContentSubmission::STATUS_NEEDS_IMPROVEMENT,
-                'evaluation_status' => 'needs_improvement',
-                'uniqueness_score' => $uniquenessScore,
-                'quality_score' => $qualityScore,
-                'report' => $report,
-                'title' => 'Article report',
-                'message' => $message,
-                'log' => $scan['log'] ?? null,
-            ];
-        }
-
+        // Uniqueness / quality no longer block approval — advisory only.
         $message = 'Your article was approved for publication. You can now select websites and place an order.';
         $report['summary'] = $message;
 
@@ -185,6 +253,9 @@ class ArticleEvaluationService
             'title' => 'Article approved for publication',
             'message' => $message,
             'log' => $scan['log'] ?? null,
+            'highlighted_html' => null,
+            'matched_terms' => [],
+            'blocked_urls' => [],
         ];
     }
 
@@ -237,7 +308,6 @@ class ArticleEvaluationService
             }
         }
 
-        // Blend corpus uniqueness with internal originality (self-plagiarism / spinning)
         $corpusUnique = (int) round(max(0, min(100, (1 - $maxSim) * 100)));
         $score = (int) round(($corpusUnique * 0.75) + ($internal * 0.25));
 
@@ -259,7 +329,6 @@ class ArticleEvaluationService
         $base = (int) ($quality['score'] ?? 60);
         $wordCount = (int) ($quality['word_count'] ?? 0);
 
-        // Reward adequate length
         if ($wordCount >= 500) {
             $base = min(100, $base + 5);
         } elseif ($wordCount < 200) {
@@ -339,7 +408,7 @@ class ArticleEvaluationService
     protected function optionalAiNotes(string $text, string $title, array $evalCfg): ?array
     {
         $key = $evalCfg['openai_api_key'] ?? null;
-        if (!$key || !is_string($key) || strlen($key) < 10) {
+        if (! $key || ! is_string($key) || strlen($key) < 10) {
             return null;
         }
 
@@ -363,7 +432,7 @@ class ArticleEvaluationService
                     'response_format' => ['type' => 'json_object'],
                 ]);
 
-            if (!$response->successful()) {
+            if (! $response->successful()) {
                 return null;
             }
 

@@ -8,9 +8,10 @@ return [
     'logout' => 'Logout',
 
     // Hero Section Translations
-    'hero_title' => 'Earn Powerful Backlinks from Trusted Websites',
+    'hero_title' => 'SEOLinkBuildings',
+    'hero_support' => 'Earn powerful backlinks from trusted websites.',
     'get_started' => 'Get Started',
-    'hero_tagline' => 'to explore the global link building platform built for SEO, digital PR, and content distribution',
+    'hero_tagline' => 'The global link building marketplace for SEO, digital PR, and content distribution.',
 
     // Footer
     'professional_services' => 'Professional link building services that deliver measurable results for your business.',
@@ -308,7 +309,7 @@ return [
     'newsletter_email_placeholder' => 'Your Email Address',
     'newsletter_subscribe_btn' => 'Subscribe',
     'newsletter_consent_text' => 'I subscribe to the SEOLinkBuildings newsletter and confirm that I have read the Privacy Policy.',
-    'newsletter_gdpr_text' => 'The controller for personal data of individuals who use the Seolinkbuildings.com website and all subpages is SEOLinkBuildings. We process your email address for the purpose of sending the newsletter based on your consent.',
+    'newsletter_gdpr_text' => 'The controller for personal data of individuals who use the seolinkbuildings.com website and all subpages is SEOLinkBuildings. We process your email address for the purpose of sending the newsletter based on your consent.',
     'newsletter_agreement_text' => 'By signing up for the newsletter, you agree to receive commercial information via electronic communications from SEOLinkBuildings. You can unsubscribe at any time using the link in each newsletter.',
     'newsletter_consent_required' => 'Please agree to the privacy policy to subscribe.',
     'newsletter_success_message' => 'Thank you — you are subscribed to our newsletter.',

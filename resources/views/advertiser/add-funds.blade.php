@@ -223,6 +223,54 @@
     </div>
 
 
+    @php
+        $walletSavedCards = $savedCards ?? [];
+        $stripeReady = $stripeConfigured ?? false;
+        $openCardsTab = !empty($cardsTab);
+    @endphp
+    <div class="card border-0 shadow-sm mb-4" id="savedCardsSection">
+        <div class="card-header bg-white fw-semibold d-flex flex-wrap justify-content-between align-items-center gap-2">
+            <span><i class="fa fa-credit-card me-2"></i> Saved cards</span>
+            <button type="button" class="btn btn-sm btn-outline-primary" id="addCardBtn" {{ $stripeReady ? '' : 'disabled' }}>
+                <i class="fa fa-plus me-1"></i> Add card
+            </button>
+        </div>
+        <div class="card-body">
+            <p class="small text-muted mb-3">
+                Save a card once (via Stripe) and reuse it for wallet top-ups and checkout. We never store full card numbers.
+            </p>
+            <div id="savedCardsList">
+                @forelse($walletSavedCards as $card)
+                    <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 border rounded-3 p-3 mb-2 saved-card-row"
+                         data-pm-id="{{ $card['id'] }}">
+                        <div class="d-flex align-items-center gap-2">
+                            <i class="fab fa-cc-{{ strtolower($card['brand']) === 'american express' ? 'amex' : strtolower($card['brand']) }} fa-lg text-muted"></i>
+                            <div class="small">
+                                <strong class="text-capitalize">{{ $card['brand'] }}</strong>
+                                •••• {{ $card['last4'] }}
+                                <span class="text-muted">· {{ sprintf('%02d/%d', $card['exp_month'], $card['exp_year'] % 100) }}</span>
+                                @if(!empty($card['is_default']))
+                                    <span class="badge text-bg-success ms-1">Default</span>
+                                @endif
+                            </div>
+                        </div>
+                        <div class="d-flex gap-2">
+                            @if(empty($card['is_default']))
+                                <button type="button" class="btn btn-sm btn-outline-secondary set-default-card" data-pm-id="{{ $card['id'] }}">Set default</button>
+                            @endif
+                            <button type="button" class="btn btn-sm btn-outline-danger remove-card" data-pm-id="{{ $card['id'] }}">Remove</button>
+                        </div>
+                    </div>
+                @empty
+                    <div class="text-muted small" id="savedCardsEmpty">No cards saved yet. Click <strong>Add card</strong> to store one securely with Stripe.</div>
+                @endforelse
+            </div>
+            <div class="mt-3">
+                @include('partials.payment-trust', ['compact' => true])
+            </div>
+        </div>
+    </div>
+
     <div class="row g-3 mb-4" id="depositSection">
                 <!-- Left Column - Add Funds Form -->
         <div class="col-lg-8">
@@ -231,6 +279,15 @@
                     <i class="fa fa-plus-circle me-2"></i> Add Funds
                 </div>
                 <div class="card-body">
+                    <div class="alert alert-light border mb-4" id="depositWorkflowHint" style="background:#f0fbfb; border-color:#c8ebe9 !important;">
+                        <div class="fw-semibold mb-2" style="color:#0b6266;">How Bank / Wise / crypto funding works</div>
+                        <ol class="small text-muted mb-0 ps-3">
+                            <li class="mb-1">Choose an amount and method — we create an <strong>invoice</strong> with a unique REF.</li>
+                            <li class="mb-1">Transfer the exact amount and put <strong>REF…</strong> in the payment note.</li>
+                            <li class="mb-1">After funds arrive, we credit your wallet (usually within one business day).</li>
+                            <li>Return to checkout and pay your guest-post order from your <strong>wallet</strong>.</li>
+                        </ol>
+                    </div>
                     
                     <!-- Amount Selection -->
                     <div class="mb-4">
@@ -271,7 +328,7 @@
                                             <img src="{{ asset('assets/img/wiseImg-logo.png') }}" alt="Wise Logo" style="width: 32px; height: 32px; object-fit: contain;">
                                         </div>
                                         <span style="font-weight: 600; font-size: 12px; color: #1f2937;">Wise Transfer</span>
-                                        <span style="font-size: 10px; color: #6b7280; display: block; margin-top: 4px;">Bank transfer via Wise</span>
+                                        <span style="font-size: 10px; color: #6b7280; display: block; margin-top: 4px;">Invoice → transfer → wallet credit</span>
                                     </div>
                                 </div>
                             </div>
@@ -284,7 +341,7 @@
                                             <i class="fab fa-bitcoin" style="font-size: 28px; color: #eab308;"></i>
                                         </div>
                                         <span style="font-weight: 600; font-size: 12px; color: #1f2937;">Cryptocurrency</span>
-                                        <span style="font-size: 10px; color: #6b7280; display: block; margin-top: 4px;">BTC, USDT, Binance Pay</span>
+                                        <span style="font-size: 10px; color: #6b7280; display: block; margin-top: 4px;">Invoice → send crypto → wallet credit</span>
                                     </div>
                                 </div>
                             </div>
@@ -297,7 +354,7 @@
                                             <i class="fas fa-university" style="font-size: 28px; color: #0b6266;"></i>
                                         </div>
                                         <span style="font-weight: 600; font-size: 12px; color: #1f2937;">Bank Transfer</span>
-                                        <span style="font-size: 10px; color: #6b7280; display: block; margin-top: 4px;">Traditional bank transfer</span>
+                                        <span style="font-size: 10px; color: #6b7280; display: block; margin-top: 4px;">Invoice → SEPA/wire → wallet credit</span>
                                     </div>
                                 </div>
                             </div>
@@ -477,7 +534,7 @@
                             </div>
                         </div>
 
-                        <!-- Card Payment Details - Stripe Checkout -->
+                        <!-- Card Payment Details - Stripe Checkout / saved card -->
                         <div id="cardPaymentDetails" class="card border-0 shadow-sm mb-4" style="display: none;">
                             <div class="card-body">
                                 <div style="display: flex; align-items: center; margin-bottom: 16px;">
@@ -486,25 +543,29 @@
                                     </div>
                                     <div>
                                         <h3 style="font-size: 18px; font-weight: 600; margin: 0;">Card Payment</h3>
-                                        <p style="font-size: 12px; color: #6b7280; margin: 4px 0 0;">Secure card payment via Stripe</p>
+                                        <p style="font-size: 12px; color: #6b7280; margin: 4px 0 0;">Instant wallet credit via Stripe</p>
                                     </div>
                                 </div>
-                                
-                                <div class="alert alert-info py-3 px-3 mb-3">
-                                    <div class="d-flex align-items-center">
-                                        <i class="fab fa-cc-visa fa-2x me-2 text-primary"></i>
-                                        <i class="fab fa-cc-mastercard fa-2x me-2 text-warning"></i>
-                                        <i class="fab fa-cc-amex fa-2x me-2 text-info"></i>
-                                        <i class="fab fa-cc-discover fa-2x me-2 text-secondary"></i>
+
+                                @if(count($walletSavedCards) > 0)
+                                    <div class="mb-3">
+                                        <label class="form-label fw-semibold small">Pay with</label>
+                                        @foreach($walletSavedCards as $card)
+                                            <label class="d-flex align-items-center gap-2 border rounded-3 p-3 mb-2" style="cursor:pointer;">
+                                                <input type="radio" name="deposit_saved_card" class="form-check-input"
+                                                       value="{{ $card['id'] }}" {{ !empty($card['is_default']) ? 'checked' : '' }}>
+                                                <span class="small text-capitalize">{{ $card['brand'] }} •••• {{ $card['last4'] }}</span>
+                                            </label>
+                                        @endforeach
+                                        <label class="d-flex align-items-center gap-2 border rounded-3 p-3" style="cursor:pointer;">
+                                            <input type="radio" name="deposit_saved_card" class="form-check-input" value="new"
+                                                   {{ count($walletSavedCards) === 0 ? 'checked' : '' }}>
+                                            <span class="small fw-semibold">New card (Stripe Checkout)</span>
+                                        </label>
                                     </div>
-                                </div>
-                                
-                                <div style="background: #f9fafb; border-radius: 12px; padding: 20px; border: 1px solid #e5e7eb;">
-                                    <div class="alert alert-success mt-3 py-2">
-                                        <i class="fas fa-shield-alt me-1"></i>
-                                        <small>Your payment is secure and encrypted. We accept Visa, Mastercard, American Express, and Discover.</small>
-                                    </div>
-                                </div>
+                                @endif
+
+                                @include('partials.payment-trust', ['compact' => true])
                             </div>
                         </div>
                     </div>
@@ -550,6 +611,9 @@
                     <button type="button" id="proceedBtn" class="btn w-100 mt-2 py-2" style="background-color: #3aaeb2; color: white;">
                         <i class="fa fa-arrow-right me-2"></i> Proceed to Payment
                     </button>
+                    <div class="mt-3">
+                        @include('partials.payment-trust', ['compact' => true, 'showMethods' => false])
+                    </div>
                 </div>
             </div>
             <div class="alert alert-info small mb-0">
@@ -1530,6 +1594,8 @@ document.addEventListener('DOMContentLoaded', function() {
     let selectedAmount = 0;
     let selectedMethod = null;
     let referenceCode = generateReferenceCode();
+    const prefillAmount = @json($prefillAmount ?? null);
+    const prefillMethod = @json($prefillMethod ?? null);
     
     // Generate 6-digit reference code
     function generateReferenceCode() {
@@ -1551,9 +1617,28 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Initialize reference code
     updateReferenceCode();
-    
+
     const amountBtns = document.querySelectorAll('.amount-btn');
     const customAmountInput = document.getElementById('customAmount');
+
+    function applyPrefill() {
+        if (prefillAmount && Number(prefillAmount) >= 10) {
+            setSelectedAmount(Number(prefillAmount));
+            const matchBtn = Array.from(document.querySelectorAll('.amount-btn')).find(
+                btn => Number(btn.dataset.amount) === Number(prefillAmount)
+            );
+            if (matchBtn) {
+                document.querySelectorAll('.amount-btn').forEach(b => b.classList.remove('active'));
+                matchBtn.classList.add('active');
+            } else if (customAmountInput) {
+                customAmountInput.value = String(prefillAmount);
+            }
+        }
+        if (prefillMethod) {
+            const opt = document.querySelector('.payment-option[data-method="' + prefillMethod + '"]');
+            if (opt) opt.click();
+        }
+    }
     const selectedAmountDisplay = document.getElementById('selectedAmountDisplay');
     const selectedAmountValue = document.getElementById('selectedAmountValue');
     const paymentOptions = document.querySelectorAll('.payment-option');
@@ -1741,32 +1826,27 @@ document.addEventListener('DOMContentLoaded', function() {
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                if (selectedMethod === 'bank' && data.invoice_url) {
-                    Swal.fire({
-                        title: 'Request Submitted!',
-                        html: `Your deposit request has been submitted.<br><br>
-                               <strong>Amount:</strong> €${selectedAmount.toFixed(2)}<br>
-                               <strong>Reference Code:</strong> <code class="font-monospace">${data.reference_code}</code><br><br>
-                               <a href="${data.invoice_url}" target="_blank" class="btn btn-primary">
-                                   <i class="fa fa-file-invoice"></i> View Invoice
-                               </a>`,
-                        icon: 'success',
-                        confirmButtonText: 'OK'
-                    }).then(() => {
-                        window.location.href = '{{ route("advertiser.reports") }}';
-                    });
-                } else {
-                    Swal.fire({
-                        title: 'Request Submitted!',
-                        html: `Your deposit request has been submitted.<br><br>
-                               <strong>Amount:</strong> €${selectedAmount.toFixed(2)}<br>
-                               <strong>Reference Code:</strong> <code class="font-monospace">${data.reference_code}</code><br><br>`,
-                        icon: 'success',
-                        confirmButtonText: 'OK'
-                    }).then(() => {
-                        window.location.href = '{{ route("advertiser.reports") }}';
-                    });
-                }
+                const invoiceLink = data.invoice_url
+                    ? `<a href="${data.invoice_url}" target="_blank" class="btn btn-primary mt-2">
+                           <i class="fa fa-file-invoice"></i> View / download invoice
+                       </a>`
+                    : '';
+                Swal.fire({
+                    title: 'Invoice ready',
+                    html: `Transfer <strong>€${selectedAmount.toFixed(2)}</strong> and include<br>
+                           <strong class="font-monospace">REF${data.reference_code}</strong> in the payment note.<br><br>
+                           We credit your wallet after funds arrive — then pay orders from your balance.<br>
+                           ${invoiceLink}`,
+                    icon: 'success',
+                    confirmButtonText: 'View wallet',
+                    showCancelButton: !!data.invoice_url,
+                    cancelButtonText: 'Open invoice'
+                }).then((result) => {
+                    if (result.dismiss === Swal.DismissReason.cancel && data.invoice_url) {
+                        window.open(data.invoice_url, '_blank');
+                    }
+                    window.location.href = '{{ route("advertiser.add-funds") }}';
+                });
             } else if (data.requires_billing) {
                 // Show billing info modal
                 const modal = new bootstrap.Modal(document.getElementById('billingInfoModal'));
@@ -1862,12 +1942,59 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
         
-        // For card payments, redirect to Stripe Checkout
+        // For card payments: saved card charge or Stripe Checkout
         if (selectedMethod === 'card') {
             proceedBtn.disabled = true;
-            proceedBtn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Redirecting...';
-            
+            proceedBtn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Processing...';
+            const picked = document.querySelector('input[name="deposit_saved_card"]:checked');
+            const savedPm = picked && picked.value !== 'new' ? picked.value : null;
+
             try {
+                if (savedPm) {
+                    const response = await fetch('{{ route("advertiser.add-funds.pay-saved-card") }}', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                        },
+                        body: JSON.stringify({
+                            amount: selectedAmount,
+                            reference_code: referenceCode,
+                            payment_method_id: savedPm
+                        })
+                    });
+                    const data = await response.json();
+                    if (data.success && data.requires_action && data.client_secret && data.stripe_key) {
+                        await new Promise((resolve, reject) => {
+                            const script = document.createElement('script');
+                            script.src = 'https://js.stripe.com/v3/';
+                            script.onload = resolve;
+                            script.onerror = reject;
+                            document.head.appendChild(script);
+                        });
+                        const stripe = Stripe(data.stripe_key);
+                        const result = await stripe.confirmCardPayment(data.client_secret, {
+                            return_url: data.return_url
+                        });
+                        if (result.error) throw new Error(result.error.message || 'Authentication failed');
+                        if (result.paymentIntent && result.paymentIntent.status === 'succeeded') {
+                            window.location.href = data.return_url + '&payment_intent=' + encodeURIComponent(result.paymentIntent.id);
+                            return;
+                        }
+                    }
+                    if (data.success && data.requires_payment && data.checkout_url) {
+                        window.location.href = data.checkout_url;
+                        return;
+                    }
+                    if (data.success) {
+                        Swal.fire('Success', data.message || 'Funds added', 'success').then(() => {
+                            window.location.href = data.redirect_url || '{{ route("advertiser.add-funds") }}';
+                        });
+                        return;
+                    }
+                    throw new Error(data.message || 'Saved card payment failed');
+                }
+
                 const response = await fetch('{{ route("advertiser.create-checkout-session") }}', {
                     method: 'POST',
                     headers: {
@@ -1891,7 +2018,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 console.error('Error:', error);
                 Swal.fire({
                     title: 'Error',
-                    text: error.message || 'Failed to redirect to Stripe. Please try again.',
+                    text: error.message || 'Failed to process card payment. Please try again.',
                     icon: 'error',
                     confirmButtonText: 'OK'
                 });
@@ -1899,9 +2026,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 proceedBtn.innerHTML = '<i class="fa fa-arrow-right me-2"></i> Proceed to Payment';
             }
         } else {
-            // Check if bank transfer and need billing info
-            if (selectedMethod === 'bank') {
-                // First check if billing info exists
+            // Bank / Wise invoices need company billing details
+            if (selectedMethod === 'bank' || selectedMethod === 'wise') {
                 fetch('{{ route("advertiser.get-billing-info") }}', {
                     method: 'GET',
                     headers: {
@@ -1926,6 +2052,85 @@ document.addEventListener('DOMContentLoaded', function() {
                 submitDeposit();
             }
         }
+    });
+
+    applyPrefill();
+
+    if (@json($openCardsTab ?? false)) {
+        const cardsSection = document.getElementById('savedCardsSection');
+        if (cardsSection) cardsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    const addCardBtn = document.getElementById('addCardBtn');
+    if (addCardBtn) {
+        addCardBtn.addEventListener('click', async function () {
+            addCardBtn.disabled = true;
+            try {
+                const res = await fetch('{{ route("advertiser.payment-methods.setup") }}', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                    },
+                    body: '{}'
+                });
+                const data = await res.json();
+                if (data.success && data.checkout_url) {
+                    window.location.href = data.checkout_url;
+                    return;
+                }
+                throw new Error(data.message || 'Unable to start card setup');
+            } catch (e) {
+                Swal.fire('Error', e.message || 'Unable to add card', 'error');
+                addCardBtn.disabled = false;
+            }
+        });
+    }
+
+    document.querySelectorAll('.remove-card').forEach(btn => {
+        btn.addEventListener('click', async function () {
+            const id = this.dataset.pmId;
+            const confirm = await Swal.fire({
+                title: 'Remove this card?',
+                text: 'You can add it again later.',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonText: 'Remove'
+            });
+            if (!confirm.isConfirmed) return;
+            const res = await fetch('{{ url("/advertiser/payment-methods") }}/' + encodeURIComponent(id), {
+                method: 'DELETE',
+                headers: {
+                    'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                    'Accept': 'application/json'
+                }
+            });
+            const data = await res.json();
+            if (data.success) {
+                window.location.reload();
+            } else {
+                Swal.fire('Error', data.message || 'Could not remove card', 'error');
+            }
+        });
+    });
+
+    document.querySelectorAll('.set-default-card').forEach(btn => {
+        btn.addEventListener('click', async function () {
+            const id = this.dataset.pmId;
+            const res = await fetch('{{ url("/advertiser/payment-methods") }}/' + encodeURIComponent(id) + '/default', {
+                method: 'POST',
+                headers: {
+                    'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                    'Accept': 'application/json'
+                }
+            });
+            const data = await res.json();
+            if (data.success) {
+                window.location.reload();
+            } else {
+                Swal.fire('Error', data.message || 'Could not set default card', 'error');
+            }
+        });
     });
 });
 </script>

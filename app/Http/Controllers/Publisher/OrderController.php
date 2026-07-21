@@ -1,24 +1,28 @@
 <?php
+
 // app/Http/Controllers/Publisher/OrderController.php
 
 namespace App\Http\Controllers\Publisher;
 
 use App\Http\Controllers\Controller;
+use App\Mail\LiveUrlSubmitted;
+use App\Mail\OrderAccepted;
+use App\Mail\OrderRejected;
 use App\Models\ContentSubmission;
 use App\Models\Order;
+use App\Models\OrderChatMessage;
 use App\Models\OrderItem;
 use App\Models\Site;
 use App\Models\User;
 use App\Models\Wallet;
-use App\Mail\OrderAccepted;
-use App\Mail\OrderRejected;
-use App\Mail\LiveUrlSubmitted;
 use App\Services\InAppNotificationService;
+use App\Services\LiveUrlHealthChecker;
+use App\Services\Wallet\WalletLedgerService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
@@ -45,7 +49,7 @@ class OrderController extends Controller
         abort_unless($allowed, 403);
 
         $disk = Storage::disk($submission->disk ?: 'local');
-        if (!$disk->exists($submission->path)) {
+        if (! $disk->exists($submission->path)) {
             abort(404, 'File not found');
         }
 
@@ -63,14 +67,14 @@ class OrderController extends Controller
     {
         try {
             $userId = auth()->id();
-            
+
             Log::info('Fetching orders for publisher', ['user_id' => $userId]);
-            
+
             // Get all sites owned by this publisher
             $siteIds = Site::where('publisher_id', $userId)->pluck('id')->toArray();
-            
+
             Log::info('Sites found for publisher', ['site_ids' => $siteIds]);
-            
+
             // If no sites found, return empty data
             if (empty($siteIds)) {
                 return response()->json([
@@ -82,42 +86,37 @@ class OrderController extends Controller
                         'per_page' => 20,
                         'total' => 0,
                         'from' => 0,
-                        'to' => 0
-                    ]
+                        'to' => 0,
+                    ],
                 ]);
             }
-            
-            // Get order items for these sites with their orders.
-            // Hide unpaid card checkouts (created before Stripe payment confirms).
+
+            // Only paid orders — bank/Wise/crypto fund the wallet first; unpaid card checkouts stay hidden.
             $query = OrderItem::with(['order.user', 'site'])
                 ->whereIn('site_id', $siteIds)
                 ->whereHas('order', function ($q) {
-                    // Include scheduled publications — charged in advance; publish on the scheduled date.
-                    $q->where(function ($inner) {
-                        $inner->where('payment_status', 'paid')
-                            ->orWhere('payment_method', '!=', 'card');
-                    });
+                    $q->where('payment_status', 'paid');
                 })
                 ->orderBy('created_at', 'desc');
-            
+
             // Search filter
             if ($request->filled('search')) {
                 $search = $request->search;
-                $query->where(function($q) use ($search) {
-                    $q->whereHas('order', function($sub) use ($search) {
+                $query->where(function ($q) use ($search) {
+                    $q->whereHas('order', function ($sub) use ($search) {
                         $sub->where('order_number', 'like', "%{$search}%")
                             ->orWhere('reference_code', 'like', "%{$search}%");
                     })->orWhere('site_name', 'like', "%{$search}%");
                 });
             }
-            
+
             // Status filter - using orders.status (the order status)
             if ($request->filled('status')) {
-                $query->whereHas('order', function($sub) use ($request) {
+                $query->whereHas('order', function ($sub) use ($request) {
                     $sub->where('status', $request->status);
                 });
             }
-            
+
             // Date range filter
             if ($request->filled('date_from')) {
                 $query->whereDate('created_at', '>=', $request->date_from);
@@ -125,12 +124,12 @@ class OrderController extends Controller
             if ($request->filled('date_to')) {
                 $query->whereDate('created_at', '<=', $request->date_to);
             }
-            
+
             $perPage = $request->get('per_page', 20);
             $orderItems = $query->paginate($perPage);
-            
+
             $orderIds = collect($orderItems->items())->pluck('order_id')->unique()->values();
-            $unreadByOrder = \App\Models\OrderChatMessage::whereIn('order_id', $orderIds)
+            $unreadByOrder = OrderChatMessage::whereIn('order_id', $orderIds)
                 ->where('sender_type', 'advertiser')
                 ->where('is_read', false)
                 ->selectRaw('order_id, COUNT(*) as unread_count')
@@ -179,12 +178,12 @@ class OrderController extends Controller
                         'scheduled_label' => $item->order->scheduled_publish_at
                             ? $item->order->scheduled_publish_at
                                 ->timezone($item->order->schedule_timezone ?: 'UTC')
-                                ->format('d F Y g:i A') . ' ' . ($item->order->schedule_timezone ?: 'UTC')
+                                ->format('d F Y g:i A').' '.($item->order->schedule_timezone ?: 'UTC')
                             : null,
-                    ]
+                    ],
                 ];
             }
-            
+
             return response()->json([
                 'success' => true,
                 'data' => $transformedItems,
@@ -194,20 +193,21 @@ class OrderController extends Controller
                     'per_page' => $orderItems->perPage(),
                     'total' => $orderItems->total(),
                     'from' => $orderItems->firstItem(),
-                    'to' => $orderItems->lastItem()
-                ]
+                    'to' => $orderItems->lastItem(),
+                ],
             ]);
-            
+
         } catch (\Exception $e) {
-            Log::error('Error fetching publisher orders: ' . $e->getMessage());
-            Log::error('Stack trace: ' . $e->getTraceAsString());
+            Log::error('Error fetching publisher orders: '.$e->getMessage());
+            Log::error('Stack trace: '.$e->getTraceAsString());
+
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to fetch orders: ' . $e->getMessage()
+                'message' => 'Failed to fetch orders: '.$e->getMessage(),
             ], 500);
         }
     }
-    
+
     /**
      * Get single order item details (AJAX)
      */
@@ -215,31 +215,27 @@ class OrderController extends Controller
     {
         try {
             $userId = auth()->id();
-            
+
             $orderItem = OrderItem::with('order')->findOrFail($id);
-            
+
             // Verify this order belongs to a site owned by the publisher
             $site = Site::where('id', $orderItem->site_id)->where('publisher_id', $userId)->first();
-            
-            if (!$site) {
+
+            if (! $site) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Unauthorized: This order does not belong to your site'
+                    'message' => 'Unauthorized: This order does not belong to your site',
                 ], 403);
             }
 
-            // Unpaid card checkouts are not visible to publishers yet
             $order = $orderItem->order;
-            if ($order
-                && $order->payment_method === 'card'
-                && $order->payment_status !== 'paid'
-            ) {
+            if (! $order || $order->payment_status !== 'paid') {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Order is not available yet'
+                    'message' => 'Order is not available yet',
                 ], 404);
             }
-            
+
             $data = [
                 'id' => $orderItem->id,
                 'order_id' => $orderItem->order_id,
@@ -264,24 +260,25 @@ class OrderController extends Controller
                     'payment_status' => $orderItem->order->payment_status,
                     'reference_code' => $orderItem->order->reference_code,
                     'total_amount' => (float) $orderItem->order->total_amount,
-                    'created_at' => $orderItem->order->created_at
-                ]
+                    'created_at' => $orderItem->order->created_at,
+                ],
             ];
-            
+
             return response()->json([
                 'success' => true,
-                'data' => $data
+                'data' => $data,
             ]);
-            
+
         } catch (\Exception $e) {
-            Log::error('Error fetching order details: ' . $e->getMessage());
+            Log::error('Error fetching order details: '.$e->getMessage());
+
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to fetch order details: ' . $e->getMessage()
+                'message' => 'Failed to fetch order details: '.$e->getMessage(),
             ], 500);
         }
     }
-    
+
     /**
      * Accept an order - Update order status to 'processing'
      */
@@ -289,39 +286,39 @@ class OrderController extends Controller
     {
         try {
             $orderItem = OrderItem::with('order')->findOrFail($id);
-            
+
             // Verify this order belongs to a site owned by the publisher
             $userId = auth()->id();
             $site = Site::where('id', $orderItem->site_id)->where('publisher_id', $userId)->first();
-            
-            if (!$site) {
+
+            if (! $site) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Unauthorized: This order does not belong to your site'
+                    'message' => 'Unauthorized: This order does not belong to your site',
                 ], 403);
             }
-            
+
             $order = Order::find($orderItem->order_id);
 
-            if ($order->payment_method === 'card' && $order->payment_status !== 'paid') {
+            if ($order->payment_status !== 'paid') {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Order payment is not confirmed yet'
+                    'message' => 'Order payment is not confirmed yet',
                 ], 400);
             }
 
             DB::beginTransaction();
-            
+
             // Update the order status to 'processing' (accepted)
             $order->update([
-                'status' => 'processing'
+                'status' => 'processing',
             ]);
-            
+
             DB::commit();
-            
+
             // Get the advertiser (user who placed the order)
             $advertiser = User::find($order->user_id);
-            
+
             // Send email notification to advertiser
             if ($advertiser && $advertiser->email) {
                 try {
@@ -329,37 +326,38 @@ class OrderController extends Controller
                     Log::info('Order accepted email sent to advertiser', [
                         'order_id' => $order->id,
                         'advertiser_email' => $advertiser->email,
-                        'order_number' => $order->order_number
+                        'order_number' => $order->order_number,
                     ]);
                 } catch (\Exception $e) {
-                    Log::error('Failed to send order accepted email: ' . $e->getMessage());
+                    Log::error('Failed to send order accepted email: '.$e->getMessage());
                 }
             }
 
             app(InAppNotificationService::class)->notifyOrderAccepted($order, $orderItem, $site);
-            
+
             Log::info('Order accepted by publisher', [
                 'order_item_id' => $orderItem->id,
                 'order_id' => $orderItem->order_id,
                 'site_id' => $site->id,
-                'publisher_id' => $userId
+                'publisher_id' => $userId,
             ]);
-            
+
             return response()->json([
                 'success' => true,
-                'message' => 'Order accepted successfully. Please submit the live URL when your content is ready.'
+                'message' => 'Order accepted successfully. Please submit the live URL when your content is ready.',
             ]);
-            
+
         } catch (\Exception $e) {
             DB::rollBack();
-            Log::error('Error accepting order: ' . $e->getMessage());
+            Log::error('Error accepting order: '.$e->getMessage());
+
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to accept order: ' . $e->getMessage()
+                'message' => 'Failed to accept order: '.$e->getMessage(),
             ], 500);
         }
     }
-    
+
     /**
      * Refund advertiser for rejected order (Unified method for all payment types)
      * - Wallet: Move from reserved_balance to balance
@@ -369,27 +367,27 @@ class OrderController extends Controller
     {
         try {
             $advertiserRoleId = Wallet::advertiserRoleId();
-            if (!$advertiserRoleId) {
+            if (! $advertiserRoleId) {
                 throw new \RuntimeException('Advertiser role not configured');
             }
 
             // Caller must already be inside a DB transaction
             $advertiserWallet = Wallet::lockOrCreateForRole($order->user_id, $advertiserRoleId);
-            
+
             // For wallet payments: Move from reserved_balance to balance (restore spend-only bonus if used)
             if ($order->payment_method === 'wallet') {
                 $bonusReservedBefore = (float) $advertiserWallet->bonus_reserved;
                 $advertiserWallet->refundReserved($orderAmount);
                 $bonusRestored = max(0, round($bonusReservedBefore - (float) $advertiserWallet->bonus_reserved, 2));
 
-                app(\App\Services\Wallet\WalletLedgerService::class)->recordRefund(
+                app(WalletLedgerService::class)->recordRefund(
                     $advertiserWallet,
                     (float) $orderAmount,
                     $bonusRestored,
                     $order,
                     $order->reference_code ?? $order->order_number
                 );
-                
+
                 Log::info('Wallet refund: funds moved from reserved to balance', [
                     'order_id' => $order->id,
                     'amount' => $orderAmount,
@@ -398,37 +396,38 @@ class OrderController extends Controller
                     'bonus_balance' => $advertiserWallet->bonus_balance,
                     'bonus_reserved' => $advertiserWallet->bonus_reserved,
                 ]);
-            } 
+            }
             // For all other payment methods (card, wise, crypto, bank): Direct refund to balance
             else {
                 $advertiserWallet->credit((float) $orderAmount);
-                app(\App\Services\Wallet\WalletLedgerService::class)->recordRefund(
+                app(WalletLedgerService::class)->recordRefund(
                     $advertiserWallet,
                     (float) $orderAmount,
                     0,
                     $order,
                     $order->reference_code ?? $order->order_number
                 );
-                
+
                 Log::info('Direct refund to advertiser balance', [
                     'order_id' => $order->id,
                     'payment_method' => $order->payment_method,
                     'amount' => $orderAmount,
-                    'new_balance' => $advertiserWallet->balance
+                    'new_balance' => $advertiserWallet->balance,
                 ]);
             }
-            
+
             return true;
-            
+
         } catch (\Exception $e) {
             Log::error('Refund failed for advertiser', [
                 'order_id' => $order->id,
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ]);
+
             return false;
         }
     }
-    
+
     /**
      * Reject an order with reason - Update order status to 'cancelled' and refund advertiser
      */
@@ -436,51 +435,52 @@ class OrderController extends Controller
     {
         try {
             $request->validate([
-                'reason' => 'required|string|min:10'
+                'reason' => 'required|string|min:10',
             ]);
-            
+
             $orderItem = OrderItem::with('order')->findOrFail($id);
-            
+
             // Verify this order belongs to a site owned by the publisher
             $userId = auth()->id();
             $site = Site::where('id', $orderItem->site_id)->where('publisher_id', $userId)->first();
-            
-            if (!$site) {
+
+            if (! $site) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Unauthorized: This order does not belong to your site'
+                    'message' => 'Unauthorized: This order does not belong to your site',
                 ], 403);
             }
-            
+
             DB::beginTransaction();
-            
+
             // Lock order to prevent double-reject / double-refund races
             $order = Order::where('id', $orderItem->order_id)->lockForUpdate()->firstOrFail();
 
             if ($order->status === 'cancelled' || $order->payment_status === 'refunded') {
                 DB::rollBack();
+
                 return response()->json([
                     'success' => false,
-                    'message' => 'Order has already been cancelled or refunded'
+                    'message' => 'Order has already been cancelled or refunded',
                 ], 400);
             }
 
             $order->update([
                 'status' => 'cancelled',
-                'payment_status' => 'refunded'
+                'payment_status' => 'refunded',
             ]);
-            
+
             $orderAmount = (float) $orderItem->price;
             $reason = $request->reason;
-            
+
             // Process refund for ALL payment types
             $refundProcessed = $this->refundAdvertiser($order, $orderAmount, $reason);
-            
+
             DB::commit();
-            
+
             // Get the advertiser (user who placed the order)
             $advertiser = User::find($order->user_id);
-            
+
             // Send email notification to advertiser with rejection reason
             if ($advertiser && $advertiser->email) {
                 try {
@@ -489,22 +489,26 @@ class OrderController extends Controller
                         'order_id' => $order->id,
                         'advertiser_email' => $advertiser->email,
                         'order_number' => $order->order_number,
-                        'reason' => $request->reason
+                        'reason' => $request->reason,
                     ]);
                 } catch (\Exception $e) {
-                    Log::error('Failed to send order rejected email: ' . $e->getMessage());
+                    Log::error('Failed to send order rejected email: '.$e->getMessage());
                 }
             }
 
-            app(InAppNotificationService::class)->notifyOrderRejected($order, $orderItem, $site, $request->reason);
-            
+            $notifications = app(InAppNotificationService::class);
+            $notifications->notifyOrderRejected($order, $orderItem, $site, $request->reason);
+            if ($refundProcessed) {
+                $notifications->notifyRefundCredited($order, $orderAmount, $request->reason);
+            }
+
             $refundMessage = '';
             if ($order->payment_method === 'wallet') {
                 $refundMessage = ' The funds have been returned from reserved balance to your wallet balance.';
             } else {
                 $refundMessage = ' The full amount has been credited back to your wallet balance.';
             }
-            
+
             Log::info('Order rejected by publisher and refund processed', [
                 'order_item_id' => $orderItem->id,
                 'order_id' => $orderItem->order_id,
@@ -513,24 +517,25 @@ class OrderController extends Controller
                 'reason' => $request->reason,
                 'refund_amount' => $orderAmount,
                 'payment_method' => $order->payment_method,
-                'refund_processed' => $refundProcessed
+                'refund_processed' => $refundProcessed,
             ]);
-            
+
             return response()->json([
                 'success' => true,
-                'message' => 'Order rejected successfully.' . $refundMessage
+                'message' => 'Order rejected successfully.'.$refundMessage,
             ]);
-            
+
         } catch (\Exception $e) {
             DB::rollBack();
-            Log::error('Error rejecting order: ' . $e->getMessage());
+            Log::error('Error rejecting order: '.$e->getMessage());
+
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to reject order: ' . $e->getMessage()
+                'message' => 'Failed to reject order: '.$e->getMessage(),
             ], 500);
         }
     }
-    
+
     /**
      * Submit live URL - Update order status to 'review' for advertiser approval
      */
@@ -538,47 +543,55 @@ class OrderController extends Controller
     {
         try {
             $request->validate([
-                'live_url' => 'required|url'
+                'live_url' => 'required|url',
             ]);
-            
+
             $orderItem = OrderItem::with('order')->findOrFail($id);
-            
+
             // Verify this order belongs to a site owned by the publisher
             $userId = auth()->id();
             $site = Site::where('id', $orderItem->site_id)->where('publisher_id', $userId)->first();
-            
-            if (!$site) {
+
+            if (! $site) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Unauthorized: This order does not belong to your site'
+                    'message' => 'Unauthorized: This order does not belong to your site',
                 ], 403);
             }
-            
+
+            $health = app(LiveUrlHealthChecker::class)->check((string) $request->live_url);
+
             DB::beginTransaction();
-            
+
             // Update live_url and live_url_submitted_at
             if (Schema::hasColumn('order_items', 'live_url')) {
-                $orderItem->update([
+                $payload = [
                     'live_url' => $request->live_url,
                     'live_url_submitted_at' => now(),
                     'modification_requested' => 'no',
-                    'auto_approve_triggered' => false
-                ]);
+                    'auto_approve_triggered' => false,
+                ];
+                if (Schema::hasColumn('order_items', 'live_url_check_ok')) {
+                    $payload['live_url_check_ok'] = $health['ok'];
+                    $payload['live_url_http_status'] = $health['status'];
+                    $payload['live_url_checked_at'] = $health['checked_at'];
+                }
+                $orderItem->update($payload);
             } else {
                 Log::warning('live_url column does not exist in order_items table');
             }
-            
+
             // Update order status to 'review' (ready for advertiser review/approval)
             $order = Order::find($orderItem->order_id);
             $order->update([
-                'status' => 'review'
+                'status' => 'review',
             ]);
-            
+
             DB::commit();
-            
+
             // Get the advertiser (user who placed the order)
             $advertiser = User::find($order->user_id);
-            
+
             // Send email notification to advertiser that live URL is submitted and ready for review
             if ($advertiser && $advertiser->email) {
                 try {
@@ -587,38 +600,49 @@ class OrderController extends Controller
                         'order_id' => $order->id,
                         'advertiser_email' => $advertiser->email,
                         'order_number' => $order->order_number,
-                        'live_url' => $request->live_url
+                        'live_url' => $request->live_url,
                     ]);
                 } catch (\Exception $e) {
-                    Log::error('Failed to send live URL submitted email: ' . $e->getMessage());
+                    Log::error('Failed to send live URL submitted email: '.$e->getMessage());
                 }
             }
 
             app(InAppNotificationService::class)->notifyLiveUrlSubmitted($order, $orderItem, $site, $request->live_url);
-            
+
             Log::info('Live URL submitted by publisher, order status changed to review', [
                 'order_item_id' => $orderItem->id,
                 'order_id' => $orderItem->order_id,
                 'site_id' => $site->id,
                 'publisher_id' => $userId,
-                'live_url' => $request->live_url
+                'live_url' => $request->live_url,
             ]);
-            
+
+            $message = 'Live URL submitted successfully! The advertiser will now review your submission. The order will be auto-approved in 48 hours if not reviewed.';
+            if (! $health['ok']) {
+                $message .= ' Note: '.$health['message'];
+            }
+
             return response()->json([
                 'success' => true,
-                'message' => 'Live URL submitted successfully! The advertiser will now review your submission. The order will be auto-approved in 48 hours if not reviewed.'
+                'message' => $message,
+                'live_url_check' => [
+                    'ok' => $health['ok'],
+                    'status' => $health['status'],
+                    'message' => $health['message'],
+                ],
             ]);
-            
+
         } catch (\Exception $e) {
             DB::rollBack();
-            Log::error('Error submitting live URL: ' . $e->getMessage());
+            Log::error('Error submitting live URL: '.$e->getMessage());
+
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to submit live URL: ' . $e->getMessage()
+                'message' => 'Failed to submit live URL: '.$e->getMessage(),
             ], 500);
         }
     }
-    
+
     /**
      * Resubmit live URL after modification request - Reset timer and update status to review
      */
@@ -626,31 +650,40 @@ class OrderController extends Controller
     {
         try {
             $request->validate([
-                'live_url' => 'required|url'
+                'live_url' => 'required|url',
             ]);
-            
+
             $orderItem = OrderItem::with('order')->findOrFail($id);
-            
+
             $userId = auth()->id();
             $site = Site::where('id', $orderItem->site_id)->where('publisher_id', $userId)->first();
-            
-            if (!$site) {
+
+            if (! $site) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Unauthorized'
+                    'message' => 'Unauthorized',
                 ], 403);
             }
-            
+
+            $health = app(LiveUrlHealthChecker::class)->check((string) $request->live_url);
+
             DB::beginTransaction();
-            
+
             // Update live_url and RESET timer, CLEAR modification flag
-            $orderItem->update([
+            $payload = [
                 'live_url' => $request->live_url,
                 'live_url_submitted_at' => now(),  // RESET timer
                 'modification_requested' => 'no',  // CLEAR modification flag
-                'modification_requested_at' => null
-            ]);
-            
+                'modification_requested_at' => null,
+                'auto_approve_triggered' => false,
+            ];
+            if (Schema::hasColumn('order_items', 'live_url_check_ok')) {
+                $payload['live_url_check_ok'] = $health['ok'];
+                $payload['live_url_http_status'] = $health['status'];
+                $payload['live_url_checked_at'] = $health['checked_at'];
+            }
+            $orderItem->update($payload);
+
             // Update order status back to 'review'
             $order = Order::find($orderItem->order_id);
             $order->update([
@@ -690,9 +723,19 @@ class OrderController extends Controller
                 ]);
             }
 
+            $message = 'Live URL resubmitted successfully!';
+            if (! $health['ok']) {
+                $message .= ' Note: '.$health['message'];
+            }
+
             return response()->json([
                 'success' => true,
-                'message' => 'Live URL resubmitted successfully!',
+                'message' => $message,
+                'live_url_check' => [
+                    'ok' => $health['ok'],
+                    'status' => $health['status'],
+                    'message' => $health['message'],
+                ],
             ]);
         } catch (\Exception $e) {
             DB::rollBack();
@@ -704,7 +747,7 @@ class OrderController extends Controller
             ], 500);
         }
     }
-    
+
     /**
      * Get order statistics
      */
@@ -713,9 +756,9 @@ class OrderController extends Controller
         try {
             $userId = auth()->id();
             $siteIds = Site::where('publisher_id', $userId)->pluck('id')->toArray();
-            
+
             Log::info('Fetching statistics for publisher', ['user_id' => $userId, 'site_ids' => $siteIds]);
-            
+
             // If no sites found, return zero stats
             if (empty($siteIds)) {
                 return response()->json([
@@ -727,23 +770,19 @@ class OrderController extends Controller
                         'completed_orders' => 0,
                         'rejected_orders' => 0,
                         'review_orders' => 0,
-                        'total_earnings' => 0
-                    ]
+                        'total_earnings' => 0,
+                    ],
                 ]);
             }
-            
-            // Paid / non-card orders only (exclude unpaid Stripe checkouts)
+
             $orderIds = OrderItem::whereIn('site_id', $siteIds)
                 ->whereHas('order', function ($q) {
-                    $q->where(function ($inner) {
-                        $inner->where('payment_status', 'paid')
-                            ->orWhere('payment_method', '!=', 'card');
-                    });
+                    $q->where('payment_status', 'paid');
                 })
                 ->pluck('order_id')
                 ->unique()
                 ->toArray();
-            
+
             $stats = [
                 'total_orders' => count($orderIds),
                 'pending_orders' => Order::whereIn('id', $orderIds)->where('status', 'pending')->count(),
@@ -752,73 +791,73 @@ class OrderController extends Controller
                 'completed_orders' => Order::whereIn('id', $orderIds)->where('status', 'completed')->count(),
                 'rejected_orders' => Order::whereIn('id', $orderIds)->where('status', 'cancelled')->count(),
                 'total_earnings' => round((float) OrderItem::whereIn('site_id', $siteIds)
-                    ->whereHas('order', function($q) {
+                    ->whereHas('order', function ($q) {
                         $q->where('status', 'completed')
-                          ->where('payment_status', 'paid');
+                            ->where('payment_status', 'paid');
                     })
-                    ->sum(OrderItem::publisherPayoutSqlExpression()), 2)
+                    ->sum(OrderItem::publisherPayoutSqlExpression()), 2),
             ];
-            
+
             Log::info('Statistics calculated', $stats);
-            
+
             return response()->json([
                 'success' => true,
-                'data' => $stats
+                'data' => $stats,
             ]);
-            
+
         } catch (\Exception $e) {
-            Log::error('Error fetching order statistics: ' . $e->getMessage());
-            Log::error('Stack trace: ' . $e->getTraceAsString());
+            Log::error('Error fetching order statistics: '.$e->getMessage());
+            Log::error('Stack trace: '.$e->getTraceAsString());
+
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to fetch statistics: ' . $e->getMessage()
+                'message' => 'Failed to fetch statistics: '.$e->getMessage(),
             ], 500);
         }
     }
 
-
     /**
- * Get recent orders for dashboard (AJAX)
- */
-public function getRecentOrders(Request $request)
-{
-    try {
-        $userId = auth()->id();
-        
-        // Get all sites owned by this publisher
-        $siteIds = Site::where('publisher_id', $userId)->pluck('id')->toArray();
-        
-        if (empty($siteIds)) {
+     * Get recent orders for dashboard (AJAX)
+     */
+    public function getRecentOrders(Request $request)
+    {
+        try {
+            $userId = auth()->id();
+
+            // Get all sites owned by this publisher
+            $siteIds = Site::where('publisher_id', $userId)->pluck('id')->toArray();
+
+            if (empty($siteIds)) {
+                return response()->json([
+                    'success' => true,
+                    'orders' => [],
+                ]);
+            }
+
+            // Get recent orders (last 5)
+            $orderIds = OrderItem::whereIn('site_id', $siteIds)
+                ->orderBy('created_at', 'desc')
+                ->pluck('order_id')
+                ->unique()
+                ->take(5);
+
+            $orders = Order::whereIn('id', $orderIds)
+                ->with('items')
+                ->orderBy('created_at', 'desc')
+                ->get();
+
             return response()->json([
                 'success' => true,
-                'orders' => []
+                'orders' => $orders,
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Error fetching recent orders: '.$e->getMessage());
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to fetch recent orders',
             ]);
         }
-        
-        // Get recent orders (last 5)
-        $orderIds = OrderItem::whereIn('site_id', $siteIds)
-            ->orderBy('created_at', 'desc')
-            ->pluck('order_id')
-            ->unique()
-            ->take(5);
-        
-        $orders = Order::whereIn('id', $orderIds)
-            ->with('items')
-            ->orderBy('created_at', 'desc')
-            ->get();
-        
-        return response()->json([
-            'success' => true,
-            'orders' => $orders
-        ]);
-        
-    } catch (\Exception $e) {
-        Log::error('Error fetching recent orders: ' . $e->getMessage());
-        return response()->json([
-            'success' => false,
-            'message' => 'Failed to fetch recent orders'
-        ]);
     }
-}
-
 }

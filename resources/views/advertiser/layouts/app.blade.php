@@ -5,6 +5,7 @@
     <title>Advertiser Dashboard</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
+    @include('components.favicon')
 
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
@@ -285,6 +286,20 @@
             font-size: 14px;
             color: #0b6266;
         }
+        .balance-block .balance-split {
+            font-size: 10px;
+            font-weight: 500;
+            color: #64748b;
+            letter-spacing: 0;
+            text-transform: none;
+        }
+
+        .cart-total-label {
+            font-size: 12px;
+            font-weight: 600;
+            color: #0b6266;
+            white-space: nowrap;
+        }
 
         .topbar-action {
             height: 36px;
@@ -453,6 +468,57 @@
             color: white;
         }
 
+        .cart-item {
+            flex-wrap: wrap;
+            align-items: flex-start;
+        }
+
+        .cart-item-article {
+            flex: 1 1 100%;
+            margin-top: 8px;
+            padding-top: 8px;
+            border-top: 1px dashed #e2e8f0;
+        }
+
+        .cart-item-article label {
+            display: block;
+            font-size: 0.72rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            color: #64748b;
+            margin-bottom: 4px;
+        }
+
+        .cart-item-article select {
+            width: 100%;
+            font-size: 0.82rem;
+            border: 1px solid #cbd5e1;
+            border-radius: 8px;
+            padding: 6px 8px;
+            background: #fff;
+        }
+
+        .cart-item-article-empty {
+            font-size: 0.78rem;
+            color: #b45309;
+            background: #fffbeb;
+            border: 1px solid #fde68a;
+            border-radius: 8px;
+            padding: 8px 10px;
+            line-height: 1.35;
+        }
+
+        .cart-item-article-empty a {
+            color: #0b6266;
+            font-weight: 600;
+        }
+
+        .cart-ready-note {
+            font-size: 0.78rem;
+            color: #64748b;
+            margin-bottom: 10px;
+        }
 
         .overlay {
             position: fixed;
@@ -529,7 +595,7 @@
 <div id="sidebar">
     <!-- Mobile Sidebar Logo (visible only on mobile) -->
     <div class="mobile-sidebar-logo">
-        <img id="mobileSidebarLogo" src="{{ asset('assets/img/logo1.png') }}" alt="Logo">
+        <img id="mobileSidebarLogo" src="{{ asset('assets/img/logo1.png') }}?v={{ @filemtime(public_path('assets/img/logo1.png')) ?: '1' }}" alt="SEOLinkBuildings">
     </div>
     
     <div class="menu">
@@ -554,7 +620,7 @@
         </div>
         
         <div class="text-center my-3 d-none d-md-block">
-            <img id="logoSidebar" src="{{ asset('assets/img/logo1.png') }}" height="42" alt="SEOLinkBuildings">
+            <img id="logoSidebar" src="{{ asset('assets/img/logo1.png') }}?v={{ @filemtime(public_path('assets/img/logo1.png')) ?: '1' }}" height="42" alt="SEOLinkBuildings">
         </div>
 
         <a href="{{ route('advertiser.dashboard') }}" class="{{ request()->routeIs('advertiser.dashboard') ? 'active' : '' }}">
@@ -582,10 +648,6 @@
                     <i class="fa fa-upload"></i>
                     <span>Upload article</span>
                 </a>
-                <div class="nav-sub-soon" title="Coming soon">
-                    <span><i class="fa fa-pen-nib me-1"></i> Order an article</span>
-                    <span class="soon-pill">Coming soon</span>
-                </div>
             </div>
         </div>
 
@@ -635,7 +697,7 @@
 
         <!-- Navbar logo - will be hidden on mobile via CSS -->
         <a href="/" class="d-flex align-items-center">
-            <img id="logoNavbar" src="{{ asset('assets/img/logo1.png') }}" height="45" alt="SEOLinkBuildings">
+            <img id="logoNavbar" src="{{ asset('assets/img/logo1.png') }}?v={{ @filemtime(public_path('assets/img/logo1.png')) ?: '1' }}" height="45" alt="SEOLinkBuildings">
         </a>
 
         <div class="d-none d-md-block">
@@ -659,24 +721,41 @@
 
     <div class="d-flex align-items-center gap-2">
 
-        <!-- Cart — labeled primary commerce action -->
+        <!-- Cart — count + estimated total while browsing -->
+        @php
+            $headerCart = session('cart', []);
+            $headerCartCount = (int) array_sum(array_map(fn ($row) => (int) ($row['quantity'] ?? 0), $headerCart));
+            $headerCartTotal = round(array_sum(array_map(
+                fn ($row) => ((float) ($row['price'] ?? 0)) * ((int) ($row['quantity'] ?? 0)),
+                $headerCart
+            )), 2);
+        @endphp
         <button id="toggleCart" class="btn btn-outline-secondary btn-sm topbar-action" type="button" aria-label="Open cart" title="Cart">
             <i class="fa fa-shopping-cart" aria-hidden="true"></i>
             <span class="d-none d-sm-inline">Cart</span>
-            <span id="cartBadge" class="cart-badge" style="display: none;">0</span>
+            <span id="cartTotalBadge" class="cart-total-label {{ $headerCartCount > 0 ? '' : 'd-none' }}">€{{ number_format($headerCartTotal, 2) }}</span>
+            <span id="cartBadge" class="cart-badge" style="{{ $headerCartCount > 0 ? 'display:flex;' : 'display:none;' }}">{{ $headerCartCount > 0 ? $headerCartCount : 0 }}</span>
         </button>
 
-        <!-- Balance — spendable total only (no credit subtitle on the button) -->
+        <!-- Balance — spendable = cash + promotional bonus -->
         @php
             $activeWallet = auth()->user()->activeWallet();
-            $availableBalance = (float) ($activeWallet?->balance ?? 0);
+            $spendableBalance = (float) ($activeWallet?->balance ?? 0);
+            $cashBalance = $activeWallet ? (float) $activeWallet->withdrawableBalance() : 0.0;
+            $bonusBalance = $activeWallet ? (float) $activeWallet->lockedBonusBalance() : 0.0;
             $reservedBalance = (float) ($activeWallet?->reserved_balance ?? 0);
-            $headerBalanceTitle = 'Spendable: €' . number_format($availableBalance, 2)
-                . ($reservedBalance > 0 ? ' · On hold: €' . number_format($reservedBalance, 2) : '');
+            $headerBalanceTitle = 'Spendable €' . number_format($spendableBalance, 2)
+                . ' = cash €' . number_format($cashBalance, 2)
+                . ' + bonus €' . number_format($bonusBalance, 2)
+                . ' (bonus is for purchases only; enable Use bonus at checkout).'
+                . ($reservedBalance > 0 ? ' On hold: €' . number_format($reservedBalance, 2) . '.' : '');
         @endphp
-        <a href="{{ route('advertiser.add-funds') }}" class="balance-block text-decoration-none" data-bs-toggle="tooltip" data-bs-placement="bottom" title="{{ $headerBalanceTitle }}" aria-label="Spendable balance {{ number_format($availableBalance, 2) }} euros">
+        <a href="{{ route('advertiser.add-funds') }}" class="balance-block text-decoration-none" data-bs-toggle="tooltip" data-bs-placement="bottom" title="{{ $headerBalanceTitle }}" aria-label="Spendable balance {{ number_format($spendableBalance, 2) }} euros">
             <span class="balance-label">Spendable</span>
-            <span class="balance-amount">€{{ number_format($availableBalance, 2) }}</span>
+            <span class="balance-amount">€{{ number_format($spendableBalance, 2) }}</span>
+            @if($bonusBalance > 0)
+                <span class="balance-split d-none d-md-inline">cash €{{ number_format($cashBalance, 2) }} · bonus €{{ number_format($bonusBalance, 2) }}</span>
+            @endif
         </a>
 
         @include('partials.notification-center')
@@ -737,22 +816,32 @@
 <!-- Cart Sidebar -->
 <div id="cartSidebar" class="cart-sidebar">
     <div class="cart-header">
-        <h5 class="mb-0">Your Cart</h5>
+        <div>
+            <h5 class="mb-0">Your Cart</h5>
+            <div class="small text-muted mt-1">Each website needs its own approved article.</div>
+        </div>
         <button id="closeCart" class="btn btn-sm btn-outline-secondary" type="button" aria-label="Close cart">
             <i class="fa fa-times" aria-hidden="true"></i>
         </button>
     </div>
-    <div class="cart-body" id="cartItemsContainer">
-        <div class="text-center text-muted">Your cart is empty</div>
+    <div class="cart-body">
+        <div id="cartChecklist" class="cart-checklist d-none" aria-live="polite"></div>
+        <div id="cartItemsContainer">
+            <div class="text-center text-muted">Your cart is empty</div>
+        </div>
     </div>
     <div class="cart-footer">
+        <div id="cartReadyNote" class="cart-ready-note d-none"></div>
         <div class="d-flex justify-content-between mb-3">
             <strong>Total:</strong>
             <strong id="cartTotalAmount">€0.00</strong>
         </div>
-        <button id="checkoutFromCart" class="btn btn-primary w-100">
+        <button id="checkoutFromCart" class="btn btn-primary w-100" type="button">
             <i class="fa fa-credit-card"></i> Proceed to Checkout
         </button>
+        <div id="cartProceedHint" class="small text-muted mt-2 d-none">
+            Finish the checklist above — every website needs its own article.
+        </div>
     </div>
 </div>
 
@@ -765,11 +854,16 @@
 </div>
 
 <footer>
-    © {{ date('Y') }} SEOLinkBuildings
-    <span class="mx-2">·</span>
-    <button type="button" class="btn btn-link btn-sm p-0 align-baseline" onclick="document.getElementById('helpFeedbackToggle')?.click()">Report a problem</button>
-    <span class="mx-1">·</span>
-    <button type="button" class="btn btn-link btn-sm p-0 align-baseline" onclick="document.getElementById('helpFeedbackToggle')?.click()">Suggestion box</button>
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2 w-100 px-2">
+        <div>
+            © {{ date('Y') }} SEOLinkBuildings
+            <span class="mx-2">·</span>
+            <button type="button" class="btn btn-link btn-sm p-0 align-baseline" onclick="document.getElementById('helpFeedbackToggle')?.click()">Report a problem</button>
+            <span class="mx-1">·</span>
+            <button type="button" class="btn btn-link btn-sm p-0 align-baseline" onclick="document.getElementById('helpFeedbackToggle')?.click()">Suggestion box</button>
+        </div>
+        @include('partials.payment-trust', ['compact' => true, 'showMethods' => true])
+    </div>
 </footer>
 @include('components.help-feedback-widget')
 
@@ -850,13 +944,50 @@
         return `${item.id}_${item.sensitive_type || 'standard'}`;
     }
     
+    let approvedArticles = [];
+    let contentLibraryUploadUrl = @json(route('advertiser.content-library', ['upload' => 1]));
+    let catalogUrl = @json(route('advertiser.catalog'));
+
+    function applyCartPayload(data) {
+        if (Array.isArray(data)) {
+            cart = data;
+            return;
+        }
+        cart = Array.isArray(data?.cart) ? data.cart : [];
+        approvedArticles = Array.isArray(data?.approved_articles) ? data.approved_articles : [];
+        if (data?.content_library_url) {
+            contentLibraryUploadUrl = data.content_library_url;
+        }
+    }
+
+    function articlesForCartLine(item) {
+        const siteLang = String(item.language || '').toLowerCase();
+        const selectedId = parseInt(item.content_submission_id || 0, 10) || 0;
+        const usedElsewhere = new Set(
+            cart
+                .filter((row) => getCartItemKey(row) !== getCartItemKey(item))
+                .map((row) => parseInt(row.content_submission_id || 0, 10))
+                .filter((id) => id > 0)
+        );
+        return approvedArticles.filter((article) => {
+            const lang = String(article.language || '').toLowerCase();
+            if (siteLang && lang && lang !== siteLang) return false;
+            if (usedElsewhere.has(article.id) && article.id !== selectedId) return false;
+            return true;
+        });
+    }
+
+    function cartLinesMissingArticles() {
+        return cart.filter((item) => !parseInt(item.content_submission_id || 0, 10));
+    }
+
     // Load cart from session on page load
     function loadCart() {
         $.ajax({
             url: '{{ route("advertiser.cart.get") }}',
             method: 'GET',
             success: function(data) {
-                cart = data || [];
+                applyCartPayload(data);
                 updateCartDisplay();
             },
             error: function() {
@@ -875,16 +1006,50 @@
             },
             contentType: 'application/json',
             data: JSON.stringify({ cart: cart }),
+            success: function() {
+                loadCart();
+            },
             error: function() {
                 console.error('Failed to save cart');
+            }
+        });
+    }
+
+    function assignCartArticle(siteId, sensitiveType, submissionId) {
+        $.ajax({
+            url: '{{ route("advertiser.cart.assign-article") }}',
+            method: 'POST',
+            headers: {
+                'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                'Accept': 'application/json'
+            },
+            data: {
+                id: siteId,
+                sensitive_type: sensitiveType || '',
+                content_submission_id: submissionId || ''
+            },
+            success: function(data) {
+                if (!data.success) {
+                    showToast(data.error || 'Could not assign article.', 'error');
+                    loadCart();
+                    return;
+                }
+                applyCartPayload(data);
+                updateCartDisplay();
+                if (data.message) showToast(data.message, 'success');
+            },
+            error: function(xhr) {
+                const msg = xhr.responseJSON?.error || xhr.responseJSON?.message || 'Could not assign article.';
+                showToast(msg, 'error');
+                loadCart();
             }
         });
     }
     
     // Update cart display
     function updateCartDisplay() {
-        const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
-        const cartTotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+        const cartCount = cart.reduce((sum, item) => sum + (parseInt(item.quantity, 10) || 0), 0);
+        const cartTotal = cart.reduce((sum, item) => sum + ((parseFloat(item.price) || 0) * (parseInt(item.quantity, 10) || 0)), 0);
         
         const badge = document.getElementById('cartBadge');
         if (cartCount > 0) {
@@ -893,28 +1058,130 @@
         } else {
             badge.style.display = 'none';
         }
+
+        const totalBadge = document.getElementById('cartTotalBadge');
+        if (totalBadge) {
+            if (cartCount > 0) {
+                totalBadge.classList.remove('d-none');
+                totalBadge.textContent = '€' + cartTotal.toFixed(2);
+            } else {
+                totalBadge.classList.add('d-none');
+                totalBadge.textContent = '€0.00';
+            }
+        }
         
         // Update cart sidebar
         const container = document.getElementById('cartItemsContainer');
+        const readyNote = document.getElementById('cartReadyNote');
+        const checklistEl = document.getElementById('cartChecklist');
+        const proceedBtn = document.getElementById('checkoutFromCart');
+        const proceedHint = document.getElementById('cartProceedHint');
         if (cart.length === 0) {
-            container.innerHTML = '<div class="text-center text-muted">Your cart is empty</div>';
+            container.innerHTML = `
+                <div class="text-center text-muted px-2">
+                    <p class="mb-2">Your cart is empty.</p>
+                    <p class="small mb-0">
+                        Browse the <a href="${catalogUrl}">catalog</a> for publishers,
+                        or <a href="${contentLibraryUploadUrl}">upload an article</a> in Content Library first.
+                    </p>
+                </div>`;
+            if (readyNote) {
+                readyNote.classList.add('d-none');
+                readyNote.textContent = '';
+            }
+            if (checklistEl) {
+                checklistEl.classList.add('d-none');
+                checklistEl.innerHTML = '';
+            }
+            if (proceedBtn) {
+                proceedBtn.disabled = true;
+            }
+            if (proceedHint) {
+                proceedHint.classList.add('d-none');
+            }
         } else {
             let html = '';
-            // Sort cart items by name for better organization
-            const sortedCart = [...cart].sort((a, b) => a.name.localeCompare(b.name));
+            const sortedCart = [...cart].sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')));
+            const missing = cartLinesMissingArticles().length;
+            if (checklistEl) {
+                let list = '<div class="small fw-semibold mb-1">Before Pay</div><ul class="mb-0 ps-0">';
+                sortedCart.forEach((item) => {
+                    const assigned = !!parseInt(item.content_submission_id || 0, 10);
+                    const lang = String(item.language || '').toUpperCase();
+                    const cls = assigned ? 'is-ok' : 'is-todo';
+                    const mark = assigned ? '✓' : '!';
+                    const detail = assigned
+                        ? 'Article assigned'
+                        : ('Needs ' + (lang ? lang + ' ' : '') + 'article');
+                    list += `<li class="${cls}"><span class="mark" aria-hidden="true">${mark}</span><span><strong>${escapeHtml(item.name || 'Website')}</strong> — ${escapeHtml(detail)}</span></li>`;
+                });
+                list += '</ul>';
+                checklistEl.innerHTML = list;
+                checklistEl.classList.remove('d-none');
+            }
+            if (readyNote) {
+                if (missing > 0) {
+                    readyNote.classList.remove('d-none');
+                    readyNote.innerHTML = missing === 1
+                        ? '1 website still needs its own approved article before checkout.'
+                        : (missing + ' websites still need their own approved articles before checkout.');
+                } else {
+                    readyNote.classList.remove('d-none');
+                    readyNote.textContent = 'Checklist complete — you can proceed to Pay.';
+                }
+            }
+            if (proceedBtn) {
+                proceedBtn.disabled = missing > 0;
+            }
+            if (proceedHint) {
+                proceedHint.classList.toggle('d-none', missing === 0);
+            }
             
-            sortedCart.forEach((item, index) => {
+            sortedCart.forEach((item) => {
                 const itemKey = getCartItemKey(item);
-                // Display sensitive price info without warning icon
                 const sensitiveDisplay = item.sensitive_type ? 
-                    `<div class="cart-item-sensitive"><small>+ ${item.sensitive_type} (€${(item.additional_price || 0).toFixed(2)})</small></div>` : '';
+                    `<div class="cart-item-sensitive"><small>+ ${escapeHtml(item.sensitive_type)} (€${(parseFloat(item.additional_price) || 0).toFixed(2)})</small></div>` : '';
+                const options = articlesForCartLine(item);
+                const selectedId = parseInt(item.content_submission_id || 0, 10) || 0;
+                const siteLang = String(item.language || '').toUpperCase();
+                let articleBlock = '';
+                if (options.length === 0 && !selectedId) {
+                    articleBlock = `
+                        <div class="cart-item-article">
+                            <div class="cart-item-article-empty">
+                                No approved article available for this website${siteLang ? ' (' + escapeHtml(siteLang) + ')' : ''}.
+                                <a href="${contentLibraryUploadUrl}">Upload or approve an article</a> for this order, then assign it here.
+                            </div>
+                        </div>`;
+                } else {
+                    let opts = `<option value="">— Select approved article —</option>`;
+                    options.forEach((article) => {
+                        const label = (article.title || 'Article')
+                            + ' (' + String(article.language || '').toUpperCase()
+                            + (article.country ? '/' + String(article.country).toUpperCase() : '')
+                            + ')';
+                        opts += `<option value="${article.id}" ${article.id === selectedId ? 'selected' : ''}>${escapeHtml(label)}</option>`;
+                    });
+                    if (selectedId && !options.some((a) => a.id === selectedId)) {
+                        opts += `<option value="${selectedId}" selected>Assigned article #${selectedId}</option>`;
+                    }
+                    articleBlock = `
+                        <div class="cart-item-article">
+                            <label>Article for this website</label>
+                            <select class="cart-article-select"
+                                    data-id="${item.id}"
+                                    data-sensitive-type="${item.sensitive_type || ''}">
+                                ${opts}
+                            </select>
+                        </div>`;
+                }
                 
                 html += `
-                    <div class="cart-item" data-key="${itemKey}" data-index="${index}">
+                    <div class="cart-item" data-key="${itemKey}">
                         <div class="cart-item-info">
                             <div class="cart-item-name">${escapeHtml(item.name)}</div>
                             ${sensitiveDisplay}
-                            <div class="cart-item-price">€${item.price.toFixed(2)} each</div>
+                            <div class="cart-item-price">€${(parseFloat(item.price) || 0).toFixed(2)} each</div>
                         </div>
                         <div class="cart-item-quantity">
                             <button type="button" class="decrease-qty" data-id="${item.id}" data-sensitive-type="${item.sensitive_type || ''}" aria-label="Decrease quantity">
@@ -928,6 +1195,7 @@
                         <button type="button" class="cart-item-remove" data-id="${item.id}" data-sensitive-type="${item.sensitive_type || ''}" aria-label="Remove ${escapeHtml(item.name)} from cart">
                             <i class="fa fa-times" aria-hidden="true"></i>
                         </button>
+                        ${articleBlock}
                     </div>
                 `;
             });
@@ -948,36 +1216,39 @@
         });
     }
     
-    // Add to cart with sensitive price support
+    // Add to cart via server so Content Library article rules apply.
     window.addToCart = function(id, name, price, sensitiveType = null, additionalPrice = 0, basePrice = null) {
-        // Check if item with same ID and same sensitive type already exists
-        const existingIndex = cart.findIndex(item => 
-            item.id === id && (item.sensitive_type || null) === (sensitiveType || null)
-        );
-        
-        if (existingIndex !== -1) {
-            cart[existingIndex].quantity++;
-        } else {
-            cart.push({ 
-                id: id, 
-                name: name, 
-                price: price,
-                base_price: basePrice || price,
-                additional_price: additionalPrice,
-                sensitive_type: sensitiveType,
-                quantity: 1 
-            });
-        }
-        
-        saveCart();
-        updateCartDisplay();
-        
-        // Show toast notification
-        if (sensitiveType) {
-            showToast(`${name} + ${sensitiveType} (€${price.toFixed(2)}) added to cart!`, 'success');
-        } else {
-            showToast(`${name} (€${price.toFixed(2)}) added to cart!`, 'success');
-        }
+        $.ajax({
+            url: '{{ route("advertiser.cart.add") }}',
+            method: 'POST',
+            headers: {
+                'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                'Accept': 'application/json'
+            },
+            data: {
+                id: id,
+                sensitive_type: sensitiveType || ''
+            },
+            success: function(data) {
+                if (!data.success) {
+                    showToast(data.error || 'Could not add to cart.', 'error');
+                    return;
+                }
+                applyCartPayload(data);
+                updateCartDisplay();
+                const label = sensitiveType
+                    ? `${name} + ${sensitiveType}`
+                    : name;
+                showToast(data.message || `${label} added to cart.`, 'success');
+                if (cartLinesMissingArticles().length > 0) {
+                    openCart();
+                }
+            },
+            error: function(xhr) {
+                const msg = xhr.responseJSON?.error || xhr.responseJSON?.message || 'Could not add to cart.';
+                showToast(msg, 'error');
+            }
+        });
     };
     
     // Show toast
@@ -1025,6 +1296,7 @@
         cartOverlay.classList.add('show');
         updateCartDisplay();
     }
+    window.openCart = openCart;
     
     function closeCart() {
         cartSidebar.classList.remove('open');
@@ -1066,14 +1338,31 @@
         saveCart();
         updateCartDisplay();
     });
+
+    document.getElementById('cartItemsContainer').addEventListener('change', function(e) {
+        const select = e.target.closest('.cart-article-select');
+        if (!select) return;
+        const id = parseInt(select.dataset.id, 10);
+        const sensitiveType = select.dataset.sensitiveType || null;
+        const submissionId = select.value ? parseInt(select.value, 10) : 0;
+        assignCartArticle(id, sensitiveType, submissionId);
+    });
     
-    // Checkout from cart
+    // Checkout from cart — blockers stay visible in the checklist (button disabled when incomplete)
     document.getElementById('checkoutFromCart').addEventListener('click', function() {
         if (cart.length === 0) {
             showToast('Your cart is empty!', 'error');
             return;
         }
-        window.location.href = '{{ route("advertiser.checkout") }}';
+        const missing = cartLinesMissingArticles();
+        if (missing.length > 0) {
+            openCart();
+            return;
+        }
+        const wizardPay = @json(route('advertiser.wizard.pay'));
+        const plainCheckout = @json(route('advertiser.checkout'));
+        const inWizard = {{ request()->boolean('wizard') || !empty(\App\Http\Controllers\Advertiser\GuestPostWizardController::stateFromSession()['language'] ?? null) ? 'true' : 'false' }};
+        window.location.href = inWizard ? wizardPay : plainCheckout;
     });
     
     // Load cart on page load

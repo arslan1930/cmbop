@@ -2,15 +2,14 @@
   $blogIndexUrl = localized_url('blog');
 @endphp
 
-<footer class="bg-light text-dark pt-5 pb-4">
+<footer class="bg-light text-dark pt-5 pb-4 slb-footer">
     <div class="container">
         <div class="row gy-4">
 
             <div class="col-lg-3 col-md-6">
-                <a href="{{ localized_url('/') }}">
-                    <img src="{{ asset('assets/img/logo1.png') }}"
-                         alt="SEOLinkBuildings"
-                         style="max-width: 200px;">
+                <a href="{{ localized_url('/') }}" class="slb-footer-brand d-inline-block">
+                    <img src="{{ asset('assets/img/logo1.png') }}?v={{ @filemtime(public_path('assets/img/logo1.png')) ?: '1' }}"
+                         alt="SEOLinkBuildings">
                 </a>
                 <p class="mt-3 small">
                     {{ __('messages.professional_services') }}
@@ -80,16 +79,11 @@
 
         <hr class="my-4">
 
-        <div class="d-flex flex-column flex-md-row justify-content-between align-items-center">
-            <p class="small mb-3 mb-md-0">
+        <div class="d-flex flex-column flex-lg-row justify-content-between align-items-lg-center gap-3">
+            <p class="small mb-0">
                 &copy; {{ date('Y') }} SEOLinkBuildings. {{ __('messages.all_rights_reserved') }}
             </p>
-            <div class="d-flex align-items-center gap-3">
-                <img src="{{ asset('assets/img/pay-pal-logo.png') }}" height="24" alt="PayPal">
-                <img src="{{ asset('assets/img/wise.png') }}" height="30" alt="Wise">
-                <img src="{{ asset('assets/img/bank.png') }}" height="24" alt="Bank">
-                <img src="{{ asset('assets/img/crypto_currency.png') }}" height="32" alt="Crypto">
-            </div>
+            @include('partials.payment-trust', ['compact' => true])
         </div>
     </div>
 </footer>

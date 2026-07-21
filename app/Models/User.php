@@ -3,10 +3,9 @@
 namespace App\Models;
 
 use App\Notifications\VerifyEmail;
-use Database\Factories\UserFactory;
+use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
-use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Facades\Log;
 
@@ -29,6 +28,8 @@ class User extends Authenticatable implements MustVerifyEmail
         'avatar',
         'active_role_id',
         'email_verified_at',
+        'stripe_customer_id',
+        'stripe_default_payment_method_id',
         'payout_business_name',
         'payout_paypal_email',
         'payout_bank_holder_name',
@@ -98,7 +99,7 @@ class User extends Authenticatable implements MustVerifyEmail
             return true;
         }
 
-        return !is_null($this->email_verified_at);
+        return ! is_null($this->email_verified_at);
     }
 
     /**
@@ -128,9 +129,8 @@ class User extends Authenticatable implements MustVerifyEmail
     }
 
     /** ------------------ Roles ------------------ */
-
     public function roles()
-    {   
+    {
         return $this->belongsToMany(Role::class, 'role_user')->withTimestamps();
     }
 
@@ -183,7 +183,7 @@ class User extends Authenticatable implements MustVerifyEmail
 
     public function sites()
     {
-        return $this->hasMany(\App\Models\Site::class, 'publisher_id');
+        return $this->hasMany(Site::class, 'publisher_id');
     }
 
     public function orders()
@@ -192,7 +192,6 @@ class User extends Authenticatable implements MustVerifyEmail
     }
 
     /** ------------------ Wallets ------------------ */
-
     public function wallets()
     {
         return $this->hasMany(Wallet::class);
@@ -204,22 +203,20 @@ class User extends Authenticatable implements MustVerifyEmail
     }
 
     /** ------------------ Other Relations ------------------ */
-
     public function consent()
     {
         return $this->hasOne(UserConsent::class);
     }
 
     /** ------------------ Helper ------------------ */
-
     public function getDashboardRoute(): string
     {
         return match ($this->activeRole()) {
-            'admin'      => route('admin.dashboard'),
-            'marketing'  => route('admin.dashboard'),
+            'admin' => route('admin.dashboard'),
+            'marketing' => route('admin.dashboard'),
             'advertiser' => route('advertiser.dashboard'),
-            'publisher'  => route('publisher.dashboard'),
-            default      => url('/'),
+            'publisher' => route('publisher.dashboard'),
+            default => url('/'),
         };
     }
 }
