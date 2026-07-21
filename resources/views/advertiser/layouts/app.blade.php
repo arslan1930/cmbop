@@ -1144,14 +1144,13 @@
                     `<div class="cart-item-sensitive"><small>+ ${escapeHtml(item.sensitive_type)} (€${(parseFloat(item.additional_price) || 0).toFixed(2)})</small></div>` : '';
                 const options = articlesForCartLine(item);
                 const selectedId = parseInt(item.content_submission_id || 0, 10) || 0;
-                const siteLang = String(item.language || '').toUpperCase();
                 let articleBlock = '';
                 if (options.length === 0 && !selectedId) {
                     articleBlock = `
                         <div class="cart-item-article">
                             <div class="cart-item-article-empty">
-                                No approved article available for this website${siteLang ? ' (' + escapeHtml(siteLang) + ')' : ''}.
-                                <a href="${contentLibraryUploadUrl}">Upload or approve an article</a> for this order, then assign it here.
+                                No approved article available yet.
+                                <a href="${contentLibraryUploadUrl}">Upload or approve an article</a>, then assign it here (any language).
                             </div>
                         </div>`;
                 } else {
@@ -1171,7 +1170,8 @@
                             <label>Article for this website</label>
                             <select class="cart-article-select"
                                     data-id="${item.id}"
-                                    data-sensitive-type="${item.sensitive_type || ''}">
+                                    data-sensitive-type="${item.sensitive_type || ''}"
+                                    data-prev-value="${selectedId || ''}">
                                 ${opts}
                             </select>
                         </div>`;
@@ -1346,7 +1346,60 @@
         const id = parseInt(select.dataset.id, 10);
         const sensitiveType = select.dataset.sensitiveType || null;
         const submissionId = select.value ? parseInt(select.value, 10) : 0;
-        assignCartArticle(id, sensitiveType, submissionId);
+        const previous = select.dataset.prevValue || '';
+
+        if (!submissionId) {
+            select.dataset.prevValue = '';
+            assignCartArticle(id, sensitiveType, 0);
+            return;
+        }
+
+        const item = cart.find((row) =>
+            row.id === id && (row.sensitive_type || null) === sensitiveType
+        );
+        const article = approvedArticles.find((row) => row.id === submissionId);
+        const siteLang = String(item?.language || '').toLowerCase();
+        const articleLang = String(article?.language || '').toLowerCase();
+        const mismatch = siteLang && articleLang && siteLang !== articleLang
+            ? ('Site is ' + siteLang.toUpperCase() + ', article is ' + articleLang.toUpperCase() + ' — continue?')
+            : '';
+
+        const proceed = function () {
+            select.dataset.prevValue = select.value || '';
+            assignCartArticle(id, sensitiveType, submissionId);
+        };
+
+        if (!mismatch) {
+            proceed();
+            return;
+        }
+
+        if (window.Swal && typeof window.Swal.fire === 'function') {
+            window.Swal.fire({
+                title: 'Language differs',
+                text: mismatch,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonText: 'Continue',
+                cancelButtonText: 'Choose another',
+                confirmButtonColor: '#0b6266',
+                cancelButtonColor: '#6b7280',
+                reverseButtons: true,
+            }).then(function (result) {
+                if (result.isConfirmed) {
+                    proceed();
+                } else {
+                    select.value = previous;
+                }
+            });
+            return;
+        }
+
+        if (window.confirm(mismatch)) {
+            proceed();
+        } else {
+            select.value = previous;
+        }
     });
     
     // Checkout from cart — blockers stay visible in the checklist (button disabled when incomplete)

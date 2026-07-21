@@ -286,9 +286,7 @@ class ContentLibraryController extends Controller
                 ->with('error', 'Only approved Content Library articles can be ordered. Please edit and resubmit if corrections are needed.');
         }
 
-        $language = strtolower(trim((string) $submission->language));
-
-        // Keep existing cart sites; this article will attach to the next matching website added.
+        // Keep existing cart sites; this article attaches when assigned in cart/checkout.
         session()->forget(['checkout_schedule']);
         session()->put('checkout_content_submission_id', $submission->id);
         session()->put('ordering_from_library', true);
@@ -296,13 +294,11 @@ class ContentLibraryController extends Controller
         $title = $submission->title ?: $submission->original_filename;
 
         return redirect()->route('advertiser.catalog', [
-            'language' => $language,
             'content_submission_id' => $submission->id,
             'filters_open' => 1,
         ])->with(
             'success',
-            'Ordering “'.$title.'” for '.strtoupper($language)
-            .' websites. Add one or more sites — each website needs its own approved article (assign extras in your cart).'
+            'Ordering “'.$title.'”. Browse any publishers — this article can be assigned to any site. Each website still needs its own approved article.'
         );
     }
 

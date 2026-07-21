@@ -75,7 +75,7 @@
                                         ({{ strtoupper($article->language) }}{{ $article->country ? '/'.strtoupper($article->country) : '' }})
                                     </option>
                                 @empty
-                                    <option value="" disabled>No approved article for this language yet</option>
+                                    <option value="" disabled>No approved articles yet</option>
                                 @endforelse
                             </select>
                             <div class="small text-muted line-feedback" aria-live="polite"></div>

@@ -60,7 +60,7 @@ class ContentLibraryCatalogOrderTest extends TestCase
         ]);
     }
 
-    public function test_order_opens_catalog_filtered_to_article_language_all_countries(): void
+    public function test_order_opens_full_catalog_without_language_prefilter(): void
     {
         $advertiser = $this->advertiser();
         $publisher = $this->publisher();
@@ -74,7 +74,6 @@ class ContentLibraryCatalogOrderTest extends TestCase
             ->get(route('advertiser.content-library.order', $article));
 
         $response->assertRedirect(route('advertiser.catalog', [
-            'language' => 'en',
             'content_submission_id' => $article->id,
             'filters_open' => 1,
         ]));
@@ -87,20 +86,19 @@ class ContentLibraryCatalogOrderTest extends TestCase
                 'ordering_from_library' => true,
             ])
             ->get(route('advertiser.catalog', [
-                'language' => 'en',
                 'content_submission_id' => $article->id,
                 'filters_open' => 1,
             ]));
 
         $catalog->assertOk()
-            ->assertSee('Ordering from Content Library')
             ->assertSee('UK Guide')
             ->assertSee($gbSite->site_name)
             ->assertSee($usSite->site_name)
-            ->assertDontSee($deSite->site_name);
+            ->assertSee($deSite->site_name)
+            ->assertDontSee('language=en', false);
     }
 
-    public function test_library_add_to_cart_allows_any_matching_language_country(): void
+    public function test_library_add_to_cart_allows_any_site_language(): void
     {
         config(['content_moderation.enabled' => false]);
         Mail::fake();
@@ -113,47 +111,37 @@ class ContentLibraryCatalogOrderTest extends TestCase
         $frSite = $this->activeSite($publisher, 'fr-cart', 50, 'fr', 'fr');
         $article = $this->createApprovedSubmission($advertiser, null, 0, 'anchor text', 'https://example.com/a', 'us', 'en');
 
-        // Before the article is attached, a French site is rejected for an English article.
+        // English article can attach to a French site (no language lock).
         $this->actingAs($advertiser)
             ->withSession([
                 'checkout_content_submission_id' => $article->id,
                 'ordering_from_library' => true,
             ])
             ->postJson(route('advertiser.cart.add'), ['id' => $frSite->id])
-            ->assertStatus(422)
-            ->assertJsonPath('success', false);
-
-        // English article can place on GB English site (different country, same language).
-        $this->actingAs($advertiser)
-            ->withSession([
-                'checkout_content_submission_id' => $article->id,
-                'ordering_from_library' => true,
-            ])
-            ->postJson(route('advertiser.cart.add'), ['id' => $gbSite->id])
             ->assertOk()
             ->assertJsonPath('success', true)
             ->assertJsonPath('cart_count', 1);
 
         $this->assertSame($article->id, session('cart')[0]['content_submission_id'] ?? null);
-        $this->assertSame($gbSite->id, session('cart')[0]['id'] ?? null);
+        $this->assertSame($frSite->id, session('cart')[0]['id'] ?? null);
 
-        // Second English site can be added; article already used so it is not auto-attached.
+        // Second site can be added; article already used so it is not auto-attached.
         $this->actingAs($advertiser)
             ->withSession([
                 'cart' => session('cart'),
                 'checkout_content_submission_id' => $article->id,
                 'ordering_from_library' => true,
             ])
-            ->postJson(route('advertiser.cart.add'), ['id' => $usSite->id])
+            ->postJson(route('advertiser.cart.add'), ['id' => $gbSite->id])
             ->assertOk();
 
         $this->assertCount(2, session('cart'));
-        $usLine = collect(session('cart'))->firstWhere('id', $usSite->id);
-        $this->assertEmpty($usLine['content_submission_id'] ?? null);
+        $gbLine = collect(session('cart'))->firstWhere('id', $gbSite->id);
+        $this->assertEmpty($gbLine['content_submission_id'] ?? null);
 
         // Checkout the line that already has the article assigned.
         $this->fundAdvertiserWallet($advertiser);
-        $checkoutCart = [collect(session('cart'))->firstWhere('id', $gbSite->id)];
+        $checkoutCart = [collect(session('cart'))->firstWhere('id', $frSite->id)];
         $checkout = $this->actingAs($advertiser)
             ->withSession([
                 'cart' => $checkoutCart,
@@ -169,5 +157,6 @@ class ContentLibraryCatalogOrderTest extends TestCase
         $checkout->assertOk()->assertJson(['success' => true]);
         $this->assertSame(1, OrderItem::where('content_submission_id', $article->id)->count());
         $this->assertNotNull($article->fresh()->order_id);
+        $this->assertNotNull($usSite);
     }
 }

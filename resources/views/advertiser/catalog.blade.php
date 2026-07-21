@@ -59,7 +59,7 @@
             'step' => 2,
             'title' => 'Place a guest post · Publishers',
             'subtitle' => 'Ordering “'.($orderingSubmission->title ?: $orderingSubmission->original_filename).'” ('
-                .strtoupper((string) $orderingSubmission->language).'). Add sites, then assign articles in your cart.',
+                .strtoupper((string) $orderingSubmission->language).'). Browse any sites — language does not have to match — then assign in your cart.',
             'linkAll' => true,
             'contentRoute' => route('advertiser.content-library'),
             'actions' => '<button type="button" class="btn btn-sm btn-primary" onclick="openCart()">Review cart</button>'
@@ -104,7 +104,7 @@
             <h2 class="mb-1 fw-semibold">Catalog</h2>
             <p class="text-muted mb-0">
                 @if(!empty($orderingSubmission))
-                    Showing {{ strtoupper((string) $orderingSubmission->language) }} publishers in all matching countries.
+                    Browse any verified publishers for “{{ $orderingSubmission->title ?: $orderingSubmission->original_filename }}”. Filters stay optional — language does not have to match.
                 @else
                     Browse verified publishers. Check article readiness beside Buy before you add sites.
                 @endif
@@ -920,13 +920,13 @@ document.addEventListener('DOMContentLoaded', function () {
                         @php $readyMeta = $siteReadiness[$site->id] ?? null; @endphp
                         @if($readyMeta)
                             @if($readyMeta['ready'])
-                                <span class="catalog-article-ready is-ready" title="You have an approved article that matches this site’s language">
+                                <span class="catalog-article-ready is-ready" title="You have an approved article ready to assign (any site language)">
                                     {{ $readyMeta['label'] }}
                                 </span>
                             @else
-                                <a href="{{ route('advertiser.content-library', ['upload' => 1, 'language' => $readyMeta['code']]) }}"
+                                <a href="{{ route('advertiser.content-library', ['upload' => 1]) }}"
                                    class="catalog-article-ready is-needed"
-                                   title="Upload an approved article in this language, then assign it in your cart">
+                                   title="Upload an approved article, then assign it in your cart">
                                     {{ $readyMeta['label'] }}
                                 </a>
                             @endif
