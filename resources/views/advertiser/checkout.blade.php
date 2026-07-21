@@ -217,7 +217,12 @@
                             </div>
                             @if(empty($stripeConfigured))
                                 <div class="alert alert-warning py-2 px-3 mb-3 small" id="stripeNotConfiguredAlert">
-                                    Card payments are not configured on this server. Set <code>STRIPE_KEY</code> and <code>STRIPE_SECRET</code> in <code>.env</code>, or pay with wallet.
+                                    Card payments are not configured on this server. Set <code>STRIPE_KEY</code> and <code>STRIPE_SECRET</code> in <code>.env</code>, then run <code>php artisan config:clear</code>, or pay with wallet.
+                                </div>
+                            @elseif(!app(\App\Services\StripeCustomerService::class)->usersTableReady())
+                                <div class="alert alert-warning py-2 px-3 mb-3 small" id="stripeSchemaAlert">
+                                    Stripe keys are present, but the database is missing <code>users.stripe_customer_id</code>.
+                                    Run <code>database/sql/fix_users_stripe_customer_columns.sql</code> in phpMyAdmin (Hostinger), then retry card checkout.
                                 </div>
                             @endif
 
