@@ -222,6 +222,77 @@
         </div>
     </div>
 
+    @if(($pendingRequests ?? collect())->isNotEmpty())
+        <div class="card border-0 shadow-sm mb-4" id="pendingDepositsSection">
+            <div class="card-header bg-white fw-semibold d-flex justify-content-between align-items-center">
+                <span><i class="fa fa-clock me-2 text-warning"></i> Pending invoice deposits</span>
+                <span class="badge text-bg-warning">{{ $pendingRequests->count() }}</span>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>REF</th>
+                                <th>Amount</th>
+                                <th>Method</th>
+                                <th>Status</th>
+                                <th>Created</th>
+                                <th class="text-end">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach($pendingRequests as $pendingDeposit)
+                                <tr data-deposit-id="{{ $pendingDeposit->id }}">
+                                    <td><code class="font-monospace">REF{{ $pendingDeposit->reference_code }}</code></td>
+                                    <td class="fw-semibold">€{{ number_format((float) $pendingDeposit->amount, 2) }}</td>
+                                    <td><span class="badge text-bg-secondary text-uppercase">{{ $pendingDeposit->payment_method }}</span></td>
+                                    <td>
+                                        <span class="wallet-status wallet-status--pending">Pending</span>
+                                        @if($pendingDeposit->userHasMarkedPaid())
+                                            <div class="small text-success mt-1">
+                                                <i class="fa fa-check-circle"></i> Payment reported
+                                                <span class="text-muted">· {{ $pendingDeposit->user_marked_paid_at->diffForHumans() }}</span>
+                                            </div>
+                                        @else
+                                            <div class="small text-muted mt-1">Awaiting your transfer confirmation</div>
+                                        @endif
+                                    </td>
+                                    <td class="small text-muted">{{ $pendingDeposit->created_at->format('M j, Y g:i A') }}</td>
+                                    <td class="text-end">
+                                        <div class="d-inline-flex flex-wrap gap-1 justify-content-end">
+                                            <a class="btn btn-sm btn-outline-secondary"
+                                               href="{{ route('advertiser.invoice', $pendingDeposit->reference_code) }}"
+                                               target="_blank">
+                                                <i class="fa fa-file-invoice"></i> Invoice
+                                            </a>
+                                            @if($pendingDeposit->canUserMarkPaid())
+                                                <button type="button"
+                                                        class="btn btn-sm btn-primary mark-deposit-paid-btn"
+                                                        data-deposit-id="{{ $pendingDeposit->id }}"
+                                                        data-mark-url="{{ route('advertiser.add-funds.mark-paid', $pendingDeposit) }}"
+                                                        data-ref="REF{{ $pendingDeposit->reference_code }}"
+                                                        data-amount="{{ number_format((float) $pendingDeposit->amount, 2, '.', '') }}">
+                                                    <i class="fa fa-check"></i> OK, I have made the payment
+                                                </button>
+                                            @else
+                                                <button type="button" class="btn btn-sm btn-outline-success" disabled>
+                                                    <i class="fa fa-check"></i> Payment reported — awaiting confirmation
+                                                </button>
+                                            @endif
+                                        </div>
+                                    </td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+                <div class="px-3 py-2 small text-muted border-top">
+                    Marking as paid notifies us that you sent the transfer. Your deposit stays <strong>Pending</strong> until an admin confirms and credits your wallet.
+                </div>
+            </div>
+        </div>
+    @endif
 
     @php
         $walletSavedCards = $savedCards ?? [];
@@ -284,7 +355,8 @@
                         <ol class="small text-muted mb-0 ps-3">
                             <li class="mb-1">Choose an amount and method — we create an <strong>invoice</strong> with a unique REF.</li>
                             <li class="mb-1">Transfer the exact amount and put <strong>REF…</strong> in the payment note.</li>
-                            <li class="mb-1">After funds arrive, we credit your wallet (usually within one business day).</li>
+                            <li class="mb-1">Click <strong>OK, I have made the payment</strong> after you send the transfer (status stays Pending).</li>
+                            <li class="mb-1">After we confirm funds, we credit your wallet (usually within one business day).</li>
                             <li>Return to checkout and pay your guest-post order from your <strong>wallet</strong>.</li>
                         </ol>
                     </div>
@@ -1816,24 +1888,37 @@ document.addEventListener('DOMContentLoaded', function() {
         .then(data => {
             if (data.success) {
                 const invoiceLink = data.invoice_url
-                    ? `<a href="${data.invoice_url}" target="_blank" class="btn btn-primary mt-2">
+                    ? `<a href="${data.invoice_url}" target="_blank" class="btn btn-primary mt-2 me-2">
                            <i class="fa fa-file-invoice"></i> View / download invoice
                        </a>`
+                    : '';
+                const markPaidBtn = data.mark_paid_url
+                    ? `<button type="button" class="btn btn-success mt-2" id="swalMarkPaidBtn">
+                           <i class="fa fa-check"></i> OK, I have made the payment
+                       </button>`
                     : '';
                 Swal.fire({
                     title: 'Invoice ready',
                     html: `Transfer <strong>€${selectedAmount.toFixed(2)}</strong> and include<br>
                            <strong class="font-monospace">REF${data.reference_code}</strong> in the payment note.<br><br>
-                           We credit your wallet after funds arrive — then pay orders from your balance.<br>
-                           ${invoiceLink}`,
+                           After you send the transfer, click <strong>OK, I have made the payment</strong>.<br>
+                           Status stays <strong>Pending</strong> until we confirm and credit your wallet.<br>
+                           <div class="mt-2">${invoiceLink}${markPaidBtn}</div>`,
                     icon: 'success',
                     confirmButtonText: 'View wallet',
-                    showCancelButton: !!data.invoice_url,
-                    cancelButtonText: 'Open invoice'
-                }).then((result) => {
-                    if (result.dismiss === Swal.DismissReason.cancel && data.invoice_url) {
-                        window.open(data.invoice_url, '_blank');
+                    showCancelButton: false,
+                    didOpen: () => {
+                        const btn = document.getElementById('swalMarkPaidBtn');
+                        if (!btn || !data.mark_paid_url) return;
+                        btn.addEventListener('click', () => {
+                            markDepositPaid(data.mark_paid_url, {
+                                ref: 'REF' + data.reference_code,
+                                amount: selectedAmount.toFixed(2),
+                                reloadOnSuccess: true,
+                            });
+                        });
                     }
+                }).then(() => {
                     window.location.href = '{{ route("advertiser.add-funds") }}';
                 });
             } else if (data.requires_billing) {
@@ -2119,6 +2204,73 @@ document.addEventListener('DOMContentLoaded', function() {
             } else {
                 Swal.fire('Error', data.message || 'Could not set default card', 'error');
             }
+        });
+    });
+
+    window.markDepositPaid = function markDepositPaid(url, opts = {}) {
+        const ref = opts.ref || 'this invoice';
+        const amount = opts.amount ? ('€' + opts.amount) : 'the amount';
+
+        return Swal.fire({
+            title: 'Confirm payment sent?',
+            html: `Have you already transferred <strong>${amount}</strong> with <strong>${ref}</strong> in the payment note?<br><br>
+                   <span class="text-muted small">Your deposit stays <strong>Pending</strong> until we confirm funds and credit your wallet.</span>`,
+            icon: 'question',
+            input: 'text',
+            inputPlaceholder: 'Optional: Wise/bank transfer reference',
+            showCancelButton: true,
+            confirmButtonText: 'OK, I have made the payment',
+            cancelButtonText: 'Not yet',
+            confirmButtonColor: '#0b6266',
+        }).then((result) => {
+            if (!result.isConfirmed) {
+                return null;
+            }
+
+            return fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                },
+                body: JSON.stringify({
+                    user_payment_note: result.value || null,
+                }),
+            })
+                .then((r) => r.json())
+                .then((data) => {
+                    if (!data.success) {
+                        Swal.fire('Error', data.message || 'Could not mark payment as sent.', 'error');
+                        return data;
+                    }
+
+                    return Swal.fire({
+                        icon: 'success',
+                        title: 'Payment reported',
+                        text: data.message,
+                        confirmButtonText: 'OK',
+                    }).then(() => {
+                        if (opts.reloadOnSuccess !== false) {
+                            window.location.reload();
+                        }
+                        return data;
+                    });
+                })
+                .catch(() => {
+                    Swal.fire('Error', 'Could not mark payment as sent. Please try again.', 'error');
+                    return null;
+                });
+        });
+    };
+
+    document.querySelectorAll('.mark-deposit-paid-btn').forEach((btn) => {
+        btn.addEventListener('click', function () {
+            markDepositPaid(this.dataset.markUrl, {
+                ref: this.dataset.ref,
+                amount: this.dataset.amount,
+                reloadOnSuccess: true,
+            });
         });
     });
 });

@@ -461,6 +461,7 @@ class AddFundsController extends Controller
                 'reference_code' => $referenceCode,
                 'deposit_id' => $depositRequest->id,
                 'invoice_url' => route('advertiser.invoice', $referenceCode),
+                'mark_paid_url' => route('advertiser.add-funds.mark-paid', $depositRequest),
             ]);
 
         } catch (\Exception $e) {
@@ -473,6 +474,60 @@ class AddFundsController extends Controller
         }
     }
 
+    /**
+     * Advertiser acknowledges they sent the Bank/Wise/crypto transfer.
+     * Status stays pending until admin confirms and credits the wallet.
+     */
+    public function markPaid(Request $request, DepositRequest $deposit)
+    {
+        if ((int) $deposit->user_id !== (int) auth()->id()) {
+            abort(403);
+        }
+
+        if (! in_array($deposit->payment_method, ['wise', 'bank', 'crypto'], true)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Only Bank, Wise, and crypto invoices can be marked as paid by you.',
+            ], 422);
+        }
+
+        if (! $deposit->isPending()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'This deposit is no longer pending.',
+                'status' => $deposit->status,
+            ], 422);
+        }
+
+        $data = $request->validate([
+            'user_payment_note' => ['nullable', 'string', 'max:255'],
+        ]);
+
+        if (! $deposit->userHasMarkedPaid()) {
+            $deposit->update([
+                'user_marked_paid_at' => now(),
+                'user_payment_note' => $data['user_payment_note'] ?? $deposit->user_payment_note,
+            ]);
+        }
+
+        $deposit->refresh();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Thanks — payment marked as sent. Status stays Pending until we confirm and credit your wallet.',
+            'status' => $deposit->status,
+            'user_marked_paid_at' => optional($deposit->user_marked_paid_at)?->toIso8601String(),
+            'deposit' => [
+                'id' => $deposit->id,
+                'reference_code' => $deposit->reference_code,
+                'amount' => (float) $deposit->amount,
+                'payment_method' => $deposit->payment_method,
+                'status' => $deposit->status,
+                'user_marked_paid_at' => optional($deposit->user_marked_paid_at)?->toIso8601String(),
+            ],
+        ]);
+    }
+
     public function getStatus($id)
     {
         $depositRequest = DepositRequest::where('user_id', auth()->id())
@@ -482,6 +537,7 @@ class AddFundsController extends Controller
         return response()->json([
             'success' => true,
             'status' => $depositRequest->status,
+            'user_marked_paid_at' => optional($depositRequest->user_marked_paid_at)?->toIso8601String(),
             'deposit' => $depositRequest,
         ]);
     }
@@ -615,6 +671,10 @@ class AddFundsController extends Controller
                     'orderItems' => [],
                     'totalBaseAmount' => 0,
                     'totalSensitiveAmount' => 0,
+                    'deposit' => $deposit,
+                    'canMarkPaid' => $deposit->canUserMarkPaid(),
+                    'userMarkedPaid' => $deposit->userHasMarkedPaid(),
+                    'markPaidUrl' => route('advertiser.add-funds.mark-paid', $deposit),
                 ]);
             }
 

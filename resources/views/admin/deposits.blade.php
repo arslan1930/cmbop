@@ -11,7 +11,7 @@
 
     <!-- Stats Cards -->
     <div class="row mb-4">
-        <div class="col-md-3">
+        <div class="col-md-3 col-lg">
             <div class="card border-0 shadow-sm">
                 <div class="card-body">
                     <div class="d-flex justify-content-between align-items-center">
@@ -26,7 +26,22 @@
                 </div>
             </div>
         </div>
-        <div class="col-md-3">
+        <div class="col-md-3 col-lg">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-muted mb-1">User reported paid</h6>
+                            <h2 class="mb-0 text-success">{{ $stats['user_reported_paid'] ?? 0 }}</h2>
+                        </div>
+                        <div class="bg-success bg-opacity-10 p-3 rounded">
+                            <i class="fa fa-user-check fa-2x text-success"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 col-lg">
             <div class="card border-0 shadow-sm">
                 <div class="card-body">
                     <div class="d-flex justify-content-between align-items-center">
@@ -41,7 +56,7 @@
                 </div>
             </div>
         </div>
-        <div class="col-md-3">
+        <div class="col-md-3 col-lg">
             <div class="card border-0 shadow-sm">
                 <div class="card-body">
                     <div class="d-flex justify-content-between align-items-center">
@@ -56,7 +71,7 @@
                 </div>
             </div>
         </div>
-        <div class="col-md-3">
+        <div class="col-md-3 col-lg">
             <div class="card border-0 shadow-sm">
                 <div class="card-body">
                     <div class="d-flex justify-content-between align-items-center">
@@ -147,6 +162,11 @@
                             <td>
                                 @if($deposit->status == 'pending')
                                     <span class="badge bg-warning">Pending</span>
+                                    @if($deposit->user_marked_paid_at)
+                                        <div class="small text-success mt-1">
+                                            <i class="fa fa-check-circle"></i> User reported paid
+                                        </div>
+                                    @endif
                                 @elseif($deposit->status == 'approved')
                                     <span class="badge bg-info">Approved</span>
                                 @elseif($deposit->status == 'completed')
@@ -298,6 +318,17 @@ document.addEventListener('DOMContentLoaded', function() {
                             <small class="text-muted">Status</small>
                             <div>${statusBadge}</div>
                         </div>
+                        <div class="col-6 mb-2">
+                            <small class="text-muted">User reported paid</small>
+                            <div>${deposit.user_marked_paid_at
+                                ? `<span class="badge bg-success">Yes</span> <small class="text-muted">${new Date(deposit.user_marked_paid_at).toLocaleString()}</small>`
+                                : '<span class="text-muted">Not yet</span>'}</div>
+                        </div>
+                        ${deposit.user_payment_note ? `
+                        <div class="col-12 mb-2">
+                            <small class="text-muted">User payment note</small>
+                            <div>${escapeHtml(deposit.user_payment_note)}</div>
+                        </div>` : ''}
                         <div class="col-12">
                             <small class="text-muted">Submitted Date</small>
                             <div>${new Date(deposit.created_at).toLocaleString()}</div>

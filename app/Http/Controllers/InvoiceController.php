@@ -4,7 +4,6 @@ namespace App\Http\Controllers;
 
 use App\Models\DepositRequest;
 use App\Models\Order;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 
 class InvoiceController extends Controller
@@ -17,36 +16,37 @@ class InvoiceController extends Controller
         try {
             $userId = auth()->id();
             $user = auth()->user();
-            
+
             // First check if it's a deposit
             $deposit = DepositRequest::where('reference_code', $referenceCode)
                 ->where('user_id', $userId)
                 ->first();
-            
+
             if ($deposit) {
                 return $this->showDepositInvoice($deposit, $user);
             }
-            
+
             // Check if it's an order
             $order = Order::where('reference_code', $referenceCode)
                 ->where('user_id', $userId)
                 ->with('items')
                 ->first();
-            
+
             if ($order) {
                 return $this->showOrderInvoice($order, $user);
             }
-            
+
             return redirect()->route('advertiser.dashboard')
                 ->with('error', 'Invoice not found');
-            
+
         } catch (\Exception $e) {
-            Log::error('Error showing invoice: ' . $e->getMessage());
+            Log::error('Error showing invoice: '.$e->getMessage());
+
             return redirect()->route('advertiser.dashboard')
                 ->with('error', 'Invoice not found');
         }
     }
-    
+
     /**
      * Show deposit invoice
      */
@@ -72,10 +72,14 @@ class InvoiceController extends Controller
             'orderDate' => $deposit->created_at,
             'orderItems' => [],
             'totalBaseAmount' => 0,
-            'totalSensitiveAmount' => 0
+            'totalSensitiveAmount' => 0,
+            'deposit' => $deposit,
+            'canMarkPaid' => $deposit->canUserMarkPaid(),
+            'userMarkedPaid' => $deposit->userHasMarkedPaid(),
+            'markPaidUrl' => route('advertiser.add-funds.mark-paid', $deposit),
         ]);
     }
-    
+
     /**
      * Show order invoice
      */
@@ -84,13 +88,13 @@ class InvoiceController extends Controller
         $orderItems = [];
         $totalBaseAmount = 0;
         $totalSensitiveAmount = 0;
-        
+
         foreach ($order->items as $item) {
             $additionalPrice = $item->additional_price ?? 0;
             $basePrice = $item->price - $additionalPrice;
             $totalBaseAmount += $basePrice;
             $totalSensitiveAmount += $additionalPrice;
-            
+
             $orderItems[] = [
                 'site_name' => $item->site_name,
                 'site_url' => $item->site_url,
@@ -99,10 +103,10 @@ class InvoiceController extends Controller
                 'additional_price' => $additionalPrice,
                 'sensitive_type' => $item->sensitive_type,
                 'content_link' => $item->content_link,
-                'live_url' => $item->live_url ?? ''
+                'live_url' => $item->live_url ?? '',
             ];
         }
-        
+
         return view('advertiser.invoice', [
             'invoiceType' => 'order',
             'referenceCode' => $order->reference_code,
@@ -123,7 +127,7 @@ class InvoiceController extends Controller
             'orderDate' => $order->created_at,
             'orderItems' => $orderItems,
             'totalBaseAmount' => $totalBaseAmount,
-            'totalSensitiveAmount' => $totalSensitiveAmount
+            'totalSensitiveAmount' => $totalSensitiveAmount,
         ]);
     }
 }

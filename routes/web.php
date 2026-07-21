@@ -695,6 +695,7 @@ Route::middleware(['auth', 'verified', RoleMiddleware::class.':advertiser'])
         Route::get('/add-funds', [AddFundsController::class, 'index'])->name('add-funds');
         Route::post('/add-funds', [AddFundsController::class, 'store'])->name('add-funds.store');
         Route::get('/add-funds/status/{id}', [AddFundsController::class, 'getStatus'])->name('add-funds.status');
+        Route::post('/add-funds/{deposit}/mark-paid', [AddFundsController::class, 'markPaid'])->name('add-funds.mark-paid');
 
         // Saved cards (Stripe Customer + PaymentMethods)
         Route::get('/payment-methods', [PaymentMethodController::class, 'index'])->name('payment-methods.index');
