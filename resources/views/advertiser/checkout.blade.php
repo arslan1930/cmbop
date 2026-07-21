@@ -145,7 +145,7 @@
                                                 </div>
                                                 @if($summaryArticle->preview_html)
                                                     <div class="order-summary-article-preview">
-                                                        {!! $summaryArticle->preview_html !!}
+                                                        {!! \App\Services\ContentUpload\ArticlePreviewHtml::normalize((string) $summaryArticle->preview_html) !!}
                                                     </div>
                                                 @endif
                                                 @php $history = $summaryArticle->articleHistory(); @endphp
@@ -203,7 +203,7 @@
                                 </div>
                             </div>
 
-                            <div class="payment-option mb-3" data-method="card" style="cursor: pointer;" role="button" tabindex="0" aria-label="Pay with credit or debit card">
+                            <div class="payment-option mb-3 {{ empty($stripeConfigured) ? 'payment-option-disabled' : '' }}" data-method="card" style="cursor: {{ empty($stripeConfigured) ? 'not-allowed' : 'pointer' }}; {{ empty($stripeConfigured) ? 'opacity:.55;' : '' }}" role="button" tabindex="0" aria-label="Pay with credit or debit card" @if(empty($stripeConfigured)) aria-disabled="true" data-stripe-disabled="1" @endif>
                                 <div class="payment-option-card" style="border: 2px solid #e5e7eb; border-radius: 12px; padding: 16px; background: white; transition: all 0.2s; display:flex; align-items:center; gap:14px;">
                                     <div style="width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; background: #f3f4f6; border-radius: 8px; flex-shrink:0;">
                                         <i class="fab fa-stripe" style="font-size: 28px; color: #635bff;" aria-hidden="true"></i>
@@ -1074,6 +1074,14 @@ document.addEventListener('DOMContentLoaded', function() {
         option.addEventListener('click', function() {
             const method = this.dataset.method;
             if (!method) return;
+            if (method === 'card' && this.dataset.stripeDisabled === '1') {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Card payments unavailable',
+                    html: 'Stripe is not configured on this server. Set <code>STRIPE_KEY</code> and <code>STRIPE_SECRET</code> in <code>.env</code>, then run <code>php artisan config:clear</code> — or pay with wallet.'
+                });
+                return;
+            }
             selectedMethod = method;
             
             paymentOptions.forEach(opt => opt.classList.remove('selected'));
@@ -1172,11 +1180,12 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Submit order function
     function submitOrder() {
-        const contentPayload = window.ContentCheckout.payload();
+        const contentPayload = window.ContentCheckout ? window.ContentCheckout.payload() : {};
         fetch('{{ route("advertiser.checkout.process") }}', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
+                'Accept': 'application/json',
                 'X-CSRF-TOKEN': '{{ csrf_token() }}'
             },
             body: JSON.stringify(Object.assign({
@@ -1191,8 +1200,16 @@ document.addEventListener('DOMContentLoaded', function() {
                 })()
             }, contentPayload || {}))
         })
-        .then(response => response.json())
-        .then(data => {
+        .then(async response => {
+            let data = null;
+            try {
+                data = await response.json();
+            } catch (e) {
+                throw new Error('Server returned a non-JSON response (' + response.status + ').');
+            }
+            return { response, data };
+        })
+        .then(({ response, data }) => {
             if (data.success) {
                 if (data.requires_action && data.client_secret && data.stripe_key) {
                     const script = document.createElement('script');
@@ -1244,7 +1261,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 placeOrderBtn.innerHTML = '<i class="fa fa-check-circle"></i> Place Order';
                 syncPlaceOrderForModeration();
             } else {
-                const modTitle = data.moderation?.title || 'Error';
+                const modTitle = data.moderation?.title || (response.status === 503 ? 'Card payments unavailable' : 'Error');
                 const modMsg = data.moderation?.failures?.[0]?.message || data.message || 'Failed to process order';
                 Swal.fire({
                     icon: 'error',
@@ -1259,9 +1276,11 @@ document.addEventListener('DOMContentLoaded', function() {
         })
         .catch(error => {
             console.error('Error:', error);
-            Swal.fire('Error', 'Network error. Please try again.', 'error');
+            Swal.fire('Error', error.message || 'Network error. Please try again.', 'error');
+            placeOrderBtn.dataset.busy = '';
             placeOrderBtn.disabled = false;
             placeOrderBtn.innerHTML = '<i class="fa fa-check-circle"></i> Place Order';
+            syncPlaceOrderForModeration();
         });
     }
 

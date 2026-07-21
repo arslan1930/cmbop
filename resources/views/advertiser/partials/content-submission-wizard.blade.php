@@ -144,6 +144,7 @@
 .content-wizard-step .step-index{width:1.25rem;height:1.25rem;border-radius:50%;background:#e5e7eb;display:inline-flex;align-items:center;justify-content:center;font-size:.7rem;font-weight:700}
 .content-wizard-step.is-active .step-index{background:#0b6266;color:#fff}
 .document-preview-body{max-height:220px;overflow:auto;line-height:1.5}
+.document-preview-body img{max-width:100%;height:auto;max-height:140px;display:block;margin:.4rem 0;border-radius:6px;object-fit:contain}
 .placement-number{display:inline-flex;align-items:center;justify-content:center;width:1.5rem;height:1.5rem;border-radius:999px;background:#0b6266;color:#fff;font-size:.75rem;font-weight:700}
 .feature-image-preview{max-width:180px;max-height:100px;object-fit:cover;border-radius:.5rem;border:1px solid #e5e7eb}
 </style>
@@ -240,6 +241,13 @@ window.ContentCheckout = (function () {
         if (sub.preview_html) {
             preview.classList.remove('d-none');
             previewBody.innerHTML = sub.preview_html;
+            previewBody.querySelectorAll('img').forEach(function (img) {
+                const src = img.getAttribute('src') || '';
+                const match = src.match(/^(?:https?:)?\/\/[^/]+(\/storage\/.+)$/i);
+                if (match) {
+                    img.setAttribute('src', match[1]);
+                }
+            });
         }
     }
 

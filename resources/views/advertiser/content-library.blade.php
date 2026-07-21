@@ -706,17 +706,37 @@ function openPreviewModal(title, html) {
     document.getElementById('articlePreviewTitle').textContent = title || 'Article preview';
     const body = document.getElementById('articlePreviewBody');
     body.innerHTML = html || '';
-    body.querySelectorAll('img').forEach(function (img) {
+    fixPreviewImages(body);
+    new bootstrap.Modal(document.getElementById('articlePreviewModal')).show();
+}
+
+/**
+ * Rewrite absolute /storage/... image URLs onto the current origin so previews
+ * still work when APP_URL differs from the browser host.
+ */
+function fixPreviewImages(root) {
+    if (!root) return;
+    root.querySelectorAll('img').forEach(function (img) {
+        const src = img.getAttribute('src') || '';
+        const match = src.match(/^(?:https?:)?\/\/[^/]+(\/storage\/.+)$/i);
+        if (match) {
+            img.setAttribute('src', match[1]);
+        }
         img.addEventListener('error', function () {
             if (img.dataset.fallbackApplied) return;
             img.dataset.fallbackApplied = '1';
+            // Last resort: if relative path failed and we still have an absolute, try same-origin.
+            const again = (img.getAttribute('src') || '').match(/^(?:https?:)?\/\/[^/]+(\/storage\/.+)$/i);
+            if (again) {
+                img.setAttribute('src', again[1]);
+                return;
+            }
             img.alt = 'Image failed to load';
             img.style.outline = '1px dashed #f59e0b';
             img.style.minHeight = '48px';
             img.style.background = '#fffbeb';
         });
     });
-    new bootstrap.Modal(document.getElementById('articlePreviewModal')).show();
 }
 
 function ensureArticleQuill() {

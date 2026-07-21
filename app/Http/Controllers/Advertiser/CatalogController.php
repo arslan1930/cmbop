@@ -1459,6 +1459,7 @@ class CatalogController extends Controller
         $user = User::find($userId);
 
         // One-click: charge a saved card (Stripe Customer PaymentMethod).
+        // On failure, fall through to hosted Stripe Checkout instead of hard-failing.
         if ($savedPaymentMethodId !== '' && $user) {
             try {
                 $stripeCustomers = app(StripeCustomerService::class);
@@ -1523,26 +1524,19 @@ class CatalogController extends Controller
                     ]);
                 }
 
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Card payment could not be completed. Try another card or Stripe Checkout.',
-                ], 422);
+                Log::warning('Saved card did not complete; falling back to Stripe Checkout', [
+                    'reference_code' => $referenceCode,
+                    'status' => $payResult['status'] ?? null,
+                ]);
             } catch (\Throwable $e) {
-                Log::error('Saved card order payment failed: '.$e->getMessage(), [
+                Log::error('Saved card order payment failed; falling back to Stripe Checkout: '.$e->getMessage(), [
                     'reference_code' => $referenceCode,
                     'user_id' => $userId,
                 ]);
-
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Saved card payment failed. You can pay with a new card instead.',
-                ], 422);
             }
         }
 
         try {
-            Stripe::setApiKey(config('services.stripe.secret'));
-
             $sessionPayload = [
                 'payment_method_types' => ['card'],
                 'line_items' => [[
@@ -1579,15 +1573,8 @@ class CatalogController extends Controller
                 ],
             ];
 
-            if ($user) {
-                // Customer + "Save card" checkbox in Stripe Checkout (consent via payment_method_save).
-                $sessionPayload = array_merge(
-                    $sessionPayload,
-                    app(StripeCustomerService::class)->checkoutCustomerOptions($user, true)
-                );
-            }
-
-            $checkoutSession = Session::create($sessionPayload);
+            $checkoutSession = app(StripeCustomerService::class)
+                ->createCheckoutSession($sessionPayload, $user, true);
 
             Order::where('reference_code', $referenceCode)
                 ->where('user_id', $userId)
@@ -1640,9 +1627,15 @@ class CatalogController extends Controller
                 'error' => $e->getMessage(),
             ]);
 
+            $hint = 'Unable to start Stripe checkout. Please try again or choose another payment method.';
+            $stripeMsg = trim($e->getMessage());
+            if ($stripeMsg !== '' && strlen($stripeMsg) < 180) {
+                $hint .= ' ('.$stripeMsg.')';
+            }
+
             return response()->json([
                 'success' => false,
-                'message' => 'Unable to start Stripe checkout. Please try again or choose another payment method.',
+                'message' => $hint,
             ]);
         }
     }
@@ -2387,15 +2380,8 @@ class CatalogController extends Controller
                 ],
             ];
 
-            $retryUser = auth()->user();
-            if ($retryUser) {
-                $retryPayload = array_merge(
-                    $retryPayload,
-                    app(StripeCustomerService::class)->checkoutCustomerOptions($retryUser, true)
-                );
-            }
-
-            $checkoutSession = Session::create($retryPayload);
+            $checkoutSession = app(StripeCustomerService::class)
+                ->createCheckoutSession($retryPayload, auth()->user(), true);
 
             Order::whereIn('id', $package->pluck('id'))
                 ->update([

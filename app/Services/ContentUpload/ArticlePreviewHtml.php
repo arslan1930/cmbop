@@ -4,6 +4,9 @@ namespace App\Services\ContentUpload;
 
 /**
  * Normalize Content Library preview HTML so inline images resolve publicly.
+ *
+ * Prefer root-relative `/storage/...` paths so previews work when APP_URL
+ * does not match the browser host (proxies, tunnels, www vs apex, etc.).
  */
 class ArticlePreviewHtml
 {
@@ -39,10 +42,20 @@ class ArticlePreviewHtml
         $base = rtrim($appUrl ?? self::appUrl(), '/');
         $publicBase = rtrim($publicUrl ?? self::publicDiskUrl($base), '/');
 
-        // Already absolute http(s) or data URI
-        if (preg_match('#^(https?:)?//#i', $src) || str_starts_with($src, 'data:')) {
-            // Rewrite wrong-host /storage paths onto current public disk URL
-            if (preg_match('#^https?://[^/]+(/storage/.+)$#i', $src, $m)) {
+        // data: / blob: URIs stay as-is
+        if (str_starts_with($src, 'data:') || str_starts_with($src, 'blob:')) {
+            return $src;
+        }
+
+        // Absolute http(s) or protocol-relative
+        if (preg_match('#^(https?:)?//#i', $src)) {
+            // Rewrite any-host /storage/... onto a same-origin relative path when
+            // the public disk is the local APP_URL/storage mount.
+            if (preg_match('#^(?:https?:)?//[^/]+(/storage/.+)$#i', $src, $m)) {
+                if (self::publicDiskIsAppStorage($base, $publicBase)) {
+                    return $m[1];
+                }
+
                 return $publicBase.substr($m[1], strlen('/storage'));
             }
 
@@ -50,18 +63,43 @@ class ArticlePreviewHtml
         }
 
         if (str_starts_with($src, '/storage/')) {
+            if (self::publicDiskIsAppStorage($base, $publicBase)) {
+                return $src;
+            }
+
             return $publicBase.substr($src, strlen('/storage'));
         }
 
         if (str_starts_with($src, 'storage/')) {
+            $relative = '/storage/'.substr($src, strlen('storage/'));
+            if (self::publicDiskIsAppStorage($base, $publicBase)) {
+                return $relative;
+            }
+
             return $publicBase.'/'.substr($src, strlen('storage/'));
         }
 
+        // Other site-relative paths stay relative (current host)
         if (str_starts_with($src, '/')) {
-            return $base.$src;
+            return $src;
         }
 
         return $src;
+    }
+
+    /**
+     * True when the public disk URL is just APP_URL/storage (local symlink),
+     * so root-relative `/storage/...` is the correct browser URL.
+     */
+    private static function publicDiskIsAppStorage(string $appUrl, string $publicBase): bool
+    {
+        if ($publicBase === '' || $publicBase === '/storage') {
+            return true;
+        }
+
+        $expected = ($appUrl !== '' ? $appUrl : '').'/storage';
+
+        return rtrim($publicBase, '/') === rtrim($expected, '/');
     }
 
     private static function appUrl(): string

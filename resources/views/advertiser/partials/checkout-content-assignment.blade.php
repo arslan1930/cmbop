@@ -43,6 +43,16 @@
         padding: 12px;
         font-size: .88rem;
     }
+    .content-assign-preview img,
+    .order-summary-article-preview img {
+        max-width: 100%;
+        height: auto;
+        max-height: 120px;
+        display: block;
+        border-radius: 6px;
+        margin: .35rem 0;
+        object-fit: contain;
+    }
     .market-pill {
         display: inline-flex;
         gap: 6px;
@@ -108,7 +118,7 @@
                                     data-approved="1"
                                     data-anchor="{{ e($article->anchor_text) }}"
                                     data-target="{{ e($article->target_url) }}"
-                                    data-preview-b64="{{ base64_encode((string) $article->preview_html) }}"
+                                    data-preview-b64="{{ base64_encode(\App\Services\ContentUpload\ArticlePreviewHtml::normalize((string) $article->preview_html)) }}"
                                     data-history-b64="{{ base64_encode(json_encode($article->articleHistory(), JSON_UNESCAPED_UNICODE)) }}"
                                     data-country="{{ $article->country }}"
                                     data-language="{{ $article->language }}"
@@ -407,6 +417,7 @@
         const previewEl = box.querySelector('.order-summary-article-preview');
         if (previewEl && selected.preview) {
             previewEl.innerHTML = selected.preview;
+            fixAssignPreviewImages(previewEl);
         }
     }
 
@@ -426,11 +437,23 @@
         card.querySelector('.assign-target').value = selected.target || card.querySelector('.assign-target').value;
         if (selected.preview) {
             previewBody.innerHTML = selected.preview;
+            fixAssignPreviewImages(previewBody);
             previewBox.classList.remove('d-none');
         }
         status.className = 'badge text-bg-success assign-status';
         status.textContent = 'Approved article selected';
         syncOrderSummaryArticle(card, selected);
+    }
+
+    function fixAssignPreviewImages(root) {
+        if (!root) return;
+        root.querySelectorAll('img').forEach(function (img) {
+            const src = img.getAttribute('src') || '';
+            const match = src.match(/^(?:https?:)?\/\/[^/]+(\/storage\/.+)$/i);
+            if (match) {
+                img.setAttribute('src', match[1]);
+            }
+        });
     }
 
     function allReady() {

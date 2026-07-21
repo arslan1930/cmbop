@@ -91,6 +91,9 @@ class StripeCustomerService
     /**
      * Options to attach a Checkout Session to the customer and offer saving cards.
      *
+     * Keep this payload minimal — `customer_update.address=auto` without
+     * `billing_address_collection` has caused Session::create failures on some accounts.
+     *
      * @return array<string, mixed>
      */
     public function checkoutCustomerOptions(User $user, bool $offerSave = true): array
@@ -115,8 +118,8 @@ class StripeCustomerService
             'customer' => $customerId,
             'customer_update' => [
                 'name' => 'auto',
-                'address' => 'auto',
             ],
+            'billing_address_collection' => 'auto',
             'saved_payment_method_options' => [
                 'allow_redisplay_filters' => ['always'],
             ],
@@ -127,6 +130,47 @@ class StripeCustomerService
         }
 
         return $options;
+    }
+
+    /**
+     * Create a Checkout Session, retrying as a guest session if customer options fail.
+     *
+     * @param  array<string, mixed>  $basePayload
+     */
+    public function createCheckoutSession(array $basePayload, ?User $user = null, bool $offerSave = true): Session
+    {
+        if (! $this->configured()) {
+            throw new \RuntimeException('Stripe is not configured.');
+        }
+
+        Stripe::setApiKey(config('services.stripe.secret'));
+
+        $guestPayload = $basePayload;
+        if ($user && empty($guestPayload['customer']) && empty($guestPayload['customer_email'])) {
+            $guestPayload['customer_email'] = $user->email;
+        }
+
+        if (! $user) {
+            return Session::create($guestPayload);
+        }
+
+        $withCustomer = array_merge($basePayload, $this->checkoutCustomerOptions($user, $offerSave));
+
+        // No customer options available — guest checkout with email prefill.
+        if (! isset($withCustomer['customer'])) {
+            return Session::create($guestPayload);
+        }
+
+        try {
+            return Session::create($withCustomer);
+        } catch (\Throwable $e) {
+            Log::warning('Stripe Checkout with customer failed; retrying guest session', [
+                'user_id' => $user->id,
+                'error' => $e->getMessage(),
+            ]);
+
+            return Session::create($guestPayload);
+        }
     }
 
     /**

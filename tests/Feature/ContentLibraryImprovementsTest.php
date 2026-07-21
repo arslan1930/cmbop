@@ -309,9 +309,35 @@ class ContentLibraryImprovementsTest extends TestCase
         $this->assertSame('Edited Doc Title', $fresh->title);
         $this->assertStringContainsString('helpful guide', (string) $fresh->preview_html);
         $this->assertStringContainsString('<img', (string) $fresh->preview_html);
+        $this->assertStringContainsString('src="/storage/content-articles/demo.png"', (string) $fresh->preview_html);
         $this->assertStringContainsString('https://example.com/new-guide', (string) $fresh->target_url);
         $this->assertNotEmpty($fresh->draft_payload['content_history'] ?? null);
         $this->assertNotEmpty($fresh->articleHistory());
+    }
+
+    public function test_preview_rewrites_absolute_storage_urls_to_relative(): void
+    {
+        config(['content_moderation.enabled' => false]);
+        $advertiser = $this->advertiser();
+        $submission = $this->createApprovedSubmission($advertiser);
+
+        $html = '<p>Guide with an embedded figure for marketers.</p>'
+            .'<p><img src="http://127.0.0.1:8000/storage/content-articles/'.$advertiser->id.'/fig.png" alt="Fig"></p>'
+            .'<p>More compliant content about software tools and productivity for digital teams worldwide.</p>';
+
+        $this->actingAs($advertiser)
+            ->putJson(route('advertiser.content-submissions.content', $submission), [
+                'preview_html' => $html,
+            ])
+            ->assertOk()
+            ->assertJsonPath('success', true);
+
+        $fresh = $submission->fresh();
+        $this->assertStringContainsString(
+            'src="/storage/content-articles/'.$advertiser->id.'/fig.png"',
+            (string) $fresh->preview_html
+        );
+        $this->assertStringNotContainsString('127.0.0.1', (string) $fresh->preview_html);
     }
 
     public function test_advertiser_can_upload_editor_image(): void
@@ -320,13 +346,16 @@ class ContentLibraryImprovementsTest extends TestCase
         $advertiser = $this->advertiser();
         $file = UploadedFile::fake()->image('figure.png', 40, 40);
 
-        $this->actingAs($advertiser)
+        $response = $this->actingAs($advertiser)
             ->postJson(route('advertiser.content-submissions.editor-image'), [
                 'image' => $file,
             ])
             ->assertOk()
             ->assertJsonPath('success', true)
             ->assertJsonStructure(['url']);
+
+        $url = (string) $response->json('url');
+        $this->assertStringStartsWith('/storage/content-articles/', $url);
     }
 
     private function makeOrder(User $advertiser): Order

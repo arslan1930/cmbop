@@ -128,12 +128,8 @@ class AddFundsController extends Controller
                 ],
             ];
 
-            $sessionPayload = array_merge(
-                $sessionPayload,
-                app(StripeCustomerService::class)->checkoutCustomerOptions($user, true)
-            );
-
-            $checkoutSession = Session::create($sessionPayload);
+            $checkoutSession = app(StripeCustomerService::class)
+                ->createCheckoutSession($sessionPayload, $user, true);
 
             return response()->json([
                 'success' => true,

@@ -11,12 +11,33 @@ class ContentLibraryModerationUxTest extends TestCase
 {
     public function test_preview_html_normalizes_storage_paths(): void
     {
-        $html = '<p>Hi</p><p><img src="/storage/content-articles/1/a.png" alt=""></p>';
-        $out = ArticlePreviewHtml::normalizeSrc('/storage/content-articles/1/a.png', 'https://example.test', 'https://example.test/storage');
-        $this->assertSame('https://example.test/storage/content-articles/1/a.png', $out);
+        // Local public disk (= APP_URL/storage) keeps root-relative paths so
+        // previews work when the browser host differs from APP_URL.
+        $out = ArticlePreviewHtml::normalizeSrc(
+            '/storage/content-articles/1/a.png',
+            'https://example.test',
+            'https://example.test/storage'
+        );
+        $this->assertSame('/storage/content-articles/1/a.png', $out);
 
+        $rewritten = ArticlePreviewHtml::normalizeSrc(
+            'https://wrong-host.test/storage/content-articles/1/a.png',
+            'https://example.test',
+            'https://example.test/storage'
+        );
+        $this->assertSame('/storage/content-articles/1/a.png', $rewritten);
+
+        // External CDN public disk still gets absolute URLs.
+        $cdn = ArticlePreviewHtml::normalizeSrc(
+            '/storage/content-articles/1/a.png',
+            'https://example.test',
+            'https://cdn.example.test/media'
+        );
+        $this->assertSame('https://cdn.example.test/media/content-articles/1/a.png', $cdn);
+
+        $html = '<p>Hi</p><p><img src="https://old.example/storage/content-articles/1/a.png" alt=""></p>';
         $normalized = ArticlePreviewHtml::normalize($html);
-        $this->assertStringContainsString('content-articles/1/a.png', $normalized);
+        $this->assertStringContainsString('src="/storage/content-articles/1/a.png"', $normalized);
         $this->assertStringContainsString('<img', $normalized);
     }
 

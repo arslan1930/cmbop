@@ -169,12 +169,12 @@ class CardCheckoutCreatesPendingOrdersTest extends TestCase
             'object' => 'customer',
             'email' => 'test@example.com',
         ], JSON_THROW_ON_ERROR);
-        // Customer create succeeds; Checkout Session create fails (rollback path).
+        // Customer create succeeds; Checkout Session (customer) fails; guest retry also fails.
         $client->shouldReceive('request')
             ->once()
             ->andReturn([$customerBody, 200, []]);
         $client->shouldReceive('request')
-            ->once()
+            ->twice()
             ->andThrow(new \Exception('stripe unavailable'));
         ApiRequestor::setHttpClient($client);
 
@@ -197,6 +197,73 @@ class CardCheckoutCreatesPendingOrdersTest extends TestCase
 
         $response->assertOk()->assertJson(['success' => false]);
         $this->assertSame(0, Order::where('reference_code', 'FAIL99')->count());
+    }
+
+    public function test_card_checkout_falls_back_to_guest_session_when_customer_session_fails(): void
+    {
+        config(['content_moderation.enabled' => false]);
+        config([
+            'services.stripe.secret' => 'sk_test_fake_key_for_unit_tests',
+            'services.stripe.key' => 'pk_test_fake_key_for_unit_tests',
+        ]);
+
+        $advertiser = $this->advertiser();
+        $publisherRole = Role::firstOrCreate(['name' => 'publisher']);
+        $publisher = User::factory()->create(['email_verified_at' => now()]);
+        $publisher->roles()->attach($publisherRole->id);
+        $site = $this->activeSite($publisher);
+        $submission = $this->createApprovedSubmission($advertiser, $site->id);
+
+        $customerBody = json_encode([
+            'id' => 'cus_test_fallback',
+            'object' => 'customer',
+            'email' => 'test@example.com',
+        ], JSON_THROW_ON_ERROR);
+        $sessionBody = json_encode([
+            'id' => 'cs_test_guest_fallback',
+            'object' => 'checkout.session',
+            'url' => 'https://checkout.stripe.com/c/pay/cs_test_guest_fallback',
+            'payment_status' => 'unpaid',
+            'mode' => 'payment',
+            'metadata' => [],
+        ], JSON_THROW_ON_ERROR);
+
+        $client = Mockery::mock(ClientInterface::class);
+        $client->shouldReceive('request')
+            ->once()
+            ->andReturn([$customerBody, 200, []]);
+        $client->shouldReceive('request')
+            ->once()
+            ->andThrow(new \Exception('customer session rejected'));
+        $client->shouldReceive('request')
+            ->once()
+            ->andReturn([$sessionBody, 200, []]);
+        ApiRequestor::setHttpClient($client);
+
+        $this->actingAs($advertiser)
+            ->withSession([
+                'cart' => [[
+                    'id' => $site->id,
+                    'name' => $site->site_name,
+                    'quantity' => 1,
+                    'sensitive_type' => null,
+                ]],
+            ])
+            ->postJson(route('advertiser.checkout.process'), [
+                'payment_method' => 'card',
+                'reference_code' => 'FALLBK',
+                'content_submissions' => [
+                    $site->id => [$submission->id],
+                ],
+            ])
+            ->assertOk()
+            ->assertJson([
+                'success' => true,
+                'requires_payment' => true,
+                'session_id' => 'cs_test_guest_fallback',
+            ]);
+
+        $this->assertSame(1, Order::where('reference_code', 'FALLBK')->where('payment_status', 'pending')->count());
     }
 
     public function test_card_checkout_rejects_when_stripe_not_configured(): void
