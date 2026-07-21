@@ -1,8 +1,5 @@
 {{-- In-app Notification Center (emails are separate and untouched) --}}
-<link rel="stylesheet" href="{{ asset('css/pulse-badge.css') }}?v={{ @filemtime(public_path('css/pulse-badge.css')) ?: '1' }}">
-<link rel="stylesheet" href="{{ asset('css/notification-center.css') }}?v={{ @filemtime(public_path('css/notification-center.css')) ?: '4' }}">
-<script src="{{ asset('js/pulse-badge.js') }}?v={{ @filemtime(public_path('js/pulse-badge.js')) ?: '1' }}"></script>
-
+{{-- CSS/JS are loaded from advertiser/publisher layout head+footer to avoid topbar flex overlap --}}
 <div class="nc-bell-wrap nc-theme"
      data-notification-center
      data-index-url="{{ route('notifications.index') }}"
@@ -47,5 +44,3 @@
         </div>
     </div>
 </div>
-
-<script src="{{ asset('js/notification-center.js') }}?v={{ @filemtime(public_path('js/notification-center.js')) ?: '4' }}" defer></script>

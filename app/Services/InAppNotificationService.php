@@ -75,6 +75,7 @@ class InAppNotificationService
 
             return InAppNotification::create([
                 'user_id' => $userId,
+                'audience' => $options['audience'] ?? $this->inferAudienceFromUrl($options['action_url'] ?? null),
                 'type' => $type,
                 'category' => $options['category'] ?? $this->categoryForType($type),
                 'title' => $title,
@@ -681,14 +682,20 @@ class InAppNotificationService
         );
     }
 
-    public function unreadCount(int $userId): int
+    public function unreadCount(int $userId, ?string $audience = null): int
     {
-        return InAppNotification::forUser($userId)->unread()->whereNull('archived_at')->count();
+        return InAppNotification::forUser($userId)
+            ->forAudience($audience)
+            ->unread()
+            ->whereNull('archived_at')
+            ->count();
     }
 
     public function listForUser(int $userId, array $filters = [], int $perPage = 20): LengthAwarePaginator
     {
-        $query = InAppNotification::forUser($userId)->latest();
+        $query = InAppNotification::forUser($userId)
+            ->forAudience($filters['audience'] ?? null)
+            ->latest();
 
         $status = $filters['status'] ?? 'active';
         if ($status === 'unread') {
@@ -724,9 +731,10 @@ class InAppNotificationService
         return $query->paginate($perPage);
     }
 
-    public function markAllRead(int $userId): int
+    public function markAllRead(int $userId, ?string $audience = null): int
     {
         return InAppNotification::forUser($userId)
+            ->forAudience($audience)
             ->unread()
             ->whereNull('archived_at')
             ->update([
@@ -734,6 +742,26 @@ class InAppNotificationService
                 'read_at' => now(),
                 'updated_at' => now(),
             ]);
+    }
+
+    protected function inferAudienceFromUrl(?string $url): string
+    {
+        $url = (string) $url;
+        if ($url === '') {
+            return InAppNotification::AUDIENCE_ALL;
+        }
+
+        if (str_contains($url, '/publisher/')) {
+            return InAppNotification::AUDIENCE_PUBLISHER;
+        }
+        if (str_contains($url, '/advertiser/')) {
+            return InAppNotification::AUDIENCE_ADVERTISER;
+        }
+        if (str_contains($url, '/admin/')) {
+            return InAppNotification::AUDIENCE_ADMIN;
+        }
+
+        return InAppNotification::AUDIENCE_ALL;
     }
 
     protected function categoryForType(string $type): string

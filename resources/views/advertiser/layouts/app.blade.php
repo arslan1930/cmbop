@@ -22,6 +22,7 @@
     <link href="{{ asset('css/multi-select.css') }}?v={{ @filemtime(public_path('css/multi-select.css')) ?: '1' }}" rel="stylesheet">
     <link href="{{ asset('css/glass-tip.css') }}?v={{ @filemtime(public_path('css/glass-tip.css')) ?: '1' }}" rel="stylesheet">
     <link href="{{ asset('css/pulse-badge.css') }}?v={{ @filemtime(public_path('css/pulse-badge.css')) ?: '1' }}" rel="stylesheet">
+    <link href="{{ asset('css/notification-center.css') }}?v={{ @filemtime(public_path('css/notification-center.css')) ?: '5' }}" rel="stylesheet">
     <script src="{{ asset('js/pulse-badge.js') }}?v={{ @filemtime(public_path('js/pulse-badge.js')) ?: '1' }}"></script>
     <script src="{{ asset('js/glass-tip.js') }}?v={{ @filemtime(public_path('js/glass-tip.js')) ?: '1' }}" defer></script>
 
@@ -296,13 +297,7 @@
         .balance-block .balance-amount {
             font-size: 14px;
             color: #0b6266;
-        }
-        .balance-block .balance-split {
-            font-size: 10px;
-            font-weight: 500;
-            color: #64748b;
-            letter-spacing: 0;
-            text-transform: none;
+            font-weight: 600;
         }
 
         .cart-total-label {
@@ -740,25 +735,17 @@
             <span id="cartBadge" class="cart-badge" style="{{ $headerCartCount > 0 ? 'display:flex;' : 'display:none;' }}">{{ $headerCartCount > 0 ? $headerCartCount : 0 }}</span>
         </button>
 
-        <!-- Balance — spendable = cash + promotional bonus -->
+        <!-- Balance -->
         @php
             $activeWallet = auth()->user()->activeWallet();
             $spendableBalance = (float) ($activeWallet?->balance ?? 0);
-            $cashBalance = $activeWallet ? (float) $activeWallet->withdrawableBalance() : 0.0;
-            $bonusBalance = $activeWallet ? (float) $activeWallet->lockedBonusBalance() : 0.0;
             $reservedBalance = (float) ($activeWallet?->reserved_balance ?? 0);
             $headerBalanceTitle = 'Spendable €' . number_format($spendableBalance, 2)
-                . ' = cash €' . number_format($cashBalance, 2)
-                . ' + bonus €' . number_format($bonusBalance, 2)
-                . ' (bonus is for purchases only; enable Use bonus at checkout).'
-                . ($reservedBalance > 0 ? ' On hold: €' . number_format($reservedBalance, 2) . '.' : '');
+                . ($reservedBalance > 0 ? ' · On hold: €' . number_format($reservedBalance, 2) : '');
         @endphp
         <a href="{{ route('advertiser.add-funds') }}" class="balance-block text-decoration-none" data-bs-toggle="tooltip" data-bs-placement="bottom" title="{{ $headerBalanceTitle }}" aria-label="Spendable balance {{ number_format($spendableBalance, 2) }} euros">
             <span class="balance-label">Spendable</span>
             <span class="balance-amount">€{{ number_format($spendableBalance, 2) }}</span>
-            @if($bonusBalance > 0)
-                <span class="balance-split d-none d-md-inline">cash €{{ number_format($cashBalance, 2) }} · bonus €{{ number_format($bonusBalance, 2) }}</span>
-            @endif
         </a>
 
         @include('partials.notification-center')
@@ -842,8 +829,11 @@
         <button id="checkoutFromCart" class="btn btn-primary w-100" type="button">
             <i class="fa fa-credit-card"></i> Proceed to Checkout
         </button>
+        <button id="keepBrowsingCatalog" class="btn btn-outline-secondary w-100 mt-2" type="button">
+            <i class="fa fa-list"></i> Keep browsing publishers
+        </button>
         <div id="cartProceedHint" class="small text-muted mt-2 d-none">
-            Finish the checklist above — every website needs its own article.
+            Finish the checklist above when you are ready to pay — you can keep browsing the catalog anytime.
         </div>
     </div>
 </div>
@@ -1124,11 +1114,11 @@
                 if (missing > 0) {
                     readyNote.classList.remove('d-none');
                     readyNote.innerHTML = missing === 1
-                        ? '1 website still needs its own approved article before checkout.'
-                        : (missing + ' websites still need their own approved articles before checkout.');
+                        ? '1 website still needs an approved article before checkout. You can keep browsing and finish later.'
+                        : (missing + ' websites still need approved articles before checkout. You can keep browsing and finish later.');
                 } else {
                     readyNote.classList.remove('d-none');
-                    readyNote.textContent = 'Checklist complete — you can proceed to Pay.';
+                    readyNote.textContent = 'Checklist complete — proceed to pay, or keep browsing to add more sites.';
                 }
             }
             if (proceedBtn) {
@@ -1144,14 +1134,13 @@
                     `<div class="cart-item-sensitive"><small>+ ${escapeHtml(item.sensitive_type)} (€${(parseFloat(item.additional_price) || 0).toFixed(2)})</small></div>` : '';
                 const options = articlesForCartLine(item);
                 const selectedId = parseInt(item.content_submission_id || 0, 10) || 0;
-                const siteLang = String(item.language || '').toUpperCase();
                 let articleBlock = '';
                 if (options.length === 0 && !selectedId) {
                     articleBlock = `
                         <div class="cart-item-article">
                             <div class="cart-item-article-empty">
-                                No approved article available for this website${siteLang ? ' (' + escapeHtml(siteLang) + ')' : ''}.
-                                <a href="${contentLibraryUploadUrl}">Upload or approve an article</a> for this order, then assign it here.
+                                No approved article available yet.
+                                <a href="${contentLibraryUploadUrl}">Upload or approve an article</a>, then assign it here (any language).
                             </div>
                         </div>`;
                 } else {
@@ -1171,7 +1160,8 @@
                             <label>Article for this website</label>
                             <select class="cart-article-select"
                                     data-id="${item.id}"
-                                    data-sensitive-type="${item.sensitive_type || ''}">
+                                    data-sensitive-type="${item.sensitive_type || ''}"
+                                    data-prev-value="${selectedId || ''}">
                                 ${opts}
                             </select>
                         </div>`;
@@ -1241,9 +1231,8 @@
                     ? `${name} + ${sensitiveType}`
                     : name;
                 showToast(data.message || `${label} added to cart.`, 'success');
-                if (cartLinesMissingArticles().length > 0) {
-                    openCart();
-                }
+                // Keep browsing the catalog — cart stays available in the header to finish payment later.
+                updateCartDisplay();
             },
             error: function(xhr) {
                 const msg = xhr.responseJSON?.error || xhr.responseJSON?.message || 'Could not add to cart.';
@@ -1307,6 +1296,14 @@
     toggleCartBtn.addEventListener('click', openCart);
     closeCartBtn.addEventListener('click', closeCart);
     cartOverlay.addEventListener('click', closeCart);
+
+    document.getElementById('keepBrowsingCatalog')?.addEventListener('click', function () {
+        closeCart();
+        const onCatalog = {{ request()->routeIs('advertiser.catalog') ? 'true' : 'false' }};
+        if (!onCatalog) {
+            window.location.href = catalogUrl;
+        }
+    });
     
     // Cart item actions (event delegation)
     document.getElementById('cartItemsContainer').addEventListener('click', function(e) {
@@ -1346,7 +1343,60 @@
         const id = parseInt(select.dataset.id, 10);
         const sensitiveType = select.dataset.sensitiveType || null;
         const submissionId = select.value ? parseInt(select.value, 10) : 0;
-        assignCartArticle(id, sensitiveType, submissionId);
+        const previous = select.dataset.prevValue || '';
+
+        if (!submissionId) {
+            select.dataset.prevValue = '';
+            assignCartArticle(id, sensitiveType, 0);
+            return;
+        }
+
+        const item = cart.find((row) =>
+            row.id === id && (row.sensitive_type || null) === sensitiveType
+        );
+        const article = approvedArticles.find((row) => row.id === submissionId);
+        const siteLang = String(item?.language || '').toLowerCase();
+        const articleLang = String(article?.language || '').toLowerCase();
+        const mismatch = siteLang && articleLang && siteLang !== articleLang
+            ? ('Site is ' + siteLang.toUpperCase() + ', article is ' + articleLang.toUpperCase() + ' — continue?')
+            : '';
+
+        const proceed = function () {
+            select.dataset.prevValue = select.value || '';
+            assignCartArticle(id, sensitiveType, submissionId);
+        };
+
+        if (!mismatch) {
+            proceed();
+            return;
+        }
+
+        if (window.Swal && typeof window.Swal.fire === 'function') {
+            window.Swal.fire({
+                title: 'Language differs',
+                text: mismatch,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonText: 'Continue',
+                cancelButtonText: 'Choose another',
+                confirmButtonColor: '#0b6266',
+                cancelButtonColor: '#6b7280',
+                reverseButtons: true,
+            }).then(function (result) {
+                if (result.isConfirmed) {
+                    proceed();
+                } else {
+                    select.value = previous;
+                }
+            });
+            return;
+        }
+
+        if (window.confirm(mismatch)) {
+            proceed();
+        } else {
+            select.value = previous;
+        }
     });
     
     // Checkout from cart — blockers stay visible in the checklist (button disabled when incomplete)
@@ -1393,6 +1443,7 @@ document.querySelectorAll('.role-switch-form').forEach(function(form) {
     });
 });
 </script>
+<script src="{{ asset('js/notification-center.js') }}?v={{ @filemtime(public_path('js/notification-center.js')) ?: '5' }}" defer></script>
 
 </body>
 </html>

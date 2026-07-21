@@ -22,6 +22,7 @@
     <link href="{{ asset('css/single-select.css') }}?v={{ @filemtime(public_path('css/single-select.css')) ?: '1' }}" rel="stylesheet">
     <link href="{{ asset('css/glass-tip.css') }}?v={{ @filemtime(public_path('css/glass-tip.css')) ?: '1' }}" rel="stylesheet">
     <link href="{{ asset('css/pulse-badge.css') }}?v={{ @filemtime(public_path('css/pulse-badge.css')) ?: '1' }}" rel="stylesheet">
+    <link href="{{ asset('css/notification-center.css') }}?v={{ @filemtime(public_path('css/notification-center.css')) ?: '5' }}" rel="stylesheet">
     <script src="{{ asset('js/pulse-badge.js') }}?v={{ @filemtime(public_path('js/pulse-badge.js')) ?: '1' }}"></script>
     <script src="{{ asset('js/single-select.js') }}?v={{ @filemtime(public_path('js/single-select.js')) ?: '1' }}" defer></script>
 
@@ -234,12 +235,7 @@
         .balance-block .balance-amount {
             font-size: 14px;
             color: #0b6266;
-        }
-        .balance-block .balance-credit {
-            font-size: 11px;
             font-weight: 600;
-            color: #0f766e;
-            line-height: 1.1;
         }
 
 
@@ -407,18 +403,13 @@
             $availableBalance = (float) ($activeWallet?->balance ?? 0);
             $reservedBalance = (float) ($activeWallet?->reserved_balance ?? 0);
             $headerWithdrawable = $activeWallet ? $activeWallet->withdrawableBalance() : 0;
-            $headerBonus = $activeWallet ? $activeWallet->lockedBonusBalance() : 0;
             $headerBalanceTitle = 'Spendable: €' . number_format($availableBalance, 2)
                 . ' · Withdrawable: €' . number_format($headerWithdrawable, 2)
-                . ($reservedBalance > 0 ? ' · On hold: €' . number_format($reservedBalance, 2) : '')
-                . ($headerBonus > 0 ? ' · Free credit €' . number_format($headerBonus, 2) . ' (orders only, not withdrawable)' : '');
+                . ($reservedBalance > 0 ? ' · On hold: €' . number_format($reservedBalance, 2) : '');
         @endphp
         <a href="{{ route('publisher.balance') }}" class="balance-block text-decoration-none" data-bs-toggle="tooltip" data-bs-placement="bottom" title="{{ $headerBalanceTitle }}" aria-label="Spendable balance {{ number_format($availableBalance, 2) }} euros, withdrawable {{ number_format($headerWithdrawable, 2) }}">
             <span class="balance-label">Spendable</span>
             <span class="balance-amount">€{{ number_format($availableBalance, 2) }}</span>
-            @if($headerBonus > 0)
-                <span class="balance-credit">Credit €{{ number_format($headerBonus, 2) }}</span>
-            @endif
         </a>
 
         @include('partials.notification-center')
@@ -593,6 +584,7 @@
         });
     });
 </script>
+<script src="{{ asset('js/notification-center.js') }}?v={{ @filemtime(public_path('js/notification-center.js')) ?: '5' }}" defer></script>
 
 </body>
 </html>

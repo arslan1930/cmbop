@@ -252,7 +252,7 @@
     @include('advertiser.partials.ordering-path', [
         'step' => 3,
         'title' => 'Place a guest post · Content',
-        'subtitle' => 'One job here: upload and approve articles. Each publisher site needs its own matching-language article.',
+        'subtitle' => 'One job here: upload and approve articles. Any approved article can be placed on any catalog site.',
         'linkAll' => true,
         'contentRoute' => route('advertiser.content-library'),
         'actions' => '<button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#uploadContentModal" id="openUploadModalBtnTop"><i class="fa fa-upload me-1"></i> Upload article</button>'
@@ -262,8 +262,8 @@
     <div class="mb-3">
         <h2 class="mb-1 fw-semibold">Content Library</h2>
         <p class="text-muted mb-0 small">
-            Upload a .docx (language first, then country) → wait for approval → order matching publishers → assign in cart → pay.
-            Multi-site orders need a different approved article for each website.
+            Upload a .docx (choose language and country yourself) → wait for approval → browse any publishers → assign in cart → pay.
+            Multi-site orders need a different approved article for each website — language does not have to match the site.
         </p>
         <div class="library-page-actions">
             <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#uploadContentModal" id="openUploadModalBtn">

@@ -15,8 +15,10 @@
             ? route('advertiser.wizard.content')
             : route('advertiser.content-library'),
         'actions' => $checkoutInWizard
-            ? '<a href="'.e(route('advertiser.wizard.content')).'" class="btn btn-sm btn-outline-secondary">Back to content</a>'
-            : '<button type="button" class="btn btn-sm btn-outline-secondary" onclick="openCart()">Review cart</button>',
+            ? '<a href="'.e(route('advertiser.catalog', ['wizard' => 1])).'" class="btn btn-sm btn-outline-primary">Browse more publishers</a>'
+                .'<a href="'.e(route('advertiser.wizard.content')).'" class="btn btn-sm btn-outline-secondary">Back to content</a>'
+            : '<a href="'.e(route('advertiser.catalog')).'" class="btn btn-sm btn-outline-primary">Browse more publishers</a>'
+                .'<button type="button" class="btn btn-sm btn-outline-secondary" onclick="openCart()">Review cart</button>',
     ])
 
     <!-- HEADER -->
