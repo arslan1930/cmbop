@@ -709,8 +709,8 @@ Route::middleware(['auth', 'verified', RoleMiddleware::class.':advertiser'])
         Route::get('/checkout-success', [AddFundsController::class, 'checkoutSuccess'])->name('checkout.success');
         Route::post('/add-funds/pay-saved-card', [AddFundsController::class, 'payWithSavedCard'])->name('add-funds.pay-saved-card');
 
-        // Order payment with Stripe
-        Route::post('/create-order-payment', [CatalogController::class, 'createOrderPayment'])->name('create-order-payment');
+        // Order payment with Stripe (legacy alias → same as checkout.process)
+        Route::post('/create-order-payment', [CatalogController::class, 'processOrder'])->name('create-order-payment');
 
         // Reports
         Route::get('/reports', [ReportsController::class, 'index'])->name('reports');
