@@ -1187,6 +1187,17 @@ class CatalogController extends Controller
         // Charge only ready sites that still need payment.
         $total = (float) ($payableCheckout['total'] ?? 0);
         $savings = (float) ($payableCheckout['savings'] ?? 0);
+        $payableSiteKeys = collect($payableCart)->mapWithKeys(function ($row) {
+            $key = (int) ($row['id'] ?? 0).'|'.($row['sensitive_type'] ?? '');
+
+            return [$key => true];
+        })->all();
+        $cartItems = collect($cartItems)->map(function (array $item) use ($payableSiteKeys) {
+            $key = (int) ($item['id'] ?? 0).'|'.($item['sensitive_type'] ?? '');
+            $item['paying_now'] = isset($payableSiteKeys[$key]);
+
+            return $item;
+        })->all();
 
         if (empty($cartItems)) {
             session()->forget(['cart', 'checkout_content_submission_id', 'checkout_schedule', GuestPostWizardController::SESSION_KEY]);
@@ -1484,6 +1495,14 @@ class CatalogController extends Controller
                     'message' => 'Unable to place bonus order. Please try again.',
                 ]);
             }
+        }
+
+        // Never open Stripe Checkout for a €0 charge.
+        if ($amountDue <= 0) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Card payment requires an amount greater than €0. Use wallet if covered by bonus, or select ready sites that need payment.',
+            ], 422);
         }
 
         $packageLines = [];

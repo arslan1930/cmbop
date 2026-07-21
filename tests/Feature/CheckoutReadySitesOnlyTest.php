@@ -121,6 +121,10 @@ class CheckoutReadySitesOnlyTest extends TestCase
         $response->assertSee('Paying 1 ready site', false);
         $response->assertSee('will stay in your cart', false);
         $response->assertSee('Ready sites only', false);
+        $response->assertSee('Paying now', false);
+        $response->assertSee('Stays in cart', false);
+        $response->assertSee('Charged now', false);
+        $response->assertSee('Not charged yet', false);
         // Payable total excludes the not-ready site (40 + tier fee, not 40+55).
         $response->assertDontSee('€'.$this->formatMoney(55 + 40), false);
     }
@@ -281,6 +285,51 @@ class CheckoutReadySitesOnlyTest extends TestCase
         $this->assertSame(0, Order::where('reference_code', 'CARDRD')->count());
         $this->assertNotEmpty(session('checkout_deferred_cart'));
         $this->assertSame($pendingSite->id, (int) (session('checkout_deferred_cart')[0]['id'] ?? 0));
+    }
+
+    public function test_card_checkout_rejects_zero_amount_without_opening_stripe(): void
+    {
+        config(['content_moderation.enabled' => false]);
+        config([
+            'services.stripe.secret' => 'sk_test_fake_key_for_unit_tests',
+            'services.stripe.key' => 'pk_test_fake_key_for_unit_tests',
+        ]);
+
+        $advertiser = $this->advertiser();
+        $publisher = $this->publisher();
+        $freeSite = $this->activeSite($publisher, 'free-site', 0);
+        $sub = $this->createApprovedSubmission($advertiser, null);
+
+        $client = Mockery::mock(ClientInterface::class);
+        $client->shouldReceive('request')->never();
+        ApiRequestor::setHttpClient($client);
+
+        $response = $this->actingAs($advertiser)
+            ->withSession([
+                'cart' => [[
+                    'id' => $freeSite->id,
+                    'name' => $freeSite->site_name,
+                    'quantity' => 1,
+                    'content_submission_id' => $sub->id,
+                    'language' => 'en',
+                ]],
+            ])
+            ->postJson(route('advertiser.checkout.process'), [
+                'payment_method' => 'card',
+                'reference_code' => 'ZERO01',
+                'publication_mode' => 'immediate',
+                'content_submissions' => [
+                    $freeSite->id => [$sub->id],
+                ],
+            ]);
+
+        $response->assertStatus(422)
+            ->assertJson([
+                'success' => false,
+            ]);
+        $this->assertStringContainsString('greater than €0', (string) $response->json('message'));
+        $this->assertNull(Cache::get('pending_card_checkout:ZERO01'));
+        $this->assertSame(0, Order::where('reference_code', 'ZERO01')->count());
     }
 
     private function formatMoney(float $amount): string

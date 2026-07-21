@@ -98,28 +98,39 @@
                                             $summaryArticle = $librarySubmission;
                                         }
                                     @endphp
-                                    <div class="site-summary-card"
+                                    <div class="site-summary-card {{ !empty($item['paying_now']) ? 'is-paying-now' : 'is-stays-in-cart' }}"
                                          data-site-id="{{ $item['id'] }}"
                                          data-copy-index="{{ $i }}"
                                          data-placement-number="{{ $placementNumber }}"
-                                         data-content-submission-id="{{ $summaryArticleId ?: '' }}">
+                                         data-content-submission-id="{{ $summaryArticleId ?: '' }}"
+                                         data-paying-now="{{ !empty($item['paying_now']) ? '1' : '0' }}">
                                         <div class="site-summary-top">
                                             <div class="d-flex align-items-start gap-2 flex-grow-1 min-w-0">
                                                 <span class="placement-number" aria-hidden="true">{{ $placementNumber }}</span>
                                                 <div class="min-w-0">
-                                                    <div class="site-summary-name">{{ $item['name'] }}</div>
+                                                    <div class="d-flex flex-wrap align-items-center gap-2 mb-1">
+                                                        <div class="site-summary-name mb-0">{{ $item['name'] }}</div>
+                                                        @if(!empty($item['paying_now']))
+                                                            <span class="badge text-bg-success border">Paying now</span>
+                                                        @else
+                                                            <span class="badge text-bg-light border text-muted">Stays in cart</span>
+                                                        @endif
+                                                    </div>
                                                     <a href="{{ $item['url'] }}" target="_blank" class="site-summary-url text-decoration-none">
                                                         {{ Str::limit($item['url'], 55) }}
                                                         <i class="fa fa-external-link fa-xs"></i>
                                                     </a>
+                                                    @if(empty($item['paying_now']))
+                                                        <div class="small text-muted mt-1">Assign an approved article to include this site in payment.</div>
+                                                    @endif
                                                 </div>
                                             </div>
                                             <div class="site-summary-price text-end">
-                                                <div class="site-summary-price-label">Placement total</div>
+                                                <div class="site-summary-price-label">{{ !empty($item['paying_now']) ? 'Charged now' : 'Not charged yet' }}</div>
                                                 @if(!empty($item['line_savings']) && $item['line_savings'] > 0)
                                                     <div class="small text-muted text-decoration-line-through">€{{ number_format($item['line_list_total'] ?? ($item['list_total'] * $item['quantity']), 2) }}</div>
                                                 @endif
-                                                <div class="site-summary-price-value">€{{ number_format($item['total'] ?? $item['price'], 2) }}</div>
+                                                <div class="site-summary-price-value {{ empty($item['paying_now']) ? 'text-muted' : '' }}">€{{ number_format($item['total'] ?? $item['price'], 2) }}</div>
                                                 @if(!empty($item['discount_labels']))
                                                     <div class="small text-success">{{ implode(' · ', $item['discount_labels']) }}</div>
                                                 @endif
@@ -225,17 +236,35 @@
                                 </div>
                             </div>
 
-                            <div class="payment-option mb-3 {{ empty($stripeConfigured) ? 'payment-option-disabled' : '' }}" data-method="card" style="cursor: {{ empty($stripeConfigured) ? 'not-allowed' : 'pointer' }}; {{ empty($stripeConfigured) ? 'opacity:.55;' : '' }}" role="button" tabindex="0" aria-label="Pay with credit or debit card" @if(empty($stripeConfigured)) aria-disabled="true" data-stripe-disabled="1" @endif>
+                            @php $cardNeedsAmount = (float) $total > 0; @endphp
+                            <div class="payment-option mb-3 {{ (empty($stripeConfigured) || ! $cardNeedsAmount) ? 'payment-option-disabled' : '' }}"
+                                 data-method="card"
+                                 data-requires-amount="1"
+                                 style="cursor: {{ (empty($stripeConfigured) || ! $cardNeedsAmount) ? 'not-allowed' : 'pointer' }}; {{ (empty($stripeConfigured) || ! $cardNeedsAmount) ? 'opacity:.55;' : '' }}"
+                                 role="button"
+                                 tabindex="0"
+                                 aria-label="Pay with credit or debit card"
+                                 @if(empty($stripeConfigured)) aria-disabled="true" data-stripe-disabled="1" @endif
+                                 @if(! $cardNeedsAmount) aria-disabled="true" data-zero-amount="1" @endif>
                                 <div class="payment-option-card" style="border: 2px solid #e5e7eb; border-radius: 12px; padding: 16px; background: white; transition: all 0.2s; display:flex; align-items:center; gap:14px;">
                                     <div style="width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; background: #f3f4f6; border-radius: 8px; flex-shrink:0;">
                                         <i class="fab fa-stripe" style="font-size: 28px; color: #635bff;" aria-hidden="true"></i>
                                     </div>
                                     <div class="flex-grow-1">
                                         <span style="font-weight: 700; font-size: 14px; color: #1f2937;">Credit / Debit Card</span>
-                                        <span style="font-size: 12px; color: #6b7280; display: block; margin-top: 2px;">Secure Stripe checkout</span>
+                                        <span style="font-size: 12px; color: #6b7280; display: block; margin-top: 2px;">
+                                            @if(! $cardNeedsAmount)
+                                                Available when amount due is greater than €0
+                                            @else
+                                                Secure Stripe checkout — ready sites only
+                                            @endif
+                                        </span>
                                     </div>
                                     <i class="fa fa-check-circle payment-check" style="color:#4ECDCB; font-size:20px; opacity:0;"></i>
                                 </div>
+                            </div>
+                            <div class="alert alert-light border py-2 px-3 mb-3 small d-none" id="stripeZeroAmountAlert">
+                                Card / Stripe is only for amounts greater than €0. When bonus covers the order, use <strong>Wallet</strong>.
                             </div>
                             @if(empty($stripeConfigured))
                                 <div class="alert alert-warning py-2 px-3 mb-3 small" id="stripeNotConfiguredAlert">
@@ -762,6 +791,17 @@
     border-left: 4px solid #4ECDCB;
 }
 
+.site-summary-card.is-paying-now {
+    border-left-color: #16a34a;
+    background: #f7fdf9;
+}
+
+.site-summary-card.is-stays-in-cart {
+    border-left-color: #d1d5db;
+    background: #f9fafb;
+    opacity: 0.92;
+}
+
 .site-summary-top {
     display: flex;
     align-items: flex-start;
@@ -1087,6 +1127,34 @@ document.addEventListener('DOMContentLoaded', function() {
                     : 'Insufficient balance. Add funds via invoice (Bank / Wise / crypto), then pay from your wallet.';
             }
         }
+
+        // Stripe only when amount due > 0 (bonus-covered / €0 orders use wallet).
+        const cardOption = document.querySelector('.payment-option[data-method="card"]');
+        const zeroAlert = document.getElementById('stripeZeroAmountAlert');
+        if (cardOption && cardOption.dataset.stripeDisabled !== '1') {
+            const blockCard = due <= 0;
+            cardOption.classList.toggle('payment-option-disabled', blockCard);
+            cardOption.style.opacity = blockCard ? '.55' : '';
+            cardOption.style.cursor = blockCard ? 'not-allowed' : 'pointer';
+            if (blockCard) {
+                cardOption.setAttribute('aria-disabled', 'true');
+                cardOption.dataset.zeroAmount = '1';
+            } else {
+                cardOption.removeAttribute('aria-disabled');
+                delete cardOption.dataset.zeroAmount;
+            }
+            if (zeroAlert) {
+                zeroAlert.classList.toggle('d-none', !blockCard);
+            }
+            if (blockCard && selectedMethod === 'card') {
+                selectedMethod = null;
+                cardOption.classList.remove('selected');
+                if (cardDetails) cardDetails.style.display = 'none';
+                if (typeof syncPlaceOrderForModeration === 'function') {
+                    syncPlaceOrderForModeration();
+                }
+            }
+        }
     }
 
     if (useBonusEl) {
@@ -1109,6 +1177,14 @@ document.addEventListener('DOMContentLoaded', function() {
                     icon: 'warning',
                     title: 'Card payments unavailable',
                     html: 'Stripe is not configured on this server. Set <code>STRIPE_KEY</code> and <code>STRIPE_SECRET</code> in <code>.env</code>, then run <code>php artisan config:clear</code> — or pay with wallet.'
+                });
+                return;
+            }
+            if (method === 'card' && (this.dataset.zeroAmount === '1' || amountDue() <= 0)) {
+                Swal.fire({
+                    icon: 'info',
+                    title: 'Nothing to charge by card',
+                    text: 'Stripe is only for amounts greater than €0. Use Wallet when bonus covers the order, or assign ready sites that need payment.'
                 });
                 return;
             }
