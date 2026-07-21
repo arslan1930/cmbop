@@ -4,14 +4,17 @@ namespace App\Services;
 
 use App\Models\AdBanner;
 use App\Models\SiteAnnouncement;
+use App\Models\User;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 
 class PromotionService
 {
-    public function resolveAudience(?\App\Models\User $user = null): string
+    public function resolveAudience(?User $user = null): string
     {
         $user = $user ?: auth()->user();
-        if (!$user) {
+        if (! $user) {
             return 'public';
         }
 
@@ -34,47 +37,101 @@ class PromotionService
 
     public function activeAnnouncements(?string $audience = null): Collection
     {
+        if (! Schema::hasTable('site_announcements')) {
+            return collect();
+        }
+
         $audience = $audience ?: $this->resolveAudience();
 
-        return SiteAnnouncement::query()
-            ->active()
-            ->forAudience($audience)
-            ->orderBy('priority')
-            ->orderByDesc('id')
-            ->get();
+        try {
+            return SiteAnnouncement::query()
+                ->active()
+                ->forAudience($audience)
+                ->orderBy('priority')
+                ->orderByDesc('id')
+                ->get();
+        } catch (\Throwable $e) {
+            Log::warning('Failed to load site announcements', ['error' => $e->getMessage()]);
+
+            return collect();
+        }
     }
 
     public function activeBanners(?string $placement = null, ?string $audience = null): Collection
     {
-        $audience = $audience ?: $this->resolveAudience();
-
-        $query = AdBanner::query()
-            ->active()
-            ->forAudience($audience)
-            ->orderBy('priority')
-            ->orderByDesc('id');
-
-        if ($placement) {
-            $query->forPlacement($placement);
+        if (! Schema::hasTable('ad_banners')) {
+            return collect();
         }
 
-        return $query->get();
+        $audience = $audience ?: $this->resolveAudience();
+
+        try {
+            $query = AdBanner::query()
+                ->active()
+                ->forAudience($audience)
+                ->orderBy('priority')
+                ->orderByDesc('id');
+
+            if ($placement) {
+                $query->forPlacement($placement);
+            }
+
+            return $query->get();
+        } catch (\Throwable $e) {
+            Log::warning('Failed to load ad banners', ['error' => $e->getMessage()]);
+
+            return collect();
+        }
     }
 
     public function dashboardStats(): array
     {
-        return [
-            'announcements_live' => SiteAnnouncement::query()->active()->count(),
-            'announcements_total' => SiteAnnouncement::query()->count(),
-            'banners_live' => AdBanner::query()->active()->count(),
-            'banners_total' => AdBanner::query()->count(),
-            'banner_impressions' => (int) AdBanner::query()->sum('impressions'),
-            'banner_clicks' => (int) AdBanner::query()->sum('clicks'),
-            'upcoming_announcements' => SiteAnnouncement::query()
-                ->where('is_active', true)
-                ->whereNotNull('starts_at')
-                ->where('starts_at', '>', now())
-                ->count(),
+        $empty = [
+            'announcements_live' => 0,
+            'announcements_total' => 0,
+            'banners_live' => 0,
+            'banners_total' => 0,
+            'banner_impressions' => 0,
+            'banner_clicks' => 0,
+            'upcoming_announcements' => 0,
         ];
+
+        if (! Schema::hasTable('site_announcements') && ! Schema::hasTable('ad_banners')) {
+            return $empty;
+        }
+
+        try {
+            return [
+                'announcements_live' => Schema::hasTable('site_announcements')
+                    ? SiteAnnouncement::query()->active()->count()
+                    : 0,
+                'announcements_total' => Schema::hasTable('site_announcements')
+                    ? SiteAnnouncement::query()->count()
+                    : 0,
+                'banners_live' => Schema::hasTable('ad_banners')
+                    ? AdBanner::query()->active()->count()
+                    : 0,
+                'banners_total' => Schema::hasTable('ad_banners')
+                    ? AdBanner::query()->count()
+                    : 0,
+                'banner_impressions' => Schema::hasTable('ad_banners')
+                    ? (int) AdBanner::query()->sum('impressions')
+                    : 0,
+                'banner_clicks' => Schema::hasTable('ad_banners')
+                    ? (int) AdBanner::query()->sum('clicks')
+                    : 0,
+                'upcoming_announcements' => Schema::hasTable('site_announcements')
+                    ? SiteAnnouncement::query()
+                        ->where('is_active', true)
+                        ->whereNotNull('starts_at')
+                        ->where('starts_at', '>', now())
+                        ->count()
+                    : 0,
+            ];
+        } catch (\Throwable $e) {
+            Log::warning('Failed to load promotion dashboard stats', ['error' => $e->getMessage()]);
+
+            return $empty;
+        }
     }
 }

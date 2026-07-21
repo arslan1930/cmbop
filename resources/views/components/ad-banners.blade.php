@@ -1,6 +1,11 @@
 @php
     $placementKey = $placement ?? 'content_top';
-    $banners = app(\App\Services\PromotionService::class)->activeBanners($placementKey, $audience ?? null);
+    $banners = collect();
+    try {
+        $banners = app(\App\Services\PromotionService::class)->activeBanners($placementKey, $audience ?? null);
+    } catch (\Throwable $e) {
+        $banners = collect();
+    }
 @endphp
 
 @if($banners->isNotEmpty())

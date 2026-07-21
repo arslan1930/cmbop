@@ -1,5 +1,10 @@
 @php
-    $announcements = app(\App\Services\PromotionService::class)->activeAnnouncements($audience ?? null);
+    $announcements = collect();
+    try {
+        $announcements = app(\App\Services\PromotionService::class)->activeAnnouncements($audience ?? null);
+    } catch (\Throwable $e) {
+        $announcements = collect();
+    }
 @endphp
 
 @if($announcements->isNotEmpty())
