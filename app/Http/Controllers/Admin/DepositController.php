@@ -38,15 +38,20 @@ class DepositController extends Controller
             });
         }
 
-        $deposits = $query->latest()->paginate(20);
-
         $stats = [
             'pending' => DepositRequest::where('status', 'pending')->count(),
+            'user_reported_paid' => DepositRequest::where('status', 'pending')->whereNotNull('user_marked_paid_at')->count(),
             'approved' => DepositRequest::where('status', 'approved')->count(),
             'completed' => DepositRequest::where('status', 'completed')->count(),
             'rejected' => DepositRequest::where('status', 'rejected')->count(),
             'total_amount' => DepositRequest::where('status', 'completed')->sum('amount'),
         ];
+
+        // Surface user-reported payments first among pending deposits.
+        $deposits = $query
+            ->orderByRaw('CASE WHEN status = ? AND user_marked_paid_at IS NOT NULL THEN 0 WHEN status = ? THEN 1 ELSE 2 END', ['pending', 'pending'])
+            ->latest()
+            ->paginate(20);
 
         return view('admin.deposits', compact('deposits', 'stats'));
     }

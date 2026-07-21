@@ -196,8 +196,9 @@
                 background-color: white;
                 padding: 0;
             }
-            .print-btn {
-                display: none;
+            .print-btn,
+            .no-print {
+                display: none !important;
             }
             .invoice-container {
                 box-shadow: none;
@@ -328,7 +329,76 @@
                 <p>Thank you for your business!</p>
                 <p>For any questions regarding this invoice, please contact support@seolinkbuildings.com</p>
             </div>
+
+            @if(($invoiceType ?? '') === 'deposit' && in_array(($paymentMethod ?? ''), ['wise', 'bank', 'crypto'], true))
+                <div class="no-print" style="margin-top: 28px; padding: 18px; border: 1px solid #c8ebe9; border-radius: 12px; background: #f0fbfb;">
+                    <div style="font-weight: 700; color: #0b6266; margin-bottom: 8px;">After you send the transfer</div>
+                    <p style="margin: 0 0 12px; color: #64748b; font-size: 14px;">
+                        Click the button below once you have paid. Your deposit stays <strong>Pending</strong> until we confirm funds and credit your wallet.
+                    </p>
+                    @if(!empty($userMarkedPaid))
+                        <button type="button" disabled style="border:0; background:#059669; color:#fff; padding:10px 16px; border-radius:8px; font-weight:600;">
+                            Payment reported — awaiting confirmation
+                        </button>
+                        @if(!empty($deposit?->user_marked_paid_at))
+                            <div style="margin-top:8px; font-size:13px; color:#64748b;">
+                                Reported {{ $deposit->user_marked_paid_at->format('M j, Y g:i A') }}
+                                @if($deposit->user_payment_note)
+                                    · Note: {{ $deposit->user_payment_note }}
+                                @endif
+                            </div>
+                        @endif
+                    @elseif(!empty($canMarkPaid) && !empty($markPaidUrl))
+                        <button type="button" id="invoiceMarkPaidBtn"
+                                style="border:0; background:#0b6266; color:#fff; padding:10px 16px; border-radius:8px; font-weight:600; cursor:pointer;">
+                            OK, I have made the payment
+                        </button>
+                    @endif
+                </div>
+            @endif
         </div>
     </div>
+    @if(($invoiceType ?? '') === 'deposit' && !empty($canMarkPaid) && !empty($markPaidUrl))
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script>
+    document.getElementById('invoiceMarkPaidBtn')?.addEventListener('click', function () {
+        Swal.fire({
+            title: 'Confirm payment sent?',
+            html: 'Have you already transferred <strong>€{{ number_format((float) $amount, 2) }}</strong> with <strong>REF{{ $referenceCode }}</strong> in the payment note?<br><br><span style="color:#64748b;font-size:13px;">Status stays Pending until we confirm and credit your wallet.</span>',
+            icon: 'question',
+            input: 'text',
+            inputPlaceholder: 'Optional: Wise/bank transfer reference',
+            showCancelButton: true,
+            confirmButtonText: 'OK, I have made the payment',
+            cancelButtonText: 'Not yet',
+            confirmButtonColor: '#0b6266',
+        }).then(function (result) {
+            if (!result.isConfirmed) return;
+            fetch(@json($markPaidUrl), {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'X-CSRF-TOKEN': @json(csrf_token()),
+                },
+                body: JSON.stringify({ user_payment_note: result.value || null }),
+            })
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                if (!data.success) {
+                    Swal.fire('Error', data.message || 'Could not mark payment as sent.', 'error');
+                    return;
+                }
+                Swal.fire('Payment reported', data.message, 'success').then(function () {
+                    window.location.reload();
+                });
+            })
+            .catch(function () {
+                Swal.fire('Error', 'Could not mark payment as sent. Please try again.', 'error');
+            });
+        });
+    });
+    </script>
+    @endif
 </body>
 </html>
