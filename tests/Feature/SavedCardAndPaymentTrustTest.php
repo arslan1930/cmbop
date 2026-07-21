@@ -155,6 +155,7 @@ class SavedCardAndPaymentTrustTest extends TestCase
     public function test_get_or_create_customer_survives_missing_column_persist(): void
     {
         config(['services.stripe.secret' => 'sk_test_fake_key_for_unit_tests']);
+        \Stripe\Stripe::setApiKey('sk_test_fake_key_for_unit_tests');
 
         $user = $this->advertiser();
         $customerBody = json_encode([
