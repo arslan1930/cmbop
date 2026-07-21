@@ -39,7 +39,8 @@
                         $siteLang = strtolower((string) ($line['language'] ?? ''));
                         $selectedId = (int) ($line['content_submission_id'] ?? 0);
                         $options = $approvedArticles->filter(function ($article) use ($siteLang, $usedIds, $selectedId) {
-                            if ($siteLang !== '' && strtolower((string) $article->language) !== $siteLang) {
+                            $articleLang = strtolower((string) $article->language);
+                            if ($siteLang !== '' && $articleLang !== 'en' && $articleLang !== $siteLang) {
                                 return false;
                             }
                             $id = (int) $article->id;

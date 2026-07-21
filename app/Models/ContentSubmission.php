@@ -331,8 +331,10 @@ class ContentSubmission extends Model
 
     /**
      * Whether this article can be placed on a publisher site.
-     * Matching is language-first (same as catalog/publisher flow):
-     * English articles can publish on any English-language website/country.
+     * Language-first:
+     * - English articles are universal (any site / country, including non-EU).
+     * - Other languages only match sites that accept that language
+     *   (e.g. German article → German sites; Dutch cannot go on .de).
      */
     public function matchesSite(Site $site): bool
     {
@@ -342,7 +344,40 @@ class ContentSubmission extends Model
             return false;
         }
 
+        // English guest posts can publish on any marketplace site.
+        if ($language === 'en') {
+            return true;
+        }
+
         return $site->acceptsLanguage($language);
+    }
+
+    /**
+     * Client/UI helper: article language is valid for a site's language code(s).
+     *
+     * @param  array<int, string>  $siteLanguages
+     */
+    public static function languageFitsSiteLanguages(string $articleLanguage, array $siteLanguages): bool
+    {
+        $articleLanguage = strtolower(trim($articleLanguage));
+        if ($articleLanguage === '') {
+            return false;
+        }
+
+        if ($articleLanguage === 'en') {
+            return true;
+        }
+
+        $siteLanguages = array_values(array_filter(array_map(
+            static fn ($l) => strtolower(trim((string) $l)),
+            $siteLanguages
+        )));
+
+        if ($siteLanguages === []) {
+            return true;
+        }
+
+        return in_array($articleLanguage, $siteLanguages, true);
     }
 
     /**

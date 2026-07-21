@@ -2,8 +2,9 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -227,9 +228,9 @@ class Site extends Model
         }
 
         try {
-            $at = $raw instanceof \Illuminate\Support\Carbon
+            $at = $raw instanceof Carbon
                 ? $raw
-                : \Illuminate\Support\Carbon::parse($raw);
+                : Carbon::parse($raw);
         } catch (\Throwable) {
             return null;
         }
@@ -270,38 +271,38 @@ class Site extends Model
             ->when($filters['search'] ?? null, function ($query, $search) {
                 $query->where(function ($q) use ($search) {
                     $q->where('site_url', 'like', "%{$search}%")
-                      ->orWhere('category', 'like', "%{$search}%")
-                      ->orWhere('site_name', 'like', "%{$search}%")
-                      ->orWhere('domain', 'like', "%{$search}%")
-                      ->orWhere('categories', 'like', "%{$search}%"); // NEW - search in categories JSON
+                        ->orWhere('category', 'like', "%{$search}%")
+                        ->orWhere('site_name', 'like', "%{$search}%")
+                        ->orWhere('domain', 'like', "%{$search}%")
+                        ->orWhere('categories', 'like', "%{$search}%"); // NEW - search in categories JSON
                 });
             })
             ->when(isset($filters['verified']) && $filters['verified'] == 1, function ($query) {
                 $query->where('verified', 1);
             })
             ->when($filters['da_min'] ?? null, function ($query, $min) {
-                $query->where('da', '>=', (int)$min);
+                $query->where('da', '>=', (int) $min);
             })
             ->when($filters['da_max'] ?? null, function ($query, $max) {
-                $query->where('da', '<=', (int)$max);
+                $query->where('da', '<=', (int) $max);
             })
             ->when($filters['dr_min'] ?? null, function ($query, $min) {
-                $query->where('dr', '>=', (int)$min);
+                $query->where('dr', '>=', (int) $min);
             })
             ->when($filters['dr_max'] ?? null, function ($query, $max) {
-                $query->where('dr', '<=', (int)$max);
+                $query->where('dr', '<=', (int) $max);
             })
             ->when($filters['traffic_min'] ?? null, function ($query, $min) {
-                $query->where('traffic', '>=', (int)$min);
+                $query->where('traffic', '>=', (int) $min);
             })
             ->when($filters['traffic_max'] ?? null, function ($query, $max) {
-                $query->where('traffic', '<=', (int)$max);
+                $query->where('traffic', '<=', (int) $max);
             })
             ->when($filters['price_min'] ?? null, function ($query, $min) {
-                $query->where('price', '>=', (float)$min);
+                $query->where('price', '>=', (float) $min);
             })
             ->when($filters['price_max'] ?? null, function ($query, $max) {
-                $query->where('price', '<=', (float)$max);
+                $query->where('price', '<=', (float) $max);
             })
             ->when($filters['country'] ?? null, function ($query, $country) {
                 $codes = is_array($country) ? $country : [$country];
@@ -312,7 +313,7 @@ class Site extends Model
                             continue;
                         }
                         $q->orWhere('country', $code)
-                          ->orWhereJsonContains('countries', $code);
+                            ->orWhereJsonContains('countries', $code);
                     }
                 });
             })
@@ -325,14 +326,14 @@ class Site extends Model
                             continue;
                         }
                         $q->orWhere('language', $code)
-                          ->orWhereJsonContains('languages', $code);
+                            ->orWhereJsonContains('languages', $code);
                     }
                 });
             })
             ->when($filters['category'] ?? null, function ($query, $category) {
                 $query->where(function ($q) use ($category) {
                     $q->where('category', $category)
-                      ->orWhereJsonContains('categories', $category); // NEW - search in categories JSON array
+                        ->orWhereJsonContains('categories', $category); // NEW - search in categories JSON array
                 });
             })
             ->when($filters['link_type'] ?? null, function ($query, $linkType) {
@@ -351,7 +352,7 @@ class Site extends Model
         $allowedSorts = ['da', 'dr', 'traffic', 'price', 'created_at', 'site_name'];
         $field = in_array($field, $allowedSorts) ? $field : 'created_at';
         $direction = in_array(strtolower($direction), ['asc', 'desc']) ? $direction : 'desc';
-        
+
         return $query->orderBy($field, $direction);
     }
 
@@ -361,8 +362,8 @@ class Site extends Model
     public function scopeWithMinMetrics(Builder $query, int $minDa = 0, int $minDr = 0, int $minTraffic = 0): Builder
     {
         return $query->where('da', '>=', $minDa)
-                     ->where('dr', '>=', $minDr)
-                     ->where('traffic', '>=', $minTraffic);
+            ->where('dr', '>=', $minDr)
+            ->where('traffic', '>=', $minTraffic);
     }
 
     /**
@@ -370,7 +371,7 @@ class Site extends Model
      */
     public function getFormattedPriceAttribute(): string
     {
-        return '$' . number_format($this->price, 2);
+        return '$'.number_format($this->price, 2);
     }
 
     /**
@@ -379,8 +380,9 @@ class Site extends Model
     public function getImageUrlAttribute(): ?string
     {
         if ($this->site_image) {
-            return asset('storage/' . $this->site_image);
+            return asset('storage/'.$this->site_image);
         }
+
         return null;
     }
 
@@ -417,7 +419,7 @@ class Site extends Model
      * Most recent enrichment timestamp for "Last updated" (metrics preferred).
      * Does not fall back to updated_at — listing edits must not fake metric freshness.
      */
-    public function getMetricsUpdatedAtAttribute(): ?\Illuminate\Support\Carbon
+    public function getMetricsUpdatedAtAttribute(): ?Carbon
     {
         $candidates = array_filter([
             $this->metrics_fetched_at,
@@ -624,6 +626,7 @@ class Site extends Model
     public function getCategoriesStringAttribute(): string
     {
         $categories = $this->categories ?? [$this->category];
+
         return implode(', ', $categories);
     }
 
@@ -633,14 +636,14 @@ class Site extends Model
     public function getCategoriesArrayAttribute()
     {
         if (empty($this->categories)) {
-            return !empty($this->category) ? [$this->category] : [];
+            return ! empty($this->category) ? [$this->category] : [];
         }
-        
+
         // If it's already an array
         if (is_array($this->categories)) {
             return $this->categories;
         }
-        
+
         // If it's a JSON string
         if (is_string($this->categories) && (str_starts_with($this->categories, '[') || str_starts_with($this->categories, '{'))) {
             $decoded = json_decode($this->categories, true);
@@ -648,14 +651,14 @@ class Site extends Model
                 return $decoded;
             }
         }
-        
+
         // If it's a comma-separated string
         if (is_string($this->categories) && str_contains($this->categories, ',')) {
             return array_map('trim', explode(',', $this->categories));
         }
-        
+
         // Single value
-        return !empty($this->categories) ? [$this->categories] : (!empty($this->category) ? [$this->category] : []);
+        return ! empty($this->categories) ? [$this->categories] : (! empty($this->category) ? [$this->category] : []);
     }
 
     /**
@@ -664,6 +667,7 @@ class Site extends Model
     public function hasCategory($categoryName)
     {
         $categories = $this->getCategoriesArrayAttribute();
+
         return in_array($categoryName, $categories);
     }
 
@@ -725,8 +729,8 @@ class Site extends Model
     }
 
     /**
-     * Language-first market check used by Content Library ordering:
-     * an English article can place on any English-language site (any English country).
+     * Language-first market check used by Content Library ordering.
+     * Native site languages only (English universality is handled in ContentSubmission::matchesSite).
      */
     public function acceptsLanguage(string $language): bool
     {
@@ -735,12 +739,7 @@ class Site extends Model
             return false;
         }
 
-        $countries = $this->countryCodes();
         $languages = $this->languageCodes();
-
-        if ($countries === [] && $languages === []) {
-            return true;
-        }
 
         if ($languages === []) {
             return true;

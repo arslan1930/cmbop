@@ -971,7 +971,8 @@
         );
         return approvedArticles.filter((article) => {
             const lang = String(article.language || '').toLowerCase();
-            if (siteLang && lang && lang !== siteLang) return false;
+            // English is universal; other languages must match the site language.
+            if (siteLang && lang && lang !== 'en' && lang !== siteLang) return false;
             if (usedElsewhere.has(article.id) && article.id !== selectedId) return false;
             return true;
         });

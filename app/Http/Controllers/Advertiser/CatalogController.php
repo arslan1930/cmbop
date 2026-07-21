@@ -633,7 +633,6 @@ class CatalogController extends Controller
             $cart[$i]['country'] = $line['country'] ?? $site->country;
             $cart[$i]['link_type'] = $line['link_type'] ?? $site->link_type;
         }
-        session()->put('cart', $cart);
 
         $approved = ContentSubmission::query()
             ->where('user_id', auth()->id())
@@ -645,6 +644,35 @@ class CatalogController extends Controller
             ->get()
             ->filter(fn (ContentSubmission $s) => $s->canBeOrdered())
             ->values();
+
+        // Silently drop articles that no longer match their cart site (e.g. after
+        // browsing other countries). User reselects from Content Library at checkout.
+        $approvedById = $approved->keyBy('id');
+        $cartChanged = false;
+        foreach ($cart as $i => $line) {
+            $submissionId = (int) ($line['content_submission_id'] ?? 0);
+            if ($submissionId <= 0) {
+                continue;
+            }
+            $site = $sites->get((int) ($line['id'] ?? 0));
+            $submission = $approvedById->get($submissionId);
+            if (! $submission) {
+                $submission = ContentSubmission::query()
+                    ->where('id', $submissionId)
+                    ->where('user_id', auth()->id())
+                    ->whereNull('order_id')
+                    ->first();
+            }
+            if (! $site || ! $submission || ! $submission->canBeOrdered() || ! $submission->matchesSite($site)) {
+                unset($cart[$i]['content_submission_id']);
+                $cartChanged = true;
+            }
+        }
+
+        session()->put('cart', array_values($cart));
+        if ($cartChanged) {
+            $cart = array_values(session()->get('cart', []));
+        }
 
         $articles = $approved->map(fn (ContentSubmission $s) => [
             'id' => $s->id,
@@ -910,11 +938,13 @@ class CatalogController extends Controller
         }
 
         if (! $submission->matchesSite($site)) {
-            return response()->json([
-                'success' => false,
-                'error' => 'This article’s language does not match this website. Pick an article in '
-                    .strtoupper((string) ($site->language ?: 'the site language')).'.',
-            ], 422);
+            // Keep selection workflow simple: clear quietly; user picks again at checkout.
+            unset($cart[$lineKey]['content_submission_id']);
+            session()->put('cart', array_values($cart));
+
+            return response()->json(array_merge([
+                'success' => true,
+            ], $this->cartPayloadForClient()));
         }
 
         foreach ($cart as $key => $item) {
@@ -978,15 +1008,11 @@ class CatalogController extends Controller
                     );
 
                     if (! $alreadyAssigned) {
-                        if (! $librarySubmission->matchesSite($site)) {
-                            return response()->json([
-                                'success' => false,
-                                'error' => 'This article is written for '
-                                    .strtoupper((string) $librarySubmission->language)
-                                    .'. Choose a website that publishes in that language, or assign a different article in your cart.',
-                            ], 422);
+                        // If the library article does not fit this site, still add the site
+                        // without attaching — user picks a matching article at checkout.
+                        if ($librarySubmission->matchesSite($site)) {
+                            $attachArticleId = (int) $librarySubmission->id;
                         }
-                        $attachArticleId = (int) $librarySubmission->id;
                     }
                 }
             }
@@ -2839,9 +2865,8 @@ class CatalogController extends Controller
             if (! $submission->matchesSite($site)) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Article language must match the website language ('
-                        .strtoupper((string) ($site->language ?: 'any')).'). '
-                        .'English articles can be placed on any English-language website.',
+                    'message' => 'Article language must match this website (or use an English article). '
+                        .'Site languages: '.strtoupper((string) ($site->language ?: 'any')).'.',
                 ], 422);
             }
 

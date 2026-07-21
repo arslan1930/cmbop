@@ -63,7 +63,8 @@
     </div>
     <div class="card-body">
         <div class="alert alert-info border-0 small">
-            Each website needs its own <strong>approved</strong> Content Library article matching that site’s <strong>language</strong>
+            Each website needs its own <strong>approved</strong> Content Library article in that site’s language
+            (or <strong>English</strong>, which works on every site).
             (e.g. English articles work on US, UK, AU, and other English sites).
             Upload or fix articles in the library first — approval is automatic after compliance and uniqueness checks.
         </div>
@@ -74,9 +75,10 @@
                     $siteCountries = $p['countries'] ?: array_filter([$p['country']]);
                     $siteLanguages = $p['languages'] ?: array_filter([$p['language']]);
                     $matching = $approvedArticles->filter(function ($article) use ($siteLanguages) {
-                        $l = strtolower((string) $article->language);
-                        // Language-first: English article → any English-language site/country.
-                        return $siteLanguages === [] || in_array($l, array_map('strtolower', $siteLanguages), true);
+                        return \App\Models\ContentSubmission::languageFitsSiteLanguages(
+                            (string) $article->language,
+                            $siteLanguages
+                        );
                     });
                 @endphp
                 <div class="content-assign-card placement-assign"
@@ -104,7 +106,7 @@
                     </div>
 
                     <div class="mb-3">
-                        <label class="form-label">Approved article (same language)</label>
+                        <label class="form-label">Approved article (site language or English)</label>
                         <select class="form-select article-select">
                             <option value="">— Select approved article —</option>
                             @forelse($matching as $article)
