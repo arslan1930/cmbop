@@ -89,6 +89,53 @@ class GuestPostWizardTest extends TestCase
             ->assertRedirect(route('advertiser.wizard.market'));
     }
 
+    public function test_wizard_start_with_cart_still_opens_publishers(): void
+    {
+        $advertiser = $this->advertiser();
+        $site = $this->activeSite($this->publisher());
+        $article = $this->createApprovedSubmission($advertiser, null, 0, 'anchor', 'https://example.com/a', 'us', 'en');
+
+        // Incomplete cart — previously forced content step; must stay on publishers.
+        $this->actingAs($advertiser)
+            ->withSession([
+                GuestPostWizardController::SESSION_KEY => [
+                    'language' => 'en',
+                    'categories' => [],
+                    'country' => null,
+                ],
+                'cart' => [[
+                    'id' => $site->id,
+                    'name' => $site->site_name,
+                    'price' => 46,
+                    'quantity' => 1,
+                    'language' => 'en',
+                    'country' => 'us',
+                ]],
+            ])
+            ->get(route('advertiser.wizard.start'))
+            ->assertRedirect(route('advertiser.wizard.publishers'));
+
+        // Fully assigned cart — still allow browsing publishers instead of forcing pay.
+        $this->actingAs($advertiser)
+            ->withSession([
+                GuestPostWizardController::SESSION_KEY => [
+                    'language' => 'en',
+                    'categories' => [],
+                ],
+                'cart' => [[
+                    'id' => $site->id,
+                    'name' => $site->site_name,
+                    'price' => 46,
+                    'quantity' => 1,
+                    'language' => 'en',
+                    'country' => 'us',
+                    'content_submission_id' => $article->id,
+                ]],
+            ])
+            ->get(route('advertiser.wizard.start'))
+            ->assertRedirect(route('advertiser.wizard.publishers'));
+    }
+
     public function test_market_save_stores_session_and_opens_publishers(): void
     {
         $advertiser = $this->advertiser();
