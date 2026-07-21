@@ -6,6 +6,7 @@ use App\Models\Role;
 use App\Models\User;
 use App\Services\StripeCustomerService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Schema;
 use Mockery;
 use Tests\TestCase;
 
@@ -119,5 +120,19 @@ class SavedCardAndPaymentTrustTest extends TestCase
             ->postJson(route('advertiser.payment-methods.setup'))
             ->assertStatus(503)
             ->assertJsonPath('success', false);
+    }
+
+    public function test_ensure_user_stripe_columns_is_idempotent(): void
+    {
+        if (! Schema::hasTable('users')) {
+            $this->markTestSkipped('users table missing');
+        }
+
+        $svc = app(StripeCustomerService::class);
+        $svc->ensureUserStripeColumns();
+        $svc->ensureUserStripeColumns();
+
+        $this->assertTrue(Schema::hasColumn('users', 'stripe_customer_id'));
+        $this->assertTrue(Schema::hasColumn('users', 'stripe_default_payment_method_id'));
     }
 }

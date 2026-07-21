@@ -3,7 +3,9 @@
 namespace App\Services;
 
 use App\Models\User;
+use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 use Stripe\Checkout\Session;
 use Stripe\Customer;
 use Stripe\Exception\ApiErrorException;
@@ -27,10 +29,38 @@ class StripeCustomerService
     }
 
     /**
+     * Ensure users.stripe_* columns exist (Hostinger often skips artisan migrate).
+     */
+    public function ensureUserStripeColumns(): void
+    {
+        if (! Schema::hasTable('users')) {
+            return;
+        }
+
+        $needsCustomer = ! Schema::hasColumn('users', 'stripe_customer_id');
+        $needsDefaultPm = ! Schema::hasColumn('users', 'stripe_default_payment_method_id');
+
+        if (! $needsCustomer && ! $needsDefaultPm) {
+            return;
+        }
+
+        Schema::table('users', function (Blueprint $table) use ($needsCustomer, $needsDefaultPm) {
+            if ($needsCustomer) {
+                $table->string('stripe_customer_id')->nullable()->unique();
+            }
+            if ($needsDefaultPm) {
+                $table->string('stripe_default_payment_method_id')->nullable();
+            }
+        });
+    }
+
+    /**
      * Ensure the user has a Stripe Customer and return its id.
      */
     public function getOrCreateCustomerId(User $user): string
     {
+        $this->ensureUserStripeColumns();
+
         if ($user->stripe_customer_id) {
             try {
                 Customer::retrieve($user->stripe_customer_id);
