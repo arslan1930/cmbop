@@ -15,8 +15,8 @@ use Tests\TestCase;
 
 class CardCheckoutCreatesPendingOrdersTest extends TestCase
 {
-    use RefreshDatabase;
     use CreatesContentSubmissions;
+    use RefreshDatabase;
 
     protected function tearDown(): void
     {
@@ -64,21 +64,35 @@ class CardCheckoutCreatesPendingOrdersTest extends TestCase
 
     private function fakeStripeCheckoutSession(string $sessionId = 'cs_test_pending_orders'): void
     {
-        config(['services.stripe.secret' => 'sk_test_fake_key_for_unit_tests']);
+        config([
+            'services.stripe.secret' => 'sk_test_fake_key_for_unit_tests',
+            'services.stripe.key' => 'pk_test_fake_key_for_unit_tests',
+        ]);
 
-        $body = json_encode([
+        $customerBody = json_encode([
+            'id' => 'cus_test_'.substr($sessionId, -8),
+            'object' => 'customer',
+            'email' => 'test@example.com',
+            'livemode' => false,
+        ], JSON_THROW_ON_ERROR);
+
+        $sessionBody = json_encode([
             'id' => $sessionId,
             'object' => 'checkout.session',
-            'url' => 'https://checkout.stripe.com/c/pay/' . $sessionId,
+            'url' => 'https://checkout.stripe.com/c/pay/'.$sessionId,
             'payment_status' => 'unpaid',
             'mode' => 'payment',
             'metadata' => [],
         ], JSON_THROW_ON_ERROR);
 
         $client = Mockery::mock(ClientInterface::class);
+        // Saved-card flow creates/retrieves a Customer, then creates the Checkout Session.
         $client->shouldReceive('request')
-            ->once()
-            ->andReturn([$body, 200, []]);
+            ->twice()
+            ->andReturn(
+                [$customerBody, 200, []],
+                [$sessionBody, 200, []]
+            );
 
         ApiRequestor::setHttpClient($client);
     }
@@ -150,6 +164,15 @@ class CardCheckoutCreatesPendingOrdersTest extends TestCase
         $submission = $this->createApprovedSubmission($advertiser, $site->id);
 
         $client = Mockery::mock(ClientInterface::class);
+        $customerBody = json_encode([
+            'id' => 'cus_test_fail',
+            'object' => 'customer',
+            'email' => 'test@example.com',
+        ], JSON_THROW_ON_ERROR);
+        // Customer create succeeds; Checkout Session create fails (rollback path).
+        $client->shouldReceive('request')
+            ->once()
+            ->andReturn([$customerBody, 200, []]);
         $client->shouldReceive('request')
             ->once()
             ->andThrow(new \Exception('stripe unavailable'));
@@ -174,5 +197,42 @@ class CardCheckoutCreatesPendingOrdersTest extends TestCase
 
         $response->assertOk()->assertJson(['success' => false]);
         $this->assertSame(0, Order::where('reference_code', 'FAIL99')->count());
+    }
+
+    public function test_card_checkout_rejects_when_stripe_not_configured(): void
+    {
+        config(['content_moderation.enabled' => false]);
+        config([
+            'services.stripe.secret' => '',
+            'services.stripe.key' => '',
+        ]);
+
+        $advertiser = $this->advertiser();
+        $publisherRole = Role::firstOrCreate(['name' => 'publisher']);
+        $publisher = User::factory()->create(['email_verified_at' => now()]);
+        $publisher->roles()->attach($publisherRole->id);
+        $site = $this->activeSite($publisher);
+        $submission = $this->createApprovedSubmission($advertiser, $site->id);
+
+        $this->actingAs($advertiser)
+            ->withSession([
+                'cart' => [[
+                    'id' => $site->id,
+                    'name' => $site->site_name,
+                    'quantity' => 1,
+                    'sensitive_type' => null,
+                ]],
+            ])
+            ->postJson(route('advertiser.checkout.process'), [
+                'payment_method' => 'card',
+                'reference_code' => 'NOCFG1',
+                'content_submissions' => [
+                    $site->id => [$submission->id],
+                ],
+            ])
+            ->assertStatus(503)
+            ->assertJsonPath('success', false);
+
+        $this->assertSame(0, Order::where('reference_code', 'NOCFG1')->count());
     }
 }

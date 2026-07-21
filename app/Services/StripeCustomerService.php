@@ -95,7 +95,21 @@ class StripeCustomerService
      */
     public function checkoutCustomerOptions(User $user, bool $offerSave = true): array
     {
-        $customerId = $this->getOrCreateCustomerId($user);
+        if (! $this->configured()) {
+            return [];
+        }
+
+        try {
+            $customerId = $this->getOrCreateCustomerId($user);
+        } catch (\Throwable $e) {
+            // Do not block Stripe Checkout if customer create fails — fall back to guest session.
+            Log::warning('Stripe customer options unavailable; continuing without saved-card customer', [
+                'user_id' => $user->id,
+                'error' => $e->getMessage(),
+            ]);
+
+            return [];
+        }
 
         $options = [
             'customer' => $customerId,

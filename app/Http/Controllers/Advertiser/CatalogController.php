@@ -1235,6 +1235,7 @@ class CatalogController extends Controller
             ->keyBy('id');
 
         $savedCards = app(StripeCustomerService::class)->listCards(auth()->user());
+        $stripeConfigured = app(StripeCustomerService::class)->configured();
 
         return view('advertiser.checkout', compact(
             'cartItems',
@@ -1253,6 +1254,7 @@ class CatalogController extends Controller
             'checkoutSpendableBalance',
             'checkoutArticles',
             'savedCards',
+            'stripeConfigured',
         ));
     }
 
@@ -1358,6 +1360,14 @@ class CatalogController extends Controller
      */
     private function processCardPayment($cart, array $checkoutContent, $referenceCode, $userId, bool $useBonus = false)
     {
+        $stripe = app(StripeCustomerService::class);
+        if (! $stripe->configured()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Card payments are not configured. Set STRIPE_SECRET and STRIPE_KEY, or choose another payment method.',
+            ], 503);
+        }
+
         $expandedOrders = array_column($checkoutContent['lines'], 'orderItem');
         $createdOrders = collect();
         $totalAmount = round(array_sum(array_column($expandedOrders, 'price')), 2);
@@ -2317,6 +2327,13 @@ class CatalogController extends Controller
                     'success' => false,
                     'message' => 'This order cannot be paid again. Open checkout if your cart was restored.',
                 ], 422);
+            }
+
+            if (! app(StripeCustomerService::class)->configured()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Card payments are not configured. Set STRIPE_SECRET and STRIPE_KEY, or choose another payment method.',
+                ], 503);
             }
 
             $amountDue = round((float) $order->total_amount, 2);
