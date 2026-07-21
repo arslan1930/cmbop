@@ -201,39 +201,7 @@
     </div>
 </div>
 
-<!-- Chat Modal -->
-<div class="modal fade" id="chatModal" tabindex="-1">
-    <div class="modal-dialog modal-dialog-centered modal-lg">
-        <div class="modal-content">
-            <div class="modal-header bg-primary text-white">
-                <h5 class="modal-title">
-                    <i class="fa fa-comments me-2"></i> 
-                    Order Chat - <span id="chatOrderNumber"></span>
-                </h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-            </div>
-            <div id="chatOrderDetails" class="chat-order-details d-none" aria-live="polite"></div>
-            <div class="modal-body p-0">
-                <div id="chatMessages" class="p-3" style="height: 400px; overflow-y: auto; background: #f8f9fa;">
-                    <div class="text-center text-muted py-5">
-                        <i class="fa fa-spinner fa-spin fa-2x"></i>
-                        <p class="mt-2">Loading messages...</p>
-                    </div>
-                </div>
-                <div class="p-3 border-top">
-                    <form id="chatForm">
-                        <input type="hidden" id="chatOrderId">
-                        <div class="input-group">
-                            <textarea id="chatMessageInput" class="form-control" rows="2" placeholder="Type your message..."></textarea>
-                            <button type="submit" class="btn btn-primary">
-                                <i class="fa fa-paper-plane"></i> Send
-                            </button>
-                        </div>
-                        <small class="text-muted mt-1 d-block">Press Ctrl+Enter to send</small>
-                    </form>
-                </div>
-            </div>
-        </div>
+@include('partials.order-chat-modal')
     </div>
 </div>
 
@@ -281,48 +249,41 @@
 }
 
 .status-pending {
-    background-color: #fef3c7;
-    color: #282828;
+    /* uses app-shell status tokens */
 }
 
 .status-processing {
-    background-color: #dbeafe;
-    color: #282828;
+    /* uses app-shell status tokens */
 }
 
 .status-review {
-    background-color: #cff4fc;
-    color: #055160;
+    /* uses app-shell status tokens */
 }
 
 .status-completed {
-    background-color: #dcfce7;
-    color: #282828;
+    /* uses app-shell status tokens */
 }
 
 .status-cancelled {
-    background-color: #fee2e2;
-    color: #282828;
+    /* uses app-shell status tokens */
 }
 
 .payment-paid {
-    background-color: #dcfce7;
-    color: #282828;
+    /* uses app-shell status tokens */
 }
 
 .payment-pending {
-    background-color: #fef3c7;
-    color: #282828;
+    /* uses app-shell status tokens */
 }
 
 .payment-failed {
-    background-color: #fee2e2;
-    color: #282828;
+    /* uses app-shell status tokens */
 }
 
 .sensitive-badge {
-    background-color: #fef3c7;
-    color: #d97706;
+    background-color: var(--brand-primary-bg, #e8f8f7);
+    color: var(--brand-primary, #0b6266);
+    border: 1px solid var(--brand-primary-border, #b8e8e6);
     padding: 4px 8px;
     border-radius: 4px;
     font-size: 10px;
@@ -656,18 +617,16 @@ document.addEventListener('DOMContentLoaded', function() {
         
         messages.forEach(msg => {
             const isOwnMessage = msg.user_id === currentUserId;
-            const messageClass = isOwnMessage ? 'bg-primary text-white' : 'bg-white border';
+            const messageClass = isOwnMessage ? 'chat-bubble chat-bubble--own' : 'chat-bubble chat-bubble--other';
             const alignClass = isOwnMessage ? 'justify-content-end' : 'justify-content-start';
-            const senderName = isOwnMessage ? 'You' : msg.user.name;
+            const senderName = isOwnMessage ? 'You' : (msg.user?.name || 'User');
             const time = new Date(msg.created_at).toLocaleString();
             
             html += `
                 <div class="d-flex ${alignClass} mb-3">
-                    <div class="${messageClass} rounded-3 p-3" style="max-width: 70%;">
-                        <div class="small fw-semibold ${isOwnMessage ? 'text-white-50' : 'text-primary'} mb-1">
-                            ${senderName} · ${time}
-                        </div>
-                        <div class="mb-0">${escapeHtml(msg.message || '')}</div>
+                    <div class="${messageClass}">
+                        <div class="chat-bubble__meta mb-1">${escapeHtml(senderName)} · ${time}</div>
+                        <div>${escapeHtml(msg.message || '')}</div>
                     </div>
                 </div>
             `;

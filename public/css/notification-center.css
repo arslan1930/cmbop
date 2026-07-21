@@ -1,22 +1,22 @@
 /* In-app Notification Center — brand-aligned, monochrome icons */
 .nc-theme,
 .nc-bell-wrap {
-  --nc-primary: #4ECDCB;
-  --nc-primary-strong: #0b6266;
-  --nc-primary-soft: #e8f8f7;
-  --nc-primary-border: #b8e8e6;
-  --nc-fg: #212529;
-  --nc-fg-muted: #6c757d;
-  --nc-fg-subtle: #8a94a0;
-  --nc-bg: #ffffff;
-  --nc-bg-soft: #f8f9fa;
-  --nc-bg-hover: #f4f6f8;
-  --nc-border: #dee2e6;
-  --nc-border-soft: #e9ecef;
-  --nc-shadow: 0 12px 40px rgba(15, 23, 42, 0.12);
+  --nc-primary: var(--brand-primary-soft, #3aaeb2);
+  --nc-primary-strong: var(--brand-primary, #0b6266);
+  --nc-primary-soft: var(--brand-primary-bg, #e8f8f7);
+  --nc-primary-border: var(--brand-primary-border, #b8e8e6);
+  --nc-fg: var(--brand-ink, #1f2937);
+  --nc-fg-muted: var(--brand-neutral, #64748b);
+  --nc-fg-subtle: #94a3b8;
+  --nc-bg: var(--surface-1, #ffffff);
+  --nc-bg-soft: var(--surface-2, #f8fafc);
+  --nc-bg-hover: var(--hover-tint, #e8f8f7);
+  --nc-border: var(--border-subtle, #e2e8f0);
+  --nc-border-soft: #e2e8f0;
+  --nc-shadow: var(--shadow-dropdown, 0 8px 24px rgba(15, 23, 42, 0.1));
   --nc-radius: 12px;
   --nc-radius-sm: 8px;
-  --nc-danger: #dc3545;
+  --nc-danger: var(--brand-danger, #dc2626);
   color: var(--nc-fg);
 }
 

@@ -17,6 +17,7 @@
     <link href="{{ asset('css/button-system.css') }}?v={{ @filemtime(public_path('css/button-system.css')) ?: '1' }}" rel="stylesheet">
     <link href="{{ asset('css/form-system.css') }}?v={{ @filemtime(public_path('css/form-system.css')) ?: '1' }}" rel="stylesheet">
     <link href="{{ asset('css/app-shell.css') }}?v={{ @filemtime(public_path('css/app-shell.css')) ?: '1' }}" rel="stylesheet">
+    <link href="{{ asset('css/interaction.css') }}?v={{ @filemtime(public_path('css/interaction.css')) ?: '1' }}" rel="stylesheet">
     <link href="{{ asset('css/glass-tip.css') }}?v={{ @filemtime(public_path('css/glass-tip.css')) ?: '1' }}" rel="stylesheet">
     <link href="{{ asset('css/pulse-badge.css') }}?v={{ @filemtime(public_path('css/pulse-badge.css')) ?: '1' }}" rel="stylesheet">
     <script src="{{ asset('js/pulse-badge.js') }}?v={{ @filemtime(public_path('js/pulse-badge.js')) ?: '1' }}"></script>
@@ -36,7 +37,18 @@
 
         #sidebar .menu { flex-grow: 1; }
         #sidebar a { display: flex; align-items: center; gap: 10px; padding: 12px 20px; color: #555; text-decoration: none; font-weight: 500; }
-        #sidebar a.active, #sidebar a:hover { border-radius: 6px; background-color: #4ECDCB; color: #fff; }
+        /* Quiet active/hover — brand tint (shared shell may also apply) */
+        #sidebar a.active,
+        #sidebar a:hover {
+            border-radius: 8px;
+            background-color: var(--brand-primary-bg, #e8f8f7);
+            color: var(--brand-primary, #0b6266);
+            border: 1px solid var(--brand-primary-border, #b8e8e6);
+        }
+        #sidebar a.active i,
+        #sidebar a:hover i {
+            color: var(--brand-primary, #0b6266);
+        }
         #sidebar.collapsed { width: 70px; min-width: 70px; }
         #sidebar.collapsed a { justify-content: center; font-size: 0; }
         #sidebar.collapsed a i { font-size: 18px; }
@@ -97,7 +109,7 @@
         }
     </style>
 </head>
-<body>
+<body class="role-shell-admin">
 
 <!-- Sidebar -->
 <div id="sidebar">

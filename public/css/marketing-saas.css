@@ -64,12 +64,14 @@ body.slb-marketing .h3 {
   border-radius: 999px;
   font-weight: 600;
   padding: 0.5rem 1.1rem !important;
-  box-shadow: 0 8px 20px rgba(11, 98, 102, 0.18);
+  box-shadow: none;
+  transition: background-color 150ms ease, box-shadow 150ms ease;
 }
 
 #mainNavbar.slb-nav .navbar-cta-primary:hover {
   background: var(--brand-primary-soft) !important;
   color: #fff !important;
+  box-shadow: 0 4px 14px rgba(11, 98, 102, 0.16);
 }
 
 #mainNavbar.slb-nav .navbar-cta-outline {

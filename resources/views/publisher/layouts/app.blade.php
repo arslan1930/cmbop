@@ -16,6 +16,8 @@
     <link href="{{ asset('css/button-system.css') }}?v={{ @filemtime(public_path('css/button-system.css')) ?: '1' }}" rel="stylesheet">
     <link href="{{ asset('css/form-system.css') }}?v={{ @filemtime(public_path('css/form-system.css')) ?: '1' }}" rel="stylesheet">
     <link href="{{ asset('css/app-shell.css') }}?v={{ @filemtime(public_path('css/app-shell.css')) ?: '1' }}" rel="stylesheet">
+    <link href="{{ asset('css/interaction.css') }}?v={{ @filemtime(public_path('css/interaction.css')) ?: '1' }}" rel="stylesheet">
+    <link href="{{ asset('css/chat.css') }}?v={{ @filemtime(public_path('css/chat.css')) ?: '1' }}" rel="stylesheet">
     <link href="{{ asset('css/multi-select.css') }}?v={{ @filemtime(public_path('css/multi-select.css')) ?: '1' }}" rel="stylesheet">
     <link href="{{ asset('css/single-select.css') }}?v={{ @filemtime(public_path('css/single-select.css')) ?: '1' }}" rel="stylesheet">
     <link href="{{ asset('css/glass-tip.css') }}?v={{ @filemtime(public_path('css/glass-tip.css')) ?: '1' }}" rel="stylesheet">
@@ -88,11 +90,17 @@
             font-weight: 500;
         }
 
+        /* Quiet active/hover — brand tint (shared shell may also apply) */
         #sidebar a.active,
         #sidebar a:hover {
-            border-radius: 6px;
-            background-color: #4ECDCB;
-            color: #fff;
+            border-radius: 8px;
+            background-color: var(--brand-primary-bg, #e8f8f7);
+            color: var(--brand-primary, #0b6266);
+            border: 1px solid var(--brand-primary-border, #b8e8e6);
+        }
+        #sidebar a.active i,
+        #sidebar a:hover i {
+            color: var(--brand-primary, #0b6266);
         }
 
         .nav-count-badge {
@@ -103,12 +111,14 @@
         }
         #sidebar a.active .nav-count-badge,
         #sidebar a:hover .nav-count-badge {
-            background: rgba(255,255,255,0.25) !important;
-            color: #fff !important;
+            background: #fff !important;
+            color: var(--brand-primary, #0b6266) !important;
+            border-color: var(--brand-primary-border, #b8e8e6);
         }
         .nav-alert-badge {
-            background: #ffc107 !important;
-            color: #212529 !important;
+            background: var(--brand-primary-bg, #e8f8f7) !important;
+            color: var(--brand-primary, #0b6266) !important;
+            border: 1px solid var(--brand-primary-border, #b8e8e6) !important;
             font-weight: 700;
             font-size: 11px;
         }

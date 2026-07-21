@@ -1,13 +1,18 @@
 @php
-    $minPublisherPrice = \App\Models\Site::query()
-        ->where('active', 1)
-        ->where(function ($q) {
-            $q->where('verified', 1)->orWhere('verified', true);
-        })
-        ->min('price');
-    $fromPrice = $minPublisherPrice
-        ? number_format(app(\App\Services\PlatformFeeService::class)->advertiserBase((float) $minPublisherPrice), 0)
-        : '50';
+    $fromPrice = '50';
+    try {
+        $minPublisherPrice = \App\Models\Site::query()
+            ->where('active', 1)
+            ->where(function ($q) {
+                $q->where('verified', 1)->orWhere('verified', true);
+            })
+            ->min('price');
+        $fromPrice = $minPublisherPrice
+            ? number_format(app(\App\Services\PlatformFeeService::class)->advertiserBase((float) $minPublisherPrice), 0)
+            : '50';
+    } catch (\Throwable $e) {
+        $fromPrice = '50';
+    }
 @endphp
 
 <section class="py-20 bg-light">

@@ -1,0 +1,90 @@
+/**
+ * Shared interactions — dropdowns, tables, links, cards
+ */
+.dropdown-menu,
+.slb-dropdown {
+  border: 1px solid var(--border-subtle, #e2e8f0);
+  border-radius: var(--radius-lg, 12px);
+  box-shadow: var(--shadow-dropdown, 0 8px 24px rgba(15, 23, 42, 0.1));
+  padding: 6px;
+  overflow: hidden;
+}
+
+.dropdown-menu .dropdown-item,
+.slb-dropdown .dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-radius: var(--radius-sm, 8px);
+  padding: 8px 12px;
+  font-size: 0.9rem;
+  color: #334155;
+  transition: background-color var(--motion-fast, 150ms ease), color var(--motion-fast, 150ms ease);
+}
+
+.dropdown-menu .dropdown-item:hover,
+.dropdown-menu .dropdown-item:focus,
+.slb-dropdown .dropdown-item:hover,
+.slb-dropdown .dropdown-item:focus {
+  background: var(--hover-tint, #e8f8f7);
+  color: var(--brand-primary, #0b6266);
+}
+
+.dropdown-menu .dropdown-item.active,
+.dropdown-menu .dropdown-item:active {
+  background: var(--brand-primary-bg, #e8f8f7);
+  color: var(--brand-primary, #0b6266);
+}
+
+.dropdown-divider {
+  margin: 6px 0;
+  border-top-color: var(--border-subtle, #e2e8f0);
+}
+
+.table > :not(caption) > * > * {
+  vertical-align: middle;
+}
+
+.table-hover > tbody > tr {
+  transition: background-color var(--motion-fast, 150ms ease);
+}
+
+.table-hover > tbody > tr:hover > * {
+  background-color: var(--surface-2, #f8fafc);
+  --bs-table-bg-state: var(--surface-2, #f8fafc);
+}
+
+a:not(.btn):not(.dropdown-item):not(#sidebar a):not(.nav-link) {
+  transition: color var(--motion-fast, 150ms ease);
+}
+
+.card {
+  border-color: var(--border-subtle, #e2e8f0);
+  border-radius: var(--radius-lg, 12px);
+}
+
+.card.shadow-sm {
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04) !important;
+}
+
+.modal-content {
+  border: 1px solid var(--border-subtle, #e2e8f0);
+  border-radius: var(--radius-lg, 12px);
+  overflow: hidden;
+}
+
+.modal-header.bg-primary {
+  background: var(--brand-primary, #0b6266) !important;
+  border-bottom: none;
+}
+
+.form-control,
+.form-select {
+  border-radius: var(--radius-sm, 8px);
+  border-color: var(--border-subtle, #e2e8f0);
+  transition: border-color var(--motion-fast), box-shadow var(--motion-fast);
+}
+
+.alert {
+  border-radius: var(--radius-md, 10px);
+}

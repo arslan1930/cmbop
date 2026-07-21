@@ -42,6 +42,7 @@
     <link href="{{ asset('css/form-system.css') }}?v={{ @filemtime(public_path('css/form-system.css')) ?: '1' }}" rel="stylesheet">
     <link href="{{ asset('css/glass-tip.css') }}?v={{ @filemtime(public_path('css/glass-tip.css')) ?: '1' }}" rel="stylesheet">
     <link href="{{ asset('css/marketing-saas.css') }}?v={{ @filemtime(public_path('css/marketing-saas.css')) ?: '1' }}" rel="stylesheet">
+    <link href="{{ asset('css/interaction.css') }}?v={{ @filemtime(public_path('css/interaction.css')) ?: '1' }}" rel="stylesheet">
     <script src="{{ asset('js/glass-tip.js') }}?v={{ @filemtime(public_path('js/glass-tip.js')) ?: '1' }}" defer></script>
     <script src="https://www.google.com/recaptcha/api.js" async defer></script>
     <style>

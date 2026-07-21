@@ -1,7 +1,5 @@
 /**
- * Brand color system (3.5 / C1–C2)
- * Companion: spacing-system.css (3.6), multi-select.css (3.7 / K1)
- * Primary: teal · Neutral: slate · Semantic: success / warn / danger
+ * Brand color system — teal primary · slate neutrals · quiet semantics
  */
 :root {
   --brand-primary: #0b6266;
@@ -9,10 +7,12 @@
   --brand-primary-tint: #4ECDCB;
   --brand-primary-bg: #e8f8f7;
   --brand-primary-border: #b8e8e6;
+  --brand-primary-deep: #084f52;
 
   --brand-neutral: #64748b;
   --brand-neutral-bg: #f1f5f9;
   --brand-ink: #1f2937;
+  --brand-ink-muted: #6b7280;
 
   --brand-success: #0f766e;
   --brand-success-bg: #d1fae5;
@@ -20,6 +20,22 @@
   --brand-warning-bg: #fef3c7;
   --brand-danger: #dc2626;
   --brand-danger-bg: #fee2e2;
+
+  /* Surfaces & interaction (modern UI system) */
+  --surface-1: #ffffff;
+  --surface-2: #f8fafc;
+  --surface-3: #f1f5f9;
+  --border-subtle: #e2e8f0;
+  --border-default: #e2e8f0;
+  --hover-tint: #e8f8f7;
+  --hover-tint-strong: #d7f3f1;
+  --focus-ring: rgba(58, 174, 178, 0.35);
+  --motion-fast: 150ms ease;
+  --motion-base: 180ms ease;
+  --radius-sm: 8px;
+  --radius-md: 10px;
+  --radius-lg: 12px;
+  --shadow-dropdown: 0 8px 24px rgba(15, 23, 42, 0.1);
 
   /* Bootstrap 5.3 variable overrides */
   --bs-primary: #0b6266;
@@ -39,10 +55,11 @@
   --bs-btn-hover-bg: var(--brand-primary-soft);
   --bs-btn-hover-border-color: var(--brand-primary-soft);
   --bs-btn-active-color: #fff;
-  --bs-btn-active-bg: #084f52;
-  --bs-btn-active-border-color: #084f52;
+  --bs-btn-active-bg: var(--brand-primary-deep);
+  --bs-btn-active-border-color: var(--brand-primary-deep);
   --bs-btn-disabled-bg: var(--brand-primary);
   --bs-btn-disabled-border-color: var(--brand-primary);
+  transition: background-color var(--motion-fast), border-color var(--motion-fast), color var(--motion-fast);
 }
 
 .btn-outline-primary {
@@ -54,6 +71,7 @@
   --bs-btn-active-color: #fff;
   --bs-btn-active-bg: var(--brand-primary);
   --bs-btn-active-border-color: var(--brand-primary);
+  transition: background-color var(--motion-fast), border-color var(--motion-fast), color var(--motion-fast);
 }
 
 .bg-primary { background-color: var(--brand-primary) !important; }
@@ -70,7 +88,7 @@
 .form-select:focus,
 .form-check-input:focus {
   border-color: var(--brand-primary-soft);
-  box-shadow: 0 0 0 0.2rem rgba(58, 174, 178, 0.2);
+  box-shadow: 0 0 0 0.2rem var(--focus-ring);
 }
 
 .form-check-input:checked {
@@ -82,7 +100,7 @@
   background-color: var(--brand-primary-soft) !important;
 }
 
-/* C2 — Shared badge language */
+/* Shared badge language */
 .badge-verified {
   background: linear-gradient(180deg, #ecfdf5 0%, #d1fae5 100%) !important;
   color: #0f766e !important;
@@ -101,9 +119,9 @@
 }
 
 .badge-warn {
-  background: var(--brand-warning-bg) !important;
-  color: #92400e !important;
-  border: 1px solid rgba(217, 119, 6, 0.25) !important;
+  background: var(--surface-2) !important;
+  color: var(--brand-primary) !important;
+  border: 1px solid var(--brand-primary-border) !important;
   font-weight: 600;
 }
 
@@ -117,7 +135,7 @@
 .badge-neutral {
   background: var(--brand-neutral-bg) !important;
   color: var(--brand-neutral) !important;
-  border: 1px solid #e2e8f0 !important;
+  border: 1px solid var(--border-subtle) !important;
   font-weight: 500;
 }
 

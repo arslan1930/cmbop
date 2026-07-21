@@ -154,63 +154,63 @@
   }
 
   .navbar-cta-primary {
-    background-color: #4ECDCB;
-    border-radius: 0.5rem;
-    font-weight: 500;
-    transition: all 0.3s;
+    background-color: var(--brand-primary, #0b6266);
+    border-radius: 999px;
+    font-weight: 600;
+    transition: background-color 150ms ease, box-shadow 150ms ease;
   }
 
   .navbar-cta-outline {
-    border: 1px solid #4ECDCB;
-    border-radius: 0.5rem;
-    font-weight: 500;
-    color: #4ECDCB;
+    border: 1px solid var(--brand-primary-border, #b8e8e6);
+    border-radius: 999px;
+    font-weight: 600;
+    color: var(--brand-primary, #0b6266);
     background: none;
     cursor: pointer;
-    transition: all 0.3s;
+    transition: background-color 150ms ease, border-color 150ms ease;
   }
 
   .navbar-lang-btn {
     border: 1px solid #dee2e6;
-    border-radius: 0.5rem;
+    border-radius: 999px;
     padding: 0.375rem 0.75rem;
   }
 
   .navbar-lang-flag { font-size: 1.2rem; }
 
   .navbar-nav .nav-link {
-    transition: color 0.3s ease, background 0.3s ease;
+    transition: color 150ms ease, background 150ms ease;
     white-space: nowrap;
   }
 
   .navbar-nav .nav-link:hover {
-    color: #4ECDCB !important;
-    background-color: transparent !important;
+    color: var(--brand-primary, #0b6266) !important;
+    background-color: rgba(11, 98, 102, 0.06) !important;
   }
 
   .navbar-nav .nav-link[href*="/login"]:hover,
   .navbar-nav form button.nav-link:hover {
-    color: #2a9a95 !important;
-    border-color: #2a9a95 !important;
+    color: var(--brand-primary, #0b6266) !important;
+    border-color: var(--brand-primary-soft, #3aaeb2) !important;
     background-color: transparent !important;
   }
 
   .navbar-nav .nav-link[href*="/register"]:hover,
   .navbar-nav .nav-link[href*="dashboard"]:hover {
-    background-color: #3aaeb2 !important;
+    background-color: var(--brand-primary-soft, #3aaeb2) !important;
     color: #fff !important;
   }
 
   .dropdown-item.active {
-    background-color: #4ECDCB;
-    color: white;
+    background-color: var(--brand-primary-bg, #e8f8f7);
+    color: var(--brand-primary, #0b6266);
   }
 
-  .dropdown-item:active { background-color: #3aaeb2; }
+  .dropdown-item:active { background-color: var(--brand-primary-bg, #e8f8f7); }
 
   .dropdown-item:hover {
-    background-color: rgba(78, 205, 203, 0.1);
-    color: #4ECDCB;
+    background-color: var(--hover-tint, #e8f8f7);
+    color: var(--brand-primary, #0b6266);
   }
 
   @media (max-width: 991.98px) {
