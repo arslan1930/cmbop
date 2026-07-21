@@ -729,8 +729,8 @@ class Site extends Model
     }
 
     /**
-     * Language-first market check used by Content Library ordering.
-     * Native site languages only (English universality is handled in ContentSubmission::matchesSite).
+     * Language metadata helper for sites (catalog filters, publisher UI).
+     * Placement no longer restricts Content Library articles by language.
      */
     public function acceptsLanguage(string $language): bool
     {

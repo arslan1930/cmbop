@@ -9,7 +9,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\Support\CreatesContentSubmissions;
 use Tests\TestCase;
 
-class EnglishUniversalCartMatchTest extends TestCase
+class AnyLanguageCartMatchTest extends TestCase
 {
     use CreatesContentSubmissions;
     use RefreshDatabase;
@@ -58,12 +58,12 @@ class EnglishUniversalCartMatchTest extends TestCase
         ]);
     }
 
-    public function test_english_article_can_be_assigned_to_german_site(): void
+    public function test_any_language_article_can_be_assigned_to_any_site(): void
     {
         $advertiser = $this->advertiser();
         $publisher = $this->publisher();
-        $deSite = $this->activeSite($publisher, 'de-site', 'de', 'de');
-        $article = $this->createApprovedSubmission($advertiser, null, 0, 'anchor', 'https://example.com/a', 'us', 'en');
+        $deSite = $this->activeSite($publisher, 'de-any', 'de', 'de');
+        $nlArticle = $this->createApprovedSubmission($advertiser, null, 0, 'anchor', 'https://example.com/nl', 'nl', 'nl');
 
         $this->withSession([
             'cart' => [[
@@ -77,47 +77,19 @@ class EnglishUniversalCartMatchTest extends TestCase
         ])->actingAs($advertiser)
             ->postJson(route('advertiser.cart.assign-article'), [
                 'id' => $deSite->id,
-                'content_submission_id' => $article->id,
+                'content_submission_id' => $nlArticle->id,
             ])
             ->assertOk()
             ->assertJsonPath('success', true);
 
-        $cart = session('cart');
-        $this->assertSame($article->id, (int) ($cart[0]['content_submission_id'] ?? 0));
+        $this->assertSame($nlArticle->id, (int) (session('cart')[0]['content_submission_id'] ?? 0));
     }
 
-    public function test_dutch_article_is_cleared_quietly_on_german_site(): void
+    public function test_library_article_attaches_even_when_site_language_differs(): void
     {
         $advertiser = $this->advertiser();
         $publisher = $this->publisher();
-        $deSite = $this->activeSite($publisher, 'de-site-2', 'de', 'de');
-        $nlArticle = $this->createApprovedSubmission($advertiser, null, 0, 'anchor', 'https://example.com/nl', 'nl', 'nl');
-
-        $response = $this->withSession([
-            'cart' => [[
-                'id' => $deSite->id,
-                'name' => $deSite->site_name,
-                'price' => 40,
-                'quantity' => 1,
-                'language' => 'de',
-                'country' => 'de',
-                'content_submission_id' => $nlArticle->id,
-            ]],
-        ])->actingAs($advertiser)
-            ->getJson(route('advertiser.cart.get'))
-            ->assertOk();
-
-        $cart = $response->json('cart');
-        $this->assertIsArray($cart);
-        $this->assertArrayNotHasKey('content_submission_id', $cart[0] ?? []);
-        $this->assertArrayNotHasKey('content_submission_id', session('cart')[0] ?? []);
-    }
-
-    public function test_library_order_adds_mismatched_site_without_error(): void
-    {
-        $advertiser = $this->advertiser();
-        $publisher = $this->publisher();
-        $frSite = $this->activeSite($publisher, 'fr-site', 'fr', 'fr');
+        $frSite = $this->activeSite($publisher, 'fr-any', 'fr', 'fr');
         $deArticle = $this->createApprovedSubmission($advertiser, null, 0, 'anchor', 'https://example.com/de', 'de', 'de');
 
         $this->withSession([
@@ -133,6 +105,6 @@ class EnglishUniversalCartMatchTest extends TestCase
 
         $cart = session('cart');
         $this->assertCount(1, $cart);
-        $this->assertArrayNotHasKey('content_submission_id', $cart[0] ?? []);
+        $this->assertSame($deArticle->id, (int) ($cart[0]['content_submission_id'] ?? 0));
     }
 }

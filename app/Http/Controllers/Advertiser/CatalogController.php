@@ -645,8 +645,7 @@ class CatalogController extends Controller
             ->filter(fn (ContentSubmission $s) => $s->canBeOrdered())
             ->values();
 
-        // Silently drop articles that no longer match their cart site (e.g. after
-        // browsing other countries). User reselects from Content Library at checkout.
+        // Drop articles that are no longer orderable (used/archived). Language is not checked.
         $approvedById = $approved->keyBy('id');
         $cartChanged = false;
         foreach ($cart as $i => $line) {
@@ -654,7 +653,6 @@ class CatalogController extends Controller
             if ($submissionId <= 0) {
                 continue;
             }
-            $site = $sites->get((int) ($line['id'] ?? 0));
             $submission = $approvedById->get($submissionId);
             if (! $submission) {
                 $submission = ContentSubmission::query()
@@ -663,7 +661,7 @@ class CatalogController extends Controller
                     ->whereNull('order_id')
                     ->first();
             }
-            if (! $site || ! $submission || ! $submission->canBeOrdered() || ! $submission->matchesSite($site)) {
+            if (! $submission || ! $submission->canBeOrdered()) {
                 unset($cart[$i]['content_submission_id']);
                 $cartChanged = true;
             }
@@ -937,16 +935,6 @@ class CatalogController extends Controller
             ], 422);
         }
 
-        if (! $submission->matchesSite($site)) {
-            // Keep selection workflow simple: clear quietly; user picks again at checkout.
-            unset($cart[$lineKey]['content_submission_id']);
-            session()->put('cart', array_values($cart));
-
-            return response()->json(array_merge([
-                'success' => true,
-            ], $this->cartPayloadForClient()));
-        }
-
         foreach ($cart as $key => $item) {
             if ((int) $key === (int) $lineKey) {
                 continue;
@@ -1008,11 +996,7 @@ class CatalogController extends Controller
                     );
 
                     if (! $alreadyAssigned) {
-                        // If the library article does not fit this site, still add the site
-                        // without attaching — user picks a matching article at checkout.
-                        if ($librarySubmission->matchesSite($site)) {
-                            $attachArticleId = (int) $librarySubmission->id;
-                        }
+                        $attachArticleId = (int) $librarySubmission->id;
                     }
                 }
             }
@@ -2859,14 +2843,6 @@ class CatalogController extends Controller
                 return response()->json([
                     'success' => false,
                     'message' => 'Add anchor text and a valid HTTPS target URL, or confirm continuing without a link.',
-                ], 422);
-            }
-
-            if (! $submission->matchesSite($site)) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Article language must match this website (or use an English article). '
-                        .'Site languages: '.strtoupper((string) ($site->language ?: 'any')).'.',
                 ], 422);
             }
 

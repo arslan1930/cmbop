@@ -63,8 +63,8 @@
     </div>
     <div class="card-body">
         <div class="alert alert-info border-0 small">
-            Each website needs its own <strong>approved</strong> Content Library article in that site’s language
-            (or <strong>English</strong>, which works on every site).
+            Each website needs its own <strong>approved</strong> Content Library article
+            (any language).
             (e.g. English articles work on US, UK, AU, and other English sites).
             Upload or fix articles in the library first — approval is automatic after compliance and uniqueness checks.
         </div>
@@ -74,12 +74,7 @@
                 @php
                     $siteCountries = $p['countries'] ?: array_filter([$p['country']]);
                     $siteLanguages = $p['languages'] ?: array_filter([$p['language']]);
-                    $matching = $approvedArticles->filter(function ($article) use ($siteLanguages) {
-                        return \App\Models\ContentSubmission::languageFitsSiteLanguages(
-                            (string) $article->language,
-                            $siteLanguages
-                        );
-                    });
+                    $matching = $approvedArticles;
                 @endphp
                 <div class="content-assign-card placement-assign"
                      data-site-id="{{ $p['site_id'] }}"
@@ -106,7 +101,7 @@
                     </div>
 
                     <div class="mb-3">
-                        <label class="form-label">Approved article (site language or English)</label>
+                        <label class="form-label">Approved article</label>
                         <select class="form-select article-select">
                             <option value="">— Select approved article —</option>
                             @forelse($matching as $article)

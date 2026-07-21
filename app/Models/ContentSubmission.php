@@ -331,53 +331,21 @@ class ContentSubmission extends Model
 
     /**
      * Whether this article can be placed on a publisher site.
-     * Language-first:
-     * - English articles are universal (any site / country, including non-EU).
-     * - Other languages only match sites that accept that language
-     *   (e.g. German article → German sites; Dutch cannot go on .de).
+     * No language restriction — any approved Content Library article may be used on any site.
      */
     public function matchesSite(Site $site): bool
     {
-        $language = strtolower(trim((string) $this->language));
-
-        if ($language === '') {
-            return false;
-        }
-
-        // English guest posts can publish on any marketplace site.
-        if ($language === 'en') {
-            return true;
-        }
-
-        return $site->acceptsLanguage($language);
+        return true;
     }
 
     /**
-     * Client/UI helper: article language is valid for a site's language code(s).
+     * Client/UI helper: article language is always accepted for placement.
      *
      * @param  array<int, string>  $siteLanguages
      */
     public static function languageFitsSiteLanguages(string $articleLanguage, array $siteLanguages): bool
     {
-        $articleLanguage = strtolower(trim($articleLanguage));
-        if ($articleLanguage === '') {
-            return false;
-        }
-
-        if ($articleLanguage === 'en') {
-            return true;
-        }
-
-        $siteLanguages = array_values(array_filter(array_map(
-            static fn ($l) => strtolower(trim((string) $l)),
-            $siteLanguages
-        )));
-
-        if ($siteLanguages === []) {
-            return true;
-        }
-
-        return in_array($articleLanguage, $siteLanguages, true);
+        return true;
     }
 
     /**
