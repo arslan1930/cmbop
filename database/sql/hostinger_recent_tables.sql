@@ -311,6 +311,12 @@ ALTER TABLE `users` ADD COLUMN `payout_crypto_trx_wallet` varchar(255) NULL;
 ALTER TABLE `users` ADD COLUMN `payout_crypto_trx_verified_at` timestamp NULL;
 ALTER TABLE `users` ADD COLUMN `payout_profile_locked_at` timestamp NULL;
 
+-- Stripe saved cards / Checkout customer (fixes: Unknown column stripe_customer_id)
+ALTER TABLE `users` ADD COLUMN `stripe_customer_id` varchar(255) NULL;
+ALTER TABLE `users` ADD COLUMN `stripe_default_payment_method_id` varchar(255) NULL;
+-- Ignore "Duplicate key name" if the unique index already exists:
+-- ALTER TABLE `users` ADD UNIQUE KEY `users_stripe_customer_id_unique` (`stripe_customer_id`);
+
 -- ---------------------------------------------------------------------------
 -- In-app notifications + order timeline (bell / activity feed)
 -- ---------------------------------------------------------------------------
