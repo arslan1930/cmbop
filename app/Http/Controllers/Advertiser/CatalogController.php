@@ -633,7 +633,6 @@ class CatalogController extends Controller
             $cart[$i]['country'] = $line['country'] ?? $site->country;
             $cart[$i]['link_type'] = $line['link_type'] ?? $site->link_type;
         }
-        session()->put('cart', $cart);
 
         $approved = ContentSubmission::query()
             ->where('user_id', auth()->id())
@@ -645,6 +644,33 @@ class CatalogController extends Controller
             ->get()
             ->filter(fn (ContentSubmission $s) => $s->canBeOrdered())
             ->values();
+
+        // Drop articles that are no longer orderable (used/archived). Language is not checked.
+        $approvedById = $approved->keyBy('id');
+        $cartChanged = false;
+        foreach ($cart as $i => $line) {
+            $submissionId = (int) ($line['content_submission_id'] ?? 0);
+            if ($submissionId <= 0) {
+                continue;
+            }
+            $submission = $approvedById->get($submissionId);
+            if (! $submission) {
+                $submission = ContentSubmission::query()
+                    ->where('id', $submissionId)
+                    ->where('user_id', auth()->id())
+                    ->whereNull('order_id')
+                    ->first();
+            }
+            if (! $submission || ! $submission->canBeOrdered()) {
+                unset($cart[$i]['content_submission_id']);
+                $cartChanged = true;
+            }
+        }
+
+        session()->put('cart', array_values($cart));
+        if ($cartChanged) {
+            $cart = array_values(session()->get('cart', []));
+        }
 
         $articles = $approved->map(fn (ContentSubmission $s) => [
             'id' => $s->id,
@@ -909,14 +935,6 @@ class CatalogController extends Controller
             ], 422);
         }
 
-        if (! $submission->matchesSite($site)) {
-            return response()->json([
-                'success' => false,
-                'error' => 'This article’s language does not match this website. Pick an article in '
-                    .strtoupper((string) ($site->language ?: 'the site language')).'.',
-            ], 422);
-        }
-
         foreach ($cart as $key => $item) {
             if ((int) $key === (int) $lineKey) {
                 continue;
@@ -978,14 +996,6 @@ class CatalogController extends Controller
                     );
 
                     if (! $alreadyAssigned) {
-                        if (! $librarySubmission->matchesSite($site)) {
-                            return response()->json([
-                                'success' => false,
-                                'error' => 'This article is written for '
-                                    .strtoupper((string) $librarySubmission->language)
-                                    .'. Choose a website that publishes in that language, or assign a different article in your cart.',
-                            ], 422);
-                        }
                         $attachArticleId = (int) $librarySubmission->id;
                     }
                 }
@@ -2833,15 +2843,6 @@ class CatalogController extends Controller
                 return response()->json([
                     'success' => false,
                     'message' => 'Add anchor text and a valid HTTPS target URL, or confirm continuing without a link.',
-                ], 422);
-            }
-
-            if (! $submission->matchesSite($site)) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Article language must match the website language ('
-                        .strtoupper((string) ($site->language ?: 'any')).'). '
-                        .'English articles can be placed on any English-language website.',
                 ], 422);
             }
 

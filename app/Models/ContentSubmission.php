@@ -331,18 +331,21 @@ class ContentSubmission extends Model
 
     /**
      * Whether this article can be placed on a publisher site.
-     * Matching is language-first (same as catalog/publisher flow):
-     * English articles can publish on any English-language website/country.
+     * No language restriction — any approved Content Library article may be used on any site.
      */
     public function matchesSite(Site $site): bool
     {
-        $language = strtolower(trim((string) $this->language));
+        return true;
+    }
 
-        if ($language === '') {
-            return false;
-        }
-
-        return $site->acceptsLanguage($language);
+    /**
+     * Client/UI helper: article language is always accepted for placement.
+     *
+     * @param  array<int, string>  $siteLanguages
+     */
+    public static function languageFitsSiteLanguages(string $articleLanguage, array $siteLanguages): bool
+    {
+        return true;
     }
 
     /**

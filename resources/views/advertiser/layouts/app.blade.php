@@ -638,18 +638,10 @@
             <span>Saved Sites</span>
         </a>
 
-        <div class="nav-group">
-            <a href="{{ route('advertiser.content-library') }}" class="{{ request()->routeIs('advertiser.content-library*') ? 'active' : '' }}">
-                <i class="fa fa-file-word"></i>
-                <span>Content Library</span>
-            </a>
-            <div class="nav-sub">
-                <a href="{{ route('advertiser.content-library', ['upload' => 1]) }}" class="nav-sub-link">
-                    <i class="fa fa-upload"></i>
-                    <span>Upload article</span>
-                </a>
-            </div>
-        </div>
+        <a href="{{ route('advertiser.content-library') }}" class="{{ request()->routeIs('advertiser.content-library*') ? 'active' : '' }}">
+            <i class="fa fa-file-word"></i>
+            <span>Content Library</span>
+        </a>
 
         <!-- Orders -->
         <a href="{{ route('advertiser.orders') }}" class="{{ request()->routeIs('advertiser.orders') ? 'active' : '' }}">
@@ -970,8 +962,6 @@
                 .filter((id) => id > 0)
         );
         return approvedArticles.filter((article) => {
-            const lang = String(article.language || '').toLowerCase();
-            if (siteLang && lang && lang !== siteLang) return false;
             if (usedElsewhere.has(article.id) && article.id !== selectedId) return false;
             return true;
         });

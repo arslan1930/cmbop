@@ -143,6 +143,39 @@ class ContentLibraryController extends Controller
             ->groupBy('country')
             ->pluck('total', 'country');
 
+        // Counts for moderation boxes: respect search / country / language, ignore status.
+        $countScope = ContentSubmission::query()
+            ->where('user_id', auth()->id())
+            ->whereNull('archived_at');
+
+        if ($languageFilter !== '' && $languageFilter !== 'all') {
+            $countScope->where('language', $languageFilter);
+        }
+
+        if ($countryFilter !== '' && $countryFilter !== 'all') {
+            $countScope->where('country', $countryFilter);
+        }
+
+        if ($search !== '') {
+            $like = '%'.str_replace(['%', '_'], ['\\%', '\\_'], $search).'%';
+            $countScope->where(function ($q) use ($like) {
+                $q->where('title', 'like', $like)
+                    ->orWhere('original_filename', 'like', $like);
+            });
+        }
+
+        $statusTotals = (clone $countScope)
+            ->selectRaw('moderation_status, COUNT(*) as total')
+            ->groupBy('moderation_status')
+            ->pluck('total', 'moderation_status');
+
+        $moderationCounts = [
+            'all' => (int) $statusTotals->sum(),
+            'approved' => (int) ($statusTotals[ContentSubmission::STATUS_APPROVED] ?? 0),
+            'rejected' => (int) ($statusTotals[ContentSubmission::STATUS_REJECTED] ?? 0),
+            'needs_improvement' => (int) ($statusTotals[ContentSubmission::STATUS_NEEDS_IMPROVEMENT] ?? 0),
+        ];
+
         $countries = Country::marketplace()->orderBy('name')->get(['code', 'name']);
         $languages = Language::marketplace()->orderBy('name')->get(['code', 'name']);
         $languageCountryMap = $this->languageCountryMap->map();
@@ -157,6 +190,7 @@ class ContentLibraryController extends Controller
             'searchQuery' => $search,
             'groupedByLanguage' => $groupedByLanguage,
             'groupedByCountry' => $groupedByCountry,
+            'moderationCounts' => $moderationCounts,
             'countries' => $countries,
             'languages' => $languages,
             'languageCountryMap' => $languageCountryMap,
