@@ -1722,8 +1722,19 @@ document.addEventListener('DOMContentLoaded', function() {
         summaryTotal.innerText = `€${amount.toFixed(2)}`;
     }
 
-    // Prefill amount/method comes from applyPrefill() above (server + ?amount=&method=).
-
+    // Prefill from Wallet page (?amount=)
+    const prefillAmount = parseFloat(new URLSearchParams(window.location.search).get('amount') || '');
+    if (!isNaN(prefillAmount) && prefillAmount >= 10) {
+        const matchingBtn = Array.from(amountBtns).find(b => parseFloat(b.dataset.amount) === prefillAmount);
+        if (matchingBtn) {
+            matchingBtn.click();
+        } else {
+            customAmountInput.value = prefillAmount;
+            setSelectedAmount(prefillAmount);
+            amountBtns.forEach(b => b.classList.remove('active'));
+        }
+    }
+    
     // Payment option click
     paymentOptions.forEach(option => {
         option.addEventListener('click', function() {
