@@ -213,6 +213,11 @@
                                     <i class="fa fa-check-circle payment-check" style="color:#4ECDCB; font-size:20px; opacity:0;"></i>
                                 </div>
                             </div>
+                            @if(empty($stripeConfigured))
+                                <div class="alert alert-warning py-2 px-3 mb-3 small" id="stripeNotConfiguredAlert">
+                                    Card payments are not configured on this server. Set <code>STRIPE_KEY</code> and <code>STRIPE_SECRET</code> in <code>.env</code>, or pay with wallet.
+                                </div>
+                            @endif
 
                             <div class="border rounded-3 p-3 mb-1" style="background:#f8fafc; border-color:#e2e8f0 !important;" id="fundWalletCheckoutHint">
                                 <div class="d-flex flex-wrap align-items-start justify-content-between gap-3">

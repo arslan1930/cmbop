@@ -75,9 +75,19 @@ class CheckoutSystemFixTest extends TestCase
 
     private function fakeStripeCheckoutSession(string $sessionId = 'cs_test_fix'): void
     {
-        config(['services.stripe.secret' => 'sk_test_fake_key_for_unit_tests']);
+        config([
+            'services.stripe.secret' => 'sk_test_fake_key_for_unit_tests',
+            'services.stripe.key' => 'pk_test_fake_key_for_unit_tests',
+        ]);
 
-        $body = json_encode([
+        $customerBody = json_encode([
+            'id' => 'cus_test_'.substr($sessionId, -8),
+            'object' => 'customer',
+            'email' => 'test@example.com',
+            'livemode' => false,
+        ], JSON_THROW_ON_ERROR);
+
+        $sessionBody = json_encode([
             'id' => $sessionId,
             'object' => 'checkout.session',
             'url' => 'https://checkout.stripe.com/c/pay/'.$sessionId,
@@ -87,7 +97,12 @@ class CheckoutSystemFixTest extends TestCase
         ], JSON_THROW_ON_ERROR);
 
         $client = Mockery::mock(ClientInterface::class);
-        $client->shouldReceive('request')->once()->andReturn([$body, 200, []]);
+        $client->shouldReceive('request')
+            ->twice()
+            ->andReturn(
+                [$customerBody, 200, []],
+                [$sessionBody, 200, []]
+            );
         ApiRequestor::setHttpClient($client);
     }
 
