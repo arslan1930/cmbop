@@ -25,14 +25,17 @@
         'archived' => 'Archived',
         'unavailable' => 'Unavailable',
     ];
-    $statusBadge = [
-        'available' => 'success',
-        'in_progress' => 'primary',
-        'published' => 'success',
-        'needs_fix' => 'warning',
-        'expired' => 'secondary',
-        'archived' => 'secondary',
-        'unavailable' => 'light',
+    $moderationBoxLabels = [
+        'all' => 'All',
+        'approved' => 'Approved',
+        'rejected' => 'Rejected',
+        'needs_improvement' => 'Needs corrections',
+    ];
+    $moderationCounts = $moderationCounts ?? [
+        'all' => 0,
+        'approved' => 0,
+        'rejected' => 0,
+        'needs_improvement' => 0,
     ];
 @endphp
 <style>
@@ -66,6 +69,90 @@
         border-radius: 999px;
         padding: 3px 9px;
         white-space: nowrap;
+    }
+    .library-status {
+        display: inline-flex;
+        align-items: center;
+        font-size: .72rem;
+        font-weight: 600;
+        letter-spacing: .02em;
+        border-radius: 6px;
+        padding: 4px 9px;
+        border: 1px solid transparent;
+        white-space: nowrap;
+        line-height: 1.2;
+    }
+    .library-status--available,
+    .library-status--published {
+        background: var(--brand-primary-bg, #e8f8f7);
+        color: var(--brand-primary, #0b6266);
+        border-color: var(--brand-primary-border, #b8e8e6);
+    }
+    .library-status--in_progress {
+        background: #f1f5f9;
+        color: #475569;
+        border-color: #e2e8f0;
+    }
+    .library-status--needs_fix {
+        background: #f8fafc;
+        color: var(--brand-primary, #0b6266);
+        border-color: var(--brand-primary-border, #b8e8e6);
+    }
+    .library-status--expired,
+    .library-status--archived,
+    .library-status--unavailable {
+        background: #f8fafc;
+        color: #64748b;
+        border-color: #e2e8f0;
+    }
+    .library-moderation-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: .5rem;
+        margin-bottom: 1rem;
+    }
+    .library-moderation-box {
+        flex: 1 1 140px;
+        min-width: 120px;
+        max-width: 220px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: .5rem;
+        padding: .65rem .85rem;
+        border-radius: 10px;
+        border: 1px solid #e2e8f0;
+        background: #fff;
+        color: #334155;
+        text-decoration: none;
+        font-size: .84rem;
+        font-weight: 600;
+        transition: border-color .15s ease, background .15s ease, color .15s ease, box-shadow .15s ease;
+    }
+    .library-moderation-box:hover {
+        border-color: var(--brand-primary-border, #b8e8e6);
+        background: var(--brand-primary-bg, #e8f8f7);
+        color: var(--brand-primary, #0b6266);
+    }
+    .library-moderation-box.is-active {
+        background: var(--brand-primary, #0b6266);
+        border-color: var(--brand-primary, #0b6266);
+        color: #fff;
+        box-shadow: 0 1px 2px rgba(11, 98, 102, .18);
+    }
+    .library-moderation-box .mod-count {
+        font-size: .72rem;
+        font-weight: 700;
+        font-variant-numeric: tabular-nums;
+        opacity: .75;
+        background: rgba(15, 23, 42, .06);
+        border-radius: 999px;
+        padding: 2px 7px;
+        line-height: 1.3;
+    }
+    .library-moderation-box.is-active .mod-count {
+        background: rgba(255, 255, 255, .2);
+        opacity: 1;
     }
     .library-scores { font-variant-numeric: tabular-nums; white-space: nowrap; color: #475569; }
     .library-preview {
@@ -109,14 +196,18 @@
         margin-top: 6px;
         padding: 8px 10px;
         border-radius: 8px;
-        background: #fff7ed;
-        border: 1px solid #fed7aa;
-        color: #9a3412;
+        background: #f8fafc;
+        border: 1px solid var(--brand-primary-border, #b8e8e6);
+        color: #475569;
         font-size: 12px;
         line-height: 1.4;
         max-width: 420px;
     }
-    .library-reject-box strong { display: block; margin-bottom: 2px; }
+    .library-reject-box strong {
+        display: block;
+        margin-bottom: 2px;
+        color: var(--brand-primary, #0b6266);
+    }
     .library-feature-thumb {
         width: 40px;
         height: 40px;
@@ -189,24 +280,12 @@
     @endif
     <div id="libraryFlash" class="alert d-none" role="status"></div>
 
-    <form method="GET" action="{{ route('advertiser.content-library') }}" class="library-filter-bar row g-2 align-items-end mb-3">
+    <form method="GET" action="{{ route('advertiser.content-library') }}" class="library-filter-bar row g-2 align-items-end mb-2">
+        <input type="hidden" name="status" value="{{ $statusFilter ?? 'all' }}">
         <div class="col-md-3 col-lg-3">
             <label class="form-label small text-muted mb-1" for="librarySearchInput">Search</label>
             <input type="search" name="q" id="librarySearchInput" class="form-control form-control-sm"
                    value="{{ $searchQuery ?? '' }}" placeholder="Title or filename">
-        </div>
-        <div class="col-6 col-md-2">
-            <label class="form-label small text-muted mb-1">Moderation</label>
-            <select name="status" class="form-select form-select-sm" onchange="this.form.submit()">
-                @foreach([
-                    'all' => 'All',
-                    'approved' => 'Approved',
-                    'rejected' => 'Rejected',
-                    'needs_improvement' => 'Needs corrections',
-                ] as $key => $label)
-                    <option value="{{ $key }}" @selected(($statusFilter ?? 'all') === $key)>{{ $label }}</option>
-                @endforeach
-            </select>
         </div>
         <div class="col-6 col-md-2">
             <label class="form-label small text-muted mb-1">Country</label>
@@ -238,6 +317,17 @@
         </div>
     </form>
 
+    <div class="library-moderation-row" role="group" aria-label="Moderation filter">
+        @foreach($moderationBoxLabels as $key => $label)
+            <a href="{{ $libraryRoute(['status' => $key]) }}"
+               class="library-moderation-box @if(($statusFilter ?? 'all') === $key) is-active @endif"
+               @if(($statusFilter ?? 'all') === $key) aria-current="true" @endif>
+                <span>{{ $label }}</span>
+                <span class="mod-count">{{ (int) ($moderationCounts[$key] ?? 0) }}</span>
+            </a>
+        @endforeach
+    </div>
+
     <div class="library-table border shadow-sm">
         <div class="table-responsive">
             <table class="table table-hover align-middle mb-0">
@@ -257,7 +347,6 @@
                         $placement = $submission->placementItem();
                         $liveUrl = $submission->liveUrl();
                         $siteName = $placement?->site?->site_name;
-                        $badge = $statusBadge[$availability] ?? 'secondary';
                         $label = $statusLabels[$availability] ?? ucfirst(str_replace('_', ' ', $availability));
                     @endphp
                     <tr id="library-row-{{ $submission->id }}">
@@ -318,7 +407,7 @@
                             </span>
                         </td>
                         <td>
-                            <span class="badge text-bg-{{ $badge }}">{{ $label }}</span>
+                            <span class="library-status library-status--{{ $availability }}">{{ $label }}</span>
                         </td>
                         <td class="library-scores">
                             @if($submission->evaluated_at)
