@@ -8,6 +8,8 @@ use App\Services\StripeCustomerService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Schema;
 use Mockery;
+use Stripe\ApiRequestor;
+use Stripe\HttpClient\ClientInterface;
 use Tests\TestCase;
 
 class SavedCardAndPaymentTrustTest extends TestCase
@@ -134,5 +136,47 @@ class SavedCardAndPaymentTrustTest extends TestCase
 
         $this->assertTrue(Schema::hasColumn('users', 'stripe_customer_id'));
         $this->assertTrue(Schema::hasColumn('users', 'stripe_default_payment_method_id'));
+    }
+
+    public function test_configured_requires_sk_secret(): void
+    {
+        $svc = app(StripeCustomerService::class);
+
+        config(['services.stripe.secret' => '']);
+        $this->assertFalse($svc->configured());
+
+        config(['services.stripe.secret' => '  sk_test_abc  ']);
+        $this->assertTrue($svc->configured());
+
+        config(['services.stripe.secret' => 'pk_test_abc']);
+        $this->assertFalse($svc->configured());
+    }
+
+    public function test_get_or_create_customer_survives_missing_column_persist(): void
+    {
+        config(['services.stripe.secret' => 'sk_test_fake_key_for_unit_tests']);
+
+        $user = $this->advertiser();
+        $customerBody = json_encode([
+            'id' => 'cus_ephemeral_1',
+            'object' => 'customer',
+            'email' => $user->email,
+        ], JSON_THROW_ON_ERROR);
+
+        $client = Mockery::mock(ClientInterface::class);
+        $client->shouldReceive('request')->once()->andReturn([$customerBody, 200, []]);
+        ApiRequestor::setHttpClient($client);
+
+        // Simulate Hostinger schema without the column after ensure "fails".
+        $svc = Mockery::mock(StripeCustomerService::class)->makePartial();
+        $svc->shouldAllowMockingProtectedMethods();
+        $svc->shouldReceive('ensureUserStripeColumns')->andReturnNull();
+        $svc->shouldReceive('usersTableReady')->andReturn(false);
+
+        $id = $svc->getOrCreateCustomerId($user);
+        $this->assertSame('cus_ephemeral_1', $id);
+        $this->assertNull($user->fresh()->stripe_customer_id);
+
+        ApiRequestor::setHttpClient(null);
     }
 }

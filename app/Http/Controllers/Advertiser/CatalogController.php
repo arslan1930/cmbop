@@ -1230,6 +1230,8 @@ class CatalogController extends Controller
 
         $savedCards = app(StripeCustomerService::class)->listCards(auth()->user());
         $stripeConfigured = app(StripeCustomerService::class)->configured();
+        // Best-effort: auto-add Hostinger-missing Stripe columns before card checkout.
+        app(StripeCustomerService::class)->ensureUserStripeColumns();
 
         return view('advertiser.checkout', compact(
             'cartItems',
