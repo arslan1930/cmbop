@@ -253,6 +253,11 @@ ALTER TABLE `order_items` ADD COLUMN `anchor_text` VARCHAR(160) NULL;
 ALTER TABLE `order_items` ADD COLUMN `target_url` VARCHAR(1000) NULL;
 ALTER TABLE `order_items` ADD COLUMN `feature_image_url` VARCHAR(1000) NULL;
 ALTER TABLE `order_items` ADD COLUMN `moderation_status` VARCHAR(40) NULL;
+ALTER TABLE `order_items` ADD COLUMN `publisher_price` decimal(10,2) NULL;
+ALTER TABLE `order_items` ADD COLUMN `platform_fee_percent` decimal(5,2) NULL;
+ALTER TABLE `order_items` ADD COLUMN `platform_fee_amount` decimal(10,2) NULL;
+ALTER TABLE `order_items` ADD COLUMN `publisher_status` varchar(40) NULL DEFAULT 'pending';
+ALTER TABLE `order_items` ADD COLUMN `completed_at` timestamp NULL;
 
 -- Optional FK (skip if content_submissions table is missing or constraint already exists)
 -- ALTER TABLE `order_items`

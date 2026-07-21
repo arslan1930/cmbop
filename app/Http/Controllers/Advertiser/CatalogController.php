@@ -20,6 +20,7 @@ use App\Models\UserBlacklist;
 use App\Models\UserFavorite;
 use App\Models\Wallet;
 use App\Services\CartPricingService;
+use App\Services\CheckoutSchemaService;
 use App\Services\ContentModeration\ContentModerationService;
 use App\Services\ContentUpload\ScheduledOrderService;
 use App\Services\InAppNotificationService;
@@ -1364,12 +1365,17 @@ class CatalogController extends Controller
             ], 503);
         }
 
+        // Hostinger often skips migrations — repair checkout columns before INSERT.
+        app(CheckoutSchemaService::class)->ensureCheckoutTables();
+        app(StripeCustomerService::class)->ensureUserStripeColumns();
+
         $expandedOrders = array_column($checkoutContent['lines'], 'orderItem');
         $createdOrders = collect();
         $totalAmount = round(array_sum(array_column($expandedOrders, 'price')), 2);
         $schedule = $checkoutContent['schedule'];
         $bonusApplied = 0.0;
         $amountDue = $totalAmount;
+        $schema = app(CheckoutSchemaService::class);
 
         DB::beginTransaction();
         try {
@@ -1390,7 +1396,7 @@ class CatalogController extends Controller
                 $site = $orderItem['site'];
                 $orderNumber = str_pad((string) mt_rand(1, 999999), 6, '0', STR_PAD_LEFT);
 
-                $order = Order::create(array_merge([
+                $order = Order::create($schema->filterExistingColumns('orders', array_merge([
                     'user_id' => $userId,
                     'order_number' => $orderNumber,
                     'reference_code' => $referenceCode,
@@ -1402,9 +1408,12 @@ class CatalogController extends Controller
                     'status' => $this->initialOrderStatus($schedule),
                     'sensitive_type' => $orderItem['sensitive_type'],
                     'additional_price' => $orderItem['additional_price'],
-                ], $this->scheduleOrderFields($schedule)));
+                ], $this->scheduleOrderFields($schedule))));
 
-                $item = OrderItem::create($this->orderItemPayload($order->id, $site, $orderItem, $submission));
+                $item = OrderItem::create($schema->filterExistingColumns(
+                    'order_items',
+                    $this->orderItemPayload($order->id, $site, $orderItem, $submission)
+                ));
                 $this->attachSubmissionToOrder($submission, $order, $item);
 
                 $createdOrders->push($order);
@@ -1421,9 +1430,16 @@ class CatalogController extends Controller
                 'error' => $e->getMessage(),
             ]);
 
+            $hint = 'Unable to start card payment. Please try again.';
+            $detail = trim($e->getMessage());
+            if ($detail !== '' && strlen($detail) < 240) {
+                $hint .= ' ('.$detail.')';
+            }
+
             return response()->json([
                 'success' => false,
-                'message' => 'Unable to start card payment. Please try again.',
+                'message' => $hint,
+                'code' => 'pending_order_create_failed',
             ]);
         }
 
@@ -1713,6 +1729,8 @@ class CatalogController extends Controller
             ]);
 
             $createdOrders = [];
+            $schema = app(CheckoutSchemaService::class);
+            $schema->ensureCheckoutTables();
 
             foreach ($checkoutContent['lines'] as $line) {
                 $orderItem = $line['orderItem'];
@@ -1720,7 +1738,7 @@ class CatalogController extends Controller
                 $site = $orderItem['site'];
                 $orderNumber = str_pad((string) mt_rand(1, 999999), 6, '0', STR_PAD_LEFT);
 
-                $order = Order::create(array_merge([
+                $order = Order::create($schema->filterExistingColumns('orders', array_merge([
                     'user_id' => $userId,
                     'order_number' => $orderNumber,
                     'reference_code' => $referenceCode,
@@ -1733,9 +1751,12 @@ class CatalogController extends Controller
                     'sensitive_type' => $orderItem['sensitive_type'],
                     'additional_price' => $orderItem['additional_price'],
                     'paid_at' => now(),
-                ], $this->scheduleOrderFields($schedule)));
+                ], $this->scheduleOrderFields($schedule))));
 
-                $item = OrderItem::create($this->orderItemPayload($order->id, $site, $orderItem, $submission));
+                $item = OrderItem::create($schema->filterExistingColumns(
+                    'order_items',
+                    $this->orderItemPayload($order->id, $site, $orderItem, $submission)
+                ));
                 $this->attachSubmissionToOrder($submission, $order, $item);
 
                 $createdOrders[] = $order;
@@ -2948,7 +2969,12 @@ class CatalogController extends Controller
             $payload['order_item_id'] = $item->id;
         }
 
-        $submission->update($payload);
+        $filtered = app(CheckoutSchemaService::class)
+            ->filterExistingColumns($submission->getTable(), $payload);
+
+        if ($filtered !== []) {
+            $submission->update($filtered);
+        }
     }
 
     /**
