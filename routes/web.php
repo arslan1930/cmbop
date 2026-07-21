@@ -761,6 +761,7 @@ Route::middleware(['auth', 'verified', RoleMiddleware::class.':publisher'])
         Route::post('/websites/store', [SiteController::class, 'store'])->name('sites.store');
         Route::get('/websites/ajax', [SiteController::class, 'ajax'])->name('sites.ajax');
         Route::get('/websites/bulk-template', [SiteController::class, 'bulkTemplate'])->name('sites.bulk-template');
+        Route::post('/websites/bulk-store', [SiteController::class, 'bulkStore'])->name('sites.bulk-store');
         Route::post('/websites/bulk-import', [SiteController::class, 'bulkImport'])->name('sites.bulk-import');
         Route::get('/sites', [SiteController::class, 'index'])->name('sites.index');
         Route::put('/sites/{id}', [SiteController::class, 'update'])->name('sites.update');

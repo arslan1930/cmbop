@@ -3,19 +3,18 @@
 namespace App\Http\Controllers\Publisher;
 
 use App\Http\Controllers\Controller;
-use Illuminate\Http\Request;
-use App\Models\Site;
-use App\Models\Country;
-use App\Models\Language;
-use App\Models\Category;
-use App\Models\User;
-use App\Models\Role;
 use App\Jobs\CaptureSiteScreenshotJob;
 use App\Mail\NewSiteNotification;
-use Illuminate\Support\Facades\Validator;
+use App\Models\Category;
+use App\Models\Country;
+use App\Models\Language;
+use App\Models\Site;
+use App\Models\User;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Validator;
 
 class SiteController extends Controller
 {
@@ -76,17 +75,17 @@ class SiteController extends Controller
     public function getCountryLanguages($countryCode)
     {
         $country = Country::where('code', $countryCode)->first();
-        
-        if (!$country) {
+
+        if (! $country) {
             return response()->json([]);
         }
-        
+
         $languages = DB::table('country_language')
             ->join('languages', 'country_language.language_id', '=', 'languages.id')
             ->where('country_language.country_id', $country->id)
             ->select('languages.code', 'languages.name')
             ->get();
-        
+
         return response()->json($languages);
     }
 
@@ -168,7 +167,7 @@ class SiteController extends Controller
 
         try {
             DB::transaction(function () use ($request, $domain, $cleanDescription, $categoriesArray, $primaryCategory, $countryCodes, $languageCodes, &$site) {
-                $site = new Site();
+                $site = new Site;
 
                 $sensitivePrices = [];
                 foreach (['crypto', 'trading', 'CBD', 'forex'] as $topic) {
@@ -406,13 +405,13 @@ class SiteController extends Controller
 
         // Send email notification for update
         try {
-            $admins = User::where('active_role_id', function($query) {
+            $admins = User::where('active_role_id', function ($query) {
                 $query->select('id')
-                      ->from('roles')
-                      ->where('name', 'admin')
-                      ->limit(1);
+                    ->from('roles')
+                    ->where('name', 'admin')
+                    ->limit(1);
             })->get();
-            
+
             if ($admins->count() > 0) {
                 foreach ($admins as $admin) {
                     Mail::to($admin->email)->send(new NewSiteNotification($site, 'update'));
@@ -422,7 +421,7 @@ class SiteController extends Controller
                 Mail::to($defaultAdminEmail)->send(new NewSiteNotification($site, 'update'));
             }
         } catch (\Exception $e) {
-            Log::error('Failed to send email notification: ' . $e->getMessage());
+            Log::error('Failed to send email notification: '.$e->getMessage());
         }
 
         return redirect()->back()->with('success', 'Site updated successfully! It will be reviewed again.');
@@ -496,7 +495,7 @@ class SiteController extends Controller
 
         $callback = function () use ($headers, $example) {
             $out = fopen('php://output', 'w');
-            fprintf($out, chr(0xEF) . chr(0xBB) . chr(0xBF)); // UTF-8 BOM for Excel
+            fprintf($out, chr(0xEF).chr(0xBB).chr(0xBF)); // UTF-8 BOM for Excel
             fputcsv($out, $headers);
             fputcsv($out, $example);
             fclose($out);
@@ -508,6 +507,131 @@ class SiteController extends Controller
     }
 
     /**
+     * Live multi-site submit for agencies (catalog niche pickers, max 25 per batch).
+     */
+    public function bulkStore(Request $request)
+    {
+        $maxSites = 25;
+
+        $request->validate([
+            'sites' => 'required|array|min:1|max:'.$maxSites,
+        ], [
+            'sites.required' => 'Add at least one website.',
+            'sites.max' => "You can submit at most {$maxSites} websites at once. Submit this batch, then add more.",
+        ]);
+
+        $validCategoryNames = Category::pluck('name')->map(fn ($n) => strtolower((string) $n))->all();
+        $allowedCountries = Country::marketplace()->pluck('code')->map(fn ($c) => strtolower($c))->all();
+        $allowedLanguages = Language::marketplace()->pluck('code')->map(fn ($c) => strtolower($c))->all();
+        $publisherId = auth()->id();
+
+        $created = 0;
+        $failed = [];
+        $seenDomains = [];
+
+        foreach (array_values($request->input('sites', [])) as $index => $row) {
+            $rowNumber = $index + 1;
+            if (! is_array($row)) {
+                $failed[] = [
+                    'row' => $rowNumber,
+                    'site' => '',
+                    'errors' => ['Invalid site row.'],
+                ];
+
+                continue;
+            }
+
+            $parsed = $this->normalizeLiveBulkSite($row, $validCategoryNames, $allowedCountries, $allowedLanguages);
+
+            if (! empty($parsed['errors'])) {
+                $failed[] = [
+                    'row' => $rowNumber,
+                    'site' => $row['siteUrl'] ?? ($row['site_url'] ?? ($row['siteName'] ?? '')),
+                    'errors' => $parsed['errors'],
+                ];
+
+                continue;
+            }
+
+            $domain = $parsed['domain'];
+
+            if (isset($seenDomains[$domain])) {
+                $failed[] = [
+                    'row' => $rowNumber,
+                    'site' => $parsed['site_url'],
+                    'errors' => ["Duplicate domain in this batch (also on site {$seenDomains[$domain]})."],
+                ];
+
+                continue;
+            }
+            $seenDomains[$domain] = $rowNumber;
+
+            if (Site::where('domain', $domain)->exists()) {
+                $failed[] = [
+                    'row' => $rowNumber,
+                    'site' => $parsed['site_url'],
+                    'errors' => ['This domain is already registered in the system.'],
+                ];
+
+                continue;
+            }
+
+            try {
+                $this->createPendingMarketplaceSite([
+                    'publisher_id' => $publisherId,
+                    'site_name' => $parsed['site_name'],
+                    'site_url' => $parsed['site_url'],
+                    'domain' => $parsed['domain'],
+                    'example_url' => $parsed['example_url'],
+                    'da' => $parsed['da'],
+                    'dr' => $parsed['dr'],
+                    'traffic' => $parsed['traffic'],
+                    'country' => $parsed['country'],
+                    'countries' => $parsed['countries'],
+                    'language' => $parsed['language'],
+                    'languages' => $parsed['languages'],
+                    'category' => $parsed['primary_category'],
+                    'categories' => $parsed['categories'],
+                    'price' => $parsed['price'],
+                    'turnaround_time' => $parsed['turnaround_time'],
+                    'publication_time' => $parsed['publication_time'],
+                    'link_type' => $parsed['link_type'],
+                    'sponsored' => $parsed['sponsored'],
+                    'partner_material' => $parsed['partner_material'],
+                    'as_you_prefer' => $parsed['as_you_prefer'],
+                    'description' => $parsed['description'],
+                    'sensitive_prices' => $parsed['sensitive_prices'],
+                ]);
+                $created++;
+            } catch (\Throwable $e) {
+                Log::error('Live bulk site create failed: '.$e->getMessage(), [
+                    'row' => $rowNumber,
+                    'user_id' => $publisherId,
+                ]);
+                $failed[] = [
+                    'row' => $rowNumber,
+                    'site' => $parsed['site_url'] ?? '',
+                    'errors' => ['Could not save this site. Please check the data.'],
+                ];
+            }
+        }
+
+        if ($created > 0) {
+            $this->notifyAdminsOfBulkSites($created, count($failed), 'live form');
+        }
+
+        $message = "{$created} site(s) submitted for review.";
+        if (count($failed) > 0) {
+            $message .= ' '.count($failed).' site(s) failed — see details below.';
+        }
+
+        return back()
+            ->with($created > 0 ? 'success' : 'error', $message)
+            ->with('bulk_import_created', $created)
+            ->with('bulk_import_failures', $failed);
+    }
+
+    /**
      * Bulk-import websites from CSV for agencies that manage many domains.
      */
     public function bulkImport(Request $request)
@@ -516,7 +640,7 @@ class SiteController extends Controller
             'csv_file' => 'required|file|mimes:csv,txt|max:5120',
         ], [
             'csv_file.required' => 'Please upload a CSV file.',
-            'csv_file.mimes'    => 'Upload a .csv file.',
+            'csv_file.mimes' => 'Upload a .csv file.',
         ]);
 
         $maxRows = 200;
@@ -527,13 +651,14 @@ class SiteController extends Controller
 
         // Skip UTF-8 BOM if present
         $firstBytes = fread($handle, 3);
-        if ($firstBytes !== chr(0xEF) . chr(0xBB) . chr(0xBF)) {
+        if ($firstBytes !== chr(0xEF).chr(0xBB).chr(0xBF)) {
             rewind($handle);
         }
 
         $headerRow = fgetcsv($handle);
-        if (!$headerRow) {
+        if (! $headerRow) {
             fclose($handle);
+
             return back()->with('error', 'CSV is empty.');
         }
 
@@ -550,14 +675,16 @@ class SiteController extends Controller
         // Accept either countries/languages (new) or country/language (legacy single)
         $hasCountries = in_array('countries', $headers, true) || in_array('country', $headers, true);
         $hasLanguages = in_array('languages', $headers, true) || in_array('language', $headers, true);
-        if (!$hasCountries || !$hasLanguages) {
+        if (! $hasCountries || ! $hasLanguages) {
             fclose($handle);
+
             return back()->with('error', 'CSV must include countries (or country) and languages (or language) columns. Download the template and try again.');
         }
 
         foreach ($requiredHeaders as $required) {
-            if (!in_array($required, $headers, true)) {
+            if (! in_array($required, $headers, true)) {
                 fclose($handle);
+
                 return back()->with('error', "CSV is missing required column: {$required}. Download the template and try again.");
             }
         }
@@ -594,6 +721,7 @@ class SiteController extends Controller
             $data = array_combine($headers, array_slice($row, 0, count($headers)));
             if ($data === false) {
                 $failed[] = ['row' => $rowNumber, 'site' => '', 'errors' => ['Could not parse row.']];
+
                 continue;
             }
 
@@ -606,12 +734,13 @@ class SiteController extends Controller
 
             $parsed = $this->normalizeBulkRow($data, $validCategoryNames);
 
-            if (!empty($parsed['errors'])) {
+            if (! empty($parsed['errors'])) {
                 $failed[] = [
                     'row' => $rowNumber,
                     'site' => $data['site_url'] ?? ($data['site_name'] ?? ''),
                     'errors' => $parsed['errors'],
                 ];
+
                 continue;
             }
 
@@ -623,6 +752,7 @@ class SiteController extends Controller
                     'site' => $data['site_url'],
                     'errors' => ["Duplicate domain in this file (also on row {$seenDomainsInFile[$domain]})."],
                 ];
+
                 continue;
             }
             $seenDomainsInFile[$domain] = $rowNumber;
@@ -633,48 +763,39 @@ class SiteController extends Controller
                     'site' => $data['site_url'],
                     'errors' => ['This domain is already registered in the system.'],
                 ];
+
                 continue;
             }
 
             try {
-                DB::transaction(function () use ($parsed, $publisherId) {
-                    $site = new Site();
-                    $site->applyMarketplaceListing([
-                        'publisher_id' => $publisherId,
-                        'site_name' => $parsed['site_name'],
-                        'site_url' => $parsed['site_url'],
-                        'domain' => $parsed['domain'],
-                        'example_url' => $parsed['example_url'],
-                        'da' => $parsed['da'],
-                        'dr' => $parsed['dr'],
-                        'traffic' => $parsed['traffic'],
-                        'metrics_manual' => true,
-                        'metrics_provider' => 'manual',
-                        'metrics_fetched_at' => now(),
-                        'country' => $parsed['country'],
-                        'countries' => $parsed['countries'],
-                        'language' => $parsed['language'],
-                        'languages' => $parsed['languages'],
-                        'category' => $parsed['primary_category'],
-                        'categories' => $parsed['categories'],
-                        'price' => $parsed['price'],
-                        'turnaround_time' => $parsed['turnaround_time'],
-                        'publication_time' => $parsed['publication_time'],
-                        'link_type' => $parsed['link_type'],
-                        'sponsored' => $parsed['sponsored'],
-                        'partner_material' => $parsed['partner_material'],
-                        'as_you_prefer' => $parsed['as_you_prefer'],
-                        'description' => $parsed['description'],
-                        'sensitive_prices' => $parsed['sensitive_prices'],
-                        'verified' => false,
-                        'active' => false,
-                        'enrichment_status' => 'pending',
-                    ]);
-                    $site->save();
-                });
+                $this->createPendingMarketplaceSite([
+                    'publisher_id' => $publisherId,
+                    'site_name' => $parsed['site_name'],
+                    'site_url' => $parsed['site_url'],
+                    'domain' => $parsed['domain'],
+                    'example_url' => $parsed['example_url'],
+                    'da' => $parsed['da'],
+                    'dr' => $parsed['dr'],
+                    'traffic' => $parsed['traffic'],
+                    'country' => $parsed['country'],
+                    'countries' => $parsed['countries'],
+                    'language' => $parsed['language'],
+                    'languages' => $parsed['languages'],
+                    'category' => $parsed['primary_category'],
+                    'categories' => $parsed['categories'],
+                    'price' => $parsed['price'],
+                    'turnaround_time' => $parsed['turnaround_time'],
+                    'publication_time' => $parsed['publication_time'],
+                    'link_type' => $parsed['link_type'],
+                    'sponsored' => $parsed['sponsored'],
+                    'partner_material' => $parsed['partner_material'],
+                    'as_you_prefer' => $parsed['as_you_prefer'],
+                    'description' => $parsed['description'],
+                    'sensitive_prices' => $parsed['sensitive_prices'],
+                ]);
                 $created++;
             } catch (\Exception $e) {
-                Log::error('Bulk site import row failed: ' . $e->getMessage(), [
+                Log::error('Bulk site import row failed: '.$e->getMessage(), [
                     'row' => $rowNumber,
                     'user_id' => $publisherId,
                 ]);
@@ -689,40 +810,229 @@ class SiteController extends Controller
         fclose($handle);
 
         if ($created > 0) {
-            try {
-                $user = auth()->user();
-                $admins = User::where('active_role_id', function ($query) {
-                    $query->select('id')->from('roles')->where('name', 'admin')->limit(1);
-                })->get();
-
-                $subject = "Bulk site import: {$created} site(s) from {$user->name}";
-                $body = "Publisher {$user->name} ({$user->email}) submitted {$created} website(s) via bulk CSV import.\n"
-                    . "Failed rows: " . count($failed) . "\n"
-                    . "Please review them in the admin Sites panel.";
-
-                $recipients = $admins->count() > 0
-                    ? $admins->pluck('email')->all()
-                    : [config('mail.admin_email', 'admin@yourdomain.com')];
-
-                foreach ($recipients as $email) {
-                    Mail::raw($body, function ($message) use ($email, $subject) {
-                        $message->to($email)->subject($subject);
-                    });
-                }
-            } catch (\Exception $e) {
-                Log::error('Bulk import admin notification failed: ' . $e->getMessage());
-            }
+            $this->notifyAdminsOfBulkSites($created, count($failed), 'CSV import');
         }
 
         $message = "{$created} site(s) submitted for review.";
         if (count($failed) > 0) {
-            $message .= ' ' . count($failed) . ' row(s) failed — see details below.';
+            $message .= ' '.count($failed).' row(s) failed — see details below.';
         }
 
         return back()
             ->with($created > 0 ? 'success' : 'error', $message)
             ->with('bulk_import_created', $created)
             ->with('bulk_import_failures', $failed);
+    }
+
+    /**
+     * Create a pending marketplace site (admin must verify/activate).
+     *
+     * @param  array<string, mixed>  $listing
+     */
+    private function createPendingMarketplaceSite(array $listing, ?callable $beforeSave = null): Site
+    {
+        return DB::transaction(function () use ($listing, $beforeSave) {
+            $site = new Site;
+            $site->applyMarketplaceListing(array_merge([
+                'publisher_id' => auth()->id(),
+                'metrics_manual' => true,
+                'metrics_provider' => 'manual',
+                'metrics_fetched_at' => now(),
+                'verified' => false,
+                'active' => false,
+                'enrichment_status' => 'pending',
+            ], $listing));
+
+            if ($beforeSave) {
+                $beforeSave($site);
+            }
+
+            $site->save();
+
+            return $site;
+        });
+    }
+
+    private function notifyAdminsOfBulkSites(int $created, int $failedCount, string $via): void
+    {
+        try {
+            $user = auth()->user();
+            $admins = User::where('active_role_id', function ($query) {
+                $query->select('id')->from('roles')->where('name', 'admin')->limit(1);
+            })->get();
+
+            $subject = "Bulk site import: {$created} site(s) from {$user->name}";
+            $body = "Publisher {$user->name} ({$user->email}) submitted {$created} website(s) via {$via}.\n"
+                ."Failed rows: {$failedCount}\n"
+                .'Please review them in the admin Sites panel.';
+
+            $recipients = $admins->count() > 0
+                ? $admins->pluck('email')->all()
+                : [config('mail.admin_email', 'admin@yourdomain.com')];
+
+            foreach ($recipients as $email) {
+                Mail::raw($body, function ($message) use ($email, $subject) {
+                    $message->to($email)->subject($subject);
+                });
+            }
+        } catch (\Exception $e) {
+            Log::error('Bulk import admin notification failed: '.$e->getMessage());
+        }
+    }
+
+    /**
+     * Normalize + validate one live multi-site form row.
+     *
+     * @param  array<string, mixed>  $data
+     * @param  list<string>  $validCategoryNamesLower
+     * @param  list<string>  $allowedCountries
+     * @param  list<string>  $allowedLanguages
+     * @return array<string, mixed>
+     */
+    private function normalizeLiveBulkSite(
+        array $data,
+        array $validCategoryNamesLower,
+        array $allowedCountries,
+        array $allowedLanguages
+    ): array {
+        $errors = [];
+
+        $siteUrl = $this->normalizeHttpUrl((string) ($data['siteUrl'] ?? $data['site_url'] ?? ''));
+        $exampleUrl = $this->normalizeHttpUrl((string) ($data['exampleUrl'] ?? $data['example_url'] ?? ''));
+
+        $host = parse_url($siteUrl, PHP_URL_HOST);
+        $domain = $host ? preg_replace('/^www\./', '', strtolower($host)) : null;
+        if (! $domain) {
+            $errors[] = 'Invalid site URL.';
+        }
+
+        $categories = $this->parseCategoryList($data['categories'] ?? ($data['category'] ?? []));
+        if (count($categories) < 1) {
+            $errors[] = 'Select at least one niche/category.';
+        } elseif (count($categories) > 7) {
+            $errors[] = 'Maximum 7 categories allowed.';
+        } else {
+            foreach ($categories as $cat) {
+                if (! in_array(strtolower($cat), $validCategoryNamesLower, true)) {
+                    $errors[] = "Unknown category: {$cat}";
+                }
+            }
+        }
+
+        $countryCodes = array_slice($this->parseCodeList($data['country'] ?? ($data['countries'] ?? '')), 0, 1);
+        $languageCodes = array_slice($this->parseCodeList($data['language'] ?? ($data['languages'] ?? '')), 0, 1);
+        if (count($countryCodes) < 1) {
+            $errors[] = 'A country is required.';
+        }
+        if (count($languageCodes) < 1) {
+            $errors[] = 'A language is required.';
+        }
+
+        $description = strip_tags((string) ($data['siteDescription'] ?? $data['description'] ?? ''), '<p><a><b><strong><i><ul><ol><li><br>');
+
+        $tag = $data['site_tag'] ?? null;
+        $sponsored = false;
+        $partnerMaterial = false;
+        $asYouPrefer = false;
+        if ($tag === 'sponsored') {
+            $sponsored = true;
+        } elseif ($tag === 'partner_material') {
+            $partnerMaterial = true;
+        } elseif ($tag === 'as_you_prefer') {
+            $asYouPrefer = true;
+        } else {
+            $sponsored = $this->csvBool($data['sponsored'] ?? '0');
+            $partnerMaterial = $this->csvBool($data['partner_material'] ?? '0');
+            $asYouPrefer = $this->csvBool($data['as_you_prefer'] ?? '0');
+        }
+
+        $payload = [
+            'site_name' => $data['siteName'] ?? ($data['site_name'] ?? ''),
+            'site_url' => $siteUrl,
+            'example_url' => $exampleUrl,
+            'da' => $data['da'] ?? null,
+            'dr' => $data['dr'] ?? null,
+            'traffic' => $data['traffic'] ?? null,
+            'countries' => $countryCodes,
+            'languages' => $languageCodes,
+            'categories' => $categories,
+            'price' => $data['price'] ?? null,
+            'turnaround_time' => $data['turnaround_time'] ?? '',
+            'publication_time' => $data['publicationTime'] ?? ($data['publication_time'] ?? ''),
+            'link_type' => strtolower((string) ($data['link_type'] ?? '')),
+            'description' => $description,
+        ];
+
+        $validator = Validator::make($payload, [
+            'site_name' => 'required|string|max:255',
+            'site_url' => 'required|url|max:255',
+            'example_url' => 'required|url|max:255',
+            'da' => 'required|integer|min:0|max:100',
+            'dr' => 'required|integer|min:0|max:100',
+            'traffic' => 'required|integer|min:0',
+            'countries' => 'required|array|size:1',
+            'countries.*' => 'required|string|size:2|in:'.implode(',', $allowedCountries),
+            'languages' => 'required|array|size:1',
+            'languages.*' => 'required|string|size:2|in:'.implode(',', $allowedLanguages),
+            'categories' => 'required|array|min:1|max:7',
+            'price' => 'required|numeric|min:0',
+            'turnaround_time' => 'required|in:24h,48h,3days,5days,7days',
+            'publication_time' => 'required|in:6months,1year,permanent',
+            'link_type' => 'required|in:dofollow,nofollow',
+            'description' => 'required|string|min:50',
+        ]);
+
+        if ($validator->fails()) {
+            foreach ($validator->errors()->all() as $msg) {
+                $errors[] = $msg;
+            }
+        }
+
+        $sensitivePrices = [];
+        $priceSensitive = $data['price_sensitive'] ?? [];
+        if (is_array($priceSensitive)) {
+            foreach (['crypto', 'trading', 'CBD', 'forex'] as $topic) {
+                $val = $priceSensitive[$topic] ?? null;
+                $enabled = ! empty($data['sensitive'][$topic] ?? null) || ($val !== null && $val !== '');
+                if ($enabled && $val !== null && $val !== '') {
+                    if (! is_numeric($val) || $val < 0) {
+                        $errors[] = "Sensitive price for {$topic} must be a number ≥ 0.";
+                    } else {
+                        $sensitivePrices[$topic] = (float) $val;
+                    }
+                }
+            }
+        }
+
+        if (! empty($errors)) {
+            return ['errors' => array_values(array_unique($errors))];
+        }
+
+        return [
+            'errors' => [],
+            'site_name' => $payload['site_name'],
+            'site_url' => $payload['site_url'],
+            'domain' => $domain,
+            'example_url' => $payload['example_url'],
+            'da' => (int) $payload['da'],
+            'dr' => (int) $payload['dr'],
+            'traffic' => (int) $payload['traffic'],
+            'country' => $countryCodes[0],
+            'countries' => $countryCodes,
+            'language' => $languageCodes[0],
+            'languages' => $languageCodes,
+            'primary_category' => implode('|', $categories),
+            'categories' => $categories,
+            'price' => $payload['price'],
+            'turnaround_time' => $payload['turnaround_time'],
+            'publication_time' => $payload['publication_time'],
+            'link_type' => $payload['link_type'],
+            'sponsored' => $sponsored,
+            'partner_material' => $partnerMaterial,
+            'as_you_prefer' => $asYouPrefer,
+            'description' => $description,
+            'sensitive_prices' => ! empty($sensitivePrices) ? $sensitivePrices : null,
+        ];
     }
 
     /**
@@ -733,19 +1043,19 @@ class SiteController extends Controller
         $errors = [];
 
         $siteUrl = $data['site_url'] ?? '';
-        if ($siteUrl !== '' && !preg_match('~^(?:f|ht)tps?://~i', $siteUrl)) {
-            $siteUrl = 'https://' . $siteUrl;
+        if ($siteUrl !== '' && ! preg_match('~^(?:f|ht)tps?://~i', $siteUrl)) {
+            $siteUrl = 'https://'.$siteUrl;
         }
 
         $host = parse_url($siteUrl, PHP_URL_HOST);
         $domain = $host ? preg_replace('/^www\./', '', strtolower($host)) : null;
-        if (!$domain) {
+        if (! $domain) {
             $errors[] = 'Invalid site_url.';
         }
 
         $exampleUrl = $data['example_url'] ?? '';
-        if ($exampleUrl !== '' && !preg_match('~^(?:f|ht)tps?://~i', $exampleUrl)) {
-            $exampleUrl = 'https://' . $exampleUrl;
+        if ($exampleUrl !== '' && ! preg_match('~^(?:f|ht)tps?://~i', $exampleUrl)) {
+            $exampleUrl = 'https://'.$exampleUrl;
         }
 
         $categoryRaw = $data['categories'] ?? '';
@@ -756,7 +1066,7 @@ class SiteController extends Controller
             $errors[] = 'Maximum 7 categories allowed.';
         } else {
             foreach ($categories as $cat) {
-                if (!in_array(strtolower($cat), $validCategoryNamesLower, true)) {
+                if (! in_array(strtolower($cat), $validCategoryNamesLower, true)) {
                     $errors[] = "Unknown category: {$cat}";
                 }
             }
@@ -774,42 +1084,42 @@ class SiteController extends Controller
         $description = strip_tags((string) ($data['description'] ?? ''), '<p><a><b><strong><i><ul><ol><li><br>');
 
         $payload = [
-            'site_name'        => $data['site_name'] ?? '',
-            'site_url'         => $siteUrl,
-            'example_url'      => $exampleUrl,
-            'da'               => $data['da'] ?? null,
-            'dr'               => $data['dr'] ?? null,
-            'traffic'          => $data['traffic'] ?? null,
-            'countries'        => $countryCodes,
-            'languages'        => $languageCodes,
-            'categories'       => $categories,
-            'price'            => $data['price'] ?? null,
-            'turnaround_time'  => $data['turnaround_time'] ?? '',
+            'site_name' => $data['site_name'] ?? '',
+            'site_url' => $siteUrl,
+            'example_url' => $exampleUrl,
+            'da' => $data['da'] ?? null,
+            'dr' => $data['dr'] ?? null,
+            'traffic' => $data['traffic'] ?? null,
+            'countries' => $countryCodes,
+            'languages' => $languageCodes,
+            'categories' => $categories,
+            'price' => $data['price'] ?? null,
+            'turnaround_time' => $data['turnaround_time'] ?? '',
             'publication_time' => $data['publication_time'] ?? '',
-            'link_type'        => strtolower($data['link_type'] ?? ''),
-            'description'      => $description,
+            'link_type' => strtolower($data['link_type'] ?? ''),
+            'description' => $description,
         ];
 
         $allowedCountries = Country::marketplace()->pluck('code')->map(fn ($c) => strtolower($c))->all();
         $allowedLanguages = Language::marketplace()->pluck('code')->map(fn ($c) => strtolower($c))->all();
 
         $validator = Validator::make($payload, [
-            'site_name'        => 'required|string|max:255',
-            'site_url'         => 'required|url|max:255',
-            'example_url'      => 'required|url|max:255',
-            'da'               => 'required|integer|min:0|max:100',
-            'dr'               => 'required|integer|min:0|max:100',
-            'traffic'          => 'required|integer|min:0',
-            'countries'        => 'required|array|size:1',
-            'countries.*'      => 'required|string|size:2|in:' . implode(',', $allowedCountries),
-            'languages'        => 'required|array|size:1',
-            'languages.*'      => 'required|string|size:2|in:' . implode(',', $allowedLanguages),
-            'categories'       => 'required|array|min:1|max:7',
-            'price'            => 'required|numeric|min:0',
-            'turnaround_time'  => 'required|in:24h,48h,3days,5days,7days',
+            'site_name' => 'required|string|max:255',
+            'site_url' => 'required|url|max:255',
+            'example_url' => 'required|url|max:255',
+            'da' => 'required|integer|min:0|max:100',
+            'dr' => 'required|integer|min:0|max:100',
+            'traffic' => 'required|integer|min:0',
+            'countries' => 'required|array|size:1',
+            'countries.*' => 'required|string|size:2|in:'.implode(',', $allowedCountries),
+            'languages' => 'required|array|size:1',
+            'languages.*' => 'required|string|size:2|in:'.implode(',', $allowedLanguages),
+            'categories' => 'required|array|min:1|max:7',
+            'price' => 'required|numeric|min:0',
+            'turnaround_time' => 'required|in:24h,48h,3days,5days,7days',
             'publication_time' => 'required|in:6months,1year,permanent',
-            'link_type'        => 'required|in:dofollow,nofollow',
-            'description'      => 'required|string|min:50',
+            'link_type' => 'required|in:dofollow,nofollow',
+            'description' => 'required|string|min:50',
         ]);
 
         if ($validator->fails()) {
@@ -822,7 +1132,7 @@ class SiteController extends Controller
         foreach (['crypto' => 'price_crypto', 'trading' => 'price_trading', 'CBD' => 'price_CBD', 'forex' => 'price_forex'] as $topic => $col) {
             $val = $data[$col] ?? '';
             if ($val !== '' && $val !== null) {
-                if (!is_numeric($val) || $val < 0) {
+                if (! is_numeric($val) || $val < 0) {
                     $errors[] = "{$col} must be a number ≥ 0.";
                 } else {
                     $sensitivePrices[$topic] = (float) $val;
@@ -830,34 +1140,34 @@ class SiteController extends Controller
             }
         }
 
-        if (!empty($errors)) {
+        if (! empty($errors)) {
             return ['errors' => array_values(array_unique($errors))];
         }
 
         return [
-            'errors'            => [],
-            'site_name'         => $payload['site_name'],
-            'site_url'          => $payload['site_url'],
-            'domain'            => $domain,
-            'example_url'       => $payload['example_url'],
-            'da'                => (int) $payload['da'],
-            'dr'                => (int) $payload['dr'],
-            'traffic'           => (int) $payload['traffic'],
-            'country'           => $countryCodes[0],
-            'countries'         => $countryCodes,
-            'language'          => $languageCodes[0],
-            'languages'         => $languageCodes,
-            'primary_category'  => implode(',', $categories),
-            'categories'        => $categories,
-            'price'             => $payload['price'],
-            'turnaround_time'   => $payload['turnaround_time'],
-            'publication_time'  => $payload['publication_time'],
-            'link_type'         => $payload['link_type'],
-            'sponsored'         => $this->csvBool($data['sponsored'] ?? '0'),
-            'partner_material'  => $this->csvBool($data['partner_material'] ?? '0'),
-            'as_you_prefer'     => $this->csvBool($data['as_you_prefer'] ?? '0'),
-            'description'       => $description,
-            'sensitive_prices'  => !empty($sensitivePrices) ? json_encode($sensitivePrices) : null,
+            'errors' => [],
+            'site_name' => $payload['site_name'],
+            'site_url' => $payload['site_url'],
+            'domain' => $domain,
+            'example_url' => $payload['example_url'],
+            'da' => (int) $payload['da'],
+            'dr' => (int) $payload['dr'],
+            'traffic' => (int) $payload['traffic'],
+            'country' => $countryCodes[0],
+            'countries' => $countryCodes,
+            'language' => $languageCodes[0],
+            'languages' => $languageCodes,
+            'primary_category' => implode(',', $categories),
+            'categories' => $categories,
+            'price' => $payload['price'],
+            'turnaround_time' => $payload['turnaround_time'],
+            'publication_time' => $payload['publication_time'],
+            'link_type' => $payload['link_type'],
+            'sponsored' => $this->csvBool($data['sponsored'] ?? '0'),
+            'partner_material' => $this->csvBool($data['partner_material'] ?? '0'),
+            'as_you_prefer' => $this->csvBool($data['as_you_prefer'] ?? '0'),
+            'description' => $description,
+            'sensitive_prices' => ! empty($sensitivePrices) ? $sensitivePrices : null,
         ];
     }
 
@@ -895,6 +1205,7 @@ class SiteController extends Controller
             $site->sponsored = $request->boolean('sponsored') || $request->has('sponsored');
             $site->partner_material = $request->boolean('partner_material') || $request->has('partner_material');
             $site->as_you_prefer = $request->boolean('as_you_prefer') || $request->has('as_you_prefer');
+
             return;
         }
 
@@ -957,6 +1268,7 @@ class SiteController extends Controller
     private function csvBool($value): bool
     {
         $v = strtolower(trim((string) $value));
+
         return in_array($v, ['1', 'true', 'yes', 'y'], true);
     }
 }

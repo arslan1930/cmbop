@@ -596,7 +596,7 @@
     </button>
 
     <button id="showBulkBtn" type="button" class="btn mb-3 shadow-sm btn-outline-primary ms-1">
-        <i class="fa fa-file-csv"></i> Bulk Import (Agency)
+        <i class="fa fa-layer-group"></i> Add many websites
     </button>
 
     <button id="showClaimBtn" type="button" class="btn mb-3 shadow-sm btn-outline-warning ms-1">
@@ -673,48 +673,171 @@
         <div class="card-body">
             <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
                 <div>
-                    <h5 class="mb-1">Bulk Import for Agencies</h5>
+                    <h5 class="mb-1">Add many websites</h5>
                     <p class="text-muted mb-0 small">
-                        Own 150+ websites? Upload a CSV to submit many sites at once (max 200 per upload).
-                        Each site still needs admin approval before it goes live.
+                        Pick niches from the catalog, set DR/DA (0–100), and submit up to
+                        <strong>25 sites per batch</strong> for admin review. For 150+ sites, submit multiple batches.
                     </p>
                 </div>
-                <a href="{{ route('publisher.sites.bulk-template') }}" class="btn btn-sm btn-outline-secondary">
-                    <i class="fa fa-download me-1"></i> Download CSV template
-                </a>
+                <button type="button" class="btn btn-outline-secondary btn-sm" id="closeBulkBtn">Close</button>
             </div>
 
-            <div class="bg-light rounded p-3 mb-3 small">
-                <strong>CSV tips:</strong>
-                <ul class="mb-0 mt-1">
-                    <li><code>country</code> / <code>language</code> = one 2-letter code each (e.g. <code>at</code> + <code>de</code> for German in Austria)</li>
-                    <li>Legacy columns <code>countries</code> / <code>languages</code> still accepted (first code only)</li>
-                    <li><code>categories</code> = exact category names, separated by <code>|</code> (max 7)</li>
-                    <li><code>turnaround_time</code> = <code>24h</code>, <code>48h</code>, <code>3days</code>, <code>5days</code>, or <code>7days</code></li>
-                    <li><code>publication_time</code> = <code>6months</code>, <code>1year</code>, or <code>permanent</code></li>
-                    <li><code>link_type</code> = <code>dofollow</code> or <code>nofollow</code></li>
-                    <li><code>description</code> must be at least 50 characters</li>
-                    <li>Flags (<code>sponsored</code>, etc.) use <code>1</code> / <code>0</code></li>
-                </ul>
-            </div>
-
-            <form method="POST" action="{{ route('publisher.sites.bulk-import') }}" enctype="multipart/form-data">
+            <form method="POST" action="{{ route('publisher.sites.bulk-store') }}" id="liveBulkForm">
                 @csrf
-                <div class="row g-3 align-items-end">
-                    <div class="col-md-8">
-                        <label class="form-label">CSV file</label>
-                        <input type="file" name="csv_file" class="form-control" accept=".csv,text/csv" required>
-                    </div>
-                    <div class="col-md-4 d-flex gap-2">
-                        <button type="submit" class="btn btn-primary flex-grow-1">
-                            <i class="fa fa-upload me-1"></i> Upload &amp; Import
-                        </button>
-                        <button type="button" class="btn btn-outline-secondary" id="closeBulkBtn">Close</button>
-                    </div>
+                <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
+                    <button type="button" class="btn btn-sm btn-outline-primary" id="liveBulkAddSiteBtn">
+                        <i class="fa fa-plus me-1"></i> Add site
+                    </button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" id="liveBulkDuplicateBtn">
+                        <i class="fa fa-copy me-1"></i> Duplicate last
+                    </button>
+                    <span class="small text-muted" id="liveBulkCountLabel">0 / 25 sites</span>
+                    <button type="submit" class="btn btn-sm btn-primary ms-auto" id="liveBulkSubmitBtn">
+                        <i class="fa fa-paper-plane me-1"></i> Submit all for review
+                    </button>
                 </div>
+
+                <div id="liveBulkSites" class="d-flex flex-column gap-3"></div>
             </form>
+
+            <details class="mt-4 border rounded p-3 bg-light">
+                <summary class="fw-semibold" style="cursor:pointer;">Advanced: CSV import</summary>
+                <p class="small text-muted mt-2 mb-2">
+                    Prefer the live form above. CSV requires exact category names separated by <code>|</code>.
+                </p>
+                <div class="d-flex flex-wrap gap-2 mb-2">
+                    <a href="{{ route('publisher.sites.bulk-template') }}" class="btn btn-sm btn-outline-secondary">
+                        <i class="fa fa-download me-1"></i> Download CSV template
+                    </a>
+                </div>
+                <form method="POST" action="{{ route('publisher.sites.bulk-import') }}" enctype="multipart/form-data" class="row g-2 align-items-end">
+                    @csrf
+                    <div class="col-md-8">
+                        <label class="form-label small mb-1">CSV file</label>
+                        <input type="file" name="csv_file" class="form-control form-control-sm" accept=".csv,text/csv" required>
+                    </div>
+                    <div class="col-md-4">
+                        <button type="submit" class="btn btn-sm btn-outline-primary w-100">
+                            <i class="fa fa-upload me-1"></i> Upload CSV
+                        </button>
+                    </div>
+                </form>
+            </details>
         </div>
     </div>
+
+    <template id="liveBulkSiteTemplate">
+        <div class="live-bulk-site border rounded p-3 bg-white" data-live-bulk-card>
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <button type="button" class="btn btn-link btn-sm text-decoration-none p-0 live-bulk-toggle" aria-expanded="true">
+                    <strong class="live-bulk-title">Site <span class="live-bulk-num">1</span></strong>
+                    <span class="text-muted small ms-2 live-bulk-summary"></span>
+                </button>
+                <button type="button" class="btn btn-sm btn-outline-danger live-bulk-remove" title="Remove">
+                    <i class="fa fa-trash"></i>
+                </button>
+            </div>
+            <div class="live-bulk-body">
+                <div class="row g-2">
+                    <div class="col-md-4">
+                        <label class="form-label small">Site name <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control form-control-sm" data-field="siteName" required maxlength="255">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label small">Site URL <span class="text-danger">*</span></label>
+                        <input type="url" class="form-control form-control-sm" data-field="siteUrl" required placeholder="https://example.com">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label small">Example URL <span class="text-danger">*</span></label>
+                        <input type="url" class="form-control form-control-sm" data-field="exampleUrl" required placeholder="https://example.com/post">
+                    </div>
+                    <div class="col-6 col-md-2">
+                        <label class="form-label small">DA (0–100) <span class="text-danger">*</span></label>
+                        <input type="number" class="form-control form-control-sm" data-field="da" min="0" max="100" required>
+                    </div>
+                    <div class="col-6 col-md-2">
+                        <label class="form-label small">DR (0–100) <span class="text-danger">*</span></label>
+                        <input type="number" class="form-control form-control-sm" data-field="dr" min="0" max="100" required>
+                    </div>
+                    <div class="col-6 col-md-2">
+                        <label class="form-label small">Traffic <span class="text-danger">*</span></label>
+                        <input type="number" class="form-control form-control-sm" data-field="traffic" min="0" required>
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <label class="form-label small">Turnaround <span class="text-danger">*</span></label>
+                        <select class="form-select form-select-sm" data-field="turnaround_time" required>
+                            <option value="24h">24 Hours</option>
+                            <option value="48h">48 Hours</option>
+                            <option value="3days" selected>3 Days</option>
+                            <option value="5days">5 Days</option>
+                            <option value="7days">7 Days</option>
+                        </select>
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <label class="form-label small">Price (€) <span class="text-danger">*</span></label>
+                        <input type="number" class="form-control form-control-sm" data-field="price" min="0" step="0.01" required>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label small">Language <span class="text-danger">*</span></label>
+                        <select class="form-select form-select-sm live-bulk-language" data-field="language" required>
+                            <option value="">Select language…</option>
+                            @foreach($languages as $language)
+                                <option value="{{ strtolower($language->code) }}">{{ $language->name }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label small">Country / Market <span class="text-danger">*</span></label>
+                        <select class="form-select form-select-sm live-bulk-country" data-field="country" required>
+                            <option value="">Select language first…</option>
+                            @foreach($countries as $country)
+                                <option value="{{ strtolower($country->code) }}">{{ $country->name }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label small">Publication <span class="text-danger">*</span></label>
+                        <select class="form-select form-select-sm" data-field="publicationTime" required>
+                            <option value="">Select…</option>
+                            <option value="6months">6 Months</option>
+                            <option value="1year">1 Year</option>
+                            <option value="permanent" selected>Permanent</option>
+                        </select>
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label small">Niches / categories (max 7) <span class="text-danger">*</span></label>
+                        <select class="form-select form-select-sm live-bulk-categories" data-field="categories" multiple size="6" required>
+                            @foreach($categories as $category)
+                                <option value="{{ $category->name }}">{{ $category->name }}@if($category->group) ({{ $category->group }})@endif</option>
+                            @endforeach
+                        </select>
+                        <div class="form-text">Hold Ctrl/Cmd to select multiple. Pick from the catalog — do not type free text.</div>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label small">Link type <span class="text-danger">*</span></label>
+                        <select class="form-select form-select-sm" data-field="link_type" required>
+                            <option value="dofollow" selected>DoFollow</option>
+                            <option value="nofollow">NoFollow</option>
+                        </select>
+                    </div>
+                    <div class="col-md-8">
+                        <label class="form-label small">Tag (optional)</label>
+                        <select class="form-select form-select-sm" data-field="site_tag">
+                            <option value="">None</option>
+                            <option value="sponsored">Sponsored</option>
+                            <option value="partner_material">Partner Materials</option>
+                            <option value="as_you_prefer">As You Prefer</option>
+                        </select>
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label small">Description (min 50 characters) <span class="text-danger">*</span></label>
+                        <textarea class="form-control form-control-sm" data-field="siteDescription" rows="3" minlength="50" required
+                                  placeholder="Describe the site for advertisers…"></textarea>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </template>
 
     <div class="card shadow-sm border-0 d-none" id="formCard">
         <div class="card-body">
@@ -1760,9 +1883,13 @@ bulkBtn.on('click', function() {
     formCard.addClass('d-none');
     closeBtn.addClass('d-none');
     addBtn.removeClass('d-none');
+    claimCard.addClass('d-none');
     bulkCard.toggleClass('d-none');
     bulkBtn.toggleClass('d-none', !bulkCard.hasClass('d-none'));
-    formHeaderSpan.text(bulkCard.hasClass('d-none') ? 'Add New Website' : 'Bulk Import');
+    formHeaderSpan.text(bulkCard.hasClass('d-none') ? 'Add New Website' : 'Add many websites');
+    if (!bulkCard.hasClass('d-none') && $('#liveBulkSites').children().length === 0) {
+        liveBulkAddCard();
+    }
 });
 
 closeBulkBtn.on('click', function() {
@@ -1771,7 +1898,208 @@ closeBulkBtn.on('click', function() {
     formHeaderSpan.text('Add New Website');
 });
 
-// Form validation
+const LIVE_BULK_MAX = 25;
+const liveBulkSitesEl = document.getElementById('liveBulkSites');
+const liveBulkTemplate = document.getElementById('liveBulkSiteTemplate');
+
+function liveBulkCards() {
+    return liveBulkSitesEl ? Array.from(liveBulkSitesEl.querySelectorAll('[data-live-bulk-card]')) : [];
+}
+
+function liveBulkUpdateCount() {
+    const n = liveBulkCards().length;
+    $('#liveBulkCountLabel').text(n + ' / ' + LIVE_BULK_MAX + ' sites');
+    $('#liveBulkAddSiteBtn').prop('disabled', n >= LIVE_BULK_MAX);
+    $('#liveBulkDuplicateBtn').prop('disabled', n === 0 || n >= LIVE_BULK_MAX);
+    liveBulkCards().forEach((card, i) => {
+        const num = i + 1;
+        card.querySelectorAll('.live-bulk-num').forEach(el => { el.textContent = String(num); });
+        card.querySelectorAll('[data-field]').forEach(input => {
+            const field = input.getAttribute('data-field');
+            if (field === 'categories') {
+                input.name = `sites[${i}][categories][]`;
+            } else {
+                input.name = `sites[${i}][${field}]`;
+            }
+        });
+        const url = card.querySelector('[data-field="siteUrl"]')?.value || '';
+        const summary = card.querySelector('.live-bulk-summary');
+        if (summary) summary.textContent = url ? url : '';
+    });
+}
+
+function liveBulkBindLanguageFilter(card) {
+    const langSelect = card.querySelector('.live-bulk-language');
+    const countrySelect = card.querySelector('.live-bulk-country');
+    if (!langSelect || !countrySelect) return;
+
+    const applyFilter = () => {
+        const lang = (langSelect.value || '').toLowerCase();
+        const allowed = new Set((window.languageCountryMap?.[lang] || []).map(c => String(c.code).toLowerCase()));
+        Array.from(countrySelect.options).forEach(opt => {
+            if (!opt.value) {
+                opt.hidden = false;
+                return;
+            }
+            const ok = !lang || allowed.size === 0 || allowed.has(opt.value.toLowerCase());
+            opt.hidden = !ok;
+            opt.disabled = !ok;
+        });
+        if (countrySelect.value && countrySelect.selectedOptions[0]?.disabled) {
+            countrySelect.value = '';
+        }
+    };
+
+    langSelect.addEventListener('change', applyFilter);
+    applyFilter();
+}
+
+function liveBulkBindCategories(card) {
+    const select = card.querySelector('.live-bulk-categories');
+    if (!select) return;
+    select.addEventListener('change', () => {
+        const selected = Array.from(select.selectedOptions);
+        if (selected.length > 7) {
+            selected.slice(7).forEach(opt => { opt.selected = false; });
+            alert('Maximum 7 niches per site.');
+        }
+    });
+}
+
+function liveBulkAddCard(prefill = null) {
+    if (liveBulkCards().length >= LIVE_BULK_MAX) {
+        alert('Maximum ' + LIVE_BULK_MAX + ' sites per batch. Submit this batch, then add more.');
+        return null;
+    }
+    if (!liveBulkTemplate || !liveBulkSitesEl) return null;
+
+    const node = liveBulkTemplate.content.firstElementChild.cloneNode(true);
+    liveBulkSitesEl.appendChild(node);
+    liveBulkBindLanguageFilter(node);
+    liveBulkBindCategories(node);
+
+    if (prefill && typeof prefill === 'object') {
+        Object.keys(prefill).forEach(key => {
+            const el = node.querySelector(`[data-field="${key}"]`);
+            if (!el) return;
+            if (key === 'categories' && Array.isArray(prefill[key])) {
+                Array.from(el.options).forEach(opt => {
+                    opt.selected = prefill[key].includes(opt.value);
+                });
+            } else {
+                el.value = prefill[key];
+            }
+        });
+        node.querySelector('.live-bulk-language')?.dispatchEvent(new Event('change'));
+        if (prefill.country) {
+            const countryEl = node.querySelector('[data-field="country"]');
+            if (countryEl) countryEl.value = prefill.country;
+        }
+    }
+
+    node.querySelector('.live-bulk-toggle')?.addEventListener('click', function () {
+        const body = node.querySelector('.live-bulk-body');
+        if (!body) return;
+        const open = body.style.display !== 'none';
+        body.style.display = open ? 'none' : '';
+        this.setAttribute('aria-expanded', open ? 'false' : 'true');
+    });
+
+    node.querySelector('.live-bulk-remove')?.addEventListener('click', function () {
+        if (liveBulkCards().length <= 1) {
+            alert('Keep at least one site card, or close this panel.');
+            return;
+        }
+        node.remove();
+        liveBulkUpdateCount();
+    });
+
+    node.querySelector('[data-field="siteUrl"]')?.addEventListener('input', liveBulkUpdateCount);
+
+    liveBulkUpdateCount();
+    return node;
+}
+
+function liveBulkReadCard(card) {
+    const data = {};
+    card.querySelectorAll('[data-field]').forEach(el => {
+        const field = el.getAttribute('data-field');
+        if (field === 'categories') {
+            data.categories = Array.from(el.selectedOptions).map(o => o.value);
+        } else {
+            data[field] = el.value;
+        }
+    });
+    return data;
+}
+
+$('#liveBulkAddSiteBtn').on('click', function () {
+    liveBulkAddCard();
+});
+
+$('#liveBulkDuplicateBtn').on('click', function () {
+    const cards = liveBulkCards();
+    if (!cards.length) return;
+    const last = liveBulkReadCard(cards[cards.length - 1]);
+    // Clear identity fields so the duplicate is a new domain
+    last.siteName = '';
+    last.siteUrl = '';
+    last.exampleUrl = '';
+    liveBulkAddCard(last);
+});
+
+$('#liveBulkForm').on('submit', function (e) {
+    const cards = liveBulkCards();
+    if (!cards.length) {
+        e.preventDefault();
+        alert('Add at least one website.');
+        return;
+    }
+    if (cards.length > LIVE_BULK_MAX) {
+        e.preventDefault();
+        alert('Maximum ' + LIVE_BULK_MAX + ' sites per batch.');
+        return;
+    }
+
+    for (let i = 0; i < cards.length; i++) {
+        const card = cards[i];
+        const cats = card.querySelector('.live-bulk-categories');
+        if (!cats || cats.selectedOptions.length < 1) {
+            e.preventDefault();
+            alert('Site ' + (i + 1) + ': select at least one niche/category.');
+            card.querySelector('.live-bulk-body').style.display = '';
+            cats?.focus();
+            return;
+        }
+        const desc = card.querySelector('[data-field="siteDescription"]');
+        if (desc && desc.value.trim().length < 50) {
+            e.preventDefault();
+            alert('Site ' + (i + 1) + ': description must be at least 50 characters.');
+            card.querySelector('.live-bulk-body').style.display = '';
+            desc.focus();
+            return;
+        }
+        if (!card.checkValidity || !card.querySelector('[data-field="siteUrl"]').checkValidity()) {
+            // rely on HTML5 for other required fields
+        }
+        const required = card.querySelectorAll('[required]');
+        for (const el of required) {
+            if (el.tagName === 'SELECT' && el.multiple) continue;
+            if (!el.value || (typeof el.value === 'string' && !el.value.trim())) {
+                e.preventDefault();
+                alert('Site ' + (i + 1) + ': please fill all required fields.');
+                card.querySelector('.live-bulk-body').style.display = '';
+                el.focus();
+                return;
+            }
+        }
+    }
+
+    liveBulkUpdateCount();
+    $('#liveBulkSubmitBtn').prop('disabled', true).text('Submitting…');
+});
+
+// Toggle form for CREATE — keep existing addBtn handler below
 $('#addSiteForm').submit(function(e){
     if (quill) $('#siteDescription').val(quill.root.innerHTML);
 
