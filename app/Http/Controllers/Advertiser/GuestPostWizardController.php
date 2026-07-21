@@ -8,6 +8,7 @@ use App\Models\Country;
 use App\Models\Language;
 use App\Models\Site;
 use App\Services\Marketplace\LanguageCountryMap;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 
@@ -17,24 +18,17 @@ class GuestPostWizardController extends Controller
 
     public function __construct(
         private LanguageCountryMap $languageCountryMap
-    ) {
-    }
+    ) {}
 
     /**
      * Entry: start or resume wizard.
+     * Never force content/pay just because the cart already has sites —
+     * advertisers can keep browsing publishers and finish payment from the cart anytime.
      */
     public function start(Request $request)
     {
         $state = $this->state();
         if (! empty($state['language'])) {
-            $cart = session('cart', []);
-            if ($cart !== [] && $this->cartFullyAssigned($cart)) {
-                return redirect()->route('advertiser.wizard.pay');
-            }
-            if ($cart !== []) {
-                return redirect()->route('advertiser.wizard.content');
-            }
-
             return redirect()->route('advertiser.wizard.publishers');
         }
 
@@ -100,7 +94,7 @@ class GuestPostWizardController extends Controller
     public function publishers()
     {
         $state = $this->requireMarket();
-        if ($state instanceof \Illuminate\Http\RedirectResponse) {
+        if ($state instanceof RedirectResponse) {
             return $state;
         }
 
@@ -121,10 +115,10 @@ class GuestPostWizardController extends Controller
         return redirect()->route('advertiser.catalog', $params);
     }
 
-    public function content(): View|\Illuminate\Http\RedirectResponse
+    public function content(): View|RedirectResponse
     {
         $state = $this->requireMarket();
-        if ($state instanceof \Illuminate\Http\RedirectResponse) {
+        if ($state instanceof RedirectResponse) {
             return $state;
         }
 
@@ -167,7 +161,7 @@ class GuestPostWizardController extends Controller
     public function pay()
     {
         $state = $this->requireMarket();
-        if ($state instanceof \Illuminate\Http\RedirectResponse) {
+        if ($state instanceof RedirectResponse) {
             return $state;
         }
 
@@ -228,7 +222,7 @@ class GuestPostWizardController extends Controller
     }
 
     /**
-     * @return array<string, mixed>|\Illuminate\Http\RedirectResponse
+     * @return array<string, mixed>|RedirectResponse
      */
     private function requireMarket()
     {

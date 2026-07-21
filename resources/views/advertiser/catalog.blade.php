@@ -70,10 +70,11 @@
         @include('advertiser.partials.ordering-path', [
             'step' => 2,
             'title' => 'Place a guest post · Publishers',
-            'subtitle' => 'One job here: pick publishers. Article readiness is shown next to Buy — assign in your cart before Pay.',
+            'subtitle' => 'One job here: pick publishers. You can keep browsing with items already in your cart — finish payment from the cart when ready.',
             'linkAll' => true,
             'contentRoute' => route('advertiser.content-library'),
-            'actions' => '<a href="'.e(route('advertiser.wizard.start')).'" class="btn btn-sm btn-outline-primary">Start guided flow</a>',
+            'actions' => '<button type="button" class="btn btn-sm btn-outline-primary" onclick="openCart()">Open cart</button>'
+                .'<a href="'.e(route('advertiser.wizard.start')).'" class="btn btn-sm btn-outline-secondary">Start guided flow</a>',
         ])
     @endif
 
@@ -86,6 +87,22 @@
             <a href="{{ route('advertiser.content-library', ['upload' => 1]) }}" class="btn btn-sm btn-primary">
                 <i class="fa fa-upload me-1"></i> Upload article
             </a>
+        </div>
+    @endif
+
+    @php
+        $catalogCart = session('cart', []);
+        $catalogCartCount = (int) array_sum(array_map(fn ($row) => (int) ($row['quantity'] ?? 0), is_array($catalogCart) ? $catalogCart : []));
+    @endphp
+    @if($catalogCartCount > 0)
+        <div class="alert alert-light border shadow-sm d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+            <div class="small mb-0">
+                You have <strong>{{ $catalogCartCount }}</strong> {{ Str::plural('site', $catalogCartCount) }} in your cart.
+                Keep browsing anytime — open the cart when you are ready to assign articles and pay.
+            </div>
+            <button type="button" class="btn btn-sm btn-outline-primary" onclick="openCart()">
+                <i class="fa fa-shopping-cart me-1"></i> Open cart
+            </button>
         </div>
     @endif
 

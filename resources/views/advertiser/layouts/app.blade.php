@@ -842,8 +842,11 @@
         <button id="checkoutFromCart" class="btn btn-primary w-100" type="button">
             <i class="fa fa-credit-card"></i> Proceed to Checkout
         </button>
+        <button id="keepBrowsingCatalog" class="btn btn-outline-secondary w-100 mt-2" type="button">
+            <i class="fa fa-list"></i> Keep browsing publishers
+        </button>
         <div id="cartProceedHint" class="small text-muted mt-2 d-none">
-            Finish the checklist above — every website needs its own article.
+            Finish the checklist above when you are ready to pay — you can keep browsing the catalog anytime.
         </div>
     </div>
 </div>
@@ -1124,11 +1127,11 @@
                 if (missing > 0) {
                     readyNote.classList.remove('d-none');
                     readyNote.innerHTML = missing === 1
-                        ? '1 website still needs its own approved article before checkout.'
-                        : (missing + ' websites still need their own approved articles before checkout.');
+                        ? '1 website still needs an approved article before checkout. You can keep browsing and finish later.'
+                        : (missing + ' websites still need approved articles before checkout. You can keep browsing and finish later.');
                 } else {
                     readyNote.classList.remove('d-none');
-                    readyNote.textContent = 'Checklist complete — you can proceed to Pay.';
+                    readyNote.textContent = 'Checklist complete — proceed to pay, or keep browsing to add more sites.';
                 }
             }
             if (proceedBtn) {
@@ -1241,9 +1244,8 @@
                     ? `${name} + ${sensitiveType}`
                     : name;
                 showToast(data.message || `${label} added to cart.`, 'success');
-                if (cartLinesMissingArticles().length > 0) {
-                    openCart();
-                }
+                // Keep browsing the catalog — cart stays available in the header to finish payment later.
+                updateCartDisplay();
             },
             error: function(xhr) {
                 const msg = xhr.responseJSON?.error || xhr.responseJSON?.message || 'Could not add to cart.';
@@ -1307,6 +1309,14 @@
     toggleCartBtn.addEventListener('click', openCart);
     closeCartBtn.addEventListener('click', closeCart);
     cartOverlay.addEventListener('click', closeCart);
+
+    document.getElementById('keepBrowsingCatalog')?.addEventListener('click', function () {
+        closeCart();
+        const onCatalog = {{ request()->routeIs('advertiser.catalog') ? 'true' : 'false' }};
+        if (!onCatalog) {
+            window.location.href = catalogUrl;
+        }
+    });
     
     // Cart item actions (event delegation)
     document.getElementById('cartItemsContainer').addEventListener('click', function(e) {

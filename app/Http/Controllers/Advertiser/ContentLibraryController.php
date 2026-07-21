@@ -265,7 +265,7 @@ class ContentLibraryController extends Controller
     }
 
     /**
-     * Start ordering an approved article via the Catalog, filtered to its language.
+     * Start ordering an approved article via the Catalog (no language pre-filter).
      * Multiple websites are allowed; each website needs its own approved article.
      */
     public function orderInCatalog(Request $request, ?ContentSubmission $submission = null)
