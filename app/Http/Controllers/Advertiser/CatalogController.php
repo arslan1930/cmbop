@@ -1824,11 +1824,18 @@ class CatalogController extends Controller
 
             $isScheduled = ($schedule['mode'] ?? 'immediate') === 'scheduled';
 
-            // Timeline only — publishers are notified after admin marks payment paid.
+            // Timeline only for unpaid — publishers are notified after admin marks payment paid.
+            // Advertiser gets a payment-pending bell so the order does not go silent.
+            $notifications = app(InAppNotificationService::class);
             foreach ($createdOrders as $createdOrder) {
-                app(InAppNotificationService::class)->notifyOrderCreated(
-                    $createdOrder instanceof Order ? $createdOrder->fresh(['items']) : Order::with('items')->find($createdOrder->id)
-                );
+                $fresh = $createdOrder instanceof Order
+                    ? $createdOrder->fresh(['items'])
+                    : Order::with('items')->find($createdOrder->id);
+                if (! $fresh) {
+                    continue;
+                }
+                $notifications->notifyOrderCreated($fresh);
+                $notifications->notifyPaymentPending($fresh);
             }
 
             // Send email to admin for manual payments (wise, crypto, bank)

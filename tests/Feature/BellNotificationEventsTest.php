@@ -13,6 +13,7 @@ use App\Models\Wallet;
 use App\Models\Withdrawal;
 use App\Services\InAppNotificationService;
 use App\Services\OrderPaymentService;
+use App\Services\WalletStripeDepositService;
 use Database\Seeders\RolesTableSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Mail;
@@ -104,7 +105,9 @@ class BellNotificationEventsTest extends TestCase
             'paid_at' => null,
         ]);
 
-        app(InAppNotificationService::class)->notifyOrderCreated($order);
+        $notifications = app(InAppNotificationService::class);
+        $notifications->notifyOrderCreated($order);
+        $notifications->notifyPaymentPending($order);
 
         $this->assertDatabaseMissing('in_app_notifications', [
             'user_id' => $publisher->id,
@@ -115,6 +118,82 @@ class BellNotificationEventsTest extends TestCase
             'order_id' => $order->id,
             'event' => 'order.created',
         ]);
+
+        $pending = InAppNotification::where('user_id', $advertiser->id)
+            ->where('type', InAppNotificationService::TYPE_PAYMENT_PENDING)
+            ->where('audience', InAppNotification::AUDIENCE_ADVERTISER)
+            ->first();
+        $this->assertNotNull($pending);
+        $this->assertStringContainsString((string) $order->order_number, $pending->title);
+    }
+
+    public function test_deposit_submitted_notifies_advertiser_and_admin(): void
+    {
+        $admin = $this->makeUser('admin');
+        $advertiser = $this->makeUser('advertiser');
+
+        $deposit = DepositRequest::create([
+            'user_id' => $advertiser->id,
+            'reference_code' => '888777',
+            'amount' => 75.5,
+            'payment_method' => 'wise',
+            'status' => 'pending',
+        ]);
+
+        $notifications = app(InAppNotificationService::class);
+        $notifications->notifyDepositSubmitted($deposit->fresh('user'));
+        $notifications->notifyAdminsDepositSubmitted($deposit->fresh('user'));
+
+        $advNote = InAppNotification::where('user_id', $advertiser->id)
+            ->where('type', InAppNotificationService::TYPE_PAYMENT_PENDING)
+            ->where('audience', InAppNotification::AUDIENCE_ADVERTISER)
+            ->first();
+        $this->assertNotNull($advNote);
+        $this->assertStringContainsString('Deposit submitted', $advNote->title);
+        $this->assertStringContainsString('75.50', $advNote->title);
+
+        $adminNote = InAppNotification::where('user_id', $admin->id)
+            ->where('audience', InAppNotification::AUDIENCE_ADMIN)
+            ->first();
+        $this->assertNotNull($adminNote);
+    }
+
+    public function test_card_deposit_credit_notifies_advertiser_once(): void
+    {
+        $advertiser = $this->makeUser('advertiser');
+        Role::firstOrCreate(['name' => 'advertiser']);
+
+        $credited = app(WalletStripeDepositService::class)->creditFromPaymentIntent(
+            $advertiser->id,
+            'pi_test_notify_'.random_int(1000, 9999),
+            40.00,
+            'CARD'.random_int(1000, 9999)
+        );
+
+        $this->assertSame(40.0, $credited);
+
+        $note = InAppNotification::where('user_id', $advertiser->id)
+            ->where('type', InAppNotificationService::TYPE_PAYMENT_RECEIVED)
+            ->where('audience', InAppNotification::AUDIENCE_ADVERTISER)
+            ->first();
+        $this->assertNotNull($note);
+        $this->assertStringContainsString('Wallet topped up', $note->title);
+        $this->assertStringContainsString('40.00', $note->title);
+
+        // Idempotent re-credit must not spam another bell.
+        app(WalletStripeDepositService::class)->creditFromPaymentIntent(
+            $advertiser->id,
+            DepositRequest::where('user_id', $advertiser->id)->value('stripe_payment_intent_id'),
+            40.00,
+            'CARDDUP'
+        );
+
+        $this->assertSame(
+            1,
+            InAppNotification::where('user_id', $advertiser->id)
+                ->where('type', InAppNotificationService::TYPE_PAYMENT_RECEIVED)
+                ->count()
+        );
     }
 
     public function test_paid_order_notifies_publisher_and_advertiser_once(): void

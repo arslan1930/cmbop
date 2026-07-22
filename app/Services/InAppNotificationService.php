@@ -175,6 +175,7 @@ class InAppNotificationService
                     'icon' => 'package',
                     'priority' => InAppNotification::PRIORITY_HIGH,
                     'related' => $order,
+                    'audience' => InAppNotification::AUDIENCE_PUBLISHER,
                     'action_label' => 'View task',
                     'action_url' => route('publisher.tasks', ['focus' => 'order', 'order' => $order->id], false),
                     'meta' => ['order_number' => $order->order_number, 'site_name' => $siteName],
@@ -228,6 +229,7 @@ class InAppNotificationService
                 'icon' => 'wallet',
                 'priority' => InAppNotification::PRIORITY_HIGH,
                 'related' => $first,
+                'audience' => InAppNotification::AUDIENCE_ADVERTISER,
                 'action_label' => 'View orders',
                 'action_url' => route('advertiser.orders', [
                     'focus' => 'order',
@@ -348,22 +350,31 @@ class InAppNotificationService
         }
 
         $amount = '€'.number_format((float) $deposit->amount, 2);
+        $isCard = strtolower((string) ($deposit->payment_method ?? '')) === 'card';
+        $title = $isCard
+            ? "Wallet topped up — {$amount}"
+            : "Deposit approved — {$amount}";
+        $message = $isCard
+            ? "{$amount} from your card has been added to your wallet."
+            : "{$amount} has been added to your wallet.";
 
         $this->notify(
             (int) $deposit->user_id,
             self::TYPE_PAYMENT_RECEIVED,
-            "Deposit approved — {$amount}",
-            "{$amount} has been added to your wallet.",
+            $title,
+            $message,
             [
                 'category' => self::CATEGORY_PAYMENTS,
                 'icon' => 'wallet',
                 'priority' => InAppNotification::PRIORITY_HIGH,
                 'related' => $deposit,
+                'audience' => InAppNotification::AUDIENCE_ADVERTISER,
                 'action_label' => 'View balance',
                 'action_url' => route('advertiser.balance', [], false),
                 'meta' => [
                     'amount' => (float) $deposit->amount,
                     'reference_code' => $deposit->reference_code,
+                    'payment_method' => $deposit->payment_method,
                 ],
             ]
         );
@@ -735,6 +746,7 @@ class InAppNotificationService
                 'category' => self::CATEGORY_ORDERS,
                 'icon' => 'check-circle',
                 'related' => $order,
+                'audience' => InAppNotification::AUDIENCE_ADVERTISER,
                 'action_label' => 'View order',
                 'action_url' => route('advertiser.orders', ['focus' => 'order', 'order' => $order->id], false),
                 'meta' => ['order_number' => $order->order_number],
@@ -764,6 +776,7 @@ class InAppNotificationService
                 'icon' => 'x-circle',
                 'priority' => InAppNotification::PRIORITY_HIGH,
                 'related' => $order,
+                'audience' => InAppNotification::AUDIENCE_ADVERTISER,
                 'action_label' => 'View order',
                 'action_url' => route('advertiser.orders', ['focus' => 'order', 'order' => $order->id], false),
             ]
@@ -792,6 +805,7 @@ class InAppNotificationService
                 'icon' => 'rocket',
                 'priority' => InAppNotification::PRIORITY_HIGH,
                 'related' => $order,
+                'audience' => InAppNotification::AUDIENCE_ADVERTISER,
                 'action_label' => 'Review order',
                 'action_url' => route('advertiser.orders', ['focus' => 'order', 'order' => $order->id], false),
                 'meta' => [
@@ -860,6 +874,7 @@ class InAppNotificationService
                     'icon' => 'pencil',
                     'priority' => InAppNotification::PRIORITY_HIGH,
                     'related' => $order,
+                    'audience' => InAppNotification::AUDIENCE_PUBLISHER,
                     'action_label' => 'Open task',
                     'action_url' => route('publisher.tasks', ['focus' => 'order', 'order' => $order->id], false),
                 ]
@@ -901,6 +916,7 @@ class InAppNotificationService
                     'category' => self::CATEGORY_ORDERS,
                     'icon' => 'badge-check',
                     'related' => $order,
+                    'audience' => InAppNotification::AUDIENCE_PUBLISHER,
                     'action_label' => 'View tasks',
                     'action_url' => route('publisher.tasks', ['focus' => 'order', 'order' => $order->id], false),
                 ]
@@ -916,6 +932,7 @@ class InAppNotificationService
                         'category' => self::CATEGORY_PAYMENTS,
                         'icon' => 'wallet',
                         'related' => $order,
+                        'audience' => InAppNotification::AUDIENCE_PUBLISHER,
                         'action_label' => 'View balance',
                         'action_url' => route('publisher.balance', [], false),
                     ]
@@ -934,6 +951,7 @@ class InAppNotificationService
                     'category' => self::CATEGORY_ORDERS,
                     'icon' => 'badge-check',
                     'related' => $order,
+                    'audience' => InAppNotification::AUDIENCE_ADVERTISER,
                     'action_label' => 'View order',
                     'action_url' => route('advertiser.orders', ['focus' => 'order', 'order' => $order->id], false),
                 ]
@@ -971,6 +989,9 @@ class InAppNotificationService
                 'icon' => 'message-circle',
                 'priority' => InAppNotification::PRIORITY_NORMAL,
                 'related' => $order,
+                'audience' => $isAdvertiserReceiver
+                    ? InAppNotification::AUDIENCE_ADVERTISER
+                    : InAppNotification::AUDIENCE_PUBLISHER,
                 'action_label' => 'Open chat',
                 'action_url' => $url,
                 'meta' => [

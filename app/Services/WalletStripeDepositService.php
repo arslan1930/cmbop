@@ -25,8 +25,9 @@ class WalletStripeDepositService
         string $referenceCode
     ): float {
         $credited = 0.0;
+        $notifyDepositId = null;
 
-        DB::transaction(function () use ($userId, $paymentIntentId, $amountEuros, &$referenceCode, &$credited) {
+        DB::transaction(function () use ($userId, $paymentIntentId, $amountEuros, &$referenceCode, &$credited, &$notifyDepositId) {
             $existing = DepositRequest::where('stripe_payment_intent_id', $paymentIntentId)
                 ->lockForUpdate()
                 ->first();
@@ -55,7 +56,10 @@ class WalletStripeDepositService
 
             $this->creditAdvertiserWallet($userId, (float) $deposit->amount, $deposit);
             $credited = (float) $deposit->amount;
+            $notifyDepositId = $deposit->id;
         });
+
+        $this->notifyDepositCredited($notifyDepositId);
 
         return $credited;
     }
@@ -98,8 +102,9 @@ class WalletStripeDepositService
         }
 
         $credited = 0.0;
+        $notifyDepositId = null;
 
-        DB::transaction(function () use ($userId, $session, $sessionId, $paymentIntentId, $finalAmount, $referenceCode, &$credited) {
+        DB::transaction(function () use ($userId, $session, $sessionId, $paymentIntentId, $finalAmount, $referenceCode, &$credited, &$notifyDepositId) {
             $existing = DepositRequest::where('stripe_session_id', $sessionId)
                 ->lockForUpdate()
                 ->first();
@@ -145,12 +150,15 @@ class WalletStripeDepositService
 
             $this->creditAdvertiserWallet($userId, (float) $finalAmount, $deposit);
             $credited = (float) $finalAmount;
+            $notifyDepositId = $deposit->id;
 
             Log::info('Deposit created from Stripe session', [
                 'deposit_id' => $deposit->id,
                 'session_id' => $sessionId,
             ]);
         });
+
+        $this->notifyDepositCredited($notifyDepositId);
 
         return $credited;
     }
@@ -184,8 +192,9 @@ class WalletStripeDepositService
         object $session
     ): float {
         $credited = 0.0;
+        $notifyDepositId = null;
 
-        DB::transaction(function () use ($depositId, $sessionId, $paymentIntentId, $session, &$credited) {
+        DB::transaction(function () use ($depositId, $sessionId, $paymentIntentId, $session, &$credited, &$notifyDepositId) {
             $lockedDeposit = DepositRequest::where('id', $depositId)->lockForUpdate()->first();
             if (! $lockedDeposit) {
                 throw new \RuntimeException('Deposit not found: '.$depositId);
@@ -212,9 +221,30 @@ class WalletStripeDepositService
                 $lockedDeposit
             );
             $credited = (float) $lockedDeposit->amount;
+            $notifyDepositId = $lockedDeposit->id;
         });
 
+        $this->notifyDepositCredited($notifyDepositId);
+
         return $credited;
+    }
+
+    protected function notifyDepositCredited(?int $depositId): void
+    {
+        if (! $depositId) {
+            return;
+        }
+
+        try {
+            $deposit = DepositRequest::find($depositId);
+            if ($deposit) {
+                app(InAppNotificationService::class)->notifyDepositApproved($deposit);
+            }
+        } catch (\Throwable $e) {
+            Log::warning('Failed to send card deposit bell notification: '.$e->getMessage(), [
+                'deposit_id' => $depositId,
+            ]);
+        }
     }
 
     protected function creditAdvertiserWallet(int $userId, float $amount, DepositRequest $deposit): void
