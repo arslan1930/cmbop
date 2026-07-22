@@ -107,6 +107,30 @@ class WalletBonusTest extends TestCase
         $this->assertSame(0.0, $wallet->withdrawableBalance());
     }
 
+    public function test_reconcile_inflated_bonus_clamps_to_ledger_credits(): void
+    {
+        $wallet = $this->makeWallet(45, 45);
+        \Illuminate\Support\Facades\DB::table('wallet_transactions')->insert([
+            'user_id' => $wallet->user_id,
+            'wallet_id' => $wallet->id,
+            'type' => 'bonus_credit',
+            'direction' => 'credit',
+            'amount' => 20,
+            'bonus_amount' => 20,
+            'currency' => 'EUR',
+            'status' => 'completed',
+            'description' => 'Welcome promotional bonus',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $this->assertTrue($wallet->reconcileInflatedBonusBalance());
+        $wallet->refresh();
+        $this->assertSame(20.0, (float) $wallet->bonus_balance);
+        $this->assertSame(20.0, $wallet->lockedBonusBalance());
+        $this->assertSame(25.0, $wallet->withdrawableBalance());
+    }
+
     public function test_refund_restores_spend_only_bonus(): void
     {
         $wallet = $this->makeWallet(20, 20);

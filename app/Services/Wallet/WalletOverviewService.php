@@ -59,8 +59,13 @@ class WalletOverviewService
         $bonusReceived = (float) WalletTransaction::where('user_id', $userId)
             ->where('type', WalletTransaction::TYPE_BONUS_CREDIT)
             ->sum('bonus_amount');
+        if ($bonusReceived <= 0) {
+            $bonusReceived = (float) WalletTransaction::where('user_id', $userId)
+                ->where('type', WalletTransaction::TYPE_BONUS_CREDIT)
+                ->sum('amount');
+        }
         if ($bonusReceived <= 0 && $bonus > 0) {
-            $bonusReceived = max($bonus, 20.0);
+            $bonusReceived = $bonus;
         }
 
         $bonusUsed = max(0, round($bonusReceived - $bonus - (float) $wallet->bonus_reserved, 2));
@@ -441,7 +446,8 @@ class WalletOverviewService
                 ->where('role_id', Wallet::advertiserRoleId())
                 ->first();
             if ($wallet && ((float) $wallet->bonus_balance > 0 || (float) $wallet->bonus_reserved > 0)) {
-                $bonusAmt = max((float) $wallet->bonus_balance + (float) $wallet->bonus_reserved, 20);
+                // Remaining promo only — never invent a larger “welcome” than what is on the wallet.
+                $bonusAmt = round((float) $wallet->bonus_balance + (float) $wallet->bonus_reserved, 2);
                 $rows->push([
                     'id' => 'welcome-bonus',
                     'source' => 'bonus',

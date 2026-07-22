@@ -154,6 +154,7 @@
 }
 .af-spendable__label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .03em; color: var(--brand-primary-soft, #3aaeb2); }
 .af-spendable__value { font-size: 1.6rem; font-weight: 700; color: var(--brand-primary, #0b6266); line-height: 1.1; }
+.af-spendable__equation { margin-top: 2px; }
 .af-spendable__breakdown {
     display: flex; flex-wrap: wrap; gap: 8px;
 }
@@ -227,10 +228,11 @@
         <div class="af-spendable__main">
             <span class="af-spendable__label">Spendable</span>
             <span class="af-spendable__value" id="kpiSpendable">€{{ number_format($spendable, 2) }}</span>
+            <div class="af-spendable__equation small text-muted">Money + Bonus</div>
         </div>
         <div class="af-spendable__breakdown">
-            <div class="af-spendable__chip" title="Cash you can withdraw">
-                <span class="af-spendable__chip-label">Cash</span>
+            <div class="af-spendable__chip" title="Withdrawable funds from deposits">
+                <span class="af-spendable__chip-label">Money</span>
                 <span class="af-spendable__chip-value" id="kpiAvailable">€{{ number_format($available, 2) }}</span>
             </div>
             <div class="af-spendable__chip af-spendable__chip--bonus" title="Promotional credit for marketplace purchases only">
@@ -247,8 +249,8 @@
         @endif
         @if($bonus > 0)
             <p class="af-spendable__note mb-0">
-                <strong>€{{ number_format($bonus, 2) }} promotional bonus</strong>
-                — {{ $promotionalBonusMessage ?? \App\Models\Wallet::PROMOTIONAL_BONUS_MESSAGE }}
+                <strong>Bonus €{{ number_format($bonus, 2) }}</strong>
+                (purchases only) — {{ $promotionalBonusMessage ?? \App\Models\Wallet::PROMOTIONAL_BONUS_MESSAGE }}
             </p>
         @endif
     </div>

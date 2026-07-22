@@ -50,6 +50,7 @@ class AddFundsController extends Controller
             ->get();
 
         $wallet->repairOrphanedWelcomeBonus();
+        $wallet->reconcileInflatedBonusBalance();
         $wallet->refresh();
 
         $summary = $this->overview->summary($user->id, $wallet);
