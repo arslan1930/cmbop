@@ -717,7 +717,7 @@
                               placeholder="Explain how you own this site (e.g. domain registrar email, CMS access, who listed it incorrectly…)"></textarea>
                 </div>
                 <div class="col-12">
-                    <button type="submit" class="btn btn-warning">Submit claim for review</button>
+                    <button type="submit" class="btn btn-primary">Submit claim for review</button>
                 </div>
             </form>
         </div>

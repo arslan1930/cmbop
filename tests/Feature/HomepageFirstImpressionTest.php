@@ -16,6 +16,7 @@ class HomepageFirstImpressionTest extends TestCase
         $this->assertStringNotContainsString('messages.pricing_card_1_title', $html);
         $this->assertStringNotContainsString('advertiser/catalog', $html);
         $this->assertStringNotContainsString('Free SEO Audit', $html);
+        $this->assertStringNotContainsString('background-color: #5bc4c7', $html);
         $this->assertStringNotContainsString('background-color: #4ECDCB', $html);
 
         $response->assertSee('Verified publisher catalog', false);
@@ -24,7 +25,9 @@ class HomepageFirstImpressionTest extends TestCase
         $response->assertSee('Starter Package', false);
         $response->assertSee('Talk to sales', false);
         $response->assertSee('Create free account', false);
-        $response->assertSee('hero-marketplace.png', false);
+        $response->assertSee('dashboard.png', false);
+        $response->assertSee('slb-bottom-cta', false);
+        $response->assertSee('btn btn-primary', false);
     }
 
     public function test_managed_package_ctas_point_to_contact(): void

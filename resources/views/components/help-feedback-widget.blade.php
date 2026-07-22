@@ -41,7 +41,7 @@
     transition: background-color .15s ease, transform .15s ease, box-shadow .15s ease;
 }
 .help-fab__btn:hover { background: var(--brand-primary-soft, #3faeb2); color: #fff; transform: translateY(-1px); }
-.help-fab__btn:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--bs-focus-ring-color, rgba(63,174,178,.4)), 0 10px 24px rgba(24,80,84,.28); }
+.help-fab__btn:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--bs-focus-ring-color, rgba(58,174,178,.4)), 0 10px 24px rgba(11,98,102,.28); }
 .help-fab__panel {
     width: min(380px, calc(100vw - 32px));
     background: #fff;

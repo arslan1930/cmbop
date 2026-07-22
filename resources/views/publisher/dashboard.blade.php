@@ -105,7 +105,7 @@
         }
         .publisher-secondary-cta .secondary-icon {
             width: 32px; height: 32px; border-radius: 8px;
-            background: #eef7f7; color: #185054;
+            background: #e6f5f5; color: #185054;
             display: inline-flex; align-items: center; justify-content: center;
         }
     </style>

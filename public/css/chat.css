@@ -14,7 +14,7 @@
 
 .chat-order-details {
   padding: 10px 16px;
-  background: var(--surface-2, #f8fafc);
+  background: var(--surface-2, #f7fafb);
   border-bottom: 1px solid var(--border-subtle, #e2e8f0);
   color: var(--brand-neutral, #64748b);
   font-size: 0.78rem;
@@ -43,7 +43,7 @@
 .chat-messages {
   height: 400px;
   overflow-y: auto;
-  background: var(--surface-2, #f8fafc);
+  background: var(--surface-2, #f7fafb);
   padding: 1rem;
 }
 

@@ -122,7 +122,7 @@
     font-size: clamp(1.65rem, 3.2vw, 2.55rem);
     line-height: 1.15;
     font-weight: 700;
-    color: #185054;
+    color: var(--brand-primary, #185054);
     letter-spacing: -0.03em;
     max-width: 18ch;
     animation: slbHeroFade 0.7s ease 0.08s both;
@@ -160,26 +160,26 @@
 
   .slb-hero-cta {
     color: #fff;
-    background: #185054;
-    box-shadow: 0 10px 24px rgba(24, 80, 84, 0.22);
+    background: var(--brand-primary, #185054);
+    box-shadow: 0 10px 24px rgba(24, 80, 84, 0.18);
   }
 
   .slb-hero-cta:hover {
     color: #fff;
-    background: #3faeb2;
+    background: var(--brand-primary-soft, #3faeb2);
     transform: translateY(-2px);
     box-shadow: 0 14px 28px rgba(63, 174, 178, 0.28);
   }
 
   .slb-hero-cta-secondary {
-    color: #185054;
+    color: var(--brand-primary, #185054);
     background: rgba(255, 255, 255, 0.72);
     border: 1px solid rgba(24, 80, 84, 0.18);
     backdrop-filter: blur(8px);
   }
 
   .slb-hero-cta-secondary:hover {
-    color: #185054;
+    color: var(--brand-primary, #185054);
     border-color: rgba(24, 80, 84, 0.35);
     background: #fff;
     transform: translateY(-2px);
@@ -192,13 +192,13 @@
     margin-top: 1.1rem;
     font-size: 0.92rem;
     font-weight: 600;
-    color: #185054;
+    color: var(--brand-primary, #185054);
     text-decoration: none;
     animation: slbHeroFade 0.7s ease 0.3s both;
   }
 
   .slb-hero-catalog-text:hover {
-    color: #3faeb2;
+    color: var(--brand-primary-soft, #3faeb2);
   }
 
   .slb-hero-catalog-text i {

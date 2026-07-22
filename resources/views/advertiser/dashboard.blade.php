@@ -14,29 +14,34 @@
 
 <style>
 .get-started-cta, .dash-primary-cta {
-    background: linear-gradient(135deg, #3faeb2, #185054); color: #fff; border: none;
+    background: var(--brand-primary, #185054); color: #fff; border: none;
     border-radius: 10px; padding: 12px 18px; font-weight: 600;
     display: inline-flex; align-items: center; gap: 8px; text-decoration: none;
-    transition: opacity .2s ease, transform .2s ease;
+    transition: background-color .2s ease, transform .2s ease;
 }
-.get-started-cta:hover, .dash-primary-cta:hover { color: #fff; opacity: .95; transform: translateY(-1px); }
+.get-started-cta:hover, .dash-primary-cta:hover {
+    color: #fff; background: var(--brand-primary-soft, #3faeb2); transform: translateY(-1px);
+}
 .kpi-tile {
     display: flex; align-items: center; gap: 12px; padding: 14px;
     border: 1px solid #e5eef0; border-radius: 10px; background: #fff; height: 100%;
 }
 .kpi-tile .kpi-icon {
     width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center;
-    justify-content: center; color: #fff; flex-shrink: 0;
+    justify-content: center; flex-shrink: 0;
+    background: var(--brand-primary-bg, #e6f5f5);
+    color: var(--brand-primary, #185054);
+    border: 1px solid var(--brand-primary-border, #b8e4e4);
 }
 .kpi-tile .kpi-label { font-size: 12px; color: #6b7280; display: block; }
-.kpi-tile .kpi-value { font-size: 1.35rem; font-weight: 700; color: #185054; line-height: 1.1; }
+.kpi-tile .kpi-value { font-size: 1.35rem; font-weight: 700; color: var(--brand-primary, #185054); line-height: 1.1; }
 .next-action {
     display: flex; align-items: center; justify-content: space-between; gap: 12px;
     padding: 12px 14px; border: 1px solid #e5e7eb; border-radius: 10px;
     text-decoration: none; color: inherit; background: #f8fafb;
     transition: border-color .2s ease, background .2s ease;
 }
-.next-action:hover { border-color: #5bc4c7; background: #f0fbfb; color: inherit; }
+.next-action:hover { border-color: var(--brand-primary-border, #b8e4e4); background: var(--brand-primary-bg, #e6f5f5); color: inherit; }
 .next-action .na-title { font-weight: 600; font-size: 14px; }
 .next-action .na-desc { font-size: 12px; color: #6b7280; margin: 0; }
 .order-status {
@@ -264,7 +269,7 @@
     background:
         radial-gradient(ellipse 50% 60% at 80% 20%, rgba(78, 205, 203, 0.18), transparent 55%),
         radial-gradient(ellipse 40% 50% at 10% 80%, rgba(24, 80, 84, 0.08), transparent 50%),
-        linear-gradient(180deg, #eef7f7 0%, #f8f9fa 100%);
+        linear-gradient(180deg, #e6f5f5 0%, #f8f9fa 100%);
 }
 </style>
 <div class="dash-command-surface mb-1">

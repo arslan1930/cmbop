@@ -1,6 +1,6 @@
 /**
- * Brand color system — teal primary · mist neutrals · real amber caution
- * Brand pair: #185054 (deep) · #3faeb2 (soft)
+ * Brand color system — teal mist · slate neutrals · quiet semantics
+ * Rule: ~90% neutrals · ~8% teal on actions · ~2% red alerts
  */
 :root {
   --brand-primary: #185054;
@@ -12,12 +12,12 @@
 
   --brand-neutral: #64748b;
   --brand-neutral-bg: #f1f5f9;
-  --brand-ink: #1f2937;
-  --brand-ink-muted: #6b7280;
+  --brand-ink: #1e293b;
+  --brand-ink-muted: #64748b;
 
   --brand-success: #0f766e;
   --brand-success-bg: #d1fae5;
-  /* Caution — real amber (not brand teal) */
+  /* Caution / pending — amber (not teal) */
   --brand-warning: #b45309;
   --brand-warning-bg: #fffbeb;
   --brand-warning-border: #fde68a;
@@ -32,7 +32,7 @@
   --border-subtle: #e2e8f0;
   --border-default: #e2e8f0;
   --hover-tint: #e6f5f5;
-  --hover-tint-strong: #d4efef;
+  --hover-tint-strong: #d7f0f0;
   --focus-ring: rgba(63, 174, 178, 0.35);
   --motion-fast: 150ms ease;
   --motion-base: 180ms ease;
@@ -91,7 +91,7 @@
 .bg-info { background-color: var(--brand-primary-soft) !important; }
 .bg-info-subtle { background-color: var(--brand-primary-bg) !important; }
 
-/* Caution / pending — amber attention */
+/* Caution / pending — amber */
 .text-warning { color: var(--brand-warning-ink) !important; }
 .bg-warning { background-color: var(--brand-warning-bg) !important; }
 .bg-warning-subtle { background-color: var(--brand-warning-bg) !important; }
@@ -168,7 +168,7 @@ code.font-monospace {
 .badge-new {
   background: linear-gradient(180deg, #f0fffe 0%, #e6f5f5 100%) !important;
   color: var(--brand-primary) !important;
-  border: 1px solid rgba(63, 174, 178, 0.45) !important;
+  border: 1px solid var(--brand-primary-border) !important;
   font-weight: 600;
   letter-spacing: 0.01em;
   box-shadow: none !important;
@@ -200,4 +200,50 @@ code.font-monospace {
   background: var(--brand-primary-bg) !important;
   color: var(--brand-primary) !important;
   border: 1px solid var(--brand-primary-border) !important;
+}
+
+/* Semantic status utilities */
+.status-rejected,
+.status-error {
+  background: var(--brand-danger-bg) !important;
+  color: var(--brand-danger) !important;
+  border: 1px solid #fecaca !important;
+  font-weight: 600;
+}
+
+.status-pending,
+.status-needs-corrections {
+  background: var(--brand-warning-bg) !important;
+  color: var(--brand-warning-ink) !important;
+  border: 1px solid var(--brand-warning-border) !important;
+  font-weight: 600;
+}
+
+.status-live,
+.status-approved,
+.status-paid {
+  background: var(--brand-success-bg) !important;
+  color: var(--brand-success) !important;
+  border: 1px solid rgba(15, 118, 110, 0.22) !important;
+  font-weight: 600;
+}
+
+/* Quiet mist icon tile — replace teal gradient KPIs */
+.kpi-icon-mist {
+  background: var(--brand-primary-bg) !important;
+  color: var(--brand-primary) !important;
+  border: 1px solid var(--brand-primary-border);
+}
+
+/* Modal headers — white, not teal bars; CTA stays on footer buttons */
+.modal-header.bg-primary,
+.modal-header.bg-primary.text-white {
+  background: var(--surface-1) !important;
+  color: var(--brand-ink) !important;
+  border-bottom: 1px solid var(--border-default);
+}
+.modal-header.bg-primary .btn-close,
+.modal-header.bg-primary.text-white .btn-close {
+  filter: none;
+  opacity: 0.65;
 }

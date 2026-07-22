@@ -24,7 +24,7 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background: var(--surface-2, #f8fafc);
+  background: var(--surface-2, #f7fafb);
 }
 
 .cart-header h5 {
@@ -127,7 +127,7 @@
   height: 28px;
   border-radius: var(--radius-sm, 8px);
   border: 1px solid var(--border-subtle, #e2e8f0);
-  background: var(--surface-2, #f8fafc);
+  background: var(--surface-2, #f7fafb);
   cursor: pointer;
   display: flex;
   align-items: center;

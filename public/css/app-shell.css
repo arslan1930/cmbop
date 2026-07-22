@@ -7,8 +7,8 @@
   --shell-sidebar-collapsed: 70px;
   --shell-topbar-height: 70px;
   --shell-border: var(--border-subtle, #e2e8f0);
-  --shell-bg: var(--surface-2, #f8fafc);
-  --shell-ink: var(--brand-ink, #1f2937);
+  --shell-bg: var(--surface-2, #f7fafb);
+  --shell-ink: var(--brand-ink, #1e293b);
   --shell-sidebar-bg: var(--surface-1, #fff);
   --shell-topbar-bg: var(--surface-1, #fff);
   --shell-accent: var(--brand-primary-tint, #5bc4c7);
@@ -350,7 +350,7 @@ body > footer.collapsed {
   transition: background-color var(--motion-fast);
 }
 .balance-block:hover {
-  background-color: var(--hover-tint-strong, #d4efef);
+  background-color: var(--hover-tint-strong, #d7f0f0);
   color: var(--brand-primary, #185054);
 }
 .balance-block .balance-label {
@@ -413,7 +413,7 @@ body > footer.collapsed {
 .status-badge.status-cancelled,
 .status-cancelled,
 .payment-failed {
-  background: var(--surface-2, #f8fafc) !important;
+  background: var(--surface-2, #f7fafb) !important;
   color: #64748b !important;
   border-color: var(--border-subtle, #e2e8f0) !important;
 }

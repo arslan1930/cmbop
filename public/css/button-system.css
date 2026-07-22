@@ -23,8 +23,8 @@
   --bs-btn-hover-bg: var(--btn-primary-hover);
   --bs-btn-hover-border-color: var(--btn-primary-hover);
   --bs-btn-active-color: #fff;
-  --bs-btn-active-bg: #123f42;
-  --bs-btn-active-border-color: #123f42;
+  --bs-btn-active-bg: var(--brand-primary-deep, #123f42);
+  --bs-btn-active-border-color: var(--brand-primary-deep, #123f42);
   font-weight: 600;
 }
 

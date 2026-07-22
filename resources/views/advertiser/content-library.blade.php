@@ -84,9 +84,9 @@
     }
     .library-status--available,
     .library-status--published {
-        background: var(--brand-primary-bg, #e6f5f5);
-        color: var(--brand-primary, #185054);
-        border-color: var(--brand-primary-border, #b8e4e4);
+        background: var(--brand-success-bg, #d1fae5);
+        color: var(--brand-success, #0f766e);
+        border-color: rgba(15, 118, 110, 0.22);
     }
     .library-status--in_progress {
         background: #f1f5f9;
@@ -94,9 +94,9 @@
         border-color: #e2e8f0;
     }
     .library-status--needs_fix {
-        background: #f8fafc;
-        color: var(--brand-primary, #185054);
-        border-color: var(--brand-primary-border, #b8e4e4);
+        background: var(--brand-warning-bg, #fffbeb);
+        color: var(--brand-warning-ink, #92400e);
+        border-color: var(--brand-warning-border, #fde68a);
     }
     .library-status--expired,
     .library-status--archived,
@@ -329,7 +329,7 @@
             </select>
         </div>
         <div class="col-auto">
-            <button type="submit" class="btn btn-sm btn-outline-primary">Apply</button>
+            <button type="submit" class="btn btn-sm btn-primary">Apply</button>
             @if(!empty($searchQuery) || ($statusFilter ?? 'all') !== 'all' || ($countryFilter ?? 'all') !== 'all' || ($languageFilter ?? 'all') !== 'all')
                 <a href="{{ route('advertiser.content-library') }}" class="btn btn-sm btn-link">Reset</a>
             @endif

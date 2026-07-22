@@ -129,13 +129,14 @@
 }
 
 .site-announcement--promo {
-  background: linear-gradient(120deg, #185054 0%, #2a8a8e 55%, #5bc4c7 100%);
-  color: #fff;
-  border: 0;
+  background: var(--brand-primary-bg, #e6f5f5);
+  color: var(--brand-primary, #185054);
+  border: 1px solid var(--brand-primary-border, #b8e4e4);
 }
 
 .site-announcement--promo .site-announcement__cta {
-  color: #fff;
+  color: var(--brand-primary, #185054);
+  font-weight: 600;
 }
 
 .ad-banner-slot {

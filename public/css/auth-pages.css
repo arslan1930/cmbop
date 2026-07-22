@@ -22,7 +22,7 @@
   background:
     radial-gradient(ellipse 70% 50% at 10% 0%, rgba(63, 174, 178, 0.18), transparent 55%),
     radial-gradient(ellipse 55% 45% at 95% 15%, rgba(24, 80, 84, 0.1), transparent 50%),
-    linear-gradient(180deg, #f4fbfb 0%, #f8fafc 45%, #ffffff 100%);
+    linear-gradient(180deg, #f4fbfb 0%, #f7fafb 45%, #ffffff 100%);
 }
 
 .auth-page::before,
@@ -75,7 +75,7 @@
 }
 
 .auth-panel {
-  background: linear-gradient(160deg, #185054 0%, #2a8a8e 48%, #3faeb2 100%);
+  background: linear-gradient(160deg, #185054 0%, #1a8a8e 48%, #3faeb2 100%);
   color: #fff;
   padding: 2.25rem 2rem;
   min-height: 100%;
@@ -318,7 +318,7 @@
   padding: 0.75rem 1.25rem;
   border: 0;
   border-radius: 12px;
-  background: linear-gradient(180deg, #1f6b6f 0%, #185054 100%);
+  background: linear-gradient(180deg, #0e7277 0%, #185054 100%);
   color: #fff !important;
   font-weight: 600;
   font-size: 0.98rem;
@@ -366,7 +366,7 @@
 
 .auth-google:hover {
   border-color: #cbd5e1;
-  background: #f8fafc;
+  background: #f7fafb;
   box-shadow: 0 4px 12px rgba(15, 23, 42, 0.06);
   color: #0f172a !important;
 }
@@ -438,7 +438,7 @@
 }
 
 .auth-mobile-strip {
-  background: linear-gradient(180deg, #e6f5f5 0%, #f8fafc 100%);
+  background: linear-gradient(180deg, #e6f5f5 0%, #f7fafb 100%);
   border: 1px solid #b8e4e4;
   border-radius: 14px;
   padding: 12px 14px;
@@ -560,7 +560,7 @@
 
 .auth-secondary-btn:hover {
   border-color: #cbd5e1;
-  background: #f8fafc;
+  background: #f7fafb;
   color: #0f172a !important;
 }
 

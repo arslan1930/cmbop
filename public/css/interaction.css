@@ -81,8 +81,8 @@
 }
 
 .table-hover > tbody > tr:hover > * {
-  background-color: var(--surface-2, #f8fafc);
-  --bs-table-bg-state: var(--surface-2, #f8fafc);
+  background-color: var(--surface-2, #f7fafb);
+  --bs-table-bg-state: var(--surface-2, #f7fafb);
 }
 
 a:not(.btn):not(.dropdown-item):not(#sidebar a):not(.nav-link) {
@@ -104,9 +104,17 @@ a:not(.btn):not(.dropdown-item):not(#sidebar a):not(.nav-link) {
   overflow: hidden;
 }
 
-.modal-header.bg-primary {
-  background: var(--brand-primary, #185054) !important;
-  border-bottom: none;
+/* Light mist: modal headers stay white; primary color lives on CTAs */
+.modal-header.bg-primary,
+.modal-header.bg-primary.text-white {
+  background: var(--surface-1, #fff) !important;
+  color: var(--brand-ink, #1e293b) !important;
+  border-bottom: 1px solid var(--border-subtle, #e2e8f0);
+}
+.modal-header.bg-primary .btn-close,
+.modal-header.bg-primary.text-white .btn-close {
+  filter: none;
+  opacity: 0.65;
 }
 
 .form-control,

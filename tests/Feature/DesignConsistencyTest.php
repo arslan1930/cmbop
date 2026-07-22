@@ -50,8 +50,8 @@ class DesignConsistencyTest extends TestCase
     public function test_checkout_payment_tiles_use_brand_tokens_not_raw_cyan(): void
     {
         $checkout = file_get_contents(resource_path('views/advertiser/checkout.blade.php'));
-        $this->assertStringNotContainsString('border: 2px solid #4ECDCB', $checkout);
-        $this->assertStringNotContainsString('color:#4ECDCB', $checkout);
+        $this->assertStringNotContainsString('border: 2px solid #5bc4c7', $checkout);
+        $this->assertStringNotContainsString('color:#5bc4c7', $checkout);
         $this->assertStringContainsString('var(--brand-primary-tint', $checkout);
         $this->assertStringContainsString('var(--radius-lg', $checkout);
         $this->assertStringContainsString('payment-option-card', $checkout);

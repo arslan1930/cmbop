@@ -409,10 +409,12 @@ footer.slb-footer .slb-footer-brand img {
   padding: clamp(1.25rem, 3vw, 2rem);
 }
 
-/* Bottom CTA — brand primary, not flat cyan */
+/* Bottom CTA — light mist panel; teal lives on the button only */
 .slb-bottom-cta {
-  background: linear-gradient(145deg, #185054 0%, #2a8a8e 55%, #3faeb2 100%);
+  background:
+    linear-gradient(180deg, #ffffff 0%, #f7fafb 55%, #e6f5f5 100%);
   padding: clamp(3rem, 6vw, 4.5rem) 0;
+  border-top: 1px solid var(--slb-line, #e2e8f0);
 }
 
 .slb-bottom-cta-title {
@@ -421,11 +423,11 @@ footer.slb-footer .slb-footer-brand img {
   font-weight: 700;
   letter-spacing: -0.02em;
   margin-bottom: 1.25rem;
-  color: #fff;
+  color: var(--slb-ink, #1e293b);
 }
 
 .slb-bottom-cta-btn {
-  color: #185054 !important;
+  color: #fff !important;
 }
 
 @media (prefers-reduced-motion: reduce) {
