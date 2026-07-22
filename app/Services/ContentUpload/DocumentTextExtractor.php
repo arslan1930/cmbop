@@ -458,7 +458,7 @@ class DocumentTextExtractor
             $html = '<p>'.e(preg_replace('/\[\[IMG:[^\]]+\]\]/', '', $text) ?? $text).'</p>';
         }
 
-        // Make detected hyperlink keywords clickable in the body (metadata shown outside preview UI)
+        // Clickable keywords in body; link metadata is shown outside the preview UI
         $html = $this->linkifyAnchorsInHtml($html, $links);
 
         return $html;

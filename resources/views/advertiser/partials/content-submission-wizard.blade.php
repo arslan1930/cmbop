@@ -68,15 +68,9 @@
                             <div class="document-preview mt-3 d-none">
                                 <div class="fw-semibold small mb-1">📄 Live Document Preview</div>
                                 <div class="document-preview-body border rounded-3 p-3 bg-light small"></div>
-                                <div class="document-preview-link-meta border rounded-3 p-3 bg-white small mt-2 d-none">
-                                    <div class="mb-2">
-                                        <div class="text-uppercase fw-semibold text-muted mb-1" style="font-size:.7rem;">Anchor text</div>
-                                        <div class="js-preview-anchor fw-semibold">—</div>
-                                    </div>
-                                    <div>
-                                        <div class="text-uppercase fw-semibold text-muted mb-1" style="font-size:.7rem;">Target URL</div>
-                                        <div class="js-preview-url">—</div>
-                                    </div>
+                                <div class="document-preview-links mt-2 d-none">
+                                    <div class="small fw-semibold mb-1">Links in this article</div>
+                                    <div class="document-preview-links-list small"></div>
                                 </div>
                             </div>
                         </div>
@@ -258,28 +252,20 @@ window.ContentCheckout = (function () {
                     img.setAttribute('src', match[1]);
                 }
             });
-
-            const linkMeta = card.querySelector('.document-preview-link-meta');
-            const anchorEl = card.querySelector('.js-preview-anchor');
-            const urlEl = card.querySelector('.js-preview-url');
-            const anchor = (sub.anchor_text || '').trim();
-            const url = (sub.target_url || '').trim();
-            if (linkMeta && anchorEl && urlEl) {
-                if (anchor || url) {
-                    anchorEl.textContent = anchor || '—';
-                    if (url) {
-                        const a = document.createElement('a');
-                        a.href = url;
-                        a.target = '_blank';
-                        a.rel = 'noopener noreferrer';
-                        a.textContent = url;
-                        urlEl.replaceChildren(a);
-                    } else {
-                        urlEl.textContent = '—';
-                    }
-                    linkMeta.classList.remove('d-none');
+            const linksWrap = card.querySelector('.document-preview-links');
+            const linksList = card.querySelector('.document-preview-links-list');
+            const links = Array.isArray(sub.detected_links) ? sub.detected_links : [];
+            if (linksWrap && linksList) {
+                if (links.length) {
+                    linksWrap.classList.remove('d-none');
+                    linksList.innerHTML = links.map(function (link, i) {
+                        return '<div class="mb-1"><span class="text-muted">#' + (i + 1) + '</span> '
+                            + '<strong>' + escapeHtml(link.anchor || '') + '</strong> → '
+                            + '<a href="' + escapeAttr(link.url || '') + '" target="_blank" rel="noopener">' + escapeHtml(link.url || '') + '</a></div>';
+                    }).join('');
                 } else {
-                    linkMeta.classList.add('d-none');
+                    linksWrap.classList.add('d-none');
+                    linksList.innerHTML = '';
                 }
             }
         }

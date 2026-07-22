@@ -284,6 +284,43 @@ class ContentLibraryImprovementsTest extends TestCase
         $this->assertGreaterThan($headingPos, $uploadPos);
         $this->assertStringContainsString('articleQuillEditor', $html);
         $this->assertStringContainsString('Edit article', $html);
+        $this->assertStringContainsString('article-preview-tools.js', $html);
+        $this->assertStringContainsString('articleCopyHeadingBtn', $html);
+        $this->assertStringContainsString('articleCopyContentBtn', $html);
+        $this->assertStringContainsString('articlePreviewLinksList', $html);
+    }
+
+    public function test_advertiser_can_save_multiple_detected_links_from_preview(): void
+    {
+        config(['content_moderation.enabled' => false]);
+        $advertiser = $this->advertiser();
+        $submission = $this->createApprovedSubmission($advertiser);
+
+        $html = '<p>Teams use <a href="https://example.com/a">tool A</a> and '
+            .'<a href="https://example.com/b">tool B</a> for productivity across digital projects worldwide.</p>';
+
+        $this->actingAs($advertiser)
+            ->patchJson(route('advertiser.content-submissions.update', $submission), [
+                'links' => [
+                    ['anchor' => 'tool A edited', 'url' => 'https://example.com/a-edited'],
+                    ['anchor' => 'tool B edited', 'url' => 'https://example.com/b-edited'],
+                ],
+                'preview_html' => $html,
+            ])
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('submission.detected_links.0.anchor', 'tool A edited')
+            ->assertJsonPath('submission.detected_links.0.url', 'https://example.com/a-edited')
+            ->assertJsonPath('submission.detected_links.1.anchor', 'tool B edited')
+            ->assertJsonPath('submission.detected_links.1.url', 'https://example.com/b-edited');
+
+        $fresh = $submission->fresh();
+        $this->assertSame('tool A edited', $fresh->anchor_text);
+        $this->assertSame('https://example.com/a-edited', $fresh->target_url);
+        $this->assertCount(2, $fresh->detectedLinks());
+        $this->assertStringContainsString('tool A edited', (string) $fresh->preview_html);
+        $this->assertStringContainsString('https://example.com/a-edited', (string) $fresh->preview_html);
+        $this->assertStringContainsString('tool B edited', (string) $fresh->preview_html);
     }
 
     public function test_advertiser_can_edit_article_html_with_links_and_images(): void

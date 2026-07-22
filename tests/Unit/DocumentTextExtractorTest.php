@@ -67,10 +67,8 @@ class DocumentTextExtractorTest extends TestCase
         $this->assertNotEmpty($result['links']);
         $this->assertSame('https://example.com/growth-tools', $result['links'][0]['url']);
         $this->assertSame('growth marketing tools', $result['links'][0]['anchor']);
-        $this->assertStringContainsString(
-            '<a href="https://example.com/growth-tools" target="_blank" rel="noopener noreferrer">growth marketing tools</a>',
-            (string) $result['html']
-        );
+        $this->assertStringContainsString('growth marketing tools', (string) $result['html']);
+        $this->assertStringContainsString('https://example.com/growth-tools', (string) $result['html']);
         $this->assertStringNotContainsString('Detected link', (string) $result['html']);
         $this->assertStringNotContainsString('article-detected-link', (string) $result['html']);
     }

@@ -192,6 +192,26 @@
         border-radius: 2px;
         padding: 0 .1em;
     }
+    .article-img-wrap {
+        position: relative;
+        display: inline-block;
+        max-width: 100%;
+    }
+    .article-img-wrap img { display: block; max-width: 100%; height: auto; }
+    .article-img-download {
+        position: absolute;
+        right: 8px;
+        bottom: 8px;
+        opacity: 0;
+        transition: opacity .15s ease;
+        z-index: 2;
+    }
+    .article-img-wrap:hover .article-img-download,
+    .article-img-wrap:focus-within .article-img-download {
+        opacity: 1;
+    }
+    .article-preview-toolbar .btn { white-space: nowrap; }
+    .article-link-row .form-label { color: var(--brand-ink-muted, #6b7280); }
     .library-reject-box {
         margin-top: 6px;
         padding: 8px 10px;
@@ -442,7 +462,7 @@
                                         @if($submission->preview_html)
                                             <li>
                                                 <button type="button" class="dropdown-item"
-                                                        onclick='openPreviewModal(@json($submission->title ?: $submission->original_filename), @json(\App\Services\ContentUpload\ArticlePreviewHtml::normalize((string) $submission->preview_html)), @json($submission->anchor_text), @json($submission->target_url))'>
+                                                        onclick='openPreviewModal(@json($submission->title ?: $submission->original_filename), @json(\App\Services\ContentUpload\ArticlePreviewHtml::normalize((string) $submission->preview_html)), @json($submission->detectedLinks()), {{ (int) $submission->id }}, {{ $submission->isInUse() || $submission->isArchived() ? 'false' : 'true' }})'>
                                                     Preview
                                                 </button>
                                             </li>
@@ -460,6 +480,7 @@
                                                     'can_order' => $submission->canBeOrdered(),
                                                     'anchor_text' => $submission->anchor_text,
                                                     'target_url' => $submission->target_url,
+                                                    'detected_links' => $submission->detectedLinks(),
                                                     'feature_image_url' => $submission->feature_image_url
                                                         ? \App\Services\ContentUpload\ArticlePreviewHtml::normalizeSrc((string) $submission->feature_image_url)
                                                         : null,
@@ -632,23 +653,30 @@
 <div class="modal fade" id="articlePreviewModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-lg modal-dialog-scrollable">
         <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="articlePreviewTitle">Article preview</h5>
+            <div class="modal-header flex-wrap gap-2">
+                <div class="me-auto">
+                    <h5 class="modal-title mb-0" id="articlePreviewTitle">Article preview</h5>
+                    <div class="small text-muted" id="articlePreviewHeadingHint"></div>
+                </div>
+                <div class="article-preview-toolbar d-flex flex-wrap gap-2">
+                    <button type="button" class="btn btn-sm btn-outline-primary" id="articleCopyHeadingBtn">
+                        <i class="fa fa-copy me-1"></i>Copy heading
+                    </button>
+                    <button type="button" class="btn btn-sm btn-outline-primary" id="articleCopyContentBtn">
+                        <i class="fa fa-clone me-1"></i>Copy article
+                    </button>
+                </div>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
                 <div class="library-preview" style="max-height:none;" id="articlePreviewBody"></div>
-                <div id="articlePreviewLinkMeta" class="article-preview-link-meta border-top mt-3 pt-3 d-none">
-                    <div class="row g-2">
-                        <div class="col-12">
-                            <div class="small text-uppercase fw-semibold text-muted mb-1">Anchor text</div>
-                            <div id="articlePreviewAnchorText" class="fw-semibold">—</div>
-                        </div>
-                        <div class="col-12">
-                            <div class="small text-uppercase fw-semibold text-muted mb-1">Target URL</div>
-                            <div id="articlePreviewTargetUrl">—</div>
-                        </div>
+                <div id="articlePreviewLinkMeta" class="border-top mt-3 pt-3">
+                    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
+                        <div class="fw-semibold">Links in this article</div>
+                        <button type="button" class="btn btn-sm btn-primary d-none" id="articleLinksSaveBtn">Save link edits</button>
                     </div>
+                    <div id="articlePreviewLinksList"></div>
+                    <p class="small text-muted mb-0 mt-2" id="articleLinksHelp">Shown outside the article so you can review every anchor and URL.</p>
                 </div>
             </div>
         </div>
@@ -657,6 +685,7 @@
 
 <link href="https://cdn.jsdelivr.net/npm/quill@2.0.2/dist/quill.snow.css" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/quill@2.0.2/dist/quill.js"></script>
+<script src="{{ asset('js/article-preview-tools.js') }}?v={{ @filemtime(public_path('js/article-preview-tools.js')) ?: '1' }}"></script>
 <script>
 const libraryUpdateUrl = @json(url('/advertiser/content-submissions'));
 const libraryContentUrl = @json(url('/advertiser/content-submissions'));
@@ -667,8 +696,8 @@ const libraryLanguageCountryMap = @json($languageCountryMap ?? new \stdClass());
 const libraryPreferredCountry = @json(strtolower((string) ($editSubmission->country ?? '')));
 let articleQuill = null;
 let articleEditorSubmissionId = null;
-let articleEditorAnchorText = '';
-let articleEditorTargetUrl = '';
+let articleEditorDetectedLinks = [];
+let previewModalState = { title: '', submissionId: null, editable: false, html: '' };
 
 function refreshLibraryCountries(preferredCountry) {
     const langSelect = document.getElementById('libraryLanguage');
@@ -718,40 +747,99 @@ function showLibraryFlash(message, ok) {
     window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
-function openPreviewModal(title, html, anchorText, targetUrl) {
-    document.getElementById('articlePreviewTitle').textContent = title || 'Article preview';
+function openPreviewModal(title, html, links, submissionId, editable) {
+    const tools = window.ArticlePreviewTools;
+    previewModalState = {
+        title: title || 'Article preview',
+        submissionId: submissionId || null,
+        editable: !!editable && !!submissionId,
+        html: html || '',
+    };
+    document.getElementById('articlePreviewTitle').textContent = previewModalState.title;
     const body = document.getElementById('articlePreviewBody');
     body.innerHTML = html || '';
     fixPreviewImages(body);
+    if (tools) tools.enhanceImages(body);
 
-    const meta = document.getElementById('articlePreviewLinkMeta');
-    const anchorEl = document.getElementById('articlePreviewAnchorText');
-    const urlEl = document.getElementById('articlePreviewTargetUrl');
-    const anchor = (anchorText || '').trim();
-    const url = (targetUrl || '').trim();
-    if (meta && anchorEl && urlEl) {
-        if (anchor || url) {
-            anchorEl.textContent = anchor || '—';
-            if (url) {
-                const safe = document.createElement('a');
-                safe.href = url;
-                safe.target = '_blank';
-                safe.rel = 'noopener noreferrer';
-                safe.textContent = url;
-                urlEl.replaceChildren(safe);
-            } else {
-                urlEl.textContent = '—';
-            }
-            meta.classList.remove('d-none');
-        } else {
-            anchorEl.textContent = '—';
-            urlEl.textContent = '—';
-            meta.classList.add('d-none');
-        }
+    const heading = tools ? tools.extractHeading(body, previewModalState.title) : previewModalState.title;
+    const hint = document.getElementById('articlePreviewHeadingHint');
+    if (hint) hint.textContent = heading ? ('Heading: ' + heading) : '';
+
+    const list = document.getElementById('articlePreviewLinksList');
+    const saveBtn = document.getElementById('articleLinksSaveBtn');
+    const help = document.getElementById('articleLinksHelp');
+    let linkRows = Array.isArray(links) ? links : [];
+    if ((!linkRows.length) && tools && html) {
+        linkRows = tools.extractLinksFromHtml(html);
+    }
+    if (tools) tools.renderLinkRows(list, linkRows, previewModalState.editable);
+    if (saveBtn) saveBtn.classList.toggle('d-none', !previewModalState.editable);
+    if (help) {
+        help.textContent = previewModalState.editable
+            ? 'Edit any anchor or URL, then save. The first link is used for checkout.'
+            : 'Shown outside the article so you can review every anchor and URL.';
     }
 
     new bootstrap.Modal(document.getElementById('articlePreviewModal')).show();
 }
+
+document.getElementById('articleCopyHeadingBtn')?.addEventListener('click', async function () {
+    const tools = window.ArticlePreviewTools;
+    const body = document.getElementById('articlePreviewBody');
+    const heading = tools ? tools.extractHeading(body, previewModalState.title) : previewModalState.title;
+    try {
+        await tools.copyText(heading);
+        tools.toast('Heading copied');
+    } catch (e) {
+        tools.toast('Could not copy heading', false);
+    }
+});
+
+document.getElementById('articleCopyContentBtn')?.addEventListener('click', async function () {
+    const tools = window.ArticlePreviewTools;
+    const body = document.getElementById('articlePreviewBody');
+    try {
+        await tools.copyHtml(body.innerHTML, body.innerText);
+        tools.toast('Article copied — paste into your CMS');
+    } catch (e) {
+        tools.toast('Could not copy article', false);
+    }
+});
+
+document.getElementById('articleLinksSaveBtn')?.addEventListener('click', async function () {
+    const tools = window.ArticlePreviewTools;
+    if (!previewModalState.editable || !previewModalState.submissionId) return;
+    const links = tools.readLinkRows(document.getElementById('articlePreviewLinksList'));
+    const btn = this;
+    btn.disabled = true;
+    try {
+        const res = await fetch(libraryUpdateUrl + '/' + previewModalState.submissionId, {
+            method: 'PATCH',
+            headers: {
+                'X-CSRF-TOKEN': libraryCsrf,
+                'Accept': 'application/json',
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                links: links,
+                preview_html: document.getElementById('articlePreviewBody').innerHTML,
+            }),
+        });
+        const data = await res.json();
+        if (!res.ok || !data.success) {
+            tools.toast((data && data.message) || 'Could not save links', false);
+            return;
+        }
+        const sub = data.submission || {};
+        const html = sub.preview_html || document.getElementById('articlePreviewBody').innerHTML;
+        openPreviewModal(sub.title || previewModalState.title, html, sub.detected_links || links, previewModalState.submissionId, true);
+        tools.toast('Links saved');
+    } catch (e) {
+        tools.toast('Network error while saving links', false);
+    } finally {
+        btn.disabled = false;
+    }
+});
 
 /**
  * Rewrite absolute /storage/... image URLs onto the current origin so previews
@@ -841,8 +929,7 @@ function ensureArticleQuill() {
 function openArticleEditor(submission) {
     if (!submission || !submission.id) return;
     articleEditorSubmissionId = submission.id;
-    articleEditorAnchorText = submission.anchor_text || '';
-    articleEditorTargetUrl = submission.target_url || '';
+    articleEditorDetectedLinks = Array.isArray(submission.detected_links) ? submission.detected_links : [];
     ensureArticleQuill();
     document.getElementById('articleEditorTitle').value = submission.title || '';
     const market = ((submission.country || '') + '/' + (submission.language || '')).toUpperCase();
@@ -905,11 +992,18 @@ async function saveArticleEditor() {
 document.getElementById('articleEditorSaveBtn')?.addEventListener('click', saveArticleEditor);
 document.getElementById('articleEditorPreviewBtn')?.addEventListener('click', function () {
     if (!articleQuill) return;
+    const tools = window.ArticlePreviewTools;
+    const html = articleQuill.root.innerHTML;
+    let links = Array.isArray(articleEditorDetectedLinks) ? articleEditorDetectedLinks.slice() : [];
+    if ((!links.length) && tools) {
+        links = tools.extractLinksFromHtml(html);
+    }
     openPreviewModal(
         document.getElementById('articleEditorTitle').value || 'Article preview',
-        articleQuill.root.innerHTML,
-        articleEditorAnchorText,
-        articleEditorTargetUrl
+        html,
+        links,
+        articleEditorSubmissionId,
+        true
     );
 });
 
