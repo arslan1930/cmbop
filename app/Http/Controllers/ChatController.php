@@ -163,7 +163,7 @@ class ChatController extends Controller
             }
 
             $order->loadMissing(['items.site']);
-            $details = $this->buildOrderChatDetails($order);
+            $details = $this->buildOrderChatDetails($order, $user);
 
             return response()->json([
                 'success' => true,
@@ -299,9 +299,18 @@ class ChatController extends Controller
      *
      * @return array<string, mixed>
      */
-    private function buildOrderChatDetails(Order $order): array
+    private function buildOrderChatDetails(Order $order, ?User $viewer = null): array
     {
-        $item = $order->items->first();
+        $viewer = $viewer ?: auth()->user();
+        $isAdvertiser = $viewer && (int) $order->user_id === (int) $viewer->id;
+
+        $item = null;
+        if ($viewer && ! $isAdvertiser) {
+            $item = $order->items->first(function ($candidate) use ($viewer) {
+                return (int) ($candidate->site?->publisher_id) === (int) $viewer->id;
+            });
+        }
+        $item = $item ?: $order->items->first();
         $site = $item?->site;
 
         $linkType = $site?->link_type
@@ -311,7 +320,7 @@ class ChatController extends Controller
         $startedAt = $order->paid_at ?? $order->created_at;
 
         $meta = AdvertiserOrderStatus::meta($order, $item);
-        $canReview = $order->status === 'review' && filled($item?->live_url);
+        $canReview = $isAdvertiser && $order->status === 'review' && filled($item?->live_url);
         $canSend = $order->status !== 'cancelled';
         $composerNote = null;
         if ($order->status === 'cancelled') {
@@ -320,8 +329,15 @@ class ChatController extends Controller
             $composerNote = 'This order is completed. You can still message about this placement.';
         }
 
+        $modificationRequested = $item?->modification_requested === 'yes';
+        $canResubmit = ! $isAdvertiser
+            && $modificationRequested
+            && in_array($order->status, ['processing', 'review'], true)
+            && filled($item?->id);
+
         return [
             'order_id' => $order->id,
+            'order_item_id' => $item?->id,
             'order_number' => $order->order_number,
             'status' => $order->status,
             'status_label' => $meta['label'],
@@ -329,6 +345,7 @@ class ChatController extends Controller
             'auto_approve_hint' => $meta['auto_approve_hint'],
             'can_approve' => $canReview,
             'can_request_changes' => $canReview,
+            'can_resubmit' => $canResubmit,
             'can_send' => $canSend,
             'composer_note' => $composerNote,
             'website_name' => $item?->site_name ?: ($site?->site_name ?: '—'),

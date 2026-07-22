@@ -2191,6 +2191,22 @@ class CatalogController extends Controller
 
             DB::commit();
 
+            // Persist a chat message so publishers see the revision request in the thread
+            try {
+                OrderChatMessage::create([
+                    'order_id' => $order->id,
+                    'user_id' => auth()->id(),
+                    'sender_type' => 'advertiser',
+                    'message' => "Revision requested: {$request->reason}\nPlease update the article and resubmit the live URL.",
+                    'is_read' => false,
+                ]);
+            } catch (\Throwable $e) {
+                Log::warning('Failed to create revision chat message', [
+                    'order_id' => $order->id,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+
             // Send email to publisher
             $publisher = null;
             foreach ($order->items as $item) {

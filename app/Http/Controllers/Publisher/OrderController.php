@@ -704,6 +704,21 @@ class OrderController extends Controller
             $orderItem = $orderItem->fresh();
 
             try {
+                OrderChatMessage::create([
+                    'order_id' => $order->id,
+                    'user_id' => auth()->id(),
+                    'sender_type' => 'publisher',
+                    'message' => 'Live URL resubmitted: '.$request->live_url,
+                    'is_read' => false,
+                ]);
+            } catch (\Throwable $e) {
+                Log::warning('Failed to create live URL resubmit chat message', [
+                    'order_id' => $order->id,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+
+            try {
                 $advertiser = User::find($order->user_id);
                 if ($advertiser?->email) {
                     Mail::to($advertiser->email)->send(

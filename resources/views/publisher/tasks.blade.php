@@ -591,11 +591,31 @@ $(document).ready(function() {
             parts.push('Sensitive: ' + escapeHtml(details.sensitive_type));
         }
 
-        if (details.status_label || details.status) {
-            parts.push('Status: ' + escapeHtml(details.status_label || details.status));
+        const statusLabel = escapeHtml(details.status_label || details.status || '—');
+        const nextAction = escapeHtml(details.next_action || '');
+        let statusBlock = '<div class="mt-2"><strong>' + statusLabel + '</strong>'
+            + (nextAction ? ' — ' + nextAction : '') + '</div>';
+
+        let revisionBlock = '';
+        if (details.can_resubmit || details.modification_requested === 'yes') {
+            const reason = details.completion_notes
+                ? '<div class="small mt-1"><strong>Reason:</strong> ' + escapeHtml(details.completion_notes) + '</div>'
+                : '';
+            const itemId = details.order_item_id || '';
+            revisionBlock = '<div class="alert alert-warning py-2 px-3 small mt-2 mb-0">'
+                + '<div>The advertiser asked for changes. Update the article and resubmit the live URL.</div>'
+                + reason
+                + (details.can_resubmit && itemId
+                    ? '<div class="mt-2"><button type="button" class="btn btn-sm btn-warning resubmit-live-url" data-id="' + escapeHtml(String(itemId)) + '"><i class="fa fa-edit me-1"></i>Resubmit URL</button></div>'
+                    : '')
+                + '</div>';
         }
 
-        el.innerHTML = parts.join('<span class="chat-detail-sep">·</span>');
+        el.innerHTML = '<div class="small">'
+            + '<div>' + parts.join('<span class="chat-detail-sep">·</span>') + '</div>'
+            + statusBlock
+            + revisionBlock
+            + '</div>';
         el.classList.remove('d-none');
     }
 
@@ -797,6 +817,11 @@ $(document).ready(function() {
                     $('#resubmitModal').modal('hide');
                     loadTasks();
                     loadStatistics();
+                    if (orderChat && typeof orderChat.load === 'function' && orderChat.currentOrderId) {
+                        orderChat.load(false);
+                    }
+                    refreshNeedsActionBanner();
+                    if (typeof window.refreshHeaderAlerts === 'function') window.refreshHeaderAlerts();
                 } else {
                     Swal.fire('Error!', response.message || 'Failed to resubmit live URL', 'error');
                 }
