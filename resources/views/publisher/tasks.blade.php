@@ -279,31 +279,6 @@
 </div>
 
 <style>
-.chat-order-details {
-    padding: 10px 16px;
-    background: #f4f6f8;
-    border-bottom: 1px solid #e6eaee;
-    color: #8a94a0;
-    font-size: 0.78rem;
-    line-height: 1.45;
-}
-.chat-order-details .chat-detail-primary {
-    color: #6c757d;
-    font-weight: 500;
-}
-.chat-order-details .chat-detail-sep {
-    color: #c5ccd4;
-    margin: 0 0.35rem;
-}
-.chat-order-details a {
-    color: #8a94a0;
-    text-decoration: none;
-}
-.chat-order-details a:hover {
-    color: #6c757d;
-    text-decoration: underline;
-}
-
 .table td, .table th {
     padding: 12px 15px;
     vertical-align: middle;
