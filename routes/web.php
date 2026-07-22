@@ -41,7 +41,6 @@ use App\Http\Controllers\Auth\SocialiteController;
 use App\Http\Controllers\BannerClickController;
 use App\Http\Controllers\BlogController;
 use App\Http\Controllers\ChatController;
-use App\Http\Controllers\ChatImageController;
 use App\Http\Controllers\FeedbackController;
 use App\Http\Controllers\InvoiceController;
 use App\Http\Controllers\MarketingPageController;
@@ -459,9 +458,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::prefix('chat')->group(function () {
         Route::get('/unread-summary', [ChatController::class, 'unreadSummary'])->name('chat.unread-summary');
         Route::get('/messages/{orderId}', [ChatController::class, 'getMessages'])->name('chat.messages');
-        Route::post('/send/{orderId}', [ChatController::class, 'sendMessage'])->name('chat.send');
-        Route::post('/upload-image', [ChatImageController::class, 'upload'])->name('chat.upload-image');
-
+        Route::post('/send/{orderId}', [ChatController::class, 'sendMessage'])
+            ->middleware('throttle:30,1')
+            ->name('chat.send');
+        // Image upload disabled — orphan public-disk uploads without message binding.
+        // Route::post('/upload-image', [ChatImageController::class, 'upload'])->name('chat.upload-image');
+        // ChatImageController left in place but unused.
     });
 
     // In-app notification center (does not affect email notifications)
