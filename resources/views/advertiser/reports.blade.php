@@ -13,49 +13,6 @@
         </div>
     </div>
 
-     <!-- Statistics Cards -->
-    <div class="row mb-4">
-        <div class="col-md-4 mb-3">
-            <div class="card border-0 shadow-sm">
-                <div class="card-body d-flex justify-content-between align-items-center">
-                    <div>
-                        <h6 class="text-muted mb-1">Total Deposits</h6>
-                        <h3 class="mb-0" id="repTotalDeposits" style="color: #10b981;">€0</h3>
-                    </div>
-                    <div class="bg-success bg-opacity-10 p-3 rounded-circle">
-                        <i class="fa fa-wallet fa-2x text-success"></i>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-4 mb-3">
-            <div class="card border-0 shadow-sm">
-                <div class="card-body d-flex justify-content-between align-items-center">
-                    <div>
-                        <h6 class="text-muted mb-1">Total Spent</h6>
-                        <h3 class="mb-0" id="repTotalSpent" style="color: #ef4444;">€0</h3>
-                    </div>
-                    <div class="bg-danger bg-opacity-10 p-3 rounded-circle">
-                        <i class="fa fa-shopping-cart fa-2x text-danger"></i>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-4 mb-3">
-            <div class="card border-0 shadow-sm">
-                <div class="card-body d-flex justify-content-between align-items-center">
-                    <div>
-                        <h6 class="text-muted mb-1">Total Orders</h6>
-                        <h3 class="mb-0" id="repTotalOrders">0</h3>
-                    </div>
-                    <div class="bg-primary bg-opacity-10 p-3 rounded-circle">
-                        <i class="fa fa-file-invoice fa-2x text-primary"></i>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
     <!-- Tabs Navigation -->
     <div class="card border-0 shadow-sm mb-4">
         <div class="card-body p-0">
@@ -274,7 +231,6 @@ var repOrdersPage = 1;
 $(document).ready(function() {
     loadRepFundsData();
     loadRepOrdersData();
-    loadRepStatistics();
     
     // Reload data when tabs are clicked
     $('#repFundsTab').on('click', function() {
@@ -288,28 +244,7 @@ $(document).ready(function() {
             loadRepOrdersData();
         }
     });
-    
-    // Refresh statistics every 30 seconds
-    setInterval(loadRepStatistics, 30000);
 });
-
-function loadRepStatistics() {
-    $.ajax({
-        url: '{{ route("advertiser.reports.statistics") }}',
-        method: 'GET',
-        dataType: 'json',
-        success: function(response) {
-            if (response.success) {
-                $('#repTotalDeposits').html('<span style="color: #10b981;">€' + parseFloat(response.data.total_deposits).toFixed(2) + '</span>');
-                $('#repTotalSpent').html('<span style="color: #ef4444;">€' + parseFloat(response.data.total_spent).toFixed(2) + '</span>');
-                $('#repTotalOrders').text(response.data.total_orders);
-            }
-        },
-        error: function() {
-            console.error('Failed to load statistics');
-        }
-    });
-}
 
 function loadRepFundsData(page) {
     page = page || 1;
