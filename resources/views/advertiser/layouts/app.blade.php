@@ -1282,8 +1282,6 @@
         });
     };
     
-    @include('partials.app-toast')
-
     // Cart Sidebar Toggle
     const cartSidebar = document.getElementById('cartSidebar');
     const cartOverlay = document.getElementById('cartOverlay');
