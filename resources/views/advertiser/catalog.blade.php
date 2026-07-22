@@ -71,12 +71,12 @@
     @else
         @include('advertiser.partials.ordering-path', [
             'step' => 2,
-            'title' => 'Place a guest post · Publishers',
-            'subtitle' => 'One job here: pick publishers. You can keep browsing with items already in your cart — finish payment from the cart when ready.',
+            'title' => 'Catalog · Publishers',
+            'subtitle' => 'One job here: pick publishers. Keep browsing with items in your cart — finish payment when ready. Prefer steps? Use Guided.',
             'linkAll' => true,
             'contentRoute' => route('advertiser.content-library'),
             'actions' => '<button type="button" class="btn btn-sm btn-outline-primary" onclick="openCart()">Open cart</button>'
-                .'<a href="'.e(route('advertiser.wizard.start')).'" class="btn btn-sm btn-outline-secondary">Start guided flow</a>',
+                .'<a href="'.e(route('advertiser.wizard.start')).'" class="btn btn-sm btn-outline-secondary">Guided</a>',
         ])
     @endif
 

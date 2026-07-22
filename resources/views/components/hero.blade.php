@@ -1,7 +1,5 @@
 @php
-    $catalogHref = Route::has('advertiser.catalog')
-        ? route('advertiser.catalog')
-        : url('/advertiser/catalog');
+    $marketplaceHref = localized_url('marketplace');
     $publisherHref = localized_url('become-a-publisher');
 @endphp
 
@@ -15,10 +13,9 @@
         <img src="{{ asset('assets/img/logo1.png') }}?v={{ @filemtime(public_path('assets/img/logo1.png')) ?: '1' }}"
              alt="SEOLinkBuildings"
              class="slb-hero-mark">
-        <h1 class="slb-hero-title visually-hidden">{{ __('messages.hero_title') }}</h1>
       </div>
 
-      <p class="slb-hero-support">{{ __('messages.hero_support') }}</p>
+      <h1 class="slb-hero-title">{{ __('messages.hero_support') }}</h1>
 
       <p class="slb-hero-tagline">{{ __('messages.hero_tagline') }}</p>
 
@@ -31,7 +28,7 @@
         </a>
       </div>
 
-      <a href="{{ $catalogHref }}" class="slb-hero-catalog-text">
+      <a href="{{ $marketplaceHref }}" class="slb-hero-catalog-text">
         {{ __('messages.nav_marketplace') }}
         <i class="fa fa-arrow-right" aria-hidden="true"></i>
       </a>
@@ -61,7 +58,7 @@
     position: relative;
     width: 100%;
     margin-top: 0;
-    min-height: min(92vh, 900px);
+    min-height: min(88vh, 820px);
     overflow: hidden;
     display: flex;
     align-items: center;
@@ -122,21 +119,12 @@
   .slb-hero-title {
     margin: 0;
     font-family: var(--slb-font-display, 'Sora', sans-serif);
-    font-size: clamp(2.35rem, 4.6vw, 3.75rem);
-    line-height: 1.05;
-    font-weight: 800;
+    font-size: clamp(1.65rem, 3.2vw, 2.55rem);
+    line-height: 1.15;
+    font-weight: 700;
     color: #0b6266;
-    letter-spacing: -0.04em;
-  }
-
-  .slb-hero-support {
-    margin: 0;
-    font-family: var(--slb-font-display, 'Sora', sans-serif);
-    font-size: clamp(1.15rem, 2vw, 1.45rem);
-    line-height: 1.35;
-    font-weight: 600;
-    color: #134e4a;
-    max-width: 22ch;
+    letter-spacing: -0.03em;
+    max-width: 18ch;
     animation: slbHeroFade 0.7s ease 0.08s both;
   }
 
@@ -240,20 +228,20 @@
   .slb-hero-product {
     display: block;
     width: 100%;
-    min-height: min(68vh, 620px);
-    max-height: min(78vh, 720px);
+    min-height: min(52vh, 480px);
+    max-height: min(68vh, 620px);
     object-fit: cover;
     object-position: left top;
     border-radius: 18px 0 0 0;
-    box-shadow: -18px 24px 70px rgba(11, 98, 102, 0.22);
+    box-shadow: -18px 24px 70px rgba(11, 98, 102, 0.18);
     border: 1px solid rgba(11, 98, 102, 0.1);
     border-right: none;
     transition: transform 0.35s ease, box-shadow 0.35s ease;
   }
 
   .slb-hero-catalog-link:hover .slb-hero-product {
-    transform: translateY(-6px) scale(1.01);
-    box-shadow: -22px 30px 80px rgba(11, 98, 102, 0.28);
+    transform: translateY(-4px);
+    box-shadow: -20px 28px 72px rgba(11, 98, 102, 0.22);
   }
 
   @keyframes slbHeroFade {
@@ -280,7 +268,7 @@
     .slb-hero-brand-stack {
       align-items: center;
     }
-    .slb-hero-support,
+    .slb-hero-title,
     .slb-hero-tagline {
       max-width: none;
       margin-left: auto;
@@ -290,8 +278,8 @@
       justify-content: center;
     }
     .slb-hero-product {
-      min-height: 280px;
-      max-height: 420px;
+      min-height: 220px;
+      max-height: 360px;
       border-radius: 16px 16px 0 0;
       border-right: 1px solid rgba(11, 98, 102, 0.1);
     }
@@ -299,7 +287,7 @@
 
   @media (prefers-reduced-motion: reduce) {
     .slb-hero-brand-stack,
-    .slb-hero-support,
+    .slb-hero-title,
     .slb-hero-tagline,
     .slb-hero-cta-group,
     .slb-hero-catalog-text,

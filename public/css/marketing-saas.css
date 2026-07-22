@@ -241,19 +241,201 @@ footer.slb-footer .slb-footer-brand img {
   background: var(--brand-primary-soft);
 }
 
-/* How it works polish */
-.how-it-works.slb-how {
-  background:
-    linear-gradient(180deg, #ffffff 0%, #f7fcfb 100%);
+/* Value props — quieter rows, less card chrome */
+.slb-feature--row {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  padding: 0.5rem 0.75rem;
+  text-align: center;
 }
 
-.how-it-works.slb-how .how-step-icon {
-  width: 72px;
-  height: 72px;
-  border-radius: 20px;
+.slb-feature--row:hover {
+  transform: none;
+  box-shadow: none;
+  border-color: transparent;
+}
+
+.slb-feature--row .slb-feature-icon {
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.slb-feature--row p {
+  margin-bottom: 0;
+}
+
+/* Pricing hierarchy */
+.slb-pricing {
   background:
-    linear-gradient(160deg, rgba(232, 248, 247, 1), rgba(212, 241, 240, 1));
-  box-shadow: 0 12px 28px rgba(11, 98, 102, 0.08);
+    radial-gradient(800px 320px at 80% 0%, rgba(78, 205, 203, 0.1), transparent 65%),
+    var(--slb-surface);
+}
+
+.slb-price-from {
+  color: var(--brand-primary, #0b6266);
+}
+
+.pricing-managed {
+  padding: 1.25rem 1.5rem;
+  background: #fff;
+  border: 1px solid var(--slb-line);
+  border-radius: 14px;
+  max-width: 920px;
+}
+
+.pricing-card {
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+  border: 1px solid var(--slb-line);
+  border-radius: 14px;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.pricing-card:hover {
+  border-color: rgba(11, 98, 102, 0.22);
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.06);
+}
+
+.pricing-card--featured {
+  border-color: rgba(11, 98, 102, 0.28);
+  position: relative;
+}
+
+.pricing-card-badge {
+  position: absolute;
+  top: 0;
+  right: 0;
+  padding: 0.35rem 0.85rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #fff;
+  background: var(--brand-primary, #0b6266);
+  border-bottom-left-radius: 0.5rem;
+  border-top-right-radius: 14px;
+}
+
+.pricing-card-body {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  padding: 1.5rem;
+  padding-top: 1.75rem;
+}
+
+.pricing-card-price {
+  font-family: var(--slb-font-display, Sora, sans-serif);
+  font-size: 1.65rem;
+  font-weight: 700;
+  color: var(--slb-ink);
+}
+
+.pricing-card-price span {
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: var(--slb-muted);
+}
+
+/* Testimonials */
+.slb-testimonial-carousel .carousel-indicators [data-bs-target] {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background-color: rgba(11, 98, 102, 0.25);
+  border: 0;
+}
+
+.slb-testimonial-carousel .carousel-indicators .active {
+  background-color: var(--brand-primary, #0b6266) !important;
+}
+
+.slb-quote {
+  max-width: 640px;
+  margin: 0 auto 2.5rem;
+  padding: 1.5rem 1rem 2rem;
+  border: 0;
+}
+
+.slb-quote p {
+  font-size: 1.15rem;
+  line-height: 1.6;
+  font-style: italic;
+  color: var(--slb-ink);
+  margin-bottom: 1rem;
+}
+
+.slb-quote cite {
+  display: block;
+  font-style: normal;
+  font-weight: 700;
+  color: var(--slb-ink);
+}
+
+.slb-quote footer span {
+  display: block;
+  font-size: 0.9rem;
+  color: var(--slb-muted);
+}
+
+.slb-carousel-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #fff;
+  border: 1px solid var(--slb-line);
+  color: var(--brand-primary, #0b6266);
+  font-size: 0.85rem;
+}
+
+.slb-testimonial-carousel .carousel-control-prev,
+.slb-testimonial-carousel .carousel-control-next {
+  width: 48px;
+  opacity: 1;
+}
+
+/* Newsletter */
+.slb-newsletter {
+  background: var(--slb-surface);
+}
+
+.slb-newsletter-panel {
+  background: #fff;
+  border: 1px solid var(--slb-line);
+  border-radius: 16px;
+  padding: clamp(1.25rem, 3vw, 2rem);
+}
+
+/* Bottom CTA — brand primary, not flat cyan */
+.slb-bottom-cta {
+  background: linear-gradient(145deg, #0b6266 0%, #0e7a7e 55%, #3aaeb2 100%);
+  padding: clamp(3rem, 6vw, 4.5rem) 0;
+}
+
+.slb-bottom-cta-title {
+  font-family: var(--slb-font-display, Sora, sans-serif);
+  font-size: clamp(1.5rem, 2.8vw, 2rem);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin-bottom: 1.25rem;
+  color: #fff;
+}
+
+.slb-bottom-cta-btn {
+  color: #0b6266 !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pricing-card { transition: none; }
+}
+
+/* How it works polish */
+.slb-how {
+  background:
+    linear-gradient(180deg, #ffffff 0%, #f7fcfb 100%);
 }
 
 /* Subtle reveal utility */

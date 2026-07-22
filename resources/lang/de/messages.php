@@ -14,6 +14,7 @@ return [
     'hero_support' => 'Erhalten Sie starke Backlinks von vertrauenswürdigen Websites.',
     'get_started' => 'Loslegen',
     'hero_tagline' => 'Der globale Linkbuilding-Marktplatz für SEO, digitale PR und Content-Verteilung.',
+    'hero_product_alt' => 'Vorschau des Marktplatz-Katalogs mit Publisher-Kennzahlen und Placement-Preisen',
 
     // Footer
     'professional_services' => 'Professionelle Linkbuilding-Dienstleistungen, die messbare Ergebnisse für Ihr Unternehmen liefern.',
@@ -36,8 +37,14 @@ return [
 
 
     // ==================== SERVICES SECTION ====================
-    'services_title' => 'Unsere SEO & Digital PR Dienstleistungen',
-    'services_description' => 'Wir bieten sorgfältig durchgeführte Linkbuilding- und Digital-PR-Dienstleistungen mit Fokus auf Qualität, Relevanz und langfristige Suchergebnisse.',
+    'services_title' => 'Ein Marktplatz für Placements',
+    'services_description' => 'Durchsuchen Sie verifizierte Publisher, zahlen Sie aus dem Wallet und verfolgen Sie jeden Auftrag bis zur Live-URL.',
+    'value_3_description' => 'Status verfolgen, im Auftrag chatten und den Live-Link prüfen, wenn der Publisher liefert.',
+    'value_3_title' => 'Bis zur Live-URL verfolgen',
+    'value_2_description' => 'Klare Placement-Preise vor dem Kauf. Einmal aufladen, dann bestellen wenn Sie bereit sind.',
+    'value_2_title' => 'Wallet-Checkout',
+    'value_1_description' => 'Filtern Sie nach Land, Sprache, Nische und Kennzahlen — und finden Sie passende Sites.',
+    'value_1_title' => 'Verifizierter Publisher-Katalog',
     
     'card_1_title' => 'Kostenloses SEO-Audit',
     'card_1_description' => 'Eine umfassende Überprüfung Ihres Backlink-Profils und Ihrer SEO-Grundlagen.',
@@ -70,14 +77,14 @@ return [
     'card_5_item_3' => 'Konsistente Markenstimme',
 
     // How It Works Section
-    'how_it_works_title' => 'Wie unser Prozess funktioniert',
-    'how_it_works_description' => 'Einfacher, transparenter Prozess von Anfang bis Ende, um hochwertige Backlinks zu liefern, die SEO-Erfolg bringen.',
-    'step_1_title' => '1. Beratung & Strategie',
-    'step_1_description' => 'Wir beginnen mit einer Beratung, um Ihre Geschäftsziele, Zielgruppe und aktuelles Backlink-Profil zu verstehen. Basierend darauf entwickeln wir eine maßgeschneiderte Linkbuilding-Strategie, die auf Ihre Bedürfnisse zugeschnitten ist.',
-    'step_2_title' =>   '2. Outreach & Platzierung',
-    'step_2_description' => 'Unser Team führt gezielte Outreach-Kampagnen bei autoritativen Websites in Ihrer Branche durch. Wir sichern Platzierungen für Ihre Links innerhalb hochwertiger, relevanter Inhalte, um maximalen SEO-Einfluss zu gewährleisten.',
-    'step_3_title' => '3. Berichterstattung & Optimierung',
-    'step_3_description' => 'Wir stellen regelmäßige Berichte über den Fortschritt Ihres Linkbuilding-Kampagnen zur Verfügung, einschließlich der gesicherten Platzierungen und ihres Einflusses auf Ihre SEO-Performance. Wir optimieren kontinuierlich unseren Ansatz basierend auf den Ergebnissen, um sicherzustellen, dass Sie die besten möglichen Ergebnisse erzielen.',
+    'how_it_works_title' => 'So funktioniert der Marktplatz',
+    'how_it_works_description' => 'Publisher browsen, Wallet aufladen und Placements kaufen — alles an einem Ort.',
+    'step_1_title' => '1. Katalog durchsuchen',
+    'step_1_description' => 'Filtern Sie nach Land, Sprache, Kategorie und Kennzahlen, um passende Publisher zu finden.',
+    'step_2_title' =>   '2. Aufladen & kaufen',
+    'step_2_description' => 'Wallet aufladen, Site wählen und bestellen. Preise sind vor dem Checkout klar.',
+    'step_3_title' => '3. Link live erhalten',
+    'step_3_description' => 'Publisher liefern das Placement. Verfolgen Sie den Status, chatten Sie und prüfen Sie die Live-URL.',
 
 
     // Pricing Section
@@ -142,6 +149,8 @@ return [
 
      // ==================== NEWSLETTER SECTION ====================
     'newsletter_image_alt' => 'Newsletter abonnieren',
+    'newsletter_aside_title' => 'Bleiben Sie neuen Märkten voraus',
+    'newsletter_aside_body' => 'Produkt-Updates und Placement-Tipps vom SEOLinkBuildings-Marktplatz.',
     'newsletter_title' => 'Abonnieren Sie und erhalten Sie Updates zu den neuesten Funktionen und Änderungen auf unserer Plattform.',
     'newsletter_email_placeholder' => 'Ihre E-Mail-Adresse',
     'newsletter_subscribe_btn' => 'Abonnieren',
@@ -486,6 +495,8 @@ return [
     'marketplace_point_2_body' => 'Einmal aufladen, schnell kaufen und jeden Auftrag an einem Ort tracken.',
     'marketplace_point_3_title' => 'Mehrsprachiges Targeting',
     'marketplace_point_3_body' => 'Erreichen Sie englische, EU-, chinesische und Golf-Märkte mit sprachbewusstem Inventar.',
+    'marketplace_teaser_title' => 'Beispiel für verifiziertes Inventar',
+    'marketplace_teaser_subtitle' => 'Eine Vorschau live verfügbarer Placements — erstellen Sie ein kostenloses Konto für den vollständigen Katalog.',
     'marketplace_catalog_note' => 'Der Live-Katalog öffnet sich nach dem Login und bleibt auf Englisch.',
     'become_publisher_kicker' => 'Publisher',
     'become_publisher_title' => 'Monetarisieren Sie Ihr redaktionelles Inventar',

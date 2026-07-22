@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Mail\WelcomeEmail;
+use App\Models\Role;
 use App\Models\User;
 use App\Notifications\VerifyEmail;
 use Database\Seeders\RolesTableSeeder;
@@ -24,12 +25,15 @@ class EmailVerificationLinkTest extends TestCase
         URL::forceRootUrl('http://localhost');
     }
 
-    public function test_signed_verification_link_verifies_without_login(): void
+    public function test_signed_verification_link_logs_in_and_redirects_advertiser_to_catalog(): void
     {
+        $role = Role::where('name', 'advertiser')->firstOrFail();
         $user = User::factory()->create([
             'email' => 'verify-me@example.com',
             'email_verified_at' => null,
+            'active_role_id' => $role->id,
         ]);
+        $user->roles()->attach($role->id);
 
         $url = VerifyEmail::signedUrlFor($user);
 
@@ -37,10 +41,31 @@ class EmailVerificationLinkTest extends TestCase
         $this->assertStringContainsString('signature=', $url);
 
         $this->get($url)
-            ->assertRedirect('/login')
+            ->assertRedirect(route('advertiser.catalog'))
             ->assertSessionHas('message');
 
         $this->assertNotNull($user->fresh()->email_verified_at);
+        $this->assertAuthenticatedAs($user);
+    }
+
+    public function test_signed_verification_link_logs_in_and_redirects_publisher_to_dashboard(): void
+    {
+        $role = Role::where('name', 'publisher')->firstOrFail();
+        $user = User::factory()->create([
+            'email' => 'verify-pub@example.com',
+            'email_verified_at' => null,
+            'active_role_id' => $role->id,
+        ]);
+        $user->roles()->attach($role->id);
+
+        $url = VerifyEmail::signedUrlFor($user);
+
+        $this->get($url)
+            ->assertRedirect(route('publisher.dashboard'))
+            ->assertSessionHas('message');
+
+        $this->assertNotNull($user->fresh()->email_verified_at);
+        $this->assertAuthenticatedAs($user);
     }
 
     public function test_unsigned_verification_link_is_rejected(): void

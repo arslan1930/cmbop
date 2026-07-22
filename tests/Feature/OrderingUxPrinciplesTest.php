@@ -70,7 +70,7 @@ class OrderingUxPrinciplesTest extends TestCase
         $this->assertStringContainsString('Content', $html);
         $this->assertStringContainsString('Pay', $html);
         $this->assertStringContainsString('Needs approved article', $html);
-        $this->assertStringContainsString('Place a guest post · Publishers', $html);
+        $this->assertStringContainsString('Catalog · Publishers', $html);
     }
 
     public function test_catalog_shows_ready_when_matching_article_exists(): void

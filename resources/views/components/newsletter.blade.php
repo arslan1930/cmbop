@@ -1,30 +1,28 @@
-<section class="py-5 bg-light">
-  <div class="container">
-    <div class="bg-white rounded shadow p-4 p-md-5">
+<section class="slb-section slb-newsletter">
+  <div class="container" style="max-width:1100px;">
+    <div class="slb-newsletter-panel">
 
       <div class="row align-items-center">
 
-        {{-- Icon panel instead of stock photo (TR3) --}}
         <div class="col-lg-5 mb-4 mb-lg-0">
           <div class="newsletter-proof">
             <div class="newsletter-proof-icon" aria-hidden="true">
               <i class="fa-solid fa-envelope-open-text"></i>
             </div>
-            <h4 class="h5 mb-2" style="color:#0b6266;">Stay ahead of new markets</h4>
+            <h3 class="h5 mb-2 slb-newsletter-aside-title">{{ __('messages.newsletter_aside_title') }}</h3>
             <p class="text-muted small mb-0">
-              Product updates and placement tips from the SEOLinkBuildings marketplace — no stock-photo fluff.
+              {{ __('messages.newsletter_aside_body') }}
             </p>
           </div>
         </div>
 
-        <!-- Right: Content -->
         <div class="col-lg-7">
           <form id="newsletterForm" class="w-100">
             @csrf
 
-            <h3 class="mb-3">
+            <h2 class="h4 mb-3">
               {{ __('messages.newsletter_title') }}
-            </h3>
+            </h2>
 
             <div id="newsletterAlert" class="alert d-none mb-3" role="alert"></div>
 
@@ -83,20 +81,23 @@
   flex-direction: column;
   align-items: flex-start;
   gap: 12px;
-  padding: 1rem 0.5rem;
+  padding: 0.25rem 0;
 }
 .newsletter-proof-icon {
-  width: 72px;
-  height: 72px;
-  border-radius: 18px;
+  width: 64px;
+  height: 64px;
+  border-radius: 16px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   background: linear-gradient(180deg, #e8f8f7 0%, #d4f1f0 100%);
   color: #0b6266;
-  font-size: 1.75rem;
+  font-size: 1.5rem;
   border: 1px solid rgba(11, 98, 102, 0.12);
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.75);
+}
+.slb-newsletter-aside-title {
+  color: #0b6266;
+  font-family: var(--slb-font-display, Sora, sans-serif);
 }
 </style>
 

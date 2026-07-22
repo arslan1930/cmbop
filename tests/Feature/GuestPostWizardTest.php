@@ -68,16 +68,17 @@ class GuestPostWizardTest extends TestCase
         ]);
     }
 
-    public function test_new_advertiser_dashboard_cta_opens_wizard(): void
+    public function test_new_advertiser_dashboard_cta_opens_catalog_with_guided_secondary(): void
     {
         $advertiser = $this->advertiser();
 
         $this->actingAs($advertiser)
             ->get(route('advertiser.dashboard'))
             ->assertOk()
-            ->assertSee('Place a guest post', false)
-            ->assertSee(route('advertiser.wizard.start'), false)
-            ->assertSee('Market', false);
+            ->assertSee('Browse catalog', false)
+            ->assertSee(route('advertiser.catalog'), false)
+            ->assertSee('Prefer a guided flow?', false)
+            ->assertSee(route('advertiser.wizard.start'), false);
     }
 
     public function test_wizard_start_without_market_goes_to_market_step(): void
@@ -259,7 +260,7 @@ class GuestPostWizardTest extends TestCase
         $this->actingAs($advertiser)
             ->get(route('advertiser.catalog'))
             ->assertOk()
-            ->assertSee('Start guided flow', false);
+            ->assertSee('Guided', false);
 
         $this->actingAs($advertiser)
             ->get(route('advertiser.content-library'))

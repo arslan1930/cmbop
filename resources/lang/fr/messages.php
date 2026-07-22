@@ -12,6 +12,7 @@ return [
     'hero_support' => 'Obtenez des backlinks puissants depuis des sites web de confiance.',
     'get_started' => 'Commencer',
     'hero_tagline' => 'La marketplace mondiale de création de liens pour le SEO, les RP numériques et la distribution de contenu.',
+    'hero_product_alt' => 'Aperçu du catalogue marketplace avec métriques éditeurs et prix de placement',
 
     // Footer
     'professional_services' => 'Des services de création de liens professionnels qui offrent des résultats mesurables pour votre entreprise.',
@@ -33,8 +34,14 @@ return [
     'terms_of_service' => 'Conditions d\'utilisation',
 
     // ==================== SERVICES SECTION ====================
-    'services_title' => 'Nos Services SEO & RP Digitales',
-    'services_description' => 'Nous proposons des services de création de liens et de relations publiques numériques méticuleusement exécutés, axés sur la qualité, la pertinence et les résultats de recherche à long terme.',
+    'services_title' => 'Une marketplace conçue pour les placements',
+    'services_description' => 'Parcourez des éditeurs vérifiés, payez depuis votre wallet et suivez chaque commande jusqu’à l’URL live.',
+    'value_3_description' => 'Suivez le statut, discutez sur la commande et vérifiez le lien live à la livraison.',
+    'value_3_title' => 'Suivi jusqu’à l’URL live',
+    'value_2_description' => 'Prix de placement clairs avant l’achat. Rechargez une fois, commandez quand vous êtes prêt.',
+    'value_2_title' => 'Paiement par wallet',
+    'value_1_description' => 'Filtrez par pays, langue, niche et métriques pour trouver les sites adaptés à votre campagne.',
+    'value_1_title' => 'Catalogue d’éditeurs vérifiés',
     
     'card_1_title' => 'Audit SEO Gratuit',
     'card_1_description' => 'Un examen complet de votre profil de backlinks et des fondamentaux SEO.',
@@ -69,14 +76,14 @@ return [
 
 
     // How It Works Section
-    'how_it_works_title' => 'Comment notre processus fonctionne',
-    'how_it_works_description' => 'Un processus simple et transparent du début à la fin pour fournir des backlinks de haute qualité qui génèrent du succès SEO.',
-    'step_1_title' => '1. Consultation & Stratégie',
-    'step_1_description' => 'Nous commençons par une consultation pour comprendre vos objectifs commerciaux, votre public cible et votre profil de backlinks actuel. Sur cette base, nous développons une stratégie de création de liens sur mesure adaptée à vos besoins.',
-    'step_2_title' =>   '2. Sensibilisation & Placement',
-    'step_2_description' => 'Notre équipe mène des campagnes de sensibilisation ciblées auprès de sites web faisant autorité dans votre secteur. Nous sécurisons des placements pour vos liens au sein de contenus pertinents et de haute qualité pour garantir un impact SEO maximal.',
-    'step_3_title' => '3. Reporting & Optimisation',
-    'step_3_description' => 'Nous fournissons des rapports réguliers sur les progrès de votre campagne de création de liens, y compris les placements sécurisés et leur impact sur vos performances SEO. Nous optimisons continuellement notre approche en fonction des résultats pour garantir que vous obtenez les meilleurs résultats possibles.',
+    'how_it_works_title' => 'Comment fonctionne la marketplace',
+    'how_it_works_description' => 'Parcourez les éditeurs, rechargez votre wallet et achetez des placements — au même endroit.',
+    'step_1_title' => '1. Parcourir le catalogue',
+    'step_1_description' => 'Filtrez par pays, langue, catégorie et métriques pour trouver les bons éditeurs.',
+    'step_2_title' =>   '2. Recharger & acheter',
+    'step_2_description' => 'Rechargez le wallet, choisissez un site et passez commande. Les prix sont clairs avant le paiement.',
+    'step_3_title' => '3. Obtenir le lien live',
+    'step_3_description' => 'Les éditeurs livrent le placement. Suivez le statut, discutez et vérifiez l’URL live.',
 
     
     // Pricing Section
@@ -140,7 +147,9 @@ return [
     'next' => 'Suivant',
 
      // ==================== NEWSLETTER SECTION ====================
-    'newsletter_image_alt' => 'Abonnez-vous à la newsletter',
+    'newsletter_image_alt' => 'S\'abonner à la newsletter',
+    'newsletter_aside_title' => 'Restez en avance sur de nouveaux marchés',
+    'newsletter_aside_body' => 'Mises à jour produit et conseils de placement depuis la marketplace SEOLinkBuildings.',
     'newsletter_title' => 'Abonnez-vous et recevez des mises à jour sur les dernières fonctionnalités et changements de notre plateforme.',
     'newsletter_email_placeholder' => 'Votre adresse e-mail',
     'newsletter_subscribe_btn' => "S'abonner",
@@ -486,6 +495,8 @@ return [
     'marketplace_point_2_body' => 'Rechargez une fois, achetez rapidement et suivez chaque commande au même endroit.',
     'marketplace_point_3_title' => 'Ciblage multilingue',
     'marketplace_point_3_body' => 'Touchez les marchés anglais, UE, chinois et du Golfe avec un inventaire adapté.',
+    'marketplace_teaser_title' => 'Aperçu d’inventaire vérifié',
+    'marketplace_teaser_subtitle' => 'Un aperçu des placements en ligne — créez un compte gratuit pour le catalogue complet.',
     'marketplace_catalog_note' => 'Le catalogue live s’ouvre après connexion et reste en anglais.',
     'become_publisher_kicker' => 'Éditeurs',
     'become_publisher_title' => 'Monétisez votre inventaire éditorial',

@@ -1,7 +1,7 @@
 @php
     $step = (int) ($step ?? 1);
-    $title = $title ?? 'Place a guest post';
-    $subtitle = $subtitle ?? 'Market → Publishers → Content → Pay';
+    $title = $title ?? 'Catalog';
+    $subtitle = $subtitle ?? 'Browse publishers, assign content in cart, then pay — or use Guided for a walkthrough.';
     $linkAll = (bool) ($linkAll ?? true);
     $contentRoute = $contentRoute ?? null;
 @endphp

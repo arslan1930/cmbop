@@ -12,6 +12,7 @@ return [
     'hero_support' => 'Earn powerful backlinks from trusted websites.',
     'get_started' => 'Get Started',
     'hero_tagline' => 'The global link building marketplace for SEO, digital PR, and content distribution.',
+    'hero_product_alt' => 'Marketplace catalog preview with publisher metrics and placement prices',
 
     // Footer
     'professional_services' => 'Professional link building services that deliver measurable results for your business.',
@@ -136,6 +137,8 @@ return [
     'marketplace_point_2_body' => 'Fund once, buy placements quickly, and keep every order tracked in one place.',
     'marketplace_point_3_title' => 'Multilingual targeting',
     'marketplace_point_3_body' => 'Reach English, EU, Chinese, and Gulf markets with language-aware inventory.',
+    'marketplace_teaser_title' => 'Sample verified inventory',
+    'marketplace_teaser_subtitle' => 'A preview of live placements — create a free account to browse the full catalog.',
     'marketplace_catalog_note' => 'The live catalog opens after login and stays in English.',
 
     // Become publisher
@@ -199,8 +202,15 @@ return [
     'how_it_works_kicker' => 'How it works',
 
     // Services Section
-    'services_title' => 'Our SEO & Digital PR Services',
-    'services_description' => 'We offer meticulously executed link building and digital PR services focused on quality, relevance, and long-term search results.',
+    'services_title' => 'A marketplace built for placements',
+    'services_description' => 'Browse verified publishers, pay from your wallet, and track every order through to a live URL.',
+    'value_1_title' => 'Verified publisher catalog',
+    'value_1_description' => 'Filter by country, language, niche, and metrics to find sites that fit your campaign.',
+    'value_2_title' => 'Wallet checkout',
+    'value_2_description' => 'Clear placement prices before you buy. Top up once and order when you are ready.',
+    'value_3_title' => 'Track to live URL',
+    'value_3_description' => 'Follow status, chat on the order, and review the live link when the publisher delivers.',
+
     'card_1_title' => 'Free SEO Audit',
     'card_1_description' => 'A comprehensive review of your website backlink profile and SEO fundamentals.',
     'card_1_item_1' => 'Backlink quality analysis',
@@ -305,6 +315,8 @@ return [
 
     // ==================== NEWSLETTER SECTION ====================
     'newsletter_image_alt' => 'Subscribe to Newsletter',
+    'newsletter_aside_title' => 'Stay ahead of new markets',
+    'newsletter_aside_body' => 'Product updates and placement tips from the SEOLinkBuildings marketplace.',
     'newsletter_title' => 'Subscribe and receive updates on the latest features and changes on our platform.',
     'newsletter_email_placeholder' => 'Your Email Address',
     'newsletter_subscribe_btn' => 'Subscribe',

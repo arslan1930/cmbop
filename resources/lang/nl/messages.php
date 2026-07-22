@@ -13,6 +13,7 @@ return [
     'hero_support' => 'Verkrijg krachtige backlinks van vertrouwde websites.',
     'get_started' => 'Begin nu',
     'hero_tagline' => 'De wereldwijde linkbuilding-marktplaats voor SEO, digitale PR en contentdistributie.',
+    'hero_product_alt' => 'Voorbeeld van de marktplaatscatalogus met publisher-metrics en placementprijzen',
 
 
     // Footer
@@ -35,8 +36,14 @@ return [
     'terms_of_service' => 'Gebruiksvoorwaarden',
 
     // ==================== SERVICES SECTION ====================
-    'services_title' => 'Onze SEO & Digital PR Diensten',
-    'services_description' => 'Wij bieden zorgvuldig uitgevoerde linkbuilding- en digital PR-diensten gericht op kwaliteit, relevantie en langdurige zoekresultaten.',
+    'services_title' => 'Een marktplaats gebouwd voor placements',
+    'services_description' => 'Blader door geverifieerde publishers, betaal vanuit je wallet en volg elke order tot een live URL.',
+    'value_3_description' => 'Volg status, chat op de order en beoordeel de live link wanneer de publisher levert.',
+    'value_3_title' => 'Volgen tot live URL',
+    'value_2_description' => 'Duidelijke placementprijzen vóór je koopt. Eenmaal opwaarderen, bestellen wanneer je klaar bent.',
+    'value_2_title' => 'Wallet-checkout',
+    'value_1_description' => 'Filter op land, taal, niche en metrics om sites te vinden die bij je campagne passen.',
+    'value_1_title' => 'Geverifieerde publisher-catalogus',
     
     'card_1_title' => 'Gratis SEO-audit',
     'card_1_description' => 'Een uitgebreide beoordeling van uw backlinkprofiel en SEO-basisbeginselen.',
@@ -70,14 +77,14 @@ return [
 
 
     // How It Works Section
-    'how_it_works_title' => 'Hoe ons proces werkt',
-    'how_it_works_description' => 'Eenvoudig, transparant proces van begin tot eind om hoogwaardige backlinks te leveren die SEO-succes opleveren.',
-    'step_1_title' => '1. Consultatie & Strategie',
-    'step_1_description' => 'We beginnen met een consultatie om uw bedrijfsdoelen, doelgroep en huidige backlinkprofiel te begrijpen. Op basis daarvan ontwikkelen we een op maat gemaakte linkbuilding-strategie die is afgestemd op uw behoeften.',
-    'step_2_title' =>   '2. Outreach & Plaatsing',
-    'step_2_description' => 'Ons team voert gerichte outreach-campagnes uit bij gezaghebbende websites in uw branche. We beveiligen plaatsingen voor uw links binnen hoogwaardige, relevante content om maximale SEO-impact te garanderen.',
-    'step_3_title' => '3. Rapportage & Optimalisatie',
-    'step_3_description' => 'We bieden regelmatige rapporten over de voortgang van uw linkbuilding-campagne, inclusief de beveiligde plaatsingen en hun impact op uw SEO-prestaties. We optimaliseren continu onze aanpak op basis van de resultaten om ervoor te zorgen dat u de best mogelijke resultaten behaalt.',
+    'how_it_works_title' => 'Hoe de marktplaats werkt',
+    'how_it_works_description' => 'Blader publishers, laad je wallet en koop placements — allemaal op één plek.',
+    'step_1_title' => '1. Catalogus doorzoeken',
+    'step_1_description' => 'Filter op land, taal, categorie en metrics om passende publishers te vinden.',
+    'step_2_title' =>   '2. Opwaarderen & kopen',
+    'step_2_description' => 'Laad je wallet, kies een site en plaats je order. Prijzen zijn duidelijk vóór checkout.',
+    'step_3_title' => '3. Link live krijgen',
+    'step_3_description' => 'Publishers leveren de placement. Volg status, chat en controleer de live URL.',
 
 
     // Pricing Section
@@ -141,7 +148,9 @@ return [
     'next' => 'Volgende',
 
     // ==================== NEWSLETTER SECTION ====================
-    'newsletter_image_alt' => 'Abonneer op nieuwsbrief',
+    'newsletter_image_alt' => 'Abonneer op de nieuwsbrief',
+    'newsletter_aside_title' => 'Blijf nieuwe markten voor',
+    'newsletter_aside_body' => 'Productupdates en placementtips van de SEOLinkBuildings-marktplaats.',
     'newsletter_title' => 'Abonneer je en ontvang updates over de nieuwste functies en wijzigingen op ons platform.',
     'newsletter_email_placeholder' => 'Uw e-mailadres',
     'newsletter_subscribe_btn' => 'Abonneren',
@@ -486,6 +495,8 @@ return [
     'marketplace_point_2_body' => 'Eén keer opwaarderen, snel kopen en elke order op één plek volgen.',
     'marketplace_point_3_title' => 'Meertalige targeting',
     'marketplace_point_3_body' => 'Bereik Engelse, EU-, Chinese en Golfmarkten met taalbewust inventaris.',
+    'marketplace_teaser_title' => 'Voorbeeld van geverifieerde inventaris',
+    'marketplace_teaser_subtitle' => 'Een voorproefje van live placements — maak een gratis account voor de volledige catalogus.',
     'marketplace_catalog_note' => 'De live catalogus opent na login en blijft in het Engels.',
     'become_publisher_kicker' => 'Publishers',
     'become_publisher_title' => 'Monetiseer uw redactionele inventaris',

@@ -20,13 +20,13 @@
                                 </div>
 
                                 <div class="auth-panel-kicker">Start free today</div>
-                                <h1 class="auth-panel-title">Start building better backlinks</h1>
+                                <h1 class="auth-panel-title">One account, both roles</h1>
                                 <p class="auth-panel-copy">
-                                    Create your free account to discover verified publishers, manage guest post campaigns, track your spending, and grow your SEO with confidence.
+                                    Every account includes Advertiser and Publisher workspaces. Choose where you want to start — you can switch anytime.
                                 </p>
 
-                                <ul class="auth-proof-list" aria-label="What you get with SEOLinkBuildings">
-                                    <li>
+                                <ul class="auth-proof-list" id="authProofList" aria-label="What you get with SEOLinkBuildings">
+                                    <li class="benefit-advertiser">
                                         <span class="auth-proof-icon" aria-hidden="true">
                                             <svg width="24" height="24" viewBox="0 0 24 24" focusable="false"><path d="M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-7"/><path d="M12 22V12"/><path d="M2.5 9.5h19v2.5H2.5z"/><path d="M7.5 9.5C6 9.5 5 8.2 5 7.2S6.2 5 7.5 5c2 0 2.5 2 4.5 4.5C14 7 14.5 5 16.5 5 17.8 5 19 6.2 19 7.2s-1 2.3-2.5 2.3"/></svg>
                                         </span>
@@ -35,7 +35,7 @@
                                             <span>Spend on your first orders — not withdrawable</span>
                                         </div>
                                     </li>
-                                    <li>
+                                    <li class="benefit-advertiser">
                                         <span class="auth-proof-icon" aria-hidden="true">
                                             <svg width="24" height="24" viewBox="0 0 24 24" focusable="false"><path d="M4 19V5"/><path d="M4 19h16"/><path d="M7 15l3.5-4 3 2.5L18 7"/></svg>
                                         </span>
@@ -44,18 +44,36 @@
                                             <span>Backlink quality, authority, and next steps</span>
                                         </div>
                                     </li>
+                                    <li class="benefit-publisher d-none">
+                                        <span class="auth-proof-icon" aria-hidden="true">
+                                            <svg width="24" height="24" viewBox="0 0 24 24" focusable="false"><path d="M4 19V5"/><path d="M4 19h16"/><path d="M8 9h8"/><path d="M8 13h5"/></svg>
+                                        </span>
+                                        <div>
+                                            <strong>List your sites</strong>
+                                            <span>Set prices, niches, and delivery times</span>
+                                        </div>
+                                    </li>
+                                    <li class="benefit-publisher d-none">
+                                        <span class="auth-proof-icon" aria-hidden="true">
+                                            <svg width="24" height="24" viewBox="0 0 24 24" focusable="false"><path d="M12 3l7 3v5c0 5-3.5 8.5-7 10-3.5-1.5-7-5-7-10V6l7-3z"/><path d="M9.5 12.2l1.8 1.8 3.7-3.8"/></svg>
+                                        </span>
+                                        <div>
+                                            <strong>Paid placements</strong>
+                                            <span>Receive briefed orders and get paid via wallet</span>
+                                        </div>
+                                    </li>
                                     <li>
                                         <span class="auth-proof-icon" aria-hidden="true">
                                             <svg width="24" height="24" viewBox="0 0 24 24" focusable="false"><path d="M12 3l7 3v5c0 5-3.5 8.5-7 10-3.5-1.5-7-5-7-10V6l7-3z"/><path d="M9.5 12.2l1.8 1.8 3.7-3.8"/></svg>
                                         </span>
                                         <div>
-                                            <strong>Verified publishers</strong>
-                                            <span>EU &amp; major NA network — no PBNs</span>
+                                            <strong>Verified network</strong>
+                                            <span>EU &amp; major markets — no PBNs</span>
                                         </div>
                                     </li>
                                 </ul>
 
-                                <blockquote class="auth-quote">
+                                <blockquote class="auth-quote" id="authQuote">
                                     Join advertisers who buy placements with clear pricing and tracked delivery.
                                     <cite>SEOLinkBuildings marketplace</cite>
                                 </blockquote>
@@ -68,25 +86,37 @@
                             <p class="auth-form-sub">Build authority with verified publishers — free to start, no card required.</p>
 
                             <div class="auth-mobile-strip d-md-none" aria-label="Why join SEOLinkBuildings">
-                                <strong>Start with €20 free credit</strong>
-                                <ul>
-                                    <li>
+                                <strong id="mobileBenefitTitle">Start with €20 free credit</strong>
+                                <ul id="mobileBenefitList">
+                                    <li class="benefit-advertiser">
                                         <span class="mi" aria-hidden="true">
                                             <svg width="22" height="22" viewBox="0 0 24 24" focusable="false"><path d="M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-7"/><path d="M12 22V12"/><path d="M2.5 9.5h19v2.5H2.5z"/><path d="M7.5 9.5C6 9.5 5 8.2 5 7.2S6.2 5 7.5 5c2 0 2.5 2 4.5 4.5C14 7 14.5 5 16.5 5 17.8 5 19 6.2 19 7.2s-1 2.3-2.5 2.3"/></svg>
                                         </span>
                                         Welcome bonus for first orders
                                     </li>
-                                    <li>
+                                    <li class="benefit-advertiser">
                                         <span class="mi" aria-hidden="true">
                                             <svg width="22" height="22" viewBox="0 0 24 24" focusable="false"><path d="M4 19V5"/><path d="M4 19h16"/><path d="M7 15l3.5-4 3 2.5L18 7"/></svg>
                                         </span>
                                         Free SEO audit on signup
                                     </li>
+                                    <li class="benefit-publisher d-none">
+                                        <span class="mi" aria-hidden="true">
+                                            <svg width="22" height="22" viewBox="0 0 24 24" focusable="false"><path d="M4 19V5"/><path d="M4 19h16"/><path d="M8 9h8"/><path d="M8 13h5"/></svg>
+                                        </span>
+                                        List sites and set your prices
+                                    </li>
+                                    <li class="benefit-publisher d-none">
+                                        <span class="mi" aria-hidden="true">
+                                            <svg width="22" height="22" viewBox="0 0 24 24" focusable="false"><path d="M12 3l7 3v5c0 5-3.5 8.5-7 10-3.5-1.5-7-5-7-10V6l7-3z"/><path d="M9.5 12.2l1.8 1.8 3.7-3.8"/></svg>
+                                        </span>
+                                        Get paid for quality placements
+                                    </li>
                                     <li>
                                         <span class="mi" aria-hidden="true">
                                             <svg width="22" height="22" viewBox="0 0 24 24" focusable="false"><path d="M12 3l7 3v5c0 5-3.5 8.5-7 10-3.5-1.5-7-5-7-10V6l7-3z"/><path d="M9.5 12.2l1.8 1.8 3.7-3.8"/></svg>
                                         </span>
-                                        Verified European publishers
+                                        Both roles included on every account
                                     </li>
                                 </ul>
                             </div>
@@ -127,13 +157,16 @@
 
                                 <div class="mb-3">
                                     <label class="auth-label">Register as <span class="text-danger">*</span></label>
-                                    <div class="auth-role-grid" id="roleSelect" role="radiogroup" aria-label="Choose account type">
+                                    <p class="small text-muted mb-2" id="roleHint">
+                                        Choose your starting workspace — you can switch roles later from your account.
+                                    </p>
+                                    <div class="auth-role-grid" id="roleSelect" role="radiogroup" aria-label="Choose account type" aria-describedby="roleHint">
                                         <div class="auth-role-card role-card selected" data-value="advertiser" role="radio" aria-checked="true" tabindex="0">
                                             <i class="fa-solid fa-bullseye role-main" aria-hidden="true"></i>
                                             Advertiser
                                             <i class="fa-solid fa-check role-check" aria-hidden="true"></i>
                                         </div>
-                                        <div class="auth-role-card role-card" data-value="publisher" role="radio" aria-checked="false" tabindex="0">
+                                        <div class="auth-role-card role-card" data-value="publisher" role="radio" aria-checked="false" tabindex="-1">
                                             <i class="fa-solid fa-file-lines role-main" aria-hidden="true"></i>
                                             Publisher
                                             <i class="fa-solid fa-check role-check" aria-hidden="true"></i>
@@ -221,13 +254,17 @@ function togglePassword(id, iconSpan){
 }
 
 function selectRoleCard(card){
-    document.querySelectorAll('#roleSelect .role-card').forEach(c=>{
+    const cards = document.querySelectorAll('#roleSelect .role-card');
+    cards.forEach(c=>{
         c.classList.remove('selected');
         c.setAttribute('aria-checked', 'false');
+        c.setAttribute('tabindex', '-1');
     });
     card.classList.add('selected');
     card.setAttribute('aria-checked', 'true');
+    card.setAttribute('tabindex', '0');
     document.getElementById('roleInput').value = card.dataset.value;
+    card.focus();
 }
 
 document.querySelectorAll('#roleSelect .role-card').forEach(card=>{
@@ -235,12 +272,25 @@ document.querySelectorAll('#roleSelect .role-card').forEach(card=>{
         selectRoleCard(this);
     });
     card.addEventListener('keydown', function(e){
+        const cards = Array.from(document.querySelectorAll('#roleSelect .role-card'));
+        const idx = cards.indexOf(this);
         if(e.key === 'Enter' || e.key === ' '){
             e.preventDefault();
             selectRoleCard(this);
+            return;
+        }
+        if(e.key === 'ArrowRight' || e.key === 'ArrowDown'){
+            e.preventDefault();
+            selectRoleCard(cards[(idx + 1) % cards.length]);
+            return;
+        }
+        if(e.key === 'ArrowLeft' || e.key === 'ArrowUp'){
+            e.preventDefault();
+            selectRoleCard(cards[(idx - 1 + cards.length) % cards.length]);
         }
     });
 });
+updateRoleBenefits(document.getElementById('roleInput').value);
 
 document.getElementById('registerForm').addEventListener('submit', async function(e){
     e.preventDefault();
@@ -323,7 +373,9 @@ document.getElementById('registerForm').addEventListener('submit', async functio
             const isAdv = c.dataset.value === 'advertiser';
             c.classList.toggle('selected', isAdv);
             c.setAttribute('aria-checked', isAdv ? 'true' : 'false');
+            c.setAttribute('tabindex', isAdv ? '0' : '-1');
         });
+        updateRoleBenefits('advertiser');
     } else if (data.status === 'validation') {
         const errors = data.errors || {};
         const messages = [];
