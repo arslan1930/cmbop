@@ -53,6 +53,26 @@
         #sidebar.collapsed a { justify-content: center; font-size: 0; }
         #sidebar.collapsed a i { font-size: 18px; }
 
+        .admin-nav-section {
+            padding: 14px 20px 4px;
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            color: #94a3b8;
+            line-height: 1.2;
+        }
+        #sidebar.collapsed .admin-nav-section { display: none; }
+        #sidebar .menu { overflow-y: auto; padding-bottom: 16px; }
+        #sidebar a { margin: 0 8px 2px; padding: 10px 12px; border-radius: 8px; border: 1px solid transparent; font-size: 0.9rem; }
+        #sidebar.collapsed a { margin: 0 8px 2px; }
+        .admin-mode-badge {
+            font-size: 12px;
+            font-weight: 600;
+            color: #64748b;
+            letter-spacing: 0.02em;
+        }
+
         /* Top Navbar */
         .top-navbar {
             height: 70px; position: sticky; top: 0; left: 220px; right: 0;
@@ -118,16 +138,17 @@
             <img id="logoSidebar" src="{{ asset('assets/img/logo1.png') }}?v={{ @filemtime(public_path('assets/img/logo1.png')) ?: '1' }}" height="42" alt="SEOLinkBuildings">
         </div>
 
+        <div class="admin-nav-section">Overview</div>
         <a href="{{ route('admin.dashboard') }}" class="{{ request()->routeIs('admin.dashboard') ? 'active' : '' }}">
             <i class="fa fa-tachometer-alt"></i> <span>Dashboard</span>
         </a>
 
+        <div class="admin-nav-section">Marketplace</div>
         @if(auth()->user()->isAdmin())
-        <a href="{{ route('admin.users.index') }}" class="{{ request()->routeIs('admin.users.*') ? 'active' : '' }}">
-            <i class="fa fa-users"></i> <span>Users</span>
+        <a href="{{ route('admin.orders.index') }}" class="{{ request()->routeIs('admin.orders.*') ? 'active' : '' }}">
+            <i class="fa fa-shopping-bag"></i> <span>Orders</span>
         </a>
         @endif
-
         <a href="{{ route('admin.sites.index') }}" class="{{ request()->routeIs('admin.sites.*') ? 'active' : '' }}">
             <i class="fa fa-globe"></i>
             <span class="d-flex align-items-center w-100">
@@ -135,36 +156,25 @@
                 <span id="navBadgeSites" class="badge bg-warning text-dark rounded-pill ms-auto" style="display:none;">0</span>
             </span>
         </a>
-
         <a href="{{ route('admin.site-enrichment.index') }}" class="{{ request()->routeIs('admin.site-enrichment.*') ? 'active' : '' }}">
-            <i class="fa fa-chart-line"></i>
-            <span>Enrichment</span>
-        </a>
-
-        <a href="{{ route('admin.community.index') }}" class="{{ request()->routeIs('admin.community.*') ? 'active' : '' }}">
-            <i class="fa fa-comments"></i>
-            <span>Community</span>
+            <i class="fa fa-chart-line"></i> <span>Enrichment</span>
         </a>
         <a href="{{ route('admin.site-ratings.index') }}" class="{{ request()->routeIs('admin.site-ratings.*') ? 'active' : '' }}">
-            <i class="fa fa-star"></i>
-            <span>Ratings</span>
+            <i class="fa fa-star"></i> <span>Ratings</span>
         </a>
 
         @if(auth()->user()->isAdmin())
-        <!-- payments -->
-         <a href="{{ route('admin.payments') }}" class="{{ request()->routeIs('admin.payments') || request()->routeIs('admin.payments.*') ? 'active' : '' }}">
+        <div class="admin-nav-section">Money</div>
+        <a href="{{ route('admin.payments') }}" class="{{ request()->routeIs('admin.payments') || request()->routeIs('admin.payments.*') ? 'active' : '' }}">
             <i class="fa fa-money-bill"></i>
             <span class="d-flex align-items-center w-100">
                 <span>Order Payments</span>
                 <span id="navBadgePayments" class="badge bg-warning text-dark rounded-pill ms-auto" style="display:none;">0</span>
             </span>
         </a>
-
         <a href="{{ route('admin.invoices.index') }}" class="{{ request()->routeIs('admin.invoices.*') ? 'active' : '' }}">
-            <i class="fa fa-file-invoice-dollar"></i>
-            <span>Invoices</span>
+            <i class="fa fa-file-invoice-dollar"></i> <span>Invoices</span>
         </a>
-
         <a href="{{ route('admin.deposits') }}" class="{{ request()->routeIs('admin.deposits') || request()->routeIs('admin.deposits.*') ? 'active' : '' }}">
             <i class="fa fa-wallet"></i>
             <span class="d-flex align-items-center w-100">
@@ -172,8 +182,6 @@
                 <span id="navBadgeDeposits" class="badge bg-warning text-dark rounded-pill ms-auto" style="display:none;">0</span>
             </span>
         </a>
-
-        <!-- withdrawals -->
         <a href="{{ route('admin.withdrawals') }}" class="{{ request()->routeIs('admin.withdrawals') || request()->routeIs('admin.withdrawals.*') ? 'active' : '' }}">
             <i class="fa fa-money-bill-wave"></i>
             <span class="d-flex align-items-center w-100">
@@ -181,41 +189,44 @@
                 <span id="navBadgeWithdrawals" class="badge bg-warning text-dark rounded-pill ms-auto" style="display:none;">0</span>
             </span>
         </a>
+        @endif
 
-        <!-- Blog -->
-         <a class="nav-link {{ request()->routeIs('admin.blogs.*') ? 'active' : '' }}" href="{{ route('admin.blogs.index') }}">
-        <i class="fa fa-blog me-2"></i>
-        <span>Blogs</span>
-    </a>
+        <div class="admin-nav-section">People</div>
+        @if(auth()->user()->isAdmin())
+        <a href="{{ route('admin.users.index') }}" class="{{ request()->routeIs('admin.users.*') ? 'active' : '' }}">
+            <i class="fa fa-users"></i> <span>Users</span>
+        </a>
+        @endif
+        <a href="{{ route('admin.community.index') }}" class="{{ request()->routeIs('admin.community.*') ? 'active' : '' }}">
+            <i class="fa fa-comments"></i> <span>Community</span>
+        </a>
 
+        @if(auth()->user()->isAdmin())
+        <div class="admin-nav-section">Growth</div>
+        <a href="{{ route('admin.blogs.index') }}" class="{{ request()->routeIs('admin.blogs.*') ? 'active' : '' }}">
+            <i class="fa fa-blog"></i> <span>Blogs</span>
+        </a>
         <a href="{{ route('admin.emails.index') }}" class="{{ request()->routeIs('admin.emails.*') ? 'active' : '' }}">
             <i class="fa fa-envelope-open-text"></i> <span>Email Center</span>
         </a>
-
         <a href="{{ route('admin.campaigns.index') }}" class="{{ request()->routeIs('admin.campaigns.*') ? 'active' : '' }}">
-            <i class="fa fa-paper-plane"></i> <span>Updates / Campaigns</span>
+            <i class="fa fa-paper-plane"></i> <span>Campaigns</span>
         </a>
-
         <a href="{{ route('admin.audiences.index') }}" class="{{ request()->routeIs('admin.audiences.*') ? 'active' : '' }}">
             <i class="fa fa-address-book"></i> <span>Audiences</span>
         </a>
-
         <a href="{{ route('admin.promotions.index') }}" class="{{ request()->routeIs('admin.promotions.*') ? 'active' : '' }}">
             <i class="fa fa-bullhorn"></i> <span>Promotions</span>
         </a>
-
         <a href="{{ route('admin.moderation.index') }}" class="{{ request()->routeIs('admin.moderation.*') ? 'active' : '' }}">
-            <i class="fa fa-shield-alt"></i> <span>Content Moderation</span>
+            <i class="fa fa-shield-alt"></i> <span>Moderation</span>
         </a>
         @endif
 
+        <div class="admin-nav-section">System</div>
         <a href="{{ route('admin.activity-logs.index') }}" class="{{ request()->routeIs('admin.activity-logs.*') ? 'active' : '' }}">
             <i class="fa fa-history"></i> <span>Activity History</span>
         </a>
-
-    <!-- <a href="{{ route('admin.settings') }}" class="{{ request()->routeIs('admin.settings') ? 'active' : '' }}">
-            <i class="fa fa-cog"></i> <span>Settings</span>
-        </a> -->
     </div>
 </div>
 
@@ -230,10 +241,9 @@
             <img id="logoNavbar" src="{{ asset('assets/img/logo1.png') }}?v={{ @filemtime(public_path('assets/img/logo1.png')) ?: '1' }}" height="45" alt="SEOLinkBuildings">
         </a>
 
-        <!-- Admin / Marketing mode label -->
         <div class="d-none d-md-block">
-            <span class="btn btn-sm btn-outline-primary">
-                {{ auth()->user()->isMarketing() ? 'Marketing Mode' : 'Admin Mode' }}
+            <span class="admin-mode-badge">
+                {{ auth()->user()->isMarketing() ? 'Marketing' : 'Admin' }}
             </span>
         </div>
     </div>
@@ -356,6 +366,7 @@
         }
     }
 
+    @if(auth()->user()->isAdmin())
     function refreshAdminQueueBadges() {
         fetch('{{ route("admin.dashboard.queue-counts") }}', {
             headers: { 'Accept': 'application/json' },
@@ -373,6 +384,7 @@
     }
     refreshAdminQueueBadges();
     setInterval(refreshAdminQueueBadges, 60000);
+    @endif
 </script>
 </body>
 </html>

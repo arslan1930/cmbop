@@ -4,12 +4,13 @@
 
 @section('content')
 <div class="container-fluid">
-    <div class="row mb-4">
-        <div class="col-md-12">
-            <h2 class="mb-1 fw-semibold">Payments Management</h2>
-            <p class="text-muted mb-0">Manage and update payment statuses for all orders</p>
-        </div>
-    </div>
+    @include('admin.partials.page-header', [
+        'title' => 'Payments Management',
+        'subtitle' => 'Manage and update payment statuses for all orders',
+        'actionUrl' => route('admin.orders.index'),
+        'actionLabel' => 'Orders console',
+        'actionIcon' => 'fa-shopping-bag',
+    ])
 
     <!-- Filters -->
     <div class="card border-0 shadow-sm mb-4">
@@ -408,7 +409,8 @@ $(document).ready(function() {
             html += '<td>' + paymentStatusBadge + '</td>';
             html += '<td>' + orderStatusBadge + '</td>';
             html += '<td>' + paidAt + '</td>';
-            html += '<td>';
+            html += '<td class="text-nowrap">';
+            html += '<a class="btn btn-sm btn-outline-secondary me-1" href="/admin/orders/' + order.id + '" title="Open order console"><i class="fa fa-shopping-bag"></i></a>';
             
             // Only show Update button if payment status is NOT 'paid'
             if (order.payment_status !== 'paid') {

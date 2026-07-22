@@ -3,38 +3,10 @@
 @section('content')
 <div class="container-fluid">
 
-    <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-2">
-        <div>
-            <h1 class="h3 mb-1">Admin Dashboard</h1>
-            <p class="text-muted mb-0">Platform overview, money flow, and items that need your attention.</p>
-        </div>
-        <div class="d-flex gap-2 flex-wrap">
-            <a href="{{ route('admin.campaigns.index') }}" class="btn btn-sm btn-primary">
-                <i class="fa fa-paper-plane me-1"></i> Updates / Campaigns
-            </a>
-            <a href="{{ route('admin.audiences.index') }}" class="btn btn-sm btn-outline-primary">
-                <i class="fa fa-address-book me-1"></i> Audiences
-            </a>
-            <a href="{{ route('admin.promotions.index') }}" class="btn btn-sm btn-outline-secondary">
-                <i class="fa fa-bullhorn me-1"></i> Promotions
-            </a>
-            <a href="{{ route('admin.users.index') }}" class="btn btn-sm btn-outline-primary">
-                <i class="fa fa-user-tag me-1"></i> Marketing Access
-            </a>
-            <a href="{{ route('admin.sites.index') }}" class="btn btn-sm btn-outline-secondary">
-                <i class="fa fa-globe me-1"></i> Sites
-            </a>
-            <a href="{{ route('admin.activity-logs.index') }}" class="btn btn-sm btn-outline-dark">
-                <i class="fa fa-history me-1"></i> Activity
-            </a>
-            <a href="{{ route('admin.deposits') }}" class="btn btn-sm btn-outline-success">
-                <i class="fa fa-wallet me-1"></i> Deposits
-            </a>
-            <a href="{{ route('admin.withdrawals') }}" class="btn btn-sm btn-outline-warning">
-                <i class="fa fa-money-bill-wave me-1"></i> Withdrawals
-            </a>
-        </div>
-    </div>
+    @include('admin.partials.page-header', [
+        'title' => 'Admin Dashboard',
+        'subtitle' => 'Platform overview, money flow, and items that need your attention.',
+    ])
 
     <!-- KPI cards -->
     <div class="row g-3 mb-4">
@@ -98,117 +70,7 @@
         </div>
     </div>
 
-    <!-- Promotions widget -->
-    <div class="row g-3 mb-4">
-        <div class="col-12">
-            <div class="card border-0 shadow-sm">
-                <div class="card-body">
-                    <div class="d-flex flex-wrap justify-content-between align-items-start gap-3">
-                        <div>
-                            <div class="text-muted small mb-1"><i class="fa fa-bullhorn me-1 text-primary"></i>Promotions Center</div>
-                            <h5 class="mb-1">Announcements &amp; Ad Banners</h5>
-                            <p class="text-muted mb-0 small">
-                                Control discounts, Black Friday offers, platform changes, and sized website banners from one place.
-                            </p>
-                        </div>
-                        <div class="d-flex flex-wrap gap-2">
-                            <a href="{{ route('admin.campaigns.index') }}" class="btn btn-primary btn-sm">
-                                <i class="fa fa-paper-plane me-1"></i> Updates / Campaigns
-                            </a>
-                            <a href="{{ route('admin.audiences.index') }}" class="btn btn-outline-primary btn-sm">
-                                Audience Lists
-                            </a>
-                            <a href="{{ route('admin.promotions.index') }}" class="btn btn-outline-secondary btn-sm">
-                                Site Banners
-                            </a>
-                            <a href="{{ route('admin.promotions.announcements.create') }}" class="btn btn-outline-secondary btn-sm">
-                                New Announcement
-                            </a>
-                        </div>
-                    </div>
-                    @php
-                        $promoStats = app(\App\Services\PromotionService::class)->dashboardStats();
-                    @endphp
-                    <div class="row g-3 mt-2">
-                        <div class="col-6 col-md-3">
-                            <div class="border rounded-3 p-3 h-100">
-                                <div class="small text-muted">Live announcements</div>
-                                <div class="fs-4 fw-semibold">{{ $promoStats['announcements_live'] }}</div>
-                            </div>
-                        </div>
-                        <div class="col-6 col-md-3">
-                            <div class="border rounded-3 p-3 h-100">
-                                <div class="small text-muted">Live banners</div>
-                                <div class="fs-4 fw-semibold">{{ $promoStats['banners_live'] }}</div>
-                            </div>
-                        </div>
-                        <div class="col-6 col-md-3">
-                            <div class="border rounded-3 p-3 h-100">
-                                <div class="small text-muted">Banner impressions</div>
-                                <div class="fs-4 fw-semibold">{{ number_format($promoStats['banner_impressions']) }}</div>
-                            </div>
-                        </div>
-                        <div class="col-6 col-md-3">
-                            <div class="border rounded-3 p-3 h-100">
-                                <div class="small text-muted">Banner clicks</div>
-                                <div class="fs-4 fw-semibold">{{ number_format($promoStats['banner_clicks']) }}</div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Charts -->
-    <div class="row g-3 mb-4">
-        <div class="col-lg-8">
-            <div class="card border-0 shadow-sm h-100">
-                <div class="card-header bg-white border-0 d-flex justify-content-between align-items-center">
-                    <strong><i class="fa fa-chart-line me-2 text-primary"></i>Revenue &amp; Orders (30 days)</strong>
-                    <span class="text-muted small">Paid revenue vs order volume</span>
-                </div>
-                <div class="card-body">
-                    <canvas id="trendChart" height="110"></canvas>
-                </div>
-            </div>
-        </div>
-        <div class="col-lg-4">
-            <div class="card border-0 shadow-sm h-100">
-                <div class="card-header bg-white border-0">
-                    <strong><i class="fa fa-user-plus me-2 text-success"></i>New Signups (30 days)</strong>
-                </div>
-                <div class="card-body">
-                    <canvas id="signupChart" height="220"></canvas>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div class="row g-3 mb-4">
-        <div class="col-md-6">
-            <div class="card border-0 shadow-sm h-100">
-                <div class="card-header bg-white border-0">
-                    <strong><i class="fa fa-pie-chart me-2 text-info"></i>Order Status Mix</strong>
-                </div>
-                <div class="card-body d-flex justify-content-center">
-                    <canvas id="orderStatusChart" style="max-height:260px;"></canvas>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-6">
-            <div class="card border-0 shadow-sm h-100">
-                <div class="card-header bg-white border-0">
-                    <strong><i class="fa fa-users me-2 text-secondary"></i>Users by Role</strong>
-                </div>
-                <div class="card-body d-flex justify-content-center">
-                    <canvas id="roleChart" style="max-height:260px;"></canvas>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Action queues -->
+    <!-- Action queues (first viewport priority) -->
     <div class="row g-3 mb-4">
         <div class="col-lg-4">
             <div class="card border-0 shadow-sm h-100">
@@ -266,6 +128,107 @@
                                 <tr><td colspan="3" class="text-center text-muted py-3">Loading…</td></tr>
                             </tbody>
                         </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Charts -->
+    <div class="row g-3 mb-4">
+        <div class="col-lg-8">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header bg-white border-0 d-flex justify-content-between align-items-center">
+                    <strong><i class="fa fa-chart-line me-2 text-primary"></i>Revenue &amp; Orders (30 days)</strong>
+                    <span class="text-muted small">Paid revenue vs order volume</span>
+                </div>
+                <div class="card-body">
+                    <canvas id="trendChart" height="110"></canvas>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-4">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header bg-white border-0">
+                    <strong><i class="fa fa-user-plus me-2 text-success"></i>New Signups (30 days)</strong>
+                </div>
+                <div class="card-body">
+                    <canvas id="signupChart" height="110"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-3 mb-4">
+        <div class="col-lg-6">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header bg-white border-0">
+                    <strong><i class="fa fa-shopping-cart me-2 text-info"></i>Orders by Status</strong>
+                </div>
+                <div class="card-body d-flex justify-content-center">
+                    <canvas id="orderStatusChart" style="max-height:260px;"></canvas>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-6">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header bg-white border-0">
+                    <strong><i class="fa fa-users me-2 text-secondary"></i>Users by Role</strong>
+                </div>
+                <div class="card-body d-flex justify-content-center">
+                    <canvas id="roleChart" style="max-height:260px;"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Promotions widget (below attention work) -->
+    <div class="row g-3 mb-4">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex flex-wrap justify-content-between align-items-start gap-3">
+                        <div>
+                            <div class="text-muted small mb-1"><i class="fa fa-bullhorn me-1 text-primary"></i>Promotions Center</div>
+                            <h5 class="mb-1">Announcements &amp; Ad Banners</h5>
+                            <p class="text-muted mb-0 small">
+                                Control discounts, platform changes, and sized website banners from one place.
+                            </p>
+                        </div>
+                        <div class="d-flex flex-wrap gap-2">
+                            <a href="{{ route('admin.promotions.index') }}" class="btn btn-outline-secondary btn-sm">
+                                Open Promotions
+                            </a>
+                        </div>
+                    </div>
+                    @php
+                        $promoStats = app(\App\Services\PromotionService::class)->dashboardStats();
+                    @endphp
+                    <div class="row g-3 mt-2">
+                        <div class="col-6 col-md-3">
+                            <div class="border rounded-3 p-3 h-100">
+                                <div class="small text-muted">Live announcements</div>
+                                <div class="fs-4 fw-semibold">{{ $promoStats['announcements_live'] }}</div>
+                            </div>
+                        </div>
+                        <div class="col-6 col-md-3">
+                            <div class="border rounded-3 p-3 h-100">
+                                <div class="small text-muted">Live banners</div>
+                                <div class="fs-4 fw-semibold">{{ $promoStats['banners_live'] }}</div>
+                            </div>
+                        </div>
+                        <div class="col-6 col-md-3">
+                            <div class="border rounded-3 p-3 h-100">
+                                <div class="small text-muted">Banner impressions</div>
+                                <div class="fs-4 fw-semibold">{{ number_format($promoStats['banner_impressions']) }}</div>
+                            </div>
+                        </div>
+                        <div class="col-6 col-md-3">
+                            <div class="border rounded-3 p-3 h-100">
+                                <div class="small text-muted">Banner clicks</div>
+                                <div class="fs-4 fw-semibold">{{ number_format($promoStats['banner_clicks']) }}</div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>

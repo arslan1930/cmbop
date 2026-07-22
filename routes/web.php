@@ -14,6 +14,7 @@ use App\Http\Controllers\Admin\DepositController as AdminDepositController;
 // Publisher and Advertiser controllers
 use App\Http\Controllers\Admin\EmailCenterController as AdminEmailCenterController;
 use App\Http\Controllers\Admin\InvoiceController as AdminInvoiceController;
+use App\Http\Controllers\Admin\OrderController as AdminOrderController;
 use App\Http\Controllers\Admin\PaymentController as AdminPaymentController;
 use App\Http\Controllers\Admin\PromotionController as AdminPromotionController;
 use App\Http\Controllers\Admin\SiteController as AdminSiteController;
@@ -412,13 +413,10 @@ Route::middleware(['auth', 'verified', RoleMiddleware::class.':admin,marketing']
             Route::post('/moderation/settings', [AdminContentModerationController::class, 'updateSettings'])->name('moderation.settings');
             Route::post('/moderation/logs/{log}/override', [AdminContentModerationController::class, 'override'])->name('moderation.override');
 
-            Route::get('/reports', function () {
-                return view('admin.reports');
-            })->name('reports');
-
-            Route::get('/settings', function () {
-                return view('admin.settings');
-            })->name('settings');
+            // Orders ops console (read-only lifecycle; payment updates stay on Payments)
+            Route::get('/orders', [AdminOrderController::class, 'index'])->name('orders.index');
+            Route::get('/orders/data', [AdminOrderController::class, 'data'])->name('orders.data');
+            Route::get('/orders/{id}', [AdminOrderController::class, 'show'])->name('orders.show');
         });
     });
 
