@@ -485,6 +485,8 @@ return [
     'marketplace_point_2_body' => 'Eén keer opwaarderen, snel kopen en elke order op één plek volgen.',
     'marketplace_point_3_title' => 'Meertalige targeting',
     'marketplace_point_3_body' => 'Bereik Engelse, EU-, Chinese en Golfmarkten met taalbewust inventaris.',
+    'marketplace_teaser_title' => 'Voorbeeld van geverifieerde inventaris',
+    'marketplace_teaser_subtitle' => 'Een voorproefje van live placements — maak een gratis account voor de volledige catalogus.',
     'marketplace_catalog_note' => 'De live catalogus opent na login en blijft in het Engels.',
     'become_publisher_kicker' => 'Publishers',
     'become_publisher_title' => 'Monetiseer uw redactionele inventaris',

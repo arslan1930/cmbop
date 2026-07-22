@@ -259,7 +259,7 @@ class GuestPostWizardTest extends TestCase
         $this->actingAs($advertiser)
             ->get(route('advertiser.catalog'))
             ->assertOk()
-            ->assertSee('Start guided flow', false);
+            ->assertSee('Guided', false);
 
         $this->actingAs($advertiser)
             ->get(route('advertiser.content-library'))

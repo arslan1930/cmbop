@@ -69,6 +69,7 @@ use App\Support\PublicI18n;
 use Illuminate\Auth\Events\Verified;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Redirect;
 use Illuminate\Support\Facades\Route;
 
@@ -218,7 +219,17 @@ Route::get('/email/verify/{id}/{hash}', function (Request $request, $id, $hash) 
         event(new Verified($user));
     }
 
-    return redirect('/login')->with('message', 'Email verified successfully. You can now login.');
+    Auth::login($user);
+    $request->session()->regenerate();
+
+    $destination = match ($user->activeRole()) {
+        'advertiser' => route('advertiser.catalog'),
+        'publisher' => route('publisher.dashboard'),
+        'admin', 'marketing' => route('admin.dashboard'),
+        default => $user->getDashboardRoute(),
+    };
+
+    return redirect($destination)->with('message', 'Email verified successfully. Welcome aboard.');
 })->middleware('throttle:6,1')->name('verification.verify');
 
 // Resend verification email (requires login)
@@ -550,9 +561,10 @@ Route::middleware(['auth', 'verified', RoleMiddleware::class.':advertiser'])
         Route::get('/balance/export', [App\Http\Controllers\Advertiser\BalanceController::class, 'export'])->name('balance.export');
         Route::post('/balance/withdraw', [App\Http\Controllers\Advertiser\BalanceController::class, 'requestWithdrawal'])->name('balance.withdraw');
 
-        // Campaigns routes
-        Route::get('/campaigns', [ProjectController::class, 'index'])
-            ->name('campaigns');
+        // Campaigns (orphaned UI) — redirect to dashboard until product ships nav entry
+        Route::get('/campaigns', function () {
+            return redirect()->route('advertiser.dashboard');
+        })->name('campaigns');
 
         // Place a guest post wizard (market → publishers → content → pay)
         Route::get('/place-guest-post', [GuestPostWizardController::class, 'start'])

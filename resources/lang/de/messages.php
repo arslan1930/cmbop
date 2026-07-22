@@ -485,6 +485,8 @@ return [
     'marketplace_point_2_body' => 'Einmal aufladen, schnell kaufen und jeden Auftrag an einem Ort tracken.',
     'marketplace_point_3_title' => 'Mehrsprachiges Targeting',
     'marketplace_point_3_body' => 'Erreichen Sie englische, EU-, chinesische und Golf-Märkte mit sprachbewusstem Inventar.',
+    'marketplace_teaser_title' => 'Beispiel für verifiziertes Inventar',
+    'marketplace_teaser_subtitle' => 'Eine Vorschau live verfügbarer Placements — erstellen Sie ein kostenloses Konto für den vollständigen Katalog.',
     'marketplace_catalog_note' => 'Der Live-Katalog öffnet sich nach dem Login und bleibt auf Englisch.',
     'become_publisher_kicker' => 'Publisher',
     'become_publisher_title' => 'Monetarisieren Sie Ihr redaktionelles Inventar',

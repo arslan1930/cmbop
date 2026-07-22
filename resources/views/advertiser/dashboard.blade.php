@@ -8,24 +8,11 @@
     $recommendedSites = $recommendedSites ?? collect();
     $hasOrderableArticle = (bool) ($hasOrderableArticle ?? false);
     $isNewAdvertiser = ($stats['total'] ?? 0) === 0;
-    $placeGuestPostUrl = route('advertiser.wizard.start');
+    $browseCatalogUrl = route('advertiser.catalog');
+    $guidedFlowUrl = route('advertiser.wizard.start');
 @endphp
 
 <style>
-.get-started-steps { display: flex; flex-direction: column; gap: 12px; }
-.get-started-step {
-    display: flex; align-items: flex-start; gap: 14px;
-    padding: 14px 16px; border: 1px solid #e5e7eb; border-radius: 10px;
-    background: #f8fafb; text-decoration: none; color: inherit;
-    transition: border-color .2s ease, background .2s ease, transform .2s ease;
-}
-.get-started-step:hover { border-color: #4ECDCB; background: #f0fbfb; transform: translateY(-1px); color: inherit; }
-.get-started-step .step-num {
-    width: 28px; height: 28px; border-radius: 50%; background: #0b6266; color: #fff;
-    font-weight: 700; font-size: 13px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;
-}
-.get-started-step .step-title { font-weight: 600; font-size: 14px; margin-bottom: 2px; }
-.get-started-step .step-desc { font-size: 12px; color: #6b7280; margin: 0; }
 .get-started-cta, .dash-primary-cta {
     background: linear-gradient(135deg, #3aaeb2, #0b6266); color: #fff; border: none;
     border-radius: 10px; padding: 12px 18px; font-weight: 600;
@@ -192,15 +179,15 @@
         <h4 class="mb-1">Welcome back, {{ auth()->user()->name }}!</h4>
         <small class="text-muted">
             @if($isNewAdvertiser)
-                Place a guest post in four guided steps — or jump into Catalog / Content Library anytime.
+                Browse the catalog to buy placements — or use a guided flow if you prefer step-by-step help.
             @else
                 Your command center — KPIs, next actions, and recent orders.
             @endif
         </small>
     </div>
     @unless($isNewAdvertiser)
-        <a href="{{ $placeGuestPostUrl }}" class="dash-primary-cta">
-            <i class="fa fa-route"></i> Place a guest post
+        <a href="{{ $browseCatalogUrl }}" class="dash-primary-cta">
+            <i class="fa fa-store"></i> Browse catalog
         </a>
     @endunless
 </div>
@@ -210,45 +197,17 @@
         <div class="col-lg-7">
             <div class="dash-panel h-100">
                 <h5 class="mb-1">Get started</h5>
-                <p class="text-muted small mb-3">Guided path to your first guest post.</p>
-                <div class="get-started-steps mb-3">
-                    <a href="{{ route('advertiser.wizard.market') }}" class="get-started-step">
-                        <span class="step-num">1</span>
-                        <div>
-                            <div class="step-title">Market</div>
-                            <p class="step-desc">Pick language and niche so we can filter publishers.</p>
-                        </div>
-                    </a>
-                    <a href="{{ route('advertiser.wizard.start') }}" class="get-started-step">
-                        <span class="step-num">2</span>
-                        <div>
-                            <div class="step-title">Publishers</div>
-                            <p class="step-desc">Add matching sites from the catalog — readiness shows next to Buy.</p>
-                        </div>
-                    </a>
-                    <a href="{{ route('advertiser.wizard.start') }}" class="get-started-step">
-                        <span class="step-num">3</span>
-                        <div>
-                            <div class="step-title">Content</div>
-                            <p class="step-desc">Upload or assign an approved article per website in your cart.</p>
-                        </div>
-                    </a>
-                    <a href="{{ route('advertiser.wizard.start') }}" class="get-started-step">
-                        <span class="step-num">4</span>
-                        <div>
-                            <div class="step-title">Pay</div>
-                            <p class="step-desc">Checkout when the cart checklist is complete.</p>
-                        </div>
-                    </a>
-                </div>
-                <a href="{{ route('advertiser.wizard.start') }}" class="get-started-cta w-100 justify-content-center">
-                    <i class="fa fa-route"></i> Place a guest post
+                <p class="text-muted small mb-3">Pick publishers from the live catalog, assign an approved article in your cart, then pay.</p>
+                <a href="{{ $browseCatalogUrl }}" class="get-started-cta w-100 justify-content-center mb-3">
+                    <i class="fa fa-store"></i> Browse catalog
                 </a>
-                <p class="small text-muted text-center mt-3 mb-0">
-                    Advanced:
-                    <a href="{{ route('advertiser.catalog') }}">Catalog</a>
-                    ·
+                <p class="small text-muted text-center mb-2">
+                    Prefer a guided flow?
+                    <a href="{{ $guidedFlowUrl }}">Start guided placement</a>
+                </p>
+                <p class="small text-muted text-center mb-0">
                     <a href="{{ route('advertiser.content-library') }}">Content Library</a>
+                    — upload articles before checkout
                 </p>
             </div>
         </div>
@@ -348,10 +307,17 @@
             <div class="dash-panel h-100">
                 <h5 class="mb-3">Next actions</h5>
                 <div class="d-flex flex-column gap-2 mb-3">
-                    <a href="{{ $placeGuestPostUrl }}" class="next-action">
+                    <a href="{{ $browseCatalogUrl }}" class="next-action">
                         <div>
-                            <div class="na-title">Place a guest post</div>
-                            <p class="na-desc">Guided flow: market → publishers → content → pay</p>
+                            <div class="na-title">Browse catalog</div>
+                            <p class="na-desc">Find publishers and add placements to your cart</p>
+                        </div>
+                        <i class="fa fa-chevron-right text-muted" aria-hidden="true"></i>
+                    </a>
+                    <a href="{{ $guidedFlowUrl }}" class="next-action">
+                        <div>
+                            <div class="na-title">Guided placement</div>
+                            <p class="na-desc">Optional walkthrough: market → publishers → content → pay</p>
                         </div>
                         <i class="fa fa-chevron-right text-muted" aria-hidden="true"></i>
                     </a>
