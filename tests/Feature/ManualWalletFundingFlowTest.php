@@ -3,10 +3,12 @@
 namespace Tests\Feature;
 
 use App\Models\DepositRequest;
+use App\Models\InAppNotification;
 use App\Models\Order;
 use App\Models\Role;
 use App\Models\Site;
 use App\Models\User;
+use App\Services\InAppNotificationService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Mail;
 use Tests\Support\CreatesContentSubmissions;
@@ -152,6 +154,16 @@ class ManualWalletFundingFlowTest extends TestCase
             'payment_method' => 'wise',
             'status' => 'pending',
             'amount' => 100,
+        ]);
+
+        $this->assertDatabaseHas('in_app_notifications', [
+            'user_id' => $advertiser->id,
+            'type' => InAppNotificationService::TYPE_PAYMENT_PENDING,
+            'audience' => InAppNotification::AUDIENCE_ADVERTISER,
+        ]);
+        $this->assertDatabaseHas('in_app_notifications', [
+            'user_id' => $advertiser->id,
+            'title' => 'Deposit submitted — €100.00',
         ]);
 
         $this->actingAs($advertiser)
