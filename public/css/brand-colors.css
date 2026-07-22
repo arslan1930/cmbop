@@ -359,6 +359,27 @@ code.font-monospace {
   border-color: var(--bs-btn-active-border-color);
 }
 
+/* Soft blue strip for content-intake zones (not a card — marks upload context) */
+.upload-zone {
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-left: 3px solid #60a5fa;
+  border-radius: 0.5rem;
+  padding: 0.85rem 1rem;
+}
+
+.upload-zone .upload-zone-title {
+  margin: 0 0 0.25rem;
+  font-weight: 600;
+  color: #1e3a8a;
+}
+
+.upload-zone .upload-zone-copy {
+  margin: 0 0 0.75rem;
+  font-size: 0.875rem;
+  color: #64748b;
+}
+
 /* Modal headers — white, not teal bars; CTA stays on footer buttons */
 .modal-header.bg-primary,
 .modal-header.bg-primary.text-white,
