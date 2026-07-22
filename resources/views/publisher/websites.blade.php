@@ -2193,7 +2193,7 @@ $('#liveBulkForm').on('submit', function (e) {
     $('#liveBulkSubmitBtn').prop('disabled', true).text('Submitting…');
 });
 
-for CREATE — keep existing addBtn handler below
+// Toggle form for CREATE — keep existing addBtn handler below
 $('#addSiteForm').submit(function(e){
     if (quill) $('#siteDescription').val(quill.root.innerHTML);
 

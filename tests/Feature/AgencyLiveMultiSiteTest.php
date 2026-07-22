@@ -165,4 +165,28 @@ class AgencyLiveMultiSiteTest extends TestCase
             ->assertSee(route('publisher.sites.bulk-store'), false)
             ->assertDontSee('Previous sites collapse', false);
     }
+
+    public function test_websites_page_script_is_valid_javascript(): void
+    {
+        $blade = file_get_contents(resource_path('views/publisher/websites.blade.php'));
+
+        // A bare "for CREATE …" line (missing //) is a SyntaxError that kills the
+        // whole page script — Add New Website and Add many websites both break.
+        $this->assertDoesNotMatchRegularExpression(
+            '/^\s*for CREATE/m',
+            $blade,
+            'websites.blade.php must not contain an un-commented "for CREATE" line'
+        );
+        $this->assertStringContainsString('// Toggle form for CREATE', $blade);
+        $this->assertStringContainsString("$('#addSiteForm').submit", $blade);
+        $this->assertStringContainsString("$('#showFormBtn')", $blade);
+        $this->assertStringContainsString('liveBulkForm', $blade);
+
+        $this->actingAs($this->publisher)
+            ->get(route('publisher.websites'))
+            ->assertOk()
+            ->assertSee('showFormBtn', false)
+            ->assertSee('addSiteForm', false)
+            ->assertSee('// Toggle form for CREATE', false);
+    }
 }
