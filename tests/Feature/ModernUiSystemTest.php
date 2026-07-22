@@ -33,6 +33,8 @@ class ModernUiSystemTest extends TestCase
         $this->assertStringContainsString('--brand-primary: #185054', $brand);
         $this->assertStringContainsString('--brand-warning-bg: #fffbeb', $brand);
         $this->assertStringContainsString('--brand-warning: #b45309', $brand);
+        $this->assertStringContainsString('.btn-upload', $brand);
+        $this->assertStringContainsString('#eff6ff', $brand);
     }
 
     public function test_homepage_loads_with_interaction_css(): void

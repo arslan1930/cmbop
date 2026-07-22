@@ -235,6 +235,40 @@ code.font-monospace {
   border: 1px solid var(--brand-primary-border);
 }
 
+/* Upload article — light blue secondary verb (distinct from teal Order/Pay) */
+.btn-upload {
+  --bs-btn-color: #1d4ed8;
+  --bs-btn-bg: #eff6ff;
+  --bs-btn-border-color: #93c5fd;
+  --bs-btn-hover-color: #1e3a8a;
+  --bs-btn-hover-bg: #dbeafe;
+  --bs-btn-hover-border-color: #60a5fa;
+  --bs-btn-focus-shadow-rgb: 59, 130, 246;
+  --bs-btn-active-color: #fff;
+  --bs-btn-active-bg: #3b82f6;
+  --bs-btn-active-border-color: #2563eb;
+  --bs-btn-disabled-color: #93c5fd;
+  --bs-btn-disabled-bg: #eff6ff;
+  --bs-btn-disabled-border-color: #bfdbfe;
+  color: var(--bs-btn-color);
+  background-color: var(--bs-btn-bg);
+  border-color: var(--bs-btn-border-color);
+  font-weight: 600;
+  transition: background-color var(--motion-fast), border-color var(--motion-fast), color var(--motion-fast);
+}
+.btn-upload:hover,
+.btn-upload:focus {
+  color: var(--bs-btn-hover-color);
+  background-color: var(--bs-btn-hover-bg);
+  border-color: var(--bs-btn-hover-border-color);
+}
+.btn-upload:active,
+.btn-upload.active {
+  color: var(--bs-btn-active-color);
+  background-color: var(--bs-btn-active-bg);
+  border-color: var(--bs-btn-active-border-color);
+}
+
 /* Modal headers — white, not teal bars; CTA stays on footer buttons */
 .modal-header.bg-primary,
 .modal-header.bg-primary.text-white {

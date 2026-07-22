@@ -410,7 +410,7 @@
             Multi-site orders need a different approved article for each website — language does not have to match the site.
         </p>
         <div class="library-page-actions">
-            <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#uploadContentModal" id="openUploadModalBtn">
+            <button type="button" class="btn btn-upload" data-bs-toggle="modal" data-bs-target="#uploadContentModal" id="openUploadModalBtn">
                 <i class="fa fa-upload me-1"></i> Upload article
             </button>
         </div>
@@ -675,7 +675,7 @@
                                     message="Upload a .docx here. After approval, assign it in your cart and checkout."
                                 >
                                     <div class="d-flex flex-wrap gap-2 justify-content-center">
-                                        <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#uploadContentModal">
+                                        <button type="button" class="btn btn-sm btn-upload" data-bs-toggle="modal" data-bs-target="#uploadContentModal">
                                             <i class="fa fa-upload me-1"></i> Upload article
                                         </button>
                                         <a href="{{ route('advertiser.wizard.start') }}" class="btn btn-sm btn-outline-secondary">
@@ -745,7 +745,7 @@
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
-                <button type="submit" class="btn btn-primary" id="libraryUploadBtn">Upload &amp; preview</button>
+                <button type="submit" class="btn btn-upload" id="libraryUploadBtn">Upload &amp; preview</button>
             </div>
         </form>
     </div>

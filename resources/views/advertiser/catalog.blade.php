@@ -86,7 +86,7 @@
                 Each website needs its own <strong>approved</strong> article. You can still add publishers —
                 readiness chips show what’s missing, and the cart checklist walks you through assignment.
             </div>
-            <a href="{{ route('advertiser.content-library', ['upload' => 1]) }}" class="btn btn-sm btn-primary">
+            <a href="{{ route('advertiser.content-library', ['upload' => 1]) }}" class="btn btn-sm btn-upload">
                 <i class="fa fa-upload me-1"></i> Upload article
             </a>
         </div>

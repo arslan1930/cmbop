@@ -13,7 +13,7 @@
             </div>
             <div class="d-flex flex-wrap gap-2">
                 <a href="{{ route('advertiser.wizard.publishers') }}" class="btn btn-sm btn-outline-secondary">Back to publishers</a>
-                <a href="{{ route('advertiser.content-library', ['upload' => 1]) }}" class="btn btn-sm btn-outline-primary">Open Content Library</a>
+                <a href="{{ route('advertiser.content-library', ['upload' => 1]) }}" class="btn btn-sm btn-upload">Open Content Library</a>
                 <form method="POST" action="{{ route('advertiser.wizard.exit') }}" class="d-inline">
                     @csrf
                     <button type="submit" class="btn btn-sm btn-link text-muted">Exit guided flow</button>
@@ -89,7 +89,7 @@
                 <div class="card-body">
                     <h6 class="fw-semibold mb-2">Upload article</h6>
                     <p class="small text-muted mb-3">Need a new .docx? Upload in Content Library (language first), wait for approval, then assign it here.</p>
-                    <a href="{{ route('advertiser.content-library', ['upload' => 1]) }}" class="btn btn-outline-primary w-100">
+                    <a href="{{ route('advertiser.content-library', ['upload' => 1]) }}" class="btn btn-upload w-100">
                         <i class="fa fa-upload me-1"></i> Upload in Content Library
                     </a>
                 </div>
