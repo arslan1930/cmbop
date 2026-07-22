@@ -390,29 +390,34 @@ body > footer.collapsed {
 .badge-status-pending,
 .status-badge.status-pending,
 .status-pending {
-  background: var(--surface-3, #f1f5f9) !important;
-  color: #475569 !important;
-  border-color: var(--border-subtle, #e2e8f0) !important;
+  background: #fff !important;
+  color: #64748b !important;
+  border-color: #e2e8f0 !important;
 }
 
 .badge-status-processing,
-.badge-status-review,
 .status-badge.status-processing,
-.status-badge.status-review,
-.status-processing,
-.status-review {
-  background: var(--brand-primary-bg, #e6f5f5) !important;
+.status-processing {
+  background: #fff !important;
   color: var(--brand-primary, #185054) !important;
   border-color: var(--brand-primary-border, #b8e4e4) !important;
+}
+
+.badge-status-review,
+.status-badge.status-review,
+.status-review {
+  background: #fff !important;
+  color: #92400e !important;
+  border-color: #fde68a !important;
 }
 
 .badge-status-completed,
 .status-badge.status-completed,
 .status-completed,
 .payment-paid {
-  background: var(--brand-primary-bg, #e6f5f5) !important;
-  color: var(--brand-primary, #185054) !important;
-  border-color: var(--brand-primary-border, #b8e4e4) !important;
+  background: #fff !important;
+  color: #0f766e !important;
+  border-color: #bbf7d0 !important;
 }
 
 .badge-status-cancelled,
@@ -420,15 +425,15 @@ body > footer.collapsed {
 .status-badge.status-cancelled,
 .status-cancelled,
 .payment-failed {
-  background: var(--surface-2, #f7fafb) !important;
-  color: #64748b !important;
-  border-color: var(--border-subtle, #e2e8f0) !important;
+  background: #fff !important;
+  color: #dc2626 !important;
+  border-color: #fecaca !important;
 }
 
 .payment-pending {
-  background: var(--surface-3, #f1f5f9) !important;
-  color: #475569 !important;
-  border-color: var(--border-subtle, #e2e8f0) !important;
+  background: #fff !important;
+  color: #92400e !important;
+  border-color: #fde68a !important;
 }
 
 .mobile-sidebar-logo {

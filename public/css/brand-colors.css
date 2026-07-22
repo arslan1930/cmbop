@@ -176,55 +176,55 @@ code.font-monospace {
 
 .badge-warn,
 .badge-pending {
-  background: var(--brand-warning-bg) !important;
-  color: var(--brand-warning-ink) !important;
-  border: 1px solid var(--brand-warning-border) !important;
+  background: #fffbeb !important;
+  color: #92400e !important;
+  border: 1px solid #fde68a !important;
   font-weight: 600;
 }
 
 .badge-danger-action {
-  background: var(--brand-danger) !important;
-  color: #fff !important;
-  border: none !important;
+  background: #fef2f2 !important;
+  color: #dc2626 !important;
+  border: 1px solid #fecaca !important;
   font-weight: 600;
 }
 
 .badge-neutral {
-  background: var(--brand-neutral-bg) !important;
+  background: #fff !important;
   color: var(--brand-neutral) !important;
   border: 1px solid var(--border-subtle) !important;
   font-weight: 500;
 }
 
 .badge-category {
-  background: var(--brand-primary-bg) !important;
+  background: #fff !important;
   color: var(--brand-primary) !important;
   border: 1px solid var(--brand-primary-border) !important;
 }
 
-/* Semantic status utilities */
+/* Semantic status utilities — whisper tint only */
 .status-rejected,
 .status-error {
-  background: var(--brand-danger-bg) !important;
-  color: var(--brand-danger) !important;
+  background: #fff !important;
+  color: #dc2626 !important;
   border: 1px solid #fecaca !important;
   font-weight: 600;
 }
 
 .status-pending,
 .status-needs-corrections {
-  background: var(--brand-warning-bg) !important;
-  color: var(--brand-warning-ink) !important;
-  border: 1px solid var(--brand-warning-border) !important;
+  background: #fff !important;
+  color: #92400e !important;
+  border: 1px solid #fde68a !important;
   font-weight: 600;
 }
 
 .status-live,
 .status-approved,
 .status-paid {
-  background: var(--brand-success-bg) !important;
-  color: var(--brand-success) !important;
-  border: 1px solid rgba(15, 118, 110, 0.22) !important;
+  background: #fff !important;
+  color: #0f766e !important;
+  border: 1px solid #bbf7d0 !important;
   font-weight: 600;
 }
 

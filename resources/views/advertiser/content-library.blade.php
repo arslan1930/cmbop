@@ -80,31 +80,32 @@
         letter-spacing: .02em;
         border-radius: 6px;
         padding: 4px 9px;
-        border: 1px solid transparent;
+        border: 1px solid #e2e8f0;
+        background: #fff;
         white-space: nowrap;
         line-height: 1.2;
     }
     .library-status--available,
     .library-status--published {
-        background: var(--brand-success-bg, #d1fae5);
-        color: var(--brand-success, #0f766e);
-        border-color: rgba(15, 118, 110, 0.22);
+        background: #f0fdf9;
+        color: #0f766e;
+        border-color: #bbf7d0;
     }
     .library-status--in_progress {
-        background: #f1f5f9;
-        color: #475569;
+        background: #fff;
+        color: #64748b;
         border-color: #e2e8f0;
     }
     .library-status--needs_fix {
-        background: var(--brand-warning-bg, #fffbeb);
-        color: var(--brand-warning-ink, #92400e);
-        border-color: var(--brand-warning-border, #fde68a);
+        background: #fffbeb;
+        color: #92400e;
+        border-color: #fde68a;
     }
     .library-status--expired,
     .library-status--archived,
     .library-status--unavailable {
-        background: #f8fafc;
-        color: #64748b;
+        background: #fff;
+        color: #94a3b8;
         border-color: #e2e8f0;
     }
     .library-moderation-row {
@@ -125,36 +126,87 @@
         border-radius: 10px;
         border: 1px solid #e2e8f0;
         background: #fff;
-        color: #334155;
+        color: #64748b;
         text-decoration: none;
         font-size: .84rem;
         font-weight: 600;
-        transition: border-color .15s ease, background .15s ease, color .15s ease, box-shadow .15s ease;
+        transition: border-color .15s ease, background .15s ease, color .15s ease;
     }
-    .library-moderation-box:hover {
-        border-color: var(--brand-primary-border, #b8e4e4);
-        background: var(--brand-primary-bg, #e6f5f5);
-        color: var(--brand-primary, #185054);
+    .library-moderation-box--all:hover {
+        background: #f8fafc;
+        border-color: #cbd5e1;
+        color: #475569;
     }
-    .library-moderation-box.is-active {
-        background: var(--brand-primary, #185054);
-        border-color: var(--brand-primary, #185054);
-        color: #fff;
-        box-shadow: 0 1px 2px rgba(24, 80, 84, .18);
+    .library-moderation-box--all.is-active {
+        background: #f1f5f9;
+        border-color: #94a3b8;
+        color: #334155;
+    }
+    .library-moderation-box--approved {
+        color: #0f766e;
+        border-color: #d1fae5;
+    }
+    .library-moderation-box--approved:hover {
+        background: #f0fdf9;
+        border-color: #a7f3d0;
+        color: #0f766e;
+    }
+    .library-moderation-box--approved.is-active {
+        background: #ecfdf5;
+        border-color: #6ee7b7;
+        color: #065f46;
+    }
+    .library-moderation-box--rejected {
+        color: #dc2626;
+        border-color: #fecaca;
+    }
+    .library-moderation-box--rejected:hover {
+        background: #fef2f2;
+        border-color: #fca5a5;
+        color: #b91c1c;
+    }
+    .library-moderation-box--rejected.is-active {
+        background: #fef2f2;
+        border-color: #f87171;
+        color: #991b1b;
+    }
+    .library-moderation-box--needs_improvement {
+        color: #92400e;
+        border-color: #fde68a;
+    }
+    .library-moderation-box--needs_improvement:hover {
+        background: #fffbeb;
+        border-color: #fcd34d;
+        color: #92400e;
+    }
+    .library-moderation-box--needs_improvement.is-active {
+        background: #fffbeb;
+        border-color: #f59e0b;
+        color: #78350f;
     }
     .library-moderation-box .mod-count {
         font-size: .72rem;
         font-weight: 700;
         font-variant-numeric: tabular-nums;
         opacity: .75;
-        background: rgba(15, 23, 42, .06);
+        background: #f1f5f9;
+        color: inherit;
         border-radius: 999px;
         padding: 2px 7px;
         line-height: 1.3;
     }
     .library-moderation-box.is-active .mod-count {
-        background: rgba(255, 255, 255, .2);
+        background: rgba(15, 23, 42, .06);
         opacity: 1;
+    }
+    .library-moderation-box--approved.is-active .mod-count {
+        background: rgba(15, 118, 110, .1);
+    }
+    .library-moderation-box--rejected.is-active .mod-count {
+        background: rgba(220, 38, 38, .1);
+    }
+    .library-moderation-box--needs_improvement.is-active .mod-count {
+        background: rgba(180, 83, 9, .1);
     }
     .library-scores { font-variant-numeric: tabular-nums; white-space: nowrap; color: #475569; }
     .library-preview {
@@ -412,7 +464,7 @@
     <div class="library-moderation-row" role="group" aria-label="Moderation filter">
         @foreach($moderationBoxLabels as $key => $label)
             <a href="{{ $libraryRoute(['status' => $key]) }}"
-               class="library-moderation-box @if(($statusFilter ?? 'all') === $key) is-active @endif"
+               class="library-moderation-box library-moderation-box--{{ $key }} @if(($statusFilter ?? 'all') === $key) is-active @endif"
                @if(($statusFilter ?? 'all') === $key) aria-current="true" @endif>
                 <span>{{ $label }}</span>
                 <span class="mod-count">{{ (int) ($moderationCounts[$key] ?? 0) }}</span>
