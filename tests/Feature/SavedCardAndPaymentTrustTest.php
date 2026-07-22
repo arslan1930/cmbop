@@ -37,10 +37,12 @@ class SavedCardAndPaymentTrustTest extends TestCase
             ->assertSee('Stripe', false)
             ->assertSee('fa-lock', false)
             ->assertSee('assets/img/payments/stripe.svg', false)
+            ->assertSee('assets/img/payments/visa.svg', false)
             ->assertSee('assets/img/payments/wise.png', false)
             ->assertDontSee('assets/img/payments/paypal.svg', false)
             ->assertSee('assets/img/payments/bitcoin.svg', false)
-            ->assertSee('assets/img/payments/binance.png', false);
+            ->assertDontSee('assets/img/payments/usdt.svg', false)
+            ->assertDontSee('assets/img/payments/binance.png', false);
     }
 
     public function test_add_funds_shows_saved_cards_section(): void
