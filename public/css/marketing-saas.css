@@ -8,8 +8,8 @@
   --slb-muted: #5b6b7c;
   --slb-surface: #f3faf9;
   --slb-surface-2: #ffffff;
-  --slb-line: rgba(11, 98, 102, 0.12);
-  --slb-glow: rgba(58, 174, 178, 0.22);
+  --slb-line: rgba(24, 80, 84, 0.12);
+  --slb-glow: rgba(63, 174, 178, 0.22);
   --slb-radius: 16px;
   --slb-font-display: 'Sora', 'Poppins', system-ui, sans-serif;
 }
@@ -18,7 +18,7 @@ body.slb-marketing {
   color: var(--slb-ink);
   background:
     radial-gradient(1200px 480px at 90% -10%, rgba(78, 205, 203, 0.16), transparent 60%),
-    radial-gradient(900px 420px at -10% 20%, rgba(11, 98, 102, 0.06), transparent 55%),
+    radial-gradient(900px 420px at -10% 20%, rgba(24, 80, 84, 0.06), transparent 55%),
     #fbfefe;
 }
 
@@ -55,7 +55,7 @@ body.slb-marketing .h3 {
 
 #mainNavbar.slb-nav .nav-link:hover {
   color: var(--brand-primary) !important;
-  background: rgba(11, 98, 102, 0.06) !important;
+  background: rgba(24, 80, 84, 0.06) !important;
 }
 
 #mainNavbar.slb-nav .navbar-cta-primary {
@@ -71,7 +71,7 @@ body.slb-marketing .h3 {
 #mainNavbar.slb-nav .navbar-cta-primary:hover {
   background: var(--brand-primary-soft) !important;
   color: #fff !important;
-  box-shadow: 0 4px 14px rgba(11, 98, 102, 0.16);
+  box-shadow: 0 4px 14px rgba(24, 80, 84, 0.16);
 }
 
 #mainNavbar.slb-nav .navbar-cta-outline {
@@ -84,7 +84,7 @@ body.slb-marketing .h3 {
 
 #mainNavbar.slb-nav .navbar-cta-outline:hover {
   border-color: var(--brand-primary-soft);
-  background: rgba(11, 98, 102, 0.05) !important;
+  background: rgba(24, 80, 84, 0.05) !important;
   color: var(--brand-primary) !important;
 }
 
@@ -107,7 +107,7 @@ footer.slb-footer::before {
   position: absolute;
   inset: 0 0 auto 0;
   height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(58, 174, 178, 0.55), transparent);
+  background: linear-gradient(90deg, transparent, rgba(63, 174, 178, 0.55), transparent);
 }
 
 footer.slb-footer h5 {
@@ -186,7 +186,7 @@ footer.slb-footer .slb-footer-brand img {
 
 .slb-feature:hover {
   transform: translateY(-3px);
-  border-color: rgba(11, 98, 102, 0.22);
+  border-color: rgba(24, 80, 84, 0.22);
   box-shadow: 0 16px 36px rgba(15, 23, 42, 0.06);
 }
 
@@ -198,7 +198,7 @@ footer.slb-footer .slb-footer-brand img {
   align-items: center;
   justify-content: center;
   margin-bottom: 1rem;
-  background: linear-gradient(160deg, #e8f8f7, #d7f2f1);
+  background: linear-gradient(160deg, #e6f5f5, #d7f2f1);
   color: var(--brand-primary);
   border: 1px solid var(--slb-line);
   font-size: 1.15rem;
@@ -273,7 +273,7 @@ footer.slb-footer .slb-footer-brand img {
 }
 
 .slb-price-from {
-  color: var(--brand-primary, #0b6266);
+  color: var(--brand-primary, #185054);
 }
 
 .pricing-managed {
@@ -294,12 +294,12 @@ footer.slb-footer .slb-footer-brand img {
 }
 
 .pricing-card:hover {
-  border-color: rgba(11, 98, 102, 0.22);
+  border-color: rgba(24, 80, 84, 0.22);
   box-shadow: 0 12px 28px rgba(15, 23, 42, 0.06);
 }
 
 .pricing-card--featured {
-  border-color: rgba(11, 98, 102, 0.28);
+  border-color: rgba(24, 80, 84, 0.28);
   position: relative;
 }
 
@@ -311,7 +311,7 @@ footer.slb-footer .slb-footer-brand img {
   font-size: 0.75rem;
   font-weight: 600;
   color: #fff;
-  background: var(--brand-primary, #0b6266);
+  background: var(--brand-primary, #185054);
   border-bottom-left-radius: 0.5rem;
   border-top-right-radius: 14px;
 }
@@ -342,12 +342,12 @@ footer.slb-footer .slb-footer-brand img {
   width: 10px;
   height: 10px;
   border-radius: 50%;
-  background-color: rgba(11, 98, 102, 0.25);
+  background-color: rgba(24, 80, 84, 0.25);
   border: 0;
 }
 
 .slb-testimonial-carousel .carousel-indicators .active {
-  background-color: var(--brand-primary, #0b6266) !important;
+  background-color: var(--brand-primary, #185054) !important;
 }
 
 .slb-quote {
@@ -387,7 +387,7 @@ footer.slb-footer .slb-footer-brand img {
   justify-content: center;
   background: #fff;
   border: 1px solid var(--slb-line);
-  color: var(--brand-primary, #0b6266);
+  color: var(--brand-primary, #185054);
   font-size: 0.85rem;
 }
 
@@ -411,7 +411,7 @@ footer.slb-footer .slb-footer-brand img {
 
 /* Bottom CTA — brand primary, not flat cyan */
 .slb-bottom-cta {
-  background: linear-gradient(145deg, #0b6266 0%, #0e7a7e 55%, #3aaeb2 100%);
+  background: linear-gradient(145deg, #185054 0%, #2a8a8e 55%, #3faeb2 100%);
   padding: clamp(3rem, 6vw, 4.5rem) 0;
 }
 
@@ -425,7 +425,7 @@ footer.slb-footer .slb-footer-brand img {
 }
 
 .slb-bottom-cta-btn {
-  color: #0b6266 !important;
+  color: #185054 !important;
 }
 
 @media (prefers-reduced-motion: reduce) {

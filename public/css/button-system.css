@@ -5,11 +5,11 @@
  */
 
 :root {
-  --btn-primary-bg: var(--brand-primary, #0b6266);
-  --btn-primary-hover: var(--brand-primary-soft, #3aaeb2);
+  --btn-primary-bg: var(--brand-primary, #185054);
+  --btn-primary-hover: var(--brand-primary-soft, #3faeb2);
   --btn-secondary-border: #cbd5e1;
   --btn-secondary-text: #334155;
-  --btn-tertiary-text: var(--brand-primary, #0b6266);
+  --btn-tertiary-text: var(--brand-primary, #185054);
   --btn-danger-bg: var(--brand-danger, #dc2626);
 }
 
@@ -23,8 +23,8 @@
   --bs-btn-hover-bg: var(--btn-primary-hover);
   --bs-btn-hover-border-color: var(--btn-primary-hover);
   --bs-btn-active-color: #fff;
-  --bs-btn-active-bg: #084f52;
-  --bs-btn-active-border-color: #084f52;
+  --bs-btn-active-bg: #123f42;
+  --bs-btn-active-border-color: #123f42;
   font-weight: 600;
 }
 
@@ -33,9 +33,9 @@
 .btn-outline-secondary {
   --bs-btn-color: var(--btn-secondary-text);
   --bs-btn-border-color: var(--btn-secondary-border);
-  --bs-btn-hover-color: var(--brand-primary, #0b6266);
-  --bs-btn-hover-bg: var(--brand-primary-bg, #e8f8f7);
-  --bs-btn-hover-border-color: var(--brand-primary-border, #b8e8e6);
+  --bs-btn-hover-color: var(--brand-primary, #185054);
+  --bs-btn-hover-bg: var(--brand-primary-bg, #e6f5f5);
+  --bs-btn-hover-border-color: var(--brand-primary-border, #b8e4e4);
   font-weight: 500;
 }
 
@@ -102,7 +102,7 @@
 
 .btn-icon-quiet:focus-visible {
   outline: none;
-  box-shadow: 0 0 0 3px rgba(58, 174, 178, 0.25);
+  box-shadow: 0 0 0 3px rgba(63, 174, 178, 0.25);
 }
 
 /* Catalog buy stays dominant */
@@ -110,7 +110,7 @@
 .btn.buy-now {
   min-width: 7.5rem;
   font-weight: 600;
-  box-shadow: 0 1px 2px rgba(11, 98, 102, 0.18);
+  box-shadow: 0 1px 2px rgba(24, 80, 84, 0.18);
 }
 
 .catalog-row-actions {

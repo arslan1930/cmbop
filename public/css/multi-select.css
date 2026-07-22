@@ -27,8 +27,8 @@
 .multi-select-input:focus-visible,
 .multi-select-input[aria-expanded="true"] {
   outline: none;
-  border-color: var(--brand-primary-soft, #3aaeb2);
-  box-shadow: 0 0 0 0.2rem var(--focus-ring, rgba(58, 174, 178, 0.35));
+  border-color: var(--brand-primary-soft, #3faeb2);
+  box-shadow: 0 0 0 0.2rem var(--focus-ring, rgba(63, 174, 178, 0.35));
 }
 
 .multi-select-input.multi-select-input--sm,
@@ -69,9 +69,9 @@
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  background: var(--brand-primary-bg, #e8f8f7);
-  color: var(--brand-primary, #0b6266);
-  border: 1px solid var(--brand-primary-border, #b8e8e6);
+  background: var(--brand-primary-bg, #e6f5f5);
+  color: var(--brand-primary, #185054);
+  border: 1px solid var(--brand-primary-border, #b8e4e4);
   border-radius: var(--radius-sm, 8px);
   padding: 1px 6px;
   font-size: 11px;
@@ -155,7 +155,7 @@
 .multi-select-dropdown .multi-select-option.is-keyboard-focus,
 .multi-select-dropdown .option-item:hover,
 .multi-select-dropdown .multi-select-option:hover {
-  background: var(--hover-tint, #e8f8f7);
+  background: var(--hover-tint, #e6f5f5);
 }
 
 .multi-select-dropdown .option-item input,

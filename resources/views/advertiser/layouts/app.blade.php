@@ -213,7 +213,7 @@
                          style="width: 36px; height: 36px; object-fit: cover;">
                 @else
                     <div class="rounded-circle text-white d-flex justify-content-center align-items-center"
-                         style="width: 36px; height: 36px; font-weight: 600; background: #4ECDCB;"
+                         style="width: 36px; height: 36px; font-weight: 600; background: #5bc4c7;"
                          aria-hidden="true">
                         {{ strtoupper(substr($user->name, 0, 1)) }}
                     </div>
@@ -883,7 +883,7 @@
                 showCancelButton: true,
                 confirmButtonText: 'Continue',
                 cancelButtonText: 'Choose another',
-                confirmButtonColor: '#0b6266',
+                confirmButtonColor: '#185054',
                 cancelButtonColor: '#6b7280',
                 reverseButtons: true,
             }).then(function (result) {
@@ -940,7 +940,7 @@ document.querySelectorAll('.role-switch-form').forEach(function(form) {
             showCancelButton: true,
             confirmButtonText: 'Switch to ' + roleName,
             cancelButtonText: 'Stay here',
-            confirmButtonColor: '#0b6266',
+            confirmButtonColor: '#185054',
             cancelButtonColor: '#6b7280',
             reverseButtons: true
         }).then(function(result) {

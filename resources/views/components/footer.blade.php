@@ -63,7 +63,7 @@
                         <li class="text-muted mb-2">{{ __('messages.blog_empty_footer') }}</li>
                     @endforelse
                 </ul>
-                <a href="{{ $blogIndexUrl }}" class="small fw-semibold text-decoration-none" style="color:#0b6266;">
+                <a href="{{ $blogIndexUrl }}" class="small fw-semibold text-decoration-none" style="color:#185054;">
                     {{ __('messages.view_all_posts') }} →
                 </a>
             </div>

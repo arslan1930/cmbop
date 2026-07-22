@@ -16,7 +16,7 @@
         @foreach(range(1, 3) as $i)
             <div class="col-md-4">
                 <div class="h-100 p-4 rounded-4 bg-white border">
-                    <h2 class="h5" style="color:#0b6266;">{{ __('messages.marketplace_point_'.$i.'_title') }}</h2>
+                    <h2 class="h5" style="color:#185054;">{{ __('messages.marketplace_point_'.$i.'_title') }}</h2>
                     <p class="text-muted mb-0">{{ __('messages.marketplace_point_'.$i.'_body') }}</p>
                 </div>
             </div>
@@ -25,7 +25,7 @@
 
     @if(isset($teasers) && $teasers->isNotEmpty())
         <div class="mb-4 text-center">
-            <h2 class="h4 mb-1" style="color:#0b6266;">{{ __('messages.marketplace_teaser_title') }}</h2>
+            <h2 class="h4 mb-1" style="color:#185054;">{{ __('messages.marketplace_teaser_title') }}</h2>
             <p class="text-muted mb-0">{{ __('messages.marketplace_teaser_subtitle') }}</p>
         </div>
         <div class="table-responsive mb-4 rounded-4 border bg-white">
@@ -51,7 +51,7 @@
                             <td>{{ strtoupper((string) ($site['language'] ?: '—')) }}</td>
                             <td>{{ $site['dr'] ?? '—' }}</td>
                             <td>{{ $site['da'] ?? '—' }}</td>
-                            <td class="fw-semibold" style="color:#0b6266;">€{{ number_format((float) $site['price'], 0) }}</td>
+                            <td class="fw-semibold" style="color:#185054;">€{{ number_format((float) $site['price'], 0) }}</td>
                         </tr>
                     @endforeach
                 </tbody>

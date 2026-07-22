@@ -161,7 +161,7 @@
             <strong class="text-dark">{{ number_format($inventoryTotal) }}</strong>
             {{ Str::plural('placement', $inventoryTotal) }} available
             @if($inventoryFrom !== null)
-                · from <strong style="color:#0b6266;">€{{ number_format($inventoryFrom, 2) }}</strong>
+                · from <strong style="color:#185054;">€{{ number_format($inventoryFrom, 2) }}</strong>
             @endif
         @else
             <span class="text-muted">No placements match yet — broaden filters below</span>
@@ -318,7 +318,7 @@
                                 <button type="button" class="btn btn-sm btn-cta-secondary px-2" id="toggleMoreFiltersBtn" aria-expanded="{{ $moreFiltersOpen ? 'true' : 'false' }}">
                                     More
                                     @if($moreFiltersOpen)
-                                        <span class="badge rounded-pill ms-1" style="background:#0b6266;">{{ collect($moreFilterKeys)->filter(fn($k) => filled(request($k)))->count() }}</span>
+                                        <span class="badge rounded-pill ms-1" style="background:#185054;">{{ collect($moreFilterKeys)->filter(fn($k) => filled(request($k)))->count() }}</span>
                                     @endif
                                 </button>
                                 <a href="{{ route('advertiser.catalog') }}" class="btn btn-sm btn-cta-tertiary px-1">
@@ -412,7 +412,7 @@
                         @foreach($activeFilterChips as $chip)
                             <span class="badge rounded-pill filter-chip">{{ $chip['label'] }}</span>
                         @endforeach
-                        <a href="{{ route('advertiser.catalog') }}" class="small ms-1" style="color:#0b6266;font-weight:600;">Clear all</a>
+                        <a href="{{ route('advertiser.catalog') }}" class="small ms-1" style="color:#185054;font-weight:600;">Clear all</a>
                     </div>
                 @endif
             </div>

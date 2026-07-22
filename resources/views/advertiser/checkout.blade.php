@@ -227,8 +227,8 @@
                                     </div>
                                     <div class="flex-grow-1">
                                         <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
-                                            <span style="font-weight: 700; font-size: 14px; color: #0b6266;">Wallet Balance</span>
-                                            <span style="font-size: 11px; font-weight: 600; color: #0b6266; background: #c8ebe9; padding: 2px 8px; border-radius: 999px;">Recommended</span>
+                                            <span style="font-weight: 700; font-size: 14px; color: #185054;">Wallet Balance</span>
+                                            <span style="font-size: 11px; font-weight: 600; color: #185054; background: #c8ebe9; padding: 2px 8px; border-radius: 999px;">Recommended</span>
                                         </div>
                                         <span style="font-size: 12px; color: #6b7280; display: block; margin-top: 2px;">Instant — publisher notified as soon as you place the order</span>
                                     </div>
@@ -280,7 +280,7 @@
                             <div class="border rounded-3 p-3 mb-1" style="background:#f8fafc; border-color:#e2e8f0 !important;" id="fundWalletCheckoutHint">
                                 <div class="d-flex flex-wrap align-items-start justify-content-between gap-3">
                                     <div>
-                                        <div class="fw-semibold" style="color:#0b6266;">Paying by Bank, Wise, or crypto?</div>
+                                        <div class="fw-semibold" style="color:#185054;">Paying by Bank, Wise, or crypto?</div>
                                         <p class="small text-muted mb-0 mt-1">
                                             Get an invoice on Add Funds, transfer with your REF, then we credit your wallet after funds arrive. Come back and pay this order from your wallet.
                                         </p>
@@ -324,11 +324,11 @@
                                         <p style="font-size: 14px; color: #6b7280; margin-bottom: 8px;">Your wallet</p>
                                         <div class="d-flex justify-content-between mb-1">
                                             <span class="small text-muted">Spendable (header total)</span>
-                                            <strong style="color:#0b6266;">€{{ number_format($checkoutSpendable, 2) }}</strong>
+                                            <strong style="color:#185054;">€{{ number_format($checkoutSpendable, 2) }}</strong>
                                         </div>
                                         <div class="d-flex justify-content-between mb-1">
                                             <span class="small text-muted">Cash (withdrawable)</span>
-                                            <strong style="color:#0b6266;">€{{ number_format($checkoutCash, 2) }}</strong>
+                                            <strong style="color:#185054;">€{{ number_format($checkoutCash, 2) }}</strong>
                                         </div>
                                         <div class="d-flex justify-content-between">
                                             <span class="small text-muted">Bonus (purchases only)</span>
@@ -468,7 +468,7 @@
                             <div class="card-body">
                                 <div style="display: flex; align-items: center; margin-bottom: 16px;">
                                     <div style="width: 40px; height: 40px; background: #eff6ff; border-radius: 8px; display: flex; align-items: center; justify-content: center; margin-right: 12px;">
-                                        <i class="fas fa-university" style="font-size: 24px; color: #0b6266;"></i>
+                                        <i class="fas fa-university" style="font-size: 24px; color: #185054;"></i>
                                     </div>
                                     <div>
                                         <h3 style="font-size: 18px; font-weight: 600; margin: 0;">Bank Transfer Payment</h3>
@@ -716,8 +716,8 @@
 }
 
 .content-link:focus {
-    border-color: var(--brand-primary-soft, #3aaeb2);
-    box-shadow: 0 0 0 0.2rem var(--focus-ring, rgba(58, 174, 178, 0.35));
+    border-color: var(--brand-primary-soft, #3faeb2);
+    box-shadow: 0 0 0 0.2rem var(--focus-ring, rgba(63, 174, 178, 0.35));
 }
 
 .payment-option {
@@ -756,25 +756,25 @@
 }
 
 .payment-option-card.recommended {
-    border-color: var(--brand-primary-tint, #4ECDCB);
-    background: var(--brand-primary-bg, #e8f8f7);
+    border-color: var(--brand-primary-tint, #5bc4c7);
+    background: var(--brand-primary-bg, #e6f5f5);
 }
 
 .payment-check {
-    color: var(--brand-primary-tint, #4ECDCB);
+    color: var(--brand-primary-tint, #5bc4c7);
     font-size: 20px;
     opacity: 0;
 }
 
 .payment-option.selected .payment-option-card {
-    border-color: var(--brand-primary, #0b6266) !important;
-    background: var(--brand-primary-bg, #e8f8f7) !important;
-    box-shadow: 0 4px 6px -1px rgba(11, 98, 102, 0.12);
+    border-color: var(--brand-primary, #185054) !important;
+    background: var(--brand-primary-bg, #e6f5f5) !important;
+    box-shadow: 0 4px 6px -1px rgba(24, 80, 84, 0.12);
 }
 
 .saved-card-choice.is-default {
-    border-color: var(--brand-primary-tint, #4ECDCB) !important;
-    background: var(--brand-primary-bg, #e8f8f7);
+    border-color: var(--brand-primary-tint, #5bc4c7) !important;
+    background: var(--brand-primary-bg, #e6f5f5);
 }
 
 .payment-option.selected .payment-check {
@@ -798,7 +798,7 @@
     width: 24px;
     height: 24px;
     border-radius: 50%;
-    background: #0b6266;
+    background: #185054;
     color: #fff;
     font-size: 12px;
     font-weight: 700;
@@ -817,8 +817,8 @@
     border-radius: 12px;
     padding: 16px;
     background: #fff;
-    box-shadow: 0 1px 0 rgba(11, 98, 102, 0.04);
-    border-left: 4px solid var(--brand-primary-tint, #4ECDCB);
+    box-shadow: 0 1px 0 rgba(24, 80, 84, 0.04);
+    border-left: 4px solid var(--brand-primary-tint, #5bc4c7);
 }
 
 .site-summary-card.is-paying-now {
@@ -853,7 +853,7 @@
 }
 
 .site-summary-url:hover {
-    color: #0b6266;
+    color: #185054;
 }
 
 .site-summary-price-label {
@@ -866,7 +866,7 @@
 .checkout-theme-price {
     font-weight: 800;
     font-size: 1.35rem;
-    color: #3aaeb2;
+    color: #3faeb2;
     letter-spacing: -0.02em;
 }
 
@@ -896,11 +896,11 @@
 
 .site-summary-amount {
     font-weight: 600;
-    color: #3aaeb2;
+    color: #3faeb2;
 }
 
 .site-summary-amount-accent {
-    color: #0b6266;
+    color: #185054;
 }
 
 .site-summary-sensitive {
@@ -970,7 +970,7 @@
 
 .order-summary-history-list .history-label {
     font-weight: 600;
-    color: #0b6266;
+    color: #185054;
 }
 
 .order-summary-history-list .history-detail {

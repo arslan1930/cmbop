@@ -42,9 +42,9 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(180deg, #e8f8f7 0%, #d4f1f0 100%);
-  color: #0b6266;
-  border: 1px solid rgba(11, 98, 102, 0.12);
+  background: linear-gradient(180deg, #e6f5f5 0%, #d4f1f0 100%);
+  color: #185054;
+  border: 1px solid rgba(24, 80, 84, 0.12);
   font-size: 1.35rem;
 }
 </style>

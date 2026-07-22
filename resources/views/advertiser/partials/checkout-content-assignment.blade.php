@@ -29,7 +29,7 @@
 
 <style>
     .content-assign-card {
-        border: 1px solid var(--brand-primary-border, #b8e8e6);
+        border: 1px solid var(--brand-primary-border, #b8e4e4);
         border-radius: 12px;
         padding: 16px;
         background: #fff;
@@ -57,8 +57,8 @@
         display: inline-flex;
         gap: 6px;
         align-items: center;
-        background: var(--brand-primary-bg, #e8f8f7);
-        color: var(--brand-primary, #0b6266);
+        background: var(--brand-primary-bg, #e6f5f5);
+        color: var(--brand-primary, #185054);
         border-radius: 999px;
         padding: 3px 10px;
         font-size: .75rem;
@@ -270,7 +270,7 @@
                 showCancelButton: true,
                 confirmButtonText: 'Continue',
                 cancelButtonText: 'Choose another',
-                confirmButtonColor: '#0b6266',
+                confirmButtonColor: '#185054',
                 cancelButtonColor: '#6b7280',
                 reverseButtons: true,
             }).then(function (result) { return !!result.isConfirmed; });

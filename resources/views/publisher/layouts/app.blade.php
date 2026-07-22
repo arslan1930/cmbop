@@ -177,7 +177,7 @@
                          style="width: 36px; height: 36px; object-fit: cover;">
                 @else
                     <div class="rounded-circle text-white d-flex justify-content-center align-items-center"
-                         style="width: 36px; height: 36px; font-weight: 600; background: #4ECDCB;"
+                         style="width: 36px; height: 36px; font-weight: 600; background: #5bc4c7;"
                          aria-hidden="true">
                         {{ strtoupper(substr($user->name, 0, 1)) }}
                     </div>
@@ -194,7 +194,7 @@
                                  style="width: 32px; height: 32px; object-fit: cover;">
                         @else
                             <div class="rounded-circle text-white d-flex justify-content-center align-items-center"
-                                 style="width: 32px; height: 32px; font-weight: 600; background: #4ECDCB;"
+                                 style="width: 32px; height: 32px; font-weight: 600; background: #5bc4c7;"
                                  aria-hidden="true">
                                 {{ strtoupper(substr($user->name, 0, 1)) }}
                             </div>

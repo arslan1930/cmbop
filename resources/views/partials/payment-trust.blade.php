@@ -46,18 +46,18 @@
             line-height: 1.35;
         }
         .payment-trust__secure .fa-lock {
-            color: #0b6266;
+            color: #185054;
             flex-shrink: 0;
         }
         .payment-trust__refund-link {
-            color: #0b6266;
+            color: #185054;
             font-weight: 600;
             text-decoration: underline;
             text-underline-offset: 2px;
             white-space: nowrap;
         }
         .payment-trust__refund-link:hover {
-            color: #3aaeb2;
+            color: #3faeb2;
         }
         .payment-trust__methods {
             display: flex;

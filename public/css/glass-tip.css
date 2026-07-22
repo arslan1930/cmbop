@@ -5,7 +5,7 @@
 
 :root {
   --glass-tip-icon: var(--brand-neutral, #64748b);
-  --glass-tip-icon-hover: var(--brand-primary, #0b6266);
+  --glass-tip-icon-hover: var(--brand-primary, #185054);
   --glass-tip-bg: #f3f4f6; /* soft light grey — blends with page */
   --glass-tip-border: #e5e7eb;
   --glass-tip-shadow: 0 4px 14px rgba(15, 23, 42, 0.06);
@@ -52,7 +52,7 @@ body.layout-dark,
 }
 
 .glass-tip-trigger:focus-visible {
-  box-shadow: 0 0 0 2px rgba(58, 174, 178, 0.22);
+  box-shadow: 0 0 0 2px rgba(63, 174, 178, 0.22);
 }
 
 .glass-tip-icon {

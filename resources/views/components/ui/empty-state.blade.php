@@ -35,8 +35,8 @@
 .ui-empty-state__icon {
     width: 52px; height: 52px; border-radius: 50%;
     display: flex; align-items: center; justify-content: center;
-    background: var(--brand-primary-bg, #e8f8f7);
-    color: var(--brand-primary, #0b6266);
+    background: var(--brand-primary-bg, #e6f5f5);
+    color: var(--brand-primary, #185054);
     font-size: 1.25rem;
 }
 </style>

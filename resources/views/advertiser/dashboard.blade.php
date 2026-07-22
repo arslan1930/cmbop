@@ -14,7 +14,7 @@
 
 <style>
 .get-started-cta, .dash-primary-cta {
-    background: linear-gradient(135deg, #3aaeb2, #0b6266); color: #fff; border: none;
+    background: linear-gradient(135deg, #3faeb2, #185054); color: #fff; border: none;
     border-radius: 10px; padding: 12px 18px; font-weight: 600;
     display: inline-flex; align-items: center; gap: 8px; text-decoration: none;
     transition: opacity .2s ease, transform .2s ease;
@@ -29,14 +29,14 @@
     justify-content: center; color: #fff; flex-shrink: 0;
 }
 .kpi-tile .kpi-label { font-size: 12px; color: #6b7280; display: block; }
-.kpi-tile .kpi-value { font-size: 1.35rem; font-weight: 700; color: #0b6266; line-height: 1.1; }
+.kpi-tile .kpi-value { font-size: 1.35rem; font-weight: 700; color: #185054; line-height: 1.1; }
 .next-action {
     display: flex; align-items: center; justify-content: space-between; gap: 12px;
     padding: 12px 14px; border: 1px solid #e5e7eb; border-radius: 10px;
     text-decoration: none; color: inherit; background: #f8fafb;
     transition: border-color .2s ease, background .2s ease;
 }
-.next-action:hover { border-color: #4ECDCB; background: #f0fbfb; color: inherit; }
+.next-action:hover { border-color: #5bc4c7; background: #f0fbfb; color: inherit; }
 .next-action .na-title { font-weight: 600; font-size: 14px; }
 .next-action .na-desc { font-size: 12px; color: #6b7280; margin: 0; }
 .order-status {
@@ -52,7 +52,7 @@
     padding: 0;
 }
 .order-status-dot {
-    --status-dot: #3aaeb2;
+    --status-dot: #3faeb2;
     position: relative;
     width: 8px;
     height: 8px;
@@ -71,7 +71,7 @@
 }
 .order-status.pending .order-status-dot { --status-dot: #64748b; }
 .order-status.processing .order-status-dot,
-.order-status.review .order-status-dot { --status-dot: #3aaeb2; }
+.order-status.review .order-status-dot { --status-dot: #3faeb2; }
 .order-status.completed .order-status-dot { --status-dot: #0f766e; }
 .order-status.cancelled .order-status-dot {
     --status-dot: #94a3b8;
@@ -96,7 +96,7 @@
     border: 1px solid rgba(255, 255, 255, 0.55);
     background: linear-gradient(145deg, rgba(255,255,255,0.72), rgba(240,251,251,0.55));
     box-shadow:
-        0 18px 40px rgba(11, 98, 102, 0.1),
+        0 18px 40px rgba(24, 80, 84, 0.1),
         inset 0 1px 0 rgba(255,255,255,0.75);
     backdrop-filter: blur(16px) saturate(1.35);
     -webkit-backdrop-filter: blur(16px) saturate(1.35);
@@ -108,13 +108,13 @@
     inset: 0;
     background:
         radial-gradient(ellipse 55% 40% at 12% 0%, rgba(78, 205, 203, 0.22), transparent 60%),
-        radial-gradient(ellipse 45% 35% at 90% 100%, rgba(11, 98, 102, 0.08), transparent 55%);
+        radial-gradient(ellipse 45% 35% at 90% 100%, rgba(24, 80, 84, 0.08), transparent 55%);
     pointer-events: none;
 }
 .recent-orders-glass .card-body { position: relative; z-index: 1; }
 .recent-orders-glass .table { --bs-table-bg: transparent; }
 .recent-orders-glass .table > :not(caption) > * > * {
-    background: transparent; border-bottom-color: rgba(11, 98, 102, 0.08);
+    background: transparent; border-bottom-color: rgba(24, 80, 84, 0.08);
 }
 .recent-orders-glass thead th {
     font-size: 11px; text-transform: uppercase; letter-spacing: .04em;
@@ -127,7 +127,7 @@
     background: rgba(255,255,255,0.45);
 }
 .recent-order-num {
-    font-weight: 700; font-size: 15px; color: #0b6266; letter-spacing: .02em;
+    font-weight: 700; font-size: 15px; color: #185054; letter-spacing: .02em;
 }
 .recent-order-site {
     font-size: 13px; font-weight: 600; color: #1f2937; margin-top: 4px;
@@ -135,14 +135,14 @@
 .recent-order-url {
     font-size: 12px; color: #64748b; text-decoration: none;
 }
-.recent-order-url:hover { color: #0b6266; }
+.recent-order-url:hover { color: #185054; }
 .recent-orders-title {
-    font-weight: 700; color: #0b6266; letter-spacing: -.01em;
+    font-weight: 700; color: #185054; letter-spacing: -.01em;
 }
 .recent-orders-link {
-    color: #0b6266; font-weight: 600; text-decoration: none;
+    color: #185054; font-weight: 600; text-decoration: none;
 }
-.recent-orders-link:hover { color: #3aaeb2; }
+.recent-orders-link:hover { color: #3faeb2; }
 .help-secondary {
     border: 1px dashed #d7e7e8; border-radius: 12px; padding: 16px;
     background: #fafcfc;
@@ -154,24 +154,24 @@
     background: #fff; color: inherit;
     transition: border-color .2s ease, background .2s ease;
 }
-.recommended-site:hover { border-color: #4ECDCB; background: #f0fbfb; }
+.recommended-site:hover { border-color: #5bc4c7; background: #f0fbfb; }
 .recommended-site .rs-name {
     font-weight: 400;
     font-size: 14px;
-    color: #0b6266;
+    color: #185054;
     text-decoration: underline;
     text-underline-offset: 2px;
     word-break: break-all;
 }
-.recommended-site .rs-name:hover { color: #3aaeb2; }
+.recommended-site .rs-name:hover { color: #3faeb2; }
 .recommended-site .rs-meta { font-size: 12px; color: #64748b; margin: 0; }
 .recommended-site .rs-price {
     font-weight: 600;
-    color: #0b6266;
+    color: #185054;
     white-space: nowrap;
     text-decoration: none;
 }
-.recommended-site .rs-price:hover { color: #3aaeb2; }
+.recommended-site .rs-price:hover { color: #3faeb2; }
 </style>
 
 <div class="d-flex flex-wrap align-items-end justify-content-between gap-2 mb-4">
@@ -263,7 +263,7 @@
     padding: 4px;
     background:
         radial-gradient(ellipse 50% 60% at 80% 20%, rgba(78, 205, 203, 0.18), transparent 55%),
-        radial-gradient(ellipse 40% 50% at 10% 80%, rgba(11, 98, 102, 0.08), transparent 50%),
+        radial-gradient(ellipse 40% 50% at 10% 80%, rgba(24, 80, 84, 0.08), transparent 50%),
         linear-gradient(180deg, #eef7f7 0%, #f8f9fa 100%);
 }
 </style>
@@ -272,7 +272,7 @@
     <div class="row g-3 mb-4 px-1 pt-1">
         <div class="col-6 col-lg-3">
             <div class="kpi-tile">
-                <div class="kpi-icon" style="background:#3aaeb2;"><i class="fa-solid fa-box-open"></i></div>
+                <div class="kpi-icon" style="background:#3faeb2;"><i class="fa-solid fa-box-open"></i></div>
                 <div>
                     <span class="kpi-label">Total orders</span>
                     <div class="kpi-value">{{ $stats['total'] }}</div>
@@ -431,7 +431,7 @@
                                                     {{ $statusLabel }}
                                                 </span>
                                             </td>
-                                            <td class="text-end py-3 fw-semibold" style="color:#0b6266;">
+                                            <td class="text-end py-3 fw-semibold" style="color:#185054;">
                                                 €{{ number_format((float) $order->total_amount, 2) }}
                                             </td>
                                         </tr>
@@ -451,7 +451,7 @@
                 <strong>Need assistance?</strong>
                 <span class="text-muted small ms-1">Client manager · Mon–Fri, 9AM–6PM UTC</span>
             </div>
-            <a href="https://t.me/arslan_seolinkbuildings" target="_blank" class="btn btn-sm" style="background:#3aaeb2;color:#fff;">
+            <a href="https://t.me/arslan_seolinkbuildings" target="_blank" class="btn btn-sm" style="background:#3faeb2;color:#fff;">
                 <i class="fa fa-message me-1"></i> Start chat
             </a>
         </div>

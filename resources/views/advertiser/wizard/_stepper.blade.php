@@ -32,23 +32,23 @@
     width:22px; height:22px; border-radius:50%; background:#94a3b8; color:#fff;
     display:inline-flex; align-items:center; justify-content:center; font-size:11px;
 }
-.wizard-step.is-active { border-color:#4ECDCB; background:#f0fbfb; color:#0b6266; }
-.wizard-step.is-active .num { background:#0b6266; }
-.wizard-step.is-done { border-color:#b8e8e6; background:#e8f8f7; color:#0b6266; }
-.wizard-step.is-done .num { background:#3aaeb2; }
+.wizard-step.is-active { border-color:#5bc4c7; background:#f0fbfb; color:#185054; }
+.wizard-step.is-active .num { background:#185054; }
+.wizard-step.is-done { border-color:#b8e4e4; background:#e6f5f5; color:#185054; }
+.wizard-step.is-done .num { background:#3faeb2; }
 .wizard-step.is-disabled { pointer-events:none; opacity:.55; }
 .wizard-chrome {
-    border:1px solid #b8e8e6; background:linear-gradient(135deg,#f0fbfb,#fff);
+    border:1px solid #b8e4e4; background:linear-gradient(135deg,#f0fbfb,#fff);
     border-radius:14px; padding:14px 16px; margin-bottom:1rem;
 }
-.wizard-chrome h1, .wizard-chrome h2 { font-size:1.25rem; margin:0 0 4px; color:#0b6266; }
+.wizard-chrome h1, .wizard-chrome h2 { font-size:1.25rem; margin:0 0 4px; color:#185054; }
 .wizard-chrome .muted { color:#64748b; font-size:.875rem; margin:0; }
 .catalog-article-ready {
     display:inline-flex; align-items:center; justify-content:center;
     font-size:11px; font-weight:600; line-height:1.2; text-align:center;
     padding:4px 8px; border-radius:8px; text-decoration:none; max-width:9.5rem;
 }
-.catalog-article-ready.is-ready { background:#e8f8f7; color:#0b6266; border:1px solid #b8e8e6; }
+.catalog-article-ready.is-ready { background:#e6f5f5; color:#185054; border:1px solid #b8e4e4; }
 .catalog-article-ready.is-needed { background:#fff7ed; color:#9a3412; border:1px solid #fed7aa; }
 .catalog-article-ready.is-needed:hover { background:#ffedd5; color:#7c2d12; }
 .cart-checklist {
@@ -65,7 +65,7 @@
     display:inline-flex; align-items:center; justify-content:center;
     font-size:10px; margin-top:1px;
 }
-.cart-checklist .is-ok .mark { background:#0b6266; color:#fff; }
+.cart-checklist .is-ok .mark { background:#185054; color:#fff; }
 .cart-checklist .is-todo .mark { background:#fdba74; color:#7c2d12; }
 #checkoutFromCart:disabled {
     opacity:.55; cursor:not-allowed;

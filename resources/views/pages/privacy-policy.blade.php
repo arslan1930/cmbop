@@ -20,16 +20,16 @@
         <h3 class="fw-bold mb-3" style="color:#1a1a2e; font-size:1.1rem;">{{ __('messages.quick_navigation') }}</h3>
         <div class="row g-2">
             <div class="col-md-6">
-                <a href="#info-collect" class="d-block py-1" style="color:#4ECDCB; text-decoration:none; font-size:0.9rem;">→ {{ __('messages.nav_info_collect') }}</a>
-                <a href="#info-use" class="d-block py-1" style="color:#4ECDCB; text-decoration:none; font-size:0.9rem;">→ {{ __('messages.nav_info_use') }}</a>
-                <a href="#info-share" class="d-block py-1" style="color:#4ECDCB; text-decoration:none; font-size:0.9rem;">→ {{ __('messages.nav_info_share') }}</a>
-                <a href="#data-security" class="d-block py-1" style="color:#4ECDCB; text-decoration:none; font-size:0.9rem;">→ {{ __('messages.nav_data_security') }}</a>
+                <a href="#info-collect" class="d-block py-1" style="color:#5bc4c7; text-decoration:none; font-size:0.9rem;">→ {{ __('messages.nav_info_collect') }}</a>
+                <a href="#info-use" class="d-block py-1" style="color:#5bc4c7; text-decoration:none; font-size:0.9rem;">→ {{ __('messages.nav_info_use') }}</a>
+                <a href="#info-share" class="d-block py-1" style="color:#5bc4c7; text-decoration:none; font-size:0.9rem;">→ {{ __('messages.nav_info_share') }}</a>
+                <a href="#data-security" class="d-block py-1" style="color:#5bc4c7; text-decoration:none; font-size:0.9rem;">→ {{ __('messages.nav_data_security') }}</a>
             </div>
             <div class="col-md-6">
-                <a href="#data-retention" class="d-block py-1" style="color:#4ECDCB; text-decoration:none; font-size:0.9rem;">→ {{ __('messages.nav_data_retention') }}</a>
-                <a href="#your-rights" class="d-block py-1" style="color:#4ECDCB; text-decoration:none; font-size:0.9rem;">→ {{ __('messages.nav_your_rights') }}</a>
-                <a href="#children-privacy" class="d-block py-1" style="color:#4ECDCB; text-decoration:none; font-size:0.9rem;">→ {{ __('messages.nav_children_privacy') }}</a>
-                <a href="#contact-info" class="d-block py-1" style="color:#4ECDCB; text-decoration:none; font-size:0.9rem;">→ {{ __('messages.nav_contact_info') }}</a>
+                <a href="#data-retention" class="d-block py-1" style="color:#5bc4c7; text-decoration:none; font-size:0.9rem;">→ {{ __('messages.nav_data_retention') }}</a>
+                <a href="#your-rights" class="d-block py-1" style="color:#5bc4c7; text-decoration:none; font-size:0.9rem;">→ {{ __('messages.nav_your_rights') }}</a>
+                <a href="#children-privacy" class="d-block py-1" style="color:#5bc4c7; text-decoration:none; font-size:0.9rem;">→ {{ __('messages.nav_children_privacy') }}</a>
+                <a href="#contact-info" class="d-block py-1" style="color:#5bc4c7; text-decoration:none; font-size:0.9rem;">→ {{ __('messages.nav_contact_info') }}</a>
             </div>
         </div>
     </div>
@@ -38,7 +38,7 @@
     <!-- ===== 1. INFORMATION WE COLLECT ===== -->
     <div id="info-collect" class="mb-5 p-4 p-md-5 rounded-4 shadow-sm" style="background:white; border:1px solid #eef0f3;">
         <div class="d-flex align-items-center gap-3 mb-4">
-            <div style="width:42px; height:42px; background:linear-gradient(135deg,#4ECDCB,#38b2ac); border-radius:10px; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+            <div style="width:42px; height:42px; background:linear-gradient(135deg,#5bc4c7,#38b2ac); border-radius:10px; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
             </div>
             <h2 class="fw-bold mb-0" style="color:#1a1a2e; font-size:1.5rem;">{{ __('messages.section1_title') }}</h2>
@@ -198,8 +198,8 @@
             </div>
             <p style="color:#555; line-height:1.7;">{{ __('messages.section6_callout_text1') }}</p>
             <p style="color:#1a1a2e; font-weight:700; font-size:1.05rem;">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#4ECDCB" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle; margin-right:6px;"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
-                <a href="mailto:support@seolinkbuildings.com" style="color:#4ECDCB; text-decoration:none;">support@seolinkbuildings.com</a>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#5bc4c7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle; margin-right:6px;"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+                <a href="mailto:support@seolinkbuildings.com" style="color:#5bc4c7; text-decoration:none;">support@seolinkbuildings.com</a>
             </p>
             <p class="mb-0" style="color:#555; line-height:1.7;">{{ __('messages.section6_callout_text2') }}</p>
         </div>
@@ -243,7 +243,7 @@
 
 
     <!-- ===== 10. CONTACT INFO ===== -->
-    <div id="contact-info" class="mb-5 p-4 p-md-5 rounded-4" style="background:linear-gradient(135deg, #4ECDCB, #38b2ac); box-shadow:0 15px 35px rgba(78,205,203,0.25);">
+    <div id="contact-info" class="mb-5 p-4 p-md-5 rounded-4" style="background:linear-gradient(135deg, #5bc4c7, #38b2ac); box-shadow:0 15px 35px rgba(78,205,203,0.25);">
         <h2 class="fw-bold mb-4" style="color:white; font-size:1.5rem;">{{ __('messages.section10_title') }}</h2>
         <p style="color:rgba(255,255,255,0.9); line-height:1.7; margin-bottom:1.25rem;">
             {{ __('messages.section10_text1') }}

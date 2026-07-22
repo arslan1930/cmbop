@@ -26,7 +26,7 @@
                 <div class="card border-0 shadow-sm h-100 publisher-primary-cta">
                     <div class="card-body d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3 p-4">
                         <div>
-                            <div class="text-uppercase small fw-semibold mb-1" style="color:#0b6266;letter-spacing:.04em;">Do this next</div>
+                            <div class="text-uppercase small fw-semibold mb-1" style="color:#185054;letter-spacing:.04em;">Do this next</div>
                             <h4 class="mb-1">You have {{ $pendingTasks }} task{{ $pendingTasks === 1 ? '' : 's' }} waiting</h4>
                             <p class="text-muted mb-0">Accept, publish, or reply so advertisers keep moving.</p>
                         </div>
@@ -61,7 +61,7 @@
                 <div class="card border-0 shadow-sm h-100 publisher-primary-cta">
                     <div class="card-body d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3 p-4">
                         <div>
-                            <div class="text-uppercase small fw-semibold mb-1" style="color:#0b6266;letter-spacing:.04em;">Do this next</div>
+                            <div class="text-uppercase small fw-semibold mb-1" style="color:#185054;letter-spacing:.04em;">Do this next</div>
                             <h4 class="mb-1">{{ $siteCount === 0 ? 'Add your first website' : 'Grow your catalog' }}</h4>
                             <p class="text-muted mb-0">
                                 {{ $siteCount === 0
@@ -101,11 +101,11 @@
     <style>
         .publisher-primary-cta {
             background: linear-gradient(135deg, #f0fbfb 0%, #ffffff 55%);
-            border-left: 4px solid #4ECDCB !important;
+            border-left: 4px solid #5bc4c7 !important;
         }
         .publisher-secondary-cta .secondary-icon {
             width: 32px; height: 32px; border-radius: 8px;
-            background: #eef7f7; color: #0b6266;
+            background: #eef7f7; color: #185054;
             display: inline-flex; align-items: center; justify-content: center;
         }
     </style>
@@ -393,11 +393,11 @@ function updateWeeklyChart(data) {
             datasets: [{
                 label: 'Earnings (€)',
                 data: data.values || [0, 0, 0, 0, 0, 0, 0],
-                borderColor: '#0b6266',
-                backgroundColor: 'rgba(11, 98, 102, 0.12)',
+                borderColor: '#185054',
+                backgroundColor: 'rgba(24, 80, 84, 0.12)',
                 tension: 0.4,
                 fill: true,
-                pointBackgroundColor: '#0b6266',
+                pointBackgroundColor: '#185054',
                 pointBorderColor: '#fff',
                 pointRadius: 4,
                 pointHoverRadius: 6
@@ -485,7 +485,7 @@ function updateMonthlyChart(data) {
             datasets: [{
                 label: 'Earnings (€)',
                 data: data.values || [0, 0, 0, 0, 0, 0],
-                backgroundColor: 'rgba(58, 174, 178, 0.75)',
+                backgroundColor: 'rgba(63, 174, 178, 0.75)',
                 borderRadius: 8,
                 barPercentage: 0.6,
                 categoryPercentage: 0.8

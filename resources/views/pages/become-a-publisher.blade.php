@@ -15,7 +15,7 @@
     <div class="row g-4 mb-5">
         @foreach(range(1, 3) as $i)
             <div class="col-md-4">
-                <h2 class="h5" style="color:#0b6266;">{{ __('messages.become_publisher_point_'.$i.'_title') }}</h2>
+                <h2 class="h5" style="color:#185054;">{{ __('messages.become_publisher_point_'.$i.'_title') }}</h2>
                 <p class="text-muted">{{ __('messages.become_publisher_point_'.$i.'_body') }}</p>
             </div>
         @endforeach

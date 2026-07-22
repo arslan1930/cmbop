@@ -332,7 +332,7 @@
 
             @if(($invoiceType ?? '') === 'deposit' && in_array(($paymentMethod ?? ''), ['wise', 'bank', 'crypto'], true))
                 <div class="no-print" style="margin-top: 28px; padding: 18px; border: 1px solid #c8ebe9; border-radius: 12px; background: #f0fbfb;">
-                    <div style="font-weight: 700; color: #0b6266; margin-bottom: 8px;">After you send the transfer</div>
+                    <div style="font-weight: 700; color: #185054; margin-bottom: 8px;">After you send the transfer</div>
                     <p style="margin: 0 0 12px; color: #64748b; font-size: 14px;">
                         Click the button below once you have paid. Your deposit stays <strong>Pending</strong> until we confirm funds and credit your wallet.
                     </p>
@@ -350,7 +350,7 @@
                         @endif
                     @elseif(!empty($canMarkPaid) && !empty($markPaidUrl))
                         <button type="button" id="invoiceMarkPaidBtn"
-                                style="border:0; background:#0b6266; color:#fff; padding:10px 16px; border-radius:8px; font-weight:600; cursor:pointer;">
+                                style="border:0; background:#185054; color:#fff; padding:10px 16px; border-radius:8px; font-weight:600; cursor:pointer;">
                             OK, I have made the payment
                         </button>
                     @endif
@@ -371,7 +371,7 @@
             showCancelButton: true,
             confirmButtonText: 'OK, I have made the payment',
             cancelButtonText: 'Not yet',
-            confirmButtonColor: '#0b6266',
+            confirmButtonColor: '#185054',
         }).then(function (result) {
             if (!result.isConfirmed) return;
             fetch(@json($markPaidUrl), {

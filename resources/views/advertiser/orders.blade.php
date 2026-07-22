@@ -141,7 +141,7 @@
                     <!-- Action Buttons -->
                     <div class="col-md-2">
                         <div class="d-flex gap-2">
-                            <button type="submit" class="btn btn-sm px-4" style="background-color: #3aaeb2; color: white;">
+                            <button type="submit" class="btn btn-sm px-4" style="background-color: #3faeb2; color: white;">
                                 <i class="fa-solid fa-filter me-1"></i> Filter
                             </button>
                             <button type="button" id="resetFilters" class="btn btn-sm px-3" style="background-color: #e9ecef; color: #495057;">
@@ -324,9 +324,9 @@
 }
 
 .sensitive-badge {
-    background-color: var(--brand-primary-bg, #e8f8f7);
-    color: var(--brand-primary, #0b6266);
-    border: 1px solid var(--brand-primary-border, #b8e8e6);
+    background-color: var(--brand-primary-bg, #e6f5f5);
+    color: var(--brand-primary, #185054);
+    border: 1px solid var(--brand-primary-border, #b8e4e4);
     padding: 4px 8px;
     border-radius: 4px;
     font-size: 10px;
@@ -956,7 +956,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     <td colspan="11" class="text-center py-5">
                         <div class="mx-auto" style="max-width:420px">
                             <div class="mx-auto mb-3 d-flex align-items-center justify-content-center"
-                                 style="width:52px;height:52px;border-radius:50%;background:var(--brand-primary-bg,#e8f8f7);color:var(--brand-primary,#0b6266)"
+                                 style="width:52px;height:52px;border-radius:50%;background:var(--brand-primary-bg,#e6f5f5);color:var(--brand-primary,#185054)"
                                  aria-hidden="true">
                                 <i class="fa-solid fa-receipt"></i>
                             </div>
@@ -1178,7 +1178,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 showCancelButton: true,
                 confirmButtonText: 'Submit rating',
                 cancelButtonText: idx < rateable.length - 1 ? 'Skip' : 'Maybe later',
-                confirmButtonColor: '#0b6266',
+                confirmButtonColor: '#185054',
                 didOpen: () => bindStarPicker(prefix, state),
                 preConfirm: () => {
                     if (!state.rating) {
@@ -1217,7 +1217,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 icon: data.success ? 'success' : 'error',
                 title: data.success ? 'Thank you!' : 'Could not save rating',
                 text: data.message || '',
-                confirmButtonColor: '#0b6266'
+                confirmButtonColor: '#185054'
             });
         } catch (e) {
             Swal.fire('Error', 'Failed to save rating', 'error');
@@ -1231,7 +1231,7 @@ document.addEventListener('DOMContentLoaded', function() {
             icon: 'question',
             showCancelButton: true,
             confirmButtonText: 'Continue to payment',
-            confirmButtonColor: '#0b6266',
+            confirmButtonColor: '#185054',
         }).then((result) => {
             if (!result.isConfirmed) {
                 return;

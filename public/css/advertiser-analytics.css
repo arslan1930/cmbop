@@ -2,9 +2,9 @@
  * Advertiser spending history chart
  */
 .an-page {
-  --an-teal: #0b6266;
-  --an-soft: #3aaeb2;
-  --an-mint: #e8f8f7;
+  --an-teal: #185054;
+  --an-soft: #3faeb2;
+  --an-mint: #e6f5f5;
   --an-line: #e2e8f0;
   --an-ink: #0f172a;
   --an-muted: #64748b;
@@ -127,7 +127,7 @@
 .an-empty {
   text-align: center;
   padding: 3rem 1.5rem;
-  border: 1px dashed #b8e8e6;
+  border: 1px dashed #b8e4e4;
   border-radius: 18px;
   background: linear-gradient(180deg, #f4fbfb, #fff);
 }

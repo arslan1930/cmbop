@@ -37,10 +37,10 @@
 <section style="position:relative; width:100%; padding:48px 0 60px; overflow:hidden; background:linear-gradient(180deg, #f0f5ff 0%, #f5faff 100%);">
 
     <!-- Background Shapes -->
-    <div style="position:absolute; top:10%; left:-100px; width:250px; height:250px; border-radius:50%; background:#4ECDCB; opacity:0.08; z-index:1;"></div>
+    <div style="position:absolute; top:10%; left:-100px; width:250px; height:250px; border-radius:50%; background:#5bc4c7; opacity:0.08; z-index:1;"></div>
     <div style="position:absolute; bottom:-80px; right:-60px; width:220px; height:220px; border-radius:50%; background:#FFD93D; opacity:0.15; z-index:1;"></div>
-    <div style="position:absolute; top:30%; right:10%; width:60px; height:60px; border-radius:50%; border:10px solid #4ECDCB; opacity:0.4; z-index:1;"></div>
-    <div style="position:absolute; top:15%; right:25%; width:10px; height:10px; border-radius:50%; background:#4ECDCB; opacity:0.6; z-index:1;"></div>
+    <div style="position:absolute; top:30%; right:10%; width:60px; height:60px; border-radius:50%; border:10px solid #5bc4c7; opacity:0.4; z-index:1;"></div>
+    <div style="position:absolute; top:15%; right:25%; width:10px; height:10px; border-radius:50%; background:#5bc4c7; opacity:0.6; z-index:1;"></div>
     <div style="position:absolute; bottom:20%; left:15%; width:12px; height:12px; border-radius:50%; background:#FF4757; opacity:0.4; z-index:1;"></div>
     <div style="position:absolute; top:40%; left:20%; width:8px; height:8px; border-radius:50%; background:#FFD93D; opacity:0.5; z-index:1;"></div>
 
@@ -65,15 +65,15 @@
             <!-- Post Meta Info -->
             <div class="d-flex justify-content-center align-items-center gap-4 flex-wrap" style="color: #666;">
                 <span>
-                    <i class="fa fa-user me-2" style="color: #4ECDCB;"></i> 
+                    <i class="fa fa-user me-2" style="color: #5bc4c7;"></i> 
                     <strong>{{ $blog->author }}</strong>
                 </span>
                 <span>
-                    <i class="fa fa-calendar me-2" style="color: #4ECDCB;"></i> 
+                    <i class="fa fa-calendar me-2" style="color: #5bc4c7;"></i> 
                     {{ $blog->published_at ? $blog->published_at->format('F d, Y') : 'Draft' }}
                 </span>
                 <span>
-                    <i class="fa fa-clock-o me-2" style="color: #4ECDCB;"></i> 
+                    <i class="fa fa-clock-o me-2" style="color: #5bc4c7;"></i> 
                     {{ ceil(str_word_count(strip_tags($blog->content)) / 200) }} min read
                 </span>
             </div>
@@ -174,7 +174,7 @@
                                 <p class="card-text text-muted" style="font-size: 0.9rem;">
                                     {{ Str::limit(strip_tags($recommended->content), 100) }}
                                 </p>
-                                <a href="{{ localized_url('blog/'.$recommended->slug) }}" class="btn btn-link text-decoration-none p-0" style="color: #4ECDCB; font-weight: 600;">
+                                <a href="{{ localized_url('blog/'.$recommended->slug) }}" class="btn btn-link text-decoration-none p-0" style="color: #5bc4c7; font-weight: 600;">
                                     Read More <i class="fa fa-arrow-right ms-1"></i>
                                 </a>
                             </div>
@@ -230,7 +230,7 @@
     }
     
     .blog-content blockquote {
-        border-left: 4px solid #4ECDCB;
+        border-left: 4px solid #5bc4c7;
         padding: 15px 0 15px 25px;
         margin: 30px 0;
         font-style: italic;
