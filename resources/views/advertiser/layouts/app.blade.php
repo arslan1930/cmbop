@@ -85,7 +85,7 @@
         </a>
 
         <a href="{{ route('advertiser.saved-sites') }}" class="{{ request()->routeIs('advertiser.saved-sites*') ? 'active' : '' }}">
-            <i class="fa fa-heart" aria-hidden="true"></i>
+            <i class="fa-solid fa-heart nav-icon-heart" aria-hidden="true"></i>
             <span class="nav-label">Saved Sites</span>
         </a>
 

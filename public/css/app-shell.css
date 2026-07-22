@@ -125,6 +125,13 @@ footer,
   color: var(--brand-primary, #185054);
 }
 
+/* Favourite / Saved Sites — keep heart red as a favourite sign */
+#sidebar a i.nav-icon-heart,
+#sidebar a:hover i.nav-icon-heart,
+#sidebar a.active i.nav-icon-heart {
+  color: #dc2626;
+}
+
 /* Admin legacy .nav-link inside sidebar */
 #sidebar a.nav-link {
   color: #475569;
