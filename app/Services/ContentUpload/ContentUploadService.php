@@ -143,6 +143,10 @@ class ContentUploadService
             $attrs['target_url'] = null;
         }
 
+        $draftPayload = is_array($replace?->draft_payload) ? $replace->draft_payload : [];
+        $draftPayload['detected_links'] = ArticleDetectedLinks::normalizeList($links);
+        $attrs['draft_payload'] = $draftPayload;
+
         if ($replace) {
             $replace->deleteStoredFile();
             $submission = $replace;
@@ -321,6 +325,7 @@ class ContentUploadService
         if (! is_array($payload)) {
             $payload = [];
         }
+        $payload['detected_links'] = ArticleDetectedLinks::normalizeList($links);
         $history = is_array($payload['content_history'] ?? null) ? $payload['content_history'] : [];
         $history[] = [
             'at' => now()->toIso8601String(),

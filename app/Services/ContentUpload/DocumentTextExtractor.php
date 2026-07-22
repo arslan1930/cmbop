@@ -458,12 +458,46 @@ class DocumentTextExtractor
             $html = '<p>'.e(preg_replace('/\[\[IMG:[^\]]+\]\]/', '', $text) ?? $text).'</p>';
         }
 
-        if ($links !== []) {
-            $first = $links[0];
-            $html .= '<p class="article-detected-link"><strong>Detected link:</strong> '
-                .e($first['anchor'])
-                .' → <a href="'.e($first['url']).'" target="_blank" rel="noopener noreferrer">'
-                .e($first['url']).'</a></p>';
+        // Clickable keywords in body; link metadata is shown outside the preview UI
+        $html = $this->linkifyAnchorsInHtml($html, $links);
+
+        return $html;
+    }
+
+    /**
+     * Wrap the first free occurrence of each link's anchor text in an <a> tag.
+     *
+     * @param  array<int, array{anchor:string, url:string}>  $links
+     */
+    protected function linkifyAnchorsInHtml(string $html, array $links): string
+    {
+        foreach ($links as $link) {
+            $anchor = trim((string) ($link['anchor'] ?? ''));
+            $url = trim((string) ($link['url'] ?? ''));
+            if ($anchor === '' || $url === '' || ! preg_match('#^https?://#i', $url)) {
+                continue;
+            }
+
+            $needle = e($anchor);
+            $offset = 0;
+            while (($idx = strpos($html, $needle, $offset)) !== false) {
+                $before = substr($html, 0, $idx);
+                $lastOpen = strripos($before, '<a ');
+                if ($lastOpen === false) {
+                    $lastOpen = strripos($before, '<a>');
+                }
+                $lastClose = strripos($before, '</a>');
+                if ($lastOpen !== false && ($lastClose === false || $lastOpen > $lastClose)) {
+                    $offset = $idx + strlen($needle);
+
+                    continue;
+                }
+
+                $replacement = '<a href="'.e($url).'" target="_blank" rel="noopener noreferrer">'.$needle.'</a>';
+                $html = substr($html, 0, $idx).$replacement.substr($html, $idx + strlen($needle));
+
+                break;
+            }
         }
 
         return $html;

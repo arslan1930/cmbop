@@ -68,6 +68,10 @@
                             <div class="document-preview mt-3 d-none">
                                 <div class="fw-semibold small mb-1">📄 Live Document Preview</div>
                                 <div class="document-preview-body border rounded-3 p-3 bg-light small"></div>
+                                <div class="document-preview-links mt-2 d-none">
+                                    <div class="small fw-semibold mb-1">Links in this article</div>
+                                    <div class="document-preview-links-list small"></div>
+                                </div>
                             </div>
                         </div>
                     @endforeach
@@ -248,6 +252,22 @@ window.ContentCheckout = (function () {
                     img.setAttribute('src', match[1]);
                 }
             });
+            const linksWrap = card.querySelector('.document-preview-links');
+            const linksList = card.querySelector('.document-preview-links-list');
+            const links = Array.isArray(sub.detected_links) ? sub.detected_links : [];
+            if (linksWrap && linksList) {
+                if (links.length) {
+                    linksWrap.classList.remove('d-none');
+                    linksList.innerHTML = links.map(function (link, i) {
+                        return '<div class="mb-1"><span class="text-muted">#' + (i + 1) + '</span> '
+                            + '<strong>' + escapeHtml(link.anchor || '') + '</strong> → '
+                            + '<a href="' + escapeAttr(link.url || '') + '" target="_blank" rel="noopener">' + escapeHtml(link.url || '') + '</a></div>';
+                    }).join('');
+                } else {
+                    linksWrap.classList.add('d-none');
+                    linksList.innerHTML = '';
+                }
+            }
         }
     }
 

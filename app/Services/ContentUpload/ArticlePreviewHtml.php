@@ -13,7 +13,23 @@ class ArticlePreviewHtml
     public static function normalize(?string $html): string
     {
         $html = (string) $html;
-        if ($html === '' || ! str_contains($html, '<img')) {
+        if ($html === '') {
+            return $html;
+        }
+
+        // Legacy uploads appended "Detected link: …" inside the article body.
+        $html = preg_replace(
+            '/<p\b[^>]*\bclass=(["\'])[^"\']*\barticle-detected-link\b[^"\']*\1[^>]*>.*?<\/p>/is',
+            '',
+            $html
+        ) ?? $html;
+        $html = preg_replace(
+            '/<p class="article-detected-link">.*?<\/p>/is',
+            '',
+            $html
+        ) ?? $html;
+
+        if (! str_contains($html, '<img')) {
             return $html;
         }
 

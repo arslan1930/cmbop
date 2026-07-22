@@ -15,6 +15,7 @@ use App\Models\OrderItem;
 use App\Models\Site;
 use App\Models\User;
 use App\Models\Wallet;
+use App\Services\ContentUpload\ArticlePreviewHtml;
 use App\Services\InAppNotificationService;
 use App\Services\LiveUrlHealthChecker;
 use App\Services\Wallet\WalletLedgerService;
@@ -92,7 +93,7 @@ class OrderController extends Controller
             }
 
             // Only paid orders — bank/Wise/crypto fund the wallet first; unpaid card checkouts stay hidden.
-            $query = OrderItem::with(['order.user', 'site'])
+            $query = OrderItem::with(['order.user', 'site', 'contentSubmission'])
                 ->whereIn('site_id', $siteIds)
                 ->whereHas('order', function ($q) {
                     $q->where('payment_status', 'paid');
@@ -157,6 +158,7 @@ class OrderController extends Controller
                     'target_url' => $item->target_url,
                     'feature_image_url' => $item->feature_image_url,
                     'moderation_status' => $item->moderation_status,
+                    ...$this->articlePreviewFields($item),
                     'live_url' => $item->live_url,
                     'live_url_submitted_at' => $item->live_url_submitted_at ?? null,
                     'auto_approve_triggered' => (bool) ($item->auto_approve_triggered ?? false),
@@ -216,7 +218,7 @@ class OrderController extends Controller
         try {
             $userId = auth()->id();
 
-            $orderItem = OrderItem::with('order')->findOrFail($id);
+            $orderItem = OrderItem::with(['order', 'contentSubmission'])->findOrFail($id);
 
             // Verify this order belongs to a site owned by the publisher
             $site = Site::where('id', $orderItem->site_id)->where('publisher_id', $userId)->first();
@@ -246,6 +248,15 @@ class OrderController extends Controller
                 'additional_price' => (float) ($orderItem->additional_price ?? 0),
                 'sensitive_type' => $orderItem->sensitive_type ?? null,
                 'content_link' => $orderItem->content_link,
+                'content_download_url' => $orderItem->content_submission_id
+                    ? route('publisher.content.download', $orderItem->content_submission_id)
+                    : $orderItem->content_link,
+                'content_original_name' => $orderItem->content_original_name,
+                'anchor_text' => $orderItem->anchor_text,
+                'target_url' => $orderItem->target_url,
+                'feature_image_url' => $orderItem->feature_image_url,
+                'moderation_status' => $orderItem->moderation_status,
+                ...$this->articlePreviewFields($orderItem),
                 'live_url' => $orderItem->live_url,
                 'live_url_submitted_at' => $orderItem->live_url_submitted_at ?? null,
                 'auto_approve_triggered' => (bool) ($orderItem->auto_approve_triggered ?? false),
@@ -261,6 +272,14 @@ class OrderController extends Controller
                     'reference_code' => $orderItem->order->reference_code,
                     'total_amount' => (float) $orderItem->order->total_amount,
                     'created_at' => $orderItem->order->created_at,
+                    'publication_mode' => $orderItem->order->publication_mode,
+                    'scheduled_publish_at' => optional($orderItem->order->scheduled_publish_at)?->toIso8601String(),
+                    'schedule_timezone' => $orderItem->order->schedule_timezone,
+                    'scheduled_label' => $orderItem->order->scheduled_publish_at
+                        ? $orderItem->order->scheduled_publish_at
+                            ->timezone($orderItem->order->schedule_timezone ?: 'UTC')
+                            ->format('d F Y g:i A').' '.($orderItem->order->schedule_timezone ?: 'UTC')
+                        : null,
                 ],
             ];
 
@@ -867,5 +886,42 @@ class OrderController extends Controller
                 'message' => 'Failed to fetch recent orders',
             ]);
         }
+    }
+
+    /**
+     * Article HTML + multi-link metadata for publisher preview / copy tools.
+     *
+     * @return array{article_title:?string, preview_html:?string, detected_links:array<int, array{anchor:string, url:string}>}
+     */
+    protected function articlePreviewFields(OrderItem $item): array
+    {
+        $submission = $item->relationLoaded('contentSubmission')
+            ? $item->contentSubmission
+            : ($item->content_submission_id ? $item->contentSubmission()->first() : null);
+
+        if ($submission) {
+            $links = $submission->detectedLinks();
+            $title = trim((string) ($submission->title ?: $submission->original_filename ?: ''));
+
+            return [
+                'article_title' => $title !== '' ? $title : null,
+                'preview_html' => ArticlePreviewHtml::normalize((string) ($submission->preview_html ?? '')),
+                'detected_links' => $links,
+            ];
+        }
+
+        $fallback = [];
+        if (filled($item->anchor_text) && filled($item->target_url)) {
+            $fallback[] = [
+                'anchor' => trim((string) $item->anchor_text),
+                'url' => trim((string) $item->target_url),
+            ];
+        }
+
+        return [
+            'article_title' => $item->content_original_name ?: null,
+            'preview_html' => null,
+            'detected_links' => $fallback,
+        ];
     }
 }

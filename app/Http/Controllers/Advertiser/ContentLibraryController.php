@@ -342,6 +342,7 @@ class ContentLibraryController extends Controller
             'preview_html' => ArticlePreviewHtml::normalize((string) ($s->preview_html ?? '')),
             'anchor_text' => $s->anchor_text,
             'target_url' => $s->target_url,
+            'detected_links' => $s->detectedLinks(),
             'has_link' => $s->hasLink(),
             'can_order' => $s->canBeOrdered(),
             'needs_correction' => $s->needsCorrection(),

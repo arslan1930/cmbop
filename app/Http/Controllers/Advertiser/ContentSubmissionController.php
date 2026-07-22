@@ -7,6 +7,7 @@ use App\Models\ContentSubmission;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Site;
+use App\Services\ContentUpload\ArticleDetectedLinks;
 use App\Services\ContentUpload\ArticlePreviewHtml;
 use App\Services\ContentUpload\ContentUploadService;
 use App\Services\ContentUpload\ScheduledOrderService;
@@ -179,6 +180,10 @@ class ContentSubmissionController extends Controller
             'title' => ['nullable', 'string', 'max:200'],
             'anchor_text' => ['nullable', 'string', 'max:'.$anchorMax],
             'target_url' => ['nullable', 'string', 'max:1000'],
+            'links' => ['nullable', 'array', 'max:20'],
+            'links.*.anchor' => ['nullable', 'string', 'max:'.$anchorMax],
+            'links.*.url' => ['nullable', 'string', 'max:1000'],
+            'preview_html' => ['nullable', 'string', 'max:500000'],
             'feature_image_url' => ['nullable', 'string', 'max:1000'],
             'publication_mode' => ['nullable', 'in:immediate,scheduled'],
             'scheduled_date' => ['nullable', 'date_format:Y-m-d'],
@@ -187,6 +192,17 @@ class ContentSubmissionController extends Controller
             'wizard_step' => ['nullable', 'integer', 'min:1', 'max:5'],
             'draft_payload' => ['nullable', 'array'],
         ]);
+
+        if (array_key_exists('links', $data)) {
+            $links = ArticleDetectedLinks::normalizeList($data['links'] ?? [], $anchorMax);
+            $html = array_key_exists('preview_html', $data)
+                ? (string) $data['preview_html']
+                : (string) ($submission->preview_html ?? '');
+            $submission->syncDetectedLinks($links, $html !== '' ? $html : null);
+            unset($data['links'], $data['preview_html']);
+            // Primary pair already synced; avoid overwriting with stale single fields if absent.
+            unset($data['anchor_text'], $data['target_url']);
+        }
 
         if (array_key_exists('title', $data)) {
             $title = trim((string) $data['title']);
@@ -467,6 +483,7 @@ class ContentSubmissionController extends Controller
             'preview_html' => ArticlePreviewHtml::normalize((string) ($s->preview_html ?? '')),
             'anchor_text' => $s->anchor_text,
             'target_url' => $s->target_url,
+            'detected_links' => $s->detectedLinks(),
             'feature_image_url' => $s->feature_image_url
                 ? ArticlePreviewHtml::normalizeSrc((string) $s->feature_image_url)
                 : null,

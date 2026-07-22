@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Services\ContentUpload\ArticleDetectedLinks;
+use App\Services\ContentUpload\ArticlePreviewHtml;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -366,6 +368,61 @@ class ContentSubmission extends Model
         $target = trim((string) $this->target_url);
 
         return $anchor !== '' && $target !== '';
+    }
+
+    /**
+     * All detected / edited HTTPS links (multi-link preview metadata).
+     *
+     * @return array<int, array{anchor:string, url:string}>
+     */
+    public function detectedLinks(): array
+    {
+        $payload = is_array($this->draft_payload) ? $this->draft_payload : [];
+        $stored = is_array($payload['detected_links'] ?? null) ? $payload['detected_links'] : [];
+        $links = ArticleDetectedLinks::normalizeList($stored);
+
+        if ($links === [] && $this->hasLink()) {
+            $links = [[
+                'anchor' => trim((string) $this->anchor_text),
+                'url' => trim((string) $this->target_url),
+            ]];
+        }
+
+        if ($links === [] && filled($this->preview_html)) {
+            $links = ArticleDetectedLinks::fromHtml((string) $this->preview_html);
+        }
+
+        return $links;
+    }
+
+    /**
+     * Persist multi-link metadata and keep the primary checkout pair in sync.
+     *
+     * @param  array<int, array{anchor?:string, url?:string}>  $links
+     */
+    public function syncDetectedLinks(array $links, ?string $previewHtml = null): void
+    {
+        $normalized = ArticleDetectedLinks::normalizeList($links);
+        $payload = is_array($this->draft_payload) ? $this->draft_payload : [];
+        $payload['detected_links'] = $normalized;
+
+        $attrs = ['draft_payload' => $payload];
+        if ($previewHtml !== null) {
+            $attrs['preview_html'] = ArticlePreviewHtml::normalize(
+                ArticleDetectedLinks::applyToHtml($previewHtml, $normalized)
+            );
+        }
+
+        $first = $normalized[0] ?? null;
+        if ($first) {
+            $attrs['anchor_text'] = $first['anchor'];
+            $attrs['target_url'] = $first['url'];
+        } else {
+            $attrs['anchor_text'] = null;
+            $attrs['target_url'] = null;
+        }
+
+        $this->fill($attrs)->save();
     }
 
     public function isReadyForCheckout(): bool
