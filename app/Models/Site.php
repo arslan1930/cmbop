@@ -157,6 +157,12 @@ class Site extends Model
 
     public static function refreshCompletedOrdersCount(int $siteId): void
     {
+        // Older deploys may not have run the ratings/completed-orders migration yet.
+        // Never block order approval on a missing counter column.
+        if (! static::hasSitesColumn('completed_orders_count')) {
+            return;
+        }
+
         $count = OrderItem::query()
             ->where('site_id', $siteId)
             ->whereHas('order', function ($q) {
