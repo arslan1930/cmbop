@@ -149,9 +149,10 @@ return [
 
     // ==================== NEWSLETTER SECTION ====================
     'newsletter_image_alt' => 'Abonneer op nieuwsbrief',
-        'newsletter_aside_title' => 'Blijf nieuwe markten voor',
+    'newsletter_image_alt' => 'Abonneer op de nieuwsbrief',
+    'newsletter_aside_title' => 'Blijf nieuwe markten voor',
     'newsletter_aside_body' => 'Productupdates en placementtips van de SEOLinkBuildings-marktplaats.',
-'newsletter_title' => 'Abonneer je en ontvang updates over de nieuwste functies en wijzigingen op ons platform.',
+    'newsletter_title' => 'Abonneer je en ontvang updates over de nieuwste functies en wijzigingen op ons platform.',
     'newsletter_email_placeholder' => 'Uw e-mailadres',
     'newsletter_subscribe_btn' => 'Abonneren',
     'newsletter_consent_text' => 'Ik abonneer me op de SEOLinkBuildings-nieuwsbrief en bevestig dat ik het Privacybeleid heb gelezen.',

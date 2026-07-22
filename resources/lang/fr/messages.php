@@ -148,9 +148,10 @@ return [
 
      // ==================== NEWSLETTER SECTION ====================
     'newsletter_image_alt' => 'Abonnez-vous à la newsletter',
-        'newsletter_aside_title' => 'Restez en avance sur de nouveaux marchés',
+    'newsletter_image_alt' => 'S\'abonner à la newsletter',
+    'newsletter_aside_title' => 'Restez en avance sur de nouveaux marchés',
     'newsletter_aside_body' => 'Mises à jour produit et conseils de placement depuis la marketplace SEOLinkBuildings.',
-'newsletter_title' => 'Abonnez-vous et recevez des mises à jour sur les dernières fonctionnalités et changements de notre plateforme.',
+    'newsletter_title' => 'Abonnez-vous et recevez des mises à jour sur les dernières fonctionnalités et changements de notre plateforme.',
     'newsletter_email_placeholder' => 'Votre adresse e-mail',
     'newsletter_subscribe_btn' => "S'abonner",
     'newsletter_consent_text' => "Je m'abonne à la newsletter SEOLinkBuildings et confirme avoir lu la Politique de confidentialité.",
