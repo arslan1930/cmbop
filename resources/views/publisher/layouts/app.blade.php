@@ -211,6 +211,21 @@
                         <i class="fa fa-user" aria-hidden="true"></i> Profile
                     </a>
                 </li>
+                <li>
+                    <a class="dropdown-item" href="{{ route('profile.notifications') }}">
+                        <i class="fa fa-bell" aria-hidden="true"></i> Email preferences
+                    </a>
+                </li>
+                <li>
+                    <a class="dropdown-item" href="{{ route('publisher.balance') }}">
+                        <i class="fa fa-wallet" aria-hidden="true"></i> Balance
+                    </a>
+                </li>
+                <li>
+                    <a class="dropdown-item" href="{{ route('publisher.withdraw') }}">
+                        <i class="fa fa-money-bill-wave" aria-hidden="true"></i> Withdraw
+                    </a>
+                </li>
                 <li><hr class="dropdown-divider"></li>
                 <li>
                     <form method="POST" action="{{ route('logout') }}">
@@ -249,6 +264,7 @@
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+@include('partials.app-toast')
 
 <script>
     const toggleBtn = document.getElementById('toggleSidebar');

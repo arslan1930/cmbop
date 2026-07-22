@@ -512,18 +512,20 @@
                             @elseif(!empty($searchQuery) || ($availabilityFilter ?? 'all') !== 'all' || ($countryFilter ?? 'all') !== 'all' || ($languageFilter ?? 'all') !== 'all')
                                 No articles match these filters.
                             @else
-                                <div class="py-2">
-                                    <p class="mb-2">No articles yet. Upload a .docx here, or start the guided Place a guest post flow.</p>
-                                    <p class="small text-muted mb-3 mb-md-2">After approval, assign the article in your cart (or continue the wizard) and checkout.</p>
+                                <x-ui.empty-state
+                                    icon="fa-file-word"
+                                    title="No articles yet"
+                                    message="Upload a .docx here. After approval, assign it in your cart and checkout."
+                                >
                                     <div class="d-flex flex-wrap gap-2 justify-content-center">
                                         <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#uploadContentModal">
                                             <i class="fa fa-upload me-1"></i> Upload article
                                         </button>
-                                        <a href="{{ route('advertiser.wizard.start') }}" class="btn btn-sm btn-outline-primary">
-                                            Place a guest post
+                                        <a href="{{ route('advertiser.wizard.start') }}" class="btn btn-sm btn-outline-secondary">
+                                            Guided placement
                                         </a>
                                     </div>
-                                </div>
+                                </x-ui.empty-state>
                             @endif
                         </td>
                     </tr>

@@ -2388,9 +2388,10 @@ function fetchSites(page = 1, query = '') {
         success: function(res) {
             if(!res || res.trim() === ''){
                 $('#sitesTableWrapper').html(
-                    '<div class="dash-panel text-center py-4">' +
-                    '<p class="mb-2 fw-semibold">No websites listed yet</p>' +
-                    '<p class="text-muted small mb-3">Add your first site so advertisers can find and order from you.</p>' +
+                    '<div class="ui-empty-state text-center mx-auto py-4" style="max-width:420px">' +
+                    '<div class="mx-auto mb-3 d-flex align-items-center justify-content-center" style="width:52px;height:52px;border-radius:50%;background:var(--brand-primary-bg,#e8f8f7);color:var(--brand-primary,#0b6266)" aria-hidden="true"><i class="fa-solid fa-globe"></i></div>' +
+                    '<h5 class="mb-2">No websites listed yet</h5>' +
+                    '<p class="text-muted mb-3">Add your first site so advertisers can find and order from you.</p>' +
                     '<button type="button" class="btn btn-primary btn-sm" id="emptyAddSiteCta"><i class="fa fa-plus"></i> Add New Website</button>' +
                     '</div>'
                 );
@@ -2400,7 +2401,15 @@ function fetchSites(page = 1, query = '') {
             }
         },
         error: function() {
-            $('#sitesTableWrapper').html('<div class="text-danger">Failed to load sites.</div>');
+            $('#sitesTableWrapper').html(
+                '<div class="text-center py-4">' +
+                '<div class="text-danger mb-2">Failed to load sites.</div>' +
+                '<button type="button" class="btn btn-sm btn-outline-primary" id="retrySitesBtn">Retry</button>' +
+                '</div>'
+            );
+            $('#retrySitesBtn').on('click', function () {
+                fetchSites(page, query);
+            });
         }
     });
 }

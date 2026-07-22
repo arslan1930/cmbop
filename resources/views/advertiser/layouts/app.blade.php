@@ -229,6 +229,21 @@
                         <i class="fa fa-user" aria-hidden="true"></i> Profile
                     </a>
                 </li>
+                <li>
+                    <a class="dropdown-item" href="{{ route('profile.notifications') }}">
+                        <i class="fa fa-bell" aria-hidden="true"></i> Email preferences
+                    </a>
+                </li>
+                <li>
+                    <a class="dropdown-item" href="{{ route('advertiser.billing.index') }}">
+                        <i class="fa fa-file-invoice" aria-hidden="true"></i> Billing &amp; invoices
+                    </a>
+                </li>
+                <li>
+                    <a class="dropdown-item" href="{{ route('advertiser.add-funds') }}">
+                        <i class="fa fa-coins" aria-hidden="true"></i> Add funds
+                    </a>
+                </li>
                 <li><hr class="dropdown-divider"></li>
                 <li>
                     <form method="POST" action="{{ route('logout') }}">
@@ -306,6 +321,7 @@
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+@include('partials.app-toast')
 
 <script>
     // Sidebar Toggle
@@ -709,40 +725,6 @@
             }
         });
     };
-    
-    // Show toast
-    function showToast(message, type = 'success') {
-        // Create toast element if not exists
-        let toastContainer = document.getElementById('toastContainer');
-        if (!toastContainer) {
-            toastContainer = document.createElement('div');
-            toastContainer.id = 'toastContainer';
-            toastContainer.className = 'position-fixed bottom-0 end-0 p-3';
-            toastContainer.style.zIndex = '1100';
-            document.body.appendChild(toastContainer);
-        }
-        
-        const toastId = 'toast-' + Date.now();
-        const bgClass = type === 'success' ? 'bg-success' : (type === 'error' ? 'bg-danger' : 'bg-warning');
-        
-        const toastHtml = `
-            <div id="${toastId}" class="toast align-items-center text-white ${bgClass} border-0" role="alert" data-bs-autohide="true" data-bs-delay="3000">
-                <div class="d-flex">
-                    <div class="toast-body">
-                        ${message}
-                    </div>
-                    <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
-                </div>
-            </div>
-        `;
-        
-        toastContainer.insertAdjacentHTML('beforeend', toastHtml);
-        const toastElement = document.getElementById(toastId);
-        const toast = new bootstrap.Toast(toastElement, { delay: 3000 });
-        toast.show();
-        
-        toastElement.addEventListener('hidden.bs.toast', () => toastElement.remove());
-    }
     
     // Cart Sidebar Toggle
     const cartSidebar = document.getElementById('cartSidebar');
