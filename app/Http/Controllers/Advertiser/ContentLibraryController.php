@@ -33,13 +33,17 @@ class ContentLibraryController extends Controller
             $status = 'all';
         }
 
-        if (! in_array($availability, ['all', 'available', 'in_progress', 'published', 'expired', 'archived', 'needs_fix', 'ordered'], true)) {
+        if (! in_array($availability, ['all', 'available', 'in_progress', 'published', 'completed', 'expired', 'archived', 'needs_fix', 'ordered'], true)) {
             $availability = 'all';
         }
 
-        // Backward-compatible alias from earlier UI.
+        // Backward-compatible aliases from earlier UI.
         if ($availability === 'ordered') {
             $availability = 'in_progress';
+        }
+        // UI label is "Completed"; internal availability key remains "published".
+        if ($availability === 'completed') {
+            $availability = 'published';
         }
 
         $query = ContentSubmission::query()
@@ -176,6 +180,53 @@ class ContentLibraryController extends Controller
             'needs_improvement' => (int) ($statusTotals[ContentSubmission::STATUS_NEEDS_IMPROVEMENT] ?? 0),
         ];
 
+        $hasPublisherStatus = Schema::hasColumn('order_items', 'publisher_status');
+        $availabilityCounts = [
+            'all' => (int) (clone $countScope)->count(),
+            'available' => (int) (clone $countScope)
+                ->whereNull('order_id')
+                ->where('moderation_status', ContentSubmission::STATUS_APPROVED)
+                ->where('uniqueness_score', '>=', $minUniqueness)
+                ->whereNotNull('path')
+                ->whereNotNull('country')
+                ->where('country', '!=', '')
+                ->whereNotNull('language')
+                ->where('language', '!=', '')
+                ->where(function ($q) {
+                    $q->whereNull('expires_at')->orWhere('expires_at', '>', now());
+                })
+                ->count(),
+            'in_progress' => (int) (clone $countScope)
+                ->whereNotNull('order_id')
+                ->whereDoesntHave('orderItems', function ($item) use ($hasPublisherStatus) {
+                    $item->where(function ($q) use ($hasPublisherStatus) {
+                        $q->where(function ($live) {
+                            $live->whereNotNull('live_url')->where('live_url', '!=', '');
+                        });
+                        if ($hasPublisherStatus) {
+                            $q->orWhere('publisher_status', 'completed');
+                        }
+                    });
+                })
+                ->count(),
+            'completed' => (int) (clone $countScope)
+                ->whereNotNull('order_id')
+                ->whereHas('orderItems', function ($item) use ($hasPublisherStatus) {
+                    $item->where(function ($q) use ($hasPublisherStatus) {
+                        $q->where(function ($live) {
+                            $live->whereNotNull('live_url')->where('live_url', '!=', '');
+                        });
+                        if ($hasPublisherStatus) {
+                            $q->orWhere('publisher_status', 'completed');
+                        }
+                    });
+                })
+                ->count(),
+        ];
+
+        // UI filter key: "completed" covers internal "published".
+        $availabilityUi = $availability === 'published' ? 'completed' : $availability;
+
         $countries = Country::marketplace()->orderBy('name')->get(['code', 'name']);
         $languages = Language::marketplace()->orderBy('name')->get(['code', 'name']);
         $languageCountryMap = $this->languageCountryMap->map();
@@ -184,13 +235,14 @@ class ContentLibraryController extends Controller
             'submissions' => $submissions,
             'uploadCfg' => $cfg,
             'statusFilter' => $status,
-            'availabilityFilter' => $availability,
+            'availabilityFilter' => $availabilityUi,
             'languageFilter' => $languageFilter ?: 'all',
             'countryFilter' => $countryFilter ?: 'all',
             'searchQuery' => $search,
             'groupedByLanguage' => $groupedByLanguage,
             'groupedByCountry' => $groupedByCountry,
             'moderationCounts' => $moderationCounts,
+            'availabilityCounts' => $availabilityCounts,
             'countries' => $countries,
             'languages' => $languages,
             'languageCountryMap' => $languageCountryMap,
@@ -198,7 +250,7 @@ class ContentLibraryController extends Controller
             'editSubmission' => $this->resolveEditableSubmission($request->query('edit')),
             'libraryFilterBase' => [
                 'status' => $status,
-                'availability' => $availability,
+                'availability' => $availabilityUi,
                 'language' => $languageFilter ?: 'all',
                 'country' => $countryFilter ?: 'all',
                 'q' => $search,

@@ -2204,7 +2204,7 @@ class CatalogController extends Controller
                     'order_id' => $order->id,
                     'user_id' => auth()->id(),
                     'sender_type' => 'advertiser',
-                    'message' => "Revision requested: {$request->reason}\nPlease update the article and resubmit the live URL.",
+                    'message' => "Revision requested: {$request->reason}\nPlease update the article, then paste the corrected live URL in this chat to resubmit.",
                     'is_read' => false,
                 ]);
             } catch (\Throwable $e) {

@@ -116,7 +116,7 @@ class PublisherChatResubmitTest extends TestCase
         $this->assertNotNull($message);
         $this->assertStringContainsString('Revision requested:', $message->message);
         $this->assertStringContainsString($reason, $message->message);
-        $this->assertStringContainsString('resubmit the live URL', $message->message);
+        $this->assertStringContainsString('paste the corrected live URL in this chat to resubmit', $message->message);
     }
 
     public function test_publisher_chat_details_expose_can_resubmit_after_revision(): void
@@ -201,9 +201,12 @@ class PublisherChatResubmitTest extends TestCase
             ->assertOk()
             ->getContent();
 
-        $this->assertStringContainsString('id="resubmitModal"', $html);
+        $this->assertStringNotContainsString('id="resubmitModal"', $html);
+        $this->assertStringNotContainsString('resubmit-live-url', $html);
         $this->assertStringContainsString('can_resubmit', $html);
-        $this->assertStringContainsString('Resubmit URL', $html);
+        $this->assertStringContainsString('chat-resubmit-form', $html);
+        $this->assertStringContainsString('Make the corrections on the live article', $html);
+        $this->assertStringContainsString('add the URL here again', $html);
         $this->assertStringContainsString('orderChat.load', $html);
     }
 }

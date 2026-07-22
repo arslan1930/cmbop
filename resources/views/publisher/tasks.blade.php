@@ -283,31 +283,6 @@
 </div>
 
 <style>
-.chat-order-details {
-    padding: 10px 16px;
-    background: #f4f6f8;
-    border-bottom: 1px solid #e6eaee;
-    color: #8a94a0;
-    font-size: 0.78rem;
-    line-height: 1.45;
-}
-.chat-order-details .chat-detail-primary {
-    color: #6c757d;
-    font-weight: 500;
-}
-.chat-order-details .chat-detail-sep {
-    color: #c5ccd4;
-    margin: 0 0.35rem;
-}
-.chat-order-details a {
-    color: #8a94a0;
-    text-decoration: none;
-}
-.chat-order-details a:hover {
-    color: #6c757d;
-    text-decoration: underline;
-}
-
 .table td, .table th {
     padding: 12px 15px;
     vertical-align: middle;
@@ -580,12 +555,6 @@ $(document).ready(function() {
         $('#completeModal').modal('show');
     });
 
-    $(document).on('click', '.resubmit-live-url', function() {
-        $('#resubmit_order_item_id').val($(this).data('id'));
-        $('#resubmit_live_url').val('');
-        $('#resubmitModal').modal('show');
-    });
-
     // Chat functionality (shared OrderChat module)
     function formatChatDate(value, withTime) {
         if (!value) return '—';
@@ -649,6 +618,7 @@ $(document).ready(function() {
                 + '<div class="ui-callout__body">'
                 + '<div>The advertiser asked for changes. Update the article and resubmit the live URL.</div>'
                 + reason
+                + currentUrl
                 + (details.can_resubmit && itemId
                     ? '<div class="mt-2"><button type="button" class="btn btn-sm btn-primary resubmit-live-url" data-id="' + escapeHtml(String(itemId)) + '"><i class="fa fa-edit me-1"></i>Resubmit URL</button></div>'
                     : '')
@@ -834,22 +804,31 @@ $(document).ready(function() {
         });
     });
 
-    $('#confirmResubmit').on('click', function() {
-        var id = $('#resubmit_order_item_id').val();
-        var liveUrl = $('#resubmit_live_url').val();
-        
-        if (!liveUrl) {
-            Swal.fire('Warning!', 'Please enter the updated live URL', 'warning');
+    $(document).on('submit', '.chat-resubmit-form', function(e) {
+        e.preventDefault();
+        var $form = $(this);
+        var id = $form.data('item-id');
+        var $input = $form.find('input[name="live_url"]');
+        var liveUrl = ($input.val() || '').trim();
+        var $btn = $form.find('button[type="submit"]');
+
+        if (!id) {
+            Swal.fire('Error!', 'Missing order item for resubmit.', 'error');
             return;
         }
-        
+        if (!liveUrl) {
+            Swal.fire('Warning!', 'Please enter the updated live URL', 'warning');
+            $input.trigger('focus');
+            return;
+        }
+
         $.ajax({
             url: baseUrl + '/publisher/orders/' + id + '/resubmit',
             method: 'POST',
             data: { live_url: liveUrl, _token: '{{ csrf_token() }}' },
             dataType: 'json',
             beforeSend: function() {
-                $('#confirmResubmit').prop('disabled', true).html('<i class="fa fa-spinner fa-spin"></i>');
+                $btn.prop('disabled', true).html('<i class="fa fa-spinner fa-spin"></i>');
             },
             success: function(response) {
                 if (response.success) {
@@ -858,7 +837,6 @@ $(document).ready(function() {
                         html: response.message,
                         icon: 'success'
                     });
-                    $('#resubmitModal').modal('hide');
                     loadTasks();
                     loadStatistics();
                     if (orderChat && typeof orderChat.load === 'function' && orderChat.currentOrderId) {
@@ -878,7 +856,7 @@ $(document).ready(function() {
                 Swal.fire('Error!', errorMsg, 'error');
             },
             complete: function() {
-                $('#confirmResubmit').prop('disabled', false).html('Resubmit URL');
+                $btn.prop('disabled', false).html('<i class="fa fa-paper-plane me-1" aria-hidden="true"></i>Resubmit URL');
             }
         });
     });
@@ -977,7 +955,6 @@ $(document).ready(function() {
                     '</div>';
             } else if (modificationRequested && (orderStatus === 'processing' || orderStatus === 'review')) {
                 actions = '<div class="action-buttons">' +
-                    '<button class="btn btn-warning btn-action-sm resubmit-live-url" data-id="' + item.id + '"><i class="fa fa-edit"></i> Resubmit URL</button>' +
                     viewBtn + chatBtn + liveBtn +
                     '</div>';
             } else if (awaitingAdvertiser) {
@@ -1272,7 +1249,7 @@ $(document).ready(function() {
             return { statusClass: 'status-pending', statusText: 'New order', nextStep: 'Accept or reject this order' };
         }
         if (modificationRequested) {
-            return { statusClass: 'status-pending', statusText: 'Changes requested', nextStep: 'Update the article and resubmit the live URL' };
+            return { statusClass: 'status-pending', statusText: 'Changes requested', nextStep: 'Make corrections, then open Chat to resubmit the live URL' };
         }
         if (orderStatus === 'review' || (orderStatus === 'processing' && hasLiveUrl)) {
             const hoursRemaining = getAutoApproveHoursRemaining(liveUrlSubmittedAt);
@@ -1348,7 +1325,7 @@ $(document).ready(function() {
         $.getJSON(baseUrl + '/chat/unread-summary')
             .done(function(res) {
                 if (res.success && res.needs_action > 0) {
-                    $('#needsActionText').text(res.needs_action + ' task' + (res.needs_action === 1 ? '' : 's') + ' need you (accept, publish, or resubmit).');
+                    $('#needsActionText').text(res.needs_action + ' task' + (res.needs_action === 1 ? '' : 's') + ' need you (accept, publish, or open Chat to resubmit).');
                     $('#needsActionBanner').removeClass('d-none');
                 } else {
                     $('#needsActionBanner').addClass('d-none');

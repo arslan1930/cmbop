@@ -151,13 +151,59 @@ class ContentLibraryImprovementsTest extends TestCase
             'order_item_id' => $item->id,
         ]);
 
+        $html = $this->actingAs($advertiser)
+            ->get(route('advertiser.content-library', ['availability' => 'completed']))
+            ->assertOk()
+            ->assertSee('Live Article')
+            ->assertSee('Completed/Live')
+            ->assertSee('Done — not orderable')
+            ->assertSee('https://live.example/post')
+            ->assertSee('Published on '.$site->site_name)
+            ->assertSee('Open live URL')
+            ->assertSee('Copy')
+            ->assertDontSee(route('advertiser.content-library.order', $submission), false)
+            ->getContent();
+
+        $this->assertStringContainsString('library-status--published', $html);
+        $this->assertStringContainsString('copyLibraryLiveUrl', $html);
+        $this->assertStringContainsString('Open live URL', $html);
+        $this->assertDoesNotMatchRegularExpression(
+            '/library-row-'.$submission->id.'[\s\S]*?href="[^"]*content-library\/'.$submission->id.'\/order"/',
+            $html
+        );
+
+        // Legacy published query still works and maps to Completed UI.
         $this->actingAs($advertiser)
             ->get(route('advertiser.content-library', ['availability' => 'published']))
             ->assertOk()
             ->assertSee('Live Article')
-            ->assertSee('Published')
-            ->assertSee('https://live.example/post')
-            ->assertSee('Published on '.$site->site_name);
+            ->assertSee('Completed/Live');
+    }
+
+    public function test_library_exposes_completed_availability_filter_chips(): void
+    {
+        $advertiser = $this->advertiser();
+
+        $html = $this->actingAs($advertiser)
+            ->get(route('advertiser.content-library'))
+            ->assertOk()
+            ->assertSee('Availability filter', false)
+            ->assertSee('library-availability-box--completed', false)
+            ->getContent();
+
+        $this->assertStringContainsString('availability=completed', $html);
+        $this->assertStringContainsString('>Completed</span>', $html);
+    }
+
+    public function test_completed_filter_empty_state(): void
+    {
+        $advertiser = $this->advertiser();
+
+        $this->actingAs($advertiser)
+            ->get(route('advertiser.content-library', ['availability' => 'completed']))
+            ->assertOk()
+            ->assertSee('No completed articles yet')
+            ->assertSee('live URL');
     }
 
     public function test_advertiser_can_archive_and_restore_article(): void
