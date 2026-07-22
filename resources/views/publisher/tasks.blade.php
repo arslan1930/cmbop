@@ -447,52 +447,18 @@ function clearFocusMessagesParam() {
     window.history.replaceState({}, '', url.pathname + (url.search ? url.search : '') + url.hash);
 }
 
-function maybeOpenFocusedChat() {
-    const params = new URLSearchParams(window.location.search);
-    const focus = params.get('focus');
-    const orderId = params.get('order');
-
-    if (focus === 'order' && orderId) {
-        clearFocusMessagesParam();
-        // Find matching task row item id after tasks load; open chat as fallback
-        setTimeout(function() {
-            openChat(orderId, '#' + orderId);
-        }, 400);
-        return;
-    }
-
-    if (focus !== 'messages') return;
-
-    if (orderId) {
-        clearFocusMessagesParam();
-        openChat(orderId, '#' + orderId);
-        return;
-    }
-
-    fetch(baseUrl + '/chat/unread-summary', {
-        headers: { 'Accept': 'application/json' },
-        credentials: 'same-origin'
-    })
-    .then(r => r.json())
-    .then(data => {
-        clearFocusMessagesParam();
-        if (data.success && data.latest_unread_order) {
-            openChat(data.latest_unread_order.id, data.latest_unread_order.order_number);
-            return;
-        }
-        const table = document.getElementById('tasksTableBody');
-        if (table) {
-            table.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }
-    })
-    .catch(() => clearFocusMessagesParam());
+function clearFocusMessagesParam() {
+    const url = new URL(window.location.href);
+    if (!url.searchParams.has('focus') && !url.searchParams.has('order')) return;
+    url.searchParams.delete('focus');
+    url.searchParams.delete('order');
+    window.history.replaceState({}, '', url.pathname + (url.search ? url.search : '') + url.hash);
 }
 
 $(document).ready(function() {
     loadTasks();
     loadStatistics();
     refreshNeedsActionBanner();
-    maybeOpenFocusedChat();
 
     $('#showNeedsActionBtn').on('click', function() {
         $('#statusFilter').val('');
@@ -544,20 +510,7 @@ $(document).ready(function() {
         $('#resubmitModal').modal('show');
     });
 
-    // Chat functionality
-    window.openChat = function(orderId, orderNumber) {
-        currentChatOrderId = orderId;
-        document.getElementById('chatOrderId').value = orderId;
-        document.getElementById('chatOrderNumber').innerText = orderNumber;
-        const detailsEl = document.getElementById('chatOrderDetails');
-        if (detailsEl) {
-            detailsEl.classList.add('d-none');
-            detailsEl.innerHTML = '';
-        }
-        loadChatMessages(orderId);
-        $('#chatModal').modal('show');
-    };
-
+    // Chat functionality (shared OrderChat module)
     function formatChatDate(value, withTime) {
         if (!value) return '—';
         const date = new Date(value);
@@ -604,13 +557,49 @@ $(document).ready(function() {
             parts.push('Sensitive: ' + escapeHtml(details.sensitive_type));
         }
 
-        if (details.status) {
-            parts.push('Status: ' + escapeHtml(details.status));
+        if (details.status_label || details.status) {
+            parts.push('Status: ' + escapeHtml(details.status_label || details.status));
         }
 
         el.innerHTML = parts.join('<span class="chat-detail-sep">·</span>');
         el.classList.remove('d-none');
     }
+
+    function openTaskDetailsForOrder(orderId) {
+        var attempts = 0;
+        function tryOpen() {
+            var itemId = window._publisherTasksByOrderId && window._publisherTasksByOrderId[String(orderId)];
+            if (itemId) {
+                viewOrderDetails(itemId);
+                return;
+            }
+            if (++attempts < 25) {
+                setTimeout(tryOpen, 200);
+            }
+        }
+        tryOpen();
+    }
+
+    var orderChat = new OrderChat({
+        baseUrl: baseUrl,
+        renderOrderDetails: renderChatOrderDetails,
+        onFocusOrder: openTaskDetailsForOrder,
+        onFocusMessagesFallback: function() {
+            var table = document.getElementById('tasksTableBody');
+            if (table) table.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        },
+        onClose: function() {
+            loadTasks(currentPage, true);
+            refreshNeedsActionBanner();
+            if (typeof window.refreshHeaderAlerts === 'function') window.refreshHeaderAlerts();
+        },
+    });
+    orderChat.init();
+
+    window.openChat = function(orderId, orderNumber) {
+        currentChatOrderId = orderId;
+        orderChat.open(orderId, orderNumber);
+    };
 
     function loadStatistics() {
         $.ajax({
@@ -629,101 +618,6 @@ $(document).ready(function() {
             }
         });
     }
-
-    function loadChatMessages(orderId) {
-        fetch(baseUrl + '/chat/messages/' + orderId, {
-            method: 'GET',
-            headers: {
-                'X-CSRF-TOKEN': '{{ csrf_token() }}',
-                'Content-Type': 'application/json'
-            }
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                renderChatOrderDetails(data.order_details || null);
-                renderChatMessages(data.messages, data.current_user_id);
-                const chatDiv = document.getElementById('chatMessages');
-                chatDiv.scrollTop = chatDiv.scrollHeight;
-            } else {
-                document.getElementById('chatMessages').innerHTML = '<div class="text-center text-danger py-5"><i class="fa fa-exclamation-circle fa-3x mb-3"></i><p>Failed to load messages. Please try again.</p></div>';
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            document.getElementById('chatMessages').innerHTML = '<div class="text-center text-danger py-5"><i class="fa fa-exclamation-circle fa-3x mb-3"></i><p>Failed to load messages. Please try again.</p></div>';
-        });
-    }
-
-    function renderChatMessages(messages, currentUserId) {
-        if (!messages || messages.length === 0) {
-            document.getElementById('chatMessages').innerHTML = '<div class="text-center text-muted py-5"><i class="fa fa-comments fa-3x mb-3"></i><p>No messages yet. Start the conversation!</p></div>';
-            return;
-        }
-        
-        let html = '';
-        
-        messages.forEach(msg => {
-            const isOwnMessage = msg.user_id === currentUserId;
-            const messageClass = isOwnMessage ? 'chat-bubble chat-bubble--own' : 'chat-bubble chat-bubble--other';
-            const alignClass = isOwnMessage ? 'justify-content-end' : 'justify-content-start';
-            const senderName = isOwnMessage ? 'You' : escapeHtml(msg.user.name);
-            const time = new Date(msg.created_at).toLocaleString();
-            const messageText = escapeHtml(msg.message || '');
-            
-            html += '<div class="d-flex ' + alignClass + ' mb-3">' +
-                '<div class="' + messageClass + '">' +
-                    '<div class="chat-bubble__meta mb-1">' + senderName + ' · ' + time + '</div>' +
-                    '<div>' + messageText + '</div>' +
-                '</div>' +
-            '</div>';
-        });
-        
-        document.getElementById('chatMessages').innerHTML = html;
-    }
-
-    $('#chatForm').on('submit', function(e) {
-        e.preventDefault();
-        const orderId = $('#chatOrderId').val();
-        const message = $('#chatMessageInput').val().trim();
-        
-        if (!message) return;
-        
-        const sendBtn = $(this).find('button[type="submit"]');
-        sendBtn.prop('disabled', true).html('<i class="fa fa-spinner fa-spin"></i> Sending...');
-        
-        fetch(baseUrl + '/chat/send/' + orderId, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRF-TOKEN': '{{ csrf_token() }}'
-            },
-            body: JSON.stringify({ message: message })
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                $('#chatMessageInput').val('');
-                loadChatMessages(orderId);
-            } else {
-                Swal.fire('Error', data.message, 'error');
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            Swal.fire('Error', 'Failed to send message', 'error');
-        })
-        .finally(() => {
-            sendBtn.prop('disabled', false).html('<i class="fa fa-paper-plane"></i> Send');
-        });
-    });
-
-    // Ctrl+Enter shortcut
-    $('#chatMessageInput').on('keydown', function(e) {
-        if (e.ctrlKey && e.key === 'Enter') {
-            $('#chatForm').submit();
-        }
-    });
 
     $('#confirmAccept').on('click', function() {
         var id = $('#accept_order_item_id').val();
@@ -936,7 +830,11 @@ $(document).ready(function() {
         }
         
         var html = '';
+        window._publisherTasksByOrderId = {};
         orderItems.forEach(function(item) {
+            if (item.order_id) {
+                window._publisherTasksByOrderId[String(item.order_id)] = item.id;
+            }
             var orderStatus = item.order ? item.order.status : 'pending';
             var orderNumber = item.order ? item.order.order_number : 'N/A';
             var additionalPrice = parseFloat(item.additional_price || 0);

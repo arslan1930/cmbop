@@ -10,13 +10,14 @@
             </div>
             <div id="chatOrderDetails" class="chat-order-details d-none" aria-live="polite"></div>
             <div class="modal-body p-0">
-                <div id="chatMessages" class="chat-messages">
+                <div id="chatMessages" class="chat-messages" role="log" aria-live="polite">
                     <div class="text-center text-muted py-5">
                         <i class="fa fa-spinner fa-spin fa-2x"></i>
                         <p class="mt-2 mb-0">Loading messages...</p>
                     </div>
                 </div>
                 <div class="chat-composer">
+                    <div id="chatComposerNote" class="small text-muted px-3 pt-2 d-none" role="status"></div>
                     <form id="chatForm">
                         <input type="hidden" id="chatOrderId">
                         <div class="input-group">

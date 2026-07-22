@@ -1,7 +1,5 @@
 <?php
 
-// app/Http/Controllers/ChatController.php
-
 namespace App\Http\Controllers;
 
 use App\Mail\NewChatMessageNotification;
@@ -12,9 +10,9 @@ use App\Models\User;
 use App\Services\InAppNotificationService;
 use App\Support\AdvertiserOrderStatus;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Validation\ValidationException;
 
 class ChatController extends Controller
 {
@@ -111,30 +109,47 @@ class ChatController extends Controller
         }
     }
 
-    public function getMessages($orderId)
+    public function getMessages(Request $request, $orderId)
     {
         try {
             $order = Order::findOrFail($orderId);
             $user = auth()->user();
 
-            $isAdvertiser = $order->user_id === $user->id;
-            $isPublisher = $order->items()->whereHas('site', function ($q) use ($user) {
-                $q->where('publisher_id', $user->id);
-            })->exists();
-
-            if (! $isAdvertiser && ! $isPublisher) {
+            if (! $this->userCanAccessOrder($order, $user)) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Unauthorized',
                 ], 403);
             }
 
-            $messages = OrderChatMessage::where('order_id', $orderId)
-                ->with('user')
-                ->orderBy('created_at', 'asc')
-                ->get();
+            $isAdvertiser = (int) $order->user_id === (int) $user->id;
+            $sinceId = $request->integer('since_id') ?: null;
+            $beforeId = $request->integer('before_id') ?: null;
+            $limit = max(1, min(200, $request->integer('limit', 100) ?: 100));
 
-            // Mark messages as read
+            $query = OrderChatMessage::where('order_id', $orderId)->with('user');
+
+            if ($sinceId) {
+                $messages = $query->where('id', '>', $sinceId)
+                    ->orderBy('id', 'asc')
+                    ->get();
+                $hasMoreOlder = false;
+            } else {
+                $base = OrderChatMessage::where('order_id', $orderId);
+                if ($beforeId) {
+                    $base->where('id', '<', $beforeId);
+                }
+                $totalMatching = (clone $base)->count();
+                $messages = $base->with('user')
+                    ->orderByDesc('id')
+                    ->limit($limit)
+                    ->get()
+                    ->sortBy('id')
+                    ->values();
+                $hasMoreOlder = $totalMatching > $messages->count();
+            }
+
+            // Mark counterpart messages as read when loading (including poll refreshes).
             if ($isAdvertiser) {
                 OrderChatMessage::where('order_id', $orderId)
                     ->where('sender_type', 'publisher')
@@ -148,14 +163,17 @@ class ChatController extends Controller
             }
 
             $order->loadMissing(['items.site']);
+            $details = $this->buildOrderChatDetails($order);
 
             return response()->json([
                 'success' => true,
                 'messages' => $messages,
+                'has_more_older' => $hasMoreOlder,
                 'current_user_id' => $user->id,
-                'order_details' => $this->buildOrderChatDetails($order),
+                'order_details' => $details,
+                'can_send' => $details['can_send'],
+                'composer_note' => $details['composer_note'],
             ]);
-
         } catch (\Exception $e) {
             Log::error('Error fetching messages: '.$e->getMessage());
 
@@ -176,7 +194,7 @@ class ChatController extends Controller
             $order = Order::findOrFail($orderId);
             $user = auth()->user();
 
-            $isAdvertiser = $order->user_id === $user->id;
+            $isAdvertiser = (int) $order->user_id === (int) $user->id;
             $isPublisher = $order->items()->whereHas('site', function ($q) use ($user) {
                 $q->where('publisher_id', $user->id);
             })->exists();
@@ -188,9 +206,15 @@ class ChatController extends Controller
                 ], 403);
             }
 
-            $senderType = $isAdvertiser ? 'advertiser' : 'publisher';
+            if ($order->status === 'cancelled') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'This order is cancelled. Chat is closed.',
+                    'can_send' => false,
+                ], 422);
+            }
 
-            DB::beginTransaction();
+            $senderType = $isAdvertiser ? 'advertiser' : 'publisher';
 
             $message = OrderChatMessage::create([
                 'order_id' => $orderId,
@@ -199,34 +223,27 @@ class ChatController extends Controller
                 'message' => $request->message,
                 'is_read' => false,
             ]);
+            $message->load('user');
 
-            // Send email notification
-            $receiver = null;
-            if ($isAdvertiser) {
-                // Message from advertiser to publisher
-                $site = $order->items()->first()->site;
-                if ($site && $site->publisher_id) {
-                    $receiver = User::find($site->publisher_id);
-                    if ($receiver && $receiver->email) {
-                        Mail::to($receiver->email)->send(new NewChatMessageNotification(
-                            $order, $user, $request->message, $receiver->name
-                        ));
-                    }
-                }
-            } else {
-                // Message from publisher to advertiser
-                $receiver = User::find($order->user_id);
-                if ($receiver && $receiver->email) {
+            $receiver = $this->resolveChatReceiver($order, $isAdvertiser);
+
+            if ($receiver?->email) {
+                try {
                     Mail::to($receiver->email)->send(new NewChatMessageNotification(
-                        $order, $user, $request->message, $receiver->name
+                        $order,
+                        $user,
+                        (string) $request->message,
+                        (string) $receiver->name,
+                        (int) $message->id
                     ));
+                } catch (\Throwable $e) {
+                    Log::warning('Chat email failed: '.$e->getMessage(), [
+                        'order_id' => $order->id,
+                        'message_id' => $message->id,
+                    ]);
                 }
             }
 
-            DB::commit();
-            $message->load('user');
-
-            // In-app notification only (email flow above is unchanged)
             if ($receiver) {
                 app(InAppNotificationService::class)->notifyNewChatMessage(
                     $order,
@@ -240,10 +257,11 @@ class ChatController extends Controller
                 'success' => true,
                 'message' => $message,
                 'current_user_id' => $user->id,
+                'can_send' => true,
             ]);
-
+        } catch (ValidationException $e) {
+            throw $e;
         } catch (\Exception $e) {
-            DB::rollBack();
             Log::error('Error sending message: '.$e->getMessage());
 
             return response()->json([
@@ -253,8 +271,33 @@ class ChatController extends Controller
         }
     }
 
+    private function userCanAccessOrder(Order $order, User $user): bool
+    {
+        if ((int) $order->user_id === (int) $user->id) {
+            return true;
+        }
+
+        return $order->items()->whereHas('site', function ($q) use ($user) {
+            $q->where('publisher_id', $user->id);
+        })->exists();
+    }
+
+    private function resolveChatReceiver(Order $order, bool $senderIsAdvertiser): ?User
+    {
+        if ($senderIsAdvertiser) {
+            $item = $order->items()->with('site')->first();
+            $publisherId = $item?->site?->publisher_id;
+
+            return $publisherId ? User::find($publisherId) : null;
+        }
+
+        return User::find($order->user_id);
+    }
+
     /**
      * Compact order/site context shown above the chat thread.
+     *
+     * @return array<string, mixed>
      */
     private function buildOrderChatDetails(Order $order): array
     {
@@ -269,6 +312,13 @@ class ChatController extends Controller
 
         $meta = AdvertiserOrderStatus::meta($order, $item);
         $canReview = $order->status === 'review' && filled($item?->live_url);
+        $canSend = $order->status !== 'cancelled';
+        $composerNote = null;
+        if ($order->status === 'cancelled') {
+            $composerNote = 'This order is cancelled. Chat is read-only.';
+        } elseif ($order->status === 'completed') {
+            $composerNote = 'This order is completed. You can still message about this placement.';
+        }
 
         return [
             'order_id' => $order->id,
@@ -279,6 +329,8 @@ class ChatController extends Controller
             'auto_approve_hint' => $meta['auto_approve_hint'],
             'can_approve' => $canReview,
             'can_request_changes' => $canReview,
+            'can_send' => $canSend,
+            'composer_note' => $composerNote,
             'website_name' => $item?->site_name ?: ($site?->site_name ?: '—'),
             'website_url' => $item?->site_url ?: ($site?->site_url ?: null),
             'order_date' => optional($order->created_at)?->toIso8601String(),
