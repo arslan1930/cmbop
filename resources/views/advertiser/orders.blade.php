@@ -202,18 +202,19 @@
 
 <!-- Order Details Modal -->
 <div class="modal fade" id="orderDetailsModal" tabindex="-1">
-    <div class="modal-dialog modal-dialog-centered modal-lg">
-        <div class="modal-content">
-            <div class="modal-header">
+    <div class="modal-dialog modal-dialog-centered modal-xl order-details-dialog">
+        <div class="modal-content order-details-content">
+            <div class="modal-header py-2">
                 <h5 class="modal-title">Order Details</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
-            <div class="modal-body">
+            <div class="modal-body order-details-body">
                 <div id="orderDetailsContent">
                     <!-- Dynamic content will be inserted here -->
                 </div>
             </div>
-            <div class="modal-footer">
+            <div class="modal-footer py-2 flex-wrap gap-2" id="orderDetailsFooter">
+                <div id="orderDetailsActions" class="d-flex flex-wrap gap-2 me-auto"></div>
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
             </div>
         </div>
@@ -350,6 +351,140 @@
     padding: 4px 12px;
     font-size: 12px;
     white-space: nowrap;
+}
+
+/* Order details: fit one viewport — side-by-side, no collapsed sections */
+.order-details-dialog {
+    max-width: min(1180px, 96vw);
+    margin: 0.4rem auto;
+}
+.order-details-content {
+    max-height: calc(100vh - 0.8rem);
+    display: flex;
+    flex-direction: column;
+}
+.order-details-body {
+    flex: 1 1 auto;
+    overflow: hidden;
+    padding: 0.65rem 0.9rem;
+}
+.order-view-shell {
+    display: grid;
+    grid-template-columns: minmax(240px, 0.95fr) minmax(280px, 1.15fr) minmax(260px, 1fr);
+    gap: 0.65rem;
+    height: 100%;
+    min-height: 0;
+    align-items: stretch;
+}
+.order-view-panel {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    padding: 0.7rem 0.8rem;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+}
+.order-view-panel h6 {
+    font-size: 0.8rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    color: #64748b;
+    margin: 0 0 0.5rem;
+}
+.order-view-panel .ov-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 0.5rem;
+    font-size: 0.86rem;
+    margin-bottom: 0.28rem;
+    line-height: 1.35;
+}
+.order-view-panel .ov-row strong {
+    color: #475569;
+    font-weight: 600;
+    flex-shrink: 0;
+}
+.order-view-panel .ov-row span,
+.order-view-panel .ov-row a {
+    text-align: right;
+    word-break: break-word;
+}
+.order-view-panel .ov-block {
+    margin-bottom: 0.45rem;
+}
+.order-view-panel .ov-block > strong {
+    display: block;
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: #94a3b8;
+    margin-bottom: 0.1rem;
+}
+.order-view-panel .ov-block > div,
+.order-view-panel .ov-block > p {
+    margin: 0;
+    font-size: 0.86rem;
+    line-height: 1.35;
+    word-break: break-word;
+}
+.order-view-status-steps {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.3rem;
+    align-items: center;
+    margin-bottom: 0.5rem;
+}
+.order-view-status-steps .badge {
+    font-size: 0.72rem;
+    font-weight: 600;
+    padding: 0.35rem 0.55rem;
+}
+.order-view-status-steps .ov-arrow {
+    color: #cbd5e1;
+    font-size: 0.7rem;
+}
+.order-view-timeline {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 0.55rem 0.65rem;
+}
+.order-view-timeline .oa-item {
+    padding-bottom: 10px;
+}
+.order-view-timeline .oa-title {
+    font-size: 12px;
+}
+.order-view-timeline .oa-desc {
+    font-size: 11px;
+}
+.order-view-refund {
+    margin-top: auto;
+    padding-top: 0.5rem;
+    border-top: 1px solid #e2e8f0;
+    font-size: 0.78rem;
+    color: #64748b;
+    line-height: 1.35;
+}
+.order-view-refund a {
+    font-weight: 600;
+}
+@media (max-width: 991.98px) {
+    .order-details-body {
+        overflow-y: auto;
+    }
+    .order-view-shell {
+        grid-template-columns: 1fr;
+        height: auto;
+    }
+    .order-view-timeline {
+        max-height: 220px;
+    }
 }
 
 .btn-chat {
@@ -861,21 +996,17 @@ document.addEventListener('DOMContentLoaded', function() {
         const modRequested = item.modification_requested === 'yes';
 
         if (status === 'cancelled' && order.payment_status === 'refunded') {
-            return `<div class="alert alert-secondary mt-3 mb-0 py-2 small">Cancelled · refunded to your wallet (usually instant).</div>
-                <div class="mt-3">
-                    <h6 class="mb-2">Activity Timeline</h6>
-                    <div id="orderActivityTimeline" class="bg-white border rounded p-3">
-                        <div class="text-muted small">Loading activity…</div>
-                    </div>
+            return `<div class="alert alert-secondary py-2 small mb-2">Cancelled · refunded to your wallet (usually instant).</div>
+                <h6>Activity Timeline</h6>
+                <div id="orderActivityTimeline" class="order-view-timeline">
+                    <div class="text-muted small">Loading activity…</div>
                 </div>`;
         }
         if (status === 'cancelled') {
-            return `<div class="alert alert-secondary mt-3 mb-0 py-2 small">This order was cancelled.</div>
-                <div class="mt-3">
-                    <h6 class="mb-2">Activity Timeline</h6>
-                    <div id="orderActivityTimeline" class="bg-white border rounded p-3">
-                        <div class="text-muted small">Loading activity…</div>
-                    </div>
+            return `<div class="alert alert-secondary py-2 small mb-2">This order was cancelled.</div>
+                <h6>Activity Timeline</h6>
+                <div id="orderActivityTimeline" class="order-view-timeline">
+                    <div class="text-muted small">Loading activity…</div>
                 </div>`;
         }
 
@@ -905,10 +1036,10 @@ document.addEventListener('DOMContentLoaded', function() {
             steps[4].current = true;
         }
 
-        const statusSteps = `<div class="d-flex flex-wrap gap-2 mt-3 mb-3">${steps.map((step, i) => {
+        const statusSteps = `<div class="order-view-status-steps">${steps.map((step, i) => {
             const cls = step.done ? 'bg-success text-white' : (step.current ? 'bg-info text-white' : 'bg-light text-muted');
-            const arrow = i < steps.length - 1 ? '<span class="text-muted align-self-center">→</span>' : '';
-            return `<span class="badge ${cls} px-3 py-2">${i + 1}. ${step.label}</span>${arrow}`;
+            const arrow = i < steps.length - 1 ? '<span class="ov-arrow">→</span>' : '';
+            return `<span class="badge ${cls}">${i + 1}. ${step.label}</span>${arrow}`;
         }).join('')}</div>`;
 
         const meta = getAdvertiserStatusMeta(order);
@@ -917,11 +1048,9 @@ document.addEventListener('DOMContentLoaded', function() {
             : '';
 
         return `${statusSteps}${hint}
-            <div class="mt-3">
-                <h6 class="mb-2">Activity Timeline</h6>
-                <div id="orderActivityTimeline" class="bg-white border rounded p-3">
-                    <div class="text-muted small">Loading activity…</div>
-                </div>
+            <h6>Activity Timeline</h6>
+            <div id="orderActivityTimeline" class="order-view-timeline">
+                <div class="text-muted small">Loading activity…</div>
             </div>`;
     }
 
@@ -1317,139 +1446,127 @@ document.addEventListener('DOMContentLoaded', function() {
                 : '';
             const http = item.live_url_http_status ? ` · HTTP ${item.live_url_http_status}` : '';
             healthHtml = `
-                <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+                <div class="d-flex flex-wrap align-items-center gap-2 mt-1">
                     ${liveUrlHealthBadge(item)}
-                    <span class="small text-muted">We check the link is publicly reachable. Search indexing can take longer.${http}${checked}</span>
-                    <button type="button" class="btn btn-sm btn-outline-secondary" id="recheckLiveUrlBtn" onclick="recheckLiveUrl(${order.id})">
+                    <span class="small text-muted">Public reachability check${http}${checked}</span>
+                    <button type="button" class="btn btn-sm btn-outline-secondary py-0 px-2" id="recheckLiveUrlBtn" onclick="recheckLiveUrl(${order.id})">
                         <i class="fa fa-refresh me-1"></i>Recheck
                     </button>
                 </div>`;
         }
 
         const liveUrlHtml = liveUrl
-            ? `<p class="mb-1"><strong>Live URL:</strong></p>
-               <p class="mb-1"><a href="${escapeHtml(liveUrl)}" target="_blank" class="text-success">${escapeHtml(liveUrl)} <i class="fa fa-external-link fa-xs"></i></a></p>
-               ${healthHtml}`
-            : `<p class="mb-2 text-muted">Live URL not submitted yet</p>`;
+            ? `<div class="ov-block">
+                    <strong>Live URL</strong>
+                    <div><a href="${escapeHtml(liveUrl)}" target="_blank" class="text-success">${escapeHtml(liveUrl)} <i class="fa fa-external-link fa-xs"></i></a></div>
+                    ${healthHtml}
+               </div>`
+            : `<div class="ov-block"><strong>Live URL</strong><div class="text-muted">Not submitted yet</div></div>`;
 
         const revisionHtml = modRequested && item.completion_notes
-            ? `<div class="alert alert-warning py-2 small mt-2 mb-0"><strong>Your change request:</strong> ${escapeHtml(item.completion_notes)}</div>`
+            ? `<div class="alert alert-warning py-1 px-2 small mb-2"><strong>Change request:</strong> ${escapeHtml(item.completion_notes)}</div>`
             : '';
-
-        const sensitiveHtml = additionalPrice > 0
-            ? `<p class="mb-1"><strong>Sensitive Price:</strong></p>
-               <p class="mb-2 text-warning"><i class="fa fa-plus-circle"></i> ${escapeHtml(item.sensitive_type || 'Extra')}: €${additionalPrice.toFixed(2)}</p>`
-            : '';
-
-        const refundRulesHtml = `
-            <div class="border rounded p-3 mt-3 bg-light">
-                <h6 class="mb-2">If something goes wrong</h6>
-                <ul class="small mb-2 ps-3">
-                    <li>Publisher declines → automatic wallet refund</li>
-                    <li>Ask for changes if the live post needs fixes (before auto-approve)</li>
-                    <li>Still stuck → Raise an issue (chat) or contact support</li>
-                </ul>
-                <a href="{{ route('refund-policy') }}" target="_blank" rel="noopener" class="small">Refund policy</a>
-            </div>`;
 
         let actionButtons = '';
         if (order.can_retry_payment) {
             actionButtons = `
-                <div class="mt-4 text-center d-flex gap-3 justify-content-center flex-wrap">
-                    <button class="btn btn-primary" onclick="retryOrderPayment(${order.id})">
-                        <i class="fa fa-credit-card"></i> Pay again
-                    </button>
-                </div>
+                <button class="btn btn-sm btn-primary" onclick="retryOrderPayment(${order.id})">
+                    <i class="fa fa-credit-card"></i> Pay again
+                </button>
             `;
         } else if (isUnderReview && hasLiveUrl) {
             actionButtons = `
-                <div class="mt-4 text-center d-flex gap-3 justify-content-center flex-wrap">
-                    <button class="btn btn-success" onclick="approveOrder(${order.id})">
-                        <i class="fa fa-check-circle"></i> Approve
-                    </button>
-                    <button class="btn btn-warning" onclick="requestModification(${order.id})">
-                        <i class="fa fa-edit"></i> Request changes
-                    </button>
-                    <button class="btn btn-outline-danger" onclick="raiseIssue(${order.id}, '${escapeHtml(order.order_number)}', '${escapeHtml(statusMeta.label)}')">
-                        <i class="fa fa-flag"></i> Raise an issue
-                    </button>
-                </div>
+                <button class="btn btn-sm btn-success" onclick="approveOrder(${order.id})">
+                    <i class="fa fa-check-circle"></i> Approve
+                </button>
+                <button class="btn btn-sm btn-warning" onclick="requestModification(${order.id})">
+                    <i class="fa fa-edit"></i> Request changes
+                </button>
+                <button class="btn btn-sm btn-outline-danger" onclick="raiseIssue(${order.id}, '${escapeHtml(order.order_number)}', '${escapeHtml(statusMeta.label)}')">
+                    <i class="fa fa-flag"></i> Raise an issue
+                </button>
             `;
         } else if (!['completed', 'cancelled'].includes(order.status) || order.payment_status === 'refunded') {
             actionButtons = `
-                <div class="mt-4 text-center d-flex gap-3 justify-content-center flex-wrap">
-                    <button class="btn btn-outline-secondary" onclick="openChat(${order.id}, '${escapeHtml(order.order_number)}')">
-                        <i class="fa fa-comments"></i> Chat
-                    </button>
-                    ${order.status !== 'completed' ? `<button class="btn btn-outline-danger" onclick="raiseIssue(${order.id}, '${escapeHtml(order.order_number)}', '${escapeHtml(statusMeta.label)}')">
-                        <i class="fa fa-flag"></i> Raise an issue
-                    </button>` : ''}
-                </div>
+                <button class="btn btn-sm btn-outline-secondary" onclick="openChat(${order.id}, '${escapeHtml(order.order_number)}')">
+                    <i class="fa fa-comments"></i> Chat
+                </button>
+                ${order.status !== 'completed' ? `<button class="btn btn-sm btn-outline-danger" onclick="raiseIssue(${order.id}, '${escapeHtml(order.order_number)}', '${escapeHtml(statusMeta.label)}')">
+                    <i class="fa fa-flag"></i> Raise an issue
+                </button>` : ''}
             `;
         }
 
         const html = `
-            <div class="row mb-4">
-                <div class="col-md-6">
-                    <div class="bg-light p-3 rounded">
-                        <h6 class="mb-3">Order Information</h6>
-                        <p class="mb-1"><strong>Order Number:</strong> ${order.order_number}</p>
-                        <p class="mb-1"><strong>Date:</strong> ${formatDate(order.created_at)}</p>
-                        <p class="mb-1"><strong>Payment Method:</strong> ${getPaymentMethodName(order.payment_method)}</p>
-                        <p class="mb-1"><strong>Payment Status:</strong> <span class="status-badge ${getPaymentStatusClass(order.payment_status)}">${capitalize(order.payment_status)}</span></p>
-                        <p class="mb-1"><strong>Reference Code:</strong> ${order.reference_code || '-'}</p>
+            <div class="order-view-shell">
+                <div class="order-view-panel">
+                    <h6>Order details</h6>
+                    <div class="ov-row"><strong>Order #</strong><span>${escapeHtml(order.order_number)}</span></div>
+                    <div class="ov-row"><strong>Date</strong><span>${formatDate(order.created_at)}</span></div>
+                    <div class="ov-row"><strong>Payment</strong><span>${getPaymentMethodName(order.payment_method)}</span></div>
+                    <div class="ov-row"><strong>Pay status</strong><span class="status-badge ${getPaymentStatusClass(order.payment_status)}">${capitalize(order.payment_status)}</span></div>
+                    <div class="ov-row"><strong>Reference</strong><span>${escapeHtml(order.reference_code || '-')}</span></div>
+                    <hr class="my-2">
+                    <h6>Status</h6>
+                    <div class="ov-row"><strong>Now</strong><span class="status-badge ${statusMeta.cls}">${escapeHtml(statusMeta.label)}</span></div>
+                    <p class="small text-muted mb-1">${escapeHtml(statusMeta.next)}</p>
+                    ${statusMeta.autoHint ? `<p class="small text-muted mb-1"><i class="fa fa-clock-o me-1"></i>${escapeHtml(statusMeta.autoHint)}</p>` : ''}
+                    ${revisionHtml}
+                    <hr class="my-2">
+                    <div class="ov-row"><strong>Base</strong><span>€${basePrice.toFixed(2)}</span></div>
+                    ${additionalPrice > 0 ? `<div class="ov-row"><strong>Sensitive</strong><span class="text-warning">+ €${additionalPrice.toFixed(2)} (${escapeHtml(item.sensitive_type || 'Extra')})</span></div>` : ''}
+                    <div class="ov-row"><strong>Total</strong><span class="fw-bold text-primary">€${parseFloat(order.total_amount).toFixed(2)}</span></div>
+                    <div class="order-view-refund">
+                        Declines refund automatically · request changes before auto-approve ·
+                        <a href="{{ route('refund-policy') }}" target="_blank" rel="noopener">Refund policy</a>
                     </div>
                 </div>
-                <div class="col-md-6">
-                    <div class="bg-light p-3 rounded">
-                        <h6 class="mb-3">What's happening</h6>
-                        <p class="mb-1"><strong>Status:</strong> <span class="status-badge ${statusMeta.cls}">${escapeHtml(statusMeta.label)}</span></p>
-                        <p class="mb-2 text-muted small">${escapeHtml(statusMeta.next)}</p>
-                        ${statusMeta.autoHint ? `<p class="mb-2 small text-muted"><i class="fa fa-clock-o me-1"></i>${escapeHtml(statusMeta.autoHint)}</p>` : ''}
-                        <p class="mb-1"><strong>Price:</strong> <span class="fw-bold">€${basePrice.toFixed(2)}</span></p>
-                        ${additionalPrice > 0 ? `<p class="mb-1"><strong>Sensitive Price:</strong> <span class="text-warning">+ €${additionalPrice.toFixed(2)}</span></p>` : ''}
-                        <p class="mb-1"><strong>Total Amount:</strong> <span class="fw-bold text-primary fs-5">€${parseFloat(order.total_amount).toFixed(2)}</span></p>
-                        ${revisionHtml}
+
+                <div class="order-view-panel">
+                    <h6>Placement</h6>
+                    <div class="ov-block">
+                        <strong>Site</strong>
+                        <div>${escapeHtml(item.site_name)}</div>
                     </div>
+                    <div class="ov-block">
+                        <strong>Site URL</strong>
+                        <div><a href="${escapeHtml(item.site_url)}" target="_blank" class="text-primary">${escapeHtml(item.site_url)} <i class="fa fa-external-link fa-xs"></i></a></div>
+                    </div>
+                    <div class="ov-block">
+                        <strong>Document</strong>
+                        <div>${item.content_link ? `<a href="${escapeHtml(item.content_link)}" class="text-primary"><i class="fa fa-download me-1"></i>${escapeHtml(item.content_original_name || 'Download article')}</a>` : '—'}</div>
+                    </div>
+                    <div class="ov-block">
+                        <strong>Anchor text</strong>
+                        <div>${escapeHtml(item.anchor_text || '—')}</div>
+                    </div>
+                    <div class="ov-block">
+                        <strong>Target URL</strong>
+                        <div>${item.target_url ? `<a href="${escapeHtml(item.target_url)}" target="_blank" rel="noopener">${escapeHtml(item.target_url)}</a>` : '—'}</div>
+                    </div>
+                    <div class="ov-block">
+                        <strong>Feature image</strong>
+                        <div>${item.feature_image_url ? `<a href="${escapeHtml(item.feature_image_url)}" target="_blank" rel="noopener">${escapeHtml(item.feature_image_url)}</a>` : 'Publisher may choose'}</div>
+                    </div>
+                    <div class="ov-block">
+                        <strong>Compliance</strong>
+                        <div>${escapeHtml(item.moderation_status || '—')}</div>
+                    </div>
+                    ${liveUrlHtml}
+                </div>
+
+                <div class="order-view-panel">
+                    <h6>Tracking</h6>
+                    ${timelineHtml}
                 </div>
             </div>
-            ${timelineHtml}
-
-            <h6 class="mb-3">Order Items</h6>
-            <div class="border rounded p-3">
-                <div class="row">
-                    <div class="col-md-6">
-                        <p class="mb-1"><strong>Site Name:</strong></p>
-                        <p class="mb-2">${escapeHtml(item.site_name)}</p>
-                        <p class="mb-1"><strong>Site URL:</strong></p>
-                        <p class="mb-2"><a href="${escapeHtml(item.site_url)}" target="_blank" class="text-primary">${escapeHtml(item.site_url)} <i class="fa fa-external-link fa-xs"></i></a></p>
-                        ${sensitiveHtml}
-                    </div>
-                    <div class="col-md-6">
-                        <p class="mb-1"><strong>Price Breakdown:</strong></p>
-                        <p class="mb-1"><small>Base Price: €${basePrice.toFixed(2)}</small></p>
-                        ${additionalPrice > 0 ? `<p class="mb-1"><small class="text-warning">+ ${escapeHtml(item.sensitive_type)}: €${additionalPrice.toFixed(2)}</small></p>` : ''}
-                        <p class="mb-2"><strong class="text-primary">Total: €${parseFloat(item.price).toFixed(2)}</strong></p>
-                        <p class="mb-1"><strong>Uploaded Document:</strong></p>
-                        <p class="mb-2">${item.content_link ? `<a href="${escapeHtml(item.content_link)}" class="text-primary"><i class="fa fa-download me-1"></i>${escapeHtml(item.content_original_name || 'Download article')}</a>` : '—'}</p>
-                        <p class="mb-1"><strong>Anchor Text:</strong></p>
-                        <p class="mb-2">${escapeHtml(item.anchor_text || '—')}</p>
-                        <p class="mb-1"><strong>Target URL:</strong></p>
-                        <p class="mb-2">${item.target_url ? `<a href="${escapeHtml(item.target_url)}" target="_blank" rel="noopener">${escapeHtml(item.target_url)}</a>` : '—'}</p>
-                        <p class="mb-1"><strong>Feature Image URL:</strong></p>
-                        <p class="mb-2">${item.feature_image_url ? `<a href="${escapeHtml(item.feature_image_url)}" target="_blank" rel="noopener">${escapeHtml(item.feature_image_url)}</a>` : 'Publisher may choose'}</p>
-                        <p class="mb-1"><strong>Compliance:</strong></p>
-                        <p class="mb-2">${escapeHtml(item.moderation_status || '—')}</p>
-                        ${liveUrlHtml}
-                    </div>
-                </div>
-            </div>
-
-            ${refundRulesHtml}
-            ${actionButtons}
         `;
 
         document.getElementById('orderDetailsContent').innerHTML = html;
+        const actionsEl = document.getElementById('orderDetailsActions');
+        if (actionsEl) {
+            actionsEl.innerHTML = actionButtons;
+        }
     }
 
     function renderPagination(pagination) {
