@@ -393,7 +393,8 @@ let currentPage = 1;
 let currentChatOrderId = null;
 
 document.addEventListener('DOMContentLoaded', function() {
-    fetchOrders();
+    hydrateOrdersFiltersFromUrl();
+    fetchOrders(currentPage);
 
     document.getElementById('resetFilters').addEventListener('click', function() {
         document.getElementById('searchInput').value = '';
@@ -402,25 +403,60 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('paymentMethodFilter').value = '';
         document.getElementById('dateFrom').value = '';
         document.getElementById('dateTo').value = '';
-        
-        const url = new URL(window.location.href);
-        url.search = '';
-        window.history.pushState({}, '', url);
-        
-        fetchOrders();
+        currentPage = 1;
+        syncOrdersFiltersToUrl(1);
+        fetchOrders(1);
     });
 
     document.getElementById('showNeedsReviewBtn')?.addEventListener('click', function() {
         document.getElementById('statusFilter').value = 'review';
         currentPage = 1;
-        fetchOrders();
+        syncOrdersFiltersToUrl(1);
+        fetchOrders(1);
     });
     
     document.getElementById('filterForm').addEventListener('submit', function(e) {
         e.preventDefault();
         currentPage = 1;
-        fetchOrders();
+        syncOrdersFiltersToUrl(1);
+        fetchOrders(1);
     });
+
+    function hydrateOrdersFiltersFromUrl() {
+        const params = new URLSearchParams(window.location.search);
+        const setVal = (id, key) => {
+            const el = document.getElementById(id);
+            if (el && params.has(key)) el.value = params.get(key) || '';
+        };
+        setVal('searchInput', 'search');
+        setVal('statusFilter', 'status');
+        setVal('paymentStatusFilter', 'payment_status');
+        setVal('paymentMethodFilter', 'payment_method');
+        setVal('dateFrom', 'date_from');
+        setVal('dateTo', 'date_to');
+        const page = parseInt(params.get('page') || '1', 10);
+        currentPage = Number.isFinite(page) && page > 0 ? page : 1;
+    }
+
+    function syncOrdersFiltersToUrl(page = 1) {
+        const url = new URL(window.location.href);
+        const map = {
+            search: document.getElementById('searchInput')?.value || '',
+            status: document.getElementById('statusFilter')?.value || '',
+            payment_status: document.getElementById('paymentStatusFilter')?.value || '',
+            payment_method: document.getElementById('paymentMethodFilter')?.value || '',
+            date_from: document.getElementById('dateFrom')?.value || '',
+            date_to: document.getElementById('dateTo')?.value || '',
+        };
+        Object.keys(map).forEach((key) => {
+            if (map[key]) url.searchParams.set(key, map[key]);
+            else url.searchParams.delete(key);
+        });
+        if (page > 1) url.searchParams.set('page', String(page));
+        else url.searchParams.delete('page');
+        window.history.pushState({}, '', url);
+    }
+    window.syncOrdersFiltersToUrl = syncOrdersFiltersToUrl;
 
     function escapeHtml(str) {
         return window.OrderChatEscapeHtml ? window.OrderChatEscapeHtml(str) : String(str || '');
@@ -579,6 +615,7 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     function fetchOrders(page = 1) {
+        currentPage = page;
         const search = document.getElementById('searchInput')?.value || '';
         const status = document.getElementById('statusFilter')?.value || '';
         const paymentStatus = document.getElementById('paymentStatusFilter')?.value || '';
@@ -593,6 +630,10 @@ document.addEventListener('DOMContentLoaded', function() {
         if (paymentMethod) url += `&payment_method=${paymentMethod}`;
         if (dateFrom) url += `&date_from=${dateFrom}`;
         if (dateTo) url += `&date_to=${dateTo}`;
+
+        if (typeof window.syncOrdersFiltersToUrl === 'function') {
+            window.syncOrdersFiltersToUrl(page);
+        }
         
         fetch(url, {
             method: 'GET',
@@ -601,7 +642,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 'Content-Type': 'application/json'
             }
         })
-        .then(response => response.json())
+        .then(response => {
+            if (!response.ok) throw new Error('Request failed');
+            return response.json();
+        })
         .then(data => {
             if (data.success) {
                 renderOrders(data.orders, data.pagination);
@@ -624,10 +668,12 @@ document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('ordersTableBody').innerHTML = `
                 <tr>
                     <td colspan="11" class="text-center py-5">
-                        <div class="text-danger">Failed to load orders. Please try again.</div>
+                        <div class="text-danger mb-2">Failed to load orders.</div>
+                        <button type="button" class="btn btn-sm btn-outline-primary" id="retryOrdersBtn">Retry</button>
                     </td>
                 </tr>
             `;
+            document.getElementById('retryOrdersBtn')?.addEventListener('click', () => fetchOrders(currentPage));
         });
     }
 
@@ -1410,7 +1456,5 @@ document.addEventListener('DOMContentLoaded', function() {
 
 <!-- SweetAlert2 -->
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
 
 @endsection

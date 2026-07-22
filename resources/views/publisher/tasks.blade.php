@@ -458,12 +458,14 @@ function clearFocusMessagesParam() {
 }
 
 $(document).ready(function() {
-    loadTasks();
+    hydrateTasksFiltersFromUrl();
+    loadTasks(currentPage);
     loadStatistics();
     refreshNeedsActionBanner();
 
     $('#showNeedsActionBtn').on('click', function() {
         $('#statusFilter').val('');
+        syncTasksFiltersToUrl(1);
         loadTasks(1);
         $('html, body').animate({ scrollTop: $('#tasksTableBody').offset().top - 120 }, 'fast');
     });
@@ -477,7 +479,8 @@ $(document).ready(function() {
     $('#filterForm').on('submit', function(e) {
         e.preventDefault();
         currentPage = 1;
-        loadTasks();
+        syncTasksFiltersToUrl(1);
+        loadTasks(1);
     });
 
     $('#resetFiltersBtn').on('click', function() {
@@ -486,8 +489,37 @@ $(document).ready(function() {
         $('#dateFrom').val('');
         $('#dateTo').val('');
         currentPage = 1;
-        loadTasks();
+        syncTasksFiltersToUrl(1);
+        loadTasks(1);
     });
+
+    function hydrateTasksFiltersFromUrl() {
+        const params = new URLSearchParams(window.location.search);
+        if (params.has('search')) $('#searchInput').val(params.get('search') || '');
+        if (params.has('status')) $('#statusFilter').val(params.get('status') || '');
+        if (params.has('date_from')) $('#dateFrom').val(params.get('date_from') || '');
+        if (params.has('date_to')) $('#dateTo').val(params.get('date_to') || '');
+        const page = parseInt(params.get('page') || '1', 10);
+        currentPage = Number.isFinite(page) && page > 0 ? page : 1;
+    }
+
+    function syncTasksFiltersToUrl(page) {
+        const url = new URL(window.location.href);
+        const map = {
+            search: $('#searchInput').val() || '',
+            status: $('#statusFilter').val() || '',
+            date_from: $('#dateFrom').val() || '',
+            date_to: $('#dateTo').val() || '',
+        };
+        Object.keys(map).forEach(function (key) {
+            if (map[key]) url.searchParams.set(key, map[key]);
+            else url.searchParams.delete(key);
+        });
+        if (page > 1) url.searchParams.set('page', String(page));
+        else url.searchParams.delete('page');
+        window.history.pushState({}, '', url);
+    }
+    window.syncTasksFiltersToUrl = syncTasksFiltersToUrl;
 
     $(document).on('click', '.accept-task', function() {
         $('#accept_order_item_id').val($(this).data('id'));
@@ -784,8 +816,11 @@ $(document).ready(function() {
 
     function loadTasks(page = 1, silent = false) {
         currentPage = page;
+        if (!silent && typeof window.syncTasksFiltersToUrl === 'function') {
+            window.syncTasksFiltersToUrl(page);
+        }
         if (!silent) {
-            $('#tasksTableBody').html('<tr><td colspan="9" class="text-center py-5"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div><p class="mt-2 text-muted">Loading tasks...</p></td></table>');
+            $('#tasksTableBody').html('<tr><td colspan="9" class="text-center py-5"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div><p class="mt-2 text-muted">Loading tasks...</p></td></tr>');
         }
         
         $.ajax({
@@ -805,13 +840,19 @@ $(document).ready(function() {
                     if (response.pagination) renderPagination(response.pagination);
                     refreshNeedsActionBanner();
                 } else if (!silent) {
-                    $('#tasksTableBody').html('<tr><td colspan="9" class="text-center text-danger py-5">' + (response.message || 'Failed to load tasks') + '</td></table>');
+                    $('#tasksTableBody').html('<tr><td colspan="9" class="text-center text-danger py-5">' + (response.message || 'Failed to load tasks') + '</td></tr>');
                 }
             },
             error: function(xhr, status, error) {
                 console.error('AJAX Error:', status, error);
                 if (!silent) {
-                    $('#tasksTableBody').html('<tr><td colspan="9" class="text-center text-danger py-5">Error loading tasks. Please refresh the page.</td></tr>');
+                    $('#tasksTableBody').html(
+                        '<tr><td colspan="9" class="text-center py-5">' +
+                        '<div class="text-danger mb-2">Error loading tasks.</div>' +
+                        '<button type="button" class="btn btn-sm btn-outline-primary" id="retryTasksBtn">Retry</button>' +
+                        '</td></tr>'
+                    );
+                    $('#retryTasksBtn').on('click', function () { loadTasks(currentPage); });
                 }
             }
         });
@@ -821,11 +862,12 @@ $(document).ready(function() {
         if (!orderItems || orderItems.length === 0) {
             $('#tasksTableBody').html(
                 '<tr><td colspan="9" class="text-center py-5">' +
-                '<i class="fa fa-inbox fa-3x text-muted" aria-hidden="true"></i>' +
-                '<p class="mt-2 mb-1 fw-semibold">No tasks yet</p>' +
-                '<p class="text-muted small mb-3">When advertisers order your sites, new tasks will show up here.</p>' +
+                '<div class="mx-auto" style="max-width:420px">' +
+                '<div class="mx-auto mb-3 d-flex align-items-center justify-content-center" style="width:52px;height:52px;border-radius:50%;background:var(--brand-primary-bg,#e8f8f7);color:var(--brand-primary,#0b6266)" aria-hidden="true"><i class="fa-solid fa-inbox"></i></div>' +
+                '<h5 class="mb-2">No tasks yet</h5>' +
+                '<p class="text-muted mb-3">When advertisers order your sites, new tasks will show up here.</p>' +
                 '<a href="{{ route("publisher.websites") }}" class="btn btn-primary btn-sm">Manage my sites</a>' +
-                '</td></tr>'
+                '</div></td></tr>'
             );
             $('#resultsCount').html('');
             return;

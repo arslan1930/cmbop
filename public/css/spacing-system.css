@@ -64,9 +64,9 @@ table.data-table tbody td {
 
 /* K2 — Plain dashboard panels (not every block is a card) */
 .dash-panel {
-  background: #fff;
-  border: 1px solid #e8eef0;
-  border-radius: 14px;
+  background: var(--surface-1, #fff);
+  border: 1px solid var(--border-subtle, #e2e8f0);
+  border-radius: var(--radius-lg, 12px);
   padding: var(--space-5);
   height: 100%;
 }

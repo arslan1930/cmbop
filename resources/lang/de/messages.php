@@ -157,6 +157,7 @@ return [
     // ==================== CTA SECTION ====================
     'cta_title' => 'Bereit, Ihr SEO zu verbessern?',
     'cta_button' => 'Jetzt beitreten',
+    'cta_guarantee' => 'Wallet-Rückerstattung, wenn ein Publisher nicht liefern kann — siehe unsere',
 
 
     // ==================== CONTACT PAGE ====================

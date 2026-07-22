@@ -257,7 +257,14 @@
                 <h6 class="mb-1">Recommended for you</h6>
                 <p class="small text-muted mb-3">Top verified placements to start with.</p>
                 @if($recommendedSites->isEmpty())
-                    <p class="small text-muted mb-0">Open the catalog to explore live inventory.</p>
+                    <x-ui.empty-state
+                        class="py-2"
+                        icon="fa-store"
+                        title="Explore live inventory"
+                        message="Open the catalog to find verified publishers for your first placement."
+                        primary-label="Browse catalog"
+                        :primary-url="route('advertiser.catalog')"
+                    />
                 @else
                     <div class="recommended-sites">
                         @foreach($recommendedSites as $site)
@@ -411,7 +418,15 @@
                         <a href="{{ route('advertiser.orders') }}" class="small recent-orders-link">View all</a>
                     </div>
                     @if($recentOrders->isEmpty())
-                        <p class="text-muted small mb-0">No orders yet.</p>
+                        <x-ui.empty-state
+                            icon="fa-receipt"
+                            title="No orders yet"
+                            message="When you buy placements from the catalog, they’ll show up here."
+                            primary-label="Browse catalog"
+                            :primary-url="route('advertiser.catalog')"
+                            secondary-label="Content library"
+                            :secondary-url="route('advertiser.content-library')"
+                        />
                     @else
                         <div class="table-responsive">
                             <table class="table table-sm align-middle mb-0">

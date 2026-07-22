@@ -106,7 +106,7 @@
 
     this.bind();
     this.refreshCount();
-    this.pollTimer = setInterval(() => this.refreshCount(true), 20000);
+    this.pollTimer = setInterval(() => this.refreshCount(true), 45000);
   }
 
   NotificationCenter.prototype.bind = function () {

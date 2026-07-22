@@ -2,11 +2,17 @@
     $compact = $compact ?? false;
     $showMethods = $showMethods ?? true;
     $asset = fn (string $file) => asset('assets/img/payments/'.$file);
+    $refundUrl = function_exists('localized_url')
+        ? localized_url('refund-policy')
+        : url('/refund-policy');
 @endphp
 <div class="payment-trust {{ $compact ? 'payment-trust--compact' : '' }}" role="note" aria-label="Secure payments">
     <div class="payment-trust__secure">
         <i class="fas fa-lock" aria-hidden="true"></i>
-        <span>Payments secured by <strong>Stripe</strong>. Card details never touch our servers.</span>
+        <span>
+            Payments secured by <strong>Stripe</strong>. Card details never touch our servers.
+            <a href="{{ $refundUrl }}" class="payment-trust__refund-link">See refund policy</a>
+        </span>
     </div>
     @if($showMethods)
         <div class="payment-trust__methods" aria-label="Accepted payment methods">
@@ -15,7 +21,6 @@
             <img class="payment-trust__logo payment-trust__logo--card" src="{{ $asset('amex.svg') }}" alt="American Express" title="American Express" width="48" height="30" loading="lazy" decoding="async">
             <img class="payment-trust__logo payment-trust__logo--stripe" src="{{ $asset('stripe.svg') }}" alt="Stripe" title="Stripe" width="56" height="24" loading="lazy" decoding="async">
             <img class="payment-trust__logo payment-trust__logo--wise" src="{{ $asset('wise.png') }}" alt="Wise" title="Wise" width="72" height="16" loading="lazy" decoding="async">
-            <img class="payment-trust__logo payment-trust__logo--paypal" src="{{ $asset('paypal.svg') }}" alt="PayPal" title="PayPal" width="72" height="20" loading="lazy" decoding="async">
             <img class="payment-trust__logo payment-trust__logo--crypto" src="{{ $asset('bitcoin.svg') }}" alt="Bitcoin" title="Bitcoin" width="24" height="24" loading="lazy" decoding="async">
             <img class="payment-trust__logo payment-trust__logo--crypto" src="{{ $asset('usdt.svg') }}" alt="USDT" title="USDT (Tether)" width="24" height="24" loading="lazy" decoding="async">
             <img class="payment-trust__logo payment-trust__logo--crypto" src="{{ $asset('binance.png') }}" alt="Binance" title="Binance" width="24" height="24" loading="lazy" decoding="async">
@@ -44,6 +49,16 @@
             color: #0b6266;
             flex-shrink: 0;
         }
+        .payment-trust__refund-link {
+            color: #0b6266;
+            font-weight: 600;
+            text-decoration: underline;
+            text-underline-offset: 2px;
+            white-space: nowrap;
+        }
+        .payment-trust__refund-link:hover {
+            color: #3aaeb2;
+        }
         .payment-trust__methods {
             display: flex;
             flex-wrap: wrap;
@@ -65,9 +80,6 @@
         }
         .payment-trust__logo--wise {
             height: 16px;
-        }
-        .payment-trust__logo--paypal {
-            height: 18px;
         }
         .payment-trust__logo--crypto {
             height: 22px;

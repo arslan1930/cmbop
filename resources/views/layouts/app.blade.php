@@ -20,6 +20,14 @@
     @foreach($hreflangTags as $tag)
         <link rel="alternate" hreflang="{{ $tag['hreflang'] }}" href="{{ $tag['href'] }}">
     @endforeach
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+    <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="dns-prefetch" href="https://cdn.jsdelivr.net">
+    <link rel="dns-prefetch" href="https://cdnjs.cloudflare.com">
+    <link rel="dns-prefetch" href="https://fonts.googleapis.com">
+    <link rel="dns-prefetch" href="https://fonts.gstatic.com">
     <meta property="og:locale" content="{{ app()->getLocale() === 'en' ? 'en_US' : app()->getLocale().'_'.strtoupper(app()->getLocale()) }}">
     <meta property="og:type" content="{{ $pageType }}">
     <meta property="og:site_name" content="SEOLinkBuildings">
@@ -44,7 +52,6 @@
     <link href="{{ asset('css/marketing-saas.css') }}?v={{ @filemtime(public_path('css/marketing-saas.css')) ?: '1' }}" rel="stylesheet">
     <link href="{{ asset('css/interaction.css') }}?v={{ @filemtime(public_path('css/interaction.css')) ?: '1' }}" rel="stylesheet">
     <script src="{{ asset('js/glass-tip.js') }}?v={{ @filemtime(public_path('js/glass-tip.js')) ?: '1' }}" defer></script>
-    <script src="https://www.google.com/recaptcha/api.js" async defer></script>
     <style>
         body {
             font-family: 'Poppins', sans-serif;
@@ -90,7 +97,7 @@
 @include('components.help-feedback-widget')
 
 <!-- Back to Top Button -->
-<button id="backToTop" class="btn btn-danger rounded-circle shadow-lg" aria-label="Back to top">
+<button id="backToTop" class="btn btn-primary rounded-circle shadow-lg" aria-label="Back to top">
     <i class="fas fa-arrow-up"></i>
 </button>
 
