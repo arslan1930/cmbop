@@ -678,13 +678,32 @@
         <i class="fa fa-plus"></i> Add New Website
     </button>
 
-    <button id="showBulkBtn" type="button" class="btn mb-3 shadow-sm btn-outline-primary ms-1">
-        <i class="fa fa-layer-group"></i> Add many websites
+    <button id="showBulkRequestBtn" type="button" class="btn mb-3 shadow-sm btn-outline-secondary ms-1"
+            data-bs-toggle="modal" data-bs-target="#bulkRequestModal"
+            @if(!empty($openBulkRequest)) disabled title="You already have an open bulk request" @endif>
+        <i class="fa fa-layer-group"></i> I want to add many sites
     </button>
+
+    @if(!empty($awaitingDetailsCount) && $awaitingDetailsCount > 0)
+        <a href="{{ route('publisher.bulk-sites.complete') }}" class="btn mb-3 shadow-sm btn-upload ms-1">
+            <i class="fa fa-pen-to-square"></i> Complete details ({{ $awaitingDetailsCount }})
+        </a>
+    @endif
 
     <button id="showClaimBtn" type="button" class="btn mb-3 shadow-sm btn-outline-warning ms-1">
         <i class="fa fa-user-check"></i> Claim a website
     </button>
+
+    @if(!empty($openBulkRequest))
+        <div class="alert alert-light border mb-3">
+            <strong>Bulk request #{{ $openBulkRequest->id }}</strong>
+            — status: <span class="text-capitalize">{{ str_replace('_', ' ', $openBulkRequest->status) }}</span>.
+            We’ll email you a simple sheet (URLs + prices). Our team adds metrics; you finish the rest; we approve.
+            @if($openBulkRequest->status === \App\Models\BulkSiteRequest::STATUS_SHEET_SENT)
+                <span class="d-block small text-muted mt-1">Sheet marked sent — reply with your filled URLs + prices.</span>
+            @endif
+        </div>
+    @endif
 
     <div class="card shadow-sm border-0 d-none mb-3" id="claimCard">
         <div class="card-body">
@@ -723,214 +742,50 @@
         </div>
     </div>
 
-    @if(session('error') && !session('bulk_import_failures'))
+    @if(session('error'))
         <div class="alert alert-danger alert-dismissible fade show">
             {{ session('error') }}
             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
         </div>
     @endif
 
-    @if(session('bulk_import_failures'))
-        <div class="alert alert-warning">
-            <strong>Bulk import finished.</strong>
-            {{ session('bulk_import_created', 0) }} site(s) submitted.
-            {{ count(session('bulk_import_failures')) }} row(s) failed:
-            <div class="table-responsive mt-2" style="max-height: 260px; overflow:auto;">
-                <table class="table table-sm table-bordered bg-white mb-0">
-                    <thead><tr><th>Row</th><th>Site</th><th>Errors</th></tr></thead>
-                    <tbody>
-                        @foreach(session('bulk_import_failures') as $fail)
-                            <tr>
-                                <td>{{ $fail['row'] }}</td>
-                                <td class="small">{{ $fail['site'] }}</td>
-                                <td class="small text-danger">{{ implode(' · ', $fail['errors']) }}</td>
-                            </tr>
-                        @endforeach
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    @endif
-
-    <div class="card shadow-sm border-0 d-none mb-3" id="bulkCard">
-        <div class="card-body">
-            <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
-                <div>
-                    <h5 class="mb-1">Add many websites</h5>
-                    <p class="text-muted mb-0 small">
-                        Pick niches from the catalog, set DR/DA (0–100), and submit up to
-                        <strong>25 sites per batch</strong> for admin review. For 150+ sites, submit multiple batches.
-                    </p>
-                </div>
-                <button type="button" class="btn btn-outline-secondary btn-sm" id="closeBulkBtn">Close</button>
-            </div>
-
-            <form method="POST" action="{{ route('publisher.sites.bulk-store') }}" id="liveBulkForm">
+    {{-- Guided bulk request modal (replaces self-serve multi-site table) --}}
+    <div class="modal fade" id="bulkRequestModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <form method="POST" action="{{ route('publisher.bulk-sites.request') }}" class="modal-content">
                 @csrf
-                <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
-                    <button type="button" class="btn btn-sm btn-outline-primary" id="liveBulkAddSiteBtn">
-                        <i class="fa fa-plus me-1"></i> Add site
-                    </button>
-                    <button type="button" class="btn btn-sm btn-outline-secondary" id="liveBulkDuplicateBtn">
-                        <i class="fa fa-copy me-1"></i> Duplicate last
-                    </button>
-                    <button type="button" class="btn btn-sm btn-outline-secondary" id="liveBulkFill25Btn">
-                        <i class="fa fa-table me-1"></i> Fill to 25 rows
-                    </button>
-                    <span class="small text-muted" id="liveBulkCountLabel">0 / 25 sites</span>
-                    <button type="submit" class="btn btn-sm btn-primary ms-auto" id="liveBulkSubmitBtn">
-                        <i class="fa fa-paper-plane me-1"></i> Submit all for review
-                    </button>
+                <div class="modal-header">
+                    <h5 class="modal-title">Add many websites</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
-                <p class="small text-muted mb-3">
-                    Fill every column for each site in one table — same details as adding a single website.
-                    Scroll sideways for more fields. Hold Ctrl/Cmd to select niches (max 7).
-                </p>
-
-                <div class="live-bulk-table-wrap">
-                    <table class="live-bulk-table">
-                        <thead>
-                            <tr>
-                                <th class="live-bulk-sticky">#</th>
-                                <th>Site name *</th>
-                                <th>Site URL *</th>
-                                <th>Example URL *</th>
-                                <th>DA *</th>
-                                <th>DR *</th>
-                                <th>Traffic *</th>
-                                <th>Turnaround *</th>
-                                <th>Price (€) *</th>
-                                <th>Language *</th>
-                                <th>Country *</th>
-                                <th>Publication *</th>
-                                <th>Niches * <span class="fw-normal text-muted">(max 7)</span></th>
-                                <th>Link type *</th>
-                                <th>Tag</th>
-                                <th>Description * <span class="fw-normal text-muted">(min 50)</span></th>
-                            </tr>
-                        </thead>
-                        <tbody id="liveBulkSites"></tbody>
-                    </table>
+                <div class="modal-body">
+                    <p class="small text-muted mb-3">
+                        We’ll email you a simple sheet (<strong>URLs + prices</strong> only).
+                        Our team adds DR, DA, traffic, language, and country.
+                        You finish description, niches, link type, and timing — then we approve.
+                        For a single site, use <strong>Add New Website</strong> instead.
+                    </p>
+                    <div class="mb-3">
+                        <label class="form-label">About how many sites?</label>
+                        <input type="number" name="estimated_count" class="form-control @error('estimated_count') is-invalid @enderror"
+                               min="5" max="200" value="{{ old('estimated_count', 10) }}" required>
+                        <div class="form-text">Minimum 5. One open request at a time.</div>
+                        @error('estimated_count')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                    </div>
+                    <div class="mb-0">
+                        <label class="form-label">Note for our team (optional)</label>
+                        <textarea name="publisher_note" class="form-control @error('publisher_note') is-invalid @enderror"
+                                  rows="3" maxlength="2000" placeholder="Niches, languages, or anything we should know…">{{ old('publisher_note') }}</textarea>
+                        @error('publisher_note')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Send bulk request</button>
                 </div>
             </form>
-
-            <details class="mt-4 border rounded p-3 bg-light">
-                <summary class="fw-semibold" style="cursor:pointer;">Advanced: CSV import</summary>
-                <p class="small text-muted mt-2 mb-2">
-                    Prefer the live form above. CSV requires exact category names separated by <code>|</code>.
-                </p>
-                <div class="d-flex flex-wrap gap-2 mb-2">
-                    <a href="{{ route('publisher.sites.bulk-template') }}" class="btn btn-sm btn-outline-secondary">
-                        <i class="fa fa-download me-1"></i> Download CSV template
-                    </a>
-                </div>
-                <form method="POST" action="{{ route('publisher.sites.bulk-import') }}" enctype="multipart/form-data" class="row g-2 align-items-end">
-                    @csrf
-                    <div class="col-md-8">
-                        <label class="form-label small mb-1">CSV file</label>
-                        <input type="file" name="csv_file" class="form-control form-control-sm" accept=".csv,text/csv" required>
-                    </div>
-                    <div class="col-md-4">
-                        <button type="submit" class="btn btn-sm btn-outline-primary w-100">
-                            <i class="fa fa-upload me-1"></i> Upload CSV
-                        </button>
-                    </div>
-                </form>
-            </details>
         </div>
     </div>
-
-    <template id="liveBulkSiteTemplate">
-        <tr data-live-bulk-card>
-            <td class="live-bulk-sticky">
-                <span class="live-bulk-num">1</span>
-                <div>
-                    <button type="button" class="btn btn-sm btn-outline-danger live-bulk-remove" title="Remove row">
-                        <i class="fa fa-trash"></i>
-                    </button>
-                </div>
-            </td>
-            <td class="live-bulk-col-name">
-                <input type="text" class="form-control form-control-sm" data-field="siteName" required maxlength="255" aria-label="Site name" placeholder="Name">
-            </td>
-            <td class="live-bulk-col-url">
-                <input type="url" class="form-control form-control-sm" data-field="siteUrl" required placeholder="https://…" aria-label="Site URL">
-            </td>
-            <td class="live-bulk-col-url">
-                <input type="url" class="form-control form-control-sm" data-field="exampleUrl" required placeholder="https://…/post" aria-label="Example URL">
-            </td>
-            <td>
-                <input type="number" class="form-control form-control-sm" data-field="da" min="0" max="100" required aria-label="DA" placeholder="0–100">
-            </td>
-            <td>
-                <input type="number" class="form-control form-control-sm" data-field="dr" min="0" max="100" required aria-label="DR" placeholder="0–100">
-            </td>
-            <td>
-                <input type="number" class="form-control form-control-sm" data-field="traffic" min="0" required aria-label="Traffic" placeholder="Visitors">
-            </td>
-            <td>
-                <select class="form-select form-select-sm" data-field="turnaround_time" required aria-label="Turnaround">
-                    <option value="24h">24 Hours</option>
-                    <option value="48h">48 Hours</option>
-                    <option value="3days" selected>3 Days</option>
-                    <option value="5days">5 Days</option>
-                    <option value="7days">7 Days</option>
-                </select>
-            </td>
-            <td>
-                <input type="number" class="form-control form-control-sm" data-field="price" min="0" step="0.01" required aria-label="Price" placeholder="€">
-            </td>
-            <td>
-                <select class="form-select form-select-sm live-bulk-language" data-field="language" required aria-label="Language">
-                    <option value="">Language…</option>
-                    @foreach($languages as $language)
-                        <option value="{{ strtolower($language->code) }}">{{ $language->name }}</option>
-                    @endforeach
-                </select>
-            </td>
-            <td>
-                <select class="form-select form-select-sm live-bulk-country" data-field="country" required aria-label="Country">
-                    <option value="">Country…</option>
-                    @foreach($countries as $country)
-                        <option value="{{ strtolower($country->code) }}">{{ $country->name }}</option>
-                    @endforeach
-                </select>
-            </td>
-            <td>
-                <select class="form-select form-select-sm" data-field="publicationTime" required aria-label="Publication">
-                    <option value="">Select…</option>
-                    <option value="6months">6 Months</option>
-                    <option value="1year">1 Year</option>
-                    <option value="permanent" selected>Permanent</option>
-                </select>
-            </td>
-            <td>
-                <select class="form-select form-select-sm live-bulk-categories" data-field="categories" multiple size="4" required aria-label="Niches">
-                    @foreach($categories as $category)
-                        <option value="{{ $category->name }}">{{ $category->name }}@if($category->group) ({{ $category->group }})@endif</option>
-                    @endforeach
-                </select>
-            </td>
-            <td>
-                <select class="form-select form-select-sm" data-field="link_type" required aria-label="Link type">
-                    <option value="dofollow" selected>DoFollow</option>
-                    <option value="nofollow">NoFollow</option>
-                </select>
-            </td>
-            <td>
-                <select class="form-select form-select-sm" data-field="site_tag" aria-label="Tag">
-                    <option value="">None</option>
-                    <option value="sponsored">Sponsored</option>
-                    <option value="partner_material">Partner Materials</option>
-                    <option value="as_you_prefer">As You Prefer</option>
-                </select>
-            </td>
-            <td class="live-bulk-col-desc">
-                <textarea class="form-control form-control-sm" data-field="siteDescription" rows="3" minlength="50" required
-                          placeholder="Describe the site for advertisers…" aria-label="Description"></textarea>
-            </td>
-        </tr>
-    </template>
 
     <div class="card shadow-sm border-0 d-none" id="formCard">
         <div class="card-body">
@@ -1253,13 +1108,22 @@
 
 <script>
 const addBtn = $('#showFormBtn');
-const bulkBtn = $('#showBulkBtn');
-const bulkCard = $('#bulkCard');
-const closeBulkBtn = $('#closeBulkBtn');
+const bulkBtn = $('#showBulkRequestBtn');
+const bulkCard = $(); // legacy self-serve bulk UI removed
+const closeBulkBtn = $();
 const formCard = $('#formCard');
 const submitBtn = $('#submitBtn');
 const closeBtn = $('#closeBtn');
 const formHeaderSpan = $('#formHeader');
+
+@if(session('open_bulk_request_modal'))
+document.addEventListener('DOMContentLoaded', function () {
+    const el = document.getElementById('bulkRequestModal');
+    if (el && window.bootstrap) {
+        new bootstrap.Modal(el).show();
+    }
+});
+@endif
 
 // Quill editor (guarded so a CDN/CSP failure cannot break the sites table loader)
 var quill = null;
@@ -1973,225 +1837,14 @@ addBtn.on('click', function() {
 });
 
 bulkBtn.on('click', function() {
+    // Opens #bulkRequestModal via data-bs-toggle; keep single-site form closed.
     formCard.addClass('d-none');
     closeBtn.addClass('d-none');
-    addBtn.removeClass('d-none');
     claimCard.addClass('d-none');
-    bulkCard.toggleClass('d-none');
-    bulkBtn.toggleClass('d-none', !bulkCard.hasClass('d-none'));
-    formHeaderSpan.text(bulkCard.hasClass('d-none') ? 'Add New Website' : 'Add many websites');
-    if (!bulkCard.hasClass('d-none') && liveBulkCards().length === 0) {
-        liveBulkAddCard();
-    }
-});
-
-closeBulkBtn.on('click', function() {
-    bulkCard.addClass('d-none');
-    bulkBtn.removeClass('d-none');
     formHeaderSpan.text('Add New Website');
 });
 
-const LIVE_BULK_MAX = 25;
-const liveBulkSitesEl = document.getElementById('liveBulkSites');
-const liveBulkTemplate = document.getElementById('liveBulkSiteTemplate');
-
-function liveBulkCards() {
-    return liveBulkSitesEl ? Array.from(liveBulkSitesEl.querySelectorAll('[data-live-bulk-card]')) : [];
-}
-
-function liveBulkFocusRow(row, focusEl) {
-    if (!row) return;
-    try {
-        row.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
-    } catch (e) { /* ignore */ }
-    const el = focusEl || row.querySelector('[data-field]');
-    if (el && typeof el.focus === 'function') {
-        try { el.focus(); } catch (e) { /* ignore */ }
-    }
-}
-
-function liveBulkUpdateCount() {
-    const n = liveBulkCards().length;
-    $('#liveBulkCountLabel').text(n + ' / ' + LIVE_BULK_MAX + ' sites');
-    $('#liveBulkAddSiteBtn').prop('disabled', n >= LIVE_BULK_MAX);
-    $('#liveBulkDuplicateBtn').prop('disabled', n === 0 || n >= LIVE_BULK_MAX);
-    $('#liveBulkFill25Btn').prop('disabled', n >= LIVE_BULK_MAX);
-    liveBulkCards().forEach((card, i) => {
-        const num = i + 1;
-        card.querySelectorAll('.live-bulk-num').forEach(el => { el.textContent = String(num); });
-        card.querySelectorAll('[data-field]').forEach(input => {
-            const field = input.getAttribute('data-field');
-            if (field === 'categories') {
-                input.name = `sites[${i}][categories][]`;
-            } else {
-                input.name = `sites[${i}][${field}]`;
-            }
-        });
-    });
-}
-
-function liveBulkBindLanguageFilter(card) {
-    const langSelect = card.querySelector('.live-bulk-language');
-    const countrySelect = card.querySelector('.live-bulk-country');
-    if (!langSelect || !countrySelect) return;
-
-    const applyFilter = () => {
-        const lang = (langSelect.value || '').toLowerCase();
-        const allowed = new Set((window.languageCountryMap?.[lang] || []).map(c => String(c.code).toLowerCase()));
-        Array.from(countrySelect.options).forEach(opt => {
-            if (!opt.value) {
-                opt.hidden = false;
-                return;
-            }
-            const ok = !lang || allowed.size === 0 || allowed.has(opt.value.toLowerCase());
-            opt.hidden = !ok;
-            opt.disabled = !ok;
-        });
-        if (countrySelect.value && countrySelect.selectedOptions[0]?.disabled) {
-            countrySelect.value = '';
-        }
-    };
-
-    langSelect.addEventListener('change', applyFilter);
-    applyFilter();
-}
-
-function liveBulkBindCategories(card) {
-    const select = card.querySelector('.live-bulk-categories');
-    if (!select) return;
-    select.addEventListener('change', () => {
-        const selected = Array.from(select.selectedOptions);
-        if (selected.length > 7) {
-            selected.slice(7).forEach(opt => { opt.selected = false; });
-            alert('Maximum 7 niches per site.');
-        }
-    });
-}
-
-function liveBulkAddCard(prefill = null) {
-    if (liveBulkCards().length >= LIVE_BULK_MAX) {
-        alert('Maximum ' + LIVE_BULK_MAX + ' sites per batch. Submit this batch, then add more.');
-        return null;
-    }
-    if (!liveBulkTemplate || !liveBulkSitesEl) return null;
-
-    const node = liveBulkTemplate.content.firstElementChild.cloneNode(true);
-    liveBulkSitesEl.appendChild(node);
-    liveBulkBindLanguageFilter(node);
-    liveBulkBindCategories(node);
-
-    if (prefill && typeof prefill === 'object') {
-        Object.keys(prefill).forEach(key => {
-            const el = node.querySelector(`[data-field="${key}"]`);
-            if (!el) return;
-            if (key === 'categories' && Array.isArray(prefill[key])) {
-                Array.from(el.options).forEach(opt => {
-                    opt.selected = prefill[key].includes(opt.value);
-                });
-            } else {
-                el.value = prefill[key];
-            }
-        });
-        node.querySelector('.live-bulk-language')?.dispatchEvent(new Event('change'));
-        if (prefill.country) {
-            const countryEl = node.querySelector('[data-field="country"]');
-            if (countryEl) countryEl.value = prefill.country;
-        }
-    }
-
-    node.querySelector('.live-bulk-remove')?.addEventListener('click', function (e) {
-        e.preventDefault();
-        e.stopPropagation();
-        if (liveBulkCards().length <= 1) {
-            alert('Keep at least one site row, or close this panel.');
-            return;
-        }
-        node.remove();
-        liveBulkUpdateCount();
-    });
-
-    liveBulkUpdateCount();
-    return node;
-}
-
-function liveBulkReadCard(card) {
-    const data = {};
-    card.querySelectorAll('[data-field]').forEach(el => {
-        const field = el.getAttribute('data-field');
-        if (field === 'categories') {
-            data.categories = Array.from(el.selectedOptions).map(o => o.value);
-        } else {
-            data[field] = el.value;
-        }
-    });
-    return data;
-}
-
-$('#liveBulkAddSiteBtn').on('click', function () {
-    liveBulkAddCard();
-});
-
-$('#liveBulkDuplicateBtn').on('click', function () {
-    const cards = liveBulkCards();
-    if (!cards.length) return;
-    const last = liveBulkReadCard(cards[cards.length - 1]);
-    // Clear identity fields so the duplicate is a new domain
-    last.siteName = '';
-    last.siteUrl = '';
-    last.exampleUrl = '';
-    liveBulkAddCard(last);
-});
-
-$('#liveBulkFill25Btn').on('click', function () {
-    while (liveBulkCards().length < LIVE_BULK_MAX) {
-        if (!liveBulkAddCard()) break;
-    }
-});
-
-$('#liveBulkForm').on('submit', function (e) {
-    const cards = liveBulkCards();
-    if (!cards.length) {
-        e.preventDefault();
-        alert('Add at least one website.');
-        return;
-    }
-    if (cards.length > LIVE_BULK_MAX) {
-        e.preventDefault();
-        alert('Maximum ' + LIVE_BULK_MAX + ' sites per batch.');
-        return;
-    }
-
-    for (let i = 0; i < cards.length; i++) {
-        const card = cards[i];
-        const cats = card.querySelector('.live-bulk-categories');
-        if (!cats || cats.selectedOptions.length < 1) {
-            e.preventDefault();
-            alert('Site ' + (i + 1) + ': select at least one niche/category.');
-            liveBulkFocusRow(card, cats);
-            return;
-        }
-        const desc = card.querySelector('[data-field="siteDescription"]');
-        if (desc && desc.value.trim().length < 50) {
-            e.preventDefault();
-            alert('Site ' + (i + 1) + ': description must be at least 50 characters.');
-            liveBulkFocusRow(card, desc);
-            return;
-        }
-        const required = card.querySelectorAll('[required]');
-        for (const el of required) {
-            if (el.tagName === 'SELECT' && el.multiple) continue;
-            if (!el.value || (typeof el.value === 'string' && !el.value.trim())) {
-                e.preventDefault();
-                alert('Site ' + (i + 1) + ': please fill all required fields.');
-                liveBulkFocusRow(card, el);
-                return;
-            }
-        }
-    }
-
-    liveBulkUpdateCount();
-    $('#liveBulkSubmitBtn').prop('disabled', true).text('Submitting…');
-});
+closeBulkBtn.on('click', function() {});
 
 // Toggle form for CREATE — keep existing addBtn handler below
 $('#addSiteForm').submit(function(e){
