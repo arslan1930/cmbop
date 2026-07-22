@@ -29,6 +29,8 @@ class ModernUiSystemTest extends TestCase
         $brand = file_get_contents(public_path('css/brand-colors.css'));
         $this->assertStringContainsString('--surface-1', $brand);
         $this->assertStringContainsString('--motion-fast', $brand);
+        $this->assertStringContainsString('--bs-code-color: #0b6266', $brand);
+        $this->assertStringContainsString('--brand-warning-bg: #e8f8f7', $brand);
     }
 
     public function test_homepage_loads_with_interaction_css(): void
