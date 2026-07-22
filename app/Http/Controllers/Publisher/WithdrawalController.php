@@ -4,11 +4,11 @@ namespace App\Http\Controllers\Publisher;
 
 use App\Http\Controllers\Controller;
 use App\Mail\WithdrawalRequestNotification;
-use App\Models\Role;
 use App\Models\User;
 use App\Models\Wallet;
 use App\Models\Withdrawal;
 use App\Services\InAppNotificationService;
+use App\Services\Wallet\PayoutProfileService;
 use App\Services\Wallet\WalletLedgerService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -18,6 +18,10 @@ use Illuminate\Validation\ValidationException;
 
 class WithdrawalController extends Controller
 {
+    public function __construct(
+        private PayoutProfileService $payoutProfiles,
+    ) {}
+
     private function platformChargePercent(): float
     {
         return (float) config('billing.withdrawal_fee_percent', 0);
@@ -25,8 +29,13 @@ class WithdrawalController extends Controller
 
     public function index()
     {
+        $user = auth()->user();
+
         return view('publisher.withdraw', [
             'platformChargePercent' => $this->platformChargePercent(),
+            'payoutProfile' => $user->payoutProfile(),
+            'payoutLocked' => $user->payoutProfileLocked(),
+            'supportEmail' => config('email_notifications.brand.support_email', config('mail.from.address')),
         ]);
     }
 
@@ -49,7 +58,6 @@ class WithdrawalController extends Controller
             }
 
             $amount = $request->amount;
-            // Welcome / promo credit is spend-only and cannot be withdrawn
             $availableBalance = $wallet->withdrawableBalance();
 
             if ($amount <= 0) {
@@ -83,57 +91,19 @@ class WithdrawalController extends Controller
             $fee = ($amount * $this->platformChargePercent()) / 100;
             $netAmount = $amount - $fee;
 
-            // Prepare payment details based on method
-            $paymentDetails = [];
-            switch ($request->payment_method) {
-                case 'bank':
-                    $request->validate([
-                        'bank_name' => 'required|string|max:255',
-                        'account_holder' => 'required|string|max:255',
-                        'account_number' => 'required|string|max:255',
-                        'swift_code' => 'nullable|string|max:50',
-                    ]);
-                    $paymentDetails = [
-                        'bank_name' => $request->bank_name,
-                        'account_holder' => $request->account_holder,
-                        'account_number' => $request->account_number,
-                        'swift_code' => $request->swift_code,
-                    ];
-                    break;
+            $wasLocked = $user->payoutProfileLocked();
+            $paymentDetails = $this->payoutProfiles->validatedPaymentDetails(
+                $request,
+                $user,
+                requireConfirm: ! $wasLocked
+            );
 
-                case 'paypal':
-                    $request->validate([
-                        'paypal_email' => 'required|email|max:255',
-                    ]);
-                    $paymentDetails = [
-                        'email' => $request->paypal_email,
-                    ];
-                    break;
-
-                case 'wise':
-                    $request->validate([
-                        'wise_email' => 'required|email|max:255',
-                    ]);
-                    $paymentDetails = [
-                        'email' => $request->wise_email,
-                    ];
-                    break;
-
-                case 'crypto':
-                    $request->validate([
-                        'crypto_type' => 'required|string|in:BTC,ETH,USDT,BNB',
-                        'wallet_address' => 'required|string|max:255',
-                    ]);
-                    $paymentDetails = [
-                        'crypto_type' => $request->crypto_type,
-                        'wallet_address' => $request->wallet_address,
-                    ];
-                    break;
+            if (! $wasLocked) {
+                $this->payoutProfiles->persistAndLock($user, (string) $request->payment_method, $paymentDetails);
             }
 
             DB::beginTransaction();
 
-            // Re-lock wallet inside the transaction before debiting
             $wallet = Wallet::where('id', $wallet->id)->lockForUpdate()->first();
             if (! $wallet || ! $wallet->canWithdraw((float) $amount)) {
                 DB::rollBack();
@@ -153,7 +123,6 @@ class WithdrawalController extends Controller
                 ]);
             }
 
-            // Create withdrawal record
             $withdrawal = Withdrawal::create([
                 'user_id' => $user->id,
                 'amount' => $amount,
@@ -164,7 +133,6 @@ class WithdrawalController extends Controller
                 'status' => 'pending',
             ]);
 
-            // Deduct from withdrawable wallet balance only (never bonus)
             $wallet->deductWithdrawable($amount);
 
             app(WalletLedgerService::class)->recordWithdrawal(
@@ -177,7 +145,6 @@ class WithdrawalController extends Controller
 
             DB::commit();
 
-            // Log the withdrawal request
             Log::info('Withdrawal request submitted', [
                 'user_id' => $user->id,
                 'withdrawal_id' => $withdrawal->id,
@@ -185,21 +152,21 @@ class WithdrawalController extends Controller
                 'net_amount' => $netAmount,
                 'fee' => $fee,
                 'payment_method' => $request->payment_method,
+                'payout_locked' => true,
             ]);
 
-            // Send email notification to admins (IMMEDIATELY - no queue)
             $this->sendAdminNotification($withdrawal, $user);
 
             return response()->json([
                 'success' => true,
                 'message' => 'Withdrawal request submitted successfully! Amount: €'.number_format($amount, 2),
+                'payout_locked' => true,
             ]);
-
         } catch (ValidationException $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Validation failed: '.implode(', ', array_merge(...array_values($e->errors()))),
-            ]);
+            ], 422);
         } catch (\Exception $e) {
             DB::rollBack();
             Log::error('Withdrawal request failed: '.$e->getMessage(), [
@@ -214,13 +181,9 @@ class WithdrawalController extends Controller
         }
     }
 
-    /**
-     * Send email notification to admins (IMMEDIATE - same as SiteController)
-     */
     private function sendAdminNotification($withdrawal, $user)
     {
         try {
-            // Find users with admin role using active_role_id (same as SiteController)
             $admins = User::where('active_role_id', function ($query) {
                 $query->select('id')
                     ->from('roles')
@@ -228,30 +191,13 @@ class WithdrawalController extends Controller
                     ->limit(1);
             })->get();
 
-            Log::info('Admin search results', [
-                'admin_count' => $admins->count(),
-                'admins' => $admins->pluck('email', 'id')->toArray(),
-            ]);
-
             if ($admins->count() > 0) {
                 foreach ($admins as $admin) {
-                    // Send IMMEDIATELY - using the correct syntax
                     Mail::to($admin->email)->send(new WithdrawalRequestNotification($withdrawal, $user));
-
-                    Log::info('Withdrawal notification sent to admin', [
-                        'admin_id' => $admin->id,
-                        'admin_email' => $admin->email,
-                        'withdrawal_id' => $withdrawal->id,
-                    ]);
                 }
             } else {
-                // Fallback: Send to default admin email if no admin users found
                 $defaultAdminEmail = config('mail.admin_email', env('ADMIN_EMAIL', 'admin@yourdomain.com'));
                 Mail::to($defaultAdminEmail)->send(new WithdrawalRequestNotification($withdrawal, $user));
-                Log::info('Withdrawal notification sent to fallback admin email', [
-                    'admin_email' => $defaultAdminEmail,
-                    'withdrawal_id' => $withdrawal->id,
-                ]);
             }
 
             try {
@@ -260,7 +206,6 @@ class WithdrawalController extends Controller
             } catch (\Throwable $e) {
                 Log::warning('Failed to send admin withdrawal bell notification: '.$e->getMessage());
             }
-
         } catch (\Exception $e) {
             Log::error('Failed to send withdrawal notification email: '.$e->getMessage(), [
                 'trace' => $e->getTraceAsString(),
@@ -268,9 +213,6 @@ class WithdrawalController extends Controller
         }
     }
 
-    /**
-     * Get withdrawal history for the authenticated user
-     */
     public function getHistory(Request $request)
     {
         try {
@@ -278,12 +220,10 @@ class WithdrawalController extends Controller
 
             $query = Withdrawal::where('user_id', $user->id);
 
-            // Filter by status if provided
             if ($request->has('status') && in_array($request->status, ['pending', 'processing', 'completed', 'cancelled'])) {
                 $query->where('status', $request->status);
             }
 
-            // Date range filter
             if ($request->has('from_date')) {
                 $query->whereDate('created_at', '>=', $request->from_date);
             }
@@ -293,7 +233,6 @@ class WithdrawalController extends Controller
 
             $withdrawals = $query->orderBy('created_at', 'desc')->paginate(20);
 
-            // Never expose platform fee fields to publishers
             $withdrawals->getCollection()->transform(function ($w) {
                 return [
                     'id' => $w->id,
@@ -319,9 +258,6 @@ class WithdrawalController extends Controller
         }
     }
 
-    /**
-     * Get withdrawal statistics
-     */
     public function getStatistics()
     {
         try {
@@ -355,9 +291,6 @@ class WithdrawalController extends Controller
         }
     }
 
-    /**
-     * Cancel a pending withdrawal request
-     */
     public function cancelWithdrawal($id)
     {
         try {
@@ -391,7 +324,6 @@ class WithdrawalController extends Controller
                 ]);
             }
 
-            // Refund the amount back to the locked wallet
             $wallet = $user->activeWallet();
             if ($wallet) {
                 $wallet = Wallet::where('id', $wallet->id)->lockForUpdate()->first();
@@ -400,23 +332,15 @@ class WithdrawalController extends Controller
                 }
             }
 
-            // Update withdrawal status
             $withdrawal->status = 'cancelled';
             $withdrawal->save();
 
             DB::commit();
 
-            Log::info('Withdrawal cancelled', [
-                'user_id' => $user->id,
-                'withdrawal_id' => $withdrawal->id,
-                'amount' => $withdrawal->amount,
-            ]);
-
             return response()->json([
                 'success' => true,
                 'message' => 'Withdrawal request cancelled successfully. €'.number_format($withdrawal->amount, 2).' has been returned to your wallet.',
             ]);
-
         } catch (\Exception $e) {
             DB::rollBack();
             Log::error('Failed to cancel withdrawal: '.$e->getMessage());

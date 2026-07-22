@@ -1,6 +1,6 @@
 /**
  * Brand color system — teal mist · slate neutrals · quiet semantics
- * Rule: ~90% neutrals · ~8% teal on actions · ~2% red alerts
+ * Rule: ~90% neutrals · ~8% teal on actions · ~2% red alerts (icons)
  */
 :root {
   --brand-primary: #185054;
@@ -17,13 +17,13 @@
 
   --brand-success: #0f766e;
   --brand-success-bg: #d1fae5;
-  /* Caution / pending — amber (not teal) */
-  --brand-warning: #b45309;
-  --brand-warning-bg: #fffbeb;
-  --brand-warning-border: #fde68a;
-  --brand-warning-ink: #92400e;
+  /* Attention — icon signal (no cream slabs) */
+  --brand-warning: #dc2626;
+  --brand-warning-bg: #ffffff;
+  --brand-warning-border: #e2e8f0;
+  --brand-warning-ink: #1e293b;
   --brand-danger: #dc2626;
-  --brand-danger-bg: #fee2e2;
+  --brand-danger-bg: #ffffff;
 
   /* Surfaces & interaction (modern UI system) */
   --surface-1: #ffffff;
@@ -49,8 +49,8 @@
   --bs-focus-ring-color: rgba(63, 174, 178, 0.35);
   --bs-info: #3faeb2;
   --bs-info-rgb: 63, 174, 178;
-  --bs-warning: #b45309;
-  --bs-warning-rgb: 180, 83, 9;
+  --bs-warning: #dc2626;
+  --bs-warning-rgb: 220, 38, 38;
   --bs-code-color: #185054;
 }
 
@@ -87,38 +87,128 @@
 .bg-primary-subtle { background-color: var(--brand-primary-bg) !important; }
 .text-primary-emphasis { color: var(--brand-primary) !important; }
 
-.text-info { color: var(--brand-primary-soft) !important; }
-.bg-info { background-color: var(--brand-primary-soft) !important; }
-.bg-info-subtle { background-color: var(--brand-primary-bg) !important; }
+.text-info { color: var(--brand-neutral) !important; }
+.bg-info { background-color: var(--surface-1) !important; }
+.bg-info-subtle { background-color: var(--surface-2) !important; }
 
-/* Caution / pending — amber */
-.text-warning { color: var(--brand-warning-ink) !important; }
-.bg-warning { background-color: var(--brand-warning-bg) !important; }
-.bg-warning-subtle { background-color: var(--brand-warning-bg) !important; }
+/* Attention text stays ink; slabs stay white (icon carries the signal) */
+.text-warning { color: var(--brand-danger) !important; }
+.bg-warning { background-color: var(--surface-1) !important; }
+.bg-warning-subtle { background-color: var(--surface-1) !important; }
 .text-bg-warning {
-  color: var(--brand-warning-ink) !important;
-  background-color: var(--brand-warning-bg) !important;
-  border: 1px solid var(--brand-warning-border);
+  color: var(--brand-ink) !important;
+  background-color: var(--surface-1) !important;
+  border: 1px solid var(--border-subtle);
 }
 .badge.text-bg-warning {
-  color: var(--brand-warning-ink) !important;
-  background-color: var(--brand-warning-bg) !important;
-  border: 1px solid var(--brand-warning-border);
+  color: var(--brand-ink) !important;
+  background-color: var(--surface-1) !important;
+  border: 1px solid var(--border-subtle);
   font-weight: 600;
 }
 
-.alert-warning {
-  --bs-alert-color: var(--brand-warning-ink);
-  --bs-alert-bg: var(--brand-warning-bg);
-  --bs-alert-border-color: var(--brand-warning-border);
-  color: var(--brand-warning-ink);
-  background-color: var(--brand-warning-bg);
-  border-color: var(--brand-warning-border);
+/* Quiet Bootstrap alerts — no cream / colored fills */
+.alert {
   border-radius: var(--radius-md);
 }
-.alert-warning .alert-link {
-  color: var(--brand-warning-ink);
+
+.alert-warning,
+.alert-info,
+.alert-success,
+.alert-danger {
+  --bs-alert-color: var(--brand-ink);
+  --bs-alert-bg: transparent;
+  --bs-alert-border-color: var(--border-subtle);
+  color: var(--brand-ink);
+  background-color: transparent;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+}
+
+.alert-warning .alert-link,
+.alert-info .alert-link,
+.alert-success .alert-link,
+.alert-danger .alert-link {
+  color: var(--brand-primary);
   font-weight: 600;
+}
+
+.alert-warning > .fa,
+.alert-warning > .fa-solid,
+.alert-warning > .fas,
+.alert-warning .ui-callout__icon,
+.alert-danger > .fa,
+.alert-danger > .fa-solid,
+.alert-danger > .fas {
+  color: var(--brand-danger);
+}
+
+.alert-info > .fa,
+.alert-info > .fa-solid,
+.alert-info > .fas {
+  color: var(--brand-neutral);
+}
+
+.alert-success > .fa,
+.alert-success > .fa-solid,
+.alert-success > .fas {
+  color: var(--brand-primary);
+}
+
+/* Icon-signal callouts */
+.ui-callout {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  padding: 0.75rem 0.9rem;
+  margin-bottom: 1rem;
+  background: transparent;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  color: var(--brand-ink);
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+.ui-callout--flush {
+  margin-bottom: 0;
+}
+
+.ui-callout--sm {
+  padding: 0.55rem 0.75rem;
+  font-size: 0.82rem;
+}
+
+.ui-callout__icon {
+  flex: 0 0 auto;
+  margin-top: 0.1rem;
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.ui-callout__body {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.ui-callout--attention .ui-callout__icon { color: var(--brand-danger); }
+.ui-callout--info .ui-callout__icon { color: var(--brand-neutral); }
+.ui-callout--success .ui-callout__icon { color: var(--brand-primary); }
+.ui-callout--danger .ui-callout__icon { color: var(--brand-danger); }
+
+.ui-callout--banner {
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.ui-callout--banner .ui-callout__main {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  flex: 1 1 220px;
+  min-width: 0;
 }
 
 /* Inline code / reference numbers — teal, not Bootstrap pink */
@@ -176,14 +266,14 @@ code.font-monospace {
 
 .badge-warn,
 .badge-pending {
-  background: #fffbeb !important;
-  color: #92400e !important;
-  border: 1px solid #fde68a !important;
+  background: #fff !important;
+  color: var(--brand-ink) !important;
+  border: 1px solid var(--border-subtle) !important;
   font-weight: 600;
 }
 
 .badge-danger-action {
-  background: #fef2f2 !important;
+  background: #fff !important;
   color: #dc2626 !important;
   border: 1px solid #fecaca !important;
   font-weight: 600;
@@ -214,8 +304,8 @@ code.font-monospace {
 .status-pending,
 .status-needs-corrections {
   background: #fff !important;
-  color: #92400e !important;
-  border: 1px solid #fde68a !important;
+  color: var(--brand-ink) !important;
+  border: 1px solid var(--border-subtle) !important;
   font-weight: 600;
 }
 
@@ -235,15 +325,56 @@ code.font-monospace {
   border: 1px solid var(--brand-primary-border);
 }
 
+/* Upload article — light blue secondary verb (distinct from teal Order/Pay) */
+.btn-upload {
+  --bs-btn-color: #1d4ed8;
+  --bs-btn-bg: #eff6ff;
+  --bs-btn-border-color: #93c5fd;
+  --bs-btn-hover-color: #1e3a8a;
+  --bs-btn-hover-bg: #dbeafe;
+  --bs-btn-hover-border-color: #60a5fa;
+  --bs-btn-focus-shadow-rgb: 59, 130, 246;
+  --bs-btn-active-color: #fff;
+  --bs-btn-active-bg: #3b82f6;
+  --bs-btn-active-border-color: #2563eb;
+  --bs-btn-disabled-color: #93c5fd;
+  --bs-btn-disabled-bg: #eff6ff;
+  --bs-btn-disabled-border-color: #bfdbfe;
+  color: var(--bs-btn-color);
+  background-color: var(--bs-btn-bg);
+  border-color: var(--bs-btn-border-color);
+  font-weight: 600;
+  transition: background-color var(--motion-fast), border-color var(--motion-fast), color var(--motion-fast);
+}
+.btn-upload:hover,
+.btn-upload:focus {
+  color: var(--bs-btn-hover-color);
+  background-color: var(--bs-btn-hover-bg);
+  border-color: var(--bs-btn-hover-border-color);
+}
+.btn-upload:active,
+.btn-upload.active {
+  color: var(--bs-btn-active-color);
+  background-color: var(--bs-btn-active-bg);
+  border-color: var(--bs-btn-active-border-color);
+}
+
 /* Modal headers — white, not teal bars; CTA stays on footer buttons */
 .modal-header.bg-primary,
-.modal-header.bg-primary.text-white {
+.modal-header.bg-primary.text-white,
+.modal-header.bg-warning,
+.modal-header.bg-warning.text-dark,
+.modal-header.bg-info,
+.modal-header.bg-info.text-white {
   background: var(--surface-1) !important;
   color: var(--brand-ink) !important;
   border-bottom: 1px solid var(--border-default);
 }
 .modal-header.bg-primary .btn-close,
-.modal-header.bg-primary.text-white .btn-close {
+.modal-header.bg-primary.text-white .btn-close,
+.modal-header.bg-warning .btn-close,
+.modal-header.bg-info .btn-close,
+.modal-header.bg-info.text-white .btn-close {
   filter: none;
   opacity: 0.65;
 }

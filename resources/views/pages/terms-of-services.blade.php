@@ -129,9 +129,9 @@
 
 
     <!-- ===== 8. DISCLAIMERS ===== -->
-    <div class="mb-4 p-4 p-md-5 rounded-4" style="background:#fffbeb; border-left:4px solid #f59e0b;">
+    <div class="mb-4 p-4 p-md-5 rounded-4 ui-callout ui-callout--attention" style="display:block; border-left:3px solid #dc2626;">
         <div class="d-flex align-items-center gap-3 mb-3">
-            <div class="terms-num" style="background:linear-gradient(135deg,#f59e0b,#fbbf24);">8</div>
+            <span class="ui-callout__icon" aria-hidden="true" style="margin-top:0;"><i class="fa-solid fa-circle-exclamation"></i></span>
             <h2 class="fw-bold mb-0" style="color:#1a1a2e; font-size:1.4rem;">{{ __('messages.section8_title') }}</h2>
         </div>
         <p style="color:#555; line-height:1.7;">

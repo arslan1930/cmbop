@@ -35,8 +35,9 @@
             @endforeach
         </div>
 
-        <div class="alert alert-warning small mb-3" id="wizardHelpPreferred">
-            Please upload your article as a Microsoft Word (.docx) document only. Other formats are not accepted.
+        <div class="alert alert-warning small mb-3 ui-callout ui-callout--attention ui-callout--sm" id="wizardHelpPreferred">
+            <span class="ui-callout__icon" aria-hidden="true"><i class="fa-solid fa-circle-exclamation"></i></span>
+            <span class="ui-callout__body">Please upload your article as a Microsoft Word (.docx) document only. Other formats are not accepted.</span>
         </div>
 
         <div class="content-wizard-panels">

@@ -93,15 +93,17 @@ class WalletBalancePageTest extends TestCase
         $this->assertStringContainsString('Recent activity', $html);
     }
 
-    public function test_brand_colors_use_amber_caution_and_teal_code(): void
+    public function test_brand_colors_use_icon_signal_caution_and_teal_code(): void
     {
         $brand = file_get_contents(public_path('css/brand-colors.css'));
         $this->assertIsString($brand);
         $this->assertStringContainsString('--bs-code-color: #185054', $brand);
         $this->assertStringContainsString('--brand-primary: #185054', $brand);
-        $this->assertStringContainsString('--brand-warning-bg: #fffbeb', $brand);
-        $this->assertStringContainsString('--brand-warning: #b45309', $brand);
+        $this->assertStringContainsString('--brand-warning-bg: #ffffff', $brand);
+        $this->assertStringContainsString('--brand-warning: #dc2626', $brand);
         $this->assertStringContainsString('.alert-warning', $brand);
+        $this->assertStringContainsString('.ui-callout--attention', $brand);
+        $this->assertStringNotContainsString('--brand-warning-bg: #fffbeb', $brand);
         $this->assertStringNotContainsString('--brand-warning: #185054', $brand);
     }
 

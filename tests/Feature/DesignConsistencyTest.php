@@ -85,7 +85,7 @@ class DesignConsistencyTest extends TestCase
         $this->assertStringContainsString('--brand-primary-soft: #3faeb2', $brand);
         $this->assertStringContainsString('--brand-primary-bg: #e6f5f5', $brand);
         $this->assertStringContainsString('--surface-2: #f7fafb', $brand);
-        $this->assertStringContainsString('--brand-warning: #b45309', $brand);
+        $this->assertStringContainsString('--brand-warning: #dc2626', $brand);
     }
 
     public function test_marketing_back_to_top_uses_brand_primary(): void

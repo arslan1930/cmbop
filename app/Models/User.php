@@ -32,13 +32,16 @@ class User extends Authenticatable implements MustVerifyEmail
         'stripe_default_payment_method_id',
         'payout_business_name',
         'payout_paypal_email',
+        'payout_wise_email',
         'payout_bank_holder_name',
         'payout_bank_name',
         'payout_bank_account',
         'payout_bank_swift',
         'payout_crypto_trx_wallet',
+        'payout_crypto_type',
         'payout_crypto_trx_verified_at',
         'payout_profile_locked_at',
+        'payout_preferred_method',
     ];
 
     /**
@@ -80,13 +83,18 @@ class User extends Authenticatable implements MustVerifyEmail
         return [
             'business_name' => $this->payout_business_name,
             'paypal_email' => $this->payout_paypal_email,
+            'wise_email' => $this->payout_wise_email,
             'bank_holder_name' => $this->payout_bank_holder_name,
             'bank_name' => $this->payout_bank_name,
             'bank_account' => $this->payout_bank_account,
             'bank_swift' => $this->payout_bank_swift,
+            'crypto_wallet' => $this->payout_crypto_trx_wallet,
             'crypto_trx_wallet' => $this->payout_crypto_trx_wallet,
+            'crypto_type' => $this->payout_crypto_type,
             'crypto_trx_verified' => $this->payout_crypto_trx_verified_at !== null,
+            'preferred_method' => $this->payout_preferred_method,
             'locked' => $this->payoutProfileLocked(),
+            'locked_at' => optional($this->payout_profile_locked_at)?->toIso8601String(),
         ];
     }
 

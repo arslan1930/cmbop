@@ -15,13 +15,16 @@
         </div>
     </div>
 
-    <div id="needsActionBanner" class="alert alert-warning border-0 shadow-sm d-none mb-4" role="status">
-        <div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
-            <div>
-                <strong><i class="fa fa-exclamation-circle me-1"></i> Needs your action</strong>
+    <div id="needsActionBanner" class="ui-callout ui-callout--attention ui-callout--banner d-none mb-4" role="status">
+        <div class="ui-callout__main">
+            <span class="ui-callout__icon" aria-hidden="true"><i class="fa-solid fa-circle-exclamation"></i></span>
+            <div class="ui-callout__body">
+                <strong>Needs your action</strong>
                 <span class="ms-1" id="needsActionText"></span>
             </div>
-            <button type="button" class="btn btn-sm btn-dark" id="showNeedsActionBtn">Show tasks that need me</button>
+        </div>
+        <div class="ui-callout__actions">
+            <button type="button" class="btn btn-sm btn-primary" id="showNeedsActionBtn">Show tasks that need me</button>
         </div>
     </div>
 
@@ -235,14 +238,15 @@
 <div class="modal fade" id="resubmitModal" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
-            <div class="modal-header bg-warning text-dark">
+            <div class="modal-header">
                 <h5 class="modal-title">Resubmit Live URL</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
                 <input type="hidden" id="resubmit_order_item_id">
-                <div class="alert alert-info">
-                    <i class="fa fa-info-circle"></i> The advertiser has requested modifications. Please update your content and submit the new live URL.
+                <div class="ui-callout ui-callout--attention ui-callout--sm">
+                    <span class="ui-callout__icon" aria-hidden="true"><i class="fa-solid fa-circle-exclamation"></i></span>
+                    <div class="ui-callout__body">The advertiser has requested modifications. Update your content, then submit the new live URL.</div>
                 </div>
                 <div class="mb-3">
                     <label for="resubmit_live_url" class="form-label">Updated Live URL <span class="text-danger">*</span></label>
@@ -252,7 +256,7 @@
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                <button type="button" class="btn btn-warning" id="confirmResubmit">Resubmit Live URL</button>
+                <button type="button" class="btn btn-primary" id="confirmResubmit">Resubmit Live URL</button>
             </div>
         </div>
     </div>
@@ -262,9 +266,9 @@
 <div class="modal fade" id="detailsModal" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered modal-lg">
         <div class="modal-content">
-            <div class="modal-header bg-info text-white">
+            <div class="modal-header">
                 <h5 class="modal-title">Order Details</h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body" id="detailsContent"></div>
             <div class="modal-footer">
@@ -279,31 +283,6 @@
 </div>
 
 <style>
-.chat-order-details {
-    padding: 10px 16px;
-    background: #f4f6f8;
-    border-bottom: 1px solid #e6eaee;
-    color: #8a94a0;
-    font-size: 0.78rem;
-    line-height: 1.45;
-}
-.chat-order-details .chat-detail-primary {
-    color: #6c757d;
-    font-weight: 500;
-}
-.chat-order-details .chat-detail-sep {
-    color: #c5ccd4;
-    margin: 0 0.35rem;
-}
-.chat-order-details a {
-    color: #8a94a0;
-    text-decoration: none;
-}
-.chat-order-details a:hover {
-    color: #6c757d;
-    text-decoration: underline;
-}
-
 .table td, .table th {
     padding: 12px 15px;
     vertical-align: middle;
@@ -576,12 +555,6 @@ $(document).ready(function() {
         $('#completeModal').modal('show');
     });
 
-    $(document).on('click', '.resubmit-live-url', function() {
-        $('#resubmit_order_item_id').val($(this).data('id'));
-        $('#resubmit_live_url').val('');
-        $('#resubmitModal').modal('show');
-    });
-
     // Chat functionality (shared OrderChat module)
     function formatChatDate(value, withTime) {
         if (!value) return '—';
@@ -640,13 +613,16 @@ $(document).ready(function() {
                 ? '<div class="small mt-1"><strong>Reason:</strong> ' + escapeHtml(details.completion_notes) + '</div>'
                 : '';
             const itemId = details.order_item_id || '';
-            revisionBlock = '<div class="alert alert-warning py-2 px-3 small mt-2 mb-0">'
+            revisionBlock = '<div class="ui-callout ui-callout--attention ui-callout--sm ui-callout--flush mt-2">'
+                + '<span class="ui-callout__icon" aria-hidden="true"><i class="fa-solid fa-circle-exclamation"></i></span>'
+                + '<div class="ui-callout__body">'
                 + '<div>The advertiser asked for changes. Update the article and resubmit the live URL.</div>'
                 + reason
+                + currentUrl
                 + (details.can_resubmit && itemId
-                    ? '<div class="mt-2"><button type="button" class="btn btn-sm btn-warning resubmit-live-url" data-id="' + escapeHtml(String(itemId)) + '"><i class="fa fa-edit me-1"></i>Resubmit URL</button></div>'
+                    ? '<div class="mt-2"><button type="button" class="btn btn-sm btn-primary resubmit-live-url" data-id="' + escapeHtml(String(itemId)) + '"><i class="fa fa-edit me-1"></i>Resubmit URL</button></div>'
                     : '')
-                + '</div>';
+                + '</div></div>';
         }
 
         el.innerHTML = '<div class="small">'
@@ -828,22 +804,31 @@ $(document).ready(function() {
         });
     });
 
-    $('#confirmResubmit').on('click', function() {
-        var id = $('#resubmit_order_item_id').val();
-        var liveUrl = $('#resubmit_live_url').val();
-        
-        if (!liveUrl) {
-            Swal.fire('Warning!', 'Please enter the updated live URL', 'warning');
+    $(document).on('submit', '.chat-resubmit-form', function(e) {
+        e.preventDefault();
+        var $form = $(this);
+        var id = $form.data('item-id');
+        var $input = $form.find('input[name="live_url"]');
+        var liveUrl = ($input.val() || '').trim();
+        var $btn = $form.find('button[type="submit"]');
+
+        if (!id) {
+            Swal.fire('Error!', 'Missing order item for resubmit.', 'error');
             return;
         }
-        
+        if (!liveUrl) {
+            Swal.fire('Warning!', 'Please enter the updated live URL', 'warning');
+            $input.trigger('focus');
+            return;
+        }
+
         $.ajax({
             url: baseUrl + '/publisher/orders/' + id + '/resubmit',
             method: 'POST',
             data: { live_url: liveUrl, _token: '{{ csrf_token() }}' },
             dataType: 'json',
             beforeSend: function() {
-                $('#confirmResubmit').prop('disabled', true).html('<i class="fa fa-spinner fa-spin"></i>');
+                $btn.prop('disabled', true).html('<i class="fa fa-spinner fa-spin"></i>');
             },
             success: function(response) {
                 if (response.success) {
@@ -852,7 +837,6 @@ $(document).ready(function() {
                         html: response.message,
                         icon: 'success'
                     });
-                    $('#resubmitModal').modal('hide');
                     loadTasks();
                     loadStatistics();
                     if (orderChat && typeof orderChat.load === 'function' && orderChat.currentOrderId) {
@@ -872,7 +856,7 @@ $(document).ready(function() {
                 Swal.fire('Error!', errorMsg, 'error');
             },
             complete: function() {
-                $('#confirmResubmit').prop('disabled', false).html('Resubmit URL');
+                $btn.prop('disabled', false).html('<i class="fa fa-paper-plane me-1" aria-hidden="true"></i>Resubmit URL');
             }
         });
     });
@@ -971,7 +955,6 @@ $(document).ready(function() {
                     '</div>';
             } else if (modificationRequested && (orderStatus === 'processing' || orderStatus === 'review')) {
                 actions = '<div class="action-buttons">' +
-                    '<button class="btn btn-warning btn-action-sm resubmit-live-url" data-id="' + item.id + '"><i class="fa fa-edit"></i> Resubmit URL</button>' +
                     viewBtn + chatBtn + liveBtn +
                     '</div>';
             } else if (awaitingAdvertiser) {
@@ -1059,9 +1042,9 @@ $(document).ready(function() {
         if (item.live_url_submitted_at && !modificationRequested && !item.auto_approve_triggered) {
             const hoursRemaining = getAutoApproveHoursRemaining(item.live_url_submitted_at);
             if (hoursRemaining > 0) {
-                autoApproveInfo = '<div class="alert alert-info mt-3"><i class="fa fa-info-circle"></i> <strong>Waiting for advertiser:</strong> They can approve or request changes. ' + escapeHtml(formatAutoApproveCountdown(hoursRemaining)) + '.</div>';
+                autoApproveInfo = '<div class="ui-callout ui-callout--info mt-3"><span class="ui-callout__icon" aria-hidden="true"><i class="fa-solid fa-circle-info"></i></span><div class="ui-callout__body"><strong>Waiting for advertiser:</strong> They can approve or request changes. ' + escapeHtml(formatAutoApproveCountdown(hoursRemaining)) + '.</div></div>';
             } else {
-                autoApproveInfo = '<div class="alert alert-success mt-3"><i class="fa fa-check-circle"></i> <strong>Ready for approval:</strong> The advertiser review window has ended — this should auto-approve soon.</div>';
+                autoApproveInfo = '<div class="ui-callout ui-callout--success mt-3"><span class="ui-callout__icon" aria-hidden="true"><i class="fa-solid fa-circle-check"></i></span><div class="ui-callout__body"><strong>Ready for approval:</strong> The advertiser review window has ended — this should auto-approve soon.</div></div>';
             }
         }
         
@@ -1071,7 +1054,7 @@ $(document).ready(function() {
         
         if (modificationRequested) {
             var reason = item.completion_notes ? '<div class="small mt-1">Reason: ' + escapeHtml(item.completion_notes) + '</div>' : '';
-            liveUrlHtml = '<div class="alert alert-warning"><i class="fa fa-exclamation-triangle"></i> The advertiser asked for changes. Update the article and resubmit the live URL.' + reason + '</div>' + liveUrlHtml;
+            liveUrlHtml = '<div class="ui-callout ui-callout--attention mb-2"><span class="ui-callout__icon" aria-hidden="true"><i class="fa-solid fa-circle-exclamation"></i></span><div class="ui-callout__body">The advertiser asked for changes. Update the article and resubmit the live URL.' + reason + '</div></div>' + liveUrlHtml;
         }
 
         var timelineHtml = buildPublisherTimeline(orderStatus, hasLiveUrl, modificationRequested);
@@ -1266,7 +1249,7 @@ $(document).ready(function() {
             return { statusClass: 'status-pending', statusText: 'New order', nextStep: 'Accept or reject this order' };
         }
         if (modificationRequested) {
-            return { statusClass: 'status-pending', statusText: 'Changes requested', nextStep: 'Update the article and resubmit the live URL' };
+            return { statusClass: 'status-pending', statusText: 'Changes requested', nextStep: 'Make corrections, then open Chat to resubmit the live URL' };
         }
         if (orderStatus === 'review' || (orderStatus === 'processing' && hasLiveUrl)) {
             const hoursRemaining = getAutoApproveHoursRemaining(liveUrlSubmittedAt);
@@ -1342,7 +1325,7 @@ $(document).ready(function() {
         $.getJSON(baseUrl + '/chat/unread-summary')
             .done(function(res) {
                 if (res.success && res.needs_action > 0) {
-                    $('#needsActionText').text(res.needs_action + ' task' + (res.needs_action === 1 ? '' : 's') + ' need you (accept, publish, or resubmit).');
+                    $('#needsActionText').text(res.needs_action + ' task' + (res.needs_action === 1 ? '' : 's') + ' need you (accept, publish, or open Chat to resubmit).');
                     $('#needsActionBanner').removeClass('d-none');
                 } else {
                     $('#needsActionBanner').addClass('d-none');

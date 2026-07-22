@@ -198,6 +198,30 @@
                     </div>
 
                     <div class="detail-line">
+                        <strong>Payout:</strong>
+                        @if($user->payout_profile_locked_at)
+                            <span class="badge status-pending">Locked</span>
+                            <span class="text-muted small">{{ strtoupper((string) $user->payout_preferred_method) ?: '—' }}</span>
+                        @else
+                            <span class="text-muted">Not set</span>
+                        @endif
+                        <button type="button"
+                                class="btn btn-sm btn-link text-primary p-0 ms-2 btn-edit-payout"
+                                data-id="{{ $user->id }}"
+                                data-method="{{ $user->payout_preferred_method ?: 'paypal' }}"
+                                data-paypal="{{ $user->payout_paypal_email }}"
+                                data-wise="{{ $user->payout_wise_email }}"
+                                data-bank-name="{{ $user->payout_bank_name }}"
+                                data-holder="{{ $user->payout_bank_holder_name }}"
+                                data-account="{{ $user->payout_bank_account }}"
+                                data-swift="{{ $user->payout_bank_swift }}"
+                                data-crypto-type="{{ $user->payout_crypto_type ?: 'USDT' }}"
+                                data-wallet="{{ $user->payout_crypto_trx_wallet }}">
+                            Edit payout
+                        </button>
+                    </div>
+
+                    <div class="detail-line">
                         <strong>Billing Name:</strong> {{ $user->billing_name ?? '-' }}
                     </div>
 
@@ -421,6 +445,68 @@ document.addEventListener('click', function(e){
                     }
                 });
             }
+        });
+    }
+
+    const payoutBtn = e.target.closest('.btn-edit-payout');
+    if (payoutBtn) {
+        const id = payoutBtn.dataset.id;
+        const method = payoutBtn.dataset.method || 'paypal';
+        Swal.fire({
+            title: 'Edit payout details',
+            html: `
+                <select id="swalMethod" class="swal2-input">
+                    <option value="paypal" ${method==='paypal'?'selected':''}>PayPal</option>
+                    <option value="wise" ${method==='wise'?'selected':''}>Wise</option>
+                    <option value="bank" ${method==='bank'?'selected':''}>Bank</option>
+                    <option value="crypto" ${method==='crypto'?'selected':''}>Crypto</option>
+                </select>
+                <input id="swalPaypal" class="swal2-input" placeholder="PayPal email" value="${payoutBtn.dataset.paypal || ''}">
+                <input id="swalWise" class="swal2-input" placeholder="Wise email" value="${payoutBtn.dataset.wise || ''}">
+                <input id="swalBankName" class="swal2-input" placeholder="Bank name" value="${payoutBtn.dataset.bankName || ''}">
+                <input id="swalHolder" class="swal2-input" placeholder="Account holder" value="${payoutBtn.dataset.holder || ''}">
+                <input id="swalAccount" class="swal2-input" placeholder="IBAN / account" value="${payoutBtn.dataset.account || ''}">
+                <input id="swalSwift" class="swal2-input" placeholder="SWIFT (optional)" value="${payoutBtn.dataset.swift || ''}">
+                <input id="swalCryptoType" class="swal2-input" placeholder="Crypto type (BTC/ETH/USDT/BNB)" value="${payoutBtn.dataset.cryptoType || 'USDT'}">
+                <input id="swalWallet" class="swal2-input" placeholder="Wallet address" value="${payoutBtn.dataset.wallet || ''}">
+                <p class="small text-muted mt-2">Publisher will be emailed after you save.</p>
+            `,
+            showCancelButton: true,
+            confirmButtonText: 'Update & notify',
+            width: 520,
+            preConfirm: () => {
+                return {
+                    payment_method: document.getElementById('swalMethod').value,
+                    paypal_email: document.getElementById('swalPaypal').value,
+                    wise_email: document.getElementById('swalWise').value,
+                    bank_name: document.getElementById('swalBankName').value,
+                    account_holder: document.getElementById('swalHolder').value,
+                    account_number: document.getElementById('swalAccount').value,
+                    swift_code: document.getElementById('swalSwift').value,
+                    crypto_type: document.getElementById('swalCryptoType').value,
+                    wallet_address: document.getElementById('swalWallet').value,
+                };
+            }
+        }).then((result) => {
+            if (!result.isConfirmed) return;
+            fetch(`/admin/users/${id}/payout-profile`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                },
+                body: JSON.stringify(result.value)
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    Swal.fire('Updated!', data.message, 'success').then(() => window.location.reload());
+                } else {
+                    Swal.fire('Error', data.message || 'Update failed', 'error');
+                }
+            })
+            .catch(() => Swal.fire('Error', 'Network error', 'error'));
         });
     }
 

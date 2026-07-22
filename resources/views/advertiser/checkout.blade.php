@@ -575,8 +575,7 @@
                                 <p class="small text-muted mb-2">
                                     Header <strong>Spendable</strong> includes this bonus. Check the box below to spend it on this order.
                                 </p>
-                                <div class="form-check d-flex align-items-start gap-2 py-2 px-3 mb-2 rounded"
-                                     style="background:#fffbeb;border:1px solid #fde68a;">
+                                <div class="form-check d-flex align-items-start gap-2 py-2 px-3 mb-2 rounded ui-callout ui-callout--attention ui-callout--sm ui-callout--flush">
                                     <input class="form-check-input mt-1" type="checkbox" id="useBonusBalance" value="1">
                                     <label class="form-check-label small" for="useBonusBalance" style="cursor:pointer;">
                                         <strong>Use bonus balance</strong>

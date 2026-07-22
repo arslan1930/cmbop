@@ -184,4 +184,15 @@ class SavedSitesPageTest extends TestCase
             ->assertSee(route('advertiser.saved-sites'), false)
             ->assertSee('Saved Sites', false);
     }
+
+    public function test_sidebar_places_saved_sites_after_scheduled(): void
+    {
+        $layout = file_get_contents(resource_path('views/advertiser/layouts/app.blade.php'));
+        $scheduledPos = strpos($layout, 'advertiser.scheduled-orders');
+        $savedPos = strpos($layout, 'advertiser.saved-sites');
+
+        $this->assertNotFalse($scheduledPos);
+        $this->assertNotFalse($savedPos);
+        $this->assertLessThan($savedPos, $scheduledPos, 'Saved Sites should appear after Scheduled in the sidebar');
+    }
 }

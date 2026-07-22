@@ -84,11 +84,6 @@
             <span class="nav-label">Catalog</span>
         </a>
 
-        <a href="{{ route('advertiser.saved-sites') }}" class="{{ request()->routeIs('advertiser.saved-sites*') ? 'active' : '' }}">
-            <i class="fa-solid fa-heart nav-icon-heart" aria-hidden="true"></i>
-            <span class="nav-label">Saved Sites</span>
-        </a>
-
         <a href="{{ route('advertiser.content-library') }}" class="{{ request()->routeIs('advertiser.content-library*') ? 'active' : '' }}">
             <i class="fa fa-file-word" aria-hidden="true"></i>
             <span class="nav-label">Content Library</span>
@@ -106,6 +101,11 @@
         <a href="{{ route('advertiser.scheduled-orders') }}" class="{{ request()->routeIs('advertiser.scheduled-orders*') ? 'active' : '' }}">
             <i class="fa fa-calendar-alt" aria-hidden="true"></i>
             <span class="nav-label">Scheduled</span>
+        </a>
+
+        <a href="{{ route('advertiser.saved-sites') }}" class="{{ request()->routeIs('advertiser.saved-sites*') ? 'active' : '' }}">
+            <i class="fa-solid fa-heart nav-icon-heart" aria-hidden="true"></i>
+            <span class="nav-label">Saved Sites</span>
         </a>
 
         <!-- Add Funds -->
