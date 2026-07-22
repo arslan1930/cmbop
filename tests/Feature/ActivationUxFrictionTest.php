@@ -56,17 +56,12 @@ class ActivationUxFrictionTest extends TestCase
     {
         $this->verifiedSite();
 
-        $html = $this->get(route('marketplace'))
+        $this->get(route('marketplace'))
             ->assertOk()
             ->assertSee('Sample verified inventory', false)
             ->assertSee('Activation Teaser Site', false)
             ->assertSee('t********.com', false)
-            ->getContent();
-
-        $this->assertStringContainsString(route('register', absolute: false) !== ''
-            ? 'register'
-            : 'register', $html);
-        $this->assertStringContainsString('/register', $html);
+            ->assertSee('/register', false);
     }
 
     public function test_advertiser_campaigns_redirects_to_dashboard(): void

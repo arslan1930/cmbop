@@ -74,7 +74,7 @@ class AdvertiserStartFlowGuidanceTest extends TestCase
         $this->actingAs($advertiser)
             ->get(route('advertiser.catalog'))
             ->assertOk()
-            ->assertSee('Checkout needs an', false)
+            ->assertSee('needs its own', false)
             ->assertSee('approved', false)
             ->assertSee(route('advertiser.content-library', ['upload' => 1]), false)
             ->assertDontSee('Order an article', false);
