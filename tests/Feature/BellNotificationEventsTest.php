@@ -677,6 +677,12 @@ class BellNotificationEventsTest extends TestCase
             'type' => InAppNotificationService::TYPE_PAYMENT_RECEIVED,
         ]);
 
+        $this->assertDatabaseHas('in_app_notifications', [
+            'user_id' => $advertiser->id,
+            'audience' => InAppNotification::AUDIENCE_ADVERTISER,
+            'type' => InAppNotificationService::TYPE_PAYMENT_PENDING,
+        ]);
+
         $note = InAppNotification::where('user_id', $admin->id)
             ->where('audience', InAppNotification::AUDIENCE_ADMIN)
             ->first();
