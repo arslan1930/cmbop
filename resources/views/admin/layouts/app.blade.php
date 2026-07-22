@@ -20,6 +20,7 @@
     <link href="{{ asset('css/interaction.css') }}?v={{ @filemtime(public_path('css/interaction.css')) ?: '1' }}" rel="stylesheet">
     <link href="{{ asset('css/glass-tip.css') }}?v={{ @filemtime(public_path('css/glass-tip.css')) ?: '1' }}" rel="stylesheet">
     <link href="{{ asset('css/pulse-badge.css') }}?v={{ @filemtime(public_path('css/pulse-badge.css')) ?: '1' }}" rel="stylesheet">
+    <link href="{{ asset('css/notification-center.css') }}?v={{ @filemtime(public_path('css/notification-center.css')) ?: '5' }}" rel="stylesheet">
     <script src="{{ asset('js/pulse-badge.js') }}?v={{ @filemtime(public_path('js/pulse-badge.js')) ?: '1' }}"></script>
     <script src="{{ asset('js/glass-tip.js') }}?v={{ @filemtime(public_path('js/glass-tip.js')) ?: '1' }}" defer></script>
 
@@ -249,6 +250,8 @@
     </div>
 
     <div class="d-flex align-items-center gap-2">
+        @include('partials.notification-center')
+
         <div class="dropdown">
             <button class="btn dropdown-toggle d-flex align-items-center gap-1"
                     data-bs-toggle="dropdown"
@@ -386,5 +389,6 @@
     setInterval(refreshAdminQueueBadges, 60000);
     @endif
 </script>
+<script src="{{ asset('js/notification-center.js') }}?v={{ @filemtime(public_path('js/notification-center.js')) ?: '5' }}" defer></script>
 </body>
 </html>

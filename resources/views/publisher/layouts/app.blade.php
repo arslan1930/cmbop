@@ -544,13 +544,20 @@
         .then(r => r.json())
         .then(data => {
             if (!data.success) return;
+            const needs = data.needs_action || 0;
+            const unreadChat = data.unread_chat || 0;
+            const total = needs + unreadChat;
             const navBadge = document.getElementById('navNeedsActionBadge');
+            if (navBadge) {
+                navBadge.title = needs + ' need action · ' + unreadChat + ' unread chat' + (unreadChat === 1 ? '' : 's');
+                navBadge.setAttribute('aria-label', navBadge.title);
+            }
             if (navBadge && window.PulseBadge) {
-                window.PulseBadge.sync(navBadge, data.needs_action || 0);
+                window.PulseBadge.sync(navBadge, total);
             } else if (navBadge) {
-                if (data.needs_action > 0) {
+                if (total > 0) {
                     navBadge.style.display = 'inline-block';
-                    navBadge.innerText = data.needs_action > 99 ? '99+' : data.needs_action;
+                    navBadge.innerText = total > 99 ? '99+' : total;
                     navBadge.classList.add('pulse-badge', 'is-pulsing');
                 } else {
                     navBadge.style.display = 'none';
@@ -562,6 +569,7 @@
     }
     refreshHeaderAlerts();
     setInterval(refreshHeaderAlerts, 45000);
+    window.refreshHeaderAlerts = refreshHeaderAlerts;
 
     document.querySelectorAll('.role-switch-form').forEach(function(form) {
         form.addEventListener('submit', function(e) {
@@ -584,6 +592,7 @@
         });
     });
 </script>
+<script src="{{ asset('js/order-chat.js') }}?v={{ @filemtime(public_path('js/order-chat.js')) ?: '1' }}" defer></script>
 <script src="{{ asset('js/notification-center.js') }}?v={{ @filemtime(public_path('js/notification-center.js')) ?: '5' }}" defer></script>
 
 </body>

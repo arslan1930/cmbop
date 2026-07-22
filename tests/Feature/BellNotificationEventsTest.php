@@ -447,4 +447,161 @@ class BellNotificationEventsTest extends TestCase
             'type' => InAppNotificationService::TYPE_ORDER_COMPLETED,
         ]);
     }
+
+    public function test_admin_dashboard_includes_notification_center(): void
+    {
+        $admin = $this->makeUser('admin');
+
+        $this->actingAs($admin)
+            ->get(route('admin.dashboard'))
+            ->assertOk()
+            ->assertSee('data-notification-center', false)
+            ->assertSee('notification-center.js', false);
+    }
+
+    public function test_admin_deposit_submitted_bell_and_deep_link(): void
+    {
+        $admin = $this->makeUser('admin');
+        $advertiser = $this->makeUser('advertiser');
+
+        $deposit = DepositRequest::create([
+            'user_id' => $advertiser->id,
+            'reference_code' => '654321',
+            'amount' => 100,
+            'payment_method' => 'wise',
+            'status' => 'pending',
+        ]);
+
+        app(InAppNotificationService::class)->notifyAdminsDepositSubmitted($deposit->fresh('user'));
+
+        $note = InAppNotification::where('user_id', $admin->id)
+            ->where('audience', InAppNotification::AUDIENCE_ADMIN)
+            ->first();
+
+        $this->assertNotNull($note);
+        $this->assertStringContainsString('deposit', strtolower($note->title));
+        $this->assertStringContainsString('/admin/deposits', (string) $note->action_url);
+
+        $this->assertDatabaseMissing('in_app_notifications', [
+            'user_id' => $advertiser->id,
+            'audience' => InAppNotification::AUDIENCE_ADMIN,
+        ]);
+    }
+
+    public function test_admin_withdrawal_and_site_and_user_and_manual_payment_bells(): void
+    {
+        $admin = $this->makeUser('admin');
+        $advertiser = $this->makeUser('advertiser');
+        $publisher = $this->makeUser('publisher');
+        $site = $this->makeSite($publisher);
+        $order = $this->makeOrder($advertiser, $site, [
+            'payment_status' => 'pending',
+            'payment_method' => 'wise',
+        ]);
+
+        $notifications = app(InAppNotificationService::class);
+
+        $withdrawal = Withdrawal::create([
+            'user_id' => $publisher->id,
+            'amount' => 50,
+            'fee' => 0,
+            'net_amount' => 50,
+            'payment_method' => 'paypal',
+            'payment_details' => ['email' => 'pub@example.com'],
+            'status' => 'pending',
+        ]);
+        $notifications->notifyAdminsWithdrawalRequested($withdrawal, $publisher);
+
+        $notifications->notifyAdminsNewSite($site, 'create');
+        $notifications->notifyAdminsNewUser($advertiser);
+        $notifications->notifyAdminsManualPayment($advertiser, [$order], 'wise');
+
+        $adminNotes = InAppNotification::where('user_id', $admin->id)
+            ->where('audience', InAppNotification::AUDIENCE_ADMIN)
+            ->get();
+
+        $this->assertGreaterThanOrEqual(4, $adminNotes->count());
+
+        $urls = $adminNotes->pluck('action_url')->implode(' ');
+        $this->assertStringContainsString('/admin/withdrawals', $urls);
+        $this->assertStringContainsString('/admin/sites', $urls);
+        $this->assertStringContainsString('/admin/users', $urls);
+        $this->assertStringContainsString('/admin/payments', $urls);
+
+        $this->assertSame(
+            0,
+            InAppNotification::where('user_id', $publisher->id)
+                ->where('audience', InAppNotification::AUDIENCE_ADMIN)
+                ->count()
+        );
+    }
+
+    public function test_admin_audience_filter_hides_advertiser_rows(): void
+    {
+        $admin = $this->makeUser('admin');
+        $advertiserRole = Role::where('name', 'advertiser')->firstOrFail();
+        $admin->roles()->syncWithoutDetaching([$advertiserRole->id]);
+
+        InAppNotification::create([
+            'user_id' => $admin->id,
+            'audience' => InAppNotification::AUDIENCE_ADVERTISER,
+            'type' => InAppNotificationService::TYPE_ORDER_UPDATED,
+            'category' => InAppNotificationService::CATEGORY_ORDERS,
+            'title' => 'Advertiser-only ping',
+            'message' => 'Should not show in admin mode',
+            'status' => InAppNotification::STATUS_UNREAD,
+        ]);
+
+        InAppNotification::create([
+            'user_id' => $admin->id,
+            'audience' => InAppNotification::AUDIENCE_ADMIN,
+            'type' => InAppNotificationService::TYPE_SYSTEM,
+            'category' => InAppNotificationService::CATEGORY_SYSTEM,
+            'title' => 'Admin ops ping',
+            'message' => 'Should show',
+            'status' => InAppNotification::STATUS_UNREAD,
+        ]);
+
+        $service = app(InAppNotificationService::class);
+        $this->assertSame(1, $service->unreadCount($admin->id, 'admin'));
+
+        $list = $service->listForUser($admin->id, ['audience' => 'admin', 'status' => 'unread']);
+        $titles = collect($list->items())->pluck('title')->all();
+        $this->assertContains('Admin ops ping', $titles);
+        $this->assertNotContains('Advertiser-only ping', $titles);
+    }
+
+    public function test_deposit_store_creates_admin_bell(): void
+    {
+        $admin = $this->makeUser('admin');
+        $advertiser = $this->makeUser('advertiser');
+        $advertiser->forceFill([
+            'billing_name' => 'Bell Advertiser',
+            'company_name' => 'Bell Co',
+            'country' => 'DE',
+            'city' => 'Berlin',
+            'address' => 'Main 1',
+        ])->save();
+
+        $this->actingAs($advertiser)
+            ->postJson(route('advertiser.add-funds.store'), [
+                'amount' => 75,
+                'payment_method' => 'wise',
+                'reference_code' => 'BELL75',
+            ])
+            ->assertOk()
+            ->assertJsonPath('success', true);
+
+        $this->assertDatabaseHas('in_app_notifications', [
+            'user_id' => $admin->id,
+            'audience' => InAppNotification::AUDIENCE_ADMIN,
+            'type' => InAppNotificationService::TYPE_PAYMENT_RECEIVED,
+        ]);
+
+        $note = InAppNotification::where('user_id', $admin->id)
+            ->where('audience', InAppNotification::AUDIENCE_ADMIN)
+            ->first();
+        $this->assertNotNull($note);
+        $this->assertStringContainsString('deposit', strtolower($note->title));
+    }
 }

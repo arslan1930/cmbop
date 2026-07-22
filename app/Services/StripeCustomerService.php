@@ -3,7 +3,7 @@
 namespace App\Services;
 
 use App\Models\User;
-use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 use Stripe\Checkout\Session;
@@ -18,58 +18,118 @@ class StripeCustomerService
 {
     public function __construct()
     {
-        Stripe::setApiKey(config('services.stripe.secret'));
+        $secret = $this->secret();
+        if ($secret !== '') {
+            Stripe::setApiKey($secret);
+        }
     }
 
     public function configured(): bool
     {
-        $secret = (string) config('services.stripe.secret');
+        $secret = $this->secret();
 
-        return $secret !== '' && ! str_contains($secret, 'your-');
+        return $secret !== ''
+            && str_starts_with($secret, 'sk_')
+            && ! str_contains($secret, 'your-');
+    }
+
+    private function secret(): string
+    {
+        return trim((string) config('services.stripe.secret', ''));
+    }
+
+    /**
+     * Whether the users table can store a Stripe Customer id.
+     */
+    public function usersTableReady(): bool
+    {
+        try {
+            return Schema::hasTable('users') && Schema::hasColumn('users', 'stripe_customer_id');
+        } catch (\Throwable) {
+            return false;
+        }
     }
 
     /**
      * Ensure users.stripe_* columns exist (Hostinger often skips artisan migrate).
+     * Never throws — Checkout must keep working even when ALTER is denied.
      */
     public function ensureUserStripeColumns(): void
     {
-        if (! Schema::hasTable('users')) {
+        try {
+            if (! Schema::hasTable('users')) {
+                return;
+            }
+        } catch (\Throwable $e) {
+            Log::warning('Stripe column check failed', ['error' => $e->getMessage()]);
+
             return;
         }
 
-        $needsCustomer = ! Schema::hasColumn('users', 'stripe_customer_id');
-        $needsDefaultPm = ! Schema::hasColumn('users', 'stripe_default_payment_method_id');
+        $this->addUsersColumnIfMissing('stripe_customer_id', 'varchar(255) NULL');
+        $this->addUsersColumnIfMissing('stripe_default_payment_method_id', 'varchar(255) NULL');
 
-        if (! $needsCustomer && ! $needsDefaultPm) {
+        // Unique index is optional — ignore failures (duplicates / no privilege).
+        try {
+            if (Schema::hasColumn('users', 'stripe_customer_id')) {
+                DB::statement('ALTER TABLE `users` ADD UNIQUE KEY `users_stripe_customer_id_unique` (`stripe_customer_id`)');
+            }
+        } catch (\Throwable) {
+            // Duplicate key name / no privilege — fine.
+        }
+    }
+
+    private function addUsersColumnIfMissing(string $column, string $definition): void
+    {
+        try {
+            if (Schema::hasColumn('users', $column)) {
+                return;
+            }
+        } catch (\Throwable $e) {
+            Log::warning('Stripe hasColumn failed', ['column' => $column, 'error' => $e->getMessage()]);
+
             return;
         }
 
-        Schema::table('users', function (Blueprint $table) use ($needsCustomer, $needsDefaultPm) {
-            if ($needsCustomer) {
-                $table->string('stripe_customer_id')->nullable()->unique();
+        try {
+            DB::statement("ALTER TABLE `users` ADD COLUMN `{$column}` {$definition}");
+            Log::info('Added missing users.'.$column.' for Stripe');
+        } catch (\Throwable $e) {
+            try {
+                if (Schema::hasColumn('users', $column)) {
+                    return;
+                }
+            } catch (\Throwable) {
+                // ignore
             }
-            if ($needsDefaultPm) {
-                $table->string('stripe_default_payment_method_id')->nullable();
-            }
-        });
+            Log::warning('Could not add users.'.$column.' for Stripe', [
+                'error' => $e->getMessage(),
+                'hint' => 'Run database/sql/fix_users_stripe_customer_columns.sql in phpMyAdmin',
+            ]);
+        }
     }
 
     /**
      * Ensure the user has a Stripe Customer and return its id.
+     *
+     * Persisting to users.stripe_customer_id is best-effort. If the Hostinger
+     * schema is missing the column, Checkout can still use the Customer id.
      */
     public function getOrCreateCustomerId(User $user): string
     {
         $this->ensureUserStripeColumns();
+        $canPersist = $this->usersTableReady();
 
-        if ($user->stripe_customer_id) {
+        $existing = $canPersist ? trim((string) ($user->stripe_customer_id ?? '')) : '';
+        if ($existing !== '') {
             try {
-                Customer::retrieve($user->stripe_customer_id);
+                Customer::retrieve($existing);
 
-                return $user->stripe_customer_id;
+                return $existing;
             } catch (ApiErrorException $e) {
                 Log::warning('Stored Stripe customer missing; recreating', [
                     'user_id' => $user->id,
-                    'stripe_customer_id' => $user->stripe_customer_id,
+                    'stripe_customer_id' => $existing,
                     'error' => $e->getMessage(),
                 ]);
             }
@@ -83,16 +143,28 @@ class StripeCustomerService
             ],
         ]);
 
-        $user->forceFill(['stripe_customer_id' => $customer->id])->save();
+        if ($canPersist) {
+            try {
+                $user->forceFill(['stripe_customer_id' => $customer->id])->save();
+            } catch (\Throwable $e) {
+                Log::warning('Could not persist users.stripe_customer_id; using Customer for this checkout only', [
+                    'user_id' => $user->id,
+                    'stripe_customer_id' => $customer->id,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        } else {
+            Log::warning('users.stripe_customer_id missing; Checkout will use ephemeral Stripe Customer', [
+                'user_id' => $user->id,
+                'hint' => 'Run database/sql/fix_users_stripe_customer_columns.sql',
+            ]);
+        }
 
         return $customer->id;
     }
 
     /**
      * Options to attach a Checkout Session to the customer and offer saving cards.
-     *
-     * Keep this payload minimal — `customer_update.address=auto` without
-     * `billing_address_collection` has caused Session::create failures on some accounts.
      *
      * @return array<string, mixed>
      */
@@ -105,7 +177,6 @@ class StripeCustomerService
         try {
             $customerId = $this->getOrCreateCustomerId($user);
         } catch (\Throwable $e) {
-            // Do not block Stripe Checkout if customer create fails — fall back to guest session.
             Log::warning('Stripe customer options unavailable; continuing without saved-card customer', [
                 'user_id' => $user->id,
                 'error' => $e->getMessage(),
@@ -140,10 +211,12 @@ class StripeCustomerService
     public function createCheckoutSession(array $basePayload, ?User $user = null, bool $offerSave = true): Session
     {
         if (! $this->configured()) {
-            throw new \RuntimeException('Stripe is not configured.');
+            throw new \RuntimeException(
+                'Stripe is not configured. Set STRIPE_SECRET (sk_...) and STRIPE_KEY (pk_...) in .env, then run: php artisan config:clear'
+            );
         }
 
-        Stripe::setApiKey(config('services.stripe.secret'));
+        Stripe::setApiKey($this->secret());
 
         $guestPayload = $basePayload;
         if ($user && empty($guestPayload['customer']) && empty($guestPayload['customer_email'])) {
@@ -156,7 +229,6 @@ class StripeCustomerService
 
         $withCustomer = array_merge($basePayload, $this->checkoutCustomerOptions($user, $offerSave));
 
-        // No customer options available — guest checkout with email prefill.
         if (! isset($withCustomer['customer'])) {
             return Session::create($guestPayload);
         }
@@ -178,13 +250,18 @@ class StripeCustomerService
      */
     public function listCards(User $user): array
     {
-        if (! $user->stripe_customer_id || ! $this->configured()) {
+        if (! $this->configured() || ! $this->usersTableReady()) {
+            return [];
+        }
+
+        $customerId = trim((string) ($user->stripe_customer_id ?? ''));
+        if ($customerId === '') {
             return [];
         }
 
         try {
             $methods = PaymentMethod::all([
-                'customer' => $user->stripe_customer_id,
+                'customer' => $customerId,
                 'type' => 'card',
                 'limit' => 20,
             ]);
@@ -197,7 +274,7 @@ class StripeCustomerService
             return [];
         }
 
-        $defaultId = $user->stripe_default_payment_method_id;
+        $defaultId = $user->stripe_default_payment_method_id ?? null;
         $cards = [];
 
         foreach ($methods->data as $pm) {
@@ -242,7 +319,9 @@ class StripeCustomerService
             ],
         ]);
 
-        $user->forceFill(['stripe_default_payment_method_id' => $paymentMethodId])->save();
+        if ($this->usersTableReady()) {
+            $user->forceFill(['stripe_default_payment_method_id' => $paymentMethodId])->save();
+        }
     }
 
     public function detachPaymentMethod(User $user, string $paymentMethodId): void
@@ -256,7 +335,7 @@ class StripeCustomerService
 
         $pm->detach();
 
-        if ($user->stripe_default_payment_method_id === $paymentMethodId) {
+        if ($this->usersTableReady() && ($user->stripe_default_payment_method_id ?? null) === $paymentMethodId) {
             $user->forceFill(['stripe_default_payment_method_id' => null])->save();
         }
     }
@@ -349,7 +428,7 @@ class StripeCustomerService
             return;
         }
 
-        if (! $user->stripe_default_payment_method_id) {
+        if ($this->usersTableReady() && ! $user->stripe_default_payment_method_id) {
             $this->setDefaultPaymentMethod($user, $pmId);
         }
     }

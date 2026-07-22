@@ -29,6 +29,10 @@
     modification_requested: 'pencil',
     payment_received: 'wallet',
     payment_failed: 'alert-triangle',
+    payment_pending: 'wallet',
+    site_status: 'check-circle',
+    content_approved: 'check-circle',
+    content_needs_changes: 'alert-triangle',
     system: 'bell',
     account: 'user'
   };

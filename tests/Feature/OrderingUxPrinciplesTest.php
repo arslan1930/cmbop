@@ -69,7 +69,7 @@ class OrderingUxPrinciplesTest extends TestCase
         $this->assertStringContainsString('Publishers', $html);
         $this->assertStringContainsString('Content', $html);
         $this->assertStringContainsString('Pay', $html);
-        $this->assertStringContainsString('Needs English article', $html);
+        $this->assertStringContainsString('Needs approved article', $html);
         $this->assertStringContainsString('Place a guest post · Publishers', $html);
     }
 
@@ -84,8 +84,8 @@ class OrderingUxPrinciplesTest extends TestCase
         $this->actingAs($advertiser)
             ->get(route('advertiser.catalog'))
             ->assertOk()
-            ->assertSee('Ready · English article', false)
-            ->assertDontSee('Needs English article', false);
+            ->assertSee('Ready · article available', false)
+            ->assertDontSee('Needs approved article', false);
     }
 
     public function test_content_library_and_checkout_show_path_stepper(): void
@@ -130,6 +130,6 @@ class OrderingUxPrinciplesTest extends TestCase
         $this->assertStringContainsString('id="cartChecklist"', $html);
         $this->assertStringContainsString('id="cartProceedHint"', $html);
         $this->assertStringContainsString('cartLinesMissingArticles', $html);
-        $this->assertStringContainsString('Finish the checklist above', $html);
+        $this->assertStringContainsString('Assign an approved article to at least one website', $html);
     }
 }

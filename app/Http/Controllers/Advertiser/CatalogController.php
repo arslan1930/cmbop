@@ -20,6 +20,7 @@ use App\Models\UserBlacklist;
 use App\Models\UserFavorite;
 use App\Models\Wallet;
 use App\Services\CartPricingService;
+use App\Services\CheckoutSchemaService;
 use App\Services\ContentModeration\ContentModerationService;
 use App\Services\ContentUpload\ScheduledOrderService;
 use App\Services\InAppNotificationService;
@@ -1147,6 +1148,7 @@ class CatalogController extends Controller
 
     /**
      * Checkout page — display prices recalculated from the DB.
+     * Payment covers only sites that are ready (approved article assigned) and need payment.
      */
     public function checkout(Request $request)
     {
@@ -1161,15 +1163,41 @@ class CatalogController extends Controller
             return redirect()->route('advertiser.catalog')->with('error', 'Your cart is empty.');
         }
 
+        $partition = $this->partitionCartByCheckoutReadiness($cart);
+        $payableCart = $partition['payable'];
+        $deferredCart = $partition['deferred'];
+
         try {
-            $checkout = $this->cartPricing()->buildCheckoutItems($cart);
+            $allCheckout = $this->cartPricing()->buildCheckoutItems($cart);
+            $payableCheckout = $payableCart !== []
+                ? $this->cartPricing()->buildCheckoutItems($payableCart)
+                : ['items' => [], 'total' => 0.0, 'savings' => 0.0];
+            $deferredCheckout = $deferredCart !== []
+                ? $this->cartPricing()->buildCheckoutItems($deferredCart)
+                : ['items' => [], 'total' => 0.0, 'savings' => 0.0];
         } catch (\InvalidArgumentException $e) {
             return redirect()->route('advertiser.catalog')->with('error', $e->getMessage());
         }
 
-        $cartItems = $checkout['items'];
-        $total = $checkout['total'];
-        $savings = $checkout['savings'] ?? 0;
+        $cartItems = $allCheckout['items'];
+        $deferredItems = $deferredCheckout['items'];
+        $payableCount = count($payableCart);
+        $deferredCount = count($deferredCart);
+        $payableReady = $payableCount > 0;
+        // Charge only ready sites that still need payment.
+        $total = (float) ($payableCheckout['total'] ?? 0);
+        $savings = (float) ($payableCheckout['savings'] ?? 0);
+        $payableSiteKeys = collect($payableCart)->mapWithKeys(function ($row) {
+            $key = (int) ($row['id'] ?? 0).'|'.($row['sensitive_type'] ?? '');
+
+            return [$key => true];
+        })->all();
+        $cartItems = collect($cartItems)->map(function (array $item) use ($payableSiteKeys) {
+            $key = (int) ($item['id'] ?? 0).'|'.($item['sensitive_type'] ?? '');
+            $item['paying_now'] = isset($payableSiteKeys[$key]);
+
+            return $item;
+        })->all();
 
         if (empty($cartItems)) {
             session()->forget(['cart', 'checkout_content_submission_id', 'checkout_schedule', GuestPostWizardController::SESSION_KEY]);
@@ -1230,9 +1258,15 @@ class CatalogController extends Controller
 
         $savedCards = app(StripeCustomerService::class)->listCards(auth()->user());
         $stripeConfigured = app(StripeCustomerService::class)->configured();
+        // Best-effort: auto-add Hostinger-missing Stripe columns before card checkout.
+        app(StripeCustomerService::class)->ensureUserStripeColumns();
 
         return view('advertiser.checkout', compact(
             'cartItems',
+            'deferredItems',
+            'payableReady',
+            'payableCount',
+            'deferredCount',
             'total',
             'savings',
             'librarySubmission',
@@ -1277,16 +1311,32 @@ class CatalogController extends Controller
             $paymentMethod = $request->payment_method;
             $userReferenceCode = $request->reference_code;
 
+            // Only charge sites that are ready for checkout (approved article) and need payment.
+            $partition = $this->partitionCartByCheckoutReadiness(
+                $cart,
+                is_array($request->content_submissions) ? $request->content_submissions : null,
+                session('checkout_content_submission_id') ? (int) session('checkout_content_submission_id') : null
+            );
+            $payableCart = $partition['payable'];
+            $deferredCart = $partition['deferred'];
+
+            if ($payableCart === []) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'No websites are ready for checkout yet. Assign an approved article to at least one site, then pay.',
+                ], 422);
+            }
+
             // If a previous Stripe attempt linked the article, unlock it before re-resolving content.
             $this->cancelConflictingUnpaidCardOrders(
                 (int) $userId,
-                $this->collectSubmissionIdsFromRequest($cart, $request)
+                $this->collectSubmissionIdsFromRequest($payableCart, $request)
             );
 
             // Resolve approved library articles + schedule (session fallback from Content Library)
             $sessionSchedule = session('checkout_schedule', []);
             $checkoutContent = $this->resolveCheckoutContent(
-                $cart,
+                $payableCart,
                 is_array($request->content_submissions) ? $request->content_submissions : null,
                 [
                     'mode' => $request->input('publication_mode', $sessionSchedule['mode'] ?? null),
@@ -1298,6 +1348,9 @@ class CatalogController extends Controller
             if ($checkoutContent instanceof JsonResponse) {
                 return $checkoutContent;
             }
+
+            // Keep not-ready sites in the cart after this payment.
+            session()->put('checkout_deferred_cart', array_values($deferredCart));
 
             // Generate reference code
             $referenceCode = $userReferenceCode ?? str_pad(mt_rand(1, 999999), 6, '0', STR_PAD_LEFT);
@@ -1322,13 +1375,12 @@ class CatalogController extends Controller
 
             // For wallet payment - check balance and reserve funds
             if ($paymentMethod === 'wallet') {
-                return $this->processWalletPayment($cart, $checkoutContent, $referenceCode, $userId, $useBonus);
+                return $this->processWalletPayment($payableCart, $checkoutContent, $referenceCode, $userId, $useBonus);
             }
 
-            // For card payments - create durable pending orders BEFORE Stripe checkout
-            // so webhook/success can finalize payment without relying on browser session.
+            // For card payments — Stripe-first (Add Funds style), then materialize paid orders.
             if ($paymentMethod === 'card') {
-                return $this->processCardPayment($cart, $checkoutContent, $referenceCode, $userId, $useBonus);
+                return $this->processCardPayment($payableCart, $checkoutContent, $referenceCode, $userId, $useBonus);
             }
 
             return response()->json([
@@ -1347,29 +1399,28 @@ class CatalogController extends Controller
     }
 
     /**
-     * Create pending card orders in DB, then redirect to Stripe Checkout.
-     * Payment finalization is handled by webhook (authoritative) or success URL (fallback).
+     * Create Stripe Checkout first (same pattern as Add Funds), then materialize
+     * orders only after payment succeeds.
      *
      * @param  array{lines: array<int, array{orderItem: array, submission: ContentSubmission}>, schedule: array}  $checkoutContent
      */
     private function processCardPayment($cart, array $checkoutContent, $referenceCode, $userId, bool $useBonus = false)
     {
-        $stripe = app(StripeCustomerService::class);
-        if (! $stripe->configured()) {
+        // Match Add Funds: only require a Stripe secret.
+        if (! config('services.stripe.secret') || config('services.stripe.secret') === '') {
             return response()->json([
                 'success' => false,
-                'message' => 'Card payments are not configured. Set STRIPE_SECRET and STRIPE_KEY, or choose another payment method.',
+                'message' => 'Stripe is not configured. Please contact support.',
             ], 503);
         }
 
         $expandedOrders = array_column($checkoutContent['lines'], 'orderItem');
-        $createdOrders = collect();
         $totalAmount = round(array_sum(array_column($expandedOrders, 'price')), 2);
         $schedule = $checkoutContent['schedule'];
         $bonusApplied = 0.0;
         $amountDue = $totalAmount;
+        $paymentService = app(OrderPaymentService::class);
 
-        DB::beginTransaction();
         try {
             if ($useBonus) {
                 $advertiserRoleId = Wallet::advertiserRoleId();
@@ -1381,169 +1432,134 @@ class CatalogController extends Controller
                     $amountDue = round(max(0, $totalAmount - $bonusApplied), 2);
                 }
             }
-
-            foreach ($checkoutContent['lines'] as $line) {
-                $orderItem = $line['orderItem'];
-                $submission = $line['submission'];
-                $site = $orderItem['site'];
-                $orderNumber = str_pad((string) mt_rand(1, 999999), 6, '0', STR_PAD_LEFT);
-
-                $order = Order::create(array_merge([
-                    'user_id' => $userId,
-                    'order_number' => $orderNumber,
-                    'reference_code' => $referenceCode,
-                    'subtotal' => $orderItem['price'],
-                    'tax' => 0,
-                    'total_amount' => $orderItem['price'],
-                    'payment_method' => 'card',
-                    'payment_status' => 'pending',
-                    'status' => $this->initialOrderStatus($schedule),
-                    'sensitive_type' => $orderItem['sensitive_type'],
-                    'additional_price' => $orderItem['additional_price'],
-                ], $this->scheduleOrderFields($schedule)));
-
-                $item = OrderItem::create($this->orderItemPayload($order->id, $site, $orderItem, $submission));
-                $this->attachSubmissionToOrder($submission, $order, $item);
-
-                $createdOrders->push($order);
-            }
-
-            DB::commit();
-            if ($bonusApplied > 0) {
-                $this->rememberCheckoutBonus((int) $userId, (string) $referenceCode, $bonusApplied);
-            }
-        } catch (\Exception $e) {
-            DB::rollBack();
-            Log::error('Failed creating pending card orders', [
+        } catch (\Throwable $e) {
+            Log::error('Bonus reserve failed before Stripe checkout', [
                 'reference_code' => $referenceCode,
                 'error' => $e->getMessage(),
             ]);
 
             return response()->json([
                 'success' => false,
-                'message' => 'Unable to start card payment. Please try again.',
+                'message' => 'Unable to apply bonus balance. Please try again without bonus, or contact support.',
             ]);
         }
 
-        // Fully covered by bonus — finalize without Stripe.
+        // Fully covered by bonus — create paid wallet orders without Stripe (like a free checkout).
         if ($amountDue <= 0 && $bonusApplied > 0) {
-            $this->consumeCheckoutBonus((int) $userId, (string) $referenceCode, $bonusApplied);
-            Order::where('reference_code', $referenceCode)
-                ->where('user_id', $userId)
-                ->where('payment_method', 'card')
-                ->where('payment_status', 'pending')
-                ->update([
-                    'payment_status' => 'paid',
-                    'payment_method' => 'wallet',
-                    'paid_at' => now(),
-                ]);
-
-            $paidOrders = Order::with('items')
-                ->where('reference_code', $referenceCode)
-                ->where('user_id', $userId)
-                ->get();
-
-            session()->forget(['cart', 'checkout_content_submission_id', 'checkout_schedule', 'pending_card_reference', GuestPostWizardController::SESSION_KEY]);
-            app(OrderPaymentService::class)->notifyPublishersOfPaidOrders($paidOrders);
-
-            return response()->json([
-                'success' => true,
-                'message' => count($paidOrders).' order(s) placed using your bonus balance. Reference: '.$referenceCode,
-            ]);
-        }
-
-        // Publishers are notified only after Stripe payment is confirmed
-        // (see OrderPaymentService::notifyPublishersOfPaidOrders).
-
-        $savedPaymentMethodId = (string) request()->input('payment_method_id', '');
-        $user = User::find($userId);
-
-        // One-click: charge a saved card (Stripe Customer PaymentMethod).
-        // On failure, fall through to hosted Stripe Checkout instead of hard-failing.
-        if ($savedPaymentMethodId !== '' && $user) {
             try {
-                $stripeCustomers = app(StripeCustomerService::class);
-                $payResult = $stripeCustomers->payWithSavedCard(
-                    $user,
-                    $savedPaymentMethodId,
-                    StripePaymentService::toCents($amountDue),
-                    [
-                        'type' => 'order_payment',
+                app(CheckoutSchemaService::class)->ensureCheckoutTables();
+                $schema = app(CheckoutSchemaService::class);
+                $created = collect();
+                DB::beginTransaction();
+                foreach ($checkoutContent['lines'] as $line) {
+                    $orderItem = $line['orderItem'];
+                    $submission = $line['submission'];
+                    $site = $orderItem['site'];
+                    $orderNumber = str_pad((string) mt_rand(1, 999999), 6, '0', STR_PAD_LEFT);
+                    $order = Order::create($schema->filterExistingColumns('orders', array_merge([
+                        'user_id' => $userId,
+                        'order_number' => $orderNumber,
                         'reference_code' => $referenceCode,
-                        'user_id' => (string) $userId,
-                        'bonus_applied' => (string) $bonusApplied,
-                    ],
-                    route('advertiser.checkout.process').'?ref='.urlencode($referenceCode),
-                    'Order package '.$referenceCode
-                );
-
-                Order::where('reference_code', $referenceCode)
-                    ->where('user_id', $userId)
-                    ->where('payment_method', 'card')
-                    ->where('payment_status', 'pending')
-                    ->update(['stripe_payment_intent_id' => $payResult['payment_intent_id']]);
-
-                session()->put('pending_card_reference', $referenceCode);
-
-                if ($payResult['status'] === 'succeeded') {
-                    $intent = PaymentIntent::retrieve($payResult['payment_intent_id']);
-                    $paymentService = app(OrderPaymentService::class);
-                    $newlyPaid = $paymentService->markOrdersPaidFromPaymentIntent($referenceCode, $intent);
-                    if ($newlyPaid->isNotEmpty()) {
-                        $paymentService->notifyPublishersOfPaidOrders($newlyPaid);
-                    }
-                    session()->forget([
-                        'cart', 'checkout_content_submission_id', 'checkout_schedule',
-                        'pending_card_reference', GuestPostWizardController::SESSION_KEY,
-                    ]);
-
-                    return response()->json([
-                        'success' => true,
-                        'message' => count($newlyPaid).' order(s) paid with your saved card. Reference: '.$referenceCode,
-                        'reference_code' => $referenceCode,
-                    ]);
+                        'subtotal' => $orderItem['price'],
+                        'tax' => 0,
+                        'total_amount' => $orderItem['price'],
+                        'payment_method' => 'wallet',
+                        'payment_status' => 'paid',
+                        'status' => $this->initialOrderStatus($schedule),
+                        'sensitive_type' => $orderItem['sensitive_type'],
+                        'additional_price' => $orderItem['additional_price'],
+                        'paid_at' => now(),
+                    ], $this->scheduleOrderFields($schedule))));
+                    $item = OrderItem::create($schema->filterExistingColumns(
+                        'order_items',
+                        $this->orderItemPayload($order->id, $site, $orderItem, $submission)
+                    ));
+                    $this->attachSubmissionToOrder($submission, $order, $item);
+                    $created->push($order);
                 }
+                DB::commit();
+                $this->consumeCheckoutBonus((int) $userId, (string) $referenceCode, $bonusApplied);
+                $this->restoreDeferredCartAfterPayment();
+                $paymentService->notifyPublishersOfPaidOrders($created);
 
-                if (! empty($payResult['redirect_url'])) {
-                    return response()->json([
-                        'success' => true,
-                        'requires_payment' => true,
-                        'checkout_url' => $payResult['redirect_url'],
-                        'reference_code' => $referenceCode,
-                    ]);
-                }
-
-                if (! empty($payResult['client_secret'])) {
-                    return response()->json([
-                        'success' => true,
-                        'requires_action' => true,
-                        'client_secret' => $payResult['client_secret'],
-                        'stripe_key' => config('services.stripe.key'),
-                        'reference_code' => $referenceCode,
-                        'return_url' => route('advertiser.checkout.process').'?ref='.urlencode($referenceCode),
-                    ]);
-                }
-
-                Log::warning('Saved card did not complete; falling back to Stripe Checkout', [
-                    'reference_code' => $referenceCode,
-                    'status' => $payResult['status'] ?? null,
+                return response()->json([
+                    'success' => true,
+                    'message' => count($created).' order(s) placed using your bonus balance. Reference: '.$referenceCode,
                 ]);
             } catch (\Throwable $e) {
-                Log::error('Saved card order payment failed; falling back to Stripe Checkout: '.$e->getMessage(), [
-                    'reference_code' => $referenceCode,
-                    'user_id' => $userId,
+                DB::rollBack();
+                $this->refundCheckoutBonus((int) $userId, (string) $referenceCode);
+
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Unable to place bonus order. Please try again.',
                 ]);
             }
         }
 
+        // Never open Stripe Checkout for a €0 charge.
+        if ($amountDue <= 0) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Card payment requires an amount greater than €0. Use wallet if covered by bonus, or select ready sites that need payment.',
+            ], 422);
+        }
+
+        $packageLines = [];
+        foreach ($checkoutContent['lines'] as $line) {
+            $orderItem = $line['orderItem'];
+            $submission = $line['submission'];
+            $site = $orderItem['site'];
+            $packageLines[] = [
+                'site_id' => $site->id,
+                'site_name' => $site->site_name,
+                'site_url' => $site->site_url,
+                'price' => $orderItem['price'],
+                'sensitive_type' => $orderItem['sensitive_type'] ?? null,
+                'additional_price' => $orderItem['additional_price'] ?? 0,
+                'publisher_price' => $orderItem['publisher_price'] ?? null,
+                'platform_fee_percent' => $orderItem['platform_fee_percent'] ?? null,
+                'platform_fee_amount' => $orderItem['platform_fee_amount'] ?? null,
+                'content_submission_id' => $submission->id,
+                'content_link' => route('advertiser.content-submissions.download', $submission),
+                'content_disk' => $submission->disk,
+                'content_path' => $submission->path,
+                'content_original_name' => $submission->original_filename,
+                'content_mime' => $submission->mime,
+                'anchor_text' => $submission->anchor_text,
+                'target_url' => $submission->target_url,
+                'feature_image_url' => $submission->feature_image_url,
+                'moderation_status' => $submission->moderation_status,
+            ];
+        }
+
+        $paymentService->storePendingCheckout($referenceCode, [
+            'user_id' => (int) $userId,
+            'reference_code' => (string) $referenceCode,
+            'order_total' => $totalAmount,
+            'amount_due' => $amountDue,
+            'bonus_applied' => $bonusApplied,
+            'schedule' => $schedule,
+            'lines' => $packageLines,
+        ]);
+
+        if ($bonusApplied > 0) {
+            $this->rememberCheckoutBonus((int) $userId, (string) $referenceCode, $bonusApplied);
+        }
+
+        $user = User::find($userId);
+
+        // Same Stripe Checkout pattern as Add Funds — no pending order rows yet.
         try {
+            Stripe::setApiKey(config('services.stripe.secret'));
+
             $sessionPayload = [
                 'payment_method_types' => ['card'],
                 'line_items' => [[
                     'price_data' => [
                         'currency' => 'eur',
                         'product_data' => [
-                            'name' => 'Order Package - '.$createdOrders->count().' item(s)',
+                            'name' => 'Order Package - '.count($packageLines).' item(s)',
                             'description' => 'Order reference: '.$referenceCode
                                 .($bonusApplied > 0 ? ' (bonus −€'.number_format($bonusApplied, 2).')' : ''),
                         ],
@@ -1558,7 +1574,7 @@ class CatalogController extends Controller
                     'type' => 'order_payment',
                     'reference_code' => $referenceCode,
                     'user_id' => (string) $userId,
-                    'order_count' => (string) $createdOrders->count(),
+                    'order_count' => (string) count($packageLines),
                     'expected_amount' => (string) $amountDue,
                     'order_total' => (string) $totalAmount,
                     'bonus_applied' => (string) $bonusApplied,
@@ -1576,20 +1592,12 @@ class CatalogController extends Controller
             $checkoutSession = app(StripeCustomerService::class)
                 ->createCheckoutSession($sessionPayload, $user, true);
 
-            Order::where('reference_code', $referenceCode)
-                ->where('user_id', $userId)
-                ->where('payment_method', 'card')
-                ->where('payment_status', 'pending')
-                ->update(['stripe_session_id' => $checkoutSession->id]);
-
-            // Keep cart until payment succeeds so Stripe cancel can return to checkout.
-            // Store a pending marker so a second card attempt can be detected if needed.
             session()->put('pending_card_reference', $referenceCode);
 
-            Log::info('Pending card orders created; Stripe session ready', [
+            Log::info('Stripe-first card checkout session ready (Add Funds style)', [
                 'reference_code' => $referenceCode,
                 'session_id' => $checkoutSession->id,
-                'order_count' => $createdOrders->count(),
+                'order_count' => count($packageLines),
                 'total_amount' => $totalAmount,
                 'amount_due' => $amountDue,
                 'bonus_applied' => $bonusApplied,
@@ -1607,35 +1615,15 @@ class CatalogController extends Controller
             ]);
         } catch (\Exception $e) {
             $this->refundCheckoutBonus((int) $userId, (string) $referenceCode);
+            $paymentService->forgetPendingCheckout((string) $referenceCode);
 
-            // Stripe session failed — release content + remove unpaid pending orders
-            foreach ($createdOrders as $order) {
-                try {
-                    $this->releaseContentSubmissionsForOrder($order);
-                    $order->items()->delete();
-                    $order->delete();
-                } catch (\Throwable $cleanupError) {
-                    Log::warning('Failed cleaning up pending card order after Stripe error', [
-                        'order_id' => $order->id,
-                        'error' => $cleanupError->getMessage(),
-                    ]);
-                }
-            }
-
-            Log::error('Stripe session creation failed; pending orders rolled back', [
+            Log::error('Stripe checkout error: '.$e->getMessage(), [
                 'reference_code' => $referenceCode,
-                'error' => $e->getMessage(),
             ]);
-
-            $hint = 'Unable to start Stripe checkout. Please try again or choose another payment method.';
-            $stripeMsg = trim($e->getMessage());
-            if ($stripeMsg !== '' && strlen($stripeMsg) < 180) {
-                $hint .= ' ('.$stripeMsg.')';
-            }
 
             return response()->json([
                 'success' => false,
-                'message' => $hint,
+                'message' => 'Failed to create checkout session: '.$e->getMessage(),
             ]);
         }
     }
@@ -1711,6 +1699,8 @@ class CatalogController extends Controller
             ]);
 
             $createdOrders = [];
+            $schema = app(CheckoutSchemaService::class);
+            $schema->ensureCheckoutTables();
 
             foreach ($checkoutContent['lines'] as $line) {
                 $orderItem = $line['orderItem'];
@@ -1718,7 +1708,7 @@ class CatalogController extends Controller
                 $site = $orderItem['site'];
                 $orderNumber = str_pad((string) mt_rand(1, 999999), 6, '0', STR_PAD_LEFT);
 
-                $order = Order::create(array_merge([
+                $order = Order::create($schema->filterExistingColumns('orders', array_merge([
                     'user_id' => $userId,
                     'order_number' => $orderNumber,
                     'reference_code' => $referenceCode,
@@ -1731,16 +1721,19 @@ class CatalogController extends Controller
                     'sensitive_type' => $orderItem['sensitive_type'],
                     'additional_price' => $orderItem['additional_price'],
                     'paid_at' => now(),
-                ], $this->scheduleOrderFields($schedule)));
+                ], $this->scheduleOrderFields($schedule))));
 
-                $item = OrderItem::create($this->orderItemPayload($order->id, $site, $orderItem, $submission));
+                $item = OrderItem::create($schema->filterExistingColumns(
+                    'order_items',
+                    $this->orderItemPayload($order->id, $site, $orderItem, $submission)
+                ));
                 $this->attachSubmissionToOrder($submission, $order, $item);
 
                 $createdOrders[] = $order;
             }
 
             DB::commit();
-            session()->forget(['cart', 'checkout_content_submission_id', 'checkout_schedule', GuestPostWizardController::SESSION_KEY]);
+            $this->restoreDeferredCartAfterPayment();
 
             $isScheduled = ($schedule['mode'] ?? 'immediate') === 'scheduled';
 
@@ -1852,7 +1845,7 @@ class CatalogController extends Controller
             if ($bonusApplied > 0) {
                 $this->rememberCheckoutBonus((int) $userId, (string) $referenceCode, $bonusApplied);
             }
-            session()->forget(['cart', 'checkout_content_submission_id', 'checkout_schedule', GuestPostWizardController::SESSION_KEY]);
+            $this->restoreDeferredCartAfterPayment();
 
             $isScheduled = ($schedule['mode'] ?? 'immediate') === 'scheduled';
 
@@ -1943,7 +1936,7 @@ class CatalogController extends Controller
                         ->with('error', 'Card payment was not completed.');
                 }
 
-                $newlyPaid = $paymentService->markOrdersPaidFromPaymentIntent($referenceCode, $intent);
+                $newlyPaid = $paymentService->finalizeStripeFirstCheckout($referenceCode, $intent);
             } else {
                 if (! $sessionId || $sessionId === '{CHECKOUT_SESSION_ID}') {
                     return redirect()->route('advertiser.checkout')
@@ -1973,7 +1966,7 @@ class CatalogController extends Controller
                         ->with('error', 'Payment reference mismatch.');
                 }
 
-                $newlyPaid = $paymentService->markOrdersPaidFromStripeSession($referenceCode, $stripeSession);
+                $newlyPaid = $paymentService->finalizeStripeFirstCheckout($referenceCode, $stripeSession);
             }
 
             $orders = Order::with('items')
@@ -1983,7 +1976,7 @@ class CatalogController extends Controller
                 ->get();
 
             if ($orders->isEmpty()) {
-                Log::error('No pending card orders found on success callback', [
+                Log::error('No card orders found on success callback', [
                     'reference_code' => $referenceCode,
                     'session_id' => $sessionId,
                     'payment_intent' => $paymentIntentId,
@@ -1997,6 +1990,7 @@ class CatalogController extends Controller
                 $paymentService->notifyPublishersOfPaidOrders($newlyPaid);
             }
 
+            $this->removePaidOrdersFromCart($orders);
             session()->forget([
                 'pending_card_payment',
                 'pending_cart',
@@ -2004,16 +1998,21 @@ class CatalogController extends Controller
                 'pending_reference_code',
                 'pending_user_id',
                 'pending_card_reference',
-                'cart',
                 'checkout_content_submission_id',
                 'checkout_schedule',
+                'checkout_deferred_cart',
             ]);
 
             $orderNumbers = $orders->pluck('order_number')->implode(', ');
             $paidCount = $orders->count();
+            $remaining = count(session('cart', []));
+            $successMsg = $paidCount.' order(s) paid successfully! Order numbers: '.$orderNumbers;
+            if ($remaining > 0) {
+                $successMsg .= ' '.$remaining.' website(s) remain in your cart until they are ready for checkout.';
+            }
 
             return redirect()->route('advertiser.orders')
-                ->with('success', $paidCount.' order(s) paid successfully! Order numbers: '.$orderNumbers);
+                ->with('success', $successMsg);
         } catch (\Exception $e) {
             Log::error('Stripe success handling failed: '.$e->getMessage());
             Log::error('Stack trace: '.$e->getTraceAsString());
@@ -2153,6 +2152,13 @@ class CatalogController extends Controller
                 Log::info('Admin manual payment notification sent to fallback email', ['email' => $adminEmail]);
             }
 
+            try {
+                app(InAppNotificationService::class)
+                    ->notifyAdminsManualPayment($customer, $orders, $paymentMethod);
+            } catch (\Throwable $e) {
+                Log::warning('Failed to send admin manual payment bell notification: '.$e->getMessage());
+            }
+
         } catch (\Exception $e) {
             Log::error('Failed to send admin manual payment email: '.$e->getMessage());
         }
@@ -2199,6 +2205,9 @@ class CatalogController extends Controller
                     'live_url_submitted_at' => now(),
                     'auto_approve_triggered' => false,
                 ];
+                if (Schema::hasColumn('order_items', 'auto_approve_reminder_sent_at')) {
+                    $payload['auto_approve_reminder_sent_at'] = null;
+                }
                 if (Schema::hasColumn('order_items', 'completion_notes')) {
                     $payload['completion_notes'] = $request->reason;
                 }
@@ -2946,7 +2955,12 @@ class CatalogController extends Controller
             $payload['order_item_id'] = $item->id;
         }
 
-        $submission->update($payload);
+        $filtered = app(CheckoutSchemaService::class)
+            ->filterExistingColumns($submission->getTable(), $payload);
+
+        if ($filtered !== []) {
+            $submission->update($filtered);
+        }
     }
 
     /**
@@ -3030,8 +3044,174 @@ class CatalogController extends Controller
         }
     }
 
+    /**
+     * Split cart into sites ready to pay vs sites still missing a ready article.
+     *
+     * @param  array<int, array<string, mixed>>  $cart
+     * @param  array<int|string, mixed>|null  $contentSubmissions
+     * @return array{payable: array<int, array<string, mixed>>, deferred: array<int, array<string, mixed>>}
+     */
+    private function partitionCartByCheckoutReadiness(
+        array $cart,
+        ?array $contentSubmissions = null,
+        ?int $librarySubmissionId = null
+    ): array {
+        $payable = [];
+        $deferred = [];
+        $usedSubmissionIds = [];
+
+        foreach ($cart as $item) {
+            if (! is_array($item)) {
+                continue;
+            }
+
+            $siteId = (int) ($item['id'] ?? 0);
+            if ($siteId <= 0) {
+                $deferred[] = $item;
+
+                continue;
+            }
+
+            $site = Site::query()->where('id', $siteId)->where('active', 1)->first();
+            if (! $site) {
+                // Inactive / missing sites are not payable.
+                $deferred[] = $item;
+
+                continue;
+            }
+
+            $quantity = max(1, (int) ($item['quantity'] ?? 1));
+            $lineReady = true;
+            $resolvedIds = [];
+
+            for ($copyIndex = 0; $copyIndex < $quantity; $copyIndex++) {
+                $submissionId = (int) (
+                    data_get($item, "content_submission_ids.$copyIndex")
+                    ?? ($copyIndex === 0 ? data_get($item, 'content_submission_id') : null)
+                    ?? data_get($contentSubmissions, $siteId.'.'.$copyIndex)
+                    ?? data_get($contentSubmissions, (string) $siteId.'.'.$copyIndex)
+                    ?? ($copyIndex === 0 ? $librarySubmissionId : null)
+                    ?? 0
+                );
+
+                if ($submissionId <= 0 || isset($usedSubmissionIds[$submissionId])) {
+                    $lineReady = false;
+                    break;
+                }
+
+                $submission = ContentSubmission::query()
+                    ->where('id', $submissionId)
+                    ->where('user_id', auth()->id())
+                    ->whereNull('order_id')
+                    ->first();
+
+                if (! $submission || ! $submission->canBeOrdered() || ! $submission->isReadyForCheckout()) {
+                    $lineReady = false;
+                    break;
+                }
+
+                $resolvedIds[$copyIndex] = $submissionId;
+                $usedSubmissionIds[$submissionId] = true;
+            }
+
+            if (! $lineReady || $resolvedIds === []) {
+                $deferred[] = $item;
+
+                continue;
+            }
+
+            $readyItem = $item;
+            $readyItem['content_submission_id'] = $resolvedIds[0];
+            if (count($resolvedIds) > 1) {
+                $readyItem['content_submission_ids'] = $resolvedIds;
+            }
+            // Only charge active listings that still need payment (price can be 0 after discounts).
+            $payable[] = $readyItem;
+        }
+
+        return [
+            'payable' => array_values($payable),
+            'deferred' => array_values($deferred),
+        ];
+    }
+
+    /**
+     * After a successful payment, keep not-ready sites in the cart.
+     */
+    private function restoreDeferredCartAfterPayment(): void
+    {
+        $deferred = session('checkout_deferred_cart');
+        session()->forget([
+            'checkout_deferred_cart',
+            'checkout_content_submission_id',
+            'checkout_schedule',
+            'pending_card_reference',
+            'ordering_from_library',
+            GuestPostWizardController::SESSION_KEY,
+        ]);
+
+        if (is_array($deferred) && $deferred !== []) {
+            session()->put('cart', array_values($deferred));
+
+            return;
+        }
+
+        session()->forget('cart');
+    }
+
+    /**
+     * Remove paid site lines from the session cart; keep anything still unpaid / not ready.
+     *
+     * @param  iterable<Order>  $orders
+     */
+    private function removePaidOrdersFromCart(iterable $orders): void
+    {
+        $paidKeys = [];
+        foreach ($orders as $order) {
+            $sensitive = $order->sensitive_type ?? null;
+            foreach ($order->items as $item) {
+                if (! $item->site_id) {
+                    continue;
+                }
+                $paidKeys[(int) $item->site_id.'|'.($sensitive ?? '')] = true;
+            }
+        }
+
+        $deferred = session('checkout_deferred_cart');
+        if (is_array($deferred) && $deferred !== []) {
+            session()->put('cart', array_values($deferred));
+            session()->forget('checkout_deferred_cart');
+
+            return;
+        }
+
+        $cart = session('cart', []);
+        if (! is_array($cart) || $cart === []) {
+            return;
+        }
+
+        $remaining = [];
+        foreach ($cart as $row) {
+            if (! is_array($row)) {
+                continue;
+            }
+            $key = (int) ($row['id'] ?? 0).'|'.($row['sensitive_type'] ?? '');
+            if (! isset($paidKeys[$key])) {
+                $remaining[] = $row;
+            }
+        }
+
+        if ($remaining === []) {
+            session()->forget('cart');
+        } else {
+            session()->put('cart', array_values($remaining));
+        }
+    }
+
     private function cancelUnpaidCardOrdersAndRestoreCart(string $referenceCode): void
     {
+        $paymentService = app(OrderPaymentService::class);
+
         $canceled = Order::with('items')
             ->where('user_id', auth()->id())
             ->where('reference_code', $referenceCode)
@@ -3040,14 +3220,23 @@ class CatalogController extends Controller
             ->whereIn('status', ['pending', 'cancelled'])
             ->get();
 
+        // Stripe-first (Add Funds style): no order rows yet — clear package + refund bonus.
         if ($canceled->isEmpty()) {
+            $this->refundCheckoutBonus((int) auth()->id(), $referenceCode);
+            $paymentService->forgetPendingCheckout($referenceCode);
+            session()->forget(['pending_card_reference', 'checkout_deferred_cart']);
+
+            Log::info('Cancelled Stripe-first card checkout (no order rows yet)', [
+                'reference_code' => $referenceCode,
+            ]);
+
             return;
         }
 
-        // Mark payment failed first so billing failure docs/email fire once.
+        // Legacy path: pending order rows existed before Stripe redirect.
         $stillPending = $canceled->where('payment_status', 'pending');
         if ($stillPending->isNotEmpty()) {
-            app(OrderPaymentService::class)->markOrdersFailedFromReference(
+            $paymentService->markOrdersFailedFromReference(
                 $referenceCode,
                 'Checkout canceled by customer'
             );
@@ -3060,6 +3249,8 @@ class CatalogController extends Controller
         } else {
             $this->refundCheckoutBonus((int) auth()->id(), $referenceCode);
         }
+
+        $paymentService->forgetPendingCheckout($referenceCode);
 
         $restoredCart = session('cart', []);
         $submissionId = session('checkout_content_submission_id');

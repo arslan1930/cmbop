@@ -10,6 +10,7 @@ use App\Models\Country;
 use App\Models\Language;
 use App\Models\Site;
 use App\Models\User;
+use App\Services\InAppNotificationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -260,6 +261,12 @@ class SiteController extends Controller
                         Mail::to($defaultAdminEmail)->send(new NewSiteNotification($site));
                     }
                 }
+
+                try {
+                    app(InAppNotificationService::class)->notifyAdminsNewSite($site, 'create');
+                } catch (\Throwable $e) {
+                    Log::warning('Failed to send admin new-site bell notification: '.$e->getMessage());
+                }
             } catch (\Exception $e) {
                 Log::error('Failed to send email notification: '.$e->getMessage());
             }
@@ -419,6 +426,12 @@ class SiteController extends Controller
             } else {
                 $defaultAdminEmail = config('mail.admin_email', 'admin@yourdomain.com');
                 Mail::to($defaultAdminEmail)->send(new NewSiteNotification($site, 'update'));
+            }
+
+            try {
+                app(InAppNotificationService::class)->notifyAdminsNewSite($site, 'update');
+            } catch (\Throwable $e) {
+                Log::warning('Failed to send admin site-update bell notification: '.$e->getMessage());
             }
         } catch (\Exception $e) {
             Log::error('Failed to send email notification: '.$e->getMessage());

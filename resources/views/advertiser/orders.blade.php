@@ -394,7 +394,6 @@ let currentChatOrderId = null;
 
 document.addEventListener('DOMContentLoaded', function() {
     fetchOrders();
-    maybeOpenFocusedChat();
 
     document.getElementById('resetFilters').addEventListener('click', function() {
         document.getElementById('searchInput').value = '';
@@ -423,70 +422,8 @@ document.addEventListener('DOMContentLoaded', function() {
         fetchOrders();
     });
 
-    // Chat functionality
-    window.openChat = function(orderId, orderNumber) {
-        currentChatOrderId = orderId;
-        window._chatOrderId = orderId;
-        document.getElementById('chatOrderId').value = orderId;
-        document.getElementById('chatOrderNumber').innerText = orderNumber;
-        const detailsEl = document.getElementById('chatOrderDetails');
-        if (detailsEl) {
-            detailsEl.classList.add('d-none');
-            detailsEl.innerHTML = '';
-        }
-        loadChatMessages(orderId);
-        $('#chatModal').modal('show');
-    };
-
-    window.raiseIssue = function(orderId, orderNumber, statusLabel) {
-        openChat(orderId, orderNumber || ('#' + orderId));
-        const input = document.getElementById('chatMessageInput');
-        if (input) {
-            const label = statusLabel || 'unknown';
-            input.value = `I'd like to raise an issue with order #${orderNumber} (status: ${label}). Please help resolve this.`;
-            setTimeout(() => input.focus(), 300);
-        }
-    };
-
-    window.recheckLiveUrl = function(orderId) {
-        const btn = document.getElementById('recheckLiveUrlBtn');
-        if (btn) {
-            btn.disabled = true;
-            btn.innerHTML = '<i class="fa fa-spinner fa-spin me-1"></i>Checking…';
-        }
-        fetch(`{{ url('advertiser/orders') }}/${orderId}/recheck-live-url`, {
-            method: 'POST',
-            headers: {
-                'X-CSRF-TOKEN': '{{ csrf_token() }}',
-                'Accept': 'application/json',
-                'Content-Type': 'application/json',
-            },
-        })
-        .then(r => r.json())
-        .then(data => {
-            if (data.success) {
-                Swal.fire('Checked', data.message || 'URL check finished.', data.live_url_check?.ok ? 'success' : 'warning');
-                viewOrder(orderId);
-            } else {
-                Swal.fire('Error', data.message || 'Could not recheck URL.', 'error');
-            }
-        })
-        .catch(() => Swal.fire('Error', 'Could not recheck URL.', 'error'))
-        .finally(() => {
-            if (btn) {
-                btn.disabled = false;
-                btn.innerHTML = '<i class="fa fa-refresh me-1"></i>Recheck';
-            }
-        });
-    };
-
-    function formatChatDate(value, withTime = false) {
-        if (!value) return '—';
-        const date = new Date(value);
-        if (Number.isNaN(date.getTime())) return '—';
-        return withTime
-            ? date.toLocaleString(undefined, { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
-            : date.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+    function escapeHtml(str) {
+        return window.OrderChatEscapeHtml ? window.OrderChatEscapeHtml(str) : String(str || '');
     }
 
     function renderChatOrderDetails(details) {
@@ -528,157 +465,70 @@ document.addEventListener('DOMContentLoaded', function() {
         el.classList.remove('d-none');
     }
 
-    function clearFocusMessagesParam() {
-        const url = new URL(window.location.href);
-        if (!url.searchParams.has('focus') && !url.searchParams.has('order')) return;
-        url.searchParams.delete('focus');
-        url.searchParams.delete('order');
-        window.history.replaceState({}, '', url.pathname + (url.search ? url.search : '') + url.hash);
-    }
+    const orderChat = new OrderChat({
+        baseUrl: window.location.origin,
+        renderOrderDetails: renderChatOrderDetails,
+        onFocusOrder: function(orderId) {
+            if (typeof viewOrder === 'function') viewOrder(orderId);
+        },
+        onFocusMessagesFallback: function() {
+            const table = document.getElementById('ordersTableBody');
+            if (table) table.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        },
+        onClose: function() {
+            fetchOrders(currentPage);
+            if (typeof window.refreshHeaderAlerts === 'function') window.refreshHeaderAlerts();
+        },
+    });
+    orderChat.init();
 
-    function maybeOpenFocusedChat() {
-        const params = new URLSearchParams(window.location.search);
-        const focus = params.get('focus');
-        const orderId = params.get('order');
+    window.openChat = function(orderId, orderNumber) {
+        currentChatOrderId = orderId;
+        window._chatOrderId = orderId;
+        orderChat.open(orderId, orderNumber);
+    };
 
-        if (focus === 'order' && orderId) {
-            clearFocusMessagesParam();
-            viewOrder(orderId);
-            return;
+    window.raiseIssue = function(orderId, orderNumber, statusLabel) {
+        openChat(orderId, orderNumber || ('#' + orderId));
+        const input = document.getElementById('chatMessageInput');
+        if (input && !input.disabled) {
+            const label = statusLabel || 'unknown';
+            input.value = `I'd like to raise an issue with order #${orderNumber} (status: ${label}). Please help resolve this.`;
+            setTimeout(() => input.focus(), 300);
         }
+    };
 
-        if (focus !== 'messages') return;
-
-        if (orderId) {
-            clearFocusMessagesParam();
-            openChat(orderId, '#' + orderId);
-            return;
+    window.recheckLiveUrl = function(orderId) {
+        const btn = document.getElementById('recheckLiveUrlBtn');
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fa fa-spinner fa-spin me-1"></i>Checking…';
         }
-
-        fetch('{{ route("chat.unread-summary") }}', {
-            headers: { 'Accept': 'application/json' },
-            credentials: 'same-origin'
+        fetch(`{{ url('advertiser/orders') }}/${orderId}/recheck-live-url`, {
+            method: 'POST',
+            headers: {
+                'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                'Accept': 'application/json',
+                'Content-Type': 'application/json',
+            },
         })
         .then(r => r.json())
         .then(data => {
-            clearFocusMessagesParam();
-            if (data.success && data.latest_unread_order) {
-                openChat(data.latest_unread_order.id, data.latest_unread_order.order_number);
-                return;
-            }
-            const table = document.getElementById('ordersTableBody');
-            if (table) {
-                table.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            }
-        })
-        .catch(() => clearFocusMessagesParam());
-    }
-
-    function loadChatMessages(orderId) {
-        fetch(`/chat/messages/${orderId}`, {
-            method: 'GET',
-            headers: {
-                'X-CSRF-TOKEN': '{{ csrf_token() }}',
-                'Content-Type': 'application/json'
-            }
-        })
-        .then(response => response.json())
-        .then(data => {
             if (data.success) {
-                renderChatOrderDetails(data.order_details || null);
-                renderChatMessages(data.messages, data.current_user_id);
-                const chatDiv = document.getElementById('chatMessages');
-                chatDiv.scrollTop = chatDiv.scrollHeight;
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            document.getElementById('chatMessages').innerHTML = `
-                <div class="text-center text-danger py-5">
-                    <i class="fa fa-exclamation-circle fa-3x mb-3"></i>
-                    <p>Failed to load messages. Please try again.</p>
-                </div>
-            `;
-        });
-    }
-
-    function renderChatMessages(messages, currentUserId) {
-        if (!messages || messages.length === 0) {
-            document.getElementById('chatMessages').innerHTML = `
-                <div class="text-center text-muted py-5">
-                    <i class="fa fa-comments fa-3x mb-3"></i>
-                    <p>No messages yet. Start the conversation!</p>
-                </div>
-            `;
-            return;
-        }
-        
-        let html = '';
-        
-        messages.forEach(msg => {
-            const isOwnMessage = msg.user_id === currentUserId;
-            const messageClass = isOwnMessage ? 'chat-bubble chat-bubble--own' : 'chat-bubble chat-bubble--other';
-            const alignClass = isOwnMessage ? 'justify-content-end' : 'justify-content-start';
-            const senderName = isOwnMessage ? 'You' : (msg.user?.name || 'User');
-            const time = new Date(msg.created_at).toLocaleString();
-            
-            html += `
-                <div class="d-flex ${alignClass} mb-3">
-                    <div class="${messageClass}">
-                        <div class="chat-bubble__meta mb-1">${escapeHtml(senderName)} · ${time}</div>
-                        <div>${escapeHtml(msg.message || '')}</div>
-                    </div>
-                </div>
-            `;
-        });
-        
-        document.getElementById('chatMessages').innerHTML = html;
-    }
-
-    document.getElementById('chatForm').addEventListener('submit', function(e) {
-        e.preventDefault();
-        const orderId = document.getElementById('chatOrderId').value;
-        const message = document.getElementById('chatMessageInput').value.trim();
-        
-        if (!message) return;
-        
-        const sendBtn = this.querySelector('button[type="submit"]');
-        sendBtn.disabled = true;
-        sendBtn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Sending...';
-        
-        fetch(`/chat/send/${orderId}`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRF-TOKEN': '{{ csrf_token() }}'
-            },
-            body: JSON.stringify({ message: message })
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                document.getElementById('chatMessageInput').value = '';
-                loadChatMessages(orderId);
+                Swal.fire('Checked', data.message || 'URL check finished.', data.live_url_check?.ok ? 'success' : 'warning');
+                viewOrder(orderId);
             } else {
-                Swal.fire('Error', data.message, 'error');
+                Swal.fire('Error', data.message || 'Could not recheck URL.', 'error');
             }
         })
-        .catch(error => {
-            console.error('Error:', error);
-            Swal.fire('Error', 'Failed to send message', 'error');
-        })
+        .catch(() => Swal.fire('Error', 'Could not recheck URL.', 'error'))
         .finally(() => {
-            sendBtn.disabled = false;
-            sendBtn.innerHTML = '<i class="fa fa-paper-plane"></i> Send';
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fa fa-refresh me-1"></i>Recheck';
+            }
         });
-    });
-
-    // Ctrl+Enter shortcut
-    document.getElementById('chatMessageInput').addEventListener('keydown', function(e) {
-        if (e.ctrlKey && e.key === 'Enter') {
-            document.getElementById('chatForm').dispatchEvent(new Event('submit'));
-        }
-    });
+    };
 
     // Request modification
     window.requestModification = function(orderId) {

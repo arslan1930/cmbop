@@ -249,40 +249,7 @@ class ContentUploadService
      */
     protected function notifyInApp(User $user, ContentSubmission $submission, array $result): void
     {
-        $approved = (bool) ($result['approved'] ?? false);
-        $title = $approved
-            ? 'Article approved'
-            : ((string) ($result['title'] ?? 'Article needs changes'));
-        $message = (string) ($result['message'] ?? '');
-        $terms = $result['matched_terms'] ?? ($result['report']['matched_terms'] ?? []);
-        $blockedUrls = $result['blocked_urls'] ?? ($result['report']['blocked_urls'] ?? []);
-        if (! $approved && is_array($terms) && $terms !== []) {
-            $message .= ' Terms to fix: '.implode(', ', array_slice($terms, 0, 8)).'.';
-        }
-        if (! $approved && is_array($blockedUrls) && $blockedUrls !== []) {
-            $message .= ' Blocked links: '.implode(', ', array_slice($blockedUrls, 0, 3)).'.';
-        }
-
-        app(InAppNotificationService::class)->notify(
-            $user,
-            InAppNotificationService::TYPE_SYSTEM,
-            $title,
-            $message,
-            [
-                'category' => InAppNotificationService::CATEGORY_SYSTEM,
-                'icon' => $approved ? 'check-circle' : 'alert-triangle',
-                'priority' => $approved ? 'normal' : 'high',
-                'related' => $submission,
-                'action_label' => 'Open Content Library',
-                'action_url' => url('/advertiser/content-library'),
-                'meta' => [
-                    'submission_id' => $submission->id,
-                    'moderation_status' => $result['moderation_status'] ?? null,
-                    'matched_terms' => $terms,
-                    'blocked_urls' => $blockedUrls,
-                ],
-            ]
-        );
+        app(InAppNotificationService::class)->notifyContentEvaluation($user, $submission, $result);
     }
 
     /**

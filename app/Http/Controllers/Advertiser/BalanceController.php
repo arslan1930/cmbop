@@ -8,12 +8,14 @@ use App\Models\Invoice;
 use App\Models\User;
 use App\Models\Wallet;
 use App\Models\Withdrawal;
+use App\Services\InAppNotificationService;
 use App\Services\Wallet\WalletLedgerService;
 use App\Services\Wallet\WalletOverviewService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class BalanceController extends Controller
@@ -21,8 +23,7 @@ class BalanceController extends Controller
     public function __construct(
         protected WalletOverviewService $overview,
         protected WalletLedgerService $ledger
-    ) {
-    }
+    ) {}
 
     public function index()
     {
@@ -233,7 +234,7 @@ class BalanceController extends Controller
                     ->whereIn('status', ['pending', 'processing'])
                     ->sum('amount'),
             ]);
-        } catch (\Illuminate\Validation\ValidationException $e) {
+        } catch (ValidationException $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Validation failed: '.implode(', ', array_merge(...array_values($e->errors()))),
@@ -282,7 +283,7 @@ class BalanceController extends Controller
         ]);
 
         if ($locked && $profile['business_name'] && $request->business_name !== $profile['business_name']) {
-            throw \Illuminate\Validation\ValidationException::withMessages([
+            throw ValidationException::withMessages([
                 'business_name' => 'Business name is locked. Contact support to change it.',
             ]);
         }
@@ -296,7 +297,7 @@ class BalanceController extends Controller
                     'swift_code' => 'nullable|string|max:50',
                 ]);
                 if ($locked && $profile['bank_holder_name'] && $request->account_holder !== $profile['bank_holder_name']) {
-                    throw \Illuminate\Validation\ValidationException::withMessages([
+                    throw ValidationException::withMessages([
                         'account_holder' => 'Bank account holder name is locked. Contact support to change it.',
                     ]);
                 }
@@ -311,7 +312,7 @@ class BalanceController extends Controller
             case 'paypal':
                 $request->validate(['paypal_email' => 'required|email|max:255']);
                 if ($locked && $profile['paypal_email'] && $request->paypal_email !== $profile['paypal_email']) {
-                    throw \Illuminate\Validation\ValidationException::withMessages([
+                    throw ValidationException::withMessages([
                         'paypal_email' => 'PayPal email is locked. Contact support to change it.',
                     ]);
                 }
@@ -337,7 +338,7 @@ class BalanceController extends Controller
                 ]);
 
                 if ($locked && $profile['crypto_trx_wallet'] && $request->wallet_address !== $profile['crypto_trx_wallet']) {
-                    throw \Illuminate\Validation\ValidationException::withMessages([
+                    throw ValidationException::withMessages([
                         'wallet_address' => 'Crypto TRX wallet is locked. Contact support to change it.',
                     ]);
                 }
@@ -411,13 +412,14 @@ class BalanceController extends Controller
                 if ($defaultAdminEmail) {
                     Mail::to($defaultAdminEmail)->send(new WithdrawalRequestNotification($withdrawal, $user));
                 }
-
-                return;
+            } else {
+                foreach ($admins as $admin) {
+                    Mail::to($admin->email)->send(new WithdrawalRequestNotification($withdrawal, $user));
+                }
             }
 
-            foreach ($admins as $admin) {
-                Mail::to($admin->email)->send(new WithdrawalRequestNotification($withdrawal, $user));
-            }
+            app(InAppNotificationService::class)
+                ->notifyAdminsWithdrawalRequested($withdrawal, $user);
         } catch (\Throwable $e) {
             Log::warning('Failed to notify admins of advertiser withdrawal', [
                 'error' => $e->getMessage(),

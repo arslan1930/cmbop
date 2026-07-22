@@ -7,6 +7,7 @@ use App\Models\InAppNotification;
 use App\Models\Order;
 use App\Models\OrderActivity;
 use App\Models\OrderItem;
+use App\Models\Role;
 use App\Models\Site;
 use App\Models\User;
 use App\Models\Withdrawal;
@@ -39,6 +40,14 @@ class InAppNotificationService
     public const TYPE_PAYMENT_RECEIVED = 'payment_received';
 
     public const TYPE_PAYMENT_FAILED = 'payment_failed';
+
+    public const TYPE_PAYMENT_PENDING = 'payment_pending';
+
+    public const TYPE_SITE_STATUS = 'site_status';
+
+    public const TYPE_CONTENT_APPROVED = 'content_approved';
+
+    public const TYPE_CONTENT_NEEDS_CHANGES = 'content_needs_changes';
 
     public const TYPE_SYSTEM = 'system';
 
@@ -393,6 +402,260 @@ class InAppNotificationService
         );
     }
 
+    /**
+     * Advertiser: manual deposit invoice was submitted and awaits admin review.
+     */
+    public function notifyDepositSubmitted(DepositRequest $deposit): void
+    {
+        if (! $deposit->user_id) {
+            return;
+        }
+
+        $amount = '€'.number_format((float) $deposit->amount, 2);
+        $method = strtoupper((string) ($deposit->payment_method ?? 'manual'));
+
+        $this->notify(
+            (int) $deposit->user_id,
+            self::TYPE_PAYMENT_PENDING,
+            "Deposit submitted — {$amount}",
+            "We received your {$method} deposit request (ref {$deposit->reference_code}). We'll review and credit your wallet soon.",
+            [
+                'category' => self::CATEGORY_PAYMENTS,
+                'icon' => 'wallet',
+                'priority' => InAppNotification::PRIORITY_NORMAL,
+                'related' => $deposit,
+                'audience' => InAppNotification::AUDIENCE_ADVERTISER,
+                'action_label' => 'View Add Funds',
+                'action_url' => route('advertiser.add-funds', [], false),
+                'meta' => [
+                    'amount' => (float) $deposit->amount,
+                    'reference_code' => $deposit->reference_code,
+                    'payment_method' => $deposit->payment_method,
+                    'status' => $deposit->status,
+                ],
+            ]
+        );
+    }
+
+    /**
+     * Advertiser: order payment is pending (manual invoice / awaiting confirmation).
+     * Deduped so the same order does not spam the bell.
+     */
+    public function notifyPaymentPending(Order $order, ?string $reason = null): void
+    {
+        if (! $order->user_id) {
+            return;
+        }
+
+        $recentDuplicate = InAppNotification::query()
+            ->where('user_id', $order->user_id)
+            ->where('type', self::TYPE_PAYMENT_PENDING)
+            ->where('related_type', Order::class)
+            ->where('related_id', $order->id)
+            ->where('created_at', '>=', now()->subHours(12))
+            ->exists();
+
+        if ($recentDuplicate) {
+            return;
+        }
+
+        $amount = '€'.number_format((float) $order->total_amount, 2);
+        $message = $reason
+            ? $reason
+            : "Payment for order #{$order->order_number} ({$amount}) is still pending. Complete payment to notify the publisher.";
+
+        $this->notify(
+            (int) $order->user_id,
+            self::TYPE_PAYMENT_PENDING,
+            "Payment pending — order #{$order->order_number}",
+            $message,
+            [
+                'category' => self::CATEGORY_PAYMENTS,
+                'icon' => 'alert-triangle',
+                'priority' => InAppNotification::PRIORITY_NORMAL,
+                'related' => $order,
+                'audience' => InAppNotification::AUDIENCE_ADVERTISER,
+                'action_label' => 'View orders',
+                'action_url' => route('advertiser.orders', ['payment_status' => 'pending'], false),
+                'meta' => [
+                    'order_id' => $order->id,
+                    'order_number' => $order->order_number,
+                    'amount' => (float) $order->total_amount,
+                    'payment_method' => $order->payment_method,
+                ],
+            ]
+        );
+    }
+
+    /**
+     * Publisher: withdrawal moved to processing.
+     */
+    public function notifyWithdrawalProcessing(Withdrawal $withdrawal): void
+    {
+        if (! $withdrawal->user_id) {
+            return;
+        }
+
+        $amount = '€'.number_format((float) $withdrawal->amount, 2);
+
+        $this->notify(
+            (int) $withdrawal->user_id,
+            self::TYPE_PAYMENT_PENDING,
+            "Withdrawal processing — {$amount}",
+            "Your withdrawal of {$amount} is being processed. We'll notify you when it's paid.",
+            [
+                'category' => self::CATEGORY_PAYMENTS,
+                'icon' => 'wallet',
+                'priority' => InAppNotification::PRIORITY_NORMAL,
+                'related' => $withdrawal,
+                'audience' => InAppNotification::AUDIENCE_PUBLISHER,
+                'action_label' => 'View withdrawals',
+                'action_url' => route('publisher.withdraw', [], false),
+                'meta' => [
+                    'amount' => (float) $withdrawal->amount,
+                    'status' => $withdrawal->status,
+                ],
+            ]
+        );
+    }
+
+    /**
+     * Publisher: site verified / unverified / activated / deactivated.
+     */
+    public function notifySiteStatusChanged(Site $site, string $status): void
+    {
+        $publisherId = (int) ($site->publisher_id ?? 0);
+        if ($publisherId <= 0) {
+            return;
+        }
+
+        $labels = [
+            'verified' => ['Site verified', 'Your site is verified and ready for marketplace listings.'],
+            'unverified' => ['Site verification removed', 'Your site is no longer verified. Contact support if this looks wrong.'],
+            'activated' => ['Site activated', 'Your site is active and visible to advertisers.'],
+            'deactivated' => ['Site deactivated', 'Your site was deactivated and is hidden from the catalog.'],
+        ];
+
+        [$title, $defaultMessage] = $labels[$status] ?? ['Site status updated', 'Your site status was updated.'];
+        $name = $site->site_name ?: ($site->site_url ?: 'Your site');
+
+        $this->notify(
+            $publisherId,
+            self::TYPE_SITE_STATUS,
+            "{$title} — {$name}",
+            $defaultMessage,
+            [
+                'category' => self::CATEGORY_ACCOUNT,
+                'icon' => in_array($status, ['verified', 'activated'], true) ? 'check-circle' : 'alert-triangle',
+                'priority' => in_array($status, ['unverified', 'deactivated'], true)
+                    ? InAppNotification::PRIORITY_HIGH
+                    : InAppNotification::PRIORITY_NORMAL,
+                'related' => $site,
+                'audience' => InAppNotification::AUDIENCE_PUBLISHER,
+                'action_label' => 'View sites',
+                'action_url' => route('publisher.websites', [], false),
+                'meta' => [
+                    'site_id' => $site->id,
+                    'status' => $status,
+                    'verified' => (bool) $site->verified,
+                    'active' => (bool) $site->active,
+                ],
+            ]
+        );
+    }
+
+    /**
+     * Publisher: scheduled publication window is due (publish today).
+     */
+    public function notifyScheduledPublishDue(Order $order, bool $isReminder = false): void
+    {
+        $order->loadMissing(['items.site']);
+        $siteName = $order->items->first()?->site_name
+            ?: $order->items->first()?->site?->site_name
+            ?: 'your site';
+
+        $publisherIds = $order->items
+            ->map(fn (OrderItem $item) => (int) ($item->site?->publisher_id ?? 0))
+            ->filter()
+            ->unique()
+            ->values();
+
+        $title = $isReminder
+            ? "Publish soon — order #{$order->order_number}"
+            : "Publish today — order #{$order->order_number}";
+        $message = $isReminder
+            ? "Scheduled publication for {$siteName} begins within 24 hours."
+            : "The scheduled date for {$siteName} has arrived. Please publish the article today.";
+
+        foreach ($publisherIds as $publisherId) {
+            $this->notify(
+                (int) $publisherId,
+                self::TYPE_ORDER_UPDATED,
+                $title,
+                $message,
+                [
+                    'category' => self::CATEGORY_ORDERS,
+                    'icon' => 'rocket',
+                    'priority' => InAppNotification::PRIORITY_HIGH,
+                    'related' => $order,
+                    'audience' => InAppNotification::AUDIENCE_PUBLISHER,
+                    'action_label' => 'Open tasks',
+                    'action_url' => route('publisher.tasks', [], false),
+                    'meta' => [
+                        'order_id' => $order->id,
+                        'order_number' => $order->order_number,
+                        'reminder' => $isReminder,
+                        'scheduled_publish_at' => optional($order->scheduled_publish_at)?->toIso8601String(),
+                    ],
+                ]
+            );
+        }
+    }
+
+    /**
+     * Advertiser: Content Library evaluation result (approved / needs changes).
+     *
+     * @param  array<string, mixed>  $result
+     */
+    public function notifyContentEvaluation(User $user, $submission, array $result): void
+    {
+        $approved = (bool) ($result['approved'] ?? false);
+        $title = $approved
+            ? 'Article approved'
+            : ((string) ($result['title'] ?? 'Article needs changes'));
+        $message = (string) ($result['message'] ?? '');
+        $terms = $result['matched_terms'] ?? ($result['report']['matched_terms'] ?? []);
+        $blockedUrls = $result['blocked_urls'] ?? ($result['report']['blocked_urls'] ?? []);
+        if (! $approved && is_array($terms) && $terms !== []) {
+            $message .= ' Terms to fix: '.implode(', ', array_slice($terms, 0, 8)).'.';
+        }
+        if (! $approved && is_array($blockedUrls) && $blockedUrls !== []) {
+            $message .= ' Blocked links: '.implode(', ', array_slice($blockedUrls, 0, 3)).'.';
+        }
+
+        $this->notify(
+            $user,
+            $approved ? self::TYPE_CONTENT_APPROVED : self::TYPE_CONTENT_NEEDS_CHANGES,
+            $title,
+            $message,
+            [
+                'category' => self::CATEGORY_SYSTEM,
+                'icon' => $approved ? 'check-circle' : 'alert-triangle',
+                'priority' => $approved ? InAppNotification::PRIORITY_NORMAL : InAppNotification::PRIORITY_HIGH,
+                'related' => $submission,
+                'audience' => InAppNotification::AUDIENCE_ADVERTISER,
+                'action_label' => 'Open Content Library',
+                'action_url' => url('/advertiser/content-library'),
+                'meta' => [
+                    'submission_id' => $submission->id ?? null,
+                    'moderation_status' => $result['moderation_status'] ?? null,
+                    'matched_terms' => $terms,
+                    'blocked_urls' => $blockedUrls,
+                ],
+            ]
+        );
+    }
+
     public function notifyWithdrawalPaid(Withdrawal $withdrawal): void
     {
         if (! $withdrawal->user_id) {
@@ -509,6 +772,8 @@ class InAppNotificationService
 
     public function notifyLiveUrlSubmitted(Order $order, OrderItem $item, Site $site, string $liveUrl): void
     {
+        $windowDays = max(1, (int) ceil(OrderItem::autoApproveHours() / 24));
+
         $this->recordOrderActivity(
             $order,
             'order.published',
@@ -521,7 +786,7 @@ class InAppNotificationService
             $order->user_id,
             self::TYPE_GUEST_POST_PUBLISHED,
             "Order #{$order->order_number} published",
-            "Your backlink on {$item->site_name} has been published and is ready for review.",
+            "Your backlink on {$item->site_name} has been published and is ready for review. Auto-completes in about {$windowDays} day(s) if you take no action.",
             [
                 'category' => self::CATEGORY_ORDERS,
                 'icon' => 'rocket',
@@ -529,7 +794,42 @@ class InAppNotificationService
                 'related' => $order,
                 'action_label' => 'Review order',
                 'action_url' => route('advertiser.orders', ['focus' => 'order', 'order' => $order->id], false),
-                'meta' => ['live_url' => $liveUrl],
+                'meta' => [
+                    'live_url' => $liveUrl,
+                    'auto_approve_hours' => OrderItem::autoApproveHours(),
+                ],
+            ]
+        );
+    }
+
+    /**
+     * Advertiser: ~24h left before auto-complete.
+     */
+    public function notifyAutoApproveReminder(Order $order, OrderItem $item, int $hoursRemaining): void
+    {
+        if (! $order->user_id) {
+            return;
+        }
+
+        $this->notify(
+            (int) $order->user_id,
+            self::TYPE_ORDER_UPDATED,
+            "1 day left — order #{$order->order_number}",
+            "About {$hoursRemaining} hour(s) remain before this order auto-completes. Approve the live URL or request changes.",
+            [
+                'category' => self::CATEGORY_ORDERS,
+                'icon' => 'alert-triangle',
+                'priority' => InAppNotification::PRIORITY_HIGH,
+                'related' => $order,
+                'audience' => InAppNotification::AUDIENCE_ADVERTISER,
+                'action_label' => 'Review order',
+                'action_url' => route('advertiser.orders', ['focus' => 'order', 'order' => $order->id], false),
+                'meta' => [
+                    'order_number' => $order->order_number,
+                    'order_item_id' => $item->id,
+                    'hours_remaining' => $hoursRemaining,
+                    'live_url' => $item->live_url,
+                ],
             ]
         );
     }
@@ -682,6 +982,181 @@ class InAppNotificationService
         );
     }
 
+    /**
+     * Fan out an in-app notification to every user with the admin role.
+     *
+     * @return Collection<int, InAppNotification>
+     */
+    public function notifyAdmins(
+        string $type,
+        string $title,
+        ?string $message = null,
+        array $options = []
+    ): Collection {
+        $options['audience'] = InAppNotification::AUDIENCE_ADMIN;
+        $created = collect();
+
+        foreach ($this->adminUsers() as $admin) {
+            $note = $this->notify($admin, $type, $title, $message, $options);
+            if ($note) {
+                $created->push($note);
+            }
+        }
+
+        return $created;
+    }
+
+    public function notifyAdminsDepositSubmitted(DepositRequest $deposit): void
+    {
+        $user = $deposit->user;
+        $amount = number_format((float) $deposit->amount, 2);
+        $ref = $deposit->reference_code ?: ('#'.$deposit->id);
+        $who = $user?->name ?: ($user?->email ?: 'An advertiser');
+
+        $this->notifyAdmins(
+            self::TYPE_PAYMENT_RECEIVED,
+            'New deposit to review',
+            "{$who} submitted a €{$amount} deposit (REF {$ref}). Confirm and credit their wallet.",
+            [
+                'category' => self::CATEGORY_PAYMENTS,
+                'icon' => 'wallet',
+                'priority' => InAppNotification::PRIORITY_HIGH,
+                'related' => $deposit,
+                'action_label' => 'Review deposit',
+                'action_url' => route('admin.deposits', [], false),
+                'meta' => [
+                    'deposit_id' => $deposit->id,
+                    'reference_code' => $deposit->reference_code,
+                    'amount' => (float) $deposit->amount,
+                    'payment_method' => $deposit->payment_method,
+                ],
+            ]
+        );
+    }
+
+    public function notifyAdminsWithdrawalRequested(Withdrawal $withdrawal, ?User $requester = null): void
+    {
+        $requester = $requester ?: User::find($withdrawal->user_id);
+        $amount = number_format((float) $withdrawal->amount, 2);
+        $who = $requester?->name ?: ($requester?->email ?: 'A user');
+
+        $this->notifyAdmins(
+            self::TYPE_PAYMENT_RECEIVED,
+            'New withdrawal to process',
+            "{$who} requested a €{$amount} withdrawal.",
+            [
+                'category' => self::CATEGORY_PAYMENTS,
+                'icon' => 'wallet',
+                'priority' => InAppNotification::PRIORITY_HIGH,
+                'related' => $withdrawal,
+                'action_label' => 'Review withdrawal',
+                'action_url' => route('admin.withdrawals', [], false),
+                'meta' => [
+                    'withdrawal_id' => $withdrawal->id,
+                    'amount' => (float) $withdrawal->amount,
+                    'payment_method' => $withdrawal->payment_method ?? null,
+                ],
+            ]
+        );
+    }
+
+    public function notifyAdminsNewSite(Site $site, string $action = 'create'): void
+    {
+        $isUpdate = $action === 'update';
+        $name = $site->site_name ?: ($site->site_url ?: 'A website');
+
+        $this->notifyAdmins(
+            self::TYPE_SYSTEM,
+            $isUpdate ? 'Site updated — needs review' : 'New site to verify',
+            $isUpdate
+                ? "{$name} was updated and needs review again."
+                : "{$name} was submitted and needs verification.",
+            [
+                'category' => self::CATEGORY_SYSTEM,
+                'icon' => 'bell',
+                'priority' => InAppNotification::PRIORITY_HIGH,
+                'related' => $site,
+                'action_label' => 'Review sites',
+                'action_url' => route('admin.sites.index', [], false),
+                'meta' => [
+                    'site_id' => $site->id,
+                    'action' => $isUpdate ? 'update' : 'create',
+                ],
+            ]
+        );
+    }
+
+    public function notifyAdminsNewUser(User $user): void
+    {
+        $who = $user->name ?: $user->email;
+
+        $this->notifyAdmins(
+            self::TYPE_ACCOUNT,
+            'New user registered',
+            "{$who} just created an account.",
+            [
+                'category' => self::CATEGORY_ACCOUNT,
+                'icon' => 'user',
+                'priority' => InAppNotification::PRIORITY_NORMAL,
+                'related' => $user,
+                'action_label' => 'View users',
+                'action_url' => route('admin.users.index', [], false),
+                'meta' => [
+                    'registered_user_id' => $user->id,
+                    'email' => $user->email,
+                ],
+            ]
+        );
+    }
+
+    /**
+     * @param  iterable<int, Order>  $orders
+     */
+    public function notifyAdminsManualPayment(User $customer, iterable $orders, string $paymentMethod): void
+    {
+        $orders = collect($orders);
+        $total = (float) $orders->sum(fn (Order $o) => (float) $o->total_amount);
+        $count = $orders->count();
+        $who = $customer->name ?: $customer->email;
+        $method = strtoupper($paymentMethod);
+        $amount = number_format($total, 2);
+
+        $this->notifyAdmins(
+            self::TYPE_PAYMENT_RECEIVED,
+            'Manual payment to confirm',
+            "{$who} marked {$count} order(s) paid via {$method} (€{$amount}). Confirm when funds arrive.",
+            [
+                'category' => self::CATEGORY_PAYMENTS,
+                'icon' => 'wallet',
+                'priority' => InAppNotification::PRIORITY_HIGH,
+                'related' => $orders->first(),
+                'action_label' => 'Review payments',
+                'action_url' => route('admin.payments', [], false),
+                'meta' => [
+                    'customer_id' => $customer->id,
+                    'payment_method' => $paymentMethod,
+                    'order_ids' => $orders->pluck('id')->values()->all(),
+                    'total_amount' => $total,
+                ],
+            ]
+        );
+    }
+
+    /**
+     * @return Collection<int, User>
+     */
+    protected function adminUsers(): Collection
+    {
+        $role = Role::where('name', 'admin')->first();
+        if (! $role) {
+            return collect();
+        }
+
+        return User::query()
+            ->whereHas('roles', fn ($q) => $q->where('roles.id', $role->id))
+            ->get();
+    }
+
     public function unreadCount(int $userId, ?string $audience = null): int
     {
         return InAppNotification::forUser($userId)
@@ -768,9 +1243,9 @@ class InAppNotificationService
     {
         return match ($type) {
             self::TYPE_MESSAGE, self::TYPE_CHAT_REPLY => self::CATEGORY_MESSAGES,
-            self::TYPE_PAYMENT_RECEIVED, self::TYPE_PAYMENT_FAILED => self::CATEGORY_PAYMENTS,
-            self::TYPE_ACCOUNT => self::CATEGORY_ACCOUNT,
-            self::TYPE_SYSTEM => self::CATEGORY_SYSTEM,
+            self::TYPE_PAYMENT_RECEIVED, self::TYPE_PAYMENT_FAILED, self::TYPE_PAYMENT_PENDING => self::CATEGORY_PAYMENTS,
+            self::TYPE_ACCOUNT, self::TYPE_SITE_STATUS => self::CATEGORY_ACCOUNT,
+            self::TYPE_SYSTEM, self::TYPE_CONTENT_APPROVED, self::TYPE_CONTENT_NEEDS_CHANGES => self::CATEGORY_SYSTEM,
             default => self::CATEGORY_ORDERS,
         };
     }
@@ -780,14 +1255,16 @@ class InAppNotificationService
         return match ($type) {
             self::TYPE_MESSAGE, self::TYPE_CHAT_REPLY => 'message-circle',
             self::TYPE_ORDER_CREATED => 'package',
-            self::TYPE_ORDER_ACCEPTED => 'check-circle',
+            self::TYPE_ORDER_ACCEPTED, self::TYPE_CONTENT_APPROVED => 'check-circle',
             self::TYPE_ORDER_REJECTED => 'x-circle',
             self::TYPE_GUEST_POST_PUBLISHED => 'rocket',
             self::TYPE_ORDER_COMPLETED => 'badge-check',
             self::TYPE_MODIFICATION_REQUESTED => 'pencil',
             self::TYPE_ORDER_UPDATED => 'refresh-cw',
             self::TYPE_PAYMENT_RECEIVED => 'wallet',
-            self::TYPE_PAYMENT_FAILED => 'alert-triangle',
+            self::TYPE_PAYMENT_FAILED, self::TYPE_CONTENT_NEEDS_CHANGES => 'alert-triangle',
+            self::TYPE_PAYMENT_PENDING => 'wallet',
+            self::TYPE_SITE_STATUS => 'check-circle',
             self::TYPE_ACCOUNT => 'user',
             default => 'bell',
         };

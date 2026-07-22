@@ -71,13 +71,21 @@ class InAppNotification extends Model
 
     /**
      * Limit to notifications intended for the active marketplace role.
-     * Staff roles (admin/marketing) see everything for the user.
+     * Staff roles (admin/marketing) see ops + shared "all" rows only.
      */
     public function scopeForAudience($query, ?string $role)
     {
         $role = $role ? strtolower(trim($role)) : null;
-        if (! $role || in_array($role, ['admin', 'marketing'], true)) {
+        if (! $role) {
             return $query;
+        }
+
+        if (in_array($role, ['admin', 'marketing'], true)) {
+            return $query->where(function ($q) {
+                $q->where('audience', self::AUDIENCE_ADMIN)
+                    ->orWhere('audience', self::AUDIENCE_ALL)
+                    ->orWhereNull('audience');
+            });
         }
 
         return $query->where(function ($q) use ($role) {

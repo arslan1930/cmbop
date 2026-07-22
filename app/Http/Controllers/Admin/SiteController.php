@@ -4,13 +4,14 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Jobs\EnrichSiteJob;
-use App\Models\User;
-use App\Models\Site;
 use App\Mail\SiteStatusNotification;
+use App\Models\Site;
+use App\Models\User;
 use App\Services\ActivityLogger;
+use App\Services\InAppNotificationService;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 
 class SiteController extends Controller
@@ -62,7 +63,7 @@ class SiteController extends Controller
         $site = Site::findOrFail($id);
 
         $request->validate([
-            'site_image' => 'required|image|mimes:jpeg,png,jpg,gif,webp|max:2048'
+            'site_image' => 'required|image|mimes:jpeg,png,jpg,gif,webp|max:2048',
         ]);
 
         // Delete old image if exists
@@ -76,7 +77,7 @@ class SiteController extends Controller
 
         ActivityLogger::log(
             'site.image_uploaded',
-            auth()->user()->name . ' uploaded an image for site "' . $site->site_name . '"',
+            auth()->user()->name.' uploaded an image for site "'.$site->site_name.'"',
             $site,
             ['image_path' => $path],
             $site->site_name
@@ -85,7 +86,7 @@ class SiteController extends Controller
         return response()->json([
             'success' => true,
             'image_path' => $path,
-            'message' => 'Image uploaded successfully'
+            'message' => 'Image uploaded successfully',
         ]);
     }
 
@@ -126,7 +127,7 @@ class SiteController extends Controller
             'sensitive_prices',
             'description',
             'active',
-            'site_image'
+            'site_image',
         ]);
 
         // Manual metric edits from admin — mark as manual so auto-refresh does not overwrite.
@@ -161,7 +162,7 @@ class SiteController extends Controller
 
         ActivityLogger::log(
             'site.updated',
-            auth()->user()->name . ' modified site "' . $site->site_name . '"',
+            auth()->user()->name.' modified site "'.$site->site_name.'"',
             $site,
             ['changes' => $changes],
             $site->site_name
@@ -177,13 +178,13 @@ class SiteController extends Controller
                 $emailSent = true;
             }
         } catch (\Exception $e) {
-            Log::error('Failed to send update notification: ' . $e->getMessage());
+            Log::error('Failed to send update notification: '.$e->getMessage());
         }
 
         return response()->json([
             'success' => true,
             'message' => 'Site updated successfully',
-            'email_sent' => $emailSent
+            'email_sent' => $emailSent,
         ]);
     }
 
@@ -197,11 +198,11 @@ class SiteController extends Controller
         $site->save();
 
         $action = $site->verified ? 'site.approved' : 'site.rejected';
-        $label  = $site->verified ? 'approved' : 'rejected';
+        $label = $site->verified ? 'approved' : 'rejected';
 
         ActivityLogger::log(
             $action,
-            auth()->user()->name . ' ' . $label . ' site "' . $site->site_name . '"',
+            auth()->user()->name.' '.$label.' site "'.$site->site_name.'"',
             $site,
             ['from' => $oldStatus, 'to' => (int) $site->verified],
             $site->site_name
@@ -215,22 +216,25 @@ class SiteController extends Controller
         }
 
         $emailSent = false;
+        $status = $site->verified ? 'verified' : 'unverified';
 
         try {
             $publisher = $site->publisher;
             if ($publisher && $publisher->email) {
-                $status = $site->verified ? 'verified' : 'unverified';
                 Mail::to($publisher->email)->send(new SiteStatusNotification($site, $status));
                 $emailSent = true;
             }
+            if ($publisher) {
+                app(InAppNotificationService::class)->notifySiteStatusChanged($site->fresh(), $status);
+            }
         } catch (\Exception $e) {
-            Log::error('Failed to send verification notification: ' . $e->getMessage());
+            Log::error('Failed to send verification notification: '.$e->getMessage());
         }
 
         return response()->json([
             'success' => true,
             'message' => 'Verification updated',
-            'email_sent' => $emailSent
+            'email_sent' => $emailSent,
         ]);
     }
 
@@ -244,40 +248,43 @@ class SiteController extends Controller
         $site->save();
 
         $action = $site->active ? 'site.activated' : 'site.deactivated';
-        $label  = $site->active ? 'activated' : 'deactivated';
+        $label = $site->active ? 'activated' : 'deactivated';
 
         ActivityLogger::log(
             $action,
-            auth()->user()->name . ' ' . $label . ' site "' . $site->site_name . '"',
+            auth()->user()->name.' '.$label.' site "'.$site->site_name.'"',
             $site,
             ['from' => $oldStatus, 'to' => (int) $site->active],
             $site->site_name
         );
 
         $emailSent = false;
+        $status = $site->active ? 'activated' : 'deactivated';
 
         try {
             $publisher = $site->publisher;
             if ($publisher && $publisher->email) {
-                $status = $site->active ? 'activated' : 'deactivated';
                 Mail::to($publisher->email)->send(new SiteStatusNotification($site, $status));
                 $emailSent = true;
             }
+            if ($publisher) {
+                app(InAppNotificationService::class)->notifySiteStatusChanged($site->fresh(), $status);
+            }
         } catch (\Exception $e) {
-            Log::error('Failed to send status notification: ' . $e->getMessage());
+            Log::error('Failed to send status notification: '.$e->getMessage());
         }
 
         return response()->json([
             'success' => true,
             'message' => 'Active status updated',
-            'email_sent' => $emailSent
+            'email_sent' => $emailSent,
         ]);
     }
 
     // DELETE — admin only
     public function destroy($id)
     {
-        if (!auth()->user()?->isAdmin()) {
+        if (! auth()->user()?->isAdmin()) {
             return response()->json([
                 'success' => false,
                 'message' => 'Only admins can delete sites.',
@@ -296,7 +303,7 @@ class SiteController extends Controller
 
         ActivityLogger::log(
             'site.deleted',
-            auth()->user()->name . ' deleted site "' . $siteName . '"',
+            auth()->user()->name.' deleted site "'.$siteName.'"',
             null,
             ['site_id' => $siteId, 'site_name' => $siteName],
             $siteName
@@ -304,7 +311,7 @@ class SiteController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'Site deleted successfully'
+            'message' => 'Site deleted successfully',
         ]);
     }
 }

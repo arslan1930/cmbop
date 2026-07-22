@@ -179,6 +179,8 @@ class AdminWithdrawalController extends Controller
                     $notifications->notifyWithdrawalPaid($freshWithdrawal);
                 } elseif ($newStatus === 'cancelled') {
                     $notifications->notifyWithdrawalRejected($freshWithdrawal);
+                } elseif ($newStatus === 'processing') {
+                    $notifications->notifyWithdrawalProcessing($freshWithdrawal);
                 }
             }
 

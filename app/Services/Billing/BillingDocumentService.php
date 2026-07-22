@@ -6,9 +6,11 @@ use App\Mail\PaymentFailedMail;
 use App\Mail\PaymentPendingMail;
 use App\Mail\PaymentSuccessfulInvoiceMail;
 use App\Mail\RefundReceiptMail;
+use App\Models\BillingEvent;
 use App\Models\Invoice;
 use App\Models\Order;
 use App\Models\User;
+use App\Services\InAppNotificationService;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 
@@ -22,8 +24,7 @@ class BillingDocumentService
         private InvoiceNumberGenerator $numbers,
         private InvoicePdfGenerator $pdfs,
         private BillingEventLogger $events,
-    ) {
-    }
+    ) {}
 
     /**
      * Successful payment → tax invoice + payment receipt + email with PDF.
@@ -33,7 +34,7 @@ class BillingDocumentService
     {
         $order->loadMissing(['user', 'items']);
 
-        if (!$order->user) {
+        if (! $order->user) {
             return null;
         }
 
@@ -85,7 +86,7 @@ class BillingDocumentService
     {
         $order->loadMissing(['user', 'items']);
 
-        if (!$order->user) {
+        if (! $order->user) {
             return null;
         }
 
@@ -137,12 +138,12 @@ class BillingDocumentService
     {
         $order->loadMissing(['user', 'items']);
 
-        if (!$order->user) {
+        if (! $order->user) {
             return;
         }
 
         // Dedupe via billing events (no invoice row for pending).
-        $recent = \App\Models\BillingEvent::query()
+        $recent = BillingEvent::query()
             ->where('order_id', $order->id)
             ->where('event_type', 'payment_pending_emailed')
             ->where('created_at', '>=', now()->subMinutes(30))
@@ -170,7 +171,7 @@ class BillingDocumentService
     {
         $order->loadMissing(['user', 'items']);
 
-        if (!$order->user) {
+        if (! $order->user) {
             return null;
         }
 
@@ -314,7 +315,7 @@ class BillingDocumentService
             $qty = 1;
             $unit = (float) $item->price;
             $service = 'Guest post / sponsored placement';
-            if (!empty($item->sensitive_type)) {
+            if (! empty($item->sensitive_type)) {
                 $service .= ' (+ '.$item->sensitive_type.')';
             }
 
@@ -382,7 +383,7 @@ class BillingDocumentService
 
     protected function emailPaymentSuccess(Invoice $invoice, ?Invoice $receipt = null): void
     {
-        if (!$invoice->user?->email) {
+        if (! $invoice->user?->email) {
             return;
         }
 
@@ -399,7 +400,7 @@ class BillingDocumentService
 
     protected function emailPaymentFailed(Invoice $doc): void
     {
-        if (!$doc->user?->email) {
+        if (! $doc->user?->email) {
             return;
         }
 
@@ -413,17 +414,26 @@ class BillingDocumentService
 
     protected function emailPaymentPending(Order $order): void
     {
-        if (!$order->user?->email) {
+        if (! $order->user?->email) {
             return;
         }
 
         Mail::to($order->user->email)->send(new PaymentPendingMail($order));
         $this->events->log('payment_pending_emailed', null, $order);
+
+        try {
+            app(InAppNotificationService::class)->notifyPaymentPending($order);
+        } catch (\Throwable $e) {
+            Log::warning('Payment pending bell failed', [
+                'order_id' => $order->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
     }
 
     protected function emailRefund(Invoice $refund): void
     {
-        if (!$refund->user?->email) {
+        if (! $refund->user?->email) {
             return;
         }
 

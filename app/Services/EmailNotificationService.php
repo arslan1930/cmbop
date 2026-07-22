@@ -26,12 +26,12 @@ class EmailNotificationService
 {
     public function sendWelcome(User $user): void
     {
-        $this->dispatch('welcome', $user, new WelcomeEmail($user), 'welcome:user:' . $user->id);
+        $this->dispatch('welcome', $user, new WelcomeEmail($user), 'welcome:user:'.$user->id);
     }
 
     public function sendTrustpilotReview(User $user, ?Order $order = null): void
     {
-        $key = 'trustpilot:user:' . $user->id . ':order:' . ($order?->id ?? 'none');
+        $key = 'trustpilot:user:'.$user->id.':order:'.($order?->id ?? 'none');
         $this->dispatch('trustpilot_review', $user, new TrustpilotReviewRequest($user, $order), $key);
     }
 
@@ -42,7 +42,7 @@ class EmailNotificationService
                 'admin_new_user',
                 $admin,
                 new AdminNewUserRegistered($user, $admin),
-                'admin_new_user:' . $user->id . ':admin:' . $admin->id
+                'admin_new_user:'.$user->id.':admin:'.$admin->id
             );
         }
 
@@ -51,7 +51,7 @@ class EmailNotificationService
             try {
                 $mailable = new AdminNewUserRegistered($user, null);
                 $mailable->notificationType = 'admin_new_user';
-                $mailable->dedupeKey = 'admin_new_user:' . $user->id . ':fallback';
+                $mailable->dedupeKey = 'admin_new_user:'.$user->id.':fallback';
                 Mail::to($fallback)->send($mailable);
             } catch (\Throwable $e) {
                 Log::warning('Fallback admin new-user email failed', [
@@ -59,6 +59,15 @@ class EmailNotificationService
                     'error' => $e->getMessage(),
                 ]);
             }
+        }
+
+        try {
+            app(InAppNotificationService::class)->notifyAdminsNewUser($user);
+        } catch (\Throwable $e) {
+            Log::warning('Admin new-user bell notification failed', [
+                'user_id' => $user->id,
+                'error' => $e->getMessage(),
+            ]);
         }
     }
 
@@ -68,7 +77,7 @@ class EmailNotificationService
             'weekly_activity_summary',
             $user,
             new WeeklyActivitySummary($user, $payload),
-            'weekly_summary:' . $user->id . ':' . ($payload['week_key'] ?? now()->format('o-\WW'))
+            'weekly_summary:'.$user->id.':'.($payload['week_key'] ?? now()->format('o-\WW'))
         );
     }
 
@@ -78,7 +87,7 @@ class EmailNotificationService
             'monthly_spending_summary',
             $user,
             new MonthlySpendingSummary($user, $payload),
-            'monthly_summary:' . $user->id . ':' . ($payload['month_key'] ?? now()->format('Y-m'))
+            'monthly_summary:'.$user->id.':'.($payload['month_key'] ?? now()->format('Y-m'))
         );
     }
 
@@ -92,7 +101,7 @@ class EmailNotificationService
         string $newValue,
         ?string $description = null,
     ): void {
-        if (!$this->isTypeEnabled('order_status_changed')) {
+        if (! $this->isTypeEnabled('order_status_changed')) {
             return;
         }
 
@@ -142,10 +151,10 @@ class EmailNotificationService
         $seen = [];
 
         $add = function (?User $user, string $audience) use (&$rows, &$seen) {
-            if (!$user?->id || !$user->email) {
+            if (! $user?->id || ! $user->email) {
                 return;
             }
-            $key = $audience . ':' . $user->id;
+            $key = $audience.':'.$user->id;
             if (isset($seen[$key])) {
                 return;
             }
@@ -158,7 +167,7 @@ class EmailNotificationService
         // Publishers are notified immediately — including scheduled orders (publish on the date).
         foreach ($order->items as $item) {
             $publisher = $item->site?->publisher;
-            if (!$publisher && $item->site?->publisher_id) {
+            if (! $publisher && $item->site?->publisher_id) {
                 $publisher = User::query()->find($item->site->publisher_id);
             }
             $add($publisher, 'publisher');
@@ -189,7 +198,7 @@ class EmailNotificationService
                         newValue: (string) $order->status,
                     );
                     $mailable->notificationType = 'order_status_changed';
-                    $mailable->dedupeKey = 'order_status_changed:fallback:' . $order->id . ':' . $order->status;
+                    $mailable->dedupeKey = 'order_status_changed:fallback:'.$order->id.':'.$order->status;
                     Mail::to($fallback)->send($mailable);
                 } catch (\Throwable $e) {
                     Log::warning('Fallback admin order email failed', ['error' => $e->getMessage()]);
@@ -212,7 +221,7 @@ class EmailNotificationService
 
     protected function dispatch(string $type, ?User $recipient, PlatformMailable $mailable, string $dedupeKey): void
     {
-        if (!$recipient?->email) {
+        if (! $recipient?->email) {
             return;
         }
 
@@ -239,7 +248,7 @@ class EmailNotificationService
     protected function usersWithRole(string $roleName): Collection
     {
         $role = Role::where('name', $roleName)->first();
-        if (!$role) {
+        if (! $role) {
             return collect();
         }
 

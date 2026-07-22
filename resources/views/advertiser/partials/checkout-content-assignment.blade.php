@@ -457,7 +457,8 @@
     }
 
     function allReady() {
-        return cards.every(function (card) {
+        // Checkout may include not-ready sites; payment only needs at least one ready line.
+        return cards.some(function (card) {
             const selected = selectedSubmission(card);
             return selected && selected.approved && selected.id;
         });
@@ -466,9 +467,15 @@
     function syncReadyBadge() {
         const badge = document.getElementById('contentReadyBadge');
         if (!badge) return;
-        if (allReady()) {
+        const readyCount = cards.filter(function (card) {
+            const selected = selectedSubmission(card);
+            return selected && selected.approved && selected.id;
+        }).length;
+        if (readyCount > 0) {
             badge.className = 'badge text-bg-success border';
-            badge.textContent = 'Ready for payment';
+            badge.textContent = readyCount === cards.length
+                ? 'Ready for payment'
+                : (readyCount + ' of ' + cards.length + ' ready for payment');
         } else {
             badge.className = 'badge text-bg-light border';
             badge.textContent = 'Not ready';

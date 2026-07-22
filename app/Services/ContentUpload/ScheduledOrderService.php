@@ -2,15 +2,12 @@
 
 namespace App\Services\ContentUpload;
 
-use App\Mail\OrderStatusChanged;
 use App\Models\Order;
-use App\Models\User;
 use App\Services\EmailNotificationService;
 use App\Services\InAppNotificationService;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Mail;
 
 class ScheduledOrderService
 {
@@ -18,8 +15,7 @@ class ScheduledOrderService
         private ContentUploadService $uploads,
         private EmailNotificationService $emails,
         private InAppNotificationService $inApp,
-    ) {
-    }
+    ) {}
 
     public function maxScheduleAt(?Carbon $from = null): Carbon
     {
@@ -52,13 +48,13 @@ class ScheduledOrderService
             return ['ok' => true, 'mode' => 'immediate', 'at' => null, 'timezone' => $tz];
         }
 
-        if (!$date) {
+        if (! $date) {
             return ['ok' => false, 'mode' => 'scheduled', 'at' => null, 'timezone' => $tz, 'message' => 'Publication date is required for scheduled orders.'];
         }
 
         $time = $time ?: '09:00';
         try {
-            $at = Carbon::createFromFormat('Y-m-d H:i', $date . ' ' . $time, $tz)->utc();
+            $at = Carbon::createFromFormat('Y-m-d H:i', $date.' '.$time, $tz)->utc();
         } catch (\Throwable) {
             return ['ok' => false, 'mode' => 'scheduled', 'at' => null, 'timezone' => $tz, 'message' => 'Invalid publication date or time.'];
         }
@@ -107,6 +103,11 @@ class ScheduledOrderService
                 ]);
 
                 $this->notifyReleased($order->fresh(['user', 'items.site']));
+                try {
+                    $this->inApp->notifyScheduledPublishDue($order->fresh(['user', 'items.site']), false);
+                } catch (\Throwable $e) {
+                    Log::warning('Schedule-due bell failed', ['order_id' => $order->id, 'error' => $e->getMessage()]);
+                }
                 $released->push($order);
             } catch (\Throwable $e) {
                 Log::error('Failed releasing scheduled order', [
@@ -150,6 +151,11 @@ class ScheduledOrderService
                         newValue: 'scheduled',
                         description: 'Reminder: your scheduled publication begins within 24 hours.',
                     );
+                }
+                try {
+                    $this->inApp->notifyScheduledPublishDue($order, true);
+                } catch (\Throwable $e) {
+                    Log::warning('Schedule-reminder bell failed', ['order_id' => $order->id, 'error' => $e->getMessage()]);
                 }
                 $order->update(['schedule_reminder_sent_at' => now()]);
                 $sent++;
