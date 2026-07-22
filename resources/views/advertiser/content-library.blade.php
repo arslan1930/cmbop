@@ -39,8 +39,10 @@
     ];
 @endphp
 <style>
-    .library-table { background: #fff; border-radius: 12px; overflow: hidden; }
+    .library-table { background: #fff; border-radius: 12px; overflow: visible; }
     .library-table table { margin-bottom: 0; }
+    .library-table thead th:first-child { border-top-left-radius: 12px; }
+    .library-table thead th:last-child { border-top-right-radius: 12px; }
     .library-table th {
         font-size: .72rem;
         letter-spacing: .04em;
@@ -238,6 +240,63 @@
         margin-right: 8px;
     }
     .library-actions .btn { white-space: nowrap; }
+    .library-actions {
+        position: relative;
+        overflow: visible;
+    }
+    /* More menu: one horizontal row — no vertical scroll */
+    .library-actions .library-more-menu.dropdown-menu {
+        --bs-dropdown-min-width: 0;
+        padding: 0.3rem;
+        border-radius: 10px;
+        box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
+        border: 1px solid #e2e8f0;
+        max-height: none;
+        overflow: visible;
+    }
+    .library-actions .library-more-menu.dropdown-menu.show {
+        display: flex !important;
+        flex-direction: row;
+        flex-wrap: nowrap;
+        align-items: center;
+        gap: 0.15rem;
+        width: max-content;
+        max-width: none;
+    }
+    .library-actions .library-more-menu > li {
+        display: contents;
+    }
+    .library-actions .library-more-menu .dropdown-item {
+        display: inline-flex;
+        align-items: center;
+        width: auto;
+        white-space: nowrap;
+        padding: 0.35rem 0.7rem;
+        border-radius: 7px;
+        font-size: 0.82rem;
+        font-weight: 500;
+        line-height: 1.2;
+    }
+    .library-actions .library-more-menu .dropdown-item:hover,
+    .library-actions .library-more-menu .dropdown-item:focus {
+        background: var(--brand-primary-bg, #e6f5f5);
+        color: var(--brand-primary, #185054);
+    }
+    .library-actions .library-more-menu .dropdown-item.text-danger:hover,
+    .library-actions .library-more-menu .dropdown-item.text-danger:focus {
+        background: #fef2f2;
+        color: #dc2626;
+    }
+    .library-actions .library-more-menu .dropdown-divider {
+        width: 1px;
+        height: 1.1rem;
+        margin: 0 0.2rem;
+        padding: 0;
+        border: 0;
+        border-left: 1px solid #e2e8f0;
+        opacity: 1;
+        align-self: center;
+    }
     .library-filter-bar .form-select { min-width: 140px; }
     .library-page-actions { margin-top: .75rem; }
     .article-docs-shell {
@@ -464,10 +523,12 @@
                                 @endif
 
                                 <div class="dropdown">
-                                    <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                    <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button"
+                                            data-bs-toggle="dropdown" data-bs-display="static"
+                                            data-bs-auto-close="true" aria-expanded="false" aria-haspopup="true">
                                         More
                                     </button>
-                                    <ul class="dropdown-menu dropdown-menu-end">
+                                    <ul class="dropdown-menu dropdown-menu-end library-more-menu">
                                         @if($submission->preview_html)
                                             <li>
                                                 <button type="button" class="dropdown-item"
