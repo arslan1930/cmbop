@@ -441,4 +441,14 @@ body > footer.collapsed {
     gap: 10px;
   }
   .mobile-sidebar-logo { display: block; }
+
+  /* Hide topbar wordmark on mobile; logo lives in the drawer */
+  .top-navbar .mobile-left a.d-flex.align-items-center {
+    display: none !important;
+  }
+
+  /* Hide desktop sidebar logo block when the mobile logo is shown */
+  #sidebar .menu > .text-center.d-none.d-md-block {
+    display: none !important;
+  }
 }

@@ -221,7 +221,7 @@
 
                             <!-- Recommended: Wallet -->
                             <div class="payment-option payment-option-recommended mb-3" data-method="wallet" style="cursor: pointer;" role="button" tabindex="0" aria-label="Pay with wallet balance">
-                                <div class="payment-option-card recommended" style="border: 2px solid #4ECDCB; border-radius: 12px; padding: 16px; background: #f0fbfb; transition: all 0.2s; display:flex; align-items:center; gap:14px;">
+                                <div class="payment-option-card recommended">
                                     <div style="width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; background: #dcfce7; border-radius: 8px; flex-shrink:0;">
                                         <i class="fas fa-wallet" style="font-size: 24px; color: #16a34a;"></i>
                                     </div>
@@ -232,7 +232,7 @@
                                         </div>
                                         <span style="font-size: 12px; color: #6b7280; display: block; margin-top: 2px;">Instant — publisher notified as soon as you place the order</span>
                                     </div>
-                                    <i class="fa fa-check-circle payment-check" style="color:#4ECDCB; font-size:20px; opacity:0;"></i>
+                                    <i class="fa fa-check-circle payment-check" aria-hidden="true"></i>
                                 </div>
                             </div>
 
@@ -246,7 +246,7 @@
                                  aria-label="Pay with credit or debit card"
                                  @if(empty($stripeConfigured)) aria-disabled="true" data-stripe-disabled="1" @endif
                                  @if(! $cardNeedsAmount) aria-disabled="true" data-zero-amount="1" @endif>
-                                <div class="payment-option-card" style="border: 2px solid #e5e7eb; border-radius: 12px; padding: 16px; background: white; transition: all 0.2s; display:flex; align-items:center; gap:14px;">
+                                <div class="payment-option-card">
                                     <div style="width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; background: #f3f4f6; border-radius: 8px; flex-shrink:0;">
                                         <i class="fab fa-stripe" style="font-size: 28px; color: #635bff;" aria-hidden="true"></i>
                                     </div>
@@ -260,7 +260,7 @@
                                             @endif
                                         </span>
                                     </div>
-                                    <i class="fa fa-check-circle payment-check" style="color:#4ECDCB; font-size:20px; opacity:0;"></i>
+                                    <i class="fa fa-check-circle payment-check" aria-hidden="true"></i>
                                 </div>
                             </div>
                             <div class="alert alert-light border py-2 px-3 mb-3 small d-none" id="stripeZeroAmountAlert">
@@ -514,8 +514,8 @@
                                     <div class="mb-3" id="savedCardsCheckoutList">
                                         <label class="form-label fw-semibold small">Saved cards</label>
                                         @foreach($checkoutSavedCards as $card)
-                                            <label class="d-flex align-items-center gap-2 border rounded-3 p-3 mb-2"
-                                                   style="cursor:pointer; {{ !empty($card['is_default']) ? 'border-color:#4ECDCB !important;background:#f0fbfb;' : '' }}">
+                                            <label class="d-flex align-items-center gap-2 border rounded-3 p-3 mb-2 saved-card-choice{{ !empty($card['is_default']) ? ' is-default' : '' }}"
+                                                   style="cursor:pointer;">
                                                 <input type="radio" name="saved_card_choice" class="form-check-input saved-card-radio"
                                                        value="{{ $card['id'] }}"
                                                        {{ !empty($card['is_default']) ? 'checked' : '' }}>
@@ -715,8 +715,8 @@
 }
 
 .content-link:focus {
-    border-color: #4ECDCB;
-    box-shadow: 0 0 0 0.2rem rgba(78, 205, 203, 0.25);
+    border-color: var(--brand-primary-soft, #3aaeb2);
+    box-shadow: 0 0 0 0.2rem var(--focus-ring, rgba(58, 174, 178, 0.35));
 }
 
 .payment-option {
@@ -741,10 +741,39 @@
     }
 }
 
+.payment-option-card {
+    border: 2px solid var(--border-subtle, #e2e8f0);
+    border-radius: var(--radius-lg, 12px);
+    padding: 16px;
+    background: var(--surface-1, #fff);
+    transition: border-color var(--motion-fast, 150ms ease),
+                background-color var(--motion-fast, 150ms ease),
+                box-shadow var(--motion-fast, 150ms ease);
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+
+.payment-option-card.recommended {
+    border-color: var(--brand-primary-tint, #4ECDCB);
+    background: var(--brand-primary-bg, #e8f8f7);
+}
+
+.payment-check {
+    color: var(--brand-primary-tint, #4ECDCB);
+    font-size: 20px;
+    opacity: 0;
+}
+
 .payment-option.selected .payment-option-card {
-    border-color: #0b6266 !important;
-    background: #f0fbfb !important;
+    border-color: var(--brand-primary, #0b6266) !important;
+    background: var(--brand-primary-bg, #e8f8f7) !important;
     box-shadow: 0 4px 6px -1px rgba(11, 98, 102, 0.12);
+}
+
+.saved-card-choice.is-default {
+    border-color: var(--brand-primary-tint, #4ECDCB) !important;
+    background: var(--brand-primary-bg, #e8f8f7);
 }
 
 .payment-option.selected .payment-check {
@@ -788,7 +817,7 @@
     padding: 16px;
     background: #fff;
     box-shadow: 0 1px 0 rgba(11, 98, 102, 0.04);
-    border-left: 4px solid #4ECDCB;
+    border-left: 4px solid var(--brand-primary-tint, #4ECDCB);
 }
 
 .site-summary-card.is-paying-now {

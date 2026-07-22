@@ -86,7 +86,7 @@
 @include('components.help-feedback-widget')
 
 <!-- Back to Top Button -->
-<button id="backToTop" class="btn btn-danger rounded-circle shadow-lg" aria-label="Back to top">
+<button id="backToTop" class="btn btn-primary rounded-circle shadow-lg" aria-label="Back to top">
     <i class="fas fa-arrow-up"></i>
 </button>
 

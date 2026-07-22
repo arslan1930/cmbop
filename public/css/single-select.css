@@ -1,5 +1,6 @@
 /**
  * Shared single-select (P1 #12)
+ * Borders / height / focus align with multi-select + brand tokens.
  */
 .single-select-wrapper {
   position: relative;
@@ -12,29 +13,37 @@
   gap: 8px;
   min-height: 38px;
   padding: 6px 12px;
-  border: 1px solid #ced4da;
-  border-radius: 8px;
-  background: #fff;
+  border: 1px solid var(--border-default, #e2e8f0);
+  border-radius: var(--radius-sm, 8px);
+  background: var(--surface-1, #fff);
   cursor: pointer;
+  transition: border-color var(--motion-fast, 150ms ease),
+              box-shadow var(--motion-fast, 150ms ease);
 }
 
 .single-select-input:focus,
 .single-select-input:focus-visible {
   outline: none;
   border-color: var(--brand-primary-soft, #3aaeb2);
-  box-shadow: 0 0 0 0.2rem rgba(58, 174, 178, 0.2);
+  box-shadow: 0 0 0 0.2rem var(--focus-ring, rgba(58, 174, 178, 0.35));
 }
 
 .single-select-input[aria-expanded="true"] {
   border-color: var(--brand-primary-soft, #3aaeb2);
 }
 
+.single-select-input.single-select-input--sm,
+.single-select-input.sm {
+  min-height: 31px;
+  padding: 4px 10px;
+}
+
 .single-select-placeholder {
-  color: #94a3b8;
+  color: var(--brand-neutral, #64748b);
 }
 
 .single-select-arrow {
-  color: #64748b;
+  color: var(--brand-neutral, #64748b);
   font-size: 12px;
 }
 
@@ -45,10 +54,10 @@
   top: calc(100% + 4px);
   left: 0;
   right: 0;
-  background: #fff;
-  border: 1px solid #e2e8f0;
-  border-radius: 10px;
-  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.12);
+  background: var(--surface-1, #fff);
+  border: 1px solid var(--border-subtle, #e2e8f0);
+  border-radius: var(--radius-md, 10px);
+  box-shadow: var(--shadow-dropdown, 0 12px 28px rgba(15, 23, 42, 0.12));
   overflow: hidden;
 }
 
@@ -58,16 +67,16 @@
 
 .single-select-search {
   padding: 8px;
-  border-bottom: 1px solid #f1f5f9;
+  border-bottom: 1px solid var(--border-subtle, #e2e8f0);
   position: sticky;
   top: 0;
-  background: #fff;
+  background: var(--surface-1, #fff);
 }
 
 .single-select-search input {
   width: 100%;
-  border: 1px solid #e2e8f0;
-  border-radius: 6px;
+  border: 1px solid var(--border-subtle, #e2e8f0);
+  border-radius: var(--radius-sm, 8px);
   padding: 6px 10px;
   font-size: 13px;
 }
@@ -75,6 +84,7 @@
 .single-select-search input:focus {
   outline: none;
   border-color: var(--brand-primary-soft, #3aaeb2);
+  box-shadow: 0 0 0 0.2rem var(--focus-ring, rgba(58, 174, 178, 0.35));
 }
 
 .single-select-options {
@@ -90,13 +100,13 @@
 
 .single-select-option:hover,
 .single-select-option.is-keyboard-focus {
-  background: #e8f8f7;
+  background: var(--hover-tint, #e8f8f7);
 }
 
 .single-select-option.selected {
-  background: #d4f1f0;
+  background: var(--brand-primary-bg, #e8f8f7);
   font-weight: 600;
-  color: #0b6266;
+  color: var(--brand-primary, #0b6266);
 }
 
 .single-select-option.hidden {
