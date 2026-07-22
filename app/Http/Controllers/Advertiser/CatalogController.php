@@ -405,32 +405,7 @@ class CatalogController extends Controller
             default => $query->orderByDesc('dr')->orderByDesc('id'),
         };
 
-        // Last completed / published placement per site (expand-panel impression copy)
-        $query->addSelect([
-            'last_completed_at' => OrderItem::query()
-                ->selectRaw('MAX(COALESCE(order_items.live_url_submitted_at, order_items.updated_at))')
-                ->whereColumn('order_items.site_id', 'sites.id')
-                ->where(function ($q) {
-                    $q->whereNotNull('order_items.live_url')
-                        ->orWhereExists(function ($sub) {
-                            $sub->selectRaw('1')
-                                ->from('orders')
-                                ->whereColumn('orders.id', 'order_items.order_id')
-                                ->where('orders.status', 'completed');
-                        });
-                }),
-            'cancelled_orders_count' => OrderItem::query()
-                ->selectRaw('COUNT(*)')
-                ->whereColumn('order_items.site_id', 'sites.id')
-                ->whereExists(function ($sub) {
-                    $sub->selectRaw('1')
-                        ->from('orders')
-                        ->whereColumn('orders.id', 'order_items.order_id')
-                        ->where('orders.status', 'cancelled');
-                }),
-        ]);
-
-        // ✅ Pagination (20 per page)
+        // ✅ Pagination (20 per page) — skip per-row correlated subqueries on the list hot path
         $sites = $query->paginate(20)->withQueryString();
 
         // Transform sites to show appropriate price based on user role

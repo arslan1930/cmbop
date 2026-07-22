@@ -1289,7 +1289,18 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     window.syncPlaceOrderForModeration = syncPlaceOrderForModeration;
 
-    setInterval(syncPlaceOrderForModeration, 1200);
+    // Prefer event-driven sync; light fallback instead of 1.2s polling
+    document.addEventListener('change', function (e) {
+        if (e.target && (e.target.matches('[name="payment_method"]') || e.target.closest('#contentAssignment') || e.target.closest('[data-content-checkout]'))) {
+            syncPlaceOrderForModeration();
+        }
+    });
+    document.addEventListener('click', function (e) {
+        if (e.target && e.target.closest('.payment-method, .content-pick, [data-select-submission], .article-option')) {
+            setTimeout(syncPlaceOrderForModeration, 0);
+        }
+    });
+    setInterval(syncPlaceOrderForModeration, 5000);
 
     // Get billing info from user profile
     function getBillingInfo() {

@@ -39,13 +39,18 @@
 
     <div class="slb-hero-visual">
       <a href="{{ $catalogHref }}" class="slb-hero-catalog-link" aria-label="{{ __('messages.nav_marketplace') }}">
-        <img
-          src="{{ asset('assets/img/dashboard.png') }}"
-          alt="SEOLinkBuildings catalog preview"
-          class="slb-hero-product"
-          loading="eager"
-          decoding="async"
-        >
+        <picture>
+          <source srcset="{{ asset('assets/img/dashboard.webp') }}" type="image/webp">
+          <img
+            src="{{ asset('assets/img/dashboard.png') }}"
+            alt="SEOLinkBuildings catalog preview"
+            class="slb-hero-product"
+            width="1200"
+            height="518"
+            loading="eager"
+            decoding="async"
+          >
+        </picture>
       </a>
     </div>
   </div>
