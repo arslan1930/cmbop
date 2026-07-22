@@ -7,6 +7,7 @@ use App\Models\InAppNotification;
 use App\Models\Order;
 use App\Models\OrderActivity;
 use App\Models\OrderItem;
+use App\Models\Role;
 use App\Models\Site;
 use App\Models\User;
 use App\Models\Withdrawal;
@@ -942,6 +943,181 @@ class InAppNotificationService
                 ],
             ]
         );
+    }
+
+    /**
+     * Fan out an in-app notification to every user with the admin role.
+     *
+     * @return Collection<int, InAppNotification>
+     */
+    public function notifyAdmins(
+        string $type,
+        string $title,
+        ?string $message = null,
+        array $options = []
+    ): Collection {
+        $options['audience'] = InAppNotification::AUDIENCE_ADMIN;
+        $created = collect();
+
+        foreach ($this->adminUsers() as $admin) {
+            $note = $this->notify($admin, $type, $title, $message, $options);
+            if ($note) {
+                $created->push($note);
+            }
+        }
+
+        return $created;
+    }
+
+    public function notifyAdminsDepositSubmitted(DepositRequest $deposit): void
+    {
+        $user = $deposit->user;
+        $amount = number_format((float) $deposit->amount, 2);
+        $ref = $deposit->reference_code ?: ('#'.$deposit->id);
+        $who = $user?->name ?: ($user?->email ?: 'An advertiser');
+
+        $this->notifyAdmins(
+            self::TYPE_PAYMENT_RECEIVED,
+            'New deposit to review',
+            "{$who} submitted a €{$amount} deposit (REF {$ref}). Confirm and credit their wallet.",
+            [
+                'category' => self::CATEGORY_PAYMENTS,
+                'icon' => 'wallet',
+                'priority' => InAppNotification::PRIORITY_HIGH,
+                'related' => $deposit,
+                'action_label' => 'Review deposit',
+                'action_url' => route('admin.deposits', [], false),
+                'meta' => [
+                    'deposit_id' => $deposit->id,
+                    'reference_code' => $deposit->reference_code,
+                    'amount' => (float) $deposit->amount,
+                    'payment_method' => $deposit->payment_method,
+                ],
+            ]
+        );
+    }
+
+    public function notifyAdminsWithdrawalRequested(Withdrawal $withdrawal, ?User $requester = null): void
+    {
+        $requester = $requester ?: User::find($withdrawal->user_id);
+        $amount = number_format((float) $withdrawal->amount, 2);
+        $who = $requester?->name ?: ($requester?->email ?: 'A user');
+
+        $this->notifyAdmins(
+            self::TYPE_PAYMENT_RECEIVED,
+            'New withdrawal to process',
+            "{$who} requested a €{$amount} withdrawal.",
+            [
+                'category' => self::CATEGORY_PAYMENTS,
+                'icon' => 'wallet',
+                'priority' => InAppNotification::PRIORITY_HIGH,
+                'related' => $withdrawal,
+                'action_label' => 'Review withdrawal',
+                'action_url' => route('admin.withdrawals', [], false),
+                'meta' => [
+                    'withdrawal_id' => $withdrawal->id,
+                    'amount' => (float) $withdrawal->amount,
+                    'payment_method' => $withdrawal->payment_method ?? null,
+                ],
+            ]
+        );
+    }
+
+    public function notifyAdminsNewSite(Site $site, string $action = 'create'): void
+    {
+        $isUpdate = $action === 'update';
+        $name = $site->site_name ?: ($site->site_url ?: 'A website');
+
+        $this->notifyAdmins(
+            self::TYPE_SYSTEM,
+            $isUpdate ? 'Site updated — needs review' : 'New site to verify',
+            $isUpdate
+                ? "{$name} was updated and needs review again."
+                : "{$name} was submitted and needs verification.",
+            [
+                'category' => self::CATEGORY_SYSTEM,
+                'icon' => 'bell',
+                'priority' => InAppNotification::PRIORITY_HIGH,
+                'related' => $site,
+                'action_label' => 'Review sites',
+                'action_url' => route('admin.sites.index', [], false),
+                'meta' => [
+                    'site_id' => $site->id,
+                    'action' => $isUpdate ? 'update' : 'create',
+                ],
+            ]
+        );
+    }
+
+    public function notifyAdminsNewUser(User $user): void
+    {
+        $who = $user->name ?: $user->email;
+
+        $this->notifyAdmins(
+            self::TYPE_ACCOUNT,
+            'New user registered',
+            "{$who} just created an account.",
+            [
+                'category' => self::CATEGORY_ACCOUNT,
+                'icon' => 'user',
+                'priority' => InAppNotification::PRIORITY_NORMAL,
+                'related' => $user,
+                'action_label' => 'View users',
+                'action_url' => route('admin.users.index', [], false),
+                'meta' => [
+                    'registered_user_id' => $user->id,
+                    'email' => $user->email,
+                ],
+            ]
+        );
+    }
+
+    /**
+     * @param  iterable<int, Order>  $orders
+     */
+    public function notifyAdminsManualPayment(User $customer, iterable $orders, string $paymentMethod): void
+    {
+        $orders = collect($orders);
+        $total = (float) $orders->sum(fn (Order $o) => (float) $o->total_amount);
+        $count = $orders->count();
+        $who = $customer->name ?: $customer->email;
+        $method = strtoupper($paymentMethod);
+        $amount = number_format($total, 2);
+
+        $this->notifyAdmins(
+            self::TYPE_PAYMENT_RECEIVED,
+            'Manual payment to confirm',
+            "{$who} marked {$count} order(s) paid via {$method} (€{$amount}). Confirm when funds arrive.",
+            [
+                'category' => self::CATEGORY_PAYMENTS,
+                'icon' => 'wallet',
+                'priority' => InAppNotification::PRIORITY_HIGH,
+                'related' => $orders->first(),
+                'action_label' => 'Review payments',
+                'action_url' => route('admin.payments', [], false),
+                'meta' => [
+                    'customer_id' => $customer->id,
+                    'payment_method' => $paymentMethod,
+                    'order_ids' => $orders->pluck('id')->values()->all(),
+                    'total_amount' => $total,
+                ],
+            ]
+        );
+    }
+
+    /**
+     * @return Collection<int, User>
+     */
+    protected function adminUsers(): Collection
+    {
+        $role = Role::where('name', 'admin')->first();
+        if (! $role) {
+            return collect();
+        }
+
+        return User::query()
+            ->whereHas('roles', fn ($q) => $q->where('roles.id', $role->id))
+            ->get();
     }
 
     public function unreadCount(int $userId, ?string $audience = null): int

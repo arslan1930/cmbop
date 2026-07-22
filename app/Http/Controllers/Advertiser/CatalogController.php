@@ -2153,6 +2153,13 @@ class CatalogController extends Controller
                 Log::info('Admin manual payment notification sent to fallback email', ['email' => $adminEmail]);
             }
 
+            try {
+                app(InAppNotificationService::class)
+                    ->notifyAdminsManualPayment($customer, $orders, $paymentMethod);
+            } catch (\Throwable $e) {
+                Log::warning('Failed to send admin manual payment bell notification: '.$e->getMessage());
+            }
+
         } catch (\Exception $e) {
             Log::error('Failed to send admin manual payment email: '.$e->getMessage());
         }
