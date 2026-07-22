@@ -71,10 +71,15 @@
 .wallet-status {
     padding: 4px 10px; border-radius: 999px; font-size: 11px; font-weight: 700;
     display: inline-block; text-transform: capitalize;
+    border: 1px solid transparent;
 }
-.wallet-status--completed, .wallet-status--paid, .wallet-status--approved { background: #d1fae5; color: #065f46; }
-.wallet-status--pending, .wallet-status--processing { background: #fef3c7; color: #92400e; }
-.wallet-status--cancelled, .wallet-status--rejected, .wallet-status--failed { background: #fee2e2; color: #991b1b; }
+.wallet-status--completed, .wallet-status--paid, .wallet-status--approved { background: #d1fae5; color: #065f46; border-color: rgba(15, 118, 110, 0.2); }
+.wallet-status--pending, .wallet-status--processing {
+    background: var(--brand-primary-bg, #e8f8f7);
+    color: var(--brand-primary-deep, #084f52);
+    border-color: var(--brand-primary-border, #b8e8e6);
+}
+.wallet-status--cancelled, .wallet-status--rejected, .wallet-status--failed { background: #fee2e2; color: #991b1b; border-color: rgba(220, 38, 38, 0.2); }
 
 .wallet-quick-amt {
     border: 1px solid #e5eef0; background: #fff; border-radius: 10px;
@@ -142,16 +147,46 @@
 }
 
 .af-spendable {
-    display: flex; flex-direction: column; gap: 4px;
-    padding: 14px 18px; border: 1px solid var(--border-subtle, #e2e8f0);
+    display: flex; flex-direction: column; gap: 10px;
+    padding: 16px 18px; border: 1px solid var(--border-subtle, #e2e8f0);
     border-radius: var(--radius-lg, 12px); background: var(--surface-1, #fff);
-    max-width: 28rem;
+    max-width: 32rem;
 }
 .af-spendable__label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .03em; color: var(--brand-primary-soft, #3aaeb2); }
 .af-spendable__value { font-size: 1.6rem; font-weight: 700; color: var(--brand-primary, #0b6266); line-height: 1.1; }
-.af-spendable__sub { font-size: 13px; color: var(--brand-neutral, #64748b); }
-.af-spendable__dot { margin: 0 4px; opacity: .6; }
-.af-spendable__note { font-size: 12px; color: var(--brand-neutral, #64748b); margin-top: 6px; }
+.af-spendable__breakdown {
+    display: flex; flex-wrap: wrap; gap: 8px;
+}
+.af-spendable__chip {
+    display: inline-flex; flex-direction: column; gap: 2px;
+    min-width: 7.5rem; padding: 8px 12px;
+    border-radius: var(--radius-md, 10px);
+    border: 1px solid var(--border-subtle, #e2e8f0);
+    background: var(--surface-2, #f8fafc);
+}
+.af-spendable__chip--bonus {
+    background: var(--brand-primary-bg, #e8f8f7);
+    border-color: var(--brand-primary-border, #b8e8e6);
+}
+.af-spendable__chip-label {
+    font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em;
+    color: var(--brand-ink-muted, #6b7280);
+}
+.af-spendable__chip--bonus .af-spendable__chip-label { color: var(--brand-primary, #0b6266); }
+.af-spendable__chip-value {
+    font-size: 0.95rem; font-weight: 700; color: var(--brand-ink, #1f2937);
+}
+.af-spendable__chip--bonus .af-spendable__chip-value { color: var(--brand-primary-deep, #084f52); }
+.af-spendable__pending {
+    font-size: 12px; color: var(--brand-neutral, #64748b);
+}
+.af-spendable__note {
+    font-size: 12px; color: var(--brand-warning-ink, #084f52);
+    margin: 0; padding: 8px 10px;
+    background: var(--brand-warning-bg, #e8f8f7);
+    border: 1px solid var(--brand-warning-border, #b8e8e6);
+    border-radius: var(--radius-sm, 8px);
+}
 .payment-option.selected .payment-option-card {
     border-color: var(--brand-primary, #0b6266) !important;
     background: var(--brand-primary-bg, #e8f8f7) !important;
@@ -193,19 +228,28 @@
             <span class="af-spendable__label">Spendable</span>
             <span class="af-spendable__value" id="kpiSpendable">€{{ number_format($spendable, 2) }}</span>
         </div>
-        <div class="af-spendable__sub">
-            <span id="kpiAvailable">€{{ number_format($available, 2) }}</span> cash
-            <span class="af-spendable__dot" aria-hidden="true">·</span>
-            <span id="kpiBonus">€{{ number_format($bonus, 2) }}</span> bonus
-            @if($pending > 0)
-                <span class="af-spendable__dot" aria-hidden="true">·</span>
-                <span id="kpiPending">€{{ number_format($pending, 2) }}</span> pending
-            @else
-                <span id="kpiPending" class="d-none">€{{ number_format($pending, 2) }}</span>
-            @endif
+        <div class="af-spendable__breakdown">
+            <div class="af-spendable__chip" title="Cash you can withdraw">
+                <span class="af-spendable__chip-label">Cash</span>
+                <span class="af-spendable__chip-value" id="kpiAvailable">€{{ number_format($available, 2) }}</span>
+            </div>
+            <div class="af-spendable__chip af-spendable__chip--bonus" title="Promotional credit for marketplace purchases only">
+                <span class="af-spendable__chip-label">Bonus</span>
+                <span class="af-spendable__chip-value" id="kpiBonus">€{{ number_format($bonus, 2) }}</span>
+            </div>
         </div>
+        @if($pending > 0)
+            <div class="af-spendable__pending">
+                <span id="kpiPending">€{{ number_format($pending, 2) }}</span> pending deposit confirmation
+            </div>
+        @else
+            <span id="kpiPending" class="d-none">€{{ number_format($pending, 2) }}</span>
+        @endif
         @if($bonus > 0)
-            <p class="af-spendable__note mb-0">{{ $promotionalBonusMessage ?? \App\Models\Wallet::PROMOTIONAL_BONUS_MESSAGE }}</p>
+            <p class="af-spendable__note mb-0">
+                <strong>€{{ number_format($bonus, 2) }} promotional bonus</strong>
+                — {{ $promotionalBonusMessage ?? \App\Models\Wallet::PROMOTIONAL_BONUS_MESSAGE }}
+            </p>
         @endif
     </div>
     <span id="kpiDeposits" class="d-none">€{{ number_format($lifetimeDeposits, 2) }}</span>
@@ -222,8 +266,8 @@
     @if(($pendingRequests ?? collect())->isNotEmpty())
         <div class="card border-0 shadow-sm mb-4" id="pendingDepositsSection">
             <div class="card-header bg-white fw-semibold d-flex justify-content-between align-items-center">
-                <span><i class="fa fa-clock me-2 text-warning"></i> Pending invoice deposits</span>
-                <span class="badge text-bg-warning">{{ $pendingRequests->count() }}</span>
+                <span><i class="fa fa-clock me-2 text-primary"></i> Pending invoice deposits</span>
+                <span class="badge badge-pending">{{ $pendingRequests->count() }}</span>
             </div>
             <div class="card-body p-0">
                 <div class="table-responsive">
@@ -241,7 +285,7 @@
                         <tbody>
                             @foreach($pendingRequests as $pendingDeposit)
                                 <tr data-deposit-id="{{ $pendingDeposit->id }}">
-                                    <td><code class="font-monospace">REF{{ $pendingDeposit->reference_code }}</code></td>
+                                    <td><code class="ref-code font-monospace">REF{{ $pendingDeposit->reference_code }}</code></td>
                                     <td class="fw-semibold">€{{ number_format((float) $pendingDeposit->amount, 2) }}</td>
                                     <td><span class="badge text-bg-secondary text-uppercase">{{ $pendingDeposit->payment_method }}</span></td>
                                     <td>
@@ -347,6 +391,18 @@
                                 </div>
                             </div>
                             <!-- Paypal Coming Soon -->
+                            <div class="col-12 col-sm-6 col-xl-4">
+                                <div class="payment-option" style="cursor:not-allowed;" aria-disabled="true" aria-label="PayPal coming soon">
+                                    <div class="payment-option-card" style="border:2px solid #e5e7eb;border-radius:12px;padding:16px;text-align:center;background:white;transition:all 0.2s;position:relative;opacity:0.85;">
+                                        <div style="width:48px;height:48px;display:flex;align-items:center;justify-content:center;background:#eff6ff;border-radius:8px;margin:0 auto 8px;">
+                                            <i class="fab fa-paypal" style="font-size:28px;color:#0070ba;" aria-hidden="true"></i>
+                                        </div>
+                                        <span style="font-weight:600;font-size:12px;color:#1f2937;">PayPal</span>
+                                        <span style="font-size:10px;color:#6b7280;display:block;margin-top:4px;">Coming Soon</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- Paypal Coming Soon -->
 
 <div class="col-12 col-sm-6 col-xl-4">
                                 <div class="payment-option" data-method="bank" style="cursor: pointer;" role="button" tabindex="0" aria-label="Pay with bank transfer">
@@ -414,7 +470,7 @@
                                 
                                 <div class="alert alert-danger py-2 px-3 mb-3" style="background-color: #fee2e2; border-left: 4px solid #dc2626;">
                                     <i class="fas fa-exclamation-triangle me-1"></i> 
-                                    <strong>Important:</strong> Please include <strong class="ref-code-display">XXXXXXXX</strong> in your payment note. Payments without this reference cannot be tracked.
+                                    <strong>Important:</strong> Please include <strong class="ref-code ref-code-display">XXXXXXXX</strong> in your payment note. Payments without this reference cannot be tracked.
                                 </div>
                                 
                                 <div style="background: #f9fafb; border-radius: 12px; padding: 20px; border: 1px solid #e5e7eb;">
@@ -461,7 +517,7 @@
                                 
                                 <div class="alert alert-danger py-2 px-3 mb-3" style="background-color: #fee2e2; border-left: 4px solid #dc2626;">
                                     <i class="fas fa-exclamation-triangle me-1"></i> 
-                                    <strong>Important:</strong> Please include <strong class="ref-code-display">XXXXXXXX</strong> in your payment note. Payments without this reference cannot be tracked.
+                                    <strong>Important:</strong> Please include <strong class="ref-code ref-code-display">XXXXXXXX</strong> in your payment note. Payments without this reference cannot be tracked.
                                 </div>
                                 
                                 <div style="background: #f9fafb; border-radius: 12px; padding: 20px; border: 1px solid #e5e7eb;">
@@ -514,7 +570,7 @@
                                 
                                 <div class="alert alert-danger py-2 px-3 mb-3" style="background-color: #fee2e2; border-left: 4px solid #dc2626;">
                                     <i class="fas fa-exclamation-triangle me-1"></i> 
-                                    <strong>Important:</strong> Please include <strong class="ref-code-display">XXXXXXXX</strong> in your payment note. Payments without this reference cannot be tracked.
+                                    <strong>Important:</strong> Please include <strong class="ref-code ref-code-display">XXXXXXXX</strong> in your payment note. Payments without this reference cannot be tracked.
                                 </div>
                                 
                                 <div style="background: #f9fafb; border-radius: 12px; padding: 20px; border: 1px solid #e5e7eb;">
@@ -598,7 +654,7 @@
                         <div class="d-flex justify-content-between align-items-center">
                             <span class="small">Reference Code:</span>
                             <div>
-                                <strong id="referenceCode" class="font-monospace">XXXXXXXX</strong>
+                                <strong id="referenceCode" class="ref-code font-monospace">XXXXXXXX</strong>
                                 <button type="button" class="btn btn-sm btn-link p-0 ms-2 copy-ref-btn" data-target="referenceCode">
                                     <i class="fas fa-copy"></i>
                                 </button>
@@ -607,7 +663,7 @@
                     </div>
                     <div class="alert alert-warning py-2 px-3 mb-3">
                         <i class="fas fa-exclamation-triangle me-1"></i>
-                        <small>Include <strong id="refCodeDisplay">XXXXXXXX</strong> in manual payment notes. Card payments record the reference automatically.</small>
+                        <small>Include <strong id="refCodeDisplay" class="ref-code">XXXXXXXX</strong> in manual payment notes. Card payments record the reference automatically.</small>
                     </div>
                     <button type="button" id="proceedBtn" class="btn btn-primary w-100 mt-2 py-2">
                         <i class="fa fa-arrow-right me-2"></i> Get invoice &amp; pay
@@ -994,7 +1050,7 @@
                     </span>
                 </td>
                 <td><span class="small">${escapeHtml(row.description || '')}</span></td>
-                <td><code class="small">${escapeHtml(row.reference || '—')}</code></td>
+                <td><code class="ref-code small">${escapeHtml(row.reference || '—')}</code></td>
                 <td class="${amountClass}">${sign} ${money(row.amount)}</td>
                 <td><span class="${statusClass(row.status)}">${escapeHtml(row.status || '')}</span></td>
                 <td><small class="text-muted">${bal}</small></td>

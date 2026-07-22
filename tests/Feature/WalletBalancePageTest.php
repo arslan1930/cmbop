@@ -67,12 +67,15 @@ class WalletBalancePageTest extends TestCase
             ->assertSee('Add funds', false)
             ->assertSee('Top up your wallet', false)
             ->assertSee('Spendable', false)
+            ->assertSee('Cash', false)
+            ->assertSee('Bonus', false)
             ->assertSee('depositSection', false)
             ->assertSee('proceedBtn', false)
             ->assertSee(Wallet::PROMOTIONAL_BONUS_MESSAGE, false)
+            ->assertSee('€20.00 promotional bonus', false)
+            ->assertSee('PayPal coming soon', false)
             ->assertDontSee('Spending Overview', false)
             ->assertDontSee('Quick Actions', false)
-            ->assertDontSee('PayPal coming soon', false)
             ->assertDontSee('Processing Fee', false)
             ->assertDontSee('Transfer to Publisher Wallet', false)
             ->assertDontSee('Lifetime Spending', false)
@@ -83,7 +86,20 @@ class WalletBalancePageTest extends TestCase
         $this->assertStringNotContainsString('href="#depositSection" class="btn btn-sm btn-primary"', $html);
         $this->assertStringNotContainsString('href="#depositSection" class="btn btn-primary"', $html);
         $this->assertStringContainsString('id="kpiSpendable"', $html);
+        $this->assertStringContainsString('af-spendable__chip--bonus', $html);
+        $this->assertStringContainsString('Coming Soon', $html);
+        $this->assertStringContainsString('ref-code', $html);
         $this->assertStringContainsString('Recent activity', $html);
+    }
+
+    public function test_brand_colors_use_teal_caution_not_bootstrap_pink_code(): void
+    {
+        $brand = file_get_contents(public_path('css/brand-colors.css'));
+        $this->assertIsString($brand);
+        $this->assertStringContainsString('--bs-code-color: #0b6266', $brand);
+        $this->assertStringContainsString('--brand-warning-bg: #e8f8f7', $brand);
+        $this->assertStringContainsString('.alert-warning', $brand);
+        $this->assertStringNotContainsString('--brand-warning: #d97706', $brand);
     }
 
     public function test_cannot_withdraw_bonus_only_balance(): void

@@ -16,8 +16,11 @@
 
   --brand-success: #0f766e;
   --brand-success-bg: #d1fae5;
-  --brand-warning: #d97706;
-  --brand-warning-bg: #fef3c7;
+  /* Caution / attention — teal-slate (not Bootstrap amber yellow) */
+  --brand-warning: #0b6266;
+  --brand-warning-bg: #e8f8f7;
+  --brand-warning-border: #b8e8e6;
+  --brand-warning-ink: #084f52;
   --brand-danger: #dc2626;
   --brand-danger-bg: #fee2e2;
 
@@ -45,6 +48,9 @@
   --bs-focus-ring-color: rgba(58, 174, 178, 0.35);
   --bs-info: #3aaeb2;
   --bs-info-rgb: 58, 174, 178;
+  --bs-warning: #0b6266;
+  --bs-warning-rgb: 11, 98, 102;
+  --bs-code-color: #0b6266;
 }
 
 .btn-primary {
@@ -84,6 +90,55 @@
 .bg-info { background-color: var(--brand-primary-soft) !important; }
 .bg-info-subtle { background-color: var(--brand-primary-bg) !important; }
 
+/* Caution / pending — brand attention (replaces Bootstrap yellow) */
+.text-warning { color: var(--brand-warning-ink) !important; }
+.bg-warning { background-color: var(--brand-warning-bg) !important; }
+.bg-warning-subtle { background-color: var(--brand-warning-bg) !important; }
+.text-bg-warning {
+  color: var(--brand-warning-ink) !important;
+  background-color: var(--brand-warning-bg) !important;
+  border: 1px solid var(--brand-warning-border);
+}
+.badge.text-bg-warning {
+  color: var(--brand-warning-ink) !important;
+  background-color: var(--brand-warning-bg) !important;
+  border: 1px solid var(--brand-warning-border);
+  font-weight: 600;
+}
+
+.alert-warning {
+  --bs-alert-color: var(--brand-warning-ink);
+  --bs-alert-bg: var(--brand-warning-bg);
+  --bs-alert-border-color: var(--brand-warning-border);
+  color: var(--brand-warning-ink);
+  background-color: var(--brand-warning-bg);
+  border-color: var(--brand-warning-border);
+  border-radius: var(--radius-md);
+}
+.alert-warning .alert-link {
+  color: var(--brand-primary-deep);
+  font-weight: 600;
+}
+
+/* Inline code / reference numbers — teal, not Bootstrap pink */
+code, .ref-code, .ref-code-display, #referenceCode, #refCodeDisplay {
+  color: var(--brand-primary) !important;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+.ref-code,
+code.ref-code,
+code.font-monospace {
+  display: inline-block;
+  padding: 0.15rem 0.45rem;
+  border-radius: var(--radius-sm);
+  background: var(--brand-primary-bg);
+  border: 1px solid var(--brand-primary-border);
+  color: var(--brand-primary) !important;
+  font-size: 0.85em;
+}
+
 .form-control:focus,
 .form-select:focus,
 .form-check-input:focus {
@@ -118,10 +173,11 @@
   box-shadow: none !important;
 }
 
-.badge-warn {
-  background: var(--surface-2) !important;
-  color: var(--brand-primary) !important;
-  border: 1px solid var(--brand-primary-border) !important;
+.badge-warn,
+.badge-pending {
+  background: var(--brand-warning-bg) !important;
+  color: var(--brand-warning-ink) !important;
+  border: 1px solid var(--brand-warning-border) !important;
   font-weight: 600;
 }
 
