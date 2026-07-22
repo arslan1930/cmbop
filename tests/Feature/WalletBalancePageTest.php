@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\Role;
 use App\Models\User;
 use App\Models\Wallet;
+use App\Services\Wallet\WalletLedgerService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Mail;
 use Tests\TestCase;
@@ -14,6 +15,7 @@ class WalletBalancePageTest extends TestCase
     use RefreshDatabase;
 
     private User $user;
+
     private Wallet $wallet;
 
     protected function setUp(): void
@@ -57,23 +59,31 @@ class WalletBalancePageTest extends TestCase
             ->assertRedirect(route('advertiser.add-funds'));
     }
 
-    public function test_add_funds_page_renders_wallet_and_deposit_ui(): void
+    public function test_add_funds_page_renders_deposit_first_ui(): void
     {
-        $response = $this->actingAs($this->user)->get(route('advertiser.add-funds'));
+        $html = $this->actingAs($this->user)
+            ->get(route('advertiser.add-funds'))
+            ->assertOk()
+            ->assertSee('Add funds', false)
+            ->assertSee('Top up your wallet', false)
+            ->assertSee('Spendable', false)
+            ->assertSee('depositSection', false)
+            ->assertSee('proceedBtn', false)
+            ->assertSee(Wallet::PROMOTIONAL_BONUS_MESSAGE, false)
+            ->assertDontSee('Spending Overview', false)
+            ->assertDontSee('Quick Actions', false)
+            ->assertDontSee('PayPal coming soon', false)
+            ->assertDontSee('Processing Fee', false)
+            ->assertDontSee('Transfer to Publisher Wallet', false)
+            ->assertDontSee('Lifetime Spending', false)
+            ->assertDontSee('Lifetime Withdrawals', false)
+            ->getContent();
 
-        $response->assertOk();
-        $response->assertSee('Add Funds', false);
-        $response->assertSee('Available Balance', false);
-        $response->assertSee('Bonus Balance', false);
-        $response->assertSee('Pending Balance', false);
-        $response->assertSee('Lifetime Deposits', false);
-        $response->assertSee('Spending Overview', false);
-        $response->assertSee('Balance History', false);
-        $response->assertSee('depositSection', false);
-        $response->assertSee(Wallet::PROMOTIONAL_BONUS_MESSAGE, false);
-        $response->assertDontSee('Transfer to Publisher Wallet', false);
-        $response->assertDontSee('Lifetime Spending', false);
-        $response->assertDontSee('Lifetime Withdrawals', false);
+        // Header twin "Add Funds" primary CTA removed; composer is the path.
+        $this->assertStringNotContainsString('href="#depositSection" class="btn btn-sm btn-primary"', $html);
+        $this->assertStringNotContainsString('href="#depositSection" class="btn btn-primary"', $html);
+        $this->assertStringContainsString('id="kpiSpendable"', $html);
+        $this->assertStringContainsString('Recent activity', $html);
     }
 
     public function test_cannot_withdraw_bonus_only_balance(): void
@@ -202,7 +212,7 @@ class WalletBalancePageTest extends TestCase
 
     public function test_transactions_endpoint_returns_bonus_activity(): void
     {
-        app(\App\Services\Wallet\WalletLedgerService::class)->recordBonusCredit(
+        app(WalletLedgerService::class)->recordBonusCredit(
             $this->wallet,
             20,
             'Welcome promotional bonus'
