@@ -13,6 +13,49 @@
         </div>
     </div>
 
+    <!-- Statistics (moved from Reports) -->
+    <div class="row mb-4">
+        <div class="col-md-4 mb-3">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="text-muted mb-1">Total Deposits</h6>
+                        <h3 class="mb-0" id="ordTotalDeposits" style="color: #10b981;">€0</h3>
+                    </div>
+                    <div class="bg-success bg-opacity-10 p-3 rounded-circle">
+                        <i class="fa fa-wallet fa-2x text-success"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4 mb-3">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="text-muted mb-1">Total Spent</h6>
+                        <h3 class="mb-0" id="ordTotalSpent" style="color: #ef4444;">€0</h3>
+                    </div>
+                    <div class="bg-danger bg-opacity-10 p-3 rounded-circle">
+                        <i class="fa fa-shopping-cart fa-2x text-danger"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4 mb-3">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="text-muted mb-1">Total Orders</h6>
+                        <h3 class="mb-0" id="ordTotalOrders">0</h3>
+                    </div>
+                    <div class="bg-primary bg-opacity-10 p-3 rounded-circle">
+                        <i class="fa fa-file-invoice fa-2x text-primary"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div id="needsActionBanner" class="alert alert-warning border-0 shadow-sm d-none mb-4" role="status">
         <div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
             <div>
@@ -392,9 +435,48 @@ td a {
 let currentPage = 1;
 let currentChatOrderId = null;
 
+function loadOrdStatistics() {
+    fetch('{{ route("advertiser.reports.statistics") }}', {
+        headers: {
+            'Accept': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest'
+        },
+        credentials: 'same-origin'
+    })
+        .then(function (response) {
+            if (!response.ok) {
+                throw new Error('Failed to load statistics');
+            }
+            return response.json();
+        })
+        .then(function (response) {
+            if (!response.success || !response.data) {
+                return;
+            }
+            var data = response.data;
+            var depositsEl = document.getElementById('ordTotalDeposits');
+            var spentEl = document.getElementById('ordTotalSpent');
+            var ordersEl = document.getElementById('ordTotalOrders');
+            if (depositsEl) {
+                depositsEl.textContent = '€' + parseFloat(data.total_deposits || 0).toFixed(2);
+            }
+            if (spentEl) {
+                spentEl.textContent = '€' + parseFloat(data.total_spent || 0).toFixed(2);
+            }
+            if (ordersEl) {
+                ordersEl.textContent = data.total_orders;
+            }
+        })
+        .catch(function (error) {
+            console.error('Error loading order statistics:', error);
+        });
+}
+
 document.addEventListener('DOMContentLoaded', function() {
     hydrateOrdersFiltersFromUrl();
     fetchOrders(currentPage);
+    loadOrdStatistics();
+    setInterval(loadOrdStatistics, 30000);
 
     document.getElementById('resetFilters').addEventListener('click', function() {
         document.getElementById('searchInput').value = '';
