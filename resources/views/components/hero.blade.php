@@ -35,7 +35,7 @@
     </div>
 
     <div class="slb-hero-visual">
-      <a href="{{ $catalogHref }}" class="slb-hero-catalog-link" aria-label="{{ __('messages.nav_marketplace') }}">
+      <a href="{{ $marketplaceHref }}" class="slb-hero-catalog-link" aria-label="{{ __('messages.nav_marketplace') }}">
         <picture>
           <source srcset="{{ asset('assets/img/dashboard.webp') }}" type="image/webp">
           <img

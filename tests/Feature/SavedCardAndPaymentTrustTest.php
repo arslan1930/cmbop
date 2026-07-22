@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Schema;
 use Mockery;
 use Stripe\ApiRequestor;
 use Stripe\HttpClient\ClientInterface;
+use Stripe\Stripe;
 use Tests\TestCase;
 
 class SavedCardAndPaymentTrustTest extends TestCase
@@ -37,7 +38,7 @@ class SavedCardAndPaymentTrustTest extends TestCase
             ->assertSee('fa-lock', false)
             ->assertSee('assets/img/payments/stripe.svg', false)
             ->assertSee('assets/img/payments/wise.png', false)
-            ->assertSee('assets/img/payments/paypal.svg', false)
+            ->assertDontSee('assets/img/payments/paypal.svg', false)
             ->assertSee('assets/img/payments/bitcoin.svg', false)
             ->assertSee('assets/img/payments/binance.png', false);
     }
@@ -155,7 +156,7 @@ class SavedCardAndPaymentTrustTest extends TestCase
     public function test_get_or_create_customer_survives_missing_column_persist(): void
     {
         config(['services.stripe.secret' => 'sk_test_fake_key_for_unit_tests']);
-        \Stripe\Stripe::setApiKey('sk_test_fake_key_for_unit_tests');
+        Stripe::setApiKey('sk_test_fake_key_for_unit_tests');
 
         $user = $this->advertiser();
         $customerBody = json_encode([

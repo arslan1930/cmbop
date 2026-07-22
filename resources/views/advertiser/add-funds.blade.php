@@ -140,6 +140,22 @@
     .wallet-actions .btn { flex: 1 1 auto; }
     #walletChartWrap { height: 260px !important; }
 }
+
+.af-spendable {
+    display: flex; flex-direction: column; gap: 4px;
+    padding: 14px 18px; border: 1px solid var(--border-subtle, #e2e8f0);
+    border-radius: var(--radius-lg, 12px); background: var(--surface-1, #fff);
+    max-width: 28rem;
+}
+.af-spendable__label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .03em; color: var(--brand-primary-soft, #3aaeb2); }
+.af-spendable__value { font-size: 1.6rem; font-weight: 700; color: var(--brand-primary, #0b6266); line-height: 1.1; }
+.af-spendable__sub { font-size: 13px; color: var(--brand-neutral, #64748b); }
+.af-spendable__dot { margin: 0 4px; opacity: .6; }
+.af-spendable__note { font-size: 12px; color: var(--brand-neutral, #64748b); margin-top: 6px; }
+.payment-option.selected .payment-option-card {
+    border-color: var(--brand-primary, #0b6266) !important;
+    background: var(--brand-primary-bg, #e8f8f7) !important;
+}
 </style>
 
 <div class="container-fluid">
@@ -156,71 +172,52 @@
         </div>
     @endif
 
-    <div class="row mb-4 align-items-end g-3">
-        <div class="col-lg-7">
-            <h2 class="mb-1 fw-semibold">Add Funds</h2>
-            <p class="text-muted mb-0">
-                Deposit money, track every wallet movement, and withdraw available funds. Your €20 bonus can only be spent on this marketplace.
-            </p>
+    <div class="row mb-3 align-items-end g-3">
+        <div class="col-lg-8">
+            <h2 class="mb-1 fw-semibold">Add funds</h2>
+            <p class="text-muted mb-0">Top up your wallet. Minimum €10.</p>
         </div>
-        <div class="col-lg-5">
-            <div class="wallet-actions justify-content-lg-end">
-                <a href="#depositSection" class="btn btn-sm btn-primary"><i class="fa fa-plus me-1"></i> Add Funds</a>
-                <button type="button" class="btn btn-sm btn-outline-secondary" id="withdrawOpenBtn"
-                        data-bs-toggle="modal" data-bs-target="#withdrawModal"
-                        @disabled(! $canWithdraw)>
-                    <i class="fa fa-arrow-up me-1"></i> Withdraw
-                </button>
-                <a href="{{ route('advertiser.billing.index') }}" class="btn btn-sm btn-cta-tertiary">
-                    <i class="fa fa-file-invoice me-1"></i> Billing
-                </a>
-            </div>
+        <div class="col-lg-4 text-lg-end">
+            <button type="button" class="btn btn-sm btn-cta-tertiary" id="withdrawOpenBtn"
+                    data-bs-toggle="modal" data-bs-target="#withdrawModal"
+                    @disabled(! $canWithdraw)>
+                Withdraw
+            </button>
+            <a href="{{ route('advertiser.billing.index') }}" class="btn btn-sm btn-cta-tertiary">Billing &amp; invoices</a>
+            <a href="{{ route('advertiser.analytics') }}" class="btn btn-sm btn-cta-tertiary">Spending</a>
         </div>
     </div>
 
-    {{-- Balances: Available / Bonus / Pending / Lifetime Deposits --}}
-    <div class="row g-3 mb-4">
-        <div class="col-md-3">
-            <div class="wallet-kpi">
-                <span class="kpi-icon kpi-icon--available"><i class="fa fa-wallet"></i></span>
-                <span>
-                    <span class="kpi-label">Available Balance</span>
-                    <span class="kpi-value" id="kpiAvailable">€{{ number_format($available, 2) }}</span>
-                    <span class="kpi-desc">Real money — spend or withdraw</span>
-                </span>
-            </div>
+    <div class="af-spendable mb-3" role="status" aria-label="Spendable balance">
+        <div class="af-spendable__main">
+            <span class="af-spendable__label">Spendable</span>
+            <span class="af-spendable__value" id="kpiSpendable">€{{ number_format($spendable, 2) }}</span>
         </div>
-        <div class="col-md-3">
-            <div class="wallet-kpi">
-                <span class="kpi-icon kpi-icon--bonus"><i class="fa fa-gift"></i></span>
-                <span>
-                    <span class="kpi-label">Bonus Balance</span>
-                    <span class="kpi-value" id="kpiBonus">€{{ number_format($bonus, 2) }}</span>
-                    <span class="kpi-desc">Promotional credit — purchases only</span>
-                </span>
-            </div>
+        <div class="af-spendable__sub">
+            <span id="kpiAvailable">€{{ number_format($available, 2) }}</span> cash
+            <span class="af-spendable__dot" aria-hidden="true">·</span>
+            <span id="kpiBonus">€{{ number_format($bonus, 2) }}</span> bonus
+            @if($pending > 0)
+                <span class="af-spendable__dot" aria-hidden="true">·</span>
+                <span id="kpiPending">€{{ number_format($pending, 2) }}</span> pending
+            @else
+                <span id="kpiPending" class="d-none">€{{ number_format($pending, 2) }}</span>
+            @endif
         </div>
-        <div class="col-md-3">
-            <div class="wallet-kpi">
-                <span class="kpi-icon kpi-icon--pending"><i class="fa fa-clock"></i></span>
-                <span>
-                    <span class="kpi-label">Pending Balance</span>
-                    <span class="kpi-value" id="kpiPending">€{{ number_format($pending, 2) }}</span>
-                    <span class="kpi-desc">Awaiting verification or settlement</span>
-                </span>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="wallet-kpi">
-                <span class="kpi-icon kpi-icon--deposits"><i class="fa fa-arrow-down"></i></span>
-                <span>
-                    <span class="kpi-label">Lifetime Deposits</span>
-                    <span class="kpi-value" id="kpiDeposits">€{{ number_format($lifetimeDeposits, 2) }}</span>
-                    <span class="kpi-desc">Approved &amp; completed</span>
-                </span>
-            </div>
-        </div>
+        @if($bonus > 0)
+            <p class="af-spendable__note mb-0">{{ $promotionalBonusMessage ?? \App\Models\Wallet::PROMOTIONAL_BONUS_MESSAGE }}</p>
+        @endif
     </div>
+    <span id="kpiDeposits" class="d-none">€{{ number_format($lifetimeDeposits, 2) }}</span>
+    <span id="bonusReceivedLabel" class="d-none">€{{ number_format($bonusReceived, 2) }}</span>
+    <span id="bonusUsedLabel" class="d-none">€{{ number_format($bonusUsed, 2) }}</span>
+    <span id="bonusRemainingLabel" class="d-none">€{{ number_format($bonus, 2) }}</span>
+
+    @php
+        $walletSavedCards = $savedCards ?? [];
+        $stripeReady = $stripeConfigured ?? false;
+        $openCardsTab = !empty($cardsTab);
+    @endphp
 
     @if(($pendingRequests ?? collect())->isNotEmpty())
         <div class="card border-0 shadow-sm mb-4" id="pendingDepositsSection">
@@ -294,54 +291,6 @@
         </div>
     @endif
 
-    @php
-        $walletSavedCards = $savedCards ?? [];
-        $stripeReady = $stripeConfigured ?? false;
-        $openCardsTab = !empty($cardsTab);
-    @endphp
-    <div class="card border-0 shadow-sm mb-4" id="savedCardsSection">
-        <div class="card-header bg-white fw-semibold d-flex flex-wrap justify-content-between align-items-center gap-2">
-            <span><i class="fa fa-credit-card me-2"></i> Saved cards</span>
-            <button type="button" class="btn btn-sm btn-outline-primary" id="addCardBtn" {{ $stripeReady ? '' : 'disabled' }}>
-                <i class="fa fa-plus me-1"></i> Add card
-            </button>
-        </div>
-        <div class="card-body">
-            <p class="small text-muted mb-3">
-                Save a card once (via Stripe) and reuse it for wallet top-ups and checkout. We never store full card numbers.
-            </p>
-            <div id="savedCardsList">
-                @forelse($walletSavedCards as $card)
-                    <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 border rounded-3 p-3 mb-2 saved-card-row"
-                         data-pm-id="{{ $card['id'] }}">
-                        <div class="d-flex align-items-center gap-2">
-                            <i class="fab fa-cc-{{ strtolower($card['brand']) === 'american express' ? 'amex' : strtolower($card['brand']) }} fa-lg text-muted"></i>
-                            <div class="small">
-                                <strong class="text-capitalize">{{ $card['brand'] }}</strong>
-                                •••• {{ $card['last4'] }}
-                                <span class="text-muted">· {{ sprintf('%02d/%d', $card['exp_month'], $card['exp_year'] % 100) }}</span>
-                                @if(!empty($card['is_default']))
-                                    <span class="badge text-bg-success ms-1">Default</span>
-                                @endif
-                            </div>
-                        </div>
-                        <div class="d-flex gap-2">
-                            @if(empty($card['is_default']))
-                                <button type="button" class="btn btn-sm btn-outline-secondary set-default-card" data-pm-id="{{ $card['id'] }}">Set default</button>
-                            @endif
-                            <button type="button" class="btn btn-sm btn-outline-danger remove-card" data-pm-id="{{ $card['id'] }}">Remove</button>
-                        </div>
-                    </div>
-                @empty
-                    <div class="text-muted small" id="savedCardsEmpty">No cards saved yet. Click <strong>Add card</strong> to store one securely with Stripe.</div>
-                @endforelse
-            </div>
-            <div class="mt-3">
-                @include('partials.payment-trust', ['compact' => true])
-            </div>
-        </div>
-    </div>
-
     <div class="row g-3 mb-4" id="depositSection">
                 <!-- Left Column - Add Funds Form -->
         <div class="col-lg-8">
@@ -350,22 +299,16 @@
                     <i class="fa fa-plus-circle me-2"></i> Add Funds
                 </div>
                 <div class="card-body">
-                    <div class="alert alert-light border mb-4" id="depositWorkflowHint" style="background:#f0fbfb; border-color:#c8ebe9 !important;">
-                        <div class="fw-semibold mb-2" style="color:#0b6266;">How Bank / Wise / crypto funding works</div>
-                        <ol class="small text-muted mb-0 ps-3">
-                            <li class="mb-1">Choose an amount and method — we create an <strong>invoice</strong> with a unique REF.</li>
-                            <li class="mb-1">Transfer the exact amount and put <strong>REF…</strong> in the payment note.</li>
-                            <li class="mb-1">Click <strong>OK, I have made the payment</strong> after you send the transfer (status stays Pending).</li>
-                            <li class="mb-1">After we confirm funds, we credit your wallet (usually within one business day).</li>
-                            <li>Return to checkout and pay your guest-post order from your <strong>wallet</strong>.</li>
-                        </ol>
+                    <div class="alert alert-light border mb-3 d-none" id="depositWorkflowHint" style="background:var(--brand-primary-bg,#e8f8f7); border-color:var(--brand-primary-border,#b8e8e6) !important;">
+                        <div class="fw-semibold mb-1" style="color:var(--brand-primary,#0b6266);">Manual funding</div>
+                        <p class="small text-muted mb-0">We create an invoice with a REF. Transfer the exact amount, include the REF, then mark as paid — wallet credits after confirmation.</p>
                     </div>
                     
                     <!-- Amount Selection -->
                     <div class="mb-4">
                         <label class="form-label fw-semibold">Select Amount</label>
                         <div class="row g-2 mb-3">
-                            @foreach([10, 25, 50, 100, 250, 500, 1000, 2500, 5000, 10000] as $amount)
+                            @foreach([50, 100, 250, 500, 1000] as $amount)
                                 <div class="col-4 col-md-3 col-lg-2">
                                     <button type="button" class="amount-btn w-100 btn btn-outline-secondary py-2" data-amount="{{ $amount }}">
                                         €{{ $amount }}
@@ -392,34 +335,20 @@
                     <div class="mb-4">
                         <label class="form-label fw-semibold mb-3">Select Payment Method</label>
                         <div class="row g-3 payment-methods-row">
-                            <!-- Wise Payment -->
-                            <div class="col-12 col-sm-6 col-xl-4">
-                                <div class="payment-option" data-method="wise" style="cursor: pointer;" role="button" tabindex="0" aria-label="Pay with Wise transfer">
+<div class="col-12 col-sm-6 col-xl-4">
+                                <div class="payment-option" data-method="card" style="cursor: pointer;" role="button" tabindex="0" aria-label="Pay with credit or debit card">
                                     <div class="payment-option-card" style="border: 2px solid #e5e7eb; border-radius: 12px; padding: 16px; text-align: center; background: white; transition: all 0.2s;">
-                                        <div style="width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; background: #eff6ff; border-radius: 8px; margin: 0 auto 8px;">
-                                            <img src="{{ asset('assets/img/wiseImg-logo.png') }}" alt="Wise Logo" style="width: 32px; height: 32px; object-fit: contain;">
+                                        <div style="width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; background: #f3f4f6; border-radius: 8px; margin: 0 auto 8px;">
+                                            <i class="fab fa-stripe" style="font-size: 28px; color: #635bff;"></i>
                                         </div>
-                                        <span style="font-weight: 600; font-size: 12px; color: #1f2937;">Wise Transfer</span>
-                                        <span style="font-size: 10px; color: #6b7280; display: block; margin-top: 4px;">Invoice → transfer → wallet credit</span>
+                                        <span style="font-weight: 600; font-size: 12px; color: #1f2937;">Credit/Debit Card</span>
+                                        <span style="font-size: 10px; color: #6b7280; display: block; margin-top: 4px;">Instant — credited immediately</span>
                                     </div>
                                 </div>
                             </div>
+                            <!-- Paypal Coming Soon -->
 
-                            <!-- Crypto Payment -->
-                            <div class="col-12 col-sm-6 col-xl-4">
-                                <div class="payment-option" data-method="crypto" style="cursor: pointer;" role="button" tabindex="0" aria-label="Pay with cryptocurrency">
-                                    <div class="payment-option-card" style="border: 2px solid #e5e7eb; border-radius: 12px; padding: 16px; text-align: center; background: white; transition: all 0.2s;">
-                                        <div style="width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; background: #fef3c7; border-radius: 8px; margin: 0 auto 8px;">
-                                            <i class="fab fa-bitcoin" style="font-size: 28px; color: #eab308;"></i>
-                                        </div>
-                                        <span style="font-weight: 600; font-size: 12px; color: #1f2937;">Cryptocurrency</span>
-                                        <span style="font-size: 10px; color: #6b7280; display: block; margin-top: 4px;">Invoice → send crypto → wallet credit</span>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- Bank Transfer -->
-                            <div class="col-12 col-sm-6 col-xl-4">
+<div class="col-12 col-sm-6 col-xl-4">
                                 <div class="payment-option" data-method="bank" style="cursor: pointer;" role="button" tabindex="0" aria-label="Pay with bank transfer">
                                     <div class="payment-option-card" style="border: 2px solid #e5e7eb; border-radius: 12px; padding: 16px; text-align: center; background: white; transition: all 0.2s;">
                                         <div style="width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; background: #eff6ff; border-radius: 8px; margin: 0 auto 8px;">
@@ -432,31 +361,36 @@
                             </div>
 
                             <!-- Card Payment with Stripe Checkout -->
-                            <div class="col-12 col-sm-6 col-xl-4">
-                                <div class="payment-option" data-method="card" style="cursor: pointer;" role="button" tabindex="0" aria-label="Pay with credit or debit card">
+
+<div class="col-12 col-sm-6 col-xl-4">
+                                <div class="payment-option" data-method="wise" style="cursor: pointer;" role="button" tabindex="0" aria-label="Pay with Wise transfer">
                                     <div class="payment-option-card" style="border: 2px solid #e5e7eb; border-radius: 12px; padding: 16px; text-align: center; background: white; transition: all 0.2s;">
-                                        <div style="width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; background: #f3f4f6; border-radius: 8px; margin: 0 auto 8px;">
-                                            <i class="fab fa-stripe" style="font-size: 28px; color: #635bff;"></i>
+                                        <div style="width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; background: #eff6ff; border-radius: 8px; margin: 0 auto 8px;">
+                                            <img src="{{ asset('assets/img/wiseImg-logo.png') }}" alt="Wise Logo" style="width: 32px; height: 32px; object-fit: contain;">
                                         </div>
-                                        <span style="font-weight: 600; font-size: 12px; color: #1f2937;">Credit/Debit Card</span>
-                                        <span style="font-size: 10px; color: #6b7280; display: block; margin-top: 4px;">Secure Stripe checkout</span>
+                                        <span style="font-weight: 600; font-size: 12px; color: #1f2937;">Wise Transfer</span>
+                                        <span style="font-size: 10px; color: #6b7280; display: block; margin-top: 4px;">Invoice → transfer → wallet credit</span>
                                     </div>
                                 </div>
                             </div>
-                            <!-- Paypal Coming Soon -->
-                            <div class="col-12 col-sm-6 col-xl-4">
-                                <div class="payment-option" style="cursor:not-allowed;" aria-disabled="true" aria-label="PayPal coming soon">
-                                    <div class="payment-option-card" style="border:2px solid #e5e7eb;border-radius:12px;padding:16px;text-align:center;background:white;transition:all 0.2s;position:relative;">
-                                        <div style="width:48px;height:48px;display:flex;align-items:center;justify-content:center;background:#eff6ff;border-radius:8px;margin:0 auto 8px;">
-                                            <i class="fab fa-paypal" style="font-size:28px;color:#0070ba;" aria-hidden="true"></i>
+
+                            <!-- Crypto Payment -->
+
+<div class="col-12 col-sm-6 col-xl-4">
+                                <div class="payment-option" data-method="crypto" style="cursor: pointer;" role="button" tabindex="0" aria-label="Pay with cryptocurrency">
+                                    <div class="payment-option-card" style="border: 2px solid #e5e7eb; border-radius: 12px; padding: 16px; text-align: center; background: white; transition: all 0.2s;">
+                                        <div style="width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; background: #fef3c7; border-radius: 8px; margin: 0 auto 8px;">
+                                            <i class="fab fa-bitcoin" style="font-size: 28px; color: #eab308;"></i>
                                         </div>
-                                        <span style="font-weight:600;font-size:12px;color:#1f2937;">PayPal</span>
-                                        <span style="font-size:10px;color:#6b7280;display:block;margin-top:4px;">Coming Soon</span>
+                                        <span style="font-weight: 600; font-size: 12px; color: #1f2937;">Cryptocurrency</span>
+                                        <span style="font-size: 10px; color: #6b7280; display: block; margin-top: 4px;">Invoice → send crypto → wallet credit</span>
                                     </div>
                                 </div>
                             </div>
-                              
-                        </div>
+
+                            <!-- Bank Transfer -->
+
+                                                </div>
 
                         <div id="paymentError" style="display: none; margin-top: 12px; font-size: 14px; color: #dc2626;">
                             Please select a payment method
@@ -637,7 +571,6 @@
                                     </div>
                                 @endif
 
-                                @include('partials.payment-trust', ['compact' => true])
                             </div>
                         </div>
                     </div>
@@ -655,10 +588,6 @@
                     <div class="d-flex justify-content-between mb-2">
                         <span class="text-muted">Amount to Add:</span>
                         <span id="summaryAmount" class="fw-semibold">€0.00</span>
-                    </div>
-                    <div class="d-flex justify-content-between mb-2">
-                        <span class="text-muted">Processing Fee:</span>
-                        <span class="text-muted">€0.00</span>
                     </div>
                     <hr>
                     <div class="d-flex justify-content-between mb-3">
@@ -680,138 +609,87 @@
                         <i class="fas fa-exclamation-triangle me-1"></i>
                         <small>Include <strong id="refCodeDisplay">XXXXXXXX</strong> in manual payment notes. Card payments record the reference automatically.</small>
                     </div>
-                    <button type="button" id="proceedBtn" class="btn w-100 mt-2 py-2" style="background-color: #3aaeb2; color: white;">
-                        <i class="fa fa-arrow-right me-2"></i> Proceed to Payment
+                    <button type="button" id="proceedBtn" class="btn btn-primary w-100 mt-2 py-2">
+                        <i class="fa fa-arrow-right me-2"></i> Get invoice &amp; pay
                     </button>
                     <div class="mt-3">
-                        @include('partials.payment-trust', ['compact' => true, 'showMethods' => false])
+                        @include('partials.payment-trust', ['compact' => true])
                     </div>
                 </div>
-            </div>
-            <div class="alert alert-info small mb-0">
-                <i class="fa fa-gift me-1"></i>
-                Available Balance can be spent or withdrawn. Bonus credit (€20 welcome bonus) can only be used for purchases on this website.
             </div>
         </div>
     </div>
 
-    <div class="row g-3 mb-4">
-        {{-- Quick actions + bonus activity --}}
-        <div class="col-lg-4">
-            <div class="card wallet-panel mb-3">
-                <div class="card-header fw-semibold py-3">
-                    <i class="fa fa-bolt me-2 text-primary"></i> Quick Actions
-                </div>
-                <div class="card-body d-grid gap-2">
-                    <a href="#depositSection" class="btn btn-primary"><i class="fa fa-plus me-1"></i> Add Funds</a>
-                    <button type="button" class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#withdrawModal" @disabled(! $canWithdraw)>
-                        <i class="fa fa-arrow-up me-1"></i> Withdraw
-                    </button>
-                    <a href="#walletHistory" class="btn btn-outline-secondary">
-                        <i class="fa fa-list me-1"></i> View Transactions
-                    </a>
-                    <a href="{{ route('advertiser.balance.export') }}" class="btn btn-outline-secondary" id="exportStatementBtn">
-                        <i class="fa fa-download me-1"></i> Download Statement
-                    </a>
-                    <a href="{{ route('advertiser.billing.index') }}" class="btn btn-cta-tertiary">
-                        <i class="fa fa-file-invoice-dollar me-1"></i> Billing &amp; Invoices
-                    </a>
-                    @if(! $canWithdraw)
-                        <div class="alert alert-warning mb-0 py-2 small">
-                            <i class="fa fa-info-circle me-1"></i>
-                            @if($bonus > 0)
-                                {{ $promotionalBonusMessage }}
-                            @else
-                                Add funds to enable withdrawals from your Available Balance.
-                            @endif
+    @php
+        $walletSavedCards = $savedCards ?? [];
+        $stripeReady = $stripeConfigured ?? false;
+        $openCardsTab = !empty($cardsTab);
+    @endphp
+    <div class="card border-0 shadow-sm mb-4" id="savedCardsSection">
+        <div class="card-header bg-white fw-semibold d-flex flex-wrap justify-content-between align-items-center gap-2">
+            <button type="button" class="btn btn-link text-decoration-none text-dark p-0 fw-semibold"
+                    data-bs-toggle="collapse" data-bs-target="#savedCardsCollapse"
+                    aria-expanded="{{ !empty($openCardsTab) ? 'true' : 'false' }}" aria-controls="savedCardsCollapse">
+                <i class="fa fa-credit-card me-2"></i> Saved cards
+                <i class="fa fa-chevron-down ms-1 small text-muted"></i>
+            </button>
+            <button type="button" class="btn btn-sm btn-outline-primary" id="addCardBtn" {{ $stripeReady ? '' : 'disabled' }}>
+                <i class="fa fa-plus me-1"></i> Add card
+            </button>
+        </div>
+        <div id="savedCardsCollapse" class="collapse{{ !empty($openCardsTab) ? ' show' : '' }}">
+        <div class="card-body">
+            <p class="small text-muted mb-3">
+                Save a card once (via Stripe) and reuse it for wallet top-ups and checkout. We never store full card numbers.
+            </p>
+            <div id="savedCardsList">
+                @forelse($walletSavedCards as $card)
+                    <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 border rounded-3 p-3 mb-2 saved-card-row"
+                         data-pm-id="{{ $card['id'] }}">
+                        <div class="d-flex align-items-center gap-2">
+                            <i class="fab fa-cc-{{ strtolower($card['brand']) === 'american express' ? 'amex' : strtolower($card['brand']) }} fa-lg text-muted"></i>
+                            <div class="small">
+                                <strong class="text-capitalize">{{ $card['brand'] }}</strong>
+                                •••• {{ $card['last4'] }}
+                                <span class="text-muted">· {{ sprintf('%02d/%d', $card['exp_month'], $card['exp_year'] % 100) }}</span>
+                                @if(!empty($card['is_default']))
+                                    <span class="badge text-bg-success ms-1">Default</span>
+                                @endif
+                            </div>
                         </div>
-                    @endif
-                </div>
-            </div>
-
-            <div class="card wallet-panel">
-                <div class="card-header fw-semibold py-3">
-                    <i class="fa fa-gift me-2 text-warning"></i> Bonus Activity
-                </div>
-                <div class="card-body">
-                    <div class="d-flex justify-content-between mb-2">
-                        <span class="text-muted small">Bonus Received</span>
-                        <strong id="bonusReceivedLabel">€{{ number_format($bonusReceived, 2) }}</strong>
+                        <div class="d-flex gap-2">
+                            @if(empty($card['is_default']))
+                                <button type="button" class="btn btn-sm btn-outline-secondary set-default-card" data-pm-id="{{ $card['id'] }}">Set default</button>
+                            @endif
+                            <button type="button" class="btn btn-sm btn-outline-danger remove-card" data-pm-id="{{ $card['id'] }}">Remove</button>
+                        </div>
                     </div>
-                    <div class="d-flex justify-content-between mb-2">
-                        <span class="text-muted small">Bonus Used</span>
-                        <strong id="bonusUsedLabel">€{{ number_format($bonusUsed, 2) }}</strong>
-                    </div>
-                    <div class="d-flex justify-content-between mb-3">
-                        <span class="text-muted small">Bonus Remaining</span>
-                        <strong class="text-primary" id="bonusRemainingLabel">€{{ number_format($bonus, 2) }}</strong>
-                    </div>
-                    @php
-                        $bonusPct = $bonusReceived > 0 ? min(100, round(($bonusUsed / $bonusReceived) * 100)) : 0;
-                    @endphp
-                    <div class="wallet-bonus-meter mb-2"><span style="width: {{ $bonusPct }}%"></span></div>
-                    <div class="d-flex justify-content-between">
-                        <span class="text-muted small">Expiration</span>
-                        <strong class="small">Does not expire</strong>
-                    </div>
-                    <p class="small text-muted mt-3 mb-0">
-                        Bonus credit is never mixed with cash withdrawals, refunds to payment methods, or external transfers.
-                    </p>
-                </div>
+                @empty
+                    <div class="text-muted small" id="savedCardsEmpty">No cards saved yet. Click <strong>Add card</strong> to store one securely with Stripe.</div>
+                @endforelse
             </div>
         </div>
-
-        {{-- Chart --}}
-        <div class="col-lg-8">
-            <div class="card wallet-chart-card h-100">
-                <div class="card-header bg-white fw-semibold py-3 d-flex flex-wrap justify-content-between align-items-center gap-2">
-                    <div>
-                        <i class="fa fa-chart-area me-2 text-primary"></i> Spending Overview
-                    </div>
-                    <div class="d-flex flex-wrap gap-1 align-items-center" role="group" aria-label="Chart range">
-                        @foreach(['7d' => '7D', '30d' => '30D', '90d' => '90D', 'year' => 'This Year', 'lifetime' => 'Lifetime', 'custom' => 'Custom'] as $key => $label)
-                            <button type="button" class="btn btn-sm btn-outline-secondary chart-range-btn {{ ($key === '30d') ? 'active' : '' }}" data-range="{{ $key }}">{{ $label }}</button>
-                        @endforeach
-                    </div>
-                </div>
-                <div class="card-body">
-                    <div id="chartCustomRange" class="row g-2 mb-3" style="display:none;">
-                        <div class="col-auto"><input type="date" id="chartFrom" class="form-control form-control-sm"></div>
-                        <div class="col-auto"><input type="date" id="chartTo" class="form-control form-control-sm"></div>
-                        <div class="col-auto"><button type="button" class="btn btn-sm btn-primary" id="chartCustomApply">Apply</button></div>
-                    </div>
-                    <div id="walletChartEmpty" class="wallet-chart-empty text-center py-5" style="display:none;">
-                        <div class="mb-2" style="font-size:2rem;opacity:.35;"><i class="fa fa-chart-area"></i></div>
-                        <h5 class="fw-semibold mb-1">No spending history yet.</h5>
-                        <p class="text-muted small mb-3">Place your first marketplace order to see analytics here.</p>
-                        <a href="{{ route('advertiser.catalog') }}" class="btn btn-primary btn-sm">Start Your First Order</a>
-                    </div>
-                    <div id="walletChartWrap" style="position:relative;height:320px;">
-                        <canvas id="walletChart"></canvas>
-                    </div>
-                    <p class="small text-muted mt-2 mb-0">Scroll to zoom · drag to pan · click a point for order details · double-click to reset</p>
-                </div>
-            </div>
         </div>
     </div>
 
-    {{-- Spending point details panel --}}
-    <div class="offcanvas offcanvas-end wallet-offcanvas" tabindex="-1" id="spendDetailOffcanvas" aria-labelledby="spendDetailLabel">
-        <div class="offcanvas-header">
-            <h5 class="offcanvas-title fw-semibold" id="spendDetailLabel">Spending Details</h5>
-            <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
-        </div>
-        <div class="offcanvas-body" id="spendDetailBody"></div>
+
+    <div class="d-flex flex-wrap gap-3 mb-3 small">
+        <a href="#walletHistory" class="link-secondary">View transactions</a>
+        <a href="{{ route('advertiser.balance.export') }}" class="link-secondary" id="exportStatementBtn">Download statement</a>
+        <a href="{{ route('advertiser.billing.index') }}" class="link-secondary">Billing &amp; invoices</a>
+        <a href="{{ route('advertiser.analytics') }}" class="link-secondary">Spending analytics</a>
     </div>
 
-    {{-- History --}}
+    {{-- History (demoted) --}}
     <div class="card wallet-panel mb-4" id="walletHistory">
         <div class="card-header fw-semibold py-3 d-flex flex-wrap justify-content-between align-items-center gap-2">
-            <div>
-                <i class="fa fa-history me-2"></i> Balance History
-            </div>
+            <button type="button" class="btn btn-link text-decoration-none text-dark p-0 fw-semibold"
+                    data-bs-toggle="collapse" data-bs-target="#historyFiltersCollapse" aria-expanded="false">
+                <i class="fa fa-history me-2"></i> Recent activity
+            </button>
             <small class="text-muted" id="historyCount"></small>
         </div>
+        <div id="historyFiltersCollapse" class="collapse">
         <div class="card-body border-bottom">
             <form id="historyFilters" class="row g-2 align-items-end">
                 <div class="col-md-3">
@@ -854,6 +732,7 @@
                     <button type="submit" class="btn btn-sm btn-primary flex-fill">Go</button>
                 </div>
             </form>
+        </div>
         </div>
         <div class="card-body p-0">
             <div class="table-responsive">
@@ -967,9 +846,6 @@
 
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8"></script>
-<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.2.0/dist/chartjs-plugin-zoom.min.js"></script>
 <script>
 (function () {
     const csrf = '{{ csrf_token() }}';
@@ -1262,6 +1138,7 @@
     function renderChart(data) {
         const canvas = document.getElementById('walletChart');
         if (!canvas) return;
+        if (!canvas) return;
         chartData = data || {};
         buildOrderIndex(chartData);
         const points = chartData.points || [];
@@ -1419,7 +1296,7 @@
 
     $(function () {
         loadTransactions(1);
-        renderChart(chartData);
+        // Spending chart lives on advertiser analytics — skip here.
         renderWithdrawFields($('#withdrawMethod').val() || 'bank');
 
         $('#historyFilters').on('submit', function (e) {
@@ -1720,6 +1597,24 @@ document.addEventListener('DOMContentLoaded', function() {
     const bankDetails = document.getElementById('bankPaymentDetails');
     const cardDetails = document.getElementById('cardPaymentDetails');
     const proceedBtn = document.getElementById('proceedBtn');
+    const depositWorkflowHint = document.getElementById('depositWorkflowHint');
+    window.__afProceedLabel = function () {
+        const amt = (typeof selectedAmount !== 'undefined' && selectedAmount) ? Number(selectedAmount) : 0;
+        const formatted = '€' + (amt || 0).toFixed(2);
+        if (selectedMethod === 'card') {
+            return '<i class="fa fa-credit-card me-2"></i> Pay ' + formatted + ' with card';
+        }
+        return '<i class="fa fa-file-invoice me-2"></i> Get invoice & pay ' + formatted;
+    };
+    function syncProceedLabel() {
+        if (!proceedBtn || proceedBtn.disabled) return;
+        proceedBtn.innerHTML = window.__afProceedLabel();
+        if (depositWorkflowHint) {
+            if (selectedMethod && selectedMethod !== 'card') depositWorkflowHint.classList.remove('d-none');
+            else depositWorkflowHint.classList.add('d-none');
+        }
+    };
+
     const paymentError = document.getElementById('paymentError');
     const summaryAmount = document.getElementById('summaryAmount');
     const summaryTotal = document.getElementById('summaryTotal');
@@ -1792,6 +1687,7 @@ document.addEventListener('DOMContentLoaded', function() {
     function updateSummary(amount) {
         summaryAmount.innerText = `€${amount.toFixed(2)}`;
         summaryTotal.innerText = `€${amount.toFixed(2)}`;
+        if (typeof syncProceedLabel === 'function') syncProceedLabel();
     }
 
     // Prefill amount/method comes from applyPrefill() above (server + ?amount=&method=).
@@ -1832,6 +1728,7 @@ document.addEventListener('DOMContentLoaded', function() {
             if (method === 'card' && cardDetails) cardDetails.style.display = 'block';
             
             if (paymentDetailsSection) paymentDetailsSection.style.display = 'block';
+            if (typeof syncProceedLabel === 'function') syncProceedLabel();
         });
     });
     
@@ -1926,7 +1823,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 const modal = new bootstrap.Modal(document.getElementById('billingInfoModal'));
                 modal.show();
                 proceedBtn.disabled = false;
-                proceedBtn.innerHTML = '<i class="fa fa-arrow-right me-2"></i> Proceed to Payment';
+                proceedBtn.innerHTML = window.__afProceedLabel ? window.__afProceedLabel() : '<i class="fa fa-arrow-right me-2"></i> Get invoice &amp; pay';
             } else {
                 Swal.fire({
                     title: 'Error', 
@@ -1935,7 +1832,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     confirmButtonText: 'OK'
                 });
                 proceedBtn.disabled = false;
-                proceedBtn.innerHTML = '<i class="fa fa-arrow-right me-2"></i> Proceed to Payment';
+                proceedBtn.innerHTML = window.__afProceedLabel ? window.__afProceedLabel() : '<i class="fa fa-arrow-right me-2"></i> Get invoice &amp; pay';
             }
         })
         .catch(error => {
@@ -1947,7 +1844,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 confirmButtonText: 'OK'
             });
             proceedBtn.disabled = false;
-            proceedBtn.innerHTML = '<i class="fa fa-arrow-right me-2"></i> Proceed to Payment';
+            proceedBtn.innerHTML = window.__afProceedLabel ? window.__afProceedLabel() : '<i class="fa fa-arrow-right me-2"></i> Get invoice &amp; pay';
         });
     }
     
@@ -2097,7 +1994,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     confirmButtonText: 'OK'
                 });
                 proceedBtn.disabled = false;
-                proceedBtn.innerHTML = '<i class="fa fa-arrow-right me-2"></i> Proceed to Payment';
+                proceedBtn.innerHTML = window.__afProceedLabel ? window.__afProceedLabel() : '<i class="fa fa-arrow-right me-2"></i> Get invoice &amp; pay';
             }
         } else {
             // Bank / Wise invoices need company billing details
