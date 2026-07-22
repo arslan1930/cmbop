@@ -829,6 +829,7 @@
         <button id="checkoutFromCart" class="btn btn-primary w-100" type="button">
             <i class="fa fa-credit-card"></i> Proceed to Checkout
         </button>
+        @include('partials.buy-confidence')
         <button id="keepBrowsingCatalog" class="btn btn-outline-secondary w-100 mt-2" type="button">
             <i class="fa fa-list"></i> Keep browsing publishers
         </button>

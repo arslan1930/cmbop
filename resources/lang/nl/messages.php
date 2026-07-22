@@ -157,6 +157,7 @@ return [
     // ==================== CTA SECTION ====================
     'cta_title' => 'Klaar om uw SEO te verbeteren?',
     'cta_button' => 'Nu deelnemen',
+    'cta_guarantee' => 'Wallet-terugbetaling als een publisher niet kan leveren — zie ons',
 
 
     // ==================== CONTACT PAGE ====================

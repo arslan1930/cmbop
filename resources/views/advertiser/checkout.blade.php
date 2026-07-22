@@ -622,6 +622,7 @@
                             <button type="button" id="placeOrderBtn" class="btn btn-primary w-100 mt-3">
                                 <i class="fa fa-check-circle"></i> Place Order
                             </button>
+                            @include('partials.buy-confidence')
                             <div class="mt-3">
                                 @include('partials.payment-trust', ['compact' => true, 'showMethods' => false])
                             </div>

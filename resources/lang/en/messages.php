@@ -319,6 +319,7 @@ return [
     // ==================== CTA SECTION ====================
     'cta_title' => 'Ready to boost your SEO?',
     'cta_button' => 'Join Now',
+    'cta_guarantee' => 'Wallet refund if a publisher cannot deliver — see our',
 
 
     // ==================== CONTACT PAGE ====================

@@ -156,6 +156,7 @@ return [
     // ==================== CTA SECTION ====================
     'cta_title' => 'Prêt à booster votre SEO ?',
     'cta_button' => 'Rejoindre maintenant',
+    'cta_guarantee' => 'Remboursement portefeuille si un éditeur ne peut pas livrer — voir notre',
 
 
     // ==================== CONTACT PAGE ====================
