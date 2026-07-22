@@ -1,5 +1,36 @@
 <?php
 
+use App\Mail\AdminManualPaymentNotification;
+use App\Mail\AdminNewUserRegistered;
+use App\Mail\AudienceCampaignMail;
+use App\Mail\ContentEvaluationResult;
+use App\Mail\DepositApproved;
+use App\Mail\DepositRejected;
+use App\Mail\DepositRequestSubmitted;
+use App\Mail\LiveUrlSubmitted;
+use App\Mail\ModificationRequested;
+use App\Mail\MonthlySpendingSummary;
+use App\Mail\NewChatMessageNotification;
+use App\Mail\NewSiteNotification;
+use App\Mail\OrderAccepted;
+use App\Mail\OrderApprovedByAdvertiser;
+use App\Mail\OrderPaymentConfirmed;
+use App\Mail\OrderRejected;
+use App\Mail\OrderStatusChanged;
+use App\Mail\PaymentFailedMail;
+use App\Mail\PaymentPendingMail;
+use App\Mail\PaymentSuccessfulInvoiceMail;
+use App\Mail\PayoutProfileUpdatedBySupport;
+use App\Mail\RefundReceiptMail;
+use App\Mail\SiteDiscountEnded;
+use App\Mail\SiteOwnerOrderNotification;
+use App\Mail\SiteStatusNotification;
+use App\Mail\TrustpilotReviewRequest;
+use App\Mail\WeeklyActivitySummary;
+use App\Mail\WelcomeEmail;
+use App\Mail\WithdrawalRequestNotification;
+use App\Mail\WithdrawalStatusUpdated;
+
 /**
  * Central registry for platform email notifications.
  * Existing Mail::send call sites keep working; PlatformMailable enforces
@@ -15,7 +46,7 @@ return [
         'reply_to' => env('MAIL_REPLY_TO_ADDRESS', env('MAIL_FROM_ADDRESS')),
         'sender_email' => env('MAIL_FROM_ADDRESS', 'hello@example.com'),
         'sender_name' => env('MAIL_FROM_NAME', env('APP_NAME', 'SEOLinkBuildings')),
-        'copyright' => '© ' . date('Y') . ' ' . env('APP_NAME', 'SEOLinkBuildings') . '. All rights reserved.',
+        'copyright' => '© '.date('Y').' '.env('APP_NAME', 'SEOLinkBuildings').'. All rights reserved.',
         'social' => [
             'twitter' => env('SOCIAL_TWITTER_URL'),
             'linkedin' => env('SOCIAL_LINKEDIN_URL'),
@@ -58,7 +89,7 @@ return [
             'name' => 'Welcome Email',
             'audience' => 'user',
             'preference' => 'system_updates',
-            'mailable' => \App\Mail\WelcomeEmail::class,
+            'mailable' => WelcomeEmail::class,
             'default_enabled' => true,
         ],
         'password_reset' => [
@@ -83,7 +114,7 @@ return [
             'name' => 'Order Status Changed',
             'audience' => 'user',
             'preference' => 'order_emails',
-            'mailable' => \App\Mail\OrderStatusChanged::class,
+            'mailable' => OrderStatusChanged::class,
             'default_enabled' => true,
         ],
 
@@ -92,7 +123,7 @@ return [
             'name' => 'Content Evaluation Result',
             'audience' => 'advertiser',
             'preference' => 'order_emails',
-            'mailable' => \App\Mail\ContentEvaluationResult::class,
+            'mailable' => ContentEvaluationResult::class,
             'default_enabled' => true,
         ],
 
@@ -101,77 +132,77 @@ return [
             'name' => 'Payment Successful',
             'audience' => 'advertiser',
             'preference' => 'payment_emails',
-            'mailable' => \App\Mail\OrderPaymentConfirmed::class,
+            'mailable' => OrderPaymentConfirmed::class,
             'default_enabled' => true,
         ],
         'payment_successful_invoice' => [
             'name' => 'Payment Successful – Invoice Attached',
             'audience' => 'advertiser',
             'preference' => 'payment_emails',
-            'mailable' => \App\Mail\PaymentSuccessfulInvoiceMail::class,
+            'mailable' => PaymentSuccessfulInvoiceMail::class,
             'default_enabled' => true,
         ],
         'payment_failed' => [
             'name' => 'Payment Failed',
             'audience' => 'advertiser',
             'preference' => 'payment_emails',
-            'mailable' => \App\Mail\PaymentFailedMail::class,
+            'mailable' => PaymentFailedMail::class,
             'default_enabled' => true,
         ],
         'payment_pending' => [
             'name' => 'Payment Pending Verification',
             'audience' => 'advertiser',
             'preference' => 'payment_emails',
-            'mailable' => \App\Mail\PaymentPendingMail::class,
+            'mailable' => PaymentPendingMail::class,
             'default_enabled' => true,
         ],
         'refund_receipt' => [
             'name' => 'Refund Receipt',
             'audience' => 'advertiser',
             'preference' => 'payment_emails',
-            'mailable' => \App\Mail\RefundReceiptMail::class,
+            'mailable' => RefundReceiptMail::class,
             'default_enabled' => true,
         ],
         'order_accepted' => [
             'name' => 'Order Accepted',
             'audience' => 'advertiser',
             'preference' => 'order_emails',
-            'mailable' => \App\Mail\OrderAccepted::class,
+            'mailable' => OrderAccepted::class,
             'default_enabled' => true,
         ],
         'order_rejected' => [
             'name' => 'Order Rejected',
             'audience' => 'advertiser',
             'preference' => 'order_emails',
-            'mailable' => \App\Mail\OrderRejected::class,
+            'mailable' => OrderRejected::class,
             'default_enabled' => true,
         ],
         'live_url_submitted' => [
             'name' => 'Guest Post Published',
             'audience' => 'advertiser',
             'preference' => 'order_emails',
-            'mailable' => \App\Mail\LiveUrlSubmitted::class,
+            'mailable' => LiveUrlSubmitted::class,
             'default_enabled' => true,
         ],
         'modification_requested' => [
             'name' => 'Revision Requested',
             'audience' => 'publisher',
             'preference' => 'order_emails',
-            'mailable' => \App\Mail\ModificationRequested::class,
+            'mailable' => ModificationRequested::class,
             'default_enabled' => true,
         ],
         'order_completed' => [
             'name' => 'Order Completed',
             'audience' => 'publisher',
             'preference' => 'order_emails',
-            'mailable' => \App\Mail\OrderApprovedByAdvertiser::class,
+            'mailable' => OrderApprovedByAdvertiser::class,
             'default_enabled' => true,
         ],
         'trustpilot_review' => [
             'name' => 'Trustpilot Review Request',
             'audience' => 'advertiser',
             'preference' => 'review_requests',
-            'mailable' => \App\Mail\TrustpilotReviewRequest::class,
+            'mailable' => TrustpilotReviewRequest::class,
             'default_enabled' => true,
         ],
 
@@ -180,28 +211,35 @@ return [
             'name' => 'New Order Received',
             'audience' => 'publisher',
             'preference' => 'order_emails',
-            'mailable' => \App\Mail\SiteOwnerOrderNotification::class,
+            'mailable' => SiteOwnerOrderNotification::class,
             'default_enabled' => true,
         ],
         'site_status' => [
             'name' => 'Site Status Notification',
             'audience' => 'publisher',
             'preference' => 'system_updates',
-            'mailable' => \App\Mail\SiteStatusNotification::class,
+            'mailable' => SiteStatusNotification::class,
             'default_enabled' => true,
         ],
         'site_discount_ended' => [
             'name' => 'Site Discount Ended',
             'audience' => 'publisher',
             'preference' => 'system_updates',
-            'mailable' => \App\Mail\SiteDiscountEnded::class,
+            'mailable' => SiteDiscountEnded::class,
             'default_enabled' => true,
         ],
         'withdrawal_status' => [
             'name' => 'Withdrawal Status Updated',
             'audience' => 'publisher',
             'preference' => 'payment_emails',
-            'mailable' => \App\Mail\WithdrawalStatusUpdated::class,
+            'mailable' => WithdrawalStatusUpdated::class,
+            'default_enabled' => true,
+        ],
+        'payout_profile_updated' => [
+            'name' => 'Payout Profile Updated by Support',
+            'audience' => 'publisher',
+            'preference' => 'payment_emails',
+            'mailable' => PayoutProfileUpdatedBySupport::class,
             'default_enabled' => true,
         ],
 
@@ -210,35 +248,35 @@ return [
             'name' => 'Admin Manual Payment',
             'audience' => 'admin',
             'preference' => null,
-            'mailable' => \App\Mail\AdminManualPaymentNotification::class,
+            'mailable' => AdminManualPaymentNotification::class,
             'default_enabled' => true,
         ],
         'deposit_submitted' => [
             'name' => 'Deposit Request Submitted',
             'audience' => 'admin',
             'preference' => null,
-            'mailable' => \App\Mail\DepositRequestSubmitted::class,
+            'mailable' => DepositRequestSubmitted::class,
             'default_enabled' => true,
         ],
         'withdrawal_request' => [
             'name' => 'Withdrawal Request',
             'audience' => 'admin',
             'preference' => null,
-            'mailable' => \App\Mail\WithdrawalRequestNotification::class,
+            'mailable' => WithdrawalRequestNotification::class,
             'default_enabled' => true,
         ],
         'new_site' => [
             'name' => 'New Site Submitted',
             'audience' => 'admin',
             'preference' => null,
-            'mailable' => \App\Mail\NewSiteNotification::class,
+            'mailable' => NewSiteNotification::class,
             'default_enabled' => true,
         ],
         'admin_new_user' => [
             'name' => 'New User Registered',
             'audience' => 'admin',
             'preference' => null,
-            'mailable' => \App\Mail\AdminNewUserRegistered::class,
+            'mailable' => AdminNewUserRegistered::class,
             'default_enabled' => true,
         ],
 
@@ -247,14 +285,14 @@ return [
             'name' => 'Deposit Approved',
             'audience' => 'advertiser',
             'preference' => 'payment_emails',
-            'mailable' => \App\Mail\DepositApproved::class,
+            'mailable' => DepositApproved::class,
             'default_enabled' => true,
         ],
         'deposit_rejected' => [
             'name' => 'Deposit Rejected',
             'audience' => 'advertiser',
             'preference' => 'payment_emails',
-            'mailable' => \App\Mail\DepositRejected::class,
+            'mailable' => DepositRejected::class,
             'default_enabled' => true,
         ],
 
@@ -263,7 +301,7 @@ return [
             'name' => 'New Chat Message',
             'audience' => 'user',
             'preference' => 'chat_emails',
-            'mailable' => \App\Mail\NewChatMessageNotification::class,
+            'mailable' => NewChatMessageNotification::class,
             'default_enabled' => true,
         ],
 
@@ -272,7 +310,7 @@ return [
             'name' => 'Updates & Campaigns',
             'audience' => 'user',
             'preference' => 'marketing_emails',
-            'mailable' => \App\Mail\AudienceCampaignMail::class,
+            'mailable' => AudienceCampaignMail::class,
             'default_enabled' => true,
         ],
 
@@ -281,14 +319,14 @@ return [
             'name' => 'Weekly Activity Summary',
             'audience' => 'advertiser',
             'preference' => 'weekly_summary',
-            'mailable' => \App\Mail\WeeklyActivitySummary::class,
+            'mailable' => WeeklyActivitySummary::class,
             'default_enabled' => true,
         ],
         'monthly_spending_summary' => [
             'name' => 'Monthly Spending Summary',
             'audience' => 'advertiser',
             'preference' => 'monthly_summary',
-            'mailable' => \App\Mail\MonthlySpendingSummary::class,
+            'mailable' => MonthlySpendingSummary::class,
             'default_enabled' => true,
         ],
     ],

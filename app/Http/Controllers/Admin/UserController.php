@@ -3,16 +3,23 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Mail\PayoutProfileUpdatedBySupport;
 use App\Models\Role;
 use App\Models\User;
 use App\Services\ActivityLogger;
+use App\Services\Wallet\PayoutProfileService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail;
 
 class UserController extends Controller
 {
     /** Hard cap on how many users may hold the admin role. */
     public const MAX_ADMINS = 2;
+
+    public function __construct(
+        private PayoutProfileService $payoutProfiles,
+    ) {}
 
     // ✅ Users listing
     public function index()
@@ -38,15 +45,70 @@ class UserController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => 'Company updated successfully'
+                'message' => 'Company updated successfully',
             ]);
 
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Something went wrong'
+                'message' => 'Something went wrong',
             ], 500);
         }
+    }
+
+    /**
+     * Support-only: update a user's locked payout destinations and email them.
+     */
+    public function updatePayoutProfile(Request $request, $id)
+    {
+        $data = $request->validate([
+            'payment_method' => 'required|in:bank,paypal,wise,crypto',
+            'paypal_email' => 'nullable|email|max:255',
+            'wise_email' => 'nullable|email|max:255',
+            'bank_name' => 'nullable|string|max:255',
+            'account_holder' => 'nullable|string|max:255',
+            'account_number' => 'nullable|string|max:255',
+            'swift_code' => 'nullable|string|max:50',
+            'crypto_type' => 'nullable|string|in:BTC,ETH,USDT,BNB',
+            'wallet_address' => 'nullable|string|max:255',
+        ]);
+
+        $method = $data['payment_method'];
+        if ($method === 'paypal' && empty($data['paypal_email'])) {
+            return response()->json(['success' => false, 'message' => 'PayPal email is required.'], 422);
+        }
+        if ($method === 'wise' && empty($data['wise_email'])) {
+            return response()->json(['success' => false, 'message' => 'Wise email is required.'], 422);
+        }
+        if ($method === 'bank' && (empty($data['bank_name']) || empty($data['account_holder']) || empty($data['account_number']))) {
+            return response()->json(['success' => false, 'message' => 'Bank name, holder, and account are required.'], 422);
+        }
+        if ($method === 'crypto' && (empty($data['wallet_address']) || empty($data['crypto_type']))) {
+            return response()->json(['success' => false, 'message' => 'Crypto type and wallet address are required.'], 422);
+        }
+
+        $user = User::findOrFail($id);
+        $this->payoutProfiles->adminUpdateProfile($user, $method, $data);
+
+        try {
+            Mail::to($user->email)->send(new PayoutProfileUpdatedBySupport($user->fresh(), $method));
+        } catch (\Throwable $e) {
+            report($e);
+        }
+
+        ActivityLogger::log(
+            'user.payout_profile_updated',
+            auth()->user()->name.' updated payout profile for user #'.$user->id.' ('.$method.')',
+            $user,
+            ['method' => $method],
+            'User #'.$user->id
+        );
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Payout details updated. The publisher was notified by email.',
+            'payout_profile' => $user->fresh()->payoutProfile(),
+        ]);
     }
 
     /**
@@ -100,30 +162,30 @@ class UserController extends Controller
 
         ActivityLogger::log(
             $grantMarketing ? 'user.marketing_granted' : 'user.marketing_revoked',
-            auth()->user()->name . ($grantMarketing ? ' granted' : ' revoked') . ' Marketing for ' . $user->name,
+            auth()->user()->name.($grantMarketing ? ' granted' : ' revoked').' Marketing for '.$user->name,
             $user,
             [
                 'from' => $previousRoles,
-                'to'   => $newRoles,
+                'to' => $newRoles,
             ],
             $user->name
         );
 
         return response()->json([
-            'success'     => true,
-            'message'     => $grantMarketing
+            'success' => true,
+            'message' => $grantMarketing
                 ? 'Marketing access granted.'
                 : 'Marketing access removed.',
-            'roles'       => $newRoles,
+            'roles' => $newRoles,
             'active_role' => $user->activeRole(),
-            'marketing'   => $grantMarketing,
+            'marketing' => $grantMarketing,
         ]);
     }
 
     private function adminCount(): int
     {
         $adminRoleId = Role::where('name', 'admin')->value('id');
-        if (!$adminRoleId) {
+        if (! $adminRoleId) {
             return 0;
         }
 
