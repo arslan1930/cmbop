@@ -19,11 +19,17 @@
     $statusLabels = [
         'available' => 'Available',
         'in_progress' => 'In progress',
-        'published' => 'Published',
+        'published' => 'Completed',
         'needs_fix' => 'Needs fix',
         'expired' => 'Expired',
         'archived' => 'Archived',
         'unavailable' => 'Unavailable',
+    ];
+    $availabilityBoxLabels = [
+        'all' => 'All',
+        'available' => 'Available',
+        'in_progress' => 'In progress',
+        'completed' => 'Completed',
     ];
     $moderationBoxLabels = [
         'all' => 'All',
@@ -36,6 +42,12 @@
         'approved' => 0,
         'rejected' => 0,
         'needs_improvement' => 0,
+    ];
+    $availabilityCounts = $availabilityCounts ?? [
+        'all' => 0,
+        'available' => 0,
+        'in_progress' => 0,
+        'completed' => 0,
     ];
 @endphp
 <style>
@@ -57,13 +69,49 @@
     .library-live-link {
         display: block;
         font-size: .8rem;
-        margin-top: .2rem;
-        max-width: 320px;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
+        margin-top: .35rem;
+        max-width: 360px;
+        line-height: 1.4;
     }
-    .library-live-link a { color: var(--brand-primary, #185054); }
+    .library-live-link a { color: var(--brand-primary, #185054); word-break: break-all; }
+    .library-live-meta {
+        color: #64748b;
+        font-size: .75rem;
+    }
+    .library-live-actions {
+        display: inline-flex;
+        align-items: center;
+        gap: .35rem;
+        margin-top: .25rem;
+        flex-wrap: wrap;
+    }
+    .library-copy-url {
+        border: 1px solid #e2e8f0;
+        background: #fff;
+        color: #475569;
+        border-radius: 6px;
+        font-size: .72rem;
+        font-weight: 600;
+        padding: 2px 8px;
+        line-height: 1.4;
+    }
+    .library-copy-url:hover {
+        border-color: #cbd5e1;
+        color: #185054;
+        background: #f8fafc;
+    }
+    .library-status-wrap {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: .2rem;
+    }
+    .library-status-hint {
+        font-size: .7rem;
+        color: #64748b;
+        line-height: 1.3;
+        max-width: 140px;
+    }
     .library-market {
         font-size: .78rem;
         background: var(--brand-primary-bg, #e6f5f5);
@@ -85,11 +133,15 @@
         white-space: nowrap;
         line-height: 1.2;
     }
-    .library-status--available,
-    .library-status--published {
+    .library-status--available {
         background: #f0fdf9;
         color: #0f766e;
         border-color: #bbf7d0;
+    }
+    .library-status--published {
+        background: #eff6ff;
+        color: #1d4ed8;
+        border-color: #bfdbfe;
     }
     .library-status--in_progress {
         background: #fff;
@@ -97,9 +149,9 @@
         border-color: #e2e8f0;
     }
     .library-status--needs_fix {
-        background: #fffbeb;
-        color: #92400e;
-        border-color: #fde68a;
+        background: #fff;
+        color: #1e293b;
+        border-color: #e2e8f0;
     }
     .library-status--expired,
     .library-status--archived,
@@ -108,13 +160,15 @@
         color: #94a3b8;
         border-color: #e2e8f0;
     }
-    .library-moderation-row {
+    .library-moderation-row,
+    .library-availability-row {
         display: flex;
         flex-wrap: wrap;
         gap: .5rem;
         margin-bottom: 1rem;
     }
-    .library-moderation-box {
+    .library-moderation-box,
+    .library-availability-box {
         flex: 1 1 140px;
         min-width: 120px;
         max-width: 220px;
@@ -132,15 +186,44 @@
         font-weight: 600;
         transition: border-color .15s ease, background .15s ease, color .15s ease;
     }
-    .library-moderation-box--all:hover {
+    .library-moderation-box--all:hover,
+    .library-availability-box--all:hover,
+    .library-availability-box--available:hover,
+    .library-availability-box--in_progress:hover {
         background: #f8fafc;
         border-color: #cbd5e1;
         color: #475569;
     }
-    .library-moderation-box--all.is-active {
+    .library-moderation-box--all.is-active,
+    .library-availability-box--all.is-active,
+    .library-availability-box--available.is-active,
+    .library-availability-box--in_progress.is-active {
         background: #f1f5f9;
         border-color: #94a3b8;
         color: #334155;
+    }
+    .library-availability-box--available {
+        color: #0f766e;
+        border-color: #d1fae5;
+    }
+    .library-availability-box--available.is-active {
+        background: #ecfdf5;
+        border-color: #6ee7b7;
+        color: #065f46;
+    }
+    .library-availability-box--completed {
+        color: #1d4ed8;
+        border-color: #bfdbfe;
+    }
+    .library-availability-box--completed:hover {
+        background: #eff6ff;
+        border-color: #93c5fd;
+        color: #1d4ed8;
+    }
+    .library-availability-box--completed.is-active {
+        background: #eff6ff;
+        border-color: #60a5fa;
+        color: #1e40af;
     }
     .library-moderation-box--approved {
         color: #0f766e;
@@ -171,20 +254,21 @@
         color: #991b1b;
     }
     .library-moderation-box--needs_improvement {
-        color: #92400e;
-        border-color: #fde68a;
+        color: #dc2626;
+        border-color: #e2e8f0;
     }
     .library-moderation-box--needs_improvement:hover {
-        background: #fffbeb;
-        border-color: #fcd34d;
-        color: #92400e;
+        background: #fff;
+        border-color: #fecaca;
+        color: #b91c1c;
     }
     .library-moderation-box--needs_improvement.is-active {
-        background: #fffbeb;
-        border-color: #f59e0b;
-        color: #78350f;
+        background: #fff;
+        border-color: #fca5a5;
+        color: #991b1b;
     }
-    .library-moderation-box .mod-count {
+    .library-moderation-box .mod-count,
+    .library-availability-box .mod-count {
         font-size: .72rem;
         font-weight: 700;
         font-variant-numeric: tabular-nums;
@@ -195,7 +279,8 @@
         padding: 2px 7px;
         line-height: 1.3;
     }
-    .library-moderation-box.is-active .mod-count {
+    .library-moderation-box.is-active .mod-count,
+    .library-availability-box.is-active .mod-count {
         background: rgba(15, 23, 42, .06);
         opacity: 1;
     }
@@ -206,7 +291,13 @@
         background: rgba(220, 38, 38, .1);
     }
     .library-moderation-box--needs_improvement.is-active .mod-count {
-        background: rgba(180, 83, 9, .1);
+        background: rgba(220, 38, 38, .1);
+    }
+    .library-availability-box--available.is-active .mod-count {
+        background: rgba(15, 118, 110, .1);
+    }
+    .library-availability-box--completed.is-active .mod-count {
+        background: rgba(29, 78, 216, .1);
     }
     .library-scores { font-variant-numeric: tabular-nums; white-space: nowrap; color: #475569; }
     .library-preview {
@@ -267,20 +358,28 @@
     .article-preview-toolbar .btn { white-space: nowrap; }
     .article-link-row .form-label { color: var(--brand-ink-muted, #6b7280); }
     .library-reject-box {
+        display: flex;
+        align-items: flex-start;
+        gap: 0.5rem;
         margin-top: 6px;
         padding: 8px 10px;
         border-radius: 8px;
-        background: #f8fafc;
-        border: 1px solid var(--brand-primary-border, #b8e4e4);
-        color: #475569;
+        background: transparent;
+        border: 1px solid var(--border-subtle, #e2e8f0);
+        color: var(--brand-ink, #1e293b);
         font-size: 12px;
         line-height: 1.4;
         max-width: 420px;
     }
+    .library-reject-box__icon {
+        color: var(--brand-danger, #dc2626);
+        margin-top: 1px;
+        flex: 0 0 auto;
+    }
     .library-reject-box strong {
         display: block;
         margin-bottom: 2px;
-        color: var(--brand-primary, #185054);
+        color: var(--brand-ink, #1e293b);
     }
     .library-feature-thumb {
         width: 40px;
@@ -426,6 +525,7 @@
 
     <form method="GET" action="{{ route('advertiser.content-library') }}" class="library-filter-bar row g-2 align-items-end mb-2">
         <input type="hidden" name="status" value="{{ $statusFilter ?? 'all' }}">
+        <input type="hidden" name="availability" value="{{ $availabilityFilter ?? 'all' }}">
         <div class="col-md-3 col-lg-3">
             <label class="form-label small text-muted mb-1" for="librarySearchInput">Search</label>
             <input type="search" name="q" id="librarySearchInput" class="form-control form-control-sm"
@@ -455,11 +555,22 @@
         </div>
         <div class="col-auto">
             <button type="submit" class="btn btn-sm btn-primary">Apply</button>
-            @if(!empty($searchQuery) || ($statusFilter ?? 'all') !== 'all' || ($countryFilter ?? 'all') !== 'all' || ($languageFilter ?? 'all') !== 'all')
+            @if(!empty($searchQuery) || ($statusFilter ?? 'all') !== 'all' || ($availabilityFilter ?? 'all') !== 'all' || ($countryFilter ?? 'all') !== 'all' || ($languageFilter ?? 'all') !== 'all')
                 <a href="{{ route('advertiser.content-library') }}" class="btn btn-sm btn-link">Reset</a>
             @endif
         </div>
     </form>
+
+    <div class="library-availability-row" role="group" aria-label="Availability filter">
+        @foreach($availabilityBoxLabels as $key => $label)
+            <a href="{{ $libraryRoute(['availability' => $key]) }}"
+               class="library-availability-box library-availability-box--{{ $key }} @if(($availabilityFilter ?? 'all') === $key) is-active @endif"
+               @if(($availabilityFilter ?? 'all') === $key) aria-current="true" @endif>
+                <span>{{ $label }}</span>
+                <span class="mod-count">{{ (int) ($availabilityCounts[$key] ?? 0) }}</span>
+            </a>
+        @endforeach
+    </div>
 
     <div class="library-moderation-row" role="group" aria-label="Moderation filter">
         @foreach($moderationBoxLabels as $key => $label)
@@ -490,7 +601,14 @@
                         $availability = $submission->libraryAvailability();
                         $placement = $submission->placementItem();
                         $liveUrl = $submission->liveUrl();
-                        $siteName = $placement?->site?->site_name;
+                        $siteName = $placement?->site_name
+                            ?: $placement?->site?->site_name
+                            ?: null;
+                        $publishedAt = $placement?->live_url_submitted_at
+                            ?: ($liveUrl ? $placement?->updated_at : null);
+                        $publishedDateLabel = $publishedAt
+                            ? $publishedAt->timezone(config('app.timezone'))->format('M j, Y')
+                            : null;
                         // Match Status column to moderation filter boxes when corrections are needed.
                         if ($availability === 'needs_fix') {
                             $label = match ((string) $submission->moderation_status) {
@@ -499,6 +617,8 @@
                                 'error' => 'Error',
                                 default => 'Needs fix',
                             };
+                        } elseif ($availability === 'published') {
+                            $label = $liveUrl ? 'Completed/Live' : 'Completed';
                         } else {
                             $label = $statusLabels[$availability] ?? ucfirst(str_replace('_', ' ', $availability));
                         }
@@ -515,14 +635,32 @@
                             <div class="library-title text-truncate" data-title-display="{{ $submission->id }}" title="{{ $submission->title ?: $submission->original_filename }}">
                                 {{ $submission->title ?: $submission->original_filename }}
                             </div>
-                            @if($availability === 'published' && $liveUrl)
+                            @if($availability === 'published')
                                 <div class="library-live-link">
                                     @if($siteName)
-                                        <span class="text-muted">Published on {{ $siteName }}</span><br>
+                                        <div class="library-live-meta">Published on {{ $siteName }}</div>
                                     @else
-                                        <span class="text-muted">Published</span><br>
+                                        <div class="library-live-meta">Placement completed</div>
                                     @endif
-                                    <a href="{{ $liveUrl }}" target="_blank" rel="noopener noreferrer">{{ $liveUrl }}</a>
+                                    @if($liveUrl)
+                                        <div class="library-live-actions">
+                                            <a href="{{ $liveUrl }}" target="_blank" rel="noopener noreferrer">
+                                                {{ $liveUrl }} <i class="fa fa-external-link fa-xs" aria-hidden="true"></i>
+                                            </a>
+                                            <button type="button"
+                                                    class="library-copy-url"
+                                                    data-copy-url="{{ $liveUrl }}"
+                                                    onclick="copyLibraryLiveUrl(this)"
+                                                    title="Copy live URL">
+                                                Copy
+                                            </button>
+                                        </div>
+                                        @if($publishedDateLabel)
+                                            <div class="library-live-meta mt-1">Published {{ $publishedDateLabel }}</div>
+                                        @endif
+                                    @else
+                                        <div class="library-live-meta">Live URL not available</div>
+                                    @endif
                                 </div>
                             @elseif($availability === 'in_progress' && $submission->order_id)
                                 <div class="library-live-link text-muted">
@@ -531,6 +669,8 @@
                                 </div>
                             @elseif($availability === 'needs_fix')
                                 <div class="library-reject-box">
+                                    <span class="library-reject-box__icon" aria-hidden="true"><i class="fa-solid fa-circle-exclamation"></i></span>
+                                    <div>
                                     <strong>{{ $label }}</strong>
                                     {{ $submission->evaluation_report['summary'] ?? 'Fix issues and resubmit.' }}
                                     @php
@@ -543,6 +683,7 @@
                                     @if(is_array($blockedUrls) && count($blockedUrls))
                                         <div class="mt-1">Blocked links: {{ implode(', ', array_slice($blockedUrls, 0, 5)) }}</div>
                                     @endif
+                                    </div>
                                 </div>
                             @endif
                             <div class="library-title-edit d-none mt-2" data-title-edit="{{ $submission->id }}">
@@ -561,7 +702,12 @@
                             </span>
                         </td>
                         <td>
-                            <span class="library-status library-status--{{ $availability }}">{{ $label }}</span>
+                            <div class="library-status-wrap">
+                                <span class="library-status library-status--{{ $availability }}">{{ $label }}</span>
+                                @if($availability === 'published')
+                                    <span class="library-status-hint">Done — not orderable</span>
+                                @endif
+                            </div>
                         </td>
                         <td class="library-scores">
                             @if($submission->evaluated_at)
@@ -584,7 +730,17 @@
                                        href="{{ route('advertiser.content-library', ['edit' => $submission->id, 'upload' => 1]) }}">
                                         Resubmit
                                     </a>
-                                @elseif($availability === 'in_progress' || $availability === 'published')
+                                @elseif($availability === 'published')
+                                    @if($liveUrl)
+                                        <a class="btn btn-sm btn-primary"
+                                           href="{{ $liveUrl }}"
+                                           target="_blank"
+                                           rel="noopener noreferrer">
+                                            Open live URL
+                                        </a>
+                                    @endif
+                                    <a class="btn btn-sm btn-outline-secondary" href="{{ route('advertiser.orders') }}">View order</a>
+                                @elseif($availability === 'in_progress')
                                     <a class="btn btn-sm btn-outline-secondary" href="{{ route('advertiser.orders') }}">View order</a>
                                 @endif
 
@@ -666,6 +822,12 @@
                         <td colspan="5" class="text-center text-muted py-5">
                             @if(($availabilityFilter ?? 'all') === 'archived')
                                 No archived articles.
+                            @elseif(($availabilityFilter ?? 'all') === 'completed')
+                                <x-ui.empty-state
+                                    icon="fa-check-circle"
+                                    title="No completed articles yet"
+                                    message="They’ll appear here with their live URL once a placement is published."
+                                />
                             @elseif(!empty($searchQuery) || ($availabilityFilter ?? 'all') !== 'all' || ($countryFilter ?? 'all') !== 'all' || ($languageFilter ?? 'all') !== 'all')
                                 No articles match these filters.
                             @else
@@ -704,10 +866,10 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
-                <div class="alert alert-warning small mb-3">
+                <x-ui.callout variant="attention" class="ui-callout--sm mb-3">
                     {{ $uploadCfg['help']['preferred_format'] ?? 'Please upload your article as a Microsoft Word (.docx) document only.' }}
                     After upload you can preview and edit the article (add/remove images and links) before ordering.
-                </div>
+                </x-ui.callout>
                 <div class="mb-3">
                     <label class="form-label">Title <span class="text-muted">(optional)</span></label>
                     <input type="text" name="title" class="form-control" maxlength="200" placeholder="Article title"
@@ -1010,9 +1172,9 @@ function fixPreviewImages(root) {
                 return;
             }
             img.alt = 'Image failed to load';
-            img.style.outline = '1px dashed #f59e0b';
+            img.style.outline = '1px dashed #e2e8f0';
             img.style.minHeight = '48px';
-            img.style.background = '#fffbeb';
+            img.style.background = '#f8fafc';
         });
     });
 }
@@ -1162,6 +1324,36 @@ function toggleLibraryTitleEdit(id, open) {
         const input = document.querySelector('[data-title-input="' + id + '"]');
         input?.focus();
         input?.select();
+    }
+}
+
+async function copyLibraryLiveUrl(btn) {
+    const url = (btn?.getAttribute('data-copy-url') || '').trim();
+    if (!url) return;
+    const original = btn.textContent;
+    const markCopied = function () {
+        btn.textContent = 'Copied';
+        setTimeout(function () { btn.textContent = original || 'Copy'; }, 1400);
+    };
+    try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            await navigator.clipboard.writeText(url);
+            markCopied();
+            return;
+        }
+    } catch (e) { /* fall through */ }
+    const ta = document.createElement('textarea');
+    ta.value = url;
+    ta.setAttribute('readonly', '');
+    ta.style.position = 'absolute';
+    ta.style.left = '-9999px';
+    document.body.appendChild(ta);
+    ta.select();
+    try {
+        document.execCommand('copy');
+        markCopied();
+    } finally {
+        document.body.removeChild(ta);
     }
 }
 

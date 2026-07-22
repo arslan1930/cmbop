@@ -122,12 +122,11 @@
         <p style="color:#555; line-height:1.7;">{{ __('messages.section3_text2') }}</p>
 
         <!-- Warning Callout -->
-        <div class="mt-4 p-4 rounded-3" style="background:#fffbeb; border-left:4px solid #f59e0b;">
-            <div class="d-flex align-items-start gap-2 mb-2">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0; margin-top:2px;"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-                <h4 class="fw-bold mb-0" style="color:#1a1a2e; font-size:1.05rem;">{{ __('messages.section3_callout_title') }}</h4>
-            </div>
-            <p class="mb-0" style="color:#555; line-height:1.7;">{{ __('messages.section3_callout_text') }}</p>
+        <div class="mt-4">
+            <x-ui.callout variant="attention">
+                <strong class="d-block mb-1">{{ __('messages.section3_callout_title') }}</strong>
+                {{ __('messages.section3_callout_text') }}
+            </x-ui.callout>
         </div>
 
         <h3 class="fw-bold mt-4 mb-3" style="color:#1a1a2e; font-size:1.15rem;">{{ __('messages.section3_sub2') }}</h3>

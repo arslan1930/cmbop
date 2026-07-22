@@ -353,6 +353,8 @@ Route::middleware(['auth', 'verified', RoleMiddleware::class.':admin,marketing']
                 ->name('users.index');
             Route::post('/users/{id}/update-company', [UserController::class, 'updateCompany'])
                 ->name('users.updateCompany');
+            Route::post('/users/{id}/payout-profile', [UserController::class, 'updatePayoutProfile'])
+                ->name('users.updatePayoutProfile');
             Route::post('/users/{id}/roles', [UserController::class, 'updateRoles'])
                 ->name('users.updateRoles');
 
