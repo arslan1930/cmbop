@@ -772,6 +772,8 @@ class InAppNotificationService
 
     public function notifyLiveUrlSubmitted(Order $order, OrderItem $item, Site $site, string $liveUrl): void
     {
+        $windowDays = max(1, (int) ceil(OrderItem::autoApproveHours() / 24));
+
         $this->recordOrderActivity(
             $order,
             'order.published',
@@ -784,7 +786,7 @@ class InAppNotificationService
             $order->user_id,
             self::TYPE_GUEST_POST_PUBLISHED,
             "Order #{$order->order_number} published",
-            "Your backlink on {$item->site_name} has been published and is ready for review.",
+            "Your backlink on {$item->site_name} has been published and is ready for review. Auto-completes in about {$windowDays} day(s) if you take no action.",
             [
                 'category' => self::CATEGORY_ORDERS,
                 'icon' => 'rocket',
@@ -792,7 +794,42 @@ class InAppNotificationService
                 'related' => $order,
                 'action_label' => 'Review order',
                 'action_url' => route('advertiser.orders', ['focus' => 'order', 'order' => $order->id], false),
-                'meta' => ['live_url' => $liveUrl],
+                'meta' => [
+                    'live_url' => $liveUrl,
+                    'auto_approve_hours' => OrderItem::autoApproveHours(),
+                ],
+            ]
+        );
+    }
+
+    /**
+     * Advertiser: ~24h left before auto-complete.
+     */
+    public function notifyAutoApproveReminder(Order $order, OrderItem $item, int $hoursRemaining): void
+    {
+        if (! $order->user_id) {
+            return;
+        }
+
+        $this->notify(
+            (int) $order->user_id,
+            self::TYPE_ORDER_UPDATED,
+            "1 day left — order #{$order->order_number}",
+            "About {$hoursRemaining} hour(s) remain before this order auto-completes. Approve the live URL or request changes.",
+            [
+                'category' => self::CATEGORY_ORDERS,
+                'icon' => 'alert-triangle',
+                'priority' => InAppNotification::PRIORITY_HIGH,
+                'related' => $order,
+                'audience' => InAppNotification::AUDIENCE_ADVERTISER,
+                'action_label' => 'Review order',
+                'action_url' => route('advertiser.orders', ['focus' => 'order', 'order' => $order->id], false),
+                'meta' => [
+                    'order_number' => $order->order_number,
+                    'order_item_id' => $item->id,
+                    'hours_remaining' => $hoursRemaining,
+                    'live_url' => $item->live_url,
+                ],
             ]
         );
     }

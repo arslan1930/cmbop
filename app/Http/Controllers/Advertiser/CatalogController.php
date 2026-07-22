@@ -2206,6 +2206,9 @@ class CatalogController extends Controller
                     'live_url_submitted_at' => now(),
                     'auto_approve_triggered' => false,
                 ];
+                if (Schema::hasColumn('order_items', 'auto_approve_reminder_sent_at')) {
+                    $payload['auto_approve_reminder_sent_at'] = null;
+                }
                 if (Schema::hasColumn('order_items', 'completion_notes')) {
                     $payload['completion_notes'] = $request->reason;
                 }

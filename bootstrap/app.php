@@ -1,6 +1,9 @@
 <?php
+
 // bootstrap/app.php
 
+use App\Http\Middleware\SecurityHeaders;
+use App\Http\Middleware\SetLocale;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -17,18 +20,18 @@ return Application::configure(basePath: dirname(__DIR__))
         // Public-site locale detection (SaaS dashboards stay English via SetLocale rules)
         // Security headers (CSP, HSTS, nosniff, frame, referrer) on every web response
         $middleware->appendToGroup('web', [
-            \App\Http\Middleware\SetLocale::class,
-            \App\Http\Middleware\SecurityHeaders::class,
+            SetLocale::class,
+            SecurityHeaders::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
         // Production uses branded resources/views/errors/* pages (APP_DEBUG=false).
-        $exceptions->shouldRenderJsonWhen(function ($request, \Throwable $e) {
+        $exceptions->shouldRenderJsonWhen(function ($request, Throwable $e) {
             return $request->expectsJson();
         });
     })
     ->withSchedule(function (Schedule $schedule) {
-        // 48-hour window — every 15 minutes is enough; everyMinute was unnecessarily aggressive
+        // Auto-approve window (default 72h / 3 days) — every 15 minutes
         $event = $schedule->command('orders:auto-approve')
             ->everyFifteenMinutes()
             ->withoutOverlapping()

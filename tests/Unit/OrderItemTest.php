@@ -48,8 +48,9 @@ class OrderItemTest extends TestCase
         $this->assertFalse($item->isModificationRequested());
     }
 
-    public function test_is_ready_for_auto_approve_after_48_hours(): void
+    public function test_is_ready_for_auto_approve_after_configured_window(): void
     {
+        config(['orders.auto_approve_hours' => 72]);
         Carbon::setTestNow(Carbon::parse('2026-07-15 12:00:00'));
 
         $item = new OrderItem([
@@ -66,6 +67,7 @@ class OrderItemTest extends TestCase
 
     public function test_is_not_ready_for_auto_approve_when_modification_requested(): void
     {
+        config(['orders.auto_approve_hours' => 72]);
         Carbon::setTestNow(Carbon::parse('2026-07-15 12:00:00'));
 
         $item = new OrderItem([
@@ -75,22 +77,68 @@ class OrderItemTest extends TestCase
             'auto_approve_triggered' => false,
         ]);
 
+        $this->assertFalse($item->isModificationRequested() === false && $item->isReadyForAutoApprove());
         $this->assertFalse($item->isReadyForAutoApprove());
 
         Carbon::setTestNow();
     }
 
-    public function test_is_not_ready_for_auto_approve_before_48_hours(): void
+    public function test_is_not_ready_for_auto_approve_before_window(): void
     {
+        config(['orders.auto_approve_hours' => 72]);
         Carbon::setTestNow(Carbon::parse('2026-07-15 12:00:00'));
 
         $item = new OrderItem([
             'live_url' => 'https://example.com/post',
-            'live_url_submitted_at' => Carbon::parse('2026-07-14 12:00:00'),
+            'live_url_submitted_at' => Carbon::parse('2026-07-14 12:00:00'), // 24h ago
             'modification_requested' => 'no',
             'auto_approve_triggered' => false,
         ]);
 
+        $this->assertFalse($item->isReadyForAutoApprove());
+        $this->assertSame(48, $item->getAutoApproveHoursRemaining());
+
+        Carbon::setTestNow();
+    }
+
+    public function test_failed_live_url_health_check_blocks_auto_approve(): void
+    {
+        config([
+            'orders.auto_approve_hours' => 72,
+            'orders.auto_approve_require_live_url_ok' => true,
+        ]);
+        Carbon::setTestNow(Carbon::parse('2026-07-15 12:00:00'));
+
+        $item = new OrderItem([
+            'live_url' => 'https://example.com/post',
+            'live_url_submitted_at' => Carbon::parse('2026-07-10 12:00:00'),
+            'modification_requested' => 'no',
+            'auto_approve_triggered' => false,
+            'live_url_check_ok' => false,
+        ]);
+
+        $this->assertFalse($item->isReadyForAutoApprove());
+
+        Carbon::setTestNow();
+    }
+
+    public function test_reminder_window_is_last_24_hours(): void
+    {
+        config([
+            'orders.auto_approve_hours' => 72,
+            'orders.auto_approve_reminder_hours_before' => 24,
+        ]);
+        Carbon::setTestNow(Carbon::parse('2026-07-15 12:00:00'));
+
+        $item = new OrderItem([
+            'live_url' => 'https://example.com/post',
+            'live_url_submitted_at' => Carbon::parse('2026-07-13 12:00:00'), // 48h ago → 24h left
+            'modification_requested' => 'no',
+            'auto_approve_triggered' => false,
+            'auto_approve_reminder_sent_at' => null,
+        ]);
+
+        $this->assertTrue($item->isReadyForAutoApproveReminder());
         $this->assertFalse($item->isReadyForAutoApprove());
 
         Carbon::setTestNow();

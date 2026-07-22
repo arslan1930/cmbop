@@ -244,6 +244,9 @@ ALTER TABLE `wallets`
 -- order_items: content library / upload linkage (fixes Unknown column content_submission_id)
 -- Ignore "Duplicate column" if already present. FK only if content_submissions exists.
 -- ---------------------------------------------------------------------------
+-- Auto-approve reminder (1 day left before auto-complete)
+ALTER TABLE `order_items` ADD COLUMN IF NOT EXISTS `auto_approve_reminder_sent_at` TIMESTAMP NULL DEFAULT NULL AFTER `auto_approve_at`;
+
 ALTER TABLE `order_items` ADD COLUMN `content_submission_id` BIGINT UNSIGNED NULL;
 ALTER TABLE `order_items` ADD COLUMN `content_disk` VARCHAR(40) NULL;
 ALTER TABLE `order_items` ADD COLUMN `content_path` VARCHAR(255) NULL;

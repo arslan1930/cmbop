@@ -571,6 +571,9 @@ class OrderController extends Controller
                     'modification_requested' => 'no',
                     'auto_approve_triggered' => false,
                 ];
+                if (Schema::hasColumn('order_items', 'auto_approve_reminder_sent_at')) {
+                    $payload['auto_approve_reminder_sent_at'] = null;
+                }
                 if (Schema::hasColumn('order_items', 'live_url_check_ok')) {
                     $payload['live_url_check_ok'] = $health['ok'];
                     $payload['live_url_http_status'] = $health['status'];
@@ -617,7 +620,9 @@ class OrderController extends Controller
                 'live_url' => $request->live_url,
             ]);
 
-            $message = 'Live URL submitted successfully! The advertiser will now review your submission. The order will be auto-approved in 48 hours if not reviewed.';
+            $windowHours = OrderItem::autoApproveHours();
+            $windowDays = max(1, (int) ceil($windowHours / 24));
+            $message = "Live URL submitted successfully! The advertiser will now review your submission. The order will be auto-approved in about {$windowDays} day(s) ({$windowHours} hours) if not reviewed.";
             if (! $health['ok']) {
                 $message .= ' Note: '.$health['message'];
             }
@@ -677,6 +682,9 @@ class OrderController extends Controller
                 'modification_requested_at' => null,
                 'auto_approve_triggered' => false,
             ];
+            if (Schema::hasColumn('order_items', 'auto_approve_reminder_sent_at')) {
+                $payload['auto_approve_reminder_sent_at'] = null;
+            }
             if (Schema::hasColumn('order_items', 'live_url_check_ok')) {
                 $payload['live_url_check_ok'] = $health['ok'];
                 $payload['live_url_http_status'] = $health['status'];

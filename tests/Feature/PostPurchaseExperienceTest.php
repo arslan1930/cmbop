@@ -196,6 +196,11 @@ class PostPurchaseExperienceTest extends TestCase
 
     public function test_auto_approve_notifies_advertiser_in_app(): void
     {
+        config([
+            'orders.auto_approve_hours' => 72,
+            'orders.auto_approve_require_live_url_ok' => true,
+        ]);
+
         $advertiser = $this->advertiser();
         $publisher = $this->publisher();
         $site = $this->siteFor($publisher);
@@ -223,7 +228,8 @@ class PostPurchaseExperienceTest extends TestCase
         ]);
 
         $order = $this->reviewOrder($advertiser, $site, [
-            'live_url_submitted_at' => now()->subHours(49),
+            'live_url_submitted_at' => now()->subHours(73),
+            'live_url_check_ok' => true,
         ]);
 
         $this->artisan('orders:auto-approve')->assertSuccessful();
@@ -242,6 +248,80 @@ class PostPurchaseExperienceTest extends TestCase
             ->first();
         $this->assertNotNull($note);
         $this->assertStringContainsString('auto-approved', strtolower($note->message));
+    }
+
+    public function test_auto_approve_reminder_sends_bell_at_about_24h_left(): void
+    {
+        config([
+            'orders.auto_approve_hours' => 72,
+            'orders.auto_approve_reminder_hours_before' => 24,
+            'orders.auto_approve_require_live_url_ok' => true,
+        ]);
+
+        $advertiser = $this->advertiser();
+        $publisher = $this->publisher();
+        $site = $this->siteFor($publisher);
+
+        $order = $this->reviewOrder($advertiser, $site, [
+            'live_url_submitted_at' => now()->subHours(49),
+            'live_url_check_ok' => true,
+            'auto_approve_reminder_sent_at' => null,
+        ]);
+
+        $this->artisan('orders:auto-approve')->assertSuccessful();
+
+        $this->assertSame('review', $order->fresh()->status);
+        $this->assertNotNull($order->items()->first()->fresh()->auto_approve_reminder_sent_at);
+
+        $note = InAppNotification::where('user_id', $advertiser->id)
+            ->where('related_id', $order->id)
+            ->where('type', 'order_updated')
+            ->first();
+        $this->assertNotNull($note);
+        $this->assertStringContainsString('1 day left', strtolower($note->title));
+    }
+
+    public function test_auto_approve_skips_when_live_url_health_check_failed(): void
+    {
+        config([
+            'orders.auto_approve_hours' => 72,
+            'orders.auto_approve_require_live_url_ok' => true,
+        ]);
+
+        $advertiser = $this->advertiser();
+        $publisher = $this->publisher();
+        $site = $this->siteFor($publisher);
+
+        $order = $this->reviewOrder($advertiser, $site, [
+            'live_url_submitted_at' => now()->subHours(73),
+            'live_url_check_ok' => false,
+        ]);
+
+        $this->artisan('orders:auto-approve')->assertSuccessful();
+
+        $this->assertSame('review', $order->fresh()->status);
+        $this->assertFalse((bool) $order->items()->first()->fresh()->auto_approve_triggered);
+    }
+
+    public function test_modification_request_resets_auto_approve_reminder(): void
+    {
+        $advertiser = $this->advertiser();
+        $publisher = $this->publisher();
+        $site = $this->siteFor($publisher);
+        $order = $this->reviewOrder($advertiser, $site, [
+            'auto_approve_reminder_sent_at' => now()->subHour(),
+        ]);
+
+        $this->actingAs($advertiser)
+            ->postJson(route('advertiser.order.modification', $order->id), [
+                'reason' => 'Please update the H1 to match the brief.',
+            ])
+            ->assertOk()
+            ->assertJsonPath('success', true);
+
+        $item = $order->items()->first()->fresh();
+        $this->assertSame('yes', $item->modification_requested);
+        $this->assertNull($item->auto_approve_reminder_sent_at);
     }
 
     public function test_chat_order_details_include_next_action_and_order_id(): void

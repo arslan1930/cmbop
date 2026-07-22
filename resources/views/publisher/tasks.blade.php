@@ -220,7 +220,7 @@
                 <div class="mb-3">
                     <label for="live_url" class="form-label">Live URL <span class="text-danger">*</span></label>
                     <input type="url" id="live_url" class="form-control" placeholder="https://example.com/your-article">
-                    <small class="text-muted">Enter the live URL where the content is published. After submission, the advertiser has 48 hours to approve or request changes.</small>
+                    <small class="text-muted">Enter the live URL where the content is published. After submission, the advertiser has {{ (int) ceil(\App\Models\OrderItem::autoApproveHours() / 24) }} days to approve or request changes.</small>
                 </div>
             </div>
             <div class="modal-footer">
@@ -438,6 +438,8 @@ let refreshInterval = null;
 
 // Get the base URL dynamically
 const baseUrl = window.location.origin;
+const AUTO_APPROVE_HOURS = {{ (int) \App\Models\OrderItem::autoApproveHours() }};
+const AUTO_APPROVE_DAYS = {{ (int) max(1, (int) ceil(\App\Models\OrderItem::autoApproveHours() / 24)) }};
 
 function clearFocusMessagesParam() {
     const url = new URL(window.location.href);
@@ -713,7 +715,7 @@ $(document).ready(function() {
                 if (response.success) {
                     Swal.fire({
                         title: 'Success!',
-                        html: response.message + '<br><br><small>The advertiser now has 48 hours to review your submission. If no action is taken, the order will be approved.</small>',
+                        html: response.message + '<br><br><small>The advertiser now has ' + AUTO_APPROVE_DAYS + ' day(s) to review your submission. If no action is taken, the order will be approved.</small>',
                         icon: 'success'
                     });
                     $('#completeModal').modal('hide');
@@ -952,7 +954,7 @@ $(document).ready(function() {
         if (item.live_url_submitted_at && !modificationRequested && !item.auto_approve_triggered) {
             const hoursRemaining = getAutoApproveHoursRemaining(item.live_url_submitted_at);
             if (hoursRemaining > 0) {
-                autoApproveInfo = '<div class="alert alert-info mt-3"><i class="fa fa-info-circle"></i> <strong>Waiting for advertiser:</strong> They can approve or request changes. Auto-approve in about ' + Math.ceil(hoursRemaining) + ' hours if they take no action.</div>';
+                autoApproveInfo = '<div class="alert alert-info mt-3"><i class="fa fa-info-circle"></i> <strong>Waiting for advertiser:</strong> They can approve or request changes. ' + escapeHtml(formatAutoApproveCountdown(hoursRemaining)) + '.</div>';
             } else {
                 autoApproveInfo = '<div class="alert alert-success mt-3"><i class="fa fa-check-circle"></i> <strong>Ready for approval:</strong> The advertiser review window has ended — this should auto-approve soon.</div>';
             }
@@ -1064,7 +1066,17 @@ $(document).ready(function() {
     function getAutoApproveHoursRemaining(submittedAt) {
         if (!submittedAt) return null;
         const hoursPassed = (new Date() - new Date(submittedAt)) / (1000 * 60 * 60);
-        return 48 - hoursPassed;
+        return AUTO_APPROVE_HOURS - hoursPassed;
+    }
+
+    function formatAutoApproveCountdown(hoursRemaining) {
+        if (hoursRemaining === null || hoursRemaining === undefined) return null;
+        if (hoursRemaining <= 0) return 'Ready for auto-approve soon';
+        if (hoursRemaining >= 24) {
+            const days = Math.ceil(hoursRemaining / 24);
+            return 'Auto-approve in ~' + days + ' day(s) if they take no action';
+        }
+        return 'Auto-approve in ~' + Math.ceil(hoursRemaining) + 'h if they take no action';
     }
 
     function getPublisherStatusMeta(orderStatus, hasLiveUrl, modificationRequested, liveUrlSubmittedAt) {
@@ -1076,9 +1088,7 @@ $(document).ready(function() {
         }
         if (orderStatus === 'review' || (orderStatus === 'processing' && hasLiveUrl)) {
             const hoursRemaining = getAutoApproveHoursRemaining(liveUrlSubmittedAt);
-            const countdown = hoursRemaining !== null && hoursRemaining > 0
-                ? 'Auto-approve in ~' + Math.ceil(hoursRemaining) + 'h if they take no action'
-                : 'Advertiser can approve anytime';
+            const countdown = formatAutoApproveCountdown(hoursRemaining) || 'Advertiser can approve anytime';
             return { statusClass: 'status-review', statusText: 'Waiting for advertiser', nextStep: countdown };
         }
         if (orderStatus === 'processing') {
