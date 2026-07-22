@@ -11,7 +11,8 @@ return new class extends Migration
     {
         Schema::table('sites', function (Blueprint $table) {
             if (! Schema::hasColumn('sites', 'completed_orders_count')) {
-                $table->unsignedInteger('completed_orders_count')->default(0)->after('rating_count');
+                // No after() — rating_count may be absent on older schemas.
+                $table->unsignedInteger('completed_orders_count')->default(0);
             }
         });
 
@@ -28,7 +29,7 @@ return new class extends Migration
             Schema::table('site_ratings', function (Blueprint $table) {
                 $table->dropUnique(['site_id', 'user_id']);
             });
-        } catch (\Throwable) {
+        } catch (Throwable) {
             // Already dropped or named differently.
         }
 
@@ -36,7 +37,7 @@ return new class extends Migration
             Schema::table('site_ratings', function (Blueprint $table) {
                 $table->unique('order_item_id');
             });
-        } catch (\Throwable) {
+        } catch (Throwable) {
             // Already exists.
         }
 
@@ -44,7 +45,7 @@ return new class extends Migration
             Schema::table('site_ratings', function (Blueprint $table) {
                 $table->index(['site_id', 'user_id']);
             });
-        } catch (\Throwable) {
+        } catch (Throwable) {
             // Already exists.
         }
 
@@ -70,7 +71,7 @@ return new class extends Migration
             Schema::table('site_ratings', function (Blueprint $table) {
                 $table->dropUnique(['order_item_id']);
             });
-        } catch (\Throwable) {
+        } catch (Throwable) {
         }
 
         Schema::table('site_ratings', function (Blueprint $table) {
@@ -86,7 +87,7 @@ return new class extends Migration
             Schema::table('site_ratings', function (Blueprint $table) {
                 $table->unique(['site_id', 'user_id']);
             });
-        } catch (\Throwable) {
+        } catch (Throwable) {
         }
 
         Schema::table('sites', function (Blueprint $table) {

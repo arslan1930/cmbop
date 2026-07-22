@@ -9,6 +9,7 @@ use App\Models\Site;
 use App\Models\SiteRating;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
 
 class SiteRatingTest extends TestCase
@@ -131,6 +132,31 @@ class SiteRatingTest extends TestCase
 
         $this->assertSame(2, (int) $site->completed_orders_count);
         $this->assertSame('2 completed orders', $site->completedOrdersLabel());
+    }
+
+    public function test_sites_table_has_completed_orders_count_column(): void
+    {
+        $this->assertTrue(
+            Schema::hasColumn('sites', 'completed_orders_count'),
+            'sites.completed_orders_count must exist so order approval can refresh the counter'
+        );
+    }
+
+    public function test_refresh_completed_orders_count_is_safe_without_column(): void
+    {
+        // Simulate a deploy that has not migrated the counter yet.
+        Schema::table('sites', function ($table) {
+            $table->dropColumn('completed_orders_count');
+        });
+
+        $this->assertFalse(Site::hasSitesColumn('completed_orders_count'));
+
+        Site::refreshCompletedOrdersCount(1); // must not throw
+
+        // Restore for later tests in this class / process.
+        Schema::table('sites', function ($table) {
+            $table->unsignedInteger('completed_orders_count')->default(0);
+        });
     }
 
     public function test_admin_can_hide_rating_and_aggregate_excludes_it(): void
