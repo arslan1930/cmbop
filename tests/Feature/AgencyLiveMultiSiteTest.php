@@ -158,7 +158,11 @@ class AgencyLiveMultiSiteTest extends TestCase
             ->assertOk()
             ->assertSee('Add many websites', false)
             ->assertSee('liveBulkForm', false)
+            ->assertSee('live-bulk-table', false)
+            ->assertSee('liveBulkFill25Btn', false)
+            ->assertSee('Fill every column for each site in one table', false)
             ->assertSee('Advanced: CSV import', false)
-            ->assertSee(route('publisher.sites.bulk-store'), false);
+            ->assertSee(route('publisher.sites.bulk-store'), false)
+            ->assertDontSee('Previous sites collapse', false);
     }
 }

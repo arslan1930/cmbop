@@ -1232,10 +1232,10 @@
                     backgroundColor: (ctx) => {
                         const chart = ctx.chart;
                         const {ctx: c, chartArea} = chart;
-                        if (!chartArea) return 'rgba(11,98,102,.10)';
+                        if (!chartArea) return 'rgba(24,80,84,.10)';
                         const g = c.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
-                        g.addColorStop(0, 'rgba(58,174,178,.28)');
-                        g.addColorStop(1, 'rgba(11,98,102,.02)');
+                        g.addColorStop(0, 'rgba(63,174,178,.28)');
+                        g.addColorStop(1, 'rgba(24,80,84,.02)');
                         return g;
                     },
                     borderWidth: 2.5,
@@ -1267,7 +1267,7 @@
                         zoom: {
                             wheel: { enabled: true, speed: 0.08 },
                             pinch: { enabled: true },
-                            drag: { enabled: true, backgroundColor: 'rgba(11,98,102,.08)', borderColor: 'rgba(11,98,102,.35)', borderWidth: 1 },
+                            drag: { enabled: true, backgroundColor: 'rgba(24,80,84,.08)', borderColor: 'rgba(24,80,84,.35)', borderWidth: 1 },
                             mode: 'x',
                         },
                         limits: { x: { min: 'original', max: 'original' } },

@@ -78,6 +78,16 @@ class DesignConsistencyTest extends TestCase
         $this->assertStringContainsString('border-radius: var(--radius-lg', $spacing);
     }
 
+    public function test_brand_tokens_use_mist_teal_pair(): void
+    {
+        $brand = file_get_contents(public_path('css/brand-colors.css'));
+        $this->assertStringContainsString('--brand-primary: #185054', $brand);
+        $this->assertStringContainsString('--brand-primary-soft: #3faeb2', $brand);
+        $this->assertStringContainsString('--brand-primary-bg: #e6f5f5', $brand);
+        $this->assertStringContainsString('--surface-2: #f7fafb', $brand);
+        $this->assertStringContainsString('--brand-warning: #b45309', $brand);
+    }
+
     public function test_marketing_back_to_top_uses_brand_primary(): void
     {
         $layout = file_get_contents(resource_path('views/layouts/app.blade.php'));

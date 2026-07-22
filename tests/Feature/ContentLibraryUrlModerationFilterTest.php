@@ -87,7 +87,12 @@ class ContentLibraryUrlModerationFilterTest extends TestCase
         $approvedPage = $this->actingAs($advertiser)
             ->get(route('advertiser.content-library', ['status' => 'approved']));
         $approvedPage->assertOk()->assertSee('Approved Piece');
-        $this->assertStringContainsString('value="approved" selected', $approvedPage->getContent());
+        $approvedHtml = $approvedPage->getContent();
+        $this->assertStringContainsString('name="status" value="approved"', $approvedHtml);
+        $this->assertMatchesRegularExpression(
+            '/library-moderation-box[^>]*is-active[^>]*>[\s\S]*?Approved/i',
+            $approvedHtml
+        );
 
         $this->actingAs($advertiser)
             ->get(route('advertiser.content-library', ['status' => 'rejected']))
@@ -149,7 +154,7 @@ class ContentLibraryUrlModerationFilterTest extends TestCase
             ->assertOk()
             ->assertSee('Clean Looking Article')
             ->assertSee('Blocked links:')
-            ->assertSee('Needs changes');
+            ->assertSee('Rejected');
     }
 
     public function test_saving_article_with_adult_url_rejects(): void
@@ -181,6 +186,68 @@ class ContentLibraryUrlModerationFilterTest extends TestCase
         $submission->refresh();
         $this->assertSame(ContentSubmission::STATUS_REJECTED, $submission->moderation_status);
         $this->assertStringContainsString('pornhub', implode(' ', $submission->evaluation_report['blocked_urls'] ?? []));
+    }
+
+    public function test_patching_links_on_approved_article_rechecks_and_rejects_casino(): void
+    {
+        Mail::fake();
+        config(['content_moderation.enabled' => true]);
+
+        $advertiser = $this->advertiser();
+        $submission = $this->createApprovedSubmission($advertiser);
+        $body = $this->englishBody();
+        $submission->update([
+            'title' => 'Approved Then Edited',
+            'language' => 'en',
+            'country' => 'us',
+            'extracted_text' => $body,
+            'preview_html' => '<p>'.$body.'</p><p><a href="https://example.com/guide">helpful guide</a></p>',
+            'anchor_text' => 'helpful guide',
+            'target_url' => 'https://example.com/guide',
+        ]);
+        config(['content_moderation.enabled' => true]);
+
+        $html = '<p>'.$body.'</p><p><a href="https://www.bet365.com/sports">helpful guide</a></p>';
+
+        $response = $this->actingAs($advertiser)
+            ->patchJson(route('advertiser.content-submissions.update', $submission), [
+                'links' => [
+                    ['anchor' => 'helpful guide', 'url' => 'https://www.bet365.com/sports'],
+                ],
+                'preview_html' => $html,
+            ]);
+
+        $response->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('approved', false)
+            ->assertJsonPath('moderation_status', ContentSubmission::STATUS_REJECTED);
+
+        $submission->refresh();
+        $this->assertSame(ContentSubmission::STATUS_REJECTED, $submission->moderation_status);
+        $this->assertFalse($submission->canBeOrdered());
+        $this->assertSame('needs_fix', $submission->libraryAvailability());
+        $this->assertNotEmpty($submission->evaluation_report['blocked_urls'] ?? []);
+
+        $this->actingAs($advertiser)
+            ->get(route('advertiser.content-library', ['status' => 'rejected']))
+            ->assertOk()
+            ->assertSee('Approved Then Edited')
+            ->assertSee('Rejected', false)
+            ->assertDontSee('>Available<', false);
+    }
+
+    public function test_content_library_chrome_keeps_browse_publishers_without_top_upload(): void
+    {
+        $advertiser = $this->advertiser();
+
+        $html = $this->actingAs($advertiser)
+            ->get(route('advertiser.content-library'))
+            ->assertOk()
+            ->getContent();
+
+        $this->assertStringContainsString('Browse publishers', $html);
+        $this->assertStringContainsString('id="openUploadModalBtn"', $html);
+        $this->assertStringNotContainsString('id="openUploadModalBtnTop"', $html);
     }
 
     public function test_evaluation_service_flags_cloaked_url_directly(): void

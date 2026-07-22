@@ -405,9 +405,9 @@ class ContentLibraryImprovementsTest extends TestCase
             ->getContent();
 
         $this->assertStringContainsString('id="articlePreviewLinkMeta"', $html);
-        $this->assertStringContainsString('id="articlePreviewAnchorText"', $html);
-        $this->assertStringContainsString('id="articlePreviewTargetUrl"', $html);
-        $this->assertStringContainsString('function openPreviewModal(title, html, anchorText, targetUrl)', $html);
+        $this->assertStringContainsString('id="articlePreviewLinksList"', $html);
+        $this->assertStringContainsString('id="articleLinksSaveBtn"', $html);
+        $this->assertStringContainsString('function openPreviewModal(title, html, links, submissionId, editable)', $html);
     }
 
     private function makeOrder(User $advertiser): Order

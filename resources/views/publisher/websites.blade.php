@@ -568,110 +568,87 @@
         }
     }
 
-    /* Live bulk: collapsed one-row summaries */
-    .live-bulk-site {
+    /* Live bulk: full editable table (all sites visible) */
+    .live-bulk-table-wrap {
+        overflow: auto;
+        max-height: min(70vh, 720px);
         border: 1px solid #e2e8f0;
         border-radius: 12px;
         background: #fff;
-        overflow: hidden;
-        transition: border-color 0.15s ease, box-shadow 0.15s ease;
     }
-    .live-bulk-site.is-expanded {
-        border-color: color-mix(in srgb, var(--brand-teal, #1ABC9C) 35%, #e2e8f0);
-        box-shadow: 0 0 0 1px color-mix(in srgb, var(--brand-teal, #1ABC9C) 12%, transparent);
+    .live-bulk-table {
+        width: max-content;
+        min-width: 100%;
+        border-collapse: separate;
+        border-spacing: 0;
+        font-size: 0.82rem;
+        margin: 0;
     }
-    .live-bulk-site.is-collapsed .live-bulk-body {
-        display: none;
-    }
-    .live-bulk-site.is-collapsed .live-bulk-bar {
-        border-bottom: none;
-        background: #fff;
-    }
-    .live-bulk-bar {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 0.65rem;
-        padding: 0.65rem 0.9rem;
+    .live-bulk-table thead th {
+        position: sticky;
+        top: 0;
+        z-index: 3;
         background: #f8fafc;
         border-bottom: 1px solid #e2e8f0;
-        cursor: pointer;
-        user-select: none;
-        min-height: 2.75rem;
+        border-right: 1px solid #eef2f7;
+        padding: 0.55rem 0.5rem;
+        font-weight: 700;
+        color: #334155;
+        white-space: nowrap;
+        vertical-align: middle;
     }
-    .live-bulk-site.is-collapsed:hover .live-bulk-bar,
-    .live-bulk-site.is-pinned .live-bulk-bar {
+    .live-bulk-table tbody td {
+        border-bottom: 1px solid #eef2f7;
+        border-right: 1px solid #eef2f7;
+        padding: 0.4rem 0.45rem;
+        vertical-align: top;
+        background: #fff;
+    }
+    .live-bulk-table tbody tr:hover td {
         background: #f8fafc;
     }
-    .live-bulk-bar-main {
-        display: flex;
-        align-items: center;
-        gap: 0.55rem;
-        min-width: 0;
-        flex: 1;
-        border: 0;
-        background: transparent;
-        padding: 0;
-        text-align: left;
-        color: inherit;
-    }
-    .live-bulk-bar-main:focus-visible {
-        outline: 2px solid color-mix(in srgb, var(--brand-teal, #1ABC9C) 55%, transparent);
-        outline-offset: 2px;
-        border-radius: 6px;
-    }
-    .live-bulk-chevron {
-        flex-shrink: 0;
-        color: #94a3b8;
-        font-size: 0.7rem;
-        transition: transform 0.15s ease;
-        width: 0.85rem;
+    .live-bulk-table .live-bulk-sticky {
+        position: sticky;
+        left: 0;
+        z-index: 2;
+        background: #fff;
+        box-shadow: 1px 0 0 #e2e8f0;
+        min-width: 3.25rem;
         text-align: center;
     }
-    .live-bulk-site.is-collapsed .live-bulk-chevron {
-        transform: rotate(-90deg);
+    .live-bulk-table thead th.live-bulk-sticky {
+        z-index: 4;
+        background: #f8fafc;
     }
-    .live-bulk-title {
+    .live-bulk-table tbody tr:hover .live-bulk-sticky {
+        background: #f8fafc;
+    }
+    .live-bulk-table .form-control,
+    .live-bulk-table .form-select {
+        min-width: 6.5rem;
+        font-size: 0.8rem;
+    }
+    .live-bulk-table .live-bulk-col-name .form-control,
+    .live-bulk-table .live-bulk-col-url .form-control {
+        min-width: 9.5rem;
+    }
+    .live-bulk-table .live-bulk-col-desc .form-control {
+        min-width: 14rem;
+        width: 14rem;
+    }
+    .live-bulk-table .live-bulk-categories {
+        min-width: 11rem;
+        width: 11rem;
+        height: 4.75rem;
+    }
+    .live-bulk-num {
+        display: inline-block;
         font-weight: 700;
         color: #0f172a;
-        font-size: 0.9rem;
-        flex-shrink: 0;
+        margin-bottom: 0.25rem;
     }
-    .live-bulk-status {
-        display: none;
-        flex-shrink: 0;
-        font-size: 0.68rem;
-        font-weight: 700;
-        letter-spacing: 0.02em;
-        text-transform: uppercase;
-        color: var(--brand-teal, #1ABC9C);
-        background: color-mix(in srgb, var(--brand-teal, #1ABC9C) 12%, #fff);
-        border: 1px solid color-mix(in srgb, var(--brand-teal, #1ABC9C) 28%, #e2e8f0);
-        border-radius: 999px;
-        padding: 0.12rem 0.45rem;
-    }
-    .live-bulk-site.is-pinned .live-bulk-status {
-        display: inline-block;
-    }
-    .live-bulk-summary {
-        color: #64748b;
-        font-size: 0.82rem;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        min-width: 0;
-        flex: 1;
-    }
-    .live-bulk-site.is-expanded .live-bulk-summary {
-        display: none;
-    }
-    .live-bulk-actions {
-        display: flex;
-        gap: 0.35rem;
-        flex-shrink: 0;
-    }
-    .live-bulk-body {
-        padding: 1rem 1.1rem 1.15rem;
+    .live-bulk-table .live-bulk-remove {
+        padding: 0.15rem 0.4rem;
     }
 </style>
 
@@ -797,16 +774,44 @@
                     <button type="button" class="btn btn-sm btn-outline-secondary" id="liveBulkDuplicateBtn">
                         <i class="fa fa-copy me-1"></i> Duplicate last
                     </button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" id="liveBulkFill25Btn">
+                        <i class="fa fa-table me-1"></i> Fill to 25 rows
+                    </button>
                     <span class="small text-muted" id="liveBulkCountLabel">0 / 25 sites</span>
                     <button type="submit" class="btn btn-sm btn-primary ms-auto" id="liveBulkSubmitBtn">
                         <i class="fa fa-paper-plane me-1"></i> Submit all for review
                     </button>
                 </div>
                 <p class="small text-muted mb-3">
-                    Previous sites collapse to one summary row. Hover or tap a row to reopen; click the row title to pin it open while editing.
+                    Fill every column for each site in one table — same details as adding a single website.
+                    Scroll sideways for more fields. Hold Ctrl/Cmd to select niches (max 7).
                 </p>
 
-                <div id="liveBulkSites" class="d-flex flex-column gap-3"></div>
+                <div class="live-bulk-table-wrap">
+                    <table class="live-bulk-table">
+                        <thead>
+                            <tr>
+                                <th class="live-bulk-sticky">#</th>
+                                <th>Site name *</th>
+                                <th>Site URL *</th>
+                                <th>Example URL *</th>
+                                <th>DA *</th>
+                                <th>DR *</th>
+                                <th>Traffic *</th>
+                                <th>Turnaround *</th>
+                                <th>Price (€) *</th>
+                                <th>Language *</th>
+                                <th>Country *</th>
+                                <th>Publication *</th>
+                                <th>Niches * <span class="fw-normal text-muted">(max 7)</span></th>
+                                <th>Link type *</th>
+                                <th>Tag</th>
+                                <th>Description * <span class="fw-normal text-muted">(min 50)</span></th>
+                            </tr>
+                        </thead>
+                        <tbody id="liveBulkSites"></tbody>
+                    </table>
+                </div>
             </form>
 
             <details class="mt-4 border rounded p-3 bg-light">
@@ -836,120 +841,95 @@
     </div>
 
     <template id="liveBulkSiteTemplate">
-        <div class="live-bulk-site is-expanded" data-live-bulk-card>
-            <div class="live-bulk-bar">
-                <button type="button" class="live-bulk-bar-main live-bulk-toggle" aria-expanded="true" title="Click to pin open while editing">
-                    <i class="fa fa-chevron-down live-bulk-chevron" aria-hidden="true"></i>
-                    <strong class="live-bulk-title">Site <span class="live-bulk-num">1</span></strong>
-                    <span class="live-bulk-status">Pinned</span>
-                    <span class="live-bulk-summary"></span>
-                </button>
-                <div class="live-bulk-actions">
-                    <button type="button" class="btn btn-sm btn-outline-danger live-bulk-remove" title="Remove">
+        <tr data-live-bulk-card>
+            <td class="live-bulk-sticky">
+                <span class="live-bulk-num">1</span>
+                <div>
+                    <button type="button" class="btn btn-sm btn-outline-danger live-bulk-remove" title="Remove row">
                         <i class="fa fa-trash"></i>
                     </button>
                 </div>
-            </div>
-            <div class="live-bulk-body">
-                <div class="row g-2">
-                    <div class="col-md-4">
-                        <label class="form-label small">Site name <span class="text-danger">*</span></label>
-                        <input type="text" class="form-control form-control-sm" data-field="siteName" required maxlength="255">
-                    </div>
-                    <div class="col-md-4">
-                        <label class="form-label small">Site URL <span class="text-danger">*</span></label>
-                        <input type="url" class="form-control form-control-sm" data-field="siteUrl" required placeholder="https://example.com">
-                    </div>
-                    <div class="col-md-4">
-                        <label class="form-label small">Example URL <span class="text-danger">*</span></label>
-                        <input type="url" class="form-control form-control-sm" data-field="exampleUrl" required placeholder="https://example.com/post">
-                    </div>
-                    <div class="col-6 col-md-2">
-                        <label class="form-label small">DA (0–100) <span class="text-danger">*</span></label>
-                        <input type="number" class="form-control form-control-sm" data-field="da" min="0" max="100" required>
-                    </div>
-                    <div class="col-6 col-md-2">
-                        <label class="form-label small">DR (0–100) <span class="text-danger">*</span></label>
-                        <input type="number" class="form-control form-control-sm" data-field="dr" min="0" max="100" required>
-                    </div>
-                    <div class="col-6 col-md-2">
-                        <label class="form-label small">Traffic <span class="text-danger">*</span></label>
-                        <input type="number" class="form-control form-control-sm" data-field="traffic" min="0" required>
-                    </div>
-                    <div class="col-6 col-md-3">
-                        <label class="form-label small">Turnaround <span class="text-danger">*</span></label>
-                        <select class="form-select form-select-sm" data-field="turnaround_time" required>
-                            <option value="24h">24 Hours</option>
-                            <option value="48h">48 Hours</option>
-                            <option value="3days" selected>3 Days</option>
-                            <option value="5days">5 Days</option>
-                            <option value="7days">7 Days</option>
-                        </select>
-                    </div>
-                    <div class="col-6 col-md-3">
-                        <label class="form-label small">Price (€) <span class="text-danger">*</span></label>
-                        <input type="number" class="form-control form-control-sm" data-field="price" min="0" step="0.01" required>
-                    </div>
-                    <div class="col-md-4">
-                        <label class="form-label small">Language <span class="text-danger">*</span></label>
-                        <select class="form-select form-select-sm live-bulk-language" data-field="language" required>
-                            <option value="">Select language…</option>
-                            @foreach($languages as $language)
-                                <option value="{{ strtolower($language->code) }}">{{ $language->name }}</option>
-                            @endforeach
-                        </select>
-                    </div>
-                    <div class="col-md-4">
-                        <label class="form-label small">Country / Market <span class="text-danger">*</span></label>
-                        <select class="form-select form-select-sm live-bulk-country" data-field="country" required>
-                            <option value="">Select language first…</option>
-                            @foreach($countries as $country)
-                                <option value="{{ strtolower($country->code) }}">{{ $country->name }}</option>
-                            @endforeach
-                        </select>
-                    </div>
-                    <div class="col-md-4">
-                        <label class="form-label small">Publication <span class="text-danger">*</span></label>
-                        <select class="form-select form-select-sm" data-field="publicationTime" required>
-                            <option value="">Select…</option>
-                            <option value="6months">6 Months</option>
-                            <option value="1year">1 Year</option>
-                            <option value="permanent" selected>Permanent</option>
-                        </select>
-                    </div>
-                    <div class="col-12">
-                        <label class="form-label small">Niches / categories (max 7) <span class="text-danger">*</span></label>
-                        <select class="form-select form-select-sm live-bulk-categories" data-field="categories" multiple size="6" required>
-                            @foreach($categories as $category)
-                                <option value="{{ $category->name }}">{{ $category->name }}@if($category->group) ({{ $category->group }})@endif</option>
-                            @endforeach
-                        </select>
-                        <div class="form-text">Hold Ctrl/Cmd to select multiple. Pick from the catalog — do not type free text.</div>
-                    </div>
-                    <div class="col-md-4">
-                        <label class="form-label small">Link type <span class="text-danger">*</span></label>
-                        <select class="form-select form-select-sm" data-field="link_type" required>
-                            <option value="dofollow" selected>DoFollow</option>
-                            <option value="nofollow">NoFollow</option>
-                        </select>
-                    </div>
-                    <div class="col-md-8">
-                        <label class="form-label small">Tag (optional)</label>
-                        <select class="form-select form-select-sm" data-field="site_tag">
-                            <option value="">None</option>
-                            <option value="sponsored">Sponsored</option>
-                            <option value="partner_material">Partner Materials</option>
-                            <option value="as_you_prefer">As You Prefer</option>
-                        </select>
-                    </div>
-                    <div class="col-12">
-                        <label class="form-label small">Description (min 50 characters) <span class="text-danger">*</span></label>
-                        <textarea class="form-control form-control-sm" data-field="siteDescription" rows="3" minlength="50" required
-                                  placeholder="Describe the site for advertisers…"></textarea>
-                    </div>
-                </div>
-            </div>
-        </div>
+            </td>
+            <td class="live-bulk-col-name">
+                <input type="text" class="form-control form-control-sm" data-field="siteName" required maxlength="255" aria-label="Site name" placeholder="Name">
+            </td>
+            <td class="live-bulk-col-url">
+                <input type="url" class="form-control form-control-sm" data-field="siteUrl" required placeholder="https://…" aria-label="Site URL">
+            </td>
+            <td class="live-bulk-col-url">
+                <input type="url" class="form-control form-control-sm" data-field="exampleUrl" required placeholder="https://…/post" aria-label="Example URL">
+            </td>
+            <td>
+                <input type="number" class="form-control form-control-sm" data-field="da" min="0" max="100" required aria-label="DA" placeholder="0–100">
+            </td>
+            <td>
+                <input type="number" class="form-control form-control-sm" data-field="dr" min="0" max="100" required aria-label="DR" placeholder="0–100">
+            </td>
+            <td>
+                <input type="number" class="form-control form-control-sm" data-field="traffic" min="0" required aria-label="Traffic" placeholder="Visitors">
+            </td>
+            <td>
+                <select class="form-select form-select-sm" data-field="turnaround_time" required aria-label="Turnaround">
+                    <option value="24h">24 Hours</option>
+                    <option value="48h">48 Hours</option>
+                    <option value="3days" selected>3 Days</option>
+                    <option value="5days">5 Days</option>
+                    <option value="7days">7 Days</option>
+                </select>
+            </td>
+            <td>
+                <input type="number" class="form-control form-control-sm" data-field="price" min="0" step="0.01" required aria-label="Price" placeholder="€">
+            </td>
+            <td>
+                <select class="form-select form-select-sm live-bulk-language" data-field="language" required aria-label="Language">
+                    <option value="">Language…</option>
+                    @foreach($languages as $language)
+                        <option value="{{ strtolower($language->code) }}">{{ $language->name }}</option>
+                    @endforeach
+                </select>
+            </td>
+            <td>
+                <select class="form-select form-select-sm live-bulk-country" data-field="country" required aria-label="Country">
+                    <option value="">Country…</option>
+                    @foreach($countries as $country)
+                        <option value="{{ strtolower($country->code) }}">{{ $country->name }}</option>
+                    @endforeach
+                </select>
+            </td>
+            <td>
+                <select class="form-select form-select-sm" data-field="publicationTime" required aria-label="Publication">
+                    <option value="">Select…</option>
+                    <option value="6months">6 Months</option>
+                    <option value="1year">1 Year</option>
+                    <option value="permanent" selected>Permanent</option>
+                </select>
+            </td>
+            <td>
+                <select class="form-select form-select-sm live-bulk-categories" data-field="categories" multiple size="4" required aria-label="Niches">
+                    @foreach($categories as $category)
+                        <option value="{{ $category->name }}">{{ $category->name }}@if($category->group) ({{ $category->group }})@endif</option>
+                    @endforeach
+                </select>
+            </td>
+            <td>
+                <select class="form-select form-select-sm" data-field="link_type" required aria-label="Link type">
+                    <option value="dofollow" selected>DoFollow</option>
+                    <option value="nofollow">NoFollow</option>
+                </select>
+            </td>
+            <td>
+                <select class="form-select form-select-sm" data-field="site_tag" aria-label="Tag">
+                    <option value="">None</option>
+                    <option value="sponsored">Sponsored</option>
+                    <option value="partner_material">Partner Materials</option>
+                    <option value="as_you_prefer">As You Prefer</option>
+                </select>
+            </td>
+            <td class="live-bulk-col-desc">
+                <textarea class="form-control form-control-sm" data-field="siteDescription" rows="3" minlength="50" required
+                          placeholder="Describe the site for advertisers…" aria-label="Description"></textarea>
+            </td>
+        </tr>
     </template>
 
     <div class="card shadow-sm border-0 d-none" id="formCard">
@@ -2000,7 +1980,7 @@ bulkBtn.on('click', function() {
     bulkCard.toggleClass('d-none');
     bulkBtn.toggleClass('d-none', !bulkCard.hasClass('d-none'));
     formHeaderSpan.text(bulkCard.hasClass('d-none') ? 'Add New Website' : 'Add many websites');
-    if (!bulkCard.hasClass('d-none') && $('#liveBulkSites').children().length === 0) {
+    if (!bulkCard.hasClass('d-none') && liveBulkCards().length === 0) {
         liveBulkAddCard();
     }
 });
@@ -2014,96 +1994,20 @@ closeBulkBtn.on('click', function() {
 const LIVE_BULK_MAX = 25;
 const liveBulkSitesEl = document.getElementById('liveBulkSites');
 const liveBulkTemplate = document.getElementById('liveBulkSiteTemplate');
-const liveBulkFinePointer = window.matchMedia('(hover: hover) and (pointer: fine)');
-let liveBulkActiveCard = null;
-let liveBulkHoverCard = null;
 
 function liveBulkCards() {
     return liveBulkSitesEl ? Array.from(liveBulkSitesEl.querySelectorAll('[data-live-bulk-card]')) : [];
 }
 
-function liveBulkHostFromUrl(raw) {
-    const value = String(raw || '').trim();
-    if (!value) return '';
+function liveBulkFocusRow(row, focusEl) {
+    if (!row) return;
     try {
-        const withScheme = /^https?:\/\//i.test(value) ? value : ('https://' + value);
-        return new URL(withScheme).hostname.replace(/^www\./i, '');
-    } catch (e) {
-        return value.replace(/^https?:\/\//i, '').replace(/^www\./i, '').split('/')[0];
-    }
-}
-
-function liveBulkBuildSummary(card) {
-    const name = (card.querySelector('[data-field="siteName"]')?.value || '').trim();
-    const host = liveBulkHostFromUrl(card.querySelector('[data-field="siteUrl"]')?.value);
-    const dr = (card.querySelector('[data-field="dr"]')?.value || '').trim();
-    const price = (card.querySelector('[data-field="price"]')?.value || '').trim();
-    const niches = card.querySelector('.live-bulk-categories')?.selectedOptions?.length || 0;
-    const parts = [];
-    if (name) parts.push(name);
-    if (host) parts.push(host);
-    if (dr !== '') parts.push('DR ' + dr);
-    if (niches > 0) parts.push(niches === 1 ? '1 niche' : (niches + ' niches'));
-    if (price !== '') parts.push('€' + price);
-    return parts.length ? parts.join(' · ') : 'Empty — fill details';
-}
-
-function liveBulkRefreshSummaries() {
-    liveBulkCards().forEach(card => {
-        const summary = card.querySelector('.live-bulk-summary');
-        if (summary) summary.textContent = liveBulkBuildSummary(card);
-    });
-}
-
-function liveBulkIsPinned(card) {
-    return card.classList.contains('is-pinned');
-}
-
-function liveBulkApplyOpenState(card, open) {
-    const toggle = card.querySelector('.live-bulk-toggle');
-    card.classList.toggle('is-expanded', open);
-    card.classList.toggle('is-collapsed', !open);
-    if (toggle) toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
-}
-
-function liveBulkSetPinned(card, pinned) {
-    card.classList.toggle('is-pinned', !!pinned);
-}
-
-function liveBulkSyncVisibility() {
-    const cards = liveBulkCards();
-    cards.forEach(card => {
-        const open = liveBulkIsPinned(card)
-            || card === liveBulkHoverCard
-            || (card === liveBulkActiveCard && !liveBulkHoverCard);
-        liveBulkApplyOpenState(card, open);
-    });
-}
-
-function liveBulkCollapseAllExcept(exceptCard, { clearPins = false } = {}) {
-    liveBulkCards().forEach(card => {
-        if (card === exceptCard) return;
-        if (clearPins) liveBulkSetPinned(card, false);
-    });
-    liveBulkActiveCard = exceptCard || null;
-    liveBulkHoverCard = null;
-    liveBulkSyncVisibility();
-}
-
-function liveBulkFocusCard(card, { pin = false, clearOtherPins = true } = {}) {
-    if (!card) return;
-    if (clearOtherPins) {
-        liveBulkCards().forEach(c => {
-            if (c !== card) liveBulkSetPinned(c, false);
-        });
-    }
-    if (pin) liveBulkSetPinned(card, true);
-    liveBulkActiveCard = card;
-    liveBulkHoverCard = null;
-    liveBulkSyncVisibility();
-    try {
-        card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        row.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
     } catch (e) { /* ignore */ }
+    const el = focusEl || row.querySelector('[data-field]');
+    if (el && typeof el.focus === 'function') {
+        try { el.focus(); } catch (e) { /* ignore */ }
+    }
 }
 
 function liveBulkUpdateCount() {
@@ -2111,6 +2015,7 @@ function liveBulkUpdateCount() {
     $('#liveBulkCountLabel').text(n + ' / ' + LIVE_BULK_MAX + ' sites');
     $('#liveBulkAddSiteBtn').prop('disabled', n >= LIVE_BULK_MAX);
     $('#liveBulkDuplicateBtn').prop('disabled', n === 0 || n >= LIVE_BULK_MAX);
+    $('#liveBulkFill25Btn').prop('disabled', n >= LIVE_BULK_MAX);
     liveBulkCards().forEach((card, i) => {
         const num = i + 1;
         card.querySelectorAll('.live-bulk-num').forEach(el => { el.textContent = String(num); });
@@ -2123,7 +2028,6 @@ function liveBulkUpdateCount() {
             }
         });
     });
-    liveBulkRefreshSummaries();
 }
 
 function liveBulkBindLanguageFilter(card) {
@@ -2161,46 +2065,6 @@ function liveBulkBindCategories(card) {
             selected.slice(7).forEach(opt => { opt.selected = false; });
             alert('Maximum 7 niches per site.');
         }
-        liveBulkRefreshSummaries();
-    });
-}
-
-function liveBulkBindCollapseInteractions(card) {
-    const toggle = card.querySelector('.live-bulk-toggle');
-    toggle?.addEventListener('click', function (e) {
-        e.preventDefault();
-        e.stopPropagation();
-        if (liveBulkIsPinned(card)) {
-            liveBulkSetPinned(card, false);
-            // Keep this card as the active editing target after unpin.
-            liveBulkActiveCard = card;
-            liveBulkHoverCard = null;
-            liveBulkSyncVisibility();
-            return;
-        }
-        liveBulkFocusCard(card, { pin: true, clearOtherPins: false });
-    });
-
-    card.addEventListener('mouseenter', function () {
-        if (!liveBulkFinePointer.matches) return;
-        if (liveBulkIsPinned(card) && card.classList.contains('is-expanded')) return;
-        liveBulkHoverCard = card;
-        liveBulkSyncVisibility();
-    });
-
-    card.addEventListener('mouseleave', function () {
-        if (!liveBulkFinePointer.matches) return;
-        if (liveBulkHoverCard === card) {
-            liveBulkHoverCard = null;
-            liveBulkSyncVisibility();
-        }
-    });
-
-    // Focus inside a collapsed/hovered card should pin it so fields stay usable.
-    card.querySelector('.live-bulk-body')?.addEventListener('focusin', function () {
-        if (!liveBulkIsPinned(card)) {
-            liveBulkFocusCard(card, { pin: true, clearOtherPins: false });
-        }
     });
 }
 
@@ -2215,7 +2079,6 @@ function liveBulkAddCard(prefill = null) {
     liveBulkSitesEl.appendChild(node);
     liveBulkBindLanguageFilter(node);
     liveBulkBindCategories(node);
-    liveBulkBindCollapseInteractions(node);
 
     if (prefill && typeof prefill === 'object') {
         Object.keys(prefill).forEach(key => {
@@ -2240,28 +2103,13 @@ function liveBulkAddCard(prefill = null) {
         e.preventDefault();
         e.stopPropagation();
         if (liveBulkCards().length <= 1) {
-            alert('Keep at least one site card, or close this panel.');
+            alert('Keep at least one site row, or close this panel.');
             return;
         }
-        const wasActive = liveBulkActiveCard === node;
-        const wasHover = liveBulkHoverCard === node;
         node.remove();
-        if (wasHover) liveBulkHoverCard = null;
-        if (wasActive || !liveBulkActiveCard || !liveBulkActiveCard.isConnected) {
-            const remaining = liveBulkCards();
-            liveBulkActiveCard = remaining[remaining.length - 1] || null;
-        }
         liveBulkUpdateCount();
-        liveBulkSyncVisibility();
     });
 
-    node.querySelectorAll('[data-field]').forEach(el => {
-        el.addEventListener('input', liveBulkRefreshSummaries);
-        el.addEventListener('change', liveBulkRefreshSummaries);
-    });
-
-    // New site becomes the only open row; previous cards collapse to summaries.
-    liveBulkCollapseAllExcept(node, { clearPins: true });
     liveBulkUpdateCount();
     return node;
 }
@@ -2294,6 +2142,12 @@ $('#liveBulkDuplicateBtn').on('click', function () {
     liveBulkAddCard(last);
 });
 
+$('#liveBulkFill25Btn').on('click', function () {
+    while (liveBulkCards().length < LIVE_BULK_MAX) {
+        if (!liveBulkAddCard()) break;
+    }
+});
+
 $('#liveBulkForm').on('submit', function (e) {
     const cards = liveBulkCards();
     if (!cards.length) {
@@ -2313,16 +2167,14 @@ $('#liveBulkForm').on('submit', function (e) {
         if (!cats || cats.selectedOptions.length < 1) {
             e.preventDefault();
             alert('Site ' + (i + 1) + ': select at least one niche/category.');
-            liveBulkFocusCard(card, { pin: true });
-            cats?.focus();
+            liveBulkFocusRow(card, cats);
             return;
         }
         const desc = card.querySelector('[data-field="siteDescription"]');
         if (desc && desc.value.trim().length < 50) {
             e.preventDefault();
             alert('Site ' + (i + 1) + ': description must be at least 50 characters.');
-            liveBulkFocusCard(card, { pin: true });
-            desc.focus();
+            liveBulkFocusRow(card, desc);
             return;
         }
         const required = card.querySelectorAll('[required]');
@@ -2331,8 +2183,7 @@ $('#liveBulkForm').on('submit', function (e) {
             if (!el.value || (typeof el.value === 'string' && !el.value.trim())) {
                 e.preventDefault();
                 alert('Site ' + (i + 1) + ': please fill all required fields.');
-                liveBulkFocusCard(card, { pin: true });
-                el.focus();
+                liveBulkFocusRow(card, el);
                 return;
             }
         }
@@ -2342,7 +2193,7 @@ $('#liveBulkForm').on('submit', function (e) {
     $('#liveBulkSubmitBtn').prop('disabled', true).text('Submitting…');
 });
 
-// Toggle form for CREATE — keep existing addBtn handler below
+for CREATE — keep existing addBtn handler below
 $('#addSiteForm').submit(function(e){
     if (quill) $('#siteDescription').val(quill.root.innerHTML);
 

@@ -8,6 +8,7 @@ use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Site;
 use App\Services\ContentUpload\ArticleDetectedLinks;
+use App\Services\ContentUpload\ArticleHtmlSanitizer;
 use App\Services\ContentUpload\ArticlePreviewHtml;
 use App\Services\ContentUpload\ContentUploadService;
 use App\Services\ContentUpload\ScheduledOrderService;
@@ -172,6 +173,10 @@ class ContentSubmissionController extends Controller
             return response()->json(['success' => false, 'message' => 'This submission is already linked to an order.'], 422);
         }
 
+        if ($submission->isArchived()) {
+            return response()->json(['success' => false, 'message' => 'Restore this article before editing.'], 422);
+        }
+
         $cfg = $this->uploads->effectiveConfig();
         $anchorMax = (int) ($cfg['anchor_text']['max_length'] ?? 120);
         $imageExt = $cfg['feature_image']['allowed_extensions'] ?? ['jpg', 'jpeg', 'png', 'gif', 'webp'];
@@ -192,6 +197,11 @@ class ContentSubmissionController extends Controller
             'wizard_step' => ['nullable', 'integer', 'min:1', 'max:5'],
             'draft_payload' => ['nullable', 'array'],
         ]);
+
+        $contentChanged = array_key_exists('links', $data)
+            || array_key_exists('preview_html', $data)
+            || array_key_exists('target_url', $data)
+            || array_key_exists('anchor_text', $data);
 
         if (array_key_exists('links', $data)) {
             $links = ArticleDetectedLinks::normalizeList($data['links'] ?? [], $anchorMax);
@@ -259,10 +269,36 @@ class ContentSubmissionController extends Controller
         unset($data['scheduled_date'], $data['scheduled_time']);
         $submission->fill($data)->save();
 
-        return response()->json([
+        $eval = null;
+        if ($contentChanged) {
+            // Keep extracted text in sync so uniqueness / policy scans stay accurate.
+            $html = (string) ($submission->fresh()->preview_html ?? '');
+            if ($html !== '') {
+                $sanitizer = new ArticleHtmlSanitizer;
+                $text = $sanitizer->htmlToPlainText($html);
+                $submission->forceFill([
+                    'extracted_text' => $text,
+                    'word_count' => $sanitizer->countWords($text),
+                ])->save();
+            }
+
+            $eval = $this->uploads->reEvaluateSubmission($submission->fresh());
+            $submission = $eval['submission'];
+        }
+
+        $payload = [
             'success' => true,
             'submission' => $this->serializeSubmission($submission->fresh()),
-        ]);
+        ];
+
+        if ($eval !== null) {
+            $payload['approved'] = (bool) ($eval['approved'] ?? false);
+            $payload['message'] = $eval['message'] ?? null;
+            $payload['report'] = $eval['report'] ?? null;
+            $payload['moderation_status'] = $eval['moderation_status'] ?? $submission->moderation_status;
+        }
+
+        return response()->json($payload);
     }
 
     public function drafts(Request $request)

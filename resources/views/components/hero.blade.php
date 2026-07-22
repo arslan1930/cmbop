@@ -71,7 +71,7 @@
     inset: 0;
     background:
       radial-gradient(ellipse 58% 52% at 88% 40%, rgba(78, 205, 203, 0.28), transparent 72%),
-      radial-gradient(ellipse 42% 48% at 6% 80%, rgba(11, 98, 102, 0.1), transparent 65%);
+      radial-gradient(ellipse 42% 48% at 6% 80%, rgba(24, 80, 84, 0.1), transparent 65%);
     pointer-events: none;
   }
 
@@ -79,8 +79,8 @@
     position: absolute;
     inset: 0;
     background-image:
-      linear-gradient(rgba(11, 98, 102, 0.035) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(11, 98, 102, 0.035) 1px, transparent 1px);
+      linear-gradient(rgba(24, 80, 84, 0.035) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(24, 80, 84, 0.035) 1px, transparent 1px);
     background-size: 48px 48px;
     mask-image: radial-gradient(ellipse 70% 70% at 70% 40%, black, transparent 85%);
     pointer-events: none;
@@ -233,15 +233,15 @@
     object-fit: cover;
     object-position: left top;
     border-radius: 18px 0 0 0;
-    box-shadow: -18px 24px 70px rgba(11, 98, 102, 0.18);
-    border: 1px solid rgba(11, 98, 102, 0.1);
+    box-shadow: -18px 24px 70px rgba(24, 80, 84, 0.18);
+    border: 1px solid rgba(24, 80, 84, 0.1);
     border-right: none;
     transition: transform 0.35s ease, box-shadow 0.35s ease;
   }
 
   .slb-hero-catalog-link:hover .slb-hero-product {
     transform: translateY(-4px);
-    box-shadow: -20px 28px 72px rgba(11, 98, 102, 0.22);
+    box-shadow: -20px 28px 72px rgba(24, 80, 84, 0.22);
   }
 
   @keyframes slbHeroFade {
@@ -281,7 +281,7 @@
       min-height: 220px;
       max-height: 360px;
       border-radius: 16px 16px 0 0;
-      border-right: 1px solid rgba(11, 98, 102, 0.1);
+      border-right: 1px solid rgba(24, 80, 84, 0.1);
     }
   }
 

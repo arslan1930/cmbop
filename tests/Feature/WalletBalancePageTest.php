@@ -7,6 +7,7 @@ use App\Models\User;
 use App\Models\Wallet;
 use App\Services\Wallet\WalletLedgerService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Tests\TestCase;
 
@@ -111,7 +112,7 @@ class WalletBalancePageTest extends TestCase
             'bonus_balance' => 45,
         ]);
 
-        \Illuminate\Support\Facades\DB::table('wallet_transactions')->insert([
+        DB::table('wallet_transactions')->insert([
             'user_id' => $this->user->id,
             'wallet_id' => $this->wallet->id,
             'type' => 'bonus_credit',

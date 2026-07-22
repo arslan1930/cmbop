@@ -275,8 +275,7 @@
         'subtitle' => 'One job here: upload and approve articles. Any approved article can be placed on any catalog site.',
         'linkAll' => true,
         'contentRoute' => route('advertiser.content-library'),
-        'actions' => '<button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#uploadContentModal" id="openUploadModalBtnTop"><i class="fa fa-upload me-1"></i> Upload article</button>'
-            .'<a href="'.e(route('advertiser.catalog')).'" class="btn btn-sm btn-outline-primary">Browse publishers</a>',
+        'actions' => '<a href="'.e(route('advertiser.catalog')).'" class="btn btn-sm btn-outline-primary">Browse publishers</a>',
     ])
 
     <div class="mb-3">
@@ -367,7 +366,17 @@
                         $placement = $submission->placementItem();
                         $liveUrl = $submission->liveUrl();
                         $siteName = $placement?->site?->site_name;
-                        $label = $statusLabels[$availability] ?? ucfirst(str_replace('_', ' ', $availability));
+                        // Match Status column to moderation filter boxes when corrections are needed.
+                        if ($availability === 'needs_fix') {
+                            $label = match ((string) $submission->moderation_status) {
+                                'rejected' => 'Rejected',
+                                'needs_improvement' => 'Needs corrections',
+                                'error' => 'Error',
+                                default => 'Needs fix',
+                            };
+                        } else {
+                            $label = $statusLabels[$availability] ?? ucfirst(str_replace('_', ' ', $availability));
+                        }
                     @endphp
                     <tr id="library-row-{{ $submission->id }}">
                         <td>
@@ -397,7 +406,7 @@
                                 </div>
                             @elseif($availability === 'needs_fix')
                                 <div class="library-reject-box">
-                                    <strong>Needs changes</strong>
+                                    <strong>{{ $label }}</strong>
                                     {{ $submission->evaluation_report['summary'] ?? 'Fix issues and resubmit.' }}
                                     @php
                                         $hitTerms = $submission->evaluation_report['matched_terms'] ?? [];
@@ -832,8 +841,19 @@ document.getElementById('articleLinksSaveBtn')?.addEventListener('click', async 
         }
         const sub = data.submission || {};
         const html = sub.preview_html || document.getElementById('articlePreviewBody').innerHTML;
-        openPreviewModal(sub.title || previewModalState.title, html, sub.detected_links || links, previewModalState.submissionId, true);
-        tools.toast('Links saved');
+        const editable = !(data.approved === false);
+        openPreviewModal(sub.title || previewModalState.title, html, sub.detected_links || links, previewModalState.submissionId, editable);
+        if (data.approved === false) {
+            const msg = data.message || (data.report && data.report.summary) || 'This article needs corrections before it can be ordered.';
+            tools.toast(msg, false);
+            showLibraryFlash(msg, false);
+            setTimeout(function () { window.location.reload(); }, 1200);
+        } else {
+            tools.toast(data.message || 'Links saved');
+            if (data.approved === true) {
+                showLibraryFlash(data.message || 'Article still approved.', true);
+            }
+        }
     } catch (e) {
         tools.toast('Network error while saving links', false);
     } finally {

@@ -22,8 +22,6 @@
             <img class="payment-trust__logo payment-trust__logo--stripe" src="{{ $asset('stripe.svg') }}" alt="Stripe" title="Stripe" width="56" height="24" loading="lazy" decoding="async">
             <img class="payment-trust__logo payment-trust__logo--wise" src="{{ $asset('wise.png') }}" alt="Wise" title="Wise" width="72" height="16" loading="lazy" decoding="async">
             <img class="payment-trust__logo payment-trust__logo--crypto" src="{{ $asset('bitcoin.svg') }}" alt="Bitcoin" title="Bitcoin" width="24" height="24" loading="lazy" decoding="async">
-            <img class="payment-trust__logo payment-trust__logo--crypto" src="{{ $asset('usdt.svg') }}" alt="USDT" title="USDT (Tether)" width="24" height="24" loading="lazy" decoding="async">
-            <img class="payment-trust__logo payment-trust__logo--crypto" src="{{ $asset('binance.png') }}" alt="Binance" title="Binance" width="24" height="24" loading="lazy" decoding="async">
         </div>
     @endif
 </div>

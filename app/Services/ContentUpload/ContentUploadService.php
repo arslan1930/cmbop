@@ -339,6 +339,36 @@ class ContentUploadService
 
         $submission->fill($attrs)->save();
 
+        $result = $this->reEvaluateSubmission($submission->fresh());
+
+        $fresh = $result['submission'] ?? $submission->fresh();
+        $links = $sanitizer->extractLinksFromHtml((string) ($fresh->preview_html ?? ''));
+        $firstLink = $links[0] ?? null;
+
+        return [
+            'ok' => true,
+            'approved' => (bool) ($result['approved'] ?? false),
+            'submission' => $fresh,
+            'title' => $result['title'] ?? null,
+            'message' => $result['message'] ?? 'Article saved.',
+            'report' => $result['report'] ?? [],
+            'links' => $links,
+            'has_link' => $firstLink !== null,
+        ];
+    }
+
+    /**
+     * Re-run uniqueness + policy scan and persist moderation fields (same as post-upload).
+     *
+     * @return array{approved:bool, submission:ContentSubmission, title:?string, message:string, report:array, moderation_status:string}
+     */
+    public function reEvaluateSubmission(ContentSubmission $submission): array
+    {
+        $submission->update([
+            'moderation_status' => ContentSubmission::STATUS_PROCESSING,
+            'evaluation_status' => 'processing',
+        ]);
+
         $user = $submission->user;
         $result = $this->evaluation->evaluate($submission->fresh(), $user);
 
@@ -369,14 +399,12 @@ class ContentUploadService
         $this->notifyAdvertiserOfEvaluation($fresh, $result);
 
         return [
-            'ok' => true,
             'approved' => (bool) $result['approved'],
             'submission' => $fresh,
-            'title' => $result['title'],
-            'message' => $result['message'],
+            'title' => $result['title'] ?? null,
+            'message' => (string) ($result['message'] ?? ''),
             'report' => $report,
-            'links' => $links,
-            'has_link' => $firstLink !== null,
+            'moderation_status' => (string) ($result['moderation_status'] ?? $fresh->moderation_status),
         ];
     }
 
