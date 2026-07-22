@@ -154,17 +154,17 @@
   }
 
   .navbar-cta-primary {
-    background-color: var(--brand-primary, #0b6266);
+    background-color: var(--brand-primary, #185054);
     border-radius: 999px;
     font-weight: 600;
     transition: background-color 150ms ease, box-shadow 150ms ease;
   }
 
   .navbar-cta-outline {
-    border: 1px solid var(--brand-primary-border, #b8e8e6);
+    border: 1px solid var(--brand-primary-border, #b8e4e4);
     border-radius: 999px;
     font-weight: 600;
-    color: var(--brand-primary, #0b6266);
+    color: var(--brand-primary, #185054);
     background: none;
     cursor: pointer;
     transition: background-color 150ms ease, border-color 150ms ease;
@@ -184,33 +184,33 @@
   }
 
   .navbar-nav .nav-link:hover {
-    color: var(--brand-primary, #0b6266) !important;
-    background-color: rgba(11, 98, 102, 0.06) !important;
+    color: var(--brand-primary, #185054) !important;
+    background-color: rgba(24, 80, 84, 0.06) !important;
   }
 
   .navbar-nav .nav-link[href*="/login"]:hover,
   .navbar-nav form button.nav-link:hover {
-    color: var(--brand-primary, #0b6266) !important;
-    border-color: var(--brand-primary-soft, #3aaeb2) !important;
+    color: var(--brand-primary, #185054) !important;
+    border-color: var(--brand-primary-soft, #3faeb2) !important;
     background-color: transparent !important;
   }
 
   .navbar-nav .nav-link[href*="/register"]:hover,
   .navbar-nav .nav-link[href*="dashboard"]:hover {
-    background-color: var(--brand-primary-soft, #3aaeb2) !important;
+    background-color: var(--brand-primary-soft, #3faeb2) !important;
     color: #fff !important;
   }
 
   .dropdown-item.active {
-    background-color: var(--brand-primary-bg, #e8f8f7);
-    color: var(--brand-primary, #0b6266);
+    background-color: var(--brand-primary-bg, #e6f5f5);
+    color: var(--brand-primary, #185054);
   }
 
-  .dropdown-item:active { background-color: var(--brand-primary-bg, #e8f8f7); }
+  .dropdown-item:active { background-color: var(--brand-primary-bg, #e6f5f5); }
 
   .dropdown-item:hover {
-    background-color: var(--hover-tint, #e8f8f7);
-    color: var(--brand-primary, #0b6266);
+    background-color: var(--hover-tint, #e6f5f5);
+    color: var(--brand-primary, #185054);
   }
 
   @media (max-width: 991.98px) {

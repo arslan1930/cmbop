@@ -1,12 +1,12 @@
 .filter-chip {
     background: rgba(78, 205, 203, 0.18) !important;
-    color: #0b6266 !important;
+    color: #185054 !important;
     font-weight: 600;
     border: 1px solid #c8ebe9;
 }
 #toggleMoreFiltersBtn[aria-expanded="true"] {
-    border-color: #0b6266;
-    color: #0b6266;
+    border-color: #185054;
+    color: #185054;
 }
 
 .table {
@@ -128,7 +128,7 @@ thead th {
 }
 
 .buy-now:hover {
-    background-color: #0b6266 !important;
+    background-color: #185054 !important;
 }
 
 .rotate-arrow {
@@ -185,7 +185,7 @@ thead th {
 }
 
 .sensitive-price-checkbox {
-    background-color: #3aaeb2;
+    background-color: #3faeb2;
     cursor: pointer;
 }
 
@@ -261,7 +261,7 @@ thead th {
 }
 .site-trust-compact__sep { color: #cbd5e1; }
 .site-trust-compact__orders {
-    color: #0b6266;
+    color: #185054;
     font-weight: 600;
 }
 
@@ -303,8 +303,8 @@ thead th {
     display: flex;
     align-items: center;
     justify-content: center;
-    background: var(--brand-primary-bg, #e8f8f7);
-    color: var(--brand-primary, #0b6266);
+    background: var(--brand-primary-bg, #e6f5f5);
+    color: var(--brand-primary, #185054);
     font-size: 1.25rem;
 }
 
@@ -357,7 +357,7 @@ thead th {
     padding: 0 8px;
     border: 0;
     border-radius: 999px;
-    background: var(--brand-primary, #0b6266);
+    background: var(--brand-primary, #185054);
     color: #fff;
     font-size: 10px;
     font-weight: 700;
@@ -366,7 +366,7 @@ thead th {
     cursor: help;
     user-select: none;
     outline: none;
-    box-shadow: 0 1px 3px rgba(11, 98, 102, 0.22);
+    box-shadow: 0 1px 3px rgba(24, 80, 84, 0.22);
     animation: siteNewPulse 2s ease-in-out infinite;
     flex-shrink: 0;
 }
@@ -374,11 +374,11 @@ thead th {
 .site-badge-new:hover,
 .site-badge-new:focus-visible,
 .site-badge-new.is-open {
-    background: var(--brand-primary-soft, #3aaeb2);
+    background: var(--brand-primary-soft, #3faeb2);
 }
 
 .site-badge-new:focus-visible {
-    box-shadow: 0 0 0 3px rgba(58, 174, 178, 0.28);
+    box-shadow: 0 0 0 3px rgba(63, 174, 178, 0.28);
 }
 
 @keyframes siteNewPulse {
@@ -548,7 +548,7 @@ button.site-chip {
 }
 
 .selected-tag {
-    background-color: #3aaeb2;
+    background-color: #3faeb2;
     color: #495057;
     border-radius: 4px;
     padding: 2px 6px;
@@ -603,7 +603,7 @@ button.site-chip {
     left: 18px;
     top: 50%;
     transform: translateY(-50%);
-    color: #3aaeb2;
+    color: #3faeb2;
     font-size: 12px;
     z-index: 2;
 }
@@ -629,7 +629,7 @@ button.site-chip {
 }
 
 .option-item:hover {
-    background-color: #3aaeb2;
+    background-color: #3faeb2;
 }
 
 .option-item input[type="checkbox"] {
@@ -663,9 +663,9 @@ button.site-chip {
 }
 
 .category-badge {
-    background: #e8f8f7;
-    color: #0b6266;
-    border: 1px solid #b8e8e6;
+    background: #e6f5f5;
+    color: #185054;
+    border: 1px solid #b8e4e4;
     border-radius: 6px;
     padding: 4px 10px;
     font-size: 10px;
@@ -678,7 +678,7 @@ button.site-chip {
 .toggle-cats-btn {
     background: none;
     border: none;
-    color: #0b6266;
+    color: #185054;
     font-size: 10px;
     font-weight: 600;
     cursor: pointer;
@@ -704,14 +704,14 @@ button.site-chip {
 .form-control:hover, 
 .form-select:hover,
 .multi-select-input:hover {
-    border-color: #3aaeb2;
+    border-color: #3faeb2;
 }
 
 .form-control:focus, 
 .form-select:focus,
 .multi-select-input:focus-within {
-    border-color: #3aaeb2 !important;
-    box-shadow: 0 0 0 0.2rem rgba(58, 174, 178, 0.25) !important;
+    border-color: #3faeb2 !important;
+    box-shadow: 0 0 0 0.2rem rgba(63, 174, 178, 0.25) !important;
 }
 
 /* Multi-select dropdown styles */
@@ -726,7 +726,7 @@ button.site-chip {
 }
 
 .option-item:hover {
-    background-color: #3aaeb2 !important;
+    background-color: #3faeb2 !important;
 }
 
 .option-item:hover span {
@@ -735,25 +735,25 @@ button.site-chip {
 
 /* Checkbox styling */
 .option-item input[type="checkbox"] {
-    accent-color: #3aaeb2;
+    accent-color: #3faeb2;
     cursor: pointer;
     width: 14px;
     height: 14px;
 }
 
 .form-check-input:checked {
-    background-color: #3aaeb2 !important;
-    border-color: #3aaeb2 !important;
+    background-color: #3faeb2 !important;
+    border-color: #3faeb2 !important;
 }
 
 .form-check-input:focus {
-    border-color: #3aaeb2 !important;
-    box-shadow: 0 0 0 0.2rem rgba(58, 174, 178, 0.25) !important;
+    border-color: #3faeb2 !important;
+    box-shadow: 0 0 0 0.2rem rgba(63, 174, 178, 0.25) !important;
 }
 
 /* Selected tags */
 .selected-tag {
-    background-color: #3aaeb2;
+    background-color: #3faeb2;
     color: white;
 }
 
@@ -771,26 +771,26 @@ button.site-chip {
 }
 
 .multi-select-input:hover i {
-    color: #3aaeb2;
+    color: #3faeb2;
 }
 
 /* Search icon in dropdown */
 .multi-select-dropdown .search-box i {
-    color: #3aaeb2;
+    color: #3faeb2;
 }
 
 /* Sponsored, Favorites, Blacklist select dropdown options background - Updated */
 select.form-select option:hover,
 select.form-select option:focus,
 select.form-select option:active {
-    background-color: #3aaeb2 !important;
+    background-color: #3faeb2 !important;
     color: white !important;
 }
 
 /* Style for select dropdown when focused */
 select.form-select:focus {
-    border-color: #3aaeb2 !important;
-    box-shadow: 0 0 0 0.2rem rgba(58, 174, 178, 0.25) !important;
+    border-color: #3faeb2 !important;
+    box-shadow: 0 0 0 0.2rem rgba(63, 174, 178, 0.25) !important;
 }
 
 /* For the select options background in different browsers */
@@ -803,8 +803,8 @@ select.form-select option {
 /* Chrome/Safari/Edge - selected and hover states */
 select.form-select option:checked,
 select.form-select option:hover {
-    background: #3aaeb2 !important;
-    background-color: #3aaeb2 !important;
+    background: #3faeb2 !important;
+    background-color: #3faeb2 !important;
     color: white !important;
 }
 
@@ -812,7 +812,7 @@ select.form-select option:hover {
 @-moz-document url-prefix() {
     select.form-select option:checked,
     select.form-select option:hover {
-        background-color: #3aaeb2 !important;
+        background-color: #3faeb2 !important;
         color: white !important;
     }
 }
@@ -820,13 +820,13 @@ select.form-select option:hover {
 /* For when the select is opened and options are hovered */
 select.form-select[size] option:hover,
 select.form-select[multiple] option:hover {
-    background-color: #3aaeb2 !important;
+    background-color: #3faeb2 !important;
     color: white !important;
 }
 
 /* Style the select dropdown arrow on hover */
 select.form-select:hover {
-    border-color: #3aaeb2;
+    border-color: #3faeb2;
     cursor: pointer;
 }
 
@@ -843,13 +843,13 @@ select.form-select option {
 
 /* Style the dropdown when opened */
 select.form-select:focus option:hover {
-    background: #3aaeb2 linear-gradient(0deg, #3aaeb2 0%, #3aaeb2 100%);
+    background: #3faeb2 linear-gradient(0deg, #3faeb2 0%, #3faeb2 100%);
     color: white;
 }
 
 /* Additional style for the select element hover state */
 select.form-select:focus option:checked {
-    background: #3aaeb2 linear-gradient(0deg, #3aaeb2 0%, #3aaeb2 100%);
+    background: #3faeb2 linear-gradient(0deg, #3faeb2 0%, #3faeb2 100%);
     color: white;
 }
 

@@ -12,11 +12,11 @@
     <style>
         body { min-height: 100vh; display: flex; align-items: center; background: #f8fafc; font-family: Poppins, system-ui, sans-serif; }
         .error-card { max-width: 520px; margin: auto; text-align: center; padding: 2rem; }
-        .error-code { font-size: 4rem; font-weight: 700; color: var(--brand-primary, #0b6266); line-height: 1; }
+        .error-code { font-size: 4rem; font-weight: 700; color: var(--brand-primary, #185054); line-height: 1; }
         .error-icon {
             width: 64px; height: 64px; border-radius: 50%; margin: 0 auto 1rem;
             display: flex; align-items: center; justify-content: center;
-            background: var(--brand-primary-bg, #e8f8f7); color: var(--brand-primary, #0b6266);
+            background: var(--brand-primary-bg, #e6f5f5); color: var(--brand-primary, #185054);
         }
     </style>
 </head>

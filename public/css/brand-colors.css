@@ -1,13 +1,14 @@
 /**
- * Brand color system — teal primary · slate neutrals · quiet semantics
+ * Brand color system — teal primary · mist neutrals · real amber caution
+ * Brand pair: #185054 (deep) · #3faeb2 (soft)
  */
 :root {
-  --brand-primary: #0b6266;
-  --brand-primary-soft: #3aaeb2;
-  --brand-primary-tint: #4ECDCB;
-  --brand-primary-bg: #e8f8f7;
-  --brand-primary-border: #b8e8e6;
-  --brand-primary-deep: #084f52;
+  --brand-primary: #185054;
+  --brand-primary-soft: #3faeb2;
+  --brand-primary-tint: #5bc4c7;
+  --brand-primary-bg: #e6f5f5;
+  --brand-primary-border: #b8e4e4;
+  --brand-primary-deep: #123f42;
 
   --brand-neutral: #64748b;
   --brand-neutral-bg: #f1f5f9;
@@ -16,23 +17,23 @@
 
   --brand-success: #0f766e;
   --brand-success-bg: #d1fae5;
-  /* Caution / attention — teal-slate (not Bootstrap amber yellow) */
-  --brand-warning: #0b6266;
-  --brand-warning-bg: #e8f8f7;
-  --brand-warning-border: #b8e8e6;
-  --brand-warning-ink: #084f52;
+  /* Caution — real amber (not brand teal) */
+  --brand-warning: #b45309;
+  --brand-warning-bg: #fffbeb;
+  --brand-warning-border: #fde68a;
+  --brand-warning-ink: #92400e;
   --brand-danger: #dc2626;
   --brand-danger-bg: #fee2e2;
 
   /* Surfaces & interaction (modern UI system) */
   --surface-1: #ffffff;
-  --surface-2: #f8fafc;
+  --surface-2: #f7fafb;
   --surface-3: #f1f5f9;
   --border-subtle: #e2e8f0;
   --border-default: #e2e8f0;
-  --hover-tint: #e8f8f7;
-  --hover-tint-strong: #d7f3f1;
-  --focus-ring: rgba(58, 174, 178, 0.35);
+  --hover-tint: #e6f5f5;
+  --hover-tint-strong: #d4efef;
+  --focus-ring: rgba(63, 174, 178, 0.35);
   --motion-fast: 150ms ease;
   --motion-base: 180ms ease;
   --radius-sm: 8px;
@@ -41,16 +42,16 @@
   --shadow-dropdown: 0 8px 24px rgba(15, 23, 42, 0.1);
 
   /* Bootstrap 5.3 variable overrides */
-  --bs-primary: #0b6266;
-  --bs-primary-rgb: 11, 98, 102;
-  --bs-link-color: #0b6266;
-  --bs-link-hover-color: #3aaeb2;
-  --bs-focus-ring-color: rgba(58, 174, 178, 0.35);
-  --bs-info: #3aaeb2;
-  --bs-info-rgb: 58, 174, 178;
-  --bs-warning: #0b6266;
-  --bs-warning-rgb: 11, 98, 102;
-  --bs-code-color: #0b6266;
+  --bs-primary: #185054;
+  --bs-primary-rgb: 24, 80, 84;
+  --bs-link-color: #185054;
+  --bs-link-hover-color: #3faeb2;
+  --bs-focus-ring-color: rgba(63, 174, 178, 0.35);
+  --bs-info: #3faeb2;
+  --bs-info-rgb: 63, 174, 178;
+  --bs-warning: #b45309;
+  --bs-warning-rgb: 180, 83, 9;
+  --bs-code-color: #185054;
 }
 
 .btn-primary {
@@ -90,7 +91,7 @@
 .bg-info { background-color: var(--brand-primary-soft) !important; }
 .bg-info-subtle { background-color: var(--brand-primary-bg) !important; }
 
-/* Caution / pending — brand attention (replaces Bootstrap yellow) */
+/* Caution / pending — amber attention */
 .text-warning { color: var(--brand-warning-ink) !important; }
 .bg-warning { background-color: var(--brand-warning-bg) !important; }
 .bg-warning-subtle { background-color: var(--brand-warning-bg) !important; }
@@ -116,7 +117,7 @@
   border-radius: var(--radius-md);
 }
 .alert-warning .alert-link {
-  color: var(--brand-primary-deep);
+  color: var(--brand-warning-ink);
   font-weight: 600;
 }
 
@@ -165,9 +166,9 @@ code.font-monospace {
 }
 
 .badge-new {
-  background: linear-gradient(180deg, #f0fffe 0%, #e8f8f7 100%) !important;
+  background: linear-gradient(180deg, #f0fffe 0%, #e6f5f5 100%) !important;
   color: var(--brand-primary) !important;
-  border: 1px solid rgba(78, 205, 203, 0.55) !important;
+  border: 1px solid rgba(63, 174, 178, 0.45) !important;
   font-weight: 600;
   letter-spacing: 0.01em;
   box-shadow: none !important;

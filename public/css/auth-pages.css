@@ -7,9 +7,9 @@
   --auth-ink: #0f172a;
   --auth-muted: #64748b;
   --auth-line: #e2e8f0;
-  --auth-teal: #0b6266;
-  --auth-teal-soft: #3aaeb2;
-  --auth-mint: #e8f8f7;
+  --auth-teal: #185054;
+  --auth-teal-soft: #3faeb2;
+  --auth-mint: #e6f5f5;
   --auth-card: rgba(255, 255, 255, 0.92);
   font-family: 'Plus Jakarta Sans', 'Poppins', sans-serif;
   color: var(--auth-ink);
@@ -20,8 +20,8 @@
   margin-top: 0;
   overflow: hidden;
   background:
-    radial-gradient(ellipse 70% 50% at 10% 0%, rgba(58, 174, 178, 0.18), transparent 55%),
-    radial-gradient(ellipse 55% 45% at 95% 15%, rgba(11, 98, 102, 0.1), transparent 50%),
+    radial-gradient(ellipse 70% 50% at 10% 0%, rgba(63, 174, 178, 0.18), transparent 55%),
+    radial-gradient(ellipse 55% 45% at 95% 15%, rgba(24, 80, 84, 0.1), transparent 50%),
     linear-gradient(180deg, #f4fbfb 0%, #f8fafc 45%, #ffffff 100%);
 }
 
@@ -48,7 +48,7 @@
   height: 220px;
   bottom: 8%;
   left: -40px;
-  background: rgba(11, 98, 102, 0.12);
+  background: rgba(24, 80, 84, 0.12);
 }
 
 .auth-page .auth-shell {
@@ -75,7 +75,7 @@
 }
 
 .auth-panel {
-  background: linear-gradient(160deg, #0b6266 0%, #1a8a8e 48%, #3aaeb2 100%);
+  background: linear-gradient(160deg, #185054 0%, #2a8a8e 48%, #3faeb2 100%);
   color: #fff;
   padding: 2.25rem 2rem;
   min-height: 100%;
@@ -168,7 +168,7 @@
   min-height: 46px;
   border-radius: 12px;
   background: #ffffff !important;
-  color: #0b6266 !important;
+  color: #185054 !important;
   display: flex !important;
   align-items: center !important;
   justify-content: center !important;
@@ -184,7 +184,7 @@
   margin: 0 !important;
   flex: 0 0 auto;
   fill: none;
-  stroke: #0b6266;
+  stroke: #185054;
   stroke-width: 2.1;
   stroke-linecap: round;
   stroke-linejoin: round;
@@ -192,7 +192,7 @@
 }
 
 .auth-proof-icon svg circle[fill] {
-  fill: #0b6266;
+  fill: #185054;
   stroke: none;
 }
 
@@ -274,7 +274,7 @@
 .auth-input:focus,
 .auth-page .form-control:focus {
   border-color: var(--auth-teal-soft);
-  box-shadow: 0 0 0 4px rgba(58, 174, 178, 0.18);
+  box-shadow: 0 0 0 4px rgba(63, 174, 178, 0.18);
   outline: none;
   background: #fff;
 }
@@ -306,7 +306,7 @@
 }
 
 .auth-page .input-group:focus-within .input-group-text {
-  box-shadow: 0 0 0 4px rgba(58, 174, 178, 0.18);
+  box-shadow: 0 0 0 4px rgba(63, 174, 178, 0.18);
 }
 
 .auth-cta {
@@ -318,19 +318,19 @@
   padding: 0.75rem 1.25rem;
   border: 0;
   border-radius: 12px;
-  background: linear-gradient(180deg, #0e7277 0%, #0b6266 100%);
+  background: linear-gradient(180deg, #1f6b6f 0%, #185054 100%);
   color: #fff !important;
   font-weight: 600;
   font-size: 0.98rem;
   text-decoration: none;
-  box-shadow: 0 8px 20px rgba(11, 98, 102, 0.22);
+  box-shadow: 0 8px 20px rgba(24, 80, 84, 0.22);
   transition: transform 0.18s ease, box-shadow 0.18s ease, filter 0.18s ease;
 }
 
 .auth-cta:hover {
   filter: brightness(1.05);
   transform: translateY(-1px);
-  box-shadow: 0 12px 28px rgba(11, 98, 102, 0.28);
+  box-shadow: 0 12px 28px rgba(24, 80, 84, 0.28);
   color: #fff !important;
 }
 
@@ -339,7 +339,7 @@
 }
 
 .auth-cta:focus-visible {
-  outline: 3px solid rgba(58, 174, 178, 0.45);
+  outline: 3px solid rgba(63, 174, 178, 0.45);
   outline-offset: 2px;
 }
 
@@ -438,8 +438,8 @@
 }
 
 .auth-mobile-strip {
-  background: linear-gradient(180deg, #e8f8f7 0%, #f8fafc 100%);
-  border: 1px solid #b8e8e6;
+  background: linear-gradient(180deg, #e6f5f5 0%, #f8fafc 100%);
+  border: 1px solid #b8e4e4;
   border-radius: 14px;
   padding: 12px 14px;
   margin-bottom: 1.25rem;
@@ -477,13 +477,13 @@
   border-radius: 11px;
   background: #fff !important;
   border: 1px solid #d7eeee;
-  color: #0b6266;
+  color: #185054;
   display: flex !important;
   align-items: center !important;
   justify-content: center !important;
   flex-shrink: 0;
   line-height: 0;
-  box-shadow: 0 1px 4px rgba(11, 98, 102, 0.08);
+  box-shadow: 0 1px 4px rgba(24, 80, 84, 0.08);
 }
 
 .auth-mobile-strip .mi svg {
@@ -492,7 +492,7 @@
   height: 22px !important;
   margin: 0 !important;
   fill: none;
-  stroke: #0b6266;
+  stroke: #185054;
   stroke-width: 2.1;
   stroke-linecap: round;
   stroke-linejoin: round;
@@ -516,14 +516,14 @@
 }
 
 .auth-role-card:hover {
-  border-color: #b8e8e6;
+  border-color: #b8e4e4;
   background: #f8fffe;
 }
 
 .auth-role-card.selected {
   border-color: var(--auth-teal);
   background: var(--auth-mint);
-  box-shadow: 0 0 0 3px rgba(58, 174, 178, 0.16);
+  box-shadow: 0 0 0 3px rgba(63, 174, 178, 0.16);
 }
 
 .auth-role-card i.role-main {

@@ -36,7 +36,7 @@
                 <div class="card border-0 shadow-sm h-100">
                     <div class="card-body py-3">
                         <div class="small text-muted">{{ $label }}</div>
-                        <div class="fs-4 fw-bold" style="color:#0b6266;">{{ number_format($value) }}</div>
+                        <div class="fs-4 fw-bold" style="color:#185054;">{{ number_format($value) }}</div>
                     </div>
                 </div>
             </div>

@@ -272,7 +272,7 @@ document.querySelectorAll('.btn-claim-action').forEach(btn => {
             inputLabel: 'Admin notes (optional)',
             showCancelButton: true,
             confirmButtonText: approve ? 'Approve & transfer' : 'Reject',
-            confirmButtonColor: approve ? '#0b6266' : '#b91c1c',
+            confirmButtonColor: approve ? '#185054' : '#b91c1c',
         });
         if (!isConfirmed) return;
         const res = await fetch(btn.dataset.url, {

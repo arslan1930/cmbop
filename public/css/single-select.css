@@ -24,12 +24,12 @@
 .single-select-input:focus,
 .single-select-input:focus-visible {
   outline: none;
-  border-color: var(--brand-primary-soft, #3aaeb2);
-  box-shadow: 0 0 0 0.2rem var(--focus-ring, rgba(58, 174, 178, 0.35));
+  border-color: var(--brand-primary-soft, #3faeb2);
+  box-shadow: 0 0 0 0.2rem var(--focus-ring, rgba(63, 174, 178, 0.35));
 }
 
 .single-select-input[aria-expanded="true"] {
-  border-color: var(--brand-primary-soft, #3aaeb2);
+  border-color: var(--brand-primary-soft, #3faeb2);
 }
 
 .single-select-input.single-select-input--sm,
@@ -83,8 +83,8 @@
 
 .single-select-search input:focus {
   outline: none;
-  border-color: var(--brand-primary-soft, #3aaeb2);
-  box-shadow: 0 0 0 0.2rem var(--focus-ring, rgba(58, 174, 178, 0.35));
+  border-color: var(--brand-primary-soft, #3faeb2);
+  box-shadow: 0 0 0 0.2rem var(--focus-ring, rgba(63, 174, 178, 0.35));
 }
 
 .single-select-options {
@@ -100,13 +100,13 @@
 
 .single-select-option:hover,
 .single-select-option.is-keyboard-focus {
-  background: var(--hover-tint, #e8f8f7);
+  background: var(--hover-tint, #e6f5f5);
 }
 
 .single-select-option.selected {
-  background: var(--brand-primary-bg, #e8f8f7);
+  background: var(--brand-primary-bg, #e6f5f5);
   font-weight: 600;
-  color: var(--brand-primary, #0b6266);
+  color: var(--brand-primary, #185054);
 }
 
 .single-select-option.hidden {

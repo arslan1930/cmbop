@@ -29,7 +29,7 @@
 .ui-kpi-card__icon {
     width: 40px; height: 40px; border-radius: 10px;
     display: inline-flex; align-items: center; justify-content: center;
-    background: var(--brand-primary-bg, #e8f8f7);
-    color: var(--brand-primary, #0b6266);
+    background: var(--brand-primary-bg, #e6f5f5);
+    color: var(--brand-primary, #185054);
 }
 </style>

@@ -269,15 +269,15 @@
 
 <style>
     .btn-primary {
-        background-color: #4ECDCB;
-        border-color: #4ECDCB;
+        background-color: #5bc4c7;
+        border-color: #5bc4c7;
     }
     .btn-primary:hover {
         background-color: #3db8b6;
         border-color: #3db8b6;
     }
     input:focus, select:focus {
-        border-color: #4ECDCB !important;
+        border-color: #5bc4c7 !important;
         box-shadow: none !important;
     }
     .table td {
@@ -327,7 +327,7 @@ document.addEventListener('DOMContentLoaded', function() {
             icon: 'error',
             title: 'Validation Error',
             text: message,
-            confirmButtonColor: '#4ECDCB',
+            confirmButtonColor: '#5bc4c7',
             confirmButtonText: 'OK'
         });
     }
@@ -345,7 +345,7 @@ document.addEventListener('DOMContentLoaded', function() {
             `,
             icon: 'question',
             showCancelButton: true,
-            confirmButtonColor: '#4ECDCB',
+            confirmButtonColor: '#5bc4c7',
             cancelButtonColor: '#d33',
             confirmButtonText: 'Yes, withdraw',
             cancelButtonText: 'Cancel'
@@ -463,7 +463,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                 <p class="text-muted small">Your withdrawal request has been received and is pending admin approval.</p>
                             </div>
                         `,
-                        confirmButtonColor: '#4ECDCB',
+                        confirmButtonColor: '#5bc4c7',
                         confirmButtonText: 'OK'
                     }).then(() => {
                         window.location.reload();
@@ -473,7 +473,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         icon: 'error',
                         title: 'Request Failed',
                         text: data.message,
-                        confirmButtonColor: '#4ECDCB',
+                        confirmButtonColor: '#5bc4c7',
                         confirmButtonText: 'Try Again'
                     });
                     submitBtn.disabled = false;
@@ -485,7 +485,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     icon: 'error',
                     title: 'Something went wrong!',
                     text: 'Unable to process your request. Please try again later.',
-                    confirmButtonColor: '#4ECDCB',
+                    confirmButtonColor: '#5bc4c7',
                     confirmButtonText: 'OK'
                 });
                 submitBtn.disabled = false;

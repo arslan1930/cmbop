@@ -106,7 +106,7 @@
 
 .site-announcement--info {
   background: #e7f5f5;
-  color: #0b6266;
+  color: #185054;
   border: 1px solid #b9e0e0;
 }
 
@@ -129,7 +129,7 @@
 }
 
 .site-announcement--promo {
-  background: linear-gradient(120deg, #0b6266 0%, #148f93 55%, #4ecdcB 100%);
+  background: linear-gradient(120deg, #185054 0%, #2a8a8e 55%, #5bc4c7 100%);
   color: #fff;
   border: 0;
 }

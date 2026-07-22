@@ -7,6 +7,7 @@ use App\Models\User;
 use App\Models\Wallet;
 use App\Services\Wallet\WalletLedgerService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Tests\TestCase;
 
@@ -92,14 +93,17 @@ class WalletBalancePageTest extends TestCase
         $this->assertStringContainsString('Recent activity', $html);
     }
 
-    public function test_brand_colors_use_teal_caution_not_bootstrap_pink_code(): void
+    public function test_brand_colors_use_teal_primary_and_amber_caution(): void
     {
         $brand = file_get_contents(public_path('css/brand-colors.css'));
         $this->assertIsString($brand);
-        $this->assertStringContainsString('--bs-code-color: #0b6266', $brand);
-        $this->assertStringContainsString('--brand-warning-bg: #e8f8f7', $brand);
+        $this->assertStringContainsString('--bs-code-color: #185054', $brand);
+        $this->assertStringContainsString('--brand-primary: #185054', $brand);
+        $this->assertStringContainsString('--brand-primary-soft: #3faeb2', $brand);
+        $this->assertStringContainsString('--brand-warning-bg: #fffbeb', $brand);
+        $this->assertStringContainsString('--brand-warning: #b45309', $brand);
         $this->assertStringContainsString('.alert-warning', $brand);
-        $this->assertStringNotContainsString('--brand-warning: #d97706', $brand);
+        $this->assertStringNotContainsString('--brand-warning: #185054', $brand);
     }
 
     public function test_add_funds_reconciles_inflated_bonus_to_welcome_credit(): void
@@ -109,7 +113,7 @@ class WalletBalancePageTest extends TestCase
             'bonus_balance' => 45,
         ]);
 
-        \Illuminate\Support\Facades\DB::table('wallet_transactions')->insert([
+        DB::table('wallet_transactions')->insert([
             'user_id' => $this->user->id,
             'wallet_id' => $this->wallet->id,
             'type' => 'bonus_credit',

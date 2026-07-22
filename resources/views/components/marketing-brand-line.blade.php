@@ -14,11 +14,11 @@
     font-size: clamp(1.35rem, 2.4vw, 1.85rem);
     font-weight: 800;
     letter-spacing: -0.03em;
-    color: #0b6266;
+    color: #185054;
     text-decoration: none;
     line-height: 1.15;
   }
   .marketing-brand-link:hover {
-    color: #3aaeb2;
+    color: #3faeb2;
   }
 </style>

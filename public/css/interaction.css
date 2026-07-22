@@ -11,14 +11,14 @@
   height: 1px;
   overflow: hidden;
   z-index: 10000;
-  background: var(--brand-primary, #0b6266);
+  background: var(--brand-primary, #185054);
   color: #fff;
   font-weight: 600;
   font-size: 0.9rem;
   text-decoration: none;
   border-radius: 8px;
   padding: 12px 16px;
-  box-shadow: 0 0 0 0.2rem var(--focus-ring, rgba(58, 174, 178, 0.35));
+  box-shadow: 0 0 0 0.2rem var(--focus-ring, rgba(63, 174, 178, 0.35));
 }
 .skip-to-content:focus,
 .skip-to-content:focus-visible {
@@ -57,14 +57,14 @@
 .dropdown-menu .dropdown-item:focus,
 .slb-dropdown .dropdown-item:hover,
 .slb-dropdown .dropdown-item:focus {
-  background: var(--hover-tint, #e8f8f7);
-  color: var(--brand-primary, #0b6266);
+  background: var(--hover-tint, #e6f5f5);
+  color: var(--brand-primary, #185054);
 }
 
 .dropdown-menu .dropdown-item.active,
 .dropdown-menu .dropdown-item:active {
-  background: var(--brand-primary-bg, #e8f8f7);
-  color: var(--brand-primary, #0b6266);
+  background: var(--brand-primary-bg, #e6f5f5);
+  color: var(--brand-primary, #185054);
 }
 
 .dropdown-divider {
@@ -105,7 +105,7 @@ a:not(.btn):not(.dropdown-item):not(#sidebar a):not(.nav-link) {
 }
 
 .modal-header.bg-primary {
-  background: var(--brand-primary, #0b6266) !important;
+  background: var(--brand-primary, #185054) !important;
   border-bottom: none;
 }
 

@@ -36,7 +36,7 @@
   .marketing-kicker {
     display: inline-block;
     background: rgba(78, 205, 203, 0.15);
-    color: #0b6266;
+    color: #185054;
     padding: 6px 16px;
     border-radius: 50px;
     font-size: 0.85rem;
@@ -45,7 +45,7 @@
   .marketing-title {
     font-size: clamp(1.75rem, 3.5vw, 2.75rem);
     font-weight: 800;
-    color: #0b6266;
+    color: #185054;
     letter-spacing: -0.02em;
     margin: 0 0 0.75rem;
     line-height: 1.15;

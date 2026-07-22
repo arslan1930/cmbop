@@ -112,7 +112,7 @@ document.addEventListener('DOMContentLoaded', function () {
             c.save();
             c.textAlign = 'center';
             c.textBaseline = 'bottom';
-            c.fillStyle = '#0b6266';
+            c.fillStyle = '#185054';
             c.font = '600 12px system-ui, -apple-system, Segoe UI, sans-serif';
 
             meta.data.forEach((el, index) => {
@@ -135,8 +135,8 @@ document.addEventListener('DOMContentLoaded', function () {
             datasets: [{
                 label: 'Amount spent (€)',
                 data: amounts,
-                backgroundColor: 'rgba(11, 98, 102, 0.78)',
-                hoverBackgroundColor: 'rgba(11, 98, 102, 0.95)',
+                backgroundColor: 'rgba(24, 80, 84, 0.78)',
+                hoverBackgroundColor: 'rgba(24, 80, 84, 0.95)',
                 borderRadius: 8,
                 maxBarThickness: 56,
             }]

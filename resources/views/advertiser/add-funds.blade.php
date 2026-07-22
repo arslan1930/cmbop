@@ -27,15 +27,15 @@
     transition: border-color .2s ease, background .2s ease, box-shadow .2s ease, transform .2s ease;
 }
 .wallet-kpi:hover {
-    border-color: #4ECDCB; background: #f0fbfb;
-    box-shadow: 0 8px 20px rgba(11, 98, 102, 0.08);
+    border-color: #5bc4c7; background: #f0fbfb;
+    box-shadow: 0 8px 20px rgba(24, 80, 84, 0.08);
     transform: translateY(-2px);
 }
 .wallet-kpi .kpi-icon {
     width: 44px; height: 44px; border-radius: 12px; display: flex;
     align-items: center; justify-content: center; color: #fff; flex-shrink: 0;
 }
-.wallet-kpi .kpi-icon--available { background: linear-gradient(135deg, #0b6266, #3aaeb2); }
+.wallet-kpi .kpi-icon--available { background: linear-gradient(135deg, #185054, #3faeb2); }
 .wallet-kpi .kpi-icon--bonus { background: linear-gradient(135deg, #f59e0b, #d97706); }
 .wallet-kpi .kpi-icon--pending { background: linear-gradient(135deg, #94a3b8, #64748b); }
 .wallet-kpi .kpi-icon--deposits { background: linear-gradient(135deg, #10b981, #059669); }
@@ -43,7 +43,7 @@
 .wallet-kpi .kpi-icon--withdrawals { background: linear-gradient(135deg, #ef4444, #dc2626); }
 .wallet-kpi .kpi-icon--pending-wd { background: linear-gradient(135deg, #f97316, #ea580c); }
 .wallet-kpi .kpi-label { font-size: 12px; color: #6b7280; display: block; font-weight: 600; letter-spacing: .01em; }
-.wallet-kpi .kpi-value { font-size: 1.45rem; font-weight: 700; color: #0b6266; line-height: 1.15; }
+.wallet-kpi .kpi-value { font-size: 1.45rem; font-weight: 700; color: #185054; line-height: 1.15; }
 .wallet-kpi .kpi-desc { font-size: 12px; color: #94a3b8; margin-top: 4px; display: block; }
 
 .wallet-actions { display: flex; flex-wrap: wrap; gap: 8px; }
@@ -60,7 +60,7 @@
 .wallet-type-icon {
     width: 34px; height: 34px; border-radius: 10px;
     display: inline-flex; align-items: center; justify-content: center;
-    background: #e8f8f7; color: #0b6266; font-size: 13px;
+    background: #e6f5f5; color: #185054; font-size: 13px;
 }
 .wallet-type-icon.is-debit { background: #fee2e2; color: #dc2626; }
 .wallet-type-icon.is-bonus { background: #fef3c7; color: #d97706; }
@@ -75,19 +75,19 @@
 }
 .wallet-status--completed, .wallet-status--paid, .wallet-status--approved { background: #d1fae5; color: #065f46; border-color: rgba(15, 118, 110, 0.2); }
 .wallet-status--pending, .wallet-status--processing {
-    background: var(--brand-primary-bg, #e8f8f7);
-    color: var(--brand-primary-deep, #084f52);
-    border-color: var(--brand-primary-border, #b8e8e6);
+    background: var(--brand-primary-bg, #e6f5f5);
+    color: var(--brand-primary-deep, #123f42);
+    border-color: var(--brand-primary-border, #b8e4e4);
 }
 .wallet-status--cancelled, .wallet-status--rejected, .wallet-status--failed { background: #fee2e2; color: #991b1b; border-color: rgba(220, 38, 38, 0.2); }
 
 .wallet-quick-amt {
     border: 1px solid #e5eef0; background: #fff; border-radius: 10px;
-    padding: 10px 12px; font-weight: 600; color: #0b6266; width: 100%;
+    padding: 10px 12px; font-weight: 600; color: #185054; width: 100%;
     transition: all .15s ease;
 }
 .wallet-quick-amt:hover, .wallet-quick-amt.is-active {
-    border-color: #0b6266; background: #e8f8f7;
+    border-color: #185054; background: #e6f5f5;
 }
 
 .wallet-empty {
@@ -95,9 +95,9 @@
 }
 .wallet-empty-illu {
     width: 88px; height: 88px; margin: 0 auto 16px; border-radius: 24px;
-    background: linear-gradient(145deg, #e8f8f7, #f1f5f9);
+    background: linear-gradient(145deg, #e6f5f5, #f1f5f9);
     display: flex; align-items: center; justify-content: center;
-    color: #0b6266; font-size: 34px;
+    color: #185054; font-size: 34px;
 }
 
 .wallet-tx-row { cursor: pointer; transition: background .15s ease; }
@@ -108,7 +108,7 @@
 }
 .wallet-bonus-meter > span {
     display: block; height: 100%; border-radius: 999px;
-    background: linear-gradient(90deg, #f59e0b, #0b6266);
+    background: linear-gradient(90deg, #f59e0b, #185054);
 }
 
 .wallet-offcanvas .offcanvas-header { border-bottom: 1px solid #eef2f5; }
@@ -121,7 +121,7 @@
 .wallet-detail-row strong { color: #0f172a; font-size: 13px; text-align: right; }
 
 .chart-range-btn.active {
-    background: #0b6266; border-color: #0b6266; color: #fff;
+    background: #185054; border-color: #185054; color: #fff;
 }
 .wallet-chart-tooltip {
     position: absolute; z-index: 1090; min-width: 220px; max-width: 280px;
@@ -130,14 +130,14 @@
     opacity: 0; transition: opacity .15s ease; pointer-events: none;
 }
 .wallet-chart-tooltip__title {
-    font-weight: 700; color: #0b6266; margin-bottom: 8px; font-size: 13px;
+    font-weight: 700; color: #185054; margin-bottom: 8px; font-size: 13px;
 }
 .wallet-chart-tooltip__row {
     display: flex; justify-content: space-between; gap: 12px;
     font-size: 12px; color: #64748b; padding: 3px 0;
 }
 .wallet-chart-tooltip__row strong { color: #0f172a; }
-.wallet-chart-empty h5 { color: #0b6266; }
+.wallet-chart-empty h5 { color: #185054; }
 
 @media (max-width: 767.98px) {
     .wallet-kpi .kpi-value { font-size: 1.25rem; }
@@ -152,8 +152,8 @@
     border-radius: var(--radius-lg, 12px); background: var(--surface-1, #fff);
     max-width: 32rem;
 }
-.af-spendable__label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .03em; color: var(--brand-primary-soft, #3aaeb2); }
-.af-spendable__value { font-size: 1.6rem; font-weight: 700; color: var(--brand-primary, #0b6266); line-height: 1.1; }
+.af-spendable__label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .03em; color: var(--brand-primary-soft, #3faeb2); }
+.af-spendable__value { font-size: 1.6rem; font-weight: 700; color: var(--brand-primary, #185054); line-height: 1.1; }
 .af-spendable__equation { margin-top: 2px; }
 .af-spendable__breakdown {
     display: flex; flex-wrap: wrap; gap: 8px;
@@ -166,31 +166,31 @@
     background: var(--surface-2, #f8fafc);
 }
 .af-spendable__chip--bonus {
-    background: var(--brand-primary-bg, #e8f8f7);
-    border-color: var(--brand-primary-border, #b8e8e6);
+    background: var(--brand-primary-bg, #e6f5f5);
+    border-color: var(--brand-primary-border, #b8e4e4);
 }
 .af-spendable__chip-label {
     font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em;
     color: var(--brand-ink-muted, #6b7280);
 }
-.af-spendable__chip--bonus .af-spendable__chip-label { color: var(--brand-primary, #0b6266); }
+.af-spendable__chip--bonus .af-spendable__chip-label { color: var(--brand-primary, #185054); }
 .af-spendable__chip-value {
     font-size: 0.95rem; font-weight: 700; color: var(--brand-ink, #1f2937);
 }
-.af-spendable__chip--bonus .af-spendable__chip-value { color: var(--brand-primary-deep, #084f52); }
+.af-spendable__chip--bonus .af-spendable__chip-value { color: var(--brand-primary-deep, #123f42); }
 .af-spendable__pending {
     font-size: 12px; color: var(--brand-neutral, #64748b);
 }
 .af-spendable__note {
-    font-size: 12px; color: var(--brand-warning-ink, #084f52);
+    font-size: 12px; color: var(--brand-warning-ink, #123f42);
     margin: 0; padding: 8px 10px;
-    background: var(--brand-warning-bg, #e8f8f7);
-    border: 1px solid var(--brand-warning-border, #b8e8e6);
+    background: var(--brand-warning-bg, #e6f5f5);
+    border: 1px solid var(--brand-warning-border, #b8e4e4);
     border-radius: var(--radius-sm, 8px);
 }
 .payment-option.selected .payment-option-card {
-    border-color: var(--brand-primary, #0b6266) !important;
-    background: var(--brand-primary-bg, #e8f8f7) !important;
+    border-color: var(--brand-primary, #185054) !important;
+    background: var(--brand-primary-bg, #e6f5f5) !important;
 }
 </style>
 
@@ -345,8 +345,8 @@
                     <i class="fa fa-plus-circle me-2"></i> Add Funds
                 </div>
                 <div class="card-body">
-                    <div class="alert alert-light border mb-3 d-none" id="depositWorkflowHint" style="background:var(--brand-primary-bg,#e8f8f7); border-color:var(--brand-primary-border,#b8e8e6) !important;">
-                        <div class="fw-semibold mb-1" style="color:var(--brand-primary,#0b6266);">Manual funding</div>
+                    <div class="alert alert-light border mb-3 d-none" id="depositWorkflowHint" style="background:var(--brand-primary-bg,#e6f5f5); border-color:var(--brand-primary-border,#b8e4e4) !important;">
+                        <div class="fw-semibold mb-1" style="color:var(--brand-primary,#185054);">Manual funding</div>
                         <p class="small text-muted mb-0">We create an invoice with a REF. Transfer the exact amount, include the REF, then mark as paid — wallet credits after confirmation.</p>
                     </div>
                     
@@ -410,7 +410,7 @@
                                 <div class="payment-option" data-method="bank" style="cursor: pointer;" role="button" tabindex="0" aria-label="Pay with bank transfer">
                                     <div class="payment-option-card" style="border: 2px solid #e5e7eb; border-radius: 12px; padding: 16px; text-align: center; background: white; transition: all 0.2s;">
                                         <div style="width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; background: #eff6ff; border-radius: 8px; margin: 0 auto 8px;">
-                                            <i class="fas fa-university" style="font-size: 28px; color: #0b6266;"></i>
+                                            <i class="fas fa-university" style="font-size: 28px; color: #185054;"></i>
                                         </div>
                                         <span style="font-weight: 600; font-size: 12px; color: #1f2937;">Bank Transfer</span>
                                         <span style="font-size: 10px; color: #6b7280; display: block; margin-top: 4px;">Invoice → SEPA/wire → wallet credit</span>
@@ -562,7 +562,7 @@
                             <div class="card-body">
                                 <div style="display: flex; align-items: center; margin-bottom: 16px;">
                                     <div style="width: 40px; height: 40px; background: #eff6ff; border-radius: 8px; display: flex; align-items: center; justify-content: center; margin-right: 12px;">
-                                        <i class="fas fa-university" style="font-size: 24px; color: #0b6266;"></i>
+                                        <i class="fas fa-university" style="font-size: 24px; color: #185054;"></i>
                                     </div>
                                     <div>
                                         <h3 style="font-size: 18px; font-weight: 600; margin: 0;">Bank Transfer Payment</h3>
@@ -836,7 +836,7 @@
             </div>
             <form id="withdrawForm">
                 <div class="modal-body">
-                    <div class="p-3 rounded mb-3" style="background:#e8f8f7;border:1px solid #b8e8e6;">
+                    <div class="p-3 rounded mb-3" style="background:#e6f5f5;border:1px solid #b8e4e4;">
                         <div class="small text-muted">Available for Withdrawal</div>
                         <div class="fs-3 fw-bold text-primary" id="withdrawAvailableLabel">€{{ number_format($available, 2) }}</div>
                         <div class="small text-muted mt-1">Bonus Balance (€{{ number_format($bonus, 2) }}) cannot be withdrawn.</div>
@@ -1091,7 +1091,7 @@
                 ctx.moveTo(x, topY);
                 ctx.lineTo(x, bottomY);
                 ctx.lineWidth = 1;
-                ctx.strokeStyle = 'rgba(11, 98, 102, 0.35)';
+                ctx.strokeStyle = 'rgba(24, 80, 84, 0.35)';
                 ctx.setLineDash([4, 4]);
                 ctx.stroke();
                 ctx.restore();
@@ -1225,14 +1225,14 @@
                 datasets: [{
                     label: 'Spending',
                     data: values,
-                    borderColor: '#0b6266',
+                    borderColor: '#185054',
                     backgroundColor: (ctx) => {
                         const chart = ctx.chart;
                         const {ctx: c, chartArea} = chart;
-                        if (!chartArea) return 'rgba(11,98,102,.10)';
+                        if (!chartArea) return 'rgba(24,80,84,.10)';
                         const g = c.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
-                        g.addColorStop(0, 'rgba(58,174,178,.28)');
-                        g.addColorStop(1, 'rgba(11,98,102,.02)');
+                        g.addColorStop(0, 'rgba(63,174,178,.28)');
+                        g.addColorStop(1, 'rgba(24,80,84,.02)');
                         return g;
                     },
                     borderWidth: 2.5,
@@ -1241,7 +1241,7 @@
                     pointRadius: 4,
                     pointHoverRadius: 7,
                     pointBackgroundColor: '#fff',
-                    pointBorderColor: '#0b6266',
+                    pointBorderColor: '#185054',
                     pointBorderWidth: 2,
                     pointHoverBorderWidth: 3,
                     pointHitRadius: 14,
@@ -1264,7 +1264,7 @@
                         zoom: {
                             wheel: { enabled: true, speed: 0.08 },
                             pinch: { enabled: true },
-                            drag: { enabled: true, backgroundColor: 'rgba(11,98,102,.08)', borderColor: 'rgba(11,98,102,.35)', borderWidth: 1 },
+                            drag: { enabled: true, backgroundColor: 'rgba(24,80,84,.08)', borderColor: 'rgba(24,80,84,.35)', borderWidth: 1 },
                             mode: 'x',
                         },
                         limits: { x: { min: 'original', max: 'original' } },
@@ -1539,7 +1539,7 @@
 }
 
 .payment-option.selected .payment-option-card {
-    border-color: #0b6266 !important;
+    border-color: #185054 !important;
     background: #eff6ff !important;
     box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
 }
@@ -1563,9 +1563,9 @@
 }
 
 .amount-btn.active {
-    background-color: #0b6266;
+    background-color: #185054;
     color: white;
-    border-color: #0b6266;
+    border-color: #185054;
 }
 
 .copy-btn {
@@ -2176,7 +2176,7 @@ document.addEventListener('DOMContentLoaded', function() {
             showCancelButton: true,
             confirmButtonText: 'OK, I have made the payment',
             cancelButtonText: 'Not yet',
-            confirmButtonColor: '#0b6266',
+            confirmButtonColor: '#185054',
         }).then((result) => {
             if (!result.isConfirmed) {
                 return null;

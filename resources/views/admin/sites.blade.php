@@ -209,7 +209,7 @@
 }
 
 .site-url:hover {
-    color: #0b6266;
+    color: #185054;
     text-decoration: underline;
 }
 

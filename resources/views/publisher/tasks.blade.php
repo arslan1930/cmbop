@@ -104,7 +104,7 @@
                     <!-- Action Buttons -->
                     <div class="col-md-4">
                         <div class="d-flex gap-2">
-                            <button type="submit" class="btn btn-sm px-4" style="background-color: #3aaeb2; color: white;">
+                            <button type="submit" class="btn btn-sm px-4" style="background-color: #3faeb2; color: white;">
                                 <i class="fa-solid fa-magnifying-glass me-1"></i> Filter
                             </button>
                             <button type="button" id="resetFiltersBtn" class="btn btn-sm px-3" style="background-color: #e9ecef; color: #495057;">
@@ -926,7 +926,7 @@ $(document).ready(function() {
             $('#tasksTableBody').html(
                 '<tr><td colspan="9" class="text-center py-5">' +
                 '<div class="mx-auto" style="max-width:420px">' +
-                '<div class="mx-auto mb-3 d-flex align-items-center justify-content-center" style="width:52px;height:52px;border-radius:50%;background:var(--brand-primary-bg,#e8f8f7);color:var(--brand-primary,#0b6266)" aria-hidden="true"><i class="fa-solid fa-inbox"></i></div>' +
+                '<div class="mx-auto mb-3 d-flex align-items-center justify-content-center" style="width:52px;height:52px;border-radius:50%;background:var(--brand-primary-bg,#e6f5f5);color:var(--brand-primary,#185054)" aria-hidden="true"><i class="fa-solid fa-inbox"></i></div>' +
                 '<h5 class="mb-2">No tasks yet</h5>' +
                 '<p class="text-muted mb-3">When advertisers order your sites, new tasks will show up here.</p>' +
                 '<a href="{{ route("publisher.websites") }}" class="btn btn-primary btn-sm">Manage my sites</a>' +

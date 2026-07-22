@@ -37,7 +37,7 @@
                                     </li>
                                     <li>
                                         <span class="auth-proof-icon" aria-hidden="true">
-                                            <svg width="24" height="24" viewBox="0 0 24 24" focusable="false"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/><circle cx="12" cy="15.5" r="1.2" fill="#0b6266" stroke="none"/></svg>
+                                            <svg width="24" height="24" viewBox="0 0 24 24" focusable="false"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/><circle cx="12" cy="15.5" r="1.2" fill="#185054" stroke="none"/></svg>
                                         </span>
                                         <div>
                                             <strong>Secure payments</strong>
@@ -88,7 +88,7 @@
                                     </li>
                                     <li>
                                         <span class="mi" aria-hidden="true">
-                                            <svg width="22" height="22" viewBox="0 0 24 24" focusable="false"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/><circle cx="12" cy="15.5" r="1.2" fill="#0b6266" stroke="none"/></svg>
+                                            <svg width="22" height="22" viewBox="0 0 24 24" focusable="false"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/><circle cx="12" cy="15.5" r="1.2" fill="#185054" stroke="none"/></svg>
                                         </span>
                                         Secure payments
                                     </li>

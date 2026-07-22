@@ -16,7 +16,7 @@
         @foreach(range(1, 4) as $i)
             <div class="col-md-6">
                 <div class="p-4 h-100 rounded-4 border bg-white shadow-sm">
-                    <h2 class="h5" style="color:#0b6266;">{{ __('messages.why_choose_point_'.$i.'_title') }}</h2>
+                    <h2 class="h5" style="color:#185054;">{{ __('messages.why_choose_point_'.$i.'_title') }}</h2>
                     <p class="text-muted mb-0">{{ __('messages.why_choose_point_'.$i.'_body') }}</p>
                 </div>
             </div>

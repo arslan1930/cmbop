@@ -69,7 +69,7 @@
                         <div class="d-flex justify-content-between mb-2"><span class="text-muted">{{ $invoice->tax_label ?: 'Tax' }}</span><span>€{{ number_format((float) $invoice->tax_amount, 2) }}</span></div>
                     @endif
                     <div class="d-flex justify-content-between pt-2 border-top fw-bold">
-                        <span>Total</span><span style="color:#0b6266;">€{{ number_format((float) $invoice->total_amount, 2) }}</span>
+                        <span>Total</span><span style="color:#185054;">€{{ number_format((float) $invoice->total_amount, 2) }}</span>
                     </div>
                     @if($invoice->parentInvoice)
                         <hr>

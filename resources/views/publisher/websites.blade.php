@@ -37,8 +37,8 @@
     }
 
     .form-control:focus, .form-select:focus {
-        border-color: var(--brand-primary-soft, #3aaeb2);
-        box-shadow: 0 0 0 0.2rem var(--focus-ring, rgba(58, 174, 178, 0.35));
+        border-color: var(--brand-primary-soft, #3faeb2);
+        box-shadow: 0 0 0 0.2rem var(--focus-ring, rgba(63, 174, 178, 0.35));
         background-color: #fff;
     }
 
@@ -125,9 +125,9 @@
     }
 
     .pagination li.active {
-        background-color: #0b6266;
+        background-color: #185054;
         color: white;
-        border-color: #0b6266;
+        border-color: #185054;
     }
 
     #formCard {
@@ -167,20 +167,20 @@
         flex-shrink: 0;
     }
     .site-wizard-step.active {
-        border-color: #3aaeb2;
-        background: rgba(58, 174, 178, 0.08);
-        color: #0b6266;
+        border-color: #3faeb2;
+        background: rgba(63, 174, 178, 0.08);
+        color: #185054;
     }
     .site-wizard-step.active .wiz-num {
-        background: #0b6266;
+        background: #185054;
         color: #fff;
     }
     .site-wizard-step.done {
         border-color: #c8ebe9;
-        color: #0b6266;
+        color: #185054;
     }
     .site-wizard-step.done .wiz-num {
-        background: #4ECDCB;
+        background: #5bc4c7;
         color: #fff;
     }
     .wizard-pane { display: none; }
@@ -204,13 +204,13 @@
     }
 
     .btn-primary {
-        background-color: #0b6266;
-        border-color: #0b6266;
+        background-color: #185054;
+        border-color: #185054;
     }
 
     .btn-primary:hover {
-        background-color: #3aaeb2;
-        border-color: #3aaeb2;
+        background-color: #3faeb2;
+        border-color: #3faeb2;
     }
 
     .btn-success {
@@ -300,7 +300,7 @@
     }
     
     .multi-select-input:hover {
-        border-color: #0b6266;
+        border-color: #185054;
     }
     
     .multi-select-tag {
@@ -370,7 +370,7 @@
     
     .multi-select-search input:focus {
         outline: none;
-        border-color: #0b6266;
+        border-color: #185054;
     }
     
     .multi-select-option {
@@ -386,7 +386,7 @@
     
     .multi-select-option.selected {
         background-color: #e3f2fd;
-        color: #0b6266;
+        color: #185054;
     }
     
     .multi-select-option.hidden {
@@ -413,7 +413,7 @@
     }
     
     .single-select-input:hover {
-        border-color: #0b6266;
+        border-color: #185054;
     }
     
     .single-select-value {
@@ -479,7 +479,7 @@
     
     .single-select-option.selected {
         background-color: #e3f2fd;
-        color: #0b6266;
+        color: #185054;
     }
     
     .single-select-option.hidden {
@@ -2389,7 +2389,7 @@ function fetchSites(page = 1, query = '') {
             if(!res || res.trim() === ''){
                 $('#sitesTableWrapper').html(
                     '<div class="ui-empty-state text-center mx-auto py-4" style="max-width:420px">' +
-                    '<div class="mx-auto mb-3 d-flex align-items-center justify-content-center" style="width:52px;height:52px;border-radius:50%;background:var(--brand-primary-bg,#e8f8f7);color:var(--brand-primary,#0b6266)" aria-hidden="true"><i class="fa-solid fa-globe"></i></div>' +
+                    '<div class="mx-auto mb-3 d-flex align-items-center justify-content-center" style="width:52px;height:52px;border-radius:50%;background:var(--brand-primary-bg,#e6f5f5);color:var(--brand-primary,#185054)" aria-hidden="true"><i class="fa-solid fa-globe"></i></div>' +
                     '<h5 class="mb-2">No websites listed yet</h5>' +
                     '<p class="text-muted mb-3">Add your first site so advertisers can find and order from you.</p>' +
                     '<button type="button" class="btn btn-primary btn-sm" id="emptyAddSiteCta"><i class="fa fa-plus"></i> Add New Website</button>' +
@@ -2648,7 +2648,7 @@ $(document).on('click', '.btn-feature-site', async function () {
         showCancelButton: true,
         confirmButtonText: canWallet ? 'Pay from wallet' : 'Use card / top up',
         denyButtonText: wallet.stripe_available ? 'Pay by card' : undefined,
-        confirmButtonColor: '#0b6266',
+        confirmButtonColor: '#185054',
         denyButtonColor: '#635bff',
     });
 
@@ -2710,7 +2710,7 @@ $(document).on('click', '.btn-discount-site', async function () {
                <input id="swal-days" type="number" min="1" max="90" class="swal2-input" placeholder="Days active" value="7">`,
         showCancelButton: true,
         confirmButtonText: 'Publish discount',
-        confirmButtonColor: '#0b6266',
+        confirmButtonColor: '#185054',
         preConfirm: () => ({
             percent: document.getElementById('swal-pct').value,
             days: document.getElementById('swal-days').value,
@@ -2750,7 +2750,7 @@ $(document).on('click', '.btn-bulk-join', async function () {
         inputAttributes: { min: 10, max: 15, step: 1 },
         showCancelButton: true,
         confirmButtonText: 'Join',
-        confirmButtonColor: '#0b6266',
+        confirmButtonColor: '#185054',
     });
     if (percent === undefined || percent === null || percent === '') return;
     const res = await fetch(`/publisher/sites/${id}/bulk-discount`, {

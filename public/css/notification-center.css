@@ -1,16 +1,16 @@
 /* In-app Notification Center — brand-aligned, monochrome icons */
 .nc-theme,
 .nc-bell-wrap {
-  --nc-primary: var(--brand-primary-soft, #3aaeb2);
-  --nc-primary-strong: var(--brand-primary, #0b6266);
-  --nc-primary-soft: var(--brand-primary-bg, #e8f8f7);
-  --nc-primary-border: var(--brand-primary-border, #b8e8e6);
+  --nc-primary: var(--brand-primary-soft, #3faeb2);
+  --nc-primary-strong: var(--brand-primary, #185054);
+  --nc-primary-soft: var(--brand-primary-bg, #e6f5f5);
+  --nc-primary-border: var(--brand-primary-border, #b8e4e4);
   --nc-fg: var(--brand-ink, #1f2937);
   --nc-fg-muted: var(--brand-neutral, #64748b);
   --nc-fg-subtle: #94a3b8;
   --nc-bg: var(--surface-1, #ffffff);
   --nc-bg-soft: var(--surface-2, #f8fafc);
-  --nc-bg-hover: var(--hover-tint, #e8f8f7);
+  --nc-bg-hover: var(--hover-tint, #e6f5f5);
   --nc-border: var(--border-subtle, #e2e8f0);
   --nc-border-soft: #e2e8f0;
   --nc-shadow: var(--shadow-dropdown, 0 8px 24px rgba(15, 23, 42, 0.1));
@@ -571,8 +571,8 @@ a.nc-item:focus {
   height: 14px;
   border-radius: 50%;
   background: var(--nc-bg, #fff);
-  border: 2px solid var(--nc-primary, #4ECDCB);
-  box-shadow: 0 0 0 3px var(--nc-primary-soft, #e8f8f7);
+  border: 2px solid var(--nc-primary, #5bc4c7);
+  box-shadow: 0 0 0 3px var(--nc-primary-soft, #e6f5f5);
 }
 
 .oa-time {

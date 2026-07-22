@@ -287,7 +287,7 @@ async function loadTrends() {
                 {
                     label: 'Revenue (€)',
                     data: json.revenue,
-                    borderColor: '#0b6266',
+                    borderColor: '#185054',
                     backgroundColor: 'rgba(13,110,253,0.12)',
                     fill: true,
                     tension: 0.35,
@@ -336,7 +336,7 @@ async function loadDistributions() {
     const json = await res.json();
     if (!json.success) return;
 
-    const palette = ['#0b6266', '#198754', '#ffc107', '#dc3545', '#6f42c1', '#20c997', '#fd7e14'];
+    const palette = ['#185054', '#198754', '#ffc107', '#dc3545', '#6f42c1', '#20c997', '#fd7e14'];
 
     orderStatusChart = new Chart(document.getElementById('orderStatusChart'), {
         type: 'doughnut',
@@ -356,7 +356,7 @@ async function loadDistributions() {
             labels: json.roles.labels,
             datasets: [{
                 data: json.roles.values,
-                backgroundColor: ['#0b6266', '#198754', '#6c757d']
+                backgroundColor: ['#185054', '#198754', '#6c757d']
             }]
         },
         options: { plugins: { legend: { position: 'bottom' } } }

@@ -42,13 +42,13 @@
         #sidebar a.active,
         #sidebar a:hover {
             border-radius: 8px;
-            background-color: var(--brand-primary-bg, #e8f8f7);
-            color: var(--brand-primary, #0b6266);
-            border: 1px solid var(--brand-primary-border, #b8e8e6);
+            background-color: var(--brand-primary-bg, #e6f5f5);
+            color: var(--brand-primary, #185054);
+            border: 1px solid var(--brand-primary-border, #b8e4e4);
         }
         #sidebar a.active i,
         #sidebar a:hover i {
-            color: var(--brand-primary, #0b6266);
+            color: var(--brand-primary, #185054);
         }
         #sidebar.collapsed { width: 70px; min-width: 70px; }
         #sidebar.collapsed a { justify-content: center; font-size: 0; }
@@ -111,8 +111,8 @@
         }
         .topbar-icon-btn:hover {
             background: #f8f9fa;
-            color: #0b6266;
-            border-color: #b8e8e6;
+            color: #185054;
+            border-color: #b8e4e4;
         }
 
         .top-navbar .dropdown-menu .dropdown-item {
@@ -265,7 +265,7 @@
                          style="width: 36px; height: 36px; object-fit: cover;">
                 @else
                     <div class="rounded-circle text-white d-flex justify-content-center align-items-center"
-                         style="width: 36px; height: 36px; font-weight: 600; background: #4ECDCB;"
+                         style="width: 36px; height: 36px; font-weight: 600; background: #5bc4c7;"
                          aria-hidden="true">
                         {{ strtoupper(substr($user->name, 0, 1)) }}
                     </div>
@@ -282,7 +282,7 @@
                                  style="width: 32px; height: 32px; object-fit: cover;">
                         @else
                             <div class="rounded-circle text-white d-flex justify-content-center align-items-center"
-                                 style="width: 32px; height: 32px; font-weight: 600; background: #4ECDCB;"
+                                 style="width: 32px; height: 32px; font-weight: 600; background: #5bc4c7;"
                                  aria-hidden="true">
                                 {{ strtoupper(substr($user->name, 0, 1)) }}
                             </div>

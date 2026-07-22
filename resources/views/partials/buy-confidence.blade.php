@@ -38,16 +38,16 @@
             width: 5px;
             height: 5px;
             border-radius: 50%;
-            background: #3aaeb2;
+            background: #3faeb2;
         }
         .buy-confidence a {
-            color: #0b6266;
+            color: #185054;
             font-weight: 600;
             text-decoration: underline;
             text-underline-offset: 2px;
         }
         .buy-confidence a:hover {
-            color: #3aaeb2;
+            color: #3faeb2;
         }
     </style>
 @endonce

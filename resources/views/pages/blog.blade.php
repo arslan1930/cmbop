@@ -36,7 +36,7 @@
                     <!-- Tags Filter -->
                     <div class="col-md-6">
                         <div class="d-flex flex-wrap gap-2" id="tagCloud">
-                            <span class="tag-filter active" data-tag="" style="background:#4ECDCB; color:white; padding:6px 16px; border-radius:25px; font-size:0.85rem; cursor:pointer; transition:all 0.2s;">All Posts</span>
+                            <span class="tag-filter active" data-tag="" style="background:#5bc4c7; color:white; padding:6px 16px; border-radius:25px; font-size:0.85rem; cursor:pointer; transition:all 0.2s;">All Posts</span>
                             @php
                                 $allTags = [];
                                 if(isset($blog) && $blog->count() > 0) {
@@ -111,7 +111,7 @@
                                                     <p class="card-text text-muted" style="line-height:1.7;">
                                                         {{ Str::limit(strip_tags($post->content), 120) }}
                                                     </p>
-                                                    <a href="{{ localized_url('blog/'.$post->slug) }}" class="btn btn-link text-decoration-none p-0" style="color:#4ECDCB; font-weight:600;">
+                                                    <a href="{{ localized_url('blog/'.$post->slug) }}" class="btn btn-link text-decoration-none p-0" style="color:#5bc4c7; font-weight:600;">
                                                         Read More <i class="fa fa-arrow-right ms-1"></i>
                                                     </a>
                                                 </div>
@@ -135,7 +135,7 @@
                                                     <p class="card-text text-muted" style="line-height:1.7;">
                                                         {{ Str::limit(strip_tags($post->content), 150) }}
                                                     </p>
-                                                    <a href="{{ localized_url('blog/'.$post->slug) }}" class="btn btn-link text-decoration-none p-0" style="color:#4ECDCB; font-weight:600;">
+                                                    <a href="{{ localized_url('blog/'.$post->slug) }}" class="btn btn-link text-decoration-none p-0" style="color:#5bc4c7; font-weight:600;">
                                                         Read More <i class="fa fa-arrow-right ms-1"></i>
                                                     </a>
                                                 </div>
@@ -172,7 +172,7 @@
                 <div class="card border-0 shadow-sm rounded-4 mb-4">
                     <div class="card-body p-4">
                         <h3 class="h5 fw-bold mb-3" style="color:#1a1a2e;">
-                            <i class="fa fa-clock-o me-2" style="color:#4ECDCB;"></i> Recent Posts
+                            <i class="fa fa-clock-o me-2" style="color:#5bc4c7;"></i> Recent Posts
                         </h3>
                         @foreach($recentPosts as $recent)
                             <a href="{{ localized_url('blog/'.$recent->slug) }}" class="text-decoration-none d-block mb-3">
@@ -217,7 +217,7 @@
     
     /* Tag Filter Styles */
     .tag-filter:hover {
-        background: #4ECDCB !important;
+        background: #5bc4c7 !important;
         color: white !important;
     }
     
@@ -234,14 +234,14 @@
     }
     
     .pagination .page-item.active .page-link {
-        background: #4ECDCB;
-        border-color: #4ECDCB;
+        background: #5bc4c7;
+        border-color: #5bc4c7;
         color: white;
     }
     
     .pagination .page-link:hover {
         background: #f0f5ff;
-        color: #4ECDCB;
+        color: #5bc4c7;
     }
 </style>
 
@@ -336,7 +336,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 t.style.background = '#f0f2f5';
                 t.style.color = '#555';
             });
-            this.style.background = '#4ECDCB';
+            this.style.background = '#5bc4c7';
             this.style.color = 'white';
             
             currentTag = this.getAttribute('data-tag');

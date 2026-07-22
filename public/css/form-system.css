@@ -61,14 +61,14 @@
 }
 
 .filter-preset:hover {
-  border-color: #b8e8e6;
-  background: #e8f8f7;
-  color: #0b6266;
+  border-color: #b8e4e4;
+  background: #e6f5f5;
+  color: #185054;
 }
 
 .filter-preset.is-active {
-  border-color: #0b6266;
-  background: #0b6266;
+  border-color: #185054;
+  background: #185054;
   color: #fff;
 }
 
@@ -80,14 +80,14 @@
   padding: 0;
   border: 0;
   background: transparent;
-  color: #0b6266;
+  color: #185054;
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
 }
 
 .disclosure-toggle:hover {
-  color: #3aaeb2;
+  color: #3faeb2;
 }
 
 .disclosure-panel {

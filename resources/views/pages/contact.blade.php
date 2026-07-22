@@ -18,7 +18,7 @@
     <!-- ===== CEO SECTION ===== -->
     <div class="mb-5 p-4 p-md-5 rounded-4 shadow-sm" style="background:white; border:1px solid #eef0f3;">
         <div class="d-flex align-items-start gap-4 mb-4 flex-wrap">
-            <div style="width:90px; height:90px; border-radius:50%; overflow:hidden; flex-shrink:0; border:3px solid #4ECDCB; box-shadow:0 4px 12px rgba(78,205,203,0.25);">
+            <div style="width:90px; height:90px; border-radius:50%; overflow:hidden; flex-shrink:0; border:3px solid #5bc4c7; box-shadow:0 4px 12px rgba(78,205,203,0.25);">
                 <img src="{{ asset('assets/img/arslan.jpg') }}" 
                      alt="M Arslan - Founder & CEO" 
                      style="width:100%; height:100%; object-fit:cover;"
@@ -26,10 +26,10 @@
             </div>
             <div>
                 <p class="fw-bold mb-1" style="font-size:1.25rem; color:#1a1a2e;">{{ __('messages.ceo_name') }}</p>
-                <p class="mb-0" style="color:#4ECDCB; font-weight:600;">{{ __('messages.ceo_title') }}</p>
+                <p class="mb-0" style="color:#5bc4c7; font-weight:600;">{{ __('messages.ceo_title') }}</p>
             </div>
         </div>
-        <div class="p-4 rounded-3" style="background:#f7f9fc; border-left:4px solid #4ECDCB;">
+        <div class="p-4 rounded-3" style="background:#f7f9fc; border-left:4px solid #5bc4c7;">
             <p class="mb-0 fst-italic" style="color:#555; line-height:1.7;">
                 {{ __('messages.ceo_quote') }}
             </p>
@@ -45,12 +45,12 @@
             <!-- Email -->
             <div class="col-md-6">
                 <div class="p-4 rounded-3 h-100 d-flex align-items-start gap-3" style="background:white; border:1px solid #eef0f3; transition:all 0.3s;">
-                    <div style="width:44px; height:44px; background:linear-gradient(135deg,#4ECDCB,#38b2ac); border-radius:10px; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+                    <div style="width:44px; height:44px; background:linear-gradient(135deg,#5bc4c7,#38b2ac); border-radius:10px; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
                     </div>
                     <div>
                         <p class="fw-bold mb-1" style="color:#1a1a2e;">{{ __('messages.contact_email_label') }}</p>
-                        <a href="mailto:support@seolinkbuildings.com" style="color:#4ECDCB; text-decoration:none; font-weight:500;">
+                        <a href="mailto:support@seolinkbuildings.com" style="color:#5bc4c7; text-decoration:none; font-weight:500;">
                             support@seolinkbuildings.com
                         </a>
                     </div>
@@ -125,11 +125,11 @@
         </p>
         <ul class="list-unstyled mb-0">
             <li class="d-flex align-items-start gap-2 mb-2">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#4ECDCB" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0; margin-top:3px;"><polyline points="20 6 9 17 4 12"/></svg>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#5bc4c7" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0; margin-top:3px;"><polyline points="20 6 9 17 4 12"/></svg>
                 <span style="color:#555;">{{ __('messages.enterprise_feature_1') }}</span>
             </li>
             <li class="d-flex align-items-start gap-2 mb-0">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#4ECDCB" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0; margin-top:3px;"><polyline points="20 6 9 17 4 12"/></svg>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#5bc4c7" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0; margin-top:3px;"><polyline points="20 6 9 17 4 12"/></svg>
                 <span style="color:#555;">{{ __('messages.enterprise_feature_2') }}</span>
             </li>
         </ul>
@@ -137,7 +137,7 @@
 
 
     <!-- ===== CTA ===== -->
-    <div class="text-center py-5 px-4 rounded-4" style="background:linear-gradient(135deg, #4ECDCB, #38b2ac); box-shadow:0 15px 35px rgba(78,205,203,0.25);">
+    <div class="text-center py-5 px-4 rounded-4" style="background:linear-gradient(135deg, #5bc4c7, #38b2ac); box-shadow:0 15px 35px rgba(78,205,203,0.25);">
         <h2 class="fw-bold mb-3" style="color:white; font-size:1.75rem;">{{ __('messages.cta_ready_title') }}</h2>
         <p class="mb-4" style="color:rgba(255,255,255,0.9); max-width:500px; margin:0 auto;">
             {{ __('messages.cta_ready_subtitle') }}
@@ -159,7 +159,7 @@
     .container .row .col-md-6 > div:hover {
         transform: translateY(-3px);
         box-shadow: 0 8px 20px rgba(0,0,0,0.06);
-        border-color: #4ECDCB !important;
+        border-color: #5bc4c7 !important;
     }
 </style>
 

@@ -71,7 +71,7 @@
     inset: 0;
     background:
       radial-gradient(ellipse 58% 52% at 88% 40%, rgba(78, 205, 203, 0.28), transparent 72%),
-      radial-gradient(ellipse 42% 48% at 6% 80%, rgba(11, 98, 102, 0.1), transparent 65%);
+      radial-gradient(ellipse 42% 48% at 6% 80%, rgba(24, 80, 84, 0.1), transparent 65%);
     pointer-events: none;
   }
 
@@ -79,8 +79,8 @@
     position: absolute;
     inset: 0;
     background-image:
-      linear-gradient(rgba(11, 98, 102, 0.035) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(11, 98, 102, 0.035) 1px, transparent 1px);
+      linear-gradient(rgba(24, 80, 84, 0.035) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(24, 80, 84, 0.035) 1px, transparent 1px);
     background-size: 48px 48px;
     mask-image: radial-gradient(ellipse 70% 70% at 70% 40%, black, transparent 85%);
     pointer-events: none;
@@ -122,7 +122,7 @@
     font-size: clamp(1.65rem, 3.2vw, 2.55rem);
     line-height: 1.15;
     font-weight: 700;
-    color: #0b6266;
+    color: #185054;
     letter-spacing: -0.03em;
     max-width: 18ch;
     animation: slbHeroFade 0.7s ease 0.08s both;
@@ -160,27 +160,27 @@
 
   .slb-hero-cta {
     color: #fff;
-    background: #0b6266;
-    box-shadow: 0 10px 24px rgba(11, 98, 102, 0.22);
+    background: #185054;
+    box-shadow: 0 10px 24px rgba(24, 80, 84, 0.22);
   }
 
   .slb-hero-cta:hover {
     color: #fff;
-    background: #3aaeb2;
+    background: #3faeb2;
     transform: translateY(-2px);
-    box-shadow: 0 14px 28px rgba(58, 174, 178, 0.28);
+    box-shadow: 0 14px 28px rgba(63, 174, 178, 0.28);
   }
 
   .slb-hero-cta-secondary {
-    color: #0b6266;
+    color: #185054;
     background: rgba(255, 255, 255, 0.72);
-    border: 1px solid rgba(11, 98, 102, 0.18);
+    border: 1px solid rgba(24, 80, 84, 0.18);
     backdrop-filter: blur(8px);
   }
 
   .slb-hero-cta-secondary:hover {
-    color: #0b6266;
-    border-color: rgba(11, 98, 102, 0.35);
+    color: #185054;
+    border-color: rgba(24, 80, 84, 0.35);
     background: #fff;
     transform: translateY(-2px);
   }
@@ -192,13 +192,13 @@
     margin-top: 1.1rem;
     font-size: 0.92rem;
     font-weight: 600;
-    color: #0b6266;
+    color: #185054;
     text-decoration: none;
     animation: slbHeroFade 0.7s ease 0.3s both;
   }
 
   .slb-hero-catalog-text:hover {
-    color: #3aaeb2;
+    color: #3faeb2;
   }
 
   .slb-hero-catalog-text i {
@@ -233,15 +233,15 @@
     object-fit: cover;
     object-position: left top;
     border-radius: 18px 0 0 0;
-    box-shadow: -18px 24px 70px rgba(11, 98, 102, 0.18);
-    border: 1px solid rgba(11, 98, 102, 0.1);
+    box-shadow: -18px 24px 70px rgba(24, 80, 84, 0.18);
+    border: 1px solid rgba(24, 80, 84, 0.1);
     border-right: none;
     transition: transform 0.35s ease, box-shadow 0.35s ease;
   }
 
   .slb-hero-catalog-link:hover .slb-hero-product {
     transform: translateY(-4px);
-    box-shadow: -20px 28px 72px rgba(11, 98, 102, 0.22);
+    box-shadow: -20px 28px 72px rgba(24, 80, 84, 0.22);
   }
 
   @keyframes slbHeroFade {
@@ -281,7 +281,7 @@
       min-height: 220px;
       max-height: 360px;
       border-radius: 16px 16px 0 0;
-      border-right: 1px solid rgba(11, 98, 102, 0.1);
+      border-right: 1px solid rgba(24, 80, 84, 0.1);
     }
   }
 

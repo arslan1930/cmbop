@@ -5,7 +5,7 @@
 @section('content')
 <div class="container py-5" style="max-width:720px;">
     <div class="mb-4">
-        <h2 class="fw-semibold mb-1" style="color:#0b6266;">Email Preferences</h2>
+        <h2 class="fw-semibold mb-1" style="color:#185054;">Email Preferences</h2>
         <p class="text-muted mb-0">Choose which emails you want to receive. Security alerts always stay on.</p>
     </div>
 
