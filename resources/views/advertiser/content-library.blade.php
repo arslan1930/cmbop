@@ -464,6 +464,12 @@
     }
     .library-filter-bar .form-select { min-width: 140px; }
     .library-page-actions { margin-top: .75rem; }
+    .library-page-actions.upload-zone {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: .75rem;
+    }
     .article-docs-shell {
         border: 1px solid #e2e8f0;
         border-radius: 12px;
@@ -499,7 +505,7 @@
         'subtitle' => 'One job here: upload and approve articles. Any approved article can be placed on any catalog site.',
         'linkAll' => true,
         'contentRoute' => route('advertiser.content-library'),
-        'actions' => '<a href="'.e(route('advertiser.catalog')).'" class="btn btn-sm btn-outline-primary">Browse publishers</a>',
+        'actions' => '<a href="'.e(route('advertiser.catalog')).'" class="btn btn-sm btn-outline-secondary">Browse publishers</a>',
     ])
 
     <div class="mb-3">
@@ -508,10 +514,11 @@
             Upload a .docx (choose language and country yourself) → wait for approval → browse any publishers → assign in cart → pay.
             Multi-site orders need a different approved article for each website — language does not have to match the site.
         </p>
-        <div class="library-page-actions">
+        <div class="library-page-actions upload-zone">
             <button type="button" class="btn btn-upload" data-bs-toggle="modal" data-bs-target="#uploadContentModal" id="openUploadModalBtn">
                 <i class="fa fa-upload me-1"></i> Upload article
             </button>
+            <span class="small text-muted mb-0">.docx only · pick language &amp; country before upload</span>
         </div>
     </div>
 
@@ -837,10 +844,10 @@
                                     message="Upload a .docx here. After approval, assign it in your cart and checkout."
                                 >
                                     <div class="d-flex flex-wrap gap-2 justify-content-center">
-                                        <button type="button" class="btn btn-sm btn-upload" data-bs-toggle="modal" data-bs-target="#uploadContentModal">
+                                        <button type="button" class="btn btn-upload" data-bs-toggle="modal" data-bs-target="#uploadContentModal">
                                             <i class="fa fa-upload me-1"></i> Upload article
                                         </button>
-                                        <a href="{{ route('advertiser.wizard.start') }}" class="btn btn-sm btn-outline-secondary">
+                                        <a href="{{ route('advertiser.wizard.start') }}" class="btn btn-outline-secondary">
                                             Guided placement
                                         </a>
                                     </div>
