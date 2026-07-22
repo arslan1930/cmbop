@@ -67,12 +67,12 @@ class WalletBalancePageTest extends TestCase
             ->assertSee('Add funds', false)
             ->assertSee('Top up your wallet', false)
             ->assertSee('Spendable', false)
-            ->assertSee('Cash', false)
+            ->assertSee('Money', false)
             ->assertSee('Bonus', false)
             ->assertSee('depositSection', false)
             ->assertSee('proceedBtn', false)
             ->assertSee(Wallet::PROMOTIONAL_BONUS_MESSAGE, false)
-            ->assertSee('€20.00 promotional bonus', false)
+            ->assertSee('Bonus €20.00', false)
             ->assertSee('PayPal coming soon', false)
             ->assertDontSee('Spending Overview', false)
             ->assertDontSee('Quick Actions', false)
@@ -100,6 +100,44 @@ class WalletBalancePageTest extends TestCase
         $this->assertStringContainsString('--brand-warning-bg: #e8f8f7', $brand);
         $this->assertStringContainsString('.alert-warning', $brand);
         $this->assertStringNotContainsString('--brand-warning: #d97706', $brand);
+    }
+
+    public function test_add_funds_reconciles_inflated_bonus_to_welcome_credit(): void
+    {
+        $this->wallet->update([
+            'balance' => 45,
+            'bonus_balance' => 45,
+        ]);
+
+        \Illuminate\Support\Facades\DB::table('wallet_transactions')->insert([
+            'user_id' => $this->user->id,
+            'wallet_id' => $this->wallet->id,
+            'type' => 'bonus_credit',
+            'direction' => 'credit',
+            'amount' => 20,
+            'bonus_amount' => 20,
+            'currency' => 'EUR',
+            'status' => 'completed',
+            'description' => 'Welcome promotional bonus',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $html = $this->actingAs($this->user)
+            ->get(route('advertiser.add-funds'))
+            ->assertOk()
+            ->assertSee('Bonus €20.00', false)
+            ->assertSee('Money', false)
+            ->assertDontSee('Bonus €45.00', false)
+            ->getContent();
+
+        $this->assertStringContainsString('id="kpiBonus">€20.00', $html);
+        $this->assertStringContainsString('id="kpiAvailable">€25.00', $html);
+        $this->assertStringContainsString('id="kpiSpendable">€45.00', $html);
+
+        $this->wallet->refresh();
+        $this->assertEquals(20.0, (float) $this->wallet->bonus_balance);
+        $this->assertEquals(45.0, (float) $this->wallet->balance);
     }
 
     public function test_cannot_withdraw_bonus_only_balance(): void

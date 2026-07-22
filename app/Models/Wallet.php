@@ -329,6 +329,56 @@ class Wallet extends Model
     }
 
     /**
+     * Clamp bonus_balance when it exceeds ledger promotional credits
+     * (e.g. deposits wrongly counted as bonus so Spendable looks like “€45 bonus”).
+     */
+    public function reconcileInflatedBonusBalance(): bool
+    {
+        if (! Schema::hasColumn('wallets', 'bonus_balance')) {
+            return false;
+        }
+
+        if (! Schema::hasTable('wallet_transactions')) {
+            return false;
+        }
+
+        $received = (float) DB::table('wallet_transactions')
+            ->where('wallet_id', $this->id)
+            ->where('type', 'bonus_credit')
+            ->sum('bonus_amount');
+        if ($received <= 0) {
+            $received = (float) DB::table('wallet_transactions')
+                ->where('wallet_id', $this->id)
+                ->where('type', 'bonus_credit')
+                ->sum('amount');
+        }
+        if ($received <= 0) {
+            return false;
+        }
+
+        $spent = (float) DB::table('wallet_transactions')
+            ->where('wallet_id', $this->id)
+            ->where('direction', 'debit')
+            ->sum('bonus_amount');
+
+        $reserved = round((float) $this->bonus_reserved, 2);
+        $allowedRemaining = max(0, round($received - $spent, 2));
+        $allowedAvailable = max(0, round($allowedRemaining - $reserved, 2));
+        $balance = round((float) $this->balance, 2);
+        $current = round((float) $this->bonus_balance, 2);
+        $target = round(min($balance, $allowedAvailable), 2);
+
+        if ($current <= $target + 0.001) {
+            return false;
+        }
+
+        $this->bonus_balance = $target;
+        $this->save();
+
+        return true;
+    }
+
+    /**
      * Legacy alias used by older call sites.
      */
     public function reserveAmount(float $amount)
