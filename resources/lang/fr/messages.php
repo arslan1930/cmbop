@@ -147,7 +147,6 @@ return [
     'next' => 'Suivant',
 
      // ==================== NEWSLETTER SECTION ====================
-    'newsletter_image_alt' => 'Abonnez-vous à la newsletter',
     'newsletter_image_alt' => 'S\'abonner à la newsletter',
     'newsletter_aside_title' => 'Restez en avance sur de nouveaux marchés',
     'newsletter_aside_body' => 'Mises à jour produit et conseils de placement depuis la marketplace SEOLinkBuildings.',
