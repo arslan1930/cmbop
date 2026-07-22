@@ -1,6 +1,37 @@
 /**
  * Shared interactions — dropdowns, tables, links, cards
  */
+
+/* Skip link: visually hidden until focused */
+.skip-to-content {
+  position: absolute;
+  left: -9999px;
+  top: auto;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  z-index: 10000;
+  background: var(--brand-primary, #0b6266);
+  color: #fff;
+  font-weight: 600;
+  font-size: 0.9rem;
+  text-decoration: none;
+  border-radius: 8px;
+  padding: 12px 16px;
+  box-shadow: 0 0 0 0.2rem var(--focus-ring, rgba(58, 174, 178, 0.35));
+}
+.skip-to-content:focus,
+.skip-to-content:focus-visible {
+  position: fixed;
+  left: 16px;
+  top: 16px;
+  width: auto;
+  height: auto;
+  overflow: visible;
+  outline: 2px solid #fff;
+  outline-offset: 2px;
+  color: #fff;
+}
 .dropdown-menu,
 .slb-dropdown {
   border: 1px solid var(--border-subtle, #e2e8f0);

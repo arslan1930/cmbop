@@ -15,8 +15,8 @@
                     {{ __('messages.professional_services') }}
                 </p>
                 <div class="mt-3">
-                    <a href="https://www.linkedin.com/company/seolinkbuildings" target="_blank" rel="noopener" class="text-dark me-3">
-                        <i class="fab fa-linkedin fa-lg"></i>
+                    <a href="https://www.linkedin.com/company/seolinkbuildings" target="_blank" rel="noopener" class="text-dark me-3" aria-label="SEOLinkBuildings on LinkedIn">
+                        <i class="fab fa-linkedin fa-lg" aria-hidden="true"></i>
                     </a>
                 </div>
             </div>

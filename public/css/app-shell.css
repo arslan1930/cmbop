@@ -51,6 +51,7 @@ body.role-shell-admin #sidebar {
 
 #sidebar,
 #content,
+#main-content,
 .top-navbar,
 footer,
 #toggleSidebar span.arrow {
@@ -198,8 +199,20 @@ footer,
 }
 
 #sidebar.collapsed { width: var(--shell-sidebar-collapsed); min-width: var(--shell-sidebar-collapsed); max-width: var(--shell-sidebar-collapsed); }
-#sidebar.collapsed a { justify-content: center; font-size: 0; margin: 2px 6px; padding: 10px; gap: 0; }
+#sidebar.collapsed a { justify-content: center; margin: 2px 6px; padding: 10px; gap: 0; position: relative; }
 #sidebar.collapsed a i { font-size: 18px; width: auto; }
+/* Prefer clip over font-size:0 so labels stay in the accessibility tree */
+#sidebar.collapsed a .nav-label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
 #sidebar.collapsed .nav-sub,
 #sidebar.collapsed .nav-count-badge,
 #sidebar.collapsed .nav-alert-badge,
@@ -298,12 +311,14 @@ footer,
 #toggleSidebar.collapsed span.arrow { transform: rotate(180deg); }
 
 /* ——— Content + footer ——— */
-#content {
+#content,
+#main-content {
   margin-left: var(--shell-sidebar-width);
   padding: 20px 28px 30px;
   min-height: calc(100vh - 120px);
 }
-#content.collapsed { margin-left: var(--shell-sidebar-collapsed); }
+#content.collapsed,
+#main-content.collapsed { margin-left: var(--shell-sidebar-collapsed); }
 
 footer.app-shell-footer,
 body > footer {
@@ -425,6 +440,7 @@ body > footer.collapsed {
   }
   #sidebar.show { left: 0; }
   #content,
+  #main-content,
   .top-navbar,
   footer,
   body > footer {

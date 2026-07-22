@@ -58,7 +58,7 @@
         }
 
         #sidebar,
-        #content,
+        #main-content,
         .top-navbar,
         footer,
         #toggleSidebar span.arrow {
@@ -223,8 +223,20 @@
         }
 
         #sidebar.collapsed { width: 70px; min-width: 70px; }
-        #sidebar.collapsed a { justify-content: center; font-size: 0; }
+        #sidebar.collapsed a { justify-content: center; position: relative; }
         #sidebar.collapsed a i { font-size: 18px; }
+        /* Keep label in a11y tree when collapsed (do not use font-size: 0) */
+        #sidebar.collapsed a .nav-label {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }
 
         .top-navbar {
             height: 70px;
@@ -243,13 +255,13 @@
 
         .top-navbar.collapsed { left: 70px; }
 
-        #content {
+        #main-content {
             margin-left: 220px;
             padding: 20px 30px 30px;
             min-height: calc(100vh - 120px);
         }
 
-        #content.collapsed { margin-left: 70px; }
+        #main-content.collapsed { margin-left: 70px; }
 
         footer {
             margin-left: 220px;
@@ -570,7 +582,7 @@
 
             #sidebar.show { left: 0; }
 
-            #content,
+            #main-content,
             .top-navbar,
             footer { margin-left: 0 !important; }
 
@@ -597,8 +609,10 @@
 
 <body class="role-shell-advertiser">
 
+<a href="#main-content" class="skip-to-content">Skip to main content</a>
+
 <!-- Sidebar -->
-<div id="sidebar">
+<nav id="sidebar" aria-label="Advertiser">
     <!-- Mobile Sidebar Logo (visible only on mobile) -->
     <div class="mobile-sidebar-logo">
         <img id="mobileSidebarLogo" src="{{ asset('assets/img/logo1.png') }}?v={{ @filemtime(public_path('assets/img/logo1.png')) ?: '1' }}" alt="SEOLinkBuildings">
@@ -630,66 +644,66 @@
         </div>
 
         <a href="{{ route('advertiser.dashboard') }}" class="{{ request()->routeIs('advertiser.dashboard') ? 'active' : '' }}">
-            <i class="fa fa-tachometer-alt"></i> <span>Dashboard</span>
+            <i class="fa fa-tachometer-alt" aria-hidden="true"></i> <span class="nav-label">Dashboard</span>
         </a>
 
         <!-- Catalog -->
         <a href="{{ route('advertiser.catalog') }}" class="{{ request()->routeIs('advertiser.catalog') ? 'active' : '' }}">
-            <i class="fa fa-list"></i> 
-            <span>Catalog</span>
+            <i class="fa fa-list" aria-hidden="true"></i>
+            <span class="nav-label">Catalog</span>
         </a>
 
         <a href="{{ route('advertiser.saved-sites') }}" class="{{ request()->routeIs('advertiser.saved-sites*') ? 'active' : '' }}">
-            <i class="fa fa-heart"></i>
-            <span>Saved Sites</span>
+            <i class="fa fa-heart" aria-hidden="true"></i>
+            <span class="nav-label">Saved Sites</span>
         </a>
 
         <a href="{{ route('advertiser.content-library') }}" class="{{ request()->routeIs('advertiser.content-library*') ? 'active' : '' }}">
-            <i class="fa fa-file-word"></i>
-            <span>Content Library</span>
+            <i class="fa fa-file-word" aria-hidden="true"></i>
+            <span class="nav-label">Content Library</span>
         </a>
 
         <!-- Orders -->
         <a href="{{ route('advertiser.orders') }}" class="{{ request()->routeIs('advertiser.orders') ? 'active' : '' }}">
-            <i class="fa fa-shopping-cart"></i>
-            <span class="d-flex align-items-center w-100">
+            <i class="fa fa-shopping-cart" aria-hidden="true"></i>
+            <span class="nav-label d-flex align-items-center w-100">
                 <span>Orders</span>
                 <span id="navNeedsActionBadge" class="badge nav-alert-badge pulse-badge rounded-pill ms-auto" style="display:none;" data-pulse-display="inline-block">0</span>
             </span>
         </a>
 
         <a href="{{ route('advertiser.scheduled-orders') }}" class="{{ request()->routeIs('advertiser.scheduled-orders*') ? 'active' : '' }}">
-            <i class="fa fa-calendar-alt"></i>
-            <span>Scheduled</span>
+            <i class="fa fa-calendar-alt" aria-hidden="true"></i>
+            <span class="nav-label">Scheduled</span>
         </a>
 
         <!-- Add Funds -->
         <a href="{{ route('advertiser.add-funds') }}" class="{{ request()->routeIs('advertiser.add-funds*') || request()->routeIs('advertiser.balance*') ? 'active' : '' }}">
-            <i class="fa fa-coins"></i> <span>Add Funds</span>
+            <i class="fa fa-coins" aria-hidden="true"></i> <span class="nav-label">Add Funds</span>
         </a>
 
         <a href="{{ route('advertiser.billing.index') }}" class="{{ request()->routeIs('advertiser.billing*') ? 'active' : '' }}">
-            <i class="fa fa-file-invoice"></i>
-            <span>Billing &amp; Invoices</span>
+            <i class="fa fa-file-invoice" aria-hidden="true"></i>
+            <span class="nav-label">Billing &amp; Invoices</span>
         </a>
         
         <!-- Spending History -->
         <a href="{{ route('advertiser.analytics') }}" class="{{ request()->routeIs('advertiser.analytics*') ? 'active' : '' }}">
-            <i class="fa fa-chart-area"></i> <span>Spending</span>
+            <i class="fa fa-chart-area" aria-hidden="true"></i> <span class="nav-label">Spending</span>
         </a>
 
         <!-- Reports -->
         <a href="{{ route('advertiser.reports') }}" class="{{ request()->routeIs('advertiser.reports') ? 'active' : '' }}">
-            <i class="fa fa-chart-line"></i> <span>Reports</span>
+            <i class="fa fa-chart-line" aria-hidden="true"></i> <span class="nav-label">Reports</span>
         </a>
     </div>
-</div>
+</nav>
 
 <!-- Navbar -->
 <div class="top-navbar">
 
     <div class="mobile-left d-flex align-items-center gap-2">
-        <button id="toggleSidebar" class="btn btn-sm btn-outline-secondary" type="button" aria-label="Toggle sidebar navigation" title="Toggle sidebar">
+        <button id="toggleSidebar" class="btn btn-sm btn-outline-secondary" type="button" aria-label="Toggle sidebar navigation" title="Toggle sidebar" aria-controls="sidebar" aria-expanded="true">
             <span class="arrow" aria-hidden="true"><i class="fa fa-chevron-left"></i></span>
         </button>
 
@@ -804,10 +818,10 @@
 <div id="cartOverlay" class="overlay"></div>
 
 <!-- Cart Sidebar -->
-<div id="cartSidebar" class="cart-sidebar">
+<div id="cartSidebar" class="cart-sidebar" role="dialog" aria-modal="true" aria-labelledby="cartTitle" aria-hidden="true">
     <div class="cart-header">
         <div>
-            <h5 class="mb-0">Your Cart</h5>
+            <h5 id="cartTitle" class="mb-0">Your Cart</h5>
             <div class="small text-muted mt-1">Each website needs its own approved article.</div>
         </div>
         <button id="closeCart" class="btn btn-sm btn-outline-secondary" type="button" aria-label="Close cart">
@@ -838,13 +852,13 @@
     </div>
 </div>
 
-<div id="content">
+<main id="main-content" tabindex="-1">
     @include('components.site-announcements', ['audience' => 'advertiser'])
     @include('components.ad-banners', ['placement' => 'dashboard', 'audience' => 'advertiser'])
     @include('components.ad-banners', ['placement' => 'content_top', 'audience' => 'advertiser'])
     @yield('content')
     @include('components.ad-banners', ['placement' => 'content_bottom', 'audience' => 'advertiser'])
-</div>
+</main>
 
 <footer>
     <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2 w-100 px-2">
@@ -867,9 +881,16 @@
     // Sidebar Toggle
     const toggleBtn = document.getElementById('toggleSidebar');
     const sidebar = document.getElementById('sidebar');
-    const content = document.getElementById('content');
+    const content = document.getElementById('main-content');
     const topNavbar = document.querySelector('.top-navbar');
     const footerEl = document.querySelector('footer');
+
+    function syncSidebarExpanded() {
+        if (!toggleBtn || !sidebar) return;
+        const desktopCollapsed = window.innerWidth > 768 && sidebar.classList.contains('collapsed');
+        const mobileClosed = window.innerWidth <= 768 && !sidebar.classList.contains('show');
+        toggleBtn.setAttribute('aria-expanded', (desktopCollapsed || mobileClosed) ? 'false' : 'true');
+    }
 
     if (localStorage.getItem('sidebarCollapsed') === 'true') {
         sidebar.classList.add('collapsed');
@@ -878,6 +899,7 @@
         footerEl.classList.add('collapsed');
         toggleBtn.classList.add('collapsed');
     }
+    syncSidebarExpanded();
 
     toggleBtn.addEventListener('click', function () {
         if (window.innerWidth > 768) {
@@ -890,7 +912,9 @@
         } else {
             sidebar.classList.toggle('show');
         }
+        syncSidebarExpanded();
     });
+    window.addEventListener('resize', syncSidebarExpanded);
 
     // Dark mode removed — ensure light theme
     document.body.classList.remove('layout-dark');
@@ -1305,22 +1329,63 @@
     const cartOverlay = document.getElementById('cartOverlay');
     const toggleCartBtn = document.getElementById('toggleCart');
     const closeCartBtn = document.getElementById('closeCart');
-    
+    let cartLastFocus = null;
+
+    function getCartFocusable() {
+        if (!cartSidebar) return [];
+        return Array.from(cartSidebar.querySelectorAll(
+            'a[href], button:not([disabled]), textarea, input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'
+        )).filter(el => el.offsetParent !== null || el === document.activeElement);
+    }
+
     function openCart() {
+        cartLastFocus = document.activeElement;
         cartSidebar.classList.add('open');
         cartOverlay.classList.add('show');
+        cartSidebar.setAttribute('aria-hidden', 'false');
         updateCartDisplay();
+        (closeCartBtn || getCartFocusable()[0])?.focus();
     }
     window.openCart = openCart;
-    
+
     function closeCart() {
         cartSidebar.classList.remove('open');
         cartOverlay.classList.remove('show');
+        cartSidebar.setAttribute('aria-hidden', 'true');
+        const restore = cartLastFocus && document.contains(cartLastFocus)
+            ? cartLastFocus
+            : toggleCartBtn;
+        restore?.focus();
+        cartLastFocus = null;
     }
-    
+
     toggleCartBtn.addEventListener('click', openCart);
     closeCartBtn.addEventListener('click', closeCart);
     cartOverlay.addEventListener('click', closeCart);
+
+    document.addEventListener('keydown', function (e) {
+        if (!cartSidebar.classList.contains('open')) return;
+        if (e.key === 'Escape') {
+            e.preventDefault();
+            closeCart();
+            return;
+        }
+        if (e.key !== 'Tab') return;
+        const focusable = getCartFocusable();
+        if (focusable.length === 0) {
+            e.preventDefault();
+            return;
+        }
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+        if (e.shiftKey && document.activeElement === first) {
+            e.preventDefault();
+            last.focus();
+        } else if (!e.shiftKey && document.activeElement === last) {
+            e.preventDefault();
+            first.focus();
+        }
+    });
 
     document.getElementById('keepBrowsingCatalog')?.addEventListener('click', function () {
         closeCart();

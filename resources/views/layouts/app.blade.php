@@ -67,20 +67,24 @@
 </head>
 <body class="slb-marketing">
 
+<a href="#main-content" class="skip-to-content">Skip to main content</a>
+
 @include('components.navbar')
 @include('components.language-suggestion')
 
-<div class="container-fluid px-3 px-md-4">
-    @include('components.site-announcements', ['audience' => 'public'])
-    @include('components.ad-banners', ['placement' => 'header', 'audience' => 'public'])
-</div>
+<main id="main-content" tabindex="-1">
+    <div class="container-fluid px-3 px-md-4">
+        @include('components.site-announcements', ['audience' => 'public'])
+        @include('components.ad-banners', ['placement' => 'header', 'audience' => 'public'])
+    </div>
 
-@yield('content')
+    @yield('content')
 
-<div class="container-fluid px-3 px-md-4">
-    @include('components.ad-banners', ['placement' => 'content_bottom', 'audience' => 'public'])
-    @include('components.ad-banners', ['placement' => 'footer', 'audience' => 'public'])
-</div>
+    <div class="container-fluid px-3 px-md-4">
+        @include('components.ad-banners', ['placement' => 'content_bottom', 'audience' => 'public'])
+        @include('components.ad-banners', ['placement' => 'footer', 'audience' => 'public'])
+    </div>
+</main>
 
 @include('components.footer')
 @include('components.help-feedback-widget')

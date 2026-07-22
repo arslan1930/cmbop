@@ -82,13 +82,17 @@ small, .small, .text-muted,
 }
 
 #content h2.fw-semibold,
-#content h2 {
+#content h2,
+#main-content h2.fw-semibold,
+#main-content h2 {
   font-size: var(--type-h1);
   font-weight: 700;
 }
 
 #content h4,
-#content h5 {
+#content h5,
+#main-content h4,
+#main-content h5 {
   font-size: var(--type-h2);
 }
 

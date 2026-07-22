@@ -324,13 +324,13 @@
         </div>
 
         <a href="{{ route('publisher.dashboard') }}" class="{{ request()->routeIs('publisher.dashboard') ? 'active' : '' }}">
-            <i class="fa fa-tachometer-alt"></i> <span>Dashboard</span>
+            <i class="fa fa-tachometer-alt" aria-hidden="true"></i> <span class="nav-label">Dashboard</span>
         </a>
            
         <!-- Websites + number of websites simple count bg of red as a batch  -->
         <a href="{{ route('publisher.websites') }}" class="{{ request()->routeIs('publisher.websites') ? 'active' : '' }}">
-            <i class="fa fa-globe"></i>
-            <span class="d-flex align-items-center w-100">
+            <i class="fa fa-globe" aria-hidden="true"></i>
+            <span class="nav-label d-flex align-items-center w-100">
                 <span>My Sites</span>
                 @auth
                     @php $siteCount = auth()->user()->sites()->count(); @endphp
@@ -344,8 +344,8 @@
         </a>
 
         <a href="{{ route('publisher.tasks') }}" class="{{ request()->routeIs('publisher.tasks') ? 'active' : '' }}">
-            <i class="fa fa-tasks"></i>
-            <span class="d-flex align-items-center w-100">
+            <i class="fa fa-tasks" aria-hidden="true"></i>
+            <span class="nav-label d-flex align-items-center w-100">
                 <span>Tasks</span>
                 <span id="navNeedsActionBadge" class="badge nav-alert-badge pulse-badge rounded-pill ms-auto" style="display:none;" data-pulse-display="inline-block">0</span>
             </span>
@@ -353,12 +353,12 @@
 
         <!-- withdraw -->
         <a href="{{ route('publisher.withdraw') }}" class="{{ request()->routeIs('publisher.withdraw') ? 'active' : '' }}">
-            <i class="fa fa-money-bill-wave"></i> <span>Withdraw</span>
+            <i class="fa fa-money-bill-wave" aria-hidden="true"></i> <span class="nav-label">Withdraw</span>
         </a>
 
         <!-- Reports -->
         <a href="{{ route('publisher.reports') }}" class="{{ request()->routeIs('publisher.reports') ? 'active' : '' }}">
-            <i class="fa fa-chart-bar"></i> <span>Reports</span>
+            <i class="fa fa-chart-bar" aria-hidden="true"></i> <span class="nav-label">Reports</span>
         </a>
         
     </div>
