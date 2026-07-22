@@ -386,10 +386,12 @@ class AddFundsController extends Controller
             }
 
             try {
-                app(InAppNotificationService::class)
-                    ->notifyAdminsDepositSubmitted($depositRequest->fresh(['user']));
+                $notifications = app(InAppNotificationService::class);
+                $freshDeposit = $depositRequest->fresh(['user']);
+                $notifications->notifyDepositSubmitted($freshDeposit);
+                $notifications->notifyAdminsDepositSubmitted($freshDeposit);
             } catch (\Throwable $e) {
-                Log::warning('Failed to send admin deposit bell notification: '.$e->getMessage());
+                Log::warning('Failed to send deposit bell notification: '.$e->getMessage());
             }
 
             return response()->json([
