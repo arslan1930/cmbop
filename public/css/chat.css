@@ -100,6 +100,38 @@
   line-height: 1;
 }
 
+.chat-resubmit-panel {
+  padding: 0.75rem 0.85rem;
+  background: #fff;
+  border: 1px solid var(--border-subtle, #e2e8f0);
+  border-left: 3px solid var(--brand-primary, #185054);
+  border-radius: var(--radius-sm, 8px);
+  color: var(--brand-ink, #1e293b);
+}
+
+.chat-resubmit-panel__title {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--brand-ink, #1e293b);
+}
+
+.chat-resubmit-panel__guidance {
+  margin-top: 0.25rem;
+  font-size: 0.78rem;
+  color: var(--brand-neutral, #64748b);
+  line-height: 1.45;
+}
+
+.chat-resubmit-form .form-control:focus {
+  border-color: var(--brand-primary-soft, #3faeb2);
+  box-shadow: 0 0 0 0.2rem var(--focus-ring, rgba(63, 174, 178, 0.35));
+}
+
+.chat-resubmit-form .btn-primary {
+  white-space: nowrap;
+  font-weight: 600;
+}
+
 @keyframes chatBubbleIn {
   from { opacity: 0; transform: translateY(4px); }
   to { opacity: 1; transform: translateY(0); }

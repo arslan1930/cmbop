@@ -231,33 +231,6 @@
     </div>
 </div>
 
-<!-- Resubmit Live URL Modal (for modification) -->
-<div class="modal fade" id="resubmitModal" tabindex="-1">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content">
-            <div class="modal-header bg-warning text-dark">
-                <h5 class="modal-title">Resubmit Live URL</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <input type="hidden" id="resubmit_order_item_id">
-                <div class="alert alert-info">
-                    <i class="fa fa-info-circle"></i> The advertiser has requested modifications. Please update your content and submit the new live URL.
-                </div>
-                <div class="mb-3">
-                    <label for="resubmit_live_url" class="form-label">Updated Live URL <span class="text-danger">*</span></label>
-                    <input type="url" id="resubmit_live_url" class="form-control" placeholder="https://example.com/your-updated-article">
-                    <small class="text-muted">Enter the updated live URL with the requested changes</small>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                <button type="button" class="btn btn-warning" id="confirmResubmit">Resubmit Live URL</button>
-            </div>
-        </div>
-    </div>
-</div>
-
 <!-- View Details Modal -->
 <div class="modal fade" id="detailsModal" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered modal-lg">
@@ -576,12 +549,6 @@ $(document).ready(function() {
         $('#completeModal').modal('show');
     });
 
-    $(document).on('click', '.resubmit-live-url', function() {
-        $('#resubmit_order_item_id').val($(this).data('id'));
-        $('#resubmit_live_url').val('');
-        $('#resubmitModal').modal('show');
-    });
-
     // Chat functionality (shared OrderChat module)
     function formatChatDate(value, withTime) {
         if (!value) return '—';
@@ -640,11 +607,23 @@ $(document).ready(function() {
                 ? '<div class="small mt-1"><strong>Reason:</strong> ' + escapeHtml(details.completion_notes) + '</div>'
                 : '';
             const itemId = details.order_item_id || '';
-            revisionBlock = '<div class="alert alert-warning py-2 px-3 small mt-2 mb-0">'
-                + '<div>The advertiser asked for changes. Update the article and resubmit the live URL.</div>'
+            const currentUrl = details.live_url
+                ? '<div class="small mt-1 text-muted">Current URL: <a href="' + escapeHtml(details.live_url) + '" target="_blank" rel="noopener noreferrer">' + escapeHtml(details.live_url) + '</a></div>'
+                : '';
+            revisionBlock = '<div class="chat-resubmit-panel mt-2">'
+                + '<div class="chat-resubmit-panel__title"><i class="fa fa-exclamation-circle me-1" aria-hidden="true"></i>Changes requested</div>'
+                + '<div class="chat-resubmit-panel__guidance">Make the corrections on the live article, then paste the updated URL below to resubmit it here in chat.</div>'
                 + reason
+                + currentUrl
                 + (details.can_resubmit && itemId
-                    ? '<div class="mt-2"><button type="button" class="btn btn-sm btn-warning resubmit-live-url" data-id="' + escapeHtml(String(itemId)) + '"><i class="fa fa-edit me-1"></i>Resubmit URL</button></div>'
+                    ? '<form class="chat-resubmit-form mt-2" data-item-id="' + escapeHtml(String(itemId)) + '">'
+                        + '<label class="form-label small mb-1" for="chatResubmitUrl-' + escapeHtml(String(itemId)) + '">Updated live URL</label>'
+                        + '<div class="input-group input-group-sm">'
+                        + '<input type="url" class="form-control" id="chatResubmitUrl-' + escapeHtml(String(itemId)) + '" name="live_url" placeholder="https://example.com/your-updated-article" required autocomplete="url">'
+                        + '<button type="submit" class="btn btn-primary"><i class="fa fa-paper-plane me-1" aria-hidden="true"></i>Resubmit URL</button>'
+                        + '</div>'
+                        + '<div class="form-text">After corrections, add the URL here again so the advertiser can review.</div>'
+                        + '</form>'
                     : '')
                 + '</div>';
         }
@@ -828,22 +807,31 @@ $(document).ready(function() {
         });
     });
 
-    $('#confirmResubmit').on('click', function() {
-        var id = $('#resubmit_order_item_id').val();
-        var liveUrl = $('#resubmit_live_url').val();
-        
-        if (!liveUrl) {
-            Swal.fire('Warning!', 'Please enter the updated live URL', 'warning');
+    $(document).on('submit', '.chat-resubmit-form', function(e) {
+        e.preventDefault();
+        var $form = $(this);
+        var id = $form.data('item-id');
+        var $input = $form.find('input[name="live_url"]');
+        var liveUrl = ($input.val() || '').trim();
+        var $btn = $form.find('button[type="submit"]');
+
+        if (!id) {
+            Swal.fire('Error!', 'Missing order item for resubmit.', 'error');
             return;
         }
-        
+        if (!liveUrl) {
+            Swal.fire('Warning!', 'Please enter the updated live URL', 'warning');
+            $input.trigger('focus');
+            return;
+        }
+
         $.ajax({
             url: baseUrl + '/publisher/orders/' + id + '/resubmit',
             method: 'POST',
             data: { live_url: liveUrl, _token: '{{ csrf_token() }}' },
             dataType: 'json',
             beforeSend: function() {
-                $('#confirmResubmit').prop('disabled', true).html('<i class="fa fa-spinner fa-spin"></i>');
+                $btn.prop('disabled', true).html('<i class="fa fa-spinner fa-spin"></i>');
             },
             success: function(response) {
                 if (response.success) {
@@ -852,7 +840,6 @@ $(document).ready(function() {
                         html: response.message,
                         icon: 'success'
                     });
-                    $('#resubmitModal').modal('hide');
                     loadTasks();
                     loadStatistics();
                     if (orderChat && typeof orderChat.load === 'function' && orderChat.currentOrderId) {
@@ -872,7 +859,7 @@ $(document).ready(function() {
                 Swal.fire('Error!', errorMsg, 'error');
             },
             complete: function() {
-                $('#confirmResubmit').prop('disabled', false).html('Resubmit URL');
+                $btn.prop('disabled', false).html('<i class="fa fa-paper-plane me-1" aria-hidden="true"></i>Resubmit URL');
             }
         });
     });
@@ -971,7 +958,6 @@ $(document).ready(function() {
                     '</div>';
             } else if (modificationRequested && (orderStatus === 'processing' || orderStatus === 'review')) {
                 actions = '<div class="action-buttons">' +
-                    '<button class="btn btn-warning btn-action-sm resubmit-live-url" data-id="' + item.id + '"><i class="fa fa-edit"></i> Resubmit URL</button>' +
                     viewBtn + chatBtn + liveBtn +
                     '</div>';
             } else if (awaitingAdvertiser) {
@@ -1071,7 +1057,7 @@ $(document).ready(function() {
         
         if (modificationRequested) {
             var reason = item.completion_notes ? '<div class="small mt-1">Reason: ' + escapeHtml(item.completion_notes) + '</div>' : '';
-            liveUrlHtml = '<div class="alert alert-warning"><i class="fa fa-exclamation-triangle"></i> The advertiser asked for changes. Update the article and resubmit the live URL.' + reason + '</div>' + liveUrlHtml;
+            liveUrlHtml = '<div class="alert alert-warning"><i class="fa fa-exclamation-triangle"></i> The advertiser asked for changes. Make the corrections, then open <strong>Chat</strong> to paste and resubmit the live URL.' + reason + '</div>' + liveUrlHtml;
         }
 
         var timelineHtml = buildPublisherTimeline(orderStatus, hasLiveUrl, modificationRequested);
@@ -1266,7 +1252,7 @@ $(document).ready(function() {
             return { statusClass: 'status-pending', statusText: 'New order', nextStep: 'Accept or reject this order' };
         }
         if (modificationRequested) {
-            return { statusClass: 'status-pending', statusText: 'Changes requested', nextStep: 'Update the article and resubmit the live URL' };
+            return { statusClass: 'status-pending', statusText: 'Changes requested', nextStep: 'Make corrections, then open Chat to resubmit the live URL' };
         }
         if (orderStatus === 'review' || (orderStatus === 'processing' && hasLiveUrl)) {
             const hoursRemaining = getAutoApproveHoursRemaining(liveUrlSubmittedAt);
@@ -1342,7 +1328,7 @@ $(document).ready(function() {
         $.getJSON(baseUrl + '/chat/unread-summary')
             .done(function(res) {
                 if (res.success && res.needs_action > 0) {
-                    $('#needsActionText').text(res.needs_action + ' task' + (res.needs_action === 1 ? '' : 's') + ' need you (accept, publish, or resubmit).');
+                    $('#needsActionText').text(res.needs_action + ' task' + (res.needs_action === 1 ? '' : 's') + ' need you (accept, publish, or open Chat to resubmit).');
                     $('#needsActionBanner').removeClass('d-none');
                 } else {
                     $('#needsActionBanner').addClass('d-none');
