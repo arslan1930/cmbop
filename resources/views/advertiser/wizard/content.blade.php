@@ -85,14 +85,12 @@
             </div>
         </div>
         <div class="col-lg-4">
-            <div class="card border-0 shadow-sm mb-3">
-                <div class="card-body">
-                    <h6 class="fw-semibold mb-2">Upload article</h6>
-                    <p class="small text-muted mb-3">Need a new .docx? Upload in Content Library (language first), wait for approval, then assign it here.</p>
-                    <a href="{{ route('advertiser.content-library', ['upload' => 1]) }}" class="btn btn-upload w-100">
-                        <i class="fa fa-upload me-1"></i> Upload in Content Library
-                    </a>
-                </div>
+            <div class="upload-zone mb-3">
+                <h6 class="upload-zone-title">Upload article</h6>
+                <p class="upload-zone-copy">Need a new .docx? Upload in Content Library (language first), wait for approval, then assign it here.</p>
+                <a href="{{ route('advertiser.content-library', ['upload' => 1]) }}" class="btn btn-upload w-100">
+                    <i class="fa fa-upload me-1"></i> Upload in Content Library
+                </a>
             </div>
             <div class="card border-0 shadow-sm mb-3" style="opacity:.85;">
                 <div class="card-body">
