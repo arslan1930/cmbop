@@ -486,6 +486,8 @@ return [
     'marketplace_point_2_body' => 'Rechargez une fois, achetez rapidement et suivez chaque commande au même endroit.',
     'marketplace_point_3_title' => 'Ciblage multilingue',
     'marketplace_point_3_body' => 'Touchez les marchés anglais, UE, chinois et du Golfe avec un inventaire adapté.',
+    'marketplace_teaser_title' => 'Aperçu d’inventaire vérifié',
+    'marketplace_teaser_subtitle' => 'Un aperçu des placements en ligne — créez un compte gratuit pour le catalogue complet.',
     'marketplace_catalog_note' => 'Le catalogue live s’ouvre après connexion et reste en anglais.',
     'become_publisher_kicker' => 'Éditeurs',
     'become_publisher_title' => 'Monétisez votre inventaire éditorial',
