@@ -301,20 +301,32 @@ class SiteController extends Controller
 
     public function ajax(Request $request)
     {
-        $query = $request->get('query');
+        try {
+            $query = $request->get('query');
 
-        $sites = Site::where('publisher_id', auth()->id())
-            ->when($query, function ($q) use ($query) {
-                $q->where(function ($sub) use ($query) {
-                    $sub->where('site_name', 'like', "%{$query}%")
-                        ->orWhere('site_url', 'like', "%{$query}%")
-                        ->orWhere('domain', 'like', "%{$query}%");
-                });
-            })
-            ->latest()
-            ->paginate(20);
+            $sites = Site::where('publisher_id', auth()->id())
+                ->when($query, function ($q) use ($query) {
+                    $q->where(function ($sub) use ($query) {
+                        $sub->where('site_name', 'like', "%{$query}%")
+                            ->orWhere('site_url', 'like', "%{$query}%")
+                            ->orWhere('domain', 'like', "%{$query}%");
+                    });
+                })
+                ->latest()
+                ->paginate(20);
 
-        return view('publisher.sites.partials.table', compact('sites'))->render();
+            return view('publisher.sites.partials.table', compact('sites'))->render();
+        } catch (\Throwable $e) {
+            Log::error('Publisher sites ajax failed: '.$e->getMessage(), [
+                'user_id' => auth()->id(),
+                'exception' => $e,
+            ]);
+
+            return response(
+                '<div class="alert alert-danger text-center mb-0">Could not load your sites. Please refresh and try again.</div>',
+                500
+            );
+        }
     }
 
     public function update(Request $request, $id)

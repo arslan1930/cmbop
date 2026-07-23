@@ -132,10 +132,14 @@
     if (!function_exists('getCountryFlag')) {
         function getCountryFlag($countryCode) {
             $code = strtoupper(trim((string) $countryCode));
-            if (strlen($code) !== 2) return '';
-            if ($code === 'UK') $code = 'GB';
-            $flag = mb_convert_encoding('&#' . (127397 + ord($code[0])) . ';&#' . (127397 + ord($code[1])) . ';', 'UTF-8', 'HTML-ENTITIES');
-            return $flag;
+            if (strlen($code) !== 2) {
+                return '';
+            }
+            if ($code === 'UK') {
+                $code = 'GB';
+            }
+
+            return mb_chr(127397 + ord($code[0]), 'UTF-8').mb_chr(127397 + ord($code[1]), 'UTF-8');
         }
     }
     
@@ -274,7 +278,15 @@
                 </button>
 
                 <!-- Edit button -->
-                <button class="btn btn-sm btn-primary btn-edit" data-site='@json($site)' aria-label="Edit {{ $site->site_name }}">
+                @php
+                    $editPayload = $site->only([
+                        'id', 'site_name', 'site_url', 'example_url', 'da', 'dr', 'traffic', 'price',
+                        'turnaround_time', 'publication_time', 'link_type', 'sponsored', 'partner_material',
+                        'as_you_prefer', 'sensitive_prices', 'language', 'languages', 'country', 'countries',
+                        'categories', 'category', 'description',
+                    ]);
+                @endphp
+                <button class="btn btn-sm btn-primary btn-edit" data-site='@json($editPayload)' aria-label="Edit {{ $site->site_name }}">
                     Edit
                 </button>
 
@@ -395,160 +407,6 @@
     {{ $sites->links() }}
 </ul>
 @endif
-
-<!-- SweetAlert2 for delete and edit -->
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-<script>
-$(document).ready(function(){
-
-    // Expand row toggle
-    $(document).on('click', '.action-view', function(e) {
-        e.stopPropagation();
-        let id = $(this).data('id');
-        let expandRow = $('#expand-' + id);
-        expandRow.toggleClass('expanded');
-
-        let icon = $(this).find('i');
-        let text = $(this).find('.btn-text');
-        if (expandRow.hasClass('expanded')) {
-            icon.removeClass('fa-eye').addClass('fa-eye-slash');
-            text.text('Hide');
-        } else {
-            icon.removeClass('fa-eye-slash').addClass('fa-eye');
-            text.text('View');
-        }
-    });
-
-    // Delete confirmation
-    $(document).on('click', '.btn-delete', function(e) {
-        let form = $(this).closest('form');
-        Swal.fire({
-            title: 'Are you sure?',
-            text: "This site will be deleted permanently!",
-            icon: 'warning',
-            showCancelButton: true,
-            confirmButtonColor: '#d33',
-            cancelButtonColor: '#3085d6',
-            confirmButtonText: 'Yes, delete it!'
-        }).then((result) => {
-            if (result.isConfirmed) {
-                form.submit();
-            }
-        });
-    });
-
-    // EDIT BUTTON with Turnaround Time
-    $(document).on('click', '.btn-edit', function() {
-        const site = $(this).data('site');
-
-        $('#formCard').removeClass('d-none');
-        $('#showFormBtn').addClass('d-none');
-        $('#closeBtn').removeClass('d-none');
-        $('#formHeader').text('Edit Site: ' + site.site_name);
-
-        // Fix duplicate method field
-        $('#methodField').remove();
-        $('#addSiteForm')
-            .attr('action', '/publisher/sites/' + site.id)
-            .append('<input type="hidden" name="_method" value="PUT" id="methodField">');
-
-        // Prefill fields
-        const siteNameInput = $('input[name="siteName"]');
-        const siteUrlInput = $('input[name="siteUrl"]');
-
-        siteNameInput.val(site.site_name).prop('disabled', true);
-        siteUrlInput.val(site.site_url).prop('disabled', true);
-
-        // Add readonly message (only once)
-        if (!siteNameInput.next('.readonly-note').length) {
-            siteNameInput.after('<small class="text-muted readonly-note d-block">Due to security reasons, this field is readonly</small>');
-        }
-        if (!siteUrlInput.next('.readonly-note').length) {
-            siteUrlInput.after('<small class="text-muted readonly-note d-block">Due to security reasons, this field is readonly</small>');
-        }
-
-        $('input[name="exampleUrl"]').val(site.example_url);
-        $('input[name="da"]').val(site.da);
-        $('input[name="dr"]').val(site.dr);
-        $('input[name="traffic"]').val(site.traffic);
-        $('input[name="price"]').val(site.price);
-        
-        // Set Turnaround Time
-        $('#turnaroundTime').val(site.turnaround_time || '3days');
-        
-        $('select[name="country"]').val(site.country);
-        $('select[name="language"]').val(site.language);
-        $('select[name="category"]').val(site.category);
-        $('select[name="publicationTime"]').val(site.publication_time);
-        $('input[name="link_type"][value="' + site.link_type + '"]').prop('checked', true);
-
-        // Tags (single radio on add/edit form)
-        let siteTag = '';
-        if (site.sponsored == 1) siteTag = 'sponsored';
-        else if (site.partner_material == 1) siteTag = 'partner_material';
-        else if (site.as_you_prefer == 1) siteTag = 'as_you_prefer';
-        $(`input[name="site_tag"][value="${siteTag}"]`).prop('checked', true);
-        if (!siteTag) $('#tagNone').prop('checked', true);
-
-        // Sensitive topics
-        if(site.sensitive_prices){
-            let prices = site.sensitive_prices;
-            // Handle both array and string JSON
-            if (typeof prices === 'string') {
-                prices = JSON.parse(prices);
-            }
-            for(const key in prices){
-                $('input[name="sensitive['+key+']"]').prop('checked', true);
-                $('input[name="price_sensitive['+key+']"]').val(prices[key]);
-            }
-        } else {
-            $('.sensitive-checkbox').prop('checked', false);
-            $('.sensitive-price').val('');
-        }
-
-        // Description
-        if (typeof quill !== 'undefined') {
-            quill.root.innerHTML = site.description || '';
-        }
-
-        $('#submitBtn').prop('disabled', false).text('Update');
-
-        $('html, body').animate({
-            scrollTop: $("#formCard").offset().top - 100
-        }, 500);
-    });
-
-    // CLOSE RESET
-    $('#closeBtn').click(function(){
-        $('#formCard').addClass('d-none');
-        $('#showFormBtn').removeClass('d-none');
-        $('#closeBtn').addClass('d-none');
-        $('#formHeader').text('Add New Website');
-
-        $('#addSiteForm')[0].reset();
-        $('#methodField').remove();
-
-        if (typeof quill !== 'undefined') {
-            quill.root.innerHTML = '';
-        }
-        $('.tag-checkbox').prop('checked', false);
-        $('.sensitive-checkbox').prop('checked', false);
-        $('.sensitive-price').val('');
-        
-        // Reset turnaround time to default
-        $('#turnaroundTime').val('3days');
-
-        $('#submitBtn').text('Submit').prop('disabled', false);
-
-        // Re-enable fields
-        $('input[name="siteName"], input[name="siteUrl"]').prop('disabled', false);
-
-        // Remove readonly notes
-        $('.readonly-note').remove();
-    });
-
-});
-</script>
 
 @else
 <div class="alert alert-info text-center">
