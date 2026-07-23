@@ -262,6 +262,7 @@ footer,
   align-items: center;
   padding: 0 24px;
   z-index: 1060;
+  overflow: visible;
 }
 .top-navbar.collapsed { left: var(--shell-sidebar-collapsed); }
 
