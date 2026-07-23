@@ -57,8 +57,8 @@
 .dropdown-menu .dropdown-item:focus,
 .slb-dropdown .dropdown-item:hover,
 .slb-dropdown .dropdown-item:focus {
-  background: var(--hover-tint, #e6f5f5);
-  color: var(--brand-primary, #185054);
+  background: var(--hover-overlay, rgba(15, 23, 42, 0.06));
+  color: var(--brand-ink, #1e293b);
 }
 
 .dropdown-menu .dropdown-item.active,

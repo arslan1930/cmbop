@@ -1,19 +1,29 @@
 /**
- * Button system (audit 3.8 / B1)
- * Primary · Secondary · Tertiary · Destructive
- * Rule of thumb: one primary CTA per view.
+ * Button system — teal primary · quiet secondaries · circular icon wash
+ * Rule of thumb: one primary CTA per cluster.
+ * Hover = darken / gray overlay (no soft-teal hue jump).
  */
 
 :root {
   --btn-primary-bg: var(--brand-primary, #185054);
-  --btn-primary-hover: var(--brand-primary-soft, #3faeb2);
+  --btn-primary-hover: var(--brand-primary-deep, #123f42);
   --btn-secondary-border: #cbd5e1;
   --btn-secondary-text: #334155;
   --btn-tertiary-text: var(--brand-primary, #185054);
   --btn-danger-bg: var(--brand-danger, #dc2626);
+  --btn-radius-pill: var(--radius-pill, 999px);
+  --btn-radius-icon: var(--radius-icon, 999px);
+  --hover-overlay: rgba(15, 23, 42, 0.06);
+  --hover-overlay-strong: rgba(15, 23, 42, 0.10);
 }
 
-/* Primary — solid teal (main action) */
+/* Soften accidental Bootstrap shadows on buttons */
+.btn.shadow-sm,
+.btn.shadow {
+  box-shadow: none !important;
+}
+
+/* Primary — solid teal (main action); hover deepens same hue */
 .btn-primary,
 .btn-cta-primary {
   --bs-btn-color: #fff;
@@ -26,17 +36,29 @@
   --bs-btn-active-bg: var(--brand-primary-deep, #123f42);
   --bs-btn-active-border-color: var(--brand-primary-deep, #123f42);
   font-weight: 600;
+  border-radius: var(--btn-radius-pill);
+  transition: background-color var(--motion-fast, 150ms ease),
+              border-color var(--motion-fast, 150ms ease),
+              color var(--motion-fast, 150ms ease),
+              box-shadow var(--motion-fast, 150ms ease);
 }
 
-/* Secondary — outline neutral */
+/* Secondary — soft gray pill */
 .btn-cta-secondary,
 .btn-outline-secondary {
   --bs-btn-color: var(--btn-secondary-text);
   --bs-btn-border-color: var(--btn-secondary-border);
-  --bs-btn-hover-color: var(--brand-primary, #185054);
-  --bs-btn-hover-bg: var(--brand-primary-bg, #e6f5f5);
-  --bs-btn-hover-border-color: var(--brand-primary-border, #b8e4e4);
+  --bs-btn-hover-color: var(--brand-ink, #1e293b);
+  --bs-btn-hover-bg: var(--hover-overlay);
+  --bs-btn-hover-border-color: #94a3b8;
+  --bs-btn-active-color: var(--brand-ink, #1e293b);
+  --bs-btn-active-bg: var(--hover-overlay-strong);
+  --bs-btn-active-border-color: #94a3b8;
   font-weight: 500;
+  border-radius: var(--btn-radius-pill);
+  transition: background-color var(--motion-fast, 150ms ease),
+              border-color var(--motion-fast, 150ms ease),
+              color var(--motion-fast, 150ms ease);
 }
 
 /* Tertiary — text / link style */
@@ -49,16 +71,18 @@
   background: transparent;
   padding-left: 0.5rem;
   padding-right: 0.5rem;
+  border-radius: var(--radius-sm, 8px);
+  transition: color var(--motion-fast, 150ms ease), background-color var(--motion-fast, 150ms ease);
 }
 
 .btn-cta-tertiary:hover,
 .btn-link.btn-cta-tertiary:hover {
-  color: var(--btn-primary-hover);
-  text-decoration: underline;
-  background: transparent;
+  color: var(--brand-primary-deep, #123f42);
+  text-decoration: none;
+  background: var(--hover-overlay);
 }
 
-/* Destructive */
+/* Destructive — solid only when it IS the primary destructive CTA */
 .btn-cta-danger,
 .btn-danger {
   --bs-btn-bg: var(--btn-danger-bg);
@@ -66,30 +90,41 @@
   --bs-btn-hover-bg: #b91c1c;
   --bs-btn-hover-border-color: #b91c1c;
   font-weight: 600;
+  border-radius: var(--btn-radius-pill);
 }
 
-/* Quiet icon actions (B3) — do not compete with Buy */
+/* Quiet icon actions — circular gray wash (do not compete with primary) */
 .btn-icon-quiet {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
+  width: 36px;
+  height: 36px;
   padding: 0;
   border: 0;
-  border-radius: 8px;
+  border-radius: var(--btn-radius-icon);
   background: transparent;
-  color: #94a3b8;
+  color: #64748b;
   line-height: 1;
-  transition: color 0.15s ease, background-color 0.15s ease;
+  transition: color var(--motion-fast, 150ms ease),
+              background-color var(--motion-fast, 150ms ease);
 }
 
 .btn-icon-quiet:hover {
-  background: #f1f5f9;
-  color: #475569;
+  background: var(--hover-overlay);
+  color: #334155;
+}
+
+.btn-icon-quiet:active {
+  background: var(--hover-overlay-strong);
 }
 
 .btn-icon-quiet.is-active,
+.btn-icon-quiet.favorite-btn.is-active {
+  color: var(--brand-primary, #185054);
+  background: var(--brand-primary-bg, #e6f5f5);
+}
+
 .btn-icon-quiet.favorite-btn.is-active {
   color: #dc2626;
   background: #fef2f2;
@@ -97,7 +132,13 @@
 
 .btn-icon-quiet.blacklist-btn.is-active {
   color: #475569;
-  background: #f1f5f9;
+  background: var(--hover-overlay-strong);
+}
+
+.btn-icon-quiet.btn-icon-danger:hover,
+.btn-icon-quiet.btn-delete:hover {
+  background: #fef2f2;
+  color: #dc2626;
 }
 
 .btn-icon-quiet:focus-visible {
@@ -105,12 +146,64 @@
   box-shadow: 0 0 0 3px rgba(63, 174, 178, 0.25);
 }
 
-/* Catalog buy stays dominant */
+/* Chip / tab filters (Pending · Active style) */
+.btn-chip,
+.site-status-filter {
+  border-radius: var(--btn-radius-pill) !important;
+  font-weight: 600;
+  font-size: 13px;
+  padding: 0.35rem 0.85rem;
+  border: 1px solid var(--btn-secondary-border);
+  background: var(--surface-1, #fff);
+  color: var(--btn-secondary-text);
+  transition: background-color var(--motion-fast, 150ms ease),
+              border-color var(--motion-fast, 150ms ease),
+              color var(--motion-fast, 150ms ease),
+              box-shadow var(--motion-fast, 150ms ease);
+}
+
+.btn-chip:hover,
+.site-status-filter:hover {
+  background: var(--hover-overlay);
+  color: var(--brand-ink, #1e293b);
+  border-color: #94a3b8;
+}
+
+.btn-chip.is-active,
+.site-status-filter.is-active,
+.site-status-filter.btn-primary {
+  background: var(--brand-primary, #185054) !important;
+  border-color: var(--brand-primary, #185054) !important;
+  color: #fff !important;
+  box-shadow: none !important;
+}
+
+.btn-chip.is-active:hover,
+.site-status-filter.is-active:hover,
+.site-status-filter.btn-primary:hover {
+  background: var(--brand-primary-deep, #123f42) !important;
+  border-color: var(--brand-primary-deep, #123f42) !important;
+  color: #fff !important;
+}
+
+.site-status-filter .badge {
+  font-weight: 650;
+  font-size: 11px;
+}
+
+.site-status-filter.is-active .badge,
+.site-status-filter.btn-primary .badge {
+  background: rgba(255, 255, 255, 0.22) !important;
+  color: #fff !important;
+}
+
+/* Catalog buy stays dominant — minimal shadow */
 .buy-now.btn-cta-primary,
 .btn.buy-now {
   min-width: 7.5rem;
   font-weight: 600;
-  box-shadow: 0 1px 2px rgba(24, 80, 84, 0.18);
+  border-radius: var(--btn-radius-pill);
+  box-shadow: none;
 }
 
 .catalog-row-actions {
@@ -124,7 +217,7 @@
   display: flex;
   gap: 2px;
   justify-content: center;
-  opacity: 0.85;
+  opacity: 0.9;
 }
 
 .catalog-row-actions-quiet:hover {

@@ -209,8 +209,8 @@
     }
 
     .btn-primary:hover {
-        background-color: #3faeb2;
-        border-color: #3faeb2;
+        background-color: #123f42;
+        border-color: #123f42;
     }
 
     .btn-success {
@@ -1182,11 +1182,11 @@
     <div class="mt-5">
         <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
             <h4 class="mb-0">Your Sites</h4>
-            <div class="btn-group" role="group" aria-label="Filter sites by status">
-                <button type="button" class="btn btn-sm btn-outline-secondary site-status-filter is-active" data-status="pending" id="sitesFilterPending">
+            <div class="d-inline-flex flex-wrap gap-2" role="group" aria-label="Filter sites by status">
+                <button type="button" class="btn btn-sm site-status-filter is-active" data-status="pending" id="sitesFilterPending" aria-pressed="true">
                     Pending <span class="badge text-bg-secondary ms-1" id="sitesPendingCount">0</span>
                 </button>
-                <button type="button" class="btn btn-sm btn-outline-secondary site-status-filter" data-status="active" id="sitesFilterActive">
+                <button type="button" class="btn btn-sm site-status-filter" data-status="active" id="sitesFilterActive" aria-pressed="false">
                     Active <span class="badge text-bg-secondary ms-1" id="sitesActiveCount">0</span>
                 </button>
             </div>
@@ -2042,9 +2042,8 @@ function syncSitesFilterUi(pendingCount, activeCount, status) {
 
     document.querySelectorAll('.site-status-filter').forEach(function (btn) {
         const on = btn.getAttribute('data-status') === status;
-        btn.classList.toggle('btn-primary', on);
-        btn.classList.toggle('btn-outline-secondary', !on);
         btn.classList.toggle('is-active', on);
+        btn.classList.remove('btn-primary', 'btn-outline-secondary');
         btn.setAttribute('aria-pressed', on ? 'true' : 'false');
     });
 

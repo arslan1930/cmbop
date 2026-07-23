@@ -31,21 +31,26 @@
   --surface-3: #f1f5f9;
   --border-subtle: #e2e8f0;
   --border-default: #e2e8f0;
-  --hover-tint: #e6f5f5;
-  --hover-tint-strong: #d7f0f0;
+  /* Soft gray wash (YouTube-style state layer) — prefer over hue jumps */
+  --hover-overlay: rgba(15, 23, 42, 0.06);
+  --hover-overlay-strong: rgba(15, 23, 42, 0.10);
+  --hover-tint: var(--hover-overlay);
+  --hover-tint-strong: var(--hover-overlay-strong);
   --focus-ring: rgba(63, 174, 178, 0.35);
   --motion-fast: 150ms ease;
   --motion-base: 180ms ease;
   --radius-sm: 8px;
   --radius-md: 10px;
   --radius-lg: 12px;
+  --radius-pill: 999px;
+  --radius-icon: 999px;
   --shadow-dropdown: 0 8px 24px rgba(15, 23, 42, 0.1);
 
   /* Bootstrap 5.3 variable overrides */
   --bs-primary: #185054;
   --bs-primary-rgb: 24, 80, 84;
   --bs-link-color: #185054;
-  --bs-link-hover-color: #3faeb2;
+  --bs-link-hover-color: #123f42;
   --bs-focus-ring-color: rgba(63, 174, 178, 0.35);
   --bs-info: #3faeb2;
   --bs-info-rgb: 63, 174, 178;
@@ -59,24 +64,24 @@
   --bs-btn-bg: var(--brand-primary);
   --bs-btn-border-color: var(--brand-primary);
   --bs-btn-hover-color: #fff;
-  --bs-btn-hover-bg: var(--brand-primary-soft);
-  --bs-btn-hover-border-color: var(--brand-primary-soft);
+  --bs-btn-hover-bg: var(--brand-primary-deep);
+  --bs-btn-hover-border-color: var(--brand-primary-deep);
   --bs-btn-active-color: #fff;
   --bs-btn-active-bg: var(--brand-primary-deep);
   --bs-btn-active-border-color: var(--brand-primary-deep);
   --bs-btn-disabled-bg: var(--brand-primary);
   --bs-btn-disabled-border-color: var(--brand-primary);
-  transition: background-color var(--motion-fast), border-color var(--motion-fast), color var(--motion-fast);
+  transition: background-color var(--motion-fast), border-color var(--motion-fast), color var(--motion-fast), box-shadow var(--motion-fast);
 }
 
 .btn-outline-primary {
   --bs-btn-color: var(--brand-primary);
   --bs-btn-border-color: var(--brand-primary);
-  --bs-btn-hover-color: #fff;
-  --bs-btn-hover-bg: var(--brand-primary);
+  --bs-btn-hover-color: var(--brand-primary);
+  --bs-btn-hover-bg: var(--hover-overlay);
   --bs-btn-hover-border-color: var(--brand-primary);
-  --bs-btn-active-color: #fff;
-  --bs-btn-active-bg: var(--brand-primary);
+  --bs-btn-active-color: var(--brand-primary);
+  --bs-btn-active-bg: var(--hover-overlay-strong);
   --bs-btn-active-border-color: var(--brand-primary);
   transition: background-color var(--motion-fast), border-color var(--motion-fast), color var(--motion-fast);
 }

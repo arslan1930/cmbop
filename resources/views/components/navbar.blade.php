@@ -197,20 +197,20 @@
 
   .navbar-nav .nav-link[href*="/register"]:hover,
   .navbar-nav .nav-link[href*="dashboard"]:hover {
-    background-color: var(--brand-primary-soft, #3faeb2) !important;
+    background-color: var(--brand-primary-deep, #123f42) !important;
     color: #fff !important;
   }
 
   .dropdown-item.active {
-    background-color: var(--brand-primary-bg, #e6f5f5);
+    background-color: var(--hover-overlay-strong, rgba(15, 23, 42, 0.10));
     color: var(--brand-primary, #185054);
   }
 
-  .dropdown-item:active { background-color: var(--brand-primary-bg, #e6f5f5); }
+  .dropdown-item:active { background-color: var(--hover-overlay-strong, rgba(15, 23, 42, 0.10)); }
 
   .dropdown-item:hover {
-    background-color: var(--hover-tint, #e6f5f5);
-    color: var(--brand-primary, #185054);
+    background-color: var(--hover-overlay, rgba(15, 23, 42, 0.06));
+    color: var(--brand-ink, #1e293b);
   }
 
   @media (max-width: 991.98px) {

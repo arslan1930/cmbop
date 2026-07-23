@@ -69,9 +69,9 @@ body.slb-marketing .h3 {
 }
 
 #mainNavbar.slb-nav .navbar-cta-primary:hover {
-  background: var(--brand-primary-soft) !important;
+  background: var(--brand-primary-deep) !important;
   color: #fff !important;
-  box-shadow: 0 4px 14px rgba(24, 80, 84, 0.16);
+  box-shadow: none;
 }
 
 #mainNavbar.slb-nav .navbar-cta-outline {
@@ -83,8 +83,8 @@ body.slb-marketing .h3 {
 }
 
 #mainNavbar.slb-nav .navbar-cta-outline:hover {
-  border-color: var(--brand-primary-soft);
-  background: rgba(24, 80, 84, 0.05) !important;
+  border-color: #94a3b8;
+  background: var(--hover-overlay, rgba(15, 23, 42, 0.06)) !important;
   color: var(--brand-primary) !important;
 }
 

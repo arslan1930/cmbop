@@ -2,7 +2,9 @@
 
 namespace Tests\Feature;
 
+use App\Mail\BulkSitesSeededNotification;
 use App\Models\BulkSiteRequest;
+use App\Models\BulkSiteRequestItem;
 use App\Models\Category;
 use App\Models\Country;
 use App\Models\InAppNotification;
@@ -97,8 +99,14 @@ class BulkSiteGuidedWorkflowTest extends TestCase
             ->get(route('admin.bulk-site-requests.show', $bulk))
             ->assertOk()
             ->assertSee('Publisher submitted (URL + price only)', false)
+            ->assertSee('Done — add sites &amp; notify publisher', false)
             ->assertSee('https://bulk-a.example', false)
             ->assertSee('https://bulk-b.example', false);
+
+        $this->assertDatabaseHas('in_app_notifications', [
+            'user_id' => $this->admin->id,
+            'title' => 'New bulk sites request',
+        ]);
     }
 
     public function test_publisher_cannot_open_second_bulk_request(): void
@@ -169,6 +177,82 @@ class BulkSiteGuidedWorkflowTest extends TestCase
         $this->assertSame(45, (int) $one->dr);
 
         $this->assertSame(0, Site::where('active', 1)->where('domain', 'seed-one.example')->count());
+
+        $this->assertDatabaseHas('in_app_notifications', [
+            'user_id' => $this->publisher->id,
+            'title' => '2 sites were added to Pending sites',
+        ]);
+    }
+
+    public function test_marketer_done_adds_drafts_from_submitted_items_and_notifies_publisher(): void
+    {
+        Mail::fake();
+
+        $country = Country::marketplace()->where('code', 'de')->first()
+            ?? Country::marketplace()->firstOrFail();
+        $language = Language::marketplace()->where('code', 'de')->first()
+            ?? Language::marketplace()->firstOrFail();
+
+        $bulk = BulkSiteRequest::create([
+            'publisher_id' => $this->publisher->id,
+            'status' => BulkSiteRequest::STATUS_REQUESTED,
+            'estimated_count' => 2,
+        ]);
+        BulkSiteRequestItem::create([
+            'bulk_site_request_id' => $bulk->id,
+            'site_url' => 'https://done-a.example',
+            'domain' => 'done-a.example',
+            'price' => 80,
+        ]);
+        BulkSiteRequestItem::create([
+            'bulk_site_request_id' => $bulk->id,
+            'site_url' => 'https://done-b.example',
+            'domain' => 'done-b.example',
+            'price' => 120,
+        ]);
+
+        $marketingRole = Role::where('name', 'marketing')->firstOrFail();
+        $marketer = User::factory()->create([
+            'email_verified_at' => now(),
+            'active_role_id' => $marketingRole->id,
+        ]);
+        $marketer->roles()->attach($marketingRole->id);
+
+        $this->actingAs($marketer)
+            ->post(route('admin.bulk-site-requests.done', $bulk), [
+                'language' => strtolower($language->code),
+                'country' => strtolower($country->code),
+                'da' => 30,
+                'dr' => 35,
+                'traffic' => 5000,
+            ])
+            ->assertRedirect()
+            ->assertSessionHas('success');
+
+        $this->assertDatabaseHas('sites', [
+            'domain' => 'done-a.example',
+            'bulk_site_request_id' => $bulk->id,
+            'onboarding_status' => Site::ONBOARDING_AWAITING_DETAILS,
+            'active' => false,
+            'verified' => false,
+            'price' => 80,
+            'da' => 30,
+            'dr' => 35,
+        ]);
+        $this->assertDatabaseHas('sites', [
+            'domain' => 'done-b.example',
+            'price' => 120,
+        ]);
+
+        $this->assertSame(BulkSiteRequest::STATUS_AWAITING_PUBLISHER, $bulk->fresh()->status);
+        $this->assertSame('Waiting on publisher', $bulk->fresh()->statusLabel());
+
+        $this->assertDatabaseHas('in_app_notifications', [
+            'user_id' => $this->publisher->id,
+            'title' => '2 sites were added to Pending sites',
+        ]);
+
+        Mail::assertQueued(BulkSitesSeededNotification::class);
     }
 
     public function test_admin_cannot_verify_awaiting_details_site(): void

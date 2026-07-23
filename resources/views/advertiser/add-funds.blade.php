@@ -89,8 +89,11 @@
     padding: 10px 12px; font-weight: 600; color: #185054; width: 100%;
     transition: all .15s ease;
 }
-.wallet-quick-amt:hover, .wallet-quick-amt.is-active {
-    border-color: #185054; background: #e6f5f5;
+.wallet-quick-amt.is-active {
+    border-color: #185054; background: #e6f5f5; color: #185054;
+}
+.wallet-quick-amt:hover {
+    border-color: #94a3b8; background: rgba(15, 23, 42, 0.06);
 }
 
 .wallet-empty {
@@ -1618,8 +1621,8 @@
 }
 
 .amount-btn:hover {
-    background-color: #e9ecef;
-    transform: translateY(-1px);
+    background-color: rgba(15, 23, 42, 0.06);
+    transform: none;
 }
 
 .amount-btn.active {

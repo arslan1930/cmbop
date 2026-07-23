@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\BulkSiteRequest;
 use App\Models\DepositRequest;
 use App\Models\InAppNotification;
 use App\Models\Order;
@@ -1159,6 +1160,68 @@ class InAppNotificationService
                     'payment_method' => $paymentMethod,
                     'order_ids' => $orders->pluck('id')->values()->all(),
                     'total_amount' => $total,
+                ],
+            ]
+        );
+    }
+
+    /**
+     * Staff (admin + marketing): publisher submitted a bulk URL+price request.
+     */
+    public function notifyStaffBulkSiteRequestSubmitted(BulkSiteRequest $bulk): void
+    {
+        $bulk->loadMissing('publisher', 'items');
+        $who = $bulk->publisher?->name ?: ($bulk->publisher?->email ?: 'A publisher');
+        $count = $bulk->items->count() ?: (int) ($bulk->estimated_count ?? 0);
+
+        $this->notifyAdmins(
+            self::TYPE_SYSTEM,
+            'New bulk sites request',
+            "{$who} submitted {$count} site URL(s) + price(s). Add them to Pending sites when ready.",
+            [
+                'category' => self::CATEGORY_SYSTEM,
+                'icon' => 'bell',
+                'priority' => InAppNotification::PRIORITY_HIGH,
+                'related' => $bulk,
+                'action_label' => 'Open bulk request',
+                'action_url' => route('admin.bulk-site-requests.show', $bulk->id, false),
+                'meta' => [
+                    'bulk_site_request_id' => $bulk->id,
+                    'publisher_id' => $bulk->publisher_id,
+                    'estimated_count' => $count,
+                ],
+            ]
+        );
+    }
+
+    /**
+     * Publisher: marketer finished their part — drafts are on Pending sites.
+     */
+    public function notifyPublisherBulkSitesAdded(BulkSiteRequest $bulk, int $createdCount): void
+    {
+        $publisherId = (int) ($bulk->publisher_id ?? 0);
+        if ($publisherId <= 0 || $createdCount <= 0) {
+            return;
+        }
+
+        $this->notify(
+            $publisherId,
+            self::TYPE_SITE_STATUS,
+            $createdCount === 1
+                ? 'Your site was added to Pending sites'
+                : "{$createdCount} sites were added to Pending sites",
+            'We’ve added your sites to Pending sites — open them and finish any remaining details. They stay hidden from advertisers until we approve.',
+            [
+                'category' => self::CATEGORY_ACCOUNT,
+                'icon' => 'check-circle',
+                'priority' => InAppNotification::PRIORITY_HIGH,
+                'related' => $bulk,
+                'audience' => InAppNotification::AUDIENCE_PUBLISHER,
+                'action_label' => 'Open Pending sites',
+                'action_url' => route('publisher.websites', [], false),
+                'meta' => [
+                    'bulk_site_request_id' => $bulk->id,
+                    'created_count' => $createdCount,
                 ],
             ]
         );

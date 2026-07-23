@@ -161,9 +161,15 @@ class BulkSiteRequestController extends Controller
             Log::warning('Failed to email admins about bulk site request: '.$e->getMessage());
         }
 
+        try {
+            app(InAppNotificationService::class)->notifyStaffBulkSiteRequestSubmitted($bulk->load('items', 'publisher'));
+        } catch (\Throwable $e) {
+            Log::warning('Failed to send in-app bulk request notice: '.$e->getMessage());
+        }
+
         return redirect()
             ->route('publisher.websites')
-            ->with('success', 'Bulk sites submitted (URL + price). Our marketer will add metrics next; then you’ll finish descriptions and listing details; we approve.');
+            ->with('success', 'Bulk sites submitted (URL + price). Our marketer will add them to your Pending sites next; then you’ll finish descriptions and listing details; we approve.');
     }
 
     public function completeIndex()

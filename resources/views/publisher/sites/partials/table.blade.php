@@ -70,7 +70,7 @@
 
     a.site-row-preview:hover {
         border-color: #185054;
-        box-shadow: 0 0 0 2px rgba(24, 80, 84, 0.12);
+        box-shadow: 0 0 0 1px #185054;
     }
 
     .site-row-preview img {
@@ -159,21 +159,48 @@
         display: inline-flex;
         flex-wrap: nowrap;
         align-items: center;
-        gap: 4px;
+        gap: 2px;
         justify-content: flex-end;
     }
 
-    .site-row-actions .btn {
-        white-space: nowrap;
+    .site-row-actions .btn-edit {
+        margin-left: 4px;
+        margin-right: 2px;
+        padding: 0.25rem 0.85rem;
+        font-size: 12.5px;
+        line-height: 1.2;
+        border-radius: 999px;
     }
 
-    .site-row-actions .btn-icon {
-        width: 32px;
-        height: 32px;
-        padding: 0;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
+    .site-row-actions .btn-icon-quiet {
+        width: 34px;
+        height: 34px;
+    }
+
+    .site-row-actions .btn-icon-quiet.is-on {
+        color: #185054;
+        background: #e6f5f5;
+    }
+
+    .site-row-actions .btn-text-quiet {
+        border: 0;
+        background: transparent;
+        color: #64748b;
+        font-size: 12px;
+        font-weight: 600;
+        padding: 0.25rem 0.5rem;
+        border-radius: 999px;
+        transition: background-color 150ms ease, color 150ms ease;
+    }
+
+    .site-row-actions .btn-text-quiet:hover {
+        background: rgba(15, 23, 42, 0.06);
+        color: #334155;
+    }
+
+    .site-row-actions .btn-text-quiet.is-danger:hover {
+        background: #fef2f2;
+        color: #dc2626;
     }
 
     .expand-row {
@@ -437,7 +464,7 @@
 
             <td data-label="Actions" class="text-end">
                 <div class="site-row-actions">
-                <button type="button" class="btn btn-sm btn-outline-primary action-view btn-icon" data-id="{{ $site->id }}" aria-label="View {{ $site->site_name }}" title="View details">
+                <button type="button" class="btn-icon-quiet action-view" data-id="{{ $site->id }}" aria-label="View {{ $site->site_name }}" title="View details">
                     <i class="fa fa-eye" aria-hidden="true"></i>
                 </button>
 
@@ -454,37 +481,41 @@
                 </button>
 
                 @if($site->active || $site->verified)
-                <button type="button" class="btn btn-sm btn-warning btn-feature-site btn-icon"
+                <button type="button" class="btn-icon-quiet btn-feature-site {{ $site->isFeatured() ? 'is-on' : '' }}"
                         data-id="{{ $site->id }}"
                         data-name="{{ $site->site_name }}"
-                        title="Feature this site for 7 days (€10)"
+                        title="{{ $site->isFeatured() ? 'Featured' : 'Feature this site for 7 days (€10)' }}"
                         aria-label="Feature {{ $site->site_name }}">
                     <i class="fa fa-bolt" aria-hidden="true"></i>
                 </button>
-                <button type="button" class="btn btn-sm btn-outline-success btn-discount-site btn-icon"
+                <button type="button" class="btn-icon-quiet btn-discount-site {{ $site->hasActiveCustomDiscount() ? 'is-on' : '' }}"
                         data-id="{{ $site->id }}"
                         data-name="{{ $site->site_name }}"
                         data-percent="{{ $site->custom_discount_percent }}"
                         data-ends="{{ optional($site->custom_discount_ends_at)?->toIso8601String() }}"
-                        title="Set a timed discount"
+                        title="{{ $site->hasActiveCustomDiscount() ? 'Discount active' : 'Set a timed discount' }}"
                         aria-label="Discount {{ $site->site_name }}">
                     <i class="fa fa-percent" aria-hidden="true"></i>
                 </button>
                 @if($site->hasActiveCustomDiscount())
-                <button type="button" class="btn btn-sm btn-outline-danger btn-discount-clear"
+                <button type="button" class="btn-text-quiet is-danger btn-discount-clear"
                         data-id="{{ $site->id }}"
                         title="End discount now">
                     Clear
                 </button>
                 @endif
                 @if($site->joinsBulkDiscount())
-                <button type="button" class="btn btn-sm btn-outline-secondary btn-bulk-leave"
-                        data-id="{{ $site->id }}" title="Leave bulk program">Leave</button>
+                <button type="button" class="btn-icon-quiet is-on btn-bulk-leave"
+                        data-id="{{ $site->id }}" title="Leave bulk program" aria-label="Leave bulk program">
+                    <i class="fa fa-layer-group" aria-hidden="true"></i>
+                </button>
                 @else
-                <button type="button" class="btn btn-sm btn-outline-success btn-bulk-join"
+                <button type="button" class="btn-icon-quiet btn-bulk-join"
                         data-id="{{ $site->id }}"
                         data-name="{{ $site->site_name }}"
-                        title="Join bulk discount">Bulk</button>
+                        title="Join bulk discount" aria-label="Join bulk discount">
+                    <i class="fa fa-layer-group" aria-hidden="true"></i>
+                </button>
                 @endif
                 @endif
 
@@ -492,7 +523,7 @@
                 <form action="{{ route('publisher.sites.destroy', $site->id) }}" method="POST" class="d-inline delete-form">
                     @csrf
                     @method('DELETE')
-                    <button type="button" class="btn btn-sm btn-danger btn-delete btn-icon" aria-label="Delete {{ $site->site_name }}" title="Delete">
+                    <button type="button" class="btn-icon-quiet btn-delete" aria-label="Delete {{ $site->site_name }}" title="Delete">
                         <i class="fa fa-trash" aria-hidden="true"></i>
                     </button>
                 </form>
