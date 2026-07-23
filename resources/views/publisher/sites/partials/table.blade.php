@@ -1,7 +1,7 @@
 <div id="sitesStatusMeta"
      data-pending="{{ (int) ($pendingCount ?? 0) }}"
      data-active="{{ (int) ($activeCount ?? 0) }}"
-     data-status="{{ $status ?? 'pending' }}"
+     data-status="{{ $status ?? 'active' }}"
      class="d-none"
      aria-hidden="true"></div>
 @if($sites->count() > 0)
@@ -684,7 +684,7 @@
 
 @else
 <div class="alert alert-light border text-center mb-0">
-    @if(($status ?? 'pending') === 'active')
+    @if(($status ?? 'active') === 'active')
         <i class="fa fa-circle-check me-2 text-success"></i> No active sites yet. Approved sites will show here.
     @else
         <i class="fa fa-clock me-2 text-muted"></i> No pending sites waiting for admin approval.
