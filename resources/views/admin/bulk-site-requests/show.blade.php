@@ -11,7 +11,7 @@
             Publisher: <strong>{{ $bulkRequest->publisher->name }}</strong>
             ({{ $bulkRequest->publisher->email }})
             · Status: <span class="text-capitalize">{{ str_replace('_', ' ', $bulkRequest->status) }}</span>
-            · Estimated: {{ $bulkRequest->estimated_count ?? '—' }}
+            · Sites submitted: {{ $bulkRequest->items->count() ?: ($bulkRequest->estimated_count ?? '—') }}
         </p>
     </div>
 
@@ -56,7 +56,7 @@
                         <form method="POST" action="{{ route('admin.bulk-site-requests.sheet-sent', $bulkRequest) }}" class="mb-2">
                             @csrf
                             <button type="submit" class="btn btn-sm btn-outline-primary w-100">
-                                Mark sheet emailed
+                                Mark sheet emailed (optional)
                             </button>
                         </form>
                         <form method="POST" action="{{ route('admin.bulk-site-requests.cancel', $bulkRequest) }}"
@@ -94,19 +94,81 @@
         <div class="col-lg-8">
             <div class="card border-0 shadow-sm mb-3">
                 <div class="card-body">
-                    <h6 class="fw-semibold mb-1">Seed draft sites</h6>
+                    <h6 class="fw-semibold mb-1">Publisher submitted (URL + price only)</h6>
                     <p class="small text-muted mb-3">
-                        Paste one site per line after the publisher returns the sheet.
+                        Implement from this list: add DA/DR/traffic/language/country when seeding drafts below.
+                        The publisher will finish descriptions afterward.
+                    </p>
+                    <div class="table-responsive">
+                        <table class="table table-sm align-middle mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Website URL</th>
+                                    <th>Price</th>
+                                    <th>Domain</th>
+                                    <th>Seeded?</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @forelse($bulkRequest->items as $item)
+                                    <tr>
+                                        <td>
+                                            <a href="{{ $item->site_url }}" target="_blank" rel="noopener noreferrer">
+                                                {{ $item->site_url }}
+                                            </a>
+                                        </td>
+                                        <td>€{{ number_format((float) $item->price, 2) }}</td>
+                                        <td class="small text-muted">{{ $item->domain }}</td>
+                                        <td>
+                                            @if($item->site_id)
+                                                <span class="badge text-bg-success">Yes</span>
+                                            @else
+                                                <span class="badge text-bg-light border">Pending</span>
+                                            @endif
+                                        </td>
+                                    </tr>
+                                @empty
+                                    <tr>
+                                        <td colspan="4" class="text-muted text-center py-3">
+                                            No URL + price rows (legacy request before in-app submission).
+                                        </td>
+                                    </tr>
+                                @endforelse
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card border-0 shadow-sm mb-3">
+                <div class="card-body">
+                    <h6 class="fw-semibold mb-1">Seed draft sites (add metrics)</h6>
+                    <p class="small text-muted mb-3">
+                        Paste one site per line using the publisher’s URLs and prices, plus your metrics.
                         Columns: <code>url,price,da,dr,traffic,language,country[,site_name]</code>
                         (language/country = 2-letter marketplace codes). Drafts stay <strong>inactive</strong> until the publisher finishes details and you approve.
-                        Marketing may delete a wrong draft while it still awaits publisher details.
                     </p>
+                    @php
+                        $seedStarter = $bulkRequest->items->map(function ($item) {
+                            return $item->site_url.','.$item->price.',da,dr,traffic,lang,country';
+                        })->implode("\n");
+                    @endphp
+                    @if($seedStarter !== '')
+                        <div class="small mb-2">
+                            <span class="text-muted">Starter from publisher URL + price (replace da/dr/traffic/lang/country):</span>
+                            <pre class="bg-light border rounded p-2 small mb-2 mt-1" id="bulkSeedStarter" style="max-height:8rem;overflow:auto;">{{ $seedStarter }}</pre>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" id="bulkCopySeedStarter">Copy starter into box</button>
+                        </div>
+                    @endif
                     <form method="POST" action="{{ route('admin.bulk-site-requests.seed', $bulkRequest) }}">
                         @csrf
-                        <textarea name="rows" class="form-control font-monospace small @error('rows') is-invalid @enderror" rows="10"
+                        <textarea name="rows" id="bulkSeedRows" class="form-control font-monospace small @error('rows') is-invalid @enderror" rows="10"
                                   placeholder="https://example.com,99,40,45,12000,de,de,Example Blog">{{ old('rows') }}</textarea>
                         @error('rows')<div class="invalid-feedback">{{ $message }}</div>@enderror
-                        <button type="submit" class="btn btn-primary mt-3" @disabled(! $bulkRequest->isOpen())>
+                        <div class="form-text mb-2">
+                            Columns: <code>url,price,da,dr,traffic,language,country[,site_name]</code>
+                        </div>
+                        <button type="submit" class="btn btn-primary mt-2" @disabled(! $bulkRequest->isOpen())>
                             Seed drafts &amp; email publisher
                         </button>
                     </form>
@@ -170,6 +232,14 @@
 </div>
 
 <script>
+document.getElementById('bulkCopySeedStarter')?.addEventListener('click', function () {
+    const starter = document.getElementById('bulkSeedStarter');
+    const box = document.getElementById('bulkSeedRows');
+    if (!starter || !box) return;
+    box.value = starter.textContent.trim();
+    box.focus();
+});
+
 document.querySelectorAll('.bulk-draft-delete').forEach(function (btn) {
     btn.addEventListener('click', async function () {
         const id = this.getAttribute('data-site-id');

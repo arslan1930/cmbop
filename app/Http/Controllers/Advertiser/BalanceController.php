@@ -72,6 +72,11 @@ class BalanceController extends Controller
             }
         }
 
+        if (empty($row['invoice_download_url']) && ($row['source'] ?? '') === 'deposit' && ! empty($row['reference'])) {
+            $row['invoice_view_url'] = route('advertiser.invoice', $row['reference']);
+            $row['invoice_download_url'] = route('advertiser.invoice', ['referenceCode' => $row['reference'], 'download' => 1]);
+        }
+
         return response()->json(['success' => true, 'transaction' => $row]);
     }
 

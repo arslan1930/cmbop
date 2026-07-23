@@ -284,9 +284,14 @@ function submitCatalogFilters() {
 }
 
 // Apply Filters button - submit the form with all selected values
-document.getElementById('applyFiltersBtn').addEventListener('click', function() {
-    submitCatalogFilters();
-});
+(function () {
+    const applyBtn = document.getElementById('applyFiltersBtn');
+    if (applyBtn) {
+        applyBtn.addEventListener('click', function() {
+            submitCatalogFilters();
+        });
+    }
+})();
 
 // Favorites / Blacklist selects apply immediately so heart & block workflows are obvious
 ['favorites_filter', 'blacklist_filter'].forEach(function (name) {
@@ -652,23 +657,42 @@ document.addEventListener('DOMContentLoaded', function() {
         button.addEventListener('click', function(e) {
             e.preventDefault();
             e.stopPropagation();
-            let id = parseInt(this.dataset.id);
+            if (this.disabled || this.dataset.busy === '1') return;
+
+            let id = parseInt(this.dataset.id, 10);
             let basePrice = parseFloat(this.dataset.basePrice);
             let name = this.dataset.name;
-            
+            if (!id || Number.isNaN(id)) {
+                showToast('Could not add to cart.', 'error');
+                return;
+            }
+
             let sensitiveType = selectedSensitivePrices[id] ? selectedSensitivePrices[id].type : null;
             let additionalPrice = selectedSensitivePrices[id] ? selectedSensitivePrices[id].additionalPrice : 0;
             let finalPrice = basePrice + additionalPrice;
-            
-            if (typeof window.addToCart === 'function') {
-                window.addToCart(id, name, finalPrice, sensitiveType, additionalPrice, basePrice);
+
+            if (typeof window.addToCart !== 'function') {
+                showToast('Cart is not ready. Refresh the page and try again.', 'error');
+                return;
             }
-            
-            let originalText = this.innerHTML;
-            this.innerHTML = '<i class="fa-solid fa-check"></i> Added!';
-            setTimeout(() => {
-                this.innerHTML = originalText;
-            }, 1000);
+
+            const btn = this;
+            const originalText = btn.innerHTML;
+            btn.dataset.busy = '1';
+            btn.disabled = true;
+
+            Promise.resolve(window.addToCart(id, name, finalPrice, sensitiveType, additionalPrice, basePrice))
+                .then(function (result) {
+                    if (result && result.ok === false) return;
+                    btn.innerHTML = '<i class="fa-solid fa-check" aria-hidden="true"></i> Added!';
+                    setTimeout(function () {
+                        btn.innerHTML = originalText;
+                    }, 1000);
+                })
+                .finally(function () {
+                    btn.dataset.busy = '0';
+                    btn.disabled = false;
+                });
         });
     });
 

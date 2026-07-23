@@ -18,8 +18,7 @@ class WalletOverviewService
 {
     public function __construct(
         protected WalletLedgerService $ledger
-    ) {
-    }
+    ) {}
 
     public function summary(int $userId, Wallet $wallet): array
     {
@@ -272,6 +271,15 @@ class WalletOverviewService
         $ledger = WalletTransaction::where('user_id', $userId)->orderByDesc('created_at')->get();
         foreach ($ledger as $tx) {
             $invoice = null;
+            $depositMeta = [
+                'invoice_view_url' => null,
+                'invoice_download_url' => null,
+                'can_mark_paid' => false,
+                'user_marked_paid' => false,
+                'user_marked_paid_at' => null,
+                'mark_paid_url' => null,
+                'is_live_pending' => $tx->status === 'pending',
+            ];
             if ($tx->related_type && $tx->related_id) {
                 if ($tx->related_type === Invoice::class || str_contains((string) $tx->related_type, 'Invoice')) {
                     $invoice = Invoice::find($tx->related_id);
@@ -284,8 +292,25 @@ class WalletOverviewService
                                     ->orWhere('transaction_id', $deposit->stripe_payment_intent_id);
                             })
                             ->first();
+                        $invoicePageUrl = route('advertiser.invoice', $deposit->reference_code);
+                        $depositMeta = [
+                            'invoice_view_url' => $invoicePageUrl,
+                            'invoice_download_url' => $invoice
+                                ? route('advertiser.billing.download', $invoice)
+                                : route('advertiser.invoice', ['referenceCode' => $deposit->reference_code, 'download' => 1]),
+                            'can_mark_paid' => $deposit->canUserMarkPaid(),
+                            'user_marked_paid' => $deposit->userHasMarkedPaid(),
+                            'user_marked_paid_at' => $deposit->user_marked_paid_at?->toIso8601String(),
+                            'mark_paid_url' => route('advertiser.add-funds.mark-paid', $deposit),
+                            'is_live_pending' => $deposit->status === 'pending',
+                        ];
                     }
                 }
+            }
+
+            if ($invoice && empty($depositMeta['invoice_download_url'])) {
+                $depositMeta['invoice_download_url'] = route('advertiser.billing.download', $invoice);
+                $depositMeta['invoice_view_url'] = route('advertiser.billing.show', $invoice);
             }
 
             $rows->push([
@@ -306,6 +331,13 @@ class WalletOverviewService
                 'payment_method' => $tx->payment_method,
                 'invoice_id' => $invoice?->id,
                 'invoice_number' => $invoice?->invoice_number,
+                'invoice_view_url' => $depositMeta['invoice_view_url'],
+                'invoice_download_url' => $depositMeta['invoice_download_url'],
+                'can_mark_paid' => $depositMeta['can_mark_paid'],
+                'user_marked_paid' => $depositMeta['user_marked_paid'],
+                'user_marked_paid_at' => $depositMeta['user_marked_paid_at'],
+                'mark_paid_url' => $depositMeta['mark_paid_url'],
+                'is_live_pending' => $depositMeta['is_live_pending'],
                 'order_reference' => $tx->meta['order_reference'] ?? null,
                 'icon' => $this->iconForType($tx->type),
             ]);
@@ -321,14 +353,21 @@ class WalletOverviewService
                 ->where('reference_code', $d->reference_code)
                 ->first();
             $status = $d->status === 'approved' ? 'completed' : $d->status;
+            $invoicePageUrl = route('advertiser.invoice', $d->reference_code);
+            $invoiceDownloadUrl = $invoice
+                ? route('advertiser.billing.download', $invoice)
+                : route('advertiser.invoice', ['referenceCode' => $d->reference_code, 'download' => 1]);
+
             $rows->push([
                 'id' => $d->id,
                 'source' => 'deposit',
                 'date' => ($d->paid_at ?? $d->created_at)?->toIso8601String(),
                 'timestamp' => ($d->paid_at ?? $d->created_at)?->timestamp ?? 0,
                 'type' => WalletTransaction::TYPE_DEPOSIT,
-                'type_label' => 'Deposit',
-                'description' => 'Wallet deposit via '.ucfirst((string) $d->payment_method),
+                'type_label' => $status === 'pending' ? 'Pending invoice deposit' : 'Deposit',
+                'description' => $status === 'pending'
+                    ? 'Invoice deposit via '.ucfirst((string) $d->payment_method).' — awaiting confirmation'
+                    : 'Wallet deposit via '.ucfirst((string) $d->payment_method),
                 'reference' => $d->reference_code,
                 'amount' => (float) $d->amount,
                 'direction' => 'credit',
@@ -338,7 +377,16 @@ class WalletOverviewService
                 'bonus_amount' => 0,
                 'payment_method' => $d->payment_method,
                 'invoice_id' => $invoice?->id,
-                'invoice_number' => $invoice?->invoice_number,
+                'invoice_number' => $invoice?->invoice_number ?? ('REF'.$d->reference_code),
+                'invoice_view_url' => $invoicePageUrl,
+                'invoice_download_url' => $invoiceDownloadUrl,
+                'can_mark_paid' => $d->canUserMarkPaid(),
+                'user_marked_paid' => $d->userHasMarkedPaid(),
+                'user_marked_paid_at' => $d->user_marked_paid_at?->toIso8601String(),
+                'mark_paid_url' => $d->canUserMarkPaid() || $d->userHasMarkedPaid()
+                    ? route('advertiser.add-funds.mark-paid', $d)
+                    : null,
+                'is_live_pending' => $status === 'pending',
                 'order_reference' => null,
                 'icon' => $this->iconForType(WalletTransaction::TYPE_DEPOSIT),
             ]);
@@ -479,6 +527,7 @@ class WalletOverviewService
             ->when($to, fn ($c) => $c->filter(fn ($r) => ($r['timestamp'] ?? 0) <= $to->timestamp))
             ->when($search !== '', function ($c) use ($search) {
                 $q = mb_strtolower($search);
+
                 return $c->filter(function ($r) use ($q) {
                     return str_contains(mb_strtolower((string) ($r['description'] ?? '')), $q)
                         || str_contains(mb_strtolower((string) ($r['reference'] ?? '')), $q)

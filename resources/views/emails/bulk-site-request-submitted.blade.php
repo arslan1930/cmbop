@@ -2,7 +2,7 @@
 # New bulk site request
 
 **Publisher:** {{ $publisherName }} ({{ $publisherEmail }})  
-**Estimated sites:** {{ $bulkRequest->estimated_count ?? '—' }}  
+**Sites submitted:** {{ $bulkRequest->items->count() ?: ($bulkRequest->estimated_count ?? '—') }}  
 **Status:** {{ $bulkRequest->status }}
 
 @if($bulkRequest->publisher_note)
@@ -10,9 +10,17 @@
 {{ $bulkRequest->publisher_note }}
 @endif
 
+@if($bulkRequest->items->isNotEmpty())
+**URL + price (from publisher):**
+
+@foreach($bulkRequest->items as $item)
+- {{ $item->site_url }} — €{{ number_format((float) $item->price, 2) }}
+@endforeach
+@endif
+
 Next steps:
-1. Email them a simple sheet (URL + price columns only), or seed rows in the admin panel.
-2. Add DR / DA / traffic / language / country when seeding.
+1. Open the request and review the submitted URL + price list.
+2. Add DR / DA / traffic / language / country when seeding drafts.
 3. Ask the publisher to finish description, niches, link type, and timing.
 4. Approve + activate only after details are complete.
 

@@ -68,7 +68,10 @@ class BulkSiteGuidedWorkflowTest extends TestCase
 
         $this->actingAs($this->publisher)
             ->post(route('publisher.bulk-sites.request'), [
-                'estimated_count' => 12,
+                'sites' => [
+                    ['url' => 'https://bulk-a.example', 'price' => 99],
+                    ['url' => 'https://bulk-b.example', 'price' => 150.5],
+                ],
                 'publisher_note' => 'Mostly DE tech blogs',
             ])
             ->assertRedirect(route('publisher.websites'))
@@ -77,8 +80,25 @@ class BulkSiteGuidedWorkflowTest extends TestCase
         $this->assertDatabaseHas('bulk_site_requests', [
             'publisher_id' => $this->publisher->id,
             'status' => BulkSiteRequest::STATUS_REQUESTED,
-            'estimated_count' => 12,
+            'estimated_count' => 2,
         ]);
+
+        $this->assertDatabaseHas('bulk_site_request_items', [
+            'domain' => 'bulk-a.example',
+            'price' => 99,
+        ]);
+        $this->assertDatabaseHas('bulk_site_request_items', [
+            'domain' => 'bulk-b.example',
+            'price' => 150.5,
+        ]);
+
+        $bulk = BulkSiteRequest::where('publisher_id', $this->publisher->id)->first();
+        $this->actingAs($this->admin)
+            ->get(route('admin.bulk-site-requests.show', $bulk))
+            ->assertOk()
+            ->assertSee('Publisher submitted (URL + price only)', false)
+            ->assertSee('https://bulk-a.example', false)
+            ->assertSee('https://bulk-b.example', false);
     }
 
     public function test_publisher_cannot_open_second_bulk_request(): void
@@ -91,12 +111,26 @@ class BulkSiteGuidedWorkflowTest extends TestCase
 
         $this->actingAs($this->publisher)
             ->post(route('publisher.bulk-sites.request'), [
-                'estimated_count' => 15,
+                'sites' => [
+                    ['url' => 'https://again-a.example', 'price' => 10],
+                    ['url' => 'https://again-b.example', 'price' => 20],
+                ],
             ])
             ->assertRedirect(route('publisher.websites'))
             ->assertSessionHas('error');
 
         $this->assertSame(1, BulkSiteRequest::where('publisher_id', $this->publisher->id)->count());
+    }
+
+    public function test_websites_page_shows_url_price_bulk_columns(): void
+    {
+        $this->actingAs($this->publisher)
+            ->get(route('publisher.websites'))
+            ->assertOk()
+            ->assertSee('Website URL', false)
+            ->assertSee('Price (€)', false)
+            ->assertSee('How bulk onboarding works', false)
+            ->assertSee('Our marketer', false);
     }
 
     public function test_admin_can_seed_draft_sites_hidden_from_catalog(): void

@@ -6,13 +6,10 @@ use App\Models\Role;
 use App\Models\Site;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\Storage;
-use Tests\Support\CreatesContentSubmissions;
 use Tests\TestCase;
 
 class OrderingUxPrinciplesTest extends TestCase
 {
-    use CreatesContentSubmissions;
     use RefreshDatabase;
 
     private function advertiser(): User
@@ -55,7 +52,7 @@ class OrderingUxPrinciplesTest extends TestCase
         ]);
     }
 
-    public function test_catalog_shows_path_stepper_and_needs_article_readiness(): void
+    public function test_catalog_shows_path_stepper_without_article_readiness_badges(): void
     {
         $advertiser = $this->advertiser();
         $this->site('en');
@@ -69,23 +66,25 @@ class OrderingUxPrinciplesTest extends TestCase
         $this->assertStringContainsString('Publishers', $html);
         $this->assertStringContainsString('Content', $html);
         $this->assertStringContainsString('Pay', $html);
-        $this->assertStringContainsString('Needs approved article', $html);
         $this->assertStringContainsString('Catalog · Publishers', $html);
+        $this->assertStringContainsString('buy-now', $html);
+        $this->assertStringNotContainsString('Needs approved article', $html);
+        $this->assertStringNotContainsString('Ready · article available', $html);
+        $this->assertStringNotContainsString('catalog-article-ready', $html);
     }
 
-    public function test_catalog_shows_ready_when_matching_article_exists(): void
+    public function test_catalog_buy_adds_site_to_cart(): void
     {
-        Storage::fake('local');
         $advertiser = $this->advertiser();
-        $this->site('en');
-
-        $this->createApprovedSubmission($advertiser, null, 0, 'best software tools', 'https://example.com/tools', 'us', 'en');
+        $site = $this->site('en');
 
         $this->actingAs($advertiser)
-            ->get(route('advertiser.catalog'))
+            ->postJson(route('advertiser.cart.add'), ['id' => $site->id])
             ->assertOk()
-            ->assertSee('Ready · article available', false)
-            ->assertDontSee('Needs approved article', false);
+            ->assertJsonPath('success', true);
+
+        $this->assertNotEmpty(session('cart'));
+        $this->assertSame($site->id, (int) (session('cart')[0]['id'] ?? 0));
     }
 
     public function test_content_library_and_checkout_show_path_stepper(): void

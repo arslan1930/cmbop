@@ -6,8 +6,7 @@
         <div>
             <h3 class="mb-1">Bulk site requests</h3>
             <p class="text-muted small mb-0">
-                Guided onboarding for publishers with many sites.
-                Email a URL+price sheet, seed metrics here, then wait for the publisher to finish details before approving.
+                Publishers submit <strong>URL + price</strong> only. Add metrics when seeding, then wait for them to finish details before approving.
             </p>
         </div>
         <span class="badge text-bg-secondary align-self-center">{{ $openCount }} open</span>

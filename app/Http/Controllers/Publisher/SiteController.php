@@ -303,8 +303,27 @@ class SiteController extends Controller
     {
         try {
             $query = $request->get('query');
+            $status = strtolower((string) $request->get('status', 'pending'));
+            if (! in_array($status, ['pending', 'active'], true)) {
+                $status = 'pending';
+            }
 
-            $sites = Site::where('publisher_id', auth()->id())
+            $base = Site::where('publisher_id', auth()->id());
+
+            $pendingCount = (clone $base)->where('active', 0)->where('verified', 0)->count();
+            $activeCount = (clone $base)->where(function ($q) {
+                $q->where('active', 1)->orWhere('verified', 1);
+            })->count();
+
+            $sites = (clone $base)
+                ->when($status === 'pending', function ($q) {
+                    $q->where('active', 0)->where('verified', 0);
+                })
+                ->when($status === 'active', function ($q) {
+                    $q->where(function ($inner) {
+                        $inner->where('active', 1)->orWhere('verified', 1);
+                    });
+                })
                 ->when($query, function ($q) use ($query) {
                     $q->where(function ($sub) use ($query) {
                         $sub->where('site_name', 'like', "%{$query}%")
@@ -313,9 +332,13 @@ class SiteController extends Controller
                     });
                 })
                 ->latest()
-                ->paginate(20);
+                ->paginate(20)
+                ->appends([
+                    'status' => $status,
+                    'query' => $query,
+                ]);
 
-            return view('publisher.sites.partials.table', compact('sites'))->render();
+            return view('publisher.sites.partials.table', compact('sites', 'pendingCount', 'activeCount', 'status'))->render();
         } catch (\Throwable $e) {
             Log::error('Publisher sites ajax failed: '.$e->getMessage(), [
                 'user_id' => auth()->id(),
