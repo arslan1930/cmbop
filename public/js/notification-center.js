@@ -120,12 +120,20 @@
 
     document.addEventListener('click', function (e) {
       if (!self.open) return;
-      if (!self.root.contains(e.target)) self.close();
+      if (self.root.contains(e.target) || self.panel.contains(e.target)) return;
+      self.close();
     });
 
     document.addEventListener('keydown', function (e) {
       if (e.key === 'Escape' && self.open) self.close();
     });
+
+    window.addEventListener('resize', function () {
+      if (self.open) self.positionPanel();
+    });
+    window.addEventListener('scroll', function () {
+      if (self.open) self.positionPanel();
+    }, true);
 
     this.root.querySelectorAll('[data-nc-filter]').forEach(function (el) {
       el.addEventListener('click', function () {
@@ -168,8 +176,30 @@
     else this.openPanel();
   };
 
+  NotificationCenter.prototype.positionPanel = function () {
+    if (!this.panel || !this.btn) return;
+    const rect = this.btn.getBoundingClientRect();
+    const width = Math.min(420, window.innerWidth - 24);
+    let left = rect.right - width;
+    if (left < 12) left = 12;
+    const top = Math.min(rect.bottom + 10, window.innerHeight - 120);
+    this.panel.style.position = 'fixed';
+    this.panel.style.top = top + 'px';
+    this.panel.style.left = left + 'px';
+    this.panel.style.right = 'auto';
+    this.panel.style.width = width + 'px';
+    this.panel.style.zIndex = '2000';
+    this.panel.style.maxHeight = Math.max(240, window.innerHeight - top - 16) + 'px';
+  };
+
   NotificationCenter.prototype.openPanel = function () {
     this.open = true;
+    // Portal to body so sticky/overflow topbar chrome cannot clip or swallow clicks.
+    if (this.panel.parentElement !== document.body) {
+      this._panelHome = this.panel.parentElement;
+      document.body.appendChild(this.panel);
+    }
+    this.positionPanel();
     this.panel.classList.add('is-open');
     this.btn.classList.add('is-open');
     this.btn.setAttribute('aria-expanded', 'true');
@@ -181,6 +211,16 @@
     this.panel.classList.remove('is-open');
     this.btn.classList.remove('is-open');
     this.btn.setAttribute('aria-expanded', 'false');
+    if (this._panelHome && this.panel.parentElement === document.body) {
+      this._panelHome.appendChild(this.panel);
+      this.panel.style.position = '';
+      this.panel.style.top = '';
+      this.panel.style.left = '';
+      this.panel.style.right = '';
+      this.panel.style.width = '';
+      this.panel.style.zIndex = '';
+      this.panel.style.maxHeight = '';
+    }
   };
 
   NotificationCenter.prototype.setUnread = function (count) {
@@ -241,7 +281,13 @@
       headers: { Accept: 'application/json' },
       credentials: 'same-origin'
     })
-      .then(function (r) { return r.json(); })
+      .then(function (r) {
+        const type = (r.headers.get('content-type') || '');
+        if (!r.ok || type.indexOf('application/json') === -1) {
+          throw new Error('notifications_http_' + r.status);
+        }
+        return r.json();
+      })
       .then(function (data) {
         self.loading = false;
         if (!data.success) {
@@ -260,7 +306,9 @@
       })
       .catch(function () {
         self.loading = false;
-        self.list.innerHTML = '<div class="nc-empty">Could not load notifications.</div>';
+        self.list.innerHTML = '<div class="nc-empty">Could not load notifications. <button type="button" class="nc-link-btn" data-nc-retry>Retry</button></div>';
+        const retry = self.list.querySelector('[data-nc-retry]');
+        if (retry) retry.addEventListener('click', function () { self.reload(); });
       });
   };
 
