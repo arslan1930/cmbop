@@ -535,7 +535,11 @@ class BellNotificationEventsTest extends TestCase
             ->get(route('admin.dashboard'))
             ->assertOk()
             ->assertSee('data-notification-center', false)
-            ->assertSee('notification-center.js', false);
+            ->assertSee('notification-center.js', false)
+            // Relative paths — absolute APP_URL mismatches break same-origin fetch.
+            ->assertSee('data-index-url="/notifications"', false)
+            ->assertSee('data-unread-url="/notifications/unread-count"', false)
+            ->assertDontSee('data-index-url="http://', false);
     }
 
     public function test_admin_deposit_submitted_bell_and_deep_link(): void

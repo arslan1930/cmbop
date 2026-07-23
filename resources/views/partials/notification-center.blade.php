@@ -1,14 +1,15 @@
 {{-- In-app Notification Center (emails are separate and untouched) --}}
 {{-- CSS/JS are loaded from advertiser/publisher layout head+footer to avoid topbar flex overlap --}}
+{{-- Relative endpoint paths: absolute APP_URL mismatches break fetch(credentials: 'same-origin'). --}}
 <div class="nc-bell-wrap nc-theme"
      data-notification-center
-     data-index-url="{{ route('notifications.index') }}"
-     data-unread-url="{{ route('notifications.unread-count') }}"
-     data-read-url="{{ url('/notifications/__ID__/read') }}"
-     data-read-all-url="{{ route('notifications.read-all') }}"
-     data-archive-url="{{ url('/notifications/__ID__/archive') }}"
-     data-destroy-url="{{ url('/notifications/__ID__') }}"
-     data-all-url="{{ route('notifications.all') }}">
+     data-index-url="{{ route('notifications.index', absolute: false) }}"
+     data-unread-url="{{ route('notifications.unread-count', absolute: false) }}"
+     data-read-url="/notifications/__ID__/read"
+     data-read-all-url="{{ route('notifications.read-all', absolute: false) }}"
+     data-archive-url="/notifications/__ID__/archive"
+     data-destroy-url="/notifications/__ID__"
+     data-all-url="{{ route('notifications.all', absolute: false) }}">
 
     <button type="button"
             class="nc-bell-btn"
@@ -40,7 +41,7 @@
         </div>
 
         <div class="nc-footer" data-nc-footer>
-            <a href="{{ route('notifications.all') }}" class="nc-show-all" data-nc-show-all>Show all</a>
+            <a href="{{ route('notifications.all', absolute: false) }}" class="nc-show-all" data-nc-show-all>Show all</a>
         </div>
     </div>
 </div>
