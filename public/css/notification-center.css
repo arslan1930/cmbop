@@ -104,7 +104,7 @@
   border: 1px solid var(--nc-border-soft);
   border-radius: var(--nc-radius);
   box-shadow: var(--nc-shadow);
-  z-index: 1080;
+  z-index: 2000;
   display: none;
   flex-direction: column;
   overflow: hidden;
