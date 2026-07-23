@@ -1169,13 +1169,8 @@ class InAppNotificationService
      */
     protected function adminUsers(): Collection
     {
-        $role = Role::where('name', 'admin')->first();
-        if (! $role) {
-            return collect();
-        }
-
         return User::query()
-            ->whereHas('roles', fn ($q) => $q->where('roles.id', $role->id))
+            ->whereHas('roles', fn ($q) => $q->whereIn('name', ['admin', 'marketing']))
             ->get();
     }
 

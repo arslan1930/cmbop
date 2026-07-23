@@ -1662,6 +1662,7 @@ document.addEventListener('DOMContentLoaded', function() {
             .replace(/"/g, '&quot;')
             .replace(/'/g, '&#39;');
     }
+});
 </script>
 
 <!-- SweetAlert2 -->

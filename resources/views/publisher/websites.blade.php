@@ -2135,7 +2135,7 @@ async function startFeatureStripeCheckout(siteId) {
 $(document).on('click', '.btn-feature-site', async function () {
     const id = $(this).data('id');
     const name = $(this).data('name');
-    let wallet = { feature_price: 10, feature_days: 7, balance: 0, top_up_url: '{{ route('advertiser.add-funds') }}', stripe_available: true };
+    let wallet = { feature_price: 10, feature_days: 7, balance: 0, top_up_url: '{{ route('publisher.balance') }}', stripe_available: true };
     try {
         const w = await fetch(`{{ route('publisher.promotions.wallet') }}`, { headers: { 'Accept': 'application/json' }});
         wallet = await w.json();
