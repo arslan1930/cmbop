@@ -86,6 +86,29 @@ class PublisherMySitesPageTest extends TestCase
         $this->assertStringNotContainsString('<script', $ajaxHtml);
         $this->assertStringContainsString('🇺🇸', $ajaxHtml);
         $this->assertStringContainsString('sitesStatusMeta', $ajaxHtml);
+        $this->assertStringContainsString('site-row-preview', $ajaxHtml);
+        $this->assertStringContainsString('data-label="Preview"', $ajaxHtml);
+        $this->assertStringContainsString('>Preview</th>', $ajaxHtml);
+        $this->assertStringContainsString('site-row-metrics', $ajaxHtml);
+    }
+
+    public function test_ajax_row_shows_screenshot_preview_when_present(): void
+    {
+        $this->makeSite([
+            'verified' => true,
+            'active' => true,
+            'screenshot_thumb_path' => 'sites/screenshots/thumb-demo.jpg',
+            'screenshot_path' => 'sites/screenshots/demo.jpg',
+        ]);
+
+        $ajaxHtml = $this->actingAs($this->publisher)
+            ->get(route('publisher.sites.ajax', ['status' => 'active']))
+            ->assertOk()
+            ->getContent();
+
+        $this->assertStringContainsString('site-row-preview', $ajaxHtml);
+        $this->assertStringContainsString('storage/sites/screenshots/thumb-demo.jpg', $ajaxHtml);
+        $this->assertStringContainsString('alt="O&#039;Reilly News preview"', $ajaxHtml);
     }
 
     public function test_ajax_filters_pending_and_active_sites(): void

@@ -539,6 +539,7 @@
             border: 0;
             padding: 6px 0;
             text-align: right;
+            white-space: normal;
         }
 
         #sitesTableWrapper .sites-responsive-table tr.main-row td::before {
@@ -547,6 +548,32 @@
             color: #64748b;
             text-align: left;
             flex-shrink: 0;
+        }
+
+        #sitesTableWrapper .sites-responsive-table tr.main-row td[data-label="Preview"] {
+            justify-content: flex-start;
+            padding-bottom: 10px;
+            margin-bottom: 4px;
+            border-bottom: 1px solid #f1f5f9;
+        }
+
+        #sitesTableWrapper .sites-responsive-table tr.main-row td[data-label="Preview"]::before {
+            display: none;
+        }
+
+        #sitesTableWrapper .sites-responsive-table tr.main-row td[data-label="Preview"] .site-row-preview {
+            width: 100%;
+            height: 96px;
+            border-radius: 10px;
+        }
+
+        #sitesTableWrapper .sites-responsive-table tr.main-row td[data-label="Site"] {
+            align-items: flex-start;
+        }
+
+        #sitesTableWrapper .sites-responsive-table tr.main-row td[data-label="Site"] .site-row-identity {
+            max-width: none;
+            text-align: right;
         }
 
         #sitesTableWrapper .sites-responsive-table tr.main-row td[data-label="Actions"] {
