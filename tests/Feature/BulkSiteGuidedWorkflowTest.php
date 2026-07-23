@@ -5,10 +5,12 @@ namespace Tests\Feature;
 use App\Models\BulkSiteRequest;
 use App\Models\Category;
 use App\Models\Country;
+use App\Models\InAppNotification;
 use App\Models\Language;
 use App\Models\Role;
 use App\Models\Site;
 use App\Models\User;
+use App\Services\InAppNotificationService;
 use Database\Seeders\CategoriesTableSeeder;
 use Database\Seeders\CountriesTableSeeder;
 use Database\Seeders\LanguagesTableSeeder;
@@ -221,5 +223,96 @@ class BulkSiteGuidedWorkflowTest extends TestCase
         $this->assertFalse((bool) $site->active);
         $this->assertContains($category->name, $site->categories ?? []);
         $this->assertSame(BulkSiteRequest::STATUS_COMPLETED, $bulk->fresh()->status);
+    }
+
+    public function test_admin_gets_one_digest_bell_only_when_bulk_batch_fully_submitted(): void
+    {
+        $category = Category::query()->where('name', 'Business & Finance')->first()
+            ?? Category::query()->firstOrFail();
+
+        $bulk = BulkSiteRequest::create([
+            'publisher_id' => $this->publisher->id,
+            'status' => BulkSiteRequest::STATUS_AWAITING_PUBLISHER,
+            'estimated_count' => 2,
+            'seeded_at' => now(),
+        ]);
+
+        $first = $this->makeAwaitingBulkSite($bulk, 'https://bulk-one.example', 'Bulk One');
+        $second = $this->makeAwaitingBulkSite($bulk, 'https://bulk-two.example', 'Bulk Two');
+
+        $payload = [
+            'exampleUrl' => 'https://bulk-one.example/guest-post',
+            'categories' => [$category->name],
+            'turnaround_time' => '48h',
+            'publicationTime' => '1year',
+            'link_type' => 'nofollow',
+            'site_tag' => 'as_you_prefer',
+            'siteDescription' => str_repeat('Quality editorial site for guest posts. ', 4),
+        ];
+
+        $this->actingAs($this->publisher)
+            ->post(route('publisher.bulk-sites.complete.store', $first->id), $payload)
+            ->assertRedirect(route('publisher.bulk-sites.complete'));
+
+        $this->assertSame(BulkSiteRequest::STATUS_AWAITING_PUBLISHER, $bulk->fresh()->status);
+        $this->assertSame(
+            0,
+            InAppNotification::where('user_id', $this->admin->id)
+                ->where('audience', InAppNotification::AUDIENCE_ADMIN)
+                ->count()
+        );
+
+        $this->actingAs($this->publisher)
+            ->post(route('publisher.bulk-sites.complete.store', $second->id), array_merge($payload, [
+                'exampleUrl' => 'https://bulk-two.example/guest-post',
+            ]))
+            ->assertRedirect(route('publisher.bulk-sites.complete'));
+
+        $this->assertSame(BulkSiteRequest::STATUS_COMPLETED, $bulk->fresh()->status);
+
+        $adminNotes = InAppNotification::where('user_id', $this->admin->id)
+            ->where('audience', InAppNotification::AUDIENCE_ADMIN)
+            ->get();
+
+        $this->assertCount(1, $adminNotes);
+        $note = $adminNotes->first();
+        $this->assertSame(InAppNotificationService::TYPE_SYSTEM, $note->type);
+        $this->assertStringContainsString('Bulk sites ready', $note->title);
+        $this->assertStringContainsString('2 sites', (string) $note->message);
+        $this->assertStringContainsString(
+            '/admin/bulk-site-requests/'.$bulk->id,
+            (string) $note->action_url
+        );
+        $this->assertSame(BulkSiteRequest::class, $note->related_type);
+        $this->assertSame($bulk->id, (int) $note->related_id);
+    }
+
+    private function makeAwaitingBulkSite(BulkSiteRequest $bulk, string $url, string $name): Site
+    {
+        $site = Site::create([
+            'publisher_id' => $this->publisher->id,
+            'site_name' => $name,
+            'site_url' => $url,
+            'domain' => parse_url($url, PHP_URL_HOST),
+            'example_url' => $url,
+            'da' => 20,
+            'dr' => 25,
+            'traffic' => 5000,
+            'country' => 'de',
+            'language' => 'de',
+            'category' => 'Pending',
+            'price' => 80,
+            'turnaround_time' => '3days',
+            'publication_time' => 'permanent',
+            'link_type' => 'dofollow',
+            'description' => 'Please replace this placeholder with a real site description (at least 50 characters) before submitting for review.',
+            'verified' => false,
+            'active' => false,
+            'onboarding_status' => Site::ONBOARDING_AWAITING_DETAILS,
+            'as_you_prefer' => true,
+            'bulk_site_request_id' => $bulk->id,
+        ]);
+
+        return $site;
     }
 }

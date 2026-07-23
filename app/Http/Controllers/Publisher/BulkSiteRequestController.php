@@ -175,14 +175,24 @@ class BulkSiteRequestController extends Controller
         });
 
         $site->refresh();
-        if ($site->bulk_site_request_id) {
-            $site->bulkSiteRequest?->refreshProgressStatus();
-        }
 
-        try {
-            app(InAppNotificationService::class)->notifyAdminsNewSite($site, 'create');
-        } catch (\Throwable $e) {
-            Log::warning('Failed admin bell for bulk site completion: '.$e->getMessage());
+        // One admin digest when the whole batch is submitted — not a bell per site.
+        if ($site->bulk_site_request_id) {
+            $bulk = $site->bulkSiteRequest;
+            if ($bulk) {
+                $wasComplete = $bulk->status === BulkSiteRequest::STATUS_COMPLETED;
+                $bulk->refreshProgressStatus();
+                $bulk->refresh();
+
+                if (! $wasComplete && $bulk->status === BulkSiteRequest::STATUS_COMPLETED) {
+                    try {
+                        app(InAppNotificationService::class)
+                            ->notifyAdminsBulkSitesReadyForReview($bulk);
+                    } catch (\Throwable $e) {
+                        Log::warning('Failed admin digest for bulk site completion: '.$e->getMessage());
+                    }
+                }
+            }
         }
 
         return redirect()
