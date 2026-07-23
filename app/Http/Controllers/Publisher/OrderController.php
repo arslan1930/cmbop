@@ -443,7 +443,8 @@ class OrderController extends Controller
                 'error' => $e->getMessage(),
             ]);
 
-            return false;
+            // Rethrow so the surrounding transaction rolls back cancelled/refunded status.
+            throw $e;
         }
     }
 
@@ -484,6 +485,16 @@ class OrderController extends Controller
                 ], 400);
             }
 
+            // Reject only before publisher payout (completed already credited publisher wallet).
+            if (! in_array($order->status, ['pending', 'processing'], true)) {
+                DB::rollBack();
+
+                return response()->json([
+                    'success' => false,
+                    'message' => 'This order can no longer be rejected. Contact support if a refund is needed.',
+                ], 400);
+            }
+
             $order->update([
                 'status' => 'cancelled',
                 'payment_status' => 'refunded',
@@ -492,7 +503,7 @@ class OrderController extends Controller
             $orderAmount = (float) $orderItem->price;
             $reason = $request->reason;
 
-            // Process refund for ALL payment types
+            // Process refund for ALL payment types (throws on failure so TX rolls back)
             $refundProcessed = $this->refundAdvertiser($order, $orderAmount, $reason);
 
             DB::commit();

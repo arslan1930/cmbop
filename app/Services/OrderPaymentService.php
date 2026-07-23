@@ -41,6 +41,18 @@ class OrderPaymentService
                 return collect();
             }
 
+            $meta = $this->sessionMetadataArray($session);
+            if (isset($meta['expected_amount'])) {
+                $this->assertStripeAmountMatchesExpected(
+                    $session,
+                    round((float) $meta['expected_amount'], 2),
+                    $referenceCode
+                );
+            } elseif (! isset($meta['bonus_applied']) || (float) ($meta['bonus_applied'] ?? 0) <= 0) {
+                $expected = round((float) $orders->sum(fn (Order $o) => (float) $o->total_amount), 2);
+                $this->assertStripeAmountMatchesExpected($session, $expected, $referenceCode);
+            }
+
             $newlyPaid = collect();
 
             foreach ($orders as $order) {
@@ -326,6 +338,25 @@ class OrderPaymentService
             return collect();
         }
 
+        $meta = $this->sessionMetadataArray($session);
+        $packageUserId = (int) ($package['user_id'] ?? 0);
+        $metaUserId = isset($meta['user_id']) ? (int) $meta['user_id'] : 0;
+        if ($packageUserId > 0 && $metaUserId > 0 && $packageUserId !== $metaUserId) {
+            Log::error('Stripe checkout package user_id mismatch', [
+                'reference_code' => $referenceCode,
+                'package_user_id' => $packageUserId,
+                'metadata_user_id' => $metaUserId,
+            ]);
+
+            throw new \RuntimeException('Checkout package does not belong to the paying user for ref '.$referenceCode);
+        }
+
+        $expected = round((float) ($package['amount_due'] ?? $package['order_total'] ?? 0), 2);
+        if (isset($meta['expected_amount'])) {
+            $expected = round((float) $meta['expected_amount'], 2);
+        }
+        $this->assertStripeAmountMatchesExpected($session, $expected, $referenceCode);
+
         $schema = app(CheckoutSchemaService::class);
         $schema->ensureCheckoutTables();
 
@@ -375,11 +406,14 @@ class OrderPaymentService
                 $submissionId = (int) ($line['content_submission_id'] ?? 0);
                 $submission = $submissionId > 0 ? ContentSubmission::query()->find($submissionId) : null;
 
+                $siteId = isset($line['site_id']) ? (int) $line['site_id'] : 0;
+                $site = $siteId > 0 ? Site::query()->find($siteId) : null;
+
                 $itemPayload = [
                     'order_id' => $order->id,
-                    'site_id' => $line['site_id'] ?? null,
-                    'site_name' => $line['site_name'] ?? null,
-                    'site_url' => $line['site_url'] ?? null,
+                    'site_id' => $siteId ?: null,
+                    'site_name' => $line['site_name'] ?? $site?->site_name,
+                    'site_url' => $line['site_url'] ?? $site?->site_url,
                     'price' => $line['price'] ?? 0,
                     'content_link' => $line['content_link'] ?? null,
                     'content_submission_id' => $submission?->id,
@@ -436,6 +470,58 @@ class OrderPaymentService
         ]);
 
         return $created;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function sessionMetadataArray(object $session): array
+    {
+        $meta = $session->metadata ?? null;
+        if ($meta === null) {
+            return [];
+        }
+        if (is_array($meta)) {
+            return $meta;
+        }
+
+        return (array) json_decode(json_encode($meta), true);
+    }
+
+    /**
+     * Refuse to finalize if Stripe charged amount does not match expected euros (within 1 cent).
+     */
+    public function assertStripeAmountMatchesExpected(object $session, float $expectedEuros, string $referenceCode): void
+    {
+        $stripeCents = null;
+        if (isset($session->amount_total)) {
+            $stripeCents = (int) $session->amount_total;
+        } elseif (isset($session->amount_received) || isset($session->amount)) {
+            $stripeCents = (int) ($session->amount_received ?: $session->amount);
+        }
+
+        if ($stripeCents === null) {
+            Log::warning('Stripe session missing amount fields; skipping amount check', [
+                'reference_code' => $referenceCode,
+                'session_id' => $session->id ?? null,
+            ]);
+
+            return;
+        }
+
+        $stripeEuros = StripePaymentService::fromCents($stripeCents);
+        if (abs($stripeEuros - $expectedEuros) > 0.01) {
+            Log::error('Stripe amount mismatch for order payment', [
+                'reference_code' => $referenceCode,
+                'expected_euros' => $expectedEuros,
+                'stripe_euros' => $stripeEuros,
+                'session_id' => $session->id ?? null,
+            ]);
+
+            throw new \RuntimeException(
+                'Stripe charged amount does not match order total for ref '.$referenceCode
+            );
+        }
     }
 
     /**

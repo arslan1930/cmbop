@@ -338,36 +338,14 @@ function formatDate(dateString) {
 }
 
 function escapeHtml(str) {
-    if (!str) return '';
-    return str.replace(/[&<>]/g, function(m) {
-        if (m === '&') return '&amp;';
-        if (m === '<') return '&lt;';
-        if (m === '>') return '&gt;';
-        return m;
-    });
+    if (str == null || str === '') return '';
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
 }
-
-function renderPagination(pagination) {
-    if (!pagination || pagination.last_page <= 1) {
-        $('#paginationLinks').html('');
-        return;
-    }
-    
-    let paginationHtml = '<nav><ul class="pagination justify-content-center">';
-    
-    if (pagination.current_page > 1) {
-        paginationHtml += `<li class="page-item"><button class="page-link" data-page="${pagination.current_page - 1}">Previous</button></li>`;
-    } else {
-        paginationHtml += `<li class="page-item disabled"><span class="page-link">Previous</span></li>`;
-    }
-    
-    for (let i = 1; i <= pagination.last_page; i++) {
-        if (i === pagination.current_page) {
-            paginationHtml += `<li class="page-item active"><span class="page-link">${i}</span></li>`;
-        } else if (i >= pagination.current_page - 2 && i <= pagination.current_page + 2) {
-            paginationHtml += `<li class="page-item"><button class="page-link" data-page="${i}">${i}</button></li>`;
-        }
-    }
     
     if (pagination.current_page < pagination.last_page) {
         paginationHtml += `<li class="page-item"><button class="page-link" data-page="${pagination.current_page + 1}">Next</button></li>`;

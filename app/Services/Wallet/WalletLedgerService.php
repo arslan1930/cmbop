@@ -54,7 +54,8 @@ class WalletLedgerService
                 'error' => $e->getMessage(),
             ]);
 
-            return null;
+            // Fail closed so balance mutations in the same transaction roll back.
+            throw $e;
         }
     }
 

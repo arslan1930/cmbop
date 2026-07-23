@@ -130,9 +130,9 @@ class PaymentController extends Controller
                 'notes' => 'nullable|string',
             ]);
 
-            $order = Order::with('user')->findOrFail($id);
-
             DB::beginTransaction();
+
+            $order = Order::with('user')->where('id', $id)->lockForUpdate()->firstOrFail();
 
             $oldStatus = $order->payment_status;
             $order->payment_status = $request->payment_status;

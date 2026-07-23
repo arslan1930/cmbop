@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Services\ContentUpload\ArticleDetectedLinks;
+use App\Services\ContentUpload\ArticleHtmlSanitizer;
 use App\Services\ContentUpload\ArticlePreviewHtml;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -408,8 +409,10 @@ class ContentSubmission extends Model
 
         $attrs = ['draft_payload' => $payload];
         if ($previewHtml !== null) {
+            $sanitized = app(ArticleHtmlSanitizer::class)
+                ->sanitize($previewHtml);
             $attrs['preview_html'] = ArticlePreviewHtml::normalize(
-                ArticleDetectedLinks::applyToHtml($previewHtml, $normalized)
+                ArticleDetectedLinks::applyToHtml($sanitized, $normalized)
             );
         }
 

@@ -152,7 +152,6 @@ class AddFundsController extends Controller
     {
         $sessionId = $request->session_id;
         $paymentIntentId = $request->query('payment_intent');
-        $amount = $request->amount;
         $referenceCode = $request->ref;
 
         // 3DS return from saved-card PaymentIntent
@@ -168,9 +167,10 @@ class AddFundsController extends Controller
                     return redirect()->route('advertiser.add-funds')
                         ->with('error', 'Payment does not belong to this account.');
                 }
-                $amountEuros = isset($amount)
-                    ? round((float) $amount, 2)
-                    : StripePaymentService::fromCents($intent->amount_received ?: $intent->amount);
+                // Always credit Stripe's charged amount — never trust client ?amount=
+                $amountEuros = StripePaymentService::fromCents(
+                    (int) ($intent->amount_received ?: $intent->amount)
+                );
                 $ref = $referenceCode ?: (string) ($intent->metadata->reference_code ?? str_pad((string) mt_rand(1, 999999), 6, '0', STR_PAD_LEFT));
                 $credited = app(WalletStripeDepositService::class)
                     ->creditFromPaymentIntent(auth()->id(), $paymentIntentId, $amountEuros, $ref);
@@ -204,9 +204,8 @@ class AddFundsController extends Controller
                     $piId = is_string($session->payment_intent ?? null)
                         ? $session->payment_intent
                         : (string) ($session->payment_intent ?? '');
-                    $amountEuros = isset($amount)
-                        ? round((float) $amount, 2)
-                        : StripePaymentService::fromCents((int) $session->amount_total);
+                    // Always credit Stripe's charged amount — never trust client ?amount=
+                    $amountEuros = StripePaymentService::fromCents((int) $session->amount_total);
                     $ref = $referenceCode ?: str_pad((string) mt_rand(1, 999999), 6, '0', STR_PAD_LEFT);
                     if ($piId !== '') {
                         $creditedAmount = app(WalletStripeDepositService::class)

@@ -146,8 +146,27 @@ class AdminWithdrawalController extends Controller
             $withdrawal->status = $newStatus;
             $withdrawal->save();
 
-            // If cancelling, refund the amount back to publisher wallet
+            // If cancelling before payout, refund the amount back to publisher wallet.
+            // Never re-credit after completed (already paid out).
             if ($newStatus === 'cancelled' && $oldStatus !== 'cancelled') {
+                if ($oldStatus === 'completed') {
+                    DB::rollBack();
+
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Cannot cancel a completed withdrawal. Funds were already paid out.',
+                    ], 400);
+                }
+
+                if (! in_array($oldStatus, ['pending', 'processing'], true)) {
+                    DB::rollBack();
+
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Withdrawal cannot be cancelled from status: '.$oldStatus,
+                    ], 400);
+                }
+
                 $publisherRoleId = Wallet::publisherRoleId();
                 $wallet = $publisherRoleId
                     ? Wallet::lockOrCreateForRole($withdrawal->user_id, $publisherRoleId)

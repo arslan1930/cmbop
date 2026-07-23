@@ -1474,6 +1474,10 @@ class CatalogController extends Controller
 
         // Never open Stripe Checkout for a €0 charge.
         if ($amountDue <= 0) {
+            if ($bonusApplied > 0) {
+                $this->refundCheckoutBonus((int) $userId, (string) $referenceCode);
+            }
+
             return response()->json([
                 'success' => false,
                 'message' => 'Card payment requires an amount greater than €0. Use wallet if covered by bonus, or select ready sites that need payment.',
@@ -1946,6 +1950,11 @@ class CatalogController extends Controller
                 if ($sessionRef && $sessionRef !== $referenceCode) {
                     return redirect()->route('advertiser.checkout')
                         ->with('error', 'Payment reference mismatch.');
+                }
+
+                if ((string) ($stripeSession->metadata->user_id ?? '') !== (string) auth()->id()) {
+                    return redirect()->route('advertiser.checkout')
+                        ->with('error', 'Payment does not belong to this account.');
                 }
 
                 $newlyPaid = $paymentService->finalizeStripeFirstCheckout($referenceCode, $stripeSession);

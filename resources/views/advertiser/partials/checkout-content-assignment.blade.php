@@ -548,13 +548,21 @@
                 });
                 const data = await res.json();
                 if (!data.success || !data.submission) {
-                    feedback.innerHTML = '<span class="text-danger">' + (data.message || 'Upload failed') + '</span>';
+                    feedback.textContent = data.message || 'Upload failed';
+                    feedback.className = 'small text-danger';
                     return;
                 }
                 const s = data.submission;
                 if (s.moderation_status !== 'approved') {
-                    feedback.innerHTML = '<span class="text-warning">' + (data.message || 'Needs correction') +
-                        ' <a href="' + @json(route('advertiser.content-library')) + '?edit=' + s.id + '&upload=1">Edit & resubmit</a></span>';
+                    feedback.textContent = '';
+                    feedback.className = 'small text-warning';
+                    const msg = document.createElement('span');
+                    msg.textContent = (data.message || 'Needs correction') + ' ';
+                    const link = document.createElement('a');
+                    link.href = @json(route('advertiser.content-library')) + '?edit=' + encodeURIComponent(s.id) + '&upload=1';
+                    link.textContent = 'Edit & resubmit';
+                    feedback.appendChild(msg);
+                    feedback.appendChild(link);
                     syncReadyBadge();
                     return;
                 }

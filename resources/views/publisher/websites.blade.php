@@ -869,7 +869,7 @@
                         <div class="row">
                             <div class="col-12">
                                 <label class="form-label">Site Description (500 words max) <span class="req" aria-hidden="true">*</span></label>
-                                <div id="quillEditor" class="border rounded" style="height: 200px;">{!! old('siteDescription') !!}</div>
+                                <div id="quillEditor" class="border rounded" style="height: 200px;">{{ old('siteDescription') }}</div>
                                 <input type="hidden" name="siteDescription" id="siteDescription" required>
                             </div>
                         </div>
@@ -2189,7 +2189,7 @@ $(document).on('click', '.btn-feature-site', async function () {
         Swal.fire({
             icon: 'info',
             title: 'Top up or pay by card',
-            html: `${data.message}<br><br>
+            html: `${(typeof escapeHtml === 'function' ? escapeHtml(data.message || '') : String(data.message || '').replace(/</g,'&lt;'))}<br><br>
                    <button type="button" class="btn btn-sm btn-primary me-1" id="swalPayCard2">Pay by card (€${Number(wallet.feature_price || 10).toFixed(2)})</button>
                    <a class="btn btn-sm btn-outline-secondary" href="${wallet.top_up_url}">Add Funds</a>`,
             didOpen: () => {

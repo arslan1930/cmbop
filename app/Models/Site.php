@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\SiteDescriptionSanitizer;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Carbon;
@@ -586,8 +587,20 @@ class Site extends Model
             if (! static::hasSitesColumn($column)) {
                 continue;
             }
+            if ($column === 'description' && is_string($value)) {
+                $value = app(SiteDescriptionSanitizer::class)->sanitize($value);
+            }
             $this->{$column} = $value;
         }
+    }
+
+    /**
+     * HTML-safe description for Blade {!! !!} rendering (also cleans legacy rows).
+     */
+    public function safeDescriptionHtml(): string
+    {
+        return app(SiteDescriptionSanitizer::class)
+            ->sanitize((string) ($this->description ?? ''));
     }
 
     /**

@@ -345,16 +345,17 @@ Route::middleware(['auth', 'verified', RoleMiddleware::class.':admin,marketing']
             ->name('community.suggestions.update');
         Route::patch('/community/websites/{id}', [CommunityFeedbackController::class, 'updateWebsiteSuggestion'])
             ->name('community.websites.update');
-        Route::post('/community/claims/{id}/approve', [CommunityFeedbackController::class, 'approveClaim'])
-            ->name('community.claims.approve');
-        Route::post('/community/claims/{id}/reject', [CommunityFeedbackController::class, 'rejectClaim'])
-            ->name('community.claims.reject');
 
         Route::get('/activity-logs', [AdminActivityLogController::class, 'index'])
             ->name('activity-logs.index');
 
-        // ---- Admin only: payments, orders money, users/roles, blogs, delete sites ----
+        // ---- Admin only: payments, orders money, users/roles, blogs, delete sites, claim ownership ----
         Route::middleware([RoleMiddleware::class.':admin'])->group(function () {
+
+            Route::post('/community/claims/{id}/approve', [CommunityFeedbackController::class, 'approveClaim'])
+                ->name('community.claims.approve');
+            Route::post('/community/claims/{id}/reject', [CommunityFeedbackController::class, 'rejectClaim'])
+                ->name('community.claims.reject');
 
             Route::get('/dashboard/statistics', [AdminDashboardController::class, 'getStatistics'])
                 ->name('dashboard.statistics');

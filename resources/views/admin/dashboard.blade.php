@@ -364,7 +364,17 @@ async function loadDistributions() {
 }
 
 function emptyRow(cols, msg) {
-    return `<tr><td colspan="${cols}" class="text-center text-muted py-3">${msg}</td></tr>`;
+    return `<tr><td colspan="${cols}" class="text-center text-muted py-3">${escapeHtml(msg)}</td></tr>`;
+}
+
+function escapeHtml(str) {
+    if (str == null || str === '') return '';
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
 }
 
 async function loadActionQueue() {
@@ -379,11 +389,11 @@ async function loadActionQueue() {
         depBody.innerHTML = json.deposits.map(d => `
             <tr>
                 <td>
-                    <div class="fw-semibold">${d.user}</div>
-                    <div class="small text-muted">${d.email || ''}</div>
+                    <div class="fw-semibold">${escapeHtml(d.user)}</div>
+                    <div class="small text-muted">${escapeHtml(d.email || '')}</div>
                 </td>
                 <td>${money(d.amount)}</td>
-                <td class="small text-muted">${d.date}</td>
+                <td class="small text-muted">${escapeHtml(d.date)}</td>
             </tr>`).join('');
     }
 
@@ -394,11 +404,11 @@ async function loadActionQueue() {
         wBody.innerHTML = json.withdrawals.map(w => `
             <tr>
                 <td>
-                    <div class="fw-semibold">${w.user}</div>
-                    <div class="small text-muted">${w.email || ''}</div>
+                    <div class="fw-semibold">${escapeHtml(w.user)}</div>
+                    <div class="small text-muted">${escapeHtml(w.email || '')}</div>
                 </td>
                 <td>${money(w.amount)}</td>
-                <td class="small text-muted">${w.date}</td>
+                <td class="small text-muted">${escapeHtml(w.date)}</td>
             </tr>`).join('');
     }
 
@@ -409,11 +419,11 @@ async function loadActionQueue() {
         sBody.innerHTML = json.sites.map(s => `
             <tr>
                 <td>
-                    <div class="fw-semibold">${s.site_name || '—'}</div>
-                    <div class="small text-muted text-truncate" style="max-width:140px;">${s.site_url || ''}</div>
+                    <div class="fw-semibold">${escapeHtml(s.site_name || '—')}</div>
+                    <div class="small text-muted text-truncate" style="max-width:140px;">${escapeHtml(s.site_url || '')}</div>
                 </td>
-                <td>${s.publisher}</td>
-                <td class="small text-muted">${s.date}</td>
+                <td>${escapeHtml(s.publisher)}</td>
+                <td class="small text-muted">${escapeHtml(s.date)}</td>
             </tr>`).join('');
     }
 }

@@ -6,13 +6,13 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Order;
+use App\Models\Site;
 use App\Models\StripeWebhookLog;
-use App\Models\Wallet;
+use App\Models\User;
 use App\Services\OrderPaymentService;
-use App\Services\StripePaymentService;
-use App\Services\Wallet\WalletLedgerService;
+use App\Services\SitePromotionService;
+use App\Services\WalletStripeDepositService;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Stripe\Exception\SignatureVerificationException;
 use Stripe\Webhook;
@@ -227,7 +227,13 @@ class StripeWebhookController extends Controller
                 return;
             }
 
-            throw new \RuntimeException('No pending card orders found for webhook ref '.$referenceCode);
+            // Stripe-first checkouts store a cache package and create orders only after pay.
+            // Materialize via finalize if the browser never hit the success URL.
+            $newlyPaid = $paymentService->finalizeStripeFirstCheckout($referenceCode, $session);
+
+            if ($newlyPaid->isEmpty()) {
+                throw new \RuntimeException('No pending card orders or checkout package found for webhook ref '.$referenceCode);
+            }
         }
 
         $paymentService->notifyPublishersOfPaidOrders($newlyPaid);

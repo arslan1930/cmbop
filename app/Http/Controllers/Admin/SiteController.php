@@ -9,6 +9,7 @@ use App\Models\Site;
 use App\Models\User;
 use App\Services\ActivityLogger;
 use App\Services\InAppNotificationService;
+use App\Services\SiteDescriptionSanitizer;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
@@ -149,6 +150,11 @@ class SiteController extends Controller
         $data = array_filter($data, function ($value) {
             return $value !== null;
         });
+
+        if (isset($data['description']) && is_string($data['description'])) {
+            $data['description'] = app(SiteDescriptionSanitizer::class)
+                ->sanitize($data['description']);
+        }
 
         $site->update($data);
 

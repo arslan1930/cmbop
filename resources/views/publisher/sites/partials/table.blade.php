@@ -380,7 +380,7 @@
 
                     <div class="desc-box">
                         <strong>Description:</strong>
-                        <div>{!! $site->description !!}</div>
+                        <div>{!! $site->safeDescriptionHtml() !!}</div>
                     </div>
                 </div>
             </td>

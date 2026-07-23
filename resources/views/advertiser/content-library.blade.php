@@ -752,9 +752,18 @@
                                     </button>
                                     <ul class="dropdown-menu dropdown-menu-end library-more-menu">
                                         @if($submission->preview_html)
+                                            @php
+                                                $previewPayload = base64_encode(json_encode([
+                                                    'title' => $submission->title ?: $submission->original_filename,
+                                                    'html' => \App\Services\ContentUpload\ArticlePreviewHtml::normalize((string) $submission->preview_html),
+                                                    'links' => $submission->detectedLinks(),
+                                                    'id' => (int) $submission->id,
+                                                    'editable' => ! ($submission->isInUse() || $submission->isArchived()),
+                                                ], JSON_UNESCAPED_UNICODE));
+                                            @endphp
                                             <li>
-                                                <button type="button" class="dropdown-item"
-                                                        onclick='openPreviewModal(@json($submission->title ?: $submission->original_filename), @json(\App\Services\ContentUpload\ArticlePreviewHtml::normalize((string) $submission->preview_html)), @json($submission->detectedLinks()), {{ (int) $submission->id }}, {{ $submission->isInUse() || $submission->isArchived() ? 'false' : 'true' }})'>
+                                                <button type="button" class="dropdown-item js-open-preview"
+                                                        data-preview-payload="{{ $previewPayload }}">
                                                     Preview
                                                 </button>
                                             </li>
@@ -1036,6 +1045,21 @@ document.getElementById('uploadContentModal')?.addEventListener('shown.bs.modal'
     refreshLibraryCountries(libraryPreferredCountry || document.getElementById('libraryCountry')?.value || '');
 });
 
+function escapeHtml(str) {
+    if (str == null || str === '') return '';
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+function setFeedbackHtml(el, ok, message) {
+    if (!el) return;
+    el.innerHTML = '<span class="text-' + (ok ? 'success' : 'danger') + '">' + escapeHtml(message) + '</span>';
+}
+
 function showLibraryFlash(message, ok) {
     const el = document.getElementById('libraryFlash');
     if (!el) return;
@@ -1081,10 +1105,33 @@ function openPreviewModal(title, html, links, submissionId, editable) {
     new bootstrap.Modal(document.getElementById('articlePreviewModal')).show();
 }
 
+document.querySelectorAll('.js-open-preview').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+        try {
+            const raw = btn.getAttribute('data-preview-payload') || '';
+            const payload = JSON.parse(atob(raw));
+            openPreviewModal(
+                payload.title || 'Article preview',
+                payload.html || '',
+                payload.links || [],
+                payload.id || null,
+                !!payload.editable
+            );
+        } catch (e) {
+            console.error('Failed to open preview', e);
+            showLibraryFlash('Could not open preview', false);
+        }
+    });
+});
+
 document.getElementById('articleCopyHeadingBtn')?.addEventListener('click', async function () {
     const tools = window.ArticlePreviewTools;
     const body = document.getElementById('articlePreviewBody');
     const heading = tools ? tools.extractHeading(body, previewModalState.title) : previewModalState.title;
+    if (!tools) {
+        showLibraryFlash('Copy tools failed to load', false);
+        return;
+    }
     try {
         await tools.copyText(heading);
         tools.toast('Heading copied');
@@ -1096,6 +1143,10 @@ document.getElementById('articleCopyHeadingBtn')?.addEventListener('click', asyn
 document.getElementById('articleCopyContentBtn')?.addEventListener('click', async function () {
     const tools = window.ArticlePreviewTools;
     const body = document.getElementById('articlePreviewBody');
+    if (!tools) {
+        showLibraryFlash('Copy tools failed to load', false);
+        return;
+    }
     try {
         await tools.copyHtml(body.innerHTML, body.innerText);
         tools.toast('Article copied — paste into your CMS');
@@ -1107,6 +1158,10 @@ document.getElementById('articleCopyContentBtn')?.addEventListener('click', asyn
 document.getElementById('articleLinksSaveBtn')?.addEventListener('click', async function () {
     const tools = window.ArticlePreviewTools;
     if (!previewModalState.editable || !previewModalState.submissionId) return;
+    if (!tools) {
+        showLibraryFlash('Preview tools failed to load', false);
+        return;
+    }
     const links = tools.readLinkRows(document.getElementById('articlePreviewLinksList'));
     const btn = this;
     btn.disabled = true;
@@ -1219,15 +1274,15 @@ function ensureArticleQuill() {
                 });
                 const data = await res.json();
                 if (!res.ok || !data.success || !data.url) {
-                    feedback.innerHTML = '<span class="text-danger">' + (data.message || data.error || 'Image upload failed') + '</span>';
+                    setFeedbackHtml(feedback, false, data.message || data.error || 'Image upload failed');
                     return;
                 }
                 const range = articleQuill.getSelection(true) || { index: articleQuill.getLength() };
                 articleQuill.insertEmbed(range.index, 'image', data.url, 'user');
                 articleQuill.setSelection(range.index + 1);
-                feedback.innerHTML = '<span class="text-success">Image added. You can remove it with Backspace/Delete.</span>';
+                setFeedbackHtml(feedback, true, 'Image added. You can remove it with Backspace/Delete.');
             } catch (e) {
-                feedback.innerHTML = '<span class="text-danger">Network error while uploading image.</span>';
+                setFeedbackHtml(feedback, false, 'Network error while uploading image.');
             }
         };
     });
@@ -1283,17 +1338,17 @@ async function saveArticleEditor() {
         });
         const data = await res.json();
         if (!res.ok || !data.success) {
-            feedback.innerHTML = '<span class="text-danger">' + (data.message || 'Could not save article.') + '</span>';
+            setFeedbackHtml(feedback, false, data.message || 'Could not save article.');
             btn.disabled = false;
             return;
         }
-        feedback.innerHTML = '<span class="text-success">' + (data.message || 'Article saved.') + '</span>';
+        setFeedbackHtml(feedback, true, data.message || 'Article saved.');
         if (data.submission) {
             openArticleEditor(data.submission);
         }
         setTimeout(function () { window.location.reload(); }, 900);
     } catch (e) {
-        feedback.innerHTML = '<span class="text-danger">Network error while saving.</span>';
+        setFeedbackHtml(feedback, false, 'Network error while saving.');
         btn.disabled = false;
     }
 }
@@ -1457,11 +1512,11 @@ document.getElementById('libraryUploadForm')?.addEventListener('submit', async f
 
     if (!file) return;
     if (!/\.docx$/i.test(file.name)) {
-        feedback.innerHTML = '<span class="text-danger">Please upload a Microsoft Word (.docx) document only.</span>';
+        setFeedbackHtml(feedback, false, 'Please upload a Microsoft Word (.docx) document only.');
         return;
     }
     if (!document.getElementById('libraryCountry').value || !document.getElementById('libraryLanguage').value) {
-        feedback.innerHTML = '<span class="text-danger">Please select country and language before uploading.</span>';
+        setFeedbackHtml(feedback, false, 'Please select country and language before uploading.');
         return;
     }
 
@@ -1480,11 +1535,11 @@ document.getElementById('libraryUploadForm')?.addEventListener('submit', async f
         bar.style.width = '100%';
         const data = await res.json();
         if (!data.success) {
-            feedback.innerHTML = '<span class="text-danger">' + (data.message || 'Upload failed') + '</span>';
+            setFeedbackHtml(feedback, false, data.message || 'Upload failed');
             btn.disabled = false;
             return;
         }
-        feedback.innerHTML = '<span class="text-success">' + (data.message || 'Uploaded') + ' Opening editor…</span>';
+        setFeedbackHtml(feedback, true, (data.message || 'Uploaded') + ' Opening editor…');
         if (data.submission) {
             openArticleEditor(Object.assign({}, data.submission, {
                 can_order: !!(data.submission.can_order || data.approved),
@@ -1496,7 +1551,7 @@ document.getElementById('libraryUploadForm')?.addEventListener('submit', async f
         progress.classList.add('d-none');
         bar.style.width = '0%';
     } catch (err) {
-        feedback.innerHTML = '<span class="text-danger">Network error while uploading.</span>';
+        setFeedbackHtml(feedback, false, 'Network error while uploading.');
         btn.disabled = false;
     }
 });

@@ -267,6 +267,11 @@ class ContentSubmissionController extends Controller
         }
 
         unset($data['scheduled_date'], $data['scheduled_time']);
+
+        if (array_key_exists('preview_html', $data) && is_string($data['preview_html'])) {
+            $data['preview_html'] = (new ArticleHtmlSanitizer)->sanitize($data['preview_html']);
+        }
+
         $submission->fill($data)->save();
 
         $eval = null;

@@ -12,6 +12,7 @@ use App\Models\Language;
 use App\Models\Site;
 use App\Models\User;
 use App\Services\InAppNotificationService;
+use App\Services\SiteDescriptionSanitizer;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -184,7 +185,8 @@ class SiteController extends Controller
             return redirect()->back()->withErrors($validator)->withInput();
         }
 
-        $cleanDescription = strip_tags($request->siteDescription, '<p><a><b><strong><i><ul><ol><li><br>');
+        $cleanDescription = app(SiteDescriptionSanitizer::class)
+            ->sanitize((string) $request->siteDescription);
 
         $site = null;
 
@@ -383,7 +385,8 @@ class SiteController extends Controller
             return redirect()->back()->withErrors($validator)->withInput();
         }
 
-        $cleanDescription = strip_tags($request->siteDescription, '<p><a><b><strong><i><ul><ol><li><br>');
+        $cleanDescription = app(SiteDescriptionSanitizer::class)
+            ->sanitize((string) $request->siteDescription);
 
         try {
             DB::transaction(function () use ($site, $request, $cleanDescription, $categoriesArray, $primaryCategory, $countryCodes, $languageCodes) {
@@ -963,7 +966,9 @@ class SiteController extends Controller
             $errors[] = 'A language is required.';
         }
 
-        $description = strip_tags((string) ($data['siteDescription'] ?? $data['description'] ?? ''), '<p><a><b><strong><i><ul><ol><li><br>');
+        $description = app(SiteDescriptionSanitizer::class)->sanitize(
+            (string) ($data['siteDescription'] ?? $data['description'] ?? '')
+        );
 
         $tag = $data['site_tag'] ?? null;
         $sponsored = false;
@@ -1116,7 +1121,9 @@ class SiteController extends Controller
             $errors[] = 'A language code is required (e.g. de).';
         }
 
-        $description = strip_tags((string) ($data['description'] ?? ''), '<p><a><b><strong><i><ul><ol><li><br>');
+        $description = app(SiteDescriptionSanitizer::class)->sanitize(
+            (string) ($data['description'] ?? '')
+        );
 
         $payload = [
             'site_name' => $data['site_name'] ?? '',

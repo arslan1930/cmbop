@@ -953,7 +953,7 @@
                     <div class="col-md-5">
                         <p class="mb-1"><strong class="small">Description</strong></p>
                         <div class="text-muted small">
-                            {!! $site->description !!}
+                            {!! $site->safeDescriptionHtml() !!}
                         </div>
                         <div class="text-muted small mt-2">
                             <strong>DoFollow links:</strong> Max 03 DoFollow links
