@@ -465,7 +465,7 @@ class BellNotificationEventsTest extends TestCase
         ]);
 
         $this->actingAs($admin)
-            ->postJson(route('admin.admin.withdrawals.update-status', $paid->id), [
+            ->postJson(route('admin.withdrawals.update-status', $paid->id), [
                 'status' => 'completed',
             ])
             ->assertOk()
@@ -488,7 +488,7 @@ class BellNotificationEventsTest extends TestCase
         ]);
 
         $this->actingAs($admin)
-            ->postJson(route('admin.admin.withdrawals.update-status', $cancelled->id), [
+            ->postJson(route('admin.withdrawals.update-status', $cancelled->id), [
                 'status' => 'cancelled',
             ])
             ->assertOk()
