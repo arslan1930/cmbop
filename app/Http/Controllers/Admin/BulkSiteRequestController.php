@@ -4,10 +4,12 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Mail\BulkSitesSeededNotification;
+use App\Models\ActivityLog;
 use App\Models\BulkSiteRequest;
 use App\Models\Country;
 use App\Models\Language;
 use App\Models\Site;
+use App\Services\ActivityLogger;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -51,8 +53,16 @@ class BulkSiteRequestController extends Controller
 
         $countries = Country::marketplace()->orderBy('name')->get();
         $languages = Language::marketplace()->orderBy('name')->get();
+        $history = ActivityLog::forBulkSiteRequest($bulkRequest->id);
+        $canDeleteDrafts = auth()->user()?->isAdmin() || auth()->user()?->isMarketing();
 
-        return view('admin.bulk-site-requests.show', compact('bulkRequest', 'countries', 'languages'));
+        return view('admin.bulk-site-requests.show', compact(
+            'bulkRequest',
+            'countries',
+            'languages',
+            'history',
+            'canDeleteDrafts'
+        ));
     }
 
     public function markSheetSent(Request $request, int $id)
@@ -70,6 +80,17 @@ class BulkSiteRequestController extends Controller
             'admin_notes' => $request->input('admin_notes', $bulkRequest->admin_notes),
         ])->save();
 
+        ActivityLogger::log(
+            'bulk_request.sheet_sent',
+            (auth()->user()->name ?? 'Staff').' marked bulk request #'.$bulkRequest->id.' as sheet emailed',
+            $bulkRequest,
+            [
+                'bulk_site_request_id' => $bulkRequest->id,
+                'publisher_id' => $bulkRequest->publisher_id,
+            ],
+            'Bulk request #'.$bulkRequest->id
+        );
+
         return back()->with('success', 'Marked as sheet sent. Seed the sites when the publisher returns URLs + prices.');
     }
 
@@ -81,20 +102,45 @@ class BulkSiteRequestController extends Controller
             'handled_by' => auth()->id(),
         ])->save();
 
+        ActivityLogger::log(
+            'bulk_request.notes_updated',
+            (auth()->user()->name ?? 'Staff').' updated notes on bulk request #'.$bulkRequest->id,
+            $bulkRequest,
+            [
+                'bulk_site_request_id' => $bulkRequest->id,
+                'publisher_id' => $bulkRequest->publisher_id,
+            ],
+            'Bulk request #'.$bulkRequest->id
+        );
+
         return back()->with('success', 'Notes saved.');
     }
 
     public function cancel(int $id)
     {
         $bulkRequest = BulkSiteRequest::findOrFail($id);
+        $previous = $bulkRequest->status;
         $bulkRequest->forceFill([
             'status' => BulkSiteRequest::STATUS_CANCELLED,
             'handled_by' => auth()->id(),
         ])->save();
 
+        ActivityLogger::log(
+            'bulk_request.cancelled',
+            (auth()->user()->name ?? 'Staff').' cancelled bulk request #'.$bulkRequest->id,
+            $bulkRequest,
+            [
+                'bulk_site_request_id' => $bulkRequest->id,
+                'publisher_id' => $bulkRequest->publisher_id,
+                'from_status' => $previous,
+                'sites_remaining' => $bulkRequest->sites()->count(),
+            ],
+            'Bulk request #'.$bulkRequest->id
+        );
+
         return redirect()
             ->route('admin.bulk-site-requests.index')
-            ->with('success', 'Bulk request cancelled.');
+            ->with('success', 'Bulk request cancelled. History is kept.');
     }
 
     /**
@@ -134,8 +180,9 @@ class BulkSiteRequestController extends Controller
 
         $created = 0;
         $failures = $parsed['failures'];
+        $createdDomains = [];
 
-        DB::transaction(function () use ($bulkRequest, $parsed, &$created, &$failures) {
+        DB::transaction(function () use ($bulkRequest, $parsed, &$created, &$failures, &$createdDomains) {
             foreach ($parsed['rows'] as $index => $row) {
                 $domain = $row['domain'];
 
@@ -184,6 +231,7 @@ class BulkSiteRequestController extends Controller
                 ]);
                 $site->save();
                 $created++;
+                $createdDomains[] = $domain;
             }
 
             if ($created > 0) {
@@ -197,6 +245,20 @@ class BulkSiteRequestController extends Controller
         });
 
         if ($created > 0) {
+            ActivityLogger::log(
+                'bulk_request.seeded',
+                (auth()->user()->name ?? 'Staff').' seeded '.$created.' draft site(s) on bulk request #'.$bulkRequest->id,
+                $bulkRequest,
+                [
+                    'bulk_site_request_id' => $bulkRequest->id,
+                    'publisher_id' => $bulkRequest->publisher_id,
+                    'created_count' => $created,
+                    'failed_count' => count($failures),
+                    'domains' => $createdDomains,
+                ],
+                'Bulk request #'.$bulkRequest->id
+            );
+
             try {
                 $publisher = $bulkRequest->publisher;
                 if ($publisher?->email) {

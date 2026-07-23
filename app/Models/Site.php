@@ -124,6 +124,17 @@ class Site extends Model
         return $this->onboarding_status === self::ONBOARDING_AWAITING_DETAILS;
     }
 
+    /**
+     * Marketing may remove accidental bulk drafts only (never listed sites).
+     */
+    public function canBeDeletedByMarketing(): bool
+    {
+        return $this->awaitsPublisherDetails()
+            && ! (bool) $this->verified
+            && ! (bool) $this->active
+            && $this->bulk_site_request_id !== null;
+    }
+
     public function isReadyForAdminReview(): bool
     {
         return $this->onboarding_status === null

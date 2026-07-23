@@ -294,6 +294,9 @@ Route::middleware(['auth', 'verified', RoleMiddleware::class.':admin,marketing']
             ->name('sites.verify');
         Route::post('/sites/{id}/active', [AdminSiteController::class, 'toggleActive'])
             ->name('sites.active');
+        // Admin: any site. Marketing: bulk draft (awaiting_details) only — accidental wrong seed.
+        Route::delete('/sites/{id}', [AdminSiteController::class, 'destroy'])
+            ->name('sites.destroy');
 
         // Guided bulk onboarding (request → sheet/seed → publisher completes → approve)
         Route::get('/bulk-site-requests', [AdminBulkSiteRequestController::class, 'index'])
@@ -373,10 +376,6 @@ Route::middleware(['auth', 'verified', RoleMiddleware::class.':admin,marketing']
                 ->name('users.updatePayoutProfile');
             Route::post('/users/{id}/roles', [UserController::class, 'updateRoles'])
                 ->name('users.updateRoles');
-
-            // Delete sites — admin only
-            Route::delete('/sites/{id}', [AdminSiteController::class, 'destroy'])
-                ->name('sites.destroy');
 
             // Payments / orders money
             Route::get('/payments', [AdminPaymentController::class, 'index'])->name('payments');

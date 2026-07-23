@@ -8,6 +8,7 @@ use App\Models\BulkSiteRequest;
 use App\Models\Category;
 use App\Models\Site;
 use App\Models\User;
+use App\Services\ActivityLogger;
 use App\Services\InAppNotificationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -52,6 +53,18 @@ class BulkSiteRequestController extends Controller
             'estimated_count' => (int) $request->estimated_count,
             'publisher_note' => $request->publisher_note,
         ]);
+
+        ActivityLogger::log(
+            'bulk_request.created',
+            (auth()->user()->name ?? 'Publisher').' requested bulk onboarding for ~'.(int) $request->estimated_count.' site(s)',
+            $bulk,
+            [
+                'bulk_site_request_id' => $bulk->id,
+                'publisher_id' => $bulk->publisher_id,
+                'estimated_count' => $bulk->estimated_count,
+            ],
+            'Bulk request #'.$bulk->id
+        );
 
         try {
             $admins = User::query()

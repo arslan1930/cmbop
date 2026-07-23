@@ -60,11 +60,33 @@
                             </button>
                         </form>
                         <form method="POST" action="{{ route('admin.bulk-site-requests.cancel', $bulkRequest) }}"
-                              onsubmit="return confirm('Cancel this bulk request?');">
+                              onsubmit="return confirm('Cancel this bulk request? History is kept.');">
                             @csrf
                             <button type="submit" class="btn btn-sm btn-outline-danger w-100">Cancel request</button>
                         </form>
                     @endif
+                </div>
+            </div>
+
+            <div class="card border-0 shadow-sm mb-3">
+                <div class="card-body">
+                    <h6 class="fw-semibold mb-1">History</h6>
+                    <p class="small text-muted mb-3">Append-only audit trail. Cannot be deleted.</p>
+                    <div class="bulk-history-list" style="max-height: 28rem; overflow-y: auto;">
+                        @forelse($history as $entry)
+                            <div class="border-bottom py-2 small">
+                                <div class="fw-semibold">{{ $entry->action }}</div>
+                                <div class="text-muted">{{ $entry->description }}</div>
+                                <div class="text-muted mt-1" style="font-size:.72rem;">
+                                    {{ $entry->user_name ?? 'System' }}
+                                    @if($entry->role) · {{ $entry->role }} @endif
+                                    · {{ $entry->created_at?->timezone(config('app.timezone'))->format('M j, Y H:i') }}
+                                </div>
+                            </div>
+                        @empty
+                            <p class="small text-muted mb-0">No history yet.</p>
+                        @endforelse
+                    </div>
                 </div>
             </div>
         </div>
@@ -77,6 +99,7 @@
                         Paste one site per line after the publisher returns the sheet.
                         Columns: <code>url,price,da,dr,traffic,language,country[,site_name]</code>
                         (language/country = 2-letter marketplace codes). Drafts stay <strong>inactive</strong> until the publisher finishes details and you approve.
+                        Marketing may delete a wrong draft while it still awaits publisher details.
                     </p>
                     <form method="POST" action="{{ route('admin.bulk-site-requests.seed', $bulkRequest) }}">
                         @csrf
@@ -107,7 +130,7 @@
                             </thead>
                             <tbody>
                                 @forelse($bulkRequest->sites as $site)
-                                    <tr>
+                                    <tr id="bulk-site-row-{{ $site->id }}">
                                         <td>
                                             <div class="fw-semibold">{{ $site->site_name }}</div>
                                             <div class="small text-muted">{{ $site->domain }}</div>
@@ -120,8 +143,16 @@
                                                 {{ str_replace('_', ' ', $site->onboarding_status ?? '—') }}
                                             </span>
                                         </td>
-                                        <td class="text-end">
+                                        <td class="text-end text-nowrap">
                                             <a href="{{ route('admin.sites.edit', $site->id) }}" class="btn btn-sm btn-outline-secondary">Edit</a>
+                                            @if($canDeleteDrafts && (auth()->user()->isAdmin() || $site->canBeDeletedByMarketing()))
+                                                <button type="button"
+                                                        class="btn btn-sm btn-outline-danger bulk-draft-delete"
+                                                        data-site-id="{{ $site->id }}"
+                                                        data-site-name="{{ $site->site_name }}">
+                                                    Delete
+                                                </button>
+                                            @endif
                                         </td>
                                     </tr>
                                 @empty
@@ -137,4 +168,36 @@
         </div>
     </div>
 </div>
+
+<script>
+document.querySelectorAll('.bulk-draft-delete').forEach(function (btn) {
+    btn.addEventListener('click', async function () {
+        const id = this.getAttribute('data-site-id');
+        const name = this.getAttribute('data-site-name') || 'this site';
+        if (!confirm('Delete draft “' + name + '”? This removes the wrong seed. History of the delete is kept.')) {
+            return;
+        }
+        this.disabled = true;
+        try {
+            const res = await fetch(@json(url('/admin/sites')) + '/' + id, {
+                method: 'DELETE',
+                headers: {
+                    'X-CSRF-TOKEN': @json(csrf_token()),
+                    'Accept': 'application/json',
+                },
+            });
+            const data = await res.json().catch(function () { return {}; });
+            if (!res.ok || !data.success) {
+                alert(data.message || 'Could not delete site.');
+                this.disabled = false;
+                return;
+            }
+            location.reload();
+        } catch (e) {
+            alert('Could not delete site.');
+            this.disabled = false;
+        }
+    });
+});
+</script>
 @endsection

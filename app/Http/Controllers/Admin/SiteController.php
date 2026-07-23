@@ -211,7 +211,11 @@ class SiteController extends Controller
             $action,
             auth()->user()->name.' '.$label.' site "'.$site->site_name.'"',
             $site,
-            ['from' => $oldStatus, 'to' => (int) $site->verified],
+            [
+                'from' => $oldStatus,
+                'to' => (int) $site->verified,
+                'bulk_site_request_id' => $site->bulk_site_request_id,
+            ],
             $site->site_name
         );
 
@@ -268,7 +272,11 @@ class SiteController extends Controller
             $action,
             auth()->user()->name.' '.$label.' site "'.$site->site_name.'"',
             $site,
-            ['from' => $oldStatus, 'to' => (int) $site->active],
+            [
+                'from' => $oldStatus,
+                'to' => (int) $site->active,
+                'bulk_site_request_id' => $site->bulk_site_request_id,
+            ],
             $site->site_name
         );
 
@@ -295,19 +303,29 @@ class SiteController extends Controller
         ]);
     }
 
-    // DELETE — admin only
+    // DELETE — admin: any site; marketing: bulk draft (awaiting details) only
     public function destroy($id)
     {
-        if (! auth()->user()?->isAdmin()) {
+        $user = auth()->user();
+        $site = Site::findOrFail($id);
+
+        $isAdmin = (bool) $user?->isAdmin();
+        $isMarketingDraftDelete = (bool) $user?->isMarketing() && $site->canBeDeletedByMarketing();
+
+        if (! $isAdmin && ! $isMarketingDraftDelete) {
             return response()->json([
                 'success' => false,
-                'message' => 'Only admins can delete sites.',
+                'message' => $user?->isMarketing()
+                    ? 'Marketing can only delete bulk draft sites that still await publisher details (not verified or active).'
+                    : 'Only admins can delete sites.',
             ], 403);
         }
 
-        $site = Site::findOrFail($id);
         $siteName = $site->site_name;
         $siteId = $site->id;
+        $domain = $site->domain;
+        $bulkRequestId = $site->bulk_site_request_id;
+        $onboarding = $site->onboarding_status;
 
         if ($site->site_image && Storage::disk('public')->exists($site->site_image)) {
             Storage::disk('public')->delete($site->site_image);
@@ -316,10 +334,17 @@ class SiteController extends Controller
         $site->delete();
 
         ActivityLogger::log(
-            'site.deleted',
-            auth()->user()->name.' deleted site "'.$siteName.'"',
+            $isMarketingDraftDelete && ! $isAdmin ? 'site.deleted_by_marketing' : 'site.deleted',
+            ($user->name ?? 'Staff').' deleted site "'.$siteName.'"'.($domain ? ' ('.$domain.')' : ''),
             null,
-            ['site_id' => $siteId, 'site_name' => $siteName],
+            [
+                'site_id' => $siteId,
+                'site_name' => $siteName,
+                'domain' => $domain,
+                'bulk_site_request_id' => $bulkRequestId,
+                'onboarding_status' => $onboarding,
+                'deleted_by_role' => $user?->activeRole(),
+            ],
             $siteName
         );
 
