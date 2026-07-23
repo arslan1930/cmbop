@@ -1115,6 +1115,7 @@ const formCard = $('#formCard');
 const submitBtn = $('#submitBtn');
 const closeBtn = $('#closeBtn');
 const formHeaderSpan = $('#formHeader');
+const claimCard = $('#claimCard');
 
 @if(session('open_bulk_request_modal'))
 document.addEventListener('DOMContentLoaded', function () {
@@ -1888,9 +1889,22 @@ function fetchSites(page = 1, query = '') {
     $.ajax({
         url: '{{ route("publisher.sites.ajax") }}',
         method: 'GET',
+        dataType: 'html',
         data: { page: page, query: query },
+        headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'text/html' },
         success: function(res) {
-            if(!res || res.trim() === ''){
+            const html = (res || '').trim();
+            // Session expiry / middleware redirect often returns the login page HTML.
+            if (html.includes('name="password"') && html.includes('/login')) {
+                $('#sitesTableWrapper').html(
+                    '<div class="text-center py-4">' +
+                    '<div class="text-danger mb-2">Your session expired. Please refresh and sign in again.</div>' +
+                    '<a class="btn btn-sm btn-primary" href="' + @json(route('login')) + '">Sign in</a>' +
+                    '</div>'
+                );
+                return;
+            }
+            if (html === '') {
                 $('#sitesTableWrapper').html(
                     '<div class="ui-empty-state text-center mx-auto py-4" style="max-width:420px">' +
                     '<div class="mx-auto mb-3 d-flex align-items-center justify-content-center" style="width:52px;height:52px;border-radius:50%;background:var(--brand-primary-bg,#e6f5f5);color:var(--brand-primary,#185054)" aria-hidden="true"><i class="fa-solid fa-globe"></i></div>' +
@@ -1901,13 +1915,18 @@ function fetchSites(page = 1, query = '') {
                 );
                 $('#emptyAddSiteCta').on('click', function(){ $('#showFormBtn').trigger('click'); });
             } else {
-                $('#sitesTableWrapper').html(res);
+                $('#sitesTableWrapper').html(html);
             }
         },
-        error: function() {
+        error: function(xhr) {
+            const message = xhr.status === 403
+                ? 'You do not have access to load sites. Switch to the publisher role and retry.'
+                : (xhr.status === 401 || xhr.status === 419)
+                    ? 'Your session expired. Please refresh and sign in again.'
+                    : 'Failed to load sites.';
             $('#sitesTableWrapper').html(
                 '<div class="text-center py-4">' +
-                '<div class="text-danger mb-2">Failed to load sites.</div>' +
+                '<div class="text-danger mb-2">' + message + '</div>' +
                 '<button type="button" class="btn btn-sm btn-outline-primary" id="retrySitesBtn">Retry</button>' +
                 '</div>'
             );
@@ -1917,6 +1936,7 @@ function fetchSites(page = 1, query = '') {
         }
     });
 }
+window.loadSites = fetchSites;
 
 // Debounced search
 let delayTimer;
@@ -1963,14 +1983,53 @@ closeBtn.on('click', function(){
     $('#wizardDraftHint').text('');
 });
 
+// Expand / hide site details (handlers live here so AJAX table HTML needs no scripts)
+$(document).on('click', '.action-view', function(e) {
+    e.stopPropagation();
+    const id = $(this).data('id');
+    const expandRow = $('#expand-' + id);
+    expandRow.toggleClass('expanded');
+
+    const icon = $(this).find('i');
+    const text = $(this).find('.btn-text');
+    if (expandRow.hasClass('expanded')) {
+        icon.removeClass('fa-eye').addClass('fa-eye-slash');
+        text.text('Hide');
+    } else {
+        icon.removeClass('fa-eye-slash').addClass('fa-eye');
+        text.text('View');
+    }
+});
+
+$(document).on('click', '.btn-delete', function() {
+    const form = $(this).closest('form');
+    Swal.fire({
+        title: 'Are you sure?',
+        text: 'This site will be deleted permanently!',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#d33',
+        cancelButtonColor: '#3085d6',
+        confirmButtonText: 'Yes, delete it!'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            form.submit();
+        }
+    });
+});
+
 // Edit functionality - Prefill all values
 $(document).on('click', '.btn-edit', function() {
     const site = $(this).data('site');
-    
+    if (!site || !site.id) {
+        Swal.fire({ icon: 'error', title: 'Could not edit', text: 'Site data failed to load. Refresh and try again.' });
+        return;
+    }
+
     // Show form
     $('#formCard').removeClass('d-none');
     $('#showFormBtn').addClass('d-none');
-    $('#showBulkBtn').addClass('d-none');
+    $('#showBulkRequestBtn').addClass('d-none');
     $('#formHeader').text('Edit Site: ' + site.site_name);
     setWizardStep(1);
     $('#wizardDraftHint').text('');
@@ -2087,7 +2146,6 @@ $(document).on('click', '.btn-edit', function() {
 });
 
 /* —— Claim a website —— */
-const claimCard = $('#claimCard');
 $('#showClaimBtn').on('click', function () {
     formCard.addClass('d-none');
     bulkCard.addClass('d-none');
@@ -2135,7 +2193,7 @@ async function startFeatureStripeCheckout(siteId) {
 $(document).on('click', '.btn-feature-site', async function () {
     const id = $(this).data('id');
     const name = $(this).data('name');
-    let wallet = { feature_price: 10, feature_days: 7, balance: 0, top_up_url: '{{ route('publisher.balance') }}', stripe_available: true };
+    let wallet = { feature_price: 10, feature_days: 7, balance: 0, top_up_url: @json(route('publisher.balance')), stripe_available: true };
     try {
         const w = await fetch(`{{ route('publisher.promotions.wallet') }}`, { headers: { 'Accept': 'application/json' }});
         wallet = await w.json();
@@ -2183,8 +2241,7 @@ $(document).on('click', '.btn-feature-site', async function () {
     const data = await res.json();
     if (data.success) {
         Swal.fire({ icon: 'success', title: 'Featured!', text: data.message });
-        if (typeof loadSites === 'function') loadSites();
-        else location.reload();
+        if (data.success) { fetchSites(); }
     } else if (data.needs_top_up) {
         Swal.fire({
             icon: 'info',
@@ -2228,7 +2285,7 @@ $(document).on('click', '.btn-discount-site', async function () {
     });
     const data = await res.json();
     Swal.fire({ icon: data.success ? 'success' : 'error', title: data.message || 'Done' });
-    if (data.success) { if (typeof loadSites === 'function') loadSites(); else location.reload(); }
+    if (data.success) { fetchSites(); }
 });
 
 $(document).on('click', '.btn-discount-clear', async function () {
@@ -2241,7 +2298,7 @@ $(document).on('click', '.btn-discount-clear', async function () {
     });
     const data = await res.json();
     Swal.fire({ icon: data.success ? 'success' : 'error', title: data.message || 'Done' });
-    if (data.success) { if (typeof loadSites === 'function') loadSites(); else location.reload(); }
+    if (data.success) { fetchSites(); }
 });
 
 $(document).on('click', '.btn-bulk-join', async function () {
@@ -2264,7 +2321,7 @@ $(document).on('click', '.btn-bulk-join', async function () {
     });
     const data = await res.json();
     Swal.fire({ icon: data.success ? 'success' : 'error', title: data.message || 'Done' });
-    if (data.success) { if (typeof loadSites === 'function') loadSites(); else location.reload(); }
+    if (data.success) { fetchSites(); }
 });
 
 $(document).on('click', '.btn-bulk-leave', async function () {
@@ -2277,7 +2334,7 @@ $(document).on('click', '.btn-bulk-leave', async function () {
     });
     const data = await res.json();
     Swal.fire({ icon: data.success ? 'success' : 'error', title: data.message || 'Done' });
-    if (data.success) { if (typeof loadSites === 'function') loadSites(); else location.reload(); }
+    if (data.success) { fetchSites(); }
 });
 </script>
 
