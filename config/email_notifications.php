@@ -3,6 +3,8 @@
 use App\Mail\AdminManualPaymentNotification;
 use App\Mail\AdminNewUserRegistered;
 use App\Mail\AudienceCampaignMail;
+use App\Mail\BulkSiteRequestSubmitted;
+use App\Mail\BulkSitesSeededNotification;
 use App\Mail\ContentEvaluationResult;
 use App\Mail\DepositApproved;
 use App\Mail\DepositRejected;
@@ -270,6 +272,20 @@ return [
             'audience' => 'admin',
             'preference' => null,
             'mailable' => NewSiteNotification::class,
+            'default_enabled' => true,
+        ],
+        'bulk_site_request_submitted' => [
+            'name' => 'Bulk Site Request Submitted',
+            'audience' => 'admin',
+            'preference' => null,
+            'mailable' => BulkSiteRequestSubmitted::class,
+            'default_enabled' => true,
+        ],
+        'bulk_sites_seeded' => [
+            'name' => 'Bulk Sites Seeded — Complete Details',
+            'audience' => 'publisher',
+            'preference' => null,
+            'mailable' => BulkSitesSeededNotification::class,
             'default_enabled' => true,
         ],
         'admin_new_user' => [

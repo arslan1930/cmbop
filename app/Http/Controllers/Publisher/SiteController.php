@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Publisher;
 use App\Http\Controllers\Controller;
 use App\Jobs\CaptureSiteScreenshotJob;
 use App\Mail\NewSiteNotification;
+use App\Models\BulkSiteRequest;
 use App\Models\Category;
 use App\Models\Country;
 use App\Models\Language;
@@ -42,7 +43,28 @@ class SiteController extends Controller
         // English regions + Chinese markets + Gulf + any pivot EN countries.
         $languageCountryMap['en'] = $this->englishMarketplaceCountries();
 
-        return view('publisher.websites', compact('countries', 'categories', 'languages', 'languageCountryMap'));
+        $openBulkRequest = BulkSiteRequest::query()
+            ->where('publisher_id', auth()->id())
+            ->whereNotIn('status', [
+                BulkSiteRequest::STATUS_COMPLETED,
+                BulkSiteRequest::STATUS_CANCELLED,
+            ])
+            ->latest()
+            ->first();
+
+        $awaitingDetailsCount = Site::query()
+            ->where('publisher_id', auth()->id())
+            ->where('onboarding_status', Site::ONBOARDING_AWAITING_DETAILS)
+            ->count();
+
+        return view('publisher.websites', compact(
+            'countries',
+            'categories',
+            'languages',
+            'languageCountryMap',
+            'openBulkRequest',
+            'awaitingDetailsCount'
+        ));
     }
 
     /**

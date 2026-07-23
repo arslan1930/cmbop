@@ -6,7 +6,7 @@
     <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-2">
         <div>
             <h1 class="h3 mb-1">Activity History</h1>
-            <p class="text-muted mb-0">Every dashboard action with the registered user’s name.</p>
+            <p class="text-muted mb-0">Every dashboard action with the registered user’s name. History is append-only and cannot be deleted.</p>
         </div>
     </div>
 
