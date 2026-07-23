@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Publisher;
 use App\Http\Controllers\Controller;
 use App\Mail\BulkSiteRequestSubmitted;
 use App\Models\BulkSiteRequest;
+use App\Models\BulkSiteRequestItem;
 use App\Models\Category;
 use App\Models\Site;
 use App\Models\User;
@@ -36,9 +37,70 @@ class BulkSiteRequestController extends Controller
         }
 
         $validator = Validator::make($request->all(), [
-            'estimated_count' => 'required|integer|min:5|max:200',
+            'sites' => 'required|array|min:2|max:200',
+            'sites.*.url' => 'nullable|string|max:512',
+            'sites.*.price' => 'nullable|numeric|min:0|max:999999.99',
             'publisher_note' => 'nullable|string|max:2000',
+        ], [
+            'sites.required' => 'Add at least two websites (URL + price).',
+            'sites.min' => 'Add at least two websites (URL + price).',
         ]);
+
+        $parsedRows = [];
+        $validator->after(function ($validator) use ($request, &$parsedRows) {
+            $rawSites = $request->input('sites', []);
+            if (! is_array($rawSites)) {
+                return;
+            }
+
+            $seenDomains = [];
+            foreach ($rawSites as $index => $row) {
+                $urlRaw = trim((string) ($row['url'] ?? ''));
+                $priceRaw = $row['price'] ?? null;
+                if ($urlRaw === '' && ($priceRaw === null || $priceRaw === '')) {
+                    continue;
+                }
+
+                $siteUrl = $this->normalizeHttpUrl($urlRaw);
+                $host = parse_url($siteUrl, PHP_URL_HOST);
+                $domain = $host ? preg_replace('/^www\./', '', strtolower($host)) : null;
+
+                if (! $domain || ! filter_var($siteUrl, FILTER_VALIDATE_URL)) {
+                    $validator->errors()->add("sites.$index.url", 'Enter a valid website URL.');
+
+                    continue;
+                }
+
+                if (isset($seenDomains[$domain])) {
+                    $validator->errors()->add("sites.$index.url", "Duplicate domain in this list: {$domain}");
+
+                    continue;
+                }
+                $seenDomains[$domain] = true;
+
+                if (Site::where('domain', $domain)->exists()) {
+                    $validator->errors()->add("sites.$index.url", "Already registered: {$domain}");
+
+                    continue;
+                }
+
+                if (! is_numeric($priceRaw) || (float) $priceRaw < 0) {
+                    $validator->errors()->add("sites.$index.price", 'Enter a valid price.');
+
+                    continue;
+                }
+
+                $parsedRows[] = [
+                    'site_url' => $siteUrl,
+                    'domain' => $domain,
+                    'price' => round((float) $priceRaw, 2),
+                ];
+            }
+
+            if (count($parsedRows) < 2) {
+                $validator->errors()->add('sites', 'Add at least two websites with URL and price.');
+            }
+        });
 
         if ($validator->fails()) {
             return redirect()
@@ -48,21 +110,35 @@ class BulkSiteRequestController extends Controller
                 ->with('open_bulk_request_modal', true);
         }
 
-        $bulk = BulkSiteRequest::create([
-            'publisher_id' => auth()->id(),
-            'status' => BulkSiteRequest::STATUS_REQUESTED,
-            'estimated_count' => (int) $request->estimated_count,
-            'publisher_note' => $request->publisher_note,
-        ]);
+        $bulk = DB::transaction(function () use ($request, $parsedRows) {
+            $bulk = BulkSiteRequest::create([
+                'publisher_id' => auth()->id(),
+                'status' => BulkSiteRequest::STATUS_REQUESTED,
+                'estimated_count' => count($parsedRows),
+                'publisher_note' => $request->publisher_note,
+            ]);
+
+            foreach ($parsedRows as $row) {
+                BulkSiteRequestItem::create([
+                    'bulk_site_request_id' => $bulk->id,
+                    'site_url' => $row['site_url'],
+                    'domain' => $row['domain'],
+                    'price' => $row['price'],
+                ]);
+            }
+
+            return $bulk;
+        });
 
         ActivityLogger::log(
             'bulk_request.created',
-            (auth()->user()->name ?? 'Publisher').' requested bulk onboarding for ~'.(int) $request->estimated_count.' site(s)',
+            (auth()->user()->name ?? 'Publisher').' submitted '.count($parsedRows).' site URL(s) + price(s) for bulk onboarding',
             $bulk,
             [
                 'bulk_site_request_id' => $bulk->id,
                 'publisher_id' => $bulk->publisher_id,
                 'estimated_count' => $bulk->estimated_count,
+                'domains' => array_column($parsedRows, 'domain'),
             ],
             'Bulk request #'.$bulk->id
         );
@@ -78,7 +154,7 @@ class BulkSiteRequestController extends Controller
 
             foreach ($recipients as $admin) {
                 if (! empty($admin->email)) {
-                    Mail::to($admin->email)->send(new BulkSiteRequestSubmitted($bulk));
+                    Mail::to($admin->email)->send(new BulkSiteRequestSubmitted($bulk->load('items')));
                 }
             }
         } catch (\Throwable $e) {
@@ -87,7 +163,7 @@ class BulkSiteRequestController extends Controller
 
         return redirect()
             ->route('publisher.websites')
-            ->with('success', 'Bulk request sent. We’ll email you a simple sheet (URLs + prices). Our team adds metrics; you finish the rest; we approve.');
+            ->with('success', 'Bulk sites submitted (URL + price). Our marketer will add metrics next; then you’ll finish descriptions and listing details; we approve.');
     }
 
     public function completeIndex()
@@ -194,7 +270,6 @@ class BulkSiteRequestController extends Controller
             $site->bulkSiteRequest?->refreshProgressStatus();
         }
 
-        // Notify for each site as it is submitted (publishers often finish one now, others later).
         try {
             app(InAppNotificationService::class)->notifyAdminsNewSite($site, 'create');
         } catch (\Throwable $e) {

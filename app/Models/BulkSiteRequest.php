@@ -54,6 +54,11 @@ class BulkSiteRequest extends Model
         return $this->hasMany(Site::class);
     }
 
+    public function items(): HasMany
+    {
+        return $this->hasMany(BulkSiteRequestItem::class);
+    }
+
     public function awaitingDetailsCount(): int
     {
         return $this->sites()->where('onboarding_status', Site::ONBOARDING_AWAITING_DETAILS)->count();

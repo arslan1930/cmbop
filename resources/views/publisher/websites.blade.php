@@ -698,9 +698,10 @@
         <div class="alert alert-light border mb-3">
             <strong>Bulk request #{{ $openBulkRequest->id }}</strong>
             — status: <span class="text-capitalize">{{ str_replace('_', ' ', $openBulkRequest->status) }}</span>.
-            We’ll email you a simple sheet (URLs + prices). Our team adds metrics; you finish the rest; we approve.
-            @if($openBulkRequest->status === \App\Models\BulkSiteRequest::STATUS_SHEET_SENT)
-                <span class="d-block small text-muted mt-1">Sheet marked sent — reply with your filled URLs + prices.</span>
+            You submitted <strong>URL + price</strong> only.
+            Next: our marketer adds DA/DR/traffic/language/country → you add descriptions &amp; listing details → we approve.
+            @if(($openBulkRequest->estimated_count ?? 0) > 0)
+                <span class="d-block small text-muted mt-1">{{ $openBulkRequest->estimated_count }} site(s) in this request.</span>
             @endif
         </div>
     @endif
@@ -749,39 +750,89 @@
         </div>
     @endif
 
-    {{-- Guided bulk request modal (replaces self-serve multi-site table) --}}
+    {{-- Guided bulk: publisher submits URL + price only --}}
     <div class="modal fade" id="bulkRequestModal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog">
-            <form method="POST" action="{{ route('publisher.bulk-sites.request') }}" class="modal-content">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable">
+            <form method="POST" action="{{ route('publisher.bulk-sites.request') }}" class="modal-content" id="bulkRequestForm">
                 @csrf
                 <div class="modal-header">
                     <h5 class="modal-title">Add many websites</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
-                    <p class="small text-muted mb-3">
-                        We’ll email you a simple sheet (<strong>URLs + prices</strong> only).
-                        Our team adds DR, DA, traffic, language, and country.
-                        You finish description, niches, link type, and timing — then we approve.
-                        For a single site, use <strong>Add New Website</strong> instead.
-                    </p>
-                    <div class="mb-3">
-                        <label class="form-label">About how many sites?</label>
-                        <input type="number" name="estimated_count" class="form-control @error('estimated_count') is-invalid @enderror"
-                               min="5" max="200" value="{{ old('estimated_count', 10) }}" required>
-                        <div class="form-text">Minimum 5. One open request at a time.</div>
-                        @error('estimated_count')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                    <div class="border rounded-3 p-3 mb-3" style="background:#f7fafb;">
+                        <div class="fw-semibold mb-2">How bulk onboarding works</div>
+                        <ol class="small text-muted mb-0 ps-3">
+                            <li class="mb-1"><strong>You</strong> add only <strong>Website URL</strong> + <strong>Price</strong> below.</li>
+                            <li class="mb-1"><strong>Our marketer</strong> adds the other stats (DA, DR, traffic, language, country).</li>
+                            <li class="mb-1"><strong>You</strong> come back to finish descriptions, niches, link type, and timing.</li>
+                            <li><strong>We</strong> review and approve — sites stay hidden until then.</li>
+                        </ol>
                     </div>
+
+                    @error('sites')
+                        <div class="alert alert-danger py-2 small">{{ $message }}</div>
+                    @enderror
+
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <label class="form-label mb-0">Your sites (URL + price only)</label>
+                        <button type="button" class="btn btn-sm btn-outline-primary" id="bulkAddRowBtn">
+                            <i class="fa fa-plus"></i> Add row
+                        </button>
+                    </div>
+
+                    <div class="table-responsive mb-3">
+                        <table class="table table-sm align-middle mb-0" id="bulkUrlPriceTable">
+                            <thead>
+                                <tr>
+                                    <th style="min-width:14rem;">Website URL</th>
+                                    <th style="width:8.5rem;">Price (€)</th>
+                                    <th style="width:2.5rem;"></th>
+                                </tr>
+                            </thead>
+                            <tbody id="bulkUrlPriceBody">
+                                @php
+                                    $oldSites = old('sites');
+                                    if (!is_array($oldSites) || count($oldSites) < 2) {
+                                        $oldSites = [['url' => '', 'price' => ''], ['url' => '', 'price' => '']];
+                                    }
+                                @endphp
+                                @foreach($oldSites as $i => $row)
+                                    <tr class="bulk-url-price-row">
+                                        <td>
+                                            <input type="url" name="sites[{{ $i }}][url]"
+                                                   class="form-control form-control-sm @error('sites.'.$i.'.url') is-invalid @enderror"
+                                                   placeholder="https://example.com"
+                                                   value="{{ $row['url'] ?? '' }}" required>
+                                            @error('sites.'.$i.'.url')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                                        </td>
+                                        <td>
+                                            <input type="number" name="sites[{{ $i }}][price]" step="0.01" min="0"
+                                                   class="form-control form-control-sm @error('sites.'.$i.'.price') is-invalid @enderror"
+                                                   placeholder="99"
+                                                   value="{{ $row['price'] ?? '' }}" required>
+                                            @error('sites.'.$i.'.price')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                                        </td>
+                                        <td class="text-end">
+                                            <button type="button" class="btn btn-sm btn-outline-danger bulk-remove-row" title="Remove row" aria-label="Remove row">&times;</button>
+                                        </td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="form-text mb-3">Minimum 2 sites. One open bulk request at a time. For a single site, use <strong>Add New Website</strong>.</div>
+
                     <div class="mb-0">
                         <label class="form-label">Note for our team (optional)</label>
                         <textarea name="publisher_note" class="form-control @error('publisher_note') is-invalid @enderror"
-                                  rows="3" maxlength="2000" placeholder="Niches, languages, or anything we should know…">{{ old('publisher_note') }}</textarea>
+                                  rows="2" maxlength="2000" placeholder="Niches, languages, or anything we should know…">{{ old('publisher_note') }}</textarea>
                         @error('publisher_note')<div class="invalid-feedback">{{ $message }}</div>@enderror
                     </div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn btn-primary">Send bulk request</button>
+                    <button type="submit" class="btn btn-primary">Submit URL + prices</button>
                 </div>
             </form>
         </div>
@@ -1125,6 +1176,55 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 });
 @endif
+
+(function () {
+    const body = document.getElementById('bulkUrlPriceBody');
+    const addBtn = document.getElementById('bulkAddRowBtn');
+    if (!body || !addBtn) return;
+
+    function reindexRows() {
+        Array.from(body.querySelectorAll('.bulk-url-price-row')).forEach(function (tr, i) {
+            const url = tr.querySelector('input[name*="[url]"]');
+            const price = tr.querySelector('input[name*="[price]"]');
+            if (url) url.name = 'sites[' + i + '][url]';
+            if (price) price.name = 'sites[' + i + '][price]';
+        });
+    }
+
+    function syncRemoveButtons() {
+        const rows = body.querySelectorAll('.bulk-url-price-row');
+        rows.forEach(function (tr) {
+            const btn = tr.querySelector('.bulk-remove-row');
+            if (btn) btn.disabled = rows.length <= 2;
+        });
+    }
+
+    addBtn.addEventListener('click', function () {
+        if (body.querySelectorAll('.bulk-url-price-row').length >= 200) return;
+        const tr = document.createElement('tr');
+        tr.className = 'bulk-url-price-row';
+        tr.innerHTML =
+            '<td><input type="url" class="form-control form-control-sm" placeholder="https://example.com" required></td>' +
+            '<td><input type="number" step="0.01" min="0" class="form-control form-control-sm" placeholder="99" required></td>' +
+            '<td class="text-end"><button type="button" class="btn btn-sm btn-outline-danger bulk-remove-row" title="Remove row" aria-label="Remove row">&times;</button></td>';
+        body.appendChild(tr);
+        reindexRows();
+        syncRemoveButtons();
+    });
+
+    body.addEventListener('click', function (e) {
+        const btn = e.target.closest('.bulk-remove-row');
+        if (!btn) return;
+        const rows = body.querySelectorAll('.bulk-url-price-row');
+        if (rows.length <= 2) return;
+        btn.closest('tr')?.remove();
+        reindexRows();
+        syncRemoveButtons();
+    });
+
+    reindexRows();
+    syncRemoveButtons();
+})();
 
 // Quill editor (guarded so a CDN/CSP failure cannot break the sites table loader)
 var quill = null;

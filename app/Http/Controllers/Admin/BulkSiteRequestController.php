@@ -48,8 +48,12 @@ class BulkSiteRequestController extends Controller
 
     public function show(int $id)
     {
-        $bulkRequest = BulkSiteRequest::with(['publisher', 'handler', 'sites' => fn ($q) => $q->orderBy('id')])
-            ->findOrFail($id);
+        $bulkRequest = BulkSiteRequest::with([
+            'publisher',
+            'handler',
+            'items' => fn ($q) => $q->orderBy('id'),
+            'sites' => fn ($q) => $q->orderBy('id'),
+        ])->findOrFail($id);
 
         $countries = Country::marketplace()->orderBy('name')->get();
         $languages = Language::marketplace()->orderBy('name')->get();
@@ -91,7 +95,7 @@ class BulkSiteRequestController extends Controller
             'Bulk request #'.$bulkRequest->id
         );
 
-        return back()->with('success', 'Marked as sheet sent. Seed the sites when the publisher returns URLs + prices.');
+        return back()->with('success', 'Marked as sheet emailed. Prefer seeding from the URL + price list the publisher already submitted.');
     }
 
     public function updateNotes(Request $request, int $id)
@@ -230,6 +234,13 @@ class BulkSiteRequestController extends Controller
                     'onboarding_status' => Site::ONBOARDING_AWAITING_DETAILS,
                 ]);
                 $site->save();
+
+                // Link matching publisher-submitted URL+price row when present.
+                $bulkRequest->items()
+                    ->where('domain', $domain)
+                    ->whereNull('site_id')
+                    ->update(['site_id' => $site->id]);
+
                 $created++;
                 $createdDomains[] = $domain;
             }
