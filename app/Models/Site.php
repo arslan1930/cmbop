@@ -59,7 +59,13 @@ class Site extends Model
         'custom_discount_starts_at',
         'custom_discount_ends_at',
         'custom_discount_notified_at',
+        'bulk_site_request_id',
+        'onboarding_status',
     ];
+
+    public const ONBOARDING_AWAITING_DETAILS = 'awaiting_details';
+
+    public const ONBOARDING_READY_FOR_REVIEW = 'ready_for_review';
 
     protected $casts = [
         'verified' => 'boolean',
@@ -106,6 +112,22 @@ class Site extends Model
     public function ratings()
     {
         return $this->hasMany(SiteRating::class);
+    }
+
+    public function bulkSiteRequest()
+    {
+        return $this->belongsTo(BulkSiteRequest::class);
+    }
+
+    public function awaitsPublisherDetails(): bool
+    {
+        return $this->onboarding_status === self::ONBOARDING_AWAITING_DETAILS;
+    }
+
+    public function isReadyForAdminReview(): bool
+    {
+        return $this->onboarding_status === null
+            || $this->onboarding_status === self::ONBOARDING_READY_FOR_REVIEW;
     }
 
     public function approvedRatings()

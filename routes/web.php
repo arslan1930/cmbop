@@ -6,12 +6,13 @@ use App\Http\Controllers\Admin\AdminWithdrawalController;
 use App\Http\Controllers\Admin\AnnouncementController as AdminAnnouncementController;
 use App\Http\Controllers\Admin\AudienceController as AdminAudienceController;
 use App\Http\Controllers\Admin\BlogController as AdminBlogController;
+use App\Http\Controllers\Admin\BulkSiteRequestController as AdminBulkSiteRequestController;
 use App\Http\Controllers\Admin\CampaignController as AdminCampaignController;
 use App\Http\Controllers\Admin\CommunityFeedbackController;
 use App\Http\Controllers\Admin\ContentModerationController as AdminContentModerationController;
 use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
-use App\Http\Controllers\Admin\DepositController as AdminDepositController;
 // Publisher and Advertiser controllers
+use App\Http\Controllers\Admin\DepositController as AdminDepositController;
 use App\Http\Controllers\Admin\EmailCenterController as AdminEmailCenterController;
 use App\Http\Controllers\Admin\InvoiceController as AdminInvoiceController;
 use App\Http\Controllers\Admin\OrderController as AdminOrderController;
@@ -51,6 +52,7 @@ use App\Http\Controllers\NotificationPreferenceController;
 // BlogController for public blog pages
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\Publisher\BalanceController;
+use App\Http\Controllers\Publisher\BulkSiteRequestController as PublisherBulkSiteRequestController;
 use App\Http\Controllers\Publisher\DashboardController;
 use App\Http\Controllers\Publisher\OrderController;
 use App\Http\Controllers\Publisher\PublisherReportsController;
@@ -292,6 +294,20 @@ Route::middleware(['auth', 'verified', RoleMiddleware::class.':admin,marketing']
             ->name('sites.verify');
         Route::post('/sites/{id}/active', [AdminSiteController::class, 'toggleActive'])
             ->name('sites.active');
+
+        // Guided bulk onboarding (request → sheet/seed → publisher completes → approve)
+        Route::get('/bulk-site-requests', [AdminBulkSiteRequestController::class, 'index'])
+            ->name('bulk-site-requests.index');
+        Route::get('/bulk-site-requests/{id}', [AdminBulkSiteRequestController::class, 'show'])
+            ->name('bulk-site-requests.show');
+        Route::post('/bulk-site-requests/{id}/sheet-sent', [AdminBulkSiteRequestController::class, 'markSheetSent'])
+            ->name('bulk-site-requests.sheet-sent');
+        Route::post('/bulk-site-requests/{id}/notes', [AdminBulkSiteRequestController::class, 'updateNotes'])
+            ->name('bulk-site-requests.notes');
+        Route::post('/bulk-site-requests/{id}/seed', [AdminBulkSiteRequestController::class, 'seed'])
+            ->name('bulk-site-requests.seed');
+        Route::post('/bulk-site-requests/{id}/cancel', [AdminBulkSiteRequestController::class, 'cancel'])
+            ->name('bulk-site-requests.cancel');
 
         // Publisher catalog enrichment (metrics + screenshots)
         Route::get('/site-enrichment', [SiteEnrichmentController::class, 'index'])
@@ -774,9 +790,9 @@ Route::middleware(['auth', 'verified', RoleMiddleware::class.':publisher'])
         Route::get('/websites', [SiteController::class, 'index'])->name('websites');
         Route::post('/websites/store', [SiteController::class, 'store'])->name('sites.store');
         Route::get('/websites/ajax', [SiteController::class, 'ajax'])->name('sites.ajax');
-        Route::get('/websites/bulk-template', [SiteController::class, 'bulkTemplate'])->name('sites.bulk-template');
-        Route::post('/websites/bulk-store', [SiteController::class, 'bulkStore'])->name('sites.bulk-store');
-        Route::post('/websites/bulk-import', [SiteController::class, 'bulkImport'])->name('sites.bulk-import');
+        Route::post('/websites/bulk-request', [PublisherBulkSiteRequestController::class, 'store'])->name('bulk-sites.request');
+        Route::get('/websites/bulk-complete', [PublisherBulkSiteRequestController::class, 'completeIndex'])->name('bulk-sites.complete');
+        Route::post('/websites/bulk-complete/{id}', [PublisherBulkSiteRequestController::class, 'completeStore'])->name('bulk-sites.complete.store');
         Route::get('/sites', [SiteController::class, 'index'])->name('sites.index');
         Route::put('/sites/{id}', [SiteController::class, 'update'])->name('sites.update');
         Route::delete('/sites/{id}', [SiteController::class, 'destroy'])->name('sites.destroy');

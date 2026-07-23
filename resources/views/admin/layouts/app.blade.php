@@ -157,6 +157,9 @@
                 <span id="navBadgeSites" class="badge bg-warning text-dark rounded-pill ms-auto" style="display:none;">0</span>
             </span>
         </a>
+        <a href="{{ route('admin.bulk-site-requests.index') }}" class="{{ request()->routeIs('admin.bulk-site-requests.*') ? 'active' : '' }}">
+            <i class="fa fa-layer-group"></i> <span>Bulk requests</span>
+        </a>
         <a href="{{ route('admin.site-enrichment.index') }}" class="{{ request()->routeIs('admin.site-enrichment.*') ? 'active' : '' }}">
             <i class="fa fa-chart-line"></i> <span>Enrichment</span>
         </a>

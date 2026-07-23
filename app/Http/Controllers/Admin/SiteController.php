@@ -193,6 +193,13 @@ class SiteController extends Controller
     {
         $site = Site::findOrFail($id);
 
+        if ($site->awaitsPublisherDetails()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Publisher has not finished required details yet. Do not approve incomplete bulk drafts.',
+            ], 422);
+        }
+
         $oldStatus = (int) $site->verified;
         $site->verified = (int) $request->verified;
         $site->save();
@@ -242,6 +249,13 @@ class SiteController extends Controller
     public function toggleActive(Request $request, $id)
     {
         $site = Site::findOrFail($id);
+
+        if ($site->awaitsPublisherDetails()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Cannot activate: publisher still needs to complete site details.',
+            ], 422);
+        }
 
         $oldStatus = (int) $site->active;
         $site->active = (int) $request->active;
