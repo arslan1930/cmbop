@@ -89,6 +89,7 @@ class ContentLibraryUrlModerationFilterTest extends TestCase
         $approvedPage->assertOk()->assertSee('Approved Piece');
         $approvedHtml = $approvedPage->getContent();
         $this->assertStringContainsString('name="status" value="approved"', $approvedHtml);
+        $this->assertStringContainsString('name="availability" value="available"', $approvedHtml);
         $this->assertMatchesRegularExpression(
             '/library-status-box--approved[^>]*is-active/i',
             $approvedHtml

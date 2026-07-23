@@ -1,7 +1,7 @@
 <div id="sitesStatusMeta"
      data-pending="{{ (int) ($pendingCount ?? 0) }}"
      data-active="{{ (int) ($activeCount ?? 0) }}"
-     data-status="{{ $status ?? 'pending' }}"
+     data-status="{{ $status ?? 'active' }}"
      class="d-none"
      aria-hidden="true"></div>
 @if($sites->count() > 0)
@@ -13,7 +13,7 @@
         text-align: left;
         margin-bottom: 0;
         background: #fff;
-        min-width: 920px;
+        min-width: 980px;
     }
 
     .modern-table th, .modern-table td {
@@ -55,9 +55,9 @@
     }
 
     .site-row-preview {
-        width: 72px;
-        height: 48px;
-        border-radius: 8px;
+        width: 120px;
+        height: 80px;
+        border-radius: 10px;
         overflow: hidden;
         border: 1px solid #e2e8f0;
         background: linear-gradient(145deg, #f8fafb 0%, #eef2f5 100%);
@@ -82,7 +82,7 @@
 
     .site-row-preview.is-empty {
         color: #94a3b8;
-        font-size: 15px;
+        font-size: 18px;
     }
 
     .site-row-identity {
@@ -282,6 +282,36 @@
         font-weight: 650;
     }
 
+    /* Readable status chips (avoid Bootstrap bg-info white-on-white) */
+    .site-status {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        font-size: 11px;
+        font-weight: 650;
+        letter-spacing: .01em;
+        border-radius: 999px;
+        padding: 4px 10px;
+        border: 1px solid transparent;
+        line-height: 1.2;
+        white-space: nowrap;
+    }
+    .site-status--verified {
+        background: #ecfdf5;
+        color: #065f46;
+        border-color: #a7f3d0;
+    }
+    .site-status--active {
+        background: #e6f5f5;
+        color: #123f42;
+        border-color: #b8e4e4;
+    }
+    .site-status--pending {
+        background: #f1f5f9;
+        color: #475569;
+        border-color: #e2e8f0;
+    }
+
     .site-row-price {
         font-weight: 700;
         color: #185054;
@@ -293,6 +323,35 @@
         gap: 4px;
         margin-left: 4px;
         vertical-align: middle;
+    }
+</style>
+
+{{-- YouTube-like dark tooltips for this table --}}
+<style>
+    .tooltip.yt-tooltip .tooltip-inner {
+        background-color: #0f0f0f;
+        color: #fff;
+        border-radius: 8px;
+        padding: 8px 12px;
+        font-size: 12px;
+        font-weight: 500;
+        max-width: 220px;
+    }
+    .tooltip.yt-tooltip.bs-tooltip-top .tooltip-arrow::before,
+    .tooltip.yt-tooltip.bs-tooltip-auto[data-popper-placement^=top] .tooltip-arrow::before {
+        border-top-color: #0f0f0f;
+    }
+    .tooltip.yt-tooltip.bs-tooltip-bottom .tooltip-arrow::before,
+    .tooltip.yt-tooltip.bs-tooltip-auto[data-popper-placement^=bottom] .tooltip-arrow::before {
+        border-bottom-color: #0f0f0f;
+    }
+    .tooltip.yt-tooltip.bs-tooltip-start .tooltip-arrow::before,
+    .tooltip.yt-tooltip.bs-tooltip-auto[data-popper-placement^=left] .tooltip-arrow::before {
+        border-left-color: #0f0f0f;
+    }
+    .tooltip.yt-tooltip.bs-tooltip-end .tooltip-arrow::before,
+    .tooltip.yt-tooltip.bs-tooltip-auto[data-popper-placement^=right] .tooltip-arrow::before {
+        border-right-color: #0f0f0f;
     }
 </style>
 
@@ -359,7 +418,7 @@
 <table class="table modern-table sites-responsive-table align-middle mb-0">
     <thead>
         <tr>
-            <th style="width:72px;">Preview</th>
+            <th style="width:132px;">Preview</th>
             <th>Site</th>
             <th>Metrics</th>
             <th>Market</th>
@@ -388,7 +447,8 @@
             <td data-label="Preview">
                 @if($previewUrl)
                     <a href="{{ $fullPreviewUrl ?: $previewUrl }}" target="_blank" rel="noopener noreferrer"
-                       class="site-row-preview" title="Open screenshot"
+                       class="site-row-preview"
+                       data-bs-toggle="tooltip" data-bs-custom-class="yt-tooltip" data-bs-title="Preview"
                        onclick="event.stopPropagation();">
                         <img src="{{ $previewUrl }}"
                              alt="{{ $site->site_name }} preview"
@@ -396,7 +456,9 @@
                              onerror="this.onerror=null; this.parentElement.classList.add('is-empty'); this.parentElement.innerHTML='<i class=\'fa fa-image\' aria-hidden=\'true\'></i>';">
                     </a>
                 @else
-                    <span class="site-row-preview is-empty" title="No screenshot yet" aria-label="No screenshot">
+                    <span class="site-row-preview is-empty"
+                          data-bs-toggle="tooltip" data-bs-custom-class="yt-tooltip" data-bs-title="No preview"
+                          aria-label="No preview">
                         <i class="fa fa-image" aria-hidden="true"></i>
                     </span>
                 @endif
@@ -433,16 +495,19 @@
 
             <td data-label="Status">
                 @if($site->verified)
-                    <span class="badge bg-success status-badge" data-bs-toggle="tooltip" title="Site is verified and active">
-                        <i class="fa-solid fa-circle-check me-1" aria-hidden="true"></i>Verified
+                    <span class="site-status site-status--verified"
+                          data-bs-toggle="tooltip" data-bs-custom-class="yt-tooltip" data-bs-title="Verified">
+                        <i class="fa-solid fa-circle-check" aria-hidden="true"></i>Verified
                     </span>
                 @elseif($site->active)
-                    <span class="badge bg-info status-badge" data-bs-toggle="tooltip" title="Site is active but not verified">
-                        <i class="fa-solid fa-circle-play me-1" aria-hidden="true"></i>Active
+                    <span class="site-status site-status--active"
+                          data-bs-toggle="tooltip" data-bs-custom-class="yt-tooltip" data-bs-title="Active">
+                        <i class="fa-solid fa-circle-play" aria-hidden="true"></i>Active
                     </span>
                 @else
-                    <span class="badge bg-secondary status-badge" data-bs-toggle="tooltip" title="Site is pending review">
-                        <i class="fa-regular fa-clock me-1" aria-hidden="true"></i>Pending
+                    <span class="site-status site-status--pending"
+                          data-bs-toggle="tooltip" data-bs-custom-class="yt-tooltip" data-bs-title="Pending">
+                        <i class="fa-regular fa-clock" aria-hidden="true"></i>Pending
                     </span>
                 @endif
             </td>
@@ -451,20 +516,25 @@
                 <span class="site-row-price">€{{ number_format((float) $site->price, 2) }}</span>
                 <span class="site-row-price-meta">
                     @if($site->isFeatured())
-                        <span class="badge bg-warning text-dark" title="Featured">★</span>
+                        <span class="badge bg-warning text-dark"
+                              data-bs-toggle="tooltip" data-bs-custom-class="yt-tooltip" data-bs-title="Featured">★</span>
                     @endif
                     @if($site->hasActiveCustomDiscount())
-                        <span class="badge bg-danger" title="Discount">−{{ rtrim(rtrim(number_format((float)$site->custom_discount_percent,1),'0'),'.') }}%</span>
+                        <span class="badge bg-danger"
+                              data-bs-toggle="tooltip" data-bs-custom-class="yt-tooltip" data-bs-title="Discount">−{{ rtrim(rtrim(number_format((float)$site->custom_discount_percent,1),'0'),'.') }}%</span>
                     @endif
                     @if($site->joinsBulkDiscount())
-                        <span class="badge bg-success" title="Bulk discount">Bulk</span>
+                        <span class="badge bg-success"
+                              data-bs-toggle="tooltip" data-bs-custom-class="yt-tooltip" data-bs-title="Bulk">Bulk</span>
                     @endif
                 </span>
             </td>
 
             <td data-label="Actions" class="text-end">
                 <div class="site-row-actions">
-                <button type="button" class="btn-icon-quiet action-view" data-id="{{ $site->id }}" aria-label="View {{ $site->site_name }}" title="View details">
+                <button type="button" class="btn-icon-quiet action-view" data-id="{{ $site->id }}"
+                        aria-label="View"
+                        data-bs-toggle="tooltip" data-bs-custom-class="yt-tooltip" data-bs-title="View">
                     <i class="fa fa-eye" aria-hidden="true"></i>
                 </button>
 
@@ -476,7 +546,9 @@
                         'categories', 'category', 'description',
                     ]);
                 @endphp
-                <button type="button" class="btn btn-sm btn-primary btn-edit" data-site='@json($editPayload)' aria-label="Edit {{ $site->site_name }}" title="Edit">
+                <button type="button" class="btn btn-sm btn-primary btn-edit" data-site='@json($editPayload)'
+                        aria-label="Edit"
+                        data-bs-toggle="tooltip" data-bs-custom-class="yt-tooltip" data-bs-title="Edit">
                     Edit
                 </button>
 
@@ -484,8 +556,9 @@
                 <button type="button" class="btn-icon-quiet btn-feature-site {{ $site->isFeatured() ? 'is-on' : '' }}"
                         data-id="{{ $site->id }}"
                         data-name="{{ $site->site_name }}"
-                        title="{{ $site->isFeatured() ? 'Featured' : 'Feature this site for 7 days (€10)' }}"
-                        aria-label="Feature {{ $site->site_name }}">
+                        aria-label="{{ $site->isFeatured() ? 'Featured' : 'Feature' }}"
+                        data-bs-toggle="tooltip" data-bs-custom-class="yt-tooltip"
+                        data-bs-title="{{ $site->isFeatured() ? 'Featured' : 'Feature' }}">
                     <i class="fa fa-bolt" aria-hidden="true"></i>
                 </button>
                 <button type="button" class="btn-icon-quiet btn-discount-site {{ $site->hasActiveCustomDiscount() ? 'is-on' : '' }}"
@@ -493,27 +566,31 @@
                         data-name="{{ $site->site_name }}"
                         data-percent="{{ $site->custom_discount_percent }}"
                         data-ends="{{ optional($site->custom_discount_ends_at)?->toIso8601String() }}"
-                        title="{{ $site->hasActiveCustomDiscount() ? 'Discount active' : 'Set a timed discount' }}"
-                        aria-label="Discount {{ $site->site_name }}">
+                        aria-label="{{ $site->hasActiveCustomDiscount() ? 'Timed discount active' : 'Set timed discount' }}"
+                        data-bs-toggle="tooltip" data-bs-custom-class="yt-tooltip"
+                        data-bs-title="{{ $site->hasActiveCustomDiscount() ? 'Timed discount active' : 'Set timed discount' }}">
                     <i class="fa fa-percent" aria-hidden="true"></i>
                 </button>
                 @if($site->hasActiveCustomDiscount())
                 <button type="button" class="btn-text-quiet is-danger btn-discount-clear"
                         data-id="{{ $site->id }}"
-                        title="End discount now">
+                        data-bs-toggle="tooltip" data-bs-custom-class="yt-tooltip" data-bs-title="Clear discount">
                     Clear
                 </button>
                 @endif
                 @if($site->joinsBulkDiscount())
                 <button type="button" class="btn-icon-quiet is-on btn-bulk-leave"
-                        data-id="{{ $site->id }}" title="Leave bulk program" aria-label="Leave bulk program">
+                        data-id="{{ $site->id }}"
+                        aria-label="Leave bulk"
+                        data-bs-toggle="tooltip" data-bs-custom-class="yt-tooltip" data-bs-title="Leave bulk">
                     <i class="fa fa-layer-group" aria-hidden="true"></i>
                 </button>
                 @else
                 <button type="button" class="btn-icon-quiet btn-bulk-join"
                         data-id="{{ $site->id }}"
                         data-name="{{ $site->site_name }}"
-                        title="Join bulk discount" aria-label="Join bulk discount">
+                        aria-label="Bulk"
+                        data-bs-toggle="tooltip" data-bs-custom-class="yt-tooltip" data-bs-title="Bulk">
                     <i class="fa fa-layer-group" aria-hidden="true"></i>
                 </button>
                 @endif
@@ -523,7 +600,9 @@
                 <form action="{{ route('publisher.sites.destroy', $site->id) }}" method="POST" class="d-inline delete-form">
                     @csrf
                     @method('DELETE')
-                    <button type="button" class="btn-icon-quiet btn-delete" aria-label="Delete {{ $site->site_name }}" title="Delete">
+                    <button type="button" class="btn-icon-quiet btn-delete"
+                            aria-label="Delete"
+                            data-bs-toggle="tooltip" data-bs-custom-class="yt-tooltip" data-bs-title="Delete">
                         <i class="fa fa-trash" aria-hidden="true"></i>
                     </button>
                 </form>
@@ -535,17 +614,6 @@
         <tr class="expand-row" id="expand-{{ $site->id }}">
             <td colspan="7">
                 <div class="expand-box">
-                    @if($fullPreviewUrl)
-                        <div class="detail-line mb-3">
-                            <strong>Screenshot:</strong>
-                            <div class="mt-2">
-                                <img src="{{ $fullPreviewUrl }}" alt="{{ $site->site_name }} screenshot"
-                                     style="max-width:min(420px,100%);border-radius:10px;border:1px solid #e2e8f0;"
-                                     loading="lazy">
-                            </div>
-                        </div>
-                    @endif
-
                     <div class="detail-line">
                         <strong>Example URL:</strong>
                         <a href="{{ $site->example_url }}" target="_blank" rel="noopener noreferrer">{{ $site->example_url }}</a>
@@ -616,7 +684,7 @@
 
 @else
 <div class="alert alert-light border text-center mb-0">
-    @if(($status ?? 'pending') === 'active')
+    @if(($status ?? 'active') === 'active')
         <i class="fa fa-circle-check me-2 text-success"></i> No active sites yet. Approved sites will show here.
     @else
         <i class="fa fa-clock me-2 text-muted"></i> No pending sites waiting for admin approval.

@@ -72,6 +72,13 @@ class PublisherMySitesPageTest extends TestCase
         $this->assertStringContainsString("$(document).on('click', '.btn-delete'", $html);
         $this->assertStringContainsString('sitesFilterPending', $html);
         $this->assertStringContainsString('sitesFilterActive', $html);
+        $this->assertTrue(
+            strpos($html, 'id="sitesFilterActive"') < strpos($html, 'id="sitesFilterPending"'),
+            'Active filter should appear before Pending'
+        );
+        $this->assertStringContainsString('Approved / live', $html);
+        $this->assertStringContainsString('Awaiting approval', $html);
+        $this->assertStringContainsString("let sitesStatusFilter = 'active'", $html);
         $this->assertStringContainsString('sitesStatusFilter', $html);
         $this->assertSame(1, substr_count($html, 'const claimCard'));
 
@@ -92,8 +99,12 @@ class PublisherMySitesPageTest extends TestCase
         $this->assertStringContainsString('site-row-metrics', $ajaxHtml);
         $this->assertStringContainsString('btn-icon-quiet', $ajaxHtml);
         $this->assertStringContainsString('btn-edit', $ajaxHtml);
+        $this->assertStringContainsString('site-status', $ajaxHtml);
+        $this->assertStringContainsString('yt-tooltip', $ajaxHtml);
+        $this->assertStringNotContainsString('<strong>Screenshot:</strong>', $ajaxHtml);
         $this->assertStringNotContainsString('btn-warning', $ajaxHtml);
         $this->assertStringNotContainsString('btn-outline-success', $ajaxHtml);
+        $this->assertStringNotContainsString('badge bg-info status-badge', $ajaxHtml);
     }
 
     public function test_ajax_row_shows_screenshot_preview_when_present(): void

@@ -1,7 +1,7 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 48" role="img" aria-label="Bank transfer">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 48" role="img" aria-label="Bank transfer" fill="none">
   <title>Bank</title>
-  <rect width="120" height="48" rx="6" fill="#185054"/>
-  <g fill="#ffffff">
+  <!-- Transparent mark in brand primary (#185054) for light site surfaces -->
+  <g fill="#185054">
     <!-- Classical bank pediment -->
     <path d="M18 16 L30 9 L42 16 Z"/>
     <rect x="19" y="16" width="22" height="2.5"/>

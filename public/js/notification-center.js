@@ -271,6 +271,7 @@
     this.loading = true;
     if (!append) this.renderSkeleton();
 
+    const indexUrl = this.config.indexUrl || '/notifications';
     const params = new URLSearchParams({
       page: '1',
       per_page: String(this.limit),
@@ -279,28 +280,44 @@
       q: this.query || ''
     });
 
-    fetch(this.config.indexUrl + '?' + params.toString(), {
-      headers: { Accept: 'application/json' },
+    fetch(indexUrl + (indexUrl.indexOf('?') === -1 ? '?' : '&') + params.toString(), {
+      headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
       credentials: 'same-origin'
     })
       .then(function (r) {
-        const type = (r.headers.get('content-type') || '');
-        if (!r.ok || type.indexOf('application/json') === -1) {
-          throw new Error('notifications_http_' + r.status);
-        }
-        return r.json();
+        return r.text().then(function (text) {
+          let data = null;
+          try {
+            data = text ? JSON.parse(text) : null;
+          } catch (e) {
+            data = null;
+          }
+          if (!r.ok || !data) {
+            throw new Error('notifications_http_' + r.status);
+          }
+          return data;
+        });
       })
       .then(function (data) {
         self.loading = false;
         if (!data.success) {
-          self.list.innerHTML = '<div class="nc-empty">Could not load notifications.</div>';
+          self.list.innerHTML = '<div class="nc-empty">Could not load notifications. <button type="button" class="nc-link-btn" data-nc-retry>Retry</button></div>';
+          const retryFail = self.list.querySelector('[data-nc-retry]');
+          if (retryFail) retryFail.addEventListener('click', function () { self.reload(); });
           return;
         }
         const batch = data.notifications || [];
         self.items = batch.slice(0, self.limit);
         self.hasMore = !!(data.pagination && (data.pagination.has_more || data.pagination.total > self.limit));
-        self.setUnread(data.unread_count || 0);
-        self.renderList();
+        try {
+          self.setUnread(data.unread_count || 0);
+          self.renderList();
+        } catch (err) {
+          self.list.innerHTML = '<div class="nc-empty">Could not load notifications. <button type="button" class="nc-link-btn" data-nc-retry>Retry</button></div>';
+          const retryRender = self.list.querySelector('[data-nc-retry]');
+          if (retryRender) retryRender.addEventListener('click', function () { self.reload(); });
+          return;
+        }
         if (self.footer) self.footer.style.display = 'block';
         if (self.showAllLink) {
           self.showAllLink.style.display = (data.pagination && data.pagination.total > 0) ? 'inline-flex' : 'none';
@@ -308,6 +325,7 @@
       })
       .catch(function () {
         self.loading = false;
+        if (!self.list) return;
         self.list.innerHTML = '<div class="nc-empty">Could not load notifications. <button type="button" class="nc-link-btn" data-nc-retry>Retry</button></div>';
         const retry = self.list.querySelector('[data-nc-retry]');
         if (retry) retry.addEventListener('click', function () { self.reload(); });
@@ -512,7 +530,13 @@
     }).join('') + '</div>';
   };
 
-  document.addEventListener('DOMContentLoaded', function () {
+  function bootNotificationCenter() {
     window.initNotificationCenter();
-  });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', bootNotificationCenter);
+  } else {
+    bootNotificationCenter();
+  }
 })(window, document);

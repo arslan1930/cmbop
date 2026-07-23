@@ -303,9 +303,9 @@ class SiteController extends Controller
     {
         try {
             $query = $request->get('query');
-            $status = strtolower((string) $request->get('status', 'pending'));
+            $status = strtolower((string) $request->get('status', 'active'));
             if (! in_array($status, ['pending', 'active'], true)) {
-                $status = 'pending';
+                $status = 'active';
             }
 
             $base = Site::where('publisher_id', auth()->id());

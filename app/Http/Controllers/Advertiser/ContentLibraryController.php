@@ -46,12 +46,18 @@ class ContentLibraryController extends Controller
             $availability = 'published';
         }
 
+        // Approved chip = available for publication only (exclude in-progress + completed).
+        if ($status === 'approved' && $availability === 'all') {
+            $availability = 'available';
+        }
+
         $query = ContentSubmission::query()
             ->with(['orderItem.site', 'orderItems.site'])
             ->where('user_id', auth()->id())
             ->latest('id');
 
-        if ($status && $status !== 'all') {
+        // Available-for-publication already constrains moderation_status = approved.
+        if ($status && $status !== 'all' && $availability !== 'available') {
             $query->where('moderation_status', $status);
         }
 

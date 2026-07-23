@@ -563,7 +563,7 @@
 
         #sitesTableWrapper .sites-responsive-table tr.main-row td[data-label="Preview"] .site-row-preview {
             width: 100%;
-            height: 96px;
+            height: 140px;
             border-radius: 10px;
         }
 
@@ -677,9 +677,33 @@
     .live-bulk-table .live-bulk-remove {
         padding: 0.15rem 0.4rem;
     }
+    .site-status-filter {
+        display: inline-flex !important;
+        flex-direction: column;
+        align-items: flex-start;
+        text-align: left;
+        line-height: 1.2;
+        padding: 0.4rem 0.9rem !important;
+    }
     .site-status-filter.is-active,
     .site-status-filter.btn-primary {
         box-shadow: none;
+    }
+    .site-status-filter .filter-denote {
+        display: block;
+        font-size: 10px;
+        font-weight: 500;
+        opacity: .75;
+        line-height: 1.2;
+        margin-top: 1px;
+    }
+    .site-status-filter.is-active .filter-denote {
+        opacity: .9;
+    }
+    .site-status-filter .filter-main {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
     }
     #sitesFilterHint {
         min-height: 1.25rem;
@@ -1183,15 +1207,21 @@
         <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
             <h4 class="mb-0">Your Sites</h4>
             <div class="d-inline-flex flex-wrap gap-2" role="group" aria-label="Filter sites by status">
-                <button type="button" class="btn btn-sm site-status-filter is-active" data-status="pending" id="sitesFilterPending" aria-pressed="true">
-                    Pending <span class="badge text-bg-secondary ms-1" id="sitesPendingCount">0</span>
+                <button type="button" class="btn btn-sm site-status-filter is-active" data-status="active" id="sitesFilterActive" aria-pressed="true">
+                    <span class="filter-main">
+                        Active <span class="badge text-bg-secondary" id="sitesActiveCount">0</span>
+                    </span>
+                    <span class="filter-denote">Approved / live</span>
                 </button>
-                <button type="button" class="btn btn-sm site-status-filter" data-status="active" id="sitesFilterActive" aria-pressed="false">
-                    Active <span class="badge text-bg-secondary ms-1" id="sitesActiveCount">0</span>
+                <button type="button" class="btn btn-sm site-status-filter" data-status="pending" id="sitesFilterPending" aria-pressed="false">
+                    <span class="filter-main">
+                        Pending <span class="badge text-bg-secondary" id="sitesPendingCount">0</span>
+                    </span>
+                    <span class="filter-denote">Awaiting approval</span>
                 </button>
             </div>
         </div>
-        <p class="small text-muted mb-2" id="sitesFilterHint">Sites waiting for admin approval.</p>
+        <p class="small text-muted mb-2" id="sitesFilterHint">Approved and live sites on your panel.</p>
         <input type="text" id="siteSearch" class="form-control table-search" placeholder="Search sites...">
         <div id="sitesTableWrapper" class="mt-3"></div>
     </div>
@@ -2028,11 +2058,9 @@ $('#addSiteForm').submit(function(e){
 });
 
 // Fetch sites
-let sitesStatusFilter = 'pending';
+let sitesStatusFilter = 'active';
 
 function syncSitesFilterUi(pendingCount, activeCount, status) {
-    const pendingBtn = document.getElementById('sitesFilterPending');
-    const activeBtn = document.getElementById('sitesFilterActive');
     const pendingCountEl = document.getElementById('sitesPendingCount');
     const activeCountEl = document.getElementById('sitesActiveCount');
     const hint = document.getElementById('sitesFilterHint');
@@ -2049,7 +2077,7 @@ function syncSitesFilterUi(pendingCount, activeCount, status) {
 
     if (hint) {
         hint.textContent = status === 'active'
-            ? 'Sites already approved by admin.'
+            ? 'Approved and live sites on your panel.'
             : 'Sites waiting for admin approval.';
     }
 }
@@ -2059,7 +2087,11 @@ function initSitesTableTooltips(root) {
     (root || document).querySelectorAll('[data-bs-toggle="tooltip"]').forEach(function (el) {
         const existing = bootstrap.Tooltip.getInstance(el);
         if (existing) existing.dispose();
-        new bootstrap.Tooltip(el);
+        new bootstrap.Tooltip(el, {
+            customClass: 'yt-tooltip',
+            delay: { show: 200, hide: 0 },
+            container: 'body',
+        });
     });
 }
 
@@ -2133,7 +2165,7 @@ $(document).ready(function(){
     fetchSites();
 
     $(document).on('click', '.site-status-filter', function () {
-        const next = this.getAttribute('data-status') || 'pending';
+        const next = this.getAttribute('data-status') || 'active';
         if (next === sitesStatusFilter) return;
         sitesStatusFilter = next;
         syncSitesFilterUi(
@@ -2483,9 +2515,14 @@ $(document).on('click', '.btn-discount-site', async function () {
     const current = $(this).data('percent');
     const { value: form } = await Swal.fire({
         title: 'Set timed discount',
-        html: `<p class="small text-muted">Discount for <strong>${name}</strong>. Ends automatically; you’ll get an email when it ends.</p>
-               <input id="swal-pct" type="number" min="1" max="70" class="swal2-input" placeholder="Percent (1–70)" value="${current || 15}">
-               <input id="swal-days" type="number" min="1" max="90" class="swal2-input" placeholder="Days active" value="7">`,
+        html: `<p class="mb-2" style="font-size:14px;color:#334155;line-height:1.45;">
+                   Lower the price of <strong>${name}</strong> for a limited time so advertisers see a clear sale in the catalog.
+               </p>
+               <p class="small text-muted mb-2">Ends automatically after the days you choose. You’ll get an email when it ends.</p>
+               <label for="swal-pct" class="small fw-semibold d-block text-start ms-3 mb-0">Discount percent (1–70)</label>
+               <input id="swal-pct" type="number" min="1" max="70" class="swal2-input" placeholder="e.g. 15" value="${current || 15}" aria-label="Discount percent">
+               <label for="swal-days" class="small fw-semibold d-block text-start ms-3 mb-0 mt-2">Days active (1–90)</label>
+               <input id="swal-days" type="number" min="1" max="90" class="swal2-input" placeholder="e.g. 7" value="7" aria-label="Days active">`,
         showCancelButton: true,
         confirmButtonText: 'Publish discount',
         confirmButtonColor: '#185054',
