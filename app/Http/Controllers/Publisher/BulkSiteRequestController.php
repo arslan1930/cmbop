@@ -194,6 +194,7 @@ class BulkSiteRequestController extends Controller
             $site->bulkSiteRequest?->refreshProgressStatus();
         }
 
+        // Notify for each site as it is submitted (publishers often finish one now, others later).
         try {
             app(InAppNotificationService::class)->notifyAdminsNewSite($site, 'create');
         } catch (\Throwable $e) {

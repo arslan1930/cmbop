@@ -1102,6 +1102,7 @@ class InAppNotificationService
                 'meta' => [
                     'site_id' => $site->id,
                     'action' => $isUpdate ? 'update' : 'create',
+                    'bulk_site_request_id' => $site->bulk_site_request_id,
                 ],
             ]
         );

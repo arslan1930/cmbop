@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\BulkSiteRequest;
 use App\Models\Category;
 use App\Models\Country;
+use App\Models\InAppNotification;
 use App\Models\Language;
 use App\Models\Role;
 use App\Models\Site;
@@ -221,5 +222,92 @@ class BulkSiteGuidedWorkflowTest extends TestCase
         $this->assertFalse((bool) $site->active);
         $this->assertContains($category->name, $site->categories ?? []);
         $this->assertSame(BulkSiteRequest::STATUS_COMPLETED, $bulk->fresh()->status);
+    }
+
+    public function test_admin_gets_bell_for_each_bulk_site_as_it_is_submitted(): void
+    {
+        $category = Category::query()->where('name', 'Business & Finance')->first()
+            ?? Category::query()->firstOrFail();
+
+        $bulk = BulkSiteRequest::create([
+            'publisher_id' => $this->publisher->id,
+            'status' => BulkSiteRequest::STATUS_AWAITING_PUBLISHER,
+            'estimated_count' => 2,
+            'seeded_at' => now(),
+        ]);
+
+        $first = $this->makeAwaitingBulkSite($bulk, 'https://bulk-one.example', 'Bulk One');
+        $second = $this->makeAwaitingBulkSite($bulk, 'https://bulk-two.example', 'Bulk Two');
+
+        $payload = [
+            'exampleUrl' => 'https://bulk-one.example/guest-post',
+            'categories' => [$category->name],
+            'turnaround_time' => '48h',
+            'publicationTime' => '1year',
+            'link_type' => 'nofollow',
+            'site_tag' => 'as_you_prefer',
+            'siteDescription' => str_repeat('Quality editorial site for guest posts. ', 4),
+        ];
+
+        $this->actingAs($this->publisher)
+            ->post(route('publisher.bulk-sites.complete.store', $first->id), $payload)
+            ->assertRedirect(route('publisher.bulk-sites.complete'));
+
+        $this->assertSame(BulkSiteRequest::STATUS_AWAITING_PUBLISHER, $bulk->fresh()->status);
+
+        $afterFirst = InAppNotification::where('user_id', $this->admin->id)
+            ->where('audience', InAppNotification::AUDIENCE_ADMIN)
+            ->get();
+        $this->assertCount(1, $afterFirst);
+        $this->assertStringContainsString('Bulk One', (string) $afterFirst->first()->message);
+        $this->assertSame(Site::class, $afterFirst->first()->related_type);
+        $this->assertSame($first->id, (int) $afterFirst->first()->related_id);
+
+        $this->actingAs($this->publisher)
+            ->post(route('publisher.bulk-sites.complete.store', $second->id), array_merge($payload, [
+                'exampleUrl' => 'https://bulk-two.example/guest-post',
+            ]))
+            ->assertRedirect(route('publisher.bulk-sites.complete'));
+
+        $this->assertSame(BulkSiteRequest::STATUS_COMPLETED, $bulk->fresh()->status);
+
+        $adminNotes = InAppNotification::where('user_id', $this->admin->id)
+            ->where('audience', InAppNotification::AUDIENCE_ADMIN)
+            ->orderBy('id')
+            ->get();
+
+        $this->assertCount(2, $adminNotes);
+        $this->assertStringContainsString('Bulk Two', (string) $adminNotes->last()->message);
+        $this->assertSame($second->id, (int) $adminNotes->last()->related_id);
+        $this->assertStringContainsString('/admin/sites', (string) $adminNotes->last()->action_url);
+    }
+
+    private function makeAwaitingBulkSite(BulkSiteRequest $bulk, string $url, string $name): Site
+    {
+        $site = Site::create([
+            'publisher_id' => $this->publisher->id,
+            'site_name' => $name,
+            'site_url' => $url,
+            'domain' => parse_url($url, PHP_URL_HOST),
+            'example_url' => $url,
+            'da' => 20,
+            'dr' => 25,
+            'traffic' => 5000,
+            'country' => 'de',
+            'language' => 'de',
+            'category' => 'Pending',
+            'price' => 80,
+            'turnaround_time' => '3days',
+            'publication_time' => 'permanent',
+            'link_type' => 'dofollow',
+            'description' => 'Please replace this placeholder with a real site description (at least 50 characters) before submitting for review.',
+            'verified' => false,
+            'active' => false,
+            'onboarding_status' => Site::ONBOARDING_AWAITING_DETAILS,
+            'as_you_prefer' => true,
+            'bulk_site_request_id' => $bulk->id,
+        ]);
+
+        return $site;
     }
 }
