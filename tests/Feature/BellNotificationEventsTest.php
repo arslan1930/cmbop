@@ -536,10 +536,26 @@ class BellNotificationEventsTest extends TestCase
             ->assertOk()
             ->assertSee('data-notification-center', false)
             ->assertSee('notification-center.js', false)
+            // Served from /assets/js — production Hostinger already maps /assets/* but 404s /js/*
+            ->assertSee('assets/js/notification-center.js', false)
             // Relative paths — absolute APP_URL mismatches break same-origin fetch.
             ->assertSee('data-index-url="/notifications"', false)
             ->assertSee('data-unread-url="/notifications/unread-count"', false)
             ->assertDontSee('data-index-url="http://', false);
+    }
+
+    public function test_notification_center_assets_are_web_reachable(): void
+    {
+        $this->assertFileExists(public_path('assets/js/notification-center.js'));
+        $this->assertFileExists(public_path('assets/css/notification-center.css'));
+        $this->assertStringContainsString(
+            'sameOriginUrl',
+            (string) file_get_contents(public_path('assets/js/notification-center.js'))
+        );
+
+        // Legacy /js path is routed through Laravel (Hostinger 404s bare /js/*).
+        $this->get('/js/notification-center.js')->assertOk();
+        $this->get('/css/notification-center.css')->assertOk();
     }
 
     public function test_admin_deposit_submitted_bell_and_deep_link(): void

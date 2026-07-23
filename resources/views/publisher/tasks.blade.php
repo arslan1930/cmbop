@@ -416,9 +416,9 @@ td a {
 }
 </style>
 
-<script src="{{ asset('js/jquery-3.6.0.min.js') }}?v={{ @filemtime(public_path('js/jquery-3.6.0.min.js')) ?: '1' }}"></script>
+<script src="{{ asset('assets/js/jquery-3.6.0.min.js') }}?v={{ @filemtime(public_path('assets/js/jquery-3.6.0.min.js')) ?: '1' }}"></script>
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-<script src="{{ asset('js/article-preview-tools.js') }}?v={{ @filemtime(public_path('js/article-preview-tools.js')) ?: '1' }}"></script>
+<script src="{{ asset('assets/js/article-preview-tools.js') }}?v={{ @filemtime(public_path('assets/js/article-preview-tools.js')) ?: '1' }}"></script>
 
 <script>
 let currentPage = 1;
@@ -589,7 +589,7 @@ $(document).ready(function() {
                 : '';
             const itemId = details.order_item_id || '';
             const currentUrl = details.live_url
-                ? '<div class="small mt-1 text-muted">Current URL: <a href="' + escapeHtml(details.live_url) + '" target="_blank" rel="noopener noreferrer">' + escapeHtml(details.live_url) + '</a></div>'
+                ? '<div class="small mt-1 text-muted">Current URL: <a href="' + escapeHtml(details.live_url) + '" target="_blank" rel="noopener noreferrer" class="live-url">' + escapeHtml(details.live_url) + '</a></div>'
                 : '';
             revisionBlock = '<div class="chat-resubmit-panel mt-2">'
                 + '<div class="chat-resubmit-panel__title"><i class="fa fa-exclamation-circle me-1" aria-hidden="true"></i>Changes requested</div>'
@@ -931,7 +931,7 @@ $(document).ready(function() {
             var chatBtn = '<button class="btn btn-primary btn-action-sm" onclick="openChat(' + item.order_id + ', \'' + orderNumber + '\')"><i class="fa fa-comments"></i> Chat' + unreadBadge + '</button>';
             var viewBtn = '<button class="btn btn-outline-secondary btn-action-sm view-details" data-id="' + item.id + '"><i class="fa fa-eye"></i> View</button>';
             var liveBtn = hasLiveUrl
-                ? '<a href="' + escapeHtml(item.live_url) + '" target="_blank" class="btn btn-secondary btn-action-sm"><i class="fa fa-external-link"></i> Live</a>'
+                ? '<a href="' + escapeHtml(item.live_url) + '" target="_blank" class="btn btn-live-url btn-action-sm"><i class="fa fa-external-link"></i> Live</a>'
                 : '';
 
             var actions = '';
@@ -1037,7 +1037,7 @@ $(document).ready(function() {
         }
         
         var liveUrlHtml = item.live_url 
-            ? '<p class="mb-1"><strong>Live URL:</strong></p><p class="mb-2"><a href="' + escapeHtml(item.live_url) + '" target="_blank" class="text-success">' + escapeHtml(item.live_url) + ' <i class="fa fa-external-link fa-xs"></i></a></p>'
+            ? '<p class="mb-1"><strong>Live URL:</strong></p><p class="mb-2"><a href="' + escapeHtml(item.live_url) + '" target="_blank" class="live-url">' + escapeHtml(item.live_url) + ' <i class="fa fa-external-link fa-xs"></i></a></p>'
             : '<p class="mb-2 text-muted">Live URL not submitted yet</p>';
         
         if (modificationRequested) {

@@ -189,7 +189,7 @@
 }
 </style>
 
-<script src="{{ asset('js/jquery-3.6.0.min.js') }}?v={{ @filemtime(public_path('js/jquery-3.6.0.min.js')) ?: '1' }}"></script>
+<script src="{{ asset('assets/js/jquery-3.6.0.min.js') }}?v={{ @filemtime(public_path('assets/js/jquery-3.6.0.min.js')) ?: '1' }}"></script>
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
 <script>

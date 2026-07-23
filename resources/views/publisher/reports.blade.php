@@ -435,7 +435,7 @@ function renderOrderDetailsModal(orderItem) {
     var totalPrice = parseFloat(orderItem.price);
     
     var liveUrlHtml = liveUrl 
-        ? '<p class="mb-1"><strong>Live URL:</strong></p><p class="mb-2"><a href="' + escapeHtml(liveUrl) + '" target="_blank" class="text-success">' + escapeHtml(liveUrl) + ' <i class="fa fa-external-link fa-xs"></i></a></p>'
+        ? '<p class="mb-1"><strong>Live URL:</strong></p><p class="mb-2"><a href="' + escapeHtml(liveUrl) + '" target="_blank" class="live-url">' + escapeHtml(liveUrl) + ' <i class="fa fa-external-link fa-xs"></i></a></p>'
         : '<p class="mb-2 text-muted">Live URL not submitted yet</p>';
     
     var html = '<div class="row mb-4">' +

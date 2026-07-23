@@ -246,8 +246,16 @@ class GuestPostWizardController extends Controller
         }
 
         foreach ($cart as $line) {
-            if ((int) ($line['content_submission_id'] ?? 0) <= 0) {
-                return false;
+            $qty = max(1, (int) ($line['quantity'] ?? 1));
+            $ids = is_array($line['content_submission_ids'] ?? null) ? $line['content_submission_ids'] : [];
+            for ($i = 0; $i < $qty; $i++) {
+                $id = (int) ($ids[$i] ?? 0);
+                if ($id <= 0 && $i === 0) {
+                    $id = (int) ($line['content_submission_id'] ?? 0);
+                }
+                if ($id <= 0) {
+                    return false;
+                }
             }
         }
 

@@ -1,0 +1,96 @@
+/**
+ * Spacing system (audit 3.6) — 8pt scale
+ * Use for tables, form groups, and dashboard panels.
+ */
+:root {
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 40px;
+  --space-8: 48px;
+
+  --table-cell-y: 16px;
+  --table-cell-x: 12px;
+  --table-head-y: 14px;
+  --form-field-gap: 12px;
+  --form-group-gap: 28px;
+  --form-group-internal: 12px;
+}
+
+/* W1 — Roomier data tables */
+.table.data-table thead th,
+table.data-table thead th {
+  padding: var(--table-head-y) var(--table-cell-x) !important;
+}
+
+.table.data-table tbody td,
+table.data-table tbody td {
+  padding: var(--table-cell-y) var(--table-cell-x) !important;
+}
+
+/* W2 — Form section hierarchy */
+.form-section {
+  margin-bottom: var(--form-group-gap);
+  padding-bottom: var(--space-5);
+  border-bottom: 1px solid #e6ebf1;
+}
+
+.form-section:last-child {
+  border-bottom: none;
+  margin-bottom: 0;
+  padding-bottom: 0;
+}
+
+.form-section-title {
+  display: block;
+  margin: 0 0 var(--form-group-internal);
+  font-size: 13px;
+  font-weight: 600;
+  color: #185054;
+  letter-spacing: 0.02em;
+}
+
+.form-section .row.g-form {
+  --bs-gutter-y: var(--form-field-gap);
+  --bs-gutter-x: var(--space-4);
+}
+
+.form-section .bg-light.rounded {
+  padding: var(--space-4) !important;
+}
+
+/* K2 — Plain dashboard panels (not every block is a card) */
+.dash-panel {
+  background: var(--surface-1, #fff);
+  border: 1px solid var(--border-subtle, #e2e8f0);
+  border-radius: var(--radius-lg, 12px);
+  padding: var(--space-5);
+  height: 100%;
+}
+
+.dash-panel--flush {
+  padding: var(--space-4) var(--space-5);
+}
+
+.dash-panel h5,
+.dash-panel h6 {
+  margin-bottom: var(--space-3);
+}
+
+/* Tighter secondary CTAs (W1 sparse marketing) */
+.publisher-secondary-cta.dash-panel,
+.dash-panel.publisher-secondary-cta {
+  padding: var(--space-4);
+}
+
+.publisher-secondary-cta .card-body,
+.publisher-secondary-cta.dash-panel {
+  padding: var(--space-4) !important;
+}
+
+.publisher-secondary-cta p.small {
+  margin-bottom: var(--space-3) !important;
+}

@@ -8,7 +8,7 @@
 @endphp
 
 @if($announcements->isNotEmpty())
-<link rel="stylesheet" href="{{ asset('css/promotions.css') }}">
+<link rel="stylesheet" href="{{ asset('assets/css/promotions.css') }}">
 <div class="site-announcements" data-audience="{{ $audience ?? 'auto' }}">
     @foreach($announcements as $item)
         <div class="site-announcement site-announcement--{{ $item->style }} site-announcement-type--{{ $item->type }}"

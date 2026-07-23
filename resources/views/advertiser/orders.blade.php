@@ -1194,7 +1194,7 @@ document.addEventListener('DOMContentLoaded', function() {
                             ? `<a href="${safeUrl(liveUrl)}" 
                                   target="_blank" 
                                   rel="noopener noreferrer"
-                                  class="btn btn-sm btn-outline-success"
+                                  class="btn btn-sm btn-live-url"
                                   title="Live URL">
                                     <i class="fa fa-external-link me-1"></i> Live
                                </a>`
@@ -1490,7 +1490,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const liveUrlHtml = liveUrl
             ? `<div class="ov-block">
                     <strong>Live URL</strong>
-                    <div><a href="${safeUrl(liveUrl)}" target="_blank" rel="noopener noreferrer" class="text-success">${escapeHtml(liveUrl)} <i class="fa fa-external-link fa-xs"></i></a></div>
+                    <div><a href="${safeUrl(liveUrl)}" target="_blank" rel="noopener noreferrer" class="live-url">${escapeHtml(liveUrl)} <i class="fa fa-external-link fa-xs"></i></a></div>
                     ${healthHtml}
                </div>`
             : `<div class="ov-block"><strong>Live URL</strong><div class="text-muted">Not submitted yet</div></div>`;

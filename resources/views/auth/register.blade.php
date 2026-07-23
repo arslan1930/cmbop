@@ -3,7 +3,7 @@
 @section('title', 'Create Account - SEOLinkBuildings')
 
 @section('content')
-<link href="{{ asset('css/auth-pages.css') }}?v={{ @filemtime(public_path('css/auth-pages.css')) ?: '1' }}" rel="stylesheet">
+<link href="{{ asset('assets/css/auth-pages.css') }}?v={{ @filemtime(public_path('assets/css/auth-pages.css')) ?: '1' }}" rel="stylesheet">
 
 <div class="auth-page">
     <div class="container auth-shell">

@@ -1,7 +1,7 @@
 @extends('admin.layouts.app')
 
 @section('content')
-<link rel="stylesheet" href="{{ asset('css/promotions.css') }}">
+<link rel="stylesheet" href="{{ asset('assets/css/promotions.css') }}">
 <div class="container-fluid" style="max-width: 1100px;">
     <div class="mb-4">
         <a href="{{ route('admin.promotions.announcements.index') }}" class="text-decoration-none small text-muted">

@@ -8,9 +8,29 @@
 
     $placements = [];
     $n = 0;
+    $usedPreselected = [];
     foreach ($cartItems as $item) {
+        $lineIds = is_array($item['content_submission_ids'] ?? null) ? $item['content_submission_ids'] : [];
         for ($i = 0; $i < ($item['quantity'] ?? 1); $i++) {
             $n++;
+            $preselected = (int) ($lineIds[$i] ?? 0);
+            if ($preselected <= 0 && $i === 0) {
+                $preselected = (int) ($item['content_submission_id'] ?? 0);
+            }
+            // Library session article only fills one empty placement — never every copy / every line.
+            if ($preselected <= 0 && $i === 0 && $librarySubmission) {
+                $libId = (int) $librarySubmission->id;
+                if (! isset($usedPreselected[$libId])) {
+                    $preselected = $libId;
+                }
+            }
+            if ($preselected > 0) {
+                if (isset($usedPreselected[$preselected])) {
+                    $preselected = 0;
+                } else {
+                    $usedPreselected[$preselected] = true;
+                }
+            }
             $placements[] = [
                 'site_id' => $item['id'],
                 'site_name' => $item['name'],
@@ -21,7 +41,7 @@
                 'language' => $item['language'] ?? null,
                 'languages' => $item['languages'] ?? [],
                 'link_type' => $item['link_type'] ?? 'dofollow',
-                'preselected' => $item['content_submission_id'] ?? ($librarySubmission->id ?? null),
+                'preselected' => $preselected > 0 ? $preselected : null,
             ];
         }
     }
@@ -73,9 +93,9 @@
     </div>
     <div class="card-body">
         <div class="alert alert-info border-0 small">
-            Each website needs its own <strong>approved</strong> Content Library article
-            (any language — you can place an English article on any site).
-            Upload or fix articles in the library first — approval is automatic after compliance and uniqueness checks.
+            Each placement needs its own <strong>approved</strong> Content Library article
+            (one article can be published on one site only).
+            Upload or fix articles in the <a href="{{ route('advertiser.content-library', ['upload' => 1]) }}">Content Library</a> first — approval is automatic after compliance and uniqueness checks.
         </div>
 
         <div class="d-flex flex-column gap-3" id="contentAssignmentList">
@@ -140,31 +160,11 @@
                         <div class="content-assign-preview preview-body"></div>
                     </div>
 
-                    <div class="border rounded-3 p-3 bg-light mb-3">
-                        <div class="fw-semibold small mb-2">Or upload a new .docx</div>
-                        <div class="row g-2 mb-2">
-                            <div class="col-md-6">
-                                <label class="form-label small">Language</label>
-                                <select class="form-select form-select-sm upload-language" required>
-                                    <option value="">Select language</option>
-                                    @foreach($marketplaceLanguages as $language)
-                                        <option value="{{ strtolower($language->code) }}">
-                                            {{ $language->name }}
-                                        </option>
-                                    @endforeach
-                                </select>
-                            </div>
-                            <div class="col-md-6">
-                                <label class="form-label small">Country</label>
-                                <select class="form-select form-select-sm upload-country" required>
-                                    <option value="">Select language first</option>
-                                </select>
-                            </div>
-                        </div>
-                        <input type="file" class="form-control form-control-sm upload-file mb-2" accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document">
-                        <div class="small text-muted mb-2">Choose language and country for this article yourself — nothing is pre-filled from the site.</div>
-                        <button type="button" class="btn btn-sm btn-outline-primary upload-btn">Upload & check</button>
-                        <div class="upload-feedback small mt-2" aria-live="polite"></div>
+                    <div class="mb-3">
+                        <a class="btn btn-sm btn-outline-secondary"
+                           href="{{ route('advertiser.content-library', ['upload' => 1]) }}">
+                            <i class="fa fa-upload me-1"></i> Upload in Content Library
+                        </a>
                     </div>
 
                     <div class="row g-2">
@@ -237,9 +237,6 @@
 
 <script>
 (function () {
-    const uploadUrl = @json(route('advertiser.content-submissions.upload'));
-    const csrf = @json(csrf_token());
-    const languageCountryMap = @json($languageCountryMap ?? new \stdClass());
     const cards = Array.from(document.querySelectorAll('.placement-assign'));
 
     function siteLanguageCodes(card) {
@@ -289,35 +286,6 @@
             hint.classList.add('d-none');
         }
     }
-
-    function refreshUploadCountries(card) {
-        const langSelect = card.querySelector('.upload-language');
-        const countrySelect = card.querySelector('.upload-country');
-        if (!langSelect || !countrySelect) return;
-        const lang = (langSelect.value || '').toLowerCase();
-        const options = languageCountryMap[lang] || [];
-        countrySelect.innerHTML = '';
-        if (!lang) {
-            countrySelect.innerHTML = '<option value="">Select language first</option>';
-            return;
-        }
-        const placeholder = document.createElement('option');
-        placeholder.value = '';
-        placeholder.textContent = 'Select country';
-        countrySelect.appendChild(placeholder);
-        options.forEach(function (item) {
-            const opt = document.createElement('option');
-            opt.value = item.code;
-            opt.textContent = item.name;
-            countrySelect.appendChild(opt);
-        });
-    }
-    cards.forEach(function (card) {
-        card.querySelector('.upload-language')?.addEventListener('change', function () {
-            refreshUploadCountries(card);
-        });
-        refreshUploadCountries(card);
-    });
 
     function syncSchedule() {
         document.getElementById('assignScheduleFields').classList.toggle(
@@ -421,6 +389,34 @@
         }
     }
 
+    function refreshArticleAvailability() {
+        const selectedByCard = new Map();
+        cards.forEach(function (card) {
+            const selected = selectedSubmission(card);
+            if (selected && selected.id) {
+                selectedByCard.set(card, selected.id);
+            }
+        });
+        cards.forEach(function (card) {
+            const select = card.querySelector('.article-select');
+            if (!select) return;
+            const current = select.value ? parseInt(select.value, 10) : 0;
+            Array.from(select.options).forEach(function (opt) {
+                if (!opt.value) return;
+                const id = parseInt(opt.value, 10);
+                let usedElsewhere = false;
+                selectedByCard.forEach(function (sid, otherCard) {
+                    if (otherCard !== card && sid === id) {
+                        usedElsewhere = true;
+                    }
+                });
+                const hide = usedElsewhere && id !== current;
+                opt.disabled = hide;
+                opt.hidden = hide;
+            });
+        });
+    }
+
     function refreshCard(card) {
         const selected = selectedSubmission(card);
         const status = card.querySelector('.assign-status');
@@ -431,6 +427,7 @@
             status.textContent = 'Select approved article';
             previewBox.classList.add('d-none');
             syncOrderSummaryArticle(card, null);
+            refreshArticleAvailability();
             return;
         }
         card.querySelector('.assign-anchor').value = selected.anchor || card.querySelector('.assign-anchor').value;
@@ -443,6 +440,7 @@
         status.className = 'badge text-bg-success assign-status';
         status.textContent = 'Approved article selected';
         syncOrderSummaryArticle(card, selected);
+        refreshArticleAvailability();
     }
 
     function fixAssignPreviewImages(root) {
@@ -499,6 +497,26 @@
                     syncReadyBadge();
                     return;
                 }
+                // Block selecting an article already chosen on another placement.
+                const duplicate = cards.some(function (other) {
+                    if (other === card) return false;
+                    const otherSelected = selectedSubmission(other);
+                    return otherSelected && otherSelected.id === selected.id;
+                });
+                if (duplicate) {
+                    select.value = previous;
+                    if (window.Swal && typeof window.Swal.fire === 'function') {
+                        window.Swal.fire({
+                            title: 'Article already used',
+                            text: 'Each article can only be published on one site. Choose a different article for this placement.',
+                            icon: 'warning',
+                            confirmButtonColor: '#185054',
+                        });
+                    } else {
+                        window.alert('Each article can only be published on one site. Choose a different article.');
+                    }
+                    return;
+                }
                 const warn = languageMismatchMessage(siteLanguageCodes(card), selected.language);
                 confirmLanguageMismatch(warn).then(function (ok) {
                     if (!ok) {
@@ -518,101 +536,22 @@
             setMismatchHint(card, warn);
         }
         refreshCard(card);
-
-        card.querySelector('.upload-btn')?.addEventListener('click', async function () {
-            const fileInput = card.querySelector('.upload-file');
-            const country = card.querySelector('.upload-country').value;
-            const language = card.querySelector('.upload-language').value;
-            const feedback = card.querySelector('.upload-feedback');
-            const file = fileInput.files && fileInput.files[0];
-            if (!country || !language) {
-                feedback.innerHTML = '<span class="text-danger">Select country and language before uploading.</span>';
-                return;
-            }
-            if (!file || !/\.docx$/i.test(file.name)) {
-                feedback.innerHTML = '<span class="text-danger">Please upload a .docx file.</span>';
-                return;
-            }
-            const fd = new FormData();
-            fd.append('file', file);
-            fd.append('country', country);
-            fd.append('language', language);
-            fd.append('site_id', card.dataset.siteId);
-            fd.append('copy_index', card.dataset.copyIndex);
-            feedback.textContent = 'Uploading and checking…';
-            try {
-                const res = await fetch(uploadUrl, {
-                    method: 'POST',
-                    headers: { 'X-CSRF-TOKEN': csrf, 'Accept': 'application/json' },
-                    body: fd,
-                });
-                const data = await res.json();
-                if (!data.success || !data.submission) {
-                    feedback.textContent = data.message || 'Upload failed';
-                    feedback.className = 'small text-danger';
-                    return;
-                }
-                const s = data.submission;
-                if (s.moderation_status !== 'approved') {
-                    feedback.textContent = '';
-                    feedback.className = 'small text-warning';
-                    const msg = document.createElement('span');
-                    msg.textContent = (data.message || 'Needs correction') + ' ';
-                    const link = document.createElement('a');
-                    link.href = @json(route('advertiser.content-library')) + '?edit=' + encodeURIComponent(s.id) + '&upload=1';
-                    link.textContent = 'Edit & resubmit';
-                    feedback.appendChild(msg);
-                    feedback.appendChild(link);
-                    syncReadyBadge();
-                    return;
-                }
-                const articleSelect = card.querySelector('.article-select');
-                const opt = document.createElement('option');
-                opt.value = s.id;
-                opt.dataset.approved = '1';
-                opt.dataset.anchor = s.anchor_text || '';
-                opt.dataset.target = s.target_url || '';
-                opt.dataset.previewB64 = btoa(unescape(encodeURIComponent(s.preview_html || '')));
-                opt.dataset.historyB64 = btoa(unescape(encodeURIComponent(JSON.stringify(s.history || []))));
-                opt.dataset.country = s.country || country;
-                opt.dataset.language = s.language || language;
-                opt.dataset.wordCount = s.word_count || '';
-                opt.dataset.title = s.title || s.original_filename || 'Article';
-                opt.textContent = (s.title || s.original_filename) + ' (' + String(s.country || country).toUpperCase() + '/' + String(s.language || language).toUpperCase() + ')';
-                articleSelect.appendChild(opt);
-                const warn = languageMismatchMessage(siteLanguageCodes(card), s.language || language);
-                const ok = await confirmLanguageMismatch(warn);
-                if (!ok) {
-                    opt.remove();
-                    feedback.innerHTML = '<span class="text-success">Approved and added to your list. Pick it when you are ready.</span>';
-                    syncReadyBadge();
-                    return;
-                }
-                articleSelect.value = String(s.id);
-                articleSelect.dataset.prevValue = String(s.id);
-                setMismatchHint(card, warn);
-                feedback.innerHTML = '<span class="text-success">Approved. Article selected for this website.</span>';
-                refreshCard(card);
-                syncReadyBadge();
-            } catch (e) {
-                feedback.innerHTML = '<span class="text-danger">Network error while uploading.</span>';
-            }
-        });
     });
 
     window.ContentCheckout = {
         ready: function () { return allReady(); },
         payload: function () {
             const map = {};
+            const seen = {};
             cards.forEach(function (card) {
                 const selected = selectedSubmission(card);
                 if (!selected) return;
+                if (seen[selected.id]) return;
+                seen[selected.id] = true;
                 const siteId = card.dataset.siteId;
                 const copyIndex = parseInt(card.dataset.copyIndex || '0', 10);
                 if (!map[siteId]) map[siteId] = [];
                 map[siteId][copyIndex] = selected.id;
-
-                // Persist link edits onto submission via draft patch is optional; include for server map only.
             });
             return {
                 content_submissions: map,
@@ -624,6 +563,7 @@
         }
     };
 
+    refreshArticleAvailability();
     syncReadyBadge();
 })();
 </script>

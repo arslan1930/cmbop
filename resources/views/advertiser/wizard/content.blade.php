@@ -2,14 +2,44 @@
 
 @section('content')
 @php
-    $usedIds = collect($cart)->pluck('content_submission_id')->filter()->map(fn ($id) => (int) $id)->all();
+    $usedIds = [];
+    foreach ($cart as $row) {
+        $ids = is_array($row['content_submission_ids'] ?? null) ? $row['content_submission_ids'] : [];
+        foreach ($ids as $id) {
+            if ((int) $id > 0) {
+                $usedIds[] = (int) $id;
+            }
+        }
+        if ((int) ($row['content_submission_id'] ?? 0) > 0) {
+            $usedIds[] = (int) $row['content_submission_id'];
+        }
+    }
+    $usedIds = array_values(array_unique($usedIds));
+
+    $placements = [];
+    foreach ($cart as $line) {
+        $qty = max(1, (int) ($line['quantity'] ?? 1));
+        $lineIds = is_array($line['content_submission_ids'] ?? null) ? $line['content_submission_ids'] : [];
+        for ($i = 0; $i < $qty; $i++) {
+            $selectedId = (int) ($lineIds[$i] ?? 0);
+            if ($selectedId <= 0 && $i === 0) {
+                $selectedId = (int) ($line['content_submission_id'] ?? 0);
+            }
+            $placements[] = [
+                'line' => $line,
+                'copy_index' => $i,
+                'selected_id' => $selectedId,
+                'qty' => $qty,
+            ];
+        }
+    }
 @endphp
 <div class="container-fluid">
     <div class="wizard-chrome">
         <div class="d-flex flex-wrap justify-content-between align-items-start gap-2">
             <div>
                 <h1>Place a guest post</h1>
-                <p class="muted">Step 3 — Assign an approved article to each website (or upload one). Each site needs its own article.</p>
+                <p class="muted">Step 3 — Assign an approved article to each placement. One article can be published on one site only — upload extras in Content Library.</p>
             </div>
             <div class="d-flex flex-wrap gap-2">
                 <a href="{{ route('advertiser.wizard.publishers') }}" class="btn btn-sm btn-outline-secondary">Back to publishers</a>
@@ -34,10 +64,11 @@
     <div class="row g-4">
         <div class="col-lg-8">
             <div class="d-flex flex-column gap-3" id="wizardContentLines">
-                @foreach($cart as $index => $line)
+                @foreach($placements as $placement)
                     @php
-                        $siteLang = strtolower((string) ($line['language'] ?? ''));
-                        $selectedId = (int) ($line['content_submission_id'] ?? 0);
+                        $line = $placement['line'];
+                        $selectedId = $placement['selected_id'];
+                        $copyIndex = $placement['copy_index'];
                         $options = $approvedArticles->filter(function ($article) use ($usedIds, $selectedId) {
                             $id = (int) $article->id;
                             if ($id !== $selectedId && in_array($id, $usedIds, true)) {
@@ -45,14 +76,18 @@
                             }
                             return true;
                         });
+                        $placementLabel = $placement['qty'] > 1
+                            ? ($line['name'] ?? ('Site #'.$line['id'])).' — placement '.($copyIndex + 1).' of '.$placement['qty']
+                            : ($line['name'] ?? ('Site #'.$line['id']));
                     @endphp
                     <div class="card border-0 shadow-sm wizard-line"
                          data-site-id="{{ $line['id'] }}"
-                         data-sensitive-type="{{ $line['sensitive_type'] ?? '' }}">
+                         data-sensitive-type="{{ $line['sensitive_type'] ?? '' }}"
+                         data-copy-index="{{ $copyIndex }}">
                         <div class="card-body">
                             <div class="d-flex flex-wrap justify-content-between gap-2 mb-3">
                                 <div>
-                                    <div class="fw-semibold">{{ $line['name'] ?? ('Site #'.$line['id']) }}</div>
+                                    <div class="fw-semibold">{{ $placementLabel }}</div>
                                     <div class="small text-muted">
                                         {{ strtoupper((string) ($line['language'] ?? '—')) }}
                                         @if(!empty($line['country']))
@@ -105,9 +140,9 @@
                 <div class="card-body">
                     <p class="small text-muted mb-3" id="wizardReadyNote">
                         @if($cartReady)
-                            Every website has an article. Continue to pay.
+                            Every placement has an article. Continue to pay.
                         @else
-                            Assign an approved article to each website to continue.
+                            Assign an approved article to each placement to continue.
                         @endif
                     </p>
                     <a href="{{ route('advertiser.wizard.pay') }}"
@@ -129,18 +164,28 @@
     const payBtn = document.getElementById('wizardContinuePay');
     const readyNote = document.getElementById('wizardReadyNote');
 
+    function lineFullyAssigned(row) {
+        const qty = Math.max(1, parseInt(row.quantity, 10) || 1);
+        const raw = Array.isArray(row.content_submission_ids) ? row.content_submission_ids : [];
+        for (let i = 0; i < qty; i++) {
+            const id = parseInt(raw[i] || (i === 0 ? row.content_submission_id : 0) || 0, 10) || 0;
+            if (!id) return false;
+        }
+        return true;
+    }
+
     function setReady(ready) {
         if (!payBtn) return;
         if (ready) {
             payBtn.classList.remove('disabled');
             payBtn.removeAttribute('aria-disabled');
             payBtn.removeAttribute('tabindex');
-            if (readyNote) readyNote.textContent = 'Every website has an article. Continue to pay.';
+            if (readyNote) readyNote.textContent = 'Every placement has an article. Continue to pay.';
         } else {
             payBtn.classList.add('disabled');
             payBtn.setAttribute('aria-disabled', 'true');
             payBtn.setAttribute('tabindex', '-1');
-            if (readyNote) readyNote.textContent = 'Assign an approved article to each website to continue.';
+            if (readyNote) readyNote.textContent = 'Assign an approved article to each placement to continue.';
         }
     }
 
@@ -151,6 +196,7 @@
             const status = card.querySelector('.line-status');
             const siteId = card.getAttribute('data-site-id');
             const sensitiveType = card.getAttribute('data-sensitive-type') || '';
+            const copyIndex = parseInt(card.getAttribute('data-copy-index') || '0', 10) || 0;
             const submissionId = this.value || '';
 
             feedback.textContent = 'Saving…';
@@ -166,6 +212,7 @@
                         id: parseInt(siteId, 10),
                         sensitive_type: sensitiveType,
                         content_submission_id: submissionId ? parseInt(submissionId, 10) : null,
+                        copy_index: copyIndex,
                     }),
                 });
                 const data = await res.json();
@@ -182,9 +229,9 @@
                     status.className = 'badge text-bg-secondary line-status';
                 }
                 const cart = Array.isArray(data.cart) ? data.cart : [];
-                const ready = cart.length > 0 && cart.every((row) => parseInt(row.content_submission_id || 0, 10) > 0);
+                const ready = cart.length > 0 && cart.every(lineFullyAssigned);
                 setReady(ready);
-                // Reload so option availability stays unique across lines.
+                // Reload so option availability stays unique across placements.
                 if (ready || submissionId) {
                     setTimeout(() => window.location.reload(), 400);
                 }

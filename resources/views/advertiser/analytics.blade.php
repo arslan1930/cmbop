@@ -7,7 +7,7 @@
     $view = $view ?? 'day';
 @endphp
 
-<link href="{{ asset('css/advertiser-analytics.css') }}?v={{ @filemtime(public_path('css/advertiser-analytics.css')) ?: '1' }}" rel="stylesheet">
+<link href="{{ asset('assets/css/advertiser-analytics.css') }}?v={{ @filemtime(public_path('assets/css/advertiser-analytics.css')) ?: '1' }}" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 
 <div class="an-page">

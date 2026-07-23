@@ -1,7 +1,7 @@
 @extends('advertiser.layouts.app')
 
 @section('content')
-<link href="{{ asset('css/catalog.css') }}?v={{ @filemtime(public_path('css/catalog.css')) ?: '1' }}" rel="stylesheet">
+<link href="{{ asset('assets/css/catalog.css') }}?v={{ @filemtime(public_path('assets/css/catalog.css')) ?: '1' }}" rel="stylesheet">
 
 
 @php
@@ -1321,6 +1321,6 @@ window.CatalogConfig = {
     }
 };
 </script>
-<script src="{{ asset('js/catalog.js') }}?v={{ @filemtime(public_path('js/catalog.js')) ?: '1' }}" defer></script>
+<script src="{{ asset('assets/js/catalog.js') }}?v={{ @filemtime(public_path('assets/js/catalog.js')) ?: '1' }}" defer></script>
 
 @endsection

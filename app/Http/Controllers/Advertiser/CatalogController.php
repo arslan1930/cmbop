@@ -564,6 +564,83 @@ class CatalogController extends Controller
      *
      * @return array{cart: array<int, array>, approved_articles: array<int, array>, ordering_from_library: bool, active_article: ?array}
      */
+    /**
+     * Per-placement Content Library IDs for a cart line (length === quantity; 0 = unassigned).
+     * One article may only ever occupy one placement.
+     *
+     * @return list<int>
+     */
+    private function cartLineContentIds(array $line): array
+    {
+        $qty = max(1, (int) ($line['quantity'] ?? 1));
+        $raw = [];
+        if (! empty($line['content_submission_ids']) && is_array($line['content_submission_ids'])) {
+            foreach ($line['content_submission_ids'] as $i => $id) {
+                $raw[(int) $i] = (int) $id;
+            }
+        }
+        if ((! isset($raw[0]) || $raw[0] <= 0) && ! empty($line['content_submission_id'])) {
+            $raw[0] = (int) $line['content_submission_id'];
+        }
+
+        $ids = [];
+        for ($i = 0; $i < $qty; $i++) {
+            $ids[$i] = max(0, (int) ($raw[$i] ?? 0));
+        }
+
+        return $ids;
+    }
+
+    /**
+     * @param  list<int|string|null>  $ids
+     */
+    private function applyCartLineContentIds(array $line, array $ids): array
+    {
+        $qty = max(1, (int) ($line['quantity'] ?? 1));
+        $normalized = [];
+        for ($i = 0; $i < $qty; $i++) {
+            $normalized[$i] = max(0, (int) ($ids[$i] ?? 0));
+        }
+        $line['quantity'] = $qty;
+        $line['content_submission_ids'] = $normalized;
+        if (($normalized[0] ?? 0) > 0) {
+            $line['content_submission_id'] = $normalized[0];
+        } else {
+            unset($line['content_submission_id']);
+        }
+
+        return $line;
+    }
+
+    private function cartUsesSubmissionId(
+        array $cart,
+        int $submissionId,
+        int|string|null $exceptLineKey = null,
+        ?int $exceptCopyIndex = null
+    ): bool {
+        if ($submissionId <= 0) {
+            return false;
+        }
+
+        foreach ($cart as $key => $item) {
+            if (! is_array($item)) {
+                continue;
+            }
+            foreach ($this->cartLineContentIds($item) as $copyIndex => $id) {
+                if ($exceptLineKey !== null
+                    && (int) $key === (int) $exceptLineKey
+                    && (int) $copyIndex === (int) $exceptCopyIndex) {
+                    continue;
+                }
+                if ($id === $submissionId) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
     private function cartPayloadForClient(): array
     {
         $cart = array_values(session()->get('cart', []));
@@ -584,6 +661,7 @@ class CatalogController extends Controller
             $cart[$i]['language'] = $line['language'] ?? $site->language;
             $cart[$i]['country'] = $line['country'] ?? $site->country;
             $cart[$i]['link_type'] = $line['link_type'] ?? $site->link_type;
+            $cart[$i] = $this->applyCartLineContentIds($cart[$i], $this->cartLineContentIds($cart[$i]));
         }
 
         $approved = ContentSubmission::query()
@@ -601,20 +679,32 @@ class CatalogController extends Controller
         $approvedById = $approved->keyBy('id');
         $cartChanged = false;
         foreach ($cart as $i => $line) {
-            $submissionId = (int) ($line['content_submission_id'] ?? 0);
-            if ($submissionId <= 0) {
-                continue;
+            $ids = $this->cartLineContentIds($line);
+            $cleaned = [];
+            $lineDirty = false;
+            foreach ($ids as $copyIndex => $submissionId) {
+                if ($submissionId <= 0) {
+                    $cleaned[$copyIndex] = 0;
+
+                    continue;
+                }
+                $submission = $approvedById->get($submissionId);
+                if (! $submission) {
+                    $submission = ContentSubmission::query()
+                        ->where('id', $submissionId)
+                        ->where('user_id', auth()->id())
+                        ->whereNull('order_id')
+                        ->first();
+                }
+                if (! $submission || ! $submission->canBeOrdered()) {
+                    $cleaned[$copyIndex] = 0;
+                    $lineDirty = true;
+                } else {
+                    $cleaned[$copyIndex] = $submissionId;
+                }
             }
-            $submission = $approvedById->get($submissionId);
-            if (! $submission) {
-                $submission = ContentSubmission::query()
-                    ->where('id', $submissionId)
-                    ->where('user_id', auth()->id())
-                    ->whereNull('order_id')
-                    ->first();
-            }
-            if (! $submission || ! $submission->canBeOrdered()) {
-                unset($cart[$i]['content_submission_id']);
+            if ($lineDirty || $cleaned !== $ids) {
+                $cart[$i] = $this->applyCartLineContentIds($line, $cleaned);
                 $cartChanged = true;
             }
         }
@@ -803,6 +893,9 @@ class CatalogController extends Controller
                 }
                 $key = ((int) $row['id']).'|'.((string) ($row['sensitive_type'] ?? ''));
                 $prev = $existingByKey[$key] ?? [];
+                if (empty($row['content_submission_ids']) && ! empty($prev['content_submission_ids'])) {
+                    $row['content_submission_ids'] = $prev['content_submission_ids'];
+                }
                 if (empty($row['content_submission_id']) && ! empty($prev['content_submission_id'])) {
                     $row['content_submission_id'] = $prev['content_submission_id'];
                 }
@@ -812,6 +905,7 @@ class CatalogController extends Controller
                 if (empty($row['country']) && ! empty($prev['country'])) {
                     $row['country'] = $prev['country'];
                 }
+                $row = $this->applyCartLineContentIds($row, $this->cartLineContentIds($row));
                 $merged[] = $row;
             }
 
@@ -834,7 +928,8 @@ class CatalogController extends Controller
     }
 
     /**
-     * Assign / clear an approved Content Library article on a cart line.
+     * Assign / clear an approved Content Library article on a cart placement.
+     * Quantity > 1 creates multiple placements on the same site — each needs its own article.
      */
     public function assignCartArticle(Request $request)
     {
@@ -842,11 +937,13 @@ class CatalogController extends Controller
             'id' => ['required', 'integer'],
             'sensitive_type' => ['nullable', 'string', 'max:50'],
             'content_submission_id' => ['nullable', 'integer'],
+            'copy_index' => ['nullable', 'integer', 'min:0'],
         ]);
 
         $siteId = (int) $data['id'];
         $sensitiveType = $data['sensitive_type'] ?? null;
         $submissionId = isset($data['content_submission_id']) ? (int) $data['content_submission_id'] : 0;
+        $copyIndex = max(0, (int) ($data['copy_index'] ?? 0));
 
         $cart = session()->get('cart', []);
         $lineKey = null;
@@ -867,11 +964,20 @@ class CatalogController extends Controller
             return response()->json(['success' => false, 'error' => 'Site not found or inactive.'], 404);
         }
 
+        $ids = $this->cartLineContentIds($cart[$lineKey]);
+        if ($copyIndex >= count($ids)) {
+            return response()->json([
+                'success' => false,
+                'error' => 'That placement does not exist for this cart quantity.',
+            ], 422);
+        }
+
         if ($submissionId <= 0) {
-            unset($cart[$lineKey]['content_submission_id']);
+            $ids[$copyIndex] = 0;
+            $cart[$lineKey] = $this->applyCartLineContentIds($cart[$lineKey], $ids);
             session()->put('cart', array_values($cart));
 
-            return response()->json(array_merge(['success' => true, 'message' => 'Article cleared for this website.'], $this->cartPayloadForClient()));
+            return response()->json(array_merge(['success' => true, 'message' => 'Article cleared for this placement.'], $this->cartPayloadForClient()));
         }
 
         $submission = ContentSubmission::query()
@@ -887,26 +993,22 @@ class CatalogController extends Controller
             ], 422);
         }
 
-        foreach ($cart as $key => $item) {
-            if ((int) $key === (int) $lineKey) {
-                continue;
-            }
-            if ((int) ($item['content_submission_id'] ?? 0) === $submissionId) {
-                return response()->json([
-                    'success' => false,
-                    'error' => 'That article is already assigned to another website in your cart. Each article can only be used once.',
-                ], 422);
-            }
+        if ($this->cartUsesSubmissionId($cart, $submissionId, $lineKey, $copyIndex)) {
+            return response()->json([
+                'success' => false,
+                'error' => 'That article is already assigned to another placement in your cart. Each article can only be published on one site.',
+            ], 422);
         }
 
-        $cart[$lineKey]['content_submission_id'] = $submission->id;
+        $ids[$copyIndex] = $submission->id;
+        $cart[$lineKey] = $this->applyCartLineContentIds($cart[$lineKey], $ids);
         $cart[$lineKey]['language'] = $site->language;
         $cart[$lineKey]['country'] = $site->country;
         session()->put('cart', array_values($cart));
 
         return response()->json(array_merge([
             'success' => true,
-            'message' => 'Article assigned to this website.',
+            'message' => 'Article assigned to this placement.',
         ], $this->cartPayloadForClient()));
     }
 
@@ -943,9 +1045,7 @@ class CatalogController extends Controller
                     session()->forget(['checkout_content_submission_id', 'ordering_from_library']);
                     $librarySubmission = null;
                 } else {
-                    $alreadyAssigned = collect($cart)->contains(
-                        fn ($line) => (int) ($line['content_submission_id'] ?? 0) === (int) $librarySubmission->id
-                    );
+                    $alreadyAssigned = $this->cartUsesSubmissionId($cart, (int) $librarySubmission->id);
 
                     if (! $alreadyAssigned) {
                         $attachArticleId = (int) $librarySubmission->id;
@@ -983,9 +1083,11 @@ class CatalogController extends Controller
                 $cart[$existingItem]['link_type'] = $site->link_type;
                 $cart[$existingItem]['country'] = $site->country;
                 $cart[$existingItem]['language'] = $site->language;
-                if ($attachArticleId && empty($cart[$existingItem]['content_submission_id'])) {
-                    $cart[$existingItem]['content_submission_id'] = $attachArticleId;
+                $ids = $this->cartLineContentIds($cart[$existingItem]);
+                if ($attachArticleId && ($ids[0] ?? 0) <= 0) {
+                    $ids[0] = $attachArticleId;
                 }
+                $cart[$existingItem] = $this->applyCartLineContentIds($cart[$existingItem], $ids);
             } else {
                 $line = [
                     'id' => $site->id,
@@ -1003,7 +1105,9 @@ class CatalogController extends Controller
                     'language' => $site->language,
                 ];
                 if ($attachArticleId) {
-                    $line['content_submission_id'] = $attachArticleId;
+                    $line = $this->applyCartLineContentIds($line, [0 => $attachArticleId]);
+                } else {
+                    $line = $this->applyCartLineContentIds($line, [0 => 0]);
                 }
                 $cart[] = $line;
             }
@@ -2793,11 +2897,12 @@ class CatalogController extends Controller
                 return $rowSensitive == $sensitiveType;
             });
 
+            // Each placement (copy) needs its own article — never reuse scalar/library ID for copyIndex > 0.
             $submissionId = data_get($cartLine, "content_submission_ids.$copyIndex")
-                ?? data_get($cartLine, 'content_submission_id')
+                ?? ($copyIndex === 0 ? data_get($cartLine, 'content_submission_id') : null)
                 ?? data_get($contentSubmissions, $site->id.'.'.$copyIndex)
                 ?? data_get($contentSubmissions, (string) $site->id.'.'.$copyIndex)
-                ?? $librarySubmissionId
+                ?? ($copyIndex === 0 ? $librarySubmissionId : null)
                 ?? null;
 
             if (! $submissionId) {
@@ -2931,8 +3036,8 @@ class CatalogController extends Controller
 
     private function attachSubmissionToOrder(ContentSubmission $submission, Order $order, OrderItem $item): void
     {
-        // One approved library article can be placed on multiple sites in one checkout.
-        // Keep the first order/item linkage; every OrderItem still stores content_submission_id.
+        // Each article is published on one site only. Keep the first order/item linkage on the
+        // submission row; every OrderItem still stores its own content_submission_id.
         $payload = [
             'publication_mode' => $order->publication_mode,
             'scheduled_publish_at' => $order->scheduled_publish_at,

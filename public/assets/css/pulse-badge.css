@@ -1,0 +1,36 @@
+/**
+ * Reusable unread PulseBadge
+ * Animate ONLY the badge (never the parent icon/button).
+ * Soft scale + opacity, 2s loop, respects prefers-reduced-motion.
+ *
+ * Usage:
+ *   <span class="pulse-badge">3</span>
+ *   PulseBadge.show(el, 3)  // adds .is-pulsing
+ *   PulseBadge.hide(el)     // removes .is-pulsing
+ */
+.pulse-badge {
+  --pulse-badge-scale: 1.08;
+  transform-origin: center center;
+}
+
+.pulse-badge.is-pulsing {
+  animation: pulse-badge-soft 2s ease-in-out infinite;
+  will-change: transform, opacity;
+}
+
+@keyframes pulse-badge-soft {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(var(--pulse-badge-scale));
+    opacity: 0.82;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pulse-badge.is-pulsing {
+    animation: none !important;
+  }
+}

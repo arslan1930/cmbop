@@ -220,11 +220,13 @@ class CheckoutSystemFixTest extends TestCase
             ->get(route('advertiser.checkout'));
 
         $response->assertOk();
-        $response->assertSee('Approved article', false);
+        $response->assertDontSee('Approved article for this order', false);
+        $response->assertDontSee('contentSubmissionWizard', false);
         $response->assertSee($sub->title ?: $sub->original_filename, false);
         $response->assertSee('order-summary-article', false);
         $response->assertSee('Article history', false);
         $response->assertSee('Uploaded', false);
+        $response->assertSee('2. Payment', false);
     }
 
     public function test_library_order_redirects_to_catalog_for_article_market(): void

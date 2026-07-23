@@ -92,7 +92,7 @@
                             <div class="mb-2"><span class="text-muted small">Live URL</span>
                                 <div>
                                     @if($item?->live_url)
-                                        <a href="{{ $item->live_url }}" target="_blank" rel="noopener">{{ $item->live_url }}</a>
+                                        <a class="live-url" href="{{ $item->live_url }}" target="_blank" rel="noopener">{{ $item->live_url }}</a>
                                     @else
                                         <span class="text-muted">Not submitted</span>
                                     @endif

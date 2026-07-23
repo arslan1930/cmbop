@@ -1,0 +1,111 @@
+/**
+ * In-app type system (T1)
+ * Family: Poppins — 5 levels: Display / H1 / H2 / Body / Meta
+ */
+:root {
+  --font-sans: 'Poppins', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --type-display: 2rem;
+  --type-h1: 1.5rem;
+  --type-h2: 1.25rem;
+  --type-body: 0.9375rem;
+  --type-meta: 0.75rem;
+  --type-line-tight: 1.25;
+  --type-line-body: 1.55;
+  --type-color: #1f2937;
+  --type-muted: #6b7280;
+}
+
+html {
+  font-size: 16px;
+}
+
+body {
+  font-family: var(--font-sans);
+  font-size: var(--type-body);
+  line-height: var(--type-line-body);
+  color: var(--type-color);
+  -webkit-font-smoothing: antialiased;
+}
+
+.type-display,
+h1.display,
+.display-6 {
+  font-family: var(--font-sans);
+  font-size: var(--type-display);
+  line-height: var(--type-line-tight);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--type-color);
+}
+
+h1, .h1, .type-h1 {
+  font-family: var(--font-sans);
+  font-size: var(--type-h1);
+  line-height: var(--type-line-tight);
+  font-weight: 700;
+  letter-spacing: -0.015em;
+  color: var(--type-color);
+}
+
+h2, .h2, .type-h2,
+h3, .h3,
+h4, .h4,
+h5, .h5 {
+  font-family: var(--font-sans);
+  font-size: var(--type-h2);
+  line-height: var(--type-line-tight);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--type-color);
+}
+
+h6, .h6 {
+  font-family: var(--font-sans);
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: var(--type-line-tight);
+}
+
+p, .type-body,
+.form-control, .form-select, .form-label,
+.btn, .dropdown-menu, .nav-link,
+#sidebar a, .table {
+  font-family: var(--font-sans);
+}
+
+.type-meta,
+small, .small, .text-muted,
+.form-text, .help-text,
+.badge, .breadcrumb {
+  font-size: var(--type-meta);
+  line-height: 1.4;
+}
+
+#content h2.fw-semibold,
+#content h2,
+#main-content h2.fw-semibold,
+#main-content h2 {
+  font-size: var(--type-h1);
+  font-weight: 700;
+}
+
+#content h4,
+#content h5,
+#main-content h4,
+#main-content h5 {
+  font-size: var(--type-h2);
+}
+
+.metric-abbr {
+  border-bottom: 1px dotted rgba(24, 80, 84, 0.35);
+  cursor: help;
+  text-decoration: none;
+}
+
+@media (max-width: 767.98px) {
+  :root {
+    --type-display: 1.75rem;
+    --type-h1: 1.35rem;
+    --type-h2: 1.125rem;
+  }
+}

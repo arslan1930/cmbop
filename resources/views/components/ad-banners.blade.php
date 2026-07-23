@@ -9,7 +9,7 @@
 @endphp
 
 @if($banners->isNotEmpty())
-<link rel="stylesheet" href="{{ asset('css/promotions.css') }}">
+<link rel="stylesheet" href="{{ asset('assets/css/promotions.css') }}">
 <div class="ad-banner-slot ad-banner-slot--{{ $placementKey }}" data-placement="{{ $placementKey }}">
     @foreach($banners as $banner)
         @php

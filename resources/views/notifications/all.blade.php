@@ -1,8 +1,8 @@
 @extends($layout)
 
 @section('content')
-<link rel="stylesheet" href="{{ asset('css/pulse-badge.css') }}?v={{ @filemtime(public_path('css/pulse-badge.css')) ?: '1' }}">
-<link rel="stylesheet" href="{{ asset('css/notification-center.css') }}?v={{ @filemtime(public_path('css/notification-center.css')) ?: '4' }}">
+<link rel="stylesheet" href="{{ asset('assets/css/pulse-badge.css') }}?v={{ @filemtime(public_path('assets/css/pulse-badge.css')) ?: '1' }}">
+<link rel="stylesheet" href="{{ asset('assets/css/notification-center.css') }}?v={{ @filemtime(public_path('assets/css/notification-center.css')) ?: '4' }}">
 
 <div class="container-fluid py-2 nc-theme nc-page">
     <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3 nc-page-header">

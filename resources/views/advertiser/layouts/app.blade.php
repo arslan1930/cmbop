@@ -19,21 +19,21 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link href="{{ asset('css/type-system.css') }}?v={{ @filemtime(public_path('css/type-system.css')) ?: '1' }}" rel="stylesheet">
-    <link href="{{ asset('css/brand-colors.css') }}?v={{ @filemtime(public_path('css/brand-colors.css')) ?: '1' }}" rel="stylesheet">
-    <link href="{{ asset('css/spacing-system.css') }}?v={{ @filemtime(public_path('css/spacing-system.css')) ?: '1' }}" rel="stylesheet">
-    <link href="{{ asset('css/button-system.css') }}?v={{ @filemtime(public_path('css/button-system.css')) ?: '1' }}" rel="stylesheet">
-    <link href="{{ asset('css/form-system.css') }}?v={{ @filemtime(public_path('css/form-system.css')) ?: '1' }}" rel="stylesheet">
-    <link href="{{ asset('css/app-shell.css') }}?v={{ @filemtime(public_path('css/app-shell.css')) ?: '1' }}" rel="stylesheet">
-    <link href="{{ asset('css/interaction.css') }}?v={{ @filemtime(public_path('css/interaction.css')) ?: '1' }}" rel="stylesheet">
-    <link href="{{ asset('css/cart.css') }}?v={{ @filemtime(public_path('css/cart.css')) ?: '1' }}" rel="stylesheet">
-    <link href="{{ asset('css/chat.css') }}?v={{ @filemtime(public_path('css/chat.css')) ?: '1' }}" rel="stylesheet">
-    <link href="{{ asset('css/multi-select.css') }}?v={{ @filemtime(public_path('css/multi-select.css')) ?: '1' }}" rel="stylesheet">
-    <link href="{{ asset('css/glass-tip.css') }}?v={{ @filemtime(public_path('css/glass-tip.css')) ?: '1' }}" rel="stylesheet">
-    <link href="{{ asset('css/pulse-badge.css') }}?v={{ @filemtime(public_path('css/pulse-badge.css')) ?: '1' }}" rel="stylesheet">
-    <link href="{{ asset('css/notification-center.css') }}?v={{ @filemtime(public_path('css/notification-center.css')) ?: '5' }}" rel="stylesheet">
-    <script src="{{ asset('js/pulse-badge.js') }}?v={{ @filemtime(public_path('js/pulse-badge.js')) ?: '1' }}" defer></script>
-    <script src="{{ asset('js/glass-tip.js') }}?v={{ @filemtime(public_path('js/glass-tip.js')) ?: '1' }}" defer></script>
+    <link href="{{ asset('assets/css/type-system.css') }}?v={{ @filemtime(public_path('assets/css/type-system.css')) ?: '1' }}" rel="stylesheet">
+    <link href="{{ asset('assets/css/brand-colors.css') }}?v={{ @filemtime(public_path('assets/css/brand-colors.css')) ?: '1' }}" rel="stylesheet">
+    <link href="{{ asset('assets/css/spacing-system.css') }}?v={{ @filemtime(public_path('assets/css/spacing-system.css')) ?: '1' }}" rel="stylesheet">
+    <link href="{{ asset('assets/css/button-system.css') }}?v={{ @filemtime(public_path('assets/css/button-system.css')) ?: '1' }}" rel="stylesheet">
+    <link href="{{ asset('assets/css/form-system.css') }}?v={{ @filemtime(public_path('assets/css/form-system.css')) ?: '1' }}" rel="stylesheet">
+    <link href="{{ asset('assets/css/app-shell.css') }}?v={{ @filemtime(public_path('assets/css/app-shell.css')) ?: '1' }}" rel="stylesheet">
+    <link href="{{ asset('assets/css/interaction.css') }}?v={{ @filemtime(public_path('assets/css/interaction.css')) ?: '1' }}" rel="stylesheet">
+    <link href="{{ asset('assets/css/cart.css') }}?v={{ @filemtime(public_path('assets/css/cart.css')) ?: '1' }}" rel="stylesheet">
+    <link href="{{ asset('assets/css/chat.css') }}?v={{ @filemtime(public_path('assets/css/chat.css')) ?: '1' }}" rel="stylesheet">
+    <link href="{{ asset('assets/css/multi-select.css') }}?v={{ @filemtime(public_path('assets/css/multi-select.css')) ?: '1' }}" rel="stylesheet">
+    <link href="{{ asset('assets/css/glass-tip.css') }}?v={{ @filemtime(public_path('assets/css/glass-tip.css')) ?: '1' }}" rel="stylesheet">
+    <link href="{{ asset('assets/css/pulse-badge.css') }}?v={{ @filemtime(public_path('assets/css/pulse-badge.css')) ?: '1' }}" rel="stylesheet">
+    <link href="{{ asset('assets/css/notification-center.css') }}?v={{ @filemtime(public_path('assets/css/notification-center.css')) ?: '5' }}" rel="stylesheet">
+    <script src="{{ asset('assets/js/pulse-badge.js') }}?v={{ @filemtime(public_path('assets/js/pulse-badge.js')) ?: '1' }}" defer></script>
+    <script src="{{ asset('assets/js/glass-tip.js') }}?v={{ @filemtime(public_path('assets/js/glass-tip.js')) ?: '1' }}" defer></script>
 
     <!-- Shell chrome lives in public/css/app-shell.css; cart drawer in cart.css -->
 </head>
@@ -268,7 +268,7 @@
     <div class="cart-header">
         <div>
             <h5 id="cartTitle" class="mb-0">Your Cart</h5>
-            <div class="small text-muted mt-1">Each website needs its own approved article.</div>
+            <div class="small text-muted mt-1">Assign a document to each website — one article per order.</div>
         </div>
         <button id="closeCart" class="btn btn-sm btn-outline-secondary" type="button" aria-label="Close cart">
             <i class="fa fa-times" aria-hidden="true"></i>
@@ -294,7 +294,7 @@
             <i class="fa fa-list"></i> Keep browsing publishers
         </button>
         <div id="cartProceedHint" class="small text-muted mt-2 d-none">
-            Assign an approved article to at least one website to checkout. Sites without articles stay in your cart.
+            Assign a document to at least one website to checkout. Sites without documents stay in your cart.
         </div>
     </div>
 </div>
@@ -322,7 +322,7 @@
 @include('components.help-feedback-widget')
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-<script src="{{ asset('js/jquery-3.6.0.min.js') }}?v={{ @filemtime(public_path('js/jquery-3.6.0.min.js')) ?: '1' }}"></script>
+<script src="{{ asset('assets/js/jquery-3.6.0.min.js') }}?v={{ @filemtime(public_path('assets/js/jquery-3.6.0.min.js')) ?: '1' }}"></script>
 @include('partials.app-toast')
 
 <script>
@@ -433,15 +433,39 @@
         }
     }
 
-    function articlesForCartLine(item) {
-        const siteLang = String(item.language || '').toLowerCase();
-        const selectedId = parseInt(item.content_submission_id || 0, 10) || 0;
-        const usedElsewhere = new Set(
-            cart
-                .filter((row) => getCartItemKey(row) !== getCartItemKey(item))
-                .map((row) => parseInt(row.content_submission_id || 0, 10))
-                .filter((id) => id > 0)
-        );
+    function lineContentIds(item) {
+        const qty = Math.max(1, parseInt(item.quantity, 10) || 1);
+        const raw = Array.isArray(item.content_submission_ids) ? item.content_submission_ids : [];
+        const ids = [];
+        for (let i = 0; i < qty; i++) {
+            ids[i] = parseInt(raw[i] || 0, 10) || 0;
+        }
+        if (!ids[0] && item.content_submission_id) {
+            ids[0] = parseInt(item.content_submission_id, 10) || 0;
+        }
+        return ids;
+    }
+
+    function lineFullyAssigned(item) {
+        return lineContentIds(item).every((id) => id > 0);
+    }
+
+    function usedSubmissionIds(exceptKey, exceptCopyIndex) {
+        const used = new Set();
+        cart.forEach((row) => {
+            const key = getCartItemKey(row);
+            lineContentIds(row).forEach((id, copyIndex) => {
+                if (!id) return;
+                if (key === exceptKey && copyIndex === exceptCopyIndex) return;
+                used.add(id);
+            });
+        });
+        return used;
+    }
+
+    function articlesForCartPlacement(item, copyIndex) {
+        const selectedId = lineContentIds(item)[copyIndex] || 0;
+        const usedElsewhere = usedSubmissionIds(getCartItemKey(item), copyIndex);
         return approvedArticles.filter((article) => {
             if (usedElsewhere.has(article.id) && article.id !== selectedId) return false;
             return true;
@@ -449,7 +473,7 @@
     }
 
     function cartLinesMissingArticles() {
-        return cart.filter((item) => !parseInt(item.content_submission_id || 0, 10));
+        return cart.filter((item) => !lineFullyAssigned(item));
     }
 
     // Load cart from session on page load
@@ -486,7 +510,7 @@
         });
     }
 
-    function assignCartArticle(siteId, sensitiveType, submissionId) {
+    function assignCartArticle(siteId, sensitiveType, submissionId, copyIndex) {
         $.ajax({
             url: '{{ route("advertiser.cart.assign-article") }}',
             method: 'POST',
@@ -497,7 +521,8 @@
             data: {
                 id: siteId,
                 sensitive_type: sensitiveType || '',
-                content_submission_id: submissionId || ''
+                content_submission_id: submissionId || '',
+                copy_index: copyIndex || 0
             },
             success: function(data) {
                 if (!data.success) {
@@ -577,18 +602,22 @@
             const missing = missingLines.length;
             const readyCount = Math.max(0, cart.length - missing);
             const readyTotal = cart
-                .filter((item) => !!parseInt(item.content_submission_id || 0, 10))
+                .filter((item) => lineFullyAssigned(item))
                 .reduce((sum, item) => sum + ((parseFloat(item.price) || 0) * (parseInt(item.quantity, 10) || 0)), 0);
             if (checklistEl) {
                 let list = '<div class="small fw-semibold mb-1">Before Pay</div><ul class="mb-0 ps-0">';
                 sortedCart.forEach((item) => {
-                    const assigned = !!parseInt(item.content_submission_id || 0, 10);
+                    const qty = Math.max(1, parseInt(item.quantity, 10) || 1);
+                    const assigned = lineFullyAssigned(item);
+                    const filled = lineContentIds(item).filter((id) => id > 0).length;
                     const lang = String(item.language || '').toUpperCase();
                     const cls = assigned ? 'is-ok' : 'is-todo';
                     const mark = assigned ? '✓' : '!';
                     const detail = assigned
-                        ? 'Ready — will be charged at checkout'
-                        : ('Needs ' + (lang ? lang + ' ' : '') + 'article (stays in cart)');
+                        ? 'Ready — document attached'
+                        : (qty > 1
+                            ? ('Needs ' + (qty - filled) + ' more document' + ((qty - filled) === 1 ? '' : 's') + ' (one per order)')
+                            : 'Add a document for this order');
                     list += `<li class="${cls}"><span class="mark" aria-hidden="true">${mark}</span><span><strong>${escapeHtml(item.name || 'Website')}</strong> — ${escapeHtml(detail)}</span></li>`;
                 });
                 list += '</ul>';
@@ -599,15 +628,15 @@
                 if (readyCount === 0) {
                     readyNote.classList.remove('d-none');
                     readyNote.innerHTML = missing === 1
-                        ? 'Assign an approved article to this website before checkout. You can keep browsing and finish later.'
-                        : ('Assign approved articles to at least one website before checkout. You can keep browsing and finish later.');
+                        ? 'Add a document to this website before checkout. You can keep browsing and finish later.'
+                        : ('Add documents to at least one website before checkout. You can keep browsing and finish later.');
                 } else if (missing > 0) {
                     readyNote.classList.remove('d-none');
                     readyNote.innerHTML = readyCount + ' ready to pay (€' + readyTotal.toFixed(2) + '). '
-                        + missing + ' without articles stay in your cart.';
+                        + missing + ' without documents stay in your cart.';
                 } else {
                     readyNote.classList.remove('d-none');
-                    readyNote.textContent = 'Checklist complete — proceed to pay, or keep browsing to add more sites.';
+                    readyNote.textContent = 'Documents attached — proceed to pay, or keep browsing to add more sites.';
                 }
             }
             if (proceedBtn) {
@@ -627,62 +656,88 @@
             
             sortedCart.forEach((item) => {
                 const itemKey = getCartItemKey(item);
+                const siteName = item.name || 'Website';
                 const sensitiveDisplay = item.sensitive_type ? 
                     `<div class="cart-item-sensitive"><small>+ ${escapeHtml(item.sensitive_type)} (€${(parseFloat(item.additional_price) || 0).toFixed(2)})</small></div>` : '';
-                const options = articlesForCartLine(item);
-                const selectedId = parseInt(item.content_submission_id || 0, 10) || 0;
+                const placementIds = lineContentIds(item);
                 let articleBlock = '';
-                if (options.length === 0 && !selectedId) {
+                if (approvedArticles.length === 0 && placementIds.every((id) => !id)) {
                     articleBlock = `
                         <div class="cart-item-article">
+                            <div class="cart-item-order-label">
+                                <span class="cart-item-order-kicker">Order document</span>
+                                <strong>${escapeHtml(siteName)}</strong>
+                            </div>
                             <div class="cart-item-article-empty">
-                                No approved article available yet.
-                                <a href="${contentLibraryUploadUrl}">Upload or approve an article</a>, then assign it here (any language).
+                                No approved document yet.
+                                <a href="${contentLibraryUploadUrl}">Upload a .docx in Content Library</a>, then attach it to this website.
                             </div>
                         </div>`;
                 } else {
-                    let opts = `<option value="">— Select approved article —</option>`;
-                    options.forEach((article) => {
-                        const label = (article.title || 'Article')
-                            + ' (' + String(article.language || '').toUpperCase()
-                            + (article.country ? '/' + String(article.country).toUpperCase() : '')
-                            + ')';
-                        opts += `<option value="${article.id}" ${article.id === selectedId ? 'selected' : ''}>${escapeHtml(label)}</option>`;
-                    });
-                    if (selectedId && !options.some((a) => a.id === selectedId)) {
-                        opts += `<option value="${selectedId}" selected>Assigned article #${selectedId}</option>`;
-                    }
-                    articleBlock = `
-                        <div class="cart-item-article">
-                            <label>Article for this website</label>
-                            <select class="cart-article-select"
+                    articleBlock = placementIds.map((selectedId, copyIndex) => {
+                        const options = articlesForCartPlacement(item, copyIndex);
+                        const orderLabel = placementIds.length > 1
+                            ? `Order ${copyIndex + 1} of ${placementIds.length} · ${siteName}`
+                            : `Document for · ${siteName}`;
+                        let opts = `<option value="">— Choose document for this order —</option>`;
+                        options.forEach((article) => {
+                            const label = (article.title || 'Document')
+                                + ' (' + String(article.language || '').toUpperCase()
+                                + (article.country ? '/' + String(article.country).toUpperCase() : '')
+                                + ')';
+                            opts += `<option value="${article.id}" ${article.id === selectedId ? 'selected' : ''}>${escapeHtml(label)}</option>`;
+                        });
+                        if (selectedId && !options.some((a) => a.id === selectedId)) {
+                            opts += `<option value="${selectedId}" selected>Assigned document #${selectedId}</option>`;
+                        }
+                        const emptyHint = options.length === 0 && !selectedId
+                            ? `<div class="cart-item-article-empty mt-1">Need another document? <a href="${contentLibraryUploadUrl}">Upload in Content Library</a> — each website order needs its own.</div>`
+                            : '';
+                        const uploadLink = `<a class="cart-item-upload-link" href="${contentLibraryUploadUrl}">Upload new document</a>`;
+                        return `
+                        <div class="cart-item-article ${selectedId ? 'is-assigned' : 'needs-document'}">
+                            <div class="cart-item-order-label">
+                                <span class="cart-item-order-kicker">${selectedId ? 'Document attached' : 'Add document'}</span>
+                                <strong>${escapeHtml(orderLabel)}</strong>
+                            </div>
+                            <label class="visually-hidden" for="cart-doc-${item.id}-${copyIndex}">Document for ${escapeHtml(siteName)}</label>
+                            <select id="cart-doc-${item.id}-${copyIndex}"
+                                    class="cart-article-select"
                                     data-id="${item.id}"
                                     data-sensitive-type="${item.sensitive_type || ''}"
+                                    data-copy-index="${copyIndex}"
                                     data-prev-value="${selectedId || ''}">
                                 ${opts}
                             </select>
+                            <div class="cart-item-article-actions">
+                                ${uploadLink}
+                            </div>
+                            ${emptyHint}
                         </div>`;
+                    }).join('');
                 }
                 
                 html += `
                     <div class="cart-item" data-key="${itemKey}">
-                        <div class="cart-item-info">
-                            <div class="cart-item-name">${escapeHtml(item.name)}</div>
-                            ${sensitiveDisplay}
-                            <div class="cart-item-price">€${(parseFloat(item.price) || 0).toFixed(2)} each</div>
-                        </div>
-                        <div class="cart-item-quantity">
-                            <button type="button" class="decrease-qty" data-id="${item.id}" data-sensitive-type="${item.sensitive_type || ''}" aria-label="Decrease quantity">
-                                <i class="fa fa-minus" aria-hidden="true"></i>
+                        <div class="cart-item-top">
+                            <div class="cart-item-info">
+                                <div class="cart-item-name">${escapeHtml(siteName)}</div>
+                                ${sensitiveDisplay}
+                                <div class="cart-item-price">€${(parseFloat(item.price) || 0).toFixed(2)} each</div>
+                            </div>
+                            <div class="cart-item-quantity">
+                                <button type="button" class="decrease-qty" data-id="${item.id}" data-sensitive-type="${item.sensitive_type || ''}" aria-label="Decrease quantity">
+                                    <i class="fa fa-minus" aria-hidden="true"></i>
+                                </button>
+                                <span class="quantity-number" aria-label="Quantity ${item.quantity}">${item.quantity}</span>
+                                <button type="button" class="increase-qty" data-id="${item.id}" data-sensitive-type="${item.sensitive_type || ''}" aria-label="Increase quantity">
+                                    <i class="fa fa-plus" aria-hidden="true"></i>
+                                </button>
+                            </div>
+                            <button type="button" class="cart-item-remove" data-id="${item.id}" data-sensitive-type="${item.sensitive_type || ''}" aria-label="Remove ${escapeHtml(siteName)} from cart">
+                                <i class="fa fa-times" aria-hidden="true"></i>
                             </button>
-                            <span class="quantity-number" aria-label="Quantity ${item.quantity}">${item.quantity}</span>
-                            <button type="button" class="increase-qty" data-id="${item.id}" data-sensitive-type="${item.sensitive_type || ''}" aria-label="Increase quantity">
-                                <i class="fa fa-plus" aria-hidden="true"></i>
-                            </button>
                         </div>
-                        <button type="button" class="cart-item-remove" data-id="${item.id}" data-sensitive-type="${item.sensitive_type || ''}" aria-label="Remove ${escapeHtml(item.name)} from cart">
-                            <i class="fa fa-times" aria-hidden="true"></i>
-                        </button>
                         ${articleBlock}
                     </div>
                 `;
@@ -848,12 +903,13 @@
         if (!select) return;
         const id = parseInt(select.dataset.id, 10);
         const sensitiveType = select.dataset.sensitiveType || null;
+        const copyIndex = parseInt(select.dataset.copyIndex || '0', 10) || 0;
         const submissionId = select.value ? parseInt(select.value, 10) : 0;
         const previous = select.dataset.prevValue || '';
 
         if (!submissionId) {
             select.dataset.prevValue = '';
-            assignCartArticle(id, sensitiveType, 0);
+            assignCartArticle(id, sensitiveType, 0, copyIndex);
             return;
         }
 
@@ -869,7 +925,7 @@
 
         const proceed = function () {
             select.dataset.prevValue = select.value || '';
-            assignCartArticle(id, sensitiveType, submissionId);
+            assignCartArticle(id, sensitiveType, submissionId, copyIndex);
         };
 
         if (!mismatch) {
@@ -951,8 +1007,8 @@ document.querySelectorAll('.role-switch-form').forEach(function(form) {
     });
 });
 </script>
-<script src="{{ asset('js/order-chat.js') }}?v={{ @filemtime(public_path('js/order-chat.js')) ?: '1' }}" defer></script>
-<script src="{{ asset('js/notification-center.js') }}?v={{ @filemtime(public_path('js/notification-center.js')) ?: '5' }}" defer></script>
+<script src="{{ asset('assets/js/order-chat.js') }}?v={{ @filemtime(public_path('assets/js/order-chat.js')) ?: '1' }}" defer></script>
+<script src="{{ asset('assets/js/notification-center.js') }}?v={{ @filemtime(public_path('assets/js/notification-center.js')) ?: '5' }}" defer></script>
 
 </body>
 </html>

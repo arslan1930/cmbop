@@ -150,6 +150,44 @@ Route::get('/robots.txt', function () {
     return response($body, 200, ['Content-Type' => 'text/plain; charset=UTF-8']);
 })->name('robots');
 
+/*
+| Legacy /js and /css URLs — Hostinger production already serves /assets/*
+| but not /js or /css. Keep old paths working and prefer the assets/ copies.
+*/
+Route::get('/js/{path}', function (string $path) {
+    $path = str_replace(['..', '\\'], '', $path);
+    $candidates = [
+        public_path('assets/js/'.$path),
+        public_path('js/'.$path),
+    ];
+    foreach ($candidates as $file) {
+        if (is_file($file)) {
+            return response()->file($file, [
+                'Content-Type' => str_ends_with($path, '.css') ? 'text/css; charset=UTF-8' : 'application/javascript; charset=UTF-8',
+                'Cache-Control' => 'public, max-age=86400',
+            ]);
+        }
+    }
+    abort(404);
+})->where('path', '.*')->name('legacy.js');
+
+Route::get('/css/{path}', function (string $path) {
+    $path = str_replace(['..', '\\'], '', $path);
+    $candidates = [
+        public_path('assets/css/'.$path),
+        public_path('css/'.$path),
+    ];
+    foreach ($candidates as $file) {
+        if (is_file($file)) {
+            return response()->file($file, [
+                'Content-Type' => 'text/css; charset=UTF-8',
+                'Cache-Control' => 'public, max-age=86400',
+            ]);
+        }
+    }
+    abort(404);
+})->where('path', '.*')->name('legacy.css');
+
 // Ad banner click tracking (public)
 Route::get('/banners/{banner}/click', BannerClickController::class)
     ->middleware('throttle:60,1')

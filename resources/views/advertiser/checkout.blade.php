@@ -9,7 +9,7 @@
     @include('advertiser.partials.ordering-path', [
         'step' => 4,
         'title' => 'Place a guest post · Pay',
-        'subtitle' => 'One job here: confirm articles and pay. Live URL tracking starts after the order is placed.',
+        'subtitle' => 'One job here: confirm ready sites and pay. Assign articles in your cart or Content Library first.',
         'linkAll' => true,
         'contentRoute' => $checkoutInWizard
             ? route('advertiser.wizard.content')
@@ -90,7 +90,11 @@
                                         $hasSensitive = !empty($item['sensitive_type']) && ($item['additional_price'] ?? 0) > 0;
                                     @endphp
                                     @php
-                                        $summaryArticleId = (int) ($item['content_submission_id'] ?? ($librarySubmission->id ?? 0));
+                                        $lineArticleIds = is_array($item['content_submission_ids'] ?? null) ? $item['content_submission_ids'] : [];
+                                        $summaryArticleId = (int) ($lineArticleIds[$i] ?? 0);
+                                        if ($summaryArticleId <= 0 && $i === 0) {
+                                            $summaryArticleId = (int) ($item['content_submission_id'] ?? ($librarySubmission->id ?? 0));
+                                        }
                                         $summaryArticle = $summaryArticleId && isset($checkoutArticles)
                                             ? ($checkoutArticles[$summaryArticleId] ?? null)
                                             : null;
@@ -209,12 +213,10 @@
                         </div>
                     </div>
 
-                    @include('advertiser.partials.checkout-content-assignment')
-
-                    <!-- 3. Payment Methods -->
+                    <!-- 2. Payment Methods -->
                     <div class="card border-0 shadow-sm mb-4" id="paymentSectionCard">
                         <div class="card-header bg-white fw-semibold">
-                            <i class="fa fa-credit-card me-2"></i> 3. Payment
+                            <i class="fa fa-credit-card me-2"></i> 2. Payment
                         </div>
                         <div class="card-body">
                             <p class="text-muted small mb-3">Pay from your wallet, or by card. Bank, Wise, and crypto fund your wallet via invoice first.</p>
@@ -1269,9 +1271,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function contentReady() {
-        return window.ContentCheckout && typeof window.ContentCheckout.ready === 'function'
-            ? window.ContentCheckout.ready()
-            : false;
+        return @json((bool) ($payableReady ?? false));
     }
 
     function syncPlaceOrderForModeration() {
@@ -1279,7 +1279,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!contentReady()) {
             placeOrderBtn.disabled = true;
             if (!placeOrderBtn.dataset.busy) {
-                placeOrderBtn.innerHTML = '<i class="fa fa-file-alt"></i> Select an approved article to continue';
+                placeOrderBtn.innerHTML = '<i class="fa fa-file-alt"></i> Assign articles in cart to continue';
             }
         } else if (!placeOrderBtn.dataset.busy) {
             placeOrderBtn.disabled = !selectedMethod;
@@ -1290,12 +1290,12 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Prefer event-driven sync; light fallback instead of 1.2s polling
     document.addEventListener('change', function (e) {
-        if (e.target && (e.target.matches('[name="payment_method"]') || e.target.closest('#contentAssignment') || e.target.closest('[data-content-checkout]'))) {
+        if (e.target && e.target.matches('[name="payment_method"]')) {
             syncPlaceOrderForModeration();
         }
     });
     document.addEventListener('click', function (e) {
-        if (e.target && e.target.closest('.payment-method, .content-pick, [data-select-submission], .article-option')) {
+        if (e.target && e.target.closest('.payment-method, .payment-option')) {
             setTimeout(syncPlaceOrderForModeration, 0);
         }
     });
@@ -1326,7 +1326,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Submit order function
     function submitOrder() {
-        const contentPayload = window.ContentCheckout ? window.ContentCheckout.payload() : {};
         fetch('{{ route("advertiser.checkout.process") }}', {
             method: 'POST',
             headers: {
@@ -1334,17 +1333,18 @@ document.addEventListener('DOMContentLoaded', function() {
                 'Accept': 'application/json',
                 'X-CSRF-TOKEN': '{{ csrf_token() }}'
             },
-            body: JSON.stringify(Object.assign({
+            body: JSON.stringify({
                 payment_method: selectedMethod,
                 reference_code: referenceCode,
                 use_bonus: !!(useBonusEl && useBonusEl.checked),
+                publication_mode: 'immediate',
                 payment_method_id: (function () {
-                    if (selectedMethod !== 'card') return null;
                     const picked = document.querySelector('input[name="saved_card_choice"]:checked');
+                    if (selectedMethod !== 'card') return null;
                     if (!picked || picked.value === 'new') return null;
                     return picked.value;
                 })()
-            }, contentPayload || {}))
+            })
         })
         .then(async response => {
             let data = null;
@@ -1440,8 +1440,8 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!contentReady()) {
             Swal.fire({
                 icon: 'warning',
-                title: 'Content submission incomplete',
-                text: 'Upload an approved article and complete anchor text, target URL, and schedule steps for every placement.'
+                title: 'No ready websites',
+                text: 'Assign an approved Content Library article to at least one website in your cart, then return to checkout.'
             });
             return;
         }
