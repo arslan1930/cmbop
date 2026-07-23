@@ -68,10 +68,11 @@ class ContentLibraryUrlModerationFilterTest extends TestCase
         $this->actingAs($advertiser)
             ->get(route('advertiser.content-library'))
             ->assertOk()
-            ->assertSee('Moderation')
+            ->assertSee('Library status filter', false)
             ->assertSee('Approved')
-            ->assertSee('Rejected')
             ->assertSee('Needs corrections')
+            ->assertSee('Completed/LIVE')
+            ->assertDontSee('library-moderation-row', false)
             ->assertSee('Approved Piece')
             ->assertSee('Rejected Casino Link')
             ->assertSee('Needs Corrections Piece');
@@ -81,8 +82,7 @@ class ContentLibraryUrlModerationFilterTest extends TestCase
             ->assertOk()
             ->assertSee('Approved Piece')
             ->assertDontSee('Rejected Casino Link')
-            ->assertDontSee('Needs Corrections Piece')
-            ->assertSee('selected', false);
+            ->assertDontSee('Needs Corrections Piece');
 
         $approvedPage = $this->actingAs($advertiser)
             ->get(route('advertiser.content-library', ['status' => 'approved']));
@@ -90,10 +90,11 @@ class ContentLibraryUrlModerationFilterTest extends TestCase
         $approvedHtml = $approvedPage->getContent();
         $this->assertStringContainsString('name="status" value="approved"', $approvedHtml);
         $this->assertMatchesRegularExpression(
-            '/library-moderation-box[^>]*is-active[^>]*>[\s\S]*?Approved/i',
+            '/library-status-box--approved[^>]*is-active/i',
             $approvedHtml
         );
 
+        // Rejected chip removed from UI; deep-link status=rejected still works.
         $this->actingAs($advertiser)
             ->get(route('advertiser.content-library', ['status' => 'rejected']))
             ->assertOk()
@@ -154,7 +155,7 @@ class ContentLibraryUrlModerationFilterTest extends TestCase
             ->assertOk()
             ->assertSee('Clean Looking Article')
             ->assertSee('Blocked links:')
-            ->assertSee('Rejected');
+            ->assertSee('Needs corrections');
     }
 
     public function test_saving_article_with_adult_url_rejects(): void
@@ -232,7 +233,7 @@ class ContentLibraryUrlModerationFilterTest extends TestCase
             ->get(route('advertiser.content-library', ['status' => 'rejected']))
             ->assertOk()
             ->assertSee('Approved Then Edited')
-            ->assertSee('Rejected', false)
+            ->assertSee('Needs corrections', false)
             ->assertDontSee('>Available<', false);
     }
 

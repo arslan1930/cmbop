@@ -17,25 +17,13 @@
         return route('advertiser.content-library', $params);
     };
     $statusLabels = [
-        'available' => 'Available',
-        'in_progress' => 'In progress',
-        'published' => 'Completed',
-        'needs_fix' => 'Needs fix',
+        'available' => 'Approved',
+        'in_progress' => 'Approved',
+        'published' => 'Completed/LIVE',
+        'needs_fix' => 'Needs corrections',
         'expired' => 'Expired',
         'archived' => 'Archived',
-        'unavailable' => 'Unavailable',
-    ];
-    $availabilityBoxLabels = [
-        'all' => 'All',
-        'available' => 'Available',
-        'in_progress' => 'In progress',
-        'completed' => 'Completed',
-    ];
-    $moderationBoxLabels = [
-        'all' => 'All',
-        'approved' => 'Approved',
-        'rejected' => 'Rejected',
-        'needs_improvement' => 'Needs corrections',
+        'unavailable' => 'Pending',
     ];
     $moderationCounts = $moderationCounts ?? [
         'all' => 0,
@@ -49,6 +37,59 @@
         'in_progress' => 0,
         'completed' => 0,
     ];
+    // One status strip only: All · Approved · Needs corrections · Completed/LIVE
+    $libraryStatusChips = [
+        'all' => [
+            'label' => 'All',
+            'count' => (int) ($moderationCounts['all'] ?? $availabilityCounts['all'] ?? 0),
+            'params' => ['status' => 'all', 'availability' => 'all'],
+        ],
+        'approved' => [
+            'label' => 'Approved',
+            'count' => (int) ($moderationCounts['approved'] ?? 0),
+            'params' => ['status' => 'approved', 'availability' => 'all'],
+        ],
+        'needs_improvement' => [
+            'label' => 'Needs corrections',
+            'count' => (int) ($moderationCounts['needs_improvement'] ?? 0),
+            'params' => ['status' => 'needs_improvement', 'availability' => 'all'],
+        ],
+        'completed' => [
+            'label' => 'Completed/LIVE',
+            'count' => (int) ($availabilityCounts['completed'] ?? 0),
+            'params' => ['status' => 'all', 'availability' => 'completed'],
+        ],
+    ];
+    $activeLibraryChip = 'all';
+    if (($availabilityFilter ?? 'all') === 'completed') {
+        $activeLibraryChip = 'completed';
+    } elseif (($statusFilter ?? 'all') === 'needs_improvement') {
+        $activeLibraryChip = 'needs_improvement';
+    } elseif (($statusFilter ?? 'all') === 'approved') {
+        $activeLibraryChip = 'approved';
+    }
+    $libraryStatusDisplay = function (string $availability, string $moderationStatus = '') use ($statusLabels): array {
+        $category = match ($availability) {
+            'published' => 'completed',
+            'needs_fix' => 'needs_improvement',
+            'available', 'in_progress' => 'approved',
+            'expired' => 'expired',
+            'archived' => 'archived',
+            default => 'pending',
+        };
+        $label = match ($category) {
+            'completed' => 'Completed/LIVE',
+            'needs_improvement' => 'Needs corrections',
+            'approved' => 'Approved',
+            'expired' => 'Expired',
+            'archived' => 'Archived',
+            default => ($moderationStatus === 'pending' || $moderationStatus === 'processing')
+                ? 'Pending'
+                : ($statusLabels[$availability] ?? 'Pending'),
+        };
+
+        return ['category' => $category, 'label' => $label];
+    };
 @endphp
 <style>
     .library-table { background: #fff; border-radius: 12px; overflow: visible; }
@@ -133,45 +174,50 @@
         white-space: nowrap;
         line-height: 1.2;
     }
+    .library-status--approved,
     .library-status--available {
         background: #f0fdf9;
         color: #0f766e;
         border-color: #bbf7d0;
     }
+    .library-status--completed,
     .library-status--published {
         background: #eff6ff;
         color: #1d4ed8;
         border-color: #bfdbfe;
     }
     .library-status--in_progress {
-        background: #fff;
-        color: #64748b;
-        border-color: #e2e8f0;
+        background: #f0fdf9;
+        color: #0f766e;
+        border-color: #bbf7d0;
     }
+    .library-status--needs_improvement,
     .library-status--needs_fix {
         background: #fff;
-        color: #1e293b;
-        border-color: #e2e8f0;
+        color: #dc2626;
+        border-color: #fecaca;
     }
     .library-status--expired,
     .library-status--archived,
+    .library-status--pending,
     .library-status--unavailable {
         background: #fff;
         color: #94a3b8;
         border-color: #e2e8f0;
     }
-    .library-moderation-row,
-    .library-availability-row {
+    .library-status-row {
         display: flex;
-        flex-wrap: wrap;
+        flex-wrap: nowrap;
+        align-items: stretch;
         gap: .5rem;
         margin-bottom: 1rem;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        padding-bottom: 2px;
     }
-    .library-moderation-box,
-    .library-availability-box {
-        flex: 1 1 140px;
-        min-width: 120px;
-        max-width: 220px;
+    .library-status-box {
+        flex: 1 1 0;
+        min-width: 9.5rem;
         display: flex;
         align-items: center;
         justify-content: space-between;
@@ -184,91 +230,62 @@
         text-decoration: none;
         font-size: .84rem;
         font-weight: 600;
+        white-space: nowrap;
         transition: border-color .15s ease, background .15s ease, color .15s ease;
     }
-    .library-moderation-box--all:hover,
-    .library-availability-box--all:hover,
-    .library-availability-box--available:hover,
-    .library-availability-box--in_progress:hover {
+    .library-status-box--all:hover {
         background: #f8fafc;
         border-color: #cbd5e1;
         color: #475569;
     }
-    .library-moderation-box--all.is-active,
-    .library-availability-box--all.is-active,
-    .library-availability-box--available.is-active,
-    .library-availability-box--in_progress.is-active {
+    .library-status-box--all.is-active {
         background: #f1f5f9;
         border-color: #94a3b8;
         color: #334155;
     }
-    .library-availability-box--available {
+    .library-status-box--approved {
         color: #0f766e;
         border-color: #d1fae5;
     }
-    .library-availability-box--available.is-active {
-        background: #ecfdf5;
-        border-color: #6ee7b7;
-        color: #065f46;
-    }
-    .library-availability-box--completed {
-        color: #1d4ed8;
-        border-color: #bfdbfe;
-    }
-    .library-availability-box--completed:hover {
-        background: #eff6ff;
-        border-color: #93c5fd;
-        color: #1d4ed8;
-    }
-    .library-availability-box--completed.is-active {
-        background: #eff6ff;
-        border-color: #60a5fa;
-        color: #1e40af;
-    }
-    .library-moderation-box--approved {
-        color: #0f766e;
-        border-color: #d1fae5;
-    }
-    .library-moderation-box--approved:hover {
+    .library-status-box--approved:hover {
         background: #f0fdf9;
         border-color: #a7f3d0;
         color: #0f766e;
     }
-    .library-moderation-box--approved.is-active {
+    .library-status-box--approved.is-active {
         background: #ecfdf5;
         border-color: #6ee7b7;
         color: #065f46;
     }
-    .library-moderation-box--rejected {
-        color: #dc2626;
-        border-color: #fecaca;
-    }
-    .library-moderation-box--rejected:hover {
-        background: #fef2f2;
-        border-color: #fca5a5;
-        color: #b91c1c;
-    }
-    .library-moderation-box--rejected.is-active {
-        background: #fef2f2;
-        border-color: #f87171;
-        color: #991b1b;
-    }
-    .library-moderation-box--needs_improvement {
+    .library-status-box--needs_improvement {
         color: #dc2626;
         border-color: #e2e8f0;
     }
-    .library-moderation-box--needs_improvement:hover {
+    .library-status-box--needs_improvement:hover {
         background: #fff;
         border-color: #fecaca;
         color: #b91c1c;
     }
-    .library-moderation-box--needs_improvement.is-active {
+    .library-status-box--needs_improvement.is-active {
         background: #fff;
         border-color: #fca5a5;
         color: #991b1b;
     }
-    .library-moderation-box .mod-count,
-    .library-availability-box .mod-count {
+    .library-status-box--completed {
+        color: #1d4ed8;
+        border-color: #bfdbfe;
+    }
+    .library-status-box--completed:hover {
+        background: #eff6ff;
+        border-color: #93c5fd;
+        color: #1d4ed8;
+    }
+    .library-status-box--completed.is-active {
+        background: #eff6ff;
+        border-color: #60a5fa;
+        color: #1e40af;
+    }
+    .library-status-box .mod-count {
         font-size: .72rem;
         font-weight: 700;
         font-variant-numeric: tabular-nums;
@@ -279,26 +296,20 @@
         padding: 2px 7px;
         line-height: 1.3;
     }
-    .library-moderation-box.is-active .mod-count,
-    .library-availability-box.is-active .mod-count {
+    .library-status-box.is-active .mod-count {
         background: rgba(15, 23, 42, .06);
         opacity: 1;
     }
-    .library-moderation-box--approved.is-active .mod-count {
+    .library-status-box--approved.is-active .mod-count {
         background: rgba(15, 118, 110, .1);
     }
-    .library-moderation-box--rejected.is-active .mod-count {
+    .library-status-box--needs_improvement.is-active .mod-count {
         background: rgba(220, 38, 38, .1);
     }
-    .library-moderation-box--needs_improvement.is-active .mod-count {
-        background: rgba(220, 38, 38, .1);
-    }
-    .library-availability-box--available.is-active .mod-count {
-        background: rgba(15, 118, 110, .1);
-    }
-    .library-availability-box--completed.is-active .mod-count {
+    .library-status-box--completed.is-active .mod-count {
         background: rgba(29, 78, 216, .1);
     }
+
     .library-scores { font-variant-numeric: tabular-nums; white-space: nowrap; color: #475569; }
     .library-preview {
         border: 1px solid var(--brand-primary-border, #b8e4e4);
@@ -568,24 +579,13 @@
         </div>
     </form>
 
-    <div class="library-availability-row" role="group" aria-label="Availability filter">
-        @foreach($availabilityBoxLabels as $key => $label)
-            <a href="{{ $libraryRoute(['availability' => $key]) }}"
-               class="library-availability-box library-availability-box--{{ $key }} @if(($availabilityFilter ?? 'all') === $key) is-active @endif"
-               @if(($availabilityFilter ?? 'all') === $key) aria-current="true" @endif>
-                <span>{{ $label }}</span>
-                <span class="mod-count">{{ (int) ($availabilityCounts[$key] ?? 0) }}</span>
-            </a>
-        @endforeach
-    </div>
-
-    <div class="library-moderation-row" role="group" aria-label="Moderation filter">
-        @foreach($moderationBoxLabels as $key => $label)
-            <a href="{{ $libraryRoute(['status' => $key]) }}"
-               class="library-moderation-box library-moderation-box--{{ $key }} @if(($statusFilter ?? 'all') === $key) is-active @endif"
-               @if(($statusFilter ?? 'all') === $key) aria-current="true" @endif>
-                <span>{{ $label }}</span>
-                <span class="mod-count">{{ (int) ($moderationCounts[$key] ?? 0) }}</span>
+    <div class="library-status-row" role="group" aria-label="Library status filter">
+        @foreach($libraryStatusChips as $key => $chip)
+            <a href="{{ $libraryRoute($chip['params']) }}"
+               class="library-status-box library-status-box--{{ $key }} @if($activeLibraryChip === $key) is-active @endif"
+               @if($activeLibraryChip === $key) aria-current="true" @endif>
+                <span>{{ $chip['label'] }}</span>
+                <span class="mod-count">{{ $chip['count'] }}</span>
             </a>
         @endforeach
     </div>
@@ -616,19 +616,10 @@
                         $publishedDateLabel = $publishedAt
                             ? $publishedAt->timezone(config('app.timezone'))->format('M j, Y')
                             : null;
-                        // Match Status column to moderation filter boxes when corrections are needed.
-                        if ($availability === 'needs_fix') {
-                            $label = match ((string) $submission->moderation_status) {
-                                'rejected' => 'Rejected',
-                                'needs_improvement' => 'Needs corrections',
-                                'error' => 'Error',
-                                default => 'Needs fix',
-                            };
-                        } elseif ($availability === 'published') {
-                            $label = $liveUrl ? 'Completed/Live' : 'Completed';
-                        } else {
-                            $label = $statusLabels[$availability] ?? ucfirst(str_replace('_', ' ', $availability));
-                        }
+                        // Align Status column with filter chips: Approved · Needs corrections · Completed/LIVE
+                        $statusDisplay = $libraryStatusDisplay($availability, (string) $submission->moderation_status);
+                        $label = $statusDisplay['label'];
+                        $statusCategory = $statusDisplay['category'];
                     @endphp
                     <tr id="library-row-{{ $submission->id }}">
                         <td>
@@ -710,9 +701,11 @@
                         </td>
                         <td>
                             <div class="library-status-wrap">
-                                <span class="library-status library-status--{{ $availability }}">{{ $label }}</span>
-                                @if($availability === 'published')
+                                <span class="library-status library-status--{{ $statusCategory }}">{{ $label }}</span>
+                                @if($statusCategory === 'completed')
                                     <span class="library-status-hint">Done — not orderable</span>
+                                @elseif($availability === 'in_progress')
+                                    <span class="library-status-hint">In placement</span>
                                 @endif
                             </div>
                         </td>
