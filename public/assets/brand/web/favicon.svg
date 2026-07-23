@@ -1,6 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="SEOLinkBuildings">
-  <rect x="1" y="1" width="62" height="62" rx="14" fill="#e8f8f7" stroke="#b8e8e6" stroke-width="2"/>
-  <text x="32" y="43" text-anchor="middle" font-family="Poppins, Arial, Helvetica, sans-serif" font-size="26" font-weight="800">
-    <tspan fill="#0b6266">S</tspan><tspan fill="#3aaeb2">L</tspan>
-  </text>
+  <rect x="2" y="2" width="60" height="60" rx="14" fill="#185054"/>
+  <text x="32" y="42" text-anchor="middle" font-family="Inter, Poppins, Arial, Helvetica, sans-serif" font-size="30" font-weight="800" fill="#FFFFFF">L</text>
+  <rect x="20" y="48" width="24" height="3" rx="1.5" fill="#0ea5e9"/>
 </svg>

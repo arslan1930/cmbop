@@ -110,9 +110,9 @@
   }
 
   .slb-hero-mark {
-    height: clamp(48px, 7vw, 72px);
+    height: clamp(44px, 6.5vw, 64px);
     width: auto;
-    max-width: min(420px, 92%);
+    max-width: min(520px, 94%);
     object-fit: contain;
   }
 
