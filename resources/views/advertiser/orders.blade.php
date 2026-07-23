@@ -709,18 +709,26 @@ document.addEventListener('DOMContentLoaded', function() {
 
         window._chatOrderId = details.order_id || window._chatOrderId || null;
         const websiteName = escapeHtml(details.website_name || '—');
+        const websiteUrl = details.website_url
+            ? `<a class="chat-od__url" href="${escapeHtml(details.website_url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(details.website_url)}</a>`
+            : '';
         const statusLabel = escapeHtml(details.status_label || details.status || '—');
         const nextAction = escapeHtml(details.next_action || '');
         const autoHint = details.auto_approve_hint
-            ? `<div class="small text-muted mt-1">${escapeHtml(details.auto_approve_hint)}</div>`
+            ? `<div class="chat-od__hint">${escapeHtml(details.auto_approve_hint)}</div>`
             : '';
 
         // Status summary only — review actions live in the View order details modal
         el.innerHTML = `
-            <div class="small">
-                <div><span class="chat-detail-primary">${websiteName}</span>
-                ${details.website_url ? ` · <a href="${escapeHtml(details.website_url)}" target="_blank" rel="noopener">${escapeHtml(details.website_url)}</a>` : ''}</div>
-                <div class="mt-1"><strong>${statusLabel}</strong>${nextAction ? ` — ${nextAction}` : ''}</div>
+            <div class="chat-od">
+                <div class="chat-od__site">
+                    <span class="chat-detail-primary">${websiteName}</span>
+                    ${websiteUrl}
+                </div>
+                <div class="chat-od__status">
+                    <strong>${statusLabel}</strong>
+                    ${nextAction ? `<span class="chat-od__next">${nextAction}</span>` : ''}
+                </div>
                 ${autoHint}
             </div>`;
         el.classList.remove('d-none');

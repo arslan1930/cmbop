@@ -547,37 +547,40 @@ $(document).ready(function() {
             return;
         }
 
-        const parts = [];
         const websiteName = escapeHtml(details.website_name || '—');
-        if (details.website_url) {
-            parts.push('<span class="chat-detail-primary">' + websiteName + '</span> · <a href="' + escapeHtml(details.website_url) + '" target="_blank" rel="noopener noreferrer">' + escapeHtml(details.website_url) + '</a>');
-        } else {
-            parts.push('<span class="chat-detail-primary">' + websiteName + '</span>');
-        }
+        const websiteUrl = details.website_url
+            ? '<a class="chat-od__url" href="' + escapeHtml(details.website_url) + '" target="_blank" rel="noopener noreferrer">' + escapeHtml(details.website_url) + '</a>'
+            : '';
 
-        parts.push('Order date: ' + escapeHtml(formatChatDate(details.order_date, false)));
-        parts.push('Started: ' + escapeHtml(formatChatDate(details.started_at, true)));
+        const metaItems = [];
+        metaItems.push({ label: 'Ordered', value: formatChatDate(details.order_date, false) });
+        metaItems.push({ label: 'Started', value: formatChatDate(details.started_at, true) });
 
         if (details.df_links !== null && details.df_links !== undefined) {
             const dfLabel = details.df_links === 1 ? '1 DF link' : (details.df_links + ' DF links');
-            const linkType = details.link_type ? (' (' + escapeHtml(details.link_type) + ')') : '';
-            parts.push(escapeHtml(dfLabel) + linkType);
+            const linkType = details.link_type ? (' · ' + details.link_type) : '';
+            metaItems.push({ label: 'Links', value: dfLabel + linkType });
         } else if (details.link_type) {
-            parts.push('Link type: ' + escapeHtml(details.link_type));
-        }
-
-        if (details.da != null || details.dr != null) {
-            parts.push('DA ' + (details.da != null ? details.da : '—') + ' · DR ' + (details.dr != null ? details.dr : '—'));
+            metaItems.push({ label: 'Link type', value: details.link_type });
         }
 
         if (details.sensitive_type) {
-            parts.push('Sensitive: ' + escapeHtml(details.sensitive_type));
+            metaItems.push({ label: 'Sensitive', value: details.sensitive_type });
         }
+
+        const metaHtml = metaItems.map(function (item) {
+            return '<div class="chat-od__meta-item">'
+                + '<dt>' + escapeHtml(item.label) + '</dt>'
+                + '<dd>' + escapeHtml(String(item.value)) + '</dd>'
+                + '</div>';
+        }).join('');
 
         const statusLabel = escapeHtml(details.status_label || details.status || '—');
         const nextAction = escapeHtml(details.next_action || '');
-        let statusBlock = '<div class="mt-2"><strong>' + statusLabel + '</strong>'
-            + (nextAction ? ' — ' + nextAction : '') + '</div>';
+        const statusBlock = '<div class="chat-od__status">'
+            + '<strong>' + statusLabel + '</strong>'
+            + (nextAction ? '<span class="chat-od__next">' + nextAction + '</span>' : '')
+            + '</div>';
 
         let revisionBlock = '';
         if (details.can_resubmit || details.modification_requested === 'yes') {
@@ -606,8 +609,12 @@ $(document).ready(function() {
                 + '</div>';
         }
 
-        el.innerHTML = '<div class="small">'
-            + '<div>' + parts.join('<span class="chat-detail-sep">·</span>') + '</div>'
+        el.innerHTML = '<div class="chat-od">'
+            + '<div class="chat-od__site">'
+            + '<span class="chat-detail-primary">' + websiteName + '</span>'
+            + websiteUrl
+            + '</div>'
+            + '<dl class="chat-od__meta">' + metaHtml + '</dl>'
             + statusBlock
             + revisionBlock
             + '</div>';

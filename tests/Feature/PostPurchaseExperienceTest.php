@@ -344,6 +344,8 @@ class PostPurchaseExperienceTest extends TestCase
             ->getJson('/chat/messages/'.$order->id)
             ->json('order_details');
         $this->assertNotEmpty($details['next_action']);
+        $this->assertArrayNotHasKey('da', $details);
+        $this->assertArrayNotHasKey('dr', $details);
     }
 
     public function test_orders_page_includes_post_purchase_ux_copy(): void

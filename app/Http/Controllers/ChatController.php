@@ -354,8 +354,6 @@ class ChatController extends Controller
             'started_at' => optional($startedAt)?->toIso8601String(),
             'link_type' => $linkType,
             'df_links' => $dfLinks,
-            'da' => $site?->da,
-            'dr' => $site?->dr,
             'sensitive_type' => $item?->sensitive_type,
             'content_link' => $item?->content_link,
             'live_url' => $item?->live_url,
