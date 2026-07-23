@@ -52,7 +52,6 @@
     @php
         $inGuestPostWizard = request()->boolean('wizard')
             || ! empty(\App\Http\Controllers\Advertiser\GuestPostWizardController::stateFromSession()['language']);
-        $siteReadiness = $siteReadiness ?? [];
     @endphp
     @if(request()->boolean('wizard') && ! empty(\App\Http\Controllers\Advertiser\GuestPostWizardController::stateFromSession()['language']))
         @include('advertiser.wizard._catalog_chrome')
@@ -125,7 +124,7 @@
                 @if(!empty($orderingSubmission))
                     Browse any verified publishers for “{{ $orderingSubmission->title ?: $orderingSubmission->original_filename }}”. Filters stay optional — language does not have to match.
                 @else
-                    Browse verified publishers. Check article readiness beside Buy before you add sites.
+                    Browse verified publishers and add sites to your cart.
                 @endif
             </p>
         </div>
@@ -500,7 +499,7 @@
                                         for {{ $qtyExample }} →
                                         <strong class="text-success">€{{ number_format($after, 2) }}</strong>
                                     </div>
-                                    <button class="btn btn-sm btn-outline-primary mt-2 buy-now w-100"
+                                    <button type="button" class="btn btn-sm btn-outline-primary mt-2 buy-now w-100"
                                             data-id="{{ $deal->id }}"
                                             data-base-price="{{ $deal->price }}"
                                             data-name="{{ $deal->site_name }}"
@@ -864,7 +863,7 @@
                                 ? round((float) $site->price * (1 - $catalogSalePct / 100), 2)
                                 : null;
                         @endphp
-                        <button class="btn btn-sm btn-primary buy-now d-inline-flex justify-content-center align-items-center gap-2"
+                        <button type="button" class="btn btn-sm btn-primary buy-now d-inline-flex justify-content-center align-items-center gap-2"
                                 data-id="{{ $site->id }}"
                                 data-base-price="{{ $site->price }}"
                                 data-name="{{ $site->site_name }}"
@@ -878,20 +877,6 @@
                                 <span class="fw-semibold base-price-display">€{{ number_format($site->price, 2) }}</span>
                             @endif
                         </button>
-                        @php $readyMeta = $siteReadiness[$site->id] ?? null; @endphp
-                        @if($readyMeta)
-                            @if($readyMeta['ready'])
-                                <span class="catalog-article-ready is-ready" title="You have an approved article ready to assign (any site language)">
-                                    {{ $readyMeta['label'] }}
-                                </span>
-                            @else
-                                <a href="{{ route('advertiser.content-library', ['upload' => 1]) }}"
-                                   class="catalog-article-ready is-needed"
-                                   title="Upload an approved article, then assign it in your cart">
-                                    {{ $readyMeta['label'] }}
-                                </a>
-                            @endif
-                        @endif
 
                         <div class="catalog-row-actions-quiet">
                             <button type="button"
@@ -1259,7 +1244,7 @@
                 <div><span class="text-muted">Country</span><strong>{!! getCountryFlag($mobileCountry) !!} {{ fullCountry($mobileCountry) }}</strong></div>
             </div>
             <div class="d-flex align-items-center gap-2 mt-3">
-                <button class="btn btn-sm btn-primary buy-now flex-grow-1 d-inline-flex justify-content-center align-items-center gap-2"
+                <button type="button" class="btn btn-sm btn-primary buy-now flex-grow-1 d-inline-flex justify-content-center align-items-center gap-2"
                         data-id="{{ $site->id }}"
                         data-base-price="{{ $site->price }}"
                         data-name="{{ $site->site_name }}"

@@ -8,7 +8,7 @@
 @push('head')
 <script type="application/ld+json">
 {!! json_encode([
-    '@context' => 'https://schema.org',
+    '@@context' => 'https://schema.org',
     '@type' => 'BlogPosting',
     'headline' => $blog->title,
     'description' => $blog->excerpt ?: \Illuminate\Support\Str::limit(strip_tags($blog->content ?? ''), 160),

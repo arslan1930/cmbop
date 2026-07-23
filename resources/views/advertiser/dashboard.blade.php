@@ -20,7 +20,7 @@
     transition: background-color .2s ease, transform .2s ease;
 }
 .get-started-cta:hover, .dash-primary-cta:hover {
-    color: #fff; background: var(--brand-primary-soft, #3faeb2); transform: translateY(-1px);
+    color: #fff; background: var(--brand-primary-deep, #123f42); transform: none;
 }
 .kpi-tile {
     display: flex; align-items: center; gap: 12px; padding: 14px;
@@ -30,8 +30,13 @@
     width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center;
     justify-content: center; flex-shrink: 0;
     background: var(--brand-primary-bg, #e6f5f5);
-    color: var(--brand-primary, #185054);
-    border: 1px solid var(--brand-primary-border, #b8e4e4);
+    color: #fff;
+    border: 1px solid transparent;
+}
+.kpi-tile .kpi-icon i {
+    color: inherit;
+    font-size: 1.05rem;
+    line-height: 1;
 }
 .kpi-tile .kpi-label { font-size: 12px; color: #6b7280; display: block; }
 .kpi-tile .kpi-value { font-size: 1.35rem; font-weight: 700; color: var(--brand-primary, #185054); line-height: 1.1; }
@@ -41,7 +46,7 @@
     text-decoration: none; color: inherit; background: #f8fafb;
     transition: border-color .2s ease, background .2s ease;
 }
-.next-action:hover { border-color: var(--brand-primary-border, #b8e4e4); background: var(--brand-primary-bg, #e6f5f5); color: inherit; }
+.next-action:hover { border-color: #cbd5e1; background: rgba(15, 23, 42, 0.04); color: inherit; }
 .next-action .na-title { font-weight: 600; font-size: 14px; }
 .next-action .na-desc { font-size: 12px; color: #6b7280; margin: 0; }
 .order-status {
@@ -147,7 +152,7 @@
 .recent-orders-link {
     color: #185054; font-weight: 600; text-decoration: none;
 }
-.recent-orders-link:hover { color: #3faeb2; }
+.recent-orders-link:hover { color: #123f42; }
 .help-secondary {
     border: 1px dashed #d7e7e8; border-radius: 12px; padding: 16px;
     background: #fafcfc;
@@ -157,9 +162,9 @@
     display: flex; align-items: center; justify-content: space-between; gap: 12px;
     padding: 12px 14px; border: 1px solid #e5e7eb; border-radius: 10px;
     background: #fff; color: inherit;
-    transition: border-color .2s ease, background .2s ease;
+    transition: border-color .15s ease, background .15s ease;
 }
-.recommended-site:hover { border-color: #5bc4c7; background: #f0fbfb; }
+.recommended-site:hover { border-color: #cbd5e1; background: rgba(15, 23, 42, 0.03); }
 .recommended-site .rs-name {
     font-weight: 400;
     font-size: 14px;
@@ -168,7 +173,7 @@
     text-underline-offset: 2px;
     word-break: break-all;
 }
-.recommended-site .rs-name:hover { color: #3faeb2; }
+.recommended-site .rs-name:hover { color: #123f42; }
 .recommended-site .rs-meta { font-size: 12px; color: #64748b; margin: 0; }
 .recommended-site .rs-price {
     font-weight: 600;
@@ -176,7 +181,7 @@
     white-space: nowrap;
     text-decoration: none;
 }
-.recommended-site .rs-price:hover { color: #3faeb2; }
+.recommended-site .rs-price:hover { color: #123f42; }
 </style>
 
 <div class="d-flex flex-wrap align-items-end justify-content-between gap-2 mb-4">
@@ -277,7 +282,7 @@
     <div class="row g-3 mb-4 px-1 pt-1">
         <div class="col-6 col-lg-3">
             <div class="kpi-tile">
-                <div class="kpi-icon" style="background:#3faeb2;"><i class="fa-solid fa-box-open"></i></div>
+                <div class="kpi-icon" style="background:#3faeb2;color:#fff;"><i class="fa-solid fa-box-open" aria-hidden="true"></i></div>
                 <div>
                     <span class="kpi-label">Total orders</span>
                     <div class="kpi-value">{{ $stats['total'] }}</div>
@@ -286,7 +291,7 @@
         </div>
         <div class="col-6 col-lg-3">
             <div class="kpi-tile">
-                <div class="kpi-icon" style="background:#198754;"><i class="fa-solid fa-circle-check"></i></div>
+                <div class="kpi-icon" style="background:#198754;color:#fff;"><i class="fa-solid fa-circle-check" aria-hidden="true"></i></div>
                 <div>
                     <span class="kpi-label">Completed</span>
                     <div class="kpi-value">{{ $stats['completed'] }}</div>
@@ -295,7 +300,7 @@
         </div>
         <div class="col-6 col-lg-3">
             <div class="kpi-tile">
-                <div class="kpi-icon" style="background:#ffc107;color:#212529;"><i class="fa-solid fa-clock"></i></div>
+                <div class="kpi-icon" style="background:#d97706;color:#fff;"><i class="fa-solid fa-clock" aria-hidden="true"></i></div>
                 <div>
                     <span class="kpi-label">In progress</span>
                     <div class="kpi-value">{{ $stats['in_progress'] }}</div>
@@ -304,7 +309,7 @@
         </div>
         <div class="col-6 col-lg-3">
             <div class="kpi-tile">
-                <div class="kpi-icon" style="background:#dc3545;"><i class="fa-solid fa-xmark-circle"></i></div>
+                <div class="kpi-icon" style="background:#dc3545;color:#fff;"><i class="fa-solid fa-xmark-circle" aria-hidden="true"></i></div>
                 <div>
                     <span class="kpi-label">Cancelled</span>
                     <div class="kpi-value">{{ $stats['cancelled'] }}</div>

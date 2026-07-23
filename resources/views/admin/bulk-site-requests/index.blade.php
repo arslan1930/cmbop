@@ -6,8 +6,7 @@
         <div>
             <h3 class="mb-1">Bulk site requests</h3>
             <p class="text-muted small mb-0">
-                Guided onboarding for publishers with many sites.
-                Email a URL+price sheet, seed metrics here, then wait for the publisher to finish details before approving.
+                Publishers submit <strong>URL + price</strong>. Press <strong>Done</strong> to add drafts to their Pending sites and notify them. Verify/activate stays separate.
             </p>
         </div>
         <span class="badge text-bg-secondary align-self-center">{{ $openCount }} open</span>
@@ -54,7 +53,7 @@
                                 <div class="small text-muted">{{ $req->publisher->email ?? '' }}</div>
                             </td>
                             <td>{{ $req->estimated_count ?? '—' }}</td>
-                            <td><span class="badge text-bg-light border text-capitalize">{{ str_replace('_', ' ', $req->status) }}</span></td>
+                            <td><span class="badge text-bg-light border">{{ $req->statusLabel() }}</span></td>
                             <td>{{ $req->sites_count }}</td>
                             <td>{{ $req->awaiting_details_count }}</td>
                             <td>{{ $req->ready_count }}</td>

@@ -101,9 +101,32 @@ class DepositMarkPaidTest extends TestCase
         $this->actingAs($user)
             ->get(route('advertiser.add-funds'))
             ->assertOk()
-            ->assertSee('Pending invoice deposits')
-            ->assertSee('OK, I have made the payment')
-            ->assertSee('REF'.$deposit->reference_code);
+            ->assertSee('Recent activity', false)
+            ->assertSee('Live', false)
+            ->assertDontSee('Pending invoice deposits', false)
+            ->assertSee('id="walletHistory"', false)
+            ->assertSee('id="activityFeed"', false);
+    }
+
+    public function test_pending_deposit_appears_in_activity_feed_with_download(): void
+    {
+        $user = $this->advertiser();
+        $deposit = $this->pendingDeposit($user, 'wise');
+
+        $this->actingAs($user)
+            ->getJson(route('advertiser.balance.transactions'))
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonFragment([
+                'reference' => $deposit->reference_code,
+                'status' => 'pending',
+                'is_live_pending' => true,
+            ]);
+
+        $this->actingAs($user)
+            ->get(route('advertiser.invoice', ['referenceCode' => $deposit->reference_code, 'download' => 1]))
+            ->assertOk()
+            ->assertHeader('content-disposition');
     }
 
     public function test_invoice_page_shows_mark_paid_button(): void

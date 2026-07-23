@@ -249,8 +249,6 @@
 </div>
 
 @include('partials.order-chat-modal')
-    </div>
-</div>
 
 <style>
 .table td, .table th {
@@ -675,6 +673,11 @@ document.addEventListener('DOMContentLoaded', function() {
         return '#';
     }
 
+    /** JS string literal safe inside double-quoted HTML attributes (onclick="..."). */
+    function jsAttr(value) {
+        return JSON.stringify(String(value ?? '')).replace(/&/g, '&amp;').replace(/"/g, '&quot;');
+    }
+
     function hideOrderDetailsModal() {
         const el = document.getElementById('orderDetailsModal');
         if (!el || !window.bootstrap || !bootstrap.Modal) return;
@@ -687,13 +690,36 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!el) return;
         if (window.bootstrap && bootstrap.Modal) {
             const instance = bootstrap.Modal.getInstance(el);
-            if (instance) {
-                instance.hide();
-                return;
-            }
+            if (instance) instance.hide();
+            return;
         }
-        if (window.jQuery) {
-            window.jQuery('#chatModal').modal('hide');
+        if (window.jQuery && typeof window.jQuery.fn.modal === 'function') {
+            window.jQuery(el).modal('hide');
+        }
+    }
+
+    function showBsModal(id) {
+        const el = document.getElementById(id);
+        if (!el) return;
+        if (window.bootstrap && bootstrap.Modal) {
+            bootstrap.Modal.getOrCreateInstance(el).show();
+            return;
+        }
+        if (window.jQuery && typeof window.jQuery.fn.modal === 'function') {
+            window.jQuery(el).modal('show');
+        }
+    }
+
+    function hideBsModal(id) {
+        const el = document.getElementById(id);
+        if (!el) return;
+        if (window.bootstrap && bootstrap.Modal) {
+            const instance = bootstrap.Modal.getInstance(el);
+            if (instance) instance.hide();
+            return;
+        }
+        if (window.jQuery && typeof window.jQuery.fn.modal === 'function') {
+            window.jQuery(el).modal('hide');
         }
     }
 
@@ -804,7 +830,7 @@ document.addEventListener('DOMContentLoaded', function() {
     window.requestModification = function(orderId) {
         document.getElementById('modificationOrderId').value = orderId;
         document.getElementById('modificationReason').value = '';
-        $('#modificationModal').modal('show');
+        showBsModal('modificationModal');
     };
 
     document.getElementById('confirmModification').addEventListener('click', function() {
@@ -832,7 +858,7 @@ document.addEventListener('DOMContentLoaded', function() {
         .then(data => {
             if (data.success) {
                 Swal.fire('Success!', data.message, 'success');
-                $('#modificationModal').modal('hide');
+                hideBsModal('modificationModal');
                 fetchOrders(currentPage);
             } else {
                 Swal.fire('Error!', data.message || 'Failed to request modification', 'error');
@@ -1194,7 +1220,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
                             <button 
                                 class="btn btn-sm btn-outline-success action-btn d-flex align-items-center"
-                                onclick="openChat(${order.id}, ${JSON.stringify(String(order.order_number || ''))})">
+                                onclick="openChat(${order.id}, ${jsAttr(order.order_number || '')})">
                                 <i class="fa fa-comments me-1"></i>
                                 <span>Chat</span>${unreadBadge}
                             </button>
@@ -1488,16 +1514,16 @@ document.addEventListener('DOMContentLoaded', function() {
                 <button class="btn btn-sm btn-warning" onclick="requestModification(${order.id})">
                     <i class="fa fa-edit"></i> Request changes
                 </button>
-                <button class="btn btn-sm btn-outline-danger" onclick="raiseIssue(${order.id}, ${JSON.stringify(String(order.order_number || ''))}, ${JSON.stringify(String(statusMeta.label || ''))})">
+                <button class="btn btn-sm btn-outline-danger" onclick="raiseIssue(${order.id}, ${jsAttr(order.order_number || '')}, ${jsAttr(statusMeta.label || '')})">
                     <i class="fa fa-flag"></i> Raise an issue
                 </button>
             `;
         } else if (!['completed', 'cancelled'].includes(order.status) || order.payment_status === 'refunded') {
             actionButtons = `
-                <button class="btn btn-sm btn-outline-secondary" onclick="openChat(${order.id}, ${JSON.stringify(String(order.order_number || ''))})">
+                <button class="btn btn-sm btn-outline-secondary" onclick="openChat(${order.id}, ${jsAttr(order.order_number || '')})">
                     <i class="fa fa-comments"></i> Chat
                 </button>
-                ${order.status !== 'completed' ? `<button class="btn btn-sm btn-outline-danger" onclick="raiseIssue(${order.id}, ${JSON.stringify(String(order.order_number || ''))}, ${JSON.stringify(String(statusMeta.label || ''))})">
+                ${order.status !== 'completed' ? `<button class="btn btn-sm btn-outline-danger" onclick="raiseIssue(${order.id}, ${jsAttr(order.order_number || '')}, ${jsAttr(statusMeta.label || '')})">
                     <i class="fa fa-flag"></i> Raise an issue
                 </button>` : ''}
             `;

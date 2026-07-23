@@ -374,7 +374,7 @@ thead th {
 .site-badge-new:hover,
 .site-badge-new:focus-visible,
 .site-badge-new.is-open {
-    background: var(--brand-primary-soft, #3faeb2);
+    background: var(--brand-primary-deep, #123f42);
 }
 
 .site-badge-new:focus-visible {

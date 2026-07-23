@@ -4,7 +4,9 @@ namespace Tests\Feature;
 
 use App\Models\ActivityLog;
 use App\Models\BulkSiteRequest;
+use App\Models\BulkSiteRequestItem;
 use App\Models\Country;
+use App\Models\InAppNotification;
 use App\Models\Language;
 use App\Models\Role;
 use App\Models\Site;
@@ -149,6 +151,70 @@ class MarketingBulkSiteOpsTest extends TestCase
             ->getContent();
 
         $this->assertStringContainsString('Append-only', $html);
+        $this->assertStringContainsString('Done — add sites', $html);
+    }
+
+    public function test_marketer_done_from_items_creates_drafts_and_notifies(): void
+    {
+        Mail::fake();
+        [$country, $language] = $this->marketplaceCodes();
+
+        $bulk = BulkSiteRequest::create([
+            'publisher_id' => $this->publisher->id,
+            'status' => BulkSiteRequest::STATUS_REQUESTED,
+            'estimated_count' => 2,
+        ]);
+        $itemA = BulkSiteRequestItem::create([
+            'bulk_site_request_id' => $bulk->id,
+            'site_url' => 'https://mkt-done-a.example',
+            'domain' => 'mkt-done-a.example',
+            'price' => 55,
+        ]);
+        $itemB = BulkSiteRequestItem::create([
+            'bulk_site_request_id' => $bulk->id,
+            'site_url' => 'https://mkt-done-b.example',
+            'domain' => 'mkt-done-b.example',
+            'price' => 66,
+        ]);
+
+        $this->actingAs($this->marketer)
+            ->post(route('admin.bulk-site-requests.done', $bulk), [
+                'items' => [
+                    $itemA->id => [
+                        'language' => $language,
+                        'country' => $country,
+                        'da' => 20,
+                        'dr' => 25,
+                        'traffic' => 1000,
+                    ],
+                    $itemB->id => [
+                        'language' => $language,
+                        'country' => $country,
+                        'da' => 22,
+                        'dr' => 28,
+                        'traffic' => 2000,
+                    ],
+                ],
+            ])
+            ->assertRedirect()
+            ->assertSessionHas('success');
+
+        $this->assertDatabaseHas('sites', [
+            'domain' => 'mkt-done-a.example',
+            'publisher_id' => $this->publisher->id,
+            'onboarding_status' => Site::ONBOARDING_AWAITING_DETAILS,
+            'active' => 0,
+        ]);
+
+        $this->assertDatabaseHas('in_app_notifications', [
+            'user_id' => $this->publisher->id,
+        ]);
+        $this->assertTrue(
+            InAppNotification::query()
+                ->where('user_id', $this->publisher->id)
+                ->where('title', 'like', '%Pending sites%')
+                ->exists()
+        );
     }
 
     public function test_marketer_can_delete_awaiting_details_draft_and_history_remains(): void

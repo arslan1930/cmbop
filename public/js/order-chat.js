@@ -87,15 +87,39 @@
     }
     this.setComposerEnabled(true, null);
     this.load(false);
-    if (window.jQuery) {
-      window.jQuery('#chatModal').modal('show');
-    } else {
-      var modalEl = document.getElementById('chatModal');
-      if (modalEl && window.bootstrap && bootstrap.Modal) {
-        bootstrap.Modal.getOrCreateInstance(modalEl).show();
-      }
-    }
+    this.showModal();
     this.startPoll();
+  };
+
+  OrderChat.prototype.showModal = function () {
+    var modalEl = document.getElementById('chatModal');
+    if (!modalEl) return;
+
+    // Prefer Bootstrap 5 API. jQuery is loaded without the Bootstrap jQuery plugin,
+    // so `$('#chatModal').modal('show')` throws and the chat never opens.
+    if (window.bootstrap && bootstrap.Modal) {
+      bootstrap.Modal.getOrCreateInstance(modalEl).show();
+      return;
+    }
+
+    if (window.jQuery && typeof window.jQuery.fn.modal === 'function') {
+      window.jQuery(modalEl).modal('show');
+    }
+  };
+
+  OrderChat.prototype.hideModal = function () {
+    var modalEl = document.getElementById('chatModal');
+    if (!modalEl) return;
+
+    if (window.bootstrap && bootstrap.Modal) {
+      var instance = bootstrap.Modal.getInstance(modalEl);
+      if (instance) instance.hide();
+      return;
+    }
+
+    if (window.jQuery && typeof window.jQuery.fn.modal === 'function') {
+      window.jQuery(modalEl).modal('hide');
+    }
   };
 
   OrderChat.prototype.startPoll = function () {

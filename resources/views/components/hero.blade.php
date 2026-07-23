@@ -166,9 +166,9 @@
 
   .slb-hero-cta:hover {
     color: #fff;
-    background: var(--brand-primary-soft, #3faeb2);
-    transform: translateY(-2px);
-    box-shadow: 0 14px 28px rgba(63, 174, 178, 0.28);
+    background: var(--brand-primary-deep, #123f42);
+    transform: none;
+    box-shadow: 0 10px 24px rgba(24, 80, 84, 0.22);
   }
 
   .slb-hero-cta-secondary {
@@ -182,7 +182,7 @@
     color: var(--brand-primary, #185054);
     border-color: rgba(24, 80, 84, 0.35);
     background: #fff;
-    transform: translateY(-2px);
+    transform: none;
   }
 
   .slb-hero-catalog-text {

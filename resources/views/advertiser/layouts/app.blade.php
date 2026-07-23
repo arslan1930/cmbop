@@ -322,7 +322,7 @@
 @include('components.help-feedback-widget')
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="{{ asset('js/jquery-3.6.0.min.js') }}?v={{ @filemtime(public_path('js/jquery-3.6.0.min.js')) ?: '1' }}"></script>
 @include('partials.app-toast')
 
 <script>
@@ -705,36 +705,38 @@
     }
     
     // Add to cart via server so Content Library article rules apply.
+    // Use fetch (not jQuery) so Buy still works if $ fails to load.
     window.addToCart = function(id, name, price, sensitiveType = null, additionalPrice = 0, basePrice = null) {
-        $.ajax({
-            url: '{{ route("advertiser.cart.add") }}',
+        const body = new URLSearchParams();
+        body.set('id', String(id));
+        body.set('sensitive_type', sensitiveType || '');
+
+        return fetch(@json(route('advertiser.cart.add')), {
             method: 'POST',
             headers: {
-                'X-CSRF-TOKEN': '{{ csrf_token() }}',
-                'Accept': 'application/json'
+                'X-CSRF-TOKEN': @json(csrf_token()),
+                'Accept': 'application/json',
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'X-Requested-With': 'XMLHttpRequest'
             },
-            data: {
-                id: id,
-                sensitive_type: sensitiveType || ''
-            },
-            success: function(data) {
-                if (!data.success) {
-                    showToast(data.error || 'Could not add to cart.', 'error');
-                    return;
-                }
-                applyCartPayload(data);
-                updateCartDisplay();
-                const label = sensitiveType
-                    ? `${name} + ${sensitiveType}`
-                    : name;
-                showToast(data.message || `${label} added to cart.`, 'success');
-                // Keep browsing the catalog — cart stays available in the header to finish payment later.
-                updateCartDisplay();
-            },
-            error: function(xhr) {
-                const msg = xhr.responseJSON?.error || xhr.responseJSON?.message || 'Could not add to cart.';
+            credentials: 'same-origin',
+            body: body.toString()
+        }).then(async function (res) {
+            const data = await res.json().catch(function () { return {}; });
+            if (!res.ok || !data.success) {
+                const msg = data.error || data.message || 'Could not add to cart.';
                 showToast(msg, 'error');
+                return { ok: false, error: msg };
             }
+            applyCartPayload(data);
+            updateCartDisplay();
+            const label = sensitiveType ? (name + ' + ' + sensitiveType) : name;
+            showToast(data.message || (label + ' added to cart.'), 'success');
+            updateCartDisplay();
+            return { ok: true, data: data };
+        }).catch(function () {
+            showToast('Could not add to cart.', 'error');
+            return { ok: false, error: 'network' };
         });
     };
     

@@ -10,8 +10,9 @@
         <p class="text-muted small mb-0">
             Publisher: <strong>{{ $bulkRequest->publisher->name }}</strong>
             ({{ $bulkRequest->publisher->email }})
-            · Status: <span class="text-capitalize">{{ str_replace('_', ' ', $bulkRequest->status) }}</span>
-            · Estimated: {{ $bulkRequest->estimated_count ?? '—' }}
+            · Status: <strong>{{ $bulkRequest->statusLabel() }}</strong>
+            · Sites submitted: {{ $bulkRequest->items->count() ?: ($bulkRequest->estimated_count ?? '—') }}
+            · Pending to add: {{ $pendingItems->count() }}
         </p>
     </div>
 
@@ -24,7 +25,7 @@
 
     @if(session('seed_failures'))
         <div class="alert alert-warning">
-            <strong>Some seed rows failed</strong>
+            <strong>Some rows failed</strong>
             <ul class="mb-0 small mt-2">
                 @foreach(session('seed_failures') as $fail)
                     <li>Line {{ $fail['line'] }} · {{ $fail['url'] ?? '' }} — {{ implode('; ', $fail['errors'] ?? []) }}</li>
@@ -55,8 +56,8 @@
                     @if($bulkRequest->isOpen())
                         <form method="POST" action="{{ route('admin.bulk-site-requests.sheet-sent', $bulkRequest) }}" class="mb-2">
                             @csrf
-                            <button type="submit" class="btn btn-sm btn-outline-primary w-100">
-                                Mark sheet emailed
+                            <button type="submit" class="btn btn-sm btn-outline-secondary w-100">
+                                Mark sheet emailed (optional)
                             </button>
                         </form>
                         <form method="POST" action="{{ route('admin.bulk-site-requests.cancel', $bulkRequest) }}"
@@ -94,20 +95,223 @@
         <div class="col-lg-8">
             <div class="card border-0 shadow-sm mb-3">
                 <div class="card-body">
-                    <h6 class="fw-semibold mb-1">Seed draft sites</h6>
+                    <h6 class="fw-semibold mb-1">Publisher submitted (URL + price only)</h6>
                     <p class="small text-muted mb-3">
-                        Paste one site per line after the publisher returns the sheet.
-                        Columns: <code>url,price,da,dr,traffic,language,country[,site_name]</code>
-                        (language/country = 2-letter marketplace codes). Drafts stay <strong>inactive</strong> until the publisher finishes details and you approve.
-                        Marketing may delete a wrong draft while it still awaits publisher details.
+                        Review each website, then fill <strong>Language, Country, DA, DR, and Traffic</strong> per row before Done.
+                        Sites are added to the publisher’s Pending sites as drafts — still inactive until they finish details and you verify.
                     </p>
+                    <div class="table-responsive">
+                        <table class="table table-sm align-middle mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Website URL</th>
+                                    <th>Price</th>
+                                    <th>Domain</th>
+                                    <th>Added?</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @forelse($bulkRequest->items as $item)
+                                    <tr>
+                                        <td>
+                                            <a href="{{ $item->site_url }}" target="_blank" rel="noopener noreferrer">
+                                                {{ $item->site_url }}
+                                            </a>
+                                        </td>
+                                        <td>€{{ number_format((float) $item->price, 2) }}</td>
+                                        <td class="small text-muted">{{ $item->domain }}</td>
+                                        <td>
+                                            @if($item->site_id)
+                                                <span class="badge text-bg-success">Yes</span>
+                                            @else
+                                                <span class="badge text-bg-light border">Pending</span>
+                                            @endif
+                                        </td>
+                                    </tr>
+                                @empty
+                                    <tr>
+                                        <td colspan="4" class="text-muted text-center py-3">
+                                            No URL + price rows (legacy request before in-app submission).
+                                        </td>
+                                    </tr>
+                                @endforelse
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card border-0 shadow-sm mb-3 border-primary-subtle">
+                <div class="card-body">
+                    <h6 class="fw-semibold mb-1">Done — add sites &amp; notify publisher</h6>
+                    <p class="small text-muted mb-3">
+                        Fill every box for the <strong>{{ $pendingItems->count() }}</strong> pending website(s).
+                        Done stays blocked until Language, Country, DA, DR, and Traffic are complete for each row.
+                        Then we create drafts, email the publisher, and send an in-app notice.
+                    </p>
+
+                    @if($errors->any())
+                        <div class="alert alert-danger py-2 small">
+                            <strong>Finish the boxes first.</strong>
+                            {{ $errors->first() }}
+                        </div>
+                    @endif
+
+                    @if($pendingItems->isEmpty())
+                        <div class="form-text">All submitted rows are already added.</div>
+                    @else
+                        <form method="POST"
+                              action="{{ route('admin.bulk-site-requests.done', $bulkRequest) }}"
+                              id="bulkDoneForm"
+                              novalidate>
+                            @csrf
+                            <div class="table-responsive mb-3">
+                                <table class="table table-sm align-middle mb-0 bulk-done-grid">
+                                    <thead>
+                                        <tr>
+                                            <th style="min-width:10rem;">Website</th>
+                                            <th>Price</th>
+                                            <th style="min-width:8rem;">Language <span class="text-danger">*</span></th>
+                                            <th style="min-width:8rem;">Country <span class="text-danger">*</span></th>
+                                            <th style="width:5.5rem;">DA <span class="text-danger">*</span></th>
+                                            <th style="width:5.5rem;">DR <span class="text-danger">*</span></th>
+                                            <th style="width:7rem;">Traffic <span class="text-danger">*</span></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach($pendingItems as $item)
+                                            @php
+                                                $old = old('items.'.$item->id, []);
+                                            @endphp
+                                            <tr data-bulk-done-row>
+                                                <td>
+                                                    <div class="fw-semibold small text-break">{{ $item->domain }}</div>
+                                                    <a class="small text-muted text-break" href="{{ $item->site_url }}" target="_blank" rel="noopener noreferrer">
+                                                        {{ $item->site_url }}
+                                                    </a>
+                                                </td>
+                                                <td class="text-nowrap">€{{ number_format((float) $item->price, 2) }}</td>
+                                                <td>
+                                                    <select name="items[{{ $item->id }}][language]"
+                                                            class="form-select form-select-sm @error('items.'.$item->id.'.language') is-invalid @enderror"
+                                                            required
+                                                            data-bulk-required>
+                                                        <option value="">Select…</option>
+                                                        @foreach($languages as $language)
+                                                            <option value="{{ strtolower($language->code) }}"
+                                                                @selected(($old['language'] ?? '') === strtolower($language->code))>
+                                                                {{ $language->name }}
+                                                            </option>
+                                                        @endforeach
+                                                    </select>
+                                                    @error('items.'.$item->id.'.language')
+                                                        <div class="invalid-feedback d-block">{{ $message }}</div>
+                                                    @enderror
+                                                </td>
+                                                <td>
+                                                    <select name="items[{{ $item->id }}][country]"
+                                                            class="form-select form-select-sm @error('items.'.$item->id.'.country') is-invalid @enderror"
+                                                            required
+                                                            data-bulk-required>
+                                                        <option value="">Select…</option>
+                                                        @foreach($countries as $country)
+                                                            <option value="{{ strtolower($country->code) }}"
+                                                                @selected(($old['country'] ?? '') === strtolower($country->code))>
+                                                                {{ $country->name }}
+                                                            </option>
+                                                        @endforeach
+                                                    </select>
+                                                    @error('items.'.$item->id.'.country')
+                                                        <div class="invalid-feedback d-block">{{ $message }}</div>
+                                                    @enderror
+                                                </td>
+                                                <td>
+                                                    <input type="number"
+                                                           name="items[{{ $item->id }}][da]"
+                                                           class="form-control form-control-sm @error('items.'.$item->id.'.da') is-invalid @enderror"
+                                                           placeholder="0–100"
+                                                           min="0" max="100" step="1"
+                                                           value="{{ $old['da'] ?? '' }}"
+                                                           required
+                                                           data-bulk-required>
+                                                    @error('items.'.$item->id.'.da')
+                                                        <div class="invalid-feedback d-block">{{ $message }}</div>
+                                                    @enderror
+                                                </td>
+                                                <td>
+                                                    <input type="number"
+                                                           name="items[{{ $item->id }}][dr]"
+                                                           class="form-control form-control-sm @error('items.'.$item->id.'.dr') is-invalid @enderror"
+                                                           placeholder="0–100"
+                                                           min="0" max="100" step="1"
+                                                           value="{{ $old['dr'] ?? '' }}"
+                                                           required
+                                                           data-bulk-required>
+                                                    @error('items.'.$item->id.'.dr')
+                                                        <div class="invalid-feedback d-block">{{ $message }}</div>
+                                                    @enderror
+                                                </td>
+                                                <td>
+                                                    <input type="number"
+                                                           name="items[{{ $item->id }}][traffic]"
+                                                           class="form-control form-control-sm @error('items.'.$item->id.'.traffic') is-invalid @enderror"
+                                                           placeholder="e.g. 12000"
+                                                           min="0" step="1"
+                                                           value="{{ $old['traffic'] ?? '' }}"
+                                                           required
+                                                           data-bulk-required>
+                                                    @error('items.'.$item->id.'.traffic')
+                                                        <div class="invalid-feedback d-block">{{ $message }}</div>
+                                                    @enderror
+                                                </td>
+                                            </tr>
+                                        @endforeach
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            <div id="bulkDoneHint" class="alert alert-warning py-2 small mb-3" role="status">
+                                Fill every Language, Country, DA, DR, and Traffic box before Done.
+                            </div>
+
+                            <button type="submit"
+                                    id="bulkDoneSubmit"
+                                    class="btn btn-primary"
+                                    data-open="{{ $bulkRequest->isOpen() ? '1' : '0' }}"
+                                    disabled>
+                                Done — add sites &amp; notify publisher
+                            </button>
+                        </form>
+                    @endif
+                </div>
+            </div>
+
+            <div class="card border-0 shadow-sm mb-3">
+                <div class="card-body">
+                    <h6 class="fw-semibold mb-1">Advanced: seed with per-row metrics</h6>
+                    <p class="small text-muted mb-3">
+                        Optional. Paste custom rows when metrics differ per site.
+                        Columns: <code>url,price,da,dr,traffic,language,country[,site_name]</code>
+                    </p>
+                    @php
+                        $seedStarter = $pendingItems->map(function ($item) {
+                            return $item->site_url.','.$item->price.',0,0,0,lang,country';
+                        })->implode("\n");
+                    @endphp
+                    @if($seedStarter !== '')
+                        <div class="small mb-2">
+                            <span class="text-muted">Starter from pending URL + price (replace lang/country and metrics):</span>
+                            <pre class="bg-light border rounded p-2 small mb-2 mt-1" id="bulkSeedStarter" style="max-height:8rem;overflow:auto;">{{ $seedStarter }}</pre>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" id="bulkCopySeedStarter">Copy starter into box</button>
+                        </div>
+                    @endif
                     <form method="POST" action="{{ route('admin.bulk-site-requests.seed', $bulkRequest) }}">
                         @csrf
-                        <textarea name="rows" class="form-control font-monospace small @error('rows') is-invalid @enderror" rows="10"
-                                  placeholder="https://example.com,99,40,45,12000,de,de,Example Blog">{{ old('rows') }}</textarea>
+                        <textarea name="rows" id="bulkSeedRows" class="form-control font-monospace small @error('rows') is-invalid @enderror" rows="8"
+                                  placeholder="https://example.com,99,40,45,12000,de,de,Example Blog">{{ old('rows', $seedStarter) }}</textarea>
                         @error('rows')<div class="invalid-feedback">{{ $message }}</div>@enderror
-                        <button type="submit" class="btn btn-primary mt-3" @disabled(! $bulkRequest->isOpen())>
-                            Seed drafts &amp; email publisher
+                        <button type="submit" class="btn btn-outline-primary btn-sm mt-2" @disabled(! $bulkRequest->isOpen())>
+                            Seed from pasted rows &amp; notify publisher
                         </button>
                     </form>
                 </div>
@@ -115,7 +319,7 @@
 
             <div class="card border-0 shadow-sm">
                 <div class="card-body">
-                    <h6 class="fw-semibold mb-3">Seeded sites ({{ $bulkRequest->sites->count() }})</h6>
+                    <h6 class="fw-semibold mb-3">Sites on publisher panel ({{ $bulkRequest->sites->count() }})</h6>
                     <div class="table-responsive">
                         <table class="table table-sm align-middle mb-0">
                             <thead>
@@ -157,7 +361,7 @@
                                     </tr>
                                 @empty
                                     <tr>
-                                        <td colspan="6" class="text-muted text-center py-3">No sites seeded yet.</td>
+                                        <td colspan="6" class="text-muted text-center py-3">No sites added yet.</td>
                                     </tr>
                                 @endforelse
                             </tbody>
@@ -170,6 +374,78 @@
 </div>
 
 <script>
+document.getElementById('bulkCopySeedStarter')?.addEventListener('click', function () {
+    const starter = document.getElementById('bulkSeedStarter');
+    const box = document.getElementById('bulkSeedRows');
+    if (!starter || !box) return;
+    box.value = starter.textContent.trim();
+    box.focus();
+});
+
+(function () {
+    const form = document.getElementById('bulkDoneForm');
+    if (!form) return;
+
+    const submitBtn = document.getElementById('bulkDoneSubmit');
+    const hint = document.getElementById('bulkDoneHint');
+    const fields = () => Array.from(form.querySelectorAll('[data-bulk-required]'));
+
+    function fieldFilled(el) {
+        const value = String(el.value ?? '').trim();
+        if (value === '') return false;
+        if (el.type === 'number') {
+            const n = Number(value);
+            if (Number.isNaN(n)) return false;
+            if (el.min !== '' && n < Number(el.min)) return false;
+            if (el.max !== '' && n > Number(el.max)) return false;
+        }
+        return true;
+    }
+
+    function allFilled() {
+        return fields().every(fieldFilled);
+    }
+
+    function syncDoneState() {
+        const open = submitBtn && submitBtn.getAttribute('data-open') === '1';
+        const ready = allFilled();
+        if (submitBtn) {
+            submitBtn.disabled = !(open && ready);
+        }
+        if (hint) {
+            hint.classList.toggle('d-none', ready);
+            hint.textContent = ready
+                ? ''
+                : 'Fill every Language, Country, DA, DR, and Traffic box before Done.';
+        }
+    }
+
+    form.addEventListener('input', syncDoneState);
+    form.addEventListener('change', syncDoneState);
+
+    form.addEventListener('submit', function (e) {
+        if (!allFilled()) {
+            e.preventDefault();
+            syncDoneState();
+            const firstEmpty = fields().find((el) => !fieldFilled(el));
+            if (firstEmpty) {
+                firstEmpty.focus();
+                firstEmpty.classList.add('is-invalid');
+            }
+            alert('Finish every Language, Country, DA, DR, and Traffic box for each website before clicking Done.');
+            return false;
+        }
+
+        const count = form.querySelectorAll('[data-bulk-done-row]').length;
+        if (!confirm('Add ' + count + ' draft site(s) to this publisher’s Pending sites and notify them?')) {
+            e.preventDefault();
+            return false;
+        }
+    });
+
+    syncDoneState();
+})();
+
 document.querySelectorAll('.bulk-draft-delete').forEach(function (btn) {
     btn.addEventListener('click', async function () {
         const id = this.getAttribute('data-site-id');

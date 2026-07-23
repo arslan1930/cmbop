@@ -54,6 +54,11 @@ class BulkSiteRequest extends Model
         return $this->hasMany(Site::class);
     }
 
+    public function items(): HasMany
+    {
+        return $this->hasMany(BulkSiteRequestItem::class);
+    }
+
     public function awaitingDetailsCount(): int
     {
         return $this->sites()->where('onboarding_status', Site::ONBOARDING_AWAITING_DETAILS)->count();
@@ -94,5 +99,21 @@ class BulkSiteRequest extends Model
     public function isOpen(): bool
     {
         return ! in_array($this->status, [self::STATUS_COMPLETED, self::STATUS_CANCELLED], true);
+    }
+
+    /**
+     * Marketer-facing status label for queue clarity.
+     */
+    public function statusLabel(): string
+    {
+        return match ($this->status) {
+            self::STATUS_REQUESTED => 'Waiting on marketer',
+            self::STATUS_SHEET_SENT => 'Sheet emailed',
+            self::STATUS_SEEDED => 'Drafts seeded',
+            self::STATUS_AWAITING_PUBLISHER => 'Waiting on publisher',
+            self::STATUS_COMPLETED => 'Completed — ready to verify',
+            self::STATUS_CANCELLED => 'Cancelled',
+            default => str_replace('_', ' ', (string) $this->status),
+        };
     }
 }

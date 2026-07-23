@@ -10,6 +10,7 @@ use App\Models\Country;
 use App\Models\Language;
 use App\Models\Site;
 use App\Services\ActivityLogger;
+use App\Services\InAppNotificationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -48,20 +49,26 @@ class BulkSiteRequestController extends Controller
 
     public function show(int $id)
     {
-        $bulkRequest = BulkSiteRequest::with(['publisher', 'handler', 'sites' => fn ($q) => $q->orderBy('id')])
-            ->findOrFail($id);
+        $bulkRequest = BulkSiteRequest::with([
+            'publisher',
+            'handler',
+            'items' => fn ($q) => $q->orderBy('id'),
+            'sites' => fn ($q) => $q->orderBy('id'),
+        ])->findOrFail($id);
 
         $countries = Country::marketplace()->orderBy('name')->get();
         $languages = Language::marketplace()->orderBy('name')->get();
         $history = ActivityLog::forBulkSiteRequest($bulkRequest->id);
         $canDeleteDrafts = auth()->user()?->isAdmin() || auth()->user()?->isMarketing();
+        $pendingItems = $bulkRequest->items->whereNull('site_id')->values();
 
         return view('admin.bulk-site-requests.show', compact(
             'bulkRequest',
             'countries',
             'languages',
             'history',
-            'canDeleteDrafts'
+            'canDeleteDrafts',
+            'pendingItems'
         ));
     }
 
@@ -91,7 +98,7 @@ class BulkSiteRequestController extends Controller
             'Bulk request #'.$bulkRequest->id
         );
 
-        return back()->with('success', 'Marked as sheet sent. Seed the sites when the publisher returns URLs + prices.');
+        return back()->with('success', 'Marked as sheet emailed. Prefer Done from the URL + price list the publisher already submitted.');
     }
 
     public function updateNotes(Request $request, int $id)
@@ -144,6 +151,109 @@ class BulkSiteRequestController extends Controller
     }
 
     /**
+     * Done: create draft sites from publisher-submitted URL+price items, then notify publisher.
+     * Drafts stay inactive until the publisher finishes details and staff verify/activate.
+     * Marketer must fill language, country, DA, DR, and traffic for each pending site.
+     */
+    public function done(Request $request, int $id)
+    {
+        $bulkRequest = BulkSiteRequest::with(['publisher', 'items'])->findOrFail($id);
+
+        if ($bulkRequest->status === BulkSiteRequest::STATUS_CANCELLED) {
+            return back()->with('error', 'Cannot complete a cancelled request.');
+        }
+
+        $pendingItems = $bulkRequest->items->whereNull('site_id')->values();
+        if ($pendingItems->isEmpty()) {
+            return back()->with('error', 'No pending URL + price rows left to add. Use advanced seed if you need to add more.');
+        }
+
+        $pendingIds = $pendingItems->pluck('id')->map(fn ($v) => (int) $v)->all();
+        $allowedCountries = Country::marketplace()->pluck('code')->map(fn ($c) => strtolower((string) $c))->all();
+        $allowedLanguages = Language::marketplace()->pluck('code')->map(fn ($c) => strtolower((string) $c))->all();
+
+        $validator = Validator::make($request->all(), [
+            'items' => 'required|array|min:1',
+            'items.*.language' => 'required|string|max:10',
+            'items.*.country' => 'required|string|max:10',
+            'items.*.da' => 'required|integer|min:0|max:100',
+            'items.*.dr' => 'required|integer|min:0|max:100',
+            'items.*.traffic' => 'required|integer|min:0',
+        ], [
+            'items.required' => 'Fill language, country, DA, DR, and traffic for every pending website before Done.',
+            'items.*.language.required' => 'Language is required for each website.',
+            'items.*.country.required' => 'Country is required for each website.',
+            'items.*.da.required' => 'DA is required for each website.',
+            'items.*.dr.required' => 'DR is required for each website.',
+            'items.*.traffic.required' => 'Traffic is required for each website.',
+        ]);
+
+        $validator->after(function ($validator) use ($request, $pendingIds, $allowedCountries, $allowedLanguages) {
+            $items = $request->input('items', []);
+            if (! is_array($items)) {
+                return;
+            }
+
+            foreach ($pendingIds as $pendingId) {
+                if (! array_key_exists((string) $pendingId, $items) && ! array_key_exists($pendingId, $items)) {
+                    $validator->errors()->add(
+                        'items.'.$pendingId,
+                        'Fill all fields for every pending website before clicking Done.'
+                    );
+                }
+            }
+
+            foreach ($items as $itemId => $row) {
+                $itemId = (int) $itemId;
+                if (! in_array($itemId, $pendingIds, true)) {
+                    $validator->errors()->add('items.'.$itemId, 'This row is not a pending website on this request.');
+                    continue;
+                }
+                if (! is_array($row)) {
+                    $validator->errors()->add('items.'.$itemId, 'Invalid row data.');
+                    continue;
+                }
+
+                $language = strtolower(trim((string) ($row['language'] ?? '')));
+                $country = strtolower(trim((string) ($row['country'] ?? '')));
+                if ($language !== '' && ! in_array($language, $allowedLanguages, true)) {
+                    $validator->errors()->add('items.'.$itemId.'.language', 'Choose a valid marketplace language.');
+                }
+                if ($country !== '' && ! in_array($country, $allowedCountries, true)) {
+                    $validator->errors()->add('items.'.$itemId.'.country', 'Choose a valid marketplace country.');
+                }
+            }
+        });
+
+        if ($validator->fails()) {
+            return back()
+                ->withErrors($validator)
+                ->withInput()
+                ->with('error', 'Finish every Language, Country, DA, DR, and Traffic box before clicking Done.');
+        }
+
+        $inputItems = $request->input('items', []);
+        $rows = [];
+        foreach ($pendingItems as $item) {
+            $row = $inputItems[$item->id] ?? $inputItems[(string) $item->id] ?? [];
+            $rows[] = [
+                'line' => (int) $item->id,
+                'site_url' => $item->site_url,
+                'domain' => $item->domain,
+                'site_name' => $item->domain,
+                'price' => (float) $item->price,
+                'da' => (int) $row['da'],
+                'dr' => (int) $row['dr'],
+                'traffic' => (int) $row['traffic'],
+                'language' => strtolower(trim((string) $row['language'])),
+                'country' => strtolower(trim((string) $row['country'])),
+            ];
+        }
+
+        return $this->createDraftSitesAndNotify($bulkRequest, $rows, []);
+    }
+
+    /**
      * Seed draft sites from pasted rows:
      * url,price,da,dr,traffic,language,country[,site_name]
      */
@@ -178,12 +288,20 @@ class BulkSiteRequestController extends Controller
                 ->withInput();
         }
 
+        return $this->createDraftSitesAndNotify($bulkRequest, $parsed['rows'], $parsed['failures']);
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $rows
+     * @param  list<array<string, mixed>>  $failures
+     */
+    private function createDraftSitesAndNotify(BulkSiteRequest $bulkRequest, array $rows, array $failures)
+    {
         $created = 0;
-        $failures = $parsed['failures'];
         $createdDomains = [];
 
-        DB::transaction(function () use ($bulkRequest, $parsed, &$created, &$failures, &$createdDomains) {
-            foreach ($parsed['rows'] as $index => $row) {
+        DB::transaction(function () use ($bulkRequest, $rows, &$created, &$failures, &$createdDomains) {
+            foreach ($rows as $row) {
                 $domain = $row['domain'];
 
                 if (Site::where('domain', $domain)->exists()) {
@@ -230,6 +348,12 @@ class BulkSiteRequestController extends Controller
                     'onboarding_status' => Site::ONBOARDING_AWAITING_DETAILS,
                 ]);
                 $site->save();
+
+                $bulkRequest->items()
+                    ->where('domain', $domain)
+                    ->whereNull('site_id')
+                    ->update(['site_id' => $site->id]);
+
                 $created++;
                 $createdDomains[] = $domain;
             }
@@ -247,7 +371,7 @@ class BulkSiteRequestController extends Controller
         if ($created > 0) {
             ActivityLogger::log(
                 'bulk_request.seeded',
-                (auth()->user()->name ?? 'Staff').' seeded '.$created.' draft site(s) on bulk request #'.$bulkRequest->id,
+                (auth()->user()->name ?? 'Staff').' added '.$created.' draft site(s) to publisher panel on bulk request #'.$bulkRequest->id,
                 $bulkRequest,
                 [
                     'bulk_site_request_id' => $bulkRequest->id,
@@ -259,17 +383,27 @@ class BulkSiteRequestController extends Controller
                 'Bulk request #'.$bulkRequest->id
             );
 
+            $fresh = $bulkRequest->fresh(['publisher']);
+            $publisher = $fresh?->publisher;
+
             try {
-                $publisher = $bulkRequest->publisher;
                 if ($publisher?->email) {
-                    Mail::to($publisher->email)->send(new BulkSitesSeededNotification($bulkRequest->fresh(), $created, $publisher));
+                    Mail::to($publisher->email)->send(new BulkSitesSeededNotification($fresh, $created, $publisher));
                 }
             } catch (\Throwable $e) {
-                Log::warning('Failed to email publisher after bulk seed: '.$e->getMessage());
+                Log::warning('Failed to email publisher after bulk Done: '.$e->getMessage());
+            }
+
+            try {
+                app(InAppNotificationService::class)->notifyPublisherBulkSitesAdded($fresh, $created);
+            } catch (\Throwable $e) {
+                Log::warning('Failed to send in-app bulk Done notice: '.$e->getMessage());
             }
         }
 
-        $message = "{$created} site(s) seeded as drafts (hidden from catalog).";
+        $message = $created > 0
+            ? "Done — {$created} site(s) added to the publisher’s Pending sites. Publisher notified (email + in-app). Still inactive until they finish details and you verify."
+            : 'No sites were added.';
         if ($failures !== []) {
             $message .= ' '.count($failures).' row(s) failed.';
         }

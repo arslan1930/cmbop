@@ -46,8 +46,8 @@
         ],
         'approved' => [
             'label' => 'Approved',
-            'count' => (int) ($moderationCounts['approved'] ?? 0),
-            'params' => ['status' => 'approved', 'availability' => 'all'],
+            'count' => (int) ($availabilityCounts['available'] ?? 0),
+            'params' => ['status' => 'approved', 'availability' => 'available'],
         ],
         'needs_improvement' => [
             'label' => 'Needs corrections',
@@ -65,7 +65,7 @@
         $activeLibraryChip = 'completed';
     } elseif (($statusFilter ?? 'all') === 'needs_improvement') {
         $activeLibraryChip = 'needs_improvement';
-    } elseif (($statusFilter ?? 'all') === 'approved') {
+    } elseif (($availabilityFilter ?? 'all') === 'available' || ($statusFilter ?? 'all') === 'approved') {
         $activeLibraryChip = 'approved';
     }
     $libraryStatusDisplay = function (string $availability, string $moderationStatus = '') use ($statusLabels): array {
@@ -127,19 +127,81 @@
         flex-wrap: wrap;
     }
     .library-copy-url {
-        border: 1px solid #e2e8f0;
-        background: #fff;
-        color: #475569;
-        border-radius: 6px;
-        font-size: .72rem;
-        font-weight: 600;
-        padding: 2px 8px;
-        line-height: 1.4;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 28px;
+        height: 28px;
+        padding: 0;
+        border: 0;
+        background: transparent;
+        color: #64748b;
+        border-radius: 999px;
+        font-size: .85rem;
+        line-height: 1;
+        transition: background-color .15s ease, color .15s ease;
     }
     .library-copy-url:hover {
-        border-color: #cbd5e1;
+        background: rgba(15, 23, 42, 0.06);
         color: #185054;
+    }
+    .library-copy-url.is-copied {
+        color: #0f766e;
+        background: #ecfdf5;
+    }
+    .btn-copy-icon {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 34px;
+        height: 34px;
+        padding: 0;
+        border-radius: 999px;
+    }
+    .btn-copy-icon i { margin: 0 !important; }
+    .library-row--completed {
         background: #f8fafc;
+        color: #64748b;
+        pointer-events: none;
+    }
+    .library-row--completed td {
+        color: #64748b;
+        border-color: #eef2f5;
+    }
+    .library-row--completed .library-title {
+        color: #475569;
+        font-weight: 600;
+    }
+    .library-row--completed .library-market {
+        background: #e2e8f0;
+        color: #475569;
+    }
+    .library-row--completed .library-status--completed,
+    .library-row--completed .library-status--published {
+        background: #e2e8f0;
+        color: #475569;
+        border-color: #cbd5e1;
+    }
+    .library-row--completed .library-live-link a.library-live-url {
+        pointer-events: auto;
+        color: #185054;
+        font-weight: 600;
+        text-decoration: underline;
+        text-underline-offset: 2px;
+    }
+    .library-row--completed .library-copy-url {
+        pointer-events: auto;
+    }
+    .library-pub-details {
+        margin-top: .4rem;
+        display: grid;
+        gap: .15rem;
+        font-size: .75rem;
+        color: #64748b;
+    }
+    .library-pub-details strong {
+        color: #475569;
+        font-weight: 600;
     }
     .library-status-wrap {
         display: flex;
@@ -621,7 +683,7 @@
                         $label = $statusDisplay['label'];
                         $statusCategory = $statusDisplay['category'];
                     @endphp
-                    <tr id="library-row-{{ $submission->id }}">
+                    <tr id="library-row-{{ $submission->id }}" @class(['library-row--completed' => $availability === 'published'])>
                         <td>
                             @if($submission->feature_image_url)
                                 <img src="{{ \App\Services\ContentUpload\ArticlePreviewHtml::normalizeSrc((string) $submission->feature_image_url) }}"
@@ -635,29 +697,38 @@
                             </div>
                             @if($availability === 'published')
                                 <div class="library-live-link">
-                                    @if($siteName)
-                                        <div class="library-live-meta">Published on {{ $siteName }}</div>
-                                    @else
-                                        <div class="library-live-meta">Placement completed</div>
-                                    @endif
+                                    <div class="library-pub-details">
+                                        @if($siteName)
+                                            <div><strong>Published on:</strong> {{ $siteName }}</div>
+                                        @else
+                                            <div><strong>Status:</strong> Placement completed</div>
+                                        @endif
+                                        @if($submission->order_id)
+                                            <div><strong>Order:</strong> #{{ $submission->order_id }}</div>
+                                        @endif
+                                        @if($placement?->price !== null)
+                                            <div><strong>Price:</strong> €{{ number_format((float) $placement->price, 2) }}</div>
+                                        @endif
+                                        @if($publishedDateLabel)
+                                            <div><strong>Published:</strong> {{ $publishedDateLabel }}</div>
+                                        @endif
+                                    </div>
                                     @if($liveUrl)
                                         <div class="library-live-actions">
-                                            <a href="{{ $liveUrl }}" target="_blank" rel="noopener noreferrer">
+                                            <a class="library-live-url" href="{{ $liveUrl }}" target="_blank" rel="noopener noreferrer">
                                                 {{ $liveUrl }} <i class="fa fa-external-link fa-xs" aria-hidden="true"></i>
                                             </a>
                                             <button type="button"
                                                     class="library-copy-url"
                                                     data-copy-url="{{ $liveUrl }}"
                                                     onclick="copyLibraryLiveUrl(this)"
-                                                    title="Copy live URL">
-                                                Copy
+                                                    title="Copy to clipboard"
+                                                    aria-label="Copy live URL to clipboard">
+                                                <i class="fa fa-copy" aria-hidden="true"></i>
                                             </button>
                                         </div>
-                                        @if($publishedDateLabel)
-                                            <div class="library-live-meta mt-1">Published {{ $publishedDateLabel }}</div>
-                                        @endif
                                     @else
-                                        <div class="library-live-meta">Live URL not available</div>
+                                        <div class="library-live-meta mt-1">Live URL not available</div>
                                     @endif
                                 </div>
                             @elseif($availability === 'in_progress' && $submission->order_id)
@@ -684,6 +755,7 @@
                                     </div>
                                 </div>
                             @endif
+                            @if($availability !== 'published')
                             <div class="library-title-edit d-none mt-2" data-title-edit="{{ $submission->id }}">
                                 <div class="input-group input-group-sm" style="max-width:320px;">
                                     <input type="text" class="form-control" maxlength="200"
@@ -693,6 +765,7 @@
                                     <button type="button" class="btn btn-outline-secondary" onclick="toggleLibraryTitleEdit({{ $submission->id }}, false)">Cancel</button>
                                 </div>
                             </div>
+                            @endif
                         </td>
                         <td>
                             <span class="library-market">
@@ -719,6 +792,9 @@
                             @endif
                         </td>
                         <td class="text-end library-actions">
+                            @if($availability === 'published')
+                                <span class="small text-muted">—</span>
+                            @else
                             <div class="d-inline-flex flex-wrap gap-1 justify-content-end">
                                 @if($submission->canBeOrdered())
                                     <a class="btn btn-sm btn-primary"
@@ -730,16 +806,6 @@
                                        href="{{ route('advertiser.content-library', ['edit' => $submission->id, 'upload' => 1]) }}">
                                         Resubmit
                                     </a>
-                                @elseif($availability === 'published')
-                                    @if($liveUrl)
-                                        <a class="btn btn-sm btn-primary"
-                                           href="{{ $liveUrl }}"
-                                           target="_blank"
-                                           rel="noopener noreferrer">
-                                            Open live URL
-                                        </a>
-                                    @endif
-                                    <a class="btn btn-sm btn-outline-secondary" href="{{ route('advertiser.orders') }}">View order</a>
                                 @elseif($availability === 'in_progress')
                                     <a class="btn btn-sm btn-outline-secondary" href="{{ route('advertiser.orders') }}">View order</a>
                                 @endif
@@ -824,6 +890,7 @@
                                     </ul>
                                 </div>
                             </div>
+                            @endif
                         </td>
                     </tr>
                 @empty
@@ -836,6 +903,12 @@
                                     icon="fa-check-circle"
                                     title="No completed articles yet"
                                     message="They’ll appear here with their live URL once a placement is published."
+                                />
+                            @elseif(($availabilityFilter ?? 'all') === 'available' || ($statusFilter ?? 'all') === 'approved')
+                                <x-ui.empty-state
+                                    icon="fa-circle-check"
+                                    title="No approved articles ready to order"
+                                    message="Approved articles available for publication will show here."
                                 />
                             @elseif(!empty($searchQuery) || ($availabilityFilter ?? 'all') !== 'all' || ($countryFilter ?? 'all') !== 'all' || ($languageFilter ?? 'all') !== 'all')
                                 No articles match these filters.
@@ -966,11 +1039,19 @@
                     <div class="small text-muted" id="articlePreviewHeadingHint"></div>
                 </div>
                 <div class="article-preview-toolbar d-flex flex-wrap gap-2">
-                    <button type="button" class="btn btn-sm btn-outline-primary" id="articleCopyHeadingBtn">
-                        <i class="fa fa-copy me-1"></i>Copy heading
+                    <button type="button"
+                            class="btn btn-sm btn-outline-primary btn-copy-icon"
+                            id="articleCopyHeadingBtn"
+                            title="Copy heading to clipboard"
+                            aria-label="Copy heading to clipboard">
+                        <i class="fa fa-copy" aria-hidden="true"></i>
                     </button>
-                    <button type="button" class="btn btn-sm btn-outline-primary" id="articleCopyContentBtn">
-                        <i class="fa fa-clone me-1"></i>Copy article
+                    <button type="button"
+                            class="btn btn-sm btn-outline-primary btn-copy-icon"
+                            id="articleCopyContentBtn"
+                            title="Copy article to clipboard"
+                            aria-label="Copy article to clipboard">
+                        <i class="fa fa-clone" aria-hidden="true"></i>
                     </button>
                 </div>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
@@ -1385,10 +1466,20 @@ function toggleLibraryTitleEdit(id, open) {
 async function copyLibraryLiveUrl(btn) {
     const url = (btn?.getAttribute('data-copy-url') || '').trim();
     if (!url) return;
-    const original = btn.textContent;
     const markCopied = function () {
-        btn.textContent = 'Copied';
-        setTimeout(function () { btn.textContent = original || 'Copy'; }, 1400);
+        btn.classList.add('is-copied');
+        const icon = btn.querySelector('i');
+        if (icon) {
+            icon.classList.remove('fa-copy');
+            icon.classList.add('fa-check');
+        }
+        setTimeout(function () {
+            btn.classList.remove('is-copied');
+            if (icon) {
+                icon.classList.remove('fa-check');
+                icon.classList.add('fa-copy');
+            }
+        }, 1400);
     };
     try {
         if (navigator.clipboard && navigator.clipboard.writeText) {

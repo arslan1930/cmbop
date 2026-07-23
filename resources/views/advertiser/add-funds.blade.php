@@ -89,8 +89,11 @@
     padding: 10px 12px; font-weight: 600; color: #185054; width: 100%;
     transition: all .15s ease;
 }
-.wallet-quick-amt:hover, .wallet-quick-amt.is-active {
-    border-color: #185054; background: #e6f5f5;
+.wallet-quick-amt.is-active {
+    border-color: #185054; background: #e6f5f5; color: #185054;
+}
+.wallet-quick-amt:hover {
+    border-color: #94a3b8; background: rgba(15, 23, 42, 0.06);
 }
 
 .wallet-empty {
@@ -105,6 +108,74 @@
 
 .wallet-tx-row { cursor: pointer; transition: background .15s ease; }
 .wallet-tx-row:hover { background: #f8fafb; }
+
+/* Live activity feed */
+.af-live-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: #10b981; box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.55);
+    animation: af-live-pulse 1.6s ease-out infinite;
+    display: inline-block;
+}
+@keyframes af-live-pulse {
+    0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.55); }
+    70% { box-shadow: 0 0 0 10px rgba(16, 185, 129, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+}
+.af-activity-feed { list-style: none; margin: 0; padding: 0; }
+.af-activity-item {
+    display: grid;
+    grid-template-columns: 44px 1fr auto;
+    gap: 12px;
+    align-items: start;
+    padding: 14px 16px;
+    border-bottom: 1px solid #eef2f5;
+    position: relative;
+    transition: background .2s ease, transform .2s ease;
+}
+.af-activity-item:last-child { border-bottom: 0; }
+.af-activity-item:hover { background: #f8fafb; }
+.af-activity-item.is-pending {
+    background: linear-gradient(90deg, rgba(230,245,245,0.85), #fff 48%);
+}
+.af-activity-item.is-pending::before {
+    content: '';
+    position: absolute; left: 0; top: 10px; bottom: 10px; width: 3px;
+    border-radius: 0 4px 4px 0;
+    background: var(--brand-primary-soft, #3faeb2);
+    animation: af-rail 2s ease-in-out infinite;
+}
+@keyframes af-rail {
+    0%, 100% { opacity: .55; }
+    50% { opacity: 1; }
+}
+.af-activity-rail {
+    position: relative;
+    display: flex; justify-content: center; padding-top: 4px;
+}
+.af-activity-rail::after {
+    content: '';
+    position: absolute; top: 36px; bottom: -28px; width: 2px;
+    background: linear-gradient(180deg, #dbe7ea, transparent);
+}
+.af-activity-item:last-child .af-activity-rail::after { display: none; }
+.af-activity-main { min-width: 0; }
+.af-activity-title { font-weight: 650; font-size: 13.5px; color: #185054; margin: 0 0 2px; }
+.af-activity-desc { font-size: 12.5px; color: #64748b; margin: 0; }
+.af-activity-meta { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 8px; }
+.af-activity-actions { display: flex; flex-direction: column; gap: 6px; align-items: flex-end; min-width: 9.5rem; }
+.af-activity-amount { font-size: 15px; white-space: nowrap; }
+.af-activity-time { font-size: 11px; color: #94a3b8; }
+.af-live-badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 11px; font-weight: 700; letter-spacing: .04em;
+    text-transform: uppercase; color: #0f766e;
+    background: #ecfdf5; border: 1px solid #a7f3d0;
+    border-radius: 999px; padding: 3px 9px;
+}
+@media (max-width: 767.98px) {
+    .af-activity-item { grid-template-columns: 36px 1fr; }
+    .af-activity-actions { grid-column: 2; align-items: stretch; min-width: 0; }
+}
 
 .wallet-bonus-meter {
     height: 8px; border-radius: 999px; background: #f1f5f9; overflow: hidden;
@@ -266,79 +337,8 @@
         $walletSavedCards = $savedCards ?? [];
         $stripeReady = $stripeConfigured ?? false;
         $openCardsTab = !empty($cardsTab);
+        $pendingInvoiceCount = ($pendingRequests ?? collect())->count();
     @endphp
-
-    @if(($pendingRequests ?? collect())->isNotEmpty())
-        <div class="card border-0 shadow-sm mb-4" id="pendingDepositsSection">
-            <div class="card-header bg-white fw-semibold d-flex justify-content-between align-items-center">
-                <span><i class="fa fa-clock me-2 text-primary"></i> Pending invoice deposits</span>
-                <span class="badge badge-pending">{{ $pendingRequests->count() }}</span>
-            </div>
-            <div class="card-body p-0">
-                <div class="table-responsive">
-                    <table class="table table-hover align-middle mb-0">
-                        <thead class="table-light">
-                            <tr>
-                                <th>REF</th>
-                                <th>Amount</th>
-                                <th>Method</th>
-                                <th>Status</th>
-                                <th>Created</th>
-                                <th class="text-end">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach($pendingRequests as $pendingDeposit)
-                                <tr data-deposit-id="{{ $pendingDeposit->id }}">
-                                    <td><code class="ref-code font-monospace">REF{{ $pendingDeposit->reference_code }}</code></td>
-                                    <td class="fw-semibold">€{{ number_format((float) $pendingDeposit->amount, 2) }}</td>
-                                    <td><span class="badge text-bg-secondary text-uppercase">{{ $pendingDeposit->payment_method }}</span></td>
-                                    <td>
-                                        <span class="wallet-status wallet-status--pending">Pending</span>
-                                        @if($pendingDeposit->userHasMarkedPaid())
-                                            <div class="small text-success mt-1">
-                                                <i class="fa fa-check-circle"></i> Payment reported
-                                                <span class="text-muted">· {{ $pendingDeposit->user_marked_paid_at->diffForHumans() }}</span>
-                                            </div>
-                                        @else
-                                            <div class="small text-muted mt-1">Awaiting your transfer confirmation</div>
-                                        @endif
-                                    </td>
-                                    <td class="small text-muted">{{ $pendingDeposit->created_at->format('M j, Y g:i A') }}</td>
-                                    <td class="text-end">
-                                        <div class="d-inline-flex flex-wrap gap-1 justify-content-end">
-                                            <a class="btn btn-sm btn-outline-secondary"
-                                               href="{{ route('advertiser.invoice', $pendingDeposit->reference_code) }}"
-                                               target="_blank">
-                                                <i class="fa fa-file-invoice"></i> Invoice
-                                            </a>
-                                            @if($pendingDeposit->canUserMarkPaid())
-                                                <button type="button"
-                                                        class="btn btn-sm btn-primary mark-deposit-paid-btn"
-                                                        data-deposit-id="{{ $pendingDeposit->id }}"
-                                                        data-mark-url="{{ route('advertiser.add-funds.mark-paid', $pendingDeposit) }}"
-                                                        data-ref="REF{{ $pendingDeposit->reference_code }}"
-                                                        data-amount="{{ number_format((float) $pendingDeposit->amount, 2, '.', '') }}">
-                                                    <i class="fa fa-check"></i> OK, I have made the payment
-                                                </button>
-                                            @else
-                                                <button type="button" class="btn btn-sm btn-outline-success" disabled>
-                                                    <i class="fa fa-check"></i> Payment reported — awaiting confirmation
-                                                </button>
-                                            @endif
-                                        </div>
-                                    </td>
-                                </tr>
-                            @endforeach
-                        </tbody>
-                    </table>
-                </div>
-                <div class="px-3 py-2 small text-muted border-top">
-                    Marking as paid notifies us that you sent the transfer. Your deposit stays <strong>Pending</strong> until an admin confirms and credits your wallet.
-                </div>
-            </div>
-        </div>
-    @endif
 
     <div class="row g-3 mb-4" id="depositSection">
                 <!-- Left Column - Add Funds Form -->
@@ -741,13 +741,23 @@
         <a href="{{ route('advertiser.analytics') }}" class="link-secondary">Spending analytics</a>
     </div>
 
-    {{-- History (demoted) --}}
+    {{-- History + pending invoice deposits (merged live feed) --}}
     <div class="card wallet-panel mb-4" id="walletHistory">
         <div class="card-header fw-semibold py-3 d-flex flex-wrap justify-content-between align-items-center gap-2">
-            <button type="button" class="btn btn-link text-decoration-none text-dark p-0 fw-semibold"
-                    data-bs-toggle="collapse" data-bs-target="#historyFiltersCollapse" aria-expanded="false">
-                <i class="fa fa-history me-2"></i> Recent activity
-            </button>
+            <div class="d-flex flex-wrap align-items-center gap-2">
+                <button type="button" class="btn btn-link text-decoration-none text-dark p-0 fw-semibold"
+                        data-bs-toggle="collapse" data-bs-target="#historyFiltersCollapse" aria-expanded="false">
+                    <i class="fa fa-history me-2"></i> Recent activity
+                </button>
+                <span class="af-live-badge" title="Feed refreshes automatically">
+                    <span class="af-live-dot" aria-hidden="true"></span> Live
+                </span>
+                @if($pendingInvoiceCount > 0)
+                    <span class="badge text-bg-light border" id="pendingActivityBadge">
+                        {{ $pendingInvoiceCount }} pending invoice{{ $pendingInvoiceCount === 1 ? '' : 's' }}
+                    </span>
+                @endif
+            </div>
             <small class="text-muted" id="historyCount"></small>
         </div>
         <div id="historyFiltersCollapse" class="collapse">
@@ -796,32 +806,16 @@
         </div>
         </div>
         <div class="card-body p-0">
-            <div class="table-responsive">
-                <table class="table align-middle mb-0">
-                    <thead class="table-light">
-                        <tr>
-                            <th>Date</th>
-                            <th>Type</th>
-                            <th>Description</th>
-                            <th>Reference</th>
-                            <th>Amount</th>
-                            <th>Status</th>
-                            <th>Balance After</th>
-                        </tr>
-                    </thead>
-                    <tbody id="transactionsBody">
-                        <tr>
-                            <td colspan="7" class="text-center py-5">
-                                <div class="spinner-border text-primary" role="status">
-                                    <span class="visually-hidden">Loading...</span>
-                                </div>
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
+            <div id="activityFeed" class="af-activity-feed" aria-live="polite">
+                <div class="text-center py-5">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                </div>
             </div>
         </div>
-        <div class="card-footer bg-white">
+        <div class="card-footer bg-white d-flex flex-wrap justify-content-between align-items-center gap-2">
+            <small class="text-muted" id="activityLiveHint">Updates every 30s · pending invoices appear here with download</small>
             <nav id="historyPagination" class="d-flex justify-content-center"></nav>
         </div>
     </div>
@@ -1005,10 +999,27 @@
         }
     }
 
-    function loadTransactions(page = 1) {
+    function relativeTime(iso) {
+        if (!iso) return '';
+        const date = new Date(iso);
+        if (Number.isNaN(date.getTime())) return '';
+        const diff = (Date.now() - date.getTime()) / 1000;
+        if (diff < 60) return 'Just now';
+        if (diff < 3600) return Math.floor(diff / 60) + 'm ago';
+        if (diff < 86400) return Math.floor(diff / 3600) + 'h ago';
+        if (diff < 172800) return 'Yesterday';
+        return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+    }
+
+    function loadTransactions(page = 1, opts = {}) {
         currentPage = page;
+        const silent = !!opts.silent;
         const params = $('#historyFilters').serialize() + '&page=' + page;
         $('#exportStatementBtn').attr('href', routes.export + '?' + $('#historyFilters').serialize());
+
+        if (!silent) {
+            $('#activityFeed').html('<div class="text-center py-5"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div></div>');
+        }
 
         $.get(routes.transactions + '?' + params)
             .done(function (res) {
@@ -1017,51 +1028,92 @@
                 renderPagination(res.pagination || {});
                 const p = res.pagination || {};
                 $('#historyCount').text((p.total ? ('Showing ' + (p.from || 0) + '–' + (p.to || 0) + ' of ' + p.total) : 'No results'));
+                const pendingCount = (res.transactions || []).filter(function (r) { return r.is_live_pending; }).length;
+                const badge = document.getElementById('pendingActivityBadge');
+                if (badge) {
+                    if (pendingCount > 0) {
+                        badge.textContent = pendingCount + ' pending invoice' + (pendingCount === 1 ? '' : 's');
+                        badge.classList.remove('d-none');
+                    } else if ({{ (int) $pendingInvoiceCount }} === 0) {
+                        badge.classList.add('d-none');
+                    }
+                }
             })
             .fail(function () {
-                $('#transactionsBody').html('<tr><td colspan="7" class="text-center text-danger py-4">Failed to load transactions</td></tr>');
+                if (!silent) {
+                    $('#activityFeed').html('<div class="text-center text-danger py-4">Failed to load activity</div>');
+                }
             });
     }
 
     function renderTransactions(rows) {
         if (!rows.length) {
-            $('#transactionsBody').html(`
-                <tr><td colspan="7">
-                    <div class="wallet-empty">
-                        <div class="wallet-empty-illu"><i class="fa fa-wallet"></i></div>
-                        <h5 class="fw-semibold mb-1">No wallet activity yet.</h5>
-                        <p class="text-muted mb-3">Add funds to start purchasing placements on the marketplace.</p>
-                        <a class="btn btn-primary btn-sm" href="#depositSection">
-                            <i class="fa fa-plus me-1"></i> Add Funds</a>
-                    </div>
-                </td></tr>
+            $('#activityFeed').html(`
+                <div class="wallet-empty">
+                    <div class="wallet-empty-illu"><i class="fa fa-wallet"></i></div>
+                    <h5 class="fw-semibold mb-1">No wallet activity yet.</h5>
+                    <p class="text-muted mb-3">Add funds to start purchasing placements on the marketplace.</p>
+                    <a class="btn btn-primary btn-sm" href="#depositSection">
+                        <i class="fa fa-plus me-1"></i> Add Funds</a>
+                </div>
             `);
             return;
         }
 
-        let html = '';
+        let html = '<ul class="af-activity-feed mb-0">';
         rows.forEach(function (row) {
             const debit = row.direction === 'debit';
             const iconClass = row.type === 'bonus_credit' ? 'is-bonus' : (debit ? 'is-debit' : '');
             const amountClass = debit ? 'wallet-amount-debit' : 'wallet-amount-credit';
             const sign = debit ? '−' : '+';
-            const bal = row.balance_after != null ? money(row.balance_after) : '—';
-            html += `<tr class="wallet-tx-row" data-source="${escapeHtml(row.source)}" data-id="${escapeHtml(row.id)}">
-                <td><small>${row.date ? new Date(row.date).toLocaleString() : '—'}</small></td>
-                <td>
-                    <span class="d-inline-flex align-items-center gap-2">
-                        <span class="wallet-type-icon ${iconClass}"><i class="fa ${escapeHtml(row.icon || 'fa-circle')}"></i></span>
-                        <span class="fw-semibold small">${escapeHtml(row.type_label)}</span>
-                    </span>
-                </td>
-                <td><span class="small">${escapeHtml(row.description || '')}</span></td>
-                <td><code class="ref-code small">${escapeHtml(row.reference || '—')}</code></td>
-                <td class="${amountClass}">${sign} ${money(row.amount)}</td>
-                <td><span class="${statusClass(row.status)}">${escapeHtml(row.status || '')}</span></td>
-                <td><small class="text-muted">${bal}</small></td>
-            </tr>`;
+            const pending = !!row.is_live_pending;
+            const bal = row.balance_after != null ? ('Balance after ' + money(row.balance_after)) : '';
+
+            let actions = '';
+            if (row.invoice_download_url) {
+                actions += `<a class="btn btn-sm btn-primary" href="${escapeHtml(row.invoice_download_url)}" download onclick="event.stopPropagation();">
+                    <i class="fa fa-download me-1"></i> Download invoice</a>`;
+            } else if (row.invoice_view_url) {
+                actions += `<a class="btn btn-sm btn-outline-secondary" href="${escapeHtml(row.invoice_view_url)}" target="_blank" rel="noopener" onclick="event.stopPropagation();">
+                    <i class="fa fa-file-invoice me-1"></i> Invoice</a>`;
+            }
+            if (row.can_mark_paid && row.mark_paid_url) {
+                actions += `<button type="button" class="btn btn-sm btn-outline-primary mark-deposit-paid-btn"
+                    data-mark-url="${escapeHtml(row.mark_paid_url)}"
+                    data-ref="REF${escapeHtml(row.reference || '')}"
+                    data-amount="${escapeHtml(String(row.amount || ''))}"
+                    onclick="event.stopPropagation();">
+                    <i class="fa fa-check me-1"></i> I paid</button>`;
+            } else if (row.user_marked_paid) {
+                actions += `<span class="small text-success"><i class="fa fa-check-circle me-1"></i> Payment reported</span>`;
+            }
+
+            html += `<li class="af-activity-item ${pending ? 'is-pending' : ''} wallet-tx-row"
+                data-source="${escapeHtml(row.source)}" data-id="${escapeHtml(row.id)}">
+                <div class="af-activity-rail">
+                    <span class="wallet-type-icon ${iconClass}"><i class="fa ${escapeHtml(row.icon || 'fa-circle')}"></i></span>
+                </div>
+                <div class="af-activity-main">
+                    <div class="d-flex flex-wrap align-items-center gap-2">
+                        <p class="af-activity-title mb-0">${escapeHtml(row.type_label || '')}</p>
+                        <span class="${statusClass(row.status)}">${escapeHtml(row.status || '')}</span>
+                        ${pending ? '<span class="af-live-badge"><span class="af-live-dot"></span> Live</span>' : ''}
+                    </div>
+                    <p class="af-activity-desc">${escapeHtml(row.description || '')}</p>
+                    <div class="af-activity-meta">
+                        <code class="ref-code small">${escapeHtml(row.reference || '—')}</code>
+                        <span class="af-activity-time" data-iso="${escapeHtml(row.date || '')}">${relativeTime(row.date)}</span>
+                        ${bal ? `<span class="small text-muted">${bal}</span>` : ''}
+                    </div>
+                </div>
+                <div class="af-activity-actions">
+                    <div class="af-activity-amount ${amountClass}">${sign} ${money(row.amount)}</div>
+                    ${actions}
+                </div>
+            </li>`;
         });
-        $('#transactionsBody').html(html);
+        html += '</ul>';
+        $('#activityFeed').html(html);
     }
 
     function renderPagination(p) {
@@ -1360,6 +1412,13 @@
         // Spending chart lives on advertiser analytics — skip here.
         renderWithdrawFields($('#withdrawMethod').val() || 'bank');
 
+        setInterval(function () {
+            loadTransactions(currentPage || 1, { silent: true });
+            document.querySelectorAll('.af-activity-time[data-iso]').forEach(function (el) {
+                el.textContent = relativeTime(el.getAttribute('data-iso'));
+            });
+        }, 30000);
+
         $('#historyFilters').on('submit', function (e) {
             e.preventDefault();
             loadTransactions(1);
@@ -1370,7 +1429,8 @@
             if (page) loadTransactions(page);
         });
 
-        $(document).on('click', '.wallet-tx-row', function () {
+        $(document).on('click', '.wallet-tx-row', function (e) {
+            if ($(e.target).closest('a, button').length) return;
             openTxDetail($(this).data('source'), $(this).data('id'));
         });
 
@@ -1561,8 +1621,8 @@
 }
 
 .amount-btn:hover {
-    background-color: #e9ecef;
-    transform: translateY(-1px);
+    background-color: rgba(15, 23, 42, 0.06);
+    transform: none;
 }
 
 .amount-btn.active {
@@ -2222,13 +2282,11 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     };
 
-    document.querySelectorAll('.mark-deposit-paid-btn').forEach((btn) => {
-        btn.addEventListener('click', function () {
-            markDepositPaid(this.dataset.markUrl, {
-                ref: this.dataset.ref,
-                amount: this.dataset.amount,
-                reloadOnSuccess: true,
-            });
+    $(document).on('click', '.mark-deposit-paid-btn', function () {
+        markDepositPaid(this.dataset.markUrl, {
+            ref: this.dataset.ref,
+            amount: this.dataset.amount,
+            reloadOnSuccess: true,
         });
     });
 });

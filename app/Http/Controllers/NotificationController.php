@@ -51,40 +51,60 @@ class NotificationController extends Controller
 
     public function index(Request $request)
     {
-        $user = $request->user();
-        $role = $user->activeRole();
-        $paginator = $this->notifications->listForUser($user->id, [
-            'status' => $request->get('status', 'active'),
-            'category' => $request->get('category', 'all'),
-            'q' => $request->get('q'),
-            'audience' => $role,
-        ], (int) $request->get('per_page', 20));
+        try {
+            $user = $request->user();
+            $role = $user->activeRole();
+            $paginator = $this->notifications->listForUser($user->id, [
+                'status' => $request->get('status', 'active'),
+                'category' => $request->get('category', 'all'),
+                'q' => $request->get('q'),
+                'audience' => $role,
+            ], (int) $request->get('per_page', 20));
 
-        $items = collect($paginator->items())->map(fn (InAppNotification $n) => $n->toApiArray())->values();
+            $items = collect($paginator->items())->map(fn (InAppNotification $n) => $n->toApiArray())->values();
 
-        return response()->json([
-            'success' => true,
-            'notifications' => $items,
-            'unread_count' => $this->notifications->unreadCount($user->id, $role),
-            'pagination' => [
-                'current_page' => $paginator->currentPage(),
-                'last_page' => $paginator->lastPage(),
-                'per_page' => $paginator->perPage(),
-                'total' => $paginator->total(),
-                'has_more' => $paginator->hasMorePages(),
-            ],
-        ]);
+            return response()->json([
+                'success' => true,
+                'notifications' => $items,
+                'unread_count' => $this->notifications->unreadCount($user->id, $role),
+                'pagination' => [
+                    'current_page' => $paginator->currentPage(),
+                    'last_page' => $paginator->lastPage(),
+                    'per_page' => $paginator->perPage(),
+                    'total' => $paginator->total(),
+                    'has_more' => $paginator->hasMorePages(),
+                ],
+            ]);
+        } catch (\Throwable $e) {
+            report($e);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Could not load notifications.',
+                'notifications' => [],
+                'unread_count' => 0,
+            ], 500);
+        }
     }
 
     public function unreadCount(Request $request)
     {
-        $user = $request->user();
-        $count = $this->notifications->unreadCount($user->id, $user->activeRole());
+        try {
+            $user = $request->user();
+            $count = $this->notifications->unreadCount($user->id, $user->activeRole());
 
-        return response()->json([
-            'success' => true,
-            'unread_count' => $count,
-        ]);
+            return response()->json([
+                'success' => true,
+                'unread_count' => $count,
+            ]);
+        } catch (\Throwable $e) {
+            report($e);
+
+            return response()->json([
+                'success' => true,
+                'unread_count' => 0,
+            ]);
+        }
     }
 
     public function markRead(Request $request, int $id)

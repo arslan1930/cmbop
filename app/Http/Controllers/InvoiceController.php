@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\DepositRequest;
 use App\Models\Order;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 
 class InvoiceController extends Controller
@@ -11,7 +12,7 @@ class InvoiceController extends Controller
     /**
      * Show invoice page for both deposits and orders
      */
-    public function showInvoice($referenceCode)
+    public function showInvoice(Request $request, $referenceCode)
     {
         try {
             $userId = auth()->id();
@@ -23,7 +24,15 @@ class InvoiceController extends Controller
                 ->first();
 
             if ($deposit) {
-                return $this->showDepositInvoice($deposit, $user);
+                $response = response()->view('advertiser.invoice', $this->depositInvoiceData($deposit, $user));
+                if ($request->boolean('download')) {
+                    $response->header(
+                        'Content-Disposition',
+                        'attachment; filename="invoice-REF'.$deposit->reference_code.'.html"'
+                    );
+                }
+
+                return $response;
             }
 
             // Check if it's an order
@@ -33,7 +42,15 @@ class InvoiceController extends Controller
                 ->first();
 
             if ($order) {
-                return $this->showOrderInvoice($order, $user);
+                $response = response()->view('advertiser.invoice', $this->orderInvoiceData($order, $user));
+                if ($request->boolean('download')) {
+                    $response->header(
+                        'Content-Disposition',
+                        'attachment; filename="invoice-REF'.$order->reference_code.'.html"'
+                    );
+                }
+
+                return $response;
             }
 
             return redirect()->route('advertiser.dashboard')
@@ -52,7 +69,12 @@ class InvoiceController extends Controller
      */
     private function showDepositInvoice($deposit, $user)
     {
-        return view('advertiser.invoice', [
+        return view('advertiser.invoice', $this->depositInvoiceData($deposit, $user));
+    }
+
+    private function depositInvoiceData($deposit, $user): array
+    {
+        return [
             'invoiceType' => 'deposit',
             'referenceCode' => $deposit->reference_code,
             'amount' => $deposit->amount,
@@ -77,13 +99,18 @@ class InvoiceController extends Controller
             'canMarkPaid' => $deposit->canUserMarkPaid(),
             'userMarkedPaid' => $deposit->userHasMarkedPaid(),
             'markPaidUrl' => route('advertiser.add-funds.mark-paid', $deposit),
-        ]);
+        ];
     }
 
     /**
      * Show order invoice
      */
     private function showOrderInvoice($order, $user)
+    {
+        return view('advertiser.invoice', $this->orderInvoiceData($order, $user));
+    }
+
+    private function orderInvoiceData($order, $user): array
     {
         $orderItems = [];
         $totalBaseAmount = 0;
@@ -107,7 +134,7 @@ class InvoiceController extends Controller
             ];
         }
 
-        return view('advertiser.invoice', [
+        return [
             'invoiceType' => 'order',
             'referenceCode' => $order->reference_code,
             'amount' => $order->total_amount,
@@ -128,6 +155,6 @@ class InvoiceController extends Controller
             'orderItems' => $orderItems,
             'totalBaseAmount' => $totalBaseAmount,
             'totalSensitiveAmount' => $totalSensitiveAmount,
-        ]);
+        ];
     }
 }

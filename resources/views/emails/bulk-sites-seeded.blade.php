@@ -1,14 +1,14 @@
 @component('mail::message')
-# Your websites are ready to finish
+# Your sites were added to Pending sites
 
 Hi {{ $publisherName }},
 
-We added **{{ $createdCount }}** website(s) to your account from your bulk request.
+We’ve added **{{ $createdCount }}** website(s) to your **Pending sites** from your bulk request.
 
-Please complete the remaining details for each site (description, niches, link type, turnaround, publication time, example URL). When you finish a site, it goes to our team for approval — it will not appear in the catalog until approved and activated.
+Open them and finish any remaining details (description, niches, link type, turnaround, publication time, example URL). They stay hidden from advertisers until you finish and our team approves.
 
 @component('mail::button', ['url' => $completeUrl])
-Complete website details
+Open Pending sites
 @endcomponent
 
 Thanks,<br>

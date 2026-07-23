@@ -2,7 +2,9 @@
 
 namespace Tests\Feature;
 
+use App\Mail\BulkSitesSeededNotification;
 use App\Models\BulkSiteRequest;
+use App\Models\BulkSiteRequestItem;
 use App\Models\Category;
 use App\Models\Country;
 use App\Models\InAppNotification;
@@ -68,7 +70,10 @@ class BulkSiteGuidedWorkflowTest extends TestCase
 
         $this->actingAs($this->publisher)
             ->post(route('publisher.bulk-sites.request'), [
-                'estimated_count' => 12,
+                'sites' => [
+                    ['url' => 'https://bulk-a.example', 'price' => 99],
+                    ['url' => 'https://bulk-b.example', 'price' => 150.5],
+                ],
                 'publisher_note' => 'Mostly DE tech blogs',
             ])
             ->assertRedirect(route('publisher.websites'))
@@ -77,7 +82,30 @@ class BulkSiteGuidedWorkflowTest extends TestCase
         $this->assertDatabaseHas('bulk_site_requests', [
             'publisher_id' => $this->publisher->id,
             'status' => BulkSiteRequest::STATUS_REQUESTED,
-            'estimated_count' => 12,
+            'estimated_count' => 2,
+        ]);
+
+        $this->assertDatabaseHas('bulk_site_request_items', [
+            'domain' => 'bulk-a.example',
+            'price' => 99,
+        ]);
+        $this->assertDatabaseHas('bulk_site_request_items', [
+            'domain' => 'bulk-b.example',
+            'price' => 150.5,
+        ]);
+
+        $bulk = BulkSiteRequest::where('publisher_id', $this->publisher->id)->first();
+        $this->actingAs($this->admin)
+            ->get(route('admin.bulk-site-requests.show', $bulk))
+            ->assertOk()
+            ->assertSee('Publisher submitted (URL + price only)', false)
+            ->assertSee('Done — add sites &amp; notify publisher', false)
+            ->assertSee('https://bulk-a.example', false)
+            ->assertSee('https://bulk-b.example', false);
+
+        $this->assertDatabaseHas('in_app_notifications', [
+            'user_id' => $this->admin->id,
+            'title' => 'New bulk sites request',
         ]);
     }
 
@@ -91,12 +119,26 @@ class BulkSiteGuidedWorkflowTest extends TestCase
 
         $this->actingAs($this->publisher)
             ->post(route('publisher.bulk-sites.request'), [
-                'estimated_count' => 15,
+                'sites' => [
+                    ['url' => 'https://again-a.example', 'price' => 10],
+                    ['url' => 'https://again-b.example', 'price' => 20],
+                ],
             ])
             ->assertRedirect(route('publisher.websites'))
             ->assertSessionHas('error');
 
         $this->assertSame(1, BulkSiteRequest::where('publisher_id', $this->publisher->id)->count());
+    }
+
+    public function test_websites_page_shows_url_price_bulk_columns(): void
+    {
+        $this->actingAs($this->publisher)
+            ->get(route('publisher.websites'))
+            ->assertOk()
+            ->assertSee('Website URL', false)
+            ->assertSee('Price (€)', false)
+            ->assertSee('How bulk onboarding works', false)
+            ->assertSee('Our marketer', false);
     }
 
     public function test_admin_can_seed_draft_sites_hidden_from_catalog(): void
@@ -135,6 +177,158 @@ class BulkSiteGuidedWorkflowTest extends TestCase
         $this->assertSame(45, (int) $one->dr);
 
         $this->assertSame(0, Site::where('active', 1)->where('domain', 'seed-one.example')->count());
+
+        $this->assertDatabaseHas('in_app_notifications', [
+            'user_id' => $this->publisher->id,
+            'title' => '2 sites were added to Pending sites',
+        ]);
+    }
+
+    public function test_marketer_done_adds_drafts_from_submitted_items_and_notifies_publisher(): void
+    {
+        Mail::fake();
+
+        $country = Country::marketplace()->where('code', 'de')->first()
+            ?? Country::marketplace()->firstOrFail();
+        $language = Language::marketplace()->where('code', 'de')->first()
+            ?? Language::marketplace()->firstOrFail();
+
+        $bulk = BulkSiteRequest::create([
+            'publisher_id' => $this->publisher->id,
+            'status' => BulkSiteRequest::STATUS_REQUESTED,
+            'estimated_count' => 2,
+        ]);
+        $itemA = BulkSiteRequestItem::create([
+            'bulk_site_request_id' => $bulk->id,
+            'site_url' => 'https://done-a.example',
+            'domain' => 'done-a.example',
+            'price' => 80,
+        ]);
+        $itemB = BulkSiteRequestItem::create([
+            'bulk_site_request_id' => $bulk->id,
+            'site_url' => 'https://done-b.example',
+            'domain' => 'done-b.example',
+            'price' => 120,
+        ]);
+
+        $marketingRole = Role::where('name', 'marketing')->firstOrFail();
+        $marketer = User::factory()->create([
+            'email_verified_at' => now(),
+            'active_role_id' => $marketingRole->id,
+        ]);
+        $marketer->roles()->attach($marketingRole->id);
+
+        $this->actingAs($marketer)
+            ->post(route('admin.bulk-site-requests.done', $bulk), [
+                'items' => [
+                    $itemA->id => [
+                        'language' => strtolower($language->code),
+                        'country' => strtolower($country->code),
+                        'da' => 30,
+                        'dr' => 35,
+                        'traffic' => 5000,
+                    ],
+                    $itemB->id => [
+                        'language' => strtolower($language->code),
+                        'country' => strtolower($country->code),
+                        'da' => 40,
+                        'dr' => 45,
+                        'traffic' => 8000,
+                    ],
+                ],
+            ])
+            ->assertRedirect()
+            ->assertSessionHas('success');
+
+        $this->assertDatabaseHas('sites', [
+            'domain' => 'done-a.example',
+            'bulk_site_request_id' => $bulk->id,
+            'onboarding_status' => Site::ONBOARDING_AWAITING_DETAILS,
+            'active' => false,
+            'verified' => false,
+            'price' => 80,
+            'da' => 30,
+            'dr' => 35,
+            'traffic' => 5000,
+        ]);
+        $this->assertDatabaseHas('sites', [
+            'domain' => 'done-b.example',
+            'price' => 120,
+            'da' => 40,
+            'dr' => 45,
+            'traffic' => 8000,
+        ]);
+
+        $this->assertSame(BulkSiteRequest::STATUS_AWAITING_PUBLISHER, $bulk->fresh()->status);
+        $this->assertSame('Waiting on publisher', $bulk->fresh()->statusLabel());
+
+        $this->assertDatabaseHas('in_app_notifications', [
+            'user_id' => $this->publisher->id,
+            'title' => '2 sites were added to Pending sites',
+        ]);
+
+        Mail::assertQueued(BulkSitesSeededNotification::class);
+    }
+
+    public function test_marketer_done_blocked_until_all_per_site_boxes_filled(): void
+    {
+        $country = Country::marketplace()->where('code', 'de')->first()
+            ?? Country::marketplace()->firstOrFail();
+        $language = Language::marketplace()->where('code', 'de')->first()
+            ?? Language::marketplace()->firstOrFail();
+
+        $bulk = BulkSiteRequest::create([
+            'publisher_id' => $this->publisher->id,
+            'status' => BulkSiteRequest::STATUS_REQUESTED,
+            'estimated_count' => 2,
+        ]);
+        $itemA = BulkSiteRequestItem::create([
+            'bulk_site_request_id' => $bulk->id,
+            'site_url' => 'https://incomplete-a.example',
+            'domain' => 'incomplete-a.example',
+            'price' => 50,
+        ]);
+        $itemB = BulkSiteRequestItem::create([
+            'bulk_site_request_id' => $bulk->id,
+            'site_url' => 'https://incomplete-b.example',
+            'domain' => 'incomplete-b.example',
+            'price' => 60,
+        ]);
+
+        $marketingRole = Role::where('name', 'marketing')->firstOrFail();
+        $marketer = User::factory()->create([
+            'email_verified_at' => now(),
+            'active_role_id' => $marketingRole->id,
+        ]);
+        $marketer->roles()->attach($marketingRole->id);
+
+        $this->actingAs($marketer)
+            ->from(route('admin.bulk-site-requests.show', $bulk))
+            ->post(route('admin.bulk-site-requests.done', $bulk), [
+                'items' => [
+                    $itemA->id => [
+                        'language' => strtolower($language->code),
+                        'country' => strtolower($country->code),
+                        'da' => 10,
+                        'dr' => 12,
+                        'traffic' => 100,
+                    ],
+                    // itemB missing entirely
+                ],
+            ])
+            ->assertRedirect(route('admin.bulk-site-requests.show', $bulk))
+            ->assertSessionHasErrors()
+            ->assertSessionHas('error');
+
+        $this->assertDatabaseMissing('sites', ['domain' => 'incomplete-a.example']);
+        $this->assertDatabaseMissing('sites', ['domain' => 'incomplete-b.example']);
+
+        $this->actingAs($marketer)
+            ->get(route('admin.bulk-site-requests.show', $bulk))
+            ->assertOk()
+            ->assertSee('name="items['.$itemA->id.'][language]"', false)
+            ->assertSee('name="items['.$itemB->id.'][da]"', false)
+            ->assertSee('Fill every Language, Country, DA, DR, and Traffic box', false);
     }
 
     public function test_admin_cannot_verify_awaiting_details_site(): void

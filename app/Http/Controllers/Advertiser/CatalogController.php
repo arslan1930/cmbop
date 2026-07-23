@@ -494,23 +494,6 @@ class CatalogController extends Controller
 
         $approvedArticleCount = $orderableArticles->count();
 
-        $siteReadiness = [];
-        foreach ($sites as $site) {
-            $match = $orderableArticles->first(fn (ContentSubmission $article) => $article->matchesSite($site));
-            $langCodes = method_exists($site, 'languageCodes') ? $site->languageCodes() : [];
-            $neededCode = strtolower((string) ($site->language ?: ($langCodes[0] ?? 'en')));
-            if ($neededCode === '') {
-                $neededCode = 'en';
-            }
-            $siteReadiness[$site->id] = [
-                'ready' => (bool) $match,
-                'code' => $neededCode,
-                'label' => $match
-                    ? 'Ready · article available'
-                    : 'Needs approved article',
-            ];
-        }
-
         $catalogWallet = auth()->user()->activeWallet();
         $catalogBonusBalance = $catalogWallet ? (float) $catalogWallet->lockedBonusBalance() : 0.0;
         $catalogCashBalance = $catalogWallet ? (float) $catalogWallet->withdrawableBalance() : 0.0;
@@ -531,7 +514,6 @@ class CatalogController extends Controller
             'featureDays',
             'orderingSubmission',
             'approvedArticleCount',
-            'siteReadiness',
             'catalogBonusBalance',
             'catalogCashBalance',
             'catalogSpendableBalance'

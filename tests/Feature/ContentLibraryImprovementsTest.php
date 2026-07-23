@@ -159,15 +159,18 @@ class ContentLibraryImprovementsTest extends TestCase
             ->assertSee('Completed/LIVE')
             ->assertSee('Done — not orderable')
             ->assertSee('https://live.example/post')
-            ->assertSee('Published on '.$site->site_name)
-            ->assertSee('Open live URL')
-            ->assertSee('Copy')
+            ->assertSee('Published on:')
+            ->assertSee($site->site_name)
+            ->assertDontSee('Open live URL')
+            ->assertDontSee('>Copy<', false)
             ->assertDontSee(route('advertiser.content-library.order', $submission), false)
             ->getContent();
 
         $this->assertStringContainsString('library-status--completed', $html);
+        $this->assertStringContainsString('library-row--completed', $html);
         $this->assertStringContainsString('copyLibraryLiveUrl', $html);
-        $this->assertStringContainsString('Open live URL', $html);
+        $this->assertStringContainsString('fa-copy', $html);
+        $this->assertStringContainsString('library-live-url', $html);
         $this->assertDoesNotMatchRegularExpression(
             '/library-row-'.$submission->id.'[\s\S]*?href="[^"]*content-library\/'.$submission->id.'\/order"/',
             $html
@@ -179,6 +182,44 @@ class ContentLibraryImprovementsTest extends TestCase
             ->assertOk()
             ->assertSee('Live Article')
             ->assertSee('Completed/LIVE');
+    }
+
+    public function test_approved_chip_excludes_completed_and_in_progress(): void
+    {
+        $advertiser = $this->advertiser();
+        $publisher = $this->publisher();
+        $site = $this->activeSite($publisher, 'ready-only');
+
+        $available = $this->createApprovedSubmission($advertiser, null, 0, 'a', 'https://example.com/a');
+        $available->update(['title' => 'Ready To Order']);
+
+        $live = $this->createApprovedSubmission($advertiser, $site->id, 0, 'b', 'https://example.com/b');
+        $live->update(['title' => 'Already Live']);
+        $order = $this->makeOrder($advertiser);
+        $item = OrderItem::create([
+            'order_id' => $order->id,
+            'site_id' => $site->id,
+            'site_name' => $site->site_name,
+            'site_url' => $site->site_url,
+            'price' => 46,
+            'content_link' => 'https://example.com/article.docx',
+            'content_submission_id' => $live->id,
+            'live_url' => 'https://live.example/done',
+            'live_url_submitted_at' => now(),
+        ]);
+        $live->update([
+            'order_id' => $order->id,
+            'order_item_id' => $item->id,
+        ]);
+
+        $this->actingAs($advertiser)
+            ->get(route('advertiser.content-library', [
+                'status' => 'approved',
+                'availability' => 'available',
+            ]))
+            ->assertOk()
+            ->assertSee('Ready To Order')
+            ->assertDontSee('Already Live');
     }
 
     public function test_library_exposes_single_status_filter_row(): void
@@ -199,6 +240,7 @@ class ContentLibraryImprovementsTest extends TestCase
             ->getContent();
 
         $this->assertStringContainsString('availability=completed', $html);
+        $this->assertStringContainsString('availability=available', $html);
         $this->assertStringContainsString('Completed/LIVE', $html);
         $this->assertStringContainsString('>Approved</span>', $html);
         $this->assertStringContainsString('>Needs corrections</span>', $html);
