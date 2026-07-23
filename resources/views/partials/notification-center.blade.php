@@ -25,7 +25,7 @@
         <span class="nc-badge pulse-badge" data-nc-badge data-pulse-display="inline-flex">0</span>
     </button>
 
-    <div class="nc-panel" data-nc-panel role="dialog" aria-label="Notification center">
+    <div class="nc-panel nc-theme" data-nc-panel role="dialog" aria-label="Notification center">
         <div class="nc-header">
             <div class="nc-header-row">
                 <h3 class="nc-title">Notifications</h3>
