@@ -92,8 +92,12 @@ class PublisherMySitesPageTest extends TestCase
         $this->assertStringContainsString('site-row-metrics', $ajaxHtml);
         $this->assertStringContainsString('btn-icon-quiet', $ajaxHtml);
         $this->assertStringContainsString('btn-edit', $ajaxHtml);
+        $this->assertStringContainsString('site-status', $ajaxHtml);
+        $this->assertStringContainsString('yt-tooltip', $ajaxHtml);
+        $this->assertStringNotContainsString('<strong>Screenshot:</strong>', $ajaxHtml);
         $this->assertStringNotContainsString('btn-warning', $ajaxHtml);
         $this->assertStringNotContainsString('btn-outline-success', $ajaxHtml);
+        $this->assertStringNotContainsString('badge bg-info status-badge', $ajaxHtml);
     }
 
     public function test_ajax_row_shows_screenshot_preview_when_present(): void

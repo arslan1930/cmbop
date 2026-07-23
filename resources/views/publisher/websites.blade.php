@@ -563,7 +563,7 @@
 
         #sitesTableWrapper .sites-responsive-table tr.main-row td[data-label="Preview"] .site-row-preview {
             width: 100%;
-            height: 96px;
+            height: 140px;
             border-radius: 10px;
         }
 
@@ -2059,7 +2059,11 @@ function initSitesTableTooltips(root) {
     (root || document).querySelectorAll('[data-bs-toggle="tooltip"]').forEach(function (el) {
         const existing = bootstrap.Tooltip.getInstance(el);
         if (existing) existing.dispose();
-        new bootstrap.Tooltip(el);
+        new bootstrap.Tooltip(el, {
+            customClass: 'yt-tooltip',
+            delay: { show: 200, hide: 0 },
+            container: 'body',
+        });
     });
 }
 
