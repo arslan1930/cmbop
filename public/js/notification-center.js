@@ -195,6 +195,8 @@
   NotificationCenter.prototype.openPanel = function () {
     this.open = true;
     // Portal to body so sticky/overflow topbar chrome cannot clip or swallow clicks.
+    // Keep nc-theme on the panel so CSS variables still resolve outside .nc-bell-wrap.
+    this.panel.classList.add('nc-theme');
     if (this.panel.parentElement !== document.body) {
       this._panelHome = this.panel.parentElement;
       document.body.appendChild(this.panel);
