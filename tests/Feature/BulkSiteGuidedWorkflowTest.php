@@ -10,7 +10,6 @@ use App\Models\Language;
 use App\Models\Role;
 use App\Models\Site;
 use App\Models\User;
-use App\Services\InAppNotificationService;
 use Database\Seeders\CategoriesTableSeeder;
 use Database\Seeders\CountriesTableSeeder;
 use Database\Seeders\LanguagesTableSeeder;
@@ -225,7 +224,7 @@ class BulkSiteGuidedWorkflowTest extends TestCase
         $this->assertSame(BulkSiteRequest::STATUS_COMPLETED, $bulk->fresh()->status);
     }
 
-    public function test_admin_gets_one_digest_bell_only_when_bulk_batch_fully_submitted(): void
+    public function test_admin_gets_bell_for_each_bulk_site_as_it_is_submitted(): void
     {
         $category = Category::query()->where('name', 'Business & Finance')->first()
             ?? Category::query()->firstOrFail();
@@ -255,12 +254,14 @@ class BulkSiteGuidedWorkflowTest extends TestCase
             ->assertRedirect(route('publisher.bulk-sites.complete'));
 
         $this->assertSame(BulkSiteRequest::STATUS_AWAITING_PUBLISHER, $bulk->fresh()->status);
-        $this->assertSame(
-            0,
-            InAppNotification::where('user_id', $this->admin->id)
-                ->where('audience', InAppNotification::AUDIENCE_ADMIN)
-                ->count()
-        );
+
+        $afterFirst = InAppNotification::where('user_id', $this->admin->id)
+            ->where('audience', InAppNotification::AUDIENCE_ADMIN)
+            ->get();
+        $this->assertCount(1, $afterFirst);
+        $this->assertStringContainsString('Bulk One', (string) $afterFirst->first()->message);
+        $this->assertSame(Site::class, $afterFirst->first()->related_type);
+        $this->assertSame($first->id, (int) $afterFirst->first()->related_id);
 
         $this->actingAs($this->publisher)
             ->post(route('publisher.bulk-sites.complete.store', $second->id), array_merge($payload, [
@@ -272,19 +273,13 @@ class BulkSiteGuidedWorkflowTest extends TestCase
 
         $adminNotes = InAppNotification::where('user_id', $this->admin->id)
             ->where('audience', InAppNotification::AUDIENCE_ADMIN)
+            ->orderBy('id')
             ->get();
 
-        $this->assertCount(1, $adminNotes);
-        $note = $adminNotes->first();
-        $this->assertSame(InAppNotificationService::TYPE_SYSTEM, $note->type);
-        $this->assertStringContainsString('Bulk sites ready', $note->title);
-        $this->assertStringContainsString('2 sites', (string) $note->message);
-        $this->assertStringContainsString(
-            '/admin/bulk-site-requests/'.$bulk->id,
-            (string) $note->action_url
-        );
-        $this->assertSame(BulkSiteRequest::class, $note->related_type);
-        $this->assertSame($bulk->id, (int) $note->related_id);
+        $this->assertCount(2, $adminNotes);
+        $this->assertStringContainsString('Bulk Two', (string) $adminNotes->last()->message);
+        $this->assertSame($second->id, (int) $adminNotes->last()->related_id);
+        $this->assertStringContainsString('/admin/sites', (string) $adminNotes->last()->action_url);
     }
 
     private function makeAwaitingBulkSite(BulkSiteRequest $bulk, string $url, string $name): Site

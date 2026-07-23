@@ -2,7 +2,6 @@
 
 namespace App\Services;
 
-use App\Models\BulkSiteRequest;
 use App\Models\DepositRequest;
 use App\Models\InAppNotification;
 use App\Models\Order;
@@ -1103,38 +1102,7 @@ class InAppNotificationService
                 'meta' => [
                     'site_id' => $site->id,
                     'action' => $isUpdate ? 'update' : 'create',
-                ],
-            ]
-        );
-    }
-
-    /**
-     * One admin bell when a publisher finishes every site in a guided bulk batch.
-     */
-    public function notifyAdminsBulkSitesReadyForReview(BulkSiteRequest $bulk): void
-    {
-        $bulk->loadMissing('publisher');
-        $who = $bulk->publisher?->name ?: ($bulk->publisher?->email ?: 'A publisher');
-        $ready = $bulk->readyForReviewCount();
-        $total = $bulk->sites()->count();
-        $count = $ready > 0 ? $ready : $total;
-        $label = $count === 1 ? '1 site' : "{$count} sites";
-
-        $this->notifyAdmins(
-            self::TYPE_SYSTEM,
-            'Bulk sites ready for review',
-            "{$who} finished details on {$label} from bulk request #{$bulk->id}. Review and verify.",
-            [
-                'category' => self::CATEGORY_SYSTEM,
-                'icon' => 'bell',
-                'priority' => InAppNotification::PRIORITY_HIGH,
-                'related' => $bulk,
-                'action_label' => 'Open bulk request',
-                'action_url' => route('admin.bulk-site-requests.show', $bulk->id, false),
-                'meta' => [
-                    'bulk_site_request_id' => $bulk->id,
-                    'publisher_id' => $bulk->publisher_id,
-                    'site_count' => $count,
+                    'bulk_site_request_id' => $site->bulk_site_request_id,
                 ],
             ]
         );
