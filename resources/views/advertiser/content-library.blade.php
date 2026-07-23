@@ -1052,6 +1052,21 @@ document.getElementById('uploadContentModal')?.addEventListener('shown.bs.modal'
     refreshLibraryCountries(libraryPreferredCountry || document.getElementById('libraryCountry')?.value || '');
 });
 
+function escapeHtml(str) {
+    if (str == null || str === '') return '';
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+function setFeedbackHtml(el, ok, message) {
+    if (!el) return;
+    el.innerHTML = '<span class="text-' + (ok ? 'success' : 'danger') + '">' + escapeHtml(message) + '</span>';
+}
+
 function showLibraryFlash(message, ok) {
     const el = document.getElementById('libraryFlash');
     if (!el) return;
@@ -1266,15 +1281,15 @@ function ensureArticleQuill() {
                 });
                 const data = await res.json();
                 if (!res.ok || !data.success || !data.url) {
-                    feedback.innerHTML = '<span class="text-danger">' + (data.message || data.error || 'Image upload failed') + '</span>';
+                    setFeedbackHtml(feedback, false, data.message || data.error || 'Image upload failed');
                     return;
                 }
                 const range = articleQuill.getSelection(true) || { index: articleQuill.getLength() };
                 articleQuill.insertEmbed(range.index, 'image', data.url, 'user');
                 articleQuill.setSelection(range.index + 1);
-                feedback.innerHTML = '<span class="text-success">Image added. You can remove it with Backspace/Delete.</span>';
+                setFeedbackHtml(feedback, true, 'Image added. You can remove it with Backspace/Delete.');
             } catch (e) {
-                feedback.innerHTML = '<span class="text-danger">Network error while uploading image.</span>';
+                setFeedbackHtml(feedback, false, 'Network error while uploading image.');
             }
         };
     });
@@ -1330,17 +1345,17 @@ async function saveArticleEditor() {
         });
         const data = await res.json();
         if (!res.ok || !data.success) {
-            feedback.innerHTML = '<span class="text-danger">' + (data.message || 'Could not save article.') + '</span>';
+            setFeedbackHtml(feedback, false, data.message || 'Could not save article.');
             btn.disabled = false;
             return;
         }
-        feedback.innerHTML = '<span class="text-success">' + (data.message || 'Article saved.') + '</span>';
+        setFeedbackHtml(feedback, true, data.message || 'Article saved.');
         if (data.submission) {
             openArticleEditor(data.submission);
         }
         setTimeout(function () { window.location.reload(); }, 900);
     } catch (e) {
-        feedback.innerHTML = '<span class="text-danger">Network error while saving.</span>';
+        setFeedbackHtml(feedback, false, 'Network error while saving.');
         btn.disabled = false;
     }
 }
@@ -1504,11 +1519,11 @@ document.getElementById('libraryUploadForm')?.addEventListener('submit', async f
 
     if (!file) return;
     if (!/\.docx$/i.test(file.name)) {
-        feedback.innerHTML = '<span class="text-danger">Please upload a Microsoft Word (.docx) document only.</span>';
+        setFeedbackHtml(feedback, false, 'Please upload a Microsoft Word (.docx) document only.');
         return;
     }
     if (!document.getElementById('libraryCountry').value || !document.getElementById('libraryLanguage').value) {
-        feedback.innerHTML = '<span class="text-danger">Please select country and language before uploading.</span>';
+        setFeedbackHtml(feedback, false, 'Please select country and language before uploading.');
         return;
     }
 
@@ -1527,11 +1542,11 @@ document.getElementById('libraryUploadForm')?.addEventListener('submit', async f
         bar.style.width = '100%';
         const data = await res.json();
         if (!data.success) {
-            feedback.innerHTML = '<span class="text-danger">' + (data.message || 'Upload failed') + '</span>';
+            setFeedbackHtml(feedback, false, data.message || 'Upload failed');
             btn.disabled = false;
             return;
         }
-        feedback.innerHTML = '<span class="text-success">' + (data.message || 'Uploaded') + ' Opening editor…</span>';
+        setFeedbackHtml(feedback, true, (data.message || 'Uploaded') + ' Opening editor…');
         if (data.submission) {
             openArticleEditor(Object.assign({}, data.submission, {
                 can_order: !!(data.submission.can_order || data.approved),
@@ -1543,7 +1558,7 @@ document.getElementById('libraryUploadForm')?.addEventListener('submit', async f
         progress.classList.add('d-none');
         bar.style.width = '0%';
     } catch (err) {
-        feedback.innerHTML = '<span class="text-danger">Network error while uploading.</span>';
+        setFeedbackHtml(feedback, false, 'Network error while uploading.');
         btn.disabled = false;
     }
 });

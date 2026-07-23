@@ -654,7 +654,25 @@ document.addEventListener('DOMContentLoaded', function() {
     window.syncOrdersFiltersToUrl = syncOrdersFiltersToUrl;
 
     function escapeHtml(str) {
-        return window.OrderChatEscapeHtml ? window.OrderChatEscapeHtml(str) : String(str || '');
+        if (window.OrderChatEscapeHtml) {
+            return window.OrderChatEscapeHtml(str);
+        }
+        if (str == null || str === '') return '';
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+
+    function safeUrl(url) {
+        const s = String(url || '').trim();
+        if (!s) return '#';
+        if (/^https?:\/\//i.test(s) || s.startsWith('/')) {
+            return escapeHtml(s);
+        }
+        return '#';
     }
 
     function hideOrderDetailsModal() {
@@ -1108,8 +1126,8 @@ document.addEventListener('DOMContentLoaded', function() {
             
             html += `
                 <tr>
-                    <td class="fw-semibold">${order.order_number}</td>
-                    <td><div class="fw-semibold">${escapeHtml(siteName)}</div><div class="text-muted small"><a href="${escapeHtml(siteUrl)}" target="_blank">${escapeHtml(siteUrl)}</a></div></td>
+                    <td class="fw-semibold">${escapeHtml(order.order_number)}</td>
+                    <td><div class="fw-semibold">${escapeHtml(siteName)}</div><div class="text-muted small"><a href="${safeUrl(siteUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(siteUrl)}</a></div></td>
                     <td>${formatDate(order.created_at)}</td>
                     <td class="fw-semibold text-primary">€${basePrice.toFixed(2)}</td>
                     <td>
@@ -1119,18 +1137,19 @@ document.addEventListener('DOMContentLoaded', function() {
                         }
                     </td>
                     <td>
-                        <div class="small mb-1">${paymentMethodName}</div>
+                        <div class="small mb-1">${escapeHtml(paymentMethodName)}</div>
                         <span class="status-badge ${paymentStatusClass}">${capitalize(order.payment_status)}</span>
                     </td>
-                    <td>${order.reference_code || '-'}</td>
+                    <td>${escapeHtml(order.reference_code || '-')}</td>
                     <td>
                         <span class="status-badge ${statusMeta.cls}">${statusMeta.label}</span>
                         <div class="next-step-hint">${escapeHtml(statusMeta.next)}</div>
                         ${statusMeta.autoHint ? `<div class="next-step-hint text-muted"><i class="fa fa-clock-o me-1"></i>${escapeHtml(statusMeta.autoHint)}</div>` : ''}
                     </td>
                     <td class="link-cell">
-                        <a href="${contentLink}" 
+                        <a href="${safeUrl(contentLink)}" 
                            target="_blank" 
+                           rel="noopener noreferrer"
                            class="btn btn-sm btn-outline-primary"
                            title="Content Link">
                             <i class="fa fa-external-link me-1"></i> View
@@ -1138,8 +1157,9 @@ document.addEventListener('DOMContentLoaded', function() {
                     </td>
                     <td class="link-cell">
                         ${liveUrl 
-                            ? `<a href="${liveUrl}" 
+                            ? `<a href="${safeUrl(liveUrl)}" 
                                   target="_blank" 
+                                  rel="noopener noreferrer"
                                   class="btn btn-sm btn-outline-success"
                                   title="Live URL">
                                     <i class="fa fa-external-link me-1"></i> Live
@@ -1166,7 +1186,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
                             <button 
                                 class="btn btn-sm btn-outline-success action-btn d-flex align-items-center"
-                                onclick="openChat(${order.id}, '${order.order_number}')">
+                                onclick="openChat(${order.id}, ${JSON.stringify(String(order.order_number || ''))})">
                                 <i class="fa fa-comments me-1"></i>
                                 <span>Chat</span>${unreadBadge}
                             </button>
@@ -1436,7 +1456,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const liveUrlHtml = liveUrl
             ? `<div class="ov-block">
                     <strong>Live URL</strong>
-                    <div><a href="${escapeHtml(liveUrl)}" target="_blank" class="text-success">${escapeHtml(liveUrl)} <i class="fa fa-external-link fa-xs"></i></a></div>
+                    <div><a href="${safeUrl(liveUrl)}" target="_blank" rel="noopener noreferrer" class="text-success">${escapeHtml(liveUrl)} <i class="fa fa-external-link fa-xs"></i></a></div>
                     ${healthHtml}
                </div>`
             : `<div class="ov-block"><strong>Live URL</strong><div class="text-muted">Not submitted yet</div></div>`;
@@ -1460,16 +1480,16 @@ document.addEventListener('DOMContentLoaded', function() {
                 <button class="btn btn-sm btn-warning" onclick="requestModification(${order.id})">
                     <i class="fa fa-edit"></i> Request changes
                 </button>
-                <button class="btn btn-sm btn-outline-danger" onclick="raiseIssue(${order.id}, '${escapeHtml(order.order_number)}', '${escapeHtml(statusMeta.label)}')">
+                <button class="btn btn-sm btn-outline-danger" onclick="raiseIssue(${order.id}, ${JSON.stringify(String(order.order_number || ''))}, ${JSON.stringify(String(statusMeta.label || ''))})">
                     <i class="fa fa-flag"></i> Raise an issue
                 </button>
             `;
         } else if (!['completed', 'cancelled'].includes(order.status) || order.payment_status === 'refunded') {
             actionButtons = `
-                <button class="btn btn-sm btn-outline-secondary" onclick="openChat(${order.id}, '${escapeHtml(order.order_number)}')">
+                <button class="btn btn-sm btn-outline-secondary" onclick="openChat(${order.id}, ${JSON.stringify(String(order.order_number || ''))})">
                     <i class="fa fa-comments"></i> Chat
                 </button>
-                ${order.status !== 'completed' ? `<button class="btn btn-sm btn-outline-danger" onclick="raiseIssue(${order.id}, '${escapeHtml(order.order_number)}', '${escapeHtml(statusMeta.label)}')">
+                ${order.status !== 'completed' ? `<button class="btn btn-sm btn-outline-danger" onclick="raiseIssue(${order.id}, ${JSON.stringify(String(order.order_number || ''))}, ${JSON.stringify(String(statusMeta.label || ''))})">
                     <i class="fa fa-flag"></i> Raise an issue
                 </button>` : ''}
             `;
@@ -1634,15 +1654,14 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function escapeHtml(str) {
-        if (!str) return '';
-        return str.replace(/[&<>]/g, function(m) {
-            if (m === '&') return '&amp;';
-            if (m === '<') return '&lt;';
-            if (m === '>') return '&gt;';
-            return m;
-        });
+        if (str == null || str === '') return '';
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
     }
-});
 </script>
 
 <!-- SweetAlert2 -->

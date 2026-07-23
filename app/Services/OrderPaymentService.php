@@ -338,8 +338,20 @@ class OrderPaymentService
             return collect();
         }
 
-        $expected = round((float) ($package['amount_due'] ?? $package['order_total'] ?? 0), 2);
         $meta = $this->sessionMetadataArray($session);
+        $packageUserId = (int) ($package['user_id'] ?? 0);
+        $metaUserId = isset($meta['user_id']) ? (int) $meta['user_id'] : 0;
+        if ($packageUserId > 0 && $metaUserId > 0 && $packageUserId !== $metaUserId) {
+            Log::error('Stripe checkout package user_id mismatch', [
+                'reference_code' => $referenceCode,
+                'package_user_id' => $packageUserId,
+                'metadata_user_id' => $metaUserId,
+            ]);
+
+            throw new \RuntimeException('Checkout package does not belong to the paying user for ref '.$referenceCode);
+        }
+
+        $expected = round((float) ($package['amount_due'] ?? $package['order_total'] ?? 0), 2);
         if (isset($meta['expected_amount'])) {
             $expected = round((float) $meta['expected_amount'], 2);
         }

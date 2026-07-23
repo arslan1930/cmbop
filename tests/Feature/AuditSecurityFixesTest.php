@@ -286,6 +286,37 @@ class AuditSecurityFixesTest extends TestCase
         $this->assertSame(0.0, (float) Wallet::where('user_id', $publisher->id)->first()->balance);
     }
 
+    public function test_finalize_rejects_package_user_mismatch(): void
+    {
+        $payments = app(OrderPaymentService::class);
+        $ref = 'USER-MISMATCH-1';
+        $payments->storePendingCheckout($ref, [
+            'user_id' => 11,
+            'order_total' => 50,
+            'amount_due' => 50,
+            'bonus_applied' => 0,
+            'schedule' => ['mode' => 'immediate', 'timezone' => 'UTC'],
+            'lines' => [],
+        ]);
+
+        $session = (object) [
+            'id' => 'cs_user_mismatch',
+            'object' => 'checkout.session',
+            'amount_total' => 5000,
+            'payment_intent' => 'pi_user_mismatch',
+            'metadata' => (object) [
+                'expected_amount' => '50',
+                'user_id' => '22',
+                'type' => 'order_payment',
+                'reference_code' => $ref,
+            ],
+        ];
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('does not belong');
+        $payments->finalizeStripeFirstCheckout($ref, $session);
+    }
+
     public function test_marketing_cannot_approve_site_claim(): void
     {
         $marketingRole = Role::where('name', 'marketing')->firstOrFail();
