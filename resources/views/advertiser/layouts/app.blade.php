@@ -433,15 +433,39 @@
         }
     }
 
-    function articlesForCartLine(item) {
-        const siteLang = String(item.language || '').toLowerCase();
-        const selectedId = parseInt(item.content_submission_id || 0, 10) || 0;
-        const usedElsewhere = new Set(
-            cart
-                .filter((row) => getCartItemKey(row) !== getCartItemKey(item))
-                .map((row) => parseInt(row.content_submission_id || 0, 10))
-                .filter((id) => id > 0)
-        );
+    function lineContentIds(item) {
+        const qty = Math.max(1, parseInt(item.quantity, 10) || 1);
+        const raw = Array.isArray(item.content_submission_ids) ? item.content_submission_ids : [];
+        const ids = [];
+        for (let i = 0; i < qty; i++) {
+            ids[i] = parseInt(raw[i] || 0, 10) || 0;
+        }
+        if (!ids[0] && item.content_submission_id) {
+            ids[0] = parseInt(item.content_submission_id, 10) || 0;
+        }
+        return ids;
+    }
+
+    function lineFullyAssigned(item) {
+        return lineContentIds(item).every((id) => id > 0);
+    }
+
+    function usedSubmissionIds(exceptKey, exceptCopyIndex) {
+        const used = new Set();
+        cart.forEach((row) => {
+            const key = getCartItemKey(row);
+            lineContentIds(row).forEach((id, copyIndex) => {
+                if (!id) return;
+                if (key === exceptKey && copyIndex === exceptCopyIndex) return;
+                used.add(id);
+            });
+        });
+        return used;
+    }
+
+    function articlesForCartPlacement(item, copyIndex) {
+        const selectedId = lineContentIds(item)[copyIndex] || 0;
+        const usedElsewhere = usedSubmissionIds(getCartItemKey(item), copyIndex);
         return approvedArticles.filter((article) => {
             if (usedElsewhere.has(article.id) && article.id !== selectedId) return false;
             return true;
@@ -449,7 +473,7 @@
     }
 
     function cartLinesMissingArticles() {
-        return cart.filter((item) => !parseInt(item.content_submission_id || 0, 10));
+        return cart.filter((item) => !lineFullyAssigned(item));
     }
 
     // Load cart from session on page load
@@ -486,7 +510,7 @@
         });
     }
 
-    function assignCartArticle(siteId, sensitiveType, submissionId) {
+    function assignCartArticle(siteId, sensitiveType, submissionId, copyIndex) {
         $.ajax({
             url: '{{ route("advertiser.cart.assign-article") }}',
             method: 'POST',
@@ -497,7 +521,8 @@
             data: {
                 id: siteId,
                 sensitive_type: sensitiveType || '',
-                content_submission_id: submissionId || ''
+                content_submission_id: submissionId || '',
+                copy_index: copyIndex || 0
             },
             success: function(data) {
                 if (!data.success) {
@@ -577,18 +602,26 @@
             const missing = missingLines.length;
             const readyCount = Math.max(0, cart.length - missing);
             const readyTotal = cart
-                .filter((item) => !!parseInt(item.content_submission_id || 0, 10))
+                .filter((item) => lineFullyAssigned(item))
                 .reduce((sum, item) => sum + ((parseFloat(item.price) || 0) * (parseInt(item.quantity, 10) || 0)), 0);
             if (checklistEl) {
                 let list = '<div class="small fw-semibold mb-1">Before Pay</div><ul class="mb-0 ps-0">';
                 sortedCart.forEach((item) => {
-                    const assigned = !!parseInt(item.content_submission_id || 0, 10);
+                    const qty = Math.max(1, parseInt(item.quantity, 10) || 1);
+                    const assigned = lineFullyAssigned(item);
+                    const filled = lineContentIds(item).filter((id) => id > 0).length;
                     const lang = String(item.language || '').toUpperCase();
                     const cls = assigned ? 'is-ok' : 'is-todo';
                     const mark = assigned ? '✓' : '!';
-                    const detail = assigned
-                        ? 'Ready — will be charged at checkout'
-                        : ('Needs ' + (lang ? lang + ' ' : '') + 'article (stays in cart)');
+                    let detail;
+                    if (assigned) {
+                        detail = 'Ready — will be charged at checkout';
+                    } else if (qty > 1) {
+                        detail = 'Needs ' + (qty - filled) + ' more article' + ((qty - filled) === 1 ? '' : 's')
+                            + ' (one per placement' + (lang ? ', any language' : '') + ')';
+                    } else {
+                        detail = 'Needs ' + (lang ? lang + ' ' : '') + 'article (stays in cart)';
+                    }
                     list += `<li class="${cls}"><span class="mark" aria-hidden="true">${mark}</span><span><strong>${escapeHtml(item.name || 'Website')}</strong> — ${escapeHtml(detail)}</span></li>`;
                 });
                 list += '</ul>';
@@ -629,10 +662,9 @@
                 const itemKey = getCartItemKey(item);
                 const sensitiveDisplay = item.sensitive_type ? 
                     `<div class="cart-item-sensitive"><small>+ ${escapeHtml(item.sensitive_type)} (€${(parseFloat(item.additional_price) || 0).toFixed(2)})</small></div>` : '';
-                const options = articlesForCartLine(item);
-                const selectedId = parseInt(item.content_submission_id || 0, 10) || 0;
+                const placementIds = lineContentIds(item);
                 let articleBlock = '';
-                if (options.length === 0 && !selectedId) {
+                if (approvedArticles.length === 0 && placementIds.every((id) => !id)) {
                     articleBlock = `
                         <div class="cart-item-article">
                             <div class="cart-item-article-empty">
@@ -641,27 +673,38 @@
                             </div>
                         </div>`;
                 } else {
-                    let opts = `<option value="">— Select approved article —</option>`;
-                    options.forEach((article) => {
-                        const label = (article.title || 'Article')
-                            + ' (' + String(article.language || '').toUpperCase()
-                            + (article.country ? '/' + String(article.country).toUpperCase() : '')
-                            + ')';
-                        opts += `<option value="${article.id}" ${article.id === selectedId ? 'selected' : ''}>${escapeHtml(label)}</option>`;
-                    });
-                    if (selectedId && !options.some((a) => a.id === selectedId)) {
-                        opts += `<option value="${selectedId}" selected>Assigned article #${selectedId}</option>`;
-                    }
-                    articleBlock = `
+                    articleBlock = placementIds.map((selectedId, copyIndex) => {
+                        const options = articlesForCartPlacement(item, copyIndex);
+                        const labelText = placementIds.length > 1
+                            ? `Article for placement ${copyIndex + 1} of ${placementIds.length}`
+                            : 'Article for this website';
+                        let opts = `<option value="">— Select approved article —</option>`;
+                        options.forEach((article) => {
+                            const label = (article.title || 'Article')
+                                + ' (' + String(article.language || '').toUpperCase()
+                                + (article.country ? '/' + String(article.country).toUpperCase() : '')
+                                + ')';
+                            opts += `<option value="${article.id}" ${article.id === selectedId ? 'selected' : ''}>${escapeHtml(label)}</option>`;
+                        });
+                        if (selectedId && !options.some((a) => a.id === selectedId)) {
+                            opts += `<option value="${selectedId}" selected>Assigned article #${selectedId}</option>`;
+                        }
+                        const emptyHint = options.length === 0 && !selectedId
+                            ? `<div class="cart-item-article-empty mt-1">Upload another article in the <a href="${contentLibraryUploadUrl}">Content Library</a> — each placement needs its own.</div>`
+                            : '';
+                        return `
                         <div class="cart-item-article">
-                            <label>Article for this website</label>
+                            <label>${labelText}</label>
                             <select class="cart-article-select"
                                     data-id="${item.id}"
                                     data-sensitive-type="${item.sensitive_type || ''}"
+                                    data-copy-index="${copyIndex}"
                                     data-prev-value="${selectedId || ''}">
                                 ${opts}
                             </select>
+                            ${emptyHint}
                         </div>`;
+                    }).join('');
                 }
                 
                 html += `
@@ -848,12 +891,13 @@
         if (!select) return;
         const id = parseInt(select.dataset.id, 10);
         const sensitiveType = select.dataset.sensitiveType || null;
+        const copyIndex = parseInt(select.dataset.copyIndex || '0', 10) || 0;
         const submissionId = select.value ? parseInt(select.value, 10) : 0;
         const previous = select.dataset.prevValue || '';
 
         if (!submissionId) {
             select.dataset.prevValue = '';
-            assignCartArticle(id, sensitiveType, 0);
+            assignCartArticle(id, sensitiveType, 0, copyIndex);
             return;
         }
 
@@ -869,7 +913,7 @@
 
         const proceed = function () {
             select.dataset.prevValue = select.value || '';
-            assignCartArticle(id, sensitiveType, submissionId);
+            assignCartArticle(id, sensitiveType, submissionId, copyIndex);
         };
 
         if (!mismatch) {

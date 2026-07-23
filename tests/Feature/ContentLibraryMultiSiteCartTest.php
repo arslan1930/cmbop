@@ -213,4 +213,150 @@ class ContentLibraryMultiSiteCartTest extends TestCase
             ->assertStatus(422)
             ->assertJsonPath('success', false);
     }
+
+    public function test_cannot_reuse_same_article_on_two_placements_of_same_site(): void
+    {
+        $advertiser = $this->advertiser();
+        $publisher = $this->publisher();
+        $site = $this->activeSite($publisher, 'qty-dup', 40, 'us', 'en');
+        $article = $this->createApprovedSubmission($advertiser, null, 0, 'anchor', 'https://example.com/a', 'us', 'en');
+
+        $cart = [[
+            'id' => $site->id,
+            'name' => $site->site_name,
+            'price' => 46,
+            'quantity' => 2,
+            'language' => 'en',
+            'content_submission_id' => $article->id,
+            'content_submission_ids' => [0 => $article->id, 1 => 0],
+        ]];
+
+        $this->actingAs($advertiser)
+            ->withSession(['cart' => $cart])
+            ->postJson(route('advertiser.cart.assign-article'), [
+                'id' => $site->id,
+                'content_submission_id' => $article->id,
+                'copy_index' => 1,
+            ])
+            ->assertStatus(422)
+            ->assertJsonPath('success', false);
+
+        $this->actingAs($advertiser)
+            ->withSession(['cart' => $cart])
+            ->postJson(route('advertiser.cart.assign-article'), [
+                'id' => $site->id,
+                'content_submission_id' => $article->id,
+                'copy_index' => 0,
+            ])
+            ->assertOk()
+            ->assertJsonPath('success', true);
+    }
+
+    public function test_qty_two_checkout_requires_two_distinct_articles(): void
+    {
+        config(['content_moderation.enabled' => false]);
+        Mail::fake();
+        Role::firstOrCreate(['name' => 'admin']);
+
+        $advertiser = $this->advertiser();
+        $publisher = $this->publisher();
+        $site = $this->activeSite($publisher, 'qty-two', 40, 'us', 'en');
+        $articleA = $this->createApprovedSubmission($advertiser, null, 0, 'anchor a', 'https://example.com/a', 'us', 'en');
+        $articleB = $this->createApprovedSubmission($advertiser, null, 0, 'anchor b', 'https://example.com/b', 'us', 'en');
+
+        $cart = [[
+            'id' => $site->id,
+            'name' => $site->site_name,
+            'price' => 46,
+            'quantity' => 2,
+            'language' => 'en',
+            'country' => 'us',
+            'content_submission_id' => $articleA->id,
+            'content_submission_ids' => [0 => $articleA->id, 1 => $articleB->id],
+        ]];
+
+        $this->fundAdvertiserWallet($advertiser);
+
+        $this->actingAs($advertiser)
+            ->withSession(['cart' => $cart])
+            ->postJson(route('advertiser.checkout.process'), [
+                'payment_method' => 'wallet',
+                'reference_code' => 'QTY2OK',
+                'publication_mode' => 'immediate',
+                'content_submissions' => [
+                    (string) $site->id => [$articleA->id, $articleB->id],
+                ],
+            ])
+            ->assertOk()
+            ->assertJson(['success' => true]);
+
+        $this->assertSame(1, OrderItem::where('content_submission_id', $articleA->id)->count());
+        $this->assertSame(1, OrderItem::where('content_submission_id', $articleB->id)->count());
+    }
+
+    public function test_qty_two_rejects_reusing_one_article_for_both_placements(): void
+    {
+        config(['content_moderation.enabled' => false]);
+        Mail::fake();
+
+        $advertiser = $this->advertiser();
+        $publisher = $this->publisher();
+        $site = $this->activeSite($publisher, 'qty-reuse', 40, 'us', 'en');
+        $article = $this->createApprovedSubmission($advertiser, null, 0, 'anchor', 'https://example.com/a', 'us', 'en');
+
+        $this->fundAdvertiserWallet($advertiser);
+
+        $response = $this->actingAs($advertiser)
+            ->withSession([
+                'cart' => [[
+                    'id' => $site->id,
+                    'name' => $site->site_name,
+                    'price' => 46,
+                    'quantity' => 2,
+                    'language' => 'en',
+                    'content_submission_id' => $article->id,
+                ]],
+            ])
+            ->postJson(route('advertiser.checkout.process'), [
+                'payment_method' => 'wallet',
+                'reference_code' => 'QTY2BAD',
+                'publication_mode' => 'immediate',
+                'content_submissions' => [
+                    (string) $site->id => [$article->id, $article->id],
+                ],
+            ]);
+
+        // Whole line stays deferred when a second placement reuses the same article.
+        $response->assertStatus(422)->assertJson(['success' => false]);
+        $this->assertSame(0, OrderItem::where('content_submission_id', $article->id)->count());
+    }
+
+    public function test_checkout_page_has_no_inline_docx_upload(): void
+    {
+        $advertiser = $this->advertiser();
+        $publisher = $this->publisher();
+        $site = $this->activeSite($publisher, 'no-upload', 40, 'us', 'en');
+        $article = $this->createApprovedSubmission($advertiser, null, 0, 'anchor', 'https://example.com/a', 'us', 'en');
+
+        $html = $this->actingAs($advertiser)
+            ->withSession([
+                'cart' => [[
+                    'id' => $site->id,
+                    'name' => $site->site_name,
+                    'url' => $site->site_url,
+                    'price' => 46,
+                    'quantity' => 1,
+                    'language' => 'en',
+                    'country' => 'us',
+                    'content_submission_id' => $article->id,
+                ]],
+            ])
+            ->get(route('advertiser.checkout'))
+            ->assertOk()
+            ->getContent();
+
+        $this->assertStringNotContainsString('Or upload a new .docx', $html);
+        $this->assertStringNotContainsString('upload-btn', $html);
+        $this->assertStringContainsString('Content Library', $html);
+    }
 }

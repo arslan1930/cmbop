@@ -90,7 +90,11 @@
                                         $hasSensitive = !empty($item['sensitive_type']) && ($item['additional_price'] ?? 0) > 0;
                                     @endphp
                                     @php
-                                        $summaryArticleId = (int) ($item['content_submission_id'] ?? ($librarySubmission->id ?? 0));
+                                        $lineArticleIds = is_array($item['content_submission_ids'] ?? null) ? $item['content_submission_ids'] : [];
+                                        $summaryArticleId = (int) ($lineArticleIds[$i] ?? 0);
+                                        if ($summaryArticleId <= 0 && $i === 0) {
+                                            $summaryArticleId = (int) ($item['content_submission_id'] ?? ($librarySubmission->id ?? 0));
+                                        }
                                         $summaryArticle = $summaryArticleId && isset($checkoutArticles)
                                             ? ($checkoutArticles[$summaryArticleId] ?? null)
                                             : null;
