@@ -372,7 +372,7 @@
         }
     }
 
-    @if(auth()->user()->isAdmin())
+    @if(auth()->user()->isAdmin() || auth()->user()->isMarketing())
     function refreshAdminQueueBadges() {
         fetch('{{ route("admin.dashboard.queue-counts") }}', {
             headers: { 'Accept': 'application/json' },

@@ -234,34 +234,6 @@
     </div>
 </div>
 
-<!-- Resubmit Live URL Modal (for modification) -->
-<div class="modal fade" id="resubmitModal" tabindex="-1">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">Resubmit Live URL</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <input type="hidden" id="resubmit_order_item_id">
-                <div class="ui-callout ui-callout--attention ui-callout--sm">
-                    <span class="ui-callout__icon" aria-hidden="true"><i class="fa-solid fa-circle-exclamation"></i></span>
-                    <div class="ui-callout__body">The advertiser has requested modifications. Update your content, then submit the new live URL.</div>
-                </div>
-                <div class="mb-3">
-                    <label for="resubmit_live_url" class="form-label">Updated Live URL <span class="text-danger">*</span></label>
-                    <input type="url" id="resubmit_live_url" class="form-control" placeholder="https://example.com/your-updated-article">
-                    <small class="text-muted">Enter the updated live URL with the requested changes</small>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                <button type="button" class="btn btn-primary" id="confirmResubmit">Resubmit Live URL</button>
-            </div>
-        </div>
-    </div>
-</div>
-
 <!-- View Details Modal -->
 <div class="modal fade" id="detailsModal" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered modal-lg">
@@ -613,16 +585,25 @@ $(document).ready(function() {
                 ? '<div class="small mt-1"><strong>Reason:</strong> ' + escapeHtml(details.completion_notes) + '</div>'
                 : '';
             const itemId = details.order_item_id || '';
-            revisionBlock = '<div class="ui-callout ui-callout--attention ui-callout--sm ui-callout--flush mt-2">'
-                + '<span class="ui-callout__icon" aria-hidden="true"><i class="fa-solid fa-circle-exclamation"></i></span>'
-                + '<div class="ui-callout__body">'
-                + '<div>The advertiser asked for changes. Update the article and resubmit the live URL.</div>'
+            const currentUrl = details.live_url
+                ? '<div class="small mt-1 text-muted">Current URL: <a href="' + escapeHtml(details.live_url) + '" target="_blank" rel="noopener noreferrer">' + escapeHtml(details.live_url) + '</a></div>'
+                : '';
+            revisionBlock = '<div class="chat-resubmit-panel mt-2">'
+                + '<div class="chat-resubmit-panel__title"><i class="fa fa-exclamation-circle me-1" aria-hidden="true"></i>Changes requested</div>'
+                + '<div class="chat-resubmit-panel__guidance">Make the corrections on the live article, then paste the updated URL below to resubmit it here in chat.</div>'
                 + reason
                 + currentUrl
                 + (details.can_resubmit && itemId
-                    ? '<div class="mt-2"><button type="button" class="btn btn-sm btn-primary resubmit-live-url" data-id="' + escapeHtml(String(itemId)) + '"><i class="fa fa-edit me-1"></i>Resubmit URL</button></div>'
+                    ? '<form class="chat-resubmit-form mt-2" data-item-id="' + escapeHtml(String(itemId)) + '">'
+                        + '<label class="form-label small mb-1" for="chatResubmitUrl-' + escapeHtml(String(itemId)) + '">Updated live URL</label>'
+                        + '<div class="input-group input-group-sm">'
+                        + '<input type="url" class="form-control" id="chatResubmitUrl-' + escapeHtml(String(itemId)) + '" name="live_url" placeholder="https://example.com/your-updated-article" required autocomplete="url">'
+                        + '<button type="submit" class="btn btn-primary"><i class="fa fa-paper-plane me-1" aria-hidden="true"></i>Resubmit URL</button>'
+                        + '</div>'
+                        + '<div class="form-text">After corrections, add the URL here again so the advertiser can review.</div>'
+                        + '</form>'
                     : '')
-                + '</div></div>';
+                + '</div>';
         }
 
         el.innerHTML = '<div class="small">'
@@ -1054,7 +1035,7 @@ $(document).ready(function() {
         
         if (modificationRequested) {
             var reason = item.completion_notes ? '<div class="small mt-1">Reason: ' + escapeHtml(item.completion_notes) + '</div>' : '';
-            liveUrlHtml = '<div class="ui-callout ui-callout--attention mb-2"><span class="ui-callout__icon" aria-hidden="true"><i class="fa-solid fa-circle-exclamation"></i></span><div class="ui-callout__body">The advertiser asked for changes. Update the article and resubmit the live URL.' + reason + '</div></div>' + liveUrlHtml;
+            liveUrlHtml = '<div class="ui-callout ui-callout--attention mb-2"><span class="ui-callout__icon" aria-hidden="true"><i class="fa-solid fa-circle-exclamation"></i></span><div class="ui-callout__body">The advertiser asked for changes. Make the corrections, then open <strong>Chat</strong> to paste and resubmit the live URL.' + reason + '</div></div>' + liveUrlHtml;
         }
 
         var timelineHtml = buildPublisherTimeline(orderStatus, hasLiveUrl, modificationRequested);
@@ -1342,6 +1323,7 @@ $(document).ready(function() {
             .replace(/"/g, '&quot;')
             .replace(/'/g, '&#39;');
     }
+});
 </script>
 
 @endsection

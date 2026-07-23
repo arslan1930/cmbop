@@ -206,12 +206,16 @@
                                 <td><span class="badge bg-secondary">{{ $item->status }}</span></td>
                                 <td class="text-end">
                                     @if($item->status === 'pending')
-                                        <button type="button" class="btn btn-sm btn-success btn-claim-action"
-                                                data-url="{{ route('admin.community.claims.approve', $item->id) }}"
-                                                data-mode="approve">Approve</button>
-                                        <button type="button" class="btn btn-sm btn-outline-danger btn-claim-action"
-                                                data-url="{{ route('admin.community.claims.reject', $item->id) }}"
-                                                data-mode="reject">Reject</button>
+                                        @if(auth()->user()->isAdmin())
+                                            <button type="button" class="btn btn-sm btn-success btn-claim-action"
+                                                    data-url="{{ route('admin.community.claims.approve', $item->id) }}"
+                                                    data-mode="approve">Approve</button>
+                                            <button type="button" class="btn btn-sm btn-outline-danger btn-claim-action"
+                                                    data-url="{{ route('admin.community.claims.reject', $item->id) }}"
+                                                    data-mode="reject">Reject</button>
+                                        @else
+                                            <span class="small text-muted">Awaiting admin review</span>
+                                        @endif
                                     @else
                                         <span class="small text-muted">{{ optional($item->reviewed_at)->diffForHumans() }}</span>
                                     @endif

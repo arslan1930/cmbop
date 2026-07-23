@@ -277,7 +277,7 @@ class AuditSecurityFixesTest extends TestCase
         ]);
 
         $this->actingAs($admin)
-            ->postJson(route('admin.admin.withdrawals.update-status', $withdrawal->id), [
+            ->postJson(route('admin.withdrawals.update-status', $withdrawal->id), [
                 'status' => 'cancelled',
             ])
             ->assertStatus(400);
