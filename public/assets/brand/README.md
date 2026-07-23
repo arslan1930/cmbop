@@ -1,7 +1,18 @@
 # SEOLinkBuildings brand kit
 
-Canonical product name: **SEOLinkBuildings**  
-Colors: dark `#0b6266` (~70%) · light `#3aaeb2` (~30%) · mint `#e8f8f7`
+Canonical product name: **SEOLinkBuildings**
+
+## Logo — Final B (shorter elegant underline)
+
+Polished #2 lockup (canonical):
+
+- **SEO** — bold, medium grey
+- **LINK** — white on deep teal `#185054` rounded badge
+- Short elegant sky underline `#0ea5e9` under the badge (shorter than badge width)
+- **Buildings** — light weight (not bold), grey
+- Balanced LinkedIn-style spacing between SEO · badge · Buildings
+
+Favicon / app icon: teal rounded square with white **L** + sky underline.
 
 ## Web (used by the site)
 
@@ -12,10 +23,14 @@ Colors: dark `#0b6266` (~70%) · light `#3aaeb2` (~30%) · mint `#e8f8f7`
 | `/apple-touch-icon.png` | iOS home screen |
 | `../img/logo1.png` | Primary wordmark (nav, footer, auth, app) |
 | `../img/logo2.png` | Wordmark alias |
-| `../img/logo_icon.png` | Soft SL app icon |
+| `../img/logo.svg` | Wordmark SVG |
+| `../img/logo_icon.png` | LINK badge app icon |
 | `../img/favicon-32.png` / `favicon-16.png` | PNG favicons |
-| `web/logo-wordmark-transparent.png` | Hi-res wordmark |
-| `web/og-share-1200x630.png` | Link previews |
+| `web/logo-wordmark.svg` | SVG wordmark |
+| `web/logo-wordmark-transparent.png` | Hi-res wordmark (transparent) |
+| `web/logo-wordmark-white-bg.png` | Hi-res wordmark (white bg) |
+| `web/og-share-1200x630.png` | Link previews / Open Graph |
+| `web/social-cover-1200x630.png` | Social cover (same 1200×630) |
 
 ## LinkedIn
 
@@ -35,4 +50,4 @@ Colors: dark `#0b6266` (~70%) · light `#3aaeb2` (~30%) · mint `#e8f8f7`
 | `trustpilot/trustpilot-logo-512x512.png` | Square logo |
 | `trustpilot/trustpilot-logo-wordmark-1200x600.png` | Wide wordmark logo |
 
-Download the same pack from the repo path `public/assets/brand/` or the agent artifacts `brand-kit/`.
+Download the pack from `public/assets/brand/` or `seolinkbuildings-brand-kit.zip`.

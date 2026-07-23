@@ -146,9 +146,9 @@
   }
 
   #mainNavbar .navbar-logo {
-    height: 42px;
+    height: 40px;
     width: auto;
-    max-width: min(220px, 58vw);
+    max-width: min(280px, 72vw);
     object-fit: contain;
     transition: height 0.3s ease;
   }
