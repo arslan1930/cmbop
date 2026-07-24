@@ -327,7 +327,7 @@ document.addEventListener('click', function(e){
             html: `
                 <p class="text-muted mb-3" style="font-size:14px;">
                     Grant or revoke <strong>Marketing</strong> for <strong>${name}</strong>.
-                    <br><small>Advertiser &amp; Publisher come from registration and are not changed here.</small>
+                    <br><small>Granting Marketing also switches their active workspace to Marketing so they can open the admin panel. Advertiser &amp; Publisher stay on the account.</small>
                 </p>
                 <label class="d-flex align-items-center gap-2 border rounded p-3 text-start" style="cursor:pointer;">
                     <input type="checkbox" class="form-check-input mt-0" id="marketingToggle" ${hasMarketing ? 'checked' : ''}>

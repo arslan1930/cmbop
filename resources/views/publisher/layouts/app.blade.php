@@ -51,21 +51,7 @@
 
         <!-- Mobile Role Switch -->
         <div class="text-center my-2 d-md-none">
-            @php
-                $user = auth()->user();
-                $otherRole = $user->roles->firstWhere('id', '!=', $user->active_role_id);
-            @endphp
-
-            @if($otherRole)
-                <form method="POST" action="{{ route('switch.role') }}" class="role-switch-form">
-                    @csrf
-                    <input type="hidden" name="active_role_id" value="{{ $otherRole->id }}">
-                    <button type="submit" class="btn btn-sm btn-outline-primary role-switch-btn"
-                            data-role-name="{{ ucfirst($otherRole->name) }}">
-                        Switch to {{ ucfirst($otherRole->name) }}
-                    </button>
-                </form>
-            @endif
+            @include('partials.role-switcher')
         </div>
         
 
@@ -128,21 +114,7 @@
         </a>
 
         <div class="d-none d-md-block">
-            @php
-                $user = auth()->user();
-                $otherRole = $user->roles->firstWhere('id', '!=', $user->active_role_id);
-            @endphp
-
-            @if($otherRole)
-                <form method="POST" action="{{ route('switch.role') }}" class="role-switch-form">
-                    @csrf
-                    <input type="hidden" name="active_role_id" value="{{ $otherRole->id }}">
-                    <button type="submit" class="btn btn-sm btn-outline-primary role-switch-btn"
-                            data-role-name="{{ ucfirst($otherRole->name) }}">
-                        Switch to {{ ucfirst($otherRole->name) }}
-                    </button>
-                </form>
-            @endif
+            @include('partials.role-switcher')
         </div>
     </div>
 
@@ -337,28 +309,8 @@
     refreshHeaderAlerts();
     setInterval(refreshHeaderAlerts, 45000);
     window.refreshHeaderAlerts = refreshHeaderAlerts;
-
-    document.querySelectorAll('.role-switch-form').forEach(function(form) {
-        form.addEventListener('submit', function(e) {
-            e.preventDefault();
-            const btn = form.querySelector('.role-switch-btn');
-            const roleName = (btn && btn.dataset.roleName) || 'the other role';
-            Swal.fire({
-                title: 'Switch role?',
-                html: 'You are about to switch to <strong>' + roleName + '</strong>. Your current page will change to that workspace.',
-                icon: 'question',
-                showCancelButton: true,
-                confirmButtonText: 'Switch to ' + roleName,
-                cancelButtonText: 'Stay here',
-                confirmButtonColor: '#c45c26',
-                cancelButtonColor: '#6b7280',
-                reverseButtons: true
-            }).then(function(result) {
-                if (result.isConfirmed) form.submit();
-            });
-        });
-    });
 </script>
+<script src="{{ asset('js/role-switch.js') }}?v={{ @filemtime(public_path('js/role-switch.js')) ?: '1' }}"></script>
 <script src="{{ asset('js/order-chat.js') }}?v={{ @filemtime(public_path('js/order-chat.js')) ?: '1' }}" defer></script>
 <script src="{{ asset('js/notification-center.js') }}?v={{ @filemtime(public_path('js/notification-center.js')) ?: '5' }}" defer></script>
 
