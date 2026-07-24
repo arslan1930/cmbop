@@ -46,7 +46,8 @@ return [
                 'crypto casino', 'crypto gambling', 'bitcoin casino', 'online casino',
                 'live dealer', 'free spins', 'no deposit bonus', 'casino bonus',
                 'gambling site', 'betting site', 'poker room', 'texas holdem', 'holdem',
-                'sports bet', 'parlay', 'betting odds',
+                'sports bet', 'parlay', 'betting odds', 'casino games', 'gambling addiction',
+                'place bets', 'bet now', 'odds boost', 'betting tips',
             ],
             'keywords_by_locale' => [
                 'de' => [
@@ -164,10 +165,11 @@ return [
             'enabled' => true,
             'weight' => 1.0,
             'keywords' => [
-                'pornography', 'porn', 'porno', 'xxx', 'nsfw', 'adult content', 'adult video',
+                'pornography', 'pornographic', 'porn', 'porno', 'xxx', 'nsfw', 'adult content', 'adult video',
                 'erotic', 'erotica', 'escort', 'escorts', 'escort service', 'sex worker',
                 'onlyfans', 'camgirl', 'webcam sex', 'nude', 'nudity', 'strip club',
-                '18+', 'adults only', 'xxx video', 'porn site', 'porn tube',
+                '18+', 'adults only', 'xxx video', 'porn site', 'porn tube', 'hentai',
+                'sex tape', 'adult film', 'porn hub',
             ],
             'domains' => [
                 'pornhub', 'xvideos', 'xnxx', 'onlyfans', 'chaturbate', 'stripchat',

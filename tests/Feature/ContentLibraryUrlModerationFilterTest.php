@@ -252,17 +252,17 @@ class ContentLibraryUrlModerationFilterTest extends TestCase
         $this->assertStringNotContainsString('id="openUploadModalBtnTop"', $html);
     }
 
-    public function test_evaluation_service_flags_cloaked_url_directly(): void
+    public function test_evaluation_service_flags_prohibited_keyword_in_body(): void
     {
         config(['content_moderation.enabled' => true]);
 
         $advertiser = $this->advertiser();
         $submission = $this->createApprovedSubmission($advertiser);
-        $body = $this->englishBody();
+        $body = $this->englishBody().' Readers should avoid online casino promotions entirely.';
         $submission->update([
             'language' => 'en',
             'extracted_text' => $body,
-            'preview_html' => '<p>'.$body.'</p><p><a href="https://pokerstars.com/play">read more</a></p>',
+            'preview_html' => '<p>'.$body.'</p>',
             'target_url' => null,
         ]);
         config(['content_moderation.enabled' => true]);
@@ -270,7 +270,9 @@ class ContentLibraryUrlModerationFilterTest extends TestCase
         $result = app(ArticleEvaluationService::class)->evaluate($submission->fresh(), $advertiser);
 
         $this->assertFalse($result['approved']);
-        $this->assertNotEmpty($result['blocked_urls'] ?? []);
-        $this->assertStringContainsString('slb-mod-hit', (string) ($result['highlighted_html'] ?? ''));
+        $this->assertNotEmpty($result['matched_terms'] ?? []);
+        $this->assertTrue(
+            collect($result['matched_terms'] ?? [])->contains(fn ($t) => str_contains(strtolower((string) $t), 'casino'))
+        );
     }
 }

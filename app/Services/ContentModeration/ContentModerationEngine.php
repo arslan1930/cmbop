@@ -4,6 +4,10 @@ namespace App\Services\ContentModeration;
 
 /**
  * Contextual policy scorer — keywords + phrases + domains + intent co-occurrence.
+ *
+ * Policy stance: clear restricted keywords, intent phrases, and gambling/adult
+ * domains (in hrefs or body text) must fail the confidence threshold. Soft scoring
+ * previously let single prohibited terms through — that is intentionally strict now.
  */
 class ContentModerationEngine
 {
@@ -29,9 +33,10 @@ class ContentModerationEngine
         array $extraKeywords = [],
         array $exceptions = [],
     ): array {
-        $haystack = mb_strtolower($title."\n".$text);
-        $haystack = $this->applyExceptions($haystack, $exceptions);
+        $rawHaystack = mb_strtolower($title."\n".$text);
+        $haystack = $this->applyExceptions($this->deobfuscate($rawHaystack), $exceptions);
         $urlStrings = $this->normalizeLinkList($links);
+        $urlStrings = $this->enrichLinksFromContent($urlStrings, $haystack, $categories);
         $linkHosts = array_map(fn (string $u) => $this->hostForMatch($u), $urlStrings);
         $linkBlob = mb_strtolower(implode(' ', array_merge($urlStrings, $linkHosts)));
 
@@ -49,7 +54,7 @@ class ContentModerationEngine
             $hits = 0;
             $matched = [];
             $blockedUrls = [];
-            $domainHit = false;
+            $hardHit = false;
 
             $keywords = $this->mergedKeywords($cat);
 
@@ -60,18 +65,21 @@ class ContentModerationEngine
                 }
                 $count = $this->countTerm($haystack, $kw);
                 if ($count > 0) {
-                    $points += min(35, 12 + ($count - 1) * 6);
+                    // One clear restricted keyword is enough to fail the default threshold (70).
+                    $points += min(95, 78 + ($count - 1) * 6);
                     $hits += $count;
                     $matched[] = $kw;
+                    $hardHit = true;
                 }
             }
 
             foreach ($cat['intent_phrases'] ?? [] as $phrase) {
                 $phrase = mb_strtolower(trim((string) $phrase));
                 if ($phrase !== '' && str_contains($haystack, $phrase)) {
-                    $points += 22;
+                    $points += 85;
                     $hits++;
                     $matched[] = $phrase;
+                    $hardHit = true;
                 }
             }
 
@@ -84,50 +92,54 @@ class ContentModerationEngine
                 $urlsForDomain = $this->urlsMatchingDomain($urlStrings, $domain);
                 if ($urlsForDomain !== []) {
                     // One blocked destination is enough to fail policy.
-                    $points += 80;
+                    $points += 95;
                     $hits++;
-                    $domainHit = true;
+                    $hardHit = true;
                     $matched[] = $domain;
                     $blockedUrls = array_merge($blockedUrls, $urlsForDomain);
-                } elseif (str_contains($haystack, $domain) || str_contains($linkBlob, $domain)) {
-                    $points += 28;
+                } elseif ($this->domainMentioned($haystack, $domain) || $this->domainMentioned($linkBlob, $domain)) {
+                    $points += 90;
                     $hits++;
+                    $hardHit = true;
                     $matched[] = $domain;
+                    $blockedUrls[] = $this->syntheticUrlForDomain($domain);
                 }
             }
 
             foreach ($extraKeywords as $extra) {
                 $extra = mb_strtolower(trim((string) $extra));
-                if ($extra !== '' && str_contains($haystack, $extra)) {
-                    $points += 10;
+                if ($extra !== '' && $this->countTerm($haystack, $extra) > 0) {
+                    $points += 78;
                     $hits++;
                     $matched[] = $extra;
+                    $hardHit = true;
                 }
             }
 
             if ($hits >= 3) {
-                $points *= 1.25;
+                $points *= 1.08;
             } elseif ($hits >= 2) {
-                $points *= 1.12;
+                $points *= 1.04;
             }
 
             $weight = (float) ($cat['weight'] ?? 1.0);
             $confidence = (int) min(99, round($points * $weight));
 
-            // Soften weak single keyword hits, but never soft-pedal domain blocks.
-            if (! $domainHit && $hits === 1 && $confidence < 40) {
-                $confidence = (int) round($confidence * 0.55);
+            // Never soft-pedal hard policy hits (keywords, domains, intent).
+            if ($hardHit) {
+                $confidence = max($confidence, 78);
             }
 
             $scores[$key] = $confidence;
             $matched = array_values(array_unique($matched));
-            $blockedUrls = array_values(array_unique($blockedUrls));
+            $blockedUrls = array_values(array_unique(array_filter($blockedUrls)));
             if ($confidence > 0) {
                 $signals['hits'][$key] = [
                     'term_hits' => $hits,
                     'confidence' => $confidence,
                     'matched_terms' => $matched,
                     'blocked_urls' => $blockedUrls,
+                    'hard_hit' => $hardHit,
                 ];
                 $allMatched = array_merge($allMatched, $matched);
                 $allBlockedUrls = array_merge($allBlockedUrls, $blockedUrls);
@@ -178,6 +190,12 @@ class ContentModerationEngine
             if (str_starts_with($url, '//')) {
                 $url = 'https:'.$url;
             }
+            // Promote bare www./domain mentions into absolute URLs for host matching.
+            if (! preg_match('#^[a-z][a-z0-9+.-]*:#i', $url)) {
+                if (preg_match('#^(www\.)?[a-z0-9.-]+\.[a-z]{2,}(/.*)?$#i', $url)) {
+                    $url = 'https://'.ltrim($url, '/');
+                }
+            }
             $out[] = $url;
         }
 
@@ -202,6 +220,58 @@ class ContentModerationEngine
     }
 
     /**
+     * Pull absolute / www / bare restricted-looking URLs out of article body text.
+     *
+     * @return list<string>
+     */
+    public function extractUrlsFromText(string $text): array
+    {
+        $text = $this->deobfuscate(mb_strtolower($text));
+        $found = [];
+
+        if (preg_match_all('#https?://[^\s<>"\')\]]+#iu', $text, $m)) {
+            foreach ($m[0] as $url) {
+                $found[] = rtrim((string) $url, '.,);]');
+            }
+        }
+
+        if (preg_match_all('#(?<![\w./])(?:www\.)[a-z0-9.-]+\.[a-z]{2,}(?:/[^\s<>"\')\]]*)?#iu', $text, $m2)) {
+            foreach ($m2[0] as $url) {
+                $found[] = 'https://'.ltrim((string) $url, '/');
+            }
+        }
+
+        return $this->normalizeLinkList($found);
+    }
+
+    /**
+     * @param  list<string>  $urls
+     * @param  array<string, mixed>  $categories
+     * @return list<string>
+     */
+    public function enrichLinksFromContent(array $urls, string $haystack, array $categories): array
+    {
+        $urls = array_values(array_unique(array_merge($urls, $this->extractUrlsFromText($haystack))));
+
+        foreach ($categories as $cat) {
+            if (empty($cat['enabled'])) {
+                continue;
+            }
+            foreach ($cat['domains'] ?? [] as $domain) {
+                $domain = mb_strtolower(trim((string) $domain));
+                if ($domain === '' || ! str_contains($domain, '.')) {
+                    continue;
+                }
+                if ($this->domainMentioned($haystack, $domain)) {
+                    $urls[] = $this->syntheticUrlForDomain($domain);
+                }
+            }
+        }
+
+        return array_values(array_unique($urls));
+    }
+
+    /**
      * @param  list<string>  $urls
      * @return list<string>
      */
@@ -212,17 +282,85 @@ class ContentModerationEngine
         foreach ($urls as $url) {
             $host = $this->hostForMatch($url);
             $hay = mb_strtolower($url);
-            if ($host !== '' && (str_contains($host, $domain) || str_ends_with($host, '.'.$domain))) {
+            if ($host !== '' && $this->hostMatchesDomain($host, $domain)) {
                 $matched[] = $url;
 
                 continue;
             }
-            if (str_contains($hay, $domain)) {
+            if ($this->domainMentioned($hay, $domain)) {
                 $matched[] = $url;
             }
         }
 
         return array_values(array_unique($matched));
+    }
+
+    protected function hostMatchesDomain(string $host, string $domain): bool
+    {
+        $host = mb_strtolower($host);
+        $domain = mb_strtolower($domain);
+
+        if ($domain === '') {
+            return false;
+        }
+
+        // Brand tokens without a TLD (bet365, pornhub, pokerstars).
+        if (! str_contains($domain, '.')) {
+            return str_contains($host, $domain);
+        }
+
+        return $host === $domain
+            || str_ends_with($host, '.'.$domain)
+            || str_contains($host, $domain);
+    }
+
+    protected function domainMentioned(string $haystack, string $domain): bool
+    {
+        $domain = mb_strtolower(trim($domain));
+        if ($domain === '') {
+            return false;
+        }
+
+        if (str_contains($haystack, $domain)) {
+            return true;
+        }
+
+        // Obfuscations: stake[dot]com, stake (dot) com, stake . com
+        if (str_contains($domain, '.')) {
+            $parts = explode('.', $domain);
+            $escaped = array_map(static fn (string $p) => preg_quote($p, '/'), $parts);
+            $flex = implode('[\s\[\(\{]*(?:dot)?[\s\]\)\}]*\.?[\s\[\(\{]*', $escaped);
+
+            return (bool) preg_match('/'.$flex.'/iu', $haystack);
+        }
+
+        return (bool) preg_match('/\b'.preg_quote($domain, '/').'\b/u', $haystack);
+    }
+
+    protected function syntheticUrlForDomain(string $domain): string
+    {
+        $domain = mb_strtolower(trim($domain));
+        if (! str_contains($domain, '.')) {
+            return 'https://'.$domain.'.com/';
+        }
+
+        return 'https://'.$domain.'/';
+    }
+
+    /**
+     * Normalize common link cloaking before keyword/domain scans.
+     */
+    public function deobfuscate(string $text): string
+    {
+        $text = preg_replace('/\[\s*dot\s*\]/iu', '.', $text) ?? $text;
+        $text = preg_replace('/\(\s*dot\s*\)/iu', '.', $text) ?? $text;
+        $text = preg_replace('/\{\s*dot\s*\}/iu', '.', $text) ?? $text;
+        $text = preg_replace('/\s+dot\s+/iu', '.', $text) ?? $text;
+        // "stake . com" / "bet365 . com"
+        $text = preg_replace('/(\w)\s*\.\s*(\w)/u', '$1.$2', $text) ?? $text;
+        $text = str_ireplace(['hxxps://', 'hxxp://', 'h**ps://'], ['https://', 'http://', 'https://'], $text);
+
+        return $text;
     }
 
     /**
@@ -256,7 +394,8 @@ class ContentModerationEngine
             return substr_count($haystack, $term);
         }
 
-        return preg_match_all('/\b'.preg_quote($term, '/').'\b/u', $haystack) ?: 0;
+        // Unicode-aware word boundaries; also catch glued variants like "casino!" already via \b.
+        return preg_match_all('/(?<![\p{L}\p{N}_])'.preg_quote($term, '/').'(?![\p{L}\p{N}_])/u', $haystack) ?: 0;
     }
 
     /**

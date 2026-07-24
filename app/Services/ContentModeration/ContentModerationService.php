@@ -333,10 +333,7 @@ class ContentModerationService
                 sourceLabel: 'upload:'.$submission->id,
                 user: $user,
                 title: pathinfo((string) $submission->original_filename, PATHINFO_FILENAME) ?: 'Article',
-                links: $this->linksFromSubmissionHtml(
-                    (string) ($submission->preview_html ?? ''),
-                    $submission->target_url
-                ),
+                links: $this->linksFromSubmission($submission),
             );
 
             $submission->update([
@@ -593,12 +590,17 @@ class ContentModerationService
     }
 
     /**
-     * Collect absolute http(s) URLs from article HTML + optional primary target URL.
+     * Collect absolute http(s) URLs from article HTML/text + optional extras.
      *
+     * @param  array<int, string|array{url?:string}>  $extraLinks
      * @return list<string>
      */
-    public function linksFromSubmissionHtml(string $html, ?string $targetUrl = null): array
-    {
+    public function linksFromSubmissionHtml(
+        string $html,
+        ?string $targetUrl = null,
+        string $plainText = '',
+        array $extraLinks = [],
+    ): array {
         $urls = [];
 
         if ($html !== '' && preg_match_all('/\bhref\s*=\s*(["\'])(.*?)\1/iu', $html, $matches)) {
@@ -610,13 +612,21 @@ class ContentModerationService
                 if (str_starts_with($href, '//')) {
                     $href = 'https:'.$href;
                 }
-                if (preg_match('#^https?://#i', $href)) {
+                if (preg_match('#^https?://#i', $href) || preg_match('#^(www\.)?[a-z0-9.-]+\.[a-z]{2,}(/.*)?$#i', $href)) {
                     $urls[] = $href;
                 }
             }
         }
 
-        // Plain https URLs in body text (docx fallback / pasted text)
+        $body = trim($plainText) !== ''
+            ? $plainText
+            : ($html !== '' ? strip_tags($html) : '');
+
+        // Plain https / www URLs in body text (docx fallback / pasted text)
+        if ($body !== '') {
+            $urls = array_merge($urls, $this->engine->extractUrlsFromText($body));
+        }
+
         if ($html !== '' && preg_match_all('#https?://[^\s<>"\']+#iu', strip_tags($html), $plain)) {
             foreach ($plain[0] as $url) {
                 $urls[] = rtrim((string) $url, '.,);]');
@@ -627,6 +637,29 @@ class ContentModerationService
             $urls[] = trim($targetUrl);
         }
 
-        return array_values(array_unique($urls));
+        foreach ($extraLinks as $link) {
+            if (is_string($link) && trim($link) !== '') {
+                $urls[] = trim($link);
+            } elseif (is_array($link) && trim((string) ($link['url'] ?? '')) !== '') {
+                $urls[] = trim((string) $link['url']);
+            }
+        }
+
+        return $this->engine->normalizeLinkList($urls);
+    }
+
+    /**
+     * Collect every link we know about for a submission (HTML, text, target, detected).
+     *
+     * @return list<string>
+     */
+    public function linksFromSubmission(ContentSubmission $submission): array
+    {
+        return $this->linksFromSubmissionHtml(
+            html: (string) ($submission->preview_html ?? ''),
+            targetUrl: $submission->target_url ? (string) $submission->target_url : null,
+            plainText: (string) ($submission->extracted_text ?? ''),
+            extraLinks: $submission->detectedLinks(),
+        );
     }
 }

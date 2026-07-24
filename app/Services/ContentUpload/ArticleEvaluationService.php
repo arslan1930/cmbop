@@ -112,11 +112,9 @@ class ArticleEvaluationService
             ];
         }
 
-        // 1) Policy compliance (casino / gambling / betting / adult) — includes cloaked hrefs
-        $linkUrls = $this->moderation->linksFromSubmissionHtml(
-            $html,
-            $submission->target_url ? (string) $submission->target_url : null
-        );
+        // 1) Policy compliance (casino / gambling / betting / adult) — includes cloaked hrefs,
+        // bare/www domains in body text, and multi-link detected_links metadata.
+        $linkUrls = $this->moderation->linksFromSubmission($submission);
 
         $scan = $this->moderation->scanExtractedContent(
             text: $text,
