@@ -104,7 +104,7 @@
   border: 0;
   border-radius: var(--btn-radius-icon);
   background: transparent;
-  color: #64748b;
+  color: #75787B;
   line-height: 1;
   transition: color var(--motion-fast, 150ms ease),
               background-color var(--motion-fast, 150ms ease);

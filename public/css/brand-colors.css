@@ -10,10 +10,12 @@
   --brand-primary-border: #b8e4e4;
   --brand-primary-deep: #123f42;
 
-  --brand-neutral: #64748b;
+  /* Logo-aligned muted grey (Final B SEO/Buildings family) */
+  --brand-logo-grey: #75787B;
+  --brand-neutral: #75787B;
   --brand-neutral-bg: #f1f5f9;
   --brand-ink: #1e293b;
-  --brand-ink-muted: #64748b;
+  --brand-ink-muted: #75787B;
 
   --brand-success: #0f766e;
   --brand-success-bg: #d1fae5;
@@ -382,7 +384,7 @@ code.font-monospace {
 .upload-zone .upload-zone-copy {
   margin: 0 0 0.75rem;
   font-size: 0.875rem;
-  color: #64748b;
+  color: var(--brand-ink-muted);
 }
 
 /* Modal headers — white, not teal bars; CTA stays on footer buttons */

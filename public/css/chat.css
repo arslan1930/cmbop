@@ -29,7 +29,7 @@
 }
 
 .chat-modal .modal-title i {
-  color: var(--brand-neutral, #64748b);
+  color: var(--brand-neutral, #75787B);
   font-size: 0.9rem;
 }
 
@@ -51,7 +51,7 @@
   padding: 0.7rem 1rem;
   background: #fff;
   border-bottom: 1px solid var(--border-subtle, #e2e8f0);
-  color: var(--brand-neutral, #64748b);
+  color: var(--brand-neutral, #75787B);
   font-size: 0.78rem;
   line-height: 1.45;
 }
@@ -136,7 +136,7 @@
 }
 
 .chat-od__next {
-  color: #64748b;
+  color: #75787B;
 }
 
 .chat-od__next::before {
@@ -146,7 +146,7 @@
 }
 
 .chat-od__hint {
-  color: #64748b;
+  color: #75787B;
   font-size: 0.74rem;
 }
 
@@ -182,7 +182,7 @@
 
 .chat-bubble__meta {
   font-size: 0.7rem;
-  color: var(--brand-neutral, #64748b);
+  color: var(--brand-neutral, #75787B);
   margin-top: 0.3rem;
 }
 
@@ -255,7 +255,7 @@
 .chat-resubmit-panel__guidance {
   margin-top: 0.25rem;
   font-size: 0.78rem;
-  color: var(--brand-neutral, #64748b);
+  color: var(--brand-neutral, #75787B);
   line-height: 1.45;
 }
 

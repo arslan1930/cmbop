@@ -52,7 +52,7 @@
   }
   .marketing-subtitle {
     font-size: 1.05rem;
-    color: #64748b;
+    color: var(--brand-ink-muted, #75787B);
     margin: 0 auto;
     max-width: 40rem;
     line-height: 1.55;

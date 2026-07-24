@@ -182,7 +182,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     title: {
                         display: true,
                         text: view === 'order' ? 'Orders' : (view === 'day' ? 'Days with purchases' : 'Months with purchases'),
-                        color: '#64748b',
+                        color: '#75787B',
                         font: { size: 12, weight: '600' },
                     }
                 },
@@ -194,7 +194,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     title: {
                         display: true,
                         text: 'Money spent',
-                        color: '#64748b',
+                        color: '#75787B',
                         font: { size: 12, weight: '600' },
                     }
                 }

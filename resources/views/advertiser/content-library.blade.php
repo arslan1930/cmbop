@@ -100,7 +100,7 @@
         font-size: .72rem;
         letter-spacing: .04em;
         text-transform: uppercase;
-        color: #64748b;
+        color: var(--brand-ink-muted, #75787B);
         font-weight: 600;
         border-bottom-width: 1px;
         white-space: nowrap;
@@ -116,7 +116,7 @@
     }
     .library-live-link a { color: var(--brand-primary, #185054); word-break: break-all; }
     .library-live-meta {
-        color: #64748b;
+        color: var(--brand-ink-muted, #75787B);
         font-size: .75rem;
     }
     .library-live-actions {
@@ -135,7 +135,7 @@
         padding: 0;
         border: 0;
         background: transparent;
-        color: #64748b;
+        color: var(--brand-ink-muted, #75787B);
         border-radius: 999px;
         font-size: .85rem;
         line-height: 1;
@@ -161,11 +161,11 @@
     .btn-copy-icon i { margin: 0 !important; }
     .library-row--completed {
         background: #f8fafc;
-        color: #64748b;
+        color: var(--brand-ink-muted, #75787B);
         pointer-events: none;
     }
     .library-row--completed td {
-        color: #64748b;
+        color: var(--brand-ink-muted, #75787B);
         border-color: #eef2f5;
     }
     .library-row--completed .library-title {
@@ -197,7 +197,7 @@
         display: grid;
         gap: .15rem;
         font-size: .75rem;
-        color: #64748b;
+        color: var(--brand-ink-muted, #75787B);
     }
     .library-pub-details strong {
         color: #475569;
@@ -211,7 +211,7 @@
     }
     .library-status-hint {
         font-size: .7rem;
-        color: #64748b;
+        color: var(--brand-ink-muted, #75787B);
         line-height: 1.3;
         max-width: 140px;
     }
@@ -288,7 +288,7 @@
         border-radius: 10px;
         border: 1px solid #e2e8f0;
         background: #fff;
-        color: #64748b;
+        color: var(--brand-ink-muted, #75787B);
         text-decoration: none;
         font-size: .84rem;
         font-weight: 600;
@@ -429,7 +429,7 @@
         opacity: 1;
     }
     .article-preview-toolbar .btn { white-space: nowrap; }
-    .article-link-row .form-label { color: var(--brand-ink-muted, #6b7280); }
+    .article-link-row .form-label { color: var(--brand-ink-muted, #75787B); }
     .library-reject-box {
         display: flex;
         align-items: flex-start;
@@ -567,7 +567,7 @@
     }
     .article-editor-meta {
         font-size: .8rem;
-        color: #64748b;
+        color: var(--brand-ink-muted, #75787B);
     }
 </style>
 

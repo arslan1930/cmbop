@@ -973,7 +973,7 @@
 }
 
 .order-summary-history-list .history-detail {
-    color: #64748b;
+    color: var(--brand-ink-muted, #75787B);
     min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
