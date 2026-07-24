@@ -136,6 +136,10 @@ class UserController extends Controller
             DB::transaction(function () use ($user, $marketingRole, $grantMarketing) {
                 if ($grantMarketing) {
                     $user->roles()->syncWithoutDetaching([$marketingRole->id]);
+                    // Activate Marketing so the team member can open the admin panel
+                    // without hunting for it behind Advertiser/Publisher in the switcher.
+                    $user->active_role_id = $marketingRole->id;
+                    $user->save();
                 } else {
                     $user->roles()->detach($marketingRole->id);
 
@@ -167,6 +171,7 @@ class UserController extends Controller
             [
                 'from' => $previousRoles,
                 'to' => $newRoles,
+                'active_role' => $user->activeRole(),
             ],
             $user->name
         );
@@ -174,7 +179,7 @@ class UserController extends Controller
         return response()->json([
             'success' => true,
             'message' => $grantMarketing
-                ? 'Marketing access granted.'
+                ? 'Marketing access granted. Their active workspace is now Marketing.'
                 : 'Marketing access removed.',
             'roles' => $newRoles,
             'active_role' => $user->activeRole(),
