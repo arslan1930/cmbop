@@ -163,7 +163,11 @@
                         <div class="col-6"><div class="border rounded-3 p-2">Mail failed jobs: <strong>{{ $queue['mail_failed_jobs'] }}</strong></div></div>
                     </div>
 
-                    <form method="post" action="{{ route('admin.emails.retry') }}" class="mb-3" onsubmit="return confirm('Retry failed queue jobs and reset failed email logs?');">
+                    <form method="post" action="{{ route('admin.emails.retry') }}" class="mb-3"
+                          data-slb-confirm="Retry failed queue jobs and reset failed email logs?"
+                          data-slb-confirm-title="Retry failed emails?"
+                          data-slb-confirm-text="Retry now"
+                          data-slb-confirm-danger="1">
                         @csrf
                         <button class="btn btn-outline-danger btn-sm w-100" type="submit">
                             <i class="fa fa-redo me-1"></i> Retry Failed Emails

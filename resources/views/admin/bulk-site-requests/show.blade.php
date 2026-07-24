@@ -61,7 +61,10 @@
                             </button>
                         </form>
                         <form method="POST" action="{{ route('admin.bulk-site-requests.cancel', $bulkRequest) }}"
-                              onsubmit="return confirm('Cancel this bulk request? History is kept.');">
+                              data-slb-confirm="Cancel this bulk request? History is kept."
+                              data-slb-confirm-title="Cancel bulk request?"
+                              data-slb-confirm-text="Cancel request"
+                              data-slb-confirm-danger="1">
                             @csrf
                             <button type="submit" class="btn btn-sm btn-outline-danger w-100">Cancel request</button>
                         </form>
@@ -424,6 +427,10 @@ document.getElementById('bulkCopySeedStarter')?.addEventListener('click', functi
     form.addEventListener('change', syncDoneState);
 
     form.addEventListener('submit', function (e) {
+        if (form.dataset.slbAllowSubmit === '1') {
+            delete form.dataset.slbAllowSubmit;
+            return;
+        }
         if (!allFilled()) {
             e.preventDefault();
             syncDoneState();
@@ -437,10 +444,25 @@ document.getElementById('bulkCopySeedStarter')?.addEventListener('click', functi
         }
 
         const count = form.querySelectorAll('[data-bulk-done-row]').length;
-        if (!confirm('Add ' + count + ' draft site(s) to this publisher’s Pending sites and notify them?')) {
-            e.preventDefault();
-            return false;
-        }
+        e.preventDefault();
+        const confirmFn = window.slbConfirm
+            ? window.slbConfirm({
+                title: 'Seed draft sites?',
+                text: 'Add ' + count + ' draft site(s) to this publisher’s Pending sites and notify them?',
+                confirmText: 'Add drafts',
+                icon: 'question',
+            })
+            : Promise.resolve(window.confirm('Add ' + count + ' draft site(s) to this publisher’s Pending sites and notify them?'));
+
+        confirmFn.then(function (ok) {
+            if (!ok) return;
+            form.dataset.slbAllowSubmit = '1';
+            if (typeof form.requestSubmit === 'function') {
+                form.requestSubmit();
+            } else {
+                HTMLFormElement.prototype.submit.call(form);
+            }
+        });
     });
 
     syncDoneState();
@@ -450,7 +472,15 @@ document.querySelectorAll('.bulk-draft-delete').forEach(function (btn) {
     btn.addEventListener('click', async function () {
         const id = this.getAttribute('data-site-id');
         const name = this.getAttribute('data-site-name') || 'this site';
-        if (!confirm('Delete draft “' + name + '”? This removes the wrong seed. History of the delete is kept.')) {
+        const ok = window.slbConfirm
+            ? await window.slbConfirm({
+                title: 'Delete draft site?',
+                text: 'Delete draft "' + name + '"? This removes the wrong seed. History of the delete is kept.',
+                confirmText: 'Delete draft',
+                danger: true,
+            })
+            : window.confirm('Delete draft "' + name + '"? This removes the wrong seed. History of the delete is kept.');
+        if (!ok) {
             return;
         }
         this.disabled = true;
@@ -464,13 +494,13 @@ document.querySelectorAll('.bulk-draft-delete').forEach(function (btn) {
             });
             const data = await res.json().catch(function () { return {}; });
             if (!res.ok || !data.success) {
-                alert(data.message || 'Could not delete site.');
+                if (window.slbAlert) { await window.slbAlert({ icon: 'error', title: data.message || 'Could not delete site.' }); } else { alert(data.message || 'Could not delete site.'); }
                 this.disabled = false;
                 return;
             }
             location.reload();
         } catch (e) {
-            alert('Could not delete site.');
+            if (window.slbAlert) { await window.slbAlert({ icon: 'error', title: 'Could not delete site.' }); } else { alert('Could not delete site.'); }
             this.disabled = false;
         }
     });

@@ -1536,7 +1536,15 @@ async function saveLibraryTitle(id) {
 }
 
 async function deleteLibraryArticle(id, label) {
-    if (!window.confirm('Delete "' + (label || 'this article') + '"? This cannot be undone.')) {
+    const ok = window.slbConfirm
+        ? await window.slbConfirm({
+            title: 'Delete article?',
+            text: 'Delete "' + (label || 'this article') + '"? This cannot be undone.',
+            confirmText: 'Delete',
+            danger: true,
+        })
+        : window.confirm('Delete "' + (label || 'this article') + '"? This cannot be undone.');
+    if (!ok) {
         return;
     }
     try {
@@ -1547,16 +1555,30 @@ async function deleteLibraryArticle(id, label) {
         const data = await res.json();
         if (!res.ok || !data.success) {
             showLibraryFlash(data.message || 'Could not delete article.', false);
+            if (window.slbAlert) await window.slbAlert({ icon: 'error', title: data.message || 'Could not delete article.' });
             return;
         }
         document.getElementById('library-row-' + id)?.remove();
         showLibraryFlash('Article deleted.', true);
+        if (window.slbAlert) await window.slbAlert({ icon: 'success', title: 'Article deleted.' });
     } catch (e) {
         showLibraryFlash('Network error while deleting.', false);
+        if (window.slbAlert) await window.slbAlert({ icon: 'error', title: 'Network error while deleting.' });
     }
 }
 
 async function archiveLibraryArticle(id) {
+    const ok = window.slbConfirm
+        ? await window.slbConfirm({
+            title: 'Archive article?',
+            text: 'Archived articles are hidden from the active library. You can restore them later.',
+            confirmText: 'Archive',
+            icon: 'question',
+        })
+        : window.confirm('Archive this article? You can restore it later.');
+    if (!ok) {
+        return;
+    }
     try {
         const res = await fetch(libraryUpdateUrl + '/' + id + '/archive', {
             method: 'POST',
@@ -1565,16 +1587,30 @@ async function archiveLibraryArticle(id) {
         const data = await res.json();
         if (!res.ok || !data.success) {
             showLibraryFlash(data.message || 'Could not archive article.', false);
+            if (window.slbAlert) await window.slbAlert({ icon: 'error', title: data.message || 'Could not archive article.' });
             return;
         }
         document.getElementById('library-row-' + id)?.remove();
         showLibraryFlash('Article archived.', true);
+        if (window.slbAlert) await window.slbAlert({ icon: 'success', title: 'Article archived.' });
     } catch (e) {
         showLibraryFlash('Network error while archiving.', false);
+        if (window.slbAlert) await window.slbAlert({ icon: 'error', title: 'Network error while archiving.' });
     }
 }
 
 async function restoreLibraryArticle(id) {
+    const ok = window.slbConfirm
+        ? await window.slbConfirm({
+            title: 'Restore article?',
+            text: 'Move this article back to the active library?',
+            confirmText: 'Restore',
+            icon: 'question',
+        })
+        : window.confirm('Restore this article to the active library?');
+    if (!ok) {
+        return;
+    }
     try {
         const res = await fetch(libraryUpdateUrl + '/' + id + '/restore', {
             method: 'POST',
@@ -1583,12 +1619,15 @@ async function restoreLibraryArticle(id) {
         const data = await res.json();
         if (!res.ok || !data.success) {
             showLibraryFlash(data.message || 'Could not restore article.', false);
+            if (window.slbAlert) await window.slbAlert({ icon: 'error', title: data.message || 'Could not restore article.' });
             return;
         }
         document.getElementById('library-row-' + id)?.remove();
         showLibraryFlash('Article restored.', true);
+        if (window.slbAlert) await window.slbAlert({ icon: 'success', title: 'Article restored.' });
     } catch (e) {
         showLibraryFlash('Network error while restoring.', false);
+        if (window.slbAlert) await window.slbAlert({ icon: 'error', title: 'Network error while restoring.' });
     }
 }
 

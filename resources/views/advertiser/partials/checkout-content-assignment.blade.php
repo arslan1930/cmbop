@@ -262,6 +262,15 @@
 
     function confirmLanguageMismatch(message) {
         if (!message) return Promise.resolve(true);
+        if (typeof window.slbConfirm === 'function') {
+            return window.slbConfirm({
+                title: 'Language differs',
+                text: message,
+                confirmText: 'Continue',
+                cancelText: 'Choose another',
+                icon: 'warning',
+            });
+        }
         if (window.Swal && typeof window.Swal.fire === 'function') {
             return window.Swal.fire({
                 title: 'Language differs',

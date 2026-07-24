@@ -416,6 +416,15 @@
         btn.addEventListener('click', async function () {
             const id = parseInt(this.dataset.id, 10);
             const name = this.dataset.name || 'Site';
+            const ok = window.slbConfirm
+                ? await window.slbConfirm({
+                    title: 'Remove from favorites?',
+                    text: 'Remove "' + name + '" from your saved favorites?',
+                    confirmText: 'Remove',
+                    danger: true,
+                })
+                : window.confirm('Remove "' + name + '" from favorites?');
+            if (!ok) return;
             this.disabled = true;
             try {
                 const data = await postJson('{{ route('advertiser.saved-sites.favorites.remove') }}', { site_id: id });
@@ -435,6 +444,15 @@
         btn.addEventListener('click', async function () {
             const id = parseInt(this.dataset.id, 10);
             const name = this.dataset.name || 'Site';
+            const ok = window.slbConfirm
+                ? await window.slbConfirm({
+                    title: 'Unblock site?',
+                    text: 'Unblock "' + name + '"? It will show in the catalog again.',
+                    confirmText: 'Unblock',
+                    icon: 'question',
+                })
+                : window.confirm('Unblock "' + name + '"?');
+            if (!ok) return;
             this.disabled = true;
             try {
                 const data = await postJson('{{ route('advertiser.saved-sites.blacklist.remove') }}', { site_id: id });
@@ -454,6 +472,15 @@
         btn.addEventListener('click', async function () {
             const id = parseInt(this.dataset.id, 10);
             const name = this.dataset.name || 'Site';
+            const ok = window.slbConfirm
+                ? await window.slbConfirm({
+                    title: 'Block this site?',
+                    text: 'Move "' + name + '" to your blacklist? It will be hidden from the catalog.',
+                    confirmText: 'Block site',
+                    danger: true,
+                })
+                : window.confirm('Block "' + name + '"?');
+            if (!ok) return;
             this.disabled = true;
             try {
                 const data = await postJson('{{ route('advertiser.saved-sites.move.blacklist') }}', { site_id: id });
@@ -474,6 +501,15 @@
         btn.addEventListener('click', async function () {
             const id = parseInt(this.dataset.id, 10);
             const name = this.dataset.name || 'Site';
+            const ok = window.slbConfirm
+                ? await window.slbConfirm({
+                    title: 'Move to favorites?',
+                    text: 'Move "' + name + '" from blacklist to favorites?',
+                    confirmText: 'Favorite',
+                    icon: 'question',
+                })
+                : window.confirm('Move "' + name + '" to favorites?');
+            if (!ok) return;
             this.disabled = true;
             try {
                 const data = await postJson('{{ route('advertiser.saved-sites.move.favorites') }}', { site_id: id });
