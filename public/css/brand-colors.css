@@ -1,6 +1,6 @@
 /**
- * Brand color system — teal mist · slate neutrals · quiet semantics
- * Rule: ~90% neutrals · ~8% teal on actions · ~2% red alerts (icons)
+ * Brand color system — Teal Link theme (Final B logo)
+ * Rule: ~85% neutrals · ~10% deep teal actions · ~5% sky live accent · red for danger only
  */
 :root {
   --brand-primary: #185054;
@@ -10,10 +10,18 @@
   --brand-primary-border: #b8e4e4;
   --brand-primary-deep: #123f42;
 
-  --brand-neutral: #64748b;
+  /* Logo underline / live flows */
+  --brand-live: #0ea5e9;
+  --brand-live-hover: #0284c7;
+  --brand-live-bg: #e0f2fe;
+  --brand-live-border: #bae6fd;
+
+  /* Logo-aligned muted grey (Final B SEO/Buildings family) */
+  --brand-logo-grey: #75787B;
+  --brand-neutral: #75787B;
   --brand-neutral-bg: #f1f5f9;
   --brand-ink: #1e293b;
-  --brand-ink-muted: #64748b;
+  --brand-ink-muted: #75787B;
 
   --brand-success: #0f766e;
   --brand-success-bg: #d1fae5;
@@ -24,6 +32,15 @@
   --brand-warning-ink: #1e293b;
   --brand-danger: #dc2626;
   --brand-danger-bg: #ffffff;
+
+  /* Chart series (logo-ordered) */
+  --chart-1: #185054;
+  --chart-2: #0ea5e9;
+  --chart-3: #3faeb2;
+  --chart-4: #75787B;
+  --chart-5: #b8e4e4;
+  --chart-grid: #e2e8f0;
+  --chart-label: #75787B;
 
   /* Surfaces & interaction (modern UI system) */
   --surface-1: #ffffff;
@@ -36,7 +53,7 @@
   --hover-overlay-strong: rgba(15, 23, 42, 0.10);
   --hover-tint: var(--hover-overlay);
   --hover-tint-strong: var(--hover-overlay-strong);
-  --focus-ring: rgba(63, 174, 178, 0.35);
+  --focus-ring: rgba(14, 165, 233, 0.35);
   --motion-fast: 150ms ease;
   --motion-base: 180ms ease;
   --radius-sm: 8px;
@@ -51,7 +68,7 @@
   --bs-primary-rgb: 24, 80, 84;
   --bs-link-color: #185054;
   --bs-link-hover-color: #123f42;
-  --bs-focus-ring-color: rgba(63, 174, 178, 0.35);
+  --bs-focus-ring-color: rgba(14, 165, 233, 0.35);
   --bs-info: #3faeb2;
   --bs-info-rgb: 63, 174, 178;
   --bs-warning: #dc2626;
@@ -382,7 +399,7 @@ code.font-monospace {
 .upload-zone .upload-zone-copy {
   margin: 0 0 0.75rem;
   font-size: 0.875rem;
-  color: #64748b;
+  color: var(--brand-ink-muted);
 }
 
 /* Modal headers — white, not teal bars; CTA stays on footer buttons */
@@ -404,3 +421,42 @@ code.font-monospace {
   filter: none;
   opacity: 0.65;
 }
+
+/* —— Teal Link: live URLs & sky accent —— */
+a.live-url,
+.live-url,
+a.library-live-url,
+.btn-live-url {
+  color: var(--brand-live);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  text-decoration-thickness: 1.5px;
+}
+a.live-url:hover,
+.live-url:hover,
+a.library-live-url:hover,
+.btn-live-url:hover {
+  color: var(--brand-live-hover);
+}
+
+.text-live { color: var(--brand-live) !important; }
+.bg-live-soft { background-color: var(--brand-live-bg) !important; }
+.border-live { border-color: var(--brand-live-border) !important; }
+
+/* Active tab / nav underline echo of logo */
+.nav-underline-live.active,
+.nav-link.nav-underline-live.active,
+.an-tabs a.active {
+  box-shadow: inset 0 -2px 0 var(--brand-live);
+}
+
+/* Status dots — logo language */
+.status-dot--pending { --status-dot: var(--brand-logo-grey); }
+.status-dot--processing,
+.status-dot--review,
+.status-dot--live { --status-dot: var(--brand-live); }
+.status-dot--completed { --status-dot: var(--brand-success); }
+.status-dot--cancelled { --status-dot: #94a3b8; }
+.status-dot--failed { --status-dot: var(--brand-danger); }
+

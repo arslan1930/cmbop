@@ -5,20 +5,20 @@
 
 :root {
   --slb-ink: #0f172a;
-  --slb-muted: #5b6b7c;
+  --slb-muted: #75787B;
   --slb-surface: #f3faf9;
   --slb-surface-2: #ffffff;
   --slb-line: rgba(24, 80, 84, 0.12);
-  --slb-glow: rgba(63, 174, 178, 0.22);
+  --slb-glow: rgba(14, 165, 233, 0.18);
   --slb-radius: 16px;
   --slb-font-display: 'Sora', 'Poppins', system-ui, sans-serif;
 }
 
 body.slb-marketing {
   color: var(--slb-ink);
-  background:
-    radial-gradient(1200px 480px at 90% -10%, rgba(78, 205, 203, 0.16), transparent 60%),
-    radial-gradient(900px 420px at -10% 20%, rgba(24, 80, 84, 0.06), transparent 55%),
+    background:
+    radial-gradient(1200px 480px at 90% -10%, rgba(14, 165, 233, 0.12), transparent 60%),
+    radial-gradient(900px 420px at -10% 20%, rgba(24, 80, 84, 0.07), transparent 55%),
     #fbfefe;
 }
 

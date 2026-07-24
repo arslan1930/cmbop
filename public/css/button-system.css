@@ -8,8 +8,10 @@
   --btn-primary-bg: var(--brand-primary, #185054);
   --btn-primary-hover: var(--brand-primary-deep, #123f42);
   --btn-secondary-border: #cbd5e1;
-  --btn-secondary-text: #334155;
+  --btn-secondary-text: var(--brand-ink-muted, #75787B);
   --btn-tertiary-text: var(--brand-primary, #185054);
+  --btn-live-bg: var(--brand-live, #0ea5e9);
+  --btn-live-hover: var(--brand-live-hover, #0284c7);
   --btn-danger-bg: var(--brand-danger, #dc2626);
   --btn-radius-pill: var(--radius-pill, 999px);
   --btn-radius-icon: var(--radius-icon, 999px);
@@ -104,7 +106,7 @@
   border: 0;
   border-radius: var(--btn-radius-icon);
   background: transparent;
-  color: #64748b;
+  color: #75787B;
   line-height: 1;
   transition: color var(--motion-fast, 150ms ease),
               background-color var(--motion-fast, 150ms ease);
@@ -223,3 +225,33 @@
 .catalog-row-actions-quiet:hover {
   opacity: 1;
 }
+
+/* Live / external — sky accent (open published URL, live link CTAs) */
+.btn-live,
+.btn-cta-live {
+  --bs-btn-color: #fff;
+  --bs-btn-bg: var(--btn-live-bg);
+  --bs-btn-border-color: var(--btn-live-bg);
+  --bs-btn-hover-color: #fff;
+  --bs-btn-hover-bg: var(--btn-live-hover);
+  --bs-btn-hover-border-color: var(--btn-live-hover);
+  --bs-btn-active-color: #fff;
+  --bs-btn-active-bg: var(--btn-live-hover);
+  --bs-btn-active-border-color: var(--btn-live-hover);
+  font-weight: 600;
+  border-radius: var(--btn-radius-pill);
+  transition: background-color var(--motion-fast, 150ms ease),
+              border-color var(--motion-fast, 150ms ease),
+              color var(--motion-fast, 150ms ease);
+}
+
+.btn-outline-live {
+  --bs-btn-color: var(--btn-live-bg);
+  --bs-btn-border-color: var(--btn-live-bg);
+  --bs-btn-hover-color: #fff;
+  --bs-btn-hover-bg: var(--btn-live-bg);
+  --bs-btn-hover-border-color: var(--btn-live-bg);
+  font-weight: 600;
+  border-radius: var(--btn-radius-pill);
+}
+

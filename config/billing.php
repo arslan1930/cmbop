@@ -49,7 +49,7 @@ return [
     'colors' => [
         'primary' => '#0b6266',
         'accent' => '#3aaeb2',
-        'muted' => '#64748b',
+        'muted' => '#75787B',
         'border' => '#e2e8f0',
         'text' => '#0f172a',
     ],

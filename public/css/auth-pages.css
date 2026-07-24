@@ -5,7 +5,7 @@
 
 .auth-page {
   --auth-ink: #0f172a;
-  --auth-muted: #64748b;
+  --auth-muted: #75787B;
   --auth-line: #e2e8f0;
   --auth-teal: #185054;
   --auth-teal-soft: #3faeb2;
@@ -290,7 +290,7 @@
   border: 1px solid var(--auth-line);
   border-left: 0;
   border-radius: 0 12px 12px 0;
-  color: #64748b;
+  color: #75787B;
   cursor: pointer;
   transition: color 0.2s ease, background 0.2s ease;
 }

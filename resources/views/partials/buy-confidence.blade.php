@@ -20,7 +20,7 @@
             padding: 0;
             font-size: 12px;
             line-height: 1.45;
-            color: #64748b;
+            color: var(--brand-ink-muted, #75787B);
         }
         .buy-confidence li {
             position: relative;

@@ -25,7 +25,17 @@
     @endif
 
     @forelse($sites as $site)
-        @php $open = (int) session('complete_site_id') === (int) $site->id || $errors->any() && (int) old('_site_id') === (int) $site->id; @endphp
+        @php
+            $open = (int) session('complete_site_id') === (int) $site->id || $errors->any() && (int) old('_site_id') === (int) $site->id;
+            $prefillCategories = old('_site_id') == $site->id
+                ? old('categories', [])
+                : ($site->categories ?? []);
+            if (is_string($prefillCategories)) {
+                $prefillCategories = array_values(array_filter(array_map('trim', preg_split('/\|/', $prefillCategories) ?: [])));
+            }
+            $prefillCategories = collect($prefillCategories)->filter()->values()->all();
+            $uid = 'site'.$site->id;
+        @endphp
         <div class="card border-0 shadow-sm mb-3">
             <div class="card-body">
                 <div class="d-flex flex-wrap justify-content-between gap-2 mb-2">
@@ -91,15 +101,29 @@
                         </select>
                     </div>
                     <div class="col-md-4">
-                        <label class="form-label">Niches * (max 7)</label>
-                        <select name="categories[]" class="form-select" multiple size="5" required>
-                            @foreach($categories as $category)
-                                <option value="{{ $category->name }}"
-                                    @selected(collect(old('categories', $site->categories ?? []))->contains($category->name))>
-                                    {{ $category->name }}
-                                </option>
-                            @endforeach
-                        </select>
+                        <label class="form-label" for="categoryInput-{{ $uid }}">Niches * (max 7)</label>
+                        <input type="hidden"
+                               name="categories"
+                               id="selectedCategories-{{ $uid }}"
+                               value="{{ implode('|', $prefillCategories) }}">
+                        <div class="multi-select-wrapper" id="categoryWrapper-{{ $uid }}">
+                            <div class="multi-select-input" id="categoryInput-{{ $uid }}" role="button" tabindex="0" aria-haspopup="listbox">
+                                <span class="multi-select-placeholder">Select niches (max 7)…</span>
+                            </div>
+                            <div class="multi-select-dropdown" id="categoryDropdown-{{ $uid }}" role="listbox">
+                                <div class="multi-select-search">
+                                    <input type="text" placeholder="Search niches…" id="categorySearch-{{ $uid }}" autocomplete="off">
+                                </div>
+                                <div class="multi-select-options" id="categoryOptions-{{ $uid }}">
+                                    @foreach($categories as $category)
+                                        <div class="multi-select-option"
+                                             data-value="{{ $category->name }}"
+                                             data-label="{{ $category->name }}">{{ $category->name }}</div>
+                                    @endforeach
+                                </div>
+                            </div>
+                        </div>
+                        <div class="form-text">Click niches one by one — no Ctrl needed. Max 7.</div>
                     </div>
                     <div class="col-12">
                         <label class="form-label">Description * (min 50 characters)</label>
@@ -122,3 +146,59 @@
     @endforelse
 </div>
 @endsection
+
+@push('scripts')
+@php
+    $nichePrefills = [];
+    foreach ($sites as $site) {
+        $cats = old('_site_id') == $site->id
+            ? old('categories', [])
+            : ($site->categories ?? []);
+        if (is_string($cats)) {
+            $cats = array_values(array_filter(array_map('trim', preg_split('/\|/', $cats) ?: [])));
+        }
+        $nichePrefills[(string) $site->id] = array_values(array_filter((array) $cats));
+    }
+@endphp
+<script src="{{ asset('js/multi-select.js') }}?v={{ @filemtime(public_path('js/multi-select.js')) ?: '1' }}"></script>
+<script>
+(function () {
+    const prefills = @json($nichePrefills);
+
+    Object.keys(prefills).forEach(function (siteId) {
+        const uid = 'site' + siteId;
+        const ms = window.initMultiSelect({
+            wrapperId: 'categoryWrapper-' + uid,
+            inputId: 'categoryInput-' + uid,
+            dropdownId: 'categoryDropdown-' + uid,
+            optionsId: 'categoryOptions-' + uid,
+            hiddenInputId: 'selectedCategories-' + uid,
+            searchId: 'categorySearch-' + uid,
+            maxSelections: 7,
+            placeholderText: 'Select niches (max 7)…',
+        });
+        if (!ms) return;
+        const values = prefills[siteId] || [];
+        if (values.length) {
+            ms.setSelectedItems(values, values);
+        }
+
+        const hidden = document.getElementById('selectedCategories-' + uid);
+        const form = hidden ? hidden.closest('form') : null;
+        if (form) {
+            form.addEventListener('submit', function (e) {
+                const val = hidden.value || '';
+                if (!val.trim()) {
+                    e.preventDefault();
+                    if (window.Swal) {
+                        Swal.fire({ icon: 'warning', title: 'Select at least one niche', timer: 2200, showConfirmButton: false });
+                    } else {
+                        alert('Select at least one niche');
+                    }
+                }
+            });
+        }
+    });
+})();
+</script>
+@endpush

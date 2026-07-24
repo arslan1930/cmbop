@@ -70,7 +70,7 @@
         .admin-mode-badge {
             font-size: 12px;
             font-weight: 600;
-            color: #64748b;
+            color: var(--brand-ink-muted, #75787B);
             letter-spacing: 0.02em;
         }
 
