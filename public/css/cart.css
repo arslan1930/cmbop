@@ -72,7 +72,7 @@
 
 .cart-item-price {
   font-size: 0.85rem;
-  color: var(--brand-neutral, #64748b);
+  color: var(--brand-neutral, #75787B);
 }
 
 .cart-total-label {
@@ -183,7 +183,7 @@
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.03em;
-  color: var(--brand-neutral, #64748b);
+  color: var(--brand-neutral, #75787B);
   margin-bottom: 4px;
 }
 
@@ -213,7 +213,7 @@
 
 .cart-ready-note {
   font-size: 0.78rem;
-  color: var(--brand-neutral, #64748b);
+  color: var(--brand-neutral, #75787B);
   margin-bottom: 10px;
 }
 

@@ -62,7 +62,7 @@
     padding: 0;
 }
 .order-status-dot {
-    --status-dot: #3faeb2;
+    --status-dot: var(--brand-live, #0ea5e9);
     position: relative;
     width: 8px;
     height: 8px;
@@ -79,10 +79,10 @@
     opacity: 0.35;
     animation: order-status-pulse 1.8s ease-out infinite;
 }
-.order-status.pending .order-status-dot { --status-dot: #64748b; }
+.order-status.pending .order-status-dot { --status-dot: var(--brand-ink-muted, #75787B); }
 .order-status.processing .order-status-dot,
-.order-status.review .order-status-dot { --status-dot: #3faeb2; }
-.order-status.completed .order-status-dot { --status-dot: #0f766e; }
+.order-status.review .order-status-dot { --status-dot: var(--brand-live, #0ea5e9); }
+.order-status.completed .order-status-dot { --status-dot: var(--brand-success, #0f766e); }
 .order-status.cancelled .order-status-dot {
     --status-dot: #94a3b8;
 }
@@ -128,7 +128,7 @@
 }
 .recent-orders-glass thead th {
     font-size: 11px; text-transform: uppercase; letter-spacing: .04em;
-    color: #64748b !important; font-weight: 700; border-bottom-width: 1px;
+    color: var(--brand-ink-muted, #75787B) !important; font-weight: 700; border-bottom-width: 1px;
 }
 .recent-orders-glass tbody tr {
     transition: background .2s ease;
@@ -143,7 +143,7 @@
     font-size: 13px; font-weight: 600; color: #1f2937; margin-top: 4px;
 }
 .recent-order-url {
-    font-size: 12px; color: #64748b; text-decoration: none;
+    font-size: 12px; color: var(--brand-ink-muted, #75787B); text-decoration: none;
 }
 .recent-order-url:hover { color: #185054; }
 .recent-orders-title {
@@ -174,7 +174,7 @@
     word-break: break-all;
 }
 .recommended-site .rs-name:hover { color: #123f42; }
-.recommended-site .rs-meta { font-size: 12px; color: #64748b; margin: 0; }
+.recommended-site .rs-meta { font-size: 12px; color: var(--brand-ink-muted, #75787B); margin: 0; }
 .recommended-site .rs-price {
     font-weight: 600;
     color: #185054;

@@ -260,7 +260,7 @@
 }
 .publisher-onboarding-steps {
     padding-left: 1.25rem;
-    color: #64748b;
+    color: var(--brand-ink-muted, #75787B);
     font-size: 0.925rem;
 }
 .publisher-onboarding-steps li + li {
@@ -397,7 +397,7 @@ function updateWeeklyChart(data) {
                 backgroundColor: 'rgba(24, 80, 84, 0.12)',
                 tension: 0.4,
                 fill: true,
-                pointBackgroundColor: '#185054',
+                pointBackgroundColor: '#0ea5e9',
                 pointBorderColor: '#fff',
                 pointRadius: 4,
                 pointHoverRadius: 6
@@ -422,10 +422,16 @@ function updateWeeklyChart(data) {
                 y: {
                     beginAtZero: true,
                     ticks: {
+                        color: '#75787B',
                         callback: function(value) {
                             return '€' + value;
                         }
-                    }
+                    },
+                    grid: { color: '#e2e8f0' }
+                },
+                x: {
+                    ticks: { color: '#75787B' },
+                    grid: { color: '#e2e8f0' }
                 }
             }
         }
@@ -447,7 +453,7 @@ function updateStatusChart(data) {
             labels: data.labels || ['Pending', 'Processing', 'Completed', 'Cancelled'],
             datasets: [{
                 data: data.values || [0, 0, 0, 0],
-                backgroundColor: ['#fbbf24', '#60a5fa', '#4ade80', '#f87171'],
+                backgroundColor: ['#75787B', '#0ea5e9', '#0f766e', '#94a3b8'],
                 borderWidth: 0,
                 hoverOffset: 10
             }]
@@ -485,7 +491,7 @@ function updateMonthlyChart(data) {
             datasets: [{
                 label: 'Earnings (€)',
                 data: data.values || [0, 0, 0, 0, 0, 0],
-                backgroundColor: 'rgba(63, 174, 178, 0.75)',
+                backgroundColor: 'rgba(24, 80, 84, 0.82)',
                 borderRadius: 8,
                 barPercentage: 0.6,
                 categoryPercentage: 0.8

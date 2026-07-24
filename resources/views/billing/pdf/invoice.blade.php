@@ -12,7 +12,7 @@
             line-height: 1.45;
             margin: 0;
         }
-        .muted { color: {{ $colors['muted'] ?? '#64748b' }}; }
+        .muted { color: {{ $colors['muted'] ?? '#75787B' }}; }
         .primary { color: {{ $colors['primary'] ?? '#185054' }}; }
         .header { width: 100%; margin-bottom: 28px; }
         .header td { vertical-align: top; }
@@ -44,12 +44,12 @@
         }
         .box h4 {
             margin: 0 0 8px; font-size: 10px; text-transform: uppercase;
-            letter-spacing: .06em; color: {{ $colors['muted'] ?? '#64748b' }};
+            letter-spacing: .06em; color: {{ $colors['muted'] ?? '#75787B' }};
         }
         table.items { width: 100%; border-collapse: collapse; margin: 8px 0 18px; }
         table.items th {
             text-align: left; font-size: 10px; text-transform: uppercase;
-            letter-spacing: .04em; color: {{ $colors['muted'] ?? '#64748b' }};
+            letter-spacing: .04em; color: {{ $colors['muted'] ?? '#75787B' }};
             border-bottom: 1px solid {{ $colors['border'] ?? '#e2e8f0' }};
             padding: 8px 6px;
         }
@@ -61,7 +61,7 @@
         table.items .num { text-align: right; white-space: nowrap; }
         .totals { width: 280px; margin-left: auto; }
         .totals td { padding: 5px 0; }
-        .totals .label { color: {{ $colors['muted'] ?? '#64748b' }}; }
+        .totals .label { color: {{ $colors['muted'] ?? '#75787B' }}; }
         .totals .grand td {
             padding-top: 10px; border-top: 2px solid {{ $colors['primary'] ?? '#185054' }};
             font-size: 13px; font-weight: 700;
@@ -69,7 +69,7 @@
         .footer {
             margin-top: 36px; padding-top: 14px;
             border-top: 1px solid {{ $colors['border'] ?? '#e2e8f0' }};
-            font-size: 10px; color: {{ $colors['muted'] ?? '#64748b' }};
+            font-size: 10px; color: {{ $colors['muted'] ?? '#75787B' }};
         }
         .thankyou {
             margin-top: 22px; padding: 12px 14px;

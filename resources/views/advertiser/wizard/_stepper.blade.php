@@ -42,7 +42,7 @@
     border-radius:14px; padding:14px 16px; margin-bottom:1rem;
 }
 .wizard-chrome h1, .wizard-chrome h2 { font-size:1.25rem; margin:0 0 4px; color:#185054; }
-.wizard-chrome .muted { color:#64748b; font-size:.875rem; margin:0; }
+.wizard-chrome .muted { color: var(--brand-ink-muted, #75787B); font-size:.875rem; margin:0; }
 .cart-checklist {
     margin:0 0 12px; padding:10px 12px;
     border:1px solid #e5e7eb; border-radius:10px; background:#f8fafb;

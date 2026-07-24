@@ -1,13 +1,14 @@
 /**
- * Advertiser spending history chart
+ * Advertiser spending history chart — Teal Link palette
  */
 .an-page {
-  --an-teal: #185054;
-  --an-soft: #3faeb2;
-  --an-mint: #e6f5f5;
-  --an-line: #e2e8f0;
-  --an-ink: #0f172a;
-  --an-muted: #64748b;
+  --an-teal: var(--brand-primary, #185054);
+  --an-soft: var(--brand-primary-soft, #3faeb2);
+  --an-live: var(--brand-live, #0ea5e9);
+  --an-mint: var(--brand-primary-bg, #e6f5f5);
+  --an-line: var(--chart-grid, #e2e8f0);
+  --an-ink: var(--brand-ink, #1e293b);
+  --an-muted: var(--brand-ink-muted, #75787B);
 }
 
 .an-hero {
@@ -110,7 +111,7 @@
 .an-toggle a.active {
   background: #fff;
   color: var(--an-teal);
-  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.08);
+  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.08), inset 0 -2px 0 var(--an-live, #0ea5e9);
 }
 
 .an-chart-wrap {

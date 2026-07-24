@@ -40,7 +40,7 @@
 }
 .wallet-kpi .kpi-icon--available { background: var(--brand-primary-bg, #e6f5f5); color: var(--brand-primary, #185054); }
 .wallet-kpi .kpi-icon--bonus { background: #fff; color: var(--brand-ink, #1e293b); border-color: var(--border-subtle, #e2e8f0); }
-.wallet-kpi .kpi-icon--pending { background: #f1f5f9; color: #64748b; border-color: #e2e8f0; }
+.wallet-kpi .kpi-icon--pending { background: #f1f5f9; color: var(--brand-ink-muted, #75787B); border-color: #e2e8f0; }
 .wallet-kpi .kpi-icon--deposits { background: var(--brand-success-bg, #d1fae5); color: var(--brand-success, #0f766e); border-color: rgba(15, 118, 110, 0.22); }
 .wallet-kpi .kpi-icon--spending { background: var(--brand-primary-bg, #e6f5f5); color: var(--brand-primary, #185054); }
 .wallet-kpi .kpi-icon--withdrawals { background: #fff; color: var(--brand-danger, #dc2626); border-color: #fecaca; }
@@ -160,7 +160,7 @@
 .af-activity-item:last-child .af-activity-rail::after { display: none; }
 .af-activity-main { min-width: 0; }
 .af-activity-title { font-weight: 650; font-size: 13.5px; color: #185054; margin: 0 0 2px; }
-.af-activity-desc { font-size: 12.5px; color: #64748b; margin: 0; }
+.af-activity-desc { font-size: 12.5px; color: var(--brand-ink-muted, #75787B); margin: 0; }
 .af-activity-meta { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 8px; }
 .af-activity-actions { display: flex; flex-direction: column; gap: 6px; align-items: flex-end; min-width: 9.5rem; }
 .af-activity-amount { font-size: 15px; white-space: nowrap; }
@@ -191,7 +191,7 @@
     padding: 10px 0; border-bottom: 1px solid #f1f5f9;
 }
 .wallet-detail-row:last-child { border-bottom: 0; }
-.wallet-detail-row span { color: #64748b; font-size: 13px; }
+.wallet-detail-row span { color: var(--brand-ink-muted, #75787B); font-size: 13px; }
 .wallet-detail-row strong { color: #0f172a; font-size: 13px; text-align: right; }
 
 .chart-range-btn.active {
@@ -208,7 +208,7 @@
 }
 .wallet-chart-tooltip__row {
     display: flex; justify-content: space-between; gap: 12px;
-    font-size: 12px; color: #64748b; padding: 3px 0;
+    font-size: 12px; color: var(--brand-ink-muted, #75787B); padding: 3px 0;
 }
 .wallet-chart-tooltip__row strong { color: #0f172a; }
 .wallet-chart-empty h5 { color: #185054; }
@@ -245,7 +245,7 @@
 }
 .af-spendable__chip-label {
     font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em;
-    color: var(--brand-ink-muted, #6b7280);
+    color: var(--brand-ink-muted, #75787B);
 }
 .af-spendable__chip--bonus .af-spendable__chip-label { color: var(--brand-primary, #185054); }
 .af-spendable__chip-value {
@@ -253,7 +253,7 @@
 }
 .af-spendable__chip--bonus .af-spendable__chip-value { color: var(--brand-primary-deep, #123f42); }
 .af-spendable__pending {
-    font-size: 12px; color: var(--brand-neutral, #64748b);
+    font-size: 12px; color: var(--brand-neutral, #75787B);
 }
 .af-spendable__note {
     font-size: 12px; color: var(--brand-ink, #1e293b);
@@ -1286,7 +1286,7 @@
                         const {ctx: c, chartArea} = chart;
                         if (!chartArea) return 'rgba(24,80,84,.10)';
                         const g = c.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
-                        g.addColorStop(0, 'rgba(63,174,178,.28)');
+                        g.addColorStop(0, 'rgba(14,165,233,.22)');
                         g.addColorStop(1, 'rgba(24,80,84,.02)');
                         return g;
                     },
@@ -1296,7 +1296,7 @@
                     pointRadius: 4,
                     pointHoverRadius: 7,
                     pointBackgroundColor: '#fff',
-                    pointBorderColor: '#185054',
+                    pointBorderColor: '#0ea5e9',
                     pointBorderWidth: 2,
                     pointHoverBorderWidth: 3,
                     pointHitRadius: 14,
@@ -1319,7 +1319,7 @@
                         zoom: {
                             wheel: { enabled: true, speed: 0.08 },
                             pinch: { enabled: true },
-                            drag: { enabled: true, backgroundColor: 'rgba(24,80,84,.08)', borderColor: 'rgba(24,80,84,.35)', borderWidth: 1 },
+                            drag: { enabled: true, backgroundColor: 'rgba(14,165,233,.08)', borderColor: 'rgba(24,80,84,.35)', borderWidth: 1 },
                             mode: 'x',
                         },
                         limits: { x: { min: 'original', max: 'original' } },
@@ -1329,12 +1329,12 @@
                     y: {
                         beginAtZero: true,
                         grid: { color: 'rgba(148,163,184,.18)' },
-                        ticks: { callback: (v) => '€' + v, color: '#64748b', font: { size: 11 } },
+                        ticks: { callback: (v) => '€' + v, color: '#75787B', font: { size: 11 } },
                         border: { display: false },
                     },
                     x: {
                         grid: { display: false },
-                        ticks: { color: '#64748b', font: { size: 11 }, maxRotation: 0, autoSkip: true, maxTicksLimit: 10 },
+                        ticks: { color: '#75787B', font: { size: 11 }, maxRotation: 0, autoSkip: true, maxTicksLimit: 10 },
                         border: { display: false },
                     }
                 },

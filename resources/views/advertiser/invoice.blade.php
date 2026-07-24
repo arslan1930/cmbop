@@ -333,7 +333,7 @@
             @if(($invoiceType ?? '') === 'deposit' && in_array(($paymentMethod ?? ''), ['wise', 'bank', 'crypto'], true))
                 <div class="no-print" style="margin-top: 28px; padding: 18px; border: 1px solid #c8ebe9; border-radius: 12px; background: #f0fbfb;">
                     <div style="font-weight: 700; color: #185054; margin-bottom: 8px;">After you send the transfer</div>
-                    <p style="margin: 0 0 12px; color: #64748b; font-size: 14px;">
+                    <p style="margin: 0 0 12px; color: var(--brand-ink-muted, #75787B); font-size: 14px;">
                         Click the button below once you have paid. Your deposit stays <strong>Pending</strong> until we confirm funds and credit your wallet.
                     </p>
                     @if(!empty($userMarkedPaid))
@@ -341,7 +341,7 @@
                             Payment reported — awaiting confirmation
                         </button>
                         @if(!empty($deposit?->user_marked_paid_at))
-                            <div style="margin-top:8px; font-size:13px; color:#64748b;">
+                            <div style="margin-top:8px; font-size:13px; color: var(--brand-ink-muted, #75787B);">
                                 Reported {{ $deposit->user_marked_paid_at->format('M j, Y g:i A') }}
                                 @if($deposit->user_payment_note)
                                     · Note: {{ $deposit->user_payment_note }}
@@ -364,7 +364,7 @@
     document.getElementById('invoiceMarkPaidBtn')?.addEventListener('click', function () {
         Swal.fire({
             title: 'Confirm payment sent?',
-            html: 'Have you already transferred <strong>€{{ number_format((float) $amount, 2) }}</strong> with <strong>REF{{ $referenceCode }}</strong> in the payment note?<br><br><span style="color:#64748b;font-size:13px;">Status stays Pending until we confirm and credit your wallet.</span>',
+            html: 'Have you already transferred <strong>€{{ number_format((float) $amount, 2) }}</strong> with <strong>REF{{ $referenceCode }}</strong> in the payment note?<br><br><span style="color: var(--brand-ink-muted, #75787B);font-size:13px;">Status stays Pending until we confirm and credit your wallet.</span>',
             icon: 'question',
             input: 'text',
             inputPlaceholder: 'Optional: Wise/bank transfer reference',

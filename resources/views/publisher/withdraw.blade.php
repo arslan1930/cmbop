@@ -53,7 +53,7 @@
                         <h3 class="mb-1 fw-bold">€{{ number_format($bonusBalance, 2) }}</h3>
                         <p class="text-muted small mb-0">For orders only — not cash</p>
                     </div>
-                    <div class="rounded-3 d-flex align-items-center justify-content-center" style="width:44px;height:44px;background:#f1f5f9;color:#64748b;border:1px solid #e2e8f0;">
+                    <div class="rounded-3 d-flex align-items-center justify-content-center" style="width:44px;height:44px;background:#f1f5f9;color: var(--brand-ink-muted, #75787B);border:1px solid #e2e8f0;">
                         <i class="fa fa-gift"></i>
                     </div>
                 </div>
@@ -312,7 +312,7 @@
     line-height: 1.45;
 }
 .ui-callout__icon { flex: 0 0 auto; margin-top: 0.1rem; color: var(--brand-danger, #dc2626); }
-.ui-callout--info .ui-callout__icon { color: var(--brand-neutral, #64748b); }
+.ui-callout--info .ui-callout__icon { color: var(--brand-neutral, #75787B); }
 .ui-callout--attention .ui-callout__icon { color: var(--brand-danger, #dc2626); }
 .ui-callout__body { flex: 1 1 auto; min-width: 0; }
 .table td { vertical-align: middle; }
@@ -446,7 +446,7 @@ document.addEventListener('DOMContentLoaded', function() {
             icon: 'question',
             showCancelButton: true,
             confirmButtonColor: brandPrimary,
-            cancelButtonColor: '#64748b',
+            cancelButtonColor: '#75787B',
             confirmButtonText: 'Yes, withdraw',
             cancelButtonText: 'Cancel'
         });
