@@ -1266,17 +1266,18 @@ document.getElementById('articleLinksSaveBtn')?.addEventListener('click', async 
         }
         const sub = data.submission || {};
         const html = sub.preview_html || document.getElementById('articlePreviewBody').innerHTML;
-        const editable = !(data.approved === false);
+        const stillApproved = data.approved !== false;
+        const editable = stillApproved;
         openPreviewModal(sub.title || previewModalState.title, html, sub.detected_links || links, previewModalState.submissionId, editable);
-        if (data.approved === false) {
-            const msg = data.message || (data.report && data.report.summary) || 'This article needs corrections before it can be ordered.';
+        if (!stillApproved) {
+            const msg = data.message || (data.report && data.report.summary) || 'Content moderation failed after your link changes. Fix restricted links before ordering.';
             tools.toast(msg, false);
             showLibraryFlash(msg, false);
             setTimeout(function () { window.location.reload(); }, 1200);
         } else {
-            tools.toast(data.message || 'Links saved');
+            tools.toast(data.message || 'Links saved — content re-checked and approved');
             if (data.approved === true) {
-                showLibraryFlash(data.message || 'Article still approved.', true);
+                showLibraryFlash(data.message || 'Article still approved after re-check.', true);
             }
         }
     } catch (e) {
@@ -1406,7 +1407,7 @@ async function saveArticleEditor() {
     const html = articleQuill.root.innerHTML;
     const title = (document.getElementById('articleEditorTitle').value || '').trim();
     btn.disabled = true;
-    feedback.textContent = 'Saving and re-checking…';
+    feedback.textContent = 'Saving and re-checking content moderation…';
     try {
         const res = await fetch(libraryContentUrl + '/' + articleEditorSubmissionId + '/content', {
             method: 'PUT',
@@ -1423,11 +1424,19 @@ async function saveArticleEditor() {
             btn.disabled = false;
             return;
         }
-        setFeedbackHtml(feedback, true, data.message || 'Article saved.');
+        const stillApproved = data.approved !== false;
+        const msg = data.message
+            || (stillApproved
+                ? 'Article saved and re-approved.'
+                : 'Article saved, but content moderation failed. Fix restricted links/keywords before ordering.');
+        setFeedbackHtml(feedback, stillApproved, msg);
         if (data.submission) {
             openArticleEditor(data.submission);
         }
-        setTimeout(function () { window.location.reload(); }, 900);
+        if (!stillApproved) {
+            showLibraryFlash(msg, false);
+        }
+        setTimeout(function () { window.location.reload(); }, stillApproved ? 900 : 1400);
     } catch (e) {
         setFeedbackHtml(feedback, false, 'Network error while saving.');
         btn.disabled = false;

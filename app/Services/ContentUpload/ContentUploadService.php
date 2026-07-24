@@ -362,7 +362,7 @@ class ContentUploadService
      *
      * @return array{approved:bool, submission:ContentSubmission, title:?string, message:string, report:array, moderation_status:string}
      */
-    public function reEvaluateSubmission(ContentSubmission $submission): array
+    public function reEvaluateSubmission(ContentSubmission $submission, bool $notify = true): array
     {
         $submission->update([
             'moderation_status' => ContentSubmission::STATUS_PROCESSING,
@@ -396,7 +396,9 @@ class ContentUploadService
         ]);
 
         $fresh = $submission->fresh();
-        $this->notifyAdvertiserOfEvaluation($fresh, $result);
+        if ($notify) {
+            $this->notifyAdvertiserOfEvaluation($fresh, $result);
+        }
 
         return [
             'approved' => (bool) $result['approved'],

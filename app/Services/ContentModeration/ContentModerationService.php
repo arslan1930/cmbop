@@ -6,6 +6,7 @@ use App\Models\ContentModerationLog;
 use App\Models\ContentModerationSetting;
 use App\Models\ContentSubmission;
 use App\Models\User;
+use App\Services\ContentUpload\ContentUploadService;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
 
@@ -277,6 +278,9 @@ class ContentModerationService
     /**
      * Ensure each content submission is approved for the current user.
      *
+     * Always re-runs the full policy scan — even for previously approved articles —
+     * so advertisers cannot keep a stale pass after editing in sensitive links/keywords.
+     *
      * @param  array<int, ContentSubmission|int>  $submissions
      * @return array{ok:bool, failures:array<int, array<string, mixed>>}
      */
@@ -287,8 +291,6 @@ class ContentModerationService
         }
 
         $failures = [];
-        $within = (int) ($this->effectiveConfig()['scan_cache_seconds'] ?? 900);
-        $requirePrior = (bool) ($this->effectiveConfig()['require_approved_scan'] ?? true);
 
         foreach ($submissions as $submission) {
             if (! $submission instanceof ContentSubmission) {
@@ -312,11 +314,7 @@ class ContentModerationService
                 continue;
             }
 
-            if ($submission->isApproved()) {
-                continue;
-            }
-
-            if ($requirePrior || ! $submission->extracted_text) {
+            if (! filled($submission->extracted_text) && ! filled($submission->preview_html)) {
                 $failures[] = [
                     'url' => 'upload:'.$submission->id,
                     'title' => 'Content check required',
@@ -327,31 +325,17 @@ class ContentModerationService
                 continue;
             }
 
-            $result = $this->scanExtractedContent(
-                text: (string) $submission->extracted_text,
-                html: (string) ($submission->preview_html ?? ''),
-                sourceLabel: 'upload:'.$submission->id,
-                user: $user,
-                title: pathinfo((string) $submission->original_filename, PATHINFO_FILENAME) ?: 'Article',
-                links: $this->linksFromSubmission($submission),
-            );
+            // Full re-check at order time (quiet — no duplicate evaluation emails).
+            $result = app(ContentUploadService::class)
+                ->reEvaluateSubmission($submission->fresh(), notify: false);
 
-            $submission->update([
-                'moderation_status' => $result['passed']
-                    ? ContentSubmission::STATUS_APPROVED
-                    : ($result['status'] === 'error'
-                        ? ContentSubmission::STATUS_ERROR
-                        : ContentSubmission::STATUS_REJECTED),
-                'moderation_log_id' => $result['log']?->id,
-                'scan_token' => $result['scan_token'],
-            ]);
-
-            if (! $result['passed']) {
+            if (! ($result['approved'] ?? false)) {
                 $failures[] = [
                     'url' => 'upload:'.$submission->id,
-                    'title' => $result['user_title'],
-                    'message' => config('content_upload.help.compliance_reject') ?: $result['user_message'],
-                    'report' => $result['report'],
+                    'title' => $result['title'] ?: 'Article needs changes',
+                    'message' => config('content_upload.help.compliance_reject')
+                        ?: ($result['message'] ?: 'Please revise restricted content before ordering.'),
+                    'report' => $result['report'] ?? [],
                 ];
             }
         }

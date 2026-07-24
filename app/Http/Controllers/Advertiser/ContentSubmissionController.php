@@ -203,6 +203,14 @@ class ContentSubmissionController extends Controller
             || array_key_exists('target_url', $data)
             || array_key_exists('anchor_text', $data);
 
+        // Any content/link edit clears the previous approval until re-check finishes.
+        if ($contentChanged && $submission->isApproved()) {
+            $submission->forceFill([
+                'moderation_status' => ContentSubmission::STATUS_PROCESSING,
+                'evaluation_status' => 'processing',
+            ])->save();
+        }
+
         if (array_key_exists('links', $data)) {
             $links = ArticleDetectedLinks::normalizeList($data['links'] ?? [], $anchorMax);
             $html = array_key_exists('preview_html', $data)
