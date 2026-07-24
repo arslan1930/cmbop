@@ -476,6 +476,28 @@ class BulkSiteGuidedWorkflowTest extends TestCase
         $this->assertStringContainsString('/admin/sites', (string) $adminNotes->last()->action_url);
     }
 
+    public function test_bulk_complete_uses_click_to_toggle_niche_multiselect(): void
+    {
+        $bulk = BulkSiteRequest::create([
+            'publisher_id' => $this->publisher->id,
+            'status' => BulkSiteRequest::STATUS_AWAITING_PUBLISHER,
+            'estimated_count' => 1,
+            'seeded_at' => now(),
+        ]);
+        $this->makeAwaitingBulkSite($bulk, 'https://niche-ui.example', 'Niche UI');
+
+        $html = $this->actingAs($this->publisher)
+            ->get(route('publisher.bulk-sites.complete'))
+            ->assertOk()
+            ->getContent();
+
+        $this->assertStringContainsString('multi-select-wrapper', $html);
+        $this->assertStringContainsString('Select niches (max 7)', $html);
+        $this->assertStringContainsString('js/multi-select.js', $html);
+        $this->assertStringContainsString('Click niches one by one', $html);
+        $this->assertStringNotContainsString('multiple size="5"', $html);
+    }
+
     private function makeAwaitingBulkSite(BulkSiteRequest $bulk, string $url, string $name): Site
     {
         $site = Site::create([
