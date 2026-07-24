@@ -150,7 +150,11 @@
                                         <td>{{ $log->word_count }}</td>
                                         <td class="text-end">
                                             @if(!$log->passed && $log->status === 'rejected')
-                                                <form method="POST" action="{{ route('admin.moderation.override', $log) }}" class="d-inline" onsubmit="return confirm('Approve this submission via admin override?')">
+                                                <form method="POST" action="{{ route('admin.moderation.override', $log) }}" class="d-inline"
+                                                      data-slb-confirm="Approve this submission via admin override?"
+                                                      data-slb-confirm-title="Override moderation?"
+                                                      data-slb-confirm-text="Approve override"
+                                                      data-slb-confirm-icon="warning">
                                                     @csrf
                                                     <button class="btn btn-sm btn-outline-primary" type="submit">Override</button>
                                                 </form>

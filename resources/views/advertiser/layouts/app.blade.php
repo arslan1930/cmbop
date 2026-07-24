@@ -877,6 +877,23 @@
             return;
         }
 
+        if (typeof window.slbConfirm === 'function') {
+            window.slbConfirm({
+                title: 'Language differs',
+                text: mismatch,
+                confirmText: 'Continue',
+                cancelText: 'Choose another',
+                icon: 'warning',
+            }).then(function (ok) {
+                if (ok) {
+                    proceed();
+                } else {
+                    select.value = previous;
+                }
+            });
+            return;
+        }
+
         if (window.Swal && typeof window.Swal.fire === 'function') {
             window.Swal.fire({
                 title: 'Language differs',
@@ -929,6 +946,7 @@
 </script>
 
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script src="{{ asset('js/slb-confirm.js') }}?v={{ @filemtime(public_path('js/slb-confirm.js')) ?: '1' }}"></script>
 <script>
 document.querySelectorAll('.role-switch-form').forEach(function(form) {
     form.addEventListener('submit', function(e) {

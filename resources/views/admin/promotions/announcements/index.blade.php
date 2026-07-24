@@ -71,7 +71,11 @@
                                             {{ $item->is_active ? 'Pause' : 'Activate' }}
                                         </button>
                                     </form>
-                                    <form action="{{ route('admin.promotions.announcements.destroy', $item) }}" method="POST" class="d-inline" onsubmit="return confirm('Delete this announcement?')">
+                                    <form action="{{ route('admin.promotions.announcements.destroy', $item) }}" method="POST" class="d-inline"
+                                          data-slb-confirm="Delete this announcement? This cannot be undone."
+                                          data-slb-confirm-title="Delete announcement?"
+                                          data-slb-confirm-text="Delete"
+                                          data-slb-confirm-danger="1">
                                         @csrf
                                         @method('DELETE')
                                         <button class="btn btn-sm btn-outline-danger" type="submit">Delete</button>

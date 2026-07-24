@@ -78,11 +78,14 @@
                             <!-- DELETE -->
                             <form method="POST"
                                 action="{{ route('advertiser.projects.destroy', $project->id) }}"
-                                onsubmit="return confirm('Delete this project?')">
+                                data-slb-confirm="This project will be removed. This cannot be undone."
+                                data-slb-confirm-title="Delete this project?"
+                                data-slb-confirm-text="Delete project"
+                                data-slb-confirm-danger="1">
                                 @csrf
                                 @method('DELETE')
 
-                                <button class="btn btn-sm btn-outline-danger">
+                                <button class="btn btn-sm btn-outline-danger" type="submit" aria-label="Delete project">
                                     <i class="fa-solid fa-trash"></i>
                                 </button>
                             </form>

@@ -180,7 +180,11 @@
                         </div>
 
                         <div class="d-flex flex-wrap gap-2 mt-4">
-                            <button type="submit" class="btn btn-primary" onclick="return confirm('Send this campaign to the selected audience now?')">
+                            <button type="submit" class="btn btn-primary"
+                                    data-slb-confirm="Send this campaign to the selected audience now?"
+                                    data-slb-confirm-title="Send campaign?"
+                                    data-slb-confirm-text="Send now"
+                                    data-slb-confirm-icon="question">
                                 <i class="fa fa-paper-plane me-1"></i> Send campaign
                             </button>
                             <button type="button" class="btn btn-outline-secondary" id="previewBtn">
