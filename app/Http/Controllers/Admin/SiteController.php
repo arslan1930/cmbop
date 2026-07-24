@@ -41,10 +41,8 @@ class SiteController extends Controller
 
         $users = $query->latest()->paginate(20)->appends($request->query());
         $unverifiedFilter = $request->query('verified') === '0' || $request->query('verified') === 0;
-        $languages = Language::marketplace()->orderBy('name')->get(['code', 'name']);
-        $countries = Country::marketplace()->orderBy('name')->get(['code', 'name']);
 
-        return view('admin.sites', compact('users', 'unverifiedFilter', 'languages', 'countries'));
+        return view('admin.sites', compact('users', 'unverifiedFilter'));
     }
 
     // Get all sites of a user (AJAX)

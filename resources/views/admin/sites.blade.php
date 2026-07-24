@@ -289,14 +289,6 @@ const CAN_DELETE_PENDING_SITES = @json(auth()->user()->isAdmin() || auth()->user
 const CAN_VERIFY_SITES = @json(auth()->user()->isAdmin());
 const CAN_TOGGLE_ACTIVE = @json(auth()->user()->isAdmin());
 const IS_MARKETING_EDITOR = @json(auth()->user()->isMarketing() && ! auth()->user()->isAdmin());
-const MARKETPLACE_LANGUAGES = @json(($languages ?? collect())->map(fn ($l) => [
-    'code' => strtolower((string) $l->code),
-    'name' => $l->name,
-])->values());
-const MARKETPLACE_COUNTRIES = @json(($countries ?? collect())->map(fn ($c) => [
-    'code' => strtolower((string) $c->code),
-    'name' => $c->name,
-])->values());
 let allSites = [];
 
 function canDeleteSiteRow(site) {
@@ -305,16 +297,6 @@ function canDeleteSiteRow(site) {
     const verified = Number(site?.verified) === 1 || site?.verified === true;
     const active = Number(site?.active) === 1 || site?.active === true;
     return !verified && !active;
-}
-
-function buildSelectOptions(items, selected) {
-    const current = String(selected ?? '').toLowerCase();
-    let html = '<option value="">Select…</option>';
-    (items || []).forEach(item => {
-        const selectedAttr = item.code === current ? ' selected' : '';
-        html += `<option value="${escapeHtml(item.code)}"${selectedAttr}>${escapeHtml(item.name)}</option>`;
-    });
-    return html;
 }
 
 /* ================= TOAST ================= */
@@ -364,11 +346,6 @@ function fetchUserSites(id){
 function editSiteWithImage(siteId) {
     let site = allSites.find(s => s.id == siteId);
     if(!site) return;
-
-    if (IS_MARKETING_EDITOR) {
-        editSiteMarketingSlim(siteId, site);
-        return;
-    }
 
     Swal.fire({
         title: 'Edit Site',
@@ -483,71 +460,6 @@ function editSiteWithImage(siteId) {
         }
     }).then(async (result) => {
         if(!result.isConfirmed) return;
-        await submitSiteUpdate(siteId, result.value);
-    });
-}
-
-function editSiteMarketingSlim(siteId, site) {
-    const priceLabel = site.price != null && site.price !== ''
-        ? `€${Number(site.price).toFixed(2)}`
-        : '—';
-
-    Swal.fire({
-        title: 'Fill metrics & geo',
-        width: 560,
-        showCancelButton: true,
-        confirmButtonText: 'Save metrics',
-        html: `
-            <div style="text-align:left;">
-                <div class="mb-3 p-2 rounded" style="background:#f7fafb;border:1px solid #e2e8f0;">
-                    <div class="small text-muted">Publisher already provided URL and price</div>
-                    <div class="fw-semibold text-break">${escapeHtml(site.domain || site.site_name || '')}</div>
-                    <div class="small text-muted text-break">${escapeHtml(site.site_url || '')}</div>
-                    <div class="small mt-1"><strong>Price:</strong> ${escapeHtml(priceLabel)}</div>
-                </div>
-
-                <label style="font-weight:600; margin-bottom:5px; display:block;">Language</label>
-                <select id="swal-language" class="swal2-select" style="width:100%;">
-                    ${buildSelectOptions(MARKETPLACE_LANGUAGES, site.language)}
-                </select>
-
-                <label style="font-weight:600; margin-bottom:5px; margin-top:10px; display:block;">Country</label>
-                <select id="swal-country" class="swal2-select" style="width:100%;">
-                    ${buildSelectOptions(MARKETPLACE_COUNTRIES, site.country)}
-                </select>
-
-                <label style="font-weight:600; margin-bottom:5px; margin-top:10px; display:block;">DA</label>
-                <input id="swal-da" class="swal2-input" type="number" value="${site.da ?? ''}" placeholder="0-100" min="0" max="100" step="1">
-
-                <label style="font-weight:600; margin-bottom:5px; margin-top:10px; display:block;">DR</label>
-                <input id="swal-dr" class="swal2-input" type="number" value="${site.dr ?? ''}" placeholder="0-100" min="0" max="100" step="1">
-
-                <label style="font-weight:600; margin-bottom:5px; margin-top:10px; display:block;">Traffic</label>
-                <input id="swal-traffic" class="swal2-input" type="number" value="${site.traffic ?? ''}" placeholder="Monthly visitors" min="0" step="1">
-            </div>
-        `,
-        preConfirm: () => {
-            const language = document.getElementById('swal-language').value;
-            const country = document.getElementById('swal-country').value;
-            const da = document.getElementById('swal-da').value;
-            const dr = document.getElementById('swal-dr').value;
-            const traffic = document.getElementById('swal-traffic').value;
-
-            if (!language || !country || da === '' || dr === '' || traffic === '') {
-                Swal.showValidationMessage('Language, country, DA, DR, and traffic are required');
-                return false;
-            }
-
-            return {
-                language,
-                country,
-                da,
-                dr,
-                traffic,
-            };
-        }
-    }).then(async (result) => {
-        if (!result.isConfirmed) return;
         await submitSiteUpdate(siteId, result.value);
     });
 }
@@ -809,9 +721,13 @@ function renderSites(data){
                     <td>
                         <div class="btn-action-group">
                             <div class="row-1">
-                                <button class="btn btn-sm btn-outline-primary edit-site" data-id="${site.id}">
-                                    <i class="fa fa-edit"></i> Edit
-                                </button>
+                                ${IS_MARKETING_EDITOR
+                                    ? `<a href="${STAFF_BASE}/sites/${site.id}/edit" class="btn btn-sm btn-outline-primary">
+                                        <i class="fa fa-edit"></i> Edit
+                                       </a>`
+                                    : `<button class="btn btn-sm btn-outline-primary edit-site" data-id="${site.id}">
+                                        <i class="fa fa-edit"></i> Edit
+                                       </button>`}
                                 ${canDeleteSiteRow(site) ? `<button class="btn btn-sm btn-outline-danger delete-site" data-id="${site.id}">
                                     <i class="fa fa-trash"></i> Delete
                                 </button>` : ''}
@@ -908,6 +824,10 @@ window.addEventListener('DOMContentLoaded',()=>{
         sessionStorage.setItem('selected_user', publisherId);
         fetchUserSites(publisherId).then(() => {
             if (editSiteId) {
+                if (IS_MARKETING_EDITOR) {
+                    window.location.href = `${STAFF_BASE}/sites/${editSiteId}/edit`;
+                    return;
+                }
                 editSiteWithImage(editSiteId);
                 // Drop one-shot edit params so refresh doesn't reopen the modal.
                 params.delete('edit_site');

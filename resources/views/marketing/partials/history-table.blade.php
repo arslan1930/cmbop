@@ -31,7 +31,6 @@
                     </td>
                     <td>
                         <div class="fw-semibold">{{ $actionLabels[$log->action] ?? $log->action }}</div>
-                        <code class="small text-muted">{{ $log->action }}</code>
                     </td>
                     <td class="small">{{ $log->subject_label ?: '—' }}</td>
                     <td class="small">{{ $log->description }}</td>
