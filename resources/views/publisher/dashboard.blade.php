@@ -260,7 +260,7 @@
 }
 .publisher-onboarding-steps {
     padding-left: 1.25rem;
-    color: #64748b;
+    color: var(--brand-ink-muted, #75787B);
     font-size: 0.925rem;
 }
 .publisher-onboarding-steps li + li {

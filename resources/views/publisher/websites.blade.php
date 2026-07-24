@@ -545,7 +545,7 @@
         #sitesTableWrapper .sites-responsive-table tr.main-row td::before {
             content: attr(data-label);
             font-weight: 600;
-            color: #64748b;
+            color: var(--brand-ink-muted, #75787B);
             text-align: left;
             flex-shrink: 0;
         }

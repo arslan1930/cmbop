@@ -366,7 +366,7 @@
     font-weight: 700;
     letter-spacing: 0.02em;
     text-transform: uppercase;
-    color: #64748b;
+    color: var(--brand-ink-muted, #75787B);
     margin: 0 0 0.5rem;
 }
 .order-view-panel .ov-row {
@@ -444,7 +444,7 @@
     padding-top: 0.5rem;
     border-top: 1px solid #e2e8f0;
     font-size: 0.78rem;
-    color: #64748b;
+    color: var(--brand-ink-muted, #75787B);
     line-height: 1.35;
 }
 .order-view-refund a {

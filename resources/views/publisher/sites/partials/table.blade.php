@@ -104,7 +104,7 @@
 
     .site-row-url {
         font-size: 12px;
-        color: #64748b;
+        color: var(--brand-ink-muted, #75787B);
         margin: 0;
         display: -webkit-box;
         -webkit-line-clamp: 1;
@@ -147,7 +147,7 @@
         align-items: center;
         gap: 6px;
         font-size: 12px;
-        color: #64748b;
+        color: var(--brand-ink-muted, #75787B);
     }
 
     .site-row-market .country-flag {
@@ -185,7 +185,7 @@
     .site-row-actions .btn-text-quiet {
         border: 0;
         background: transparent;
-        color: #64748b;
+        color: var(--brand-ink-muted, #75787B);
         font-size: 12px;
         font-weight: 600;
         padding: 0.25rem 0.5rem;

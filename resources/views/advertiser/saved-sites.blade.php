@@ -54,7 +54,7 @@
 }
 .saved-tab {
     appearance: none; border: 0; background: transparent;
-    padding: 10px 14px; font-weight: 600; font-size: 14px; color: #64748b;
+    padding: 10px 14px; font-weight: 600; font-size: 14px; color: var(--brand-ink-muted, #75787B);
     border-bottom: 2px solid transparent; margin-bottom: -1px;
     text-decoration: none; display: inline-flex; align-items: center; gap: 8px;
 }
