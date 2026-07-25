@@ -5,6 +5,12 @@
     $hasLivePreview = $catalogPreview instanceof \Illuminate\Support\Collection
         ? $catalogPreview->isNotEmpty()
         : ! empty($catalogPreview);
+    $previewCountries = collect($hasLivePreview ? $catalogPreview : [])
+        ->pluck('country')
+        ->filter()
+        ->map(fn ($c) => strtolower((string) $c))
+        ->unique()
+        ->values();
 @endphp
 
 <section class="slb-hero">
@@ -41,56 +47,100 @@
     <div class="slb-hero-visual">
       <a href="{{ $marketplaceHref }}" class="slb-hero-catalog-link" aria-label="{{ __('messages.nav_marketplace') }}">
         @if($hasLivePreview)
-          <div class="slb-hero-product slb-hero-live-catalog" role="img" aria-label="Live catalog preview">
-            <div class="slb-hero-live-catalog__chrome">
-              <span class="slb-hero-live-catalog__dot" aria-hidden="true"></span>
-              <span class="slb-hero-live-catalog__dot" aria-hidden="true"></span>
-              <span class="slb-hero-live-catalog__dot" aria-hidden="true"></span>
-              <span class="slb-hero-live-catalog__label">Live publisher catalog</span>
-            </div>
-            <table class="slb-hero-live-catalog__table">
-              <thead>
-                <tr>
-                  <th>Site</th>
-                  <th>Country</th>
-                  <th>DR</th>
-                  <th>DA</th>
-                  <th>From</th>
-                </tr>
-              </thead>
-              <tbody>
-                @foreach($catalogPreview as $site)
-                  <tr>
-                    <td>
-                      <div class="slb-hero-live-catalog__site">
-                        @if(!empty($site['thumb_url']))
-                          <img src="{{ $site['thumb_url'] }}" alt="" class="slb-hero-live-catalog__thumb" width="36" height="36" loading="eager" decoding="async">
-                        @else
-                          <span class="slb-hero-live-catalog__thumb slb-hero-live-catalog__thumb--placeholder" aria-hidden="true">
-                            <i class="fa fa-globe"></i>
-                          </span>
-                        @endif
-                        <div>
-                          <div class="slb-hero-live-catalog__name">{{ $site['name'] }}</div>
-                          <div class="slb-hero-live-catalog__domain">{{ $site['domain_masked'] }}</div>
-                        </div>
-                      </div>
-                    </td>
-                    <td>
-                      <span class="slb-hero-live-catalog__country">
-                        @if(!empty($site['country']))
-                          <span aria-hidden="true">{!! getCountryFlag($site['country']) !!}</span>
-                        @endif
-                        <span>{{ strtoupper((string) ($site['country'] ?: '—')) }}</span>
-                      </span>
-                    </td>
-                    <td>{{ $site['dr'] ?? '—' }}</td>
-                    <td>{{ $site['da'] ?? '—' }}</td>
-                    <td class="slb-hero-live-catalog__price">€{{ number_format((float) ($site['price'] ?? 0), 0) }}</td>
-                  </tr>
+          <div class="slb-hero-product slb-hero-catalog" role="img" aria-label="Marketplace catalog preview">
+            <div class="slb-hero-catalog__chrome">
+              <div class="slb-hero-catalog__traffic">
+                <span class="slb-hero-catalog__dot" aria-hidden="true"></span>
+                <span class="slb-hero-catalog__dot" aria-hidden="true"></span>
+                <span class="slb-hero-catalog__dot" aria-hidden="true"></span>
+                <span class="slb-hero-catalog__label">Marketplace catalog</span>
+              </div>
+              <div class="slb-hero-catalog__markets" aria-hidden="true">
+                <span class="slb-hero-catalog__chip is-active">All markets</span>
+                @foreach($previewCountries->take(6) as $code)
+                  <span class="slb-hero-catalog__chip">
+                    <span class="slb-hero-catalog__flag">{!! getCountryFlag($code) !!}</span>
+                    {{ strtoupper($code === 'gb' || $code === 'uk' ? 'uk' : $code) }}
+                  </span>
                 @endforeach
-              </tbody>
-            </table>
+              </div>
+            </div>
+
+            <div class="slb-hero-catalog__scroll">
+              <table class="slb-hero-catalog__table">
+                <thead>
+                  <tr>
+                    <th>Site</th>
+                    <th>Category</th>
+                    <th>Country</th>
+                    <th>DR</th>
+                    <th>DA</th>
+                    <th>Traffic</th>
+                    <th>Price</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @foreach($catalogPreview as $index => $site)
+                    @php
+                      $country = strtolower((string) ($site['country'] ?? ''));
+                      $niche = (string) ($site['niche'] ?? 'General');
+                      $trafficLabel = $site['traffic_label'] ?? '—';
+                    @endphp
+                    <tr style="--slb-row: {{ (int) $index }}">
+                      <td>
+                        <div class="slb-hero-catalog__site">
+                          @if(!empty($site['thumb_url']))
+                            <img src="{{ $site['thumb_url'] }}" alt="" class="slb-hero-catalog__thumb" width="36" height="36" loading="eager" decoding="async">
+                          @else
+                            <span class="slb-hero-catalog__thumb slb-hero-catalog__thumb--placeholder" aria-hidden="true">
+                              <i class="fa fa-globe"></i>
+                            </span>
+                          @endif
+                          <div class="slb-hero-catalog__site-text">
+                            <div class="slb-hero-catalog__domain">{{ $site['domain_masked'] }}</div>
+                            <div class="slb-hero-catalog__name">{{ $site['name'] }}</div>
+                          </div>
+                        </div>
+                      </td>
+                      <td>
+                        <span class="slb-hero-catalog__niche">{{ $niche }}</span>
+                      </td>
+                      <td>
+                        <span class="slb-hero-catalog__country">
+                          @if($country !== '')
+                            <span aria-hidden="true">{!! getCountryFlag($country) !!}</span>
+                          @endif
+                          <span>{{ $country !== '' ? fullCountry($country) : '—' }}</span>
+                        </span>
+                      </td>
+                      <td>
+                        <span class="slb-hero-catalog__metric slb-hero-catalog__metric--dr">
+                          <span class="slb-hero-catalog__metric-icon" aria-hidden="true">DR</span>
+                          {{ $site['dr'] ?? '—' }}
+                        </span>
+                      </td>
+                      <td>
+                        <span class="slb-hero-catalog__metric slb-hero-catalog__metric--da">
+                          <span class="slb-hero-catalog__metric-icon" aria-hidden="true">DA</span>
+                          {{ $site['da'] ?? '—' }}
+                        </span>
+                      </td>
+                      <td>
+                        <span class="slb-hero-catalog__traffic-val">{{ $trafficLabel }}</span>
+                      </td>
+                      <td class="slb-hero-catalog__price">€{{ number_format((float) ($site['price'] ?? 0), 0) }}</td>
+                      <td>
+                        <span class="slb-hero-catalog__buy">
+                          <i class="fa fa-shopping-cart" aria-hidden="true"></i>
+                          Buy
+                        </span>
+                      </td>
+                    </tr>
+                  @endforeach
+                </tbody>
+              </table>
+            </div>
           </div>
         @else
           <picture>
@@ -116,7 +166,7 @@
     position: relative;
     width: 100%;
     margin-top: 0;
-    min-height: min(88vh, 820px);
+    min-height: min(90vh, 860px);
     overflow: hidden;
     display: flex;
     align-items: center;
@@ -149,8 +199,8 @@
     position: relative;
     z-index: 2;
     display: grid;
-    grid-template-columns: minmax(280px, 0.78fr) minmax(0, 1.45fr);
-    gap: 28px;
+    grid-template-columns: minmax(280px, 0.72fr) minmax(0, 1.55fr);
+    gap: 24px;
     align-items: center;
     max-width: 1440px;
     margin: 0 auto;
@@ -288,7 +338,7 @@
     display: block;
     width: 100%;
     min-height: min(52vh, 480px);
-    max-height: min(68vh, 620px);
+    max-height: min(72vh, 640px);
     object-fit: cover;
     object-position: left top;
     border-radius: 18px 0 0 0;
@@ -299,83 +349,138 @@
     background: #fff;
   }
 
-  .slb-hero-live-catalog {
+  .slb-hero-catalog {
     display: flex;
     flex-direction: column;
     object-fit: unset;
     overflow: hidden;
-    max-height: min(68vh, 620px);
-    min-height: min(48vh, 440px);
+    max-height: min(72vh, 640px);
+    min-height: min(50vh, 460px);
   }
 
-  .slb-hero-live-catalog__chrome {
+  .slb-hero-catalog__chrome {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 12px 14px 11px;
+    background: linear-gradient(135deg, #1a585e 0%, #2a7a82 55%, #3faeb2 100%);
+    border-bottom: 1px solid rgba(26, 88, 94, 0.12);
+  }
+
+  .slb-hero-catalog__traffic {
     display: flex;
     align-items: center;
     gap: 6px;
-    padding: 10px 14px;
-    background: linear-gradient(180deg, #f7fafb 0%, #eef4f5 100%);
-    border-bottom: 1px solid rgba(26, 88, 94, 0.1);
   }
 
-  .slb-hero-live-catalog__dot {
+  .slb-hero-catalog__dot {
     width: 8px;
     height: 8px;
     border-radius: 50%;
-    background: #cbd5e1;
+    background: rgba(255, 255, 255, 0.35);
   }
 
-  .slb-hero-live-catalog__dot:nth-child(1) { background: #f87171; }
-  .slb-hero-live-catalog__dot:nth-child(2) { background: #fbbf24; }
-  .slb-hero-live-catalog__dot:nth-child(3) { background: #34d399; }
+  .slb-hero-catalog__dot:nth-child(1) { background: #fca5a5; }
+  .slb-hero-catalog__dot:nth-child(2) { background: #fcd34d; }
+  .slb-hero-catalog__dot:nth-child(3) { background: #86efac; }
 
-  .slb-hero-live-catalog__label {
+  .slb-hero-catalog__label {
     margin-left: 8px;
     font-size: 0.78rem;
-    font-weight: 600;
-    color: #64748b;
-    letter-spacing: 0.01em;
+    font-weight: 700;
+    color: rgba(255, 255, 255, 0.92);
+    letter-spacing: 0.02em;
   }
 
-  .slb-hero-live-catalog__table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 0.82rem;
+  .slb-hero-catalog__markets {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .slb-hero-catalog__chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    color: rgba(255, 255, 255, 0.88);
+    background: rgba(255, 255, 255, 0.12);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    white-space: nowrap;
+  }
+
+  .slb-hero-catalog__chip.is-active {
+    color: #1a585e;
+    background: #fff;
+    border-color: #fff;
+  }
+
+  .slb-hero-catalog__flag {
+    font-size: 0.85rem;
+    line-height: 1;
+  }
+
+  .slb-hero-catalog__scroll {
+    overflow: auto;
     flex: 1;
   }
 
-  .slb-hero-live-catalog__table thead th {
+  .slb-hero-catalog__table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.8rem;
+    min-width: 720px;
+  }
+
+  .slb-hero-catalog__table thead th {
     text-align: left;
-    padding: 10px 12px;
-    font-size: 0.7rem;
+    padding: 11px 12px;
+    font-size: 0.68rem;
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.04em;
     color: #64748b;
-    background: #f8fafc;
+    background: #f7fafb;
     border-bottom: 1px solid rgba(26, 88, 94, 0.08);
     white-space: nowrap;
+    position: sticky;
+    top: 0;
+    z-index: 1;
   }
 
-  .slb-hero-live-catalog__table tbody td {
-    padding: 10px 12px;
-    border-bottom: 1px solid rgba(148, 163, 184, 0.18);
+  .slb-hero-catalog__table tbody td {
+    padding: 11px 12px;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.16);
     color: #1e293b;
     vertical-align: middle;
     white-space: nowrap;
   }
 
-  .slb-hero-live-catalog__table tbody tr:last-child td {
+  .slb-hero-catalog__table tbody tr {
+    animation: slbHeroRowIn 0.55s ease both;
+    animation-delay: calc(0.08s + (var(--slb-row, 0) * 0.06s));
+  }
+
+  .slb-hero-catalog__table tbody tr:nth-child(even) {
+    background: rgba(247, 250, 251, 0.65);
+  }
+
+  .slb-hero-catalog__table tbody tr:last-child td {
     border-bottom: none;
   }
 
-  .slb-hero-live-catalog__site {
+  .slb-hero-catalog__site {
     display: flex;
     align-items: center;
     gap: 10px;
     min-width: 0;
   }
 
-  .slb-hero-live-catalog__thumb {
+  .slb-hero-catalog__thumb {
     width: 36px;
     height: 36px;
     border-radius: 8px;
@@ -385,7 +490,7 @@
     border: 1px solid rgba(26, 88, 94, 0.1);
   }
 
-  .slb-hero-live-catalog__thumb--placeholder {
+  .slb-hero-catalog__thumb--placeholder {
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -393,20 +498,39 @@
     font-size: 0.9rem;
   }
 
-  .slb-hero-live-catalog__name {
-    font-weight: 600;
+  .slb-hero-catalog__site-text {
+    min-width: 0;
+  }
+
+  .slb-hero-catalog__domain {
+    font-weight: 700;
     color: #0f172a;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .slb-hero-catalog__name {
+    font-size: 0.7rem;
+    color: #64748b;
     max-width: 18ch;
     overflow: hidden;
     text-overflow: ellipsis;
   }
 
-  .slb-hero-live-catalog__domain {
-    font-size: 0.72rem;
-    color: #64748b;
+  .slb-hero-catalog__niche {
+    display: inline-block;
+    max-width: 16ch;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    padding: 4px 9px;
+    border-radius: 8px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: #1a585e;
+    background: rgba(63, 174, 178, 0.14);
+    border: 1px solid rgba(63, 174, 178, 0.28);
   }
 
-  .slb-hero-live-catalog__country {
+  .slb-hero-catalog__country {
     display: inline-flex;
     align-items: center;
     gap: 6px;
@@ -414,14 +538,68 @@
     color: #334155;
   }
 
-  .slb-hero-live-catalog__price {
+  .slb-hero-catalog__metric {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
     font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    color: #0f172a;
+  }
+
+  .slb-hero-catalog__metric-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    border-radius: 6px;
+    font-size: 0.58rem;
+    font-weight: 800;
+    letter-spacing: 0.02em;
+    color: #fff;
+  }
+
+  .slb-hero-catalog__metric--dr .slb-hero-catalog__metric-icon {
+    background: #1a585e;
+  }
+
+  .slb-hero-catalog__metric--da .slb-hero-catalog__metric-icon {
+    background: #3faeb2;
+  }
+
+  .slb-hero-catalog__traffic-val {
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    color: #334155;
+  }
+
+  .slb-hero-catalog__price {
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
     color: var(--brand-primary, #1a585e);
+  }
+
+  .slb-hero-catalog__buy {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 12px;
+    border-radius: 9px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: #fff;
+    background: linear-gradient(135deg, #1a585e 0%, #2f8a90 100%);
+    box-shadow: 0 4px 12px rgba(26, 88, 94, 0.18);
   }
 
   .slb-hero-catalog-link:hover .slb-hero-product {
     transform: translateY(-4px);
     box-shadow: -20px 28px 72px rgba(26, 88, 94, 0.22);
+  }
+
+  .slb-hero-catalog-link:hover .slb-hero-catalog__chip:not(.is-active) {
+    background: rgba(255, 255, 255, 0.2);
   }
 
   @keyframes slbHeroFade {
@@ -432,6 +610,11 @@
   @keyframes slbHeroRise {
     from { opacity: 0; transform: translateY(18px); }
     to { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes slbHeroRowIn {
+    from { opacity: 0; transform: translateX(12px); }
+    to { opacity: 1; transform: translateX(0); }
   }
 
   @media (max-width: 991.98px) {
@@ -458,18 +641,17 @@
       justify-content: center;
     }
     .slb-hero-product {
-      min-height: 220px;
-      max-height: 360px;
+      min-height: 240px;
+      max-height: 420px;
       border-radius: 16px 16px 0 0;
       border-right: 1px solid rgba(26, 88, 94, 0.1);
     }
-    .slb-hero-live-catalog {
-      min-height: 260px;
-      max-height: 420px;
-      overflow-x: auto;
+    .slb-hero-catalog {
+      min-height: 280px;
+      max-height: 460px;
     }
-    .slb-hero-live-catalog__table {
-      min-width: 520px;
+    .slb-hero-catalog__markets {
+      justify-content: flex-start;
     }
   }
 
@@ -480,7 +662,8 @@
     .slb-hero-cta-group,
     .slb-hero-catalog-text,
     .slb-hero-visual,
-    .slb-hero-product {
+    .slb-hero-product,
+    .slb-hero-catalog__table tbody tr {
       animation: none !important;
       transition: none !important;
     }

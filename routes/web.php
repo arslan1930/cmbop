@@ -112,7 +112,7 @@ Route::get('/{locale}/register', fn () => Redirect::to('/register', 301))
 $registerPublicMarketingRoutes = function () {
     Route::get('/', function (CatalogTeaserService $teasers) {
         return view('home', [
-            'catalogPreview' => $teasers->teasers(8),
+            'catalogPreview' => $teasers->showcase(7),
         ]);
     })->name('home');
     Route::get('/contact', fn () => view('pages.contact'))->name('contact');
