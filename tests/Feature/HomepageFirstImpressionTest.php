@@ -33,12 +33,10 @@ class HomepageFirstImpressionTest extends TestCase
         $response->assertSee('slb-bottom-cta', false);
         $response->assertSee('btn btn-primary', false);
 
-        // Hero shows the marketplace catalog showcase (live + multi-country top-up).
-        $this->assertTrue(
-            str_contains($html, 'Marketplace catalog') || str_contains($html, 'dashboard.png'),
-            'Homepage hero should show a marketplace catalog preview or the static dashboard fallback.'
-        );
-        $this->assertStringContainsString('All markets', $html);
+        // Hero uses the static multi-country catalog artwork (no live inventory table).
+        $this->assertStringContainsString('dashboard.png', $html);
+        $this->assertStringNotContainsString('Marketplace catalog', $html);
+        $this->assertStringNotContainsString('Live publisher catalog', $html);
     }
 
     public function test_managed_package_ctas_point_to_contact(): void

@@ -70,7 +70,6 @@ use App\Http\Middleware\RoleMiddleware;
 use App\Models\ContentSubmission;
 use App\Models\Site;
 use App\Models\User;
-use App\Services\Marketing\CatalogTeaserService;
 use App\Services\PlatformFeeService;
 use App\Support\PublicI18n;
 use Illuminate\Auth\Events\Verified;
@@ -110,11 +109,7 @@ Route::get('/{locale}/register', fn () => Redirect::to('/register', 301))
     ->name('locale.register.redirect');
 
 $registerPublicMarketingRoutes = function () {
-    Route::get('/', function (CatalogTeaserService $teasers) {
-        return view('home', [
-            'catalogPreview' => $teasers->showcase(7),
-        ]);
-    })->name('home');
+    Route::get('/', fn () => view('home'))->name('home');
     Route::get('/contact', fn () => view('pages.contact'))->name('contact');
     Route::get('/about', [MarketingPageController::class, 'about'])->name('about');
     Route::get('/faq', [MarketingPageController::class, 'faq'])->name('faq');
