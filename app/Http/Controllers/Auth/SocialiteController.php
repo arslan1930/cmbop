@@ -24,21 +24,34 @@ class SocialiteController extends Controller
 {
     public function redirectToGoogle(): RedirectResponse
     {
+        google_oauth_credentials();
+
         if (! google_oauth_configured()) {
-            Log::warning('Google OAuth redirect blocked: credentials not configured');
+            Log::warning('Google OAuth redirect blocked: credentials not configured', [
+                'callback' => $this->googleRedirectUri(),
+            ]);
 
             return $this->loginRedirect(
-                'Google sign-in is not configured. Set real GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in .env (from Google Cloud Console → APIs & Services → Credentials), add redirect URI '
-                .rtrim(request()->getSchemeAndHttpHost(), '/').'/auth/google/callback'
+                'Google sign-in is not configured. Set real GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in .env, add this exact redirect URI in Google Cloud Console: '
+                .$this->googleRedirectUri()
                 .', then run php artisan config:clear.'
             );
         }
 
         try {
+            $callback = $this->googleRedirectUri();
+            Log::info('Google OAuth redirect starting', [
+                'redirect_uri' => $callback,
+                'host' => request()->getHost(),
+                'scheme' => request()->getScheme(),
+                'secure' => request()->isSecure(),
+            ]);
+
             return $this->googleDriver()->redirect();
         } catch (\Throwable $e) {
             Log::error('Google OAuth redirect failed: '.$e->getMessage(), [
                 'exception' => $e::class,
+                'redirect_uri' => $this->googleRedirectUri(),
             ]);
 
             return $this->loginRedirect(
@@ -49,6 +62,8 @@ class SocialiteController extends Controller
 
     public function handleGoogleCallback(): RedirectResponse
     {
+        google_oauth_credentials();
+
         if ($error = request('error')) {
             $denied = $error === 'access_denied';
             Log::info('Google OAuth callback returned error', [
@@ -214,13 +229,62 @@ class SocialiteController extends Controller
     }
 
     /**
-     * Always use the browser origin for redirect_uri.
-     * Comparing only the host (old behavior) kept http:// callbacks when the
-     * user was on https:// — Google then returns redirect_uri_mismatch.
+     * Build the Google OAuth redirect_uri for this request.
+     *
+     * Rules (Google requires an exact string match in Cloud Console):
+     * 1) If GOOGLE_REDIRECT_URI host matches the browser host and is https
+     *    (or local), use that exact URI.
+     * 2) Otherwise build from the request; force https on non-local hosts
+     *    (fixes http detection behind Cloudflare/nginx → redirect_uri_mismatch).
      */
     private function googleRedirectUri(): string
     {
-        return rtrim(request()->getSchemeAndHttpHost(), '/').'/auth/google/callback';
+        $configured = rtrim((string) config('services.google.redirect'), '/');
+        $requestHost = strtolower((string) request()->getHost());
+        $configuredHost = strtolower((string) (parse_url($configured, PHP_URL_HOST) ?: ''));
+        $isLocal = $this->isLoopbackHost($requestHost);
+
+        if (
+            $configured !== ''
+            && $configuredHost !== ''
+            && $requestHost !== ''
+            && $configuredHost === $requestHost
+        ) {
+            $configuredScheme = strtolower((string) (parse_url($configured, PHP_URL_SCHEME) ?: ''));
+            if ($configuredScheme === 'https' || $isLocal) {
+                return $configured;
+            }
+        }
+
+        return $this->requestCallbackUri();
+    }
+
+    /**
+     * Callback URI derived from the live browser origin.
+     */
+    private function requestCallbackUri(): string
+    {
+        $host = strtolower((string) request()->getHost());
+        $isLocal = in_array($host, ['localhost', '127.0.0.1', '::1'], true)
+            || str_ends_with($host, '.localhost');
+
+        $scheme = request()->getScheme();
+        if (request()->isSecure()) {
+            $scheme = 'https';
+        } elseif (! $isLocal) {
+            // Production/staging almost always register https:// with Google.
+            // Behind TLS-terminating proxies the app may still see http.
+            $scheme = 'https';
+        }
+
+        $port = (int) request()->getPort();
+        $defaultPort = $scheme === 'https' ? 443 : 80;
+        $authority = $host;
+        if ($isLocal && $port > 0 && $port !== $defaultPort) {
+            $authority .= ':'.$port;
+        }
+
+        return $scheme.'://'.$authority.'/auth/google/callback';
     }
 
     private function alignRootUrlWithRequestHost(): void
@@ -230,21 +294,12 @@ class SocialiteController extends Controller
             return;
         }
 
-        $appHost = strtolower((string) (parse_url((string) config('app.url'), PHP_URL_HOST) ?: ''));
-        if ($appHost !== '' && $appHost === $requestHost) {
-            // Still force scheme when APP_URL is http but the browser is https.
-            if (request()->isSecure() && ! str_starts_with((string) config('app.url'), 'https://')) {
-                URL::forceRootUrl(request()->getSchemeAndHttpHost());
-                URL::forceScheme('https');
-            }
+        $root = $this->requestCallbackUri();
+        // Strip path — forceRootUrl wants origin only.
+        $origin = preg_replace('#/auth/google/callback$#', '', $root) ?: request()->getSchemeAndHttpHost();
 
-            return;
-        }
-
-        // Whenever the browser host differs from APP_URL (localhost misconfig,
-        // wrong domain, etc.), bind generated OAuth URLs to the request host.
-        URL::forceRootUrl(request()->getSchemeAndHttpHost());
-        if (request()->isSecure()) {
+        URL::forceRootUrl($origin);
+        if (str_starts_with($origin, 'https://')) {
             URL::forceScheme('https');
         }
     }

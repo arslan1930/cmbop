@@ -270,7 +270,8 @@ class GoogleLoginTest extends TestCase
         $this->get('http://seolinkbuildings.test/auth/google')
             ->assertRedirect();
 
-        $this->assertSame('http://seolinkbuildings.test/auth/google/callback', $seenRedirect);
+        // Non-local hosts always send https:// to Google (avoids proxy http drift).
+        $this->assertSame('https://seolinkbuildings.test/auth/google/callback', $seenRedirect);
     }
 
     public function test_google_oauth_uses_https_request_even_when_config_is_http(): void
@@ -297,11 +298,41 @@ class GoogleLoginTest extends TestCase
 
         Socialite::shouldReceive('driver')->with('google')->andReturn($provider);
 
-        // Same host as config, but HTTPS — old code kept http:// and Google rejected it.
+        // Same host as config, but HTTPS — ignore http:// GOOGLE_REDIRECT_URI on public hosts.
         $this->get('https://seolinkbuildings.test/auth/google')
             ->assertRedirect();
 
         $this->assertSame('https://seolinkbuildings.test/auth/google/callback', $seenRedirect);
+    }
+
+    public function test_google_oauth_keeps_local_http_callback_with_port(): void
+    {
+        $this->configureGoogle();
+        config([
+            'app.url' => 'http://127.0.0.1:8000',
+            'services.google.redirect' => 'http://127.0.0.1:8000/auth/google/callback',
+        ]);
+
+        $seenRedirect = null;
+        $provider = Mockery::mock(Provider::class);
+        $provider->shouldReceive('scopes')->once()->andReturnSelf();
+        $provider->shouldReceive('redirectUrl')
+            ->once()
+            ->andReturnUsing(function ($url) use (&$seenRedirect, $provider) {
+                $seenRedirect = $url;
+
+                return $provider;
+            });
+        $provider->shouldReceive('redirect')
+            ->once()
+            ->andReturn(redirect('https://accounts.google.com/o/oauth2/auth'));
+
+        Socialite::shouldReceive('driver')->with('google')->andReturn($provider);
+
+        $this->get('http://127.0.0.1:8000/auth/google')
+            ->assertRedirect();
+
+        $this->assertSame('http://127.0.0.1:8000/auth/google/callback', $seenRedirect);
     }
 
     public function test_google_oauth_uses_request_host_when_app_url_is_different_public_host(): void

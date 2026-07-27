@@ -164,6 +164,19 @@
                                     Continue with Google
                                 </a>
                             </div>
+                            @php
+                                $googleHost = strtolower((string) request()->getHost());
+                                $googleLocal = in_array($googleHost, ['localhost', '127.0.0.1', '::1'], true)
+                                    || str_ends_with($googleHost, '.localhost');
+                                $googleCallbackHint = $googleLocal
+                                    ? rtrim(request()->getSchemeAndHttpHost(), '/').'/auth/google/callback'
+                                    : 'https://'.$googleHost.'/auth/google/callback';
+                            @endphp
+                            <p class="text-muted small mt-2 mb-0" role="note">
+                                If Google shows <strong>redirect_uri_mismatch</strong>, add this exact URI in
+                                Google Cloud Console → Credentials → Authorized redirect URIs:<br>
+                                <code>{{ $googleCallbackHint }}</code>
+                            </p>
                         </div>
 
                     </div>
