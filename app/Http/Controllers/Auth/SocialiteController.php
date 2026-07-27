@@ -24,8 +24,15 @@ class SocialiteController extends Controller
 {
     public function redirectToGoogle(): RedirectResponse
     {
+        // Refresh credentials from process env in case config:cache has blanks.
+        google_oauth_credentials();
+
         if (! google_oauth_configured()) {
-            Log::warning('Google OAuth redirect blocked: credentials not configured');
+            Log::warning('Google OAuth redirect blocked: credentials not configured', [
+                'has_config_id' => filled(config('services.google.client_id')),
+                'has_env_id' => filled(getenv('GOOGLE_CLIENT_ID') ?: ($_ENV['GOOGLE_CLIENT_ID'] ?? null)),
+                'callback' => rtrim(request()->getSchemeAndHttpHost(), '/').'/auth/google/callback',
+            ]);
 
             return $this->loginRedirect(
                 'Google sign-in is not configured. Set real GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in .env (from Google Cloud Console → APIs & Services → Credentials), add redirect URI '
@@ -49,6 +56,8 @@ class SocialiteController extends Controller
 
     public function handleGoogleCallback(): RedirectResponse
     {
+        google_oauth_credentials();
+
         if ($error = request('error')) {
             $denied = $error === 'access_denied';
             Log::info('Google OAuth callback returned error', [

@@ -98,7 +98,35 @@ class GoogleLoginTest extends TestCase
         $this->get(route('login'))
             ->assertOk()
             ->assertSee('Continue with Google', false)
-            ->assertSee(route('auth.google', absolute: false), false);
+            ->assertSee(route('auth.google', absolute: false), false)
+            ->assertSee('GOOGLE_CLIENT_ID', false);
+    }
+
+    public function test_google_oauth_reads_process_env_when_config_is_empty(): void
+    {
+        config([
+            'services.google.client_id' => '',
+            'services.google.client_secret' => '',
+        ]);
+
+        putenv('GOOGLE_CLIENT_ID=runtime-google-client-id-value');
+        putenv('GOOGLE_CLIENT_SECRET=runtime-google-client-secret-value');
+        $_ENV['GOOGLE_CLIENT_ID'] = 'runtime-google-client-id-value';
+        $_ENV['GOOGLE_CLIENT_SECRET'] = 'runtime-google-client-secret-value';
+
+        try {
+            $this->assertTrue(google_oauth_configured());
+            $this->assertSame('runtime-google-client-id-value', config('services.google.client_id'));
+            $this->assertSame('runtime-google-client-secret-value', config('services.google.client_secret'));
+        } finally {
+            putenv('GOOGLE_CLIENT_ID');
+            putenv('GOOGLE_CLIENT_SECRET');
+            unset($_ENV['GOOGLE_CLIENT_ID'], $_ENV['GOOGLE_CLIENT_SECRET']);
+            config([
+                'services.google.client_id' => '',
+                'services.google.client_secret' => '',
+            ]);
+        }
     }
 
     public function test_login_shows_google_button_when_configured(): void

@@ -164,6 +164,13 @@
                                     Continue with Google
                                 </a>
                             </div>
+                            @unless(google_oauth_configured())
+                                <p class="text-muted small mt-2 mb-0" role="status">
+                                    Google sign-in needs <code>GOOGLE_CLIENT_ID</code> and <code>GOOGLE_CLIENT_SECRET</code> in <code>.env</code>
+                                    (from Google Cloud Console), then <code>php artisan config:clear</code>.
+                                    Check status with <code>php artisan google:oauth-status</code>.
+                                </p>
+                            @endunless
                         </div>
 
                     </div>

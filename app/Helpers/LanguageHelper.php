@@ -390,14 +390,52 @@ if (! function_exists('mail_brand_logo_url')) {
     }
 }
 
+if (! function_exists('google_oauth_credentials')) {
+    /**
+     * Resolve Google OAuth client id/secret.
+     *
+     * Prefers config (services.google.*), then falls back to process env
+     * (getenv / $_ENV). That covers production where secrets are injected at
+     * runtime after `php artisan config:cache` baked empty values.
+     *
+     * @return array{client_id: string, client_secret: string}
+     */
+    function google_oauth_credentials(): array
+    {
+        $id = trim((string) config('services.google.client_id', ''));
+        $secret = trim((string) config('services.google.client_secret', ''));
+
+        if ($id === '') {
+            $id = trim((string) (getenv('GOOGLE_CLIENT_ID') ?: ($_ENV['GOOGLE_CLIENT_ID'] ?? $_SERVER['GOOGLE_CLIENT_ID'] ?? '')));
+        }
+        if ($secret === '') {
+            $secret = trim((string) (getenv('GOOGLE_CLIENT_SECRET') ?: ($_ENV['GOOGLE_CLIENT_SECRET'] ?? $_SERVER['GOOGLE_CLIENT_SECRET'] ?? '')));
+        }
+
+        // Keep Socialite / config() consumers in sync for this request.
+        if ($id !== '' || $secret !== '') {
+            config([
+                'services.google.client_id' => $id,
+                'services.google.client_secret' => $secret,
+            ]);
+        }
+
+        return [
+            'client_id' => $id,
+            'client_secret' => $secret,
+        ];
+    }
+}
+
 if (! function_exists('google_oauth_configured')) {
     /**
      * True when Google OAuth client credentials look real (non-empty, not placeholders).
      */
     function google_oauth_configured(): bool
     {
-        $id = trim((string) config('services.google.client_id', ''));
-        $secret = trim((string) config('services.google.client_secret', ''));
+        $credentials = google_oauth_credentials();
+        $id = $credentials['client_id'];
+        $secret = $credentials['client_secret'];
 
         if ($id === '' || $secret === '') {
             return false;
