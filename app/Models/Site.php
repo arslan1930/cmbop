@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 
 class Site extends Model
@@ -126,6 +127,15 @@ class Site extends Model
         return $this->belongsTo(BulkSiteRequest::class);
     }
 
+    protected static function booted(): void
+    {
+        static::saving(function (Site $site) {
+            if ($site->isDirty('onboarding_status') && filled($site->onboarding_status)) {
+                self::ensureOnboardingStatusColumnAcceptsValues();
+            }
+        });
+    }
+
     public function awaitsPublisherDetails(): bool
     {
         return $this->onboarding_status === self::ONBOARDING_AWAITING_DETAILS;
@@ -201,14 +211,68 @@ class Site extends Model
 
     private function clearAwaitingDetailsOnboarding(): bool
     {
+        self::ensureOnboardingStatusColumnAcceptsValues();
+
         $this->onboarding_status = self::ONBOARDING_READY_FOR_REVIEW;
-        $this->save();
+
+        try {
+            $this->save();
+        } catch (\Throwable $e) {
+            // Hostinger: ENUM/VARCHAR too narrow and ALTER denied — NULL clears the lock.
+            if (! str_contains($e->getMessage(), 'onboarding_status')) {
+                throw $e;
+            }
+
+            $this->onboarding_status = null;
+            $this->save();
+        }
 
         if ($this->bulk_site_request_id) {
             $this->bulkSiteRequest?->refreshProgressStatus();
         }
 
         return true;
+    }
+
+    /**
+     * Production sometimes has ENUM or VARCHAR(16) that rejects ready_for_review (17 chars).
+     * Widen to VARCHAR(32) to match the app migration.
+     */
+    public static function ensureOnboardingStatusColumnAcceptsValues(): void
+    {
+        static $ensured = false;
+        if ($ensured) {
+            return;
+        }
+        $ensured = true;
+
+        try {
+            $driver = Schema::getConnection()->getDriverName();
+            if (! in_array($driver, ['mysql', 'mariadb'], true)) {
+                return;
+            }
+
+            if (! Schema::hasTable('sites') || ! Schema::hasColumn('sites', 'onboarding_status')) {
+                return;
+            }
+
+            $row = DB::selectOne("SHOW COLUMNS FROM `sites` WHERE Field = 'onboarding_status'");
+            $type = strtolower((string) ($row->Type ?? ''));
+
+            $needsWiden = str_starts_with($type, 'enum(')
+                || (preg_match('/^varchar\((\d+)\)$/', $type, $m) === 1 && (int) $m[1] < 32);
+
+            if (! $needsWiden) {
+                return;
+            }
+
+            DB::statement('ALTER TABLE `sites` MODIFY `onboarding_status` VARCHAR(32) NULL');
+        } catch (\Throwable $e) {
+            Log::warning('Could not widen sites.onboarding_status', [
+                'error' => $e->getMessage(),
+                'hint' => 'Run database/sql/fix_sites_onboarding_status.sql in phpMyAdmin',
+            ]);
+        }
     }
 
     /**

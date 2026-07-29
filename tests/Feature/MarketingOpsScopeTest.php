@@ -112,7 +112,7 @@ class MarketingOpsScopeTest extends TestCase
         $this->assertTrue((bool) $site->active);
     }
 
-    public function test_admin_cannot_activate_awaiting_details_site(): void
+    public function test_admin_can_activate_awaiting_details_site(): void
     {
         $site = $this->makeSite([
             'onboarding_status' => Site::ONBOARDING_AWAITING_DETAILS,
@@ -121,12 +121,12 @@ class MarketingOpsScopeTest extends TestCase
 
         $this->actingAs($this->admin)
             ->postJson(route('admin.sites.active', $site->id), ['active' => 1])
-            ->assertStatus(422)
-            ->assertJsonPath('success', false)
-            ->assertJsonPath('message', 'Cannot activate: publisher still needs to complete site details.');
+            ->assertOk()
+            ->assertJsonPath('success', true);
 
         $site->refresh();
-        $this->assertFalse((bool) $site->active);
+        $this->assertTrue((bool) $site->active);
+        $this->assertFalse($site->awaitsPublisherDetails());
     }
 
     public function test_marketer_is_blocked_from_non_ops_admin_tools(): void

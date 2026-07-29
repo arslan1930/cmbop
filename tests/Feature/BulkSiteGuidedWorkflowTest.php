@@ -372,7 +372,7 @@ class BulkSiteGuidedWorkflowTest extends TestCase
             ->assertSee('Fill every Language, Country, DA, DR, Traffic, and Niches box', false);
     }
 
-    public function test_admin_cannot_verify_awaiting_details_site(): void
+    public function test_admin_can_verify_awaiting_details_site(): void
     {
         $site = Site::create([
             'publisher_id' => $this->publisher->id,
@@ -396,10 +396,13 @@ class BulkSiteGuidedWorkflowTest extends TestCase
         ]);
 
         $this->actingAs($this->admin)
-            ->post(route('admin.sites.verify', $site->id), ['verified' => 1])
-            ->assertStatus(422);
+            ->postJson(route('admin.sites.verify', $site->id), ['verified' => 1])
+            ->assertOk()
+            ->assertJsonPath('success', true);
 
-        $this->assertFalse((bool) $site->fresh()->verified);
+        $site->refresh();
+        $this->assertTrue((bool) $site->verified);
+        $this->assertFalse($site->awaitsPublisherDetails());
     }
 
     public function test_publisher_completing_details_moves_to_review(): void
