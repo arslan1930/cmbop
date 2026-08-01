@@ -563,8 +563,13 @@ class BulkSiteGuidedWorkflowTest extends TestCase
         $this->assertStringContainsString('Import URL + price', $html);
         $this->assertStringContainsString('parseUrlPriceImport', $html);
         $this->assertStringContainsString('__bulkParseUrlPriceImport', $html);
+        $this->assertStringContainsString('isNumericToken', $html);
+        $this->assertStringContainsString('lineToCells', $html);
         $this->assertStringContainsString('url,price', $html);
+        $this->assertStringContainsString('Paste into the box, then click Fill rows', $html);
         $this->assertStringNotContainsString('Prices stay empty — fill € per row after pasting.', $html);
+        // Bare prices must not be treated as hosts (URL("https://99") → 0.0.0.99).
+        $this->assertStringContainsString('isNumericToken(u)', $html);
     }
 
     public function test_publisher_can_submit_bulk_from_url_price_pairs(): void

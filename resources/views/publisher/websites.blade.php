@@ -811,14 +811,14 @@
                             <span class="form-text mb-0" id="bulkSheetFileName"></span>
                         </div>
 
-                        <label class="form-label mb-1" for="bulkPasteUrls">Or paste URL + price (or URLs only)</label>
-                        <textarea id="bulkPasteUrls" class="form-control form-control-sm" rows="4"
-                                  placeholder="https://site-one.com,99&#10;https://site-two.com,150&#10;&#10;Or tab-separated from Excel:&#10;https://site-one.com&#9;99&#10;https://site-two.com&#9;150&#10;&#10;URLs only still work — fill prices in the table after."></textarea>
+                        <label class="form-label mb-1" for="bulkPasteUrls">Paste into the box, then click Fill rows</label>
+                        <textarea id="bulkPasteUrls" class="form-control form-control-sm font-monospace" rows="5"
+                                  placeholder="https://site-one.com,99&#10;https://site-two.com,150&#10;&#10;# Excel: copy two columns (URL + Price) and paste here&#10;# URLs only (one per line) also work — add prices in the table"></textarea>
                         <div class="d-flex flex-wrap gap-2 align-items-center mt-2">
-                            <button type="button" class="btn btn-sm btn-outline-secondary" id="bulkPasteUrlsBtn">
+                            <button type="button" class="btn btn-sm btn-primary" id="bulkPasteUrlsBtn">
                                 <i class="fa fa-clipboard-list me-1"></i> Fill rows from paste
                             </button>
-                            <span class="form-text mb-0">Accepts <code>url,price</code>, tabs, or URLs alone.</span>
+                            <span class="form-text mb-0">Formats: <code>url,price</code> · tab from Excel · <code>url price</code> · URLs only</span>
                         </div>
                         <div class="small text-success mt-1 d-none" id="bulkPasteUrlsSuccess" role="status"></div>
                         <div class="small text-danger mt-1 d-none" id="bulkPasteUrlsError" role="alert"></div>
@@ -1349,9 +1349,24 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
+    function stripCell(token) {
+        return String(token ?? '').trim().replace(/^["']|["']$/g, '').trim();
+    }
+
+    /** Pure number / price-like token (never treat as a website). */
+    function isNumericToken(token) {
+        const raw = stripCell(token);
+        if (!raw) return false;
+        return /^€?\s*\d{1,3}([.,]\d{3})*([.,]\d{1,2})?\s*€?$/.test(raw)
+            || /^€?\s*\d+([.,]\d{1,2})?\s*€?$/.test(raw);
+    }
+
     function normalizeUrl(token) {
-        let u = String(token || '').trim().replace(/^["']|["']$/g, '');
+        let u = stripCell(token);
         if (!u) return null;
+        // Prices like "99" / "150.5" become https://0.0.0.99 via URL() — reject those.
+        if (isNumericToken(u)) return null;
+        if (/\s/.test(u)) return null;
         if (!/^https?:\/\//i.test(u)) {
             u = 'https://' + u;
         }
@@ -1359,6 +1374,9 @@ document.addEventListener('DOMContentLoaded', function () {
             const parsed = new URL(u);
             const host = (parsed.hostname || '').toLowerCase().replace(/^www\./, '');
             if (!host) return null;
+            // Require a real domain/host with a letter (blocks IPv4 from bare numbers).
+            if (!/[a-z]/i.test(host)) return null;
+            if (host.indexOf('.') === -1 && host !== 'localhost') return null;
             if ((parsed.pathname === '/' || parsed.pathname === '') && !parsed.search && !parsed.hash) {
                 return parsed.protocol + '//' + parsed.host;
             }
@@ -1370,8 +1388,14 @@ document.addEventListener('DOMContentLoaded', function () {
 
     function parsePriceToken(token) {
         if (token === undefined || token === null) return null;
-        let raw = String(token).trim().replace(/^["']|["']$/g, '');
+        let raw = stripCell(token);
         if (!raw) return null;
+        // Never parse a URL-looking token as a price.
+        if (/^https?:\/\//i.test(raw) || /[a-z]/i.test(raw.replace(/€/g, ''))) {
+            // allow only digits, separators, euro — if letters remain after stripping euro, not a price
+            const withoutEuro = raw.replace(/€/gi, '').trim();
+            if (/[a-z]/i.test(withoutEuro)) return null;
+        }
         raw = raw.replace(/€/g, '').replace(/\s/g, '');
         // European 1.234,56 or plain 1234,56
         if (/^\d{1,3}(\.\d{3})+,\d{1,2}$/.test(raw) || /^\d+,\d{1,2}$/.test(raw)) {
@@ -1379,10 +1403,9 @@ document.addEventListener('DOMContentLoaded', function () {
         } else {
             raw = raw.replace(/,/g, '');
         }
-        raw = raw.replace(/[^0-9.]/g, '');
-        if (raw === '' || !isFinite(Number(raw))) return null;
+        if (!/^\d+(\.\d{1,2})?$/.test(raw)) return null;
         const n = Number(raw);
-        if (n < 0) return null;
+        if (!isFinite(n) || n < 0) return null;
         return Math.round(n * 100) / 100;
     }
 
@@ -1409,20 +1432,41 @@ document.addEventListener('DOMContentLoaded', function () {
             cur += ch;
         }
         out.push(cur.trim());
-        return out.filter(function (c, idx, arr) {
-            // keep empty cells in the middle; drop trailing empties only later
-            return true;
-        });
+        return out;
+    }
+
+    /** Split a single line into cells (CSV/TSV) or "url price" / "url €99". */
+    function lineToCells(line) {
+        const trimmed = String(line || '').trim();
+        if (!trimmed) return [];
+        if (/[,\t;]/.test(trimmed)) {
+            return splitCsvLine(trimmed).map(stripCell).filter(Boolean);
+        }
+        // Space-separated: https://a.com 99   or   a.com €150
+        const spaceParts = trimmed.split(/\s+/).filter(Boolean);
+        if (spaceParts.length >= 2) {
+            const last = spaceParts[spaceParts.length - 1];
+            const head = spaceParts.slice(0, -1).join(' ');
+            if (normalizeUrl(head) && parsePriceToken(last) !== null) {
+                return [head, last];
+            }
+            if (parsePriceToken(spaceParts[0]) !== null && normalizeUrl(spaceParts.slice(1).join(' '))) {
+                return [spaceParts[0], spaceParts.slice(1).join(' ')];
+            }
+        }
+        return [trimmed];
     }
 
     function looksLikeHeader(cells) {
         const joined = cells.join(' ').toLowerCase();
-        return /(url|website|domain|site)/.test(joined) && /(price|€|eur|cost)/.test(joined)
-            || joined === 'url' || joined === 'website url' || joined === 'price';
+        if ((/(url|website|domain|site)/.test(joined) && /(price|€|eur|cost)/.test(joined))) {
+            return true;
+        }
+        return joined === 'url' || joined === 'website url' || joined === 'price' || joined === 'website';
     }
 
     function looksLikePrice(token) {
-        return parsePriceToken(token) !== null && !normalizeUrl(token);
+        return parsePriceToken(token) !== null;
     }
 
     /**
@@ -1442,24 +1486,25 @@ document.addEventListener('DOMContentLoaded', function () {
 
         function addPair(urlRaw, priceRaw) {
             const url = normalizeUrl(urlRaw);
-            if (!url) return;
+            if (!url) return false;
             let host = '';
-            try { host = new URL(url).hostname.toLowerCase().replace(/^www\./, ''); } catch (e) { return; }
-            if (!host || seen[host]) return;
+            try { host = new URL(url).hostname.toLowerCase().replace(/^www\./, ''); } catch (e) { return false; }
+            if (!host || seen[host]) return false;
             seen[host] = true;
             if (pairRows.length >= MAX_ROWS) {
                 truncated = true;
-                return;
+                return false;
             }
-            const price = parsePriceToken(priceRaw);
+            const price = priceRaw === undefined || priceRaw === null || priceRaw === ''
+                ? null
+                : parsePriceToken(priceRaw);
             pairRows.push({ url: url, price: price });
+            return true;
         }
 
-        // Line-oriented parse (CSV / TSV / "url price")
         let started = false;
         lines.forEach(function (line) {
-            const cells = splitCsvLine(line).map(function (c) { return c.replace(/^["']|["']$/g, '').trim(); });
-            const nonEmpty = cells.filter(Boolean);
+            const nonEmpty = lineToCells(line);
             if (!nonEmpty.length) return;
             if (!started && looksLikeHeader(nonEmpty)) {
                 started = true;
@@ -1468,72 +1513,79 @@ document.addEventListener('DOMContentLoaded', function () {
             started = true;
 
             if (nonEmpty.length >= 2) {
-                // url, price  OR  price, url
-                if (normalizeUrl(nonEmpty[0]) && looksLikePrice(nonEmpty[1])) {
-                    addPair(nonEmpty[0], nonEmpty[1]);
+                const a = nonEmpty[0];
+                const b = nonEmpty[1];
+                if (normalizeUrl(a) && looksLikePrice(b)) {
+                    addPair(a, b);
                     return;
                 }
-                if (looksLikePrice(nonEmpty[0]) && normalizeUrl(nonEmpty[1])) {
-                    addPair(nonEmpty[1], nonEmpty[0]);
+                if (looksLikePrice(a) && normalizeUrl(b)) {
+                    addPair(b, a);
                     return;
                 }
-                // First cell URL, second anything numeric-ish
-                if (normalizeUrl(nonEmpty[0]) && parsePriceToken(nonEmpty[1]) !== null) {
-                    addPair(nonEmpty[0], nonEmpty[1]);
+                if (normalizeUrl(a) && parsePriceToken(b) !== null) {
+                    addPair(a, b);
                     return;
                 }
             }
 
-            // Single-cell line that is a URL
             if (nonEmpty.length === 1 && normalizeUrl(nonEmpty[0])) {
                 addPair(nonEmpty[0], null);
             }
         });
 
         const withPrice = pairRows.filter(function (r) { return r.price !== null; }).length;
-        if (pairRows.length >= 2 && withPrice > 0) {
-            return { rows: pairRows, mode: 'pairs', truncated: truncated };
+        if (pairRows.length >= 2) {
+            return {
+                rows: pairRows,
+                mode: withPrice > 0 ? 'pairs' : 'urls',
+                truncated: truncated,
+            };
         }
 
-        // Fallback: URL-only token soup (legacy paste)
-        if (pairRows.length < 2) {
-            const tokens = raw.split(/[\s,;]+/).map(function (t) { return t.trim(); }).filter(Boolean);
-            const urls = [];
-            const seenUrl = {};
-            tokens.forEach(function (token) {
-                if (looksLikePrice(token) && !normalizeUrl(token)) return;
-                const url = normalizeUrl(token);
-                if (!url) return;
-                let host = '';
-                try { host = new URL(url).hostname.toLowerCase().replace(/^www\./, ''); } catch (e) { return; }
-                if (!host || seenUrl[host]) return;
-                seenUrl[host] = true;
-                if (urls.length >= MAX_ROWS) {
-                    truncated = true;
-                    return;
-                }
-                urls.push({ url: url, price: null });
-            });
-            return { rows: urls, mode: 'urls', truncated: truncated };
-        }
+        // Fallback: URL-only token soup (legacy paste of many URLs on one line)
+        const tokens = raw.split(/[\s,;]+/).map(function (t) { return t.trim(); }).filter(Boolean);
+        const urls = [];
+        const seenUrl = {};
+        tokens.forEach(function (token) {
+            if (isNumericToken(token) || looksLikePrice(token)) return;
+            const url = normalizeUrl(token);
+            if (!url) return;
+            let host = '';
+            try { host = new URL(url).hostname.toLowerCase().replace(/^www\./, ''); } catch (e) { return; }
+            if (!host || seenUrl[host]) return;
+            seenUrl[host] = true;
+            if (urls.length >= MAX_ROWS) {
+                truncated = true;
+                return;
+            }
+            urls.push({ url: url, price: null });
+        });
+        return { rows: urls, mode: 'urls', truncated: truncated };
+    }
 
-        return { rows: pairRows, mode: withPrice > 0 ? 'pairs' : 'urls', truncated: truncated };
+    function rowUrlInput(tr) {
+        return tr.querySelector('input[name*="[url]"]') || tr.querySelector('input[type="url"]');
+    }
+
+    function rowPriceInput(tr) {
+        return tr.querySelector('input[name*="[price]"]') || tr.querySelector('input[type="number"]');
     }
 
     function applyImportRows(rows, mode, truncated) {
         if (!rows || rows.length < 2) {
-            showImportError('Need at least 2 valid website URLs (with prices in column 2 when using a sheet).');
+            showImportError('Need at least 2 valid website URLs. Use one per line, or url,price (CSV / Excel paste).');
             return false;
         }
 
         ensureRowCount(rows.length);
         const trs = body.querySelectorAll('.bulk-url-price-row');
         rows.forEach(function (row, i) {
-            const urlInput = trs[i]?.querySelector('input[name*="[url]"]');
-            const priceInput = trs[i]?.querySelector('input[name*="[price]"]');
+            const urlInput = rowUrlInput(trs[i]);
+            const priceInput = rowPriceInput(trs[i]);
             if (urlInput) urlInput.value = row.url || '';
             if (priceInput) {
-                priceInput.value = row.price !== null && row.price !== undefined ? row.price : '';
+                priceInput.value = (row.price !== null && row.price !== undefined) ? String(row.price) : '';
             }
         });
         reindexRows();
@@ -1541,7 +1593,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
         const priced = rows.filter(function (r) { return r.price !== null && r.price !== undefined; }).length;
         let msg = 'Loaded ' + rows.length + ' site' + (rows.length === 1 ? '' : 's');
-        if (mode === 'pairs' || priced > 0) {
+        if (priced > 0) {
             msg += ' (' + priced + ' with price)';
         } else {
             msg += ' — fill € prices in the table before submit';
