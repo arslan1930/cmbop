@@ -428,29 +428,37 @@
     .slb-hero-cta-group {
       justify-content: center;
     }
+    /* Stacked hero: show the full catalog preview — cover was cropping metrics */
     .slb-hero-product {
-      min-height: 200px;
-      max-height: 320px;
-      border-radius: 16px 16px 0 0;
+      min-height: 0;
+      max-height: none;
+      height: auto;
+      aspect-ratio: 1200 / 518;
+      width: 100%;
+      object-fit: contain;
+      object-position: center top;
+      border-radius: 16px;
       border-right: 1px solid rgba(26, 88, 94, 0.1);
+      box-shadow: 0 18px 48px rgba(26, 88, 94, 0.14);
     }
     .slb-hero-visual {
       width: 100%;
       max-width: 100%;
-      overflow-x: auto;
-      -webkit-overflow-scrolling: touch;
-      overscroll-behavior-x: contain;
+      overflow: visible;
+      align-self: stretch;
+    }
+    .slb-hero-catalog-link {
+      transform-origin: center bottom;
     }
     .slb-hero-live-catalog {
-      min-height: 220px;
-      max-height: 360px;
+      min-height: 0;
+      max-height: none;
+      height: auto;
       width: 100%;
       max-width: 100%;
-      overflow-x: auto;
-      border-radius: 16px 16px 0 0;
-    }
-    .slb-hero-live-catalog__table {
-      min-width: 480px;
+      overflow: visible;
+      border-radius: 16px;
+      aspect-ratio: auto;
     }
   }
 
@@ -466,9 +474,8 @@
     .slb-hero-cta-secondary {
       width: 100%;
     }
-    .slb-hero-live-catalog__table {
-      min-width: 420px;
-      font-size: 0.78rem;
+    .slb-hero-product {
+      border-radius: 14px;
     }
   }
 
