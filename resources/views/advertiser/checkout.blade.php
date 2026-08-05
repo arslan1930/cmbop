@@ -604,21 +604,29 @@
                             @endif
 
                             <!-- Reference Code -->
+                            @php
+                                // One value for the whole panel. This used to be two separate
+                                // mt_rand() calls, so the code beside "Reference Code" and the one
+                                // in the payment-note warning disagreed until JavaScript replaced
+                                // both with a third random value.
+                                $checkoutReference = sprintf('%06d', random_int(1, 999999));
+                            @endphp
                             <div class="alert alert-secondary py-2 px-3 mb-3" style="background-color: #f8f9fa;">
                                 <div class="d-flex justify-content-between align-items-center">
                                     <span class="small">Reference Code:</span>
                                     <div>
-                                        <strong id="referenceCode" class="font-monospace">{{ sprintf('%06d', mt_rand(1, 999999)) }}</strong>
-                                        <button type="button" class="btn btn-sm btn-link p-0 ms-2 copy-ref-btn" data-target="referenceCode">
-                                            <i class="fas fa-copy"></i>
+                                        <strong id="referenceCode" class="font-monospace">{{ $checkoutReference }}</strong>
+                                        <button type="button" class="btn btn-sm btn-link p-0 ms-2 copy-ref-btn"
+                                                data-target="referenceCode" aria-label="Copy reference code">
+                                            <i class="fas fa-copy" aria-hidden="true"></i>
                                         </button>
                                     </div>
                                 </div>
                             </div>
 
                             <div class="alert alert-warning py-2 px-3 mb-3">
-                                <i class="fas fa-exclamation-triangle me-1"></i>
-                                <small>Please include <strong id="refCodeDisplay">REF{{ sprintf('%06d', mt_rand(1, 999999)) }}</strong> in your payment note for manual payments. For card payments, reference is auto-recorded.</small>
+                                <i class="fas fa-exclamation-triangle me-1" aria-hidden="true"></i>
+                                <small>Please include <strong id="refCodeDisplay">REF{{ $checkoutReference }}</strong> in your payment note for manual payments. For card payments, reference is auto-recorded.</small>
                             </div>
 
                             <button type="button" id="placeOrderBtn" class="btn btn-primary w-100 mt-3">
@@ -648,7 +656,7 @@
                 <h5 class="modal-title">
                     <i class="fa fa-user-edit me-2"></i> Billing Information
                 </h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
                 <p class="text-muted mb-3">Company and address appear on invoices for your finance team. VAT / tax ID is optional.</p>
@@ -1070,12 +1078,15 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    let referenceCode = Math.floor(100000 + Math.random() * 900000).toString();
-    
     const refCodeDisplay = document.getElementById('referenceCode');
     const refCodeDisplaySpan = document.getElementById('refCodeDisplay');
     const refCodeTexts = document.querySelectorAll('.ref-code-display');
-    
+
+    /* Take the code the page was rendered with rather than inventing another
+       one: what the advertiser copies has to be what we submit. */
+    let referenceCode = (refCodeDisplay ? refCodeDisplay.innerText : '').trim()
+        || Math.floor(100000 + Math.random() * 900000).toString();
+
     function updateReferenceCode() {
         if (refCodeDisplay) refCodeDisplay.innerText = referenceCode;
         if (refCodeDisplaySpan) refCodeDisplaySpan.innerText = `REF${referenceCode}`;
@@ -1482,7 +1493,5 @@ document.addEventListener('DOMContentLoaded', function() {
 
 <!-- SweetAlert2 for better alerts -->  
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-<!-- Font Awesome -->
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 
 @endsection

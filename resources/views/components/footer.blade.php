@@ -80,9 +80,12 @@
         <hr class="my-4">
 
         <div class="d-flex flex-column flex-lg-row justify-content-between align-items-lg-center gap-3">
-            <p class="small mb-0">
-                &copy; {{ date('Y') }} SEOLinkBuildings. {{ __('messages.all_rights_reserved') }}
-            </p>
+            <div class="d-flex flex-wrap align-items-center gap-3">
+                <p class="small mb-0">
+                    &copy; {{ date('Y') }} SEOLinkBuildings. {{ __('messages.all_rights_reserved') }}
+                </p>
+                @include('partials.trustpilot-trust', ['compact' => true])
+            </div>
             @include('partials.payment-trust', ['compact' => true])
         </div>
     </div>

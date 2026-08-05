@@ -413,6 +413,8 @@ return [
     'report_problem' => 'Probleem melden',
     'suggestion_box' => 'Suggestiebox',
     'all_rights_reserved' => 'Alle rechten voorbehouden.',
+    'trustpilot_read_reviews' => 'Lees onze reviews',
+    'trustpilot_aria' => 'SEOLinkBuildings-reviews lezen op Trustpilot (opent in nieuw tabblad)',
     'nav_marketplace' => 'Marktplaats',
     'nav_pricing' => 'Prijzen',
     'nav_how_it_works' => 'Hoe het werkt',
