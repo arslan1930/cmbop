@@ -1189,7 +1189,7 @@ document.addEventListener('DOMContentLoaded', function() {
             
             html += `
                 <tr>
-                    <td class="fw-semibold">${escapeHtml(order.order_number)}</td>
+                    <td class="fw-semibold"><span class="orders-id-clamp" title="${escapeHtml(order.order_number)}">${escapeHtml(order.order_number)}</span></td>
                     <td><div class="fw-semibold">${escapeHtml(siteName)}</div><div class="text-muted small"><a href="${safeUrl(siteUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(siteUrl)}</a></div></td>
                     <td>${formatDate(order.created_at)}</td>
                     <td class="fw-semibold text-primary">€${basePrice.toFixed(2)}</td>
@@ -1203,7 +1203,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         <div class="small mb-1">${escapeHtml(paymentMethodName)}</div>
                         <span class="status-badge ${paymentStatusClass}">${capitalize(order.payment_status)}</span>
                     </td>
-                    <td>${escapeHtml(order.reference_code || '-')}</td>
+                    <td><span class="orders-id-clamp" title="${escapeHtml(order.reference_code || '')}">${escapeHtml(order.reference_code || '-')}</span></td>
                     <td>
                         <span class="status-badge ${statusMeta.cls}">${statusMeta.label}</span>
                         <div class="next-step-hint">${escapeHtml(statusMeta.next)}</div>

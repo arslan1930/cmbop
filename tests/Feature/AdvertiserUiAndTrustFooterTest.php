@@ -142,7 +142,21 @@ class AdvertiserUiAndTrustFooterTest extends TestCase
         $this->assertStringNotContainsString('width="150"', $blade);
         $this->assertStringContainsString('orders-action-col', $blade);
         $this->assertStringNotContainsString('/* Dark mode styles */', $blade);
-        $this->assertStringContainsString('orders-id-clamp', $blade);
+    }
+
+    public function test_long_identifiers_are_clamped_in_the_row_template(): void
+    {
+        $blade = $this->bladeSource('orders');
+
+        // The rule existing is not enough — the row template has to apply it, and
+        // `td a { word-break: break-all }` will wrap these cells otherwise.
+        $this->assertStringContainsString('.orders-id-clamp', $blade);
+        $this->assertStringContainsString('white-space: nowrap', $blade);
+        $this->assertSame(2, substr_count($blade, 'class="orders-id-clamp"'));
+        $this->assertStringNotContainsString(
+            '<td class="fw-semibold">${escapeHtml(order.order_number)}</td>',
+            $blade
+        );
     }
 
     public function test_the_four_pages_still_render(): void
