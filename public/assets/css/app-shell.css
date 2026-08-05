@@ -373,6 +373,13 @@ footer,
   min-width: 0;
 }
 .top-navbar.collapsed { left: var(--shell-sidebar-collapsed); }
+
+/* Sticky panels inside page content must clear the sticky topbar, otherwise
+   they scroll underneath it. */
+.sticky-below-topbar {
+  position: sticky;
+  top: calc(var(--shell-topbar-height) + 1rem);
+}
 .top-navbar .mobile-left {
   flex: 1 1 auto;
   min-width: 0;

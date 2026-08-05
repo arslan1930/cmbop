@@ -77,7 +77,7 @@
                     <tr>
                         <th>Invoice</th>
                         <th>Customer</th>
-                        <th>Order</th>
+                        <th class="admin-id-col">Order</th>
                         <th>Amount</th>
                         <th>Status</th>
                         <th>Type</th>
@@ -93,7 +93,9 @@
                                 <div>{{ $invoice->customer_name }}</div>
                                 <div class="text-muted">{{ $invoice->customer_email }}</div>
                             </td>
-                            <td class="small">#{{ $invoice->order_number }}</td>
+                            <td class="small">
+                                <span class="admin-id-clamp" title="{{ $invoice->order_number }}">#{{ $invoice->order_number }}</span>
+                            </td>
                             <td>€{{ number_format((float) $invoice->total_amount, 2) }}</td>
                             <td><span class="badge text-bg-secondary">{{ $invoice->status }}</span></td>
                             <td class="small">{{ $invoice->typeLabel() }}</td>

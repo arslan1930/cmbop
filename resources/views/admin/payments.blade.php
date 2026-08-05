@@ -17,11 +17,11 @@
         <div class="card-body">
             <form id="filterForm" class="row g-3">
                 <div class="col-md-3">
-                    <label class="form-label fw-semibold small text-muted">Search</label>
+                    <label class="form-label fw-semibold small text-muted" for="searchInput">Search</label>
                     <input type="text" id="searchInput" class="form-control form-control-sm" placeholder="Order #, Reference, User...">
                 </div>
                 <div class="col-md-2">
-                    <label class="form-label fw-semibold small text-muted">Payment Status</label>
+                    <label class="form-label fw-semibold small text-muted" for="paymentStatusFilter">Payment Status</label>
                     <select id="paymentStatusFilter" class="form-select form-select-sm">
                         <option value="">All</option>
                         <option value="pending">Pending</option>
@@ -31,7 +31,7 @@
                     </select>
                 </div>
                 <div class="col-md-2">
-                    <label class="form-label fw-semibold small text-muted">Payment Method</label>
+                    <label class="form-label fw-semibold small text-muted" for="paymentMethodFilter">Payment Method</label>
                     <select id="paymentMethodFilter" class="form-select form-select-sm">
                         <option value="">All</option>
                         <option value="card">Credit/Debit Card</option>
@@ -42,7 +42,7 @@
                     </select>
                 </div>
                 <div class="col-md-2">
-                    <label class="form-label fw-semibold small text-muted">Order Status</label>
+                    <label class="form-label fw-semibold small text-muted" for="orderStatusFilter">Order Status</label>
                     <select id="orderStatusFilter" class="form-select form-select-sm">
                         <option value="">All</option>
                         <option value="pending">Pending</option>
@@ -52,10 +52,10 @@
                     </select>
                 </div>
                 <div class="col-md-3">
-                    <label class="form-label fw-semibold small text-muted">Date Range</label>
+                    <label class="form-label fw-semibold small text-muted" for="dateFrom">Date Range</label>
                     <div class="input-group">
-                        <input type="date" id="dateFrom" class="form-control form-control-sm" placeholder="From">
-                        <input type="date" id="dateTo" class="form-control form-control-sm" placeholder="To">
+                        <input type="date" id="dateFrom" class="form-control form-control-sm" placeholder="From" aria-label="Paid from date">
+                        <input type="date" id="dateTo" class="form-control form-control-sm" placeholder="To" aria-label="Paid to date">
                     </div>
                 </div>
                 <div class="col-12">
@@ -78,9 +78,9 @@
                     <thead class="table-light">
                         <tr>
                             <th class="admin-num-col">#</th>
-                            <th>Order #</th>
+                            <th class="admin-id-col">Order #</th>
                             <th>User</th>
-                            <th>Reference</th>
+                            <th class="admin-id-col">Reference</th>
                             <th class="admin-narrow-col">Amount</th>
                             <th>Payment Method</th>
                             <th>Payment Status</th>
@@ -119,7 +119,7 @@
                 <h5 class="modal-title">
                     <i class="fa fa-credit-card me-2"></i> Update Payment Status
                 </h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body p-4">
                 <input type="hidden" id="update_order_id">
@@ -408,14 +408,16 @@ $(document).ready(function() {
             
             html += '<tr>';
             html += '<td class="text-center">' + rowNumber + '</td>';
-            html += '<td><strong>' + escapeHtml(order.order_number) + '</strong></td>';
+            html += '<td><strong class="admin-id-clamp" title="' + escapeHtml(order.order_number) + '">'
+                + escapeHtml(order.order_number) + '</strong></td>';
             html += '<td>';
             html += '<div class="d-flex flex-column">';
             html += '<span class="fw-semibold">' + escapeHtml(order.user ? order.user.name : 'N/A') + '</span>';
             html += '<small class="text-muted">' + escapeHtml(order.user ? order.user.email : 'No email') + '</small>';
             html += '</div>';
             html += '</td>';
-            html += '<td><code class="small">' + escapeHtml(order.reference_code) + '</code></td>';
+            html += '<td><code class="small admin-id-clamp" title="' + escapeHtml(order.reference_code) + '">'
+                + escapeHtml(order.reference_code) + '</code></td>';
             html += '<td class="fw-bold text-primary">€' + parseFloat(order.total_amount).toFixed(2) + '</td>';
             html += '<td>' + paymentMethodBadge + '</td>';
             html += '<td>' + paymentStatusBadge + '</td>';

@@ -60,7 +60,7 @@
                 <table class="table table-hover align-middle mb-0">
                     <thead class="table-light">
                         <tr>
-                            <th>Order</th>
+                            <th class="admin-id-col">Order</th>
                             <th>Advertiser</th>
                             <th>Site / Publisher</th>
                             <th class="admin-status-col">Status</th>
@@ -164,7 +164,8 @@
                     const site = '<div class="fw-semibold slb-text-break">' + escapeHtml(order.site_name || '—') + '</div>'
                         + '<div class="small text-muted slb-text-break">' + escapeHtml(order.publisher_name || '') + '</div>';
                     return '<tr>'
-                        + '<td><strong>#' + escapeHtml(order.order_number) + '</strong></td>'
+                        + '<td><strong class="admin-id-clamp" title="' + escapeHtml(order.order_number) + '">#'
+                            + escapeHtml(order.order_number) + '</strong></td>'
                         + '<td>' + adv + '</td>'
                         + '<td>' + site + '</td>'
                         + '<td>' + statusBadge(order.status) + '</td>'

@@ -54,7 +54,7 @@
                         <th>Comment</th>
                         <th>Status</th>
                         <th>When</th>
-                        <th width="160"></th>
+                        <th class="admin-actions-wide-col"><span class="visually-hidden">Actions</span></th>
                     </tr>
                 </thead>
                 <tbody>
@@ -79,10 +79,13 @@
                                 @endif
                             </td>
                             <td>
-                                @for($i = 1; $i <= 5; $i++)
-                                    <i class="fa-{{ $i <= $rating->rating ? 'solid' : 'regular' }} fa-star {{ $i <= $rating->rating ? 'text-warning' : 'text-muted' }}"></i>
-                                @endfor
-                                <span class="ms-1">{{ $rating->rating }}/5</span>
+                                {{-- Stars are decorative; the score is announced once via aria-label. --}}
+                                <span role="img" aria-label="{{ $rating->rating }} out of 5 stars">
+                                    @for($i = 1; $i <= 5; $i++)
+                                        <i class="fa-{{ $i <= $rating->rating ? 'solid' : 'regular' }} fa-star {{ $i <= $rating->rating ? 'text-warning' : 'text-muted' }}" aria-hidden="true"></i>
+                                    @endfor
+                                </span>
+                                <span class="ms-1" aria-hidden="true">{{ $rating->rating }}/5</span>
                             </td>
                             <td class="small" style="max-width:260px;">{{ $rating->comment ?: '—' }}</td>
                             <td>

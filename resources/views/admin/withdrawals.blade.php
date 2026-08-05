@@ -198,7 +198,7 @@
                 <h5 class="modal-title">
                     <i class="fa fa-info-circle me-2"></i>Withdrawal Details
                 </h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body" id="detailsContent"></div>
             <div class="modal-footer flex-wrap gap-2">

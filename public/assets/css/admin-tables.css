@@ -57,6 +57,28 @@
   width: 6.5rem;
 }
 
+.admin-table-fit .admin-id-col {
+  width: 11rem;
+}
+
+/* Action columns sized in rem rather than hardcoded pixel widths, so they
+   scale with the type scale instead of fighting it. */
+.admin-actions-wide-col {
+  min-width: 10rem;
+}
+
+/* Order numbers and reference codes have no length ceiling, and wrapping one
+   turns a single row into a paragraph. Clamp to one line; the full value stays
+   available through the title attribute. */
+.admin-id-clamp {
+  display: inline-block;
+  max-width: min(11rem, 100%);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: bottom;
+}
+
 .admin-manage-dropdown {
   position: relative;
 }
