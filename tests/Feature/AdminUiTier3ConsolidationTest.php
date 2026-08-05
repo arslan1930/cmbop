@@ -192,4 +192,17 @@ class AdminUiTier3ConsolidationTest extends TestCase
         // The hand-rolled markup is gone.
         $this->assertStringNotContainsString('<a class="page-link" href="#" data-page=', $html);
     }
+
+    public function test_pagination_uses_brand_colours_for_every_admin_table(): void
+    {
+        $components = file_get_contents(public_path('assets/css/admin-components.css'));
+
+        $this->assertStringContainsString('.pagination .page-item.active .page-link', $components);
+        $this->assertStringContainsString('background-color: var(--brand-primary)', $components);
+        $this->assertStringContainsString('.pagination .page-link:focus-visible', $components);
+
+        // The colours used to be inline on payments only.
+        $payments = file_get_contents(resource_path('views/admin/payments.blade.php'));
+        $this->assertStringNotContainsString('#1a585e', $payments);
+    }
 }

@@ -92,6 +92,36 @@
   border-color: #f0d789;
 }
 
+/* ——— Pagination ———
+   Only the payments table used to carry brand pagination colours, inline, so
+   every other admin paginator rendered in Bootstrap blue. Define it once for
+   both the shared JS renderer and Laravel's Bootstrap paginator views. */
+
+.pagination .page-link {
+  color: var(--brand-primary);
+  cursor: pointer;
+  font-size: 13px;
+  padding: 5px 10px;
+}
+
+.pagination .page-item.active .page-link {
+  background-color: var(--brand-primary);
+  border-color: var(--brand-primary);
+  color: #fff;
+}
+
+.pagination .page-item.disabled .page-link {
+  cursor: not-allowed;
+  opacity: 0.6;
+  color: var(--brand-ink-muted);
+}
+
+.pagination .page-link:focus-visible {
+  outline: 2px solid var(--brand-primary);
+  outline-offset: 2px;
+  box-shadow: none;
+}
+
 /* ——— Withdrawals ——— */
 
 .status-badge {
