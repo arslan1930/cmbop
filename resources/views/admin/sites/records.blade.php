@@ -243,7 +243,7 @@
         } catch (err) {
             console.error(err);
             if (typeof Swal !== 'undefined') {
-                Swal.fire({ toast: true, position: 'top-end', icon: 'error', title: 'Could not filter by country', showConfirmButton: false, timer: 2200 });
+                showAppToast('Could not filter by country', 'error');
             }
         } finally {
             if (token === fetchToken) {

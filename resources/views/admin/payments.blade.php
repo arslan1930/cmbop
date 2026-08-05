@@ -446,41 +446,11 @@ $(document).ready(function() {
     }
 
     function renderPagination(pagination) {
-        if (!pagination || pagination.total === 0) {
-            $('#paginationInfo').html('Showing 0 entries');
-            $('#paginationLinks').html('');
-            return;
-        }
-        
-        $('#paginationInfo').html('Showing <strong>' + pagination.from + '</strong> to <strong>' + pagination.to + '</strong> of <strong>' + pagination.total + '</strong> entries');
-        
-        var paginationHtml = '';
-        
-        if (pagination.current_page > 1) {
-            paginationHtml += '<li class="page-item"><a class="page-link" href="#" data-page="' + (pagination.current_page - 1) + '">Previous</a></li>';
-        }
-        
-        var startPage = Math.max(1, pagination.current_page - 2);
-        var endPage = Math.min(pagination.last_page, pagination.current_page + 2);
-        
-        for (var i = startPage; i <= endPage; i++) {
-            var activeClass = i === pagination.current_page ? 'active' : '';
-            paginationHtml += '<li class="page-item ' + activeClass + '"><a class="page-link" href="#" data-page="' + i + '">' + i + '</a></li>';
-        }
-        
-        if (pagination.current_page < pagination.last_page) {
-            paginationHtml += '<li class="page-item"><a class="page-link" href="#" data-page="' + (pagination.current_page + 1) + '">Next</a></li>';
-        }
-        
-        $('#paginationLinks').html(paginationHtml);
-        
-        $('.page-link').off('click').on('click', function(e) {
-            e.preventDefault();
-            var page = $(this).data('page');
-            if (page) {
-                loadPayments(page);
-                $('html, body').animate({ scrollTop: 0 }, 'fast');
-            }
+        renderAdminPagination(pagination, {
+            links: '#paginationLinks',
+            info: '#paginationInfo',
+            label: 'payments',
+            onNavigate: loadPayments,
         });
     }
 });

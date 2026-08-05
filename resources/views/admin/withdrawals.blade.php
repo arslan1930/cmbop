@@ -227,14 +227,7 @@ const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content
     || '{{ csrf_token() }}';
 
 function toast(msg, icon = 'success') {
-    Swal.fire({
-        toast: true,
-        position: 'top-end',
-        icon: icon,
-        title: msg,
-        showConfirmButton: false,
-        timer: 2200
-    });
+    showAppToast(msg, icon);
 }
 
 function escapeHtml(str) {
@@ -434,40 +427,10 @@ function renderWithdrawals(withdrawals) {
 }
 
 function renderPagination(pagination) {
-    if (!pagination || pagination.last_page <= 1) {
-        $('#paginationLinks').html('');
-        return;
-    }
-
-    let paginationHtml = '<nav><ul class="pagination justify-content-center mb-0">';
-
-    if (pagination.current_page > 1) {
-        paginationHtml += `<li class="page-item"><button class="page-link" data-page="${pagination.current_page - 1}">Previous</button></li>`;
-    } else {
-        paginationHtml += `<li class="page-item disabled"><span class="page-link">Previous</span></li>`;
-    }
-
-    for (let i = 1; i <= pagination.last_page; i++) {
-        if (i === pagination.current_page) {
-            paginationHtml += `<li class="page-item active"><span class="page-link">${i}</span></li>`;
-        } else if (i >= pagination.current_page - 2 && i <= pagination.current_page + 2) {
-            paginationHtml += `<li class="page-item"><button class="page-link" data-page="${i}">${i}</button></li>`;
-        }
-    }
-
-    if (pagination.current_page < pagination.last_page) {
-        paginationHtml += `<li class="page-item"><button class="page-link" data-page="${pagination.current_page + 1}">Next</button></li>`;
-    } else {
-        paginationHtml += `<li class="page-item disabled"><span class="page-link">Next</span></li>`;
-    }
-
-    paginationHtml += '</ul></nav>';
-    $('#paginationLinks').html(paginationHtml);
-
-    $('.page-link').off('click').on('click', function(e) {
-        e.preventDefault();
-        const page = $(this).data('page');
-        if (page) loadWithdrawals(page);
+    renderAdminPagination(pagination, {
+        links: '#paginationLinks',
+        label: 'withdrawals',
+        onNavigate: loadWithdrawals,
     });
 }
 

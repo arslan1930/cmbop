@@ -149,12 +149,13 @@
   padding: 14px;
   height: 100%;
   background: var(--surface-1);
-  transition: border-color 0.15s ease, transform 0.15s ease;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
+/* Border and shadow only: lifting a text card shifts everything beside it. */
 .ec-template:hover {
   border-color: var(--brand-primary-soft);
-  transform: translateY(-1px);
+  box-shadow: var(--elevation-hover, 0 6px 18px rgba(15, 23, 42, 0.08));
 }
 
 .ec-template h6 { margin: 0 0 4px; color: var(--brand-ink); font-weight: 700; }

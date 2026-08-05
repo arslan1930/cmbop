@@ -6,21 +6,21 @@
  * the --shell-* tokens. This file carries only what the admin panel styles
  * differently, so the two cannot drift apart.
  *
- * Load order matters: this must come after hover-system.css, otherwise the
- * shared neutral hover wash overrides the brand tint below.
+ * hover-system.css must stay last in the cascade, so the hover rules here are
+ * scoped under body.role-shell-admin to win on specificity rather than order.
  */
 
 /* Admin sidebar marks hover/active with a brand tint rather than the neutral
    wash the other role shells use. */
-#sidebar a.active,
-#sidebar a:hover {
+body.role-shell-admin #sidebar a.active,
+body.role-shell-admin #sidebar a:hover {
   background-color: var(--brand-primary-bg);
   color: var(--brand-primary);
   border-color: var(--brand-primary-border);
 }
 
-#sidebar a.active i,
-#sidebar a:hover i {
+body.role-shell-admin #sidebar a.active i,
+body.role-shell-admin #sidebar a:hover i {
   color: var(--brand-primary);
 }
 
@@ -47,26 +47,26 @@
 }
 
 /* Squared topbar buttons with a brand hover, instead of the shared pill. */
-.topbar-icon-btn {
+body.role-shell-admin .topbar-icon-btn {
   border-radius: var(--radius-sm, 8px);
   color: #495057;
   border-color: var(--border-subtle);
   background: var(--surface-1);
 }
 
-.topbar-icon-btn:hover {
+body.role-shell-admin .topbar-icon-btn:hover {
   background: var(--surface-2);
   color: var(--brand-primary);
   border-color: var(--brand-primary-border);
 }
 
-.top-navbar .dropdown-menu .dropdown-item {
+body.role-shell-admin .top-navbar .dropdown-menu .dropdown-item {
   display: flex;
   align-items: center;
   gap: 8px;
 }
 
 /* Admins have no wallet, so the shared balance block stays hidden. */
-.balance-block {
+body.role-shell-admin .balance-block {
   display: none;
 }

@@ -192,14 +192,7 @@ function canDeleteSiteRow(site) {
 
 /* ================= TOAST ================= */
 function toast(msg, icon='success'){
-    Swal.fire({
-        toast:true,
-        position:'top-end',
-        icon:icon,
-        title:msg,
-        showConfirmButton:false,
-        timer:2000
-    });
+    showAppToast(msg, icon);
 }
 
 /* ================= LOAD SITES ================= */

@@ -99,36 +99,25 @@
                                        title="{{ $toggleLabel }}" aria-label="{{ $toggleLabel }} {{ $blog->title }}">
                                         <i class="fa {{ $blog->status === 'published' ? 'fa-eye-slash' : 'fa-check-circle' }}" aria-hidden="true"></i>
                                     </a>
-                                    <button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="modal"
-                                            data-bs-target="#deleteModal{{ $blog->id }}"
+                                    {{-- Same confirm helper as every other destructive admin action.
+                                         The form lives outside the group so the button stays a direct
+                                         .btn-group child and keeps its grouped shape. --}}
+                                    <button type="submit" form="deleteBlog{{ $blog->id }}"
+                                            class="btn btn-sm btn-outline-danger"
+                                            data-slb-confirm="Delete “{{ $blog->title }}”? This cannot be undone."
+                                            data-slb-confirm-title="Delete blog post?"
+                                            data-slb-confirm-text="Delete"
+                                            data-slb-confirm-danger="1"
                                             title="Delete" aria-label="Delete {{ $blog->title }}">
                                         <i class="fa fa-trash" aria-hidden="true"></i>
                                     </button>
                                 </div>
 
-                                <!-- Delete Modal -->
-                                <div class="modal fade" id="deleteModal{{ $blog->id }}" tabindex="-1">
-                                    <div class="modal-dialog modal-dialog-centered">
-                                        <div class="modal-content">
-                                            <div class="modal-header bg-danger text-white">
-                                                <h5 class="modal-title">Confirm Delete</h5>
-                                                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-                                            </div>
-                                            <div class="modal-body">
-                                                Are you sure you want to delete <strong>{{ $blog->title }}</strong>?
-                                                <br><small class="text-muted">This action cannot be undone.</small>
-                                            </div>
-                                            <div class="modal-footer">
-                                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                                                <form action="{{ route('admin.blogs.destroy', $blog->id) }}" method="POST" class="d-inline">
-                                                    @csrf
-                                                    @method('DELETE')
-                                                    <button type="submit" class="btn btn-danger">Delete</button>
-                                                </form>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
+                                <form id="deleteBlog{{ $blog->id }}" class="d-none"
+                                      action="{{ route('admin.blogs.destroy', $blog->id) }}" method="POST">
+                                    @csrf
+                                    @method('DELETE')
+                                </form>
                             </td>
                         </tr>
                         @empty
