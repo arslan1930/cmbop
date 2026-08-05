@@ -105,6 +105,7 @@
 
 <!-- SEARCH -->
 <div class="mb-3" style="max-width: 400px;">
+    <label class="visually-hidden" for="userSearch">Search users by name, email, or company</label>
     <input type="text" id="userSearch" class="form-control" placeholder="Search users (name, email, company...)">
 </div>
 

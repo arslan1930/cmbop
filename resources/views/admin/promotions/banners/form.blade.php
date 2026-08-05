@@ -139,7 +139,7 @@
         </div>
 
         <div class="col-lg-5">
-            <div class="card border-0 shadow-sm sticky-top" style="top: 1rem;">
+            <div class="card border-0 shadow-sm sticky-below-topbar">
                 <div class="card-header bg-white border-0">
                     <strong><i class="fa fa-eye me-2 text-primary"></i>Live preview</strong>
                     <div class="small text-muted">

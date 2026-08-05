@@ -60,7 +60,7 @@
                             <th>Message</th>
                             <th>Status</th>
                             <th>When</th>
-                            <th width="200"></th>
+                            <th class="admin-actions-wide-col"><span class="visually-hidden">Actions</span></th>
                         </tr>
                     </thead>
                     <tbody>
@@ -97,7 +97,7 @@
                             <th>Suggestion</th>
                             <th>Status</th>
                             <th>When</th>
-                            <th width="200"></th>
+                            <th class="admin-actions-wide-col"><span class="visually-hidden">Actions</span></th>
                         </tr>
                     </thead>
                     <tbody>
@@ -133,7 +133,7 @@
                             <th>Search / notes</th>
                             <th>Status</th>
                             <th>When</th>
-                            <th width="200"></th>
+                            <th class="admin-actions-wide-col"><span class="visually-hidden">Actions</span></th>
                         </tr>
                     </thead>
                     <tbody>
@@ -176,7 +176,7 @@
                             <th>Current owner</th>
                             <th>Verification</th>
                             <th>Status</th>
-                            <th width="220"></th>
+                            <th class="admin-actions-wide-col"><span class="visually-hidden">Actions</span></th>
                         </tr>
                     </thead>
                     <tbody>

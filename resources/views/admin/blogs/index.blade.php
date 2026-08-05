@@ -86,17 +86,23 @@
                             <td>{{ $blog->created_at->format('M d, Y') }}</td>
                             <td>
                                 <div class="btn-group" role="group">
-                                    <a href="{{ route('admin.blogs.show', $blog->id) }}" class="btn btn-sm btn-outline-info" title="View">
-                                        <i class="fa fa-eye"></i>
+                                    <a href="{{ route('admin.blogs.show', $blog->id) }}" class="btn btn-sm btn-outline-info"
+                                       title="View" aria-label="View {{ $blog->title }}">
+                                        <i class="fa fa-eye" aria-hidden="true"></i>
                                     </a>
-                                    <a href="{{ route('admin.blogs.edit', $blog->id) }}" class="btn btn-sm btn-outline-primary" title="Edit">
-                                        <i class="fa fa-edit"></i>
+                                    <a href="{{ route('admin.blogs.edit', $blog->id) }}" class="btn btn-sm btn-outline-primary"
+                                       title="Edit" aria-label="Edit {{ $blog->title }}">
+                                        <i class="fa fa-edit" aria-hidden="true"></i>
                                     </a>
-                                    <a href="{{ route('admin.blogs.toggle-status', $blog->id) }}" class="btn btn-sm btn-outline-warning" title="{{ $blog->status === 'published' ? 'Unpublish' : 'Publish' }}">
-                                        <i class="fa {{ $blog->status === 'published' ? 'fa-eye-slash' : 'fa-check-circle' }}"></i>
+                                    @php $toggleLabel = $blog->status === 'published' ? 'Unpublish' : 'Publish'; @endphp
+                                    <a href="{{ route('admin.blogs.toggle-status', $blog->id) }}" class="btn btn-sm btn-outline-warning"
+                                       title="{{ $toggleLabel }}" aria-label="{{ $toggleLabel }} {{ $blog->title }}">
+                                        <i class="fa {{ $blog->status === 'published' ? 'fa-eye-slash' : 'fa-check-circle' }}" aria-hidden="true"></i>
                                     </a>
-                                    <button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#deleteModal{{ $blog->id }}" title="Delete">
-                                        <i class="fa fa-trash"></i>
+                                    <button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="modal"
+                                            data-bs-target="#deleteModal{{ $blog->id }}"
+                                            title="Delete" aria-label="Delete {{ $blog->title }}">
+                                        <i class="fa fa-trash" aria-hidden="true"></i>
                                     </button>
                                 </div>
 
@@ -106,7 +112,7 @@
                                         <div class="modal-content">
                                             <div class="modal-header bg-danger text-white">
                                                 <h5 class="modal-title">Confirm Delete</h5>
-                                                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                                                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
                                             </div>
                                             <div class="modal-body">
                                                 Are you sure you want to delete <strong>{{ $blog->title }}</strong>?
