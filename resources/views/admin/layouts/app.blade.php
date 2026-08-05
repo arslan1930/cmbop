@@ -25,115 +25,12 @@
     <link href="{{ asset('assets/css/notification-center.css') }}?v={{ @filemtime(public_path('assets/css/notification-center.css')) ?: '5' }}" rel="stylesheet">
     <link href="{{ asset('assets/css/dialog-system.css') }}?v={{ @filemtime(public_path('assets/css/dialog-system.css')) ?: '1' }}" rel="stylesheet">
     <link href="{{ asset('assets/css/hover-system.css') }}?v={{ @filemtime(public_path('assets/css/hover-system.css')) ?: '1' }}" rel="stylesheet">
+    {{-- Admin-only overrides. Must load last so the brand tint wins over the shared hover wash. --}}
+    <link href="{{ asset('assets/css/admin-shell.css') }}?v={{ @filemtime(public_path('assets/css/admin-shell.css')) ?: '1' }}" rel="stylesheet">
+    <link href="{{ asset('assets/css/admin-components.css') }}?v={{ @filemtime(public_path('assets/css/admin-components.css')) ?: '1' }}" rel="stylesheet">
+    <link href="{{ asset('assets/css/staff-sites.css') }}?v={{ @filemtime(public_path('assets/css/staff-sites.css')) ?: '1' }}" rel="stylesheet">
     <script src="{{ asset('assets/js/pulse-badge.js') }}?v={{ @filemtime(public_path('assets/js/pulse-badge.js')) ?: '1' }}"></script>
     <script src="{{ asset('assets/js/glass-tip.js') }}?v={{ @filemtime(public_path('assets/js/glass-tip.js')) ?: '1' }}" defer></script>
-
-    <style>
-        body, html { min-height: 100%; margin: 0; background-color: #f8f9fa; font-family: 'Poppins', system-ui, sans-serif; }
-
-        #sidebar, #content, .top-navbar, footer, #toggleSidebar span.arrow { transition: all 0.3s ease-in-out; }
-
-        /* Sidebar */
-        #sidebar {
-            min-width: 220px; max-width: 220px; background-color: #fff;
-            border-right: 1px solid #ddd; height: 100vh; position: fixed; top: 0; left: 0;
-            display: flex; flex-direction: column; z-index: var(--shell-z-sidebar, 1050);
-        }
-
-        #sidebar .menu { flex-grow: 1; }
-        #sidebar a { display: flex; align-items: center; gap: 10px; padding: 12px 20px; color: #555; text-decoration: none; font-weight: 500; }
-        /* Quiet active/hover — brand tint (shared shell may also apply) */
-        #sidebar a.active,
-        #sidebar a:hover {
-            border-radius: 8px;
-            background-color: var(--brand-primary-bg, #e6f5f5);
-            color: var(--brand-primary, #1a585e);
-            border: 1px solid var(--brand-primary-border, #b8e4e4);
-        }
-        #sidebar a.active i,
-        #sidebar a:hover i {
-            color: var(--brand-primary, #1a585e);
-        }
-        #sidebar.collapsed { width: 70px; min-width: 70px; }
-        /* Label clipping is handled by app-shell.css — do not use font-size:0 (breaks wrap/a11y) */
-        #sidebar.collapsed a { justify-content: center; }
-        #sidebar.collapsed a i { font-size: 18px; }
-
-        .admin-nav-section {
-            padding: 14px 20px 4px;
-            font-size: 11px;
-            font-weight: 600;
-            letter-spacing: 0.06em;
-            text-transform: uppercase;
-            color: #94a3b8;
-            line-height: 1.2;
-        }
-        #sidebar.collapsed .admin-nav-section { display: none; }
-        #sidebar .menu { overflow-y: auto; padding-bottom: 16px; }
-        #sidebar a { margin: 0 8px 2px; padding: 10px 12px; border-radius: 8px; border: 1px solid transparent; font-size: 0.9rem; }
-        #sidebar.collapsed a { margin: 0 8px 2px; }
-        .admin-mode-badge {
-            font-size: 12px;
-            font-weight: 600;
-            color: var(--brand-ink-muted, #75787B);
-            letter-spacing: 0.02em;
-        }
-
-        /* Top Navbar — height/logo wrap rules come from app-shell.css */
-        .top-navbar {
-            left: 220px;
-            background: #fff; border-bottom: 1px solid #ddd;
-            padding: 0 24px;
-            z-index: var(--shell-z-topbar, 1060);
-        }
-        .top-navbar.collapsed { left: 70px; }
-
-        /* Content */
-        #content { margin-left: 220px; padding: 20px 30px 30px; min-height: calc(100vh - 120px); }
-        #content.collapsed { margin-left: 70px; }
-
-        footer { margin-left: 220px; padding: 15px; text-align: center; background: #fff; border-top: 1px solid #ddd; }
-        footer.collapsed { margin-left: 70px; }
-
-        #toggleSidebar span.arrow { display: inline-block; font-size: 18px; }
-        #toggleSidebar.collapsed span.arrow { transform: rotate(180deg); }
-
-        /* Unused in admin top bar — kept for consistency */
-        .balance-block { display: none; }
-
-        .topbar-icon-btn {
-            width: 36px;
-            height: 36px;
-            border-radius: 8px;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            padding: 0;
-            position: relative;
-            color: #495057;
-            border: 1px solid #dee2e6;
-            background: #fff;
-        }
-        .topbar-icon-btn:hover {
-            background: #f8f9fa;
-            color: var(--brand-primary, #1a585e);
-            border-color: #b8e4e4;
-        }
-
-        .top-navbar .dropdown-menu .dropdown-item {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        @media (max-width: 768px) {
-            #sidebar { top: var(--shell-topbar-height, 84px); height: calc(100vh - var(--shell-topbar-height, 84px)); left: -220px; }
-            #sidebar.show { left: 0; }
-            #content, .top-navbar, footer { margin-left: 0 !important; }
-            .top-navbar { left: 0 !important; padding-left: 10px; padding-right: 10px; }
-            .top-navbar .mobile-left { display: flex; align-items: center; gap: 10px; }
-        }
-    </style>
 </head>
 <body class="role-shell-admin">
 

@@ -30,7 +30,7 @@
     <div class="card border-0 shadow-sm">
         <div class="card-body p-0">
             <div class="table-responsive">
-                <table class="table table-hover align-middle mb-0">
+                <table class="table table-hover align-middle mb-0 admin-blogs-table">
                     <thead class="table-light">
                         <tr>
                             <th>ID</th>
@@ -152,10 +152,4 @@
     </div>
 </div>
 
-<style>
-.table td, .table th {
-    padding: 12px 15px;
-    vertical-align: middle;
-}
-</style>
 @endsection

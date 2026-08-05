@@ -20,17 +20,3 @@
 
 <input type="file" id="articleImageReplaceInput" class="d-none" accept="image/*">
 
-<style>
-    #articleImagesManager .article-image-frame {
-        min-height: 140px;
-        max-height: 180px;
-        overflow: hidden;
-        background: #f8f9fa;
-        border-radius: .375rem;
-    }
-    #articleImagesManager .article-image-frame img {
-        max-height: 170px;
-        width: auto;
-        object-fit: contain;
-    }
-</style>

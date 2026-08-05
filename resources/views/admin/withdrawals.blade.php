@@ -214,21 +214,6 @@
     </div>
 </div>
 
-<style>
-.status-badge {
-    padding: 4px 10px;
-    border-radius: 20px;
-    font-size: 11px;
-    font-weight: 600;
-    display: inline-block;
-}
-.status-pending { background-color: #fef3c7; color: #d97706; }
-.status-processing { background-color: #dbeafe; color: #2563eb; }
-.status-completed { background-color: #dcfce7; color: #16a34a; }
-.status-cancelled { background-color: #fee2e2; color: #dc2626; }
-.waiting-urgent { color: #dc2626; font-weight: 600; }
-.dest-cell { max-width: 100%; overflow-wrap: anywhere; word-break: break-word; }
-</style>
 
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>

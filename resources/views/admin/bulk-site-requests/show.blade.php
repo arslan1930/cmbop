@@ -416,65 +416,6 @@
     </div>
 </div>
 
-<style>
-.bulk-done-table-wrap {
-    width: 100%;
-    max-width: 100%;
-    overflow-x: auto;
-}
-.bulk-done-grid {
-    width: 100%;
-    min-width: 960px;
-    table-layout: fixed;
-}
-.bulk-done-grid th,
-.bulk-done-grid td {
-    vertical-align: middle;
-}
-.bulk-done-grid th:nth-child(1),
-.bulk-done-grid td:nth-child(1) {
-    width: 18%;
-    overflow-wrap: anywhere;
-    word-break: break-word;
-    vertical-align: top;
-}
-.bulk-done-grid th:nth-child(2),
-.bulk-done-grid td:nth-child(2) { width: 7%; white-space: nowrap; }
-.bulk-done-grid th:nth-child(3),
-.bulk-done-grid td:nth-child(3),
-.bulk-done-grid th:nth-child(4),
-.bulk-done-grid td:nth-child(4) { width: 12%; }
-.bulk-done-grid th:nth-child(5),
-.bulk-done-grid td:nth-child(5),
-.bulk-done-grid th:nth-child(6),
-.bulk-done-grid td:nth-child(6) { width: 7%; }
-.bulk-done-grid th:nth-child(7),
-.bulk-done-grid td:nth-child(7) { width: 12%; }
-.bulk-done-grid th:nth-child(8),
-.bulk-done-grid td.bulk-done-niches-cell {
-    width: 27%;
-    vertical-align: top;
-    overflow-wrap: normal;
-    word-break: normal;
-}
-.bulk-done-grid .bulk-done-niches-cell .multi-select-wrapper {
-    width: 100%;
-    max-width: 100%;
-}
-.bulk-done-grid .bulk-done-niches-cell .multi-select-input {
-    width: 100%;
-    max-width: 100%;
-}
-.bulk-done-grid .form-select,
-.bulk-done-grid .form-control {
-    max-width: 100%;
-}
-@media (max-width: 1199.98px) {
-    .bulk-done-grid {
-        min-width: 960px;
-    }
-}
-</style>
 <link href="{{ asset('assets/css/multi-select.css') }}?v={{ @filemtime(public_path('assets/css/multi-select.css')) ?: '1' }}" rel="stylesheet">
 <script src="{{ asset('assets/js/jquery-3.6.0.min.js') }}?v={{ @filemtime(public_path('assets/js/jquery-3.6.0.min.js')) ?: '1' }}"></script>
 <script src="{{ asset('js/multi-select.js') }}?v={{ @filemtime(public_path('js/multi-select.js')) ?: '1' }}"></script>
