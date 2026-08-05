@@ -51,6 +51,9 @@ return [
     ],
 
     'trustpilot' => [
+        // Public profile: what visitors read. Used for the footer trust link.
         'review_url' => env('TRUSTPILOT_REVIEW_URL', 'https://www.trustpilot.com/review/seolinkbuildings.com'),
+        // Write-a-review form: where we send customers we are asking for feedback.
+        'evaluate_url' => env('TRUSTPILOT_EVALUATE_URL', 'https://www.trustpilot.com/evaluate/seolinkbuildings.com'),
     ],
 ];

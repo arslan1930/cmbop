@@ -413,6 +413,8 @@ return [
     'report_problem' => 'Signaler un problème',
     'suggestion_box' => 'Boîte à suggestions',
     'all_rights_reserved' => 'Tous droits réservés.',
+    'trustpilot_read_reviews' => 'Lire nos avis',
+    'trustpilot_aria' => 'Lire les avis SEOLinkBuildings sur Trustpilot (ouvre un nouvel onglet)',
     'nav_marketplace' => 'Marketplace',
     'nav_pricing' => 'Tarifs',
     'nav_how_it_works' => 'Comment ça marche',

@@ -522,15 +522,17 @@
         opacity: 1;
         align-self: center;
     }
-    /* Avoid clipping the horizontal More menu inside Bootstrap table-responsive */
+    /* The table has to stay scrollable, or a wide row spills out of the card on
+       narrow desktops. The clip is lifted only while a row's More menu is open,
+       which is the one case where a child needs to escape the container. */
     .library-table .table-responsive {
+        overflow-x: auto;
+        overflow-y: visible;
+    }
+    .library-table.is-menu-open .table-responsive {
         overflow: visible;
     }
     @media (max-width: 767.98px) {
-        .library-table .table-responsive {
-            overflow-x: auto;
-            overflow-y: visible;
-        }
         .library-actions .library-more-menu.dropdown-menu.show {
             flex-wrap: wrap;
             max-width: min(92vw, 28rem);
@@ -627,8 +629,8 @@
                    value="{{ $searchQuery ?? '' }}" placeholder="Title or filename">
         </div>
         <div class="col-6 col-md-2">
-            <label class="form-label small text-muted mb-1">Country</label>
-            <select name="country" class="form-select form-select-sm" onchange="this.form.submit()">
+            <label class="form-label small text-muted mb-1" for="libraryCountryFilter">Country</label>
+            <select name="country" id="libraryCountryFilter" class="form-select form-select-sm" onchange="this.form.submit()">
                 <option value="all" @selected(($countryFilter ?? 'all') === 'all')>All</option>
                 @foreach(($groupedByCountry ?? []) as $countryCode => $count)
                     <option value="{{ $countryCode }}" @selected(($countryFilter ?? 'all') === $countryCode)>
@@ -638,8 +640,8 @@
             </select>
         </div>
         <div class="col-6 col-md-2">
-            <label class="form-label small text-muted mb-1">Language</label>
-            <select name="language" class="form-select form-select-sm" onchange="this.form.submit()">
+            <label class="form-label small text-muted mb-1" for="libraryLanguageFilter">Language</label>
+            <select name="language" id="libraryLanguageFilter" class="form-select form-select-sm" onchange="this.form.submit()">
                 <option value="all" @selected(($languageFilter ?? 'all') === 'all')>All</option>
                 @foreach(($groupedByLanguage ?? []) as $langCode => $count)
                     <option value="{{ $langCode }}" @selected(($languageFilter ?? 'all') === $langCode)>
@@ -988,7 +990,7 @@
         <form class="modal-content" id="libraryUploadForm">
             <div class="modal-header">
                 <h5 class="modal-title">Upload article</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
                 <x-ui.callout variant="attention" class="ui-callout--sm mb-3">
@@ -1053,7 +1055,7 @@
                     <h5 class="modal-title mb-0">Edit article</h5>
                     <div class="article-editor-meta" id="articleEditorMeta"></div>
                 </div>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
                 <div class="mb-3">
@@ -1113,7 +1115,7 @@
                         <i class="fa fa-clone" aria-hidden="true"></i>
                     </button>
                 </div>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
                 <div class="library-preview" style="max-height:none;" id="articlePreviewBody"></div>
@@ -1180,6 +1182,20 @@ document.getElementById('libraryLanguage')?.addEventListener('change', function 
 });
 document.addEventListener('DOMContentLoaded', function () {
     refreshLibraryCountries(libraryPreferredCountry);
+
+    /* The table clips its overflow so wide rows scroll instead of spilling. A row's
+       More menu has to escape that clip, so lift it only while one is open. */
+    const libraryTable = document.querySelector('.library-table');
+    if (libraryTable) {
+        libraryTable.addEventListener('show.bs.dropdown', function () {
+            libraryTable.classList.add('is-menu-open');
+        });
+        libraryTable.addEventListener('hidden.bs.dropdown', function () {
+            if (!libraryTable.querySelector('.dropdown-menu.show')) {
+                libraryTable.classList.remove('is-menu-open');
+            }
+        });
+    }
 });
 document.getElementById('uploadContentModal')?.addEventListener('shown.bs.modal', function () {
     refreshLibraryCountries(libraryPreferredCountry || document.getElementById('libraryCountry')?.value || '');

@@ -76,7 +76,7 @@
                 <div class="row g-2 g-md-3 align-items-end">
                     <!-- Search -->
                     <div class="col-12 col-sm-6 col-xl-3">
-                        <label class="form-label fw-semibold small text-muted mb-1">Search</label>
+                        <label class="form-label fw-semibold small text-muted mb-1" for="searchInput">Search</label>
                         <input type="text" 
                                name="search" 
                                id="searchInput"
@@ -87,7 +87,7 @@
 
                     <!-- Status Filter -->
                     <div class="col-6 col-sm-6 col-xl-2">
-                        <label class="form-label fw-semibold small text-muted mb-1">Order Status</label>
+                        <label class="form-label fw-semibold small text-muted mb-1" for="statusFilter">Order Status</label>
                         <select name="status" id="statusFilter" class="form-select form-select-sm">
                             <option value="">All Status</option>
                             <option value="pending" {{ request('status') == 'pending' ? 'selected' : '' }}>Waiting for payment</option>
@@ -100,7 +100,7 @@
 
                     <!-- Payment Method & Status Filter (Combined) -->
                     <div class="col-6 col-sm-6 col-xl-2">
-                        <label class="form-label fw-semibold small text-muted mb-1">Payment Method</label>
+                        <label class="form-label fw-semibold small text-muted mb-1" for="paymentMethodFilter">Payment Method</label>
                         <select name="payment_method" id="paymentMethodFilter" class="form-select form-select-sm">
                             <option value="">All Methods</option>
                             <option value="wallet" {{ request('payment_method') == 'wallet' ? 'selected' : '' }}>Wallet Balance</option>
@@ -112,7 +112,7 @@
                     </div>
 
                     <div class="col-6 col-sm-6 col-xl-2">
-                        <label class="form-label fw-semibold small text-muted mb-1">Payment Status</label>
+                        <label class="form-label fw-semibold small text-muted mb-1" for="paymentStatusFilter">Payment Status</label>
                         <select name="payment_status" id="paymentStatusFilter" class="form-select form-select-sm">
                             <option value="">All Status</option>
                             <option value="paid" {{ request('payment_status') == 'paid' ? 'selected' : '' }}>Paid</option>
@@ -124,19 +124,21 @@
 
                     <!-- Date Range -->
                     <div class="col-12 col-sm-8 col-xl-3">
-                        <label class="form-label fw-semibold small text-muted mb-1">Date Range</label>
+                        <label class="form-label fw-semibold small text-muted mb-1" for="dateFrom">Date Range</label>
                         <div class="d-flex gap-2 orders-date-range">
                             <input type="date" 
                                    name="date_from" 
                                    id="dateFrom"
                                    class="form-control form-control-sm" 
                                    placeholder="From"
+                                   aria-label="Orders from date"
                                    value="{{ request('date_from') }}">
                             <input type="date" 
                                    name="date_to" 
                                    id="dateTo"
                                    class="form-control form-control-sm" 
                                    placeholder="To"
+                                   aria-label="Orders to date"
                                    value="{{ request('date_to') }}">
                         </div>
                     </div>
@@ -182,7 +184,7 @@
                             <th>Order Status</th>
                             <th>Content Link</th>
                             <th>Live URL</th>
-                            <th width="150">Action</th>
+                            <th class="orders-action-col">Action</th>
                         </tr>
                     </thead>
                     <tbody id="ordersTableBody">
@@ -209,7 +211,7 @@
         <div class="modal-content order-details-content">
             <div class="modal-header py-2">
                 <h5 class="modal-title">Order Details</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body order-details-body">
                 <div id="orderDetailsContent">
@@ -230,7 +232,7 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title">Request changes</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
                 <input type="hidden" id="modificationOrderId">
@@ -502,6 +504,22 @@
     white-space: nowrap;
 }
 
+.orders-action-col {
+    min-width: 9rem;
+}
+
+/* Order numbers and reference codes have no length limit. Left to wrap, one
+   long value turns its row into a paragraph, so clamp to a single line and
+   keep the full value in the title attribute. */
+.orders-id-clamp {
+    display: inline-block;
+    max-width: min(11rem, 100%);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    vertical-align: bottom;
+}
+
 .link-cell a {
     font-size: 12px;
 }
@@ -515,17 +533,6 @@
 .action-btn {
     justify-content: center;
 }
-
-/* Dark mode styles */
-
-
-
-
-
-
-
-
-
 
 td a {
     word-break: break-all;
@@ -617,6 +624,19 @@ document.addEventListener('DOMContentLoaded', function() {
         currentPage = 1;
         syncOrdersFiltersToUrl(1);
         fetchOrders(1);
+    });
+
+    /* Delegated once, so re-rendering the pager cannot stack duplicate handlers. */
+    document.getElementById('paginationNav')?.addEventListener('click', function (e) {
+        const btn = e.target.closest('button[data-page]');
+        if (!btn) return;
+        e.preventDefault();
+        const page = parseInt(btn.dataset.page, 10);
+        if (!page || page < 1) return;
+        currentPage = page;
+        syncOrdersFiltersToUrl(page);
+        fetchOrders(page);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
     });
 
     function hydrateOrdersFiltersFromUrl() {
@@ -740,7 +760,7 @@ document.addEventListener('DOMContentLoaded', function() {
         window._chatOrderId = details.order_id || window._chatOrderId || null;
         const websiteName = escapeHtml(details.website_name || '—');
         const websiteUrl = details.website_url
-            ? `<a class="chat-od__url" href="${escapeHtml(details.website_url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(details.website_url)}</a>`
+            ? `<a class="chat-od__url" href="${safeUrl(details.website_url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(details.website_url)}</a>`
             : '';
         const statusLabel = escapeHtml(details.status_label || details.status || '—');
         const nextAction = escapeHtml(details.next_action || '');
@@ -1628,11 +1648,11 @@ document.addEventListener('DOMContentLoaded', function() {
                     </div>
                     <div class="ov-block">
                         <strong>Site URL</strong>
-                        <div><a href="${escapeHtml(item.site_url)}" target="_blank" class="text-primary">${escapeHtml(item.site_url)} <i class="fa fa-external-link fa-xs"></i></a></div>
+                        <div><a href="${safeUrl(item.site_url)}" target="_blank" rel="noopener noreferrer" class="text-primary">${escapeHtml(item.site_url)} <i class="fa fa-external-link fa-xs"></i></a></div>
                     </div>
                     <div class="ov-block">
                         <strong>Document</strong>
-                        <div>${item.content_link ? `<a href="${escapeHtml(item.content_link)}" class="text-primary"><i class="fa fa-download me-1"></i>${escapeHtml(item.content_original_name || 'Download article')}</a>` : '—'}</div>
+                        <div>${item.content_link ? `<a href="${safeUrl(item.content_link)}" class="text-primary"><i class="fa fa-download me-1"></i>${escapeHtml(item.content_original_name || 'Download article')}</a>` : '—'}</div>
                     </div>
                     <div class="ov-block">
                         <strong>Anchor text</strong>
@@ -1640,11 +1660,11 @@ document.addEventListener('DOMContentLoaded', function() {
                     </div>
                     <div class="ov-block">
                         <strong>Target URL</strong>
-                        <div>${item.target_url ? `<a href="${escapeHtml(item.target_url)}" target="_blank" rel="noopener">${escapeHtml(item.target_url)}</a>` : '—'}</div>
+                        <div>${item.target_url ? `<a href="${safeUrl(item.target_url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(item.target_url)}</a>` : '—'}</div>
                     </div>
                     <div class="ov-block">
                         <strong>Feature image</strong>
-                        <div>${item.feature_image_url ? `<a href="${escapeHtml(item.feature_image_url)}" target="_blank" rel="noopener">${escapeHtml(item.feature_image_url)}</a>` : 'Publisher may choose'}</div>
+                        <div>${item.feature_image_url ? `<a href="${safeUrl(item.feature_image_url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(item.feature_image_url)}</a>` : 'Publisher may choose'}</div>
                     </div>
                     <div class="ov-block">
                         <strong>Compliance</strong>
@@ -1668,44 +1688,53 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function renderPagination(pagination) {
-        if (!pagination || pagination.last_page <= 1) {
-            document.getElementById('paginationNav').innerHTML = '';
+        const total = pagination ? Number(pagination.total || 0) : 0;
+        const countEl = document.getElementById('resultsCount');
+        const navEl = document.getElementById('paginationNav');
+
+        if (!pagination || total === 0) {
+            if (countEl) countEl.textContent = '';
+            if (navEl) navEl.innerHTML = '';
             return;
         }
-        
-        let paginationHtml = '<ul class="pagination justify-content-center">';
-        
-        if (pagination.current_page > 1) {
-            paginationHtml += `<li class="page-item"><button class="page-link" data-page="${pagination.current_page - 1}">Previous</button></li>`;
-        } else {
-            paginationHtml += `<li class="page-item disabled"><span class="page-link">Previous</span></li>`;
+
+        const current = Number(pagination.current_page || 1);
+        const last = Number(pagination.last_page || 1);
+        const perPage = Number(pagination.per_page || 0) || 20;
+        const from = pagination.from != null ? pagination.from : ((current - 1) * perPage) + 1;
+        const to = pagination.to != null ? pagination.to : Math.min(total, current * perPage);
+
+        if (countEl) {
+            countEl.textContent = `Showing ${from}–${to} of ${total} order${total === 1 ? '' : 's'}`;
         }
-        
-        for (let i = 1; i <= pagination.last_page; i++) {
-            if (i === pagination.current_page) {
-                paginationHtml += `<li class="page-item active"><span class="page-link">${i}</span></li>`;
-            } else {
-                paginationHtml += `<li class="page-item"><button class="page-link" data-page="${i}">${i}</button></li>`;
-            }
+
+        if (!navEl) return;
+        if (last <= 1) {
+            navEl.innerHTML = '';
+            return;
         }
-        
-        if (pagination.current_page < pagination.last_page) {
-            paginationHtml += `<li class="page-item"><button class="page-link" data-page="${pagination.current_page + 1}">Next</button></li>`;
-        } else {
-            paginationHtml += `<li class="page-item disabled"><span class="page-link">Next</span></li>`;
+
+        const item = (inner, cls) => `<li class="page-item${cls ? ' ' + cls : ''}">${inner}</li>`;
+        const btn = (page, text, label) =>
+            `<button type="button" class="page-link" data-page="${page}" aria-label="${label}">${text}</button>`;
+        const off = (text) => `<span class="page-link" aria-disabled="true">${text}</span>`;
+
+        let html = '<ul class="pagination pagination-sm justify-content-center mb-0">';
+        html += current > 1 ? item(btn(current - 1, 'Previous', 'Previous page')) : item(off('Previous'), 'disabled');
+
+        /* Window the numbers: enumerating every page breaks once an advertiser
+           has a few hundred orders. */
+        const start = Math.max(1, current - 2);
+        const end = Math.min(last, current + 2);
+        for (let i = start; i <= end; i++) {
+            html += i === current
+                ? item(`<span class="page-link" aria-current="page">${i}</span>`, 'active')
+                : item(btn(i, i, 'Page ' + i));
         }
-        
-        paginationHtml += '</ul>';
-        document.getElementById('paginationNav').innerHTML = paginationHtml;
-        
-        document.querySelectorAll('.page-link[data-page]').forEach(btn => {
-            btn.addEventListener('click', function(e) {
-                e.preventDefault();
-                const page = parseInt(this.dataset.page);
-                currentPage = page;
-                fetchOrders(page);
-            });
-        });
+
+        html += current < last ? item(btn(current + 1, 'Next', 'Next page')) : item(off('Next'), 'disabled');
+        html += '</ul>';
+        navEl.innerHTML = html;
     }
 
     function getStatusClass(status) {
@@ -1751,16 +1780,6 @@ document.addEventListener('DOMContentLoaded', function() {
     function capitalize(str) {
         if (!str) return '';
         return str.charAt(0).toUpperCase() + str.slice(1);
-    }
-
-    function escapeHtml(str) {
-        if (str == null || str === '') return '';
-        return String(str)
-            .replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;')
-            .replace(/"/g, '&quot;')
-            .replace(/'/g, '&#39;');
     }
 });
 </script>

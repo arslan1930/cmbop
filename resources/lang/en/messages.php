@@ -41,6 +41,8 @@ return [
     'report_problem' => 'Report a problem',
     'suggestion_box' => 'Suggestion box',
     'all_rights_reserved' => 'All rights reserved.',
+    'trustpilot_read_reviews' => 'Read our reviews',
+    'trustpilot_aria' => 'Read SEOLinkBuildings reviews on Trustpilot (opens in a new tab)',
 
     // Public navigation
     'nav_marketplace' => 'Marketplace',

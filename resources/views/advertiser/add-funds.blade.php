@@ -343,7 +343,7 @@
                     
                     <!-- Amount Selection -->
                     <div class="mb-4">
-                        <label class="form-label fw-semibold">Select Amount</label>
+                        <label class="form-label fw-semibold" for="customAmount">Select Amount</label>
                         <div class="row g-2 mb-3">
                             @foreach([50, 100, 250, 500, 1000] as $amount)
                                 <div class="col-4 col-md-3 col-lg-2">
@@ -677,8 +677,9 @@
                             <span class="small">Reference Code:</span>
                             <div>
                                 <strong id="referenceCode" class="ref-code font-monospace">XXXXXXXX</strong>
-                                <button type="button" class="btn btn-sm btn-link p-0 ms-2 copy-ref-btn" data-target="referenceCode">
-                                    <i class="fas fa-copy"></i>
+                                <button type="button" class="btn btn-sm btn-link p-0 ms-2 copy-ref-btn"
+                                        data-target="referenceCode" aria-label="Copy reference code">
+                                    <i class="fas fa-copy" aria-hidden="true"></i>
                                 </button>
                             </div>
                         </div>
@@ -781,12 +782,12 @@
         <div class="card-body border-bottom">
             <form id="historyFilters" class="row g-2 align-items-end">
                 <div class="col-md-3">
-                    <label class="form-label fw-semibold small text-muted mb-1">Search</label>
-                    <input type="text" class="form-control form-control-sm" name="search" placeholder="Reference, description…">
+                    <label class="form-label fw-semibold small text-muted mb-1" for="walletHistorySearch">Search</label>
+                    <input type="text" id="walletHistorySearch" class="form-control form-control-sm" name="search" placeholder="Reference, description…">
                 </div>
                 <div class="col-md-2">
-                    <label class="form-label fw-semibold small text-muted mb-1">Type</label>
-                    <select class="form-select form-select-sm" name="type">
+                    <label class="form-label fw-semibold small text-muted mb-1" for="walletHistoryType">Type</label>
+                    <select class="form-select form-select-sm" id="walletHistoryType" name="type">
                         <option value="">All</option>
                         <option value="deposit">Deposit</option>
                         <option value="bonus_credit">Bonus Credit</option>
@@ -798,8 +799,8 @@
                     </select>
                 </div>
                 <div class="col-md-2">
-                    <label class="form-label fw-semibold small text-muted mb-1">Status</label>
-                    <select class="form-select form-select-sm" name="status">
+                    <label class="form-label fw-semibold small text-muted mb-1" for="walletHistoryStatus">Status</label>
+                    <select class="form-select form-select-sm" id="walletHistoryStatus" name="status">
                         <option value="">All</option>
                         <option value="completed">Completed</option>
                         <option value="pending">Pending</option>
@@ -809,12 +810,12 @@
                     </select>
                 </div>
                 <div class="col-md-2">
-                    <label class="form-label fw-semibold small text-muted mb-1">From</label>
-                    <input type="date" class="form-control form-control-sm" name="from">
+                    <label class="form-label fw-semibold small text-muted mb-1" for="walletHistoryFrom">From</label>
+                    <input type="date" id="walletHistoryFrom" class="form-control form-control-sm" name="from">
                 </div>
                 <div class="col-md-2">
-                    <label class="form-label fw-semibold small text-muted mb-1">To</label>
-                    <input type="date" class="form-control form-control-sm" name="to">
+                    <label class="form-label fw-semibold small text-muted mb-1" for="walletHistoryTo">To</label>
+                    <input type="date" id="walletHistoryTo" class="form-control form-control-sm" name="to">
                 </div>
                 <div class="col-md-1 d-flex gap-1">
                     <button type="submit" class="btn btn-sm btn-primary flex-fill">Go</button>
@@ -1604,7 +1605,7 @@
                 <h5 class="modal-title">
                     <i class="fa fa-user-edit me-2"></i> Billing Information
                 </h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
                 <p class="text-muted mb-3">Please provide your billing information for the invoice.</p>
