@@ -93,58 +93,6 @@
     </div>
 </div>
 
-<style>
-.records-country-combo {
-    position: relative;
-}
-.records-country-list {
-    position: absolute;
-    z-index: 30;
-    left: 0;
-    right: 0;
-    top: 100%;
-    margin-top: 0.25rem;
-    max-height: 280px;
-    overflow-y: auto;
-    border: 1px solid #dee2e6;
-    border-radius: 0.375rem;
-    background: #fff;
-}
-.records-country-list .list-group-item {
-    cursor: pointer;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 0.75rem;
-    border-left: 0;
-    border-right: 0;
-}
-.records-country-list .list-group-item:first-child {
-    border-top: 0;
-}
-.records-country-list .list-group-item.active,
-.records-country-list .list-group-item:hover,
-.records-country-list .list-group-item:focus {
-    background: #f1f5f9;
-    color: inherit;
-}
-.records-country-list .count-badge {
-    font-variant-numeric: tabular-nums;
-    min-width: 2rem;
-    text-align: center;
-}
-.records-country-list .is-zero {
-    opacity: 0.65;
-}
-#recordsTableWrap[data-loading="1"] {
-    opacity: 0.55;
-    pointer-events: none;
-}
-.records-country-chip {
-    font-weight: 600;
-    padding: 0.4em 0.65em;
-}
-</style>
 
 <script>
 (function () {
@@ -295,7 +243,7 @@
         } catch (err) {
             console.error(err);
             if (typeof Swal !== 'undefined') {
-                Swal.fire({ toast: true, position: 'top-end', icon: 'error', title: 'Could not filter by country', showConfirmButton: false, timer: 2200 });
+                showAppToast('Could not filter by country', 'error');
             }
         } finally {
             if (token === fetchToken) {

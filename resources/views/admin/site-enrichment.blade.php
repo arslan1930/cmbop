@@ -126,14 +126,7 @@ document.getElementById('rerunFailedBtn')?.addEventListener('click', async () =>
         body: JSON.stringify({ limit: 20 }),
     });
     const data = await res.json();
-    Swal.fire({
-        icon: data.success ? 'success' : 'error',
-        title: data.message || 'Done',
-        toast: true,
-        position: 'top-end',
-        showConfirmButton: false,
-        timer: 2500,
-    });
+    showAppToast(data.message || 'Done', data.success ? 'success' : 'error');
 });
 
 document.querySelectorAll('.enrich-site-btn').forEach(btn => {
@@ -151,14 +144,7 @@ document.querySelectorAll('.enrich-site-btn').forEach(btn => {
                 body: JSON.stringify({ sync: true }),
             });
             const data = await res.json();
-            Swal.fire({
-                icon: data.success ? 'success' : 'error',
-                title: data.message || 'Done',
-                toast: true,
-                position: 'top-end',
-                showConfirmButton: false,
-                timer: 2200,
-            });
+            showAppToast(data.message || 'Done', data.success ? 'success' : 'error');
         } finally {
             btn.disabled = false;
         }

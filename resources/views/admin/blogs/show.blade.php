@@ -77,26 +77,4 @@
     </div>
 </div>
 
-<style>
-.blog-content {
-    font-size: 16px;
-    line-height: 1.8;
-}
-.blog-content img {
-    max-width: 100%;
-    height: auto;
-    display: block;
-    margin: 1rem auto;
-    border-radius: 8px;
-}
-.blog-content figure {
-    margin: 1.25rem 0;
-}
-.blog-content figcaption {
-    text-align: center;
-    color: #64748b;
-    font-size: 0.9rem;
-    margin-top: 0.5rem;
-}
-</style>
 @endsection

@@ -76,8 +76,14 @@ class BulkDoneDraftAndNicheUiTest extends TestCase
 
         $this->assertStringContainsString('Select niches', $html);
         $this->assertStringContainsString('bulk-done-niches-cell', $html);
-        $this->assertStringContainsString('table-layout: fixed', $html);
         $this->assertStringNotContainsString('table-responsive mb-3', $html);
+
+        // The fixed grid layout now lives in the shared stylesheet, not inline.
+        $this->assertStringContainsString('staff-sites.css', $html);
+        $this->assertStringContainsString('bulk-done-grid', $html);
+        $staffCss = file_get_contents(public_path('assets/css/staff-sites.css'));
+        $this->assertStringContainsString('.bulk-done-grid', $staffCss);
+        $this->assertStringContainsString('table-layout: fixed', $staffCss);
 
         $js = file_get_contents(public_path('js/multi-select.js'));
         $this->assertStringContainsString('multi-select-dropdown--fixed', $js);

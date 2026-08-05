@@ -163,7 +163,7 @@ document.getElementById('addRatingBtn')?.addEventListener('click', async () => {
         body: JSON.stringify(form),
     });
     const data = await res.json();
-    Swal.fire({toast:true, position:'top-end', icon: data.success ? 'success':'error', title: data.message || 'Done', showConfirmButton:false, timer:2200});
+    showAppToast(data.message || 'Done', data.success ? 'success' : 'error');
     if (data.success) location.reload();
 });
 
@@ -197,21 +197,26 @@ document.querySelectorAll('.edit-rating').forEach(btn => {
             body: JSON.stringify(form),
         });
         const data = await res.json();
-        Swal.fire({toast:true, position:'top-end', icon: data.success ? 'success':'error', title: data.message || 'Done', showConfirmButton:false, timer:2200});
+        showAppToast(data.message || 'Done', data.success ? 'success' : 'error');
         if (data.success) location.reload();
     });
 });
 
 document.querySelectorAll('.delete-rating').forEach(btn => {
     btn.addEventListener('click', async () => {
-        const confirm = await Swal.fire({title:'Delete rating?', icon:'warning', showCancelButton:true, confirmButtonText:'Delete'});
-        if (!confirm.isConfirmed) return;
+        const confirmed = await slbConfirm({
+            title: 'Delete rating?',
+            text: 'This removes the rating and recalculates the site average.',
+            confirmText: 'Delete',
+            danger: true,
+        });
+        if (!confirmed) return;
         const res = await fetch(`/admin/site-ratings/${btn.dataset.id}`, {
             method: 'DELETE',
             headers: {'X-CSRF-TOKEN': CSRF, 'Accept': 'application/json'},
         });
         const data = await res.json();
-        Swal.fire({toast:true, position:'top-end', icon: data.success ? 'success':'error', title: data.message || 'Done', showConfirmButton:false, timer:2200});
+        showAppToast(data.message || 'Done', data.success ? 'success' : 'error');
         if (data.success) location.reload();
     });
 });

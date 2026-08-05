@@ -1,0 +1,72 @@
+/**
+ * Admin shell overrides.
+ *
+ * Shell structure — sidebar/topbar sizes, collapse behaviour, content and
+ * footer offsets, mobile breakpoints — lives in app-shell.css and is driven by
+ * the --shell-* tokens. This file carries only what the admin panel styles
+ * differently, so the two cannot drift apart.
+ *
+ * hover-system.css must stay last in the cascade, so the hover rules here are
+ * scoped under body.role-shell-admin to win on specificity rather than order.
+ */
+
+/* Admin sidebar marks hover/active with a brand tint rather than the neutral
+   wash the other role shells use. */
+body.role-shell-admin #sidebar a.active,
+body.role-shell-admin #sidebar a:hover {
+  background-color: var(--brand-primary-bg);
+  color: var(--brand-primary);
+  border-color: var(--brand-primary-border);
+}
+
+body.role-shell-admin #sidebar a.active i,
+body.role-shell-admin #sidebar a:hover i {
+  color: var(--brand-primary);
+}
+
+/* Section headings that group the admin nav (Overview, Marketplace, Money…) */
+.admin-nav-section {
+  padding: 14px 20px 4px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #94a3b8;
+  line-height: 1.2;
+}
+
+#sidebar.collapsed .admin-nav-section {
+  display: none;
+}
+
+.admin-mode-badge {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--brand-ink-muted);
+  letter-spacing: 0.02em;
+}
+
+/* Squared topbar buttons with a brand hover, instead of the shared pill. */
+body.role-shell-admin .topbar-icon-btn {
+  border-radius: var(--radius-sm, 8px);
+  color: #495057;
+  border-color: var(--border-subtle);
+  background: var(--surface-1);
+}
+
+body.role-shell-admin .topbar-icon-btn:hover {
+  background: var(--surface-2);
+  color: var(--brand-primary);
+  border-color: var(--brand-primary-border);
+}
+
+body.role-shell-admin .top-navbar .dropdown-menu .dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Admins have no wallet, so the shared balance block stays hidden. */
+body.role-shell-admin .balance-block {
+  display: none;
+}

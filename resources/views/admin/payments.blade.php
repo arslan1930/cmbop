@@ -446,108 +446,14 @@ $(document).ready(function() {
     }
 
     function renderPagination(pagination) {
-        if (!pagination || pagination.total === 0) {
-            $('#paginationInfo').html('Showing 0 entries');
-            $('#paginationLinks').html('');
-            return;
-        }
-        
-        $('#paginationInfo').html('Showing <strong>' + pagination.from + '</strong> to <strong>' + pagination.to + '</strong> of <strong>' + pagination.total + '</strong> entries');
-        
-        var paginationHtml = '';
-        
-        if (pagination.current_page > 1) {
-            paginationHtml += '<li class="page-item"><a class="page-link" href="#" data-page="' + (pagination.current_page - 1) + '">Previous</a></li>';
-        }
-        
-        var startPage = Math.max(1, pagination.current_page - 2);
-        var endPage = Math.min(pagination.last_page, pagination.current_page + 2);
-        
-        for (var i = startPage; i <= endPage; i++) {
-            var activeClass = i === pagination.current_page ? 'active' : '';
-            paginationHtml += '<li class="page-item ' + activeClass + '"><a class="page-link" href="#" data-page="' + i + '">' + i + '</a></li>';
-        }
-        
-        if (pagination.current_page < pagination.last_page) {
-            paginationHtml += '<li class="page-item"><a class="page-link" href="#" data-page="' + (pagination.current_page + 1) + '">Next</a></li>';
-        }
-        
-        $('#paginationLinks').html(paginationHtml);
-        
-        $('.page-link').off('click').on('click', function(e) {
-            e.preventDefault();
-            var page = $(this).data('page');
-            if (page) {
-                loadPayments(page);
-                $('html, body').animate({ scrollTop: 0 }, 'fast');
-            }
+        renderAdminPagination(pagination, {
+            links: '#paginationLinks',
+            info: '#paginationInfo',
+            label: 'payments',
+            onNavigate: loadPayments,
         });
     }
 });
 </script>
 
-<style>
-/* Use more specific selectors to avoid conflicts with layout */
-.admin-payments-container .table > :not(caption) > * > * {
-    padding: 12px 8px;
-    vertical-align: middle;
-}
-
-.admin-payments-container .badge {
-    font-size: 0.75rem;
-    font-weight: 500;
-    border-radius: 6px;
-}
-
-.admin-payments-container .update-payment-btn {
-    white-space: nowrap;
-    padding: 4px 12px;
-}
-
-.modal-dialog-centered {
-    display: flex;
-    align-items: center;
-    min-height: calc(100% - 1rem);
-}
-
-.admin-payments-container code {
-    background-color: #f8f9fa;
-    padding: 2px 6px;
-    border-radius: 4px;
-    font-size: 12px;
-}
-
-/* Pagination styles */
-.pagination .page-link {
-    color: #1a585e;
-    cursor: pointer;
-    font-size: 13px;
-    padding: 5px 10px;
-}
-
-.pagination .active .page-link {
-    background-color: #1a585e;
-    border-color: #1a585e;
-    color: white;
-}
-
-.pagination .page-item.disabled .page-link {
-    cursor: not-allowed;
-    opacity: 0.6;
-}
-
-/* Card styles */
-.card.border-0 {
-    border: none !important;
-}
-
-.shadow-sm {
-    box-shadow: 0 .125rem .25rem rgba(0,0,0,.075) !important;
-}
-
-/* Dark mode support */
-
-
-
-</style>
 @endsection

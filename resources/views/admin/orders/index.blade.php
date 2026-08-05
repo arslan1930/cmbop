@@ -176,15 +176,12 @@
                         + '</tr>';
                 }).join('');
 
-                const p = json.pagination;
-                document.getElementById('ordersPaginationMeta').textContent =
-                    'Showing page ' + p.current_page + ' of ' + p.last_page + ' · ' + p.total + ' orders';
-
-                let pagHtml = '<nav><ul class="pagination pagination-sm mb-0">';
-                pagHtml += '<li class="page-item' + (p.current_page <= 1 ? ' disabled' : '') + '"><a class="page-link" href="#" data-page="' + (p.current_page - 1) + '">Prev</a></li>';
-                pagHtml += '<li class="page-item' + (p.current_page >= p.last_page ? ' disabled' : '') + '"><a class="page-link" href="#" data-page="' + (p.current_page + 1) + '">Next</a></li>';
-                pagHtml += '</ul></nav>';
-                document.getElementById('ordersPagination').innerHTML = pagHtml;
+                renderAdminPagination(json.pagination, {
+                    links: '#ordersPagination',
+                    info: '#ordersPaginationMeta',
+                    label: 'orders',
+                    onNavigate: loadOrders,
+                });
             })
             .catch(() => {
                 body.innerHTML = '<tr><td colspan="8" class="text-center text-danger py-4">Failed to load orders</td></tr>';
@@ -198,13 +195,7 @@
     document.getElementById('resetFiltersBtn').addEventListener('click', function () {
         setTimeout(() => loadOrders(1), 0);
     });
-    document.getElementById('ordersPagination').addEventListener('click', function (e) {
-        const link = e.target.closest('[data-page]');
-        if (!link) return;
-        e.preventDefault();
-        const page = parseInt(link.getAttribute('data-page'), 10);
-        if (page >= 1) loadOrders(page);
-    });
+    {{-- Page clicks are handled by renderAdminPagination's delegated listener. --}}
 
     loadOrders(1);
 })();
