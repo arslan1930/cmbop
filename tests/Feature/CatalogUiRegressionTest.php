@@ -132,12 +132,21 @@ class CatalogUiRegressionTest extends TestCase
         $this->assertStringContainsString('catalog-site-controls', $html);
         $this->assertStringContainsString('expand-arrow', $html);
         $this->assertStringContainsString('fa-eye', $html);
-        // Verified / NEW / eye / open share one centerline cluster on the domain row.
+        // NEW / Verified / eye / open pack against the domain (no flex-grow gap).
         $css = file_get_contents(public_path('assets/css/catalog.css'));
         $this->assertStringContainsString('.catalog-site-controls', $css);
         $this->assertMatchesRegularExpression(
-            '/\.catalog-site-actions \.catalog-url-eye \{[\s\S]*?height:\s*22px;/',
+            '/\.catalog-site-url \{[\s\S]*?flex:\s*0 1 auto;/',
             $css
+        );
+        $this->assertMatchesRegularExpression(
+            '/\.catalog-site-actions \.catalog-url-eye,[\s\S]*?\.site-open-link \{[\s\S]*?height:\s*20px;/',
+            $css
+        );
+        // Order: NEW before Verified in the desktop cluster.
+        $this->assertMatchesRegularExpression(
+            '/catalog-site-badges[\s\S]*?site-badge-new[\s\S]*?site-chip--verified[\s\S]*?catalog-site-actions/s',
+            $html
         );
     }
 

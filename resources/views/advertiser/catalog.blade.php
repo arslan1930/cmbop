@@ -765,10 +765,21 @@
                                 {{ $displayHost }}
                             </span>
 
-                            {{-- One control cluster: Verified · NEW · eye · open · Details.
-                                 Sized/aligned together so chips and icons share one centerline. --}}
+                            {{-- Packed against the domain: NEW · Verified · eye · open · Details. --}}
                             <span class="catalog-site-controls">
                                 <span class="catalog-site-badges">
+                                    @if($isNew)
+                                        <button type="button"
+                                                class="site-badge-new"
+                                                data-glass-tip
+                                                data-glass-tip-title="New Listing"
+                                                data-glass-tip-body="Added in the last 30 days — fresh inventory worth reviewing early."
+                                                data-glass-tip-placement="top"
+                                                aria-label="New listing">
+                                            NEW
+                                        </button>
+                                    @endif
+
                                     @if($site->verified)
                                         <button type="button"
                                                 class="site-chip site-chip--verified"
@@ -779,18 +790,6 @@
                                                 aria-label="Verified publisher">
                                             <i class="fa-solid fa-circle-check" aria-hidden="true"></i>
                                             <span>Verified</span>
-                                        </button>
-                                    @endif
-
-                                    @if($isNew)
-                                        <button type="button"
-                                                class="site-badge-new"
-                                                data-glass-tip
-                                                data-glass-tip-title="New Listing"
-                                                data-glass-tip-body="Added in the last 30 days — fresh inventory worth reviewing early."
-                                                data-glass-tip-placement="top"
-                                                aria-label="New listing">
-                                            NEW
                                         </button>
                                     @endif
                                 </span>

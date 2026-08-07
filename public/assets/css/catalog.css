@@ -1315,33 +1315,37 @@ body:has(.catalog-page) {
     text-overflow: ellipsis;
     white-space: nowrap;
     min-width: 0;
-    flex: 1 1 auto;
+    /* Grow only when the cell is tight — never shove chips to the far right. */
+    flex: 0 1 auto;
+    max-width: 100%;
 }
 
 .catalog-site-meta {
     font-size: 12.5px;
 }
 
-/* Host + Verified/NEW + actions stay on one nowrap row.
+/* Host + NEW/Verified/eye/open stay packed on one nowrap row.
    Deal chips (Featured / sale / bulk) live on .catalog-site-deals below so
    they never displace status chips. */
 .catalog-site-title-row {
     display: flex;
     flex-wrap: nowrap;
     align-items: center;
-    gap: 8px;
+    justify-content: flex-start;
+    gap: 4px;
     min-width: 0;
     width: 100%;
 }
 
-/* Verified · NEW · eye · open · Details — one cluster on the domain line. */
+/* NEW · Verified · eye · open — snug cluster immediately after the domain. */
 .catalog-site-controls {
     display: inline-flex;
     flex-wrap: nowrap;
     align-items: center;
-    gap: 6px;
+    gap: 3px;
     flex: 0 0 auto;
     min-height: 22px;
+    margin-left: 0;
 }
 
 .catalog-site-badges,
@@ -1349,21 +1353,22 @@ body:has(.catalog-page) {
     display: inline-flex;
     flex-wrap: nowrap;
     align-items: center;
-    gap: 6px;
+    gap: 3px;
     flex: 0 0 auto;
 }
 
 /* Compact icons match the 20–22px chip height (not the 36px quiet-button tile). */
 .catalog-site-actions .catalog-url-eye,
-.catalog-site-actions .site-open-link,
-.catalog-site-actions .catalog-details-toggle {
+.catalog-site-actions .site-open-link {
     display: inline-flex;
     align-items: center;
     justify-content: center;
     flex: 0 0 auto;
     box-sizing: border-box;
-    height: 22px;
-    min-height: 22px;
+    width: 20px;
+    min-width: 20px;
+    height: 20px;
+    min-height: 20px;
     padding: 0;
     line-height: 1;
     text-decoration: none;
@@ -1371,9 +1376,7 @@ body:has(.catalog-page) {
 }
 
 .catalog-site-actions .catalog-url-eye {
-    width: 22px;
-    min-width: 22px;
-    font-size: 14px;
+    font-size: 13px;
     color: #64748b;
     border: 0;
     background: transparent;
@@ -1386,8 +1389,6 @@ body:has(.catalog-page) {
 }
 
 .catalog-site-actions .site-open-link {
-    width: 22px;
-    min-width: 22px;
     color: #64748b;
 }
 
@@ -1396,17 +1397,27 @@ body:has(.catalog-page) {
 }
 
 .catalog-site-actions .site-open-link i {
-    font-size: 12px;
+    font-size: 11px;
 }
 
 .catalog-site-actions .catalog-details-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    box-sizing: border-box;
+    height: 20px;
+    min-height: 20px;
     gap: 2px;
-    padding: 0 4px;
-    font-size: 12.5px;
+    padding: 0 2px;
+    margin-left: 2px;
+    font-size: 12px;
+    line-height: 1;
     color: #64748b;
     border: 0;
     background: transparent;
     border-radius: 4px;
+    text-decoration: none;
 }
 
 .catalog-site-actions .catalog-details-toggle:hover {
