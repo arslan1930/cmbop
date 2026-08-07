@@ -129,9 +129,16 @@ class CatalogUiRegressionTest extends TestCase
 
         $this->assertStringContainsString('reveal-url', $html);
         $this->assertStringContainsString('catalog-url-eye', $html);
-        $this->assertStringContainsString('catalog-site-details-row', $html);
+        $this->assertStringContainsString('catalog-site-controls', $html);
         $this->assertStringContainsString('expand-arrow', $html);
         $this->assertStringContainsString('fa-eye', $html);
+        // Verified / NEW / eye / open share one centerline cluster on the domain row.
+        $css = file_get_contents(public_path('assets/css/catalog.css'));
+        $this->assertStringContainsString('.catalog-site-controls', $css);
+        $this->assertMatchesRegularExpression(
+            '/\.catalog-site-actions \.catalog-url-eye \{[\s\S]*?height:\s*22px;/',
+            $css
+        );
     }
 
     public function test_shell_css_caps_pagination_svg_size(): void

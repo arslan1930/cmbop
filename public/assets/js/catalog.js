@@ -1359,7 +1359,7 @@ document.addEventListener('DOMContentLoaded', function() {
         // table no longer expands on whole-row click — only .expand-arrow does —
         // so this mainly protects any leftover delegated handlers.
         return !!e.target.closest(
-            'button, a, input, label, select, textarea, .reveal-url, .hide-url, .toggle-url, .catalog-url-eye, .expand-arrow, .btn-icon-quiet, .site-open-link, .buy-now, .favorite-btn, .blacklist-btn, .btn-claim-site, .copy-example-url, .sensitive-price-checkbox, .form-check-label, .site-chip, .site-badge-new, .catalog-site-actions, .catalog-site-details-row'
+            'button, a, input, label, select, textarea, .reveal-url, .hide-url, .toggle-url, .catalog-url-eye, .expand-arrow, .btn-icon-quiet, .site-open-link, .buy-now, .favorite-btn, .blacklist-btn, .btn-claim-site, .copy-example-url, .sensitive-price-checkbox, .form-check-label, .site-chip, .site-badge-new, .catalog-site-actions, .catalog-site-controls'
         );
     }
 

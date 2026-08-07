@@ -1334,39 +1334,90 @@ body:has(.catalog-page) {
     width: 100%;
 }
 
+/* Verified · NEW · eye · open · Details — one cluster on the domain line. */
+.catalog-site-controls {
+    display: inline-flex;
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: 6px;
+    flex: 0 0 auto;
+    min-height: 22px;
+}
+
 .catalog-site-badges,
 .catalog-site-actions {
     display: inline-flex;
     flex-wrap: nowrap;
     align-items: center;
-    gap: 4px;
+    gap: 6px;
     flex: 0 0 auto;
-    position: relative;
-    z-index: 2;
 }
 
-/* Eye / open stay clickable above neighbouring text; Details is on the next row. */
+/* Compact icons match the 20–22px chip height (not the 36px quiet-button tile). */
 .catalog-site-actions .catalog-url-eye,
-.catalog-site-actions .site-open-link {
-    position: relative;
-    z-index: 3;
+.catalog-site-actions .site-open-link,
+.catalog-site-actions .catalog-details-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     flex: 0 0 auto;
-    font-size: 15px;
+    box-sizing: border-box;
+    height: 22px;
+    min-height: 22px;
+    padding: 0;
+    line-height: 1;
+    text-decoration: none;
+    vertical-align: middle;
+}
+
+.catalog-site-actions .catalog-url-eye {
+    width: 22px;
+    min-width: 22px;
+    font-size: 14px;
+    color: #64748b;
+    border: 0;
+    background: transparent;
+    border-radius: 4px;
+}
+
+.catalog-site-actions .catalog-url-eye:hover {
+    color: #334155;
+    background: var(--hover-2, rgba(15, 23, 42, 0.075));
+}
+
+.catalog-site-actions .site-open-link {
+    width: 22px;
+    min-width: 22px;
+    color: #64748b;
+}
+
+.catalog-site-actions .site-open-link:hover {
+    color: #334155;
 }
 
 .catalog-site-actions .site-open-link i {
-    font-size: 13px;
+    font-size: 12px;
 }
 
-.catalog-site-details-row {
-    display: flex;
-    align-items: center;
-    min-height: 1.25rem;
-}
-
-.catalog-site-details-row .catalog-details-toggle {
+.catalog-site-actions .catalog-details-toggle {
+    gap: 2px;
+    padding: 0 4px;
     font-size: 12.5px;
-    line-height: 1.2;
+    color: #64748b;
+    border: 0;
+    background: transparent;
+    border-radius: 4px;
+}
+
+.catalog-site-actions .catalog-details-toggle:hover {
+    color: #334155;
+    background: var(--hover-2, rgba(15, 23, 42, 0.075));
+}
+
+.catalog-site-controls .site-chip,
+.catalog-site-controls .site-badge-new {
+    flex: 0 0 auto;
+    align-self: center;
 }
 
 .catalog-site-deals {

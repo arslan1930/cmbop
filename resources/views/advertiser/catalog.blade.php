@@ -765,81 +765,81 @@
                                 {{ $displayHost }}
                             </span>
 
-                            <span class="catalog-site-badges">
-                            @if($site->verified)
-                                <button type="button"
-                                        class="site-chip site-chip--verified"
-                                        data-glass-tip
-                                        data-glass-tip-title="Verified Publisher"
-                                        data-glass-tip-body="This publisher has successfully completed our verification process and meets our platform's quality standards."
-                                        data-glass-tip-placement="top"
-                                        aria-label="Verified publisher">
-                                    <i class="fa-solid fa-circle-check" aria-hidden="true"></i>
-                                    <span>Verified</span>
-                                </button>
-                            @endif
+                            {{-- One control cluster: Verified · NEW · eye · open · Details.
+                                 Sized/aligned together so chips and icons share one centerline. --}}
+                            <span class="catalog-site-controls">
+                                <span class="catalog-site-badges">
+                                    @if($site->verified)
+                                        <button type="button"
+                                                class="site-chip site-chip--verified"
+                                                data-glass-tip
+                                                data-glass-tip-title="Verified Publisher"
+                                                data-glass-tip-body="This publisher has successfully completed our verification process and meets our platform's quality standards."
+                                                data-glass-tip-placement="top"
+                                                aria-label="Verified publisher">
+                                            <i class="fa-solid fa-circle-check" aria-hidden="true"></i>
+                                            <span>Verified</span>
+                                        </button>
+                                    @endif
 
-                            @if($isNew)
-                                <button type="button"
-                                        class="site-badge-new"
-                                        data-glass-tip
-                                        data-glass-tip-title="New Listing"
-                                        data-glass-tip-body="Added in the last 30 days — fresh inventory worth reviewing early."
-                                        data-glass-tip-placement="top"
-                                        aria-label="New listing">
-                                    NEW
-                                </button>
-                            @endif
+                                    @if($isNew)
+                                        <button type="button"
+                                                class="site-badge-new"
+                                                data-glass-tip
+                                                data-glass-tip-title="New Listing"
+                                                data-glass-tip-body="Added in the last 30 days — fresh inventory worth reviewing early."
+                                                data-glass-tip-placement="top"
+                                                aria-label="New listing">
+                                            NEW
+                                        </button>
+                                    @endif
+                                </span>
+
+                                <span class="catalog-site-actions">
+                                    <button type="button"
+                                            class="btn btn-sm btn-link text-secondary p-0 reveal-url catalog-url-eye {{ $canSeeUrl ? 'd-none' : '' }}"
+                                            data-site-id="{{ $site->id }}"
+                                            id="url-reveal-{{ $site->id }}"
+                                            title="Show the full website address"
+                                            aria-label="Show the full website address">
+                                        <i class="fa-regular fa-eye" aria-hidden="true"></i>
+                                    </button>
+
+                                    {{-- Sticky hide: persists until they click the eye again.
+                                         The disclosure audit row stays; only display flips. --}}
+                                    <button type="button"
+                                            class="btn btn-sm btn-link text-secondary p-0 hide-url catalog-url-eye {{ $canSeeUrl ? '' : 'd-none' }}"
+                                            data-site-id="{{ $site->id }}"
+                                            id="url-hide-{{ $site->id }}"
+                                            title="Hide this address"
+                                            aria-label="Hide this address">
+                                        <i class="fa-regular fa-eye-slash" aria-hidden="true"></i>
+                                    </button>
+
+                                    {{-- Points at our own redirect, never the domain, so the
+                                         row offers a way to inspect the site without printing
+                                         its address for anyone reading the page source. --}}
+                                    <a href="{{ route('advertiser.catalog.visit', $site->id) }}"
+                                       target="_blank"
+                                       rel="noopener noreferrer"
+                                       class="text-muted site-open-link"
+                                       id="url-open-{{ $site->id }}"
+                                       title="Open site in a new tab"
+                                       aria-label="Open site in a new tab">
+                                        <i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i>
+                                    </a>
+
+                                    <button type="button"
+                                            class="btn btn-sm btn-link text-secondary p-0 expand-arrow catalog-details-toggle"
+                                            id="arrow-{{ $site->id }}"
+                                            aria-label="Show details for {{ $site->site_name }}"
+                                            aria-expanded="false"
+                                            aria-controls="site-details-{{ $site->id }}">
+                                        <span class="catalog-details-toggle__label">Details</span>
+                                        <i class="fa-solid fa-chevron-down ms-1" aria-hidden="true"></i>
+                                    </button>
+                                </span>
                             </span>
-
-                            <span class="catalog-site-actions">
-                            <button type="button"
-                                    class="btn btn-sm btn-link text-secondary p-0 reveal-url btn-icon-quiet catalog-url-eye {{ $canSeeUrl ? 'd-none' : '' }}"
-                                    data-site-id="{{ $site->id }}"
-                                    id="url-reveal-{{ $site->id }}"
-                                    title="Show the full website address"
-                                    aria-label="Show the full website address">
-                                <i class="fa-regular fa-eye" aria-hidden="true"></i>
-                            </button>
-
-                            {{-- Sticky hide: persists until they click the eye again.
-                                 The disclosure audit row stays; only display flips. --}}
-                            <button type="button"
-                                    class="btn btn-sm btn-link text-secondary p-0 hide-url btn-icon-quiet catalog-url-eye {{ $canSeeUrl ? '' : 'd-none' }}"
-                                    data-site-id="{{ $site->id }}"
-                                    id="url-hide-{{ $site->id }}"
-                                    title="Hide this address"
-                                    aria-label="Hide this address">
-                                <i class="fa-regular fa-eye-slash" aria-hidden="true"></i>
-                            </button>
-
-                            {{-- Points at our own redirect, never the domain, so the
-                                 row offers a way to inspect the site without printing
-                                 its address for anyone reading the page source. --}}
-                            <a href="{{ route('advertiser.catalog.visit', $site->id) }}"
-                               target="_blank"
-                               rel="noopener noreferrer"
-                               class="text-muted site-open-link btn-icon-quiet"
-                               id="url-open-{{ $site->id }}"
-                               title="Open site in a new tab"
-                               aria-label="Open site in a new tab">
-                                <i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i>
-                            </a>
-                            </span>
-                        </div>
-
-                        {{-- Details lives on its own row so it cannot steal clicks
-                             from the eye / open controls in the title row. --}}
-                        <div class="catalog-site-details-row">
-                            <button type="button"
-                                    class="btn btn-sm btn-link text-secondary p-0 expand-arrow catalog-details-toggle"
-                                    id="arrow-{{ $site->id }}"
-                                    aria-label="Show details for {{ $site->site_name }}"
-                                    aria-expanded="false"
-                                    aria-controls="site-details-{{ $site->id }}">
-                                <span class="catalog-details-toggle__label">Details</span>
-                                <i class="fa-solid fa-chevron-down ms-1" aria-hidden="true"></i>
-                            </button>
                         </div>
 
                         @if($site->isFeatured() || $site->hasActiveCustomDiscount() || $site->joinsBulkDiscount())
