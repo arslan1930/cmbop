@@ -812,10 +812,11 @@
                                                 data-glass-tip-body="This publisher has successfully completed our verification process and meets our platform's quality standards."
                                                 data-glass-tip-placement="top"
                                                 aria-label="Verified publisher">
-                                            <img src="{{ asset('assets/img/verified-check.svg') }}"
+                                            <img src="{{ asset('assets/img/verified-check.png') }}"
                                                  alt=""
                                                  width="18"
                                                  height="18"
+                                                 srcset="{{ asset('assets/img/verified-check.png') }} 1x, {{ asset('assets/img/verified-check@2x.png') }} 2x"
                                                  decoding="async">
                                         </button>
                                     @endif
@@ -1454,10 +1455,11 @@
                                     data-glass-tip-body="This publisher has successfully completed our verification process and meets our platform's quality standards."
                                     data-glass-tip-placement="top"
                                     aria-label="Verified publisher">
-                                <img src="{{ asset('assets/img/verified-check.svg') }}"
+                                <img src="{{ asset('assets/img/verified-check.png') }}"
                                      alt=""
                                      width="18"
                                      height="18"
+                                     srcset="{{ asset('assets/img/verified-check.png') }} 1x, {{ asset('assets/img/verified-check@2x.png') }} 2x"
                                      decoding="async">
                             </button>
                         @endif
