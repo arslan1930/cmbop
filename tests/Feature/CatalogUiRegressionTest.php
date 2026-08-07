@@ -148,7 +148,7 @@ class CatalogUiRegressionTest extends TestCase
             '/catalog-site-controls[\s\S]*?catalog-url-eye[\s\S]*?site-badge-new[\s\S]*?catalog-verified-mark/s',
             $html
         );
-        $this->assertStringContainsString('verified-check.svg', $html);
+        $this->assertStringContainsString('verified-check.png', $html);
         $this->assertStringContainsString('Verified Publisher', $html);
     }
 
