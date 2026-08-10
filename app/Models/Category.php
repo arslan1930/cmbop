@@ -12,7 +12,7 @@ class Category extends Model
     /**
      * Niches whose canonical names contain commas — catalog must never treat
      * those commas as multi-select separators. Keep in sync with
-     * CategoriesTableSeeder / CatalogController::getAvailableCategories.
+     * CategoriesTableSeeder (DB is the catalog picker source of truth).
      *
      * @var list<string>
      */
@@ -25,6 +25,42 @@ class Category extends Model
     public function sites()
     {
         return $this->hasMany(Site::class, 'category', 'name');
+    }
+
+    /**
+     * Catalog filter options from the categories table (publisher/admin source of truth).
+     *
+     * @return list<array{name: string, group: string}>
+     */
+    public static function catalogPickerRows(): array
+    {
+        return Cache::remember('category_catalog_picker_rows', 300, function () {
+            return static::query()
+                ->orderBy('group')
+                ->orderBy('name')
+                ->get(['name', 'group'])
+                ->map(static fn (self $row): array => [
+                    'name' => (string) $row->name,
+                    'group' => trim((string) ($row->group ?? '')),
+                ])
+                ->values()
+                ->all();
+        });
+    }
+
+    /**
+     * Flat A–Z niche names for the catalog multi-select + JS known-names list.
+     *
+     * @return list<string>
+     */
+    public static function catalogPickerNames(): array
+    {
+        return collect(self::catalogPickerRows())
+            ->pluck('name')
+            ->unique()
+            ->sort()
+            ->values()
+            ->all();
     }
 
     /**
@@ -346,5 +382,6 @@ class Category extends Model
     public static function flushNicheLookupCache(): void
     {
         Cache::forget('category_niche_lookup_maps');
+        Cache::forget('category_catalog_picker_rows');
     }
 }

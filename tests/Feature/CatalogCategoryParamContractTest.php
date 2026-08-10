@@ -2,7 +2,6 @@
 
 namespace Tests\Feature;
 
-use App\Http\Controllers\Advertiser\CatalogController;
 use App\Models\Category;
 use App\Models\Role;
 use App\Models\Site;
@@ -75,20 +74,20 @@ class CatalogCategoryParamContractTest extends TestCase
         ]);
     }
 
-    public function test_hardcoded_catalog_list_includes_all_comma_niches(): void
+    public function test_catalog_picker_options_come_from_categories_table(): void
     {
-        // Regression: CatalogController::getAvailableCategories must not drift
-        // away from the comma-containing fixtures / DB seeder.
-        $controller = app(CatalogController::class);
-        $method = new \ReflectionMethod($controller, 'getAvailableCategories');
-        $method->setAccessible(true);
-        /** @var list<array{name: string, group: string}> $hardcoded */
-        $hardcoded = $method->invoke($controller);
-        $names = collect($hardcoded)->pluck('name')->all();
+        $names = Category::catalogPickerNames();
 
+        $this->assertNotEmpty($names);
         foreach (Category::NICHES_CONTAINING_COMMA as $niche) {
             $this->assertContains($niche, $names);
         }
+
+        $dbNames = Category::query()->orderBy('name')->pluck('name')->all();
+        sort($dbNames);
+        $sortedPicker = $names;
+        sort($sortedPicker);
+        $this->assertSame($dbNames, $sortedPicker, 'Catalog picker must equal DB category names.');
     }
 
     public function test_category_query_with_comma_niche_matches_exact_site_not_halves(): void

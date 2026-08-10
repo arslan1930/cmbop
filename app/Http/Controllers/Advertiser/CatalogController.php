@@ -144,82 +144,14 @@ class CatalogController extends Controller
     }
 
     /**
-     * Get all available categories with their groups
+     * Catalog niche options — loaded from the categories table (same source as
+     * publisher/admin). Prefer Category::catalogPickerRows() / catalogPickerNames().
+     *
+     * @return list<array{name: string, group: string}>
      */
-    private function getAvailableCategories()
+    private function getAvailableCategories(): array
     {
-        return [
-            // Business & Finance
-            ['name' => 'Business & Finance', 'group' => 'Business & Finance'],
-            ['name' => 'Banking & Insurance', 'group' => 'Business & Finance'],
-            ['name' => 'Crypto & Blockchain', 'group' => 'Business & Finance'],
-            ['name' => 'Real Estate & Property', 'group' => 'Business & Finance'],
-            ['name' => 'Construction & Architecture', 'group' => 'Business & Finance'],
-            ['name' => 'Legal Services', 'group' => 'Business & Finance'],
-            ['name' => 'Marketing, PR & Advertising', 'group' => 'Business & Finance'],
-            ['name' => 'SaaS & B2B Software', 'group' => 'Business & Finance'],
-            ['name' => 'Finance for SMEs', 'group' => 'Business & Finance'],
-
-            // Technology
-            ['name' => 'Technology & Gadgets', 'group' => 'Technology'],
-            ['name' => 'Cybersecurity & Data Privacy', 'group' => 'Technology'],
-            ['name' => 'Telecommunications & Internet Providers', 'group' => 'Technology'],
-            ['name' => 'Smart Home & IoT', 'group' => 'Technology'],
-
-            // E-commerce & Retail
-            ['name' => 'E-commerce & Retail', 'group' => 'E-commerce & Retail'],
-            ['name' => 'Logistics & Supply Chain', 'group' => 'E-commerce & Retail'],
-
-            // Automotive
-            ['name' => 'Automotive', 'group' => 'Automotive'],
-
-            // Travel & Hospitality
-            ['name' => 'Travel & Tourism', 'group' => 'Travel & Hospitality'],
-            ['name' => 'Hospitality', 'group' => 'Travel & Hospitality'],
-            ['name' => 'Food & Beverage', 'group' => 'Travel & Hospitality'],
-
-            // Health & Wellness
-            ['name' => 'Health & Wellness', 'group' => 'Health & Wellness'],
-            ['name' => 'Medical & Clinics', 'group' => 'Health & Wellness'],
-            ['name' => 'Pharma & Supplements', 'group' => 'Health & Wellness'],
-            ['name' => 'Fitness & Sports', 'group' => 'Health & Wellness'],
-
-            // Lifestyle
-            ['name' => 'Beauty & Skincare', 'group' => 'Lifestyle'],
-            ['name' => 'Fashion & Luxury', 'group' => 'Lifestyle'],
-            ['name' => 'Home & Garden', 'group' => 'Lifestyle'],
-            ['name' => 'Parenting & Family', 'group' => 'Lifestyle'],
-            ['name' => 'Dating & Relationships', 'group' => 'Lifestyle'],
-            ['name' => 'Pets & Veterinary', 'group' => 'Lifestyle'],
-
-            // Energy & Environment
-            ['name' => 'Energy', 'group' => 'Energy & Environment'],
-            ['name' => 'Environment & Sustainability', 'group' => 'Energy & Environment'],
-
-            // Industry
-            ['name' => 'Manufacturing & Industry', 'group' => 'Industry'],
-            ['name' => 'Agriculture & Agritech', 'group' => 'Industry'],
-            ['name' => 'Maritime & Shipping', 'group' => 'Industry'],
-            ['name' => 'Aviation & Airports', 'group' => 'Industry'],
-
-            // Education & Careers
-            ['name' => 'Education & E-learning', 'group' => 'Education & Careers'],
-            ['name' => 'Jobs & Recruitment', 'group' => 'Education & Careers'],
-            ['name' => 'HR & Payroll', 'group' => 'Education & Careers'],
-
-            // Entertainment
-            ['name' => 'Gaming & Esports', 'group' => 'Entertainment'],
-            ['name' => 'Entertainment & Media', 'group' => 'Entertainment'],
-            ['name' => 'News & Politics', 'group' => 'Entertainment'],
-
-            // Events & Social
-            ['name' => 'Events, Conferences & Trade Fairs', 'group' => 'Events & Social'],
-            ['name' => 'NGOs, Charity & Social Impact', 'group' => 'Events & Social'],
-
-            // Other
-            ['name' => 'Outdoor & Adventure', 'group' => 'Other'],
-            ['name' => 'Regional/Local', 'group' => 'Other'],
-        ];
+        return Category::catalogPickerRows();
     }
 
     // Update your index method
@@ -251,11 +183,9 @@ class CatalogController extends Controller
         // Get predefined languages for filter dropdown
         $availableLanguages = $this->getAvailableLanguages();
 
-        // Get categories from the predefined array (grouped)
+        // Niches from categories table (not a hardcoded controller list).
         $predefinedCategories = $this->getAvailableCategories();
-
-        // Get unique category names for filter (from predefined array)
-        $siteCategories = collect($predefinedCategories)->pluck('name')->unique()->sort()->values()->toArray();
+        $siteCategories = Category::catalogPickerNames();
 
         // Get cart from SESSION
         $cart = session()->get('cart', []);
