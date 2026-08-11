@@ -1,11 +1,14 @@
 <?php
 
-// app/Mail/DepositRequestSubmitted.php
-
 namespace App\Mail;
 
 use App\Models\DepositRequest;
+use App\Services\Wallet\ManualDepositApproveLink;
 
+/**
+ * Admin alert: a new manual deposit request was created. Primary CTA opens the
+ * signed approve-confirm page (nothing credits until the admin confirms).
+ */
 class DepositRequestSubmitted extends PlatformMailable
 {
     public $deposit;
@@ -17,6 +20,7 @@ class DepositRequestSubmitted extends PlatformMailable
         parent::__construct();
         $this->deposit = $deposit;
         $this->user = $deposit->user;
+        $this->notificationType = 'deposit_submitted';
     }
 
     public function build()
@@ -26,8 +30,8 @@ class DepositRequestSubmitted extends PlatformMailable
             ->with([
                 'deposit' => $this->deposit,
                 'user' => $this->user,
-                // show() is JSON-only; the admin UI is the deposits list.
-                'adminUrl' => route('admin.deposits'),
+                'approveUrl' => ManualDepositApproveLink::url($this->deposit),
+                'adminUrl' => $this->publicRoute('admin.deposits'),
             ]);
     }
 }

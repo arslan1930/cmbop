@@ -147,14 +147,14 @@ class EmailCatalog
             ],
             'deposit_submitted' => [
                 'name' => 'Deposit Request Submitted',
-                'description' => 'Admins notified of a new wallet deposit request.',
+                'description' => 'Admins notified of a new wallet deposit request, with a signed approve-confirm CTA (credits only after confirm).',
                 'category' => 'Billing',
                 'mailable' => DepositRequestSubmitted::class,
                 'status' => 'active',
             ],
             'deposit_marked_paid' => [
                 'name' => 'Deposit Reported Paid',
-                'description' => 'Admins alerted when an advertiser confirms they sent the transfer.',
+                'description' => 'Admins alerted when an advertiser confirms they sent the transfer, with a primary signed approve-confirm CTA.',
                 'category' => 'Billing',
                 'mailable' => DepositMarkedPaid::class,
                 'status' => 'active',

@@ -3,10 +3,14 @@
 namespace App\Mail;
 
 use App\Models\DepositRequest;
+use App\Services\Wallet\ManualDepositApproveLink;
 
 /**
  * Admin alert: the advertiser says the transfer has left their bank. Nothing is
  * credited yet — an admin still has to match it against the account.
+ *
+ * Primary CTA is a signed approve-confirm link (confirm UI, then credit). The
+ * deposits list remains a secondary escape hatch.
  */
 class DepositMarkedPaid extends PlatformMailable
 {
@@ -27,8 +31,8 @@ class DepositMarkedPaid extends PlatformMailable
             ->with([
                 'deposit' => $this->deposit,
                 'user' => $this->deposit->user,
-                // show() is JSON-only; the admin UI is the deposits list.
-                'adminUrl' => route('admin.deposits'),
+                'approveUrl' => ManualDepositApproveLink::url($this->deposit),
+                'adminUrl' => $this->publicRoute('admin.deposits'),
             ]);
     }
 }

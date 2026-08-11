@@ -1,4 +1,3 @@
-
 @component('mail::message')
 # New Deposit Request
 
@@ -8,14 +7,14 @@ A new deposit request has been submitted by **{{ $user->name }}** ({{ $user->ema
 
 - **Amount:** €{{ number_format($deposit->amount, 2) }}
 - **Payment Method:** {{ ucfirst($deposit->payment_method) }}
-- **Reference Code:** {{ $deposit->reference_code }}
+- **Reference Code:** REF{{ $deposit->reference_code }}
 - **Submitted At:** {{ $deposit->created_at->format('M d, Y H:i') }}
 
-@component('mail::button', ['url' => $adminUrl])
-Review Deposit Request
+@component('mail::button', ['url' => $approveUrl])
+Review & approve
 @endcomponent
 
-Please review and approve this deposit request.
+Opens a confirm page — wallet credit only happens after you confirm. Or [open the deposits list]({{ $adminUrl }}).
 
 Thanks,<br>
 {{ config('app.name') }}

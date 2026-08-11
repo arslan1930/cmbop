@@ -14,9 +14,11 @@
 - **Their transfer reference:** {{ $deposit->user_payment_note }}
 @endif
 
-@component('mail::button', ['url' => $adminUrl])
-Review deposit
+@component('mail::button', ['url' => $approveUrl])
+Approve & credit wallet
 @endcomponent
+
+The button opens a confirm page — nothing is credited until you confirm. Or [open the deposits list]({{ $adminUrl }}).
 
 Thanks,<br>
 {{ config('app.name') }}

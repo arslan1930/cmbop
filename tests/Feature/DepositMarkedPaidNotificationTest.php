@@ -185,13 +185,20 @@ class DepositMarkedPaidNotificationTest extends TestCase
         $this->assertStringContainsString('not', $body);
         $this->assertStringContainsString('REF'.$deposit->reference_code, $body);
         $this->assertStringContainsString('TRF-7781', $body);
+        $this->assertStringContainsString('Approve &amp; credit wallet', $body);
+        $this->assertStringContainsString(
+            parse_url(route('admin.deposits.approve-confirm.show', $deposit->id), PHP_URL_PATH),
+            $body
+        );
+        $this->assertStringContainsString('signature=', $body);
         $this->assertStringContainsString(
             parse_url(route('admin.deposits'), PHP_URL_PATH),
             $body
         );
-        $this->assertStringNotContainsString(
-            parse_url(route('admin.deposits.show', $deposit->id), PHP_URL_PATH),
-            $body
-        );
+        preg_match_all('#/admin/deposits/'.$deposit->id.'(/[a-z0-9\-]*)?#', $body, $matches);
+        $this->assertNotEmpty($matches[0]);
+        foreach ($matches[0] as $path) {
+            $this->assertStringContainsString('/approve-confirm', $path);
+        }
     }
 }

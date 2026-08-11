@@ -111,19 +111,40 @@ class NotificationEmailCtaFixesTest extends TestCase
         ]);
     }
 
-    public function test_deposit_admin_emails_link_to_deposits_ui_not_json_show(): void
+    public function test_deposit_admin_emails_link_to_approve_confirm_not_json_show(): void
     {
         $deposit = $this->pendingDeposit()->fresh('user');
         $listPath = parse_url(route('admin.deposits'), PHP_URL_PATH);
-        $showPath = parse_url(route('admin.deposits.show', $deposit->id), PHP_URL_PATH);
+        $confirmPath = parse_url(
+            route('admin.deposits.approve-confirm.show', $deposit->id),
+            PHP_URL_PATH
+        );
 
         $submitted = (new DepositRequestSubmitted($deposit))->render();
+        $this->assertStringContainsString($confirmPath, $submitted);
         $this->assertStringContainsString($listPath, $submitted);
-        $this->assertStringNotContainsString($showPath, $submitted);
+        $this->assertStringContainsString('Review &amp; approve', $submitted);
+        $this->assertDepositIdLinksAreApproveConfirm($submitted, (int) $deposit->id);
 
         $marked = (new DepositMarkedPaid($deposit))->render();
+        $this->assertStringContainsString($confirmPath, $marked);
         $this->assertStringContainsString($listPath, $marked);
-        $this->assertStringNotContainsString($showPath, $marked);
+        $this->assertStringContainsString('Approve &amp; credit wallet', $marked);
+        $this->assertDepositIdLinksAreApproveConfirm($marked, (int) $deposit->id);
+    }
+
+    private function assertDepositIdLinksAreApproveConfirm(string $html, int $depositId): void
+    {
+        preg_match_all('#/admin/deposits/'.$depositId.'(/[a-z0-9\-]*)?#', $html, $matches);
+
+        $this->assertNotEmpty($matches[0], 'Expected at least one deposit deep link.');
+        foreach ($matches[0] as $path) {
+            $this->assertStringContainsString(
+                '/approve-confirm',
+                $path,
+                "Deposit #{$depositId} link should be approve-confirm, got {$path}"
+            );
+        }
     }
 
     public function test_order_lifecycle_emails_skip_marketing(): void
