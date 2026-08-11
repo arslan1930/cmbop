@@ -6,6 +6,12 @@
         <div class="col-md-12">
             <h2 class="mb-1 fw-semibold">Deposit Requests</h2>
             <p class="text-muted">Manage and approve user deposit requests</p>
+            @if(session('success'))
+                <div class="alert alert-success mt-3 mb-0" role="status">{{ session('success') }}</div>
+            @endif
+            @if(session('error'))
+                <div class="alert alert-danger mt-3 mb-0" role="alert">{{ session('error') }}</div>
+            @endif
         </div>
     </div>
 

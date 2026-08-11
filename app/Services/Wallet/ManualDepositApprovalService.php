@@ -12,8 +12,8 @@ use RuntimeException;
 
 /**
  * Credits a pending manual deposit (Wise / bank / crypto) into the advertiser
- * wallet. Shared by the admin panel approve action and (later) email one-click
- * confirm so both paths stay lock/ledger/notify identical.
+ * wallet. Shared by the admin panel approve action and the signed email
+ * approve-confirm flow so both paths stay lock/ledger/notify identical.
  */
 class ManualDepositApprovalService
 {

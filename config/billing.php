@@ -82,6 +82,12 @@ return [
     'pending_verification_hours' => (int) env('BILLING_PENDING_HOURS', 24),
 
     /*
+    | Signed admin email link for manual deposit approve-confirm (GET → confirm
+    | UI → POST). Minutes until expires+signature invalidate.
+    */
+    'deposit_approve_link_expire_minutes' => (int) env('BILLING_DEPOSIT_APPROVE_LINK_EXPIRE_MINUTES', 60 * 24 * 7),
+
+    /*
     |--------------------------------------------------------------------------
     | Publisher withdrawal fee (% of requested amount)
     |--------------------------------------------------------------------------
