@@ -91,4 +91,28 @@ class PublisherRuntimeSyntaxFixesTest extends TestCase
             ->get(route('advertiser.dashboard'))
             ->assertOk();
     }
+
+    public function test_advertiser_content_library_renders_without_count_scope_fatal(): void
+    {
+        $advertiserRole = Role::firstOrCreate(['name' => 'advertiser']);
+        $advertiser = User::factory()->create([
+            'email_verified_at' => now(),
+            'active_role_id' => $advertiserRole->id,
+        ]);
+        $advertiser->roles()->attach($advertiserRole->id);
+
+        $this->actingAs($advertiser)
+            ->get(route('advertiser.content-library'))
+            ->assertOk();
+    }
+
+    public function test_site_safe_description_html_is_available(): void
+    {
+        $site = new Site(['description' => '<p onclick="x">Hello <strong>world</strong></p>']);
+        $html = $site->safeDescriptionHtml();
+
+        $this->assertStringContainsString('Hello', $html);
+        $this->assertStringContainsString('<strong>world</strong>', $html);
+        $this->assertStringNotContainsString('onclick', $html);
+    }
 }
