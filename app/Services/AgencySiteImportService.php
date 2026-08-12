@@ -269,6 +269,21 @@ class AgencySiteImportService
                         // logging/job failure cannot mark a saved site as a failed row.
                         $created++;
 
+                        // Progress checkpoint so abandoned "processing" heal can
+                        // distinguish a live upload from a crashed one.
+                        if ($import !== null && ($created === 1 || $created % 10 === 0)) {
+                            try {
+                                $import->forceFill([
+                                    'created_count' => $created,
+                                    'processed_count' => $processed,
+                                ])->save();
+                            } catch (\Throwable $e) {
+                                Log::warning('Agency CSV progress checkpoint failed: '.$e->getMessage(), [
+                                    'import_id' => $import->id,
+                                ]);
+                            }
+                        }
+
                         if ($site !== null) {
                             try {
                                 ActivityLogger::log(

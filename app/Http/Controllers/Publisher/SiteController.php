@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Publisher;
 
 use App\Http\Controllers\Controller;
 use App\Jobs\CaptureSiteScreenshotJob;
+use App\Models\AgencySiteImport;
 use App\Models\BulkSiteRequest;
 use App\Models\BulkSiteRequestItem;
 use App\Models\Category;
@@ -931,6 +932,38 @@ class SiteController extends Controller
             );
         } catch (\InvalidArgumentException $e) {
             return back()->with('error', $e->getMessage());
+        } catch (\Throwable $e) {
+            Log::error('Agency CSV bulk import crashed: '.$e->getMessage(), [
+                'user_id' => $request->user()?->id,
+                'exception' => $e::class,
+            ]);
+
+            $stuck = AgencySiteImport::query()
+                ->where('publisher_id', $request->user()->id)
+                ->where('status', AgencySiteImport::STATUS_PROCESSING)
+                ->latest('id')
+                ->first();
+
+            if ($stuck) {
+                $stuck->healAbandonedProcessing(force: true);
+                $stuck->refresh();
+                if ((int) $stuck->created_count > 0) {
+                    try {
+                        app(AgencySiteImportNotifier::class)->notifySubmitted($stuck);
+                    } catch (\Throwable $notifyError) {
+                        Log::warning('Agency CSV import notify failed after crash: '.$notifyError->getMessage(), [
+                            'import_id' => $stuck->id,
+                        ]);
+                    }
+
+                    return back()
+                        ->with('error', (int) $stuck->created_count.' site(s) were saved, but the import crashed before finishing. Re-upload any missing domains. Import #'.$stuck->id.'.')
+                        ->with('bulk_import_created', (int) $stuck->created_count)
+                        ->with('bulk_import_id', $stuck->id);
+                }
+            }
+
+            return back()->with('error', 'Import failed unexpectedly. Please try again or contact support.');
         }
 
         $created = (int) $result['created'];

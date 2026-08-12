@@ -51,6 +51,7 @@ class PanelController extends Controller
                 ->whereIn('status', [
                     AgencySiteImport::STATUS_SUBMITTED,
                     AgencySiteImport::STATUS_PARTIAL,
+                    AgencySiteImport::STATUS_PROCESSING,
                 ])
                 ->count(),
             'my_tasks_today' => $this->marketerHistoryQuery($userId)

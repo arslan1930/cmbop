@@ -16,6 +16,7 @@
             <select name="status" class="form-select form-select-sm">
                 <option value="open" @selected($status === 'open')>Open</option>
                 <option value="all" @selected($status === 'all')>All</option>
+                <option value="processing" @selected($status === 'processing')>Processing</option>
                 <option value="submitted" @selected($status === 'submitted')>Submitted</option>
                 <option value="partial" @selected($status === 'partial')>Partial</option>
                 <option value="reviewed" @selected($status === 'reviewed')>Reviewed</option>

@@ -101,12 +101,16 @@ class AgencySiteImport extends Model
 
     public function refreshReviewStatus(?User $reviewer = null): void
     {
-        if (in_array($this->status, [self::STATUS_CLOSED, self::STATUS_PROCESSING], true)) {
+        if ($this->status === self::STATUS_CLOSED || $this->dry_run) {
             return;
         }
 
-        if ($this->dry_run) {
-            return;
+        // Crash / kill mid-upload can leave status=processing with sites already saved.
+        if ($this->status === self::STATUS_PROCESSING) {
+            if (! $this->healAbandonedProcessing(force: false)) {
+                return;
+            }
+            $this->refresh();
         }
 
         // Failed-with-sites (legacy stuck batches) can still be closed via Sites Management.
@@ -161,6 +165,39 @@ class AgencySiteImport extends Model
                 );
             }
         }
+    }
+
+    /**
+     * Move an abandoned "processing" batch into submitted/partial/failed so it
+     * reappears in the open queue and can be closed from Sites Management.
+     */
+    public function healAbandonedProcessing(bool $force = false): bool
+    {
+        if ($this->status !== self::STATUS_PROCESSING || $this->dry_run) {
+            return false;
+        }
+
+        // Avoid racing a live upload (progress checkpoints bump updated_at).
+        if (! $force && $this->updated_at && $this->updated_at->gt(now()->subMinutes(15))) {
+            return false;
+        }
+
+        $siteCount = $this->sites()->count();
+        $created = max((int) $this->created_count, $siteCount);
+        $failedCount = (int) $this->failed_count;
+        if ($created <= 0) {
+            $failedCount = max($failedCount, 1);
+        }
+
+        $this->forceFill([
+            'created_count' => $created,
+            'failed_count' => $failedCount,
+            'processed_count' => max((int) $this->processed_count, $created),
+        ])->save();
+
+        $this->finalizeStatus();
+
+        return true;
     }
 
     public function finalizeStatus(): void

@@ -16,17 +16,22 @@ class AgencySiteImportController extends Controller
 
     public function index(Request $request)
     {
+        $this->healStaleProcessingImports();
+
         $status = trim((string) $request->get('status', 'open'));
         $q = trim((string) $request->get('q', ''));
+
+        $openStatuses = [
+            AgencySiteImport::STATUS_SUBMITTED,
+            AgencySiteImport::STATUS_PARTIAL,
+            AgencySiteImport::STATUS_PROCESSING,
+        ];
 
         $imports = AgencySiteImport::query()
             ->with(['publisher:id,name,email'])
             ->withCount(['sites', 'failures'])
-            ->when($status === 'open', function ($query) {
-                $query->whereIn('status', [
-                    AgencySiteImport::STATUS_SUBMITTED,
-                    AgencySiteImport::STATUS_PARTIAL,
-                ]);
+            ->when($status === 'open', function ($query) use ($openStatuses) {
+                $query->whereIn('status', $openStatuses);
             })
             ->when($status !== '' && $status !== 'open' && $status !== 'all', function ($query) use ($status) {
                 $query->where('status', $status);
@@ -50,10 +55,7 @@ class AgencySiteImportController extends Controller
 
         $openCount = AgencySiteImport::query()
             ->where('dry_run', false)
-            ->whereIn('status', [
-                AgencySiteImport::STATUS_SUBMITTED,
-                AgencySiteImport::STATUS_PARTIAL,
-            ])
+            ->whereIn('status', $openStatuses)
             ->count();
 
         return view('admin.agency-imports.index', compact('imports', 'status', 'q', 'openCount'));
@@ -68,6 +70,15 @@ class AgencySiteImportController extends Controller
                 'sites' => fn ($q) => $q->latest('id'),
             ])
             ->findOrFail($id);
+
+        if ($import->status === AgencySiteImport::STATUS_PROCESSING) {
+            $import->healAbandonedProcessing(force: false);
+            $import->refresh();
+            $import->load([
+                'failures' => fn ($q) => $q->orderBy('row_number'),
+                'sites' => fn ($q) => $q->latest('id'),
+            ]);
+        }
 
         return view('admin.agency-imports.show', compact('import'));
     }
@@ -114,5 +125,22 @@ class AgencySiteImportController extends Controller
             'skipped' => $result['skipped'],
             'import_status' => $import->status,
         ]);
+    }
+
+    /**
+     * Finalize abandoned mid-upload batches so they reappear as reviewable.
+     */
+    private function healStaleProcessingImports(): void
+    {
+        AgencySiteImport::query()
+            ->where('dry_run', false)
+            ->where('status', AgencySiteImport::STATUS_PROCESSING)
+            ->where('updated_at', '<', now()->subMinutes(15))
+            ->orderBy('id')
+            ->limit(50)
+            ->get()
+            ->each(function (AgencySiteImport $import) {
+                $import->healAbandonedProcessing(force: false);
+            });
     }
 }

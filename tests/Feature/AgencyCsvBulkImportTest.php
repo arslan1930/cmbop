@@ -649,4 +649,58 @@ class AgencyCsvBulkImportTest extends TestCase
             ->count();
         $this->assertGreaterThanOrEqual(1, $openBells);
     }
+
+    public function test_abandoned_processing_import_is_healed_and_visible(): void
+    {
+        Bus::fake();
+        Mail::fake();
+
+        $adminRole = Role::firstOrCreate(['name' => 'admin']);
+        $admin = User::factory()->create([
+            'email_verified_at' => now(),
+            'active_role_id' => $adminRole->id,
+        ]);
+        $admin->roles()->attach($adminRole->id);
+
+        $this->uploadCsv([
+            $this->validRow('heal-me.example', 'Heal Me'),
+        ])->assertRedirect();
+
+        $import = AgencySiteImport::query()->firstOrFail();
+        $site = Site::query()->where('agency_site_import_id', $import->id)->firstOrFail();
+
+        // Simulate a crash mid-upload: sites exist, batch stuck in processing.
+        $import->forceFill([
+            'status' => AgencySiteImport::STATUS_PROCESSING,
+            'created_count' => 0,
+            'failed_count' => 0,
+            'updated_at' => now()->subMinutes(20),
+        ])->save();
+
+        $this->assertTrue($import->healAbandonedProcessing(force: true));
+        $import->refresh();
+        $this->assertSame(AgencySiteImport::STATUS_SUBMITTED, $import->status);
+        $this->assertSame(1, (int) $import->created_count);
+        $this->assertSame($site->id, Site::query()->where('agency_site_import_id', $import->id)->value('id'));
+
+        // Force stuck again and confirm the staff show page heals stale batches.
+        $import->forceFill([
+            'status' => AgencySiteImport::STATUS_PROCESSING,
+            'created_count' => 0,
+            'updated_at' => now()->subMinutes(20),
+        ])->save();
+
+        $this->actingAs($admin)
+            ->get(route('admin.agency-imports.show', $import))
+            ->assertOk()
+            ->assertSee('Import #'.$import->id, false);
+
+        $import->refresh();
+        $this->assertSame(AgencySiteImport::STATUS_SUBMITTED, $import->status);
+
+        $this->actingAs($admin)
+            ->getJson(route('admin.dashboard.queue-counts'))
+            ->assertOk()
+            ->assertJsonPath('pending_agency_imports', 1);
+    }
 }
