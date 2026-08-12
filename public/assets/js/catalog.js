@@ -2602,6 +2602,7 @@ const CatalogLive = (function () {
         syncMoreFiltersBadge(params);
         syncSuggestButtons(params);
         if (typeof updateButtonStates === 'function') updateButtonStates();
+        if (typeof syncDefaultHomepagePrices === 'function') syncDefaultHomepagePrices();
         // Re-hide blacklisted rows on the main catalog after a fresh paint.
         if (!CatalogConfig.blacklistFilter && typeof hideCatalogSite === 'function') {
             document.querySelectorAll('.site-row[data-id], .catalog-mobile-card[data-id]').forEach(function (el) {
@@ -3506,12 +3507,28 @@ function hydrateExpandScreenshots(root) {
     root.querySelectorAll('img.catalog-deferred-preview[data-src]').forEach(function (img) {
         const deferred = img.getAttribute('data-src');
         if (!deferred) return;
-        if (!img.getAttribute('src')) {
-            img.setAttribute('src', deferred);
-        }
+        // Always promote data-src (Blade may use a 1x1 placeholder src).
+        img.setAttribute('src', deferred);
         img.setAttribute('loading', 'eager');
         img.setAttribute('decoding', 'async');
         img.removeAttribute('data-src');
+    });
+}
+
+/**
+ * Free homepage options can be pre-checked in Blade. Sync Buy totals for those
+ * sites so the header price matches before the first radio change — including
+ * after live results HTML swaps (DOMContentLoaded only runs once).
+ */
+function syncDefaultHomepagePrices() {
+    const seen = {};
+    document.querySelectorAll('.homepage-placement-radio:checked').forEach(function (radio) {
+        const siteId = radio.dataset.siteId
+            || (radio.closest('.homepage-placement-group') || {}).dataset?.siteId;
+        if (!siteId || seen[siteId]) return;
+        if (String(radio.value) === 'none' || String(radio.dataset.days) === 'none') return;
+        seen[siteId] = true;
+        syncSensitiveSelectionUi(siteId);
     });
 }
 
@@ -3651,13 +3668,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Default free homepage can be pre-checked in Blade; sync Buy totals before
     // the first radio change so expand/header prices match the selection.
-    document.querySelectorAll('.homepage-placement-radio:checked').forEach(function (radio) {
-        const siteId = radio.dataset.siteId
-            || (radio.closest('.homepage-placement-group') || {}).dataset?.siteId;
-        if (!siteId) return;
-        if (String(radio.value) === 'none' || String(radio.dataset.days) === 'none') return;
-        syncSensitiveSelectionUi(siteId);
-    });
+    syncDefaultHomepagePrices();
 
     // Sensitive topic + homepage radios: delegate so late/expanded markup still works.
     document.addEventListener('change', function (e) {

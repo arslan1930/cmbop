@@ -563,12 +563,13 @@
                         @endphp
                         @if($previewUrl)
                             <div class="site-preview-zoom">
-                                {{-- Eager: Safari often never loads loading=lazy images that start inside display:none expand rows. --}}
-                                <img src="{{ $previewUrl }}"
+                                {{-- Deferred until expand opens (hydrateExpandScreenshots). Avoids
+                                     Safari never loading lazy imgs that start inside display:none. --}}
+                                <img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"
+                                     data-src="{{ $previewUrl }}"
                                      alt="{{ $identityLabel }} homepage preview"
-                                     loading="eager"
                                      decoding="async"
-                                     class="site-image-thumbnail"
+                                     class="catalog-deferred-preview site-image-thumbnail"
                                      onerror="this.onerror=null;var z=this.closest('.site-preview-zoom');if(z){z.classList.add('is-broken');var f=z.nextElementSibling;if(f){f.classList.remove('d-none');f.classList.add('d-inline-flex');}}">
                             </div>
                             <div class="site-preview-fallback bg-light border rounded d-none flex-column align-items-center justify-content-center gap-2 px-3" aria-hidden="true">
@@ -594,7 +595,10 @@
                             </p>
                         @endif
 
-                        @include('advertiser.partials.catalog-site-trust', ['site' => $site])
+                        <div class="catalog-expand-trust mt-3">
+                            <p class="mb-1"><strong class="small">Publisher trust</strong></p>
+                            @include('advertiser.partials.catalog-site-trust', ['site' => $site, 'compactClass' => ''])
+                        </div>
                     </div>
 
                     <div class="col-lg-3 col-md-6 catalog-expand-pricing">
@@ -1279,6 +1283,7 @@
                         @if($mobilePreviewUrl)
                             <div class="site-preview-zoom catalog-card-preview">
                                 <img class="catalog-deferred-preview site-image-thumbnail"
+                                     src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"
                                      data-src="{{ $mobilePreviewUrl }}"
                                      alt="{{ $identityLabel }} homepage preview"
                                      decoding="async"

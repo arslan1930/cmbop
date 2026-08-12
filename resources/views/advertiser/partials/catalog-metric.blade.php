@@ -30,7 +30,9 @@
         $fill = max(0, min(100, $metricRaw));
         $display = (string) (int) $metricRaw;
         $label = strtoupper($metricType);
-        $title = $label.' '.$display.' out of 100';
+        $title = $label === 'DR'
+            ? 'Ahrefs Domain Rating '.$display.' out of 100'
+            : 'Moz Domain Authority '.$display.' out of 100';
     }
 
     // One hue, length carries the magnitude. Grading the bar red/amber/green

@@ -126,5 +126,6 @@ class CatalogExpandCorrectnessTest extends TestCase
         $this->assertStringContainsString('Partner', $html);
         $this->assertStringContainsString('No sample article yet', $html);
         $this->assertStringContainsString('catalog-deferred-preview', $html);
+        $this->assertStringContainsString('Publisher trust', $html);
     }
 }

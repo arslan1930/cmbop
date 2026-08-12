@@ -94,8 +94,8 @@ class CatalogVisualLanguageTest extends TestCase
         $this->assertStringContainsString('catalog-metric--dr', $html);
 
         // Screen readers get the number and its scale, not a bare digit.
-        $this->assertStringContainsString('DR 72 out of 100', $html);
-        $this->assertStringContainsString('DA 44 out of 100', $html);
+        $this->assertStringContainsString('Ahrefs Domain Rating 72 out of 100', $html);
+        $this->assertStringContainsString('Moz Domain Authority 44 out of 100', $html);
 
         $css = (string) file_get_contents(public_path('assets/css/catalog.css'));
         // DA bar tracks Moz brand blue (battery charged blue).

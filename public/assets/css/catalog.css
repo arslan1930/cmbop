@@ -578,8 +578,13 @@
     font-weight: 500;
 }
 
-.catalog-expand-preview .site-preview-fallback {
-    min-height: 0;
+.catalog-expand-trust {
+    padding-top: 0.5rem;
+    border-top: 1px solid rgba(15, 23, 42, 0.06);
+}
+
+.catalog-expand-trust .site-trust-compact {
+    font-size: 12px;
 }
 
 /* Buy used to pin itself to the resting colour on hover, so the main CTA in the
