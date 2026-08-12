@@ -50,15 +50,6 @@ class WithdrawalController extends Controller
     public function requestWithdrawal(Request $request)
     {
         try {
-            $min = $this->minWithdrawalAmount();
-
-            $request->validate([
-                'amount' => 'required|numeric|min:'.$min.'|max:999999.99',
-                'payment_method' => 'required|in:bank,paypal,wise,crypto',
-            ], [
-                'amount.min' => 'Minimum withdrawal amount is €'.number_format($min, 2).'.',
-            ]);
-
             $user = auth()->user();
             $wallet = $user->activeWallet();
 
@@ -69,9 +60,8 @@ class WithdrawalController extends Controller
                 ]);
             }
 
-            $amount = round((float) $request->amount, 2);
-            $availableBalance = $wallet->withdrawableBalance();
-
+            // Debt blocks all withdrawals — check before amount/min validation so
+            // indebted publishers always get a clear wallet_debt response.
             if ($wallet->hasDebt()) {
                 return response()->json([
                     'success' => false,
@@ -82,6 +72,18 @@ class WithdrawalController extends Controller
                     'debt_balance' => $wallet->debtBalance(),
                 ], 422);
             }
+
+            $min = $this->minWithdrawalAmount();
+
+            $request->validate([
+                'amount' => 'required|numeric|min:'.$min.'|max:999999.99',
+                'payment_method' => 'required|in:bank,paypal,wise,crypto',
+            ], [
+                'amount.min' => 'Minimum withdrawal amount is €'.number_format($min, 2).'.',
+            ]);
+
+            $amount = round((float) $request->amount, 2);
+            $availableBalance = $wallet->withdrawableBalance();
 
             if ($amount < $min) {
                 return response()->json([

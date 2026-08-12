@@ -53,10 +53,15 @@
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.all.min.js"></script>
 
 <div class="container-fluid">
-    <div class="row mb-4">
-        <div class="col-md-12">
+    <div class="row mb-4 align-items-end g-3">
+        <div class="col-md-8">
             <h2 class="mb-1 fw-semibold">Withdraw Funds</h2>
             <p class="text-muted mb-0">Request a withdrawal of your earnings. Withdrawals are processed within 1–2 business days.</p>
+        </div>
+        <div class="col-md-4 text-md-end">
+            <a href="{{ route('publisher.billing.index') }}" class="btn btn-sm btn-outline-secondary">
+                <i class="fa fa-file-invoice-dollar me-1" aria-hidden="true"></i> Payout documents
+            </a>
         </div>
     </div>
 
