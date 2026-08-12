@@ -1101,7 +1101,7 @@
                                checked>
                         <label class="form-check-label" for="sensitive_mobile_{{ $site->id }}_none">
                             <strong>No sensitive topic</strong>
-                            <span class="text-muted">Base price</span>
+                            <span class="text-muted">€{{ number_format($catalogSalePrice ?? $catalogListPrice, 2) }}</span>
                         </label>
                     </div>
                     @foreach($mobileSensitivePrices as $type => $additionalPrice)
@@ -1126,7 +1126,8 @@
                                    id="sensitive_mobile_{{ $site->id }}_{{ $loop->index }}">
                             <label class="form-check-label" for="sensitive_mobile_{{ $site->id }}_{{ $loop->index }}">
                                 <strong>{{ ucfirst($type) }}</strong>
-                                <span class="text-danger">€{{ number_format($additionalPrice, 2) }}</span>
+                                <span class="text-danger">+€{{ number_format($additionalPrice, 2) }}</span>
+                                <span class="text-muted">→ €{{ number_format($totalPrice, 2) }}</span>
                             </label>
                         </div>
                     @endforeach
@@ -1269,6 +1270,29 @@
             </button>
 
             <dl class="catalog-card-details" id="card-details-{{ $site->id }}" hidden>
+                @php
+                    $mobilePreviewUrl = $site->screenshot_url ?: $site->screenshot_thumb_url;
+                @endphp
+                <div class="catalog-card-details__row">
+                    <dt>Homepage preview</dt>
+                    <dd>
+                        @if($mobilePreviewUrl)
+                            <div class="site-preview-zoom catalog-card-preview">
+                                <img class="catalog-deferred-preview site-image-thumbnail"
+                                     data-src="{{ $mobilePreviewUrl }}"
+                                     alt="{{ $identityLabel }} homepage preview"
+                                     decoding="async"
+                                     onerror="this.onerror=null;var z=this.closest('.site-preview-zoom');if(z){z.classList.add('is-broken');var f=z.nextElementSibling;if(f){f.classList.remove('d-none');f.classList.add('d-inline-flex');}}">
+                            </div>
+                            <div class="site-preview-fallback bg-light border rounded d-none flex-column align-items-center justify-content-center gap-2 px-3" aria-hidden="true">
+                                <i class="fa-solid fa-image text-muted" style="font-size: 24px;" aria-hidden="true"></i>
+                                <span class="small text-muted">Screenshot not available yet</span>
+                            </div>
+                        @else
+                            <span class="text-muted small">Screenshot not available yet</span>
+                        @endif
+                    </dd>
+                </div>
                 <div class="catalog-card-details__row">
                     <dt>Trust</dt>
                     <dd>@include('advertiser.partials.catalog-site-trust', ['site' => $site, 'compactClass' => ''])</dd>
@@ -1285,10 +1309,39 @@
                     <dt>Link type</dt>
                     <dd>{{ $site->linkTypeLabel('Not specified') }}</dd>
                 </div>
+                <div class="catalog-card-details__row">
+                    <dt>Tags</dt>
+                    <dd class="d-flex flex-wrap gap-1">
+                        @if($site->sponsored)
+                            <span class="badge bg-warning-subtle text-dark border">Sponsored</span>
+                        @endif
+                        @if($site->partner_material)
+                            <span class="badge bg-success-subtle text-success border">Partner</span>
+                        @endif
+                        @if($site->as_you_prefer ?? false)
+                            <span class="badge bg-primary-subtle text-primary border">As You Prefer</span>
+                        @endif
+                        @if(!$site->sponsored && !$site->partner_material && !($site->as_you_prefer ?? false))
+                            <span class="text-muted small">No additional tags</span>
+                        @endif
+                    </dd>
+                </div>
                 @if($site->description)
                     <div class="catalog-card-details__row">
                         <dt>About this site</dt>
-                        <dd>{{ site_description_excerpt($site->description) }}</dd>
+                        <dd class="catalog-card-details__description text-muted small">
+                            {!! $site->safeDescriptionHtml() !!}
+                        </dd>
+                    </div>
+                @endif
+                @if($socialChannels !== [])
+                    <div class="catalog-card-details__row">
+                        <dt>Social promotion</dt>
+                        <dd class="d-flex flex-wrap gap-1">
+                            @foreach($socialChannels as $channel)
+                                <span class="badge bg-light text-dark border">{{ $socialChannelLabels[$channel] ?? ucfirst($channel) }}</span>
+                            @endforeach
+                        </dd>
                     </div>
                 @endif
                 <div class="catalog-card-details__row">
@@ -1297,13 +1350,12 @@
                         {{-- Sample shares the listing domain — gate on identity. --}}
                         @if($inCatalogHideMode && ! $showsIdentity)
                             Use the eye to show this listing’s name and URL, then the sample article link appears.
-                        @elseif($site->example_url)
-                            @php $mobileSampleUrl = safe_external_url($site->example_url); @endphp
+                        @elseif($site->example_url && ($mobileSampleUrl = safe_external_url($site->example_url)) !== '#')
                             <a href="{{ $mobileSampleUrl }}" target="_blank" rel="noopener noreferrer">
                                 {{ Str::limit($site->example_url, 46) }}
                             </a>
                         @else
-                            Not available
+                            No sample article yet
                         @endif
                     </dd>
                 </div>

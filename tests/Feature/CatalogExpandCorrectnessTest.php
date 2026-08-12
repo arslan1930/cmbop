@@ -103,4 +103,28 @@ class CatalogExpandCorrectnessTest extends TestCase
         $this->assertStringContainsString('No sample article yet', $html);
         $this->assertStringNotContainsString('Not available</a>', $html);
     }
+
+    public function test_mobile_card_details_cover_desktop_decision_fields(): void
+    {
+        $this->makeSite([
+            'example_url' => null,
+            'sponsored' => true,
+            'partner_material' => true,
+            'description' => '<p>Full mobile description for parity.</p>',
+            'screenshot_path' => 'site-screenshots/mobile-parity.webp',
+        ]);
+
+        $html = $this->actingAs($this->advertiser)
+            ->get(route('advertiser.catalog'))
+            ->assertOk()
+            ->getContent();
+
+        $this->assertStringContainsString('catalog-card-details', $html);
+        $this->assertStringContainsString('Homepage preview', $html);
+        $this->assertStringContainsString('Full mobile description for parity.', $html);
+        $this->assertStringContainsString('Sponsored', $html);
+        $this->assertStringContainsString('Partner', $html);
+        $this->assertStringContainsString('No sample article yet', $html);
+        $this->assertStringContainsString('catalog-deferred-preview', $html);
+    }
 }
