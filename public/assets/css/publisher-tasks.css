@@ -1,0 +1,205 @@
+/* Publisher My Tasks */
+.table td, .table th {
+    padding: 12px 15px;
+    vertical-align: middle;
+}
+
+.card-header {
+    border-bottom: 1px solid #eee;
+}
+
+.status-badge {
+    padding: 4px 10px;
+    border-radius: 5px;
+    font-size: 11px;
+    font-weight: 600;
+    display: inline-block;
+}
+
+.status-pending {
+    /* uses app-shell status tokens */
+}
+
+.status-processing {
+    /* uses app-shell status tokens */
+}
+
+.status-review {
+    /* uses app-shell status tokens */
+}
+
+.status-completed {
+    /* uses app-shell status tokens */
+}
+
+.status-cancelled {
+    /* uses app-shell status tokens */
+}
+
+.chat-unread-dot {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 16px;
+    height: 16px;
+    padding: 0 4px;
+    margin-left: 4px;
+    border-radius: 999px;
+    background: #dc3545;
+    color: #fff;
+    font-size: 10px;
+    font-weight: 700;
+}
+
+.next-step-hint {
+    font-size: 11px;
+    color: #6b7280;
+    margin-top: 4px;
+    max-width: 160px;
+}
+
+.sensitive-badge {
+    background-color: #fef3c7;
+    color: #d97706;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: 600;
+    display: inline-block;
+}
+
+.btn-action-sm {
+    padding: 4px 8px;
+    font-size: 11px;
+    min-width: 65px;
+}
+
+.link-cell {
+    max-width: 150px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.link-cell a {
+    font-size: 12px;
+}
+
+.action-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.total-price {
+    font-weight: bold;
+    font-size: 14px;
+}
+
+/* Dark mode styles */
+
+
+
+
+
+
+
+td a {
+    word-break: break-all;
+}
+
+#chatMessages::-webkit-scrollbar {
+    width: 6px;
+}
+#chatMessages::-webkit-scrollbar-track {
+    background: #f1f1f1;
+}
+#chatMessages::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 3px;
+}
+#chatMessages::-webkit-scrollbar-thumb:hover {
+    background: #a8a8a8;
+}
+
+.publisher-article-preview {
+    border: 1px solid #dbe4ee;
+    background: #fff;
+    border-radius: 12px;
+    padding: 14px 16px;
+    max-height: 420px;
+    overflow: auto;
+    font-size: 0.92rem;
+    line-height: 1.55;
+    color: #334155;
+}
+.publisher-article-preview img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 8px;
+    margin: .5rem 0;
+    display: block;
+}
+.article-img-wrap {
+    position: relative;
+    display: inline-block;
+    max-width: 100%;
+}
+.article-img-wrap img { display: block; max-width: 100%; height: auto; }
+.article-img-download {
+    position: absolute;
+    right: 8px;
+    bottom: 8px;
+    opacity: 0;
+    transition: opacity .15s ease;
+    z-index: 2;
+}
+.article-img-wrap:hover .article-img-download,
+.article-img-wrap:focus-within .article-img-download {
+    opacity: 1;
+}
+
+/* Mobile task rows: stack actions and tighten density */
+@media (max-width: 768px) {
+    .table thead {
+        display: none;
+    }
+    .table tbody tr {
+        display: block;
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+        margin: 0 12px 12px;
+        padding: 12px 14px;
+        background: #fff;
+    }
+    .table tbody td {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 12px;
+        border: 0;
+        padding: 6px 0;
+        text-align: right;
+    }
+    .table tbody td::before {
+        content: attr(data-label);
+        font-weight: 600;
+        color: #64748b;
+        text-align: left;
+        flex-shrink: 0;
+    }
+    .table tbody td[data-label="Action"] {
+        flex-wrap: wrap;
+        justify-content: flex-end;
+        border-top: 1px solid #f1f5f9;
+        margin-top: 6px;
+        padding-top: 10px;
+    }
+    .table tbody td[data-label="Action"]::before {
+        width: 100%;
+        margin-bottom: 4px;
+    }
+    .action-buttons {
+        justify-content: flex-end;
+    }
+}

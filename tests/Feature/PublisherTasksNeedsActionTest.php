@@ -135,4 +135,15 @@ class PublisherTasksNeedsActionTest extends TestCase
         $this->assertStringNotContainsString('colspan="9"', $blade);
         $this->assertStringContainsString("Showing ' + from", $blade);
     }
+
+    public function test_tasks_page_exposes_extended_stats_and_extracted_css(): void
+    {
+        $blade = file_get_contents(resource_path('views/publisher/tasks.blade.php'));
+        $this->assertStringContainsString('publisher-tasks.css', $blade);
+        $this->assertStringContainsString('id="statProcessingOrders"', $blade);
+        $this->assertStringContainsString('id="statReviewOrders"', $blade);
+        $this->assertFileExists(public_path('assets/css/publisher-tasks.css'));
+        $css = file_get_contents(public_path('assets/css/publisher-tasks.css'));
+        $this->assertStringContainsString('@media (max-width: 768px)', $css);
+    }
 }

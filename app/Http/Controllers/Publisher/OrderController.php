@@ -76,12 +76,8 @@ class OrderController extends Controller
 
             $userId = auth()->id();
 
-            Log::info('Fetching orders for publisher', ['user_id' => $userId]);
-
             // Get all sites owned by this publisher
             $siteIds = Site::where('publisher_id', $userId)->pluck('id')->toArray();
-
-            Log::info('Sites found for publisher', ['site_ids' => $siteIds]);
 
             // If no sites found, return empty data
             if (empty($siteIds)) {
@@ -1067,8 +1063,6 @@ class OrderController extends Controller
             $userId = auth()->id();
             $siteIds = Site::where('publisher_id', $userId)->pluck('id')->toArray();
 
-            Log::info('Fetching statistics for publisher', ['user_id' => $userId, 'site_ids' => $siteIds]);
-
             // If no sites found, return zero stats
             if (empty($siteIds)) {
                 return response()->json([
@@ -1107,8 +1101,6 @@ class OrderController extends Controller
                     })
                     ->sum(OrderItem::publisherPayoutSqlExpression()), 2),
             ];
-
-            Log::info('Statistics calculated', $stats);
 
             return response()->json([
                 'success' => true,

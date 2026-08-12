@@ -29,43 +29,44 @@
     </div>
 
     <!-- Statistics Cards -->
-    <div class="row mb-4">
-        <div class="col-md-4 mb-3">
-            <div class="card border-0 shadow-sm">
-                <div class="card-body d-flex justify-content-between align-items-center">
-                    <div>
-                        <h6 class="text-muted mb-1">Total Orders</h6>
-                        <h3 class="mb-0" id="statTotalOrders">0</h3>
-                    </div>
-                    <div class="bg-primary bg-opacity-10 p-3 rounded-circle">
-                        <i class="fa fa-tasks fa-2x text-primary"></i>
-                    </div>
+    <div class="row mb-4 g-3">
+        <div class="col-6 col-lg">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body py-3">
+                    <h6 class="text-muted mb-1 small">Total</h6>
+                    <h3 class="mb-0" id="statTotalOrders">0</h3>
                 </div>
             </div>
         </div>
-        <div class="col-md-4 mb-3">
-            <div class="card border-0 shadow-sm">
-                <div class="card-body d-flex justify-content-between align-items-center">
-                    <div>
-                        <h6 class="text-muted mb-1">Pending</h6>
-                        <h3 class="mb-0" id="statPendingOrders">0</h3>
-                    </div>
-                    <div class="bg-warning bg-opacity-10 p-3 rounded-circle">
-                        <i class="fa fa-clock fa-2x text-warning"></i>
-                    </div>
+        <div class="col-6 col-lg">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body py-3">
+                    <h6 class="text-muted mb-1 small">Pending</h6>
+                    <h3 class="mb-0" id="statPendingOrders">0</h3>
                 </div>
             </div>
         </div>
-        <div class="col-md-4 mb-3">
-            <div class="card border-0 shadow-sm">
-                <div class="card-body d-flex justify-content-between align-items-center">
-                    <div>
-                        <h6 class="text-muted mb-1">Total Earnings</h6>
-                        <h3 class="mb-0" id="statTotalEarnings" style="color: #10b981;">€0</h3>
-                    </div>
-                    <div class="bg-success bg-opacity-10 p-3 rounded-circle">
-                        <i class="fa fa-euro-sign fa-2x text-success"></i>
-                    </div>
+        <div class="col-6 col-lg">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body py-3">
+                    <h6 class="text-muted mb-1 small">In progress</h6>
+                    <h3 class="mb-0" id="statProcessingOrders">0</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-lg">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body py-3">
+                    <h6 class="text-muted mb-1 small">In review</h6>
+                    <h3 class="mb-0" id="statReviewOrders">0</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-lg">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body py-3">
+                    <h6 class="text-muted mb-1 small">Earnings</h6>
+                    <h3 class="mb-0" id="statTotalEarnings" style="color: #10b981;">€0</h3>
                 </div>
             </div>
         </div>
@@ -298,167 +299,7 @@
 
 @include('partials.order-chat-modal')
 
-<style>
-.table td, .table th {
-    padding: 12px 15px;
-    vertical-align: middle;
-}
-
-.card-header {
-    border-bottom: 1px solid #eee;
-}
-
-.status-badge {
-    padding: 4px 10px;
-    border-radius: 5px;
-    font-size: 11px;
-    font-weight: 600;
-    display: inline-block;
-}
-
-.status-pending {
-    /* uses app-shell status tokens */
-}
-
-.status-processing {
-    /* uses app-shell status tokens */
-}
-
-.status-review {
-    /* uses app-shell status tokens */
-}
-
-.status-completed {
-    /* uses app-shell status tokens */
-}
-
-.status-cancelled {
-    /* uses app-shell status tokens */
-}
-
-.chat-unread-dot {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-width: 16px;
-    height: 16px;
-    padding: 0 4px;
-    margin-left: 4px;
-    border-radius: 999px;
-    background: #dc3545;
-    color: #fff;
-    font-size: 10px;
-    font-weight: 700;
-}
-
-.next-step-hint {
-    font-size: 11px;
-    color: #6b7280;
-    margin-top: 4px;
-    max-width: 160px;
-}
-
-.sensitive-badge {
-    background-color: #fef3c7;
-    color: #d97706;
-    padding: 4px 8px;
-    border-radius: 4px;
-    font-size: 10px;
-    font-weight: 600;
-    display: inline-block;
-}
-
-.btn-action-sm {
-    padding: 4px 8px;
-    font-size: 11px;
-    min-width: 65px;
-}
-
-.link-cell {
-    max-width: 150px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.link-cell a {
-    font-size: 12px;
-}
-
-.action-buttons {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-}
-
-.total-price {
-    font-weight: bold;
-    font-size: 14px;
-}
-
-/* Dark mode styles */
-
-
-
-
-
-
-
-td a {
-    word-break: break-all;
-}
-
-#chatMessages::-webkit-scrollbar {
-    width: 6px;
-}
-#chatMessages::-webkit-scrollbar-track {
-    background: #f1f1f1;
-}
-#chatMessages::-webkit-scrollbar-thumb {
-    background: #c1c1c1;
-    border-radius: 3px;
-}
-#chatMessages::-webkit-scrollbar-thumb:hover {
-    background: #a8a8a8;
-}
-
-.publisher-article-preview {
-    border: 1px solid #dbe4ee;
-    background: #fff;
-    border-radius: 12px;
-    padding: 14px 16px;
-    max-height: 420px;
-    overflow: auto;
-    font-size: 0.92rem;
-    line-height: 1.55;
-    color: #334155;
-}
-.publisher-article-preview img {
-    max-width: 100%;
-    height: auto;
-    border-radius: 8px;
-    margin: .5rem 0;
-    display: block;
-}
-.article-img-wrap {
-    position: relative;
-    display: inline-block;
-    max-width: 100%;
-}
-.article-img-wrap img { display: block; max-width: 100%; height: auto; }
-.article-img-download {
-    position: absolute;
-    right: 8px;
-    bottom: 8px;
-    opacity: 0;
-    transition: opacity .15s ease;
-    z-index: 2;
-}
-.article-img-wrap:hover .article-img-download,
-.article-img-wrap:focus-within .article-img-download {
-    opacity: 1;
-}
-</style>
+<link href="{{ asset('assets/css/publisher-tasks.css') }}?v={{ @filemtime(public_path('assets/css/publisher-tasks.css')) ?: '1' }}" rel="stylesheet">
 
 <script src="{{ asset('assets/js/jquery-3.6.0.min.js') }}?v={{ @filemtime(public_path('assets/js/jquery-3.6.0.min.js')) ?: '1' }}"></script>
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
@@ -798,6 +639,8 @@ $(document).ready(function() {
                 if (response.success) {
                     $('#statTotalOrders').text(response.data.total_orders || 0);
                     $('#statPendingOrders').text(response.data.pending_orders || 0);
+                    $('#statProcessingOrders').text(response.data.accepted_orders || 0);
+                    $('#statReviewOrders').text(response.data.review_orders || 0);
                     $('#statTotalEarnings').html('€' + (response.data.total_earnings || 0).toFixed(2));
                 }
             },
@@ -1155,7 +998,7 @@ $(document).ready(function() {
                 ? '<span class="chat-unread-dot pulse-badge is-pulsing">' + item.unread_chat + '</span>'
                 : '';
             var chatBtn = '<button type="button" class="btn btn-primary btn-action-sm open-task-chat" data-order-id="' + item.order_id + '" data-order-number="' + escapeHtml(orderNumber) + '" aria-label="Open chat"><i class="fa fa-comments"></i> Chat' + unreadBadge + '</button>';
-            var viewBtn = '<button class="btn btn-outline-secondary btn-action-sm view-details" data-id="' + item.id + '"><i class="fa fa-eye"></i> View</button>';
+            var viewBtn = '<button type="button" class="btn btn-outline-secondary btn-action-sm view-details" data-id="' + item.id + '" aria-label="View order details"><i class="fa fa-eye"></i> View</button>';
             var liveBtn = hasLiveUrl
                 ? '<a href="' + escapeHtml(item.live_url) + '" target="_blank" class="btn btn-live-url btn-action-sm"><i class="fa fa-external-link"></i> Live</a>'
                 : '';
@@ -1216,15 +1059,15 @@ $(document).ready(function() {
                 actions = '<div class="action-buttons">' + viewBtn + chatBtn + liveBtn + '</div>';
             }
             
-            html += '<tr>' +
-                '<td><strong>#' + escapeHtml(orderNumber) + '</strong></td>' +
-                '<td><div class="fw-semibold">' + escapeHtml(item.site_name) + '</div><div class="text-muted small"><a href="' + escapeHtml(item.site_url) + '" target="_blank">' + escapeHtml(item.site_url) + '</a></div></td>' +
-                '<td class="text-primary">€' + basePrice.toFixed(2) + '</td>' +
-                '<td>' + (additionalPrice > 0 ? '<span class="sensitive-badge"><i class="fa fa-plus-circle"></i> ' + escapeHtml(sensitiveType || 'Extra') + ' (+€' + additionalPrice.toFixed(2) + ')</span>' : '<span class="text-muted">—</span>') + '</td>' +
-                '<td class="fw-semibold total-price" style="color: #10b981;">€' + totalPrice.toFixed(2) + '</td>' +
-                '<td><span class="status-badge ' + statusMeta.statusClass + '">' + statusMeta.statusText + '</span><div class="next-step-hint">' + statusMeta.nextStep + '</div></td>' +
-                '<td class="link-cell">' + ((item.content_download_url || item.content_link) ? '<a href="' + escapeHtml(item.content_download_url || item.content_link) + '" class="btn btn-sm btn-outline-primary" rel="noopener noreferrer"><i class="fa fa-download me-1"></i> ' + (item.content_original_name ? 'Document' : 'View') + '</a>' : '<span class="text-muted">Not submitted</span>') + '</td>' +
-                '<td>' + actions + '</td>' +
+            html += '<tr class="tasks-row">' +
+                '<td data-label="Order ID"><strong>#' + escapeHtml(orderNumber) + '</strong></td>' +
+                '<td data-label="Site"><div class="fw-semibold">' + escapeHtml(item.site_name) + '</div><div class="text-muted small"><a href="' + escapeHtml(item.site_url) + '" target="_blank" rel="noopener noreferrer">' + escapeHtml(item.site_url) + '</a></div></td>' +
+                '<td data-label="Base" class="text-primary">€' + basePrice.toFixed(2) + '</td>' +
+                '<td data-label="Sensitive">' + (additionalPrice > 0 ? '<span class="sensitive-badge"><i class="fa fa-plus-circle"></i> ' + escapeHtml(sensitiveType || 'Extra') + ' (+€' + additionalPrice.toFixed(2) + ')</span>' : '<span class="text-muted">—</span>') + '</td>' +
+                '<td data-label="Total" class="fw-semibold total-price" style="color: #10b981;">€' + totalPrice.toFixed(2) + '</td>' +
+                '<td data-label="Status"><span class="status-badge ' + statusMeta.statusClass + '">' + statusMeta.statusText + '</span><div class="next-step-hint">' + statusMeta.nextStep + '</div></td>' +
+                '<td class="link-cell" data-label="Content">' + ((item.content_download_url || item.content_link) ? '<a href="' + escapeHtml(item.content_download_url || item.content_link) + '" class="btn btn-sm btn-outline-primary" rel="noopener noreferrer"><i class="fa fa-download me-1"></i> ' + (item.content_original_name ? 'Document' : 'View') + '</a>' : '<span class="text-muted">Not submitted</span>') + '</td>' +
+                '<td data-label="Action">' + actions + '</td>' +
                 '</tr>';
         });
         
