@@ -11,8 +11,8 @@ Your withdrawal request has been **{{ ucfirst($newStatus) }}**.
 - **Requested Amount:** €{{ number_format((float) $withdrawal->amount, 2) }}
 @if((float) ($withdrawal->fee ?? 0) > 0)
 - **Platform Fee:** -€{{ number_format((float) $withdrawal->fee, 2) }}
-- **Net Payout:** €{{ number_format((float) ($withdrawal->net_amount ?? ((float) $withdrawal->amount - (float) $withdrawal->fee)), 2) }}
 @endif
+- **Net Payout:** €{{ number_format((float) ($withdrawal->net_amount ?? ((float) $withdrawal->amount - (float) ($withdrawal->fee ?? 0))), 2) }}
 - **Payment Method:** {{ \App\Models\Invoice::paymentMethodLabel($withdrawal->payment_method) }}
 
 @if($notes)

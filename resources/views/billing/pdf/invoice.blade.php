@@ -168,7 +168,9 @@
                 <div><strong>{{ $invoice->customer_name }}</strong></div>
                 <div class="muted">{{ $invoice->customer_email }}</div>
                 @php $bill = $invoice->billing_snapshot ?? []; @endphp
-                @if(!empty($bill['company'])) <div><strong>{{ $bill['company'] }}</strong></div> @endif
+                @if(!empty($bill['company']) && trim((string) $bill['company']) !== trim((string) $invoice->customer_name))
+                    <div><strong>{{ $bill['company'] }}</strong></div>
+                @endif
                 @if(!empty($bill['address'])) <div class="muted">{{ $bill['address'] }}</div> @endif
                 @if(!empty($bill['city']) || !empty($bill['state']) || !empty($bill['postal_code']))
                     @php
@@ -267,6 +269,15 @@
     </thead>
     <tbody>
         @forelse(($invoice->line_items ?? []) as $line)
+            @php
+                // Legacy payout payloads stored the fee as a negative line item AND in totals.
+                $payoutFeeLine = $isPayout && (
+                    (float) ($line['line_total'] ?? $line['unit_price'] ?? 0) < 0
+                    || str_contains(strtolower((string) ($line['description'] ?? '')), 'withdrawal fee')
+                    || str_contains(strtolower((string) ($line['description'] ?? '')), 'platform fee')
+                );
+            @endphp
+            @continue($payoutFeeLine)
             <tr>
                 <td>{{ $line['description'] ?? 'Service' }}</td>
                 <td>

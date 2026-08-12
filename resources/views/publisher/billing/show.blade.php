@@ -24,8 +24,10 @@
                 <dd class="col-sm-8">{{ $invoice->reference_code }}</dd>
                 <dt class="col-sm-4 text-muted">Gross</dt>
                 <dd class="col-sm-8">€{{ number_format((float) $invoice->subtotal, 2) }}</dd>
-                <dt class="col-sm-4 text-muted">Fee</dt>
-                <dd class="col-sm-8">€{{ number_format((float) $invoice->discount_amount, 2) }}</dd>
+                @if((float) $invoice->discount_amount > 0)
+                    <dt class="col-sm-4 text-muted">Fee</dt>
+                    <dd class="col-sm-8">€{{ number_format((float) $invoice->discount_amount, 2) }}</dd>
+                @endif
                 <dt class="col-sm-4 text-muted">Net payout</dt>
                 <dd class="col-sm-8 fw-semibold">€{{ number_format((float) $invoice->total_amount, 2) }}</dd>
                 <dt class="col-sm-4 text-muted">Method</dt>

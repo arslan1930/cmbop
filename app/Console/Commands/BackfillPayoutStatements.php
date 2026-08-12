@@ -3,7 +3,6 @@
 namespace App\Console\Commands;
 
 use App\Models\Invoice;
-use App\Models\Withdrawal;
 use App\Services\Billing\WithdrawalPayoutStatementService;
 use Illuminate\Console\Command;
 
@@ -42,18 +41,10 @@ class BackfillPayoutStatements extends Command
         }
 
         if ($this->option('dry-run')) {
-            $missing = 0;
-            Withdrawal::query()
-                ->where('status', 'completed')
-                ->orderBy('id')
-                ->lazyById(100)
-                ->each(function (Withdrawal $withdrawal) use ($statements, &$missing) {
-                    if (! $statements->find($withdrawal)) {
-                        $missing++;
-                    }
-                });
+            $missing = $statements->missingCompletedWithdrawalsQuery()->count();
+            $wouldProcess = min(max(1, min(200, $limit)), $missing);
 
-            $this->info("Dry run: {$missing} completed withdrawal(s) missing a payout statement (limit {$limit}).");
+            $this->info("Dry run: {$missing} completed withdrawal(s) missing a payout statement (would process {$wouldProcess}).");
 
             return self::SUCCESS;
         }

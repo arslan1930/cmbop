@@ -352,6 +352,79 @@ class BillingPhases46Test extends TestCase
         $this->assertSame(Invoice::TYPE_WITHDRAWAL_PAYOUT, $statement->type);
     }
 
+    public function test_legacy_fee_line_item_is_stripped_from_payout_pdf(): void
+    {
+        Mail::fake();
+        Storage::fake('local');
+
+        $publisher = $this->makeUser('publisher');
+        $publisher->forceFill([
+            'payout_business_name' => 'Acme Media GmbH',
+            'name' => 'Jane Publisher',
+        ])->save();
+
+        $statement = Invoice::create([
+            'invoice_number' => 'PAY-2026-999001',
+            'type' => Invoice::TYPE_WITHDRAWAL_PAYOUT,
+            'status' => Invoice::STATUS_PAID,
+            'user_id' => $publisher->id,
+            'reference_code' => 'WD-999001',
+            'currency' => 'EUR',
+            'subtotal' => 100,
+            'tax_amount' => 0,
+            'discount_amount' => 5,
+            'total_amount' => 95,
+            'payment_method' => 'wise',
+            'payment_status' => 'paid',
+            'invoice_date' => now(),
+            'paid_at' => now(),
+            'customer_name' => 'Acme Media GmbH',
+            'customer_email' => $publisher->email,
+            'billing_snapshot' => [
+                'name' => 'Acme Media GmbH',
+                'company' => 'Acme Media GmbH',
+                'email' => $publisher->email,
+                'payment_details' => ['email' => 'pay@example.com'],
+            ],
+            'line_items' => [
+                [
+                    'description' => 'Publisher withdrawal payout',
+                    'reference' => 'WD-999001',
+                    'quantity' => 1,
+                    'unit_price' => 100,
+                    'line_total' => 100,
+                ],
+                [
+                    'description' => 'Withdrawal fee',
+                    'reference' => 'WD-999001-fee',
+                    'quantity' => 1,
+                    'unit_price' => -5,
+                    'line_total' => -5,
+                ],
+            ],
+            'pdf_disk' => 'local',
+            'notes' => 'Payout statement',
+        ]);
+
+        $normalized = app(WithdrawalPayoutStatementService::class)
+            ->normalizeLegacyFeeLineItems($statement->fresh());
+
+        $this->assertCount(1, $normalized->line_items);
+        $this->assertSame('Publisher withdrawal payout', $normalized->line_items[0]['description']);
+
+        $html = view('billing.pdf.invoice', [
+            'invoice' => $normalized,
+            'company' => config('billing.company'),
+            'colors' => config('billing.colors'),
+            'currencySymbol' => '€',
+        ])->render();
+
+        $this->assertSame(1, substr_count($html, 'Withdrawal fee'));
+        $this->assertStringContainsString('Pay to', $html);
+        // Company must not duplicate the payee name.
+        $this->assertSame(1, substr_count($html, 'Acme Media GmbH'));
+    }
+
     public function test_mark_paid_email_and_bell_point_at_payout_docs(): void
     {
         Mail::fake();

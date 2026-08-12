@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Invoice;
 use App\Services\Billing\BillingDocumentService;
 use App\Services\Billing\InvoicePdfGenerator;
+use App\Services\Billing\WithdrawalPayoutStatementService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 
@@ -60,13 +61,21 @@ class BillingController extends Controller
         return view('publisher.billing.show', compact('invoice'));
     }
 
-    public function download(Invoice $invoice, InvoicePdfGenerator $pdfs, BillingDocumentService $billing)
-    {
+    public function download(
+        Invoice $invoice,
+        InvoicePdfGenerator $pdfs,
+        BillingDocumentService $billing,
+        WithdrawalPayoutStatementService $statements,
+    ) {
         $this->authorizeOwner($invoice);
         abort_unless($invoice->type === Invoice::TYPE_WITHDRAWAL_PAYOUT, 404);
         abort_if($invoice->status === Invoice::STATUS_CANCELLED, 404);
 
-        if (! $invoice->hasPdf() || ! $invoice->pdfExists()) {
+        $beforeItems = json_encode($invoice->line_items ?? []);
+        $invoice = $statements->normalizeLegacyFeeLineItems($invoice);
+        $lineItemsChanged = $beforeItems !== json_encode($invoice->line_items ?? []);
+
+        if ($lineItemsChanged || ! $invoice->hasPdf() || ! $invoice->pdfExists()) {
             try {
                 $pdfs->generateAndStore($invoice);
                 $invoice->refresh();
@@ -81,13 +90,21 @@ class BillingController extends Controller
         return $pdfs->download($invoice);
     }
 
-    public function viewPdf(Invoice $invoice, InvoicePdfGenerator $pdfs, BillingDocumentService $billing)
-    {
+    public function viewPdf(
+        Invoice $invoice,
+        InvoicePdfGenerator $pdfs,
+        BillingDocumentService $billing,
+        WithdrawalPayoutStatementService $statements,
+    ) {
         $this->authorizeOwner($invoice);
         abort_unless($invoice->type === Invoice::TYPE_WITHDRAWAL_PAYOUT, 404);
         abort_if($invoice->status === Invoice::STATUS_CANCELLED, 404);
 
-        if (! $invoice->hasPdf() || ! $invoice->pdfExists()) {
+        $beforeItems = json_encode($invoice->line_items ?? []);
+        $invoice = $statements->normalizeLegacyFeeLineItems($invoice);
+        $lineItemsChanged = $beforeItems !== json_encode($invoice->line_items ?? []);
+
+        if ($lineItemsChanged || ! $invoice->hasPdf() || ! $invoice->pdfExists()) {
             try {
                 $pdfs->generateAndStore($invoice);
                 $invoice->refresh();

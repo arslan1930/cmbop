@@ -45,7 +45,11 @@ class WithdrawalPayoutStatementService
                 }
 
                 if ($existing = $this->find($locked)) {
-                    if (! $existing->hasPdf() || ! $existing->pdfExists()) {
+                    $beforeItems = json_encode($existing->line_items ?? []);
+                    $existing = $this->normalizeLegacyFeeLineItems($existing);
+                    $lineItemsChanged = $beforeItems !== json_encode($existing->line_items ?? []);
+
+                    if ($lineItemsChanged || ! $existing->hasPdf() || ! $existing->pdfExists()) {
                         try {
                             $this->pdfs->generateAndStore($existing);
                         } catch (\Throwable $e) {
@@ -184,6 +188,26 @@ class WithdrawalPayoutStatementService
     }
 
     /**
+     * Completed withdrawals that do not yet have a non-cancelled PAY statement.
+     *
+     * Portable (no MySQL CONCAT): resolve existing WD-{id} refs in PHP, then exclude.
+     */
+    public function missingCompletedWithdrawalsQuery()
+    {
+        $existingIds = $this->existingPayoutWithdrawalIds();
+
+        $query = Withdrawal::query()
+            ->where('status', 'completed')
+            ->orderBy('id');
+
+        if ($existingIds !== []) {
+            $query->whereNotIn('id', $existingIds);
+        }
+
+        return $query;
+    }
+
+    /**
      * Ops: create missing PAY statements for completed withdrawals.
      *
      * @return array{created: int, skipped: int, failed: int, invoice_ids: list<int>}
@@ -197,23 +221,12 @@ class WithdrawalPayoutStatementService
         $failed = 0;
         $ids = [];
 
-        $withdrawals = Withdrawal::query()
+        $withdrawals = $this->missingCompletedWithdrawalsQuery()
             ->with('user')
-            ->where('status', 'completed')
-            ->orderBy('id')
-            ->lazyById(100);
+            ->limit($limit)
+            ->get();
 
         foreach ($withdrawals as $withdrawal) {
-            if ($created + $failed >= $limit) {
-                break;
-            }
-
-            if ($this->find($withdrawal)) {
-                $skipped++;
-
-                continue;
-            }
-
             if (! $withdrawal->user) {
                 $skipped++;
 
@@ -251,6 +264,7 @@ class WithdrawalPayoutStatementService
 
         foreach ($docs as $doc) {
             try {
+                $doc = $this->normalizeLegacyFeeLineItems($doc);
                 $this->pdfs->generateAndStore($doc);
                 $regenerated++;
             } catch (\Throwable $e) {
@@ -263,5 +277,66 @@ class WithdrawalPayoutStatementService
         }
 
         return compact('regenerated', 'failed');
+    }
+
+    /**
+     * Early payloads stored the fee both as a negative line item and as discount_amount.
+     * Strip those legacy fee lines so PDFs / regenerations show the fee once in totals.
+     */
+    public function normalizeLegacyFeeLineItems(Invoice $statement): Invoice
+    {
+        if ($statement->type !== Invoice::TYPE_WITHDRAWAL_PAYOUT) {
+            return $statement;
+        }
+
+        $items = is_array($statement->line_items) ? $statement->line_items : [];
+        $cleaned = [];
+
+        foreach ($items as $line) {
+            if (! is_array($line)) {
+                continue;
+            }
+
+            $total = (float) ($line['line_total'] ?? $line['unit_price'] ?? 0);
+            $desc = strtolower((string) ($line['description'] ?? ''));
+
+            if ($total < 0) {
+                continue;
+            }
+
+            if (str_contains($desc, 'withdrawal fee') || str_contains($desc, 'platform fee')) {
+                continue;
+            }
+
+            $cleaned[] = $line;
+        }
+
+        $cleaned = array_values($cleaned);
+        if ($cleaned === array_values($items)) {
+            return $statement;
+        }
+
+        $statement->update(['line_items' => $cleaned]);
+
+        return $statement->fresh() ?? $statement;
+    }
+
+    /**
+     * @return list<int>
+     */
+    private function existingPayoutWithdrawalIds(): array
+    {
+        return Invoice::query()
+            ->where('type', Invoice::TYPE_WITHDRAWAL_PAYOUT)
+            ->where('status', '!=', Invoice::STATUS_CANCELLED)
+            ->where('reference_code', 'like', 'WD-%')
+            ->pluck('reference_code')
+            ->map(function ($ref) {
+                return preg_match('/^WD-(\d+)$/', (string) $ref, $m) ? (int) $m[1] : null;
+            })
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
     }
 }
