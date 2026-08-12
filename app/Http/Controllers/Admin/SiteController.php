@@ -7,6 +7,7 @@ use App\Jobs\CaptureSiteScreenshotJob;
 use App\Jobs\EnrichSiteJob;
 use App\Mail\AdminAssignedSiteNotification;
 use App\Mail\SiteStatusNotification;
+use App\Models\AgencySiteImport;
 use App\Models\Category;
 use App\Models\Country;
 use App\Models\Language;
@@ -1366,6 +1367,8 @@ class SiteController extends Controller
             Log::error('Failed to send verification notification: '.$e->getMessage());
         }
 
+        $this->refreshLinkedAgencyImport($site, auth()->user());
+
         return response()->json([
             'success' => true,
             'message' => 'Verification updated',
@@ -1470,6 +1473,8 @@ class SiteController extends Controller
                 Log::error('Failed to send status notification: '.$e->getMessage());
             }
 
+            $this->refreshLinkedAgencyImport($site, $actor);
+
             return response()->json([
                 'success' => true,
                 'message' => $activating ? 'Site activated' : 'Site deactivated',
@@ -1551,6 +1556,9 @@ class SiteController extends Controller
         $domain = $site->domain;
         $bulkRequestId = $site->bulk_site_request_id;
         $onboarding = $site->onboarding_status;
+        $agencyImportId = Site::hasSitesColumn('agency_site_import_id')
+            ? $site->agency_site_import_id
+            : null;
 
         try {
             app(InAppNotificationService::class)->completeAdminSiteReviewNotifications($site);
@@ -1586,6 +1594,10 @@ class SiteController extends Controller
             Log::error('Failed to notify publisher after site delete: '.$e->getMessage());
         }
 
+        if ($agencyImportId) {
+            AgencySiteImport::query()->find($agencyImportId)?->refreshReviewStatus($user);
+        }
+
         ActivityLogger::log(
             $isMarketingPendingDelete && ! $isAdmin ? 'site.deleted_by_marketing' : 'site.deleted',
             ($user->name ?? 'Staff').' deleted site "'.$siteName.'"'.($domain ? ' ('.$domain.')' : ''),
@@ -1596,6 +1608,7 @@ class SiteController extends Controller
                 'domain' => $domain,
                 'bulk_site_request_id' => $bulkRequestId,
                 'onboarding_status' => $onboarding,
+                'agency_site_import_id' => $agencyImportId,
                 'deleted_by_role' => $user?->activeRole(),
             ],
             $siteName
@@ -1605,5 +1618,30 @@ class SiteController extends Controller
             'success' => true,
             'message' => 'Site deleted successfully',
         ]);
+    }
+
+    /**
+     * When staff verify/activate/delete agency CSV sites from Sites Management,
+     * close the parent import once nothing remains pending review.
+     */
+    private function refreshLinkedAgencyImport(Site $site, ?User $reviewer = null): void
+    {
+        if (! Site::hasSitesColumn('agency_site_import_id')) {
+            return;
+        }
+
+        $importId = $site->agency_site_import_id;
+        if (! $importId) {
+            return;
+        }
+
+        try {
+            AgencySiteImport::query()->find($importId)?->refreshReviewStatus($reviewer);
+        } catch (\Throwable $e) {
+            Log::warning('Could not refresh agency CSV import status: '.$e->getMessage(), [
+                'import_id' => $importId,
+                'site_id' => $site->id,
+            ]);
+        }
     }
 }

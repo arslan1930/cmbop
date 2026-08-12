@@ -60,6 +60,9 @@
         <a href="{{ route('marketing.sites.index') }}" class="{{ request()->routeIs('marketing.sites.*') ? 'active' : '' }}">
             <i class="fa fa-globe"></i> <span class="nav-label">Sites</span>
         </a>
+        <a href="{{ route('marketing.agency-imports.index') }}" class="{{ request()->routeIs('marketing.agency-imports.*') ? 'active' : '' }}" title="Agency CSV imports">
+            <i class="fa fa-file-csv"></i> <span class="nav-label">Agency CSV</span>
+        </a>
         <a href="{{ route('marketing.bulk-site-requests.index') }}" class="{{ request()->routeIs('marketing.bulk-site-requests.*') ? 'active' : '' }}">
             <i class="fa fa-layer-group"></i> <span class="nav-label">Bulk requests</span>
         </a>

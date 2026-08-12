@@ -4,14 +4,13 @@ namespace App\Http\Controllers\Publisher;
 
 use App\Http\Controllers\Controller;
 use App\Jobs\CaptureSiteScreenshotJob;
-use App\Mail\NewSiteNotification;
+use App\Models\AgencySiteImport;
 use App\Models\BulkSiteRequest;
 use App\Models\BulkSiteRequestItem;
 use App\Models\Category;
 use App\Models\Country;
 use App\Models\Language;
 use App\Models\Site;
-use App\Models\User;
 use App\Services\ActivityLogger;
 use App\Services\AgencySiteImportNotifier;
 use App\Services\AgencySiteImportService;
@@ -23,7 +22,6 @@ use App\Support\SiteDescriptionRules;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Validator;
 
@@ -293,23 +291,7 @@ class SiteController extends Controller
 
         if ($site) {
             try {
-                $admins = User::where('active_role_id', function ($query) {
-                    $query->select('id')
-                        ->from('roles')
-                        ->where('name', 'admin')
-                        ->limit(1);
-                })->get();
-
-                if ($admins->count() > 0) {
-                    foreach ($admins as $admin) {
-                        Mail::to($admin->email)->send(new NewSiteNotification($site));
-                    }
-                } else {
-                    $defaultAdminEmail = config('mail.admin_email');
-                    if ($defaultAdminEmail) {
-                        Mail::to($defaultAdminEmail)->send(new NewSiteNotification($site));
-                    }
-                }
+                app(EmailNotificationService::class)->notifyAdminsNewSite($site, 'create');
             } catch (\Exception $e) {
                 Log::error('Failed to send email notification: '.$e->getMessage());
             }
@@ -723,21 +705,7 @@ class SiteController extends Controller
 
         if ($needsRereview) {
             try {
-                $admins = User::where('active_role_id', function ($query) {
-                    $query->select('id')
-                        ->from('roles')
-                        ->where('name', 'admin')
-                        ->limit(1);
-                })->get();
-
-                if ($admins->count() > 0) {
-                    foreach ($admins as $admin) {
-                        Mail::to($admin->email)->send(new NewSiteNotification($site, 'update'));
-                    }
-                } else {
-                    $defaultAdminEmail = config('mail.admin_email', 'admin@yourdomain.com');
-                    Mail::to($defaultAdminEmail)->send(new NewSiteNotification($site, 'update'));
-                }
+                app(EmailNotificationService::class)->notifyAdminsNewSite($site, 'update');
             } catch (\Exception $e) {
                 Log::error('Failed to send email notification: '.$e->getMessage());
             }
@@ -913,7 +881,7 @@ class SiteController extends Controller
             '15000',
             'de',
             'de',
-            'Business & Finance|Technology',
+            'Business & Finance|Technology & Gadgets',
             '120',
             '3days',
             'permanent',
@@ -964,6 +932,38 @@ class SiteController extends Controller
             );
         } catch (\InvalidArgumentException $e) {
             return back()->with('error', $e->getMessage());
+        } catch (\Throwable $e) {
+            Log::error('Agency CSV bulk import crashed: '.$e->getMessage(), [
+                'user_id' => $request->user()?->id,
+                'exception' => $e::class,
+            ]);
+
+            $stuck = AgencySiteImport::query()
+                ->where('publisher_id', $request->user()->id)
+                ->where('status', AgencySiteImport::STATUS_PROCESSING)
+                ->latest('id')
+                ->first();
+
+            if ($stuck) {
+                $stuck->healAbandonedProcessing(force: true);
+                $stuck->refresh();
+                if ((int) $stuck->created_count > 0) {
+                    try {
+                        app(AgencySiteImportNotifier::class)->notifySubmitted($stuck);
+                    } catch (\Throwable $notifyError) {
+                        Log::warning('Agency CSV import notify failed after crash: '.$notifyError->getMessage(), [
+                            'import_id' => $stuck->id,
+                        ]);
+                    }
+
+                    return back()
+                        ->with('error', (int) $stuck->created_count.' site(s) were saved, but the import crashed before finishing. Re-upload any missing domains. Import #'.$stuck->id.'.')
+                        ->with('bulk_import_created', (int) $stuck->created_count)
+                        ->with('bulk_import_id', $stuck->id);
+                }
+            }
+
+            return back()->with('error', 'Import failed unexpectedly. Please try again or contact support.');
         }
 
         $created = (int) $result['created'];
@@ -971,6 +971,7 @@ class SiteController extends Controller
         $failed = $result['failed'];
         $processed = (int) $result['processed'];
         $import = $result['import'];
+        $interrupted = (bool) ($result['interrupted'] ?? false);
 
         if ($dryRun) {
             $message = "Dry run complete. Processed {$processed} row(s): {$wouldCreate} would be submitted, ".count($failed).' would fail. Nothing was saved.';
@@ -995,7 +996,9 @@ class SiteController extends Controller
         }
 
         $message = "{$created} site(s) submitted for review.";
-        if (count($failed) > 0) {
+        if ($interrupted) {
+            $message = "{$created} site(s) were saved, but the import was interrupted before all rows finished. Re-upload any missing domains.";
+        } elseif (count($failed) > 0) {
             $message .= ' '.count($failed).' row(s) failed — see details below.';
         }
         if ($import) {
@@ -1003,7 +1006,7 @@ class SiteController extends Controller
         }
 
         return back()
-            ->with($created > 0 ? 'success' : 'error', $message)
+            ->with($created > 0 ? ($interrupted ? 'error' : 'success') : 'error', $message)
             ->with('bulk_import_created', $created)
             ->with('bulk_import_failures', $failed)
             ->with('bulk_import_id', $import?->id);
@@ -1062,5 +1065,29 @@ class SiteController extends Controller
         }
 
         return array_values(array_unique($categories));
+    }
+
+    /**
+     * Parse country/language codes from array, CSV, or pipe-separated string.
+     * Kept on the publisher controller for single-site create/update (CSV path
+     * uses AgencySiteImportService::parseCodeList).
+     */
+    private function parseCodeList($value): array
+    {
+        if (is_array($value)) {
+            $parts = $value;
+        } else {
+            $parts = preg_split('/[|,]/', (string) $value) ?: [];
+        }
+
+        $codes = [];
+        foreach ($parts as $part) {
+            $code = strtolower(trim((string) $part));
+            if ($code !== '' && preg_match('/^[a-z]{2}$/', $code)) {
+                $codes[] = $code;
+            }
+        }
+
+        return array_values(array_unique($codes));
     }
 }

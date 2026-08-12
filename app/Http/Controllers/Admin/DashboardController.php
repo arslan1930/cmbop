@@ -177,6 +177,7 @@ class DashboardController extends Controller
                 ->whereIn('status', [
                     AgencySiteImport::STATUS_SUBMITTED,
                     AgencySiteImport::STATUS_PARTIAL,
+                    AgencySiteImport::STATUS_PROCESSING,
                 ])
                 ->count();
 

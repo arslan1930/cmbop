@@ -1,4 +1,4 @@
-@extends('admin.layouts.app')
+@extends(staff_layout())
 
 @section('title', 'Agency CSV imports')
 
@@ -11,11 +11,12 @@
         </div>
     </div>
 
-    <form method="get" class="row g-2 mb-3">
+    <form method="get" action="{{ staff_route('agency-imports.index') }}" class="row g-2 mb-3">
         <div class="col-auto">
             <select name="status" class="form-select form-select-sm">
                 <option value="open" @selected($status === 'open')>Open</option>
                 <option value="all" @selected($status === 'all')>All</option>
+                <option value="processing" @selected($status === 'processing')>Processing</option>
                 <option value="submitted" @selected($status === 'submitted')>Submitted</option>
                 <option value="partial" @selected($status === 'partial')>Partial</option>
                 <option value="reviewed" @selected($status === 'reviewed')>Reviewed</option>
@@ -60,7 +61,7 @@
                             <td><span class="badge bg-secondary">{{ $import->status }}</span></td>
                             <td class="small text-muted">{{ optional($import->created_at)->diffForHumans() }}</td>
                             <td class="text-end">
-                                <a class="btn btn-sm btn-outline-primary" href="{{ route('admin.agency-imports.show', $import) }}">Open</a>
+                                <a class="btn btn-sm btn-outline-primary" href="{{ staff_route('agency-imports.show', $import) }}">Open</a>
                             </td>
                         </tr>
                     @empty

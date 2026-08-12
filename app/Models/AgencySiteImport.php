@@ -2,9 +2,11 @@
 
 namespace App\Models;
 
+use App\Services\InAppNotificationService;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Facades\Log;
 
 class AgencySiteImport extends Model
 {
@@ -75,30 +77,127 @@ class AgencySiteImport extends Model
 
     public function pendingReviewSitesCount(): int
     {
+        // Still open if not yet verified (and not soft-rejected via status_reason),
+        // or verified but not live. Bulk reject deletes pending rows; Sites Management
+        // unverify may leave an unverified row with a status_reason instead.
         return $this->sites()
             ->where(function ($q) {
-                $q->where('verified', false)->orWhere('active', false);
+                $q->where(function ($open) {
+                    $open->where(function ($v) {
+                        $v->where('verified', false)->orWhereNull('verified');
+                    })->where(function ($reason) {
+                        $reason->whereNull('status_reason')
+                            ->orWhere('status_reason', '');
+                    });
+                })->orWhere(function ($verifiedInactive) {
+                    $verifiedInactive->where('verified', true)
+                        ->where(function ($a) {
+                            $a->where('active', false)->orWhereNull('active');
+                        });
+                });
             })
             ->count();
     }
 
-    public function refreshReviewStatus(): void
+    public function refreshReviewStatus(?User $reviewer = null): void
     {
-        if (in_array($this->status, [self::STATUS_FAILED, self::STATUS_CLOSED, self::STATUS_PROCESSING], true)) {
+        if ($this->status === self::STATUS_CLOSED || $this->dry_run) {
             return;
         }
 
-        if ($this->dry_run) {
+        // Crash / kill mid-upload can leave status=processing with sites already saved.
+        if ($this->status === self::STATUS_PROCESSING) {
+            if (! $this->healAbandonedProcessing(force: false)) {
+                return;
+            }
+            $this->refresh();
+        }
+
+        // Failed-with-sites (legacy stuck batches) can still be closed via Sites Management.
+        if ($this->status === self::STATUS_FAILED && (int) $this->created_count <= 0) {
             return;
         }
 
         $pending = $this->pendingReviewSitesCount();
         if ($pending === 0 && $this->created_count > 0) {
-            $this->forceFill([
+            $becameReviewed = $this->status !== self::STATUS_REVIEWED;
+            $payload = [
                 'status' => self::STATUS_REVIEWED,
                 'reviewed_at' => $this->reviewed_at ?? now(),
-            ])->save();
+            ];
+            if ($reviewer && ! $this->reviewed_by) {
+                $payload['reviewed_by'] = $reviewer->id;
+            }
+            $this->forceFill($payload)->save();
+
+            if ($becameReviewed) {
+                try {
+                    app(InAppNotificationService::class)
+                        ->completeAgencySiteImportNotifications($this);
+                } catch (\Throwable $e) {
+                    Log::warning(
+                        'Could not archive agency CSV import notifications: '.$e->getMessage(),
+                        ['import_id' => $this->id]
+                    );
+                }
+            }
+
+            return;
         }
+
+        // Re-open if staff deactivated / unverified after review.
+        if ($pending > 0 && $this->status === self::STATUS_REVIEWED) {
+            $this->forceFill([
+                'status' => ((int) $this->failed_count > 0)
+                    ? self::STATUS_PARTIAL
+                    : self::STATUS_SUBMITTED,
+                'reviewed_at' => null,
+                'reviewed_by' => null,
+            ])->save();
+
+            try {
+                app(InAppNotificationService::class)
+                    ->notifyAdminsAgencySiteImportSubmitted($this);
+            } catch (\Throwable $e) {
+                Log::warning(
+                    'Could not re-bell admins about reopened agency CSV import: '.$e->getMessage(),
+                    ['import_id' => $this->id]
+                );
+            }
+        }
+    }
+
+    /**
+     * Move an abandoned "processing" batch into submitted/partial/failed so it
+     * reappears in the open queue and can be closed from Sites Management.
+     */
+    public function healAbandonedProcessing(bool $force = false): bool
+    {
+        if ($this->status !== self::STATUS_PROCESSING || $this->dry_run) {
+            return false;
+        }
+
+        // Avoid racing a live upload (progress checkpoints bump updated_at).
+        if (! $force && $this->updated_at && $this->updated_at->gt(now()->subMinutes(15))) {
+            return false;
+        }
+
+        $siteCount = $this->sites()->count();
+        $created = max((int) $this->created_count, $siteCount);
+        $failedCount = (int) $this->failed_count;
+        if ($created <= 0) {
+            $failedCount = max($failedCount, 1);
+        }
+
+        $this->forceFill([
+            'created_count' => $created,
+            'failed_count' => $failedCount,
+            'processed_count' => max((int) $this->processed_count, $created),
+        ])->save();
+
+        $this->finalizeStatus();
+
+        return true;
     }
 
     public function finalizeStatus(): void

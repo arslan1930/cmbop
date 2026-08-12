@@ -8,6 +8,7 @@ use App\Models\ActivityLog;
 use App\Models\AgencySiteImport;
 use App\Models\AgencySiteImportFailure;
 use App\Models\Category;
+use App\Models\InAppNotification;
 use App\Models\Role;
 use App\Models\Site;
 use App\Models\User;
@@ -262,6 +263,440 @@ class AgencyCsvBulkImportTest extends TestCase
             ->assertSee('Failed rows', false)
             ->assertSee('CSV metrics — spot-check', false)
             ->assertSee('Duplicate domain in this file', false);
+
+        $this->actingAs($admin)
+            ->getJson(route('admin.dashboard.queue-counts'))
+            ->assertOk()
+            ->assertJsonPath('pending_agency_imports', 1);
+    }
+
+    public function test_admin_can_bulk_verify_and_activate_import_sites(): void
+    {
+        Mail::fake();
+        Bus::fake();
+
+        $adminRole = Role::firstOrCreate(['name' => 'admin']);
+        $admin = User::factory()->create([
+            'email_verified_at' => now(),
+            'active_role_id' => $adminRole->id,
+        ]);
+        $admin->roles()->attach($adminRole->id);
+
+        $this->uploadCsv([
+            $this->validRow('bulk-a.example', 'Bulk A'),
+            $this->validRow('bulk-b.example', 'Bulk B'),
+        ])->assertRedirect();
+
+        $import = AgencySiteImport::query()->firstOrFail();
+        $ids = Site::query()->where('agency_site_import_id', $import->id)->pluck('id')->all();
+        $this->assertCount(2, $ids);
+
+        $this->actingAs($admin)
+            ->postJson(route('admin.agency-imports.bulk-action', $import), [
+                'action' => 'verify',
+                'site_ids' => $ids,
+            ])
+            ->assertOk()
+            ->assertJson(['success' => true, 'updated' => 2]);
+
+        foreach ($ids as $id) {
+            $this->assertTrue((bool) Site::find($id)->verified);
+        }
+
+        $this->actingAs($admin)
+            ->postJson(route('admin.agency-imports.bulk-action', $import), [
+                'action' => 'activate',
+                'site_ids' => $ids,
+            ])
+            ->assertOk()
+            ->assertJson(['success' => true, 'updated' => 2]);
+
+        foreach ($ids as $id) {
+            $this->assertTrue((bool) Site::find($id)->active);
+        }
+
+        $import->refresh();
+        $this->assertSame(AgencySiteImport::STATUS_REVIEWED, $import->status);
+
+        $this->actingAs($admin)
+            ->getJson(route('admin.dashboard.queue-counts'))
+            ->assertOk()
+            ->assertJsonPath('pending_agency_imports', 0);
+    }
+
+    public function test_marketing_cannot_bulk_action_agency_import(): void
+    {
+        Bus::fake();
+
+        // Ensure import exists via publisher upload first.
+        $this->uploadCsv([
+            $this->validRow('mkt-block.example', 'Marketing Block'),
+        ])->assertRedirect();
+        $import = AgencySiteImport::query()->firstOrFail();
+        $siteId = Site::query()->where('agency_site_import_id', $import->id)->value('id');
+
+        $marketingRole = Role::firstOrCreate(['name' => 'marketing']);
+        $marketer = User::factory()->create([
+            'email_verified_at' => now(),
+            'active_role_id' => $marketingRole->id,
+        ]);
+        $marketer->roles()->attach($marketingRole->id);
+
+        $this->actingAs($marketer)
+            ->postJson(route('marketing.agency-imports.bulk-action', $import), [
+                'action' => 'verify',
+                'site_ids' => [$siteId],
+            ])
+            ->assertForbidden();
+
+        // Marketing can open the staff copy of the import detail (shared ops).
+        $this->actingAs($marketer)
+            ->get(route('marketing.agency-imports.show', $import))
+            ->assertOk()
+            ->assertSee('Import #'.$import->id, false);
+    }
+
+    public function test_bulk_reject_removes_sites_and_marks_import_reviewed(): void
+    {
+        Mail::fake();
+        Bus::fake();
+
+        $adminRole = Role::firstOrCreate(['name' => 'admin']);
+        $admin = User::factory()->create([
+            'email_verified_at' => now(),
+            'active_role_id' => $adminRole->id,
+        ]);
+        $admin->roles()->attach($adminRole->id);
+
+        $this->uploadCsv([
+            $this->validRow('reject-a.example', 'Reject A'),
+            $this->validRow('reject-b.example', 'Reject B'),
+        ])->assertRedirect();
+
+        $import = AgencySiteImport::query()->firstOrFail();
+        $ids = Site::query()->where('agency_site_import_id', $import->id)->pluck('id')->all();
+
+        $this->actingAs($admin)
+            ->postJson(route('admin.agency-imports.bulk-action', $import), [
+                'action' => 'reject',
+                'site_ids' => $ids,
+                'reason' => 'Metrics look fabricated; please resubmit with proof.',
+            ])
+            ->assertOk()
+            ->assertJson(['success' => true, 'updated' => 2]);
+
+        $this->assertSame(0, Site::query()->where('agency_site_import_id', $import->id)->count());
+        $import->refresh();
+        $this->assertSame(AgencySiteImport::STATUS_REVIEWED, $import->status);
+        $this->assertSame($admin->id, (int) $import->reviewed_by);
+    }
+
+    public function test_bulk_reject_skips_already_verified_or_live_sites(): void
+    {
+        Mail::fake();
+        Bus::fake();
+
+        $adminRole = Role::firstOrCreate(['name' => 'admin']);
+        $admin = User::factory()->create([
+            'email_verified_at' => now(),
+            'active_role_id' => $adminRole->id,
+        ]);
+        $admin->roles()->attach($adminRole->id);
+
+        $this->uploadCsv([
+            $this->validRow('reject-live.example', 'Live Row'),
+            $this->validRow('reject-pending.example', 'Pending Row'),
+        ])->assertRedirect();
+
+        $import = AgencySiteImport::query()->firstOrFail();
+        $live = Site::query()->where('domain', 'reject-live.example')->firstOrFail();
+        $pending = Site::query()->where('domain', 'reject-pending.example')->firstOrFail();
+
+        $live->forceFill(['verified' => true, 'active' => true])->save();
+
+        $this->actingAs($admin)
+            ->postJson(route('admin.agency-imports.bulk-action', $import), [
+                'action' => 'reject',
+                'site_ids' => [$live->id, $pending->id],
+                'reason' => 'Only the pending submission should be removed.',
+            ])
+            ->assertOk()
+            ->assertJson([
+                'success' => true,
+                'updated' => 1,
+                'skipped' => 1,
+            ]);
+
+        $this->assertNotNull(Site::query()->find($live->id));
+        $this->assertNull(Site::query()->find($pending->id));
+        $import->refresh();
+        $this->assertSame(AgencySiteImport::STATUS_REVIEWED, $import->status);
+    }
+
+    public function test_sites_management_verify_activate_closes_agency_import(): void
+    {
+        Mail::fake();
+        Bus::fake();
+
+        $adminRole = Role::firstOrCreate(['name' => 'admin']);
+        $admin = User::factory()->create([
+            'email_verified_at' => now(),
+            'active_role_id' => $adminRole->id,
+        ]);
+        $admin->roles()->attach($adminRole->id);
+
+        $this->uploadCsv([
+            $this->validRow('sites-mgmt.example', 'Sites Mgmt'),
+        ])->assertRedirect();
+
+        $import = AgencySiteImport::query()->firstOrFail();
+        $site = Site::query()->where('agency_site_import_id', $import->id)->firstOrFail();
+
+        $this->actingAs($admin)
+            ->postJson(route('admin.sites.verify', $site->id), ['verified' => 1])
+            ->assertOk();
+
+        $import->refresh();
+        $this->assertSame(AgencySiteImport::STATUS_SUBMITTED, $import->status);
+
+        $this->actingAs($admin)
+            ->postJson(route('admin.sites.active', $site->id), ['active' => 1])
+            ->assertOk();
+
+        $import->refresh();
+        $this->assertSame(AgencySiteImport::STATUS_REVIEWED, $import->status);
+        $this->assertSame($admin->id, (int) $import->reviewed_by);
+
+        $this->actingAs($admin)
+            ->getJson(route('admin.dashboard.queue-counts'))
+            ->assertOk()
+            ->assertJsonPath('pending_agency_imports', 0);
+    }
+
+    public function test_csv_description_must_meet_plain_text_rules(): void
+    {
+        $short = $this->validRow('short-desc.example', 'Short Desc');
+        // description is index 13 in validRow
+        $short[13] = '<p>'.str_repeat('x', 50).'</p>'; // 50 x tags inflate raw length but plain is 50 — OK
+        // Actually use too-short plain text padded with empty tags
+        $short[13] = '<p><b></b><i></i></p>too short';
+
+        $this->uploadCsv([$short])->assertRedirect();
+
+        $this->assertSame(0, Site::query()->count());
+        $import = AgencySiteImport::query()->first();
+        $this->assertNotNull($import);
+        $this->assertSame(AgencySiteImport::STATUS_FAILED, $import->status);
+        $this->assertGreaterThan(0, (int) $import->failed_count);
+    }
+
+    public function test_csv_accepts_comma_niche_and_localized_traffic(): void
+    {
+        Bus::fake();
+
+        $row = $this->validRow('comma-niche.example', 'Comma Niche Blog');
+        // categories index 8, traffic index 5
+        $row[5] = '15,000';
+        $row[8] = 'Marketing, PR & Advertising';
+
+        $this->uploadCsv([$row])->assertRedirect();
+
+        $site = Site::query()->where('domain', 'comma-niche.example')->first();
+        $this->assertNotNull($site);
+        $this->assertSame(15000, (int) $site->traffic);
+        $this->assertSame('Marketing, PR & Advertising', (string) $site->category);
+    }
+
+    public function test_bulk_activate_skips_unverified_sites(): void
+    {
+        Mail::fake();
+        Bus::fake();
+
+        $adminRole = Role::firstOrCreate(['name' => 'admin']);
+        $admin = User::factory()->create([
+            'email_verified_at' => now(),
+            'active_role_id' => $adminRole->id,
+        ]);
+        $admin->roles()->attach($adminRole->id);
+
+        $this->uploadCsv([
+            $this->validRow('activate-skip.example', 'Activate Skip'),
+        ])->assertRedirect();
+
+        $import = AgencySiteImport::query()->firstOrFail();
+        $site = Site::query()->where('agency_site_import_id', $import->id)->firstOrFail();
+
+        $this->actingAs($admin)
+            ->postJson(route('admin.agency-imports.bulk-action', $import), [
+                'action' => 'activate',
+                'site_ids' => [$site->id],
+            ])
+            ->assertOk()
+            ->assertJson([
+                'success' => true,
+                'updated' => 0,
+                'skipped' => 1,
+            ]);
+
+        $site->refresh();
+        $this->assertFalse((bool) $site->active);
+        $import->refresh();
+        $this->assertSame(AgencySiteImport::STATUS_SUBMITTED, $import->status);
+    }
+
+    public function test_reviewed_import_archives_admin_bells(): void
+    {
+        Mail::fake();
+        Bus::fake();
+
+        $adminRole = Role::firstOrCreate(['name' => 'admin']);
+        $admin = User::factory()->create([
+            'email_verified_at' => now(),
+            'active_role_id' => $adminRole->id,
+        ]);
+        $admin->roles()->attach($adminRole->id);
+
+        $this->uploadCsv([
+            $this->validRow('bell-close.example', 'Bell Close'),
+        ])->assertRedirect();
+
+        $import = AgencySiteImport::query()->firstOrFail();
+        $this->assertDatabaseHas('in_app_notifications', [
+            'user_id' => $admin->id,
+            'title' => 'Agency CSV import ready for review',
+        ]);
+
+        $ids = Site::query()->where('agency_site_import_id', $import->id)->pluck('id')->all();
+        $this->actingAs($admin)
+            ->postJson(route('admin.agency-imports.bulk-action', $import), [
+                'action' => 'verify',
+                'site_ids' => $ids,
+            ])->assertOk();
+        $this->actingAs($admin)
+            ->postJson(route('admin.agency-imports.bulk-action', $import), [
+                'action' => 'activate',
+                'site_ids' => $ids,
+            ])->assertOk();
+
+        $import->refresh();
+        $this->assertSame(AgencySiteImport::STATUS_REVIEWED, $import->status);
+
+        $note = InAppNotification::query()
+            ->where('user_id', $admin->id)
+            ->where('title', 'Agency CSV import ready for review')
+            ->where('related_id', $import->id)
+            ->first();
+        $this->assertNotNull($note);
+        $this->assertNotNull($note->archived_at);
+    }
+
+    public function test_bulk_template_uses_real_niche_names(): void
+    {
+        $response = $this->actingAs($this->publisher)
+            ->get(route('publisher.sites.bulk-template'));
+
+        $response->assertOk();
+        $csv = $response->streamedContent();
+        $this->assertStringContainsString('Technology & Gadgets', $csv);
+        $this->assertStringNotContainsString('Business & Finance|Technology,', $csv);
+        $this->assertStringNotContainsString("Business & Finance|Technology\n", $csv);
+    }
+
+    public function test_deactivating_reviewed_agency_site_reopens_import_and_rebells(): void
+    {
+        Mail::fake();
+        Bus::fake();
+
+        $adminRole = Role::firstOrCreate(['name' => 'admin']);
+        $admin = User::factory()->create([
+            'email_verified_at' => now(),
+            'active_role_id' => $adminRole->id,
+        ]);
+        $admin->roles()->attach($adminRole->id);
+
+        $this->uploadCsv([
+            $this->validRow('reopen-import.example', 'Reopen Import'),
+        ])->assertRedirect();
+
+        $import = AgencySiteImport::query()->firstOrFail();
+        $site = Site::query()->where('agency_site_import_id', $import->id)->firstOrFail();
+
+        $this->actingAs($admin)
+            ->postJson(route('admin.sites.verify', $site->id), ['verified' => 1])
+            ->assertOk();
+        $this->actingAs($admin)
+            ->postJson(route('admin.sites.active', $site->id), ['active' => 1])
+            ->assertOk();
+
+        $import->refresh();
+        $this->assertSame(AgencySiteImport::STATUS_REVIEWED, $import->status);
+
+        $this->actingAs($admin)
+            ->postJson(route('admin.sites.active', $site->id), [
+                'active' => 0,
+                'reason' => 'Needs better metrics before staying live.',
+            ])
+            ->assertOk();
+
+        $import->refresh();
+        $this->assertSame(AgencySiteImport::STATUS_SUBMITTED, $import->status);
+
+        $openBells = InAppNotification::query()
+            ->where('user_id', $admin->id)
+            ->where('title', 'Agency CSV import ready for review')
+            ->where('related_id', $import->id)
+            ->whereNull('archived_at')
+            ->count();
+        $this->assertGreaterThanOrEqual(1, $openBells);
+    }
+
+    public function test_abandoned_processing_import_is_healed_and_visible(): void
+    {
+        Bus::fake();
+        Mail::fake();
+
+        $adminRole = Role::firstOrCreate(['name' => 'admin']);
+        $admin = User::factory()->create([
+            'email_verified_at' => now(),
+            'active_role_id' => $adminRole->id,
+        ]);
+        $admin->roles()->attach($adminRole->id);
+
+        $this->uploadCsv([
+            $this->validRow('heal-me.example', 'Heal Me'),
+        ])->assertRedirect();
+
+        $import = AgencySiteImport::query()->firstOrFail();
+        $site = Site::query()->where('agency_site_import_id', $import->id)->firstOrFail();
+
+        // Simulate a crash mid-upload: sites exist, batch stuck in processing.
+        $import->forceFill([
+            'status' => AgencySiteImport::STATUS_PROCESSING,
+            'created_count' => 0,
+            'failed_count' => 0,
+            'updated_at' => now()->subMinutes(20),
+        ])->save();
+
+        $this->assertTrue($import->healAbandonedProcessing(force: true));
+        $import->refresh();
+        $this->assertSame(AgencySiteImport::STATUS_SUBMITTED, $import->status);
+        $this->assertSame(1, (int) $import->created_count);
+        $this->assertSame($site->id, Site::query()->where('agency_site_import_id', $import->id)->value('id'));
+
+        // Force stuck again and confirm the staff show page heals stale batches.
+        $import->forceFill([
+            'status' => AgencySiteImport::STATUS_PROCESSING,
+            'created_count' => 0,
+            'updated_at' => now()->subMinutes(20),
+        ])->save();
+
+        $this->actingAs($admin)
+            ->get(route('admin.agency-imports.show', $import))
+            ->assertOk()
+            ->assertSee('Import #'.$import->id, false);
+
+        $import->refresh();
+        $this->assertSame(AgencySiteImport::STATUS_SUBMITTED, $import->status);
 
         $this->actingAs($admin)
             ->getJson(route('admin.dashboard.queue-counts'))

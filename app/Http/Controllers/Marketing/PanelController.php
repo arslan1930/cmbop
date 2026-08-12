@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Marketing;
 
 use App\Http\Controllers\Controller;
 use App\Models\ActivityLog;
+use App\Models\AgencySiteImport;
 use App\Models\BulkSiteRequest;
 use App\Models\Site;
 use Illuminate\Database\Eloquent\Builder;
@@ -43,6 +44,14 @@ class PanelController extends Controller
                 ->whereNotIn('status', [
                     BulkSiteRequest::STATUS_COMPLETED,
                     BulkSiteRequest::STATUS_CANCELLED,
+                ])
+                ->count(),
+            'open_agency_imports' => AgencySiteImport::query()
+                ->where('dry_run', false)
+                ->whereIn('status', [
+                    AgencySiteImport::STATUS_SUBMITTED,
+                    AgencySiteImport::STATUS_PARTIAL,
+                    AgencySiteImport::STATUS_PROCESSING,
                 ])
                 ->count(),
             'my_tasks_today' => $this->marketerHistoryQuery($userId)

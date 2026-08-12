@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 
 class Site extends Model
@@ -278,6 +279,73 @@ class Site extends Model
 
             return false;
         }
+    }
+
+    public static function ensureStatusReasonColumns(): bool
+    {
+        static $ensured = false;
+        if ($ensured) {
+            return Schema::hasColumn('sites', 'status_reason')
+                && Schema::hasColumn('sites', 'status_reason_at')
+                && Schema::hasColumn('sites', 'status_reason_by');
+        }
+        $ensured = true;
+
+        try {
+            if (! Schema::hasTable('sites')) {
+                return false;
+            }
+
+            $driver = Schema::getConnection()->getDriverName();
+            $needsReason = ! Schema::hasColumn('sites', 'status_reason');
+            $needsAt = ! Schema::hasColumn('sites', 'status_reason_at');
+            $needsBy = ! Schema::hasColumn('sites', 'status_reason_by');
+
+            if (! $needsReason && ! $needsAt && ! $needsBy) {
+                return true;
+            }
+
+            if (in_array($driver, ['mysql', 'mariadb'], true)) {
+                if ($needsReason) {
+                    DB::statement('ALTER TABLE `sites` ADD COLUMN `status_reason` TEXT NULL');
+                }
+                if ($needsAt) {
+                    DB::statement('ALTER TABLE `sites` ADD COLUMN `status_reason_at` TIMESTAMP NULL DEFAULT NULL');
+                }
+                if ($needsBy) {
+                    try {
+                        DB::statement('ALTER TABLE `sites` ADD COLUMN `status_reason_by` BIGINT UNSIGNED NULL DEFAULT NULL');
+                        DB::statement('ALTER TABLE `sites` ADD CONSTRAINT `sites_status_reason_by_foreign` FOREIGN KEY (`status_reason_by`) REFERENCES `users` (`id`) ON DELETE SET NULL');
+                    } catch (\Throwable $e) {
+                        // Column may exist without FK — still usable.
+                        Log::warning('sites.status_reason_by added without FK or already present', [
+                            'error' => $e->getMessage(),
+                        ]);
+                    }
+                }
+            } else {
+                Schema::table('sites', function ($table) use ($needsReason, $needsAt, $needsBy) {
+                    if ($needsReason) {
+                        $table->text('status_reason')->nullable();
+                    }
+                    if ($needsAt) {
+                        $table->timestamp('status_reason_at')->nullable();
+                    }
+                    if ($needsBy) {
+                        $table->foreignId('status_reason_by')->nullable()->constrained('users')->nullOnDelete();
+                    }
+                });
+            }
+        } catch (\Throwable $e) {
+            Log::warning('Could not add sites status_reason columns', [
+                'error' => $e->getMessage(),
+                'hint' => 'Run database/sql/add_sites_status_reason.sql in phpMyAdmin',
+            ]);
+        }
+
+        return Schema::hasColumn('sites', 'status_reason')
+            && Schema::hasColumn('sites', 'status_reason_at')
+            && Schema::hasColumn('sites', 'status_reason_by');
     }
 
     public static function ensureOnboardingStatusColumnAcceptsValues(): void

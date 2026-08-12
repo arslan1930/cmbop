@@ -11,6 +11,7 @@ use App\Models\Language;
 use App\Models\Site;
 use App\Models\User;
 use App\Services\Marketplace\CountryLanguagePairs;
+use App\Support\SiteDescriptionRules;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -26,7 +27,8 @@ class AgencySiteImportService
      *   would_create: int,
      *   failed: list<array{row:int,site:string,errors:list<string>}>,
      *   processed: int,
-     *   dry_run: bool
+     *   dry_run: bool,
+     *   interrupted?: bool
      * }
      */
     public function importFromUpload(User $publisher, UploadedFile $file, bool $dryRun = false): array
@@ -96,261 +98,383 @@ class AgencySiteImportService
             $rowNumber = 1;
             $processed = 0;
 
-            while (($row = fgetcsv($handle)) !== false) {
-                $rowNumber++;
+            try {
+                while (($row = fgetcsv($handle)) !== false) {
+                    $rowNumber++;
 
-                if (count(array_filter($row, fn ($v) => trim((string) $v) !== '')) === 0) {
-                    continue;
-                }
-
-                if (($created + $wouldCreate + count($failed)) >= $maxRows) {
-                    $failure = [
-                        'row' => $rowNumber,
-                        'site' => '',
-                        'site_name' => null,
-                        'site_url' => null,
-                        'errors' => ["Maximum {$maxRows} rows per upload. Remaining rows were skipped."],
-                    ];
-                    $failed[] = [
-                        'row' => $failure['row'],
-                        'site' => $failure['site'],
-                        'errors' => $failure['errors'],
-                    ];
-                    $failureRecords[] = $failure;
-
-                    break;
-                }
-
-                if (count($row) < count($headers)) {
-                    $row = array_pad($row, count($headers), '');
-                }
-                $data = array_combine($headers, array_slice($row, 0, count($headers)));
-                if ($data === false) {
-                    $failure = [
-                        'row' => $rowNumber,
-                        'site' => '',
-                        'site_name' => null,
-                        'site_url' => null,
-                        'errors' => ['Could not parse row.'],
-                    ];
-                    $failed[] = [
-                        'row' => $failure['row'],
-                        'site' => $failure['site'],
-                        'errors' => $failure['errors'],
-                    ];
-                    $failureRecords[] = $failure;
-
-                    continue;
-                }
-
-                $data = array_map(fn ($v) => is_string($v) ? trim($v) : $v, $data);
-                $processed++;
-
-                if (($data['site_url'] ?? '') === 'https://example-agency-blog.com') {
-                    continue;
-                }
-
-                $parsed = $this->normalizeBulkRow($data, $validCategoryNames);
-
-                if (! empty($parsed['errors'])) {
-                    $failure = [
-                        'row' => $rowNumber,
-                        'site' => $data['site_url'] ?? ($data['site_name'] ?? ''),
-                        'site_name' => $data['site_name'] ?? null,
-                        'site_url' => $data['site_url'] ?? null,
-                        'errors' => $parsed['errors'],
-                    ];
-                    $failed[] = [
-                        'row' => $failure['row'],
-                        'site' => $failure['site'],
-                        'errors' => $failure['errors'],
-                    ];
-                    $failureRecords[] = $failure;
-
-                    continue;
-                }
-
-                $domain = $parsed['domain'];
-
-                if (isset($seenDomainsInFile[$domain])) {
-                    $failure = [
-                        'row' => $rowNumber,
-                        'site' => $data['site_url'],
-                        'site_name' => $data['site_name'] ?? null,
-                        'site_url' => $data['site_url'] ?? null,
-                        'errors' => ["Duplicate domain in this file (also on row {$seenDomainsInFile[$domain]})."],
-                    ];
-                    $failed[] = [
-                        'row' => $failure['row'],
-                        'site' => $failure['site'],
-                        'errors' => $failure['errors'],
-                    ];
-                    $failureRecords[] = $failure;
-
-                    continue;
-                }
-                $seenDomainsInFile[$domain] = $rowNumber;
-
-                if (Site::where('domain', $domain)->exists()) {
-                    $failure = [
-                        'row' => $rowNumber,
-                        'site' => $data['site_url'],
-                        'site_name' => $data['site_name'] ?? null,
-                        'site_url' => $data['site_url'] ?? null,
-                        'errors' => ['This domain is already registered in the system.'],
-                    ];
-                    $failed[] = [
-                        'row' => $failure['row'],
-                        'site' => $failure['site'],
-                        'errors' => $failure['errors'],
-                    ];
-                    $failureRecords[] = $failure;
-
-                    continue;
-                }
-
-                if ($dryRun) {
-                    $wouldCreate++;
-
-                    continue;
-                }
-
-                try {
-                    $site = null;
-                    DB::transaction(function () use ($parsed, $publisher, $import, &$site) {
-                        $listing = [
-                            'publisher_id' => $publisher->id,
-                            'site_name' => $parsed['site_name'],
-                            'site_url' => $parsed['site_url'],
-                            'domain' => $parsed['domain'],
-                            'example_url' => $parsed['example_url'],
-                            'da' => $parsed['da'],
-                            'dr' => $parsed['dr'],
-                            'traffic' => $parsed['traffic'],
-                            'metrics_manual' => true,
-                            'metrics_provider' => 'manual',
-                            'metrics_fetched_at' => now(),
-                            'country' => $parsed['country'],
-                            'countries' => $parsed['countries'],
-                            'language' => $parsed['language'],
-                            'languages' => $parsed['languages'],
-                            'category' => $parsed['primary_category'],
-                            'categories' => $parsed['categories'],
-                            'price' => $parsed['price'],
-                            'turnaround_time' => $parsed['turnaround_time'],
-                            'publication_time' => $parsed['publication_time'],
-                            'link_type' => $parsed['link_type'],
-                            'sponsored' => $parsed['sponsored'],
-                            'partner_material' => $parsed['partner_material'],
-                            'as_you_prefer' => $parsed['as_you_prefer'],
-                            'description' => $parsed['description'],
-                            'sensitive_prices' => $parsed['sensitive_prices'],
-                            'verified' => false,
-                            'active' => false,
-                            'enrichment_status' => 'pending',
-                        ];
-
-                        if (Site::hasSitesColumn('publisher_accepted_at')) {
-                            $listing['publisher_accepted_at'] = now();
-                        }
-                        if (Site::hasSitesColumn('agency_site_import_id') && $import !== null) {
-                            $listing['agency_site_import_id'] = $import->id;
-                        }
-
-                        $site = new Site;
-                        $site->applyMarketplaceListing($listing);
-                        $site->save();
-                    });
-
-                    if ($site !== null) {
-                        ActivityLogger::log(
-                            'site.bulk_imported',
-                            ($publisher->name ?? 'Publisher').' bulk-imported site "'.$site->site_name.'" from agency CSV (row '.$rowNumber.')',
-                            $site,
-                            [
-                                'import_id' => $import?->id,
-                                'row' => $rowNumber,
-                            ],
-                            $site->site_name
-                        );
-
-                        if (config('site_enrichment.enabled', true)) {
-                            CaptureSiteScreenshotJob::dispatch($site->id, 'agency_csv_import');
-                        }
+                    if (count(array_filter($row, fn ($v) => trim((string) $v) !== '')) === 0) {
+                        continue;
                     }
 
-                    $created++;
-                } catch (\Exception $e) {
-                    Log::error('Bulk site import row failed: '.$e->getMessage(), [
-                        'row' => $rowNumber,
-                        'user_id' => $publisher->id,
-                        'import_id' => $import?->id,
-                    ]);
-                    $failure = [
-                        'row' => $rowNumber,
-                        'site' => $data['site_url'] ?? '',
-                        'site_name' => $data['site_name'] ?? null,
-                        'site_url' => $data['site_url'] ?? null,
-                        'errors' => ['Could not save this row. Please check the data.'],
-                    ];
-                    $failed[] = [
-                        'row' => $failure['row'],
-                        'site' => $failure['site'],
-                        'errors' => $failure['errors'],
-                    ];
-                    $failureRecords[] = $failure;
+                    if (($created + $wouldCreate + count($failed)) >= $maxRows) {
+                        $failure = [
+                            'row' => $rowNumber,
+                            'site' => '',
+                            'site_name' => null,
+                            'site_url' => null,
+                            'errors' => ["Maximum {$maxRows} rows per upload. Remaining rows were skipped."],
+                        ];
+                        $failed[] = [
+                            'row' => $failure['row'],
+                            'site' => $failure['site'],
+                            'errors' => $failure['errors'],
+                        ];
+                        $failureRecords[] = $failure;
+
+                        break;
+                    }
+
+                    if (count($row) < count($headers)) {
+                        $row = array_pad($row, count($headers), '');
+                    }
+                    $data = array_combine($headers, array_slice($row, 0, count($headers)));
+                    if ($data === false) {
+                        $failure = [
+                            'row' => $rowNumber,
+                            'site' => '',
+                            'site_name' => null,
+                            'site_url' => null,
+                            'errors' => ['Could not parse row.'],
+                        ];
+                        $failed[] = [
+                            'row' => $failure['row'],
+                            'site' => $failure['site'],
+                            'errors' => $failure['errors'],
+                        ];
+                        $failureRecords[] = $failure;
+
+                        continue;
+                    }
+
+                    $data = array_map(fn ($v) => is_string($v) ? trim($v) : $v, $data);
+                    $processed++;
+
+                    if (($data['site_url'] ?? '') === 'https://example-agency-blog.com') {
+                        continue;
+                    }
+
+                    $parsed = $this->normalizeBulkRow($data, $validCategoryNames);
+
+                    if (! empty($parsed['errors'])) {
+                        $failure = [
+                            'row' => $rowNumber,
+                            'site' => $data['site_url'] ?? ($data['site_name'] ?? ''),
+                            'site_name' => $data['site_name'] ?? null,
+                            'site_url' => $data['site_url'] ?? null,
+                            'errors' => $parsed['errors'],
+                        ];
+                        $failed[] = [
+                            'row' => $failure['row'],
+                            'site' => $failure['site'],
+                            'errors' => $failure['errors'],
+                        ];
+                        $failureRecords[] = $failure;
+
+                        continue;
+                    }
+
+                    $domain = $parsed['domain'];
+
+                    if (isset($seenDomainsInFile[$domain])) {
+                        $failure = [
+                            'row' => $rowNumber,
+                            'site' => $data['site_url'],
+                            'site_name' => $data['site_name'] ?? null,
+                            'site_url' => $data['site_url'] ?? null,
+                            'errors' => ["Duplicate domain in this file (also on row {$seenDomainsInFile[$domain]})."],
+                        ];
+                        $failed[] = [
+                            'row' => $failure['row'],
+                            'site' => $failure['site'],
+                            'errors' => $failure['errors'],
+                        ];
+                        $failureRecords[] = $failure;
+
+                        continue;
+                    }
+                    $seenDomainsInFile[$domain] = $rowNumber;
+
+                    if (Site::where('domain', $domain)->exists()) {
+                        $failure = [
+                            'row' => $rowNumber,
+                            'site' => $data['site_url'],
+                            'site_name' => $data['site_name'] ?? null,
+                            'site_url' => $data['site_url'] ?? null,
+                            'errors' => ['This domain is already registered in the system.'],
+                        ];
+                        $failed[] = [
+                            'row' => $failure['row'],
+                            'site' => $failure['site'],
+                            'errors' => $failure['errors'],
+                        ];
+                        $failureRecords[] = $failure;
+
+                        continue;
+                    }
+
+                    if ($dryRun) {
+                        $wouldCreate++;
+
+                        continue;
+                    }
+
+                    try {
+                        $site = null;
+                        DB::transaction(function () use ($parsed, $publisher, $import, &$site) {
+                            $listing = [
+                                'publisher_id' => $publisher->id,
+                                'site_name' => $parsed['site_name'],
+                                'site_url' => $parsed['site_url'],
+                                'domain' => $parsed['domain'],
+                                'example_url' => $parsed['example_url'],
+                                'da' => $parsed['da'],
+                                'dr' => $parsed['dr'],
+                                'traffic' => $parsed['traffic'],
+                                'metrics_manual' => true,
+                                'metrics_provider' => 'manual',
+                                'metrics_fetched_at' => now(),
+                                'country' => $parsed['country'],
+                                'countries' => $parsed['countries'],
+                                'language' => $parsed['language'],
+                                'languages' => $parsed['languages'],
+                                'category' => $parsed['primary_category'],
+                                'categories' => $parsed['categories'],
+                                'price' => $parsed['price'],
+                                'turnaround_time' => $parsed['turnaround_time'],
+                                'publication_time' => $parsed['publication_time'],
+                                'link_type' => $parsed['link_type'],
+                                'sponsored' => $parsed['sponsored'],
+                                'partner_material' => $parsed['partner_material'],
+                                'as_you_prefer' => $parsed['as_you_prefer'],
+                                'description' => $parsed['description'],
+                                'sensitive_prices' => $parsed['sensitive_prices'],
+                                'verified' => false,
+                                'active' => false,
+                                'enrichment_status' => 'pending',
+                            ];
+
+                            if (Site::hasSitesColumn('publisher_accepted_at')) {
+                                $listing['publisher_accepted_at'] = now();
+                            }
+                            if (Site::hasSitesColumn('agency_site_import_id') && $import !== null) {
+                                $listing['agency_site_import_id'] = $import->id;
+                            }
+
+                            $site = new Site;
+                            $site->applyMarketplaceListing($listing);
+                            $site->save();
+                        });
+
+                        // Count as created as soon as the row is committed so a later
+                        // logging/job failure cannot mark a saved site as a failed row.
+                        $created++;
+
+                        // Progress checkpoint so abandoned "processing" heal can
+                        // distinguish a live upload from a crashed one.
+                        if ($import !== null && ($created === 1 || $created % 10 === 0)) {
+                            try {
+                                $import->forceFill([
+                                    'created_count' => $created,
+                                    'processed_count' => $processed,
+                                ])->save();
+                            } catch (\Throwable $e) {
+                                Log::warning('Agency CSV progress checkpoint failed: '.$e->getMessage(), [
+                                    'import_id' => $import->id,
+                                ]);
+                            }
+                        }
+
+                        if ($site !== null) {
+                            try {
+                                ActivityLogger::log(
+                                    'site.bulk_imported',
+                                    ($publisher->name ?? 'Publisher').' bulk-imported site "'.$site->site_name.'" from agency CSV (row '.$rowNumber.')',
+                                    $site,
+                                    [
+                                        'import_id' => $import?->id,
+                                        'row' => $rowNumber,
+                                    ],
+                                    $site->site_name
+                                );
+                            } catch (\Throwable $e) {
+                                Log::warning('Agency CSV row activity log failed: '.$e->getMessage(), [
+                                    'row' => $rowNumber,
+                                    'site_id' => $site->id,
+                                ]);
+                            }
+
+                            try {
+                                if (config('site_enrichment.enabled', true)) {
+                                    CaptureSiteScreenshotJob::dispatch($site->id, 'agency_csv_import');
+                                }
+                            } catch (\Throwable $e) {
+                                Log::warning('Agency CSV screenshot dispatch failed: '.$e->getMessage(), [
+                                    'row' => $rowNumber,
+                                    'site_id' => $site->id,
+                                ]);
+                            }
+                        }
+                    } catch (\Exception $e) {
+                        Log::error('Bulk site import row failed: '.$e->getMessage(), [
+                            'row' => $rowNumber,
+                            'user_id' => $publisher->id,
+                            'import_id' => $import?->id,
+                        ]);
+                        $failure = [
+                            'row' => $rowNumber,
+                            'site' => $data['site_url'] ?? '',
+                            'site_name' => $data['site_name'] ?? null,
+                            'site_url' => $data['site_url'] ?? null,
+                            'errors' => ['Could not save this row. Please check the data.'],
+                        ];
+                        $failed[] = [
+                            'row' => $failure['row'],
+                            'site' => $failure['site'],
+                            'errors' => $failure['errors'],
+                        ];
+                        $failureRecords[] = $failure;
+                    }
                 }
-            }
 
-            if ($import !== null) {
-                foreach ($failureRecords as $failure) {
-                    AgencySiteImportFailure::create([
-                        'agency_site_import_id' => $import->id,
-                        'row_number' => $failure['row'],
-                        'site_url' => $failure['site_url'] ?? ($failure['site'] !== '' ? $failure['site'] : null),
-                        'site_name' => $failure['site_name'] ?? null,
-                        'errors' => $failure['errors'],
-                    ]);
+                if ($import !== null) {
+                    $this->persistImportOutcome($import, $publisher, $processed, $created, $failed, $failureRecords);
                 }
 
-                $import->forceFill([
-                    'processed_count' => $processed,
-                    'created_count' => $created,
-                    'failed_count' => count($failed),
-                    'would_create_count' => 0,
-                ])->save();
+                return [
+                    'import' => $import,
+                    'created' => $created,
+                    'would_create' => $wouldCreate,
+                    'failed' => $failed,
+                    'processed' => $processed,
+                    'dry_run' => $dryRun,
+                    'interrupted' => false,
+                ];
+            } catch (\Throwable $e) {
+                // Never leave a batch stuck in "processing". Prefer returning a
+                // partial result (so the controller can notify admins) over a 500.
+                if ($import !== null && $import->status === AgencySiteImport::STATUS_PROCESSING) {
+                    try {
+                        $interrupt = [
+                            'row' => $rowNumber,
+                            'site' => '',
+                            'site_name' => null,
+                            'site_url' => null,
+                            'errors' => [
+                                'Import interrupted after '.$created.' site(s) were created; remaining rows were not processed. Please review created sites and re-upload any missing rows.',
+                            ],
+                        ];
+                        $failed[] = [
+                            'row' => $interrupt['row'],
+                            'site' => $interrupt['site'],
+                            'errors' => $interrupt['errors'],
+                        ];
+                        $failureRecords[] = $interrupt;
 
-                $import->finalizeStatus();
+                        $this->persistImportOutcome(
+                            $import,
+                            $publisher,
+                            $processed,
+                            $created,
+                            $failed,
+                            $failureRecords,
+                            forcePartial: true
+                        );
 
-                ActivityLogger::log(
-                    'agency_import.submitted',
-                    ($publisher->name ?? 'Publisher').' submitted agency CSV import #'.$import->id.': '
-                        .$created.' site(s) created, '.count($failed).' row(s) failed',
-                    $import,
-                    [
-                        'import_id' => $import->id,
-                        'publisher_id' => $publisher->id,
-                        'created_count' => $created,
-                        'failed_count' => count($failed),
-                        'processed_count' => $processed,
-                        'original_filename' => $import->original_filename,
-                    ],
-                    'Agency import #'.$import->id
-                );
+                        if ($created > 0) {
+                            Log::error('Agency CSV import interrupted after creating sites: '.$e->getMessage(), [
+                                'import_id' => $import->id,
+                                'created' => $created,
+                            ]);
 
-                // Admin email notification is handled in PR2 — not sent here.
+                            return [
+                                'import' => $import->fresh(),
+                                'created' => $created,
+                                'would_create' => $wouldCreate,
+                                'failed' => $failed,
+                                'processed' => $processed,
+                                'dry_run' => $dryRun,
+                                'interrupted' => true,
+                            ];
+                        }
+                    } catch (\Throwable $inner) {
+                        Log::warning('Could not finalize agency CSV import after exception: '.$inner->getMessage(), [
+                            'import_id' => $import->id,
+                        ]);
+                    }
+                }
+
+                throw $e;
             }
-
-            return [
-                'import' => $import,
-                'created' => $created,
-                'would_create' => $wouldCreate,
-                'failed' => $failed,
-                'processed' => $processed,
-                'dry_run' => $dryRun,
-            ];
         } finally {
             fclose($handle);
+        }
+    }
+
+    /**
+     * Persist failure rows + counts and finalize import status (once).
+     *
+     * @param  list<array{row:int,site:string,errors:list<string>}>  $failed
+     * @param  list<array{row:int,site:string,site_name:?string,site_url:?string,errors:list<string>}>  $failureRecords
+     */
+    private function persistImportOutcome(
+        AgencySiteImport $import,
+        User $publisher,
+        int $processed,
+        int $created,
+        array $failed,
+        array $failureRecords,
+        bool $forcePartial = false
+    ): void {
+        // Replace any prior rows so interrupt recovery cannot duplicate failures.
+        AgencySiteImportFailure::query()
+            ->where('agency_site_import_id', $import->id)
+            ->delete();
+
+        foreach ($failureRecords as $failure) {
+            AgencySiteImportFailure::create([
+                'agency_site_import_id' => $import->id,
+                'row_number' => $failure['row'],
+                'site_url' => $failure['site_url'] ?? ($failure['site'] !== '' ? $failure['site'] : null),
+                'site_name' => $failure['site_name'] ?? null,
+                'errors' => $failure['errors'],
+            ]);
+        }
+
+        $failedCount = count($failed);
+        if ($forcePartial) {
+            $failedCount = max($failedCount, 1);
+        }
+
+        $import->forceFill([
+            'processed_count' => $processed,
+            'created_count' => $created,
+            'failed_count' => $failedCount,
+            'would_create_count' => 0,
+        ])->save();
+
+        $import->finalizeStatus();
+
+        try {
+            ActivityLogger::log(
+                'agency_import.submitted',
+                ($publisher->name ?? 'Publisher').' submitted agency CSV import #'.$import->id.': '
+                    .$created.' site(s) created, '.$failedCount.' row(s) failed',
+                $import,
+                [
+                    'import_id' => $import->id,
+                    'publisher_id' => $publisher->id,
+                    'created_count' => $created,
+                    'failed_count' => $failedCount,
+                    'processed_count' => $processed,
+                    'original_filename' => $import->original_filename,
+                    'interrupted' => $forcePartial,
+                ],
+                'Agency import #'.$import->id
+            );
+        } catch (\Throwable $e) {
+            Log::warning('Agency CSV import activity log failed: '.$e->getMessage(), [
+                'import_id' => $import->id,
+            ]);
         }
     }
 
@@ -377,10 +501,11 @@ class AgencySiteImportService
             $exampleUrl = 'https://'.$exampleUrl;
         }
 
-        $categoryRaw = $data['categories'] ?? '';
-        $categories = array_values(array_filter(array_map('trim', preg_split('/[|,]/', $categoryRaw) ?: [])));
+        $categoryRaw = (string) ($data['categories'] ?? '');
+        // Pipe-first + comma-niche aware (e.g. "Marketing, PR & Advertising").
+        $categories = Category::parseCatalogCategoryParam($categoryRaw);
         if (count($categories) < 1) {
-            $errors[] = 'At least one category is required (use | or , between names).';
+            $errors[] = 'At least one category is required (separate multiple niches with |).';
         } elseif (count($categories) > 7) {
             $errors[] = 'Maximum 7 categories allowed.';
         } else {
@@ -408,14 +533,17 @@ class AgencySiteImportService
         }
 
         $description = strip_tags((string) ($data['description'] ?? ''), '<p><a><b><strong><i><ul><ol><li><br>');
+        foreach (SiteDescriptionRules::errors($description) as $message) {
+            $errors[] = $message;
+        }
 
         $payload = [
             'site_name' => $data['site_name'] ?? '',
             'site_url' => $siteUrl,
             'example_url' => $exampleUrl,
-            'da' => $data['da'] ?? null,
-            'dr' => $data['dr'] ?? null,
-            'traffic' => $data['traffic'] ?? null,
+            'da' => $this->normalizeMetricInt($data['da'] ?? null),
+            'dr' => $this->normalizeMetricInt($data['dr'] ?? null),
+            'traffic' => $this->normalizeMetricInt($data['traffic'] ?? null),
             'countries' => $countryCodes,
             'languages' => $languageCodes,
             'categories' => $categories,
@@ -445,7 +573,8 @@ class AgencySiteImportService
             'turnaround_time' => 'required|in:24h,48h,3days,5days,7days',
             'publication_time' => 'required|in:6months,1year,permanent',
             'link_type' => 'required|in:dofollow,nofollow',
-            'description' => 'required|string|min:50',
+            // Visible plain-text rules are enforced via SiteDescriptionRules above.
+            'description' => 'required|string',
         ]);
 
         if ($validator->fails()) {
@@ -483,7 +612,8 @@ class AgencySiteImportService
             'countries' => $countryCodes,
             'language' => $languageCodes[0],
             'languages' => $languageCodes,
-            'primary_category' => implode(',', $categories),
+            // Pipe-join keeps comma niches intact (same as single-site create).
+            'primary_category' => implode('|', $categories),
             'categories' => $categories,
             'price' => $payload['price'],
             'turnaround_time' => $payload['turnaround_time'],
@@ -495,6 +625,46 @@ class AgencySiteImportService
             'description' => $description,
             'sensitive_prices' => ! empty($sensitivePrices) ? $sensitivePrices : null,
         ];
+    }
+
+    /**
+     * Normalize DA/DR/traffic from CSV cells (commas, decimals, blanks).
+     * Parity with Admin\SiteController::normalizeMetricInt.
+     */
+    private function normalizeMetricInt(mixed $value): ?int
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        if (is_int($value)) {
+            return $value;
+        }
+
+        if (is_float($value)) {
+            return (int) round($value);
+        }
+
+        $raw = trim((string) $value);
+        $raw = str_replace(["\xc2\xa0", ' '], '', $raw);
+        if ($raw === '') {
+            return null;
+        }
+
+        if (preg_match('/^\d{1,3}(,\d{3})+(\.\d+)?$/', $raw)) {
+            $raw = str_replace(',', '', $raw);
+        } elseif (preg_match('/^\d{1,3}(\.\d{3})+(,\d+)?$/', $raw)) {
+            $raw = str_replace('.', '', $raw);
+            $raw = str_replace(',', '.', $raw);
+        } elseif (preg_match('/^\d+,\d+$/', $raw)) {
+            $raw = str_replace(',', '.', $raw);
+        }
+
+        if (! is_numeric($raw)) {
+            return null;
+        }
+
+        return (int) round((float) $raw);
     }
 
     /**

@@ -1793,6 +1793,53 @@ class InAppNotificationService
         return $completed;
     }
 
+    /**
+     * Archive open admin "agency CSV import ready for review" bell items.
+     */
+    public function completeAgencySiteImportNotifications(AgencySiteImport $import): int
+    {
+        $importId = (int) $import->id;
+        if ($importId < 1) {
+            return 0;
+        }
+
+        $completed = 0;
+
+        try {
+            $notes = InAppNotification::query()
+                ->where('audience', InAppNotification::AUDIENCE_ADMIN)
+                ->whereNull('archived_at')
+                ->where(function ($q) {
+                    $q->whereNull('status')
+                        ->orWhere('status', '!=', InAppNotification::STATUS_ARCHIVED);
+                })
+                ->where(function ($q) use ($importId) {
+                    $q->where(function ($inner) use ($importId) {
+                        $inner->where('related_type', AgencySiteImport::class)
+                            ->where('related_id', $importId);
+                    })->orWhere(function ($inner) use ($importId) {
+                        $inner->where('title', 'Agency CSV import ready for review')
+                            ->where(function ($meta) use ($importId) {
+                                $meta->where('meta', 'like', '%"import_id":'.$importId.'%')
+                                    ->orWhere('meta', 'like', '%"import_id": '.$importId.'%');
+                            });
+                    });
+                })
+                ->get();
+
+            foreach ($notes as $note) {
+                $note->archive();
+                $completed++;
+            }
+        } catch (\Throwable $e) {
+            Log::warning('Failed to complete agency CSV import notifications: '.$e->getMessage(), [
+                'import_id' => $importId,
+            ]);
+        }
+
+        return $completed;
+    }
+
     public function notifyAdminsNewUser(User $user): void
     {
         $who = $user->name ?: $user->email;

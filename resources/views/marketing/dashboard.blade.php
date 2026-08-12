@@ -14,6 +14,12 @@
             <a href="{{ route('marketing.sites.index') }}" class="btn btn-sm btn-primary">
                 <i class="fa fa-globe me-1"></i> Sites
             </a>
+            <a href="{{ route('marketing.agency-imports.index') }}" class="btn btn-sm btn-outline-primary">
+                <i class="fa fa-file-csv me-1"></i> Agency CSV
+                @if(($stats['open_agency_imports'] ?? 0) > 0)
+                    <span class="badge text-bg-warning text-dark ms-1">{{ $stats['open_agency_imports'] }}</span>
+                @endif
+            </a>
             <a href="{{ route('marketing.bulk-site-requests.index') }}" class="btn btn-sm btn-outline-primary">
                 <i class="fa fa-layer-group me-1"></i> Bulk requests
             </a>

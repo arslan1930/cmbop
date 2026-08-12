@@ -397,6 +397,8 @@ $registerStaffOpsRoutes = function () {
         ->name('agency-imports.index');
     Route::get('/agency-imports/{id}', [AgencySiteImportController::class, 'show'])
         ->name('agency-imports.show');
+    Route::post('/agency-imports/{id}/bulk-action', [AgencySiteImportController::class, 'bulkAction'])
+        ->name('agency-imports.bulk-action');
     Route::get('/bulk-site-requests', [AdminBulkSiteRequestController::class, 'index'])
         ->name('bulk-site-requests.index');
     Route::get('/bulk-site-requests/{id}', [AdminBulkSiteRequestController::class, 'show'])
