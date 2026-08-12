@@ -123,7 +123,7 @@ class CatalogHomepagePreviewTest extends TestCase
 
         $this->assertStringContainsString(
             'site-screenshots/thumb-only.webp',
-            (string) $thumbOnly->screenshot_url
+            (string) $thumbOnly->screenshot_thumb_url
         );
 
         $uploadOnly = $this->makeSite([

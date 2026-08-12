@@ -551,10 +551,10 @@
             <div class="col-md-12">
                 <h6 class="mb-3">Site Details</h6>
 
-                {{-- Expandable panel: screenshot + tags/DF links + sample only (no DR/DA/traffic/country) --}}
-                <div class="row align-items-start g-4">
+                {{-- Preview | Description | Pricing | Tags + sample --}}
+                <div class="row align-items-start g-4 catalog-expand-grid">
 
-                    <div class="col-md-3 text-center">
+                    <div class="col-lg-3 col-md-6 text-center catalog-expand-preview">
                         <p class="small text-muted mb-2"><strong>Homepage preview</strong></p>
                         @php
                             // Homepage capture first (full → thumb), then admin/marketing upload.
@@ -571,17 +571,19 @@
                                      class="site-image-thumbnail"
                                      onerror="this.onerror=null;var z=this.closest('.site-preview-zoom');if(z){z.classList.add('is-broken');var f=z.nextElementSibling;if(f){f.classList.remove('d-none');f.classList.add('d-inline-flex');}}">
                             </div>
-                            <div class="site-preview-fallback bg-light border rounded d-none align-items-center justify-content-center" aria-hidden="true">
-                                <i class="fa-solid fa-image text-muted" style="font-size: 32px;" aria-hidden="true"></i>
+                            <div class="site-preview-fallback bg-light border rounded d-none flex-column align-items-center justify-content-center gap-2 px-3" aria-hidden="true">
+                                <i class="fa-solid fa-image text-muted" style="font-size: 28px;" aria-hidden="true"></i>
+                                <span class="small text-muted">Screenshot not available yet</span>
                             </div>
                         @else
-                            <div class="site-preview-fallback bg-light border rounded d-inline-flex align-items-center justify-content-center" role="img" aria-label="Homepage preview unavailable">
-                                <i class="fa-solid fa-image text-muted" style="font-size: 32px;" aria-hidden="true"></i>
+                            <div class="site-preview-fallback bg-light border rounded d-inline-flex flex-column align-items-center justify-content-center gap-2 px-3" role="img" aria-label="Screenshot not available yet">
+                                <i class="fa-solid fa-image text-muted" style="font-size: 28px;" aria-hidden="true"></i>
+                                <span class="small text-muted">Screenshot not available yet</span>
                             </div>
                         @endif
                     </div>
 
-                    <div class="col-md-5">
+                    <div class="col-lg-4 col-md-6 catalog-expand-description">
                         <p class="mb-1"><strong class="small">Description</strong></p>
                         <div class="text-muted small">
                             {!! $site->safeDescriptionHtml() !!}
@@ -595,10 +597,149 @@
                         @include('advertiser.partials.catalog-site-trust', ['site' => $site])
                     </div>
 
-                    <div class="col-md-2">
-                        <p><strong>Tags:</strong></p>
-
+                    <div class="col-lg-3 col-md-6 catalog-expand-pricing">
                         <div class="d-flex flex-column gap-2">
+                            @if(!empty($sensitivePrices))
+                                <p class="mb-0"><strong>Sensitive topics</strong></p>
+                                <p class="small text-muted mb-1">Additional charge on top of the base price.</p>
+
+                                <div class="sensitive-prices-group"
+                                     data-site-id="{{ $site->id }}"
+                                     data-base-price="{{ $catalogListPrice }}"
+                                     data-publisher-price="{{ $catalogPublisherPrice }}"
+                                     data-discount-percent="{{ $catalogSalePct ?? 0 }}"
+                                     role="radiogroup"
+                                     aria-label="Sensitive topic pricing">
+
+                                    <div class="form-check mb-2">
+                                        <input class="form-check-input sensitive-price-checkbox"
+                                               type="radio"
+                                               name="sensitive_prices_{{ $site->id }}"
+                                               value="0"
+                                               data-type="none"
+                                               data-additional-price="0"
+                                               data-total-price="{{ $catalogSalePrice ?? $catalogListPrice }}"
+                                               data-site-id="{{ $site->id }}"
+                                               id="sensitive_{{ $site->id }}_none"
+                                               checked>
+                                        <label class="form-check-label" for="sensitive_{{ $site->id }}_none">
+                                            <strong>No sensitive topic</strong>
+                                            <span class="text-muted">€{{ number_format($catalogSalePrice ?? $catalogListPrice, 2) }}</span>
+                                        </label>
+                                    </div>
+
+                                    @foreach($sensitivePrices as $type => $additionalPrice)
+                                        @php
+                                            $listWithAddon = round($catalogListPrice + (float) $additionalPrice, 2);
+                                            $publisherFloor = round($catalogPublisherPrice + (float) $additionalPrice, 2);
+                                            $totalPrice = $listWithAddon;
+                                            if ($catalogSalePct) {
+                                                $raw = max(0, round($listWithAddon - round($listWithAddon * ($catalogSalePct / 100), 2), 2));
+                                                $totalPrice = max($publisherFloor, $raw);
+                                            }
+                                        @endphp
+
+                                        <div class="form-check mb-2">
+                                            <input class="form-check-input sensitive-price-checkbox"
+                                                   type="radio"
+                                                   name="sensitive_prices_{{ $site->id }}"
+                                                   value="{{ $additionalPrice }}"
+                                                   data-type="{{ $type }}"
+                                                   data-additional-price="{{ $additionalPrice }}"
+                                                   data-total-price="{{ $totalPrice }}"
+                                                   data-site-id="{{ $site->id }}"
+                                                   id="sensitive_{{ $site->id }}_{{ $loop->index }}">
+
+                                            <label class="form-check-label"
+                                                   for="sensitive_{{ $site->id }}_{{ $loop->index }}">
+                                                <strong>{{ ucfirst($type) }}</strong>
+                                                <span class="text-danger">+€{{ number_format($additionalPrice, 2) }}</span>
+                                                <span class="text-muted">→ €{{ number_format($totalPrice, 2) }}</span>
+                                            </label>
+                                        </div>
+                                    @endforeach
+                                </div>
+
+                                <div class="selected-price-info mt-1"
+                                     id="price-info-{{ $site->id }}">
+                                    <small class="text-muted">
+                                        You pay:
+                                        <strong>€{{ number_format($catalogSalePrice ?? $catalogListPrice, 2) }}</strong>
+                                        @if($catalogSalePrice !== null)
+                                            <span class="text-decoration-line-through">€{{ number_format($catalogListPrice, 2) }}</span>
+                                            (offer price)
+                                        @else
+                                            (base price)
+                                        @endif
+                                    </small>
+                                </div>
+                            @endif
+
+                            @if($homepageOptions !== [])
+                                <p class="{{ !empty($sensitivePrices) ? 'mt-2' : '' }} mb-1"><strong>Homepage placement</strong> <span class="text-muted fw-normal">(optional)</span></p>
+                                <p class="small text-muted mb-2">Put the article on the publisher homepage for a set duration. Sale/bulk discounts do not apply to this fee.</p>
+                                <div class="homepage-placement-group"
+                                     data-site-id="{{ $site->id }}"
+                                     role="radiogroup"
+                                     aria-label="Homepage placement duration">
+                                    <div class="form-check mb-2">
+                                        <input class="form-check-input homepage-placement-radio"
+                                               type="radio"
+                                               name="homepage_placement_{{ $site->id }}"
+                                               value="none"
+                                               data-days="none"
+                                               data-price="0"
+                                               data-site-id="{{ $site->id }}"
+                                               id="homepage_{{ $site->id }}_none"
+                                               {{ $defaultHomepageDays === null ? 'checked' : '' }}>
+                                        <label class="form-check-label" for="homepage_{{ $site->id }}_none">
+                                            <strong>No homepage placement</strong>
+                                        </label>
+                                    </div>
+                                    @foreach($homepageOptions as $days => $fee)
+                                        @php $isFreeHome = (float) $fee <= 0; @endphp
+                                        <div class="form-check mb-2">
+                                            <input class="form-check-input homepage-placement-radio"
+                                                   type="radio"
+                                                   name="homepage_placement_{{ $site->id }}"
+                                                   value="{{ $days }}"
+                                                   data-days="{{ $days }}"
+                                                   data-price="{{ $fee }}"
+                                                   data-site-id="{{ $site->id }}"
+                                                   id="homepage_{{ $site->id }}_{{ $days }}"
+                                                   {{ (int) $defaultHomepageDays === (int) $days ? 'checked' : '' }}>
+                                            <label class="form-check-label" for="homepage_{{ $site->id }}_{{ $days }}">
+                                                <strong>{{ $days }} day{{ $days > 1 ? 's' : '' }}</strong>
+                                                @if($isFreeHome)
+                                                    <span class="text-success">Free</span>
+                                                @else
+                                                    <span class="text-muted">+€{{ number_format($fee, 2) }}</span>
+                                                @endif
+                                            </label>
+                                        </div>
+                                    @endforeach
+                                </div>
+                            @endif
+
+                            @if($socialChannels !== [])
+                                <p class="mt-2 mb-1"><strong>Social promotion included</strong></p>
+                                <p class="small text-muted mb-2">Publisher will share the live post on these channels at no extra cost.</p>
+                                <div class="d-flex flex-wrap gap-1" aria-label="Included social channels">
+                                    @foreach($socialChannels as $channel)
+                                        <span class="badge bg-light text-dark border">{{ $socialChannelLabels[$channel] ?? ucfirst($channel) }}</span>
+                                    @endforeach
+                                </div>
+                            @endif
+
+                            @if(empty($sensitivePrices) && $homepageOptions === [] && $socialChannels === [])
+                                <p class="small text-muted mb-0">No extra pricing options for this listing.</p>
+                            @endif
+                        </div>
+                    </div>
+
+                    <div class="col-lg-2 col-md-6 catalog-expand-meta">
+                        <p class="mb-1"><strong>Tags</strong></p>
+                        <div class="d-flex flex-column gap-2 mb-3">
                             <div>
                                 @if($site->linkTypeLabel())
                                     <span class="badge bg-secondary-subtle text-secondary border px-2 py-1"
@@ -640,149 +781,12 @@
                                     <span class="text-muted small">No additional tags</span>
                                 @endif
                             </div>
-
-                            <div>
-                                @if(!empty($sensitivePrices))
-                                    <p><strong>Sensitive Prices (Additional Charges):</strong></p>
-
-                                    <div class="sensitive-prices-group"
-                                         data-site-id="{{ $site->id }}"
-                                         data-base-price="{{ $catalogListPrice }}"
-                                         data-publisher-price="{{ $catalogPublisherPrice }}"
-                                         data-discount-percent="{{ $catalogSalePct ?? 0 }}"
-                                         role="radiogroup"
-                                         aria-label="Sensitive topic pricing">
-
-                                        <div class="form-check mb-2">
-                                            <input class="form-check-input sensitive-price-checkbox"
-                                                   type="radio"
-                                                   name="sensitive_prices_{{ $site->id }}"
-                                                   value="0"
-                                                   data-type="none"
-                                                   data-additional-price="0"
-                                                   data-total-price="{{ $catalogSalePrice ?? $catalogListPrice }}"
-                                                   data-site-id="{{ $site->id }}"
-                                                   id="sensitive_{{ $site->id }}_none"
-                                                   checked>
-                                            <label class="form-check-label" for="sensitive_{{ $site->id }}_none">
-                                                <strong>No sensitive topic</strong>
-                                                <span class="text-muted">Base price</span>
-                                            </label>
-                                        </div>
-
-                                        @foreach($sensitivePrices as $type => $additionalPrice)
-                                            @php
-                                                $listWithAddon = round($catalogListPrice + (float) $additionalPrice, 2);
-                                                $publisherFloor = round($catalogPublisherPrice + (float) $additionalPrice, 2);
-                                                $totalPrice = $listWithAddon;
-                                                if ($catalogSalePct) {
-                                                    $raw = max(0, round($listWithAddon - round($listWithAddon * ($catalogSalePct / 100), 2), 2));
-                                                    $totalPrice = max($publisherFloor, $raw);
-                                                }
-                                            @endphp
-
-                                            <div class="form-check mb-2">
-                                                <input class="form-check-input sensitive-price-checkbox"
-                                                       type="radio"
-                                                       name="sensitive_prices_{{ $site->id }}"
-                                                       value="{{ $additionalPrice }}"
-                                                       data-type="{{ $type }}"
-                                                       data-additional-price="{{ $additionalPrice }}"
-                                                       data-total-price="{{ $totalPrice }}"
-                                                       data-site-id="{{ $site->id }}"
-                                                       id="sensitive_{{ $site->id }}_{{ $loop->index }}">
-
-                                                <label class="form-check-label"
-                                                       for="sensitive_{{ $site->id }}_{{ $loop->index }}">
-                                                    <strong>{{ ucfirst($type) }}</strong>
-                                                    <span class="text-danger">
-                                                        €{{ number_format($additionalPrice, 2) }}
-                                                    </span>
-                                                </label>
-                                            </div>
-                                        @endforeach
-                                    </div>
-
-                                    <div class="selected-price-info mt-2"
-                                         id="price-info-{{ $site->id }}">
-                                        <small class="text-muted">
-                                            Current price:
-                                            <strong>€{{ number_format($catalogSalePrice ?? $catalogListPrice, 2) }}</strong>
-                                            @if($catalogSalePrice !== null)
-                                                <span class="text-decoration-line-through">€{{ number_format($catalogListPrice, 2) }}</span>
-                                                (offer price)
-                                            @else
-                                                (Base price)
-                                            @endif
-                                        </small>
-                                    </div>
-                                @endif
-
-                                @if($homepageOptions !== [])
-                                    <p class="mt-3 mb-1"><strong>Homepage placement (optional):</strong></p>
-                                    <p class="small text-muted mb-2">Put the article on the publisher homepage for a set duration. Sale/bulk discounts do not apply to this fee.</p>
-                                    <div class="homepage-placement-group"
-                                         data-site-id="{{ $site->id }}"
-                                         role="radiogroup"
-                                         aria-label="Homepage placement duration">
-                                        <div class="form-check mb-2">
-                                            <input class="form-check-input homepage-placement-radio"
-                                                   type="radio"
-                                                   name="homepage_placement_{{ $site->id }}"
-                                                   value="none"
-                                                   data-days="none"
-                                                   data-price="0"
-                                                   data-site-id="{{ $site->id }}"
-                                                   id="homepage_{{ $site->id }}_none"
-                                                   {{ $defaultHomepageDays === null ? 'checked' : '' }}>
-                                            <label class="form-check-label" for="homepage_{{ $site->id }}_none">
-                                                <strong>No homepage placement</strong>
-                                            </label>
-                                        </div>
-                                        @foreach($homepageOptions as $days => $fee)
-                                            @php $isFreeHome = (float) $fee <= 0; @endphp
-                                            <div class="form-check mb-2">
-                                                <input class="form-check-input homepage-placement-radio"
-                                                       type="radio"
-                                                       name="homepage_placement_{{ $site->id }}"
-                                                       value="{{ $days }}"
-                                                       data-days="{{ $days }}"
-                                                       data-price="{{ $fee }}"
-                                                       data-site-id="{{ $site->id }}"
-                                                       id="homepage_{{ $site->id }}_{{ $days }}"
-                                                       {{ (int) $defaultHomepageDays === (int) $days ? 'checked' : '' }}>
-                                                <label class="form-check-label" for="homepage_{{ $site->id }}_{{ $days }}">
-                                                    <strong>{{ $days }} day{{ $days > 1 ? 's' : '' }}</strong>
-                                                    @if($isFreeHome)
-                                                        <span class="text-success">Free</span>
-                                                    @else
-                                                        <span class="text-muted">+€{{ number_format($fee, 2) }}</span>
-                                                    @endif
-                                                </label>
-                                            </div>
-                                        @endforeach
-                                    </div>
-                                @endif
-
-                                @if($socialChannels !== [])
-                                    <p class="mt-3 mb-1"><strong>Social promotion included:</strong></p>
-                                    <p class="small text-muted mb-2">Publisher will share the live post on these channels at no extra cost. No advertiser action needed.</p>
-                                    <div class="d-flex flex-wrap gap-1" aria-label="Included social channels">
-                                        @foreach($socialChannels as $channel)
-                                            <span class="badge bg-light text-dark border">{{ $socialChannelLabels[$channel] ?? ucfirst($channel) }}</span>
-                                        @endforeach
-                                    </div>
-                                @endif
-                            </div>
                         </div>
-                    </div>
 
-                    <div class="col-md-2">
-                        <p><strong>Sample article:</strong></p>
-
+                        <p class="mb-1"><strong>Sample article</strong></p>
                         {{-- Sample URLs share the listing domain — only show when
                              identity is visible (always outside hide mode; after eye inside). --}}
-                        <div class="d-flex flex-column gap-2">
+                        <div class="d-flex flex-column gap-2 mb-3">
                             @if($inCatalogHideMode && ! $showsIdentity)
                                 <a href="{{ route('advertiser.catalog.visit', $site->id) }}"
                                    target="_blank" rel="noopener noreferrer"
@@ -795,20 +799,17 @@
                                 </span>
                             @else
                                 @php
-                                    // Publisher-supplied, so it cannot go straight into href:
-                                    // escaping stops injected markup but not a javascript: scheme.
                                     $sampleUrl = safe_external_url($site->example_url);
                                 @endphp
-                                <div class="d-flex align-items-center gap-2">
-                                    <a href="{{ $sampleUrl }}"
-                                       target="_blank"
-                                       rel="noopener noreferrer"
-                                       class="text-decoration-none"
-                                       style="word-break: break-all;">
-                                        {{ Str::limit($site->example_url ?? 'Not available', 50) }}
-                                    </a>
-
-                                    @if($sampleUrl !== '#')
+                                @if($sampleUrl !== '#')
+                                    <div class="d-flex align-items-center gap-2">
+                                        <a href="{{ $sampleUrl }}"
+                                           target="_blank"
+                                           rel="noopener noreferrer"
+                                           class="text-decoration-none"
+                                           style="word-break: break-all;">
+                                            {{ Str::limit($site->example_url, 50) }}
+                                        </a>
                                         <a href="{{ $sampleUrl }}"
                                            target="_blank"
                                            rel="noopener noreferrer"
@@ -818,10 +819,7 @@
                                             <i class="fa-solid fa-arrow-up-right-from-square"
                                                style="font-size: 13px;" aria-hidden="true"></i>
                                         </a>
-                                    @endif
-                                </div>
-
-                                @if($site->example_url)
+                                    </div>
                                     <button type="button"
                                             class="btn btn-sm btn-outline-secondary copy-example-url"
                                             data-url="{{ $site->example_url }}"
@@ -829,26 +827,23 @@
                                             style="width: fit-content;">
                                         <i class="fa-regular fa-copy" aria-hidden="true"></i> Copy URL
                                     </button>
+                                @else
+                                    <span class="text-muted small">No sample article yet</span>
                                 @endif
                             @endif
-
-                            <div class="d-flex align-items-center gap-2 flex-wrap">
-                                <strong title="How long the published article stays live">Publication duration:</strong>
-
-                                @if($site->publicationDurationLabel())
-                                    <span class="badge text-muted border px-2 py-1"
-                                          style="font-size: 11px;"
-                                          title="How long the published article stays live">
-                                        <i class="fa-solid fa-clock me-1" aria-hidden="true"></i>
-                                        {{ $site->publicationDurationLabel() }}
-                                    </span>
-                                @else
-                                    <span class="text-muted small">
-                                        No publication duration specified
-                                    </span>
-                                @endif
-                            </div>
                         </div>
+
+                        <p class="mb-1"><strong title="How long the published article stays live">Publication duration</strong></p>
+                        @if($site->publicationDurationLabel())
+                            <span class="badge text-muted border px-2 py-1"
+                                  style="font-size: 11px;"
+                                  title="How long the published article stays live">
+                                <i class="fa-solid fa-clock me-1" aria-hidden="true"></i>
+                                {{ $site->publicationDurationLabel() }}
+                            </span>
+                        @else
+                            <span class="text-muted small">Not specified</span>
+                        @endif
                     </div>
 
                 </div>

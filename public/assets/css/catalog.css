@@ -554,6 +554,25 @@
     padding: 20px;
 }
 
+.catalog-expand-grid > [class*="col-"] {
+    min-width: 0;
+}
+
+.catalog-expand-pricing .form-check-label {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.25rem 0.45rem;
+}
+
+.catalog-expand-meta .badge {
+    font-weight: 500;
+}
+
+.catalog-expand-preview .site-preview-fallback {
+    min-height: 0;
+}
+
 /* Buy used to pin itself to the resting colour on hover, so the main CTA in the
    catalog was the one button with no hover feedback. It now deepens with every
    other primary — see hover-system.css. */
@@ -999,10 +1018,29 @@ body:has(.catalog-page) {
 .site-preview-fallback > i,
 .site-preview-fallback > span {
     position: absolute;
-    inset: 0;
-    display: inline-flex;
+    left: 0;
+    right: 0;
+    display: flex;
     align-items: center;
     justify-content: center;
+    text-align: center;
+    padding: 0 12px;
+}
+
+.site-preview-fallback > i {
+    top: 28%;
+    bottom: auto;
+}
+
+.site-preview-fallback > span {
+    top: 52%;
+    bottom: auto;
+    line-height: 1.35;
+}
+
+/* Icon-only fallbacks (no caption span) stay centered. */
+.site-preview-fallback > i:only-child {
+    inset: 0;
 }
 
 .site-trust-compact {
