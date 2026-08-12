@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\AgencySiteImport;
 use App\Models\DepositRequest;
 use App\Models\Order;
 use App\Models\Role;
@@ -171,6 +172,13 @@ class DashboardController extends Controller
                     ->orWhereNotIn('payment_status', ['paid', 'refunded']);
             })->whereIn('status', ['pending', 'processing', 'review'])->count();
             $pendingClaims = SiteClaim::where('status', 'pending')->count();
+            $pendingAgencyImports = AgencySiteImport::query()
+                ->where('dry_run', false)
+                ->whereIn('status', [
+                    AgencySiteImport::STATUS_SUBMITTED,
+                    AgencySiteImport::STATUS_PARTIAL,
+                ])
+                ->count();
 
             return response()->json([
                 'success' => true,
@@ -179,6 +187,7 @@ class DashboardController extends Controller
                 'unverified_sites' => $unverifiedSites,
                 'pending_payments' => $pendingPayments,
                 'pending_claims' => $pendingClaims,
+                'pending_agency_imports' => $pendingAgencyImports,
             ]);
         } catch (\Exception $e) {
             Log::error('Admin dashboard queue counts error: '.$e->getMessage());

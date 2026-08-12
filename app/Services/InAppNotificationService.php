@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\AgencySiteImport;
 use App\Models\BulkSiteRequest;
 use App\Models\DepositRequest;
 use App\Models\InAppNotification;
@@ -1997,6 +1998,38 @@ class InAppNotificationService
                 'meta' => [
                     'site_id' => $site->id,
                     'domain' => $domain,
+                ],
+            ]
+        );
+    }
+
+    /**
+     * Admin bell: publisher submitted an agency CSV import batch.
+     */
+    public function notifyAdminsAgencySiteImportSubmitted(AgencySiteImport $import): void
+    {
+        $import->loadMissing(['publisher']);
+        $who = $import->publisher?->name ?: ($import->publisher?->email ?: 'A publisher');
+        $created = (int) $import->created_count;
+        $failed = (int) $import->failed_count;
+
+        $this->notifyAdmins(
+            self::TYPE_SYSTEM,
+            'Agency CSV import ready for review',
+            "{$who} submitted {$created} site(s) via CSV".($failed > 0 ? " ({$failed} row(s) failed)" : '').'.',
+            [
+                'roles' => ['admin'],
+                'category' => self::CATEGORY_SYSTEM,
+                'icon' => 'file-csv',
+                'priority' => InAppNotification::PRIORITY_HIGH,
+                'related' => $import,
+                'action_label' => 'Review import',
+                'action_url' => route('admin.agency-imports.show', $import, false),
+                'meta' => [
+                    'import_id' => $import->id,
+                    'publisher_id' => $import->publisher_id,
+                    'created_count' => $created,
+                    'failed_count' => $failed,
                 ],
             ]
         );

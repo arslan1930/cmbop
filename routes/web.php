@@ -3,6 +3,7 @@
 use App\Http\Controllers\Admin\ActivityLogController as AdminActivityLogController;
 use App\Http\Controllers\Admin\AdBannerController as AdminAdBannerController;
 use App\Http\Controllers\Admin\AdminWithdrawalController;
+use App\Http\Controllers\Admin\AgencySiteImportController;
 use App\Http\Controllers\Admin\AnnouncementController as AdminAnnouncementController;
 use App\Http\Controllers\Admin\AudienceController as AdminAudienceController;
 use App\Http\Controllers\Admin\BlogController as AdminBlogController;
@@ -392,6 +393,10 @@ $registerStaffOpsRoutes = function () {
     Route::delete('/sites/{id}', [AdminSiteController::class, 'destroy'])
         ->name('sites.destroy');
 
+    Route::get('/agency-imports', [AgencySiteImportController::class, 'index'])
+        ->name('agency-imports.index');
+    Route::get('/agency-imports/{id}', [AgencySiteImportController::class, 'show'])
+        ->name('agency-imports.show');
     Route::get('/bulk-site-requests', [AdminBulkSiteRequestController::class, 'index'])
         ->name('bulk-site-requests.index');
     Route::get('/bulk-site-requests/{id}', [AdminBulkSiteRequestController::class, 'show'])

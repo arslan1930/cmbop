@@ -6,6 +6,7 @@ use App\Mail\AdminNewUserRegistered;
 use App\Mail\AdminStalledOrderAlert;
 use App\Mail\AdvertiserOrderStalledNotice;
 use App\Mail\AdvertiserReviewNudge;
+use App\Mail\AgencySiteImportSubmitted;
 use App\Mail\AudienceCampaignMail;
 use App\Mail\AutoApproveReminderMail;
 use App\Mail\BulkSiteRequestCancelled;
@@ -354,6 +355,13 @@ return [
             'audience' => 'admin',
             'preference' => null,
             'mailable' => NewSiteNotification::class,
+            'default_enabled' => true,
+        ],
+        'agency_site_import_submitted' => [
+            'name' => 'Agency CSV Import Submitted',
+            'audience' => 'admin',
+            'preference' => null,
+            'mailable' => AgencySiteImportSubmitted::class,
             'default_enabled' => true,
         ],
         'bulk_site_request_submitted' => [
