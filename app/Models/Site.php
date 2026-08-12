@@ -1077,6 +1077,33 @@ class Site extends Model
     }
 
     /**
+     * Catalog / My Sites homepage preview candidates.
+     * Full capture → thumb → uploaded cover; each as /media then /storage.
+     *
+     * @return list<string>
+     */
+    public function homepagePreviewUrlChain(): array
+    {
+        $urls = [];
+        foreach ([
+            $this->screenshot_path,
+            $this->screenshot_thumb_path,
+            $this->site_image,
+        ] as $candidate) {
+            if (! is_string($candidate) || trim($candidate) === '') {
+                continue;
+            }
+            foreach (static::publicDiskUrlFallbacks($candidate) as $url) {
+                if (! in_array($url, $urls, true)) {
+                    $urls[] = $url;
+                }
+            }
+        }
+
+        return $urls;
+    }
+
+    /**
      * Accessor for full image URL.
      */
     public function getImageUrlAttribute(): ?string

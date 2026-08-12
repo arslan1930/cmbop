@@ -26,4 +26,23 @@ class SitePublicDiskUrlTest extends TestCase
             '/storage/sites/cover.webp',
         ], Site::publicDiskUrlFallbacks('sites/cover.webp'));
     }
+
+    #[Test]
+    public function homepage_preview_url_chain_orders_full_thumb_cover_with_fallbacks(): void
+    {
+        $site = new Site([
+            'screenshot_path' => 'site-screenshots/full.webp',
+            'screenshot_thumb_path' => 'site-screenshots/thumb.webp',
+            'site_image' => 'sites/cover.webp',
+        ]);
+
+        $this->assertSame([
+            '/media/site-screenshots/full.webp',
+            '/storage/site-screenshots/full.webp',
+            '/media/site-screenshots/thumb.webp',
+            '/storage/site-screenshots/thumb.webp',
+            '/media/sites/cover.webp',
+            '/storage/sites/cover.webp',
+        ], $site->homepagePreviewUrlChain());
+    }
 }

@@ -3,6 +3,47 @@
 if (!window.CatalogConfig) { window.CatalogConfig = { favorites: [], blacklist: [], routes: {}, csrfToken: '' }; }
 })();
 
+/**
+ * Catalog homepage preview onerror: walk /media → /storage (and full → thumb → cover)
+ * before showing the empty-state fallback. Hostinger often 404s /storage when the
+ * public/storage symlink is missing; /media streams from the public disk.
+ */
+window.catalogSitePreviewOnError = function (img) {
+    if (!img) return;
+    // Ignore errors on the 1x1 deferred placeholder — hydrateExpandScreenshots
+    // will assign the real URL when the expand/card opens.
+    var cur = img.getAttribute('src') || '';
+    if (img.hasAttribute('data-src') && cur.indexOf('data:') === 0) {
+        return;
+    }
+    var chain = [];
+    try {
+        chain = JSON.parse(img.getAttribute('data-preview-chain') || '[]');
+    } catch (e) {
+        chain = [];
+    }
+    if (!Array.isArray(chain)) chain = [];
+    var i = parseInt(img.getAttribute('data-preview-i') || '0', 10);
+    if (isNaN(i) || i < 0) i = 0;
+    var next = i + 1;
+    if (next < chain.length && chain[next]) {
+        img.setAttribute('data-preview-i', String(next));
+        img.src = chain[next];
+        return;
+    }
+    img.onerror = null;
+    var z = img.closest('.site-preview-zoom');
+    if (z) {
+        z.classList.add('is-broken');
+        var f = z.nextElementSibling;
+        if (f && f.classList.contains('site-preview-fallback')) {
+            f.classList.remove('d-none');
+            f.classList.add('d-inline-flex');
+            f.removeAttribute('aria-hidden');
+        }
+    }
+};
+
 document.addEventListener('DOMContentLoaded', function () {
     // NEW-batch alert: badges keep a continuous red zoom/pulse (no border ring); on load we
     // also one-shot pop + play a clear triple beep once per tab session.
@@ -3508,10 +3549,27 @@ function hydrateExpandScreenshots(root) {
         const deferred = img.getAttribute('data-src');
         if (!deferred) return;
         // Always promote data-src (Blade may use a 1x1 placeholder src).
+        img.setAttribute('data-preview-i', '0');
         img.setAttribute('src', deferred);
         img.setAttribute('loading', 'eager');
         img.setAttribute('decoding', 'async');
         img.removeAttribute('data-src');
+        // Re-bind after any premature placeholder onerror nulled the handler.
+        img.onerror = function () {
+            if (window.catalogSitePreviewOnError) {
+                window.catalogSitePreviewOnError(img);
+            }
+        };
+        const zoom = img.closest('.site-preview-zoom');
+        if (zoom) {
+            zoom.classList.remove('is-broken');
+            const fallback = zoom.nextElementSibling;
+            if (fallback && fallback.classList.contains('site-preview-fallback')) {
+                fallback.classList.add('d-none');
+                fallback.classList.remove('d-inline-flex');
+                fallback.setAttribute('aria-hidden', 'true');
+            }
+        }
     });
 }
 

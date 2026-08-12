@@ -578,9 +578,9 @@
                     <div class="col-lg-3 col-md-6 text-center catalog-expand-preview">
                         <p class="small text-muted mb-2"><strong>Homepage preview</strong></p>
                         @php
-                            // Homepage capture first (full → thumb), then admin/marketing upload.
-                            // Matches Site::screenshot_* accessors so expand previews stay filled.
-                            $previewUrl = $site->screenshot_url ?: $site->screenshot_thumb_url;
+                            // Full capture → thumb → upload; /media then /storage (Hostinger).
+                            $previewPaths = $site->homepagePreviewUrlChain();
+                            $previewUrl = $previewPaths[0] ?? null;
                         @endphp
                         @if($previewUrl)
                             <div class="site-preview-zoom">
@@ -591,7 +591,9 @@
                                      alt="{{ $identityLabel }} homepage preview"
                                      decoding="async"
                                      class="catalog-deferred-preview site-image-thumbnail"
-                                     onerror="this.onerror=null;var z=this.closest('.site-preview-zoom');if(z){z.classList.add('is-broken');var f=z.nextElementSibling;if(f){f.classList.remove('d-none');f.classList.add('d-inline-flex');}}">
+                                     data-preview-chain="{{ json_encode($previewPaths, JSON_UNESCAPED_SLASHES) }}"
+                                     data-preview-i="0"
+                                     onerror="window.catalogSitePreviewOnError && window.catalogSitePreviewOnError(this)">
                             </div>
                             <div class="site-preview-fallback bg-light border rounded d-none flex-column align-items-center justify-content-center gap-2 px-3" aria-hidden="true">
                                 <i class="fa-solid fa-image text-muted" style="font-size: 28px;" aria-hidden="true"></i>
@@ -1320,7 +1322,8 @@
 
             <dl class="catalog-card-details" id="card-details-{{ $site->id }}" hidden>
                 @php
-                    $mobilePreviewUrl = $site->screenshot_url ?: $site->screenshot_thumb_url;
+                    $mobilePreviewPaths = $site->homepagePreviewUrlChain();
+                    $mobilePreviewUrl = $mobilePreviewPaths[0] ?? null;
                 @endphp
                 <div class="catalog-card-details__row">
                     <dt>Homepage preview</dt>
@@ -1332,7 +1335,9 @@
                                      data-src="{{ $mobilePreviewUrl }}"
                                      alt="{{ $identityLabel }} homepage preview"
                                      decoding="async"
-                                     onerror="this.onerror=null;var z=this.closest('.site-preview-zoom');if(z){z.classList.add('is-broken');var f=z.nextElementSibling;if(f){f.classList.remove('d-none');f.classList.add('d-inline-flex');}}">
+                                     data-preview-chain="{{ json_encode($mobilePreviewPaths, JSON_UNESCAPED_SLASHES) }}"
+                                     data-preview-i="0"
+                                     onerror="window.catalogSitePreviewOnError && window.catalogSitePreviewOnError(this)">
                             </div>
                             <div class="site-preview-fallback bg-light border rounded d-none flex-column align-items-center justify-content-center gap-2 px-3" aria-hidden="true">
                                 <i class="fa-solid fa-image text-muted" style="font-size: 24px;" aria-hidden="true"></i>
