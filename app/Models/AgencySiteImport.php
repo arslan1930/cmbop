@@ -75,8 +75,9 @@ class AgencySiteImport extends Model
 
     public function pendingReviewSitesCount(): int
     {
-        // Still open if not yet verified (and not staff-rejected), or verified but not live.
-        // Rejected submissions carry a status_reason while remaining unverified/inactive.
+        // Still open if not yet verified (and not soft-rejected via status_reason),
+        // or verified but not live. Bulk reject deletes pending rows; Sites Management
+        // unverify may leave an unverified row with a status_reason instead.
         return $this->sites()
             ->where(function ($q) {
                 $q->where(function ($open) {

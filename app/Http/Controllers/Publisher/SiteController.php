@@ -1063,4 +1063,28 @@ class SiteController extends Controller
 
         return array_values(array_unique($categories));
     }
+
+    /**
+     * Parse country/language codes from array, CSV, or pipe-separated string.
+     * Kept on the publisher controller for single-site create/update (CSV path
+     * uses AgencySiteImportService::parseCodeList).
+     */
+    private function parseCodeList($value): array
+    {
+        if (is_array($value)) {
+            $parts = $value;
+        } else {
+            $parts = preg_split('/[|,]/', (string) $value) ?: [];
+        }
+
+        $codes = [];
+        foreach ($parts as $part) {
+            $code = strtolower(trim((string) $part));
+            if ($code !== '' && preg_match('/^[a-z]{2}$/', $code)) {
+                $codes[] = $code;
+            }
+        }
+
+        return array_values(array_unique($codes));
+    }
 }

@@ -66,6 +66,14 @@ class AgencySiteImportReviewService
         $skipped = count($siteIds) - $sites->count();
 
         foreach ($sites as $site) {
+            if ($action === 'reject' && ((bool) $site->active || (bool) $site->verified)) {
+                // Never wipe a listing that already passed review / went live.
+                // Staff should deactivate from Sites Management instead.
+                $skipped++;
+
+                continue;
+            }
+
             match ($action) {
                 'verify' => $this->verifySite($site, $admin),
                 'activate' => $this->activateSite($site, $admin),
@@ -164,8 +172,8 @@ class AgencySiteImportReviewService
 
     private function rejectSite(Site $site, User $admin, string $reason): void
     {
-        // Match Sites Management destroy: rejecting a never-live submission removes it
-        // from the queue instead of leaving an unverified row that still counts as pending.
+        // Match Sites Management destroy for pending submissions: remove the row so
+        // the import queue can close instead of leaving an unverified pending site.
         try {
             $this->notifications->completeAdminSiteReviewNotifications($site);
         } catch (\Throwable $e) {

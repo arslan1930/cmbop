@@ -390,6 +390,88 @@ class AgencyCsvBulkImportTest extends TestCase
         $this->assertSame($admin->id, (int) $import->reviewed_by);
     }
 
+    public function test_bulk_reject_skips_already_verified_or_live_sites(): void
+    {
+        Mail::fake();
+        Bus::fake();
+
+        $adminRole = Role::firstOrCreate(['name' => 'admin']);
+        $admin = User::factory()->create([
+            'email_verified_at' => now(),
+            'active_role_id' => $adminRole->id,
+        ]);
+        $admin->roles()->attach($adminRole->id);
+
+        $this->uploadCsv([
+            $this->validRow('reject-live.example', 'Live Row'),
+            $this->validRow('reject-pending.example', 'Pending Row'),
+        ])->assertRedirect();
+
+        $import = AgencySiteImport::query()->firstOrFail();
+        $live = Site::query()->where('domain', 'reject-live.example')->firstOrFail();
+        $pending = Site::query()->where('domain', 'reject-pending.example')->firstOrFail();
+
+        $live->forceFill(['verified' => true, 'active' => true])->save();
+
+        $this->actingAs($admin)
+            ->postJson(route('admin.agency-imports.bulk-action', $import), [
+                'action' => 'reject',
+                'site_ids' => [$live->id, $pending->id],
+                'reason' => 'Only the pending submission should be removed.',
+            ])
+            ->assertOk()
+            ->assertJson([
+                'success' => true,
+                'updated' => 1,
+                'skipped' => 1,
+            ]);
+
+        $this->assertNotNull(Site::query()->find($live->id));
+        $this->assertNull(Site::query()->find($pending->id));
+        $import->refresh();
+        $this->assertSame(AgencySiteImport::STATUS_REVIEWED, $import->status);
+    }
+
+    public function test_sites_management_verify_activate_closes_agency_import(): void
+    {
+        Mail::fake();
+        Bus::fake();
+
+        $adminRole = Role::firstOrCreate(['name' => 'admin']);
+        $admin = User::factory()->create([
+            'email_verified_at' => now(),
+            'active_role_id' => $adminRole->id,
+        ]);
+        $admin->roles()->attach($adminRole->id);
+
+        $this->uploadCsv([
+            $this->validRow('sites-mgmt.example', 'Sites Mgmt'),
+        ])->assertRedirect();
+
+        $import = AgencySiteImport::query()->firstOrFail();
+        $site = Site::query()->where('agency_site_import_id', $import->id)->firstOrFail();
+
+        $this->actingAs($admin)
+            ->postJson(route('admin.sites.verify', $site->id), ['verified' => 1])
+            ->assertOk();
+
+        $import->refresh();
+        $this->assertSame(AgencySiteImport::STATUS_SUBMITTED, $import->status);
+
+        $this->actingAs($admin)
+            ->postJson(route('admin.sites.active', $site->id), ['active' => 1])
+            ->assertOk();
+
+        $import->refresh();
+        $this->assertSame(AgencySiteImport::STATUS_REVIEWED, $import->status);
+        $this->assertSame($admin->id, (int) $import->reviewed_by);
+
+        $this->actingAs($admin)
+            ->getJson(route('admin.dashboard.queue-counts'))
+            ->assertOk()
+            ->assertJsonPath('pending_agency_imports', 0);
+    }
+
     public function test_csv_description_must_meet_plain_text_rules(): void
     {
         $short = $this->validRow('short-desc.example', 'Short Desc');
