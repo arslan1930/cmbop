@@ -212,7 +212,10 @@
                 <input type="hidden" id="reject_order_item_id">
                 <div class="ui-callout ui-callout--attention mb-3">
                     <span class="ui-callout__icon" aria-hidden="true"><i class="fa-solid fa-circle-info"></i></span>
-                    <div class="ui-callout__body">The advertiser is refunded to their wallet. You can cancel after accepting if you cannot fulfill the order.</div>
+                    <div class="ui-callout__body">
+                        <span id="rejectModalBaseHint">The advertiser is refunded to their wallet. You can cancel after accepting if you cannot fulfill the order.</span>
+                        <span id="rejectModalMultiHint" class="d-none d-block mt-1 fw-semibold">This cancels the <em>whole order</em> (all sites in the cart), not only this row.</span>
+                    </div>
                 </div>
                 <div class="mb-3">
                     <label for="reject_reason" class="form-label">Reason <span class="text-danger">*</span></label>
@@ -585,8 +588,16 @@ $(document).ready(function() {
     });
 
     $(document).on('click', '.reject-task', function() {
-        $('#reject_order_item_id').val($(this).data('id'));
+        var $btn = $(this);
+        $('#reject_order_item_id').val($btn.data('id'));
         $('#reject_reason').val('');
+        var itemsCount = parseInt($btn.data('order-items') || '1', 10);
+        var $multi = $('#rejectModalMultiHint');
+        if (itemsCount > 1) {
+            $multi.removeClass('d-none');
+        } else {
+            $multi.addClass('d-none');
+        }
         showTasksModal('rejectModal');
     });
 
@@ -1112,13 +1123,14 @@ $(document).ready(function() {
             var liveBtn = hasLiveUrl
                 ? '<a href="' + escapeHtml(item.live_url) + '" target="_blank" class="btn btn-live-url btn-action-sm"><i class="fa fa-external-link"></i> Live</a>'
                 : '';
-            var cancelBtn = '<button class="btn btn-outline-danger btn-action-sm reject-task" data-id="' + item.id + '"><i class="fa fa-times"></i> Cancel</button>';
+            var orderItemsCount = parseInt(item.order_items_count || 1, 10);
+            var cancelBtn = '<button class="btn btn-outline-danger btn-action-sm reject-task" data-id="' + item.id + '" data-order-items="' + orderItemsCount + '" aria-label="Cancel order"><i class="fa fa-times"></i> Cancel</button>';
 
             var actions = '';
             if (orderStatus === 'pending') {
                 actions = '<div class="action-buttons">' +
-                    '<button class="btn btn-success btn-action-sm accept-task" data-id="' + item.id + '"><i class="fa fa-check"></i> Accept</button>' +
-                    '<button class="btn btn-danger btn-action-sm reject-task" data-id="' + item.id + '"><i class="fa fa-times"></i> Reject</button>' +
+                    '<button class="btn btn-success btn-action-sm accept-task" data-id="' + item.id + '" aria-label="Accept order"><i class="fa fa-check"></i> Accept</button>' +
+                    '<button class="btn btn-danger btn-action-sm reject-task" data-id="' + item.id + '" data-order-items="' + orderItemsCount + '" aria-label="Reject order"><i class="fa fa-times"></i> Reject</button>' +
                     viewBtn + chatBtn +
                     '</div>';
             } else if (contentRevisionRequested && orderStatus === 'processing') {

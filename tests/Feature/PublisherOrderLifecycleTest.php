@@ -113,6 +113,36 @@ class PublisherOrderLifecycleTest extends TestCase
         ]);
     }
 
+    public function test_publisher_cannot_reaccept_a_processing_order(): void
+    {
+        $item = $this->makeOrder();
+        $item->order->update(['status' => 'processing']);
+        $item->update(['accepted_at' => now()->subHour(), 'publisher_status' => 'accepted']);
+
+        $this->actingAs($this->publisher)
+            ->postJson(route('publisher.orders.accept', $item->id))
+            ->assertStatus(422)
+            ->assertJsonPath('success', false);
+
+        $this->assertSame('processing', $item->order->fresh()->status);
+        $this->assertTrue($item->fresh()->accepted_at->equalTo($item->accepted_at));
+    }
+
+    public function test_publisher_cannot_submit_live_url_before_accepting(): void
+    {
+        $item = $this->makeOrder(); // pending
+
+        $this->actingAs($this->publisher)
+            ->postJson(route('publisher.orders.complete', $item->id), [
+                'live_url' => 'https://lifecycle.example/too-early',
+            ])
+            ->assertStatus(422)
+            ->assertJsonPath('success', false);
+
+        $this->assertNull($item->fresh()->live_url);
+        $this->assertSame('pending', $item->order->fresh()->status);
+    }
+
     public function test_publisher_accepting_a_paid_order_moves_it_to_processing(): void
     {
         $item = $this->makeOrder();
@@ -123,6 +153,7 @@ class PublisherOrderLifecycleTest extends TestCase
             ->assertJsonPath('success', true);
 
         $this->assertSame('processing', $item->order->fresh()->status);
+        $this->assertNotNull($item->fresh()->accepted_at);
     }
 
     public function test_publisher_cannot_accept_an_unpaid_order(): void

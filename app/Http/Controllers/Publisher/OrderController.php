@@ -158,6 +158,12 @@ class OrderController extends Controller
                     ->flip();
             }
 
+            $orderItemCountsByOrder = OrderItem::query()
+                ->whereIn('order_id', $orderIds)
+                ->selectRaw('order_id, COUNT(*) as items_count')
+                ->groupBy('order_id')
+                ->pluck('items_count', 'order_id');
+
             // Transform data to include sensitive price info and auto-approve fields
             $transformedItems = [];
             foreach ($orderItems->items() as $item) {
@@ -188,6 +194,7 @@ class OrderController extends Controller
                     'content_revision_reason' => $item->content_revision_reason ?? null,
                     'completion_notes' => $item->completion_notes ?? null,
                     'unread_chat' => (int) ($unreadByOrder[$item->order_id] ?? 0),
+                    'order_items_count' => (int) ($orderItemCountsByOrder[$item->order_id] ?? 1),
                     'created_at' => $item->created_at,
                     'order' => [
                         'id' => $item->order->id,
@@ -349,16 +356,37 @@ class OrderController extends Controller
                 ], 403);
             }
 
-            $order = Order::find($orderItem->order_id);
+            DB::beginTransaction();
+
+            $orderItem = OrderItem::query()->whereKey($orderItem->id)->lockForUpdate()->firstOrFail();
+            $order = Order::query()->whereKey($orderItem->order_id)->lockForUpdate()->first();
+
+            if (! $order) {
+                DB::rollBack();
+
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Order not found',
+                ], 404);
+            }
 
             if ($order->payment_status !== 'paid') {
+                DB::rollBack();
+
                 return response()->json([
                     'success' => false,
                     'message' => 'Order payment is not confirmed yet',
                 ], 400);
             }
 
-            DB::beginTransaction();
+            if ($order->status !== 'pending') {
+                DB::rollBack();
+
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Only new (pending) orders can be accepted.',
+                ], 422);
+            }
 
             // Dedicated OrderAccepted mail covers the advertiser — skip generic
             // OrderStatusChanged for that audience on this transition.
@@ -370,9 +398,7 @@ class OrderController extends Controller
                 'status' => 'processing',
             ]);
 
-            // accepted_at was read in two places but never written, so the
-            // advertiser's status never said "Accepted" and nothing could work
-            // out when a publisher's turnaround window started.
+            // accepted_at drives advertiser "Accepted" UI and turnaround windows.
             $orderItem->update([
                 'accepted_at' => now(),
                 'publisher_status' => 'accepted',
@@ -689,6 +715,19 @@ class OrderController extends Controller
                 return response()->json([
                     'success' => false,
                     'message' => 'Wait for the advertiser to send the revised article before submitting a live URL.',
+                ], 422);
+            }
+
+            if ($order->status !== 'processing') {
+                DB::rollBack();
+                if ($suppressedOrderId) {
+                    $suppressor->forget($suppressedOrderId);
+                    $suppressedOrderId = null;
+                }
+
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Accept the order before submitting a live URL.',
                 ], 422);
             }
 
