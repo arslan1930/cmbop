@@ -11,7 +11,7 @@
         </div>
     </div>
 
-    <form method="get" class="row g-2 mb-3">
+    <form method="get" action="{{ staff_route('agency-imports.index') }}" class="row g-2 mb-3">
         <div class="col-auto">
             <select name="status" class="form-select form-select-sm">
                 <option value="open" @selected($status === 'open')>Open</option>
