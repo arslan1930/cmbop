@@ -75,14 +75,28 @@ class AgencySiteImport extends Model
 
     public function pendingReviewSitesCount(): int
     {
+        // Still open if not yet verified (and not staff-rejected), or verified but not live.
+        // Rejected submissions carry a status_reason while remaining unverified/inactive.
         return $this->sites()
             ->where(function ($q) {
-                $q->where('verified', false)->orWhere('active', false);
+                $q->where(function ($open) {
+                    $open->where(function ($v) {
+                        $v->where('verified', false)->orWhereNull('verified');
+                    })->where(function ($reason) {
+                        $reason->whereNull('status_reason')
+                            ->orWhere('status_reason', '');
+                    });
+                })->orWhere(function ($verifiedInactive) {
+                    $verifiedInactive->where('verified', true)
+                        ->where(function ($a) {
+                            $a->where('active', false)->orWhereNull('active');
+                        });
+                });
             })
             ->count();
     }
 
-    public function refreshReviewStatus(): void
+    public function refreshReviewStatus(?User $reviewer = null): void
     {
         if (in_array($this->status, [self::STATUS_FAILED, self::STATUS_CLOSED, self::STATUS_PROCESSING], true)) {
             return;
@@ -94,10 +108,14 @@ class AgencySiteImport extends Model
 
         $pending = $this->pendingReviewSitesCount();
         if ($pending === 0 && $this->created_count > 0) {
-            $this->forceFill([
+            $payload = [
                 'status' => self::STATUS_REVIEWED,
                 'reviewed_at' => $this->reviewed_at ?? now(),
-            ])->save();
+            ];
+            if ($reviewer && ! $this->reviewed_by) {
+                $payload['reviewed_by'] = $reviewer->id;
+            }
+            $this->forceFill($payload)->save();
         }
     }
 

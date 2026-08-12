@@ -327,7 +327,6 @@ class AgencyCsvBulkImportTest extends TestCase
     {
         Bus::fake();
 
-        $adminRole = Role::firstOrCreate(['name' => 'admin']);
         // Ensure import exists via publisher upload first.
         $this->uploadCsv([
             $this->validRow('mkt-block.example', 'Marketing Block'),
@@ -343,10 +342,68 @@ class AgencyCsvBulkImportTest extends TestCase
         $marketer->roles()->attach($marketingRole->id);
 
         $this->actingAs($marketer)
-            ->postJson(route('admin.agency-imports.bulk-action', $import), [
+            ->postJson(route('marketing.agency-imports.bulk-action', $import), [
                 'action' => 'verify',
                 'site_ids' => [$siteId],
             ])
             ->assertForbidden();
+
+        // Marketing can open the staff copy of the import detail (shared ops).
+        $this->actingAs($marketer)
+            ->get(route('marketing.agency-imports.show', $import))
+            ->assertOk()
+            ->assertSee('Import #'.$import->id, false);
+    }
+
+    public function test_bulk_reject_removes_sites_and_marks_import_reviewed(): void
+    {
+        Mail::fake();
+        Bus::fake();
+
+        $adminRole = Role::firstOrCreate(['name' => 'admin']);
+        $admin = User::factory()->create([
+            'email_verified_at' => now(),
+            'active_role_id' => $adminRole->id,
+        ]);
+        $admin->roles()->attach($adminRole->id);
+
+        $this->uploadCsv([
+            $this->validRow('reject-a.example', 'Reject A'),
+            $this->validRow('reject-b.example', 'Reject B'),
+        ])->assertRedirect();
+
+        $import = AgencySiteImport::query()->firstOrFail();
+        $ids = Site::query()->where('agency_site_import_id', $import->id)->pluck('id')->all();
+
+        $this->actingAs($admin)
+            ->postJson(route('admin.agency-imports.bulk-action', $import), [
+                'action' => 'reject',
+                'site_ids' => $ids,
+                'reason' => 'Metrics look fabricated; please resubmit with proof.',
+            ])
+            ->assertOk()
+            ->assertJson(['success' => true, 'updated' => 2]);
+
+        $this->assertSame(0, Site::query()->where('agency_site_import_id', $import->id)->count());
+        $import->refresh();
+        $this->assertSame(AgencySiteImport::STATUS_REVIEWED, $import->status);
+        $this->assertSame($admin->id, (int) $import->reviewed_by);
+    }
+
+    public function test_csv_description_must_meet_plain_text_rules(): void
+    {
+        $short = $this->validRow('short-desc.example', 'Short Desc');
+        // description is index 13 in validRow
+        $short[13] = '<p>'.str_repeat('x', 50).'</p>'; // 50 x tags inflate raw length but plain is 50 — OK
+        // Actually use too-short plain text padded with empty tags
+        $short[13] = '<p><b></b><i></i></p>too short';
+
+        $this->uploadCsv([$short])->assertRedirect();
+
+        $this->assertSame(0, Site::query()->count());
+        $import = AgencySiteImport::query()->first();
+        $this->assertNotNull($import);
+        $this->assertSame(AgencySiteImport::STATUS_FAILED, $import->status);
+        $this->assertGreaterThan(0, (int) $import->failed_count);
     }
 }

@@ -1,4 +1,4 @@
-@extends('admin.layouts.app')
+@extends(staff_layout())
 
 @section('title', 'Agency CSV import #'.$import->id)
 
@@ -6,7 +6,7 @@
 <div class="container-fluid py-3">
     <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
         <div>
-            <a href="{{ route('admin.agency-imports.index') }}" class="small text-muted">&larr; All imports</a>
+            <a href="{{ staff_route('agency-imports.index') }}" class="small text-muted">&larr; All imports</a>
             <h4 class="mb-1 mt-1">Import #{{ $import->id }}</h4>
             <p class="text-muted small mb-0">
                 {{ $import->publisher->name ?? 'Publisher' }}
@@ -85,7 +85,7 @@
                                     <td class="site-verified">{{ $site->verified ? 'Yes' : 'No' }}</td>
                                     <td class="site-active">{{ $site->active ? 'Yes' : 'No' }}</td>
                                     <td class="text-end">
-                                        <a class="btn btn-sm btn-outline-secondary" href="{{ route('admin.sites.index', ['needs_review' => 1, 'publisher' => $import->publisher_id, 'site' => $site->id]) }}">Open in Sites</a>
+                                        <a class="btn btn-sm btn-outline-secondary" href="{{ staff_route('sites.index', ['needs_review' => 1, 'publisher' => $import->publisher_id, 'site' => $site->id]) }}">Open in Sites</a>
                                     </td>
                                 </tr>
                             @empty
@@ -139,7 +139,7 @@
 <script>
 (function () {
     const csrf = @json(csrf_token());
-    const bulkUrl = @json(route('admin.agency-imports.bulk-action', $import));
+    const bulkUrl = @json(staff_route('agency-imports.bulk-action', $import));
     const selectAll = document.getElementById('selectAllSites');
     const countEl = document.getElementById('bulkSelectedCount');
 
@@ -167,12 +167,12 @@
         let reason = null;
         if (action === 'reject') {
             const { value, isConfirmed } = await Swal.fire({
-                title: 'Reject selected sites?',
+                title: 'Reject & remove selected sites?',
                 input: 'textarea',
                 inputLabel: 'Reason (required)',
                 inputPlaceholder: 'Why are these listings being rejected?',
                 showCancelButton: true,
-                confirmButtonText: 'Reject',
+                confirmButtonText: 'Reject & remove',
                 customClass: { confirmButton: 'slb-swal-danger' },
                 preConfirm: (v) => {
                     if (!v || String(v).trim().length < 5) {

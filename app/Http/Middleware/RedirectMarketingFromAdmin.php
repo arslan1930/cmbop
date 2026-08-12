@@ -65,6 +65,9 @@ class RedirectMarketingFromAdmin
         if (str_starts_with($rest, 'bulk-site-requests')) {
             return true;
         }
+        if (str_starts_with($rest, 'agency-imports')) {
+            return true;
+        }
         if (str_starts_with($rest, 'site-enrichment')) {
             return true;
         }

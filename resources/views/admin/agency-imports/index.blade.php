@@ -1,4 +1,4 @@
-@extends('admin.layouts.app')
+@extends(staff_layout())
 
 @section('title', 'Agency CSV imports')
 
@@ -60,7 +60,7 @@
                             <td><span class="badge bg-secondary">{{ $import->status }}</span></td>
                             <td class="small text-muted">{{ optional($import->created_at)->diffForHumans() }}</td>
                             <td class="text-end">
-                                <a class="btn btn-sm btn-outline-primary" href="{{ route('admin.agency-imports.show', $import) }}">Open</a>
+                                <a class="btn btn-sm btn-outline-primary" href="{{ staff_route('agency-imports.show', $import) }}">Open</a>
                             </td>
                         </tr>
                     @empty

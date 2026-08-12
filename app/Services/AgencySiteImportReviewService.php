@@ -74,7 +74,7 @@ class AgencySiteImportReviewService
             $updated++;
         }
 
-        $import->refreshReviewStatus();
+        $import->refreshReviewStatus($admin);
 
         ActivityLogger::log(
             'agency_import.bulk_'.$action,
@@ -164,34 +164,45 @@ class AgencySiteImportReviewService
 
     private function rejectSite(Site $site, User $admin, string $reason): void
     {
-        Site::ensureStatusReasonColumns();
+        // Match Sites Management destroy: rejecting a never-live submission removes it
+        // from the queue instead of leaving an unverified row that still counts as pending.
+        try {
+            $this->notifications->completeAdminSiteReviewNotifications($site);
+        } catch (\Throwable $e) {
+            Log::warning('Could not complete site review notifications before agency reject: '.$e->getMessage());
+        }
 
-        $oldVerified = (int) $site->verified;
-        $oldActive = (int) $site->active;
-        $site->verified = 0;
-        $site->verified_at = null;
-        $site->verify_method = null;
-        $site->active = 0;
-        $site->status_reason = $reason;
-        $site->status_reason_at = now();
-        $site->status_reason_by = $admin->id;
-        $site->save();
+        $notifySnapshot = clone $site;
+        $publisher = $site->publisher;
+        $siteName = $site->site_name;
+        $importId = $site->agency_site_import_id;
 
         ActivityLogger::log(
             'site.rejected',
-            $admin->name.' rejected site "'.$site->site_name.'" (agency CSV bulk)',
+            $admin->name.' rejected site "'.$siteName.'" (agency CSV bulk)',
             $site,
             [
-                'from_verified' => $oldVerified,
-                'from_active' => $oldActive,
-                'agency_site_import_id' => $site->agency_site_import_id,
+                'agency_site_import_id' => $importId,
                 'reason' => $reason,
                 'via' => 'agency_import_bulk',
             ],
-            $site->site_name
+            $siteName
         );
 
-        $this->safeNotifyStatus($site, 'unverified', $reason);
+        $site->delete();
+
+        try {
+            if ($publisher?->email) {
+                Mail::to($publisher->email)->send(
+                    new SiteStatusNotification($notifySnapshot, 'removed', null, $reason)
+                );
+            }
+            if ($publisher) {
+                $this->notifications->notifySiteStatusChanged($notifySnapshot, 'removed', $reason);
+            }
+        } catch (\Throwable $e) {
+            Log::warning('Agency import bulk reject notify failed: '.$e->getMessage());
+        }
     }
 
     private function safeNotifyStatus(Site $site, string $status, ?string $reason = null): void

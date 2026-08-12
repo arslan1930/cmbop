@@ -11,6 +11,7 @@ use App\Models\Language;
 use App\Models\Site;
 use App\Models\User;
 use App\Services\Marketplace\CountryLanguagePairs;
+use App\Support\SiteDescriptionRules;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -408,6 +409,9 @@ class AgencySiteImportService
         }
 
         $description = strip_tags((string) ($data['description'] ?? ''), '<p><a><b><strong><i><ul><ol><li><br>');
+        foreach (SiteDescriptionRules::errors($description) as $message) {
+            $errors[] = $message;
+        }
 
         $payload = [
             'site_name' => $data['site_name'] ?? '',
@@ -445,7 +449,8 @@ class AgencySiteImportService
             'turnaround_time' => 'required|in:24h,48h,3days,5days,7days',
             'publication_time' => 'required|in:6months,1year,permanent',
             'link_type' => 'required|in:dofollow,nofollow',
-            'description' => 'required|string|min:50',
+            // Visible plain-text rules are enforced via SiteDescriptionRules above.
+            'description' => 'required|string',
         ]);
 
         if ($validator->fails()) {
