@@ -7,6 +7,7 @@ use App\Mail\AdminNewUserRegistered;
 use App\Mail\AdminStalledOrderAlert;
 use App\Mail\AdvertiserOrderStalledNotice;
 use App\Mail\AdvertiserReviewNudge;
+use App\Mail\AgencySiteImportSubmitted;
 use App\Mail\AutoApproveReminderMail;
 use App\Mail\ContentRevisionFulfilled;
 use App\Mail\ContentRevisionRequested;
@@ -47,6 +48,7 @@ use App\Mail\WeeklyActivitySummary;
 use App\Mail\WelcomeEmail;
 use App\Mail\WithdrawalRequestNotification;
 use App\Mail\WithdrawalStatusUpdated;
+use App\Models\AgencySiteImport;
 use App\Models\DepositRequest;
 use App\Models\Invoice;
 use App\Models\Order;
@@ -292,6 +294,13 @@ class EmailCatalog
                 'mailable' => SiteClaimSubmitted::class,
                 'status' => 'active',
             ],
+            'agency_site_import_submitted' => [
+                'name' => 'Agency CSV Import Submitted',
+                'description' => 'Admins notified when a publisher submits an agency CSV bulk import batch.',
+                'category' => 'Publishers',
+                'mailable' => AgencySiteImportSubmitted::class,
+                'status' => 'active',
+            ],
             'site_claim_reviewed' => [
                 'name' => 'Site Claim Reviewed',
                 'description' => 'Claimer notified when their ownership claim is approved or rejected.',
@@ -513,6 +522,7 @@ class EmailCatalog
             'trustpilot_review' => new TrustpilotReviewRequest($user, $order),
             'admin_new_user' => new AdminNewUserRegistered($user, $user),
             'site_claim_submitted' => new SiteClaimSubmitted(self::sampleSiteClaim()),
+            'agency_site_import_submitted' => new AgencySiteImportSubmitted(self::sampleAgencySiteImport()),
             'site_claim_reviewed' => new SiteClaimReviewed(self::sampleSiteClaim('approved')),
             'site_claim_ownership_transferred' => new SiteClaimOwnershipTransferred(self::sampleSiteClaim('approved'), $user),
             'publisher_add_site_reminder' => new PublisherAddSiteReminderMail($user, PublisherAddSiteReminderMail::STEP_DAY3),
@@ -666,6 +676,30 @@ class EmailCatalog
         $claim->setRelation('claimer', $user);
 
         return $claim;
+    }
+
+    protected static function sampleAgencySiteImport(): AgencySiteImport
+    {
+        $import = AgencySiteImport::query()->with('publisher')->latest('id')->first();
+        if ($import) {
+            return $import;
+        }
+
+        $user = self::sampleUser();
+        $import = new AgencySiteImport([
+            'publisher_id' => $user->id ?? 0,
+            'status' => AgencySiteImport::STATUS_SUBMITTED,
+            'original_filename' => 'agency-sites.csv',
+            'dry_run' => false,
+            'processed_count' => 12,
+            'created_count' => 10,
+            'failed_count' => 2,
+            'would_create_count' => 0,
+        ]);
+        $import->id = 0;
+        $import->setRelation('publisher', $user);
+
+        return $import;
     }
 
     protected static function sampleDeposit(): DepositRequest

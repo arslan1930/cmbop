@@ -72,6 +72,13 @@
                 <span id="navBadgeSites" class="badge bg-warning text-dark rounded-pill ms-auto" style="display:none;">0</span>
             </span>
         </a>
+        <a href="{{ staff_route('agency-imports.index') }}" class="{{ request()->routeIs($staffPrefix.'agency-imports.*') ? 'active' : '' }}" title="Agency CSV imports">
+            <i class="fa fa-file-csv"></i>
+            <span class="d-flex align-items-center w-100">
+                <span>Agency CSV</span>
+                <span id="navBadgeAgencyImports" class="badge bg-warning text-dark rounded-pill ms-auto" style="display:none;">0</span>
+            </span>
+        </a>
         <a href="{{ staff_route('bulk-site-requests.index') }}" class="{{ request()->routeIs($staffPrefix.'bulk-site-requests.*') ? 'active' : '' }}">
             <i class="fa fa-layer-group"></i> <span>Bulk requests</span>
         </a>
@@ -307,6 +314,7 @@
             setNavBadge('navBadgeSites', data.unverified_sites || 0);
             setNavBadge('navBadgePayments', data.pending_payments || 0);
             setNavBadge('navBadgeCommunity', data.pending_claims || 0);
+            setNavBadge('navBadgeAgencyImports', data.pending_agency_imports || 0);
         })
         .catch(() => {});
     }

@@ -13,6 +13,7 @@ use App\Models\Language;
 use App\Models\Site;
 use App\Models\User;
 use App\Services\ActivityLogger;
+use App\Services\AgencySiteImportNotifier;
 use App\Services\AgencySiteImportService;
 use App\Services\EmailNotificationService;
 use App\Services\Marketplace\CountryLanguagePairs;
@@ -982,7 +983,16 @@ class SiteController extends Controller
                 ->with('bulk_import_dry_run', true);
         }
 
-        // Admin email/bell digest is wired in the ops-signal follow-up (PR2).
+        // Admin email/bell digest
+        if ($import && $created > 0) {
+            try {
+                app(AgencySiteImportNotifier::class)->notifySubmitted($import);
+            } catch (\Throwable $e) {
+                Log::warning('Agency CSV import notify failed: '.$e->getMessage(), [
+                    'import_id' => $import->id,
+                ]);
+            }
+        }
 
         $message = "{$created} site(s) submitted for review.";
         if (count($failed) > 0) {

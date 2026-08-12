@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Jobs\CaptureSiteScreenshotJob;
+use App\Mail\AgencySiteImportSubmitted;
 use App\Models\ActivityLog;
 use App\Models\AgencySiteImport;
 use App\Models\AgencySiteImportFailure;
@@ -17,6 +18,7 @@ use Database\Seeders\RolesTableSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Bus;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
@@ -217,5 +219,53 @@ class AgencyCsvBulkImportTest extends TestCase
                 'csv_metrics_spot_check' => true,
                 'agency_site_import_id' => (int) $site->agency_site_import_id,
             ]);
+    }
+
+    public function test_submitting_import_notifies_admins_and_exposes_admin_detail(): void
+    {
+        Mail::fake();
+        Bus::fake();
+
+        $adminRole = Role::firstOrCreate(['name' => 'admin']);
+        $admin = User::factory()->create([
+            'email_verified_at' => now(),
+            'active_role_id' => $adminRole->id,
+        ]);
+        $admin->roles()->attach($adminRole->id);
+        $adminB = User::factory()->create([
+            'email_verified_at' => now(),
+            'active_role_id' => $adminRole->id,
+        ]);
+        $adminB->roles()->attach($adminRole->id);
+
+        $this->uploadCsv([
+            $this->validRow('notify-me.example', 'Notify Blog'),
+            $this->validRow('taken-in-file.example', 'Dup A'),
+            $this->validRow('taken-in-file.example', 'Dup B'),
+        ])->assertRedirect();
+
+        $import = AgencySiteImport::query()->first();
+        $this->assertNotNull($import);
+        $this->assertSame(AgencySiteImport::STATUS_PARTIAL, $import->status);
+
+        Mail::assertQueued(AgencySiteImportSubmitted::class, 2);
+
+        $this->assertDatabaseHas('in_app_notifications', [
+            'user_id' => $admin->id,
+            'title' => 'Agency CSV import ready for review',
+        ]);
+
+        $this->actingAs($admin)
+            ->get(route('admin.agency-imports.show', $import))
+            ->assertOk()
+            ->assertSee('Import #'.$import->id, false)
+            ->assertSee('Failed rows', false)
+            ->assertSee('CSV metrics — spot-check', false)
+            ->assertSee('Duplicate domain in this file', false);
+
+        $this->actingAs($admin)
+            ->getJson(route('admin.dashboard.queue-counts'))
+            ->assertOk()
+            ->assertJsonPath('pending_agency_imports', 1);
     }
 }
