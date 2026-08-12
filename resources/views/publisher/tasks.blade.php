@@ -98,6 +98,7 @@
                     <!-- Order Status Filter -->
                     <div class="col-md-2">
                         <label class="form-label fw-semibold small text-muted mb-1">Order Status</label>
+                        <input type="hidden" id="needsActionFilter" value="">
                         <select id="statusFilter" class="form-select form-select-sm">
                             <option value="">All Status</option>
                             <option value="pending">New — needs accept</option>
@@ -214,7 +215,7 @@
                     <span class="ui-callout__icon" aria-hidden="true"><i class="fa-solid fa-circle-info"></i></span>
                     <div class="ui-callout__body">
                         <span id="rejectModalBaseHint">The advertiser is refunded to their wallet. You can cancel after accepting if you cannot fulfill the order.</span>
-                        <span id="rejectModalMultiHint" class="d-none d-block mt-1 fw-semibold">This cancels the <em>whole order</em> (all sites in the cart), not only this row.</span>
+                        <span id="rejectModalMultiHint" class="d-none mt-1 fw-semibold">This cancels the <em>whole order</em> (all sites in the cart), not only this row.</span>
                     </div>
                 </div>
                 <div class="mb-3">
@@ -511,6 +512,7 @@ $(document).ready(function() {
 
     $('#showNeedsActionBtn').on('click', function() {
         $('#statusFilter').val('');
+        $('#needsActionFilter').val('1');
         syncTasksFiltersToUrl(1);
         loadTasks(1);
         $('html, body').animate({ scrollTop: $('#tasksTableBody').offset().top - 120 }, 'fast');
@@ -521,13 +523,6 @@ $(document).ready(function() {
         loadTasks(currentPage, true); // silent refresh
         loadStatistics();
     }, 30000);
-
-    $('#filterForm').on('submit', function(e) {
-        e.preventDefault();
-        currentPage = 1;
-        syncTasksFiltersToUrl(1);
-        loadTasks(1);
-    });
 
     (function initTasksLiveSearch() {
         var input = document.getElementById('searchInput');
@@ -547,9 +542,25 @@ $(document).ready(function() {
     $('#resetFiltersBtn').on('click', function() {
         $('#searchInput').val('');
         $('#statusFilter').val('');
+        $('#needsActionFilter').val('');
         $('#dateFrom').val('');
         $('#dateTo').val('');
         currentPage = 1;
+        syncTasksFiltersToUrl(1);
+        loadTasks(1);
+    });
+
+    $('#statusFilter').on('change', function() {
+        // Manual status pick clears the needs-action mode.
+        $('#needsActionFilter').val('');
+    });
+
+    $('#filterForm').on('submit', function(e) {
+        e.preventDefault();
+        currentPage = 1;
+        if ($('#statusFilter').val()) {
+            $('#needsActionFilter').val('');
+        }
         syncTasksFiltersToUrl(1);
         loadTasks(1);
     });
@@ -558,6 +569,12 @@ $(document).ready(function() {
         const params = new URLSearchParams(window.location.search);
         if (params.has('search')) $('#searchInput').val(params.get('search') || '');
         if (params.has('status')) $('#statusFilter').val(params.get('status') || '');
+        if (params.get('needs_action') === '1') {
+            $('#needsActionFilter').val('1');
+            $('#statusFilter').val('');
+        } else {
+            $('#needsActionFilter').val('');
+        }
         if (params.has('date_from')) $('#dateFrom').val(params.get('date_from') || '');
         if (params.has('date_to')) $('#dateTo').val(params.get('date_to') || '');
         const page = parseInt(params.get('page') || '1', 10);
@@ -568,7 +585,8 @@ $(document).ready(function() {
         const url = new URL(window.location.href);
         const map = {
             search: $('#searchInput').val() || '',
-            status: $('#statusFilter').val() || '',
+            status: $('#needsActionFilter').val() === '1' ? '' : ($('#statusFilter').val() || ''),
+            needs_action: $('#needsActionFilter').val() === '1' ? '1' : '',
             date_from: $('#dateFrom').val() || '',
             date_to: $('#dateTo').val() || '',
         };
@@ -1042,7 +1060,8 @@ $(document).ready(function() {
             data: {
                 page: page,
                 search: $('#searchInput').val(),
-                status: $('#statusFilter').val(),
+                status: $('#needsActionFilter').val() === '1' ? '' : $('#statusFilter').val(),
+                needs_action: $('#needsActionFilter').val() === '1' ? 1 : 0,
                 date_from: $('#dateFrom').val(),
                 date_to: $('#dateTo').val()
             },

@@ -79,7 +79,9 @@ class ChatController extends Controller
                 $publisherItems = OrderItem::whereHas('site', function ($q) use ($user) {
                     $q->where('publisher_id', $user->id);
                 })->whereHas('order', function ($q) {
-                    $q->whereIn('status', ['pending', 'processing', 'review']);
+                    // Match Tasks list: only paid orders appear in My Tasks.
+                    $q->where('payment_status', 'paid')
+                        ->whereIn('status', ['pending', 'processing', 'review']);
                 });
 
                 $needsActionQuery = (clone $publisherItems)->whereHas('order', function ($q) {

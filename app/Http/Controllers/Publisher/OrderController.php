@@ -118,8 +118,32 @@ class OrderController extends Controller
                 });
             }
 
-            // Status filter - using orders.status (the order status)
-            if ($request->filled('status')) {
+            // Needs-action filter (accept / publish / modification) — paid already applied above.
+            if ($request->boolean('needs_action')) {
+                $query->where(function ($q) {
+                    $q->whereHas('order', function ($sub) {
+                        $sub->where('status', 'pending');
+                    })->orWhere(function ($sub) {
+                        $sub->where('modification_requested', 'yes');
+                    })->orWhere(function ($sub) {
+                        $sub->whereHas('order', function ($o) {
+                            $o->where('status', 'processing');
+                        })->where(function ($u) {
+                            $u->whereNull('live_url')->orWhere('live_url', '');
+                        })->where(function ($m) {
+                            $m->whereNull('modification_requested')
+                                ->orWhere('modification_requested', '!=', 'yes');
+                        });
+                        if (Schema::hasColumn('order_items', 'content_revision_requested')) {
+                            $sub->where(function ($c) {
+                                $c->whereNull('content_revision_requested')
+                                    ->orWhere('content_revision_requested', '!=', 'yes');
+                            });
+                        }
+                    });
+                });
+            } elseif ($request->filled('status')) {
+                // Status filter - using orders.status (the order status)
                 $query->whereHas('order', function ($sub) use ($request) {
                     $sub->where('status', $request->status);
                 });
