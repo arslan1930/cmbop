@@ -42,7 +42,7 @@
             @if(auth()->user()?->isAdmin() && $import->sites->isNotEmpty())
                 <div class="d-flex flex-wrap gap-2 mb-2">
                     <button type="button" class="btn btn-sm btn-success" id="bulkVerifyBtn">Verify selected</button>
-                    <button type="button" class="btn btn-sm btn-primary" id="bulkActivateBtn">Activate selected</button>
+                    <button type="button" class="btn btn-sm btn-primary" id="bulkActivateBtn" title="Only verified sites can be activated">Activate selected</button>
                     <button type="button" class="btn btn-sm btn-outline-danger" id="bulkRejectBtn">Reject selected</button>
                     <span class="small text-muted align-self-center" id="bulkSelectedCount">0 selected</span>
                 </div>
@@ -187,7 +187,9 @@
         } else {
             const { isConfirmed } = await Swal.fire({
                 title: action === 'verify' ? 'Verify selected sites?' : 'Activate selected sites?',
-                text: site_ids.length + ' site(s) will be updated.',
+                text: action === 'activate'
+                    ? site_ids.length + ' site(s) selected. Unverified sites will be skipped.'
+                    : site_ids.length + ' site(s) will be updated.',
                 showCancelButton: true,
                 confirmButtonText: action === 'verify' ? 'Verify' : 'Activate',
             });

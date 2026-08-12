@@ -2,9 +2,11 @@
 
 namespace App\Models;
 
+use App\Services\InAppNotificationService;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Facades\Log;
 
 class AgencySiteImport extends Model
 {
@@ -99,7 +101,7 @@ class AgencySiteImport extends Model
 
     public function refreshReviewStatus(?User $reviewer = null): void
     {
-        if (in_array($this->status, [self::STATUS_FAILED, self::STATUS_CLOSED, self::STATUS_PROCESSING], true)) {
+        if (in_array($this->status, [self::STATUS_CLOSED, self::STATUS_PROCESSING], true)) {
             return;
         }
 
@@ -107,8 +109,14 @@ class AgencySiteImport extends Model
             return;
         }
 
+        // Failed-with-sites (legacy stuck batches) can still be closed via Sites Management.
+        if ($this->status === self::STATUS_FAILED && (int) $this->created_count <= 0) {
+            return;
+        }
+
         $pending = $this->pendingReviewSitesCount();
         if ($pending === 0 && $this->created_count > 0) {
+            $becameReviewed = $this->status !== self::STATUS_REVIEWED;
             $payload = [
                 'status' => self::STATUS_REVIEWED,
                 'reviewed_at' => $this->reviewed_at ?? now(),
@@ -117,6 +125,31 @@ class AgencySiteImport extends Model
                 $payload['reviewed_by'] = $reviewer->id;
             }
             $this->forceFill($payload)->save();
+
+            if ($becameReviewed) {
+                try {
+                    app(InAppNotificationService::class)
+                        ->completeAgencySiteImportNotifications($this);
+                } catch (\Throwable $e) {
+                    Log::warning(
+                        'Could not archive agency CSV import notifications: '.$e->getMessage(),
+                        ['import_id' => $this->id]
+                    );
+                }
+            }
+
+            return;
+        }
+
+        // Re-open if staff deactivated / unverified after review.
+        if ($pending > 0 && $this->status === self::STATUS_REVIEWED) {
+            $this->forceFill([
+                'status' => ((int) $this->failed_count > 0)
+                    ? self::STATUS_PARTIAL
+                    : self::STATUS_SUBMITTED,
+                'reviewed_at' => null,
+                'reviewed_by' => null,
+            ])->save();
         }
     }
 

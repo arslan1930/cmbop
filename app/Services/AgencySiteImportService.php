@@ -350,17 +350,29 @@ class AgencySiteImportService
                     'dry_run' => $dryRun,
                 ];
             } catch (\Throwable $e) {
-                // Never leave a batch stuck in "processing" after an unexpected failure.
+                // Never leave a batch stuck in "processing". If some sites were
+                // already created, keep them in the open review queue as partial.
                 if ($import !== null && $import->status === AgencySiteImport::STATUS_PROCESSING) {
                     try {
+                        foreach ($failureRecords as $failure) {
+                            AgencySiteImportFailure::create([
+                                'agency_site_import_id' => $import->id,
+                                'row_number' => $failure['row'],
+                                'site_url' => $failure['site_url'] ?? ($failure['site'] !== '' ? $failure['site'] : null),
+                                'site_name' => $failure['site_name'] ?? null,
+                                'errors' => $failure['errors'],
+                            ]);
+                        }
+
                         $import->forceFill([
                             'processed_count' => $processed,
                             'created_count' => $created,
-                            'failed_count' => max(count($failed), 1),
-                            'status' => AgencySiteImport::STATUS_FAILED,
+                            'failed_count' => max(count($failed), $created > 0 ? count($failed) : 1),
+                            'would_create_count' => 0,
                         ])->save();
+                        $import->finalizeStatus();
                     } catch (\Throwable $inner) {
-                        Log::warning('Could not mark agency CSV import failed after exception: '.$inner->getMessage(), [
+                        Log::warning('Could not finalize agency CSV import after exception: '.$inner->getMessage(), [
                             'import_id' => $import->id,
                         ]);
                     }
@@ -396,10 +408,11 @@ class AgencySiteImportService
             $exampleUrl = 'https://'.$exampleUrl;
         }
 
-        $categoryRaw = $data['categories'] ?? '';
-        $categories = array_values(array_filter(array_map('trim', preg_split('/[|,]/', $categoryRaw) ?: [])));
+        $categoryRaw = (string) ($data['categories'] ?? '');
+        // Pipe-first + comma-niche aware (e.g. "Marketing, PR & Advertising").
+        $categories = Category::parseCatalogCategoryParam($categoryRaw);
         if (count($categories) < 1) {
-            $errors[] = 'At least one category is required (use | or , between names).';
+            $errors[] = 'At least one category is required (separate multiple niches with |).';
         } elseif (count($categories) > 7) {
             $errors[] = 'Maximum 7 categories allowed.';
         } else {
@@ -435,9 +448,9 @@ class AgencySiteImportService
             'site_name' => $data['site_name'] ?? '',
             'site_url' => $siteUrl,
             'example_url' => $exampleUrl,
-            'da' => $data['da'] ?? null,
-            'dr' => $data['dr'] ?? null,
-            'traffic' => $data['traffic'] ?? null,
+            'da' => $this->normalizeMetricInt($data['da'] ?? null),
+            'dr' => $this->normalizeMetricInt($data['dr'] ?? null),
+            'traffic' => $this->normalizeMetricInt($data['traffic'] ?? null),
             'countries' => $countryCodes,
             'languages' => $languageCodes,
             'categories' => $categories,
@@ -506,7 +519,8 @@ class AgencySiteImportService
             'countries' => $countryCodes,
             'language' => $languageCodes[0],
             'languages' => $languageCodes,
-            'primary_category' => implode(',', $categories),
+            // Pipe-join keeps comma niches intact (same as single-site create).
+            'primary_category' => implode('|', $categories),
             'categories' => $categories,
             'price' => $payload['price'],
             'turnaround_time' => $payload['turnaround_time'],
@@ -518,6 +532,46 @@ class AgencySiteImportService
             'description' => $description,
             'sensitive_prices' => ! empty($sensitivePrices) ? $sensitivePrices : null,
         ];
+    }
+
+    /**
+     * Normalize DA/DR/traffic from CSV cells (commas, decimals, blanks).
+     * Parity with Admin\SiteController::normalizeMetricInt.
+     */
+    private function normalizeMetricInt(mixed $value): ?int
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        if (is_int($value)) {
+            return $value;
+        }
+
+        if (is_float($value)) {
+            return (int) round($value);
+        }
+
+        $raw = trim((string) $value);
+        $raw = str_replace(["\xc2\xa0", ' '], '', $raw);
+        if ($raw === '') {
+            return null;
+        }
+
+        if (preg_match('/^\d{1,3}(,\d{3})+(\.\d+)?$/', $raw)) {
+            $raw = str_replace(',', '', $raw);
+        } elseif (preg_match('/^\d{1,3}(\.\d{3})+(,\d+)?$/', $raw)) {
+            $raw = str_replace('.', '', $raw);
+            $raw = str_replace(',', '.', $raw);
+        } elseif (preg_match('/^\d+,\d+$/', $raw)) {
+            $raw = str_replace(',', '.', $raw);
+        }
+
+        if (! is_numeric($raw)) {
+            return null;
+        }
+
+        return (int) round((float) $raw);
     }
 
     /**

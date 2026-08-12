@@ -74,6 +74,13 @@ class AgencySiteImportReviewService
                 continue;
             }
 
+            if ($action === 'activate' && ! (bool) $site->verified) {
+                // Verify first so unverified listings cannot go live from this UI.
+                $skipped++;
+
+                continue;
+            }
+
             match ($action) {
                 'verify' => $this->verifySite($site, $admin),
                 'activate' => $this->activateSite($site, $admin),

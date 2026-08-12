@@ -8,6 +8,7 @@ use App\Models\ActivityLog;
 use App\Models\AgencySiteImport;
 use App\Models\AgencySiteImportFailure;
 use App\Models\Category;
+use App\Models\InAppNotification;
 use App\Models\Role;
 use App\Models\Site;
 use App\Models\User;
@@ -487,5 +488,105 @@ class AgencyCsvBulkImportTest extends TestCase
         $this->assertNotNull($import);
         $this->assertSame(AgencySiteImport::STATUS_FAILED, $import->status);
         $this->assertGreaterThan(0, (int) $import->failed_count);
+    }
+
+    public function test_csv_accepts_comma_niche_and_localized_traffic(): void
+    {
+        Bus::fake();
+
+        $row = $this->validRow('comma-niche.example', 'Comma Niche Blog');
+        // categories index 8, traffic index 5
+        $row[5] = '15,000';
+        $row[8] = 'Marketing, PR & Advertising';
+
+        $this->uploadCsv([$row])->assertRedirect();
+
+        $site = Site::query()->where('domain', 'comma-niche.example')->first();
+        $this->assertNotNull($site);
+        $this->assertSame(15000, (int) $site->traffic);
+        $this->assertSame('Marketing, PR & Advertising', (string) $site->category);
+    }
+
+    public function test_bulk_activate_skips_unverified_sites(): void
+    {
+        Mail::fake();
+        Bus::fake();
+
+        $adminRole = Role::firstOrCreate(['name' => 'admin']);
+        $admin = User::factory()->create([
+            'email_verified_at' => now(),
+            'active_role_id' => $adminRole->id,
+        ]);
+        $admin->roles()->attach($adminRole->id);
+
+        $this->uploadCsv([
+            $this->validRow('activate-skip.example', 'Activate Skip'),
+        ])->assertRedirect();
+
+        $import = AgencySiteImport::query()->firstOrFail();
+        $site = Site::query()->where('agency_site_import_id', $import->id)->firstOrFail();
+
+        $this->actingAs($admin)
+            ->postJson(route('admin.agency-imports.bulk-action', $import), [
+                'action' => 'activate',
+                'site_ids' => [$site->id],
+            ])
+            ->assertOk()
+            ->assertJson([
+                'success' => true,
+                'updated' => 0,
+                'skipped' => 1,
+            ]);
+
+        $site->refresh();
+        $this->assertFalse((bool) $site->active);
+        $import->refresh();
+        $this->assertSame(AgencySiteImport::STATUS_SUBMITTED, $import->status);
+    }
+
+    public function test_reviewed_import_archives_admin_bells(): void
+    {
+        Mail::fake();
+        Bus::fake();
+
+        $adminRole = Role::firstOrCreate(['name' => 'admin']);
+        $admin = User::factory()->create([
+            'email_verified_at' => now(),
+            'active_role_id' => $adminRole->id,
+        ]);
+        $admin->roles()->attach($adminRole->id);
+
+        $this->uploadCsv([
+            $this->validRow('bell-close.example', 'Bell Close'),
+        ])->assertRedirect();
+
+        $import = AgencySiteImport::query()->firstOrFail();
+        $this->assertDatabaseHas('in_app_notifications', [
+            'user_id' => $admin->id,
+            'title' => 'Agency CSV import ready for review',
+        ]);
+
+        $ids = Site::query()->where('agency_site_import_id', $import->id)->pluck('id')->all();
+        $this->actingAs($admin)
+            ->postJson(route('admin.agency-imports.bulk-action', $import), [
+                'action' => 'verify',
+                'site_ids' => $ids,
+            ])->assertOk();
+        $this->actingAs($admin)
+            ->postJson(route('admin.agency-imports.bulk-action', $import), [
+                'action' => 'activate',
+                'site_ids' => $ids,
+            ])->assertOk();
+
+        $import->refresh();
+        $this->assertSame(AgencySiteImport::STATUS_REVIEWED, $import->status);
+
+        $note = InAppNotification::query()
+            ->where('user_id', $admin->id)
+            ->where('title', 'Agency CSV import ready for review')
+            ->where('related_id', $import->id)
+            ->first();
+        $this->assertNotNull($note);
+        $this->assertNotNull($note->archived_at);
     }
 }

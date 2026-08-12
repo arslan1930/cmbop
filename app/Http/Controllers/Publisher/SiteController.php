@@ -4,14 +4,12 @@ namespace App\Http\Controllers\Publisher;
 
 use App\Http\Controllers\Controller;
 use App\Jobs\CaptureSiteScreenshotJob;
-use App\Mail\NewSiteNotification;
 use App\Models\BulkSiteRequest;
 use App\Models\BulkSiteRequestItem;
 use App\Models\Category;
 use App\Models\Country;
 use App\Models\Language;
 use App\Models\Site;
-use App\Models\User;
 use App\Services\ActivityLogger;
 use App\Services\AgencySiteImportNotifier;
 use App\Services\AgencySiteImportService;
@@ -23,7 +21,6 @@ use App\Support\SiteDescriptionRules;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Validator;
 
@@ -293,23 +290,7 @@ class SiteController extends Controller
 
         if ($site) {
             try {
-                $admins = User::where('active_role_id', function ($query) {
-                    $query->select('id')
-                        ->from('roles')
-                        ->where('name', 'admin')
-                        ->limit(1);
-                })->get();
-
-                if ($admins->count() > 0) {
-                    foreach ($admins as $admin) {
-                        Mail::to($admin->email)->send(new NewSiteNotification($site));
-                    }
-                } else {
-                    $defaultAdminEmail = config('mail.admin_email');
-                    if ($defaultAdminEmail) {
-                        Mail::to($defaultAdminEmail)->send(new NewSiteNotification($site));
-                    }
-                }
+                app(EmailNotificationService::class)->notifyAdminsNewSite($site, 'create');
             } catch (\Exception $e) {
                 Log::error('Failed to send email notification: '.$e->getMessage());
             }
@@ -723,21 +704,7 @@ class SiteController extends Controller
 
         if ($needsRereview) {
             try {
-                $admins = User::where('active_role_id', function ($query) {
-                    $query->select('id')
-                        ->from('roles')
-                        ->where('name', 'admin')
-                        ->limit(1);
-                })->get();
-
-                if ($admins->count() > 0) {
-                    foreach ($admins as $admin) {
-                        Mail::to($admin->email)->send(new NewSiteNotification($site, 'update'));
-                    }
-                } else {
-                    $defaultAdminEmail = config('mail.admin_email', 'admin@yourdomain.com');
-                    Mail::to($defaultAdminEmail)->send(new NewSiteNotification($site, 'update'));
-                }
+                app(EmailNotificationService::class)->notifyAdminsNewSite($site, 'update');
             } catch (\Exception $e) {
                 Log::error('Failed to send email notification: '.$e->getMessage());
             }
