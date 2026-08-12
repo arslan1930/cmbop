@@ -268,4 +268,85 @@ class AgencyCsvBulkImportTest extends TestCase
             ->assertOk()
             ->assertJsonPath('pending_agency_imports', 1);
     }
+
+    public function test_admin_can_bulk_verify_and_activate_import_sites(): void
+    {
+        Mail::fake();
+        Bus::fake();
+
+        $adminRole = Role::firstOrCreate(['name' => 'admin']);
+        $admin = User::factory()->create([
+            'email_verified_at' => now(),
+            'active_role_id' => $adminRole->id,
+        ]);
+        $admin->roles()->attach($adminRole->id);
+
+        $this->uploadCsv([
+            $this->validRow('bulk-a.example', 'Bulk A'),
+            $this->validRow('bulk-b.example', 'Bulk B'),
+        ])->assertRedirect();
+
+        $import = AgencySiteImport::query()->firstOrFail();
+        $ids = Site::query()->where('agency_site_import_id', $import->id)->pluck('id')->all();
+        $this->assertCount(2, $ids);
+
+        $this->actingAs($admin)
+            ->postJson(route('admin.agency-imports.bulk-action', $import), [
+                'action' => 'verify',
+                'site_ids' => $ids,
+            ])
+            ->assertOk()
+            ->assertJson(['success' => true, 'updated' => 2]);
+
+        foreach ($ids as $id) {
+            $this->assertTrue((bool) Site::find($id)->verified);
+        }
+
+        $this->actingAs($admin)
+            ->postJson(route('admin.agency-imports.bulk-action', $import), [
+                'action' => 'activate',
+                'site_ids' => $ids,
+            ])
+            ->assertOk()
+            ->assertJson(['success' => true, 'updated' => 2]);
+
+        foreach ($ids as $id) {
+            $this->assertTrue((bool) Site::find($id)->active);
+        }
+
+        $import->refresh();
+        $this->assertSame(AgencySiteImport::STATUS_REVIEWED, $import->status);
+
+        $this->actingAs($admin)
+            ->getJson(route('admin.dashboard.queue-counts'))
+            ->assertOk()
+            ->assertJsonPath('pending_agency_imports', 0);
+    }
+
+    public function test_marketing_cannot_bulk_action_agency_import(): void
+    {
+        Bus::fake();
+
+        $adminRole = Role::firstOrCreate(['name' => 'admin']);
+        // Ensure import exists via publisher upload first.
+        $this->uploadCsv([
+            $this->validRow('mkt-block.example', 'Marketing Block'),
+        ])->assertRedirect();
+        $import = AgencySiteImport::query()->firstOrFail();
+        $siteId = Site::query()->where('agency_site_import_id', $import->id)->value('id');
+
+        $marketingRole = Role::firstOrCreate(['name' => 'marketing']);
+        $marketer = User::factory()->create([
+            'email_verified_at' => now(),
+            'active_role_id' => $marketingRole->id,
+        ]);
+        $marketer->roles()->attach($marketingRole->id);
+
+        $this->actingAs($marketer)
+            ->postJson(route('admin.agency-imports.bulk-action', $import), [
+                'action' => 'verify',
+                'site_ids' => [$siteId],
+            ])
+            ->assertForbidden();
+    }
 }
