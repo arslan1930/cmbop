@@ -589,4 +589,64 @@ class AgencyCsvBulkImportTest extends TestCase
         $this->assertNotNull($note);
         $this->assertNotNull($note->archived_at);
     }
+
+    public function test_bulk_template_uses_real_niche_names(): void
+    {
+        $response = $this->actingAs($this->publisher)
+            ->get(route('publisher.sites.bulk-template'));
+
+        $response->assertOk();
+        $csv = $response->streamedContent();
+        $this->assertStringContainsString('Technology & Gadgets', $csv);
+        $this->assertStringNotContainsString('Business & Finance|Technology,', $csv);
+        $this->assertStringNotContainsString("Business & Finance|Technology\n", $csv);
+    }
+
+    public function test_deactivating_reviewed_agency_site_reopens_import_and_rebells(): void
+    {
+        Mail::fake();
+        Bus::fake();
+
+        $adminRole = Role::firstOrCreate(['name' => 'admin']);
+        $admin = User::factory()->create([
+            'email_verified_at' => now(),
+            'active_role_id' => $adminRole->id,
+        ]);
+        $admin->roles()->attach($adminRole->id);
+
+        $this->uploadCsv([
+            $this->validRow('reopen-import.example', 'Reopen Import'),
+        ])->assertRedirect();
+
+        $import = AgencySiteImport::query()->firstOrFail();
+        $site = Site::query()->where('agency_site_import_id', $import->id)->firstOrFail();
+
+        $this->actingAs($admin)
+            ->postJson(route('admin.sites.verify', $site->id), ['verified' => 1])
+            ->assertOk();
+        $this->actingAs($admin)
+            ->postJson(route('admin.sites.active', $site->id), ['active' => 1])
+            ->assertOk();
+
+        $import->refresh();
+        $this->assertSame(AgencySiteImport::STATUS_REVIEWED, $import->status);
+
+        $this->actingAs($admin)
+            ->postJson(route('admin.sites.active', $site->id), [
+                'active' => 0,
+                'reason' => 'Needs better metrics before staying live.',
+            ])
+            ->assertOk();
+
+        $import->refresh();
+        $this->assertSame(AgencySiteImport::STATUS_SUBMITTED, $import->status);
+
+        $openBells = InAppNotification::query()
+            ->where('user_id', $admin->id)
+            ->where('title', 'Agency CSV import ready for review')
+            ->where('related_id', $import->id)
+            ->whereNull('archived_at')
+            ->count();
+        $this->assertGreaterThanOrEqual(1, $openBells);
+    }
 }

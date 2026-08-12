@@ -880,7 +880,7 @@ class SiteController extends Controller
             '15000',
             'de',
             'de',
-            'Business & Finance|Technology',
+            'Business & Finance|Technology & Gadgets',
             '120',
             '3days',
             'permanent',
@@ -938,6 +938,7 @@ class SiteController extends Controller
         $failed = $result['failed'];
         $processed = (int) $result['processed'];
         $import = $result['import'];
+        $interrupted = (bool) ($result['interrupted'] ?? false);
 
         if ($dryRun) {
             $message = "Dry run complete. Processed {$processed} row(s): {$wouldCreate} would be submitted, ".count($failed).' would fail. Nothing was saved.';
@@ -962,7 +963,9 @@ class SiteController extends Controller
         }
 
         $message = "{$created} site(s) submitted for review.";
-        if (count($failed) > 0) {
+        if ($interrupted) {
+            $message = "{$created} site(s) were saved, but the import was interrupted before all rows finished. Re-upload any missing domains.";
+        } elseif (count($failed) > 0) {
             $message .= ' '.count($failed).' row(s) failed — see details below.';
         }
         if ($import) {
@@ -970,7 +973,7 @@ class SiteController extends Controller
         }
 
         return back()
-            ->with($created > 0 ? 'success' : 'error', $message)
+            ->with($created > 0 ? ($interrupted ? 'error' : 'success') : 'error', $message)
             ->with('bulk_import_created', $created)
             ->with('bulk_import_failures', $failed)
             ->with('bulk_import_id', $import?->id);

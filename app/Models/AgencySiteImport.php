@@ -150,6 +150,16 @@ class AgencySiteImport extends Model
                 'reviewed_at' => null,
                 'reviewed_by' => null,
             ])->save();
+
+            try {
+                app(InAppNotificationService::class)
+                    ->notifyAdminsAgencySiteImportSubmitted($this);
+            } catch (\Throwable $e) {
+                Log::warning(
+                    'Could not re-bell admins about reopened agency CSV import: '.$e->getMessage(),
+                    ['import_id' => $this->id]
+                );
+            }
         }
     }
 

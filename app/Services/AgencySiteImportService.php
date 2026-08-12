@@ -27,7 +27,8 @@ class AgencySiteImportService
      *   would_create: int,
      *   failed: list<array{row:int,site:string,errors:list<string>}>,
      *   processed: int,
-     *   dry_run: bool
+     *   dry_run: bool,
+     *   interrupted?: bool
      * }
      */
     public function importFromUpload(User $publisher, UploadedFile $file, bool $dryRun = false): array
@@ -264,24 +265,40 @@ class AgencySiteImportService
                             $site->save();
                         });
 
-                        if ($site !== null) {
-                            ActivityLogger::log(
-                                'site.bulk_imported',
-                                ($publisher->name ?? 'Publisher').' bulk-imported site "'.$site->site_name.'" from agency CSV (row '.$rowNumber.')',
-                                $site,
-                                [
-                                    'import_id' => $import?->id,
-                                    'row' => $rowNumber,
-                                ],
-                                $site->site_name
-                            );
+                        // Count as created as soon as the row is committed so a later
+                        // logging/job failure cannot mark a saved site as a failed row.
+                        $created++;
 
-                            if (config('site_enrichment.enabled', true)) {
-                                CaptureSiteScreenshotJob::dispatch($site->id, 'agency_csv_import');
+                        if ($site !== null) {
+                            try {
+                                ActivityLogger::log(
+                                    'site.bulk_imported',
+                                    ($publisher->name ?? 'Publisher').' bulk-imported site "'.$site->site_name.'" from agency CSV (row '.$rowNumber.')',
+                                    $site,
+                                    [
+                                        'import_id' => $import?->id,
+                                        'row' => $rowNumber,
+                                    ],
+                                    $site->site_name
+                                );
+                            } catch (\Throwable $e) {
+                                Log::warning('Agency CSV row activity log failed: '.$e->getMessage(), [
+                                    'row' => $rowNumber,
+                                    'site_id' => $site->id,
+                                ]);
+                            }
+
+                            try {
+                                if (config('site_enrichment.enabled', true)) {
+                                    CaptureSiteScreenshotJob::dispatch($site->id, 'agency_csv_import');
+                                }
+                            } catch (\Throwable $e) {
+                                Log::warning('Agency CSV screenshot dispatch failed: '.$e->getMessage(), [
+                                    'row' => $rowNumber,
+                                    'site_id' => $site->id,
+                                ]);
                             }
                         }
-
-                        $created++;
                     } catch (\Exception $e) {
                         Log::error('Bulk site import row failed: '.$e->getMessage(), [
                             'row' => $rowNumber,
@@ -305,40 +322,7 @@ class AgencySiteImportService
                 }
 
                 if ($import !== null) {
-                    foreach ($failureRecords as $failure) {
-                        AgencySiteImportFailure::create([
-                            'agency_site_import_id' => $import->id,
-                            'row_number' => $failure['row'],
-                            'site_url' => $failure['site_url'] ?? ($failure['site'] !== '' ? $failure['site'] : null),
-                            'site_name' => $failure['site_name'] ?? null,
-                            'errors' => $failure['errors'],
-                        ]);
-                    }
-
-                    $import->forceFill([
-                        'processed_count' => $processed,
-                        'created_count' => $created,
-                        'failed_count' => count($failed),
-                        'would_create_count' => 0,
-                    ])->save();
-
-                    $import->finalizeStatus();
-
-                    ActivityLogger::log(
-                        'agency_import.submitted',
-                        ($publisher->name ?? 'Publisher').' submitted agency CSV import #'.$import->id.': '
-                            .$created.' site(s) created, '.count($failed).' row(s) failed',
-                        $import,
-                        [
-                            'import_id' => $import->id,
-                            'publisher_id' => $publisher->id,
-                            'created_count' => $created,
-                            'failed_count' => count($failed),
-                            'processed_count' => $processed,
-                            'original_filename' => $import->original_filename,
-                        ],
-                        'Agency import #'.$import->id
-                    );
+                    $this->persistImportOutcome($import, $publisher, $processed, $created, $failed, $failureRecords);
                 }
 
                 return [
@@ -348,29 +332,55 @@ class AgencySiteImportService
                     'failed' => $failed,
                     'processed' => $processed,
                     'dry_run' => $dryRun,
+                    'interrupted' => false,
                 ];
             } catch (\Throwable $e) {
-                // Never leave a batch stuck in "processing". If some sites were
-                // already created, keep them in the open review queue as partial.
+                // Never leave a batch stuck in "processing". Prefer returning a
+                // partial result (so the controller can notify admins) over a 500.
                 if ($import !== null && $import->status === AgencySiteImport::STATUS_PROCESSING) {
                     try {
-                        foreach ($failureRecords as $failure) {
-                            AgencySiteImportFailure::create([
-                                'agency_site_import_id' => $import->id,
-                                'row_number' => $failure['row'],
-                                'site_url' => $failure['site_url'] ?? ($failure['site'] !== '' ? $failure['site'] : null),
-                                'site_name' => $failure['site_name'] ?? null,
-                                'errors' => $failure['errors'],
-                            ]);
-                        }
+                        $interrupt = [
+                            'row' => $rowNumber,
+                            'site' => '',
+                            'site_name' => null,
+                            'site_url' => null,
+                            'errors' => [
+                                'Import interrupted after '.$created.' site(s) were created; remaining rows were not processed. Please review created sites and re-upload any missing rows.',
+                            ],
+                        ];
+                        $failed[] = [
+                            'row' => $interrupt['row'],
+                            'site' => $interrupt['site'],
+                            'errors' => $interrupt['errors'],
+                        ];
+                        $failureRecords[] = $interrupt;
 
-                        $import->forceFill([
-                            'processed_count' => $processed,
-                            'created_count' => $created,
-                            'failed_count' => max(count($failed), $created > 0 ? count($failed) : 1),
-                            'would_create_count' => 0,
-                        ])->save();
-                        $import->finalizeStatus();
+                        $this->persistImportOutcome(
+                            $import,
+                            $publisher,
+                            $processed,
+                            $created,
+                            $failed,
+                            $failureRecords,
+                            forcePartial: true
+                        );
+
+                        if ($created > 0) {
+                            Log::error('Agency CSV import interrupted after creating sites: '.$e->getMessage(), [
+                                'import_id' => $import->id,
+                                'created' => $created,
+                            ]);
+
+                            return [
+                                'import' => $import->fresh(),
+                                'created' => $created,
+                                'would_create' => $wouldCreate,
+                                'failed' => $failed,
+                                'processed' => $processed,
+                                'dry_run' => $dryRun,
+                                'interrupted' => true,
+                            ];
+                        }
                     } catch (\Throwable $inner) {
                         Log::warning('Could not finalize agency CSV import after exception: '.$inner->getMessage(), [
                             'import_id' => $import->id,
@@ -382,6 +392,74 @@ class AgencySiteImportService
             }
         } finally {
             fclose($handle);
+        }
+    }
+
+    /**
+     * Persist failure rows + counts and finalize import status (once).
+     *
+     * @param  list<array{row:int,site:string,errors:list<string>}>  $failed
+     * @param  list<array{row:int,site:string,site_name:?string,site_url:?string,errors:list<string>}>  $failureRecords
+     */
+    private function persistImportOutcome(
+        AgencySiteImport $import,
+        User $publisher,
+        int $processed,
+        int $created,
+        array $failed,
+        array $failureRecords,
+        bool $forcePartial = false
+    ): void {
+        // Replace any prior rows so interrupt recovery cannot duplicate failures.
+        AgencySiteImportFailure::query()
+            ->where('agency_site_import_id', $import->id)
+            ->delete();
+
+        foreach ($failureRecords as $failure) {
+            AgencySiteImportFailure::create([
+                'agency_site_import_id' => $import->id,
+                'row_number' => $failure['row'],
+                'site_url' => $failure['site_url'] ?? ($failure['site'] !== '' ? $failure['site'] : null),
+                'site_name' => $failure['site_name'] ?? null,
+                'errors' => $failure['errors'],
+            ]);
+        }
+
+        $failedCount = count($failed);
+        if ($forcePartial) {
+            $failedCount = max($failedCount, 1);
+        }
+
+        $import->forceFill([
+            'processed_count' => $processed,
+            'created_count' => $created,
+            'failed_count' => $failedCount,
+            'would_create_count' => 0,
+        ])->save();
+
+        $import->finalizeStatus();
+
+        try {
+            ActivityLogger::log(
+                'agency_import.submitted',
+                ($publisher->name ?? 'Publisher').' submitted agency CSV import #'.$import->id.': '
+                    .$created.' site(s) created, '.$failedCount.' row(s) failed',
+                $import,
+                [
+                    'import_id' => $import->id,
+                    'publisher_id' => $publisher->id,
+                    'created_count' => $created,
+                    'failed_count' => $failedCount,
+                    'processed_count' => $processed,
+                    'original_filename' => $import->original_filename,
+                    'interrupted' => $forcePartial,
+                ],
+                'Agency import #'.$import->id
+            );
+        } catch (\Throwable $e) {
+            Log::warning('Agency CSV import activity log failed: '.$e->getMessage(), [
+                'import_id' => $import->id,
+            ]);
         }
     }
 
