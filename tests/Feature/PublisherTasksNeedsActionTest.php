@@ -113,4 +113,26 @@ class PublisherTasksNeedsActionTest extends TestCase
         $this->assertNotContains($paidProcessingDone->id, $ids);
         $this->assertCount(1, $ids);
     }
+
+    public function test_locate_order_item_resolves_paid_publisher_row(): void
+    {
+        $item = $this->makeItem('paid', 'pending');
+        $this->makeItem('pending', 'pending');
+
+        $this->actingAs($this->publisher)
+            ->getJson(route('publisher.orders.locate', ['order_id' => $item->order_id]))
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('order_item_id', $item->id);
+    }
+
+    public function test_tasks_page_uses_safe_chat_buttons_and_colspan_eight(): void
+    {
+        $blade = file_get_contents(resource_path('views/publisher/tasks.blade.php'));
+        $this->assertStringContainsString('class="btn btn-primary btn-action-sm open-task-chat"', $blade);
+        $this->assertStringNotContainsString('onclick="openChat(', $blade);
+        $this->assertStringContainsString('/publisher/orders/locate', $blade);
+        $this->assertStringNotContainsString('colspan="9"', $blade);
+        $this->assertStringContainsString("Showing ' + from", $blade);
+    }
 }

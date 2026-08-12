@@ -1032,6 +1032,7 @@ Route::middleware(['auth', 'verified', RoleMiddleware::class.':publisher'])
         // Tasks / Orders
         Route::get('/tasks', [OrderController::class, 'index'])->name('tasks');
         Route::get('/orders/data', [OrderController::class, 'getOrders'])->name('orders.data');
+        Route::get('/orders/locate', [OrderController::class, 'locateOrderItem'])->name('orders.locate');
         Route::get('/orders/statistics', [OrderController::class, 'getStatistics'])->name('orders.statistics');
         Route::get('/orders/{id}/details', [OrderController::class, 'getOrderDetails'])->name('orders.details');
         Route::post('/orders/{id}/accept', [OrderController::class, 'acceptOrder'])->name('orders.accept');

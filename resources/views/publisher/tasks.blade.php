@@ -161,7 +161,7 @@
                     </thead>
                     <tbody id="tasksTableBody">
                         <tr>
-                            <td colspan="9" class="text-center py-5">
+                            <td colspan="8" class="text-center py-5">
                                 <div class="text-muted">Loading tasks...</div>
                             </td>
                         </tr>
@@ -496,14 +496,6 @@ function clearFocusMessagesParam() {
     window.history.replaceState({}, '', url.pathname + (url.search ? url.search : '') + url.hash);
 }
 
-function clearFocusMessagesParam() {
-    const url = new URL(window.location.href);
-    if (!url.searchParams.has('focus') && !url.searchParams.has('order')) return;
-    url.searchParams.delete('focus');
-    url.searchParams.delete('order');
-    window.history.replaceState({}, '', url.pathname + (url.search ? url.search : '') + url.hash);
-}
-
 $(document).ready(function() {
     hydrateTasksFiltersFromUrl();
     loadTasks(currentPage);
@@ -599,6 +591,12 @@ $(document).ready(function() {
         window.history.pushState({}, '', url);
     }
     window.syncTasksFiltersToUrl = syncTasksFiltersToUrl;
+
+    $(document).on('click', '.open-task-chat', function() {
+        var orderId = $(this).data('order-id');
+        var orderNumber = $(this).data('order-number') || '';
+        if (orderId) openChat(orderId, orderNumber);
+    });
 
     $(document).on('click', '.accept-task', function() {
         $('#accept_order_item_id').val($(this).data('id'));
@@ -755,7 +753,17 @@ $(document).ready(function() {
             }
             if (++attempts < 25) {
                 setTimeout(tryOpen, 200);
+                return;
             }
+            // Off-page deep link: resolve item id via locate endpoint.
+            $.getJSON(baseUrl + '/publisher/orders/locate', { order_id: orderId })
+                .done(function (res) {
+                    if (res && res.success && res.order_item_id) {
+                        if (!window._publisherTasksByOrderId) window._publisherTasksByOrderId = {};
+                        window._publisherTasksByOrderId[String(orderId)] = res.order_item_id;
+                        viewOrderDetails(res.order_item_id);
+                    }
+                });
         }
         tryOpen();
     }
@@ -1051,7 +1059,7 @@ $(document).ready(function() {
             window.syncTasksFiltersToUrl(page);
         }
         if (!silent) {
-            $('#tasksTableBody').html('<tr><td colspan="9" class="text-center py-5"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div><p class="mt-2 text-muted">Loading tasks...</p></td></tr>');
+            $('#tasksTableBody').html('<tr><td colspan="8" class="text-center py-5"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div><p class="mt-2 text-muted">Loading tasks...</p></td></tr>');
         }
         
         $.ajax({
@@ -1069,17 +1077,26 @@ $(document).ready(function() {
             success: function(response) {
                 if (response.success) {
                     renderTasksTable(response.data);
-                    if (response.pagination) renderPagination(response.pagination);
+                    if (response.pagination) {
+                        renderPagination(response.pagination);
+                        var p = response.pagination;
+                        var from = p.from || 0;
+                        var to = p.to || 0;
+                        var total = p.total || 0;
+                        $('#resultsCount').text(total ? ('Showing ' + from + '–' + to + ' of ' + total) : 'No tasks');
+                    } else {
+                        $('#resultsCount').text('');
+                    }
                     refreshNeedsActionBanner();
                 } else if (!silent) {
-                    $('#tasksTableBody').html('<tr><td colspan="9" class="text-center text-danger py-5">' + (response.message || 'Failed to load tasks') + '</td></tr>');
+                    $('#tasksTableBody').html('<tr><td colspan="8" class="text-center text-danger py-5">' + (response.message || 'Failed to load tasks') + '</td></tr>');
                 }
             },
             error: function(xhr, status, error) {
                 console.error('AJAX Error:', status, error);
                 if (!silent) {
                     $('#tasksTableBody').html(
-                        '<tr><td colspan="9" class="text-center py-5">' +
+                        '<tr><td colspan="8" class="text-center py-5">' +
                         '<div class="text-danger mb-2">Error loading tasks.</div>' +
                         '<button type="button" class="btn btn-sm btn-outline-primary" id="retryTasksBtn">Retry</button>' +
                         '</td></tr>'
@@ -1093,7 +1110,7 @@ $(document).ready(function() {
     function renderTasksTable(orderItems) {
         if (!orderItems || orderItems.length === 0) {
             $('#tasksTableBody').html(
-                '<tr><td colspan="9" class="text-center py-5">' +
+                '<tr><td colspan="8" class="text-center py-5">' +
                 '<div class="mx-auto" style="max-width:420px">' +
                 '<div class="mx-auto mb-3 d-flex align-items-center justify-content-center" style="width:52px;height:52px;border-radius:50%;background:var(--brand-primary-bg,#e6f5f5);color:var(--brand-primary,#1a585e)" aria-hidden="true"><i class="fa-solid fa-inbox"></i></div>' +
                 '<h5 class="mb-2">No tasks yet</h5>' +
@@ -1137,7 +1154,7 @@ $(document).ready(function() {
             var unreadBadge = item.unread_chat > 0
                 ? '<span class="chat-unread-dot pulse-badge is-pulsing">' + item.unread_chat + '</span>'
                 : '';
-            var chatBtn = '<button class="btn btn-primary btn-action-sm" onclick="openChat(' + item.order_id + ', \'' + orderNumber + '\')"><i class="fa fa-comments"></i> Chat' + unreadBadge + '</button>';
+            var chatBtn = '<button type="button" class="btn btn-primary btn-action-sm open-task-chat" data-order-id="' + item.order_id + '" data-order-number="' + escapeHtml(orderNumber) + '" aria-label="Open chat"><i class="fa fa-comments"></i> Chat' + unreadBadge + '</button>';
             var viewBtn = '<button class="btn btn-outline-secondary btn-action-sm view-details" data-id="' + item.id + '"><i class="fa fa-eye"></i> View</button>';
             var liveBtn = hasLiveUrl
                 ? '<a href="' + escapeHtml(item.live_url) + '" target="_blank" class="btn btn-live-url btn-action-sm"><i class="fa fa-external-link"></i> Live</a>'
@@ -1206,7 +1223,7 @@ $(document).ready(function() {
                 '<td>' + (additionalPrice > 0 ? '<span class="sensitive-badge"><i class="fa fa-plus-circle"></i> ' + escapeHtml(sensitiveType || 'Extra') + ' (+€' + additionalPrice.toFixed(2) + ')</span>' : '<span class="text-muted">—</span>') + '</td>' +
                 '<td class="fw-semibold total-price" style="color: #10b981;">€' + totalPrice.toFixed(2) + '</td>' +
                 '<td><span class="status-badge ' + statusMeta.statusClass + '">' + statusMeta.statusText + '</span><div class="next-step-hint">' + statusMeta.nextStep + '</div></td>' +
-                '<td class="link-cell">' + ((item.content_download_url || item.content_link) ? '<a href="' + (item.content_download_url || item.content_link) + '" class="btn btn-sm btn-outline-primary"><i class="fa fa-download me-1"></i> ' + (item.content_original_name ? 'Document' : 'View') + '</a>' : '<span class="text-muted">Not submitted</span>') + '</td>' +
+                '<td class="link-cell">' + ((item.content_download_url || item.content_link) ? '<a href="' + escapeHtml(item.content_download_url || item.content_link) + '" class="btn btn-sm btn-outline-primary" rel="noopener noreferrer"><i class="fa fa-download me-1"></i> ' + (item.content_original_name ? 'Document' : 'View') + '</a>' : '<span class="text-muted">Not submitted</span>') + '</td>' +
                 '<td>' + actions + '</td>' +
                 '</tr>';
         });
@@ -1500,7 +1517,7 @@ $(document).ready(function() {
             return { statusClass: 'status-pending', statusText: 'Waiting for revised article', nextStep: 'Advertiser must upload or link an updated article' };
         }
         if (modificationRequested) {
-            return { statusClass: 'status-pending', statusText: 'Changes requested', nextStep: 'Make corrections, then open Chat to resubmit the live URL' };
+            return { statusClass: 'status-pending', statusText: 'Changes requested', nextStep: 'Make corrections, then use “I have fixed it” (or Chat) to send it back' };
         }
         if (orderStatus === 'processing' && hasLiveUrl && orderHeldForContentRevision) {
             return {
@@ -1583,7 +1600,7 @@ $(document).ready(function() {
         $.getJSON(baseUrl + '/chat/unread-summary')
             .done(function(res) {
                 if (res.success && res.needs_action > 0) {
-                    $('#needsActionText').text(res.needs_action + ' task' + (res.needs_action === 1 ? '' : 's') + ' need you (accept, publish, or open Chat to resubmit).');
+                    $('#needsActionText').text(res.needs_action + ' task' + (res.needs_action === 1 ? '' : 's') + ' need you (accept, publish, or use “I have fixed it” after a change request).');
                     $('#needsActionBanner').removeClass('d-none');
                 } else {
                     $('#needsActionBanner').addClass('d-none');

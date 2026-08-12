@@ -268,6 +268,48 @@ class OrderController extends Controller
     /**
      * Get single order item details (AJAX)
      */
+
+    /**
+     * Resolve a publisher-owned order item id for deep links (bell / email focus).
+     */
+    public function locateOrderItem(Request $request)
+    {
+        $orderId = (int) $request->query('order_id', 0);
+        if ($orderId < 1) {
+            return response()->json([
+                'success' => false,
+                'message' => 'order_id is required',
+            ], 422);
+        }
+
+        $userId = auth()->id();
+        $siteIds = Site::where('publisher_id', $userId)->pluck('id');
+
+        $item = OrderItem::query()
+            ->with('order:id,order_number')
+            ->where('order_id', $orderId)
+            ->whereIn('site_id', $siteIds)
+            ->whereHas('order', function ($q) {
+                $q->where('payment_status', 'paid');
+            })
+            ->orderBy('id')
+            ->first();
+
+        if (! $item) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Order not found in your tasks',
+            ], 404);
+        }
+
+        return response()->json([
+            'success' => true,
+            'order_item_id' => $item->id,
+            'order_id' => $item->order_id,
+            'order_number' => optional($item->order)->order_number,
+        ]);
+    }
+
     public function getOrderDetails($id)
     {
         try {
