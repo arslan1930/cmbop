@@ -102,7 +102,7 @@ class GuestPostWizardTest extends TestCase
                 GuestPostWizardController::SESSION_KEY => [
                     'language' => 'en',
                     'categories' => [],
-                    'country' => null,
+                    'country' => 'us',
                 ],
                 'cart' => [[
                     'id' => $site->id,
@@ -122,6 +122,7 @@ class GuestPostWizardTest extends TestCase
                 GuestPostWizardController::SESSION_KEY => [
                     'language' => 'en',
                     'categories' => [],
+                    'country' => 'us',
                 ],
                 'cart' => [[
                     'id' => $site->id,

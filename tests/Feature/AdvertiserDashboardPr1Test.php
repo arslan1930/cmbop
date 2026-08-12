@@ -121,8 +121,8 @@ class AdvertiserDashboardPr1Test extends TestCase
         $this->actingAs($user)
             ->get(route('advertiser.dashboard'))
             ->assertOk()
-            ->assertSee('your approval', false)
-            ->assertSee('Approve live URLs', false);
+            ->assertSee('your attention', false)
+            ->assertSee('Open orders', false);
     }
 
     public function test_dashboard_uses_controller_not_closure(): void

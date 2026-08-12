@@ -4,12 +4,11 @@
     display: flex; align-items: flex-start; gap: 14px; width: 100%;
     padding: 16px 18px; border: 1px solid #e5eef0; border-radius: 12px;
     background: #fff; color: inherit; height: 100%;
-    transition: border-color .2s ease, background .2s ease, box-shadow .2s ease, transform .2s ease;
+    transition: border-color var(--motion-hover, 160ms ease), background var(--motion-hover, 160ms ease), box-shadow var(--motion-hover, 160ms ease);
 }
 .wallet-kpi:hover {
     border-color: #5bc4c7; background: #f0fbfb;
     box-shadow: 0 8px 20px rgba(26, 88, 94, 0.08);
-    transform: translateY(-2px);
 }
 .wallet-kpi .kpi-icon {
     width: 44px; height: 44px; border-radius: 12px; display: flex;
@@ -258,7 +257,7 @@
 }
 
 .payment-option-card {
-    transition: all 0.2s;
+    transition: all var(--motion-hover, 160ms ease);
 }
 
 .payment-option-card:hover {
@@ -267,7 +266,7 @@
 }
 
 .amount-btn {
-    transition: all 0.2s;
+    transition: all var(--motion-hover, 160ms ease);
 }
 
 .amount-btn:hover {
@@ -289,7 +288,7 @@
     border-radius: 4px;
     color: #1f2937;
     cursor: pointer;
-    transition: background 0.2s;
+    transition: background var(--motion-hover, 160ms ease);
 }
 
 .copy-btn:hover,

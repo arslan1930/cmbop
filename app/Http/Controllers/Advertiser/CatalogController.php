@@ -1595,7 +1595,10 @@ class CatalogController extends Controller
                     ! $hasHomepageInput
                 );
             } catch (\InvalidArgumentException $e) {
-                return response()->json(['success' => false, 'error' => $e->getMessage()], 422);
+                return response()->json([
+                    'success' => false,
+                    'error' => UserFacingError::message($e, 'That homepage promotion option is not available for this site.'),
+                ], 422);
             }
             $resolvedHomepageDays = $homepageResolved['days'];
 

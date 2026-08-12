@@ -17,16 +17,16 @@
                 <form method="POST" action="{{ route('admin.invoices.backfill-missing') }}">
                     @csrf
                     <input type="hidden" name="limit" value="50">
-                    <button type="submit" class="btn btn-sm btn-outline-secondary"
-                            onclick="return confirm('Backfill tax invoices for up to 50 paid orders missing one?')">
+                    <button type="button" class="btn btn-sm btn-outline-secondary"
+                            onclick="(async (btn) => { const ok = await slbConfirm({ title: 'Backfill invoices?', text: 'Backfill tax invoices for up to 50 paid orders missing one?', confirmText: 'Backfill' }); if (ok) btn.closest('form').submit(); })(this)">
                         Backfill missing
                     </button>
                 </form>
                 <form method="POST" action="{{ route('admin.invoices.regenerate-missing-pdfs') }}">
                     @csrf
                     <input type="hidden" name="limit" value="50">
-                    <button type="submit" class="btn btn-sm btn-outline-secondary"
-                            onclick="return confirm('Regenerate up to 50 missing PDFs on disk?')">
+                    <button type="button" class="btn btn-sm btn-outline-secondary"
+                            onclick="(async (btn) => { const ok = await slbConfirm({ title: 'Fix missing PDFs?', text: 'Regenerate up to 50 missing PDFs on disk?', confirmText: 'Regenerate' }); if (ok) btn.closest('form').submit(); })(this)">
                         Fix missing PDFs
                     </button>
                 </form>

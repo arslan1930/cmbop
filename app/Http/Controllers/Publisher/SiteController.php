@@ -17,6 +17,7 @@ use App\Services\Marketplace\CountryLanguagePairs;
 use App\Services\Marketplace\LanguageCountryMap;
 use App\Support\NormalizesHttpUrls;
 use App\Support\SiteDescriptionRules;
+use App\Support\UserFacingError;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -749,6 +750,13 @@ class SiteController extends Controller
             return redirect()->back()->with('success', 'Site updated and queued for review.');
         }
 
+        // Bulk drafts return to the review sheet (PUT has no reliable referrer).
+        if ($site->fresh()->hasDetailsComplete()) {
+            return redirect()
+                ->route('publisher.bulk-sites.review')
+                ->with('success', 'Website details saved. Review your sites, then submit them for approval.');
+        }
+
         return redirect()->back()->with('success', 'Site updated successfully.');
     }
 
@@ -1034,7 +1042,7 @@ class SiteController extends Controller
                 $dryRun
             );
         } catch (\InvalidArgumentException $e) {
-            return back()->with('error', $e->getMessage());
+            return back()->with('error', UserFacingError::message($e, 'We could not import that CSV. Please check the file and try again.'));
         }
 
         $created = (int) $result['created'];

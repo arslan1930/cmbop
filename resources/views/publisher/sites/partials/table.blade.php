@@ -77,6 +77,11 @@
         padding-left: 18px;
     }
 
+    /* Keep metrics (esp. traffic) from visually colliding into Market. */
+    .modern-table td[data-label="Market"] {
+        padding-left: 14px;
+    }
+
     .modern-table thead th:last-child,
     .modern-table tbody tr.main-row td:last-child {
         padding-right: 18px;

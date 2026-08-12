@@ -683,14 +683,6 @@
 <div class="container-fluid">
     <h3 class="mb-4"><span id="formHeader">Add New Website</span></h3>
 
-    <!-- Flash Messages -->
-    @if(session('success'))
-        <div class="alert alert-success alert-dismissible fade show">
-            {{ session('success') }}
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-        </div>
-    @endif
-
     @if($errors->any())
         <div class="alert alert-danger alert-dismissible fade show">
             <ul class="mb-0">
@@ -964,13 +956,6 @@
     </div>
     @endif
 
-    @if(session('error') && !session('bulk_import_failures'))
-        <div class="alert alert-danger alert-dismissible fade show">
-            {{ session('error') }}
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-        </div>
-    @endif
-
     @if(session('bulk_import_failures'))
         <div class="alert alert-warning">
             <strong>Bulk import finished.</strong>
@@ -1165,8 +1150,6 @@
                                        role="button"
                                        tabindex="0"
                                        aria-label="Help: pick country first then a paired language"
-                                       data-bs-toggle="tooltip"
-                                       data-bs-placement="top"
                                        title="Pick the market country first. Language options then show only allowed pairs (e.g. Germany → German; UAE → Arabic or English)."></i>
                                 </div>
                             </div>
@@ -1196,8 +1179,6 @@
                                        role="button"
                                        tabindex="0"
                                        aria-label="Help: language list follows the selected country"
-                                       data-bs-toggle="tooltip"
-                                       data-bs-placement="top"
                                        title="Germany allows German only. Gulf markets allow Arabic and English."></i>
                                 </div>
                             </div>
@@ -1226,8 +1207,6 @@
                                        role="button"
                                        tabindex="0"
                                        aria-label="Help: pick up to 7 topic categories for this market"
-                                       data-bs-toggle="tooltip"
-                                       data-bs-placement="top"
                                        title="Example: Tech for German / Austria. Pick up to 7 categories."></i>
                                 </div>
                             </div>
@@ -2918,7 +2897,7 @@ function prefillSiteForm(site) {
 }
 
 $(document).ready(function(){
-    @if(session('success'))
+    @if(session()->has('success'))
         clearSiteDraft();
     @endif
 
