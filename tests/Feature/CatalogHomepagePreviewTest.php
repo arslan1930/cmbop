@@ -171,7 +171,9 @@ class CatalogHomepagePreviewTest extends TestCase
     public function test_broken_preview_fallback_beats_bootstrap_d_none(): void
     {
         $css = (string) file_get_contents(public_path('assets/css/catalog.css'));
-        $blade = (string) file_get_contents(resource_path('views/advertiser/partials/catalog-results.blade.php'));
+        $blade = (string) file_get_contents(resource_path('views/advertiser/partials/catalog-results.blade.php'))
+            ."\n"
+            .(string) file_get_contents(resource_path('views/advertiser/partials/catalog-row-preview.blade.php'));
         $js = (string) file_get_contents(public_path('assets/js/catalog.js'));
 
         $this->assertStringContainsString(
@@ -187,7 +189,7 @@ class CatalogHomepagePreviewTest extends TestCase
         $this->assertStringContainsString('initCatalogRowPreviewZoom', $js);
     }
 
-    public function test_catalog_rows_prefer_uploaded_cover_and_emit_zoom_chain(): void
+    public function test_catalog_rows_prefer_desktop_screenshot_and_emit_zoom_chain(): void
     {
         $this->makeSite([
             'site_name' => 'Cover First',
@@ -203,11 +205,15 @@ class CatalogHomepagePreviewTest extends TestCase
             ->assertOk()
             ->getContent();
 
+        // Row thumbs prefer desktop homepage capture (full → thumb → cover).
         $this->assertMatchesRegularExpression(
-            '/class="site-row-preview"[^>]*>\s*<img[^>]+src="[^"]*\/media\/sites\/row-cover\.webp"/',
+            '/class="site-row-preview"[^>]*>\s*<img[^>]+src="[^"]*\/media\/site-screenshots\/row-full\.webp"/',
             $html
         );
         $this->assertStringContainsString('data-zoom-src="/media/site-screenshots/row-full.webp"', $html);
-        $this->assertStringContainsString('/storage/sites/row-cover.webp', $html);
+        $this->assertStringContainsString('/storage/site-screenshots/row-full.webp', $html);
+        $this->assertStringContainsString('d-none d-lg-block', $html);
+        $this->assertStringContainsString('catalog-mobile-card__preview', $html);
+        $this->assertStringContainsString('site-row-preview--card', $html);
     }
 }

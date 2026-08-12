@@ -70,7 +70,7 @@
                          Buy column is never trapped behind a nested scroller.
                          Vertical scroll is the page; thead stays sticky under
                          the topbar (see catalog.css). --}}
-                    <div class="table-responsive catalog-table-scroll d-none d-xl-block">
+                    <div class="table-responsive catalog-table-scroll d-none d-lg-block">
     <table class="table table-borderless align-middle mb-0 data-table catalog-table">
         <caption class="visually-hidden">Publisher catalog results with metrics, pricing and buy actions</caption>
         <thead class="table-light">
@@ -239,41 +239,11 @@
                 $eyeHideLabel = 'Hide site name and URL';
             @endphp
             <tr class="site-row {{ $isBlacklisted ? 'blacklisted-row' : '' }}" data-id="{{ $site->id }}" data-name="{{ $displayName }}">
-                @php
-                    $rowPreviewPaths = $site->listingPreviewUrlChain();
-                    $rowPreviewUrl = $rowPreviewPaths[0] ?? null;
-                    $rowZoomPaths = $site->zoomPreviewUrlChain();
-                    if ($rowZoomPaths === [] && $rowPreviewPaths !== []) {
-                        $rowZoomPaths = $rowPreviewPaths;
-                    }
-                    $rowZoomUrl = $rowZoomPaths[0] ?? $rowPreviewUrl;
-                @endphp
                 <td class="text-center catalog-preview-cell">
-                    @if($rowPreviewUrl)
-                        <span class="site-row-preview"
-                              role="img"
-                              tabindex="0"
-                              aria-label="{{ $identityLabel }} preview"
-                              data-zoom-src="{{ $rowZoomUrl }}"
-                              data-zoom-chain="{{ json_encode($rowZoomPaths, JSON_UNESCAPED_SLASHES) }}">
-                            <img src="{{ $rowPreviewUrl }}"
-                                 alt="{{ $identityLabel }} preview"
-                                 loading="lazy"
-                                 decoding="async"
-                                 data-preview-chain="{{ json_encode($rowPreviewPaths, JSON_UNESCAPED_SLASHES) }}"
-                                 data-preview-i="0"
-                                 onerror="window.catalogRowPreviewOnError && window.catalogRowPreviewOnError(this)">
-                        </span>
-                    @else
-                        <span class="site-row-preview is-empty"
-                              data-glass-tip
-                              data-glass-tip-body="No preview yet"
-                              data-glass-tip-placement="top"
-                              data-glass-tip-hover-only="1"
-                              aria-label="No preview">
-                            <i class="fa fa-image" aria-hidden="true"></i>
-                        </span>
-                    @endif
+                    @include('advertiser.partials.catalog-row-preview', [
+                        'site' => $site,
+                        'identityLabel' => $identityLabel,
+                    ])
                 </td>
 
                 <td class="catalog-site-cell">
@@ -984,9 +954,8 @@
     </table>
 </div>
 
-{{-- Card list for everything below xl — same buy/favorite/blacklist actions,
-     plus the details the table keeps in its expand row. --}}
-<div class="catalog-mobile-list d-xl-none p-3">
+{{-- Card list below lg — desktop table owns lg+ (incl. Preview column). --}}
+<div class="catalog-mobile-list d-lg-none p-3">
     @forelse($sites as $site)
         @php
             $isBlacklisted = in_array($site->id, $blacklist);
@@ -1042,6 +1011,13 @@
             }
         @endphp
         <article class="catalog-mobile-card {{ $isBlacklisted ? 'is-blacklisted' : '' }}" data-id="{{ $site->id }}" data-name="{{ $displayName }}">
+            <div class="catalog-mobile-card__preview mb-2">
+                @include('advertiser.partials.catalog-row-preview', [
+                    'site' => $site,
+                    'identityLabel' => $identityLabel,
+                    'previewClass' => 'site-row-preview--card',
+                ])
+            </div>
             <div class="d-flex justify-content-between align-items-start gap-2 mb-2">
                 <div class="catalog-mobile-card__host d-flex align-items-start gap-2">
                     @include('advertiser.partials.catalog-site-tile', [

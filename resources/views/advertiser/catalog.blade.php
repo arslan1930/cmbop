@@ -26,6 +26,16 @@
         .catalog-page .catalog-country__flag{font-size:22px;line-height:1}
         .catalog-page .catalog-table tbody td,
         .catalog-page .catalog-table tbody td.catalog-stat-cell{vertical-align:middle}
+        /* Row preview column — survive stale CDN catalog.css after Preview shipped. */
+        .catalog-page .catalog-preview-cell{text-align:center;vertical-align:middle;width:172px}
+        .catalog-page .site-row-preview{position:relative;display:inline-block;width:160px;max-width:100%;border-radius:10px;overflow:hidden;border:1px solid #e2e8f0;background:linear-gradient(145deg,#f8fafb 0%,#eef2f5 100%);cursor:zoom-in;vertical-align:middle}
+        .catalog-page .site-row-preview::before{content:'';display:block;width:100%;padding-top:62.5%}
+        .catalog-page .site-row-preview img{position:absolute;inset:0;width:100%;height:100%;max-width:none;object-fit:contain;object-position:center top;display:block;background:#f8fafc}
+        .catalog-page .site-row-preview.is-empty{color:#94a3b8;font-size:18px;cursor:default}
+        .catalog-page .site-row-preview.is-empty>i,.catalog-page .site-row-preview.is-empty>span{position:absolute;inset:0;display:inline-flex;align-items:center;justify-content:center}
+        .catalog-page .site-row-preview--card{display:block;width:100%;max-width:100%}
+        .site-preview-zoom-pop{position:fixed;z-index:1200;width:min(520px,calc(100vw - 24px));pointer-events:none;opacity:0}
+        .site-preview-zoom-pop.is-visible{opacity:1}
     </style>
 @endpush
 

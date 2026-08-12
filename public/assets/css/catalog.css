@@ -97,7 +97,7 @@
    Column order: 1 Preview, 2 Site, 3 Category, 4 Traffic, 5 DR, 6 DA, 7 Country, 8 Buy */
 .catalog-page .catalog-table th:nth-child(1),
 .catalog-page .catalog-table td:nth-child(1) {
-    width: 148px;
+    width: 172px;
 }
 
 .catalog-page .catalog-table th:nth-child(3),
@@ -127,8 +127,8 @@
 /* Site needs room for host + Verified + NEW + the action icons on one row.
    At 24% the row overflowed its cell and printed over Category. */
 .catalog-th-preview {
-    width: 148px;
-    min-width: 136px;
+    width: 172px;
+    min-width: 160px;
     text-align: center;
 }
 
@@ -1640,14 +1640,14 @@ body:has(.catalog-page) {
 .catalog-preview-cell {
     text-align: center;
     vertical-align: middle;
-    width: 148px;
+    width: 172px;
 }
 
 /* Desktop 16:10 row thumbs (My Sites parity). Hover uses .site-preview-zoom-pop. */
 .catalog-page .site-row-preview {
     position: relative;
     display: inline-block;
-    width: 136px;
+    width: 160px;
     max-width: 100%;
     border-radius: 10px;
     overflow: hidden;
@@ -1701,11 +1701,21 @@ body:has(.catalog-page) {
     justify-content: center;
 }
 
+.catalog-mobile-card__preview {
+    width: 100%;
+}
+
+.catalog-page .site-row-preview--card {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+}
+
 .site-preview-zoom-pop {
     position: fixed;
     z-index: 1200;
-    width: min(440px, calc(100vw - 24px));
-    max-height: min(300px, calc(100vh - 24px));
+    width: min(520px, calc(100vw - 24px));
+    max-height: min(360px, calc(100vh - 24px));
     padding: 6px;
     border-radius: 12px;
     border: 1px solid rgba(26, 88, 94, 0.18);
