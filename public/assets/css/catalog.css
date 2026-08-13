@@ -796,6 +796,11 @@ body:has(.catalog-page) {
     max-width: 14rem;
 }
 
+/* Leftover Add to cart on an own-listing row must never stay clickable. */
+[data-own-listing="1"] .buy-now {
+    display: none !important;
+}
+
 .catalog-own-listing--start {
     align-items: flex-start;
 }

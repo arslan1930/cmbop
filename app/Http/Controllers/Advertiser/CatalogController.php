@@ -343,10 +343,17 @@ class CatalogController extends Controller
 
         // Dual-role publishers cannot order their own listings.
         if (auth()->id()) {
-            $query->where(function ($q) {
+            $uid = (int) auth()->id();
+            $query->where(function ($q) use ($uid) {
                 $q->whereNull('publisher_id')
-                    ->orWhere('publisher_id', '!=', auth()->id());
+                    ->orWhere('publisher_id', '!=', $uid);
             });
+            if (Schema::hasColumn('sites', 'owner_id')) {
+                $query->where(function ($q) use ($uid) {
+                    $q->whereNull('owner_id')
+                        ->orWhere('owner_id', '!=', $uid);
+                });
+            }
         }
 
         // Same blacklist browse modes as the main listing.
@@ -382,7 +389,9 @@ class CatalogController extends Controller
             ->orderByDesc('dr')
             // Enough for several 6-deal batches without loading the whole catalog.
             ->limit(36)
-            ->get();
+            ->get()
+            ->reject(fn (Site $site) => $site->isOwnedBy(auth()->user()))
+            ->values();
 
         foreach ($bulkDeals as $dealSite) {
             // Pack totals use CartPricingService so the rail “now” price floors
@@ -649,7 +658,11 @@ class CatalogController extends Controller
 
         foreach ($sites as $site) {
             $site->original_price = $site->price;
-            $site->price = $this->advertiserCatalogListPrice($site->price);
+            // Own listings stay at the entered publisher price so leftover
+            // Add-to-cart markup cannot paint a fee-inclusive number.
+            if (! $site->isOwnedBy(auth()->user())) {
+                $site->price = $this->advertiserCatalogListPrice($site->price);
+            }
 
             if ($site->sensitive_prices) {
                 $sensitivePrices = is_string($site->sensitive_prices)

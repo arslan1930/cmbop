@@ -1405,12 +1405,53 @@ class Site extends Model
 
     /**
      * True when this listing belongs to the given user (dual-role publisher shopping as advertiser).
+     *
+     * Matches publisher_id (who listed it) and owner_id (post-verification owner).
      */
     public function isOwnedBy(?User $user): bool
     {
-        return $user !== null
-            && (int) $this->publisher_id > 0
-            && (int) $this->publisher_id === (int) $user->id;
+        if ($user === null) {
+            return false;
+        }
+
+        $uid = (int) $user->id;
+        if ($uid <= 0) {
+            return false;
+        }
+
+        if ((int) $this->publisher_id === $uid) {
+            return true;
+        }
+
+        $ownerId = (int) ($this->getAttribute('owner_id') ?? 0);
+
+        return $ownerId > 0 && $ownerId === $uid;
+    }
+
+    /**
+     * Catalog/cart IDs this user must not order.
+     *
+     * @return list<int>
+     */
+    public static function ownedIdsFor(?User $user): array
+    {
+        if ($user === null || (int) $user->id <= 0) {
+            return [];
+        }
+
+        $uid = (int) $user->id;
+
+        return static::query()
+            ->where(function ($q) use ($uid) {
+                $q->where('publisher_id', $uid);
+                if (Schema::hasColumn('sites', 'owner_id')) {
+                    $q->orWhere('owner_id', $uid);
+                }
+            })
+            ->pluck('id')
+            ->map(fn ($id) => (int) $id)
+            ->values()
+            ->all();
     }
 
     /**

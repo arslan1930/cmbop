@@ -830,7 +830,38 @@
     // Use fetch (not jQuery) so Buy still works if $ fails to load.
     // options: { quantity, bulk, openCart } — deal cards start a 3-article pack;
     // cart qty can then move within 3–5 with one document slot per placement.
+    window.catalogOwnListingMessage = @json(\App\Models\Site::cannotOrderOwnListingMessage());
+    window.catalogViewerUserId = {{ (int) auth()->id() }};
+    window.catalogOwnSiteIds = @json(\App\Models\Site::ownedIdsFor(auth()->user()));
+    window.catalogIsOwnListing = function (siteId) {
+        const id = parseInt(siteId, 10);
+        if (!Number.isFinite(id) || id <= 0) return false;
+        const ownedIds = Array.isArray(window.catalogOwnSiteIds) ? window.catalogOwnSiteIds : [];
+        if (ownedIds.some(function (ownId) { return parseInt(ownId, 10) === id; })) {
+            return true;
+        }
+        const nodes = document.querySelectorAll('[data-id="' + id + '"]');
+        for (let i = 0; i < nodes.length; i++) {
+            const el = nodes[i];
+            if (el.getAttribute('data-own-listing') === '1') {
+                return true;
+            }
+            const me = parseInt(window.catalogViewerUserId, 10);
+            if (!me) continue;
+            const pub = parseInt(el.getAttribute('data-publisher-id') || '', 10);
+            const owner = parseInt(el.getAttribute('data-owner-id') || '', 10);
+            if (pub === me || owner === me) {
+                return true;
+            }
+        }
+        return false;
+    };
     window.addToCart = function(id, name, price, sensitiveType = null, additionalPrice = 0, basePrice = null, options = null) {
+        if (typeof window.catalogIsOwnListing === 'function' && window.catalogIsOwnListing(id)) {
+            const msg = window.catalogOwnListingMessage || 'This is your listing — you can’t order it.';
+            showToast(msg, 'error');
+            return Promise.resolve({ ok: false, error: msg });
+        }
         const opts = options && typeof options === 'object' ? options : {};
         const body = new URLSearchParams();
         body.set('id', String(id));

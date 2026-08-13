@@ -85,10 +85,55 @@ class OwnListingNoCartTest extends TestCase
         $this->assertStringContainsString('base-price-display">€40.00', $html);
         $this->assertStringNotContainsString('base-price-display">€46.00', $html);
         $this->assertStringContainsString('Your listing', $html);
+        $this->assertStringContainsString('data-own-listing="1"', $html);
         $this->assertDoesNotMatchRegularExpression(
             '/buy-now[^>]*data-id="'.$site->id.'"/',
             $html
         );
+        $this->assertStringContainsString((string) $site->id, $html);
+
+        $this->actingAs($owner)
+            ->postJson(route('advertiser.cart.add'), ['id' => $site->id])
+            ->assertForbidden()
+            ->assertJsonPath('error', Site::cannotOrderOwnListingMessage());
+
+        $this->assertEmpty(session('cart', []));
+    }
+
+    public function test_owner_id_match_also_blocks_cart_and_shows_entered_price(): void
+    {
+        $owner = $this->dualRoleOwner();
+        $lister = User::factory()->create();
+        $site = $this->siteFor($lister, 40, [
+            'owner_id' => $owner->id,
+            'site_name' => 'Owner Id Listing',
+            'site_url' => 'https://owner-id.example',
+            'domain' => 'owner-id.example',
+        ]);
+
+        $this->assertTrue($site->isOwnedBy($owner));
+        $this->assertTrue($site->isOwnedBy($lister));
+        $this->assertContains($site->id, Site::ownedIdsFor($owner));
+
+        $html = $this->actingAs($owner)
+            ->get(route('advertiser.catalog'))
+            ->assertOk()
+            ->getContent();
+
+        $this->assertStringContainsString('base-price-display">€40.00', $html);
+        $this->assertStringNotContainsString('base-price-display">€46.00', $html);
+        $this->assertStringContainsString('data-own-listing="1"', $html);
+        $this->assertDoesNotMatchRegularExpression(
+            '/buy-now[^>]*data-id="'.$site->id.'"/',
+            $html
+        );
+
+        $this->actingAs($owner)
+            ->postJson(route('advertiser.cart.add'), ['id' => $site->id])
+            ->assertForbidden()
+            ->assertJsonPath('error', Site::cannotOrderOwnListingMessage());
+
+        $this->assertEmpty(session('cart', []));
     }
 
     public function test_other_advertiser_still_sees_fee_inclusive_price_and_can_add(): void
@@ -262,5 +307,16 @@ class OwnListingNoCartTest extends TestCase
         $html = file_get_contents(resource_path('views/advertiser/layouts/app.blade.php'));
         $this->assertStringContainsString('removed_owned', $html);
         $this->assertStringContainsString('is your listing and was removed from your cart.', $html);
+        $this->assertStringContainsString('catalogIsOwnListing', $html);
+        $this->assertStringContainsString('catalogOwnSiteIds', $html);
+        $this->assertStringContainsString('cannotOrderOwnListingMessage', $html);
+    }
+
+    public function test_catalog_js_guards_own_listing_buy_clicks(): void
+    {
+        $js = (string) file_get_contents(public_path('assets/js/catalog.js'));
+        $this->assertStringContainsString('[data-own-listing="1"]', $js);
+        $this->assertStringContainsString('catalogIsOwnListing', $js);
+        $this->assertStringContainsString('catalogOwnListingMessage', $js);
     }
 }
