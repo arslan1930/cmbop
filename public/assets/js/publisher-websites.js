@@ -2162,26 +2162,6 @@ $(document).on('click', '.btn-discount-site', async function () {
     if (data.success) { reloadSitesAfterPromo(); }
 });
 
-$(document).on('click', '.btn-discount-clear', async function () {
-    const id = $(this).data('id');
-    const ok = await Swal.fire({
-        title: 'End this discount now?',
-        showCancelButton: true,
-        confirmButtonText: 'End discount',
-        customClass: { confirmButton: 'slb-swal-danger' },
-        reverseButtons: true,
-        focusCancel: true,
-    });
-    if (!ok.isConfirmed) return;
-    const res = await fetch(`/publisher/sites/${id}/discount`, {
-        method: 'DELETE',
-        headers: { 'X-CSRF-TOKEN': promoCsrfToken(), 'Accept': 'application/json' },
-    });
-    const data = await res.json().catch(() => ({}));
-    Swal.fire({ icon: data.success ? 'success' : 'error', title: data.message || 'Done' });
-    if (data.success) { reloadSitesAfterPromo(); }
-});
-
 $(document).on('click', '.btn-bulk-site', async function () {
     const $btn = $(this);
     const id = $btn.data('id');
