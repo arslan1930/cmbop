@@ -1404,6 +1404,70 @@ class Site extends Model
     }
 
     /**
+     * True when this listing belongs to the given user (dual-role publisher shopping as advertiser).
+     */
+    public function isOwnedBy(?User $user): bool
+    {
+        return $user !== null
+            && (int) $this->publisher_id > 0
+            && (int) $this->publisher_id === (int) $user->id;
+    }
+
+    /**
+     * Copy for own-listing catalog/cart surfaces. Does not mention the platform fee.
+     */
+    public static function cannotOrderOwnListingMessage(): string
+    {
+        return 'This is your listing — you can’t order it.';
+    }
+
+    /**
+     * Prices painted on the advertiser catalog for this viewer.
+     *
+     * Own listings show the entered publisher price (no hidden fee) because they
+     * cannot be added to cart. Everyone else sees fee-inclusive cart pricing.
+     *
+     * @return array{owned: bool, list: float, publisher: float, sale: float|null, sale_percent: float|null, sale_percent_nominal: float|null}
+     */
+    public function catalogPricesForViewer(?User $user): array
+    {
+        $owned = $this->isOwnedBy($user);
+        $nominal = $this->activeCustomDiscountPercent();
+
+        if ($owned) {
+            $base = $this->publisherBasePrice();
+
+            return [
+                'owned' => true,
+                'list' => $base,
+                'publisher' => $base,
+                'sale' => null,
+                'sale_percent' => null,
+                'sale_percent_nominal' => $nominal,
+            ];
+        }
+
+        $pricing = $this->advertiserCatalogPricing();
+        $list = (float) $pricing['base'];
+        $sale = null;
+        $salePercent = null;
+        if (($pricing['discount_amount'] ?? 0) > 0
+            && (float) $pricing['article_total'] < $list) {
+            $sale = (float) $pricing['article_total'];
+            $salePercent = (float) $pricing['discount_percent'];
+        }
+
+        return [
+            'owned' => false,
+            'list' => $list,
+            'publisher' => (float) $pricing['publisher_price'],
+            'sale' => $sale,
+            'sale_percent' => $salePercent,
+            'sale_percent_nominal' => $nominal,
+        ];
+    }
+
+    /**
      * Offered homepage placement durations (days => fee EUR). Empty = not offered.
      *
      * @return array<int, float>

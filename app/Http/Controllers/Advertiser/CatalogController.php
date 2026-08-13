@@ -71,10 +71,8 @@ class CatalogController extends Controller
     /**
      * Advertiser-facing catalog list price (publisher base + hidden tiered portal fee).
      *
-     * Always mark up on advertiser catalog/cart UI — even when the shopper owns
-     * the listing (dual-role). Skipping the fee here used to show €90 while
-     * cart.add charged €103.50 (15% tier). Publishers see entered base on
-     * publisher routes only; sensitive add-ons stay pass-through elsewhere.
+     * Used for other people's listings (bulk rail, etc.). Own listings are not
+     * orderable and show the entered publisher price instead.
      */
     private function advertiserCatalogListPrice(float|int|string $publisherBase): float
     {
@@ -342,6 +340,14 @@ class CatalogController extends Controller
             ->where('active', 1)
             ->where('bulk_discount_enabled', 1)
             ->whereNotNull('bulk_discount_percent');
+
+        // Dual-role publishers cannot order their own listings.
+        if (auth()->id()) {
+            $query->where(function ($q) {
+                $q->whereNull('publisher_id')
+                    ->orWhere('publisher_id', '!=', auth()->id());
+            });
+        }
 
         // Same blacklist browse modes as the main listing.
         if ($showBlacklistedOnly) {
@@ -972,33 +978,45 @@ class CatalogController extends Controller
     }
 
     /**
-     * Drop session cart lines whose sites are missing or inactive.
+     * Drop session cart lines whose sites are missing, inactive, or owned by the shopper.
      *
      * @param  array<int, array<string, mixed>>  $cart
-     * @return array{cart: array<int, array<string, mixed>>, removed_inactive: list<string>, changed: bool}
+     * @return array{
+     *     cart: array<int, array<string, mixed>>,
+     *     removed_inactive: list<string>,
+     *     removed_owned: list<string>,
+     *     changed: bool
+     * }
      */
     private function pruneInactiveCartLines(array $cart): array
     {
         $cart = array_values($cart);
         if ($cart === []) {
-            return ['cart' => [], 'removed_inactive' => [], 'changed' => false];
+            return ['cart' => [], 'removed_inactive' => [], 'removed_owned' => [], 'changed' => false];
         }
 
         $siteIds = collect($cart)->pluck('id')->filter()->unique()->values();
         $sites = $siteIds->isEmpty()
             ? collect()
             : Site::query()->whereIn('id', $siteIds)->get()->keyBy('id');
+        $buyer = auth()->user();
 
         $kept = [];
         $removed = [];
+        $removedOwned = [];
         foreach ($cart as $line) {
             $site = $sites->get((int) ($line['id'] ?? 0));
+            $name = trim((string) ($site?->site_name ?? $line['name'] ?? ''));
+            if ($name === '') {
+                $name = 'A website';
+            }
             if (! $site || (int) $site->active !== 1) {
-                $name = trim((string) ($site?->site_name ?? $line['name'] ?? ''));
-                if ($name === '') {
-                    $name = 'A website';
-                }
                 $removed[] = $name;
+
+                continue;
+            }
+            if ($site->isOwnedBy($buyer)) {
+                $removedOwned[] = $name;
 
                 continue;
             }
@@ -1006,11 +1024,13 @@ class CatalogController extends Controller
         }
 
         $removed = array_values(array_unique($removed));
+        $removedOwned = array_values(array_unique($removedOwned));
         $changed = count($kept) !== count($cart);
 
         return [
             'cart' => $kept,
             'removed_inactive' => $removed,
+            'removed_owned' => $removedOwned,
             'changed' => $changed,
         ];
     }
@@ -1034,8 +1054,10 @@ class CatalogController extends Controller
     {
         $cart = array_values(session()->get('cart', []));
         $removedInactive = [];
+        $removedOwned = [];
+        $buyer = auth()->user();
 
-        // Refresh site market metadata; drop missing/inactive lines from the session cart.
+        // Refresh site market metadata; drop missing/inactive/own-listing lines.
         $siteIds = collect($cart)->pluck('id')->filter()->unique()->values();
         $sites = $siteIds->isEmpty()
             ? collect()
@@ -1044,12 +1066,17 @@ class CatalogController extends Controller
         $kept = [];
         foreach ($cart as $line) {
             $site = $sites->get((int) ($line['id'] ?? 0));
+            $name = trim((string) ($site?->site_name ?? $line['name'] ?? ''));
+            if ($name === '') {
+                $name = 'A website';
+            }
             if (! $site || (int) $site->active !== 1) {
-                $name = trim((string) ($site?->site_name ?? $line['name'] ?? ''));
-                if ($name === '') {
-                    $name = 'A website';
-                }
                 $removedInactive[] = $name;
+
+                continue;
+            }
+            if ($site->isOwnedBy($buyer)) {
+                $removedOwned[] = $name;
 
                 continue;
             }
@@ -1057,9 +1084,10 @@ class CatalogController extends Controller
             $kept[] = $this->normalizeCartLineForSite($site, $line);
         }
         $removedInactive = array_values(array_unique($removedInactive));
+        $removedOwned = array_values(array_unique($removedOwned));
         $cart = $kept;
         // Repriced lines (sensitive add-ons / live listing) should persist.
-        $cartChanged = $removedInactive !== [] || $cart !== array_values(session()->get('cart', []));
+        $cartChanged = $removedInactive !== [] || $removedOwned !== [] || $cart !== array_values(session()->get('cart', []));
 
         $approved = ContentSubmission::query()
             ->where('user_id', auth()->id())
@@ -1123,7 +1151,7 @@ class CatalogController extends Controller
             }
         }
 
-        if ($cartChanged || $removedInactive !== []) {
+        if ($cartChanged || $removedInactive !== [] || $removedOwned !== []) {
             session()->put('cart', array_values($cart));
             $cart = array_values(session()->get('cart', []));
         }
@@ -1163,6 +1191,8 @@ class CatalogController extends Controller
             'content_library_url' => route('advertiser.content-library', ['upload' => 1]),
             'removed_inactive' => $removedInactive,
             'removed_inactive_count' => count($removedInactive),
+            'removed_owned' => $removedOwned,
+            'removed_owned_count' => count($removedOwned),
             'require_same_language' => $requireSame,
         ];
     }
@@ -1524,6 +1554,13 @@ class CatalogController extends Controller
                 ], 404);
             }
 
+            if ($site->isOwnedBy(auth()->user())) {
+                return response()->json([
+                    'success' => false,
+                    'error' => Site::cannotOrderOwnListingMessage(),
+                ], 403);
+            }
+
             // Resolve homepage up-front so re-adds merge onto the same identity key.
             try {
                 $homepageResolved = $this->cartPricing()->resolveHomepageSelection(
@@ -1843,7 +1880,7 @@ class CatalogController extends Controller
         $cart = session()->get('cart', []);
 
         if (empty($cart)) {
-            return redirect()->route('advertiser.catalog')->with('error', 'Your cart is empty or contains inactive sites.');
+            return redirect()->route('advertiser.catalog')->with('error', 'Your cart is empty or contains sites you can’t order.');
         }
 
         $partition = $this->partitionCartByCheckoutReadiness($cart);
@@ -1851,12 +1888,12 @@ class CatalogController extends Controller
         $deferredCart = $partition['deferred'];
 
         try {
-            $allCheckout = $this->cartPricing()->buildCheckoutItems($cart);
+            $allCheckout = $this->cartPricing()->buildCheckoutItems($cart, auth()->id());
             $payableCheckout = $payableCart !== []
-                ? $this->cartPricing()->buildCheckoutItems($payableCart)
+                ? $this->cartPricing()->buildCheckoutItems($payableCart, auth()->id())
                 : ['items' => [], 'total' => 0.0, 'savings' => 0.0];
             $deferredCheckout = $deferredCart !== []
-                ? $this->cartPricing()->buildCheckoutItems($deferredCart)
+                ? $this->cartPricing()->buildCheckoutItems($deferredCart, auth()->id())
                 : ['items' => [], 'total' => 0.0, 'savings' => 0.0];
         } catch (\InvalidArgumentException $e) {
             return redirect()->route('advertiser.catalog')->with('error', UserFacingError::message($e, 'Some items in your cart are no longer available. Please review your cart.'));
@@ -1885,7 +1922,7 @@ class CatalogController extends Controller
         if (empty($cartItems)) {
             session()->forget(['cart', 'checkout_content_submission_id', 'checkout_schedule', GuestPostWizardController::SESSION_KEY]);
 
-            return redirect()->route('advertiser.catalog')->with('error', 'Your cart is empty or contains inactive sites.');
+            return redirect()->route('advertiser.catalog')->with('error', 'Your cart is empty or contains sites you can’t order.');
         }
 
         $librarySubmission = $this->resolveLibrarySubmissionForCheckout($cart);
@@ -1963,6 +2000,7 @@ class CatalogController extends Controller
         }
 
         try {
+            $this->syncPrunedSessionCart();
             // Get cart from session
             $cart = session()->get('cart', []);
 
@@ -2121,6 +2159,9 @@ class CatalogController extends Controller
                     $orderItem = $line['orderItem'];
                     $submission = $line['submission'];
                     $site = $orderItem['site'];
+                    if ($site instanceof Site && (int) $site->publisher_id === (int) $userId) {
+                        continue;
+                    }
                     $orderNumber = str_pad((string) mt_rand(1, 999999), 6, '0', STR_PAD_LEFT);
                     $order = Order::create($schema->filterExistingColumns('orders', array_merge([
                         'user_id' => $userId,
@@ -2186,6 +2227,9 @@ class CatalogController extends Controller
             $orderItem = $line['orderItem'];
             $submission = $line['submission'];
             $site = $orderItem['site'];
+            if ($site instanceof Site && (int) $site->publisher_id === (int) $userId) {
+                continue;
+            }
             $packageLines[] = [
                 'site_id' => $site->id,
                 'site_name' => $site->site_name,
@@ -2386,6 +2430,9 @@ class CatalogController extends Controller
                 $orderItem = $line['orderItem'];
                 $submission = $line['submission'];
                 $site = $orderItem['site'];
+                if ($site instanceof Site && (int) $site->publisher_id === (int) $userId) {
+                    continue;
+                }
                 $orderNumber = str_pad((string) mt_rand(1, 999999), 6, '0', STR_PAD_LEFT);
 
                 $order = Order::create($schema->filterExistingColumns('orders', array_merge([
@@ -2527,6 +2574,9 @@ class CatalogController extends Controller
                 $orderItem = $line['orderItem'];
                 $submission = $line['submission'];
                 $site = $orderItem['site'];
+                if ($site instanceof Site && (int) $site->publisher_id === (int) $userId) {
+                    continue;
+                }
                 $orderNumber = str_pad((string) mt_rand(1, 999999), 6, '0', STR_PAD_LEFT);
 
                 $order = Order::create(array_merge([
@@ -3839,7 +3889,7 @@ class CatalogController extends Controller
     private function resolveCheckoutContent(array $cart, ?array $contentSubmissions, array $scheduleInput): array|JsonResponse
     {
         try {
-            $expandedOrders = $this->cartPricing()->expandCart($cart);
+            $expandedOrders = $this->cartPricing()->expandCart($cart, auth()->id());
         } catch (\Exception $e) {
             return response()->json(['success' => false, 'message' => UserFacingError::message($e, 'Some items in your cart are no longer available. Please review your cart.')]);
         }
@@ -4141,6 +4191,9 @@ class CatalogController extends Controller
                 // Inactive / missing sites are not payable.
                 $deferred[] = $item;
 
+                continue;
+            }
+            if ($site->isOwnedBy(auth()->user())) {
                 continue;
             }
 

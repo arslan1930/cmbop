@@ -9,6 +9,7 @@ use App\Models\UserFavorite;
 use App\Services\PlatformFeeService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\View\View;
 
 class SavedSitesController extends Controller
@@ -132,15 +133,18 @@ class SavedSitesController extends Controller
 
     private function decorateSite(Site $site): Site
     {
-        $site->display_price = app(PlatformFeeService::class)
-            ->advertiserBase((float) $site->price);
+        $owned = $site->isOwnedBy(auth()->user());
+        $site->is_owned_by_me = $owned;
+        $site->display_price = $owned
+            ? $site->publisherBasePrice()
+            : app(PlatformFeeService::class)->advertiserBase((float) $site->price);
 
         return $site;
     }
 
     /**
-     * @param  \Illuminate\Support\Collection<int, int|string>  $siteIds
-     * @return \Illuminate\Support\Collection<int, Site>
+     * @param  Collection<int, int|string>  $siteIds
+     * @return Collection<int, Site>
      */
     private function visibleSavedSites($siteIds)
     {

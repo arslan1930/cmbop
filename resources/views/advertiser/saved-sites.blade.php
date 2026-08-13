@@ -199,10 +199,18 @@
                                         </td>
                                         <td>
                                             <div class="saved-actions">
-                                                <a href="{{ route('advertiser.catalog', ['site' => $site->id]) }}"
-                                                   class="btn btn-sm btn-primary">
-                                                    Order · €{{ number_format((float) $site->display_price, 2) }}
-                                                </a>
+                                                @if(! empty($site->is_owned_by_me))
+                                                    <a href="{{ route('publisher.websites') }}"
+                                                       class="btn btn-sm btn-outline-secondary"
+                                                       title="{{ \App\Models\Site::cannotOrderOwnListingMessage() }}">
+                                                        Your listing · €{{ number_format((float) $site->display_price, 2) }}
+                                                    </a>
+                                                @else
+                                                    <a href="{{ route('advertiser.catalog', ['site' => $site->id]) }}"
+                                                       class="btn btn-sm btn-primary">
+                                                        Order · €{{ number_format((float) $site->display_price, 2) }}
+                                                    </a>
+                                                @endif
                                                 <button type="button"
                                                         class="btn btn-sm btn-outline-secondary js-move-blacklist"
                                                         data-id="{{ $site->id }}"
@@ -245,7 +253,13 @@
                                     <div><span>Country</span><strong>{!! getCountryFlag($country) !!}</strong></div>
                                 </div>
                                 <div class="saved-actions justify-content-start">
-                                    <a href="{{ route('advertiser.catalog', ['site' => $site->id]) }}" class="btn btn-sm btn-primary">Order</a>
+                                    @if(! empty($site->is_owned_by_me))
+                                        <a href="{{ route('publisher.websites') }}"
+                                           class="btn btn-sm btn-outline-secondary"
+                                           title="{{ \App\Models\Site::cannotOrderOwnListingMessage() }}">Your listing</a>
+                                    @else
+                                        <a href="{{ route('advertiser.catalog', ['site' => $site->id]) }}" class="btn btn-sm btn-primary">Order</a>
+                                    @endif
                                     <button type="button" class="btn btn-sm btn-outline-secondary js-move-blacklist"
                                             data-id="{{ $site->id }}" data-name="{{ $site->site_name }}">Block</button>
                                     <button type="button" class="btn btn-sm btn-cta-tertiary js-remove-favorite"
