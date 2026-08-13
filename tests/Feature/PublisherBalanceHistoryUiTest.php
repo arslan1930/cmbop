@@ -243,22 +243,16 @@ class PublisherBalanceHistoryUiTest extends TestCase
             ->assertSee('€7.64', false);
     }
 
-    public function test_publisher_role_transfer_endpoint_stays_gone(): void
+    public function test_publisher_role_transfer_endpoint_is_no_longer_gone(): void
     {
-        $user = $this->publisherWithWallets();
+        $user = $this->publisherWithWallets(['publisher_balance' => 25]);
 
         $this->actingAs($user)
             ->postJson(route('publisher.balance.transfer'), ['amount' => 5])
-            ->assertStatus(410)
-            ->assertJsonPath('success', false)
-            ->assertJsonPath('code', 'transfers_disabled');
-
-        $this->assertSame(
-            7.64,
-            (float) Wallet::where('user_id', $user->id)
-                ->where('role_id', Wallet::publisherRoleId())
-                ->value('balance')
-        );
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('publisher.withdrawable', 20)
+            ->assertJsonPath('advertiser.spendable', 25);
     }
 
     public function test_favicon_partial_points_at_existing_public_assets(): void

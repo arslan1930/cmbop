@@ -609,6 +609,8 @@ class WalletOverviewService
             WalletTransaction::TYPE_ADJUSTMENT => 'fa-sliders-h',
             WalletTransaction::TYPE_TRANSFER_OUT => 'fa-exchange-alt',
             WalletTransaction::TYPE_TRANSFER_IN => 'fa-exchange-alt',
+            WalletTransaction::TYPE_ROLE_MOVE_OUT => 'fa-exchange-alt',
+            WalletTransaction::TYPE_ROLE_MOVE_IN => 'fa-exchange-alt',
             default => 'fa-circle',
         };
     }

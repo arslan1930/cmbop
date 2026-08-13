@@ -150,6 +150,30 @@ class WalletLedgerService
         ]);
     }
 
+    /**
+     * Publisher withdrawable cash moved to the advertiser wallet for spending.
+     * Distinct from TYPE_TRANSFER_IN so finance earnings totals stay order-only.
+     */
+    public function recordRoleMoveOut(Wallet $wallet, float $amount, $related = null, ?string $reference = null, ?string $description = null, array $meta = []): ?WalletTransaction
+    {
+        return $this->record($wallet, WalletTransaction::TYPE_ROLE_MOVE_OUT, 'debit', $amount, [
+            'related' => $related,
+            'reference' => $reference,
+            'description' => $description ?? 'Moved to advertiser wallet for spending',
+            'meta' => $meta,
+        ]);
+    }
+
+    public function recordRoleMoveIn(Wallet $wallet, float $amount, $related = null, ?string $reference = null, ?string $description = null, array $meta = []): ?WalletTransaction
+    {
+        return $this->record($wallet, WalletTransaction::TYPE_ROLE_MOVE_IN, 'credit', $amount, [
+            'related' => $related,
+            'reference' => $reference,
+            'description' => $description ?? 'Publisher earnings moved for spending',
+            'meta' => $meta,
+        ]);
+    }
+
     public function recordAdjustment(Wallet $wallet, float $amount, string $direction = 'credit', $related = null, ?string $reference = null, ?string $description = null, array $meta = []): ?WalletTransaction
     {
         return $this->record($wallet, WalletTransaction::TYPE_ADJUSTMENT, $direction, $amount, [

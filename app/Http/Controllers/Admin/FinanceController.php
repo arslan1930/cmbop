@@ -86,6 +86,8 @@ class FinanceController extends Controller
             WalletTransaction::TYPE_ADJUSTMENT,
             WalletTransaction::TYPE_TRANSFER_OUT,
             WalletTransaction::TYPE_TRANSFER_IN,
+            WalletTransaction::TYPE_ROLE_MOVE_OUT,
+            WalletTransaction::TYPE_ROLE_MOVE_IN,
         ];
 
         return view('admin.finance-ledger', compact('transactions', 'types'));

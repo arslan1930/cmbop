@@ -24,6 +24,10 @@ class WalletTransaction extends Model
 
     public const TYPE_TRANSFER_IN = 'transfer_in';
 
+    public const TYPE_ROLE_MOVE_OUT = 'role_move_out';
+
+    public const TYPE_ROLE_MOVE_IN = 'role_move_in';
+
     protected $fillable = [
         'user_id',
         'wallet_id',
@@ -82,6 +86,8 @@ class WalletTransaction extends Model
             self::TYPE_ADJUSTMENT => 'Adjustment',
             self::TYPE_TRANSFER_OUT => 'Transfer Out',
             self::TYPE_TRANSFER_IN => 'Transfer In',
+            self::TYPE_ROLE_MOVE_OUT => 'Moved to Advertiser Wallet',
+            self::TYPE_ROLE_MOVE_IN => 'Earnings Moved for Spending',
             default => ucfirst(str_replace('_', ' ', (string) $this->type)),
         };
     }

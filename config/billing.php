@@ -191,6 +191,21 @@ return [
     'withdrawal_min_amount' => (float) env('WITHDRAWAL_MIN_AMOUNT', 20),
 
     /*
+    |--------------------------------------------------------------------------
+    | Publisher → advertiser role move (spend earnings as advertiser)
+    |--------------------------------------------------------------------------
+    |
+    | Moves publisher withdrawable cash into the advertiser Money wallet.
+    | Bonus never moves. Fee is 0. The €20 withdrawal floor does not apply.
+    |
+    */
+    'role_move' => [
+        'min_amount' => (float) env('ROLE_MOVE_MIN_AMOUNT', 0.01),
+        'max_amount' => (float) env('ROLE_MOVE_MAX_AMOUNT', 999999.99),
+        'fee_percent' => (float) env('ROLE_MOVE_FEE_PERCENT', 0),
+    ],
+
+    /*
     | Signed admin email link for withdrawal mark-paid confirm (GET → confirm
     | UI → POST). Minutes until expires+signature invalidate.
     */

@@ -5,11 +5,18 @@ namespace App\Http\Controllers\Publisher;
 use App\Http\Controllers\Controller;
 use App\Models\BalanceTransfer;
 use App\Models\Wallet;
+use App\Services\Wallet\WalletRoleMoveException;
+use App\Services\Wallet\WalletRoleMoveService;
+use App\Support\UserFacingError;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 
 class BalanceController extends Controller
 {
+    public function __construct(
+        private WalletRoleMoveService $roleMoves,
+    ) {}
+
     /**
      * Display balance page for publisher.
      */
@@ -42,15 +49,50 @@ class BalanceController extends Controller
     }
 
     /**
-     * Role-to-role transfers are disabled.
+     * Move publisher withdrawable cash into the advertiser wallet for catalog spend.
+     * Advertiser → publisher remains disabled.
      */
     public function transferToAdvertiser(Request $request)
     {
-        return response()->json([
-            'success' => false,
-            'code' => 'transfers_disabled',
-            'message' => 'Role-to-role fund transfers have been disabled. Available funds can be spent on the marketplace or withdrawn. Bonus credit can only be used for purchases on this website.',
-        ], 410);
+        $min = round((float) config('billing.role_move.min_amount', 0.01), 2);
+        $max = round((float) config('billing.role_move.max_amount', 999999.99), 2);
+
+        $data = $request->validate([
+            'amount' => ['required', 'numeric', 'min:'.$min, 'max:'.$max],
+        ]);
+
+        try {
+            $result = $this->roleMoves->publisherToAdvertiser(auth()->user(), (float) $data['amount']);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Earnings moved to your advertiser wallet.',
+                'reference' => $result['reference'],
+                'amount' => $result['amount'],
+                'fee' => $result['fee'],
+                'net_amount' => $result['net_amount'],
+                'publisher' => $result['publisher'],
+                'advertiser' => $result['advertiser'],
+            ]);
+        } catch (WalletRoleMoveException $e) {
+            return response()->json([
+                'success' => false,
+                'code' => $e->errorCode,
+                'message' => $e->userMessage,
+            ], $e->httpStatus);
+        } catch (\Throwable $e) {
+            Log::error('Publisher role move failed', [
+                'user_id' => auth()->id(),
+                'exception' => $e::class,
+                'error' => $e->getMessage(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'code' => 'role_move_failed',
+                'message' => UserFacingError::message($e, 'Could not move earnings to your advertiser wallet. Please try again.'),
+            ], 500);
+        }
     }
 
     /**
