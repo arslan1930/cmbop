@@ -157,7 +157,6 @@
             @php
                 $isBlacklisted = in_array($site->id, $blacklist);
                 $isFavorited = in_array($site->id, $favorites);
-                $isOwnedByMe = $site->isOwnedBy(auth()->user());
                 // Decode sensitive prices (only positive numeric add-ons are selectable)
                 $sensitivePrices = $site->sensitive_prices;
                 if (is_string($sensitivePrices)) {
@@ -189,6 +188,7 @@
 
                 // Own listings show the entered price and cannot be ordered.
                 $viewPrices = $site->catalogPricesForViewer(auth()->user());
+                $isOwnedByMe = ! empty($viewPrices['owned']);
                 $catalogListPrice = (float) $viewPrices['list'];
                 $catalogPublisherPrice = (float) $viewPrices['publisher'];
                 $catalogSalePctNominal = $viewPrices['sale_percent_nominal'];
@@ -212,7 +212,12 @@
                 $eyeShowLabel = 'Show site name and URL';
                 $eyeHideLabel = 'Hide site name and URL';
             @endphp
-            <tr class="site-row {{ $isBlacklisted ? 'blacklisted-row' : '' }}" data-id="{{ $site->id }}" data-name="{{ $displayName }}">
+            <tr class="site-row {{ $isBlacklisted ? 'blacklisted-row' : '' }}"
+                data-id="{{ $site->id }}"
+                data-name="{{ $displayName }}"
+                data-publisher-id="{{ (int) $site->publisher_id }}"
+                @if((int) $site->owner_id > 0) data-owner-id="{{ (int) $site->owner_id }}" @endif
+                @if($isOwnedByMe) data-own-listing="1" @endif>
                 <td class="catalog-site-cell">
 
                     <div class="catalog-site-stack catalog-site-stack--tiled">
@@ -946,7 +951,6 @@
         @php
             $isBlacklisted = in_array($site->id, $blacklist);
             $isFavorited = in_array($site->id, $favorites);
-            $isOwnedByMe = $site->isOwnedBy(auth()->user());
             $isNew = $site->created_at->gt(now()->subDays(30));
             $showsIdentity = $urlVisibility->showsFullIdentity($currentUser, $site);
             $canSeeUrl = $showsIdentity;
@@ -979,6 +983,7 @@
                 'x' => 'X',
             ];
             $viewPrices = $site->catalogPricesForViewer(auth()->user());
+            $isOwnedByMe = ! empty($viewPrices['owned']);
             $catalogListPrice = (float) $viewPrices['list'];
             $catalogPublisherPrice = (float) $viewPrices['publisher'];
             $catalogSalePctNominal = $viewPrices['sale_percent_nominal'];
@@ -986,7 +991,12 @@
             $catalogSalePctDisplay = $viewPrices['sale_percent'];
             $catalogSalePrice = $viewPrices['sale'];
         @endphp
-        <article class="catalog-mobile-card {{ $isBlacklisted ? 'is-blacklisted' : '' }}" data-id="{{ $site->id }}" data-name="{{ $displayName }}">
+        <article class="catalog-mobile-card {{ $isBlacklisted ? 'is-blacklisted' : '' }}"
+                 data-id="{{ $site->id }}"
+                 data-name="{{ $displayName }}"
+                 data-publisher-id="{{ (int) $site->publisher_id }}"
+                 @if((int) $site->owner_id > 0) data-owner-id="{{ (int) $site->owner_id }}" @endif
+                 @if($isOwnedByMe) data-own-listing="1" @endif>
             <div class="d-flex justify-content-between align-items-start gap-2 mb-2">
                 <div class="catalog-mobile-card__host d-flex align-items-start gap-2">
                     @include('advertiser.partials.catalog-site-tile', [

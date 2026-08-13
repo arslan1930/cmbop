@@ -4347,6 +4347,12 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
 
+        if (button.closest('[data-own-listing="1"]')
+            || (typeof window.catalogIsOwnListing === 'function' && window.catalogIsOwnListing(id))) {
+            catalogToast(window.catalogOwnListingMessage || 'This is your listing — you can’t order it.', 'error');
+            return;
+        }
+
         const selected = getSelectedSensitiveForSite(id);
         const homepage = getSelectedHomepageForSite(id);
         const sensitiveType = selected.type;
