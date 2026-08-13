@@ -315,7 +315,14 @@ class CartPricingService
      *
      * @throws \Exception
      */
-    public function expandCart(array $cart): array
+    /**
+     * Expand session cart lines into per-copy order rows using live DB prices.
+     *
+     * @param  array<int, array<string, mixed>>  $cart
+     * @param  int|null  $buyerId  Drop listings owned by this user (cannot self-order).
+     * @return list<array<string, mixed>>
+     */
+    public function expandCart(array $cart, ?int $buyerId = null): array
     {
         $expanded = [];
         $unavailable = [];
@@ -326,6 +333,12 @@ class CartPricingService
 
             if (! $site) {
                 $unavailable[] = (string) ($item['name'] ?? $siteId ?? 'unknown');
+
+                continue;
+            }
+
+            if ($buyerId && (int) $site->publisher_id === (int) $buyerId) {
+                $unavailable[] = (string) ($item['name'] ?? $site->site_name);
 
                 continue;
             }
@@ -384,7 +397,7 @@ class CartPricingService
      * @param  array<int, array<string, mixed>>  $cart
      * @return array{items: array<int, array<string, mixed>>, total: float, savings: float}
      */
-    public function buildCheckoutItems(array $cart): array
+    public function buildCheckoutItems(array $cart, ?int $buyerId = null): array
     {
         $items = [];
         $total = 0.0;
@@ -393,6 +406,9 @@ class CartPricingService
         foreach ($cart as $item) {
             $site = Site::query()->notArchived()->where('id', $item['id'] ?? null)->where('active', 1)->first();
             if (! $site) {
+                continue;
+            }
+            if ($buyerId && (int) $site->publisher_id === (int) $buyerId) {
                 continue;
             }
 

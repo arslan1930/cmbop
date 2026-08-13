@@ -157,7 +157,7 @@
             @php
                 $isBlacklisted = in_array($site->id, $blacklist);
                 $isFavorited = in_array($site->id, $favorites);
-                $isOwnedByMe = (int) $site->publisher_id === (int) auth()->id();
+                $isOwnedByMe = $site->isOwnedBy(auth()->user());
                 // Decode sensitive prices (only positive numeric add-ons are selectable)
                 $sensitivePrices = $site->sensitive_prices;
                 if (is_string($sensitivePrices)) {
@@ -187,19 +187,14 @@
                 $expandDescriptionHtml = $site->safeDescriptionHtml();
                 $hasExpandDescription = trim(strip_tags($expandDescriptionHtml)) !== '';
 
-                // Same engine as cart.add — publisher base + hidden fee (+ sale floor).
-                $catalogPricing = $site->advertiserCatalogPricing();
-                $catalogListPrice = (float) $catalogPricing['base'];
-                $catalogPublisherPrice = (float) $catalogPricing['publisher_price'];
-                $catalogSalePctNominal = $site->activeCustomDiscountPercent();
+                // Own listings show the entered price and cannot be ordered.
+                $viewPrices = $site->catalogPricesForViewer(auth()->user());
+                $catalogListPrice = (float) $viewPrices['list'];
+                $catalogPublisherPrice = (float) $viewPrices['publisher'];
+                $catalogSalePctNominal = $viewPrices['sale_percent_nominal'];
                 $catalogSalePct = $catalogSalePctNominal; // nominal for data-* / JS
-                $catalogSalePctDisplay = null;
-                $catalogSalePrice = null;
-                if (($catalogPricing['discount_amount'] ?? 0) > 0
-                    && (float) $catalogPricing['article_total'] < $catalogListPrice) {
-                    $catalogSalePrice = (float) $catalogPricing['article_total'];
-                    $catalogSalePctDisplay = (float) $catalogPricing['discount_percent'];
-                }
+                $catalogSalePctDisplay = $viewPrices['sale_percent'];
+                $catalogSalePrice = $viewPrices['sale'];
             @endphp
             @php
                 // Dynamic "new" flag — listing created within the last 30 days
@@ -510,6 +505,9 @@
                             <p class="small text-muted mb-1 catalog-homepage-hint">Homepage placement available in Details.</p>
                         @endif
 
+                        @if($isOwnedByMe)
+                            @include('advertiser.partials.catalog-own-listing', ['align' => 'center'])
+                        @else
                         <button type="button" class="btn btn-sm btn-primary buy-now d-inline-flex justify-content-center align-items-center gap-2"
                                 data-id="{{ $site->id }}"
                                 data-base-price="{{ $catalogListPrice }}"
@@ -520,6 +518,7 @@
                             <i class="fa-solid fa-cart-plus" aria-hidden="true"></i>
                             <span>Add to cart</span>
                         </button>
+                        @endif
 
                         <div class="catalog-row-actions__secondary">
                             <div class="catalog-row-actions-quiet">
@@ -947,7 +946,7 @@
         @php
             $isBlacklisted = in_array($site->id, $blacklist);
             $isFavorited = in_array($site->id, $favorites);
-            $isOwnedByMe = (int) $site->publisher_id === (int) auth()->id();
+            $isOwnedByMe = $site->isOwnedBy(auth()->user());
             $isNew = $site->created_at->gt(now()->subDays(30));
             $showsIdentity = $urlVisibility->showsFullIdentity($currentUser, $site);
             $canSeeUrl = $showsIdentity;
@@ -979,18 +978,13 @@
                 'instagram' => 'Instagram',
                 'x' => 'X',
             ];
-            $catalogPricing = $site->advertiserCatalogPricing();
-            $catalogListPrice = (float) $catalogPricing['base'];
-            $catalogPublisherPrice = (float) $catalogPricing['publisher_price'];
-            $catalogSalePctNominal = $site->activeCustomDiscountPercent();
+            $viewPrices = $site->catalogPricesForViewer(auth()->user());
+            $catalogListPrice = (float) $viewPrices['list'];
+            $catalogPublisherPrice = (float) $viewPrices['publisher'];
+            $catalogSalePctNominal = $viewPrices['sale_percent_nominal'];
             $catalogSalePct = $catalogSalePctNominal; // nominal for data-* / JS
-            $catalogSalePctDisplay = null;
-            $catalogSalePrice = null;
-            if (($catalogPricing['discount_amount'] ?? 0) > 0
-                && (float) $catalogPricing['article_total'] < $catalogListPrice) {
-                $catalogSalePrice = (float) $catalogPricing['article_total'];
-                $catalogSalePctDisplay = (float) $catalogPricing['discount_percent'];
-            }
+            $catalogSalePctDisplay = $viewPrices['sale_percent'];
+            $catalogSalePrice = $viewPrices['sale'];
         @endphp
         <article class="catalog-mobile-card {{ $isBlacklisted ? 'is-blacklisted' : '' }}" data-id="{{ $site->id }}" data-name="{{ $displayName }}">
             <div class="d-flex justify-content-between align-items-start gap-2 mb-2">
@@ -1262,6 +1256,9 @@
                     'align' => 'start',
                 ])
 
+                @if($isOwnedByMe)
+                    @include('advertiser.partials.catalog-own-listing', ['align' => 'start'])
+                @else
                 <button type="button" class="btn btn-sm btn-primary buy-now d-inline-flex justify-content-center align-items-center gap-2"
                         data-id="{{ $site->id }}"
                         data-base-price="{{ $catalogListPrice }}"
@@ -1272,6 +1269,7 @@
                     <i class="fa-solid fa-cart-plus" aria-hidden="true"></i>
                     <span>Add to cart</span>
                 </button>
+                @endif
             </div>
 
             <div class="catalog-row-actions mt-2">

@@ -98,7 +98,7 @@ class HiddenPlatformFeeTest extends TestCase
             ->assertDontSee('commission', false);
     }
 
-    public function test_catalog_and_cart_agree_for_dual_role_owner_on_own_listing(): void
+    public function test_owner_sees_entered_price_and_cannot_add_own_listing_to_cart(): void
     {
         $advertiserRole = $this->role('advertiser');
         $publisherRole = $this->role('publisher');
@@ -110,25 +110,30 @@ class HiddenPlatformFeeTest extends TestCase
         $owner->roles()->attach([$advertiserRole->id, $publisherRole->id]);
 
         $site = $this->siteFor($owner, 90);
-        $expected = app(CartPricingService::class)->priceForAdvertiser($site);
-        $this->assertSame(103.5, $expected['total']);
+
+        $this->assertTrue($site->isOwnedBy($owner));
+        $this->assertSame(90.0, $site->catalogPricesForViewer($owner)['list']);
 
         $html = $this->actingAs($owner)
             ->get(route('advertiser.catalog'))
             ->assertOk()
             ->getContent();
 
-        // Must show fee-marked list price — never the raw publisher €90 alone.
-        $this->assertStringContainsString('data-base-price="103.5"', $html);
-        $this->assertStringContainsString('data-publisher-price="90"', $html);
-        $this->assertStringContainsString('base-price-display">€103.50', $html);
+        $this->assertStringContainsString('base-price-display">€90.00', $html);
+        $this->assertStringNotContainsString('base-price-display">€103.50', $html);
+        $this->assertStringContainsString('Your listing', $html);
+        $this->assertStringContainsString(Site::cannotOrderOwnListingMessage(), $html);
+        $this->assertStringNotContainsString('buy-now', $html);
+        $this->assertStringNotContainsString('platform fee', $html);
+        $this->assertStringNotContainsString('commission', $html);
 
-        $payload = $this->actingAs($owner)
+        $this->actingAs($owner)
             ->postJson(route('advertiser.cart.add'), ['id' => $site->id])
-            ->assertOk()
-            ->json();
+            ->assertForbidden()
+            ->assertJsonPath('success', false)
+            ->assertJsonPath('error', Site::cannotOrderOwnListingMessage());
 
-        $this->assertEquals(103.5, (float) $payload['cart'][0]['price']);
+        $this->assertEmpty(session('cart', []));
     }
 
     public function test_advertiser_catalog_shows_marked_up_price_for_ninety_euro_listing(): void

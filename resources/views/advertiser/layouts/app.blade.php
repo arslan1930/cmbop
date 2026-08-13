@@ -432,6 +432,14 @@
             const more = removed.length > 2 ? ' (+' + (removed.length - 2) + ' more)' : '';
             showToast(removed.length + ' sites were deactivated and removed from your cart: ' + preview + more + '.', 'warning');
         }
+        const removedOwned = Array.isArray(data?.removed_owned) ? data.removed_owned : [];
+        if (removedOwned.length === 1) {
+            showToast(removedOwned[0] + ' is your listing and was removed from your cart.', 'warning');
+        } else if (removedOwned.length > 1) {
+            const preview = removedOwned.slice(0, 2).join(', ');
+            const more = removedOwned.length > 2 ? ' (+' + (removedOwned.length - 2) + ' more)' : '';
+            showToast(removedOwned.length + ' of your listings were removed from your cart: ' + preview + more + '.', 'warning');
+        }
     }
 
     function siteLanguageCodes(item) {

@@ -50,7 +50,7 @@ class AdvertiserDashboardService
         return [
             'stats' => $stats,
             'recentOrders' => $this->recentOrders((int) $user->id),
-            'recommendedSites' => $this->recommendedSites(),
+            'recommendedSites' => $this->recommendedSites($user),
             'hasOrderableArticle' => ContentSubmission::query()
                 ->where('user_id', $user->id)
                 ->orderable()
@@ -128,13 +128,22 @@ class AdvertiserDashboardService
             ->get();
     }
 
-    protected function recommendedSites(): Collection
+    protected function recommendedSites(?User $user = null): Collection
     {
-        return Site::query()
+        $query = Site::query()
             ->where('active', 1)
             ->where(function ($q) {
                 $q->where('verified', 1)->orWhere('verified', true);
-            })
+            });
+
+        if ($user) {
+            $query->where(function ($q) use ($user) {
+                $q->whereNull('publisher_id')
+                    ->orWhere('publisher_id', '!=', $user->id);
+            });
+        }
+
+        return $query
             ->orderByDesc('dr')
             ->orderByDesc('traffic')
             ->take(3)
