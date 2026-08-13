@@ -929,6 +929,9 @@ class ContentLibraryImprovementsTest extends TestCase
         $this->assertStringContainsString('function resetLibraryUploadUi', $js);
         $this->assertStringContainsString('function bindLibraryUploadCancel', $js);
         $this->assertStringContainsString('function abortLibraryUpload', $js);
+        $this->assertStringContainsString('function cancelLibraryUploadHandoffState', $js);
+        $this->assertStringContainsString('pendingLibraryLanding = null', $js);
+        $this->assertStringContainsString('libraryUploadDismissGen', $js);
         $this->assertStringContainsString('AbortController', $js);
         $this->assertStringContainsString('isLibraryUploadAbortError', $js);
         $this->assertStringContainsString('if (!libraryUploadHandoff)', $js);

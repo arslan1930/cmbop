@@ -28,6 +28,7 @@ let libraryUploadHandoff = false;
 let libraryUploadClosingForEditor = false;
 let libraryUploadHandoffTimer = null;
 let libraryUploadSavedSubmission = null;
+let libraryUploadDismissGen = 0;
 
 function refreshLibraryLanguages(preferredLanguage) {
     const countrySelect = document.getElementById('libraryCountry');
@@ -90,6 +91,7 @@ document.addEventListener('DOMContentLoaded', function () {
     applyLibraryResultFocus();
 });
 document.getElementById('uploadContentModal')?.addEventListener('shown.bs.modal', function () {
+    libraryUploadDismissGen += 1;
     refreshLibraryLanguages(libraryPreferredLanguage || document.getElementById('libraryLanguage')?.value || '');
     if (!libraryUploadAbort && !libraryUploadHandoff) {
         const btn = document.getElementById('libraryUploadBtn');
@@ -848,8 +850,10 @@ function isLibraryUploadAbortError(err) {
 function forceDismissUploadModal() {
     const el = document.getElementById('uploadContentModal');
     if (!el) return;
+    const gen = ++libraryUploadDismissGen;
     hideBootstrapModal(el);
     window.setTimeout(function () {
+        if (gen !== libraryUploadDismissGen) return;
         const editorOpen = document.getElementById('articleEditorModal')?.classList.contains('show');
         const stillVisible = el.classList.contains('show') || el.style.display === 'block';
         if (editorOpen || !stillVisible) return;
@@ -866,14 +870,19 @@ function forceDismissUploadModal() {
     }, 400);
 }
 
-function dismissLibraryUploadByUser() {
-    const saved = libraryUploadSavedSubmission;
+function cancelLibraryUploadHandoffState() {
     libraryUploadHandoff = false;
     libraryUploadClosingForEditor = false;
     libraryUploadSavedSubmission = null;
+    pendingLibraryLanding = null;
     clearLibraryUploadHandoffTimer();
     abortLibraryUpload();
     resetLibraryUploadUi();
+}
+
+function dismissLibraryUploadByUser() {
+    const saved = libraryUploadSavedSubmission;
+    cancelLibraryUploadHandoffState();
     forceDismissUploadModal();
     if (saved && saved.id) {
         showLibraryFlash('Article uploaded. It is in your library.', true);
@@ -885,20 +894,19 @@ function bindLibraryUploadCancel() {
     if (!el || el.dataset.uploadCancelBound === '1') return;
     el.dataset.uploadCancelBound = '1';
     el.addEventListener('click', function (e) {
+        if (!el.classList.contains('show')) return;
         if (!e.target.closest('[data-bs-dismiss="modal"]')) return;
         dismissLibraryUploadByUser();
     });
     el.addEventListener('keydown', function (e) {
         if (e.key !== 'Escape') return;
+        if (!el.classList.contains('show')) return;
         dismissLibraryUploadByUser();
     });
     el.addEventListener('hide.bs.modal', function () {
         abortLibraryUpload();
         if (libraryUploadClosingForEditor) return;
-        libraryUploadHandoff = false;
-        libraryUploadSavedSubmission = null;
-        clearLibraryUploadHandoffTimer();
-        resetLibraryUploadUi();
+        cancelLibraryUploadHandoffState();
     });
 }
 
@@ -1037,11 +1045,13 @@ function openArticleEditor(submission) {
         libraryUploadHandoff = false;
         libraryUploadClosingForEditor = false;
         resetLibraryUploadUi();
-        setFeedbackHtml(
-            document.getElementById('libraryUploadFeedback'),
-            false,
-            'Could not open the editor. Try again.'
-        );
+        const uploadEl = document.getElementById('uploadContentModal');
+        const message = 'Could not open the editor. Try again.';
+        if (uploadEl && uploadEl.classList.contains('show')) {
+            setFeedbackHtml(document.getElementById('libraryUploadFeedback'), false, message);
+        } else {
+            showLibraryFlash(message, false);
+        }
     }
 }
 

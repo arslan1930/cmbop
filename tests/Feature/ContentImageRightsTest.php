@@ -338,6 +338,7 @@ class ContentImageRightsTest extends TestCase
         $this->assertStringContainsString('function showArticleEditorAfterUploadModal', $js);
         $this->assertStringContainsString('function dismissLibraryUploadByUser', $js);
         $this->assertStringContainsString('function resetLibraryUploadUi', $js);
+        $this->assertStringContainsString('function cancelLibraryUploadHandoffState', $js);
         $this->assertStringContainsString('libraryUploadHandoff', $js);
         $this->assertStringContainsString('window.toggleLibraryTitleEdit = toggleLibraryTitleEdit', $js);
         $this->assertStringContainsString('window.copyLibraryLiveUrl = copyLibraryLiveUrl', $js);
