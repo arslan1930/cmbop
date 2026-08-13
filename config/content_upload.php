@@ -16,6 +16,9 @@ return [
     'allowed_mimes' => [
         'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
         'application/octet-stream',
+        // Word .docx is a ZIP package; some PHP fileinfo builds sniff it as zip.
+        'application/zip',
+        'application/x-zip-compressed',
     ],
 
     /** Max upload size in kilobytes (5120 = 5 MB) */

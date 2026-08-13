@@ -61,14 +61,21 @@ class ContentSubmissionController extends Controller
         }
 
         $cfg = $this->uploads->effectiveConfig();
-        $maxKb = (int) ($cfg['max_kilobytes'] ?? 5120);
+        $maxKb = $this->uploads->effectiveMaxKilobytes($cfg);
         $ext = implode(',', $cfg['allowed_extensions'] ?? ['docx']);
 
         $allowedCountries = array_map('strtolower', config('markets.allowed_country_codes', []));
         $allowedLanguages = array_map('strtolower', config('markets.allowed_language_codes', []));
 
+        if ($message = $this->uploads->invalidUploadMessage($request->file('file'), $cfg)) {
+            return response()->json([
+                'success' => false,
+                'message' => $message,
+            ], 422);
+        }
+
         $data = $request->validate([
-            'file' => ['required', 'file', 'max:'.$maxKb, 'mimes:docx'],
+            'file' => ['required', 'file', 'max:'.$maxKb, 'extensions:'.($ext ?: 'docx')],
             'site_id' => ['nullable', 'integer', 'exists:sites,id'],
             'copy_index' => ['nullable', 'integer', 'min:0', 'max:50'],
             'cart_key' => ['nullable', 'string', 'max:64'],
@@ -81,10 +88,10 @@ class ContentSubmissionController extends Controller
                 'nullable', 'string', 'max:2000',
                 'required_if:image_rights,'.ContentSubmission::IMAGE_RIGHTS_LICENSED,
             ],
-        ], [
+        ], array_merge($this->uploads->uploadValidationMessages($cfg), [
             'image_rights.required' => 'Tell us where the images in this article came from.',
             'image_rights_source.required_if' => 'Add the source URL or copyright/licence details for the images.',
-        ]);
+        ]));
 
         $replace = null;
         if (! empty($data['replace_id'])) {

@@ -600,7 +600,7 @@
 {{-- Upload modal --}}
 <div class="modal fade" id="uploadContentModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-lg">
-        <form class="modal-content" id="libraryUploadForm">
+        <form class="modal-content" id="libraryUploadForm" method="post" enctype="multipart/form-data">
             <div class="modal-header">
                 <h5 class="modal-title">Upload article</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>

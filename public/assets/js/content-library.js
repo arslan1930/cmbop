@@ -242,6 +242,22 @@ function setFeedbackHtml(el, ok, message) {
     el.innerHTML = '<span class="text-' + (ok ? 'success' : 'danger') + '">' + escapeHtml(message) + '</span>';
 }
 
+function firstErrorMessage(data, fallback) {
+    if (data && typeof data.message === 'string' && data.message.trim()) {
+        return data.message.trim();
+    }
+    const errors = data && data.errors;
+    if (errors && typeof errors === 'object') {
+        const keys = Object.keys(errors);
+        for (let i = 0; i < keys.length; i++) {
+            const val = errors[keys[i]];
+            if (Array.isArray(val) && val[0]) return String(val[0]);
+            if (typeof val === 'string' && val.trim()) return val.trim();
+        }
+    }
+    return fallback;
+}
+
 function showLibraryFlash(message, ok) {
     const el = document.getElementById('libraryFlash');
     if (!el) return;
@@ -877,7 +893,7 @@ function ensureArticleQuill() {
                 });
                 const data = await res.json();
                 if (!res.ok || !data.success || !data.url) {
-                    setFeedbackHtml(feedback, false, data.message || data.error || 'Image upload failed');
+                    setFeedbackHtml(feedback, false, firstErrorMessage(data, 'Image upload failed'));
                     return;
                 }
                 const range = articleQuill.getSelection(true) || { index: articleQuill.getLength() };
@@ -1298,6 +1314,7 @@ document.getElementById('libraryUploadForm')?.addEventListener('submit', async f
     langSelect.disabled = false;
 
     const fd = new FormData(this);
+    fd.set('file', file, file.name);
     if (btn) btn.disabled = true;
     progress?.classList.remove('d-none');
     if (bar) bar.style.width = '40%';
@@ -1319,7 +1336,7 @@ document.getElementById('libraryUploadForm')?.addEventListener('submit', async f
             return;
         }
         if (!data.success) {
-            setFeedbackHtml(feedback, false, data.message || 'Upload failed');
+            setFeedbackHtml(feedback, false, firstErrorMessage(data, 'Upload failed. Use a Word .docx and try again.'));
             return;
         }
         setFeedbackHtml(feedback, true, 'Opening editor…');

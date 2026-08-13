@@ -25,6 +25,7 @@ class ContentLibraryController extends Controller
     public function index(Request $request)
     {
         $cfg = $this->uploads->effectiveConfig();
+        $cfg['max_kilobytes'] = $this->uploads->effectiveMaxKilobytes($cfg);
         // Default to Approved (available) — the All chip was removed from the UI.
         $status = strtolower(trim((string) $request->query('status', 'approved')));
         $availability = strtolower(trim((string) $request->query('availability', 'available')));
@@ -344,12 +345,20 @@ class ContentLibraryController extends Controller
         }
 
         $cfg = $this->uploads->effectiveConfig();
-        $maxKb = (int) ($cfg['max_kilobytes'] ?? 5120);
+        $maxKb = $this->uploads->effectiveMaxKilobytes($cfg);
         $allowedCountries = array_map('strtolower', config('markets.allowed_country_codes', []));
         $allowedLanguages = array_map('strtolower', config('markets.allowed_language_codes', []));
 
+        if ($message = $this->uploads->invalidUploadMessage($request->file('file'), $cfg)) {
+            return response()->json([
+                'success' => false,
+                'title' => 'Upload failed',
+                'message' => $message,
+            ], 422);
+        }
+
         $data = $request->validate([
-            'file' => ['required', 'file', 'max:'.$maxKb, 'mimes:docx'],
+            'file' => ['required', 'file', 'max:'.$maxKb, 'extensions:docx'],
             'title' => ['nullable', 'string', 'max:200'],
             'country' => ['required', 'string', 'max:10', Rule::in($allowedCountries)],
             'language' => ['required', 'string', 'max:10', Rule::in($allowedLanguages)],
@@ -359,9 +368,9 @@ class ContentLibraryController extends Controller
                 'nullable', 'string', 'max:2000',
                 'required_if:image_rights,'.ContentSubmission::IMAGE_RIGHTS_LICENSED,
             ],
-        ], [
+        ], array_merge($this->uploads->uploadValidationMessages($cfg), [
             'image_rights_source.required_if' => 'Add the source URL or copyright/licence details for the images.',
-        ]);
+        ]));
 
         if (! $this->countryLanguagePairs->isAllowedPair($data['country'], $data['language'])) {
             return response()->json([

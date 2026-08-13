@@ -8,6 +8,7 @@ use App\Models\ContentSubmission;
 use App\Models\User;
 use App\Services\InAppNotificationService;
 use App\Services\Marketplace\CountryLanguagePairs;
+use App\Support\SiteImageUpload;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
@@ -83,6 +84,7 @@ class ContentUploadService
         ?string $imageRightsSource = null,
     ): array {
         $cfg = $this->effectiveConfig();
+        $cfg['max_kilobytes'] = $this->effectiveMaxKilobytes($cfg);
         $validationError = $this->validateUpload($file, $cfg);
         if ($validationError !== null) {
             return ['ok' => false, 'accepted' => false, 'approved' => false, 'title' => 'Upload rejected', 'message' => $validationError];
@@ -505,19 +507,74 @@ class ContentUploadService
         return null;
     }
 
+    /**
+     * App cap from config, clamped so we never accept more than PHP will store.
+     */
+    public function effectiveMaxKilobytes(?array $cfg = null): int
+    {
+        $cfg = $cfg ?? $this->effectiveConfig();
+        $configured = max(100, (int) ($cfg['max_kilobytes'] ?? 5120));
+
+        return max(100, min($configured, SiteImageUpload::phpUploadMaxKilobytes()));
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public function uploadValidationMessages(?array $cfg = null): array
+    {
+        $mb = max(1, (int) round($this->effectiveMaxKilobytes($cfg) / 1024));
+
+        return [
+            'file.uploaded' => 'The article could not be uploaded. Use a Word .docx under '.$mb.' MB and try again.',
+            'file.extensions' => 'Word .docx only — not PDF, Google Doc, or pasted text.',
+            'file.mimes' => 'Word .docx only — not PDF, Google Doc, or pasted text.',
+            'file.max' => 'That file is over the '.$mb.' MB limit.',
+            'file.required' => 'Drop a .docx or click the box to choose a file.',
+            'file.file' => 'Drop a .docx or click the box to choose a file.',
+        ];
+    }
+
+    /**
+     * PHP rejected the multipart file (size, tmp dir, partial, etc.) before we can parse it.
+     * Laravel's default copy is "The file failed to upload."
+     */
+    public function invalidUploadMessage(?UploadedFile $file, ?array $cfg = null): ?string
+    {
+        if (! $file instanceof UploadedFile || $file->isValid()) {
+            return null;
+        }
+
+        $mb = max(1, (int) round($this->effectiveMaxKilobytes($cfg) / 1024));
+
+        Log::notice('Content article upload rejected by PHP', [
+            'error' => $file->getError(),
+            'error_message' => $file->getErrorMessage(),
+            'user_id' => auth()->id(),
+        ]);
+
+        return match ($file->getError()) {
+            UPLOAD_ERR_INI_SIZE, UPLOAD_ERR_FORM_SIZE => 'That file is over the '.$mb.' MB limit. Save as a smaller .docx and try again.',
+            UPLOAD_ERR_PARTIAL => 'The upload was interrupted. Please try again.',
+            UPLOAD_ERR_NO_FILE => 'Drop a .docx or click the box to choose a file.',
+            UPLOAD_ERR_NO_TMP_DIR, UPLOAD_ERR_CANT_WRITE => 'The server could not save the upload. Please try again in a moment.',
+            default => 'The article could not be uploaded. Use a Word .docx under '.$mb.' MB and try again.',
+        };
+    }
+
     public function validateUpload(UploadedFile $file, ?array $cfg = null): ?string
     {
         $cfg = $cfg ?? $this->effectiveConfig();
-        $maxKb = max(100, (int) ($cfg['max_kilobytes'] ?? 5120));
+        $maxKb = $this->effectiveMaxKilobytes($cfg);
         $allowedExt = array_map('strtolower', $cfg['allowed_extensions'] ?? ['docx']);
         $allowedMimes = $cfg['allowed_mimes'] ?? [];
 
         if (! $file->isValid()) {
-            return 'The upload failed. Please try again.';
+            return $this->invalidUploadMessage($file, $cfg) ?? 'The article could not be uploaded. Please try again.';
         }
 
         if ($file->getSize() > $maxKb * 1024) {
-            return 'File is too large. Maximum size is '.round($maxKb / 1024, 1).' MB.';
+            return 'That file is over the '.max(1, (int) round($maxKb / 1024)).' MB limit.';
         }
 
         $extension = strtolower($file->getClientOriginalExtension() ?: '');
@@ -533,7 +590,8 @@ class ContentUploadService
             || in_array($mime, $guessed, true)
             || str_contains($mime, 'wordprocessingml')
             || str_contains($mime, 'officedocument.word')
-            || $mime === 'application/octet-stream';
+            || $mime === 'application/octet-stream'
+            || ($extension === 'docx' && (str_contains($mime, 'zip') || $mime === 'application/x-zip-compressed'));
 
         if (! $mimeOk) {
             return 'File MIME type is not allowed. Please upload a .docx file.';

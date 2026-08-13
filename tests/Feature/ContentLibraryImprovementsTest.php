@@ -10,6 +10,7 @@ use App\Models\Site;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use Tests\Support\CreatesContentSubmissions;
 use Tests\TestCase;
@@ -795,6 +796,75 @@ class ContentLibraryImprovementsTest extends TestCase
         $this->assertStringContainsString('libraryResultFlash', $js);
         $this->assertStringContainsString('function applyLibraryResultFocus', $js);
         $this->assertStringNotContainsString('window.location.reload()', $js);
+    }
+
+    public function test_php_upload_error_explains_the_docx_limit_instead_of_failed_to_upload(): void
+    {
+        Storage::fake('local');
+        Mail::fake();
+        $advertiser = $this->advertiser();
+        $path = sys_get_temp_dir().'/oversized-'.uniqid('', true).'.docx';
+        $this->makeDocxFile($path);
+
+        $response = $this->actingAs($advertiser)->postJson(route('advertiser.content-library.upload'), [
+            'file' => new UploadedFile(
+                $path,
+                'article.docx',
+                'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                UPLOAD_ERR_INI_SIZE,
+                true
+            ),
+            'country' => 'us',
+            'language' => 'en',
+        ]);
+
+        @unlink($path);
+
+        $response->assertStatus(422)->assertJsonPath('success', false);
+        $message = (string) $response->json('message');
+        $this->assertStringNotContainsString('The file failed to upload', $message);
+        $this->assertStringContainsString('MB limit', $message);
+    }
+
+    public function test_library_upload_accepts_docx_sniffed_as_zip(): void
+    {
+        Storage::fake('local');
+        config(['content_moderation.enabled' => false]);
+        Mail::fake();
+
+        $advertiser = $this->advertiser();
+        $path = sys_get_temp_dir().'/zip-sniff-'.uniqid('', true).'.docx';
+        $this->makeDocxFile($path, str_repeat('Useful editorial content about productivity software for busy teams. ', 60));
+
+        $response = $this->actingAs($advertiser)->postJson(route('advertiser.content-library.upload'), [
+            'file' => new UploadedFile($path, 'article.docx', 'application/zip', null, true),
+            'title' => 'Zip sniffed article',
+            'country' => 'us',
+            'language' => 'en',
+        ]);
+
+        @unlink($path);
+
+        $response->assertOk()->assertJsonPath('success', true);
+        $this->assertStringNotContainsString('The file failed to upload', (string) $response->json('message'));
+        $this->assertStringNotContainsString('must be a file of type: docx', (string) $response->json('message'));
+    }
+
+    public function test_upload_form_posts_the_chosen_docx_as_multipart(): void
+    {
+        $advertiser = $this->advertiser();
+
+        $html = $this->actingAs($advertiser)
+            ->get(route('advertiser.content-library'))
+            ->assertOk()
+            ->getContent();
+
+        $this->assertStringContainsString('id="libraryUploadForm"', $html);
+        $this->assertStringContainsString('enctype="multipart/form-data"', $html);
+
+        $js = (string) file_get_contents(public_path('assets/js/content-library.js'));
+        $this->assertStringContainsString("fd.set('file', file, file.name)", $js);
+        $this->assertStringContainsString('function firstErrorMessage', $js);
     }
 
     private function extractHtmlBetween(string $html, string $startNeedle, string $endNeedle): string
