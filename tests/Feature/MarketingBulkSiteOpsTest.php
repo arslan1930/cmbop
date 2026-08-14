@@ -1007,6 +1007,8 @@ class MarketingBulkSiteOpsTest extends TestCase
         $this->assertStringContainsString('JSON.stringify({ reason: reason })', $html);
         $this->assertStringContainsString('bulkDeleteBusy', $html);
         $this->assertStringContainsString('typeof confirmFn.then', $html);
+        $this->assertStringContainsString("addEventListener('pageshow'", $html);
+        $this->assertStringContainsString('typeof window.slbAlert', $html);
         $this->assertStringContainsString('is_scalar', $controller);
         $this->assertStringContainsString('applyDensity(readStoredDensity(), false)', $html);
         $this->assertStringContainsString('data-bulk-reject-error', $html);
