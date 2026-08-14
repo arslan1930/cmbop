@@ -369,10 +369,11 @@ function fetchUserSites(id, page){
         addBtn.classList.remove('d-none');
     }
 
-    document.getElementById('sitesTable').innerHTML =
-        `<tr><td colspan="6">Loading...</td></tr>`;
-
     const pageNum = Number(page) > 1 ? Number(page) : 1;
+    if (pageNum <= 1) {
+        document.getElementById('sitesTable').innerHTML =
+            `<tr><td colspan="6">Loading...</td></tr>`;
+    }
     const sitesUrl = pageNum > 1
         ? `${STAFF_BASE}/users/${id}/sites?page=${encodeURIComponent(pageNum)}`
         : `${STAFF_BASE}/users/${id}/sites`;

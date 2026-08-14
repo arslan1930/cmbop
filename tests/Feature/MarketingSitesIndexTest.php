@@ -304,4 +304,20 @@ class MarketingSitesIndexTest extends TestCase
         $this->assertFalse($thin->hasGoodMetrics());
         $this->assertFalse($noMarket->hasMarketplaceCountry());
     }
+
+    public function test_flat_without_needs_review_still_shows_publishers(): void
+    {
+        $publisher = $this->userWithRole('publisher', [
+            'name' => 'Still Visible Publisher',
+            'email' => 'still-visible-publisher@example.test',
+        ]);
+        $this->makeSite($publisher);
+
+        $this->actingAs($this->marketer)
+            ->get(route('marketing.sites.index', ['flat' => 1]))
+            ->assertOk()
+            ->assertSee($publisher->email, false)
+            ->assertDontSee('data-flat-queue="1"', false)
+            ->assertDontSee('id="usersSection" class="d-none"', false);
+    }
 }

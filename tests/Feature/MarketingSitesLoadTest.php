@@ -78,6 +78,7 @@ class MarketingSitesLoadTest extends TestCase
         $this->assertStringContainsString('sitesLoadMore', $html);
         $this->assertStringContainsString('const FLAT_QUEUE', $html);
         $this->assertStringContainsString('data?.meta', $html);
+        $this->assertStringContainsString('if (pageNum <= 1)', $html);
 
         $this->actingAs($this->marketer)
             ->getJson(route('marketing.users.sites', $this->publisher->id))

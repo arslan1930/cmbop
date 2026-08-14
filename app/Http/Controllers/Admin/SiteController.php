@@ -43,7 +43,7 @@ class SiteController extends Controller
             || $request->query('verified') === 0;
 
         $publisherSearch = trim((string) $request->query('q', ''));
-        $flatQueue = $request->boolean('flat');
+        $flatQueue = $request->boolean('flat') && $needsReviewFilter;
 
         $reviewQueue = function ($q) {
             $q->needsAdminReview()->notArchived();
@@ -558,6 +558,7 @@ class SiteController extends Controller
             'screenshot_thumb_path',
             'agency_site_import_id',
             'metrics_manual',
+            'archived_at',
             'created_at',
             'updated_at',
         ];
