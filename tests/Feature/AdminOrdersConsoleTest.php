@@ -165,7 +165,7 @@ class AdminOrdersConsoleTest extends TestCase
         $this->actingAs($admin)
             ->getJson(route('admin.orders.data', [
                 'search' => [$order->order_number],
-                'status' => ['pending'],
+                'status' => ['processing'],
                 'payment_status' => ['paid'],
                 'date_from' => ['2020-01-01'],
                 'date_to' => ['2030-12-31'],
