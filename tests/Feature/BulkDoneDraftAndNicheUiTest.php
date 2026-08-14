@@ -103,6 +103,8 @@ class BulkDoneDraftAndNicheUiTest extends TestCase
         $this->assertStringContainsString('function markRequiredField', $html);
         $this->assertStringContainsString('function unmarkFilledField', $html);
         $this->assertStringContainsString('function safeItemId', $html);
+        $this->assertStringContainsString('function fields', $html);
+        $this->assertStringContainsString('safeItemId(row.getAttribute(\'data-item-id\'))', $html);
         $this->assertStringContainsString('/^\\d+$/', $html);
         $this->assertStringContainsString("indexOf('[categories]')", $html);
         $this->assertStringContainsString('serverOldItemIds', $html);

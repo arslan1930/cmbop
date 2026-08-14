@@ -17,6 +17,7 @@ use App\Services\ActivityLogger;
 use App\Services\InAppNotificationService;
 use App\Services\Marketplace\CountryLanguagePairs;
 use App\Support\MarketingOpsQueues;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -237,16 +238,36 @@ class BulkSiteRequestController extends Controller
 
         $reason = $validated['reason'];
 
-        $item->forceFill([
-            'rejected_at' => now(),
-            'rejected_by' => auth()->id(),
-            'reject_reason' => $reason,
-        ])->save();
+        $locked = DB::transaction(function () use ($bulkRequest, $itemId, $reason) {
+            $item = BulkSiteRequestItem::query()
+                ->where('bulk_site_request_id', $bulkRequest->id)
+                ->whereKey($itemId)
+                ->lockForUpdate()
+                ->firstOrFail();
 
-        $bulkRequest->forceFill([
-            'handled_by' => auth()->id(),
-        ])->save();
-        $bulkRequest->refreshProgressStatus();
+            if (! $item->isPending()) {
+                return null;
+            }
+
+            $item->forceFill([
+                'rejected_at' => now(),
+                'rejected_by' => auth()->id(),
+                'reject_reason' => $reason,
+            ])->save();
+
+            $bulkRequest->forceFill([
+                'handled_by' => auth()->id(),
+            ])->save();
+            $bulkRequest->refreshProgressStatus();
+
+            return $item;
+        });
+
+        if (! $locked) {
+            return back()->with('error', 'That website is already added or rejected.');
+        }
+
+        $item = $locked;
 
         ActivityLogger::log(
             'bulk_request.item_rejected',
@@ -295,6 +316,10 @@ class BulkSiteRequestController extends Controller
     public function done(Request $request, int $id)
     {
         $bulkRequest = BulkSiteRequest::with(['publisher', 'items'])->findOrFail($id);
+
+        if (! $bulkRequest->publisher) {
+            return back()->with('error', 'This request has no publisher account. Cannot add draft sites.');
+        }
 
         if ($bulkRequest->status === BulkSiteRequest::STATUS_CANCELLED) {
             return back()->with('error', 'Cannot complete a cancelled request.');
@@ -491,6 +516,10 @@ class BulkSiteRequestController extends Controller
     {
         $bulkRequest = BulkSiteRequest::with('publisher')->findOrFail($id);
 
+        if (! $bulkRequest->publisher) {
+            return back()->with('error', 'This request has no publisher account. Cannot seed draft sites.');
+        }
+
         if ($bulkRequest->status === BulkSiteRequest::STATUS_CANCELLED) {
             return back()->with('error', 'Cannot seed a cancelled request.');
         }
@@ -551,60 +580,102 @@ class BulkSiteRequestController extends Controller
         $createdDomains = [];
 
         DB::transaction(function () use ($bulkRequest, $rows, $action, &$created, &$failures, &$createdDomains) {
+            BulkSiteRequest::query()->whereKey($bulkRequest->id)->lockForUpdate()->firstOrFail();
+
             foreach ($rows as $row) {
                 $domain = $row['domain'];
 
-                if (Site::where('domain', $domain)->exists()) {
+                try {
+                    if ($action === 'bulk_request.done') {
+                        $itemId = (int) ($row['line'] ?? 0);
+                        if ($itemId <= 0) {
+                            continue;
+                        }
+
+                        $pendingItem = $bulkRequest->items()
+                            ->whereKey($itemId)
+                            ->pending()
+                            ->lockForUpdate()
+                            ->first();
+                        if (! $pendingItem) {
+                            continue;
+                        }
+                    }
+
+                    if (Site::where('domain', $domain)->exists()) {
+                        $failures[] = [
+                            'line' => $row['line'],
+                            'url' => $row['site_url'],
+                            'errors' => ['Domain already registered: '.$domain],
+                        ];
+
+                        continue;
+                    }
+
+                    $site = new Site;
+                    $site->applyMarketplaceListing([
+                        'publisher_id' => $bulkRequest->publisher_id,
+                        'bulk_site_request_id' => $bulkRequest->id,
+                        'publisher_accepted_at' => now(),
+                        'assigned_by_user_id' => null,
+                        'site_name' => $row['site_name'],
+                        'site_url' => $row['site_url'],
+                        'domain' => $domain,
+                        'example_url' => $row['site_url'],
+                        'da' => $row['da'],
+                        'dr' => $row['dr'],
+                        'traffic' => $row['traffic'],
+                        'metrics_manual' => true,
+                        'metrics_provider' => 'manual',
+                        'metrics_fetched_at' => now(),
+                        'country' => $row['country'],
+                        'countries' => [$row['country']],
+                        'language' => $row['language'],
+                        'languages' => [$row['language']],
+                        'category' => $row['category'] ?? 'Pending',
+                        'categories' => $row['categories'] ?? null,
+                        'price' => $row['price'],
+                        'turnaround_time' => '3days',
+                        'publication_time' => 'permanent',
+                        'link_type' => 'dofollow',
+                        'description' => 'Please replace this placeholder with a real site description (at least 50 characters) before submitting for review.',
+                        'sponsored' => false,
+                        'partner_material' => false,
+                        'as_you_prefer' => true,
+                        'verified' => false,
+                        'active' => false,
+                        'enrichment_status' => 'pending',
+                        'onboarding_status' => Site::ONBOARDING_AWAITING_DETAILS,
+                    ]);
+                    $site->save();
+
+                    $attached = $this->attachCreatedSiteToBulkItem($bulkRequest, $row, $site, $action);
+                    if ($action === 'bulk_request.done' && ! $attached) {
+                        $site->delete();
+                        $stillPending = $bulkRequest->items()
+                            ->whereKey((int) ($row['line'] ?? 0))
+                            ->pending()
+                            ->exists();
+                        if ($stillPending) {
+                            $failures[] = [
+                                'line' => $row['line'],
+                                'url' => $row['site_url'],
+                                'errors' => ['Could not attach this website. Try again.'],
+                            ];
+                        }
+
+                        continue;
+                    }
+
+                    $created++;
+                    $createdDomains[] = $domain;
+                } catch (UniqueConstraintViolationException $e) {
                     $failures[] = [
                         'line' => $row['line'],
                         'url' => $row['site_url'],
                         'errors' => ['Domain already registered: '.$domain],
                     ];
-
-                    continue;
                 }
-
-                $site = new Site;
-                $site->applyMarketplaceListing([
-                    'publisher_id' => $bulkRequest->publisher_id,
-                    'bulk_site_request_id' => $bulkRequest->id,
-                    'publisher_accepted_at' => now(),
-                    'assigned_by_user_id' => null,
-                    'site_name' => $row['site_name'],
-                    'site_url' => $row['site_url'],
-                    'domain' => $domain,
-                    'example_url' => $row['site_url'],
-                    'da' => $row['da'],
-                    'dr' => $row['dr'],
-                    'traffic' => $row['traffic'],
-                    'metrics_manual' => true,
-                    'metrics_provider' => 'manual',
-                    'metrics_fetched_at' => now(),
-                    'country' => $row['country'],
-                    'countries' => [$row['country']],
-                    'language' => $row['language'],
-                    'languages' => [$row['language']],
-                    'category' => $row['category'] ?? 'Pending',
-                    'categories' => $row['categories'] ?? null,
-                    'price' => $row['price'],
-                    'turnaround_time' => '3days',
-                    'publication_time' => 'permanent',
-                    'link_type' => 'dofollow',
-                    'description' => 'Please replace this placeholder with a real site description (at least 50 characters) before submitting for review.',
-                    'sponsored' => false,
-                    'partner_material' => false,
-                    'as_you_prefer' => true,
-                    'verified' => false,
-                    'active' => false,
-                    'enrichment_status' => 'pending',
-                    'onboarding_status' => Site::ONBOARDING_AWAITING_DETAILS,
-                ]);
-                $site->save();
-
-                $this->attachCreatedSiteToBulkItem($bulkRequest, $row, $site, $action);
-
-                $created++;
-                $createdDomains[] = $domain;
             }
 
             if ($created > 0) {
@@ -684,7 +755,7 @@ class BulkSiteRequestController extends Controller
      * @param  array<string, mixed>  $row
      * @param  'bulk_request.done'|'bulk_request.seeded'  $action
      */
-    private function attachCreatedSiteToBulkItem(BulkSiteRequest $bulkRequest, array $row, Site $site, string $action): void
+    private function attachCreatedSiteToBulkItem(BulkSiteRequest $bulkRequest, array $row, Site $site, string $action): bool
     {
         $query = $bulkRequest->items()->pending();
 
@@ -692,14 +763,16 @@ class BulkSiteRequestController extends Controller
         // pending URLs can share a host, and only the submitted row should link.
         if ($action === 'bulk_request.done') {
             $itemId = (int) ($row['line'] ?? 0);
-            if ($itemId > 0) {
-                $query->whereKey($itemId)->update(['site_id' => $site->id]);
-
-                return;
+            if ($itemId <= 0) {
+                return false;
             }
+
+            return $query->whereKey($itemId)->update(['site_id' => $site->id]) > 0;
         }
 
         $query->where('domain', $row['domain'])->update(['site_id' => $site->id]);
+
+        return true;
     }
 
     /**

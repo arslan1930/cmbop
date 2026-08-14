@@ -8,8 +8,8 @@
         </a>
         <h3 class="mt-2 mb-1">Bulk request #{{ $bulkRequest->id }}</h3>
         <p class="text-muted small mb-1">
-            Publisher: <strong>{{ $bulkRequest->publisher->name }}</strong>
-            ({{ $bulkRequest->publisher->email }})
+            Publisher: <strong>{{ $bulkRequest->publisher?->name ?? '—' }}</strong>
+            ({{ $bulkRequest->publisher?->email ?? '—' }})
             · Status: <strong>{{ $bulkRequest->statusLabel() }}</strong>
             · Sites submitted: {{ $bulkRequest->items->count() ?: ($bulkRequest->estimated_count ?? '—') }}
         </p>
@@ -888,13 +888,18 @@
         });
     }
 
+    function fields() {
+        return doneRows().flatMap(rowFields);
+    }
+
     function rowItemId(row) {
-        const fromAttr = row.getAttribute('data-item-id');
+        if (!row) return null;
+        const fromAttr = safeItemId(row.getAttribute('data-item-id'));
         if (fromAttr) return fromAttr;
         const language = row.querySelector('select[name*="[language]"]');
         const name = (language && language.name) || '';
         const match = name.match(/items\[(\d+)\]/);
-        return match ? match[1] : null;
+        return match ? safeItemId(match[1]) : null;
     }
 
     function isRejectControl(el) {
