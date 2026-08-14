@@ -11,11 +11,11 @@ class ContentLibraryController extends Controller
 {
     public function index(Request $request)
     {
-        $status = strtolower(trim((string) $request->query('status', 'all')));
-        $language = strtolower(trim((string) $request->query('language', '')));
-        $country = strtolower(trim((string) $request->query('country', '')));
-        $search = trim((string) $request->query('q', ''));
-        $userId = (int) $request->query('user_id', 0);
+        $status = strtolower(trim(scalar_text($request->query('status', 'all'))));
+        $language = strtolower(trim(scalar_text($request->query('language', ''))));
+        $country = strtolower(trim(scalar_text($request->query('country', ''))));
+        $search = trim(scalar_text($request->query('q', '')));
+        $userId = (int) scalar_text($request->query('user_id', 0));
 
         if (! in_array($status, ['all', 'approved', 'rejected', 'pending', 'processing', 'error', 'needs_improvement', 'archived', 'expired'], true)) {
             $status = 'all';

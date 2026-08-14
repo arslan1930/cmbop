@@ -115,6 +115,24 @@ class CatalogPrimaryCountryFilterTest extends TestCase
         $this->assertStringContainsString('US Primary Only', $html);
     }
 
+    public function test_array_country_and_search_do_not_500(): void
+    {
+        $this->site('de-multi', 'de', ['de', 'us'], 'DE Primary Multi Market');
+        $this->site('us-only', 'us', ['us'], 'US Primary Only');
+
+        $html = (string) $this->actingAs($this->advertiser)
+            ->get(route('advertiser.catalog', [
+                'country' => ['de', 'us'],
+                'search' => ['Primary'],
+            ]))
+            ->assertOk()
+            ->assertDontSee('Array to string conversion', false)
+            ->getContent();
+
+        $this->assertStringContainsString('DE Primary Multi Market', $html);
+        $this->assertStringContainsString('US Primary Only', $html);
+    }
+
     public function test_bulk_deals_fragment_follows_primary_country_only(): void
     {
         $this->site('de-bulk', 'de', ['de', 'us'], 'DE Bulk Multi');

@@ -265,6 +265,12 @@ class BillingInvoiceSystemTest extends TestCase
             ->assertSee($invoice->invoice_number, false);
 
         $this->actingAs($admin)
+            ->get(route('admin.invoices.index', ['search' => [$invoice->invoice_number]]))
+            ->assertOk()
+            ->assertSee($invoice->invoice_number, false)
+            ->assertDontSee('Array to string conversion', false);
+
+        $this->actingAs($admin)
             ->post(route('admin.invoices.cancel', $invoice), ['reason' => 'Test cancel'])
             ->assertRedirect();
 

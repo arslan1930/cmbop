@@ -95,6 +95,20 @@ class MissingRoutesFixesTest extends TestCase
         $this->assertStringContainsString('>Approve</button>', $html);
     }
 
+    public function test_admin_community_array_q_does_not_500(): void
+    {
+        $admin = $this->makeUser('admin');
+
+        $this->actingAs($admin)
+            ->get(route('admin.community.index', [
+                'tab' => ['claims'],
+                'q' => ['claim-target'],
+                'status' => ['pending'],
+            ]))
+            ->assertOk()
+            ->assertDontSee('Array to string conversion', false);
+    }
+
     public function test_publisher_feature_wallet_top_up_points_to_publisher_balance(): void
     {
         $publisher = $this->makeUser('publisher');

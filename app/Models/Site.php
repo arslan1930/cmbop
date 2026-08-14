@@ -1106,6 +1106,10 @@ class Site extends Model
     {
         return $query
             ->when($filters['search'] ?? null, function ($query, $search) {
+                $search = scalar_text($search);
+                if ($search === '') {
+                    return;
+                }
                 $query->where(function ($q) use ($search) {
                     $q->where('site_url', 'like', "%{$search}%")
                         ->orWhere('category', 'like', "%{$search}%")

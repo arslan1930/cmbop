@@ -54,7 +54,7 @@ class FinanceController extends Controller
             $query->where('direction', $request->direction);
         }
         if ($request->filled('search')) {
-            $search = $request->search;
+            $search = trim(scalar_text($request->search));
             $query->where(function ($q) use ($search) {
                 $q->where('reference', 'like', "%{$search}%")
                     ->orWhere('description', 'like', "%{$search}%")

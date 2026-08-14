@@ -20,7 +20,7 @@ class BillingController extends Controller
             ->where('status', '!=', Invoice::STATUS_CANCELLED);
 
         if ($request->filled('search')) {
-            $search = trim((string) $request->search);
+            $search = trim(scalar_text($request->search));
             $query->where(function ($q) use ($search) {
                 $q->where('invoice_number', 'like', "%{$search}%")
                     ->orWhere('reference_code', 'like', "%{$search}%")

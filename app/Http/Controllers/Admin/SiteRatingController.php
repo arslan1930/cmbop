@@ -17,13 +17,16 @@ class SiteRatingController extends Controller
             ->latest('id');
 
         if ($request->filled('status')) {
-            $query->where('status', $request->status);
+            $status = scalar_text($request->status);
+            if ($status !== '') {
+                $query->where('status', $status);
+            }
         }
         if ($request->filled('site_id')) {
-            $query->where('site_id', (int) $request->site_id);
+            $query->where('site_id', (int) scalar_text($request->site_id));
         }
         if ($request->filled('q')) {
-            $q = trim((string) $request->q);
+            $q = trim(scalar_text($request->q));
             $query->where(function ($inner) use ($q) {
                 $inner->where('comment', 'like', "%{$q}%")
                     ->orWhereHas('site', function ($s) use ($q) {

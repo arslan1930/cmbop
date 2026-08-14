@@ -45,11 +45,11 @@ class ContentLibraryController extends Controller
         $cfg['max_kilobytes'] = $this->uploads->effectiveMaxKilobytes($cfg);
         $cfg['php_max_kilobytes'] = $this->uploads->phpUploadMaxKilobytes();
         // Default to Approved (available) — the All chip was removed from the UI.
-        $status = strtolower(trim((string) $request->query('status', 'approved')));
-        $availability = strtolower(trim((string) $request->query('availability', 'available')));
-        $languageFilter = strtolower(trim((string) $request->query('language', '')));
-        $countryFilter = strtolower(trim((string) $request->query('country', '')));
-        $search = trim((string) $request->query('q', ''));
+        $status = strtolower(trim(scalar_text($request->query('status', 'approved'))));
+        $availability = strtolower(trim(scalar_text($request->query('availability', 'available'))));
+        $languageFilter = strtolower(trim(scalar_text($request->query('language', ''))));
+        $countryFilter = strtolower(trim(scalar_text($request->query('country', ''))));
+        $search = trim(scalar_text($request->query('q', '')));
 
         if (! in_array($status, ['all', 'approved', 'rejected', 'needs_improvement'], true)) {
             $status = 'approved';

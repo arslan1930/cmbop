@@ -184,4 +184,16 @@ class SiteRatingTest extends TestCase
         $site->refresh();
         $this->assertSame(0, (int) $site->rating_count);
     }
+
+    public function test_admin_ratings_index_array_q_does_not_500(): void
+    {
+        $this->actingAs($this->admin())
+            ->get(route('admin.site-ratings.index', [
+                'q' => ['rated.example'],
+                'status' => ['approved'],
+                'site_id' => ['1'],
+            ]))
+            ->assertOk()
+            ->assertDontSee('Array to string conversion', false);
+    }
 }

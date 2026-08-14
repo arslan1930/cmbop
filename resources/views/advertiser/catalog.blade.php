@@ -202,9 +202,9 @@
     // Category: one named chip per niche (clear removes that niche only).
     $activeFilterChips = [];
     if (request('site')) $activeFilterChips[] = ['label' => 'Recommended site', 'key' => 'site', 'params' => ['site']];
-    if (request('search')) $activeFilterChips[] = ['label' => 'Search: '.request('search'), 'key' => 'search', 'params' => ['search']];
+    if (request('search')) $activeFilterChips[] = ['label' => 'Search: '.scalar_text(request('search')), 'key' => 'search', 'params' => ['search']];
     if (request('category')) {
-        $categoryCanonical = \App\Models\Category::canonicalizeCatalogCategoryParam((string) request('category'));
+        $categoryCanonical = \App\Models\Category::canonicalizeCatalogCategoryParam(csv_text(request('category')));
         foreach (\App\Models\Category::parseCatalogCategoryParam($categoryCanonical) as $niche) {
             $activeFilterChips[] = [
                 'label' => $niche,
@@ -296,7 +296,7 @@
                                        title="{{ $inCatalogHideMode
                                            ? 'Results update as you type. Matching rows stay masked until you use the eye.'
                                            : 'Results update as you type in the catalog table. Metric tokens (da>40, price<100) apply on search.' }}"
-                                       value="{{ request('search') }}"
+                                       value="{{ scalar_text(request('search')) }}"
                                        autocomplete="off"
                                        enterkeyhint="search"
                                        aria-describedby="catalogSearchStatus">
@@ -336,7 +336,7 @@
                                     <div class="multi-select-empty d-none">No categories found</div>
                                 </div>
                             </div>
-                            <input type="hidden" name="category" id="selectedCategory" value="{{ \App\Models\Category::canonicalizeCatalogCategoryParam((string) request('category', '')) }}">
+                            <input type="hidden" name="category" id="selectedCategory" value="{{ \App\Models\Category::canonicalizeCatalogCategoryParam(csv_text(request('category', ''))) }}">
                         </div>
 
                         <!-- Primary: Country (searchable dropdown) -->
@@ -394,7 +394,7 @@
                                     <div class="multi-select-empty d-none">No countries found</div>
                                 </div>
                             </div>
-                            <input type="hidden" name="country" id="selectedCountry" value="{{ request('country') }}">
+                            <input type="hidden" name="country" id="selectedCountry" value="{{ csv_text(request('country')) }}">
                         </div>
 
                         <!-- Primary: Language (searchable dropdown) -->
@@ -423,7 +423,7 @@
                                     <div class="multi-select-empty d-none">No languages found</div>
                                 </div>
                             </div>
-                            <input type="hidden" name="language" id="selectedLanguage" value="{{ request('language') }}">
+                            <input type="hidden" name="language" id="selectedLanguage" value="{{ csv_text(request('language')) }}">
                         </div>
 
                         <!-- Primary: Price -->
@@ -684,7 +684,7 @@
                     Searching for a site that isn’t listed yet?
                 </p>
                 <button type="button" class="btn btn-sm btn-outline-success btn-suggest-website"
-                        data-search="{{ request('search') }}">
+                        data-search="{{ scalar_text(request('search')) }}">
                     <i class="fa-solid fa-lightbulb me-1" aria-hidden="true"></i> Suggest a website
                 </button>
             </div>
@@ -704,10 +704,10 @@
 window.CatalogConfig = {
     favorites: @json($favorites ?? []),
     blacklist: @json($blacklist ?? []),
-    categoryParam: @json(\App\Models\Category::canonicalizeCatalogCategoryParam((string) request('category', ''))),
+    categoryParam: @json(\App\Models\Category::canonicalizeCatalogCategoryParam(csv_text(request('category', '')))),
     categoryNames: @json(array_values($siteCategories ?? [])),
-    countryParam: @json((string) request('country', '')),
-    languageParam: @json((string) request('language', '')),
+    countryParam: @json(csv_text(request('country', ''))),
+    languageParam: @json(csv_text(request('language', ''))),
     countryLanguageMap: @json(app(\App\Services\Marketplace\CountryLanguagePairs::class)->mapWithNames()),
     countryGroups: @json(collect($countryPickerGroups ?? [])->mapWithKeys(fn ($g) => [$g['key'] => $g['codes']])->all()),
     countryGroupLabels: @json(collect($countryPickerGroups ?? [])->mapWithKeys(fn ($g) => [$g['key'] => $g['label']])->all()),

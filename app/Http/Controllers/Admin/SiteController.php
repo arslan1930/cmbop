@@ -635,11 +635,7 @@ class SiteController extends Controller
      */
     public function createForPublisher(Request $request): View
     {
-        $rawSelectedPublisher = old('publisher_id', $request->query('publisher', 0));
-        if (is_array($rawSelectedPublisher)) {
-            $rawSelectedPublisher = reset($rawSelectedPublisher);
-        }
-        $selectedPublisherId = (int) $rawSelectedPublisher;
+        $selectedPublisherId = (int) scalar_text(old('publisher_id', $request->query('publisher', 0)));
 
         $publishers = User::query()
             ->whereHas('roles', fn ($q) => $q->where('name', 'publisher'))

@@ -87,6 +87,10 @@ class PublisherMySitesOldTextTest extends TestCase
         $this->assertSame('pending', scalar_text([['pending']]));
         $this->assertSame('', scalar_text([]));
         $this->assertSame('ok', scalar_text('ok'));
+        $this->assertTrue(function_exists('csv_text'));
+        $this->assertSame('de,fr', csv_text(['de', 'fr']));
+        $this->assertSame('de,us', csv_text([['de'], 'us']));
+        $this->assertSame('de,us', csv_text('de,us'));
     }
 
     public function test_my_sites_ajax_survives_array_query_and_status(): void

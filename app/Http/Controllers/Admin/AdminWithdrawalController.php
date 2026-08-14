@@ -42,7 +42,7 @@ class AdminWithdrawalController extends Controller
             }
 
             if ($request->filled('search')) {
-                $search = $request->search;
+                $search = trim(scalar_text($request->search));
                 $query->where(function ($q) use ($search) {
                     $q->where('id', 'like', "%{$search}%")
                         ->orWhereHas('user', function ($sub) use ($search) {

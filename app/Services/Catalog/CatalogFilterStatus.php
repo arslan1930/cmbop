@@ -32,7 +32,7 @@ class CatalogFilterStatus
      */
     public function summarize(Request $request, int $total, ?int $firstItem = null, ?int $lastItem = null): array
     {
-        $search = trim((string) $request->input('search', ''));
+        $search = trim(scalar_text($request->input('search', '')));
         $countries = $this->selectedCountryCodes($request);
         $countryLabel = $this->countryLabels($countries);
         $niches = $this->selectedNiches($request);
@@ -133,7 +133,7 @@ class CatalogFilterStatus
      */
     public function emptyRecovery(Request $request): array
     {
-        $search = trim((string) $request->input('search', ''));
+        $search = trim(scalar_text($request->input('search', '')));
         $countries = $this->selectedCountryCodes($request);
         $hasCountry = $countries !== [];
         $niches = $this->selectedNiches($request);
@@ -207,7 +207,7 @@ class CatalogFilterStatus
      */
     public function selectedNiches(Request $request): array
     {
-        $raw = trim((string) $request->input('category', ''));
+        $raw = trim(csv_text($request->input('category', '')));
         if ($raw === '') {
             return [];
         }
@@ -222,7 +222,7 @@ class CatalogFilterStatus
      */
     public function selectedCountryCodes(Request $request): array
     {
-        $raw = (string) $request->input('country', '');
+        $raw = csv_text($request->input('country', ''));
         $codes = [];
         foreach (explode(',', $raw) as $code) {
             $normalized = strtolower(trim($code));

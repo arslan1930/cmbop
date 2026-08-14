@@ -37,6 +37,31 @@ if (! function_exists('scalar_text')) {
     }
 }
 
+if (! function_exists('csv_text')) {
+    /**
+     * Comma-separated filter value. Arrays become "de,fr" instead of 500ing
+     * explode() / htmlspecialchars() on catalog country and language.
+     */
+    function csv_text(mixed $value): string
+    {
+        if (is_array($value)) {
+            $flat = [];
+            array_walk_recursive($value, function ($item) use (&$flat) {
+                if (is_scalar($item) && ! is_bool($item)) {
+                    $part = trim((string) $item);
+                    if ($part !== '') {
+                        $flat[] = $part;
+                    }
+                }
+            });
+
+            return implode(',', $flat);
+        }
+
+        return scalar_text($value);
+    }
+}
+
 if (! function_exists('old_text')) {
     /**
      * Old input for a field that must render as a single value.

@@ -44,7 +44,7 @@ class PaymentController extends Controller
 
             // Search filter
             if ($request->filled('search')) {
-                $search = $request->search;
+                $search = trim(scalar_text($request->search));
                 $query->where(function ($q) use ($search) {
                     $q->where('order_number', 'like', "%{$search}%")
                         ->orWhere('reference_code', 'like', "%{$search}%")

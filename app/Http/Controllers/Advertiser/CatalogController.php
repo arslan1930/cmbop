@@ -167,7 +167,7 @@ class CatalogController extends Controller
         $availableCountries = $this->getAvailableCountries();
         $selectedCountryCodes = array_values(array_filter(array_map(
             static fn ($c) => strtolower(trim((string) $c)),
-            explode(',', (string) $request->input('country', ''))
+            explode(',', csv_text($request->input('country', '')))
         )));
         try {
             $countryPicker = app(CatalogCountryInventory::class)
@@ -312,7 +312,7 @@ class CatalogController extends Controller
         }
 
         $blacklist = UserBlacklist::where('user_id', auth()->id())->pluck('site_id')->toArray();
-        $showBlacklistedOnly = $request->filled('blacklist_filter') && (string) $request->blacklist_filter === '1';
+        $showBlacklistedOnly = $request->filled('blacklist_filter') && scalar_text($request->blacklist_filter) === '1';
         $bulkDeals = $this->loadBulkDeals($request, $blacklist, $showBlacklistedOnly);
 
         $urlVisibility = app(SiteUrlVisibility::class);
@@ -374,7 +374,7 @@ class CatalogController extends Controller
         if ($request->filled('country') && ! empty($request->country)) {
             $countries = array_values(array_filter(array_map(function ($c) {
                 return strtolower(trim($c));
-            }, explode(',', (string) $request->country))));
+            }, explode(',', csv_text($request->country)))));
             if ($countries !== []) {
                 // Primary country only (scalar sites.country) — matches catalog flag.
                 app(CatalogCountryInventory::class)
@@ -385,7 +385,7 @@ class CatalogController extends Controller
         if ($request->filled('language') && ! empty($request->language)) {
             // Option A: all sites offering these languages (AND with country above).
             app(CatalogLanguageFilter::class)
-                ->constrainQuery($query, explode(',', (string) $request->language));
+                ->constrainQuery($query, explode(',', csv_text($request->language)));
         }
 
         $bulkDeals = $query
@@ -453,7 +453,7 @@ class CatalogController extends Controller
         // Country & language stay on the dedicated multi-selects.
         // Parse before blacklist so a name search can still surface blocked rows.
         $catalogSearch = app(CatalogSearchQuery::class);
-        $rawSearch = trim((string) $request->input('search', ''));
+        $rawSearch = trim(scalar_text($request->input('search', '')));
         $parsedSearch = $catalogSearch->parse($rawSearch);
         $searchMerge = $catalogSearch->mergeIntoRequestInput(
             $rawSearch,
@@ -464,7 +464,7 @@ class CatalogController extends Controller
         if ($searchMerge !== []) {
             $request->merge($searchMerge);
         }
-        $searchText = trim((string) $request->input('search', ''));
+        $searchText = trim(scalar_text($request->input('search', '')));
 
         // Blacklist filter / browse hide — but free-text search includes matches
         // (dimmed via blacklisted-row) so buyers can find and unblock them.
@@ -557,7 +557,7 @@ class CatalogController extends Controller
             // category= uses `|` (publisher-aligned). Legacy comma URLs are parsed
             // longest-first against known niches — never blindly explode(',').
             // Include unknown tokens so niches not yet in `categories` still filter.
-            $categories = Category::catalogFilterNicheNames((string) $request->category);
+            $categories = Category::catalogFilterNicheNames(csv_text($request->category));
             if ($categories !== []) {
                 Category::constrainQueryToNicheNames($query, $categories);
             }
@@ -566,7 +566,7 @@ class CatalogController extends Controller
         if ($request->filled('country') && ! empty($request->country)) {
             $countries = array_values(array_filter(array_map(function ($c) {
                 return strtolower(trim($c));
-            }, explode(',', $request->country))));
+            }, explode(',', csv_text($request->country)))));
             // Primary country only (scalar sites.country) — matches catalog flag /
             // inventory counts. Do not match JSON countries "contains".
             app(CatalogCountryInventory::class)
@@ -577,11 +577,11 @@ class CatalogController extends Controller
             // Option A: language-only → all sites offering these languages (any country).
             // With country= also set, constraints AND. Never auto-sets country.
             // When country is set, drop language codes that are not paired with those countries.
-            $languageCodes = explode(',', (string) $request->language);
+            $languageCodes = explode(',', csv_text($request->language));
             if ($request->filled('country') && ! empty($request->country)) {
                 $countryCodes = array_values(array_filter(array_map(
                     static fn ($c) => strtolower(trim((string) $c)),
-                    explode(',', (string) $request->country)
+                    explode(',', csv_text($request->country))
                 )));
                 $allowed = app(CountryLanguagePairs::class)
                     ->languageCodesForCountries($countryCodes);
@@ -1189,7 +1189,7 @@ class CatalogController extends Controller
     public function suggest(Request $request, CatalogSearchQuery $catalogSearch, SiteUrlVisibility $visibility): JsonResponse
     {
         $user = auth()->user();
-        $raw = trim((string) $request->query('q', $request->input('q', '')));
+        $raw = trim(scalar_text($request->query('q', $request->input('q', ''))));
         $parsed = $catalogSearch->parse($raw);
         $text = trim((string) ($parsed['text'] ?? ''));
 
@@ -1862,7 +1862,7 @@ class CatalogController extends Controller
     {
         // Abandoned Stripe checkout: cancel unpaid pending card orders for this reference
         if ($request->boolean('canceled') && $request->filled('ref')) {
-            $this->cancelUnpaidCardOrdersAndRestoreCart((string) $request->ref);
+            $this->cancelUnpaidCardOrdersAndRestoreCart(scalar_text($request->ref));
         }
 
         $this->syncPrunedSessionCart();
@@ -3437,8 +3437,8 @@ class CatalogController extends Controller
             $query = Order::where('user_id', $userId)
                 ->with(OrderItemDispute::tableAvailable() ? ['items.latestDispute'] : ['items']);
 
-            $search = trim((string) $request->input('search', ''));
-            $statusFilter = strtolower(trim((string) $request->input('status', '')));
+            $search = trim(scalar_text($request->input('search', '')));
+            $statusFilter = strtolower(trim(scalar_text($request->input('status', ''))));
 
             // Search filter — word-AND across order #, reference, site name/URL, live URL
             if ($search !== '') {

@@ -18,13 +18,13 @@ class CommunityFeedbackController extends Controller
 
     public function index(Request $request)
     {
-        $tab = $request->get('tab', 'problems');
+        $tab = scalar_text($request->get('tab', 'problems'));
         if (! in_array($tab, ['problems', 'suggestions', 'websites', 'claims'], true)) {
             $tab = 'problems';
         }
 
-        $status = $request->get('status');
-        $q = trim((string) $request->get('q', ''));
+        $status = scalar_text($request->get('status'));
+        $q = trim(scalar_text($request->get('q', '')));
 
         $problems = ProblemReport::query()
             ->with(['user:id,name,email', 'reviewer:id,name'])

@@ -80,6 +80,22 @@ class ContentLibraryPhases710Test extends TestCase
             ->assertJsonPath('id', $submission->id);
     }
 
+    public function test_admin_content_library_array_q_does_not_500(): void
+    {
+        $admin = $this->admin();
+        $advertiser = $this->advertiser();
+        $submission = $this->createApprovedSubmission($advertiser);
+        $submission->update(['title' => 'Array Library Piece']);
+
+        $this->actingAs($admin)
+            ->get(route('admin.content-library.index', [
+                'q' => ['Array Library'],
+            ]))
+            ->assertOk()
+            ->assertSee('Array Library Piece')
+            ->assertDontSee('Array to string conversion', false);
+    }
+
     public function test_admin_moderation_exposes_placement_language_toggle(): void
     {
         $admin = $this->admin();

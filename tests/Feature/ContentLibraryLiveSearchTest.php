@@ -48,6 +48,21 @@ class ContentLibraryLiveSearchTest extends TestCase
         $this->assertStringContainsString('library-table', $html);
     }
 
+    public function test_results_array_q_does_not_500(): void
+    {
+        $advertiser = $this->advertiser();
+        $article = $this->createApprovedSubmission($advertiser);
+        $article->update(['title' => 'Array Query Playbook']);
+
+        $this->actingAs($advertiser)
+            ->get(route('advertiser.content-library.results', [
+                'q' => ['Array Query'],
+            ]))
+            ->assertOk()
+            ->assertSee('Array Query Playbook')
+            ->assertDontSee('Array to string conversion', false);
+    }
+
     public function test_index_has_catalog_search_chrome(): void
     {
         $advertiser = $this->advertiser();

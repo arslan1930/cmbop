@@ -811,6 +811,25 @@ class AdminAssignSiteForPublisherTest extends TestCase
             ->assertSee('Accept / Decline', false);
     }
 
+    public function test_nested_array_publisher_query_does_not_select_user_one(): void
+    {
+        $other = User::factory()->create([
+            'email_verified_at' => now(),
+            'active_role_id' => $this->publisher->active_role_id,
+        ]);
+        $other->roles()->attach($this->publisher->active_role_id);
+
+        $html = $this->actingAs($this->admin)
+            ->get(route('admin.sites.create', ['publisher' => [[(string) $this->publisher->id]]]))
+            ->assertOk()
+            ->assertDontSee('Array to string conversion', false)
+            ->getContent();
+
+        $this->assertStringContainsString('value="'.$this->publisher->id.'"', $html);
+        $this->assertStringNotContainsString('value="1" selected', $html);
+        $this->assertStringContainsString((string) $this->publisher->email, $html);
+    }
+
     public function test_admin_create_page_uses_verify_first_copy_and_posts_language(): void
     {
         $html = $this->actingAs($this->admin)

@@ -123,7 +123,7 @@ class PublisherReportsController extends Controller
 
             $this->applyDateFilters($query, $request);
 
-            $status = (string) $request->get('status', 'completed');
+            $status = scalar_text($request->get('status', 'completed'));
             if ($status !== '' && $status !== 'all' && in_array($status, self::ORDER_STATUSES, true)) {
                 $query->whereHas('order', function ($q) use ($status) {
                     if ($status === 'scheduled') {
@@ -240,7 +240,7 @@ class PublisherReportsController extends Controller
 
             $this->applyDateFilters($query, $request);
 
-            $status = (string) $request->get('status', 'completed');
+            $status = scalar_text($request->get('status', 'completed'));
             if ($status !== '' && $status !== 'all' && in_array($status, self::WITHDRAWAL_STATUSES, true)) {
                 $query->where('status', $status);
             }
