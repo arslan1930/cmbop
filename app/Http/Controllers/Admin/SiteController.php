@@ -1494,7 +1494,6 @@ class SiteController extends Controller
             'language' => 'required|string|max:10',
             'country' => 'required|string|max:10',
             'categories' => 'required|array|min:1|max:7',
-            'site_image' => 'nullable|file|mimes:jpeg,png,jpg,gif,webp|max:'.$this->siteImageMaxKilobytes(),
         ];
         if ($canFixListing) {
             $rules['site_name'] = 'sometimes|required|string|max:255';
@@ -1504,6 +1503,14 @@ class SiteController extends Controller
         }
 
         $validator = Validator::make($request->all(), $rules, $this->siteImageValidationMessages());
+
+        // site_image is often a stored path string after upload-image; only
+        // validate as a file when a real upload is present.
+        if ($request->hasFile('site_image')) {
+            $validator->addRules([
+                'site_image' => 'file|mimes:jpeg,png,jpg,gif,webp|max:'.$this->siteImageMaxKilobytes(),
+            ]);
+        }
 
         $validator->after(function ($validator) use ($request, $allowedCountries, $allowedLanguages, $unknownNiches, $canFixListing, $site) {
             $language = strtolower(trim((string) $request->input('language', '')));

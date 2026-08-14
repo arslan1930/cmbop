@@ -875,25 +875,29 @@ document.addEventListener('click', function(e){
     if(e.target.closest('.delete-site')){
         let id = e.target.closest('button').dataset.id;
         let site = allSites.find(s => s.id == id);
-        const needsReason = IS_MARKETING_EDITOR;
+        const isArchive = canArchiveSiteRow(site) || e.target.closest('.delete-site').dataset.archive === '1';
+        const name = site?.site_name || 'this site';
+        const title = isArchive
+            ? 'Archive this site?'
+            : (IS_MARKETING_EDITOR ? 'Reject this site?' : 'Delete this site?');
+        const text = isArchive
+            ? `"${name}" will be hidden from the catalog. Explain why — the publisher will see this reason. The listing is kept so order history stays intact.`
+            : (IS_MARKETING_EDITOR
+                ? `Explain why "${name}" is being rejected. The publisher will see this reason.`
+                : `Are you sure you want to delete "${name}"? Explain why — the publisher will see this reason in email and notifications.`);
 
         Swal.fire({
-            title: needsReason ? 'Reject this site?' : 'Delete this site?',
-            text: needsReason
-                ? `Explain why "${site?.site_name}" is being rejected. The publisher will see this reason.`
-                : `Are you sure you want to delete "${site?.site_name}"?`,
-            input: needsReason ? 'textarea' : undefined,
-            inputPlaceholder: needsReason ? 'Rejection reason (at least 10 characters)' : undefined,
-            inputAttributes: needsReason ? { 'aria-label': 'Rejection reason', maxlength: '1000' } : undefined,
+            title,
+            text,
             icon:'warning',
             input: 'textarea',
             inputLabel: 'Reason for the publisher',
             inputPlaceholder: 'Reason (min. 10 characters)',
             inputAttributes: { 'aria-label': isArchive ? 'Archive reason' : 'Rejection reason', maxlength: '1000' },
             showCancelButton:true,
-            confirmButtonText: needsReason ? 'Reject' : 'Delete',
+            confirmButtonText: isArchive ? 'Archive' : (IS_MARKETING_EDITOR ? 'Reject' : 'Delete'),
             customClass: { confirmButton: 'slb-swal-danger' },
-            preConfirm: needsReason ? (value) => {
+            preConfirm: (value) => {
                 const reason = String(value || '').trim();
                 if (reason.length < 10) {
                     Swal.showValidationMessage('Please enter a reason (at least 10 characters).');
@@ -904,27 +908,27 @@ document.addEventListener('click', function(e){
                     return false;
                 }
                 return reason;
-            } : undefined,
+            },
         }).then(result => {
             if(!result.isConfirmed) return;
 
-            const headers = {
-                'X-CSRF-TOKEN': CSRF_TOKEN,
-                'Accept': 'application/json',
-                'X-Requested-With': 'XMLHttpRequest',
-            };
-            const opts = {
-                method:'DELETE',
-                headers,
-                credentials: 'same-origin',
-            };
-            if (needsReason) {
-                headers['Content-Type'] = 'application/json';
-                opts.body = JSON.stringify({ reason: String(result.value || '').trim() });
+            const reason = String(result.value || '').trim();
+            if (reason.length < 10) {
+                toast('A reason is required (min. 10 characters).', 'error');
+                return;
             }
 
-            fetch(`${STAFF_BASE}/sites/${id}`, opts)
-            .then(async (res) => {
+            fetch(`${STAFF_BASE}/sites/${id}`, {
+                method:'DELETE',
+                headers:{
+                    'Content-Type':'application/json',
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRF-TOKEN': CSRF_TOKEN,
+                },
+                credentials: 'same-origin',
+                body: JSON.stringify({ reason }),
+            }).then(async (res) => {
                 let data = {};
                 try {
                     data = await res.json();
@@ -932,18 +936,17 @@ document.addEventListener('click', function(e){
                     throw new Error(`Failed to delete site (${res.status})`);
                 }
 
-                if(!res.ok || !data.success) {
+                if (!res.ok || !data.success) {
                     const reasonErr = data.errors && data.errors.reason
                         ? (Array.isArray(data.errors.reason) ? data.errors.reason[0] : data.errors.reason)
                         : null;
-                    throw new Error(reasonErr || data.message || 'Failed to delete site');
+                    throw new Error(reasonErr || data.message || (isArchive ? 'Could not archive site' : 'Failed to delete site'));
                 }
 
-                toast(data.message || 'Deleted successfully');
+                toast(data.message || (data.archived ? 'Site archived' : 'Deleted successfully'));
                 afterSiteDecision();
-            })
-            .catch((error) => {
-                toast(error.message || 'Failed to delete site', 'error');
+            }).catch((error) => {
+                toast(error.message || (isArchive ? 'Could not archive site' : 'Failed to delete site'), 'error');
             });
         });
     }
