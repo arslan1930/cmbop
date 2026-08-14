@@ -144,12 +144,24 @@ class BulkSiteRequestController extends Controller
         return back()->with('success', 'Notes saved.');
     }
 
-    public function cancel(int $id)
+    public function cancel(Request $request, int $id)
     {
         $bulkRequest = BulkSiteRequest::findOrFail($id);
+
+        $request->merge([
+            'reason' => trim((string) $request->input('reason')),
+        ]);
+        $validated = $request->validate([
+            'reason' => ['required', 'string', 'min:3', 'max:500'],
+        ], [
+            'reason.required' => 'Give a short reason for cancelling this request.',
+        ]);
+        $reason = $validated['reason'];
+
         $previous = $bulkRequest->status;
         $bulkRequest->forceFill([
             'status' => BulkSiteRequest::STATUS_CANCELLED,
+            'cancel_reason' => $reason,
             'handled_by' => auth()->id(),
         ])->save();
 
@@ -162,13 +174,13 @@ class BulkSiteRequestController extends Controller
                 'publisher_id' => $bulkRequest->publisher_id,
                 'from_status' => $previous,
                 'sites_remaining' => $bulkRequest->sites()->count(),
+                'reason' => $reason,
             ],
             'Bulk request #'.$bulkRequest->id
         );
 
         // Cancelling was silent, so the request simply vanished from the
         // publisher's queue — which reads as us losing their work.
-        $reason = request()->input('reason');
         $publisher = $bulkRequest->publisher;
 
         try {

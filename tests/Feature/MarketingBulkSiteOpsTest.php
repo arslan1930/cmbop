@@ -476,6 +476,13 @@ class MarketingBulkSiteOpsTest extends TestCase
         $this->assertStringContainsString('data-bulk-progress', $html);
         $this->assertStringContainsString('Still to Done', $html);
         $this->assertStringContainsString('Reject this site only. The rest of the batch stays open.', $html);
+        $this->assertStringContainsString("title: 'Done — add draft sites?'", $html);
+        $this->assertStringContainsString("confirmText: 'Done'", $html);
+        $this->assertStringNotContainsString("title: 'Seed draft sites?'", $html);
+        $this->assertStringContainsString('This removes the wrong draft.', $html);
+        $this->assertStringContainsString('The publisher will see your reason.', $html);
+        $this->assertStringContainsString('name="reason"', $html);
+        $this->assertStringContainsString('id="bulk-cancel-reason"', $html);
     }
 
     public function test_marketer_done_from_items_creates_drafts_and_notifies(): void
@@ -670,14 +677,51 @@ class MarketingBulkSiteOpsTest extends TestCase
         ]);
 
         $this->actingAs($this->marketer)
-            ->post(route('marketing.bulk-site-requests.cancel', $bulk))
+            ->from(route('marketing.bulk-site-requests.show', $bulk))
+            ->post(route('marketing.bulk-site-requests.cancel', $bulk), [
+                'reason' => 'Publisher asked to stop this batch.',
+            ])
             ->assertRedirect(route('marketing.bulk-site-requests.index'));
 
         $this->assertDatabaseHas('activity_logs', [
             'action' => 'bulk_request.cancelled',
             'user_id' => $this->marketer->id,
         ]);
-        $this->assertSame(BulkSiteRequest::STATUS_CANCELLED, $bulk->fresh()->status);
+        $cancelled = $bulk->fresh();
+        $this->assertSame(BulkSiteRequest::STATUS_CANCELLED, $cancelled->status);
+        $this->assertSame('Publisher asked to stop this batch.', $cancelled->cancel_reason);
+
+        $log = ActivityLog::query()->where('action', 'bulk_request.cancelled')->latest('id')->first();
+        $this->assertSame('Publisher asked to stop this batch.', $log?->properties['reason'] ?? null);
+
+        $this->actingAs($this->marketer)
+            ->get(route('marketing.bulk-site-requests.show', $bulk))
+            ->assertOk()
+            ->assertSee('data-bulk-cancel-reason', false)
+            ->assertSee('Publisher asked to stop this batch.', false);
+
+        $this->actingAs($this->marketer)
+            ->get(route('marketing.history'))
+            ->assertOk()
+            ->assertSee('Cancelled bulk request', false)
+            ->assertSee('Publisher asked to stop this batch.', false);
+    }
+
+    public function test_cancel_requires_a_reason(): void
+    {
+        $bulk = $this->makeBulkRequest();
+        $bulk->update(['status' => BulkSiteRequest::STATUS_REQUESTED]);
+
+        $this->actingAs($this->marketer)
+            ->from(route('marketing.bulk-site-requests.show', $bulk))
+            ->post(route('marketing.bulk-site-requests.cancel', $bulk), [
+                'reason' => '',
+            ])
+            ->assertRedirect(route('marketing.bulk-site-requests.show', $bulk))
+            ->assertSessionHasErrors('reason');
+
+        $this->assertSame(BulkSiteRequest::STATUS_REQUESTED, $bulk->fresh()->status);
+        $this->assertNull($bulk->fresh()->cancel_reason);
     }
 
     public function test_sheet_sent_cannot_rewind_a_live_batch(): void

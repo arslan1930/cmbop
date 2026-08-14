@@ -60,13 +60,30 @@
                             </button>
                         </form>
                     @endif
+                    @if($bulkRequest->isCancelled() && $bulkRequest->cancel_reason)
+                        <div class="alert alert-secondary py-2 small mb-3" data-bulk-cancel-reason>
+                            Cancelled. Reason: {{ $bulkRequest->cancel_reason }}
+                        </div>
+                    @endif
                     @if($bulkRequest->canAddDraftSites())
                         <form method="POST" action="{{ staff_route('bulk-site-requests.cancel', $bulkRequest) }}"
-                              data-slb-confirm="Cancel this bulk request? History is kept."
+                              data-slb-confirm="Cancel this bulk request? The publisher will see your reason. History is kept."
                               data-slb-confirm-title="Cancel bulk request?"
                               data-slb-confirm-text="Cancel request"
                               data-slb-confirm-danger="1">
                             @csrf
+                            <label class="form-label small" for="bulk-cancel-reason">Reason for publisher</label>
+                            <textarea id="bulk-cancel-reason"
+                                      name="reason"
+                                      class="form-control form-control-sm mb-2 @error('reason') is-invalid @enderror"
+                                      rows="2"
+                                      required
+                                      minlength="3"
+                                      maxlength="500"
+                                      placeholder="Why this request is being cancelled">{{ old_text('reason') }}</textarea>
+                            @error('reason')
+                                <div class="invalid-feedback d-block mb-2">{{ $message }}</div>
+                            @enderror
                             <button type="submit" class="btn btn-sm btn-outline-danger w-100">Cancel request</button>
                         </form>
                     @endif
@@ -883,11 +900,11 @@ document.getElementById('bulkCopySeedStarter')?.addEventListener('click', functi
         const submittedIds = complete.map(rowItemId).filter(Boolean);
         e.preventDefault();
         const confirmFn = window.slbConfirm({
-            title: 'Seed draft sites?',
+            title: 'Done — add draft sites?',
             text: remaining > 0
                 ? ('Add ' + count + ' complete draft site(s) now and notify the publisher? ' + remaining + ' unfinished row(s) will stay pending.')
                 : ('Add ' + count + ' draft site(s) to this publisher’s Pending sites and notify them?'),
-            confirmText: 'Add drafts',
+            confirmText: 'Done',
             icon: 'question',
         });
 
@@ -916,7 +933,7 @@ document.querySelectorAll('.bulk-draft-delete').forEach(function (btn) {
         const name = this.getAttribute('data-site-name') || 'this site';
         const ok = await window.slbConfirm({
                 title: 'Delete draft site?',
-                text: 'Delete draft "' + name + '"? This removes the wrong seed. History of the delete is kept.',
+                text: 'Delete draft "' + name + '"? This removes the wrong draft. History of the delete is kept.',
                 confirmText: 'Delete draft',
                 danger: true,
             });

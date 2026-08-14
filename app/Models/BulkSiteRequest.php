@@ -30,6 +30,7 @@ class BulkSiteRequest extends Model
         'estimated_count',
         'publisher_note',
         'admin_notes',
+        'cancel_reason',
         'sheet_sent_at',
         'seeded_at',
         'completed_at',
