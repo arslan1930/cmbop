@@ -67,9 +67,13 @@ class BulkDoneDraftAndNicheUiTest extends TestCase
             ->get(route('marketing.bulk-site-requests.show', $bulk))
             ->assertOk()
             ->assertSee('id="bulkDoneForm"', false)
-            ->assertSee('bulk-done-table-wrap', false)
+            ->assertSee('bulk-done-list', false)
+            ->assertSee('bulk-done-card', false)
+            ->assertSee('data-bulk-done-density', false)
+            ->assertSee('Note for publisher', false)
             ->assertSee('bulkDoneDraft:'.$bulk->id.':'.$this->marketer->id, false)
             ->assertSee('sessionStorage', false)
+            ->assertSee('bulkDoneDensity', false)
             ->assertSee('restoreDraftIfNeeded', false)
             ->assertSee('categoryWrapper-done'.$bulk->items()->first()->id, false)
             ->getContent();
@@ -83,10 +87,16 @@ class BulkDoneDraftAndNicheUiTest extends TestCase
 
         // The fixed grid layout now lives in the shared stylesheet, not inline.
         $this->assertStringContainsString('staff-sites.css', $html);
-        $this->assertStringContainsString('bulk-done-grid', $html);
+        $this->assertStringContainsString('bulk-done-card-fields', $html);
+        $this->assertStringContainsString('form="reject-item-'.$bulk->items()->first()->id.'"', $html);
+        $this->assertStringContainsString('data-bulk-reject-note', $html);
+        $this->assertStringContainsString('function isRejectControl', $html);
+        $this->assertStringContainsString('localStorage.getItem(storageKey)', $html);
+        $this->assertStringNotContainsString('placeholder="Reason"', $html);
         $staffCss = file_get_contents(public_path('assets/css/staff-sites.css'));
-        $this->assertStringContainsString('.bulk-done-grid', $staffCss);
-        $this->assertStringContainsString('table-layout: fixed', $staffCss);
+        $this->assertStringContainsString('.bulk-done-card', $staffCss);
+        $this->assertStringContainsString('.bulk-done-list.is-compact', $staffCss);
+        $this->assertStringContainsString('grid-column: 1 / -1', $staffCss);
 
         $js = file_get_contents(public_path('js/multi-select.js'));
         $this->assertStringContainsString('multi-select-dropdown--fixed', $js);

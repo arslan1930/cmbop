@@ -590,6 +590,10 @@ class MarketingBulkSiteOpsTest extends TestCase
         $this->assertStringContainsString('This removes the wrong draft.', $html);
         $this->assertStringContainsString('The publisher will see your reason.', $html);
         $this->assertStringContainsString('name="reason"', $html);
+        $this->assertStringContainsString('Note for publisher', $html);
+        $this->assertStringContainsString('data-bulk-done-density', $html);
+        $this->assertStringContainsString('function isRejectControl', $html);
+        $this->assertStringContainsString('data-bulk-reject-error', $html);
         $this->assertStringContainsString('id="bulk-cancel-reason"', $html);
         $this->assertStringContainsString('data-bulk-advanced-seed', $html);
         $this->assertStringContainsString('Seed these pasted rows as drafts and notify the publisher?', $html);
@@ -947,6 +951,40 @@ class MarketingBulkSiteOpsTest extends TestCase
 
         $this->assertStringNotContainsString('name="items['.$drop->id.'][country]"', $after);
         $this->assertStringContainsString('name="items['.$keep->id.'][country]"', $after);
+        $this->assertStringContainsString('Note for publisher', $html);
+        $this->assertStringContainsString('data-bulk-done-density', $html);
+        $this->assertStringContainsString('bulk-done-card', $html);
+        $this->assertStringNotContainsString('placeholder="Reason"', $html);
+    }
+
+    public function test_reject_reason_error_does_not_look_like_a_done_box_error(): void
+    {
+        $bulk = BulkSiteRequest::create([
+            'publisher_id' => $this->publisher->id,
+            'status' => BulkSiteRequest::STATUS_REQUESTED,
+            'estimated_count' => 1,
+        ]);
+        $item = BulkSiteRequestItem::create([
+            'bulk_site_request_id' => $bulk->id,
+            'site_url' => 'https://short-note.example',
+            'domain' => 'short-note.example',
+            'price' => 40,
+        ]);
+
+        $html = $this->actingAs($this->marketer)
+            ->from(route('marketing.bulk-site-requests.show', $bulk))
+            ->followingRedirects()
+            ->post(route('marketing.bulk-site-requests.items.reject', [$bulk->id, $item->id]), [
+                'reason' => 'no',
+            ])
+            ->assertOk()
+            ->getContent();
+
+        $this->assertStringContainsString('Add a note for the publisher.', $html);
+        $this->assertStringContainsString('Give a short reason for rejecting this website.', $html);
+        $this->assertStringNotContainsString('Finish the boxes first.', $html);
+        $this->assertStringNotContainsString('Give a short reason for cancelling this request.', $html);
+        $this->assertTrue($item->fresh()->isPending());
     }
 
     public function test_reject_requires_a_reason_and_skips_added_rows(): void

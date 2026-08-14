@@ -113,7 +113,7 @@ class AdminUiTier3ConsolidationTest extends TestCase
         $this->assertStringContainsString('.admin-blogs-table td', $components);
 
         $staff = file_get_contents(public_path('assets/css/staff-sites.css'));
-        foreach (['.pulse-dot', '.site-row-preview', '.bulk-done-grid'] as $selector) {
+        foreach (['.pulse-dot', '.site-row-preview', '.bulk-done-card'] as $selector) {
             $this->assertStringContainsString($selector, $staff);
         }
     }
