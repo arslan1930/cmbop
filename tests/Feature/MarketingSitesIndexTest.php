@@ -201,6 +201,7 @@ class MarketingSitesIndexTest extends TestCase
             ->getContent();
 
         $this->assertStringContainsString('1 new', $html);
+        $this->assertStringContainsString('2 total', $html);
 
         $payload = $this->actingAs($this->marketer)
             ->getJson(route('marketing.users.sites', $publisher->id))
@@ -213,8 +214,11 @@ class MarketingSitesIndexTest extends TestCase
         $liveRow = collect($payload['sites'] ?? [])->firstWhere('id', $live->id);
         $archivedRow = collect($payload['sites'] ?? [])->firstWhere('id', $archived->id);
         $this->assertFalse((bool) ($liveRow['listing_locked'] ?? true));
+        $this->assertTrue((bool) ($liveRow['needs_review'] ?? false));
         $this->assertTrue((bool) ($archivedRow['archived'] ?? false));
         $this->assertTrue((bool) ($archivedRow['listing_locked'] ?? false));
+        $this->assertFalse((bool) ($archivedRow['needs_review'] ?? true));
+        $this->assertFalse($archived->needsAdminReview());
 
         $this->actingAs($this->admin)
             ->get(route('admin.sites.index', ['needs_review' => 1]))
@@ -243,6 +247,11 @@ class MarketingSitesIndexTest extends TestCase
         $this->assertStringContainsString('QUALITY_MIN_DA', $html);
         $this->assertStringContainsString('sitesLoadMore', $html);
         $this->assertStringContainsString('Site queue', $html);
+        $this->assertStringContainsString('if (usersSection && !FLAT_QUEUE)', $html);
+        $this->assertStringContainsString('if (!FLAT_QUEUE)', $html);
+        $this->assertStringContainsString('site.archived', $html);
+        $this->assertStringContainsString('Archived</span>', $html);
+        $this->assertStringContainsString('syncPublisherOpenReviewBadge(id, allSites, meta)', $html);
         $this->assertStringNotContainsString("}).then(() => {\n                toast('Deleted successfully');", $html);
     }
 

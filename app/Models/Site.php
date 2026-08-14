@@ -277,7 +277,7 @@ class Site extends Model
             });
         }
 
-        return $query;
+        return $query->notArchived();
     }
 
     public function enrichmentRuns()
@@ -886,7 +886,8 @@ class Site extends Model
      */
     public function needsAdminReview(): bool
     {
-        return ! (bool) $this->verified
+        return ! $this->isArchived()
+            && ! (bool) $this->verified
             && ! (bool) $this->active
             && $this->isReadyForAdminReview()
             && $this->isAcceptedByPublisher();

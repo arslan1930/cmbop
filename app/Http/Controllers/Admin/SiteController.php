@@ -71,7 +71,7 @@ class SiteController extends Controller
             // Counts only — do not eager-load every site row for the publisher list.
             $query = User::query()
                 ->whereHas('roles', fn ($q) => $q->where('name', 'publisher'))
-                ->withCount(['sites' => fn ($q) => $q->notArchived()])
+                ->withCount('sites')
                 ->withCount(['sites as needs_review_sites_count' => $reviewQueue]);
 
             if ($publisherSearch !== '') {

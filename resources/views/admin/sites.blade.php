@@ -415,7 +415,9 @@ function fetchUserSites(id, page){
             if (res.status === 404) {
                 sessionStorage.removeItem('selected_user');
                 document.getElementById('sitesSection').classList.add('d-none');
-                document.getElementById('usersSection').classList.remove('d-none');
+                if (!FLAT_QUEUE) {
+                    document.getElementById('usersSection').classList.remove('d-none');
+                }
                 document.getElementById('sitesTable').innerHTML = '';
                 throw new Error('Publisher not found');
             }
@@ -458,7 +460,7 @@ function fetchUserSites(id, page){
                 allSites = sites;
             }
             window.sitesListMeta = meta;
-            syncPublisherOpenReviewBadge(id, allSites);
+            syncPublisherOpenReviewBadge(id, allSites, meta);
             applySiteFilters();
             renderSitesPager(id, meta, allSites.length);
             return allSites;
@@ -515,7 +517,7 @@ function formatSitesCount(n) {
     }
 }
 
-function syncPublisherOpenReviewBadge(publisherId, sites) {
+function syncPublisherOpenReviewBadge(publisherId, sites, meta) {
     const row = document.querySelector(`.user-row[data-id="${publisherId}"]`);
     if (!row) return;
 
@@ -523,15 +525,32 @@ function syncPublisherOpenReviewBadge(publisherId, sites) {
     if (!cell) return;
 
     const list = sites || [];
-    const openCount = list.filter(s => !!s.needs_review).length;
-    // Prefer the badge's known total so a filtered AJAX list does not shrink it.
-    const existingTotal = cell.querySelector('.badge.bg-secondary');
-    let totalCount = list.length;
-    if (existingTotal) {
-        const raw = String(existingTotal.textContent || '').replace(/[^\d]/g, '');
-        const parsed = parseInt(raw, 10);
-        if (!Number.isNaN(parsed) && parsed > 0) {
-            totalCount = Math.max(parsed, list.length);
+    const totalFromMeta = meta && Number(meta.total) >= 0 ? Number(meta.total) : null;
+    const loadedAll = totalFromMeta === null
+        || list.length >= totalFromMeta
+        || !meta
+        || Number(meta.last_page) <= 1;
+    let openCount = list.filter(s => !!s.needs_review).length;
+    if (!loadedAll) {
+        const existingNew = cell.querySelector('.badge.text-bg-warning');
+        if (existingNew) {
+            const raw = String(existingNew.textContent || '').replace(/[^\d]/g, '');
+            const parsed = parseInt(raw, 10);
+            if (!Number.isNaN(parsed)) {
+                openCount = Math.max(parsed, openCount);
+            }
+        }
+    }
+    // Prefer the pager total (includes archived) so page 1 of 50 does not shrink it.
+    let totalCount = totalFromMeta !== null ? totalFromMeta : list.length;
+    if (totalFromMeta === null) {
+        const existingTotal = cell.querySelector('.badge.bg-secondary');
+        if (existingTotal) {
+            const raw = String(existingTotal.textContent || '').replace(/[^\d]/g, '');
+            const parsed = parseInt(raw, 10);
+            if (!Number.isNaN(parsed) && parsed > 0) {
+                totalCount = Math.max(parsed, list.length);
+            }
         }
     }
 
@@ -1440,6 +1459,9 @@ function renderSites(data){
             const reviewBadge = needsReview
                 ? `<span class="badge text-bg-warning badge-needs-review ms-1">NEW · Needs review</span>`
                 : '';
+            const archivedBadge = site.archived
+                ? `<span class="badge text-bg-dark badge-needs-review ms-1">Archived</span>`
+                : '';
             const awaitingBadge = site.awaits_publisher_details
                 ? `<span class="badge text-bg-secondary badge-needs-review ms-1">Awaiting publisher</span>`
                 : '';
@@ -1463,6 +1485,7 @@ function renderSites(data){
                     <div class="site-details">
                         <div class="site-name">
                             ${escapeHtml(site.site_name ?? '-')}
+                            ${archivedBadge}
                             ${reviewBadge}
                             ${awaitingBadge}
                             ${inviteBadge}
@@ -1628,7 +1651,7 @@ function renderSites(data){
 document.getElementById('backBtn').addEventListener('click', function(){
     document.getElementById('sitesSection').classList.add('d-none');
     const usersSection = document.getElementById('usersSection');
-    if (usersSection) {
+    if (usersSection && !FLAT_QUEUE) {
         usersSection.classList.remove('d-none');
     }
     sessionStorage.removeItem('selected_user');
