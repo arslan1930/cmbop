@@ -485,10 +485,15 @@ class BulkSiteRequestController extends Controller
         });
 
         if ($validator->fails()) {
+            $itemsError = $validator->errors()->first('items');
+            $flash = is_string($itemsError) && str_contains($itemsError, 'already added')
+                ? $itemsError
+                : 'Finish each started block completely, or click Clear and submit only the finished blocks.';
+
             return back()
                 ->withErrors($validator)
                 ->withInput()
-                ->with('error', 'Finish each started block completely, or click Clear and submit only the finished blocks.');
+                ->with('error', $flash);
         }
 
         if ($completeItemIds === []) {

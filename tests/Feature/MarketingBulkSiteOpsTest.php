@@ -532,7 +532,7 @@ class MarketingBulkSiteOpsTest extends TestCase
         $bulk = BulkSiteRequest::create([
             'publisher_id' => $this->publisher->id,
             'status' => BulkSiteRequest::STATUS_REQUESTED,
-            'estimated_count' => 1,
+            'estimated_count' => 2,
         ]);
         $already = $this->seedDraft($bulk, 'all-stale.example');
         $stale = BulkSiteRequestItem::create([
@@ -541,6 +541,12 @@ class MarketingBulkSiteOpsTest extends TestCase
             'domain' => $already->domain,
             'price' => 40,
             'site_id' => $already->id,
+        ]);
+        BulkSiteRequestItem::create([
+            'bulk_site_request_id' => $bulk->id,
+            'site_url' => 'https://still-empty.example',
+            'domain' => 'still-empty.example',
+            'price' => 55,
         ]);
 
         $this->actingAs($this->marketer)
@@ -953,6 +959,7 @@ class MarketingBulkSiteOpsTest extends TestCase
         $this->assertStringContainsString('Could not attach this website. Try again.', $controller);
         $this->assertStringContainsString('cancelledDuringWrite', $controller);
         $this->assertStringContainsString('Those websites were already added or rejected. Refresh and try again.', $controller);
+        $this->assertStringContainsString("str_contains(\$itemsError, 'already added')", $controller);
         $this->assertStringContainsString('is_scalar', $controller);
         $this->assertStringContainsString('applyDensity(readStoredDensity(), false)', $html);
         $this->assertStringContainsString('data-bulk-reject-error', $html);
