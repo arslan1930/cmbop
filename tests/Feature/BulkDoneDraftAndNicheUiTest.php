@@ -106,6 +106,10 @@ class BulkDoneDraftAndNicheUiTest extends TestCase
         $this->assertStringContainsString('const fields =', $html);
         $this->assertStringNotContainsString('function fields()', $html);
         $this->assertStringContainsString('sealedItemIds', $html);
+        $this->assertStringContainsString('doneConfirmOpen', $html);
+        $this->assertStringContainsString('collectBulkDraftDeleteReason', $html);
+        $this->assertStringContainsString('JSON.stringify({ reason: reason })', $html);
+        $this->assertStringContainsString("input: 'textarea'", $html);
         $this->assertStringContainsString('if (!/^\\d+$/.test(id)) return;', $html);
         $this->assertStringContainsString('safeItemId(row.getAttribute(\'data-item-id\'))', $html);
         $this->assertStringContainsString('/^\\d+$/', $html);

@@ -964,6 +964,9 @@ class MarketingBulkSiteOpsTest extends TestCase
         $this->assertStringContainsString("return 'cancelled'", $controller);
         $this->assertStringContainsString('Same lock order as Done', $controller);
         $this->assertStringContainsString('sealedItemIds', $html);
+        $this->assertStringContainsString('doneConfirmOpen', $html);
+        $this->assertStringContainsString('collectBulkDraftDeleteReason', $html);
+        $this->assertStringContainsString('JSON.stringify({ reason: reason })', $html);
         $this->assertStringContainsString('is_scalar', $controller);
         $this->assertStringContainsString('applyDensity(readStoredDensity(), false)', $html);
         $this->assertStringContainsString('data-bulk-reject-error', $html);
@@ -1058,6 +1061,18 @@ class MarketingBulkSiteOpsTest extends TestCase
         $this->assertStringContainsString('<div class="fw-semibold">Done</div>', $html);
         $this->assertStringNotContainsString('<div class="fw-semibold">Seed</div>', $html);
         $this->assertStringNotContainsString('>bulk_request.done<', $html);
+    }
+
+    public function test_marketer_delete_draft_without_reason_is_rejected(): void
+    {
+        $site = $this->seedDraft($this->makeBulkRequest(), 'needs-reason.example');
+
+        $this->actingAs($this->marketer)
+            ->deleteJson(route('marketing.sites.destroy', $site->id))
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['reason']);
+
+        $this->assertDatabaseHas('sites', ['id' => $site->id]);
     }
 
     public function test_marketer_can_delete_awaiting_details_draft_and_history_remains(): void

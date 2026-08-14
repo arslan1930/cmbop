@@ -36,7 +36,14 @@
             <strong>Some rows failed</strong>
             <ul class="mb-0 small mt-2">
                 @foreach(session('seed_failures') as $fail)
-                    <li>Line {{ $fail['line'] }} · {{ $fail['url'] ?? '' }} — {{ implode('; ', $fail['errors'] ?? []) }}</li>
+                    <li>
+                        @if(! empty($fail['url']))
+                            {{ $fail['url'] }}
+                        @else
+                            Line {{ $fail['line'] }}
+                        @endif
+                        — {{ implode('; ', $fail['errors'] ?? []) }}
+                    </li>
                 @endforeach
             </ul>
         </div>
@@ -1078,6 +1085,7 @@
     window.addEventListener('pagehide', writeDraft);
     window.addEventListener('beforeunload', writeDraft);
 
+    let doneConfirmOpen = false;
     form.addEventListener('submit', function (e) {
         // Dedicated flag so shared slb-confirm.js cannot clear imperative allows.
         if (form.dataset.slbBulkAllowSubmit === '1') {
@@ -1090,6 +1098,11 @@
             submittedIds.forEach(function (id) { sealedItemIds[id] = true; });
             pruneDraftForItemIds(submittedIds);
             return;
+        }
+
+        if (doneConfirmOpen) {
+            e.preventDefault();
+            return false;
         }
 
         const complete = completeRows();
@@ -1121,6 +1134,8 @@
         const remaining = doneRows().length - count;
         const submittedIds = complete.map(rowItemId).filter(Boolean);
         e.preventDefault();
+        doneConfirmOpen = true;
+        if (submitBtn) submitBtn.disabled = true;
         const confirmFn = window.slbConfirm({
             title: 'Done — add draft sites?',
             text: remaining > 0
@@ -1132,17 +1147,30 @@
 
         confirmFn.then(function (ok) {
             if (!ok) {
+                doneConfirmOpen = false;
                 setIncompleteRowsDisabled(false);
+                syncDoneState();
                 return;
             }
-            setIncompleteRowsDisabled(true);
-            form.dataset.slbBulkSubmittedIds = submittedIds.join(',');
-            form.dataset.slbBulkAllowSubmit = '1';
-            if (typeof form.requestSubmit === 'function') {
-                form.requestSubmit();
-            } else {
-                HTMLFormElement.prototype.submit.call(form);
+            try {
+                setIncompleteRowsDisabled(true);
+                form.dataset.slbBulkSubmittedIds = submittedIds.join(',');
+                form.dataset.slbBulkAllowSubmit = '1';
+                if (typeof form.requestSubmit === 'function') {
+                    form.requestSubmit();
+                } else {
+                    HTMLFormElement.prototype.submit.call(form);
+                }
+            } catch (err) {
+                doneConfirmOpen = false;
+                delete form.dataset.slbBulkAllowSubmit;
+                setIncompleteRowsDisabled(false);
+                syncDoneState();
             }
+        }).catch(function () {
+            doneConfirmOpen = false;
+            setIncompleteRowsDisabled(false);
+            syncDoneState();
         });
     });
 
@@ -1154,13 +1182,8 @@ document.querySelectorAll('.bulk-draft-delete').forEach(function (btn) {
         const id = String(this.getAttribute('data-site-id') || '');
         if (!/^\d+$/.test(id)) return;
         const name = this.getAttribute('data-site-name') || 'this site';
-        const ok = await window.slbConfirm({
-                title: 'Delete draft site?',
-                text: 'Delete draft "' + name + '"? This removes the wrong draft. History of the delete is kept.',
-                confirmText: 'Delete draft',
-                danger: true,
-            });
-        if (!ok) {
+        const reason = await collectBulkDraftDeleteReason(name);
+        if (!reason) {
             return;
         }
         this.disabled = true;
@@ -1168,13 +1191,18 @@ document.querySelectorAll('.bulk-draft-delete').forEach(function (btn) {
             const res = await fetch(@json(staff_base_path() . '/sites') + '/' + id, {
                 method: 'DELETE',
                 headers: {
+                    'Content-Type': 'application/json',
                     'X-CSRF-TOKEN': @json(csrf_token()),
                     'Accept': 'application/json',
                 },
+                body: JSON.stringify({ reason: reason }),
             });
             const data = await res.json().catch(function () { return {}; });
+            const reasonErr = data.errors && data.errors.reason
+                ? (Array.isArray(data.errors.reason) ? data.errors.reason[0] : data.errors.reason)
+                : null;
             if (!res.ok || !data.success) {
-                if (window.slbAlert) { await window.slbAlert({ icon: 'error', title: data.message || 'Could not delete site.' }); } else { alert(data.message || 'Could not delete site.'); }
+                if (window.slbAlert) { await window.slbAlert({ icon: 'error', title: reasonErr || data.message || 'Could not delete site.' }); } else { alert(reasonErr || data.message || 'Could not delete site.'); }
                 this.disabled = false;
                 return;
             }
@@ -1185,5 +1213,49 @@ document.querySelectorAll('.bulk-draft-delete').forEach(function (btn) {
         }
     });
 });
+
+function collectBulkDraftDeleteReason(name) {
+    if (window.Swal && typeof window.Swal.fire === 'function') {
+        return window.Swal.fire({
+            title: 'Delete draft site?',
+            text: 'Delete draft "' + name + '"? This removes the wrong draft. The publisher will see your reason.',
+            icon: 'warning',
+            input: 'textarea',
+            inputLabel: 'Reason for the publisher',
+            inputPlaceholder: 'Why this draft is being removed (min. 10 characters)',
+            inputAttributes: { maxlength: '1000' },
+            showCancelButton: true,
+            confirmButtonText: 'Delete draft',
+            customClass: { confirmButton: 'slb-swal-danger' },
+            reverseButtons: true,
+            focusCancel: true,
+            preConfirm: function (value) {
+                const next = String(value || '').trim();
+                if (next.length < 10) {
+                    window.Swal.showValidationMessage('Please enter a reason (at least 10 characters).');
+                    return false;
+                }
+                if (next.length > 1000) {
+                    window.Swal.showValidationMessage('Reason must be 1000 characters or fewer.');
+                    return false;
+                }
+                return next;
+            },
+        }).then(function (result) {
+            if (!result || !result.isConfirmed) return null;
+            const next = String(result.value || '').trim();
+            return next.length >= 10 ? next : null;
+        });
+    }
+
+    return window.slbConfirm({
+        title: 'Delete draft site?',
+        text: 'Delete draft "' + name + '"? This removes the wrong draft. History of the delete is kept.',
+        confirmText: 'Delete draft',
+        danger: true,
+    }).then(function (ok) {
+        return ok ? 'Wrong draft removed from this bulk request.' : null;
+    });
+}
 </script>
 @endsection
