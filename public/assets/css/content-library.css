@@ -169,21 +169,6 @@
         align-items: flex-start;
         gap: .28rem;
     }
-    .library-just-approved {
-        display: inline-flex;
-        align-items: center;
-        font-size: .65rem;
-        font-weight: 700;
-        letter-spacing: .04em;
-        text-transform: uppercase;
-        border-radius: 999px;
-        padding: 3px 8px;
-        line-height: 1.2;
-        white-space: nowrap;
-        background: var(--brand-primary-bg, #e6f5f5);
-        color: var(--brand-primary, #1a585e);
-        border: 1px solid var(--brand-primary-border, #b8e4e4);
-    }
     .library-just-approved-hint {
         font-size: .72rem;
         color: var(--brand-ink-muted, #75787B);

@@ -193,9 +193,6 @@
                                 {{ $submission->title ?: $submission->original_filename }}
                             </div>
                             @if($justApprovedHint = $submission->justApprovedLabel())
-                                @if($submission->showJustApprovedBadge())
-                                    <span class="library-just-approved">Just approved</span>
-                                @endif
                                 <div class="library-just-approved-hint">{{ $justApprovedHint }}</div>
                             @endif
                             @if($availability === 'published')

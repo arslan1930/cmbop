@@ -550,7 +550,6 @@ class ContentLibraryImprovementsTest extends TestCase
         $fresh = $this->createApprovedSubmission($advertiser);
         $fresh->update(['title' => 'Fresh Approved Piece']);
         $this->assertTrue($fresh->isJustApproved());
-        $this->assertTrue($fresh->showJustApprovedBadge());
         $this->assertSame('Approved today', $fresh->justApprovedLabel());
 
         $onCutoff = $this->createApprovedSubmission($advertiser);
@@ -574,7 +573,6 @@ class ContentLibraryImprovementsTest extends TestCase
             'evaluated_at' => now()->subDay(),
         ]);
         $this->assertTrue($yesterday->fresh()->isJustApproved());
-        $this->assertFalse($yesterday->fresh()->showJustApprovedBadge());
         $this->assertSame('Approved yesterday', $yesterday->fresh()->justApprovedLabel());
 
         $threeDays = $this->createApprovedSubmission($advertiser);
@@ -582,7 +580,6 @@ class ContentLibraryImprovementsTest extends TestCase
             'title' => 'Three Day Approved Piece',
             'evaluated_at' => now()->subDays(3),
         ]);
-        $this->assertFalse($threeDays->fresh()->showJustApprovedBadge());
         $this->assertSame('Approved 3 days ago', $threeDays->fresh()->justApprovedLabel());
 
         $needsFix = $this->createApprovedSubmission($advertiser);
@@ -627,7 +624,7 @@ class ContentLibraryImprovementsTest extends TestCase
             ->get(route('advertiser.content-library', ['status' => 'approved', 'availability' => 'available']))
             ->assertOk()
             ->assertSee('Fresh Approved Piece')
-            ->assertSee('Just approved')
+            ->assertDontSee('Just approved')
             ->assertSee('Approved today')
             ->assertSee('Yesterday Approved Piece')
             ->assertSee('Approved yesterday')
@@ -637,7 +634,7 @@ class ContentLibraryImprovementsTest extends TestCase
             ->assertDontSee('Expired Approved Piece')
             ->getContent();
 
-        $this->assertStringContainsString('class="library-just-approved"', $html);
+        $this->assertStringNotContainsString('class="library-just-approved"', $html);
         $this->assertStringContainsString('class="library-just-approved-hint"', $html);
         $this->assertStringNotContainsString('site-badge-new', $html);
 
@@ -654,7 +651,7 @@ class ContentLibraryImprovementsTest extends TestCase
         $freshEnd = strpos($html, '</tr>', $freshStart);
         $this->assertNotFalse($freshEnd);
         $freshRow = substr($html, $freshStart, $freshEnd - $freshStart);
-        $this->assertStringContainsString('Just approved', $freshRow);
+        $this->assertStringNotContainsString('Just approved', $freshRow);
         $this->assertStringContainsString('Approved today', $freshRow);
 
         $yesterdayStart = strpos($html, 'Yesterday Approved Piece');
@@ -666,15 +663,8 @@ class ContentLibraryImprovementsTest extends TestCase
         $this->assertStringNotContainsString('Just approved', $yesterdayRow);
 
         $css = (string) file_get_contents(public_path('assets/css/content-library.css'));
-        $this->assertMatchesRegularExpression(
-            '/\.library-just-approved \{[^}]*background:/s',
-            $css
-        );
         $this->assertStringContainsString('.library-just-approved-hint {', $css);
-        $this->assertDoesNotMatchRegularExpression(
-            '/\.library-just-approved \{[^}]*animation:/s',
-            $css
-        );
+        $this->assertStringNotContainsString('.library-just-approved {', $css);
     }
 
     public function test_upload_button_sits_under_content_library_heading(): void

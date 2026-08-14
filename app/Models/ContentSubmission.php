@@ -135,7 +135,7 @@ class ContentSubmission extends Model
         return $this->hasMany(OrderItem::class);
     }
 
-    /** Orderable approved articles stay marked “Just approved” for this many days. */
+    /** Orderable approved articles show “Approved today / yesterday / N days ago” for this many days. */
     public const JUST_APPROVED_DAYS = 7;
 
     public function isApproved(): bool
@@ -155,17 +155,6 @@ class ContentSubmission extends Model
         $cutoff = now()->copy()->subDays(self::JUST_APPROVED_DAYS)->startOfDay();
 
         return $this->evaluated_at->copy()->startOfDay()->gte($cutoff);
-    }
-
-    /**
-     * The “Just approved” chip is only for the same calendar day.
-     * Older rows keep the relative line (Approved yesterday / N days ago).
-     */
-    public function showJustApprovedBadge(): bool
-    {
-        return $this->isJustApproved()
-            && $this->evaluated_at !== null
-            && $this->evaluated_at->isSameDay(now());
     }
 
     public function justApprovedLabel(): ?string
