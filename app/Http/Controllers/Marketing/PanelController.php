@@ -97,24 +97,29 @@ class PanelController extends Controller
         $query = $this->marketerHistoryQuery($userId)->latest('id');
         $dateErrors = [];
 
-        if ($request->filled('action')) {
-            $query->where('action', $request->string('action')->toString());
+        $actionFilter = $this->postedScalar($request, 'action');
+        $qFilter = $this->postedScalar($request, 'q');
+        $fromFilter = $this->postedScalar($request, 'from');
+        $toFilter = $this->postedScalar($request, 'to');
+
+        if ($actionFilter !== '') {
+            $query->where('action', $actionFilter);
         }
 
         $fromBound = null;
         $toBound = null;
         $datesOk = true;
 
-        if ($request->filled('from')) {
-            $fromBound = $this->parseMarketerDay($request->input('from'), true);
+        if ($fromFilter !== '') {
+            $fromBound = $this->parseMarketerDay($fromFilter, true);
             if (! $fromBound) {
                 $dateErrors[] = 'Use a valid From date.';
                 $datesOk = false;
             }
         }
 
-        if ($request->filled('to')) {
-            $toBound = $this->parseMarketerDay($request->input('to'), false);
+        if ($toFilter !== '') {
+            $toBound = $this->parseMarketerDay($toFilter, false);
             if (! $toBound) {
                 $dateErrors[] = 'Use a valid To date.';
                 $datesOk = false;
@@ -135,10 +140,9 @@ class PanelController extends Controller
             }
         }
 
-        if ($request->filled('q')) {
-            $raw = $request->string('q')->toString();
-            $term = '%'.$raw.'%';
-            $matchedActions = marketing_task_actions_matching($raw);
+        if ($qFilter !== '') {
+            $term = '%'.$qFilter.'%';
+            $matchedActions = marketing_task_actions_matching($qFilter);
             $query->where(function ($q) use ($term, $matchedActions) {
                 $q->where('description', 'like', $term)
                     ->orWhere('subject_label', 'like', $term);
@@ -159,12 +163,21 @@ class PanelController extends Controller
             ->orderBy('action')
             ->pluck('action');
 
-        $filtersActive = $request->filled('q')
-            || $request->filled('action')
-            || $request->filled('from')
-            || $request->filled('to');
+        $filtersActive = $qFilter !== ''
+            || $actionFilter !== ''
+            || $fromFilter !== ''
+            || $toFilter !== '';
 
-        return view('marketing.history', compact('logs', 'actions', 'dateErrors', 'filtersActive'));
+        return view('marketing.history', compact(
+            'logs',
+            'actions',
+            'dateErrors',
+            'filtersActive',
+            'actionFilter',
+            'qFilter',
+            'fromFilter',
+            'toFilter'
+        ));
     }
 
     /**
@@ -196,6 +209,16 @@ class PanelController extends Controller
     private function marketerTodayDateString(): string
     {
         return now()->timezone($this->marketerTimezone())->toDateString();
+    }
+
+    private function postedScalar(Request $request, string $key): string
+    {
+        $value = $request->input($key);
+        if (! is_scalar($value) || $value === null) {
+            return '';
+        }
+
+        return trim((string) $value);
     }
 
     private function parseMarketerDay(mixed $value, bool $start): ?Carbon

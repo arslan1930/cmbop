@@ -346,10 +346,15 @@
                                                         @disabled($oldCountry === '')>
                                                     <option value="">{{ $oldCountry === '' ? 'Select country first' : 'Select…' }}</option>
                                                     @if($oldCountry !== '')
-                                                        @foreach(($countryLanguageMap[$oldCountry] ?? []) as $lang)
+                                                        @php
+                                                            $oldCountryLangs = $countryLanguageMap[$oldCountry] ?? [];
+                                                            $oldCountryLangs = is_array($oldCountryLangs) ? $oldCountryLangs : [];
+                                                        @endphp
+                                                        @foreach($oldCountryLangs as $lang)
+                                                            @continue(! is_array($lang) || ! is_scalar($lang['code'] ?? null))
                                                             <option value="{{ $lang['code'] }}"
                                                                 @selected($oldLanguage === strtolower((string) $lang['code']))>
-                                                                {{ $lang['name'] }}
+                                                                {{ is_scalar($lang['name'] ?? null) ? $lang['name'] : strtoupper((string) $lang['code']) }}
                                                             </option>
                                                         @endforeach
                                                     @endif
@@ -690,15 +695,18 @@
         placeholder.textContent = 'Select…';
         langEl.appendChild(placeholder);
         list.forEach(function (rowLang) {
+            if (!rowLang || typeof rowLang !== 'object') return;
+            const code = rowLang.code;
+            if (code == null || code === '') return;
             const opt = document.createElement('option');
-            opt.value = rowLang.code;
-            opt.textContent = rowLang.name || String(rowLang.code).toUpperCase();
-            if (keep && keep === String(rowLang.code).toLowerCase()) {
+            opt.value = code;
+            opt.textContent = rowLang.name || String(code).toUpperCase();
+            if (keep && keep === String(code).toLowerCase()) {
                 opt.selected = true;
             }
             langEl.appendChild(opt);
         });
-        if (list.length === 1) {
+        if (list.length === 1 && list[0] && list[0].code != null) {
             langEl.value = list[0].code;
         }
     }

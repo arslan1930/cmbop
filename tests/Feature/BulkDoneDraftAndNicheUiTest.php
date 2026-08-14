@@ -136,6 +136,8 @@ class BulkDoneDraftAndNicheUiTest extends TestCase
         $this->assertStringNotContainsString('(int) old(\'reject_item_id\')', $blade);
         $this->assertStringContainsString('is_scalar($postedRejectItemId)', $blade);
         $this->assertStringContainsString('is_array($seedFailures)', $blade);
+        $this->assertStringContainsString('is_array($oldCountryLangs)', $blade);
+        $this->assertStringContainsString("typeof rowLang !== 'object'", $html);
         $this->assertStringContainsString("! \$errors->has('admin_notes')", $blade);
         $this->assertStringContainsString('function markRequiredField', $blade);
         $flash = file_get_contents(resource_path('views/partials/session-flash.blade.php'));

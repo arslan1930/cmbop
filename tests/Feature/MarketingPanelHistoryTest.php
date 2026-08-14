@@ -473,6 +473,34 @@ class MarketingPanelHistoryTest extends TestCase
             ->assertDontSee('Bulk request #11', false);
     }
 
+    public function test_history_array_filters_do_not_500(): void
+    {
+        ActivityLog::create([
+            'user_id' => $this->marketer->id,
+            'user_name' => $this->marketer->name,
+            'user_email' => $this->marketer->email,
+            'role' => 'marketing',
+            'action' => 'bulk_request.done',
+            'description' => 'Done kept when filters are junk',
+            'subject_label' => 'Bulk request #99',
+        ]);
+
+        $html = $this->actingAs($this->marketer)
+            ->get(route('marketing.history', [
+                'q' => ['Done'],
+                'action' => ['bulk_request.done'],
+                'from' => ['2026-08-01'],
+                'to' => ['2026-08-31'],
+            ]))
+            ->assertOk()
+            ->getContent();
+
+        $this->assertStringNotContainsString('TypeError', $html);
+        $this->assertStringNotContainsString('Array to string conversion', $html);
+        $this->assertStringContainsString('Done kept when filters are junk', $html);
+        $this->assertStringNotContainsString('Reset filters', $html);
+    }
+
     public function test_history_shows_publisher_reason_changes_and_removed_without_n_plus_one(): void
     {
         $publisherRole = Role::where('name', 'publisher')->firstOrFail();
