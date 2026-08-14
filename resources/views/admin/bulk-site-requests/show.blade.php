@@ -1124,19 +1124,23 @@
             if (partial.length > 0) {
                 const firstPartial = rowFields(partial[0]).find((el) => !fieldFilled(el));
                 markRequiredField(firstPartial);
-                slbAlert({
-                    icon: 'warning',
-                    title: 'Finish incomplete blocks',
-                    text: 'Each started row must be fully filled, or click Clear. Then submit the complete block(s). Empty rows can wait for later.',
-                });
+                if (typeof window.slbAlert === 'function') {
+                    window.slbAlert({
+                        icon: 'warning',
+                        title: 'Finish incomplete blocks',
+                        text: 'Each started row must be fully filled, or click Clear. Then submit the complete block(s). Empty rows can wait for later.',
+                    });
+                }
             } else {
                 const firstEmpty = fields().find((el) => !fieldFilled(el));
                 markRequiredField(firstEmpty);
-                slbAlert({
-                    icon: 'warning',
-                    title: 'Fill at least one block',
-                    text: 'Fill Language, Country, DA, DR, Traffic and Niches for at least one website, then click Done. Other rows can stay empty for later.',
-                });
+                if (typeof window.slbAlert === 'function') {
+                    window.slbAlert({
+                        icon: 'warning',
+                        title: 'Fill at least one block',
+                        text: 'Fill Language, Country, DA, DR, Traffic and Niches for at least one website, then click Done. Other rows can stay empty for later.',
+                    });
+                }
             }
             return false;
         }
@@ -1179,6 +1183,10 @@
             }
             try {
                 setIncompleteRowsDisabled(true);
+                // Seal/prune before submit so the prototype.submit fallback
+                // (no submit event) cannot write those rows back on pagehide.
+                submittedIds.forEach(function (id) { sealedItemIds[id] = true; });
+                try { pruneDraftForItemIds(submittedIds); } catch (err) {}
                 form.dataset.slbBulkSubmittedIds = submittedIds.join(',');
                 form.dataset.slbBulkAllowSubmit = '1';
                 if (typeof form.requestSubmit === 'function') {
@@ -1197,6 +1205,19 @@
             setIncompleteRowsDisabled(false);
             syncDoneState();
         });
+    });
+
+    window.addEventListener('pageshow', function (e) {
+        const nav = (typeof performance !== 'undefined' && performance.getEntriesByType)
+            ? (performance.getEntriesByType('navigation')[0] || {})
+            : {};
+        if (!e.persisted && nav.type !== 'back_forward') return;
+        doneConfirmOpen = false;
+        delete form.dataset.slbBulkAllowSubmit;
+        delete form.dataset.slbBulkSubmittedIds;
+        Object.keys(sealedItemIds).forEach(function (id) { delete sealedItemIds[id]; });
+        setIncompleteRowsDisabled(false);
+        syncDoneState();
     });
 
     syncDoneState();
