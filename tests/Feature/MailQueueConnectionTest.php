@@ -24,6 +24,11 @@ class MailQueueConnectionTest extends TestCase
         );
     }
 
+    public function test_testing_env_file_exists_so_dotenv_does_not_warn(): void
+    {
+        $this->assertFileExists(base_path('.env.testing'));
+    }
+
     public function test_env_example_does_not_pin_mail_to_sync(): void
     {
         $env = file_get_contents(base_path('.env.example'));

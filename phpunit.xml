@@ -18,6 +18,8 @@
         </include>
     </source>
     <php>
+        <!-- APP_ENV=testing loads committed .env.testing so phpdotenv
+             does not file_get_contents() a missing .env. -->
         <env name="APP_ENV" value="testing"/>
         <env name="APP_KEY" value="base64:OKLOoObWwo0Pl5b6d2wMbaqaly/aZLa0ngvaltxwC4A="/>
         <env name="APP_MAINTENANCE_DRIVER" value="file"/>
