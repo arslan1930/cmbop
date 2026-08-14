@@ -141,6 +141,11 @@ class BulkDoneDraftAndNicheUiTest extends TestCase
         $flash = file_get_contents(resource_path('views/partials/session-flash.blade.php'));
         $this->assertStringContainsString("session_text('error')", $flash);
         $this->assertStringContainsString("session_text('success')", $flash);
+        $controller = file_get_contents(app_path('Http/Controllers/Admin/BulkSiteRequestController.php'));
+        $this->assertStringContainsString('is_scalar($rawStatus)', $controller);
+        $index = file_get_contents(resource_path('views/admin/bulk-site-requests/index.blade.php'));
+        $this->assertStringContainsString('publisher?->name', $index);
+        $this->assertStringContainsString('handler?->name', $index);
         $this->assertStringNotContainsString('data-bulk-done-closed', $html);
         $this->assertStringNotContainsString('for="categoryInput-done'.$item->id.'"', $html);
         $this->assertStringContainsString('readStoredDensity', $html);

@@ -28,7 +28,8 @@ class BulkSiteRequestController extends Controller
 {
     public function index(Request $request)
     {
-        $status = $request->string('status')->toString();
+        $rawStatus = $request->input('status', '');
+        $status = is_scalar($rawStatus) ? trim((string) $rawStatus) : '';
 
         $query = BulkSiteRequest::query()
             ->with(['publisher', 'handler'])

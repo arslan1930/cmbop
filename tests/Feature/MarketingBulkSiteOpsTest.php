@@ -774,6 +774,21 @@ class MarketingBulkSiteOpsTest extends TestCase
         $this->assertStringContainsString('FLASH_ARRAY_OK', $html);
     }
 
+    public function test_index_array_status_does_not_500(): void
+    {
+        $bulk = $this->makeBulkRequest();
+
+        $html = $this->actingAs($this->marketer)
+            ->get(route('marketing.bulk-site-requests.index', ['status' => ['requested']]))
+            ->assertOk()
+            ->getContent();
+
+        $this->assertStringNotContainsString('TypeError', $html);
+        $this->assertStringNotContainsString('Array to string conversion', $html);
+        $this->assertStringContainsString((string) $bulk->id, $html);
+        $this->assertStringContainsString('waiting on you', $html);
+    }
+
     public function test_done_object_category_values_do_not_500(): void
     {
         Mail::fake();
