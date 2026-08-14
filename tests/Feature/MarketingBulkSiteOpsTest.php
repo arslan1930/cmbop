@@ -848,10 +848,10 @@ class MarketingBulkSiteOpsTest extends TestCase
             ->assertSee('data-bulk-done-closed', false)
             ->assertSee('This request is cancelled.', false)
             ->assertDontSee('id="bulkDoneForm"', false)
-            ->assertDontSee('data-bulk-done-clear', false)
+            ->assertDontSee('name="items['.$bulk->items()->first()->id.'][country]"', false)
             ->getContent();
 
-        $this->assertStringNotContainsString('name="items['.$bulk->items()->first()->id.'][country]"', $html);
+        $this->assertStringContainsString('Publisher asked to stop this batch.', $html);
         $this->assertTrue($bulk->items()->first()->isPending());
     }
 
