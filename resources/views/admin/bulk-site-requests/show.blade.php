@@ -223,187 +223,229 @@
                               enctype="multipart/form-data"
                               novalidate>
                             @csrf
-                            <div class="bulk-done-table-wrap admin-contained-scroll mb-3">
-                                <table class="table table-sm align-middle mb-0 bulk-done-grid">
-                                    <thead>
-                                        <tr>
-                                            <th>Website</th>
-                                            <th>Price</th>
-                                            <th>Country <span class="text-danger">*</span></th>
-                                            <th>Language <span class="text-danger">*</span></th>
-                                            <th>DA <span class="text-danger">*</span></th>
-                                            <th>DR <span class="text-danger">*</span></th>
-                                            <th>Traffic <span class="text-danger">*</span></th>
-                                            <th>Niches <span class="text-danger">*</span></th>
-                                            <th></th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        @foreach($pendingItems as $item)
-                                            @php
-                                                $old = old('items.'.$item->id, []);
-                                                $oldCategories = $old['categories'] ?? '';
-                                                if (is_array($oldCategories)) {
-                                                    $oldCategories = implode('|', $oldCategories);
-                                                }
-                                                $uid = 'done'.$item->id;
-                                                $oldCountry = strtolower((string) ($old['country'] ?? ''));
-                                                $oldLanguage = strtolower((string) ($old['language'] ?? ''));
-                                            @endphp
-                                            <tr data-bulk-done-row>
-                                                <td>
-                                                    <div class="fw-semibold small text-break">{{ $item->domain }}</div>
-                                                    <a class="small text-muted text-break" href="{{ $item->site_url }}" target="_blank" rel="noopener noreferrer">
-                                                        {{ $item->site_url }}
-                                                    </a>
-                                                </td>
-                                                <td class="text-nowrap">€{{ number_format((float) $item->price, 2) }}</td>
-                                                <td>
-                                                    <select name="items[{{ $item->id }}][country]"
-                                                            class="form-select form-select-sm @error('items.'.$item->id.'.country') is-invalid @enderror"
-                                                            required
-                                                            data-bulk-required
-                                                            data-bulk-country>
-                                                        <option value="">Select…</option>
-                                                        @foreach($countries as $country)
-                                                            <option value="{{ strtolower($country->code) }}"
-                                                                @selected($oldCountry === strtolower($country->code))>
-                                                                {{ $country->name }}
+                            <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+                                <p class="small text-muted mb-0">
+                                    Fill Country, Language, DA, DR, Traffic, and Niches for each website you will add.
+                                </p>
+                                <div class="btn-group btn-group-sm" role="group" aria-label="Done form layout" data-bulk-done-density>
+                                    <button type="button"
+                                            class="btn btn-outline-secondary active"
+                                            data-bulk-done-density-btn="comfortable"
+                                            aria-pressed="true">
+                                        Comfortable
+                                    </button>
+                                    <button type="button"
+                                            class="btn btn-outline-secondary"
+                                            data-bulk-done-density-btn="compact"
+                                            aria-pressed="false">
+                                        Compact
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div class="bulk-done-list is-comfortable mb-3" data-bulk-done-list>
+                                @foreach($pendingItems as $item)
+                                    @php
+                                        $old = old('items.'.$item->id, []);
+                                        $oldCategories = $old['categories'] ?? '';
+                                        if (is_array($oldCategories)) {
+                                            $oldCategories = implode('|', $oldCategories);
+                                        }
+                                        $uid = 'done'.$item->id;
+                                        $oldCountry = strtolower((string) ($old['country'] ?? ''));
+                                        $oldLanguage = strtolower((string) ($old['language'] ?? ''));
+                                    @endphp
+                                    <article class="bulk-done-card" data-bulk-done-row>
+                                        <header class="bulk-done-card-head">
+                                            <div class="min-w-0">
+                                                <div class="fw-semibold text-break">{{ $item->domain }}</div>
+                                                <a class="small text-muted text-break" href="{{ $item->site_url }}" target="_blank" rel="noopener noreferrer">
+                                                    {{ $item->site_url }}
+                                                </a>
+                                            </div>
+                                            <div class="bulk-done-card-price text-nowrap">€{{ number_format((float) $item->price, 2) }}</div>
+                                        </header>
+
+                                        <div class="bulk-done-card-fields">
+                                            <div class="bulk-done-field">
+                                                <label class="form-label" for="done-country-{{ $item->id }}">
+                                                    Country <span class="text-danger">*</span>
+                                                </label>
+                                                <select id="done-country-{{ $item->id }}"
+                                                        name="items[{{ $item->id }}][country]"
+                                                        class="form-select @error('items.'.$item->id.'.country') is-invalid @enderror"
+                                                        required
+                                                        data-bulk-required
+                                                        data-bulk-country>
+                                                    <option value="">Select…</option>
+                                                    @foreach($countries as $country)
+                                                        <option value="{{ strtolower($country->code) }}"
+                                                            @selected($oldCountry === strtolower($country->code))>
+                                                            {{ $country->name }}
+                                                        </option>
+                                                    @endforeach
+                                                </select>
+                                                @error('items.'.$item->id.'.country')
+                                                    <div class="invalid-feedback d-block">{{ $message }}</div>
+                                                @enderror
+                                            </div>
+
+                                            <div class="bulk-done-field">
+                                                <label class="form-label" for="done-language-{{ $item->id }}">
+                                                    Language <span class="text-danger">*</span>
+                                                </label>
+                                                <select id="done-language-{{ $item->id }}"
+                                                        name="items[{{ $item->id }}][language]"
+                                                        class="form-select @error('items.'.$item->id.'.language') is-invalid @enderror"
+                                                        required
+                                                        data-bulk-required
+                                                        data-bulk-language
+                                                        @disabled($oldCountry === '')>
+                                                    <option value="">{{ $oldCountry === '' ? 'Select country first' : 'Select…' }}</option>
+                                                    @if($oldCountry !== '')
+                                                        @foreach(($countryLanguageMap[$oldCountry] ?? []) as $lang)
+                                                            <option value="{{ $lang['code'] }}"
+                                                                @selected($oldLanguage === strtolower((string) $lang['code']))>
+                                                                {{ $lang['name'] }}
                                                             </option>
                                                         @endforeach
-                                                    </select>
-                                                    @error('items.'.$item->id.'.country')
-                                                        <div class="invalid-feedback d-block">{{ $message }}</div>
-                                                    @enderror
-                                                </td>
-                                                <td>
-                                                    <select name="items[{{ $item->id }}][language]"
-                                                            class="form-select form-select-sm @error('items.'.$item->id.'.language') is-invalid @enderror"
-                                                            required
-                                                            data-bulk-required
-                                                            data-bulk-language
-                                                            @disabled($oldCountry === '')>
-                                                        <option value="">{{ $oldCountry === '' ? 'Select country first' : 'Select…' }}</option>
-                                                        @if($oldCountry !== '')
-                                                            @foreach(($countryLanguageMap[$oldCountry] ?? []) as $lang)
-                                                                <option value="{{ $lang['code'] }}"
-                                                                    @selected($oldLanguage === strtolower((string) $lang['code']))>
-                                                                    {{ $lang['name'] }}
-                                                                </option>
-                                                            @endforeach
-                                                        @endif
-                                                    </select>
-                                                    @error('items.'.$item->id.'.language')
-                                                        <div class="invalid-feedback d-block">{{ $message }}</div>
-                                                    @enderror
-                                                </td>
-                                                <td>
-                                                    <input type="number"
-                                                           name="items[{{ $item->id }}][da]"
-                                                           class="form-control form-control-sm @error('items.'.$item->id.'.da') is-invalid @enderror"
-                                                           placeholder="0–100"
-                                                           min="0" max="100" step="1"
-                                                           value="{{ $old['da'] ?? '' }}"
-                                                           required
-                                                           data-bulk-required
-                                                           data-score-clamp="100">
-                                                    @error('items.'.$item->id.'.da')
-                                                        <div class="invalid-feedback d-block">{{ $message }}</div>
-                                                    @enderror
-                                                </td>
-                                                <td>
-                                                    <input type="number"
-                                                           name="items[{{ $item->id }}][dr]"
-                                                           class="form-control form-control-sm @error('items.'.$item->id.'.dr') is-invalid @enderror"
-                                                           placeholder="0–100"
-                                                           min="0" max="100" step="1"
-                                                           value="{{ $old['dr'] ?? '' }}"
-                                                           required
-                                                           data-bulk-required
-                                                           data-score-clamp="100">
-                                                    @error('items.'.$item->id.'.dr')
-                                                        <div class="invalid-feedback d-block">{{ $message }}</div>
-                                                    @enderror
-                                                </td>
-                                                <td>
-                                                    {{-- Traffic is monthly visitors (can be millions/billions). Never clamp like DA/DR. --}}
-                                                    <input type="number"
-                                                           name="items[{{ $item->id }}][traffic]"
-                                                           class="form-control form-control-sm @error('items.'.$item->id.'.traffic') is-invalid @enderror"
-                                                           placeholder="e.g. 1500000"
-                                                           min="0"
-                                                           max="4294967295"
-                                                           step="1"
-                                                           inputmode="numeric"
-                                                           value="{{ $old['traffic'] ?? '' }}"
-                                                           required
-                                                           data-bulk-required
-                                                           data-traffic-input>
-                                                    @error('items.'.$item->id.'.traffic')
-                                                        <div class="invalid-feedback d-block">{{ $message }}</div>
-                                                    @enderror
-                                                </td>
-                                                <td class="bulk-done-niches-cell">
-                                                    <input type="hidden"
-                                                           name="items[{{ $item->id }}][categories]"
-                                                           id="selectedCategories-{{ $uid }}"
-                                                           value="{{ $oldCategories }}"
-                                                           data-bulk-required
-                                                           class="@error('items.'.$item->id.'.categories') is-invalid @enderror">
-                                                    <div class="multi-select-wrapper" id="categoryWrapper-{{ $uid }}" data-multi-select="category">
-                                                        <div class="multi-select-input multi-select-input--sm"
-                                                             id="categoryInput-{{ $uid }}"
-                                                             role="button"
-                                                             tabindex="0"
-                                                             aria-haspopup="listbox"
-                                                             aria-expanded="false"
-                                                             aria-label="Select niches for {{ $item->domain }}">
-                                                            <span class="multi-select-placeholder">Select niches…</span>
-                                                        </div>
-                                                        <div class="multi-select-dropdown" id="categoryDropdown-{{ $uid }}" role="listbox" aria-multiselectable="true">
-                                                            <div class="multi-select-search">
-                                                                <input type="text" placeholder="Type to search niches…" id="categorySearch-{{ $uid }}" autocomplete="off" aria-label="Search niches">
-                                                            </div>
-                                                            <div class="multi-select-options" id="categoryOptions-{{ $uid }}">
-                                                                @foreach($categories as $categoryName)
-                                                                    <div class="multi-select-option"
-                                                                         role="option"
-                                                                         data-value="{{ $categoryName }}"
-                                                                         data-label="{{ $categoryName }}">{{ $categoryName }}</div>
-                                                                @endforeach
-                                                            </div>
-                                                            <div class="multi-select-empty d-none" id="categoryEmpty-{{ $uid }}" role="status">No categories found</div>
-                                                        </div>
-                                                    </div>
-                                                    @error('items.'.$item->id.'.categories')
-                                                        <div class="invalid-feedback d-block">{{ $message }}</div>
-                                                    @enderror
-                                                </td>
-                                                <td>
-                                                    @if($bulkRequest->status !== \App\Models\BulkSiteRequest::STATUS_CANCELLED)
-                                                        <input type="text"
-                                                               form="reject-item-{{ $item->id }}"
-                                                               name="reason"
-                                                               class="form-control form-control-sm mb-1"
-                                                               required
-                                                               maxlength="500"
-                                                               placeholder="Reason"
-                                                               aria-label="Reject reason for {{ $item->domain }}">
-                                                        <button type="submit"
-                                                                class="btn btn-sm btn-outline-danger"
-                                                                form="reject-item-{{ $item->id }}"
-                                                                data-slb-confirm="Reject this site only. The rest of the batch stays open."
-                                                                data-slb-confirm-title="Reject this website?"
-                                                                data-slb-confirm-text="Reject site"
-                                                                data-slb-confirm-danger="1">
-                                                            Reject
-                                                        </button>
                                                     @endif
-                                                </td>
-                                            </tr>
-                                        @endforeach
-                                    </tbody>
-                                </table>
+                                                </select>
+                                                @error('items.'.$item->id.'.language')
+                                                    <div class="invalid-feedback d-block">{{ $message }}</div>
+                                                @enderror
+                                            </div>
+
+                                            <div class="bulk-done-field">
+                                                <label class="form-label" for="done-da-{{ $item->id }}">
+                                                    DA <span class="text-danger">*</span>
+                                                </label>
+                                                <input type="number"
+                                                       id="done-da-{{ $item->id }}"
+                                                       name="items[{{ $item->id }}][da]"
+                                                       class="form-control @error('items.'.$item->id.'.da') is-invalid @enderror"
+                                                       placeholder="0–100"
+                                                       min="0" max="100" step="1"
+                                                       value="{{ $old['da'] ?? '' }}"
+                                                       required
+                                                       data-bulk-required
+                                                       data-score-clamp="100">
+                                                @error('items.'.$item->id.'.da')
+                                                    <div class="invalid-feedback d-block">{{ $message }}</div>
+                                                @enderror
+                                            </div>
+
+                                            <div class="bulk-done-field">
+                                                <label class="form-label" for="done-dr-{{ $item->id }}">
+                                                    DR <span class="text-danger">*</span>
+                                                </label>
+                                                <input type="number"
+                                                       id="done-dr-{{ $item->id }}"
+                                                       name="items[{{ $item->id }}][dr]"
+                                                       class="form-control @error('items.'.$item->id.'.dr') is-invalid @enderror"
+                                                       placeholder="0–100"
+                                                       min="0" max="100" step="1"
+                                                       value="{{ $old['dr'] ?? '' }}"
+                                                       required
+                                                       data-bulk-required
+                                                       data-score-clamp="100">
+                                                @error('items.'.$item->id.'.dr')
+                                                    <div class="invalid-feedback d-block">{{ $message }}</div>
+                                                @enderror
+                                            </div>
+
+                                            <div class="bulk-done-field">
+                                                <label class="form-label" for="done-traffic-{{ $item->id }}">
+                                                    Traffic <span class="text-danger">*</span>
+                                                </label>
+                                                {{-- Traffic is monthly visitors (can be millions/billions). Never clamp like DA/DR. --}}
+                                                <input type="number"
+                                                       id="done-traffic-{{ $item->id }}"
+                                                       name="items[{{ $item->id }}][traffic]"
+                                                       class="form-control @error('items.'.$item->id.'.traffic') is-invalid @enderror"
+                                                       placeholder="e.g. 1500000"
+                                                       min="0"
+                                                       max="4294967295"
+                                                       step="1"
+                                                       inputmode="numeric"
+                                                       value="{{ $old['traffic'] ?? '' }}"
+                                                       required
+                                                       data-bulk-required
+                                                       data-traffic-input>
+                                                @error('items.'.$item->id.'.traffic')
+                                                    <div class="invalid-feedback d-block">{{ $message }}</div>
+                                                @enderror
+                                            </div>
+
+                                            <div class="bulk-done-field bulk-done-niches-cell">
+                                                <label class="form-label" for="categoryInput-{{ $uid }}">
+                                                    Niches <span class="text-danger">*</span>
+                                                </label>
+                                                <input type="hidden"
+                                                       name="items[{{ $item->id }}][categories]"
+                                                       id="selectedCategories-{{ $uid }}"
+                                                       value="{{ $oldCategories }}"
+                                                       data-bulk-required
+                                                       class="@error('items.'.$item->id.'.categories') is-invalid @enderror">
+                                                <div class="multi-select-wrapper" id="categoryWrapper-{{ $uid }}" data-multi-select="category">
+                                                    <div class="multi-select-input"
+                                                         id="categoryInput-{{ $uid }}"
+                                                         role="button"
+                                                         tabindex="0"
+                                                         aria-haspopup="listbox"
+                                                         aria-expanded="false"
+                                                         aria-label="Select niches for {{ $item->domain }}">
+                                                        <span class="multi-select-placeholder">Select niches…</span>
+                                                    </div>
+                                                    <div class="multi-select-dropdown" id="categoryDropdown-{{ $uid }}" role="listbox" aria-multiselectable="true">
+                                                        <div class="multi-select-search">
+                                                            <input type="text" placeholder="Type to search niches…" id="categorySearch-{{ $uid }}" autocomplete="off" aria-label="Search niches">
+                                                        </div>
+                                                        <div class="multi-select-options" id="categoryOptions-{{ $uid }}">
+                                                            @foreach($categories as $categoryName)
+                                                                <div class="multi-select-option"
+                                                                     role="option"
+                                                                     data-value="{{ $categoryName }}"
+                                                                     data-label="{{ $categoryName }}">{{ $categoryName }}</div>
+                                                            @endforeach
+                                                        </div>
+                                                        <div class="multi-select-empty d-none" id="categoryEmpty-{{ $uid }}" role="status">No categories found</div>
+                                                    </div>
+                                                </div>
+                                                @error('items.'.$item->id.'.categories')
+                                                    <div class="invalid-feedback d-block">{{ $message }}</div>
+                                                @enderror
+                                            </div>
+                                        </div>
+
+                                        @if($bulkRequest->status !== \App\Models\BulkSiteRequest::STATUS_CANCELLED)
+                                            <footer class="bulk-done-card-reject">
+                                                <label class="form-label" for="reject-note-{{ $item->id }}">Note for publisher</label>
+                                                <div class="bulk-done-card-reject-row">
+                                                    <textarea id="reject-note-{{ $item->id }}"
+                                                              form="reject-item-{{ $item->id }}"
+                                                              name="reason"
+                                                              class="form-control"
+                                                              required
+                                                              minlength="3"
+                                                              maxlength="500"
+                                                              rows="3"
+                                                              placeholder="Why this site will not be added"
+                                                              aria-label="Note for publisher about {{ $item->domain }}"></textarea>
+                                                    <button type="submit"
+                                                            class="btn btn-outline-danger"
+                                                            form="reject-item-{{ $item->id }}"
+                                                            data-slb-confirm="Reject this site only. The rest of the batch stays open."
+                                                            data-slb-confirm-title="Reject this website?"
+                                                            data-slb-confirm-text="Reject site"
+                                                            data-slb-confirm-danger="1">
+                                                        Reject
+                                                    </button>
+                                                </div>
+                                            </footer>
+                                        @endif
+                                    </article>
+                                @endforeach
                             </div>
 
                             <div id="bulkDoneHint" class="alert alert-warning py-2 small mb-3" role="status">
@@ -515,6 +557,39 @@
 <script src="{{ asset('assets/js/jquery-3.6.0.min.js') }}?v={{ @filemtime(public_path('assets/js/jquery-3.6.0.min.js')) ?: '1' }}"></script>
 <script src="{{ asset('js/multi-select.js') }}?v={{ @filemtime(public_path('js/multi-select.js')) ?: '1' }}"></script>
 <script>
+(function () {
+    const list = document.querySelector('[data-bulk-done-list]');
+    const buttons = document.querySelectorAll('[data-bulk-done-density-btn]');
+    if (!list || !buttons.length) return;
+
+    const storageKey = 'bulkDoneDensity';
+
+    function applyDensity(mode) {
+        const next = mode === 'compact' ? 'compact' : 'comfortable';
+        list.classList.toggle('is-compact', next === 'compact');
+        list.classList.toggle('is-comfortable', next === 'comfortable');
+        buttons.forEach(function (btn) {
+            const on = btn.getAttribute('data-bulk-done-density-btn') === next;
+            btn.classList.toggle('active', on);
+            btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+        });
+        try { localStorage.setItem(storageKey, next); } catch (e) {}
+    }
+
+    let saved = 'comfortable';
+    try {
+        const raw = localStorage.getItem(storageKey);
+        if (raw === 'compact' || raw === 'comfortable') saved = raw;
+    } catch (e) {}
+    applyDensity(saved);
+
+    buttons.forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            applyDensity(btn.getAttribute('data-bulk-done-density-btn'));
+        });
+    });
+})();
+
 (function () {
     const form = document.getElementById('bulkDoneForm');
     if (!form) return;
