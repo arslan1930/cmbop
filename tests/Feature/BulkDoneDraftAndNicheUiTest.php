@@ -91,7 +91,9 @@ class BulkDoneDraftAndNicheUiTest extends TestCase
         $this->assertStringContainsString('form="reject-item-'.$bulk->items()->first()->id.'"', $html);
         $this->assertStringContainsString('data-bulk-reject-note', $html);
         $this->assertStringContainsString('function isRejectControl', $html);
-        $this->assertStringContainsString('localStorage.getItem(storageKey)', $html);
+        $this->assertStringContainsString('readStoredDensity', $html);
+        $this->assertStringContainsString('sessionStorage.getItem(storageKey)', $html);
+        $this->assertStringContainsString("addEventListener('pagehide'", $html);
         $this->assertStringNotContainsString('placeholder="Reason"', $html);
         $staffCss = file_get_contents(public_path('assets/css/staff-sites.css'));
         $this->assertStringContainsString('.bulk-done-card', $staffCss);

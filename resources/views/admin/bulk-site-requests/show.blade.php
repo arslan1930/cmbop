@@ -559,6 +559,21 @@
 
     const storageKey = 'bulkDoneDensity';
 
+    function readStoredDensity() {
+        const stores = [];
+        try { stores.push(localStorage.getItem(storageKey)); } catch (e) {}
+        try { stores.push(sessionStorage.getItem(storageKey)); } catch (e) {}
+        for (let i = 0; i < stores.length; i++) {
+            if (stores[i] === 'compact' || stores[i] === 'comfortable') return stores[i];
+        }
+        return 'comfortable';
+    }
+
+    function writeStoredDensity(mode) {
+        try { localStorage.setItem(storageKey, mode); } catch (e) {}
+        try { sessionStorage.setItem(storageKey, mode); } catch (e) {}
+    }
+
     function applyDensity(mode) {
         const next = mode === 'compact' ? 'compact' : 'comfortable';
         list.classList.toggle('is-compact', next === 'compact');
@@ -568,15 +583,10 @@
             btn.classList.toggle('active', on);
             btn.setAttribute('aria-pressed', on ? 'true' : 'false');
         });
-        try { localStorage.setItem(storageKey, next); } catch (e) {}
+        writeStoredDensity(next);
     }
 
-    let saved = 'comfortable';
-    try {
-        const raw = localStorage.getItem(storageKey);
-        if (raw === 'compact' || raw === 'comfortable') saved = raw;
-    } catch (e) {}
-    applyDensity(saved);
+    applyDensity(readStoredDensity());
 
     buttons.forEach(function (btn) {
         btn.addEventListener('click', function () {
@@ -928,8 +938,10 @@
         if (isRejectControl(e.target)) return;
         clampScoreInput(e.target);
         syncDoneState();
-        scheduleDraftSave();
+        writeDraft();
     });
+    window.addEventListener('pagehide', writeDraft);
+    window.addEventListener('beforeunload', writeDraft);
 
     form.addEventListener('submit', function (e) {
         // Dedicated flag so shared slb-confirm.js cannot clear imperative allows.
