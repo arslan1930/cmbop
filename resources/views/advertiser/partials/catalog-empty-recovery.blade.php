@@ -26,7 +26,7 @@
             </a>
         @endif
         <button type="button" class="btn btn-outline-success btn-sm btn-suggest-website"
-                data-search="{{ request('search') }}">
+                data-search="{{ scalar_text(request('search')) }}">
             <i class="fa-solid fa-lightbulb me-1" aria-hidden="true"></i> Suggest a website
         </button>
     </div>

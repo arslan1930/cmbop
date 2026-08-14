@@ -3480,22 +3480,26 @@ class CatalogController extends Controller
             }
 
             // Payment status filter
-            if ($request->filled('payment_status')) {
-                $query->where('payment_status', $request->payment_status);
+            $paymentStatus = scalar_text($request->input('payment_status'));
+            if ($paymentStatus !== '') {
+                $query->where('payment_status', $paymentStatus);
             }
 
             // Payment method filter
-            if ($request->filled('payment_method')) {
-                $query->where('payment_method', $request->payment_method);
+            $paymentMethod = scalar_text($request->input('payment_method'));
+            if ($paymentMethod !== '') {
+                $query->where('payment_method', $paymentMethod);
             }
 
             // Date range filter
-            if ($request->filled('date_from')) {
-                $query->whereDate('created_at', '>=', $request->date_from);
+            $dateFrom = scalar_text($request->input('date_from'));
+            if ($dateFrom !== '') {
+                $query->whereDate('created_at', '>=', $dateFrom);
             }
 
-            if ($request->filled('date_to')) {
-                $query->whereDate('created_at', '<=', $request->date_to);
+            $dateTo = scalar_text($request->input('date_to'));
+            if ($dateTo !== '') {
+                $query->whereDate('created_at', '<=', $dateTo);
             }
 
             AdvertiserOrderStatus::applyQueueOrder($query, $statusFilter);

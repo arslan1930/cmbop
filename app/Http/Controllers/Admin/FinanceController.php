@@ -23,10 +23,12 @@ class FinanceController extends Controller
      */
     public function index(Request $request)
     {
+        $dateFrom = scalar_text($request->get('date_from')) ?: null;
+        $dateTo = scalar_text($request->get('date_to')) ?: null;
         $period = $this->finance->resolvePeriod(
-            $request->get('period'),
-            $request->get('date_from'),
-            $request->get('date_to')
+            scalar_text($request->get('period')) ?: null,
+            $dateFrom,
+            $dateTo
         );
 
         $data = $this->finance->overview($period);
@@ -34,8 +36,8 @@ class FinanceController extends Controller
         return view('admin.finance', [
             'data' => $data,
             'periodKey' => $period['key'],
-            'dateFrom' => $request->get('date_from'),
-            'dateTo' => $request->get('date_to'),
+            'dateFrom' => $dateFrom,
+            'dateTo' => $dateTo,
         ]);
     }
 
@@ -47,11 +49,13 @@ class FinanceController extends Controller
         $query = WalletTransaction::with(['user:id,name,email', 'wallet:id,role_id'])
             ->latest();
 
-        if ($request->filled('type')) {
-            $query->where('type', $request->type);
+        $type = scalar_text($request->type);
+        if ($type !== '') {
+            $query->where('type', $type);
         }
-        if ($request->filled('direction')) {
-            $query->where('direction', $request->direction);
+        $direction = scalar_text($request->direction);
+        if ($direction !== '') {
+            $query->where('direction', $direction);
         }
         if ($request->filled('search')) {
             $search = trim(scalar_text($request->search));
@@ -68,11 +72,13 @@ class FinanceController extends Controller
         if ($request->filled('user_id')) {
             $query->where('user_id', (int) $request->user_id);
         }
-        if ($request->filled('date_from')) {
-            $query->whereDate('created_at', '>=', $request->date_from);
+        $dateFrom = scalar_text($request->date_from);
+        if ($dateFrom !== '') {
+            $query->whereDate('created_at', '>=', $dateFrom);
         }
-        if ($request->filled('date_to')) {
-            $query->whereDate('created_at', '<=', $request->date_to);
+        $dateTo = scalar_text($request->date_to);
+        if ($dateTo !== '') {
+            $query->whereDate('created_at', '<=', $dateTo);
         }
 
         $transactions = $query->paginate(40)->withQueryString();
@@ -143,9 +149,9 @@ class FinanceController extends Controller
     public function export(Request $request): StreamedResponse
     {
         $period = $this->finance->resolvePeriod(
-            $request->get('period'),
-            $request->get('date_from'),
-            $request->get('date_to')
+            scalar_text($request->get('period')) ?: null,
+            scalar_text($request->get('date_from')) ?: null,
+            scalar_text($request->get('date_to')) ?: null
         );
         $rows = $this->finance->exportRows($period);
         $filename = 'finance-'.$period['key'].'-'.now()->format('Y-m-d-His').'.csv';

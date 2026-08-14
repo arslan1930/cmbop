@@ -27,18 +27,18 @@ class NotificationController extends Controller
             default => 'advertiser.layouts.app',
         };
 
-        $category = $request->get('category', 'all');
+        $category = scalar_text($request->get('category', 'all'));
         $status = match ($category) {
             'unread' => 'unread',
             'archived' => 'archived',
-            default => $request->get('status', 'inbox'),
+            default => scalar_text($request->get('status', 'inbox')),
         };
         $filterCategory = in_array($category, ['unread', 'archived'], true) ? 'all' : $category;
 
         $paginator = $this->notifications->listForUser($user->id, [
             'status' => $status,
             'category' => $filterCategory,
-            'q' => $request->get('q'),
+            'q' => trim(scalar_text($request->get('q'))),
             'audience' => $role,
         ], 30);
 
@@ -49,7 +49,7 @@ class NotificationController extends Controller
             'filters' => [
                 'status' => $status,
                 'category' => $category,
-                'q' => $request->get('q', ''),
+                'q' => trim(scalar_text($request->get('q'))),
             ],
         ]);
     }
@@ -60,11 +60,11 @@ class NotificationController extends Controller
             $user = $request->user();
             $role = $user->activeRole();
             $paginator = $this->notifications->listForUser($user->id, [
-                'status' => $request->get('status', 'active'),
-                'category' => $request->get('category', 'all'),
-                'q' => $request->get('q'),
+                'status' => scalar_text($request->get('status', 'active')),
+                'category' => scalar_text($request->get('category', 'all')),
+                'q' => trim(scalar_text($request->get('q'))),
                 'audience' => $role,
-            ], (int) $request->get('per_page', 20));
+            ], (int) scalar_text($request->get('per_page', 20)));
 
             $items = collect($paginator->items())->map(fn (InAppNotification $n) => $n->toApiArray())->values();
 

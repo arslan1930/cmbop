@@ -20,7 +20,7 @@
                 <select name="site_id" class="form-select form-select-sm">
                     <option value="">All sites</option>
                     @foreach($sites as $site)
-                        <option value="{{ $site->id }}" @selected((string) request('site_id') === (string) $site->id)>
+                        <option value="{{ $site->id }}" @selected(scalar_text(request('site_id')) === (string) $site->id)>
                             {{ $site->site_name }} ({{ $site->domain }})
                         </option>
                     @endforeach

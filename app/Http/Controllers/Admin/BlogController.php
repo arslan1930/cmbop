@@ -113,7 +113,7 @@ class BlogController extends Controller
 
             $tags = null;
             if ($request->tags) {
-                $tags = array_map('trim', explode(',', $request->tags));
+                $tags = array_map('trim', explode(',', csv_text($request->tags)));
                 $tags = array_filter($tags);
                 $tags = array_values($tags);
             }
@@ -269,7 +269,7 @@ class BlogController extends Controller
 
             $tags = null;
             if ($request->tags) {
-                $tags = array_map('trim', explode(',', $request->tags));
+                $tags = array_map('trim', explode(',', csv_text($request->tags)));
                 $tags = array_filter($tags);
                 $tags = array_values($tags);
             }

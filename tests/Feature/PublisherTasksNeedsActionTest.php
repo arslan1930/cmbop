@@ -189,6 +189,14 @@ class PublisherTasksNeedsActionTest extends TestCase
         $this->assertTrue($scheduledRows[0]['order']['is_awaiting_scheduled_release']);
 
         $this->actingAs($this->publisher)
+            ->getJson(route('publisher.orders.data', [
+                'search' => ['ORD'],
+                'status' => ['pending'],
+            ]))
+            ->assertOk()
+            ->assertJsonPath('success', true);
+
+        $this->actingAs($this->publisher)
             ->getJson(route('publisher.orders.statistics'))
             ->assertOk()
             ->assertJsonPath('data.pending_orders', 1);

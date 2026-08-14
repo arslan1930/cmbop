@@ -36,7 +36,7 @@ class OrderController extends Controller
         }
 
         if ($request->filled('search')) {
-            $search = $request->string('search')->toString();
+            $search = trim(scalar_text($request->input('search')));
             $query->where(function ($q) use ($search) {
                 $q->where('order_number', 'like', "%{$search}%")
                     ->orWhere('reference_code', 'like', "%{$search}%")
@@ -60,26 +60,29 @@ class OrderController extends Controller
         if ($request->input('status') === 'scheduled') {
             $query->awaitingScheduledRelease();
         } elseif ($request->filled('status')) {
-            $query->where('status', $request->string('status')->toString());
+            $query->where('status', scalar_text($request->input('status')));
         }
 
         // "unpaid" is the ops queue (not paid/refunded + still open), not an enum value.
-        if ($request->input('payment_status') === 'unpaid') {
+        $paymentStatus = scalar_text($request->input('payment_status'));
+        if ($paymentStatus === 'unpaid') {
             $query->unpaidOps();
-        } elseif ($request->filled('payment_status')) {
-            $query->where('payment_status', $request->string('payment_status')->toString());
+        } elseif ($paymentStatus !== '') {
+            $query->where('payment_status', $paymentStatus);
         }
 
         if ($request->input('dispute') === 'open' && OrderItemDispute::tableAvailable()) {
             $query->whereHas('disputes', fn ($q) => $q->where('status', OrderItemDispute::STATUS_OPEN));
         }
 
-        if ($request->filled('date_from')) {
-            $query->whereDate('created_at', '>=', $request->string('date_from')->toString());
+        $dateFrom = scalar_text($request->input('date_from'));
+        if ($dateFrom !== '') {
+            $query->whereDate('created_at', '>=', $dateFrom);
         }
 
-        if ($request->filled('date_to')) {
-            $query->whereDate('created_at', '<=', $request->string('date_to')->toString());
+        $dateTo = scalar_text($request->input('date_to'));
+        if ($dateTo !== '') {
+            $query->whereDate('created_at', '<=', $dateTo);
         }
 
         $perPage = max(1, min(100, (int) $request->get('per_page', 20)));

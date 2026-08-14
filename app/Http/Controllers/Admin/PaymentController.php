@@ -56,28 +56,33 @@ class PaymentController extends Controller
             }
 
             // Payment status filter. "unpaid" is the ops queue, not an enum value.
-            if ($request->input('payment_status') === 'unpaid') {
+            $paymentStatus = scalar_text($request->input('payment_status'));
+            if ($paymentStatus === 'unpaid') {
                 $query->unpaidOps();
-            } elseif ($request->filled('payment_status')) {
-                $query->where('payment_status', $request->payment_status);
+            } elseif ($paymentStatus !== '') {
+                $query->where('payment_status', $paymentStatus);
             }
 
             // Payment method filter
-            if ($request->filled('payment_method')) {
-                $query->where('payment_method', $request->payment_method);
+            $paymentMethod = scalar_text($request->input('payment_method'));
+            if ($paymentMethod !== '') {
+                $query->where('payment_method', $paymentMethod);
             }
 
             // Order status filter
-            if ($request->filled('status')) {
-                $query->where('status', $request->status);
+            $status = scalar_text($request->input('status'));
+            if ($status !== '') {
+                $query->where('status', $status);
             }
 
             // Date range filter
-            if ($request->filled('date_from')) {
-                $query->whereDate('created_at', '>=', $request->date_from);
+            $dateFrom = scalar_text($request->input('date_from'));
+            if ($dateFrom !== '') {
+                $query->whereDate('created_at', '>=', $dateFrom);
             }
-            if ($request->filled('date_to')) {
-                $query->whereDate('created_at', '<=', $request->date_to);
+            $dateTo = scalar_text($request->input('date_to'));
+            if ($dateTo !== '') {
+                $query->whereDate('created_at', '<=', $dateTo);
             }
 
             $perPage = $request->get('per_page', 20);

@@ -37,11 +37,11 @@
                 </div>
                 <div class="col-md-2">
                     <label class="form-label small text-muted">From</label>
-                    <input type="date" name="date_from" value="{{ request('date_from') }}" class="form-control form-control-sm">
+                    <input type="date" name="date_from" value="{{ scalar_text(request('date_from')) }}" class="form-control form-control-sm">
                 </div>
                 <div class="col-md-2">
                     <label class="form-label small text-muted">To</label>
-                    <input type="date" name="date_to" value="{{ request('date_to') }}" class="form-control form-control-sm">
+                    <input type="date" name="date_to" value="{{ scalar_text(request('date_to')) }}" class="form-control form-control-sm">
                 </div>
                 <div class="col-md-1">
                     <button class="btn btn-sm btn-primary w-100">Filter</button>

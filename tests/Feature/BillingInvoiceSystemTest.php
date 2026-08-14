@@ -228,6 +228,17 @@ class BillingInvoiceSystemTest extends TestCase
             ->assertSee($invoice->invoice_number, false);
 
         $this->actingAs($advertiser)
+            ->get(route('advertiser.billing.index', [
+                'search' => [$invoice->invoice_number],
+                'status' => ['paid'],
+                'from' => ['2020-01-01'],
+                'to' => ['2030-12-31'],
+            ]))
+            ->assertOk()
+            ->assertSee($invoice->invoice_number, false)
+            ->assertDontSee('Array to string conversion', false);
+
+        $this->actingAs($advertiser)
             ->get(route('advertiser.billing.download', $invoice))
             ->assertOk();
 

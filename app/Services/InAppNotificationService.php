@@ -2286,7 +2286,7 @@ class InAppNotificationService
         }
 
         if (! empty($filters['q'])) {
-            $q = trim((string) $filters['q']);
+            $q = trim(scalar_text($filters['q']));
             $query->where(function ($builder) use ($q) {
                 $builder->where('title', 'like', "%{$q}%")
                     ->orWhere('message', 'like', "%{$q}%");

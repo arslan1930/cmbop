@@ -27,12 +27,14 @@ class InvoiceController extends Controller
             });
         }
 
-        if ($request->filled('status')) {
-            $query->where('status', $request->status);
+        $status = scalar_text($request->status);
+        if ($status !== '') {
+            $query->where('status', $status);
         }
 
-        if ($request->filled('type')) {
-            $query->where('type', $request->type);
+        $type = scalar_text($request->type);
+        if ($type !== '') {
+            $query->where('type', $type);
         }
 
         $invoices = $query->latest('id')->paginate(25)->withQueryString();

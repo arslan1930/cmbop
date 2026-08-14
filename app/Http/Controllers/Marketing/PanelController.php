@@ -105,7 +105,7 @@ class PanelController extends Controller
         $query = $this->marketerHistoryQuery($userId);
         $dateErrors = [];
 
-        $selectedAction = $request->string('action')->toString();
+        $selectedAction = scalar_text($request->input('action'));
         if ($selectedAction !== '' && ! in_array($selectedAction, self::TRACKED_ACTIONS, true)) {
             $selectedAction = '';
         }
@@ -144,7 +144,7 @@ class PanelController extends Controller
             }
         }
 
-        $searchNeedle = mb_strtolower(trim($request->string('q')->toString()));
+        $searchNeedle = mb_strtolower(trim(scalar_text($request->input('q'))));
         if ($searchNeedle !== '') {
             $matchedActions = marketing_task_actions_matching($searchNeedle);
             $query->where(function ($q) use ($searchNeedle, $matchedActions) {
@@ -235,11 +235,10 @@ class PanelController extends Controller
 
     private function parseMarketerDay(mixed $value, bool $start): ?Carbon
     {
-        if (! is_string($value)) {
+        $value = trim(scalar_text($value));
+        if ($value === '') {
             return null;
         }
-
-        $value = trim($value);
         if (! preg_match('/^\d{4}-\d{2}-\d{2}$/', $value)) {
             return null;
         }

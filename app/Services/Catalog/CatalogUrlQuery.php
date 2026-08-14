@@ -73,7 +73,7 @@ class CatalogUrlQuery
             ? $input->input('per_page')
             : ($input['per_page'] ?? null);
 
-        $value = (int) $raw;
+        $value = (int) scalar_text($raw);
         if (in_array($value, self::ALLOWED_PER_PAGE, true)) {
             return $value;
         }

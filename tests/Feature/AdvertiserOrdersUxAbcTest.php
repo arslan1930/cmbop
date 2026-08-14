@@ -254,6 +254,25 @@ class AdvertiserOrdersUxAbcTest extends TestCase
             'order_number' => 'ORD-NOISE',
         ]);
 
+        $this->actingAs($advertiser)
+            ->getJson(route('advertiser.orders.list', [
+                'search' => ['UNIQUE-ALPHA'],
+                'status' => ['pending'],
+                'date_from' => ['2020-01-01'],
+                'date_to' => ['2030-12-31'],
+            ]))
+            ->assertOk()
+            ->assertJsonPath('success', true);
+
+        $this->actingAs($advertiser)
+            ->get(route('advertiser.orders', [
+                'search' => ['UNIQUE-ALPHA'],
+                'date_from' => ['2020-01-01'],
+                'date_to' => ['2030-12-31'],
+            ]))
+            ->assertOk()
+            ->assertDontSee('Array to string conversion', false);
+
         $refHits = $this->actingAs($advertiser)
             ->getJson(route('advertiser.orders.list', ['search' => 'UNIQUE-ALPHA']))
             ->assertOk()

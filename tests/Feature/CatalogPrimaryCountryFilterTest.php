@@ -124,6 +124,8 @@ class CatalogPrimaryCountryFilterTest extends TestCase
             ->get(route('advertiser.catalog', [
                 'country' => ['de', 'us'],
                 'search' => ['Primary'],
+                'price_min' => ['10'],
+                'da_min' => ['20'],
             ]))
             ->assertOk()
             ->assertDontSee('Array to string conversion', false)

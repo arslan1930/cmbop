@@ -129,7 +129,7 @@ class BillingController extends Controller
             return null;
         }
 
-        $raw = trim((string) $value);
+        $raw = trim(scalar_text($value));
         if (! preg_match('/^\d{4}-\d{2}-\d{2}$/', $raw)) {
             return null;
         }

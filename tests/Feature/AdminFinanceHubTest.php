@@ -206,6 +206,26 @@ class AdminFinanceHubTest extends TestCase
         app(WalletLedgerService::class)->recordTransferIn($wallet, 50, null, 'TEST-EARN', 'Test earnings');
 
         $this->actingAs($admin)
+            ->get(route('admin.finance', [
+                'period' => ['month'],
+                'date_from' => ['2026-01-01'],
+                'date_to' => ['2026-12-31'],
+            ]))
+            ->assertOk()
+            ->assertDontSee('Array to string conversion', false);
+
+        $this->actingAs($admin)
+            ->get(route('admin.finance.ledger', [
+                'search' => ['TEST-EARN'],
+                'type' => [WalletTransaction::TYPE_TRANSFER_IN],
+                'date_from' => ['2026-01-01'],
+                'date_to' => ['2026-12-31'],
+            ]))
+            ->assertOk()
+            ->assertSee('Wallet ledger')
+            ->assertDontSee('Array to string conversion', false);
+
+        $this->actingAs($admin)
             ->get(route('admin.finance.ledger'))
             ->assertOk()
             ->assertSee('Wallet ledger')

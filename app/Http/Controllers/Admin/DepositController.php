@@ -23,8 +23,9 @@ class DepositController extends Controller
     {
         $query = DepositRequest::with('user');
 
-        if ($request->filled('status')) {
-            $query->where('status', $request->status);
+        $status = scalar_text($request->status);
+        if ($status !== '') {
+            $query->where('status', $status);
         }
 
         if ($request->filled('search')) {

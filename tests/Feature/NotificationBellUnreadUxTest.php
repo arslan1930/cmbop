@@ -115,6 +115,17 @@ class NotificationBellUnreadUxTest extends TestCase
             ->assertOk()
             ->assertSee('Old tip', false)
             ->assertDontSee('Live tip', false);
+
+        $this->actingAs($user)
+            ->get(route('notifications.all', ['q' => ['Live'], 'category' => ['all']]))
+            ->assertOk()
+            ->assertSee('Live tip', false)
+            ->assertDontSee('Array to string conversion', false);
+
+        $this->actingAs($user)
+            ->getJson(route('notifications.index', ['q' => ['Live'], 'status' => ['unread']]))
+            ->assertOk()
+            ->assertJsonFragment(['title' => 'Live tip']);
     }
 
     public function test_api_payload_includes_archived_flag(): void

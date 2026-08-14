@@ -89,7 +89,7 @@
                                    enterkeyhint="search"
                                    aria-describedby="ordersSearchHint ordersSearchStatus"
                                    data-orders-live-search="1"
-                                   value="{{ request('search') }}">
+                                   value="{{ scalar_text(request('search')) }}">
                             <button type="button"
                                     id="ordersSearchClear"
                                     class="btn btn-sm btn-link orders-search-clear slb-search-clear d-none"
@@ -150,13 +150,13 @@
                                    id="dateFrom"
                                    class="form-control form-control-sm" 
                                    placeholder="From"
-                                   value="{{ request('date_from') }}">
+                                   value="{{ scalar_text(request('date_from')) }}">
                             <input type="date" 
                                    name="date_to" 
                                    id="dateTo"
                                    class="form-control form-control-sm" 
                                    placeholder="To"
-                                   value="{{ request('date_to') }}">
+                                   value="{{ scalar_text(request('date_to')) }}">
                         </div>
                     </div>
 

@@ -28,10 +28,10 @@
             </select>
         </div>
         <div class="col-md-2">
-            <input type="date" name="from" value="{{ request('from') }}" class="form-control form-control-sm">
+            <input type="date" name="from" value="{{ scalar_text(request('from')) }}" class="form-control form-control-sm">
         </div>
         <div class="col-md-2">
-            <input type="date" name="to" value="{{ request('to') }}" class="form-control form-control-sm">
+            <input type="date" name="to" value="{{ scalar_text(request('to')) }}" class="form-control form-control-sm">
         </div>
         <div class="col-md-1 d-flex gap-1">
             <button class="btn btn-sm btn-primary flex-grow-1" type="submit">Filter</button>

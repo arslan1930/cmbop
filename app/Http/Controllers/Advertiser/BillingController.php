@@ -33,20 +33,24 @@ class BillingController extends Controller
             });
         }
 
-        if ($request->filled('status')) {
-            $query->where('status', $request->status);
+        $status = scalar_text($request->status);
+        if ($status !== '') {
+            $query->where('status', $status);
         }
 
-        if ($request->filled('type')) {
-            $query->where('type', $request->type);
+        $type = scalar_text($request->type);
+        if ($type !== '') {
+            $query->where('type', $type);
         }
 
-        if ($request->filled('from')) {
-            $query->whereDate('invoice_date', '>=', $request->from);
+        $from = scalar_text($request->from);
+        if ($from !== '') {
+            $query->whereDate('invoice_date', '>=', $from);
         }
 
-        if ($request->filled('to')) {
-            $query->whereDate('invoice_date', '<=', $request->to);
+        $to = scalar_text($request->to);
+        if ($to !== '') {
+            $query->whereDate('invoice_date', '<=', $to);
         }
 
         $invoices = $query->latest('invoice_date')->latest('id')->paginate(20)->withQueryString();

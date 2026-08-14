@@ -11,7 +11,6 @@ use App\Models\User;
 use Database\Seeders\RolesTableSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
-use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 class MarketingPanelHistoryTest extends TestCase
@@ -119,6 +118,12 @@ class MarketingPanelHistoryTest extends TestCase
             ->getContent();
 
         $this->assertStringContainsString('role-shell-marketing', $html);
+
+        $this->actingAs($this->marketer)
+            ->get(route('marketing.history', ['q' => ['Mine only'], 'action' => ['site.updated']]))
+            ->assertOk()
+            ->assertSee('Mine only edit', false)
+            ->assertDontSee('Array to string conversion', false);
     }
 
     public function test_history_includes_activate_and_assign_with_subject_links(): void

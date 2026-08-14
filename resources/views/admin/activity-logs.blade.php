@@ -25,11 +25,11 @@
         </div>
         <div class="col-md-2">
             <label class="visually-hidden" for="logFrom">From date</label>
-            <input type="date" id="logFrom" name="from" value="{{ request('from') }}" class="form-control form-control-sm">
+            <input type="date" id="logFrom" name="from" value="{{ scalar_text(request('from')) }}" class="form-control form-control-sm">
         </div>
         <div class="col-md-2">
             <label class="visually-hidden" for="logTo">To date</label>
-            <input type="date" id="logTo" name="to" value="{{ request('to') }}" class="form-control form-control-sm">
+            <input type="date" id="logTo" name="to" value="{{ scalar_text(request('to')) }}" class="form-control form-control-sm">
         </div>
         <div class="col-md-2 d-flex gap-1">
             <button class="btn btn-sm btn-primary flex-grow-1" type="submit">Filter</button>

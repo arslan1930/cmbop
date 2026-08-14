@@ -126,6 +126,12 @@ class OnboardingSegmentsAndRemindersTest extends TestCase
             ->assertSee($pub->email, false)
             ->assertSee(route('admin.campaigns.index', ['audience' => 'publishers_no_sites'], false), false);
 
+        $this->actingAs($admin)
+            ->get(route('admin.audiences.index', ['tab' => ['advertisers'], 'q' => [$adv->email]]))
+            ->assertOk()
+            ->assertSee($adv->email, false)
+            ->assertDontSee('Array to string conversion', false);
+
         $csvAdv = $this->actingAs($admin)
             ->get(route('admin.audiences.export', ['audience' => 'no_orders']))
             ->assertOk()

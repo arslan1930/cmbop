@@ -106,7 +106,7 @@ class OrderController extends Controller
 
             // Search filter
             if ($request->filled('search')) {
-                $search = $request->search;
+                $search = trim(scalar_text($request->search));
                 $query->where(function ($q) use ($search) {
                     $q->whereHas('order', function ($sub) use ($search) {
                         $sub->where('order_number', 'like', "%{$search}%")
@@ -140,7 +140,7 @@ class OrderController extends Controller
                     });
                 });
             } elseif ($request->filled('status')) {
-                $status = (string) $request->status;
+                $status = scalar_text($request->status);
                 $query->whereHas('order', function ($sub) use ($status) {
                     if ($status === 'scheduled') {
                         $sub->awaitingScheduledRelease();
@@ -153,11 +153,13 @@ class OrderController extends Controller
             }
 
             // Date range filter
-            if ($request->filled('date_from')) {
-                $query->whereDate('created_at', '>=', $request->date_from);
+            $dateFrom = scalar_text($request->date_from);
+            if ($dateFrom !== '') {
+                $query->whereDate('created_at', '>=', $dateFrom);
             }
-            if ($request->filled('date_to')) {
-                $query->whereDate('created_at', '<=', $request->date_to);
+            $dateTo = scalar_text($request->date_to);
+            if ($dateTo !== '') {
+                $query->whereDate('created_at', '<=', $dateTo);
             }
 
             $perPage = $request->get('per_page', 20);

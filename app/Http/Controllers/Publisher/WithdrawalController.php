@@ -261,15 +261,18 @@ class WithdrawalController extends Controller
 
             $query = Withdrawal::where('user_id', $user->id);
 
-            if ($request->has('status') && in_array($request->status, ['pending', 'processing', 'completed', 'cancelled'], true)) {
-                $query->where('status', $request->status);
+            $status = scalar_text($request->status);
+            if ($status !== '' && in_array($status, ['pending', 'processing', 'completed', 'cancelled'], true)) {
+                $query->where('status', $status);
             }
 
-            if ($request->filled('from_date')) {
-                $query->whereDate('created_at', '>=', $request->from_date);
+            $fromDate = scalar_text($request->from_date);
+            if ($fromDate !== '') {
+                $query->whereDate('created_at', '>=', $fromDate);
             }
-            if ($request->filled('to_date')) {
-                $query->whereDate('created_at', '<=', $request->to_date);
+            $toDate = scalar_text($request->to_date);
+            if ($toDate !== '') {
+                $query->whereDate('created_at', '<=', $toDate);
             }
 
             $withdrawals = $query->orderBy('created_at', 'desc')->paginate(10);

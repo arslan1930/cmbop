@@ -31,8 +31,12 @@ class AdminUiTier1FixesTest extends TestCase
     public function test_deposits_page_does_not_leak_raw_blade_directives(): void
     {
         $html = $this->actingAs($this->admin)
-            ->get(route('admin.deposits'))
+            ->get(route('admin.deposits', [
+                'search' => ['DEP'],
+                'status' => ['pending'],
+            ]))
             ->assertOk()
+            ->assertDontSee('Array to string conversion', false)
             ->getContent();
 
         $this->assertStringNotContainsString('@endsection', $html);

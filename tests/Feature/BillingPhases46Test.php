@@ -259,6 +259,16 @@ class BillingPhases46Test extends TestCase
             ->assertOk()
             ->assertSee($statement->invoice_number, false);
 
+        $this->actingAs($publisher)
+            ->get(route('publisher.billing.index', [
+                'search' => [$statement->invoice_number],
+                'from' => ['2020-01-01'],
+                'to' => ['2030-12-31'],
+            ]))
+            ->assertOk()
+            ->assertSee($statement->invoice_number, false)
+            ->assertDontSee('Array to string conversion', false);
+
         // Overflow / impossible calendar dates must be ignored (not coerced).
         $this->actingAs($publisher)
             ->get(route('publisher.billing.index', ['from' => '2024-13-40', 'to' => '2024-02-30']))

@@ -109,6 +109,21 @@ class MissingRoutesFixesTest extends TestCase
             ->assertDontSee('Array to string conversion', false);
     }
 
+    public function test_admin_activity_logs_array_user_does_not_500(): void
+    {
+        $admin = $this->makeUser('admin');
+
+        $this->actingAs($admin)
+            ->get(route('admin.activity-logs.index', [
+                'user' => ['admin@example.test'],
+                'action' => ['site.updated'],
+                'from' => ['2026-01-01'],
+                'to' => ['2026-12-31'],
+            ]))
+            ->assertOk()
+            ->assertDontSee('Array to string conversion', false);
+    }
+
     public function test_publisher_feature_wallet_top_up_points_to_publisher_balance(): void
     {
         $publisher = $this->makeUser('publisher');

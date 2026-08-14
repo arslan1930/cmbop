@@ -35,13 +35,13 @@ class BalanceController extends Controller
     {
         $userId = auth()->id();
         $paginator = $this->overview->activity($userId, [
-            'search' => $request->get('search'),
-            'type' => $request->get('type'),
-            'status' => $request->get('status'),
-            'from' => $request->get('from'),
-            'to' => $request->get('to'),
-            'page' => $request->get('page', 1),
-        ], (int) $request->get('per_page', 15));
+            'search' => trim(scalar_text($request->get('search'))),
+            'type' => scalar_text($request->get('type')),
+            'status' => scalar_text($request->get('status')),
+            'from' => scalar_text($request->get('from')),
+            'to' => scalar_text($request->get('to')),
+            'page' => (int) scalar_text($request->get('page', 1)),
+        ], (int) scalar_text($request->get('per_page', 15)));
 
         return response()->json([
             'success' => true,
@@ -82,7 +82,7 @@ class BalanceController extends Controller
 
     public function analytics(Request $request)
     {
-        $range = $request->get('range', 'month');
+        $range = scalar_text($request->get('range', 'month'));
         $allowed = ['week', '7d', 'month', '30d', '90d', 'quarter', 'year', 'lifetime', 'custom'];
         if (! in_array($range, $allowed, true)) {
             $range = 'month';
@@ -93,8 +93,8 @@ class BalanceController extends Controller
             'analytics' => $this->overview->analytics(
                 auth()->id(),
                 $range,
-                $request->get('from'),
-                $request->get('to')
+                scalar_text($request->get('from')) ?: null,
+                scalar_text($request->get('to')) ?: null
             ),
         ]);
     }
@@ -102,11 +102,11 @@ class BalanceController extends Controller
     public function export(Request $request): StreamedResponse
     {
         $rows = $this->overview->exportRows(auth()->id(), [
-            'search' => $request->get('search'),
-            'type' => $request->get('type'),
-            'status' => $request->get('status'),
-            'from' => $request->get('from'),
-            'to' => $request->get('to'),
+            'search' => trim(scalar_text($request->get('search'))),
+            'type' => scalar_text($request->get('type')),
+            'status' => scalar_text($request->get('status')),
+            'from' => scalar_text($request->get('from')),
+            'to' => scalar_text($request->get('to')),
         ]);
 
         $filename = 'wallet-statement-'.now()->format('Y-m-d').'.csv';

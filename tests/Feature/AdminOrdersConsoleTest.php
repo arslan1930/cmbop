@@ -154,6 +154,27 @@ class AdminOrdersConsoleTest extends TestCase
             ->assertDontSee('chatForm', false);
     }
 
+    public function test_admin_orders_data_array_search_does_not_500(): void
+    {
+        $admin = $this->userWithRole('admin');
+        $advertiser = $this->userWithRole('advertiser');
+        $publisher = $this->userWithRole('publisher');
+        $site = $this->siteFor($publisher);
+        $order = $this->orderFor($advertiser, $site);
+
+        $this->actingAs($admin)
+            ->getJson(route('admin.orders.data', [
+                'search' => [$order->order_number],
+                'status' => ['pending'],
+                'payment_status' => ['paid'],
+                'date_from' => ['2020-01-01'],
+                'date_to' => ['2030-12-31'],
+            ]))
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonFragment(['order_number' => $order->order_number]);
+    }
+
     public function test_stub_reports_and_settings_routes_are_gone(): void
     {
         $admin = $this->userWithRole('admin');

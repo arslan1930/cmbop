@@ -923,14 +923,14 @@
                                 <a href="{{ route('advertiser.catalog') }}" class="btn btn-primary btn-sm">Clear all filters</a>
                                 <a href="{{ route('advertiser.catalog', ['sort' => 'dr_desc']) }}" class="btn btn-outline-secondary btn-sm">Browse top DR</a>
                                 <button type="button" class="btn btn-outline-success btn-sm btn-suggest-website"
-                                        data-search="{{ request('search') }}">
+                                        data-search="{{ scalar_text(request('search')) }}">
                                     <i class="fa-solid fa-lightbulb me-1" aria-hidden="true"></i> Suggest a website
                                 </button>
                             </div>
                             <p class="small text-muted mb-0">
                                 Can’t find a site you need?
                                 @if(request('search'))
-                                    Suggest “{{ request('search') }}” and we’ll try to add it.
+                                    Suggest “{{ scalar_text(request('search')) }}” and we’ll try to add it.
                                 @else
                                     Suggest it and we’ll try to include it in the marketplace.
                                 @endif
@@ -1481,7 +1481,7 @@
                 <div class="d-flex flex-wrap justify-content-center gap-2">
                     <a href="{{ route('advertiser.catalog') }}" class="btn btn-primary btn-sm">Clear all filters</a>
                     <button type="button" class="btn btn-outline-success btn-sm btn-suggest-website"
-                            data-search="{{ request('search') }}">
+                            data-search="{{ scalar_text(request('search')) }}">
                         <i class="fa-solid fa-lightbulb me-1" aria-hidden="true"></i> Suggest a website
                     </button>
                 </div>

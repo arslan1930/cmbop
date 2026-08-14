@@ -38,11 +38,11 @@
                 </div>
                 <div class="col-md-2">
                     <label class="form-label small text-muted mb-0">From</label>
-                    <input type="date" name="date_from" value="{{ $dateFrom }}" class="form-control form-control-sm">
+                    <input type="date" name="date_from" value="{{ scalar_text($dateFrom) }}" class="form-control form-control-sm">
                 </div>
                 <div class="col-md-2">
                     <label class="form-label small text-muted mb-0">To</label>
-                    <input type="date" name="date_to" value="{{ $dateTo }}" class="form-control form-control-sm">
+                    <input type="date" name="date_to" value="{{ scalar_text($dateTo) }}" class="form-control form-control-sm">
                 </div>
                 <div class="col-auto">
                     <button class="btn btn-sm btn-primary">Apply range</button>

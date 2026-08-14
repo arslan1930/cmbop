@@ -10,7 +10,7 @@ class AudienceController extends Controller
 {
     public function index(Request $request, AudienceInventoryService $inventory)
     {
-        $tab = $request->get('tab', 'advertisers');
+        $tab = scalar_text($request->get('tab', 'advertisers'));
         if (! in_array($tab, ['advertisers', 'publishers', 'no_orders', 'no_sites', 'never_deposited'], true)) {
             $tab = 'advertisers';
         }
@@ -23,8 +23,8 @@ class AudienceController extends Controller
             default => AudienceInventoryService::AUDIENCE_ADVERTISERS,
         };
 
-        $search = $request->get('q');
-        $users = $inventory->paginate($audienceKey, $search);
+        $search = trim(scalar_text($request->get('q')));
+        $users = $inventory->paginate($audienceKey, $search !== '' ? $search : null);
         $stats = $inventory->stats();
         $campaignAudience = $audienceKey;
 
@@ -33,7 +33,7 @@ class AudienceController extends Controller
 
     public function export(Request $request, AudienceInventoryService $inventory)
     {
-        $audience = $request->get('audience', 'advertisers');
+        $audience = scalar_text($request->get('audience', 'advertisers'));
         $audienceKey = match ($audience) {
             'publishers' => AudienceInventoryService::AUDIENCE_PUBLISHERS,
             'no_orders', AudienceInventoryService::AUDIENCE_ADVERTISERS_NO_ORDERS => AudienceInventoryService::AUDIENCE_ADVERTISERS_NO_ORDERS,

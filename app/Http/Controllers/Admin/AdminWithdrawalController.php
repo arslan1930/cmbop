@@ -32,9 +32,10 @@ class AdminWithdrawalController extends Controller
             $query = Withdrawal::with('user:id,name,email');
 
             // Default: open payout queue (pending + processing), oldest first.
-            $queue = $request->get('queue', 'open');
-            if ($request->filled('status')) {
-                $query->where('status', $request->status);
+            $queue = scalar_text($request->get('queue', 'open'));
+            $status = scalar_text($request->status);
+            if ($status !== '') {
+                $query->where('status', $status);
             } elseif ($queue === 'open') {
                 $query->whereIn('status', ['pending', 'processing']);
             } elseif ($queue === 'history') {
@@ -52,19 +53,22 @@ class AdminWithdrawalController extends Controller
                 });
             }
 
-            if ($request->filled('payment_method')) {
-                $query->where('payment_method', $request->payment_method);
+            $paymentMethod = scalar_text($request->payment_method);
+            if ($paymentMethod !== '') {
+                $query->where('payment_method', $paymentMethod);
             }
 
-            if ($request->filled('date_from')) {
-                $query->whereDate('created_at', '>=', $request->date_from);
+            $dateFrom = scalar_text($request->date_from);
+            if ($dateFrom !== '') {
+                $query->whereDate('created_at', '>=', $dateFrom);
             }
-            if ($request->filled('date_to')) {
-                $query->whereDate('created_at', '<=', $request->date_to);
+            $dateTo = scalar_text($request->date_to);
+            if ($dateTo !== '') {
+                $query->whereDate('created_at', '<=', $dateTo);
             }
 
             // Open queue: oldest unpaid first. History: newest first.
-            if ($request->filled('status') && in_array($request->status, ['completed', 'cancelled'], true)) {
+            if ($status !== '' && in_array($status, ['completed', 'cancelled'], true)) {
                 $query->orderBy('created_at', 'desc');
             } elseif ($queue === 'history') {
                 $query->orderBy('created_at', 'desc');
@@ -250,14 +254,16 @@ class AdminWithdrawalController extends Controller
     {
         $query = Withdrawal::with('user:id,name,email');
 
-        if ($request->filled('status')) {
-            $query->where('status', $request->status);
+        $status = scalar_text($request->status);
+        if ($status !== '') {
+            $query->where('status', $status);
         } else {
             $query->whereIn('status', ['pending', 'processing']);
         }
 
-        if ($request->filled('payment_method')) {
-            $query->where('payment_method', $request->payment_method);
+        $paymentMethod = scalar_text($request->payment_method);
+        if ($paymentMethod !== '') {
+            $query->where('payment_method', $paymentMethod);
         }
 
         if ($request->filled('ids') && is_array($request->ids)) {
