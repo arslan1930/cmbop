@@ -110,6 +110,8 @@ class BulkDoneDraftAndNicheUiTest extends TestCase
         $this->assertStringContainsString('function setRejectControlsDisabled', $html);
         $this->assertStringContainsString('typeof window.slbConfirm === \'function\'', $html);
         $this->assertStringContainsString('previous.items', $html);
+        $this->assertStringContainsString('Array.isArray(countryLanguageMap[code])', $html);
+        $this->assertStringContainsString("typeof data.categories === 'string'", $html);
         $this->assertStringNotContainsString('function pruneDraftForItemIds', $html);
         $this->assertStringNotContainsString('pruneDraftForItemIds(submittedIds)', $html);
         $this->assertStringContainsString('collectBulkDraftDeleteReason', $html);

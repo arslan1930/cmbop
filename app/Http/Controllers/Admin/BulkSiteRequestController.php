@@ -70,7 +70,11 @@ class BulkSiteRequestController extends Controller
         $healEmptyAwaiting = $bulkRequest->status === BulkSiteRequest::STATUS_AWAITING_PUBLISHER
             && $hasPendingItems
             && $bulkRequest->sites->isEmpty();
-        if ($healStuckCompleted || $healEmptyAwaiting) {
+        $healStartWithSites = in_array($bulkRequest->status, [
+            BulkSiteRequest::STATUS_REQUESTED,
+            BulkSiteRequest::STATUS_SHEET_SENT,
+        ], true) && $bulkRequest->sites->isNotEmpty();
+        if ($healStuckCompleted || $healEmptyAwaiting || $healStartWithSites) {
             $bulkRequest->refreshProgressStatus();
             $bulkRequest->refresh();
             $bulkRequest->load([
@@ -108,12 +112,27 @@ class BulkSiteRequestController extends Controller
             return back()->with('error', 'Sheet emailed can only be marked before drafts are added.');
         }
 
-        $bulkRequest->forceFill([
-            'status' => BulkSiteRequest::STATUS_SHEET_SENT,
-            'sheet_sent_at' => now(),
-            'handled_by' => auth()->id(),
-            'admin_notes' => $request->input('admin_notes', $bulkRequest->admin_notes),
-        ])->save();
+        $locked = DB::transaction(function () use ($id, $request) {
+            $bulkRequest = BulkSiteRequest::query()->whereKey($id)->lockForUpdate()->firstOrFail();
+            if (! $bulkRequest->canMarkSheetSent()) {
+                return null;
+            }
+
+            $bulkRequest->forceFill([
+                'status' => BulkSiteRequest::STATUS_SHEET_SENT,
+                'sheet_sent_at' => now(),
+                'handled_by' => auth()->id(),
+                'admin_notes' => $request->input('admin_notes', $bulkRequest->admin_notes),
+            ])->save();
+
+            return $bulkRequest;
+        });
+
+        if (! $locked) {
+            return back()->with('error', 'Sheet emailed can only be marked before drafts are added.');
+        }
+
+        $bulkRequest = $locked;
 
         ActivityLogger::log(
             'bulk_request.sheet_sent',
@@ -156,7 +175,7 @@ class BulkSiteRequestController extends Controller
         $bulkRequest = BulkSiteRequest::findOrFail($id);
 
         $request->merge([
-            'reason' => trim((string) $request->input('reason')),
+            'reason' => $this->postedText($request, 'reason'),
         ]);
         $validated = $request->validate([
             'reason' => ['required', 'string', 'min:3', 'max:500'],
@@ -203,12 +222,13 @@ class BulkSiteRequestController extends Controller
 
         // Cancelling was silent, so the request simply vanished from the
         // publisher's queue — which reads as us losing their work.
-        $publisher = $bulkRequest->publisher;
+        $fresh = $bulkRequest->fresh(['publisher']) ?? $bulkRequest;
+        $publisher = $fresh->publisher;
 
         try {
             if ($publisher?->email) {
                 Mail::to($publisher->email)->send(
-                    new BulkSiteRequestCancelled($bulkRequest->fresh(), $publisher, $reason)
+                    new BulkSiteRequestCancelled($fresh, $publisher, $reason)
                 );
             }
         } catch (\Throwable $e) {
@@ -217,7 +237,7 @@ class BulkSiteRequestController extends Controller
 
         try {
             app(InAppNotificationService::class)
-                ->notifyPublisherBulkRequestCancelled($bulkRequest->fresh(), $reason);
+                ->notifyPublisherBulkRequestCancelled($fresh, $reason);
         } catch (\Throwable $e) {
             Log::warning('Failed to send in-app bulk cancel notice: '.$e->getMessage());
         }
@@ -244,7 +264,7 @@ class BulkSiteRequestController extends Controller
         }
 
         $request->merge([
-            'reason' => trim((string) $request->input('reason')),
+            'reason' => $this->postedText($request, 'reason'),
         ]);
 
         $validated = $request->validate([
@@ -673,11 +693,7 @@ class BulkSiteRequestController extends Controller
 
                 try {
                     if ($domain === '') {
-                        $failures[] = [
-                            'line' => $row['line'] ?? null,
-                            'url' => $row['site_url'] ?? '',
-                            'errors' => ['Could not add this website. Try again.'],
-                        ];
+                        $failures[] = $this->doneFailure($row, 'Could not add this website. Try again.');
 
                         continue;
                     }
@@ -701,11 +717,7 @@ class BulkSiteRequestController extends Controller
                     }
 
                     if (Site::where('domain', $domain)->exists()) {
-                        $failures[] = [
-                            'line' => $row['line'],
-                            'url' => $row['site_url'],
-                            'errors' => ['Domain already registered: '.$domain],
-                        ];
+                        $failures[] = $this->doneFailure($row, 'Domain already registered: '.$domain);
 
                         continue;
                     }
@@ -755,11 +767,7 @@ class BulkSiteRequestController extends Controller
                             ->pending()
                             ->exists();
                         if ($stillPending) {
-                            $failures[] = [
-                                'line' => $row['line'],
-                                'url' => $row['site_url'],
-                                'errors' => ['Could not attach this website. Try again.'],
-                            ];
+                            $failures[] = $this->doneFailure($row, 'Could not attach this website. Try again.');
                         }
 
                         continue;
@@ -769,22 +777,14 @@ class BulkSiteRequestController extends Controller
                     $createdDomains[] = $domain;
                 } catch (UniqueConstraintViolationException $e) {
                     $this->discardFailedDraftSite($bulkRequest, $row, $site, $action);
-                    $failures[] = [
-                        'line' => $row['line'] ?? null,
-                        'url' => $row['site_url'] ?? '',
-                        'errors' => ['Domain already registered: '.$domain],
-                    ];
+                    $failures[] = $this->doneFailure($row, 'Domain already registered: '.$domain);
                 } catch (\Throwable $e) {
                     $this->discardFailedDraftSite($bulkRequest, $row, $site, $action);
                     Log::warning('Failed to add bulk draft site: '.$e->getMessage(), [
                         'bulk_site_request_id' => $bulkRequest->id,
                         'domain' => $domain,
                     ]);
-                    $failures[] = [
-                        'line' => $row['line'] ?? null,
-                        'url' => $row['site_url'] ?? '',
-                        'errors' => ['Could not add this website. Try again.'],
-                    ];
+                    $failures[] = $this->doneFailure($row, 'Could not add this website. Try again.');
                 }
             }
 
@@ -1114,5 +1114,31 @@ class BulkSiteRequestController extends Controller
     private function parseCategoryList($raw): array
     {
         return Category::normalizeNicheInputs($raw);
+    }
+
+    private function postedText(Request $request, string $key): string
+    {
+        $value = $request->input($key);
+        if (! is_scalar($value) && $value !== null) {
+            return '';
+        }
+
+        return trim((string) $value);
+    }
+
+    /**
+     * @param  array<string, mixed>  $row
+     * @return array{line: mixed, url: string, errors: list<string>}
+     */
+    private function doneFailure(array $row, string $message): array
+    {
+        $url = $row['site_url'] ?? '';
+        $line = $row['line'] ?? null;
+
+        return [
+            'line' => is_scalar($line) ? $line : null,
+            'url' => is_scalar($url) ? (string) $url : '',
+            'errors' => [$message],
+        ];
     }
 }

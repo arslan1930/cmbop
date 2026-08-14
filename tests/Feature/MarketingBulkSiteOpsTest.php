@@ -1318,6 +1318,32 @@ class MarketingBulkSiteOpsTest extends TestCase
         $this->assertSame(BulkSiteRequest::STATUS_SEEDED, $bulk->fresh()->status);
     }
 
+    public function test_show_heals_sheet_sent_when_drafts_already_exist(): void
+    {
+        $bulk = BulkSiteRequest::create([
+            'publisher_id' => $this->publisher->id,
+            'status' => BulkSiteRequest::STATUS_SHEET_SENT,
+            'estimated_count' => 1,
+            'sheet_sent_at' => now(),
+        ]);
+        $this->seedDraft($bulk, 'sheet-with-draft.example');
+        BulkSiteRequestItem::create([
+            'bulk_site_request_id' => $bulk->id,
+            'site_url' => 'https://sheet-with-draft.example',
+            'domain' => 'sheet-with-draft.example',
+            'price' => 40,
+            'site_id' => $bulk->sites()->first()->id,
+        ]);
+
+        $this->actingAs($this->marketer)
+            ->get(route('marketing.bulk-site-requests.show', $bulk))
+            ->assertOk()
+            ->assertSee('Waiting on publisher', false)
+            ->assertDontSee('Sheet emailed', false);
+
+        $this->assertSame(BulkSiteRequest::STATUS_AWAITING_PUBLISHER, $bulk->fresh()->status);
+    }
+
     public function test_done_ignores_extra_posted_keys_beyond_the_batch_cap(): void
     {
         Mail::fake();
@@ -1515,6 +1541,22 @@ class MarketingBulkSiteOpsTest extends TestCase
 
         $this->assertSame(BulkSiteRequest::STATUS_REQUESTED, $bulk->fresh()->status);
         $this->assertNull($bulk->fresh()->cancel_reason);
+    }
+
+    public function test_cancel_array_reason_does_not_500(): void
+    {
+        $bulk = $this->makeBulkRequest();
+        $bulk->update(['status' => BulkSiteRequest::STATUS_REQUESTED]);
+
+        $this->actingAs($this->marketer)
+            ->from(route('marketing.bulk-site-requests.show', $bulk))
+            ->post(route('marketing.bulk-site-requests.cancel', $bulk), [
+                'reason' => ['not', 'a', 'string'],
+            ])
+            ->assertRedirect(route('marketing.bulk-site-requests.show', $bulk))
+            ->assertSessionHasErrors('reason');
+
+        $this->assertSame(BulkSiteRequest::STATUS_REQUESTED, $bulk->fresh()->status);
     }
 
     public function test_sheet_sent_cannot_rewind_a_live_batch(): void
@@ -1716,6 +1758,16 @@ class MarketingBulkSiteOpsTest extends TestCase
             ->from(route('marketing.bulk-site-requests.show', $bulk))
             ->post(route('marketing.bulk-site-requests.items.reject', [$bulk->id, $item->id]), [
                 'reason' => '',
+            ])
+            ->assertRedirect(route('marketing.bulk-site-requests.show', $bulk))
+            ->assertSessionHasErrors('reason');
+
+        $this->assertTrue($item->fresh()->isPending());
+
+        $this->actingAs($this->marketer)
+            ->from(route('marketing.bulk-site-requests.show', $bulk))
+            ->post(route('marketing.bulk-site-requests.items.reject', [$bulk->id, $item->id]), [
+                'reason' => ['not', 'a', 'string'],
             ])
             ->assertRedirect(route('marketing.bulk-site-requests.show', $bulk))
             ->assertSessionHasErrors('reason');

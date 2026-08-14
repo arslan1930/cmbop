@@ -44,12 +44,15 @@
                         } elseif (! is_array($failErrors)) {
                             $failErrors = [];
                         }
+                        $failErrors = array_values(array_filter($failErrors, 'is_scalar'));
+                        $failUrl = is_scalar($fail['url'] ?? null) ? (string) $fail['url'] : '';
+                        $failLine = is_scalar($fail['line'] ?? null) ? (string) $fail['line'] : '';
                     @endphp
                     <li>
-                        @if(! empty($fail['url']))
-                            {{ $fail['url'] }}
+                        @if($failUrl !== '')
+                            {{ $failUrl }}
                         @else
-                            Line {{ $fail['line'] ?? '' }}
+                            Line {{ $failLine }}
                         @endif
                         — {{ implode('; ', array_map('strval', $failErrors)) }}
                     </li>
@@ -659,7 +662,7 @@
         const langEl = row.querySelector('[data-bulk-language]');
         if (!countryEl || !langEl) return;
         const code = String(countryEl.value || '').toLowerCase();
-        const list = countryLanguageMap[code] || [];
+        const list = Array.isArray(countryLanguageMap[code]) ? countryLanguageMap[code] : [];
         const keep = String(preferredLanguage || langEl.value || '').toLowerCase();
         langEl.innerHTML = '';
         if (!code) {
@@ -807,8 +810,8 @@
     function restoreRejectNote(itemId, data, row) {
         const note = (row && row.querySelector('[data-bulk-reject-note]'))
             || form.querySelector('#reject-note-' + itemId);
-        if (note && !String(note.value || '').trim() && data.reject_note) {
-            note.value = String(data.reject_note);
+        if (note && !String(note.value || '').trim() && typeof data.reject_note === 'string' && data.reject_note) {
+            note.value = data.reject_note;
         }
     }
 
@@ -833,23 +836,24 @@
 
                     const useDraftFields = serverOldItemIds.indexOf(itemId) === -1;
                     if (useDraftFields) {
-                        if (country && data.country) country.value = data.country;
-                        if (row) refreshBulkDoneLanguages(row, data.language || '');
-                        if (language && data.language) language.value = data.language;
-                        if (da && data.da !== undefined && data.da !== null) da.value = data.da;
-                        if (dr && data.dr !== undefined && data.dr !== null) dr.value = data.dr;
-                        if (traffic && data.traffic !== undefined && data.traffic !== null) traffic.value = data.traffic;
+                        if (country && typeof data.country === 'string' && data.country) country.value = data.country;
+                        if (row) refreshBulkDoneLanguages(row, typeof data.language === 'string' ? data.language : '');
+                        if (language && typeof data.language === 'string' && data.language) language.value = data.language;
+                        if (da && (typeof data.da === 'string' || typeof data.da === 'number')) da.value = data.da;
+                        if (dr && (typeof data.dr === 'string' || typeof data.dr === 'number')) dr.value = data.dr;
+                        if (traffic && (typeof data.traffic === 'string' || typeof data.traffic === 'number')) traffic.value = data.traffic;
 
-                        const nicheValues = String(data.categories || '')
+                        const nicheRaw = typeof data.categories === 'string' ? data.categories : '';
+                        const nicheValues = nicheRaw
                             .split('|')
                             .map(function (v) { return v.trim(); })
                             .filter(Boolean);
                         const categoriesInput = form.querySelector('input[name="items[' + itemId + '][categories]"]');
                         if (nicheValues.length && multiSelects[itemId]) {
                             multiSelects[itemId].setSelectedItems(nicheValues, nicheValues);
-                        } else if (categoriesInput && data.categories !== undefined && data.categories !== null) {
+                        } else if (categoriesInput && typeof data.categories === 'string') {
                             // Keep hidden field in sync even if multi-select init failed.
-                            categoriesInput.value = String(data.categories || '');
+                            categoriesInput.value = data.categories;
                         }
                     }
 
