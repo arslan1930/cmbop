@@ -88,9 +88,17 @@ class BulkDoneDraftAndNicheUiTest extends TestCase
         // The fixed grid layout now lives in the shared stylesheet, not inline.
         $this->assertStringContainsString('staff-sites.css', $html);
         $this->assertStringContainsString('bulk-done-card-fields', $html);
-        $this->assertStringContainsString('form="reject-item-'.$bulk->items()->first()->id.'"', $html);
+        $item = $bulk->items()->first();
+        $this->assertStringContainsString('form="reject-item-'.$item->id.'"', $html);
+        $this->assertStringContainsString('name="reject_item_id"', $html);
+        $this->assertStringContainsString('data-item-id="'.$item->id.'"', $html);
+        $this->assertStringContainsString('id="done-niches-label-done'.$item->id.'"', $html);
+        $this->assertStringContainsString('aria-labelledby="done-niches-label-done'.$item->id.'"', $html);
         $this->assertStringContainsString('data-bulk-reject-note', $html);
+        $this->assertStringContainsString('reject_note', $html);
+        $this->assertStringContainsString('function restoreRejectNote', $html);
         $this->assertStringContainsString('function isRejectControl', $html);
+        $this->assertStringNotContainsString('for="categoryInput-done'.$item->id.'"', $html);
         $this->assertStringContainsString('readStoredDensity', $html);
         $this->assertStringContainsString('sessionStorage.getItem(storageKey)', $html);
         $this->assertStringContainsString('applyDensity(readStoredDensity(), false)', $html);

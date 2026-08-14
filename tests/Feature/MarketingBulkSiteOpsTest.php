@@ -595,6 +595,9 @@ class MarketingBulkSiteOpsTest extends TestCase
         $this->assertStringContainsString('function isRejectControl', $html);
         $this->assertStringContainsString('applyDensity(readStoredDensity(), false)', $html);
         $this->assertStringContainsString('data-bulk-reject-error', $html);
+        $this->assertStringContainsString('name="reject_item_id"', $html);
+        $this->assertStringContainsString('reject_note', $html);
+        $this->assertStringContainsString('function restoreRejectNote', $html);
         $this->assertStringContainsString('id="bulk-cancel-reason"', $html);
         $this->assertStringContainsString('data-bulk-advanced-seed', $html);
         $this->assertStringContainsString('Seed these pasted rows as drafts and notify the publisher?', $html);
@@ -972,7 +975,14 @@ class MarketingBulkSiteOpsTest extends TestCase
             'price' => 40,
         ]);
 
-        $html = $this->actingAs($this->marketer)
+        $other = BulkSiteRequestItem::create([
+            'bulk_site_request_id' => $bulk->id,
+            'site_url' => 'https://other-pending.example',
+            'domain' => 'other-pending.example',
+            'price' => 55,
+        ]);
+
+        $unscoped = $this->actingAs($this->marketer)
             ->from(route('marketing.bulk-site-requests.show', $bulk))
             ->followingRedirects()
             ->post(route('marketing.bulk-site-requests.items.reject', [$bulk->id, $item->id]), [
@@ -981,11 +991,36 @@ class MarketingBulkSiteOpsTest extends TestCase
             ->assertOk()
             ->getContent();
 
+        $this->assertStringContainsString('Add a note for the publisher.', $unscoped);
+        $this->assertSame(0, preg_match_all('/id="reject-note-\d+"[^>]*>no</', $unscoped));
+
+        $html = $this->actingAs($this->marketer)
+            ->from(route('marketing.bulk-site-requests.show', $bulk))
+            ->followingRedirects()
+            ->post(route('marketing.bulk-site-requests.items.reject', [$bulk->id, $item->id]), [
+                'reason' => 'no',
+                'reject_item_id' => $item->id,
+            ])
+            ->assertOk()
+            ->getContent();
+
         $this->assertStringContainsString('Add a note for the publisher.', $html);
         $this->assertStringContainsString('Give a short reason for rejecting this website.', $html);
         $this->assertStringNotContainsString('Finish the boxes first.', $html);
         $this->assertStringNotContainsString('Give a short reason for cancelling this request.', $html);
+        $this->assertStringContainsString('name="reject_item_id"', $html);
+        $this->assertStringContainsString('id="reject-note-'.$item->id.'"', $html);
+        $this->assertSame(1, preg_match_all('/id="reject-note-\d+"[^>]*>no</', $html));
+        $this->assertMatchesRegularExpression(
+            '/id="reject-note-'.$item->id.'"[^>]*>no</',
+            $html
+        );
+        $this->assertDoesNotMatchRegularExpression(
+            '/id="reject-note-'.$other->id.'"[^>]*>no</',
+            $html
+        );
         $this->assertTrue($item->fresh()->isPending());
+        $this->assertTrue($other->fresh()->isPending());
     }
 
     public function test_reject_requires_a_reason_and_skips_added_rows(): void

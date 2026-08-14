@@ -24,7 +24,11 @@
     @php
         $reasonError = $errors->first('reason');
         $isCancelReasonError = is_string($reasonError) && str_contains(strtolower($reasonError), 'cancell');
+        $rejectItemId = (int) old('reject_item_id');
         $isRejectReasonError = $errors->has('reason') && ! $isCancelReasonError && $pendingItems->isNotEmpty();
+        if ($isRejectReasonError && $rejectItemId === 0 && $pendingItems->count() === 1) {
+            $rejectItemId = (int) $pendingItems->first()->id;
+        }
     @endphp
 
     @if(session('seed_failures'))
@@ -244,7 +248,7 @@
                                         $oldCountry = strtolower((string) ($old['country'] ?? ''));
                                         $oldLanguage = strtolower((string) ($old['language'] ?? ''));
                                     @endphp
-                                    <article class="bulk-done-card" data-bulk-done-row>
+                                    <article class="bulk-done-card" data-bulk-done-row data-item-id="{{ $item->id }}">
                                         <header class="bulk-done-card-head">
                                             <div class="min-w-0">
                                                 <div class="fw-semibold text-break">{{ $item->domain }}</div>
@@ -367,9 +371,9 @@
                                             </div>
 
                                             <div class="bulk-done-field bulk-done-niches-cell">
-                                                <label class="form-label" for="categoryInput-{{ $uid }}">
+                                                <div class="form-label" id="done-niches-label-{{ $uid }}">
                                                     Niches <span class="text-danger">*</span>
-                                                </label>
+                                                </div>
                                                 <input type="hidden"
                                                        name="items[{{ $item->id }}][categories]"
                                                        id="selectedCategories-{{ $uid }}"
@@ -383,6 +387,7 @@
                                                          tabindex="0"
                                                          aria-haspopup="listbox"
                                                          aria-expanded="false"
+                                                         aria-labelledby="done-niches-label-{{ $uid }}"
                                                          aria-label="Select niches for {{ $item->domain }}">
                                                         <span class="multi-select-placeholder">Select niches…</span>
                                                     </div>
@@ -414,14 +419,14 @@
                                                     <textarea id="reject-note-{{ $item->id }}"
                                                               form="reject-item-{{ $item->id }}"
                                                               name="reason"
-                                                              class="form-control"
+                                                              class="form-control {{ $isRejectReasonError && $rejectItemId === (int) $item->id ? 'is-invalid' : '' }}"
                                                               required
                                                               minlength="3"
                                                               maxlength="500"
                                                               rows="3"
                                                               placeholder="Why this site will not be added"
                                                               data-bulk-reject-note
-                                                              aria-label="Note for publisher about {{ $item->domain }}">{{ $isRejectReasonError ? old_text('reason') : '' }}</textarea>
+                                                              aria-label="Note for publisher about {{ $item->domain }}">{{ $isRejectReasonError && $rejectItemId === (int) $item->id ? old_text('reason') : '' }}</textarea>
                                                     <button type="submit"
                                                             class="btn btn-outline-danger"
                                                             form="reject-item-{{ $item->id }}"
@@ -433,6 +438,9 @@
                                                         Reject
                                                     </button>
                                                 </div>
+                                                @if($isRejectReasonError && $rejectItemId === (int) $item->id)
+                                                    <div class="invalid-feedback d-block">{{ $reasonError }}</div>
+                                                @endif
                                             </footer>
                                         @endif
                                     </article>
@@ -440,7 +448,7 @@
                             </div>
 
                             <div id="bulkDoneHint" class="alert alert-warning py-2 small mb-3" role="status">
-                                Fill at least one complete block (Language, Country, DA, DR, Traffic, Niches) before Done.
+                                Fill at least one complete block (Country, Language, DA, DR, Traffic, Niches) before Done.
                             </div>
 
                             <button type="submit"
@@ -461,6 +469,7 @@
                                   data-slb-confirm-text="Reject site"
                                   data-slb-confirm-danger="1">
                                 @csrf
+                                <input type="hidden" name="reject_item_id" value="{{ $item->id }}">
                             </form>
                         @endforeach
                     @endif
@@ -711,10 +720,9 @@
             const dr = row.querySelector('input[name*="[dr]"]');
             const traffic = row.querySelector('input[name*="[traffic]"]');
             const categories = row.querySelector('input[name*="[categories]"]');
-            const name = (language && language.name) || '';
-            const match = name.match(/items\[(\d+)\]/);
-            if (!match) return;
-            const itemId = match[1];
+            const rejectNote = row.querySelector('[data-bulk-reject-note]');
+            const itemId = rowItemId(row);
+            if (!itemId) return;
             items[itemId] = {
                 language: language ? language.value : '',
                 country: country ? country.value : '',
@@ -722,6 +730,7 @@
                 dr: dr ? dr.value : '',
                 traffic: traffic ? traffic.value : '',
                 categories: categories ? categories.value : '',
+                reject_note: rejectNote ? String(rejectNote.value || '') : '',
             };
         });
         try {
@@ -736,8 +745,15 @@
         try { sessionStorage.removeItem(draftKey); } catch (e) {}
     }
 
+    function restoreRejectNote(itemId, data, row) {
+        const note = (row && row.querySelector('[data-bulk-reject-note]'))
+            || form.querySelector('#reject-note-' + itemId);
+        if (note && !String(note.value || '').trim() && data.reject_note) {
+            note.value = String(data.reject_note);
+        }
+    }
+
     function restoreDraftIfNeeded() {
-        if (hasServerOld) return;
         const draft = readDraft();
         if (!draft || !draft.items) return;
 
@@ -749,25 +765,32 @@
             const dr = form.querySelector('input[name="items[' + itemId + '][dr]"]');
             const traffic = form.querySelector('input[name="items[' + itemId + '][traffic]"]');
             const row = (country && country.closest('[data-bulk-done-row]'))
-                || (language && language.closest('[data-bulk-done-row]'));
-            if (country && data.country) country.value = data.country;
-            if (row) refreshBulkDoneLanguages(row, data.language || '');
-            if (language && data.language) language.value = data.language;
-            if (da && data.da !== undefined && data.da !== null) da.value = data.da;
-            if (dr && data.dr !== undefined && data.dr !== null) dr.value = data.dr;
-            if (traffic && data.traffic !== undefined && data.traffic !== null) traffic.value = data.traffic;
+                || (language && language.closest('[data-bulk-done-row]'))
+                || form.querySelector('[data-bulk-done-row][data-item-id="' + itemId + '"]');
 
-            const nicheValues = String(data.categories || '')
-                .split('|')
-                .map(function (v) { return v.trim(); })
-                .filter(Boolean);
-            const categoriesInput = form.querySelector('input[name="items[' + itemId + '][categories]"]');
-            if (nicheValues.length && multiSelects[itemId]) {
-                multiSelects[itemId].setSelectedItems(nicheValues, nicheValues);
-            } else if (categoriesInput && data.categories !== undefined && data.categories !== null) {
-                // Keep hidden field in sync even if multi-select init failed.
-                categoriesInput.value = String(data.categories || '');
+            if (!hasServerOld) {
+                if (country && data.country) country.value = data.country;
+                if (row) refreshBulkDoneLanguages(row, data.language || '');
+                if (language && data.language) language.value = data.language;
+                if (da && data.da !== undefined && data.da !== null) da.value = data.da;
+                if (dr && data.dr !== undefined && data.dr !== null) dr.value = data.dr;
+                if (traffic && data.traffic !== undefined && data.traffic !== null) traffic.value = data.traffic;
+
+                const nicheValues = String(data.categories || '')
+                    .split('|')
+                    .map(function (v) { return v.trim(); })
+                    .filter(Boolean);
+                const categoriesInput = form.querySelector('input[name="items[' + itemId + '][categories]"]');
+                if (nicheValues.length && multiSelects[itemId]) {
+                    multiSelects[itemId].setSelectedItems(nicheValues, nicheValues);
+                } else if (categoriesInput && data.categories !== undefined && data.categories !== null) {
+                    // Keep hidden field in sync even if multi-select init failed.
+                    categoriesInput.value = String(data.categories || '');
+                }
             }
+
+            // Server-old reject notes win; draft fills any empty card (including after a Done error).
+            restoreRejectNote(itemId, data, row);
         });
     }
 
@@ -810,6 +833,8 @@
     }
 
     function rowItemId(row) {
+        const fromAttr = row.getAttribute('data-item-id');
+        if (fromAttr) return fromAttr;
         const language = row.querySelector('select[name*="[language]"]');
         const name = (language && language.name) || '';
         const match = name.match(/items\[(\d+)\]/);
@@ -892,6 +917,10 @@
     }
 
     restoreDraftIfNeeded();
+    const invalidReject = form.querySelector('[data-bulk-reject-note].is-invalid');
+    if (invalidReject) {
+        invalidReject.focus();
+    }
 
     function clampScoreInput(el) {
         if (!el || el.type !== 'number') return;
@@ -931,13 +960,19 @@
     });
 
     form.addEventListener('input', function (e) {
-        if (isRejectControl(e.target)) return;
+        if (isRejectControl(e.target)) {
+            scheduleDraftSave();
+            return;
+        }
         clampScoreInput(e.target);
         syncDoneState();
         scheduleDraftSave();
     });
     form.addEventListener('change', function (e) {
-        if (isRejectControl(e.target)) return;
+        if (isRejectControl(e.target)) {
+            writeDraft();
+            return;
+        }
         clampScoreInput(e.target);
         syncDoneState();
         writeDraft();
