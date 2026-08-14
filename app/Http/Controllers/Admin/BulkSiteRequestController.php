@@ -362,14 +362,8 @@ class BulkSiteRequestController extends Controller
 
             foreach ($inputItems as $itemId => $row) {
                 $itemId = (int) $itemId;
-                if (! in_array($itemId, $pendingIds, true)) {
-                    $validator->errors()->add('items.'.$itemId, 'This row is not a pending website on this request.');
-
-                    continue;
-                }
-                if (! is_array($row)) {
-                    $validator->errors()->add('items.'.$itemId, 'Invalid row data.');
-
+                // Stale ids (already added in another tab) must not fail the rest of the batch.
+                if (! in_array($itemId, $pendingIds, true) || ! is_array($row)) {
                     continue;
                 }
 
@@ -607,10 +601,7 @@ class BulkSiteRequestController extends Controller
                 ]);
                 $site->save();
 
-                $bulkRequest->items()
-                    ->where('domain', $domain)
-                    ->pending()
-                    ->update(['site_id' => $site->id]);
+                $this->attachCreatedSiteToBulkItem($bulkRequest, $row, $site, $action);
 
                 $created++;
                 $createdDomains[] = $domain;
@@ -676,9 +667,39 @@ class BulkSiteRequestController extends Controller
             $message .= ' '.count($failures).' row(s) failed.';
         }
 
-        return back()
+        $response = back()
             ->with($created > 0 ? 'success' : 'error', $message)
             ->with('seed_failures', $failures);
+
+        // Failed rows stay pending. Echo their boxes back even if the draft
+        // was pruned before the browser unloaded.
+        if ($failures !== []) {
+            $response->withInput();
+        }
+
+        return $response;
+    }
+
+    /**
+     * @param  array<string, mixed>  $row
+     * @param  'bulk_request.done'|'bulk_request.seeded'  $action
+     */
+    private function attachCreatedSiteToBulkItem(BulkSiteRequest $bulkRequest, array $row, Site $site, string $action): void
+    {
+        $query = $bulkRequest->items()->pending();
+
+        // Done rows carry the item id in `line`. Never attach by domain — two
+        // pending URLs can share a host, and only the submitted row should link.
+        if ($action === 'bulk_request.done') {
+            $itemId = (int) ($row['line'] ?? 0);
+            if ($itemId > 0) {
+                $query->whereKey($itemId)->update(['site_id' => $site->id]);
+
+                return;
+            }
+        }
+
+        $query->where('domain', $row['domain'])->update(['site_id' => $site->id]);
     }
 
     /**

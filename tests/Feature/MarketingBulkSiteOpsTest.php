@@ -467,6 +467,155 @@ class MarketingBulkSiteOpsTest extends TestCase
         $this->assertNotNull($itemB->fresh()->site_id);
     }
 
+    public function test_done_duplicate_domain_links_only_the_submitted_item(): void
+    {
+        Mail::fake();
+        [$country, $language] = $this->marketplaceCodes();
+        $category = Category::query()->firstOrFail();
+
+        $bulk = BulkSiteRequest::create([
+            'publisher_id' => $this->publisher->id,
+            'status' => BulkSiteRequest::STATUS_REQUESTED,
+            'estimated_count' => 2,
+        ]);
+        $first = BulkSiteRequestItem::create([
+            'bulk_site_request_id' => $bulk->id,
+            'site_url' => 'https://dup-host.example/a',
+            'domain' => 'dup-host.example',
+            'price' => 40,
+        ]);
+        $second = BulkSiteRequestItem::create([
+            'bulk_site_request_id' => $bulk->id,
+            'site_url' => 'https://dup-host.example/b',
+            'domain' => 'dup-host.example',
+            'price' => 55,
+        ]);
+
+        $payload = [
+            'language' => $language,
+            'country' => $country,
+            'da' => 20,
+            'dr' => 25,
+            'traffic' => 1000,
+            'categories' => $category->name,
+        ];
+
+        $this->actingAs($this->marketer)
+            ->post(route('marketing.bulk-site-requests.done', $bulk), [
+                'items' => [
+                    $first->id => $payload,
+                    $second->id => $payload,
+                ],
+            ])
+            ->assertRedirect()
+            ->assertSessionHas('seed_failures');
+
+        $this->assertSame(1, Site::query()->where('domain', 'dup-host.example')->count());
+        $this->assertNotNull($first->fresh()->site_id);
+        $this->assertTrue($second->fresh()->isPending());
+        $this->assertNull($second->fresh()->site_id);
+    }
+
+    public function test_done_skips_stale_item_ids_and_still_adds_pending_rows(): void
+    {
+        Mail::fake();
+        [$country, $language] = $this->marketplaceCodes();
+        $category = Category::query()->firstOrFail();
+
+        $bulk = BulkSiteRequest::create([
+            'publisher_id' => $this->publisher->id,
+            'status' => BulkSiteRequest::STATUS_REQUESTED,
+            'estimated_count' => 2,
+        ]);
+        $already = $this->seedDraft($bulk, 'already-done.example');
+        $stale = BulkSiteRequestItem::create([
+            'bulk_site_request_id' => $bulk->id,
+            'site_url' => $already->site_url,
+            'domain' => $already->domain,
+            'price' => 40,
+            'site_id' => $already->id,
+        ]);
+        $pending = BulkSiteRequestItem::create([
+            'bulk_site_request_id' => $bulk->id,
+            'site_url' => 'https://still-pending.example',
+            'domain' => 'still-pending.example',
+            'price' => 55,
+        ]);
+
+        $this->actingAs($this->marketer)
+            ->post(route('marketing.bulk-site-requests.done', $bulk), [
+                'items' => [
+                    $stale->id => [
+                        'language' => $language,
+                        'country' => $country,
+                        'da' => 20,
+                        'dr' => 25,
+                        'traffic' => 1000,
+                        'categories' => $category->name,
+                    ],
+                    $pending->id => [
+                        'language' => $language,
+                        'country' => $country,
+                        'da' => 22,
+                        'dr' => 28,
+                        'traffic' => 2000,
+                        'categories' => $category->name,
+                    ],
+                ],
+            ])
+            ->assertRedirect()
+            ->assertSessionHas('success')
+            ->assertSessionHasNoErrors();
+
+        $this->assertDatabaseHas('sites', ['domain' => 'still-pending.example']);
+        $this->assertNotNull($pending->fresh()->site_id);
+        $this->assertSame($already->id, (int) $stale->fresh()->site_id);
+    }
+
+    public function test_done_domain_already_registered_keeps_the_boxes(): void
+    {
+        Mail::fake();
+        [$country, $language] = $this->marketplaceCodes();
+        $category = Category::query()->firstOrFail();
+
+        $this->seedDraft($this->makeBulkRequest(), 'taken-host.example');
+
+        $bulk = BulkSiteRequest::create([
+            'publisher_id' => $this->publisher->id,
+            'status' => BulkSiteRequest::STATUS_REQUESTED,
+            'estimated_count' => 1,
+        ]);
+        $item = BulkSiteRequestItem::create([
+            'bulk_site_request_id' => $bulk->id,
+            'site_url' => 'https://taken-host.example',
+            'domain' => 'taken-host.example',
+            'price' => 55,
+        ]);
+
+        $html = $this->actingAs($this->marketer)
+            ->from(route('marketing.bulk-site-requests.show', $bulk))
+            ->followingRedirects()
+            ->post(route('marketing.bulk-site-requests.done', $bulk), [
+                'items' => [
+                    $item->id => [
+                        'language' => $language,
+                        'country' => $country,
+                        'da' => 20,
+                        'dr' => 25,
+                        'traffic' => 1000,
+                        'categories' => $category->name,
+                    ],
+                ],
+            ])
+            ->assertOk()
+            ->getContent();
+
+        $this->assertTrue($item->fresh()->isPending());
+        $this->assertStringContainsString('Domain already registered', $html);
+        $this->assertStringContainsString('value="'.$country.'"', $html);
+        $this->assertStringContainsString('selected', $html);
+    }
+
     public function test_done_stays_available_when_completed_but_pending_items_remain(): void
     {
         Mail::fake();
@@ -638,6 +787,7 @@ class MarketingBulkSiteOpsTest extends TestCase
         $this->assertStringContainsString('data-bulk-done-clear', $html);
         $this->assertStringContainsString('function clearRow', $html);
         $this->assertStringContainsString('function markRequiredField', $html);
+        $this->assertStringContainsString('function safeItemId', $html);
         $this->assertStringContainsString('or click Clear', $html);
         $this->assertStringContainsString('applyDensity(readStoredDensity(), false)', $html);
         $this->assertStringContainsString('data-bulk-reject-error', $html);

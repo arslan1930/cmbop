@@ -102,6 +102,8 @@ class BulkDoneDraftAndNicheUiTest extends TestCase
         $this->assertStringContainsString('function clearRow', $html);
         $this->assertStringContainsString('function markRequiredField', $html);
         $this->assertStringContainsString('function unmarkFilledField', $html);
+        $this->assertStringContainsString('function safeItemId', $html);
+        $this->assertStringContainsString('/^\\d+$/', $html);
         $this->assertStringContainsString("indexOf('[categories]')", $html);
         $this->assertStringContainsString('serverOldItemIds', $html);
         $blade = file_get_contents(resource_path('views/admin/bulk-site-requests/show.blade.php'));

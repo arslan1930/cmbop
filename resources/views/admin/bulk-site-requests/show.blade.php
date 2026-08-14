@@ -689,25 +689,32 @@
         prefills[{{ (int) $item->id }}] = @json($oldCatsList);
     @endforeach
 
+    function safeItemId(itemId) {
+        const id = String(itemId == null ? '' : itemId);
+        return /^\d+$/.test(id) ? id : null;
+    }
+
     Object.keys(prefills).forEach(function (itemId) {
-        const uid = 'done' + itemId;
-        const ms = window.initMultiSelect({
-            wrapperId: 'categoryWrapper-' + uid,
-            inputId: 'categoryInput-' + uid,
-            dropdownId: 'categoryDropdown-' + uid,
-            optionsId: 'categoryOptions-' + uid,
-            hiddenInputId: 'selectedCategories-' + uid,
-            searchId: 'categorySearch-' + uid,
-            emptyId: 'categoryEmpty-' + uid,
-            maxSelections: 7,
-            placeholderText: 'Select niches…',
-        });
-        if (!ms) return;
-        multiSelects[itemId] = ms;
-        const values = prefills[itemId] || [];
-        if (values.length) {
-            ms.setSelectedItems(values, values);
-        }
+        try {
+            const uid = 'done' + itemId;
+            const ms = window.initMultiSelect({
+                wrapperId: 'categoryWrapper-' + uid,
+                inputId: 'categoryInput-' + uid,
+                dropdownId: 'categoryDropdown-' + uid,
+                optionsId: 'categoryOptions-' + uid,
+                hiddenInputId: 'selectedCategories-' + uid,
+                searchId: 'categorySearch-' + uid,
+                emptyId: 'categoryEmpty-' + uid,
+                maxSelections: 7,
+                placeholderText: 'Select niches…',
+            });
+            if (!ms) return;
+            multiSelects[itemId] = ms;
+            const values = prefills[itemId] || [];
+            if (values.length) {
+                ms.setSelectedItems(values, values);
+            }
+        } catch (e) {}
     });
 
     function readDraft() {
@@ -769,45 +776,51 @@
     }
 
     function restoreDraftIfNeeded() {
-        const draft = readDraft();
-        if (!draft || !draft.items) return;
+        try {
+            const draft = readDraft();
+            if (!draft || !draft.items) return;
 
-        Object.keys(draft.items).forEach(function (itemId) {
-            const data = draft.items[itemId] || {};
-            const language = form.querySelector('select[name="items[' + itemId + '][language]"]');
-            const country = form.querySelector('select[name="items[' + itemId + '][country]"]');
-            const da = form.querySelector('input[name="items[' + itemId + '][da]"]');
-            const dr = form.querySelector('input[name="items[' + itemId + '][dr]"]');
-            const traffic = form.querySelector('input[name="items[' + itemId + '][traffic]"]');
-            const row = (country && country.closest('[data-bulk-done-row]'))
-                || (language && language.closest('[data-bulk-done-row]'))
-                || form.querySelector('[data-bulk-done-row][data-item-id="' + itemId + '"]');
+            Object.keys(draft.items).forEach(function (rawId) {
+                const itemId = safeItemId(rawId);
+                if (!itemId) return;
+                try {
+                    const data = draft.items[rawId] || {};
+                    const language = form.querySelector('select[name="items[' + itemId + '][language]"]');
+                    const country = form.querySelector('select[name="items[' + itemId + '][country]"]');
+                    const da = form.querySelector('input[name="items[' + itemId + '][da]"]');
+                    const dr = form.querySelector('input[name="items[' + itemId + '][dr]"]');
+                    const traffic = form.querySelector('input[name="items[' + itemId + '][traffic]"]');
+                    const row = (country && country.closest('[data-bulk-done-row]'))
+                        || (language && language.closest('[data-bulk-done-row]'))
+                        || form.querySelector('[data-bulk-done-row][data-item-id="' + itemId + '"]');
 
-            const useDraftFields = serverOldItemIds.indexOf(String(itemId)) === -1;
-            if (useDraftFields) {
-                if (country && data.country) country.value = data.country;
-                if (row) refreshBulkDoneLanguages(row, data.language || '');
-                if (language && data.language) language.value = data.language;
-                if (da && data.da !== undefined && data.da !== null) da.value = data.da;
-                if (dr && data.dr !== undefined && data.dr !== null) dr.value = data.dr;
-                if (traffic && data.traffic !== undefined && data.traffic !== null) traffic.value = data.traffic;
+                    const useDraftFields = serverOldItemIds.indexOf(itemId) === -1;
+                    if (useDraftFields) {
+                        if (country && data.country) country.value = data.country;
+                        if (row) refreshBulkDoneLanguages(row, data.language || '');
+                        if (language && data.language) language.value = data.language;
+                        if (da && data.da !== undefined && data.da !== null) da.value = data.da;
+                        if (dr && data.dr !== undefined && data.dr !== null) dr.value = data.dr;
+                        if (traffic && data.traffic !== undefined && data.traffic !== null) traffic.value = data.traffic;
 
-                const nicheValues = String(data.categories || '')
-                    .split('|')
-                    .map(function (v) { return v.trim(); })
-                    .filter(Boolean);
-                const categoriesInput = form.querySelector('input[name="items[' + itemId + '][categories]"]');
-                if (nicheValues.length && multiSelects[itemId]) {
-                    multiSelects[itemId].setSelectedItems(nicheValues, nicheValues);
-                } else if (categoriesInput && data.categories !== undefined && data.categories !== null) {
-                    // Keep hidden field in sync even if multi-select init failed.
-                    categoriesInput.value = String(data.categories || '');
-                }
-            }
+                        const nicheValues = String(data.categories || '')
+                            .split('|')
+                            .map(function (v) { return v.trim(); })
+                            .filter(Boolean);
+                        const categoriesInput = form.querySelector('input[name="items[' + itemId + '][categories]"]');
+                        if (nicheValues.length && multiSelects[itemId]) {
+                            multiSelects[itemId].setSelectedItems(nicheValues, nicheValues);
+                        } else if (categoriesInput && data.categories !== undefined && data.categories !== null) {
+                            // Keep hidden field in sync even if multi-select init failed.
+                            categoriesInput.value = String(data.categories || '');
+                        }
+                    }
 
-            // Server-old reject notes win; draft fills any empty card (including after a Done error).
-            restoreRejectNote(itemId, data, row);
-        });
+                    // Server-old reject notes win; draft fills any empty card (including after a Done error).
+                    restoreRejectNote(itemId, data, row);
+                } catch (e) {}
+            });
+        } catch (e) {}
     }
 
     function markRequiredField(el) {
