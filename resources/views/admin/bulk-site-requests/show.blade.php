@@ -8,8 +8,8 @@
         </a>
         <h3 class="mt-2 mb-1">Bulk request #{{ $bulkRequest->id }}</h3>
         <p class="text-muted small mb-1">
-            Publisher: <strong>{{ $bulkRequest->publisher->name }}</strong>
-            ({{ $bulkRequest->publisher->email }})
+            Publisher: <strong>{{ $bulkRequest->publisher?->name ?? '—' }}</strong>
+            ({{ $bulkRequest->publisher?->email ?? '—' }})
             · Status: <strong>{{ $bulkRequest->statusLabel() }}</strong>
             · Sites submitted: {{ $bulkRequest->items->count() ?: ($bulkRequest->estimated_count ?? '—') }}
         </p>
@@ -24,7 +24,11 @@
     @php
         $reasonError = $errors->first('reason');
         $isCancelReasonError = is_string($reasonError) && str_contains(strtolower($reasonError), 'cancell');
+        $rejectItemId = (int) old('reject_item_id');
         $isRejectReasonError = $errors->has('reason') && ! $isCancelReasonError && $pendingItems->isNotEmpty();
+        if ($isRejectReasonError && $rejectItemId === 0 && $pendingItems->count() === 1) {
+            $rejectItemId = (int) $pendingItems->first()->id;
+        }
     @endphp
 
     @if(session('seed_failures'))
@@ -205,6 +209,10 @@
                         </div>
                     @elseif($pendingItems->isEmpty())
                         <div class="form-text">All submitted rows are already added or rejected.</div>
+                    @elseif(! $bulkRequest->canAddDraftSites())
+                        <div class="form-text" data-bulk-done-closed>
+                            This request is cancelled. Remaining URL + price rows were not added.
+                        </div>
                     @else
                         <form method="POST"
                               action="{{ staff_route('bulk-site-requests.done', $bulkRequest) }}"
@@ -236,15 +244,20 @@
                                 @foreach($pendingItems as $item)
                                     @php
                                         $old = old('items.'.$item->id, []);
+                                        if (! is_array($old)) {
+                                            $old = [];
+                                        }
                                         $oldCategories = $old['categories'] ?? '';
                                         if (is_array($oldCategories)) {
-                                            $oldCategories = implode('|', $oldCategories);
+                                            $oldCategories = implode('|', array_filter($oldCategories, 'is_scalar'));
+                                        } elseif (! is_scalar($oldCategories)) {
+                                            $oldCategories = '';
                                         }
                                         $uid = 'done'.$item->id;
-                                        $oldCountry = strtolower((string) ($old['country'] ?? ''));
-                                        $oldLanguage = strtolower((string) ($old['language'] ?? ''));
+                                        $oldCountry = is_scalar($old['country'] ?? null) ? strtolower((string) $old['country']) : '';
+                                        $oldLanguage = is_scalar($old['language'] ?? null) ? strtolower((string) $old['language']) : '';
                                     @endphp
-                                    <article class="bulk-done-card" data-bulk-done-row>
+                                    <article class="bulk-done-card" data-bulk-done-row data-item-id="{{ $item->id }}">
                                         <header class="bulk-done-card-head">
                                             <div class="min-w-0">
                                                 <div class="fw-semibold text-break">{{ $item->domain }}</div>
@@ -252,7 +265,15 @@
                                                     {{ $item->site_url }}
                                                 </a>
                                             </div>
-                                            <div class="bulk-done-card-price text-nowrap">€{{ number_format((float) $item->price, 2) }}</div>
+                                            <div class="bulk-done-card-head-meta">
+                                                <div class="bulk-done-card-price text-nowrap">€{{ number_format((float) $item->price, 2) }}</div>
+                                                <button type="button"
+                                                        class="btn btn-link btn-sm p-0"
+                                                        data-bulk-done-clear
+                                                        aria-label="Clear boxes for {{ $item->domain }}">
+                                                    Clear
+                                                </button>
+                                            </div>
                                         </header>
 
                                         <div class="bulk-done-card-fields">
@@ -315,7 +336,7 @@
                                                        class="form-control @error('items.'.$item->id.'.da') is-invalid @enderror"
                                                        placeholder="0–100"
                                                        min="0" max="100" step="1"
-                                                       value="{{ $old['da'] ?? '' }}"
+                                                       value="{{ is_scalar($old['da'] ?? null) ? $old['da'] : '' }}"
                                                        required
                                                        data-bulk-required
                                                        data-score-clamp="100">
@@ -334,7 +355,7 @@
                                                        class="form-control @error('items.'.$item->id.'.dr') is-invalid @enderror"
                                                        placeholder="0–100"
                                                        min="0" max="100" step="1"
-                                                       value="{{ $old['dr'] ?? '' }}"
+                                                       value="{{ is_scalar($old['dr'] ?? null) ? $old['dr'] : '' }}"
                                                        required
                                                        data-bulk-required
                                                        data-score-clamp="100">
@@ -357,7 +378,7 @@
                                                        max="4294967295"
                                                        step="1"
                                                        inputmode="numeric"
-                                                       value="{{ $old['traffic'] ?? '' }}"
+                                                       value="{{ is_scalar($old['traffic'] ?? null) ? $old['traffic'] : '' }}"
                                                        required
                                                        data-bulk-required
                                                        data-traffic-input>
@@ -367,9 +388,9 @@
                                             </div>
 
                                             <div class="bulk-done-field bulk-done-niches-cell">
-                                                <label class="form-label" for="categoryInput-{{ $uid }}">
+                                                <div class="form-label" id="done-niches-label-{{ $uid }}">
                                                     Niches <span class="text-danger">*</span>
-                                                </label>
+                                                </div>
                                                 <input type="hidden"
                                                        name="items[{{ $item->id }}][categories]"
                                                        id="selectedCategories-{{ $uid }}"
@@ -377,12 +398,13 @@
                                                        data-bulk-required
                                                        class="@error('items.'.$item->id.'.categories') is-invalid @enderror">
                                                 <div class="multi-select-wrapper" id="categoryWrapper-{{ $uid }}" data-multi-select="category">
-                                                    <div class="multi-select-input"
+                                                    <div class="multi-select-input @error('items.'.$item->id.'.categories') is-invalid @enderror"
                                                          id="categoryInput-{{ $uid }}"
                                                          role="button"
                                                          tabindex="0"
                                                          aria-haspopup="listbox"
                                                          aria-expanded="false"
+                                                         aria-labelledby="done-niches-label-{{ $uid }}"
                                                          aria-label="Select niches for {{ $item->domain }}">
                                                         <span class="multi-select-placeholder">Select niches…</span>
                                                     </div>
@@ -414,14 +436,14 @@
                                                     <textarea id="reject-note-{{ $item->id }}"
                                                               form="reject-item-{{ $item->id }}"
                                                               name="reason"
-                                                              class="form-control"
+                                                              class="form-control {{ $isRejectReasonError && $rejectItemId === (int) $item->id ? 'is-invalid' : '' }}"
                                                               required
                                                               minlength="3"
                                                               maxlength="500"
                                                               rows="3"
                                                               placeholder="Why this site will not be added"
                                                               data-bulk-reject-note
-                                                              aria-label="Note for publisher about {{ $item->domain }}">{{ $isRejectReasonError ? old_text('reason') : '' }}</textarea>
+                                                              aria-label="Note for publisher about {{ $item->domain }}">{{ $isRejectReasonError && $rejectItemId === (int) $item->id ? old_text('reason') : '' }}</textarea>
                                                     <button type="submit"
                                                             class="btn btn-outline-danger"
                                                             form="reject-item-{{ $item->id }}"
@@ -433,6 +455,9 @@
                                                         Reject
                                                     </button>
                                                 </div>
+                                                @if($isRejectReasonError && $rejectItemId === (int) $item->id)
+                                                    <div class="invalid-feedback d-block">{{ $reasonError }}</div>
+                                                @endif
                                             </footer>
                                         @endif
                                     </article>
@@ -440,7 +465,7 @@
                             </div>
 
                             <div id="bulkDoneHint" class="alert alert-warning py-2 small mb-3" role="status">
-                                Fill at least one complete block (Language, Country, DA, DR, Traffic, Niches) before Done.
+                                Fill at least one complete block (Country, Language, DA, DR, Traffic, Niches) before Done.
                             </div>
 
                             <button type="submit"
@@ -461,6 +486,7 @@
                                   data-slb-confirm-text="Reject site"
                                   data-slb-confirm-danger="1">
                                 @csrf
+                                <input type="hidden" name="reject_item_id" value="{{ $item->id }}">
                             </form>
                         @endforeach
                     @endif
@@ -559,7 +585,24 @@
 
     const storageKey = 'bulkDoneDensity';
 
-    function applyDensity(mode) {
+    function readStoredDensity() {
+        // Same-tab sessionStorage wins. A stale localStorage "comfortable"
+        // from an earlier apply must not wipe a Compact click in this tab.
+        const stores = [];
+        try { stores.push(sessionStorage.getItem(storageKey)); } catch (e) {}
+        try { stores.push(localStorage.getItem(storageKey)); } catch (e) {}
+        for (let i = 0; i < stores.length; i++) {
+            if (stores[i] === 'compact' || stores[i] === 'comfortable') return stores[i];
+        }
+        return 'comfortable';
+    }
+
+    function writeStoredDensity(mode) {
+        try { sessionStorage.setItem(storageKey, mode); } catch (e) {}
+        try { localStorage.setItem(storageKey, mode); } catch (e) {}
+    }
+
+    function applyDensity(mode, persist) {
         const next = mode === 'compact' ? 'compact' : 'comfortable';
         list.classList.toggle('is-compact', next === 'compact');
         list.classList.toggle('is-comfortable', next === 'comfortable');
@@ -568,19 +611,14 @@
             btn.classList.toggle('active', on);
             btn.setAttribute('aria-pressed', on ? 'true' : 'false');
         });
-        try { localStorage.setItem(storageKey, next); } catch (e) {}
+        if (persist) writeStoredDensity(next);
     }
 
-    let saved = 'comfortable';
-    try {
-        const raw = localStorage.getItem(storageKey);
-        if (raw === 'compact' || raw === 'comfortable') saved = raw;
-    } catch (e) {}
-    applyDensity(saved);
+    applyDensity(readStoredDensity(), false);
 
     buttons.forEach(function (btn) {
         btn.addEventListener('click', function () {
-            applyDensity(btn.getAttribute('data-bulk-done-density-btn'));
+            applyDensity(btn.getAttribute('data-bulk-done-density-btn'), true);
         });
     });
 })();
@@ -594,7 +632,8 @@
     const fields = () => Array.from(form.querySelectorAll('[data-bulk-required]'));
     const multiSelects = {};
     const prefills = {};
-    const hasServerOld = @json((bool) old('items'));
+    const serverOldItemIds = @json(array_map('strval', array_keys(is_array(old('items')) ? old('items') : [])));
+    const sealedItemIds = {};
     const draftKey = @json('bulkDoneDraft:'.$bulkRequest->id.':'.auth()->id());
     const draftTtlMs = 24 * 60 * 60 * 1000;
     const countryLanguageMap = @json($countryLanguageMap ?? new \stdClass());
@@ -646,32 +685,41 @@
         @php
             $oldCats = old('items.'.$item->id.'.categories', '');
             if (is_array($oldCats)) {
-                $oldCats = implode('|', $oldCats);
+                $oldCats = implode('|', array_filter($oldCats, 'is_scalar'));
+            } elseif (! is_scalar($oldCats)) {
+                $oldCats = '';
             }
             $oldCatsList = array_values(array_filter(array_map('trim', preg_split('/\|/', (string) $oldCats) ?: [])));
         @endphp
         prefills[{{ (int) $item->id }}] = @json($oldCatsList);
     @endforeach
 
+    function safeItemId(itemId) {
+        const id = String(itemId == null ? '' : itemId);
+        return /^\d+$/.test(id) ? id : null;
+    }
+
     Object.keys(prefills).forEach(function (itemId) {
-        const uid = 'done' + itemId;
-        const ms = window.initMultiSelect({
-            wrapperId: 'categoryWrapper-' + uid,
-            inputId: 'categoryInput-' + uid,
-            dropdownId: 'categoryDropdown-' + uid,
-            optionsId: 'categoryOptions-' + uid,
-            hiddenInputId: 'selectedCategories-' + uid,
-            searchId: 'categorySearch-' + uid,
-            emptyId: 'categoryEmpty-' + uid,
-            maxSelections: 7,
-            placeholderText: 'Select niches…',
-        });
-        if (!ms) return;
-        multiSelects[itemId] = ms;
-        const values = prefills[itemId] || [];
-        if (values.length) {
-            ms.setSelectedItems(values, values);
-        }
+        try {
+            const uid = 'done' + itemId;
+            const ms = window.initMultiSelect({
+                wrapperId: 'categoryWrapper-' + uid,
+                inputId: 'categoryInput-' + uid,
+                dropdownId: 'categoryDropdown-' + uid,
+                optionsId: 'categoryOptions-' + uid,
+                hiddenInputId: 'selectedCategories-' + uid,
+                searchId: 'categorySearch-' + uid,
+                emptyId: 'categoryEmpty-' + uid,
+                maxSelections: 7,
+                placeholderText: 'Select niches…',
+            });
+            if (!ms) return;
+            multiSelects[itemId] = ms;
+            const values = prefills[itemId] || [];
+            if (values.length) {
+                ms.setSelectedItems(values, values);
+            }
+        } catch (e) {}
     });
 
     function readDraft() {
@@ -699,10 +747,9 @@
             const dr = row.querySelector('input[name*="[dr]"]');
             const traffic = row.querySelector('input[name*="[traffic]"]');
             const categories = row.querySelector('input[name*="[categories]"]');
-            const name = (language && language.name) || '';
-            const match = name.match(/items\[(\d+)\]/);
-            if (!match) return;
-            const itemId = match[1];
+            const rejectNote = row.querySelector('[data-bulk-reject-note]');
+            const itemId = rowItemId(row);
+            if (!itemId || sealedItemIds[itemId]) return;
             items[itemId] = {
                 language: language ? language.value : '',
                 country: country ? country.value : '',
@@ -710,6 +757,7 @@
                 dr: dr ? dr.value : '',
                 traffic: traffic ? traffic.value : '',
                 categories: categories ? categories.value : '',
+                reject_note: rejectNote ? String(rejectNote.value || '') : '',
             };
         });
         try {
@@ -724,39 +772,87 @@
         try { sessionStorage.removeItem(draftKey); } catch (e) {}
     }
 
+    function restoreRejectNote(itemId, data, row) {
+        const note = (row && row.querySelector('[data-bulk-reject-note]'))
+            || form.querySelector('#reject-note-' + itemId);
+        if (note && !String(note.value || '').trim() && data.reject_note) {
+            note.value = String(data.reject_note);
+        }
+    }
+
     function restoreDraftIfNeeded() {
-        if (hasServerOld) return;
-        const draft = readDraft();
-        if (!draft || !draft.items) return;
+        try {
+            const draft = readDraft();
+            if (!draft || !draft.items) return;
 
-        Object.keys(draft.items).forEach(function (itemId) {
-            const data = draft.items[itemId] || {};
-            const language = form.querySelector('select[name="items[' + itemId + '][language]"]');
-            const country = form.querySelector('select[name="items[' + itemId + '][country]"]');
-            const da = form.querySelector('input[name="items[' + itemId + '][da]"]');
-            const dr = form.querySelector('input[name="items[' + itemId + '][dr]"]');
-            const traffic = form.querySelector('input[name="items[' + itemId + '][traffic]"]');
-            const row = (country && country.closest('[data-bulk-done-row]'))
-                || (language && language.closest('[data-bulk-done-row]'));
-            if (country && data.country) country.value = data.country;
-            if (row) refreshBulkDoneLanguages(row, data.language || '');
-            if (language && data.language) language.value = data.language;
-            if (da && data.da !== undefined && data.da !== null) da.value = data.da;
-            if (dr && data.dr !== undefined && data.dr !== null) dr.value = data.dr;
-            if (traffic && data.traffic !== undefined && data.traffic !== null) traffic.value = data.traffic;
+            Object.keys(draft.items).forEach(function (rawId) {
+                const itemId = safeItemId(rawId);
+                if (!itemId) return;
+                try {
+                    const data = draft.items[rawId] || {};
+                    const language = form.querySelector('select[name="items[' + itemId + '][language]"]');
+                    const country = form.querySelector('select[name="items[' + itemId + '][country]"]');
+                    const da = form.querySelector('input[name="items[' + itemId + '][da]"]');
+                    const dr = form.querySelector('input[name="items[' + itemId + '][dr]"]');
+                    const traffic = form.querySelector('input[name="items[' + itemId + '][traffic]"]');
+                    const row = (country && country.closest('[data-bulk-done-row]'))
+                        || (language && language.closest('[data-bulk-done-row]'))
+                        || form.querySelector('[data-bulk-done-row][data-item-id="' + itemId + '"]');
 
-            const nicheValues = String(data.categories || '')
-                .split('|')
-                .map(function (v) { return v.trim(); })
-                .filter(Boolean);
-            const categoriesInput = form.querySelector('input[name="items[' + itemId + '][categories]"]');
-            if (nicheValues.length && multiSelects[itemId]) {
-                multiSelects[itemId].setSelectedItems(nicheValues, nicheValues);
-            } else if (categoriesInput && data.categories !== undefined && data.categories !== null) {
-                // Keep hidden field in sync even if multi-select init failed.
-                categoriesInput.value = String(data.categories || '');
+                    const useDraftFields = serverOldItemIds.indexOf(itemId) === -1;
+                    if (useDraftFields) {
+                        if (country && data.country) country.value = data.country;
+                        if (row) refreshBulkDoneLanguages(row, data.language || '');
+                        if (language && data.language) language.value = data.language;
+                        if (da && data.da !== undefined && data.da !== null) da.value = data.da;
+                        if (dr && data.dr !== undefined && data.dr !== null) dr.value = data.dr;
+                        if (traffic && data.traffic !== undefined && data.traffic !== null) traffic.value = data.traffic;
+
+                        const nicheValues = String(data.categories || '')
+                            .split('|')
+                            .map(function (v) { return v.trim(); })
+                            .filter(Boolean);
+                        const categoriesInput = form.querySelector('input[name="items[' + itemId + '][categories]"]');
+                        if (nicheValues.length && multiSelects[itemId]) {
+                            multiSelects[itemId].setSelectedItems(nicheValues, nicheValues);
+                        } else if (categoriesInput && data.categories !== undefined && data.categories !== null) {
+                            // Keep hidden field in sync even if multi-select init failed.
+                            categoriesInput.value = String(data.categories || '');
+                        }
+                    }
+
+                    // Server-old reject notes win; draft fills any empty card (including after a Done error).
+                    restoreRejectNote(itemId, data, row);
+                } catch (e) {}
+            });
+        } catch (e) {}
+    }
+
+    function markRequiredField(el) {
+        if (!el) return;
+        const row = el.closest('[data-bulk-done-row]');
+        if (el.type === 'hidden' && String(el.name || '').indexOf('[categories]') !== -1) {
+            const picker = row && row.querySelector('.multi-select-input');
+            if (picker) {
+                picker.classList.add('is-invalid');
+                if (typeof picker.focus === 'function') picker.focus();
+                return;
             }
-        });
+        }
+        el.classList.add('is-invalid');
+        if (el.type !== 'hidden' && typeof el.focus === 'function') {
+            el.focus();
+        }
+    }
+
+    function unmarkFilledField(el) {
+        if (!el || !fieldFilled(el)) return;
+        el.classList.remove('is-invalid');
+        if (el.type === 'hidden' && String(el.name || '').indexOf('[categories]') !== -1) {
+            const row = el.closest('[data-bulk-done-row]');
+            const picker = row && row.querySelector('.multi-select-input');
+            if (picker) picker.classList.remove('is-invalid');
+        }
     }
 
     function fieldFilled(el) {
@@ -798,10 +894,13 @@
     }
 
     function rowItemId(row) {
+        if (!row) return null;
+        const fromAttr = safeItemId(row.getAttribute('data-item-id'));
+        if (fromAttr) return fromAttr;
         const language = row.querySelector('select[name*="[language]"]');
         const name = (language && language.name) || '';
         const match = name.match(/items\[(\d+)\]/);
-        return match ? match[1] : null;
+        return match ? safeItemId(match[1]) : null;
     }
 
     function isRejectControl(el) {
@@ -813,12 +912,39 @@
         return formId.indexOf('reject-item-') === 0;
     }
 
+    function isClearControl(el) {
+        return !!(el && (el.hasAttribute('data-bulk-done-clear') || el.closest('[data-bulk-done-clear]')));
+    }
+
+    function clearRow(row) {
+        const country = row.querySelector('[data-bulk-country]');
+        const da = row.querySelector('input[name*="[da]"]');
+        const dr = row.querySelector('input[name*="[dr]"]');
+        const traffic = row.querySelector('input[name*="[traffic]"]');
+        const categories = row.querySelector('input[name*="[categories]"]');
+        if (country) country.value = '';
+        if (da) da.value = '';
+        if (dr) dr.value = '';
+        if (traffic) traffic.value = '';
+        if (categories) categories.value = '';
+        const itemId = rowItemId(row);
+        if (itemId && multiSelects[itemId] && typeof multiSelects[itemId].clearSelections === 'function') {
+            multiSelects[itemId].clearSelections();
+        }
+        refreshBulkDoneLanguages(row, '');
+        row.querySelectorAll('.is-invalid').forEach(function (el) {
+            if (!isRejectControl(el)) el.classList.remove('is-invalid');
+        });
+        writeDraft();
+        syncDoneState();
+    }
+
     function setIncompleteRowsDisabled(disabled) {
         doneRows().forEach(function (row) {
             if (rowFilled(row)) return;
             const countryEl = row.querySelector('[data-bulk-country]');
             row.querySelectorAll('select, input, textarea, button').forEach(function (el) {
-                if (isRejectControl(el)) return;
+                if (isRejectControl(el) || isClearControl(el)) return;
                 if (!disabled && el.hasAttribute('data-bulk-language') && countryEl && !countryEl.value) {
                     el.disabled = true;
                     return;
@@ -863,7 +989,7 @@
         if (hint) {
             hint.classList.toggle('d-none', ready);
             if (partial.length > 0) {
-                hint.textContent = 'Finish or clear incomplete rows first. You can submit the '
+                hint.textContent = 'Finish each started row or click Clear. You can submit the '
                     + complete.length + ' complete block(s) after that.';
             } else if (complete.length === 0) {
                 hint.textContent = 'Fill at least one complete block (Country, Language, DA, DR, Traffic, Niches) before Done.';
@@ -880,6 +1006,10 @@
     }
 
     restoreDraftIfNeeded();
+    const invalidReject = form.querySelector('[data-bulk-reject-note].is-invalid');
+    if (invalidReject) {
+        invalidReject.focus();
+    }
 
     function clampScoreInput(el) {
         if (!el || el.type !== 'number') return;
@@ -918,18 +1048,35 @@
         el.removeAttribute('data-score-clamp');
     });
 
+    form.addEventListener('click', function (e) {
+        const btn = e.target.closest('[data-bulk-done-clear]');
+        if (!btn || !form.contains(btn)) return;
+        const row = btn.closest('[data-bulk-done-row]');
+        if (row) clearRow(row);
+    });
+
     form.addEventListener('input', function (e) {
-        if (isRejectControl(e.target)) return;
+        if (isRejectControl(e.target)) {
+            scheduleDraftSave();
+            return;
+        }
         clampScoreInput(e.target);
+        unmarkFilledField(e.target);
         syncDoneState();
         scheduleDraftSave();
     });
     form.addEventListener('change', function (e) {
-        if (isRejectControl(e.target)) return;
+        if (isRejectControl(e.target)) {
+            writeDraft();
+            return;
+        }
         clampScoreInput(e.target);
+        unmarkFilledField(e.target);
         syncDoneState();
-        scheduleDraftSave();
+        writeDraft();
     });
+    window.addEventListener('pagehide', writeDraft);
+    window.addEventListener('beforeunload', writeDraft);
 
     form.addEventListener('submit', function (e) {
         // Dedicated flag so shared slb-confirm.js cannot clear imperative allows.
@@ -940,6 +1087,7 @@
                 .map(function (v) { return v.trim(); })
                 .filter(Boolean);
             delete form.dataset.slbBulkSubmittedIds;
+            submittedIds.forEach(function (id) { sealedItemIds[id] = true; });
             pruneDraftForItemIds(submittedIds);
             return;
         }
@@ -951,21 +1099,15 @@
             syncDoneState();
             if (partial.length > 0) {
                 const firstPartial = rowFields(partial[0]).find((el) => !fieldFilled(el));
-                if (firstPartial) {
-                    firstPartial.focus();
-                    firstPartial.classList.add('is-invalid');
-                }
+                markRequiredField(firstPartial);
                 slbAlert({
                     icon: 'warning',
                     title: 'Finish incomplete blocks',
-                    text: 'Each started row must be fully filled, or clear it. Then submit the complete block(s). Empty rows can wait for later.',
+                    text: 'Each started row must be fully filled, or click Clear. Then submit the complete block(s). Empty rows can wait for later.',
                 });
             } else {
                 const firstEmpty = fields().find((el) => !fieldFilled(el));
-                if (firstEmpty) {
-                    firstEmpty.focus();
-                    firstEmpty.classList.add('is-invalid');
-                }
+                markRequiredField(firstEmpty);
                 slbAlert({
                     icon: 'warning',
                     title: 'Fill at least one block',
@@ -1009,7 +1151,8 @@
 
 document.querySelectorAll('.bulk-draft-delete').forEach(function (btn) {
     btn.addEventListener('click', async function () {
-        const id = this.getAttribute('data-site-id');
+        const id = String(this.getAttribute('data-site-id') || '');
+        if (!/^\d+$/.test(id)) return;
         const name = this.getAttribute('data-site-name') || 'this site';
         const ok = await window.slbConfirm({
                 title: 'Delete draft site?',

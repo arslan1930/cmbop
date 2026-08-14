@@ -305,6 +305,48 @@ class MarketingBulkSiteOpsTest extends TestCase
         $this->assertDatabaseMissing('sites', ['domain' => 'mkt-da-cap.example']);
     }
 
+    public function test_done_niches_error_marks_the_visible_picker(): void
+    {
+        [$country, $language] = $this->marketplaceCodes();
+
+        $bulk = BulkSiteRequest::create([
+            'publisher_id' => $this->publisher->id,
+            'status' => BulkSiteRequest::STATUS_REQUESTED,
+            'estimated_count' => 1,
+        ]);
+        $item = BulkSiteRequestItem::create([
+            'bulk_site_request_id' => $bulk->id,
+            'site_url' => 'https://mkt-niches-mark.example',
+            'domain' => 'mkt-niches-mark.example',
+            'price' => 55,
+        ]);
+
+        $html = $this->actingAs($this->marketer)
+            ->from(route('marketing.bulk-site-requests.show', $bulk))
+            ->followingRedirects()
+            ->post(route('marketing.bulk-site-requests.done', $bulk), [
+                'items' => [
+                    $item->id => [
+                        'language' => $language,
+                        'country' => $country,
+                        'da' => 20,
+                        'dr' => 25,
+                        'traffic' => 1000,
+                        'categories' => '',
+                    ],
+                ],
+            ])
+            ->assertOk()
+            ->getContent();
+
+        $this->assertMatchesRegularExpression(
+            '/multi-select-input\s+is-invalid[^>]*id="categoryInput-done'.$item->id.'"/',
+            $html
+        );
+        $this->assertStringContainsString('Finish this field, or clear the row', $html);
+        $this->assertDatabaseMissing('sites', ['domain' => 'mkt-niches-mark.example']);
+    }
+
     public function test_bulk_done_form_clamps_da_dr_in_the_browser(): void
     {
         $html = file_get_contents(resource_path('views/admin/bulk-site-requests/show.blade.php'));
@@ -423,6 +465,313 @@ class MarketingBulkSiteOpsTest extends TestCase
 
         $this->assertDatabaseHas('sites', ['domain' => 'mkt-block-b.example']);
         $this->assertNotNull($itemB->fresh()->site_id);
+    }
+
+    public function test_done_skips_stale_item_ids_and_still_adds_pending_rows(): void
+    {
+        Mail::fake();
+        [$country, $language] = $this->marketplaceCodes();
+        $category = Category::query()->firstOrFail();
+
+        $bulk = BulkSiteRequest::create([
+            'publisher_id' => $this->publisher->id,
+            'status' => BulkSiteRequest::STATUS_REQUESTED,
+            'estimated_count' => 2,
+        ]);
+        $already = $this->seedDraft($bulk, 'already-done.example');
+        $stale = BulkSiteRequestItem::create([
+            'bulk_site_request_id' => $bulk->id,
+            'site_url' => $already->site_url,
+            'domain' => $already->domain,
+            'price' => 40,
+            'site_id' => $already->id,
+        ]);
+        $pending = BulkSiteRequestItem::create([
+            'bulk_site_request_id' => $bulk->id,
+            'site_url' => 'https://still-pending.example',
+            'domain' => 'still-pending.example',
+            'price' => 55,
+        ]);
+
+        $this->actingAs($this->marketer)
+            ->post(route('marketing.bulk-site-requests.done', $bulk), [
+                'items' => [
+                    $stale->id => [
+                        'language' => $language,
+                        'country' => $country,
+                        'da' => 20,
+                        'dr' => 25,
+                        'traffic' => 1000,
+                        'categories' => $category->name,
+                    ],
+                    $pending->id => [
+                        'language' => $language,
+                        'country' => $country,
+                        'da' => 22,
+                        'dr' => 28,
+                        'traffic' => 2000,
+                        'categories' => $category->name,
+                    ],
+                ],
+            ])
+            ->assertRedirect()
+            ->assertSessionHas('success')
+            ->assertSessionHasNoErrors();
+
+        $this->assertDatabaseHas('sites', ['domain' => 'still-pending.example']);
+        $this->assertNotNull($pending->fresh()->site_id);
+        $this->assertSame($already->id, (int) $stale->fresh()->site_id);
+    }
+
+    public function test_done_all_stale_ids_asks_to_refresh(): void
+    {
+        Mail::fake();
+        [$country, $language] = $this->marketplaceCodes();
+        $category = Category::query()->firstOrFail();
+
+        $bulk = BulkSiteRequest::create([
+            'publisher_id' => $this->publisher->id,
+            'status' => BulkSiteRequest::STATUS_REQUESTED,
+            'estimated_count' => 2,
+        ]);
+        $already = $this->seedDraft($bulk, 'all-stale.example');
+        $stale = BulkSiteRequestItem::create([
+            'bulk_site_request_id' => $bulk->id,
+            'site_url' => $already->site_url,
+            'domain' => $already->domain,
+            'price' => 40,
+            'site_id' => $already->id,
+        ]);
+        BulkSiteRequestItem::create([
+            'bulk_site_request_id' => $bulk->id,
+            'site_url' => 'https://still-empty.example',
+            'domain' => 'still-empty.example',
+            'price' => 55,
+        ]);
+
+        $this->actingAs($this->marketer)
+            ->from(route('marketing.bulk-site-requests.show', $bulk))
+            ->post(route('marketing.bulk-site-requests.done', $bulk), [
+                'items' => [
+                    $stale->id => [
+                        'language' => $language,
+                        'country' => $country,
+                        'da' => 20,
+                        'dr' => 25,
+                        'traffic' => 1000,
+                        'categories' => $category->name,
+                    ],
+                ],
+            ])
+            ->assertRedirect()
+            ->assertSessionHas('error', fn ($message) => is_string($message) && str_contains($message, 'Refresh'));
+
+        $this->assertSame($already->id, (int) $stale->fresh()->site_id);
+        $this->assertSame(1, Site::query()->where('bulk_site_request_id', $bulk->id)->count());
+    }
+
+    public function test_done_non_scalar_fields_do_not_500(): void
+    {
+        Mail::fake();
+        [$country, $language] = $this->marketplaceCodes();
+        $category = Category::query()->firstOrFail();
+
+        $bulk = BulkSiteRequest::create([
+            'publisher_id' => $this->publisher->id,
+            'status' => BulkSiteRequest::STATUS_REQUESTED,
+            'estimated_count' => 1,
+        ]);
+        $item = BulkSiteRequestItem::create([
+            'bulk_site_request_id' => $bulk->id,
+            'site_url' => 'https://done-array-fields.example',
+            'domain' => 'done-array-fields.example',
+            'price' => 55,
+        ]);
+
+        $html = $this->actingAs($this->marketer)
+            ->from(route('marketing.bulk-site-requests.show', $bulk))
+            ->followingRedirects()
+            ->post(route('marketing.bulk-site-requests.done', $bulk), [
+                'items' => [
+                    $item->id => [
+                        'language' => [$language],
+                        'country' => [$country],
+                        'da' => [20],
+                        'dr' => 25,
+                        'traffic' => 1000,
+                        'categories' => $category->name,
+                    ],
+                ],
+            ])
+            ->assertOk()
+            ->getContent();
+
+        $this->assertTrue($item->fresh()->isPending());
+        $this->assertStringContainsString('Finish this field', $html);
+        $this->assertStringNotContainsString('TypeError', $html);
+    }
+
+    public function test_done_domain_already_registered_keeps_the_boxes(): void
+    {
+        Mail::fake();
+        [$country, $language] = $this->marketplaceCodes();
+        $category = Category::query()->firstOrFail();
+
+        $this->seedDraft($this->makeBulkRequest(), 'taken-host.example');
+
+        $bulk = BulkSiteRequest::create([
+            'publisher_id' => $this->publisher->id,
+            'status' => BulkSiteRequest::STATUS_REQUESTED,
+            'estimated_count' => 1,
+        ]);
+        $item = BulkSiteRequestItem::create([
+            'bulk_site_request_id' => $bulk->id,
+            'site_url' => 'https://taken-host.example',
+            'domain' => 'taken-host.example',
+            'price' => 55,
+        ]);
+
+        $html = $this->actingAs($this->marketer)
+            ->from(route('marketing.bulk-site-requests.show', $bulk))
+            ->followingRedirects()
+            ->post(route('marketing.bulk-site-requests.done', $bulk), [
+                'items' => [
+                    $item->id => [
+                        'language' => $language,
+                        'country' => $country,
+                        'da' => 20,
+                        'dr' => 25,
+                        'traffic' => 1000,
+                        'categories' => $category->name,
+                    ],
+                ],
+            ])
+            ->assertOk()
+            ->getContent();
+
+        $this->assertTrue($item->fresh()->isPending());
+        $this->assertStringContainsString('Domain already registered', $html);
+        $this->assertStringContainsString('value="'.$country.'"', $html);
+        $this->assertStringContainsString('selected', $html);
+    }
+
+    public function test_done_unique_race_on_domain_does_not_500_and_keeps_the_boxes(): void
+    {
+        Mail::fake();
+        [$country, $language] = $this->marketplaceCodes();
+        $category = Category::query()->firstOrFail();
+
+        $bulk = BulkSiteRequest::create([
+            'publisher_id' => $this->publisher->id,
+            'status' => BulkSiteRequest::STATUS_REQUESTED,
+            'estimated_count' => 1,
+        ]);
+        $item = BulkSiteRequestItem::create([
+            'bulk_site_request_id' => $bulk->id,
+            'site_url' => 'https://done-unique-race.example',
+            'domain' => 'done-unique-race.example',
+            'price' => 55,
+        ]);
+
+        Site::creating(function (Site $site) {
+            static $injected = false;
+            if ($injected || $site->domain !== 'done-unique-race.example') {
+                return;
+            }
+            $injected = true;
+            Site::withoutEvents(function () use ($site) {
+                $winner = $site->replicate();
+                $winner->site_name = 'Race winner';
+                $winner->save();
+            });
+        });
+
+        $html = $this->actingAs($this->marketer)
+            ->from(route('marketing.bulk-site-requests.show', $bulk))
+            ->followingRedirects()
+            ->post(route('marketing.bulk-site-requests.done', $bulk), [
+                'items' => [
+                    $item->id => [
+                        'language' => $language,
+                        'country' => $country,
+                        'da' => 20,
+                        'dr' => 25,
+                        'traffic' => 1000,
+                        'categories' => $category->name,
+                    ],
+                ],
+            ])
+            ->assertOk()
+            ->getContent();
+
+        $this->assertTrue($item->fresh()->isPending());
+        $this->assertStringContainsString('Domain already registered', $html);
+        $this->assertStringContainsString('value="'.$country.'"', $html);
+    }
+
+    public function test_done_deletes_orphan_site_when_row_stops_being_pending(): void
+    {
+        Mail::fake();
+        [$country, $language] = $this->marketplaceCodes();
+        $category = Category::query()->firstOrFail();
+
+        $bulk = BulkSiteRequest::create([
+            'publisher_id' => $this->publisher->id,
+            'status' => BulkSiteRequest::STATUS_REQUESTED,
+            'estimated_count' => 2,
+        ]);
+        $lost = BulkSiteRequestItem::create([
+            'bulk_site_request_id' => $bulk->id,
+            'site_url' => 'https://done-orphan-lost.example',
+            'domain' => 'done-orphan-lost.example',
+            'price' => 40,
+        ]);
+        $kept = BulkSiteRequestItem::create([
+            'bulk_site_request_id' => $bulk->id,
+            'site_url' => 'https://done-orphan-kept.example',
+            'domain' => 'done-orphan-kept.example',
+            'price' => 55,
+        ]);
+
+        Site::saving(function (Site $site) use ($lost) {
+            if ($site->domain !== 'done-orphan-lost.example' || $lost->fresh()?->rejected_at) {
+                return;
+            }
+            $lost->forceFill([
+                'rejected_at' => now(),
+                'rejected_by' => $lost->id,
+                'reject_reason' => 'taken mid-flight',
+            ])->save();
+        });
+
+        $this->actingAs($this->marketer)
+            ->post(route('marketing.bulk-site-requests.done', $bulk), [
+                'items' => [
+                    $lost->id => [
+                        'language' => $language,
+                        'country' => $country,
+                        'da' => 20,
+                        'dr' => 25,
+                        'traffic' => 1000,
+                        'categories' => $category->name,
+                    ],
+                    $kept->id => [
+                        'language' => $language,
+                        'country' => $country,
+                        'da' => 22,
+                        'dr' => 28,
+                        'traffic' => 2000,
+                        'categories' => $category->name,
+                    ],
+                ],
+            ])
+            ->assertRedirect()
+            ->assertSessionHas('success');
+
+        $this->assertDatabaseMissing('sites', ['domain' => 'done-orphan-lost.example']);
+        $this->assertDatabaseHas('sites', ['domain' => 'done-orphan-kept.example']);
+        $this->assertTrue($lost->fresh()->isRejected());
+        $this->assertNotNull($kept->fresh()->site_id);
     }
 
     public function test_done_stays_available_when_completed_but_pending_items_remain(): void
@@ -593,7 +942,34 @@ class MarketingBulkSiteOpsTest extends TestCase
         $this->assertStringContainsString('Note for publisher', $html);
         $this->assertStringContainsString('data-bulk-done-density', $html);
         $this->assertStringContainsString('function isRejectControl', $html);
+        $this->assertStringContainsString('const fields =', $html);
+        $this->assertStringNotContainsString('function fields()', $html);
+        $this->assertStringContainsString('safeItemId(row.getAttribute(\'data-item-id\'))', $html);
+        $this->assertStringContainsString('data-bulk-done-clear', $html);
+        $this->assertStringContainsString('function clearRow', $html);
+        $this->assertStringContainsString('function markRequiredField', $html);
+        $this->assertStringContainsString('function safeItemId', $html);
+        $this->assertStringContainsString('or click Clear', $html);
+        $controller = file_get_contents(app_path('Http/Controllers/Admin/BulkSiteRequestController.php'));
+        $this->assertStringContainsString('function attachCreatedSiteToBulkItem', $controller);
+        $this->assertStringContainsString('whereKey($itemId)', $controller);
+        $this->assertStringContainsString('UniqueConstraintViolationException', $controller);
+        $this->assertStringContainsString('lockForUpdate()', $controller);
+        $this->assertStringContainsString('$site->delete()', $controller);
+        $this->assertStringContainsString('Could not attach this website. Try again.', $controller);
+        $this->assertStringContainsString('cancelledDuringWrite', $controller);
+        $this->assertStringContainsString('Those websites were already added or rejected. Refresh and try again.', $controller);
+        $this->assertStringContainsString("str_contains(\$itemsError, 'already added')", $controller);
+        $this->assertStringContainsString('$skippedStale', $controller);
+        $this->assertStringContainsString("return 'cancelled'", $controller);
+        $this->assertStringContainsString('Same lock order as Done', $controller);
+        $this->assertStringContainsString('sealedItemIds', $html);
+        $this->assertStringContainsString('is_scalar', $controller);
+        $this->assertStringContainsString('applyDensity(readStoredDensity(), false)', $html);
         $this->assertStringContainsString('data-bulk-reject-error', $html);
+        $this->assertStringContainsString('name="reject_item_id"', $html);
+        $this->assertStringContainsString('reject_note', $html);
+        $this->assertStringContainsString('function restoreRejectNote', $html);
         $this->assertStringContainsString('id="bulk-cancel-reason"', $html);
         $this->assertStringContainsString('data-bulk-advanced-seed', $html);
         $this->assertStringContainsString('Seed these pasted rows as drafts and notify the publisher?', $html);
@@ -716,6 +1092,69 @@ class MarketingBulkSiteOpsTest extends TestCase
             ->assertSee('oops-wrong.example');
     }
 
+    public function test_deleting_a_done_draft_returns_the_row_so_it_can_be_doned_again(): void
+    {
+        Mail::fake();
+        [$country, $language] = $this->marketplaceCodes();
+        $category = Category::query()->firstOrFail();
+
+        $bulk = BulkSiteRequest::create([
+            'publisher_id' => $this->publisher->id,
+            'status' => BulkSiteRequest::STATUS_REQUESTED,
+            'estimated_count' => 1,
+        ]);
+        $item = BulkSiteRequestItem::create([
+            'bulk_site_request_id' => $bulk->id,
+            'site_url' => 'https://done-then-delete.example',
+            'domain' => 'done-then-delete.example',
+            'price' => 55,
+        ]);
+
+        $payload = [
+            'items' => [
+                $item->id => [
+                    'language' => $language,
+                    'country' => $country,
+                    'da' => 20,
+                    'dr' => 25,
+                    'traffic' => 1000,
+                    'categories' => $category->name,
+                ],
+            ],
+        ];
+
+        $this->actingAs($this->marketer)
+            ->post(route('marketing.bulk-site-requests.done', $bulk), $payload)
+            ->assertRedirect()
+            ->assertSessionHas('success');
+
+        $siteId = (int) $item->fresh()->site_id;
+        $this->assertGreaterThan(0, $siteId);
+
+        $this->actingAs($this->marketer)
+            ->deleteJson(route('marketing.sites.destroy', $siteId), [
+                'reason' => 'Wrong draft added for this URL.',
+            ])
+            ->assertOk()
+            ->assertJsonPath('success', true);
+
+        $this->assertTrue($item->fresh()->isPending());
+        $this->assertDatabaseMissing('sites', ['id' => $siteId]);
+
+        $this->actingAs($this->marketer)
+            ->get(route('marketing.bulk-site-requests.show', $bulk))
+            ->assertOk()
+            ->assertSee('name="items['.$item->id.'][country]"', false);
+
+        $this->actingAs($this->marketer)
+            ->post(route('marketing.bulk-site-requests.done', $bulk), $payload)
+            ->assertRedirect()
+            ->assertSessionHas('success');
+
+        $this->assertNotNull($item->fresh()->site_id);
+        $this->assertDatabaseHas('sites', ['domain' => 'done-then-delete.example']);
+    }
+
     public function test_marketer_can_delete_ready_for_review_pending_site(): void
     {
         $bulk = $this->makeBulkRequest();
@@ -819,6 +1258,34 @@ class MarketingBulkSiteOpsTest extends TestCase
             ->assertOk()
             ->assertSee('Cancelled bulk request', false)
             ->assertSee('Publisher asked to stop this batch.', false);
+    }
+
+    public function test_cancelled_request_hides_done_cards(): void
+    {
+        $bulk = BulkSiteRequest::create([
+            'publisher_id' => $this->publisher->id,
+            'status' => BulkSiteRequest::STATUS_CANCELLED,
+            'estimated_count' => 1,
+            'cancel_reason' => 'Publisher asked to stop this batch.',
+        ]);
+        BulkSiteRequestItem::create([
+            'bulk_site_request_id' => $bulk->id,
+            'site_url' => 'https://left-pending.example',
+            'domain' => 'left-pending.example',
+            'price' => 40,
+        ]);
+
+        $html = $this->actingAs($this->marketer)
+            ->get(route('marketing.bulk-site-requests.show', $bulk))
+            ->assertOk()
+            ->assertSee('data-bulk-done-closed', false)
+            ->assertSee('This request is cancelled.', false)
+            ->assertDontSee('id="bulkDoneForm"', false)
+            ->assertDontSee('name="items['.$bulk->items()->first()->id.'][country]"', false)
+            ->getContent();
+
+        $this->assertStringContainsString('Publisher asked to stop this batch.', $html);
+        $this->assertTrue($bulk->items()->first()->isPending());
     }
 
     public function test_cancel_requires_a_reason(): void
@@ -971,7 +1438,14 @@ class MarketingBulkSiteOpsTest extends TestCase
             'price' => 40,
         ]);
 
-        $html = $this->actingAs($this->marketer)
+        $other = BulkSiteRequestItem::create([
+            'bulk_site_request_id' => $bulk->id,
+            'site_url' => 'https://other-pending.example',
+            'domain' => 'other-pending.example',
+            'price' => 55,
+        ]);
+
+        $unscoped = $this->actingAs($this->marketer)
             ->from(route('marketing.bulk-site-requests.show', $bulk))
             ->followingRedirects()
             ->post(route('marketing.bulk-site-requests.items.reject', [$bulk->id, $item->id]), [
@@ -980,11 +1454,36 @@ class MarketingBulkSiteOpsTest extends TestCase
             ->assertOk()
             ->getContent();
 
+        $this->assertStringContainsString('Add a note for the publisher.', $unscoped);
+        $this->assertSame(0, preg_match_all('/id="reject-note-\d+"[^>]*>no</', $unscoped));
+
+        $html = $this->actingAs($this->marketer)
+            ->from(route('marketing.bulk-site-requests.show', $bulk))
+            ->followingRedirects()
+            ->post(route('marketing.bulk-site-requests.items.reject', [$bulk->id, $item->id]), [
+                'reason' => 'no',
+                'reject_item_id' => $item->id,
+            ])
+            ->assertOk()
+            ->getContent();
+
         $this->assertStringContainsString('Add a note for the publisher.', $html);
         $this->assertStringContainsString('Give a short reason for rejecting this website.', $html);
         $this->assertStringNotContainsString('Finish the boxes first.', $html);
         $this->assertStringNotContainsString('Give a short reason for cancelling this request.', $html);
+        $this->assertStringContainsString('name="reject_item_id"', $html);
+        $this->assertStringContainsString('id="reject-note-'.$item->id.'"', $html);
+        $this->assertSame(1, preg_match_all('/id="reject-note-\d+"[^>]*>no</', $html));
+        $this->assertMatchesRegularExpression(
+            '/id="reject-note-'.$item->id.'"[^>]*>no</',
+            $html
+        );
+        $this->assertDoesNotMatchRegularExpression(
+            '/id="reject-note-'.$other->id.'"[^>]*>no</',
+            $html
+        );
         $this->assertTrue($item->fresh()->isPending());
+        $this->assertTrue($other->fresh()->isPending());
     }
 
     public function test_reject_requires_a_reason_and_skips_added_rows(): void
