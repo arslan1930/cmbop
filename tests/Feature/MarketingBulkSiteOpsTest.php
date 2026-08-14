@@ -1804,6 +1804,43 @@ class MarketingBulkSiteOpsTest extends TestCase
         $this->assertTrue($other->fresh()->isPending());
     }
 
+    public function test_reject_array_item_id_does_not_500_the_show_page(): void
+    {
+        $bulk = BulkSiteRequest::create([
+            'publisher_id' => $this->publisher->id,
+            'status' => BulkSiteRequest::STATUS_REQUESTED,
+            'estimated_count' => 2,
+        ]);
+        $item = BulkSiteRequestItem::create([
+            'bulk_site_request_id' => $bulk->id,
+            'site_url' => 'https://array-reject-id.example',
+            'domain' => 'array-reject-id.example',
+            'price' => 40,
+        ]);
+        $other = BulkSiteRequestItem::create([
+            'bulk_site_request_id' => $bulk->id,
+            'site_url' => 'https://array-reject-other.example',
+            'domain' => 'array-reject-other.example',
+            'price' => 55,
+        ]);
+
+        $html = $this->actingAs($this->marketer)
+            ->from(route('marketing.bulk-site-requests.show', $bulk))
+            ->followingRedirects()
+            ->post(route('marketing.bulk-site-requests.items.reject', [$bulk->id, $item->id]), [
+                'reason' => 'no',
+                'reject_item_id' => ['x'],
+            ])
+            ->assertOk()
+            ->getContent();
+
+        $this->assertStringNotContainsString('TypeError', $html);
+        $this->assertStringContainsString('Give a short reason for rejecting this website.', $html);
+        $this->assertStringContainsString('id="bulkDoneForm"', $html);
+        $this->assertTrue($item->fresh()->isPending());
+        $this->assertTrue($other->fresh()->isPending());
+    }
+
     public function test_reject_requires_a_reason_and_skips_added_rows(): void
     {
         $bulk = BulkSiteRequest::create([

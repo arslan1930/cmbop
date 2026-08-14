@@ -130,6 +130,9 @@ class BulkDoneDraftAndNicheUiTest extends TestCase
         $blade = file_get_contents(resource_path('views/admin/bulk-site-requests/show.blade.php'));
         $this->assertStringContainsString("is_array(old('items'))", $blade);
         $this->assertStringContainsString("is_scalar(\$old['country']", $blade);
+        $this->assertStringContainsString("old('reject_item_id')", $blade);
+        $this->assertStringNotContainsString('(int) old(\'reject_item_id\')', $blade);
+        $this->assertStringContainsString('is_scalar($postedRejectItemId)', $blade);
         $this->assertStringContainsString('function markRequiredField', $blade);
         $this->assertStringNotContainsString('data-bulk-done-closed', $html);
         $this->assertStringNotContainsString('for="categoryInput-done'.$item->id.'"', $html);

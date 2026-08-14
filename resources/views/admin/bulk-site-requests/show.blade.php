@@ -24,7 +24,11 @@
     @php
         $reasonError = $errors->first('reason');
         $isCancelReasonError = is_string($reasonError) && str_contains(strtolower($reasonError), 'cancell');
-        $rejectItemId = (int) old('reject_item_id');
+        $postedRejectItemId = old('reject_item_id');
+        $rejectItemId = 0;
+        if (is_scalar($postedRejectItemId) && preg_match('/^\d+$/', (string) $postedRejectItemId) === 1) {
+            $rejectItemId = (int) $postedRejectItemId;
+        }
         $isRejectReasonError = $errors->has('reason') && ! $isCancelReasonError && $pendingItems->isNotEmpty();
         if ($isRejectReasonError && $rejectItemId === 0 && $pendingItems->count() === 1) {
             $rejectItemId = (int) $pendingItems->first()->id;
