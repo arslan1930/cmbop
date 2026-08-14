@@ -244,6 +244,9 @@
                                 @foreach($pendingItems as $item)
                                     @php
                                         $old = old('items.'.$item->id, []);
+                                        if (! is_array($old)) {
+                                            $old = [];
+                                        }
                                         $oldCategories = $old['categories'] ?? '';
                                         if (is_array($oldCategories)) {
                                             $oldCategories = implode('|', $oldCategories);
@@ -393,7 +396,7 @@
                                                        data-bulk-required
                                                        class="@error('items.'.$item->id.'.categories') is-invalid @enderror">
                                                 <div class="multi-select-wrapper" id="categoryWrapper-{{ $uid }}" data-multi-select="category">
-                                                    <div class="multi-select-input"
+                                                    <div class="multi-select-input @error('items.'.$item->id.'.categories') is-invalid @enderror"
                                                          id="categoryInput-{{ $uid }}"
                                                          role="button"
                                                          tabindex="0"
@@ -627,7 +630,7 @@
     const fields = () => Array.from(form.querySelectorAll('[data-bulk-required]'));
     const multiSelects = {};
     const prefills = {};
-    const serverOldItemIds = @json(array_map('strval', array_keys(old('items', []) ?? [])));
+    const serverOldItemIds = @json(array_map('strval', array_keys(is_array(old('items')) ? old('items') : [])));
     const draftKey = @json('bulkDoneDraft:'.$bulkRequest->id.':'.auth()->id());
     const draftTtlMs = 24 * 60 * 60 * 1000;
     const countryLanguageMap = @json($countryLanguageMap ?? new \stdClass());
@@ -805,6 +808,33 @@
             // Server-old reject notes win; draft fills any empty card (including after a Done error).
             restoreRejectNote(itemId, data, row);
         });
+    }
+
+    function markRequiredField(el) {
+        if (!el) return;
+        const row = el.closest('[data-bulk-done-row]');
+        if (el.type === 'hidden' && String(el.name || '').indexOf('[categories]') !== -1) {
+            const picker = row && row.querySelector('.multi-select-input');
+            if (picker) {
+                picker.classList.add('is-invalid');
+                if (typeof picker.focus === 'function') picker.focus();
+                return;
+            }
+        }
+        el.classList.add('is-invalid');
+        if (el.type !== 'hidden' && typeof el.focus === 'function') {
+            el.focus();
+        }
+    }
+
+    function unmarkFilledField(el) {
+        if (!el || !fieldFilled(el)) return;
+        el.classList.remove('is-invalid');
+        if (el.type === 'hidden' && String(el.name || '').indexOf('[categories]') !== -1) {
+            const row = el.closest('[data-bulk-done-row]');
+            const picker = row && row.querySelector('.multi-select-input');
+            if (picker) picker.classList.remove('is-invalid');
+        }
     }
 
     function fieldFilled(el) {
@@ -1012,6 +1042,7 @@
             return;
         }
         clampScoreInput(e.target);
+        unmarkFilledField(e.target);
         syncDoneState();
         scheduleDraftSave();
     });
@@ -1021,6 +1052,7 @@
             return;
         }
         clampScoreInput(e.target);
+        unmarkFilledField(e.target);
         syncDoneState();
         writeDraft();
     });
@@ -1047,21 +1079,15 @@
             syncDoneState();
             if (partial.length > 0) {
                 const firstPartial = rowFields(partial[0]).find((el) => !fieldFilled(el));
-                if (firstPartial) {
-                    firstPartial.focus();
-                    firstPartial.classList.add('is-invalid');
-                }
+                markRequiredField(firstPartial);
                 slbAlert({
                     icon: 'warning',
                     title: 'Finish incomplete blocks',
-                    text: 'Each started row must be fully filled, or clear it. Then submit the complete block(s). Empty rows can wait for later.',
+                    text: 'Each started row must be fully filled, or click Clear. Then submit the complete block(s). Empty rows can wait for later.',
                 });
             } else {
                 const firstEmpty = fields().find((el) => !fieldFilled(el));
-                if (firstEmpty) {
-                    firstEmpty.focus();
-                    firstEmpty.classList.add('is-invalid');
-                }
+                markRequiredField(firstEmpty);
                 slbAlert({
                     icon: 'warning',
                     title: 'Fill at least one block',

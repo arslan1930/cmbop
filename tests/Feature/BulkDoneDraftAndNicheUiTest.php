@@ -100,7 +100,13 @@ class BulkDoneDraftAndNicheUiTest extends TestCase
         $this->assertStringContainsString('function isRejectControl', $html);
         $this->assertStringContainsString('data-bulk-done-clear', $html);
         $this->assertStringContainsString('function clearRow', $html);
+        $this->assertStringContainsString('function markRequiredField', $html);
+        $this->assertStringContainsString('function unmarkFilledField', $html);
+        $this->assertStringContainsString("indexOf('[categories]')", $html);
         $this->assertStringContainsString('serverOldItemIds', $html);
+        $blade = file_get_contents(resource_path('views/admin/bulk-site-requests/show.blade.php'));
+        $this->assertStringContainsString("is_array(old('items'))", $blade);
+        $this->assertStringContainsString('function markRequiredField', $blade);
         $this->assertStringNotContainsString('data-bulk-done-closed', $html);
         $this->assertStringNotContainsString('for="categoryInput-done'.$item->id.'"', $html);
         $this->assertStringContainsString('readStoredDensity', $html);

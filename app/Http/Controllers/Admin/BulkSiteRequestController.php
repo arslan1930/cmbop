@@ -447,7 +447,7 @@ class BulkSiteRequestController extends Controller
             return back()
                 ->withErrors($validator)
                 ->withInput()
-                ->with('error', 'Finish each started block completely, or clear it and submit only the finished blocks.');
+                ->with('error', 'Finish each started block completely, or click Clear and submit only the finished blocks.');
         }
 
         if ($completeItemIds === []) {

@@ -305,6 +305,48 @@ class MarketingBulkSiteOpsTest extends TestCase
         $this->assertDatabaseMissing('sites', ['domain' => 'mkt-da-cap.example']);
     }
 
+    public function test_done_niches_error_marks_the_visible_picker(): void
+    {
+        [$country, $language] = $this->marketplaceCodes();
+
+        $bulk = BulkSiteRequest::create([
+            'publisher_id' => $this->publisher->id,
+            'status' => BulkSiteRequest::STATUS_REQUESTED,
+            'estimated_count' => 1,
+        ]);
+        $item = BulkSiteRequestItem::create([
+            'bulk_site_request_id' => $bulk->id,
+            'site_url' => 'https://mkt-niches-mark.example',
+            'domain' => 'mkt-niches-mark.example',
+            'price' => 55,
+        ]);
+
+        $html = $this->actingAs($this->marketer)
+            ->from(route('marketing.bulk-site-requests.show', $bulk))
+            ->followingRedirects()
+            ->post(route('marketing.bulk-site-requests.done', $bulk), [
+                'items' => [
+                    $item->id => [
+                        'language' => $language,
+                        'country' => $country,
+                        'da' => 20,
+                        'dr' => 25,
+                        'traffic' => 1000,
+                        'categories' => '',
+                    ],
+                ],
+            ])
+            ->assertOk()
+            ->getContent();
+
+        $this->assertMatchesRegularExpression(
+            '/multi-select-input is-invalid[^>]*id="categoryInput-done'.$item->id.'"/',
+            $html
+        );
+        $this->assertStringContainsString('Finish this field, or clear the row', $html);
+        $this->assertDatabaseMissing('sites', ['domain' => 'mkt-niches-mark.example']);
+    }
+
     public function test_bulk_done_form_clamps_da_dr_in_the_browser(): void
     {
         $html = file_get_contents(resource_path('views/admin/bulk-site-requests/show.blade.php'));
@@ -595,6 +637,8 @@ class MarketingBulkSiteOpsTest extends TestCase
         $this->assertStringContainsString('function isRejectControl', $html);
         $this->assertStringContainsString('data-bulk-done-clear', $html);
         $this->assertStringContainsString('function clearRow', $html);
+        $this->assertStringContainsString('function markRequiredField', $html);
+        $this->assertStringContainsString('or click Clear', $html);
         $this->assertStringContainsString('applyDensity(readStoredDensity(), false)', $html);
         $this->assertStringContainsString('data-bulk-reject-error', $html);
         $this->assertStringContainsString('name="reject_item_id"', $html);
