@@ -340,7 +340,7 @@ class MarketingBulkSiteOpsTest extends TestCase
             ->getContent();
 
         $this->assertMatchesRegularExpression(
-            '/multi-select-input is-invalid[^>]*id="categoryInput-done'.$item->id.'"/',
+            '/multi-select-input\s+is-invalid[^>]*id="categoryInput-done'.$item->id.'"/',
             $html
         );
         $this->assertStringContainsString('Finish this field, or clear the row', $html);
