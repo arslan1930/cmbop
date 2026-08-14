@@ -661,6 +661,134 @@ class MarketingBulkSiteOpsTest extends TestCase
         $this->assertStringNotContainsString('TypeError', $html);
     }
 
+    public function test_done_ignores_non_digit_item_keys(): void
+    {
+        Mail::fake();
+        [$country, $language] = $this->marketplaceCodes();
+        $category = Category::query()->firstOrFail();
+
+        $bulk = BulkSiteRequest::create([
+            'publisher_id' => $this->publisher->id,
+            'status' => BulkSiteRequest::STATUS_REQUESTED,
+            'estimated_count' => 1,
+        ]);
+        $item = BulkSiteRequestItem::create([
+            'bulk_site_request_id' => $bulk->id,
+            'site_url' => 'https://digit-keys.example',
+            'domain' => 'digit-keys.example',
+            'price' => 55,
+        ]);
+
+        $this->actingAs($this->marketer)
+            ->from(route('marketing.bulk-site-requests.show', $bulk))
+            ->post(route('marketing.bulk-site-requests.done', $bulk), [
+                'items' => [
+                    $item->id => [
+                        'language' => $language,
+                        'country' => $country,
+                        'da' => 20,
+                        'dr' => 25,
+                        'traffic' => 1000,
+                        'categories' => $category->name,
+                    ],
+                    $item->id.'abc' => [
+                        'language' => '',
+                        'country' => '',
+                        'da' => 1,
+                        'dr' => '',
+                        'traffic' => '',
+                        'categories' => '',
+                    ],
+                ],
+            ])
+            ->assertRedirect()
+            ->assertSessionHas('success')
+            ->assertSessionMissing('error');
+
+        $this->assertNotNull($item->fresh()->site_id);
+        $this->assertDatabaseHas('sites', ['domain' => 'digit-keys.example']);
+    }
+
+    public function test_notes_array_does_not_500(): void
+    {
+        $bulk = $this->makeBulkRequest();
+        $bulk->update(['admin_notes' => 'Keep me']);
+
+        $this->actingAs($this->marketer)
+            ->from(route('marketing.bulk-site-requests.show', $bulk))
+            ->post(route('marketing.bulk-site-requests.notes', $bulk), [
+                'admin_notes' => ['not', 'a', 'string'],
+            ])
+            ->assertRedirect()
+            ->assertSessionHas('success');
+
+        $this->assertSame('Keep me', $bulk->fresh()->admin_notes);
+    }
+
+    public function test_oversized_notes_do_not_500_or_look_like_a_done_error(): void
+    {
+        $bulk = $this->makeBulkRequest();
+        $bulk->update(['admin_notes' => 'Keep me', 'status' => BulkSiteRequest::STATUS_REQUESTED]);
+        BulkSiteRequestItem::create([
+            'bulk_site_request_id' => $bulk->id,
+            'site_url' => 'https://notes-too-long.example',
+            'domain' => 'notes-too-long.example',
+            'price' => 40,
+        ]);
+
+        $html = $this->actingAs($this->marketer)
+            ->from(route('marketing.bulk-site-requests.show', $bulk))
+            ->followingRedirects()
+            ->post(route('marketing.bulk-site-requests.notes', $bulk), [
+                'admin_notes' => str_repeat('x', 65536),
+            ])
+            ->assertOk()
+            ->getContent();
+
+        $this->assertSame('Keep me', $bulk->fresh()->admin_notes);
+        $this->assertStringNotContainsString('TypeError', $html);
+        $this->assertStringNotContainsString('Finish the boxes first.', $html);
+        $this->assertStringContainsString('id="bulkDoneForm"', $html);
+    }
+
+    public function test_array_flash_error_does_not_500_the_show_page(): void
+    {
+        $bulk = $this->makeBulkRequest();
+        $bulk->update(['status' => BulkSiteRequest::STATUS_REQUESTED]);
+        BulkSiteRequestItem::create([
+            'bulk_site_request_id' => $bulk->id,
+            'site_url' => 'https://flash-array.example',
+            'domain' => 'flash-array.example',
+            'price' => 40,
+        ]);
+
+        $html = $this->actingAs($this->marketer)
+            ->withSession(['error' => ['FLASH_ARRAY_ERR'], 'success' => ['FLASH_ARRAY_OK']])
+            ->get(route('marketing.bulk-site-requests.show', $bulk))
+            ->assertOk()
+            ->getContent();
+
+        $this->assertStringNotContainsString('TypeError', $html);
+        $this->assertStringContainsString('id="bulkDoneForm"', $html);
+        $this->assertStringContainsString('FLASH_ARRAY_ERR', $html);
+        $this->assertStringContainsString('FLASH_ARRAY_OK', $html);
+    }
+
+    public function test_index_array_status_does_not_500(): void
+    {
+        $bulk = $this->makeBulkRequest();
+
+        $html = $this->actingAs($this->marketer)
+            ->get(route('marketing.bulk-site-requests.index', ['status' => ['requested']]))
+            ->assertOk()
+            ->getContent();
+
+        $this->assertStringNotContainsString('TypeError', $html);
+        $this->assertStringNotContainsString('Array to string conversion', $html);
+        $this->assertStringContainsString((string) $bulk->id, $html);
+        $this->assertStringContainsString('waiting on you', $html);
+    }
+
     public function test_done_object_category_values_do_not_500(): void
     {
         Mail::fake();
@@ -1318,6 +1446,32 @@ class MarketingBulkSiteOpsTest extends TestCase
         $this->assertSame(BulkSiteRequest::STATUS_SEEDED, $bulk->fresh()->status);
     }
 
+    public function test_show_heals_sheet_sent_when_drafts_already_exist(): void
+    {
+        $bulk = BulkSiteRequest::create([
+            'publisher_id' => $this->publisher->id,
+            'status' => BulkSiteRequest::STATUS_SHEET_SENT,
+            'estimated_count' => 1,
+            'sheet_sent_at' => now(),
+        ]);
+        $this->seedDraft($bulk, 'sheet-with-draft.example');
+        BulkSiteRequestItem::create([
+            'bulk_site_request_id' => $bulk->id,
+            'site_url' => 'https://sheet-with-draft.example',
+            'domain' => 'sheet-with-draft.example',
+            'price' => 40,
+            'site_id' => $bulk->sites()->first()->id,
+        ]);
+
+        $this->actingAs($this->marketer)
+            ->get(route('marketing.bulk-site-requests.show', $bulk))
+            ->assertOk()
+            ->assertSee('Waiting on publisher', false)
+            ->assertDontSee('Sheet emailed', false);
+
+        $this->assertSame(BulkSiteRequest::STATUS_AWAITING_PUBLISHER, $bulk->fresh()->status);
+    }
+
     public function test_done_ignores_extra_posted_keys_beyond_the_batch_cap(): void
     {
         Mail::fake();
@@ -1517,6 +1671,22 @@ class MarketingBulkSiteOpsTest extends TestCase
         $this->assertNull($bulk->fresh()->cancel_reason);
     }
 
+    public function test_cancel_array_reason_does_not_500(): void
+    {
+        $bulk = $this->makeBulkRequest();
+        $bulk->update(['status' => BulkSiteRequest::STATUS_REQUESTED]);
+
+        $this->actingAs($this->marketer)
+            ->from(route('marketing.bulk-site-requests.show', $bulk))
+            ->post(route('marketing.bulk-site-requests.cancel', $bulk), [
+                'reason' => ['not', 'a', 'string'],
+            ])
+            ->assertRedirect(route('marketing.bulk-site-requests.show', $bulk))
+            ->assertSessionHasErrors('reason');
+
+        $this->assertSame(BulkSiteRequest::STATUS_REQUESTED, $bulk->fresh()->status);
+    }
+
     public function test_sheet_sent_cannot_rewind_a_live_batch(): void
     {
         $bulk = $this->makeBulkRequest();
@@ -1698,6 +1868,69 @@ class MarketingBulkSiteOpsTest extends TestCase
         $this->assertTrue($other->fresh()->isPending());
     }
 
+    public function test_reject_array_item_id_does_not_500_the_show_page(): void
+    {
+        $bulk = BulkSiteRequest::create([
+            'publisher_id' => $this->publisher->id,
+            'status' => BulkSiteRequest::STATUS_REQUESTED,
+            'estimated_count' => 2,
+        ]);
+        $item = BulkSiteRequestItem::create([
+            'bulk_site_request_id' => $bulk->id,
+            'site_url' => 'https://array-reject-id.example',
+            'domain' => 'array-reject-id.example',
+            'price' => 40,
+        ]);
+        $other = BulkSiteRequestItem::create([
+            'bulk_site_request_id' => $bulk->id,
+            'site_url' => 'https://array-reject-other.example',
+            'domain' => 'array-reject-other.example',
+            'price' => 55,
+        ]);
+
+        $html = $this->actingAs($this->marketer)
+            ->from(route('marketing.bulk-site-requests.show', $bulk))
+            ->followingRedirects()
+            ->post(route('marketing.bulk-site-requests.items.reject', [$bulk->id, $item->id]), [
+                'reason' => 'no',
+                'reject_item_id' => ['x'],
+            ])
+            ->assertOk()
+            ->getContent();
+
+        $this->assertStringNotContainsString('TypeError', $html);
+        $this->assertStringContainsString('Give a short reason for rejecting this website.', $html);
+        $this->assertStringContainsString('id="bulkDoneForm"', $html);
+        $this->assertTrue($item->fresh()->isPending());
+        $this->assertTrue($other->fresh()->isPending());
+    }
+
+    public function test_non_array_seed_failures_do_not_500_the_show_page(): void
+    {
+        $bulk = BulkSiteRequest::create([
+            'publisher_id' => $this->publisher->id,
+            'status' => BulkSiteRequest::STATUS_REQUESTED,
+            'estimated_count' => 1,
+        ]);
+        BulkSiteRequestItem::create([
+            'bulk_site_request_id' => $bulk->id,
+            'site_url' => 'https://seed-fail-session.example',
+            'domain' => 'seed-fail-session.example',
+            'price' => 40,
+        ]);
+
+        $html = $this->actingAs($this->marketer)
+            ->withSession(['seed_failures' => 'not-a-list'])
+            ->get(route('marketing.bulk-site-requests.show', $bulk))
+            ->assertOk()
+            ->getContent();
+
+        $this->assertStringNotContainsString('TypeError', $html);
+        $this->assertStringNotContainsString('foreach() argument', $html);
+        $this->assertStringContainsString('id="bulkDoneForm"', $html);
+        $this->assertStringNotContainsString('Some rows failed', $html);
+    }
+
     public function test_reject_requires_a_reason_and_skips_added_rows(): void
     {
         $bulk = BulkSiteRequest::create([
@@ -1716,6 +1949,16 @@ class MarketingBulkSiteOpsTest extends TestCase
             ->from(route('marketing.bulk-site-requests.show', $bulk))
             ->post(route('marketing.bulk-site-requests.items.reject', [$bulk->id, $item->id]), [
                 'reason' => '',
+            ])
+            ->assertRedirect(route('marketing.bulk-site-requests.show', $bulk))
+            ->assertSessionHasErrors('reason');
+
+        $this->assertTrue($item->fresh()->isPending());
+
+        $this->actingAs($this->marketer)
+            ->from(route('marketing.bulk-site-requests.show', $bulk))
+            ->post(route('marketing.bulk-site-requests.items.reject', [$bulk->id, $item->id]), [
+                'reason' => ['not', 'a', 'string'],
             ])
             ->assertRedirect(route('marketing.bulk-site-requests.show', $bulk))
             ->assertSessionHasErrors('reason');

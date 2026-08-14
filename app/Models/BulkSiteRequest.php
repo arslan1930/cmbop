@@ -101,12 +101,12 @@ class BulkSiteRequest extends Model
         $pendingPublisher = $this->pendingPublisherCount();
         $pendingItems = $this->pendingItemsCount();
 
-        // Stay at the start until staff Dones a row or every submitted row is resolved.
-        // Do not bail just because every draft was deleted — leftover URL+price
-        // rows must fall through to SEEDED so show-page heal and the marketer
-        // queue label stay honest (Completed / Waiting on publisher with 0 sites).
+        // Stay at the start only while no drafts exist yet. If sites are already
+        // on the batch (Done won a race with Sheet emailed), fall through so
+        // status cannot stay Requested / Sheet emailed over live drafts.
+        // Leftover URL+price rows with zero sites fall through to SEEDED.
         if (in_array($this->status, [self::STATUS_REQUESTED, self::STATUS_SHEET_SENT], true)) {
-            if ($pendingItems > 0 || ($total === 0 && $this->items()->doesntExist())) {
+            if ($total === 0 && ($pendingItems > 0 || $this->items()->doesntExist())) {
                 return;
             }
         }

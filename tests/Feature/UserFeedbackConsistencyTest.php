@@ -79,6 +79,8 @@ class UserFeedbackConsistencyTest extends TestCase
         $this->assertStringContainsString('role="alert"', $markup, 'Errors should be announced assertively');
         $this->assertStringContainsString('aria-live', $markup);
         $this->assertStringContainsString('aria-label="Dismiss message"', $markup);
+        $this->assertStringContainsString("session_text('error')", $markup);
+        $this->assertStringContainsString("session_text('success')", $markup);
     }
 
     /**

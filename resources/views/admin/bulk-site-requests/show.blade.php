@@ -24,18 +24,26 @@
     @php
         $reasonError = $errors->first('reason');
         $isCancelReasonError = is_string($reasonError) && str_contains(strtolower($reasonError), 'cancell');
-        $rejectItemId = (int) old('reject_item_id');
+        $postedRejectItemId = old('reject_item_id');
+        $rejectItemId = 0;
+        if (is_scalar($postedRejectItemId) && preg_match('/^\d+$/', (string) $postedRejectItemId) === 1) {
+            $rejectItemId = (int) $postedRejectItemId;
+        }
         $isRejectReasonError = $errors->has('reason') && ! $isCancelReasonError && $pendingItems->isNotEmpty();
         if ($isRejectReasonError && $rejectItemId === 0 && $pendingItems->count() === 1) {
             $rejectItemId = (int) $pendingItems->first()->id;
         }
     @endphp
 
-    @if(session('seed_failures'))
+    @php
+        $seedFailures = session('seed_failures');
+        $seedFailures = is_array($seedFailures) ? $seedFailures : [];
+    @endphp
+    @if($seedFailures !== [])
         <div class="alert alert-warning">
             <strong>Some rows failed</strong>
             <ul class="mb-0 small mt-2">
-                @foreach(session('seed_failures') as $fail)
+                @foreach($seedFailures as $fail)
                     @continue(! is_array($fail))
                     @php
                         $failErrors = $fail['errors'] ?? [];
@@ -44,12 +52,15 @@
                         } elseif (! is_array($failErrors)) {
                             $failErrors = [];
                         }
+                        $failErrors = array_values(array_filter($failErrors, 'is_scalar'));
+                        $failUrl = is_scalar($fail['url'] ?? null) ? (string) $fail['url'] : '';
+                        $failLine = is_scalar($fail['line'] ?? null) ? (string) $fail['line'] : '';
                     @endphp
                     <li>
-                        @if(! empty($fail['url']))
-                            {{ $fail['url'] }}
+                        @if($failUrl !== '')
+                            {{ $failUrl }}
                         @else
-                            Line {{ $fail['line'] ?? '' }}
+                            Line {{ $failLine }}
                         @endif
                         — {{ implode('; ', array_map('strval', $failErrors)) }}
                     </li>
@@ -73,7 +84,13 @@
                     <form method="POST" action="{{ staff_route('bulk-site-requests.notes', $bulkRequest) }}" class="mb-3">
                         @csrf
                         <label class="form-label small">Internal notes</label>
-                        <textarea name="admin_notes" class="form-control form-control-sm mb-2" rows="3">{{ old_text('admin_notes', $bulkRequest->admin_notes) }}</textarea>
+                        <textarea name="admin_notes"
+                                  class="form-control form-control-sm mb-2 @error('admin_notes') is-invalid @enderror"
+                                  rows="3"
+                                  maxlength="65535">{{ old_text('admin_notes', $bulkRequest->admin_notes) }}</textarea>
+                        @error('admin_notes')
+                            <div class="invalid-feedback d-block mb-2">{{ $message }}</div>
+                        @enderror
                         <button type="submit" class="btn btn-sm btn-outline-secondary">Save notes</button>
                     </form>
 
@@ -209,7 +226,7 @@
                             <strong>Add a note for the publisher.</strong>
                             {{ $reasonError }}
                         </div>
-                    @elseif($errors->any() && ! $errors->has('rows') && ! $errors->has('reason'))
+                    @elseif($errors->any() && ! $errors->has('rows') && ! $errors->has('reason') && ! $errors->has('admin_notes'))
                         <div class="alert alert-danger py-2 small">
                             <strong>Finish the boxes first.</strong>
                             {{ $errors->first() }}
@@ -659,7 +676,7 @@
         const langEl = row.querySelector('[data-bulk-language]');
         if (!countryEl || !langEl) return;
         const code = String(countryEl.value || '').toLowerCase();
-        const list = countryLanguageMap[code] || [];
+        const list = Array.isArray(countryLanguageMap[code]) ? countryLanguageMap[code] : [];
         const keep = String(preferredLanguage || langEl.value || '').toLowerCase();
         langEl.innerHTML = '';
         if (!code) {
@@ -807,8 +824,8 @@
     function restoreRejectNote(itemId, data, row) {
         const note = (row && row.querySelector('[data-bulk-reject-note]'))
             || form.querySelector('#reject-note-' + itemId);
-        if (note && !String(note.value || '').trim() && data.reject_note) {
-            note.value = String(data.reject_note);
+        if (note && !String(note.value || '').trim() && typeof data.reject_note === 'string' && data.reject_note) {
+            note.value = data.reject_note;
         }
     }
 
@@ -833,23 +850,24 @@
 
                     const useDraftFields = serverOldItemIds.indexOf(itemId) === -1;
                     if (useDraftFields) {
-                        if (country && data.country) country.value = data.country;
-                        if (row) refreshBulkDoneLanguages(row, data.language || '');
-                        if (language && data.language) language.value = data.language;
-                        if (da && data.da !== undefined && data.da !== null) da.value = data.da;
-                        if (dr && data.dr !== undefined && data.dr !== null) dr.value = data.dr;
-                        if (traffic && data.traffic !== undefined && data.traffic !== null) traffic.value = data.traffic;
+                        if (country && typeof data.country === 'string' && data.country) country.value = data.country;
+                        if (row) refreshBulkDoneLanguages(row, typeof data.language === 'string' ? data.language : '');
+                        if (language && typeof data.language === 'string' && data.language) language.value = data.language;
+                        if (da && (typeof data.da === 'string' || typeof data.da === 'number')) da.value = data.da;
+                        if (dr && (typeof data.dr === 'string' || typeof data.dr === 'number')) dr.value = data.dr;
+                        if (traffic && (typeof data.traffic === 'string' || typeof data.traffic === 'number')) traffic.value = data.traffic;
 
-                        const nicheValues = String(data.categories || '')
+                        const nicheRaw = typeof data.categories === 'string' ? data.categories : '';
+                        const nicheValues = nicheRaw
                             .split('|')
                             .map(function (v) { return v.trim(); })
                             .filter(Boolean);
                         const categoriesInput = form.querySelector('input[name="items[' + itemId + '][categories]"]');
                         if (nicheValues.length && multiSelects[itemId]) {
                             multiSelects[itemId].setSelectedItems(nicheValues, nicheValues);
-                        } else if (categoriesInput && data.categories !== undefined && data.categories !== null) {
+                        } else if (categoriesInput && typeof data.categories === 'string') {
                             // Keep hidden field in sync even if multi-select init failed.
-                            categoriesInput.value = String(data.categories || '');
+                            categoriesInput.value = data.categories;
                         }
                     }
 
@@ -1198,9 +1216,16 @@
                 submittedIds.forEach(function (id) { sealedItemIds[id] = true; });
                 form.dataset.slbBulkSubmittedIds = submittedIds.join(',');
                 form.dataset.slbBulkAllowSubmit = '1';
-                if (typeof form.requestSubmit === 'function') {
-                    form.requestSubmit();
-                } else {
+                // requestSubmit() with no args uses the default button. A
+                // disabled default button can no-op the POST in some browsers.
+                if (submitBtn) submitBtn.disabled = false;
+                try {
+                    if (typeof form.requestSubmit === 'function') {
+                        form.requestSubmit(submitBtn || undefined);
+                    } else {
+                        HTMLFormElement.prototype.submit.call(form);
+                    }
+                } catch (submitErr) {
                     HTMLFormElement.prototype.submit.call(form);
                 }
             } catch (err) {

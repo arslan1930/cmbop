@@ -27,6 +27,9 @@ class ActionConfirmDialogsTest extends TestCase
             '/function bindDeclarativeConfirms\(\)\s*\{[\s\S]*?if\s*\(\s*form\.dataset\.slbAllowSubmit\s*===\s*[\'"]1[\'"]\s*\)\s*\{[\s\S]*?delete form\.dataset\.slbAllowSubmit;[\s\S]*?var submitter/',
             $js
         );
+        $this->assertStringContainsString('delete form.dataset.slbAllowSubmit', $js);
+        $this->assertStringContainsString('HTMLFormElement.prototype.submit.call(form)', $js);
+        $this->assertStringContainsString('catch (err3)', $js);
     }
 
     public function test_role_layouts_include_confirm_helper(): void

@@ -145,5 +145,7 @@ class PromotionsFormOldInputTest extends TestCase
         $this->assertSame('plain', old_text('missing', 'plain'));
         $this->assertSame('', old_text('missing'));
         $this->assertSame('0', old_text('missing', 0));
+        $this->assertSame('', session_text('missing'));
+        $this->assertSame('ok', session_text('missing', 'ok'));
     }
 }

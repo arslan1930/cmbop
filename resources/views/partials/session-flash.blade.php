@@ -7,10 +7,10 @@
     so screen readers announce outcomes without hijacking on every success.
 --}}
 @php
-    $flashSuccess = session('success');
-    $flashError = session('error');
-    $flashWarning = session('warning');
-    $flashInfo = session('info');
+    $flashSuccess = session_text('success');
+    $flashError = session_text('error');
+    $flashWarning = session_text('warning');
+    $flashInfo = session_text('info');
 @endphp
 
 @if($flashSuccess || $flashError || $flashWarning || $flashInfo || $errors->any())

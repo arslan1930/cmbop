@@ -110,6 +110,8 @@ class BulkDoneDraftAndNicheUiTest extends TestCase
         $this->assertStringContainsString('function setRejectControlsDisabled', $html);
         $this->assertStringContainsString('typeof window.slbConfirm === \'function\'', $html);
         $this->assertStringContainsString('previous.items', $html);
+        $this->assertStringContainsString('Array.isArray(countryLanguageMap[code])', $html);
+        $this->assertStringContainsString("typeof data.categories === 'string'", $html);
         $this->assertStringNotContainsString('function pruneDraftForItemIds', $html);
         $this->assertStringNotContainsString('pruneDraftForItemIds(submittedIds)', $html);
         $this->assertStringContainsString('collectBulkDraftDeleteReason', $html);
@@ -119,6 +121,8 @@ class BulkDoneDraftAndNicheUiTest extends TestCase
         $this->assertStringContainsString('typeof confirmFn.then', $html);
         $this->assertStringContainsString("addEventListener('pageshow'", $html);
         $this->assertStringContainsString('HTMLFormElement.prototype.submit.call', $html);
+        $this->assertStringContainsString('if (submitBtn) submitBtn.disabled = false;', $html);
+        $this->assertStringContainsString('form.requestSubmit(submitBtn || undefined)', $html);
         $this->assertStringContainsString('typeof window.slbAlert', $html);
         $this->assertStringContainsString('if (!/^\\d+$/.test(id)) return;', $html);
         $this->assertStringContainsString('safeItemId(row.getAttribute(\'data-item-id\'))', $html);
@@ -128,7 +132,20 @@ class BulkDoneDraftAndNicheUiTest extends TestCase
         $blade = file_get_contents(resource_path('views/admin/bulk-site-requests/show.blade.php'));
         $this->assertStringContainsString("is_array(old('items'))", $blade);
         $this->assertStringContainsString("is_scalar(\$old['country']", $blade);
+        $this->assertStringContainsString("old('reject_item_id')", $blade);
+        $this->assertStringNotContainsString('(int) old(\'reject_item_id\')', $blade);
+        $this->assertStringContainsString('is_scalar($postedRejectItemId)', $blade);
+        $this->assertStringContainsString('is_array($seedFailures)', $blade);
+        $this->assertStringContainsString("! \$errors->has('admin_notes')", $blade);
         $this->assertStringContainsString('function markRequiredField', $blade);
+        $flash = file_get_contents(resource_path('views/partials/session-flash.blade.php'));
+        $this->assertStringContainsString("session_text('error')", $flash);
+        $this->assertStringContainsString("session_text('success')", $flash);
+        $controller = file_get_contents(app_path('Http/Controllers/Admin/BulkSiteRequestController.php'));
+        $this->assertStringContainsString('is_scalar($rawStatus)', $controller);
+        $index = file_get_contents(resource_path('views/admin/bulk-site-requests/index.blade.php'));
+        $this->assertStringContainsString('publisher?->name', $index);
+        $this->assertStringContainsString('handler?->name', $index);
         $this->assertStringNotContainsString('data-bulk-done-closed', $html);
         $this->assertStringNotContainsString('for="categoryInput-done'.$item->id.'"', $html);
         $this->assertStringContainsString('readStoredDensity', $html);
