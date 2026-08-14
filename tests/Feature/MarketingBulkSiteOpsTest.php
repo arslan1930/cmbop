@@ -158,6 +158,114 @@ class MarketingBulkSiteOpsTest extends TestCase
 
         $this->assertStringContainsString('Append-only', $html);
         $this->assertStringContainsString('Done — add sites', $html);
+        $this->assertStringContainsString('data-bulk-advanced-seed', $html);
+        $this->assertStringContainsString('Legacy request', $html);
+        $this->assertStringContainsString('Seed draft sites?', $html);
+    }
+
+    public function test_advanced_seed_is_hidden_when_url_price_rows_exist(): void
+    {
+        $bulk = BulkSiteRequest::create([
+            'publisher_id' => $this->publisher->id,
+            'status' => BulkSiteRequest::STATUS_REQUESTED,
+            'estimated_count' => 1,
+        ]);
+        BulkSiteRequestItem::create([
+            'bulk_site_request_id' => $bulk->id,
+            'site_url' => 'https://use-done.example',
+            'domain' => 'use-done.example',
+            'price' => 40,
+        ]);
+
+        $this->actingAs($this->marketer)
+            ->get(route('marketing.bulk-site-requests.show', $bulk))
+            ->assertOk()
+            ->assertDontSee('data-bulk-advanced-seed', false)
+            ->assertDontSee('Advanced: seed with per-row metrics', false)
+            ->assertSee('Done — add sites', false)
+            ->assertSee('name="items['.$bulk->items()->first()->id.'][country]"', false);
+    }
+
+    public function test_seed_is_rejected_when_url_price_rows_exist(): void
+    {
+        Mail::fake();
+        [$country, $language] = $this->marketplaceCodes();
+
+        $bulk = BulkSiteRequest::create([
+            'publisher_id' => $this->publisher->id,
+            'status' => BulkSiteRequest::STATUS_REQUESTED,
+            'estimated_count' => 1,
+        ]);
+        BulkSiteRequestItem::create([
+            'bulk_site_request_id' => $bulk->id,
+            'site_url' => 'https://no-paste-seed.example',
+            'domain' => 'no-paste-seed.example',
+            'price' => 40,
+        ]);
+
+        $this->actingAs($this->marketer)
+            ->from(route('marketing.bulk-site-requests.show', $bulk))
+            ->post(route('marketing.bulk-site-requests.seed', $bulk), [
+                'rows' => "https://no-paste-seed.example,99,40,45,12000,{$language},{$country},Should Fail",
+            ])
+            ->assertRedirect(route('marketing.bulk-site-requests.show', $bulk))
+            ->assertSessionHas('error', 'Use Done for submitted URL + price rows. Advanced Seed is only for legacy requests without that list.');
+
+        $this->assertDatabaseMissing('sites', ['domain' => 'no-paste-seed.example']);
+        $this->assertTrue($bulk->items()->first()->isPending());
+        Mail::assertNothingOutgoing();
+    }
+
+    public function test_closed_legacy_request_hides_seed_and_rejects_post(): void
+    {
+        Mail::fake();
+        [$country, $language] = $this->marketplaceCodes();
+
+        $completed = BulkSiteRequest::create([
+            'publisher_id' => $this->publisher->id,
+            'status' => BulkSiteRequest::STATUS_COMPLETED,
+            'estimated_count' => 2,
+            'completed_at' => now(),
+        ]);
+
+        $this->actingAs($this->marketer)
+            ->get(route('marketing.bulk-site-requests.show', $completed))
+            ->assertOk()
+            ->assertSee('Legacy request', false)
+            ->assertDontSee('Use Advanced Seed below', false)
+            ->assertDontSee('data-bulk-advanced-seed', false);
+
+        $this->actingAs($this->marketer)
+            ->from(route('marketing.bulk-site-requests.show', $completed))
+            ->post(route('marketing.bulk-site-requests.seed', $completed), [
+                'rows' => "https://closed-legacy.example,99,40,45,12000,{$country},{$language},Closed",
+            ])
+            ->assertRedirect(route('marketing.bulk-site-requests.show', $completed))
+            ->assertSessionHas('error', 'This request is closed. Advanced Seed is only for open legacy requests.');
+
+        $this->assertDatabaseMissing('sites', ['domain' => 'closed-legacy.example']);
+        Mail::assertNothingOutgoing();
+    }
+
+    public function test_legacy_seed_validation_error_stays_on_the_seed_box(): void
+    {
+        $bulk = $this->makeBulkRequest();
+
+        $this->actingAs($this->marketer)
+            ->from(route('marketing.bulk-site-requests.show', $bulk))
+            ->post(route('marketing.bulk-site-requests.seed', $bulk), [
+                'rows' => '',
+            ])
+            ->assertRedirect(route('marketing.bulk-site-requests.show', $bulk))
+            ->assertSessionHasErrors('rows');
+
+        $html = $this->actingAs($this->marketer)
+            ->get(route('marketing.bulk-site-requests.show', $bulk))
+            ->assertOk()
+            ->assertDontSee('Finish the boxes first.', false)
+            ->getContent();
+
+        $this->assertStringContainsString('data-bulk-advanced-seed', $html);
     }
 
     public function test_marketer_done_rejects_da_or_dr_above_100(): void
@@ -483,6 +591,8 @@ class MarketingBulkSiteOpsTest extends TestCase
         $this->assertStringContainsString('The publisher will see your reason.', $html);
         $this->assertStringContainsString('name="reason"', $html);
         $this->assertStringContainsString('id="bulk-cancel-reason"', $html);
+        $this->assertStringContainsString('data-bulk-advanced-seed', $html);
+        $this->assertStringContainsString('Seed these pasted rows as drafts and notify the publisher?', $html);
     }
 
     public function test_marketer_done_from_items_creates_drafts_and_notifies(): void

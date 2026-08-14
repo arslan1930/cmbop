@@ -200,14 +200,21 @@
                         Reject a site you will not add; the rest of the batch stays open.
                     </p>
 
-                    @if($errors->any())
+                    @if($errors->any() && ! $errors->has('rows'))
                         <div class="alert alert-danger py-2 small">
                             <strong>Finish the boxes first.</strong>
                             {{ $errors->first() }}
                         </div>
                     @endif
 
-                    @if($pendingItems->isEmpty())
+                    @if($bulkRequest->items->isEmpty())
+                        <div class="form-text">
+                            Legacy request — no URL + price rows.
+                            @if($bulkRequest->canAddDraftSites())
+                                Use Advanced Seed below if you still need to add drafts.
+                            @endif
+                        </div>
+                    @elseif($pendingItems->isEmpty())
                         <div class="form-text">All submitted rows are already added or rejected.</div>
                     @else
                         <form method="POST"
@@ -423,36 +430,30 @@
                 </div>
             </div>
 
-            <div class="card border-0 shadow-sm mb-3">
+            @if($bulkRequest->items->isEmpty() && $bulkRequest->canAddDraftSites())
+            <div class="card border-0 shadow-sm mb-3" data-bulk-advanced-seed>
                 <div class="card-body">
                     <h6 class="fw-semibold mb-1">Advanced: seed with per-row metrics</h6>
                     <p class="small text-muted mb-3">
-                        Optional. Paste custom rows when metrics differ per site.
+                        Legacy requests only (no URL + price list). Paste one site per line.
                         Columns: <code>url,price,da,dr,traffic,country,language[,site_name]</code>
                     </p>
-                    @php
-                        $seedStarter = $pendingItems->map(function ($item) {
-                            return $item->site_url.','.$item->price.',0,0,0,country,lang';
-                        })->implode("\n");
-                    @endphp
-                    @if($seedStarter !== '')
-                        <div class="small mb-2">
-                            <span class="text-muted">Starter from pending URL + price (replace country/lang and metrics):</span>
-                            <pre class="bg-light border rounded p-2 small mb-2 mt-1" id="bulkSeedStarter" style="max-height:8rem;overflow:auto;">{{ $seedStarter }}</pre>
-                            <button type="button" class="btn btn-sm btn-outline-secondary" id="bulkCopySeedStarter">Copy starter into box</button>
-                        </div>
-                    @endif
-                    <form method="POST" action="{{ staff_route('bulk-site-requests.seed', $bulkRequest) }}">
+                    <form method="POST"
+                          action="{{ staff_route('bulk-site-requests.seed', $bulkRequest) }}"
+                          data-slb-confirm="Seed these pasted rows as drafts and notify the publisher?"
+                          data-slb-confirm-title="Seed draft sites?"
+                          data-slb-confirm-text="Seed">
                         @csrf
                         <textarea name="rows" id="bulkSeedRows" class="form-control font-monospace small @error('rows') is-invalid @enderror" rows="8"
-                                  placeholder="https://example.com,99,40,45,12000,de,de,Example Blog">{{ old_text('rows', $seedStarter) }}</textarea>
+                                  placeholder="https://example.com,99,40,45,12000,de,de,Example Blog">{{ old_text('rows') }}</textarea>
                         @error('rows')<div class="invalid-feedback">{{ $message }}</div>@enderror
-                        <button type="submit" class="btn btn-outline-primary btn-sm mt-2" @disabled(! $bulkRequest->canAddDraftSites())>
+                        <button type="submit" class="btn btn-outline-primary btn-sm mt-2">
                             Seed from pasted rows &amp; notify publisher
                         </button>
                     </form>
                 </div>
             </div>
+            @endif
 
             <div class="card border-0 shadow-sm">
                 <div class="card-body">
@@ -514,14 +515,6 @@
 <script src="{{ asset('assets/js/jquery-3.6.0.min.js') }}?v={{ @filemtime(public_path('assets/js/jquery-3.6.0.min.js')) ?: '1' }}"></script>
 <script src="{{ asset('js/multi-select.js') }}?v={{ @filemtime(public_path('js/multi-select.js')) ?: '1' }}"></script>
 <script>
-document.getElementById('bulkCopySeedStarter')?.addEventListener('click', function () {
-    const starter = document.getElementById('bulkSeedStarter');
-    const box = document.getElementById('bulkSeedRows');
-    if (!starter || !box) return;
-    box.value = starter.textContent.trim();
-    box.focus();
-});
-
 (function () {
     const form = document.getElementById('bulkDoneForm');
     if (!form) return;
