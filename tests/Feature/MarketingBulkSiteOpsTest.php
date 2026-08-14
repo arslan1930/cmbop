@@ -611,6 +611,44 @@ class MarketingBulkSiteOpsTest extends TestCase
         $this->assertStringNotContainsString('TypeError', $html);
     }
 
+    public function test_done_object_category_values_do_not_500(): void
+    {
+        Mail::fake();
+        [$country, $language] = $this->marketplaceCodes();
+
+        $bulk = BulkSiteRequest::create([
+            'publisher_id' => $this->publisher->id,
+            'status' => BulkSiteRequest::STATUS_REQUESTED,
+            'estimated_count' => 1,
+        ]);
+        $item = BulkSiteRequestItem::create([
+            'bulk_site_request_id' => $bulk->id,
+            'site_url' => 'https://done-object-cats.example',
+            'domain' => 'done-object-cats.example',
+            'price' => 55,
+        ]);
+
+        $this->actingAs($this->marketer)
+            ->from(route('marketing.bulk-site-requests.show', $bulk))
+            ->post(route('marketing.bulk-site-requests.done', $bulk), [
+                'items' => [
+                    $item->id => [
+                        'language' => $language,
+                        'country' => $country,
+                        'da' => 20,
+                        'dr' => 25,
+                        'traffic' => 1000,
+                        'categories' => [['Business'], ['Finance']],
+                    ],
+                ],
+            ])
+            ->assertRedirect()
+            ->assertSessionHas('error');
+
+        $this->assertTrue($item->fresh()->isPending());
+        $this->assertDatabaseMissing('sites', ['domain' => 'done-object-cats.example']);
+    }
+
     public function test_done_domain_already_registered_keeps_the_boxes(): void
     {
         Mail::fake();
@@ -967,6 +1005,8 @@ class MarketingBulkSiteOpsTest extends TestCase
         $this->assertStringContainsString('doneConfirmOpen', $html);
         $this->assertStringContainsString('collectBulkDraftDeleteReason', $html);
         $this->assertStringContainsString('JSON.stringify({ reason: reason })', $html);
+        $this->assertStringContainsString('bulkDeleteBusy', $html);
+        $this->assertStringContainsString('typeof confirmFn.then', $html);
         $this->assertStringContainsString('is_scalar', $controller);
         $this->assertStringContainsString('applyDensity(readStoredDensity(), false)', $html);
         $this->assertStringContainsString('data-bulk-reject-error', $html);

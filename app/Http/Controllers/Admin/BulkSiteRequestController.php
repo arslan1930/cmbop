@@ -886,8 +886,16 @@ class BulkSiteRequestController extends Controller
     {
         if ($field === 'categories') {
             $raw = $row['categories'] ?? [];
-            if (! is_string($raw) && ! is_array($raw)) {
+            if (is_string($raw)) {
+                return $this->parseCategoryList($raw) !== [];
+            }
+            if (! is_array($raw)) {
                 return false;
+            }
+            foreach ($raw as $value) {
+                if (! is_scalar($value) && $value !== null) {
+                    return false;
+                }
             }
 
             return $this->parseCategoryList($raw) !== [];

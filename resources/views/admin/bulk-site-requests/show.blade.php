@@ -36,13 +36,22 @@
             <strong>Some rows failed</strong>
             <ul class="mb-0 small mt-2">
                 @foreach(session('seed_failures') as $fail)
+                    @continue(! is_array($fail))
+                    @php
+                        $failErrors = $fail['errors'] ?? [];
+                        if (is_string($failErrors)) {
+                            $failErrors = [$failErrors];
+                        } elseif (! is_array($failErrors)) {
+                            $failErrors = [];
+                        }
+                    @endphp
                     <li>
                         @if(! empty($fail['url']))
                             {{ $fail['url'] }}
                         @else
-                            Line {{ $fail['line'] }}
+                            Line {{ $fail['line'] ?? '' }}
                         @endif
-                        — {{ implode('; ', $fail['errors'] ?? []) }}
+                        — {{ implode('; ', array_map('strval', $failErrors)) }}
                     </li>
                 @endforeach
             </ul>
@@ -1090,13 +1099,15 @@
         // Dedicated flag so shared slb-confirm.js cannot clear imperative allows.
         if (form.dataset.slbBulkAllowSubmit === '1') {
             delete form.dataset.slbBulkAllowSubmit;
-            const submittedIds = (form.dataset.slbBulkSubmittedIds || '')
-                .split(',')
-                .map(function (v) { return v.trim(); })
-                .filter(Boolean);
-            delete form.dataset.slbBulkSubmittedIds;
-            submittedIds.forEach(function (id) { sealedItemIds[id] = true; });
-            pruneDraftForItemIds(submittedIds);
+            try {
+                const submittedIds = (form.dataset.slbBulkSubmittedIds || '')
+                    .split(',')
+                    .map(function (v) { return v.trim(); })
+                    .filter(Boolean);
+                delete form.dataset.slbBulkSubmittedIds;
+                submittedIds.forEach(function (id) { sealedItemIds[id] = true; });
+                pruneDraftForItemIds(submittedIds);
+            } catch (err) {}
             return;
         }
 
@@ -1136,14 +1147,28 @@
         e.preventDefault();
         doneConfirmOpen = true;
         if (submitBtn) submitBtn.disabled = true;
-        const confirmFn = window.slbConfirm({
-            title: 'Done — add draft sites?',
-            text: remaining > 0
-                ? ('Add ' + count + ' complete draft site(s) now and notify the publisher? ' + remaining + ' unfinished row(s) will stay pending.')
-                : ('Add ' + count + ' draft site(s) to this publisher’s Pending sites and notify them?'),
-            confirmText: 'Done',
-            icon: 'question',
-        });
+        let confirmFn;
+        try {
+            confirmFn = window.slbConfirm({
+                title: 'Done — add draft sites?',
+                text: remaining > 0
+                    ? ('Add ' + count + ' complete draft site(s) now and notify the publisher? ' + remaining + ' unfinished row(s) will stay pending.')
+                    : ('Add ' + count + ' draft site(s) to this publisher’s Pending sites and notify them?'),
+                confirmText: 'Done',
+                icon: 'question',
+            });
+        } catch (err) {
+            doneConfirmOpen = false;
+            setIncompleteRowsDisabled(false);
+            syncDoneState();
+            return false;
+        }
+        if (!confirmFn || typeof confirmFn.then !== 'function') {
+            doneConfirmOpen = false;
+            setIncompleteRowsDisabled(false);
+            syncDoneState();
+            return false;
+        }
 
         confirmFn.then(function (ok) {
             if (!ok) {
@@ -1179,11 +1204,20 @@
 
 document.querySelectorAll('.bulk-draft-delete').forEach(function (btn) {
     btn.addEventListener('click', async function () {
+        if (this.dataset.bulkDeleteBusy === '1') return;
         const id = String(this.getAttribute('data-site-id') || '');
         if (!/^\d+$/.test(id)) return;
+        this.dataset.bulkDeleteBusy = '1';
         const name = this.getAttribute('data-site-name') || 'this site';
-        const reason = await collectBulkDraftDeleteReason(name);
+        let reason = null;
+        try {
+            reason = await collectBulkDraftDeleteReason(name);
+        } catch (e) {
+            delete this.dataset.bulkDeleteBusy;
+            return;
+        }
         if (!reason) {
+            delete this.dataset.bulkDeleteBusy;
             return;
         }
         this.disabled = true;
@@ -1204,12 +1238,14 @@ document.querySelectorAll('.bulk-draft-delete').forEach(function (btn) {
             if (!res.ok || !data.success) {
                 if (window.slbAlert) { await window.slbAlert({ icon: 'error', title: reasonErr || data.message || 'Could not delete site.' }); } else { alert(reasonErr || data.message || 'Could not delete site.'); }
                 this.disabled = false;
+                delete this.dataset.bulkDeleteBusy;
                 return;
             }
             location.reload();
         } catch (e) {
             if (window.slbAlert) { await window.slbAlert({ icon: 'error', title: 'Could not delete site.' }); } else { alert('Could not delete site.'); }
             this.disabled = false;
+            delete this.dataset.bulkDeleteBusy;
         }
     });
 });
@@ -1246,6 +1282,10 @@ function collectBulkDraftDeleteReason(name) {
             const next = String(result.value || '').trim();
             return next.length >= 10 ? next : null;
         });
+    }
+
+    if (!window.slbConfirm) {
+        return Promise.resolve(null);
     }
 
     return window.slbConfirm({
