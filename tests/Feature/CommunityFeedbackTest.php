@@ -200,6 +200,23 @@ class CommunityFeedbackTest extends TestCase
         $this->actingAs($advertiser)->postJson(route('advertiser.website-suggestions.store'), [
             'website_name' => $site->site_name,
             'website_url' => $site->site_url,
-        ])->assertStatus(422);
+        ])->assertStatus(422)
+            ->assertJsonFragment(['message' => 'That website is already listed in our catalog. Try searching for “owned-news.example”.']);
+    }
+
+    public function test_cannot_suggest_website_already_on_file_but_not_in_catalog(): void
+    {
+        $publisher = $this->userWithRole('publisher');
+        $site = $this->siteFor($publisher);
+        $site->update(['verified' => false]);
+        $advertiser = $this->userWithRole('advertiser');
+
+        $this->actingAs($advertiser)->postJson(route('advertiser.website-suggestions.store'), [
+            'website_name' => $site->site_name,
+            'website_url' => $site->site_url,
+        ])->assertStatus(422)
+            ->assertJsonFragment([
+                'message' => 'We already have this website on file. It is not currently available in the catalog.',
+            ]);
     }
 }

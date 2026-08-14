@@ -133,6 +133,10 @@ class AdminSiteReviewQueueTest extends TestCase
         app(InAppNotificationService::class)->notifyAdminsNewSite($site, 'create');
 
         $this->actingAs($admin)
+            ->postJson(route('admin.sites.verify', $site->id), ['verified' => 1])
+            ->assertOk();
+
+        $this->actingAs($admin)
             ->postJson(route('admin.sites.active', $site->id), ['active' => 1])
             ->assertOk()
             ->assertJson(['success' => true]);
@@ -156,7 +160,9 @@ class AdminSiteReviewQueueTest extends TestCase
         app(InAppNotificationService::class)->notifyAdminsNewSite($site, 'create');
 
         $this->actingAs($admin)
-            ->deleteJson(route('admin.sites.destroy', $siteId))
+            ->deleteJson(route('admin.sites.destroy', $siteId), [
+                'reason' => 'Does not meet marketplace quality guidelines.',
+            ])
             ->assertOk()
             ->assertJson(['success' => true]);
 
@@ -265,6 +271,10 @@ class AdminSiteReviewQueueTest extends TestCase
             'site_url' => 'https://verify-me.example',
             'domain' => 'verify-me.example',
         ]);
+
+        $this->actingAs($admin)
+            ->postJson(route('admin.sites.verify', $toActivate->id), ['verified' => 1])
+            ->assertOk();
 
         $this->actingAs($admin)
             ->postJson(route('admin.sites.active', $toActivate->id), ['active' => 1])

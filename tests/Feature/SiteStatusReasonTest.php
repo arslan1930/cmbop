@@ -83,6 +83,56 @@ class SiteStatusReasonTest extends TestCase
             ->assertJsonValidationErrors(['reason']);
     }
 
+    public function test_delete_requires_reason(): void
+    {
+        $admin = $this->makeUser('admin');
+        $publisher = $this->makeUser('publisher');
+        $site = $this->makeSite($publisher, [
+            'verified' => false,
+            'active' => false,
+        ]);
+
+        $this->actingAs($admin)
+            ->deleteJson(route('admin.sites.destroy', $site->id))
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['reason']);
+
+        $this->assertDatabaseHas('sites', ['id' => $site->id]);
+    }
+
+    public function test_archive_requires_reason_and_persists_it(): void
+    {
+        $admin = $this->makeUser('admin');
+        $publisher = $this->makeUser('publisher');
+        $site = $this->makeSite($publisher);
+        $reason = 'Publisher asked to take this listing off the catalog.';
+
+        $this->actingAs($admin)
+            ->deleteJson(route('admin.sites.destroy', $site->id))
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['reason']);
+
+        $this->assertNull($site->fresh()->archived_at);
+
+        $this->actingAs($admin)
+            ->deleteJson(route('admin.sites.destroy', $site->id), [
+                'reason' => $reason,
+            ])
+            ->assertOk()
+            ->assertJsonPath('archived', true);
+
+        $site->refresh();
+        $this->assertNotNull($site->archived_at);
+        $this->assertSame($reason, $site->status_reason);
+        $this->assertSame($admin->id, (int) $site->status_reason_by);
+
+        Mail::assertQueued(SiteStatusNotification::class, function (SiteStatusNotification $mail) use ($publisher, $reason) {
+            return $mail->hasTo($publisher->email)
+                && $mail->action === 'archived'
+                && $mail->reason === $reason;
+        });
+    }
+
     public function test_unverify_with_reason_notifies_publisher(): void
     {
         $admin = $this->makeUser('admin');

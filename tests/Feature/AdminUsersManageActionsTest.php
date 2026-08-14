@@ -77,4 +77,33 @@ class AdminUsersManageActionsTest extends TestCase
             $css
         );
     }
+
+    public function test_users_index_deep_link_loads_that_user(): void
+    {
+        $admin = $this->adminUser();
+        $advertiser = Role::where('name', 'advertiser')->firstOrFail();
+        $target = User::factory()->create([
+            'email_verified_at' => now(),
+            'active_role_id' => $advertiser->id,
+            'name' => 'Deep Link Target',
+            'email' => 'deep-link-target@example.com',
+        ]);
+        $target->roles()->attach($advertiser->id);
+        $other = User::factory()->create([
+            'email_verified_at' => now(),
+            'active_role_id' => $advertiser->id,
+            'name' => 'Someone Else',
+            'email' => 'someone-else@example.com',
+        ]);
+        $other->roles()->attach($advertiser->id);
+
+        $this->actingAs($admin)
+            ->get(route('admin.users.index', ['user' => $target->id]))
+            ->assertOk()
+            ->assertSee('Deep Link Target')
+            ->assertSee('id="user-'.$target->id.'"', false)
+            ->assertDontSee('Someone Else')
+            ->assertSee('All users', false)
+            ->assertSee(route('admin.users.index'), false);
+    }
 }

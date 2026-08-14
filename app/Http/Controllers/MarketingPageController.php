@@ -90,7 +90,7 @@ class MarketingPageController extends Controller
         ];
 
         try {
-            $sites = (int) Site::query()->where('active', 1)->count();
+            $sites = (int) Site::query()->catalogVisible()->count();
             if ($sites > 0) {
                 $stats['sites'] = $sites;
             }
@@ -117,7 +117,7 @@ class MarketingPageController extends Controller
         }
 
         try {
-            $verified = (int) Site::query()->where('active', 1)->where('verified', 1)->count();
+            $verified = (int) Site::query()->catalogVisible()->count();
             if ($verified > 0) {
                 $stats['verified_sites'] = $verified;
             }
@@ -128,7 +128,7 @@ class MarketingPageController extends Controller
         try {
             if (Site::hasSitesColumn('rating_count')) {
                 $rated = (int) Site::query()
-                    ->where('active', 1)
+                    ->catalogVisible()
                     ->where('rating_count', '>=', 1)
                     ->count();
                 if ($rated > 0) {

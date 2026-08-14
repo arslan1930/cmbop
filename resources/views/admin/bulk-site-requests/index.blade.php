@@ -9,17 +9,20 @@
                 Publishers submit <strong>URL + price</strong>. Press <strong>Done</strong> to add drafts to their Pending sites and notify them. Verify/activate stays separate.
             </p>
         </div>
-        <span class="badge text-bg-secondary align-self-center">{{ $openCount }} open</span>
+        <span class="badge text-bg-secondary align-self-center" data-bulk-waiting-on-you>{{ $waitingOnYouCount }} waiting on you</span>
     </div>
 
-    <form method="GET" class="mb-3">
+    <form method="GET" class="mb-3 d-flex flex-wrap align-items-center gap-2" data-bulk-index-filters>
         <select name="status" class="form-select form-select-sm w-auto d-inline-block" onchange="this.form.submit()">
             <option value="all" @selected($status === 'all')>All statuses</option>
             <option value="{{ \App\Support\MarketingOpsQueues::FILTER_NEEDS_MARKETER }}" @selected($status === \App\Support\MarketingOpsQueues::FILTER_NEEDS_MARKETER)>Waiting on you</option>
             @foreach(['requested','sheet_sent','seeded','awaiting_publisher','completed','cancelled'] as $s)
-                <option value="{{ $s }}" @selected($status === $s)>{{ str_replace('_', ' ', $s) }}</option>
+                <option value="{{ $s }}" @selected($status === $s)>{{ \App\Models\BulkSiteRequest::statusLabelFor($s) }}</option>
             @endforeach
         </select>
+        @if(!empty($filtersActive))
+            <a href="{{ staff_route('bulk-site-requests.index') }}" class="btn btn-sm btn-outline-secondary">Reset filter</a>
+        @endif
     </form>
 
     <div class="card border-0 shadow-sm">
@@ -32,6 +35,7 @@
                         <th>Est.</th>
                         <th>Status</th>
                         <th>Sites</th>
+                        <th>Pending to add</th>
                         <th>Awaiting details</th>
                         <th>Ready</th>
                         <th>Handler</th>
@@ -49,6 +53,7 @@
                             <td>{{ $req->estimated_count ?? '—' }}</td>
                             <td><span class="badge text-bg-light border">{{ $req->statusLabel() }}</span></td>
                             <td>{{ $req->sites_count }}</td>
+                            <td>{{ $req->pending_items_count }}</td>
                             <td>{{ $req->awaiting_details_count }}</td>
                             <td>{{ $req->ready_count }}</td>
                             <td class="small">{{ $req->handler->name ?? '—' }}</td>
@@ -58,7 +63,14 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="9" class="text-center text-muted py-4">No bulk requests yet.</td>
+                            <td colspan="10" class="text-center text-muted py-4">
+                                @if(!empty($filtersActive))
+                                    <div class="mb-2">No requests match this filter.</div>
+                                    <a href="{{ staff_route('bulk-site-requests.index') }}" class="btn btn-sm btn-outline-secondary">Reset filter</a>
+                                @else
+                                    No bulk requests yet.
+                                @endif
+                            </td>
                         </tr>
                     @endforelse
                 </tbody>

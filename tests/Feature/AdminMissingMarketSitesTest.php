@@ -145,7 +145,7 @@ class AdminMissingMarketSitesTest extends TestCase
         $this->assertStringContainsString('url,countries,categories,active', $body);
     }
 
-    public function test_activating_site_without_country_returns_soft_warning(): void
+    public function test_activating_site_without_country_is_blocked(): void
     {
         $admin = $this->userWithRoles(['admin'], 'admin');
         $publisher = $this->userWithRoles(['publisher'], 'publisher');
@@ -162,15 +162,13 @@ class AdminMissingMarketSitesTest extends TestCase
                 'active' => 1,
             ]);
 
-        $response->assertOk()
-            ->assertJsonPath('success', true)
-            ->assertJsonPath('active', true)
-            ->assertJsonPath('missing_market', true);
+        $response->assertStatus(422)
+            ->assertJsonPath('success', false);
         $this->assertStringContainsString(
-            'without a marketplace country',
-            (string) $response->json('warning')
+            'marketplace country',
+            (string) $response->json('message')
         );
 
-        $this->assertTrue((bool) $site->fresh()->active);
+        $this->assertFalse((bool) $site->fresh()->active);
     }
 }

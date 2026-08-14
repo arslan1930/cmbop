@@ -338,7 +338,7 @@ class CatalogController extends Controller
         }
 
         $query = Site::query()
-            ->where('active', 1)
+            ->catalogVisible()
             ->where('bulk_discount_enabled', 1)
             ->whereNotNull('bulk_discount_percent');
 
@@ -442,7 +442,7 @@ class CatalogController extends Controller
         $favorites = UserFavorite::where('user_id', $userId)->pluck('site_id')->toArray();
         $blacklist = UserBlacklist::where('user_id', $userId)->pluck('site_id')->toArray();
 
-        $query = Site::where('active', 1);
+        $query = Site::query()->catalogVisible();
 
         // Free-text search: name / category / domain (always open for advertisers).
         // Hide mode only masks how rows render — it does not limit domain matches.
@@ -992,7 +992,7 @@ class CatalogController extends Controller
     }
 
     /**
-     * Drop session cart lines whose sites are missing, inactive, or owned by the shopper.
+     * Drop session cart lines whose sites are missing, not catalog-visible, or owned by the shopper.
      *
      * @param  array<int, array<string, mixed>>  $cart
      * @return array{
@@ -1012,7 +1012,7 @@ class CatalogController extends Controller
         $siteIds = collect($cart)->pluck('id')->filter()->unique()->values();
         $sites = $siteIds->isEmpty()
             ? collect()
-            : Site::query()->whereIn('id', $siteIds)->get()->keyBy('id');
+            : Site::query()->catalogVisible()->whereIn('id', $siteIds)->get()->keyBy('id');
         $buyer = auth()->user();
 
         $kept = [];
@@ -1024,7 +1024,7 @@ class CatalogController extends Controller
             if ($name === '') {
                 $name = 'A website';
             }
-            if (! $site || (int) $site->active !== 1) {
+            if (! $site || ! $site->isCatalogVisible()) {
                 $removed[] = $name;
 
                 continue;
@@ -1064,6 +1064,15 @@ class CatalogController extends Controller
         return $pruned['removed_inactive'];
     }
 
+    /**
+     * @param  array<int, array<string, mixed>>  $cart
+     */
+    private function putCatalogVisibleCart(array $cart): void
+    {
+        $pruned = $this->pruneInactiveCartLines($cart);
+        session()->put('cart', array_values($pruned['cart']));
+    }
+
     private function cartPayloadForClient(): array
     {
         $cart = array_values(session()->get('cart', []));
@@ -1071,11 +1080,11 @@ class CatalogController extends Controller
         $removedOwned = [];
         $buyer = auth()->user();
 
-        // Refresh site market metadata; drop missing/inactive/own-listing lines.
+        // Refresh site market metadata; drop missing/hidden/own-listing lines.
         $siteIds = collect($cart)->pluck('id')->filter()->unique()->values();
         $sites = $siteIds->isEmpty()
             ? collect()
-            : Site::query()->whereIn('id', $siteIds)->get()->keyBy('id');
+            : Site::query()->catalogVisible()->whereIn('id', $siteIds)->get()->keyBy('id');
 
         $kept = [];
         foreach ($cart as $line) {
@@ -1084,7 +1093,7 @@ class CatalogController extends Controller
             if ($name === '') {
                 $name = 'A website';
             }
-            if (! $site || (int) $site->active !== 1) {
+            if (! $site || ! $site->isCatalogVisible()) {
                 $removedInactive[] = $name;
 
                 continue;
@@ -1234,7 +1243,7 @@ class CatalogController extends Controller
             ]);
         }
 
-        $query = Site::query()->where('active', 1);
+        $query = Site::query()->catalogVisible();
         $hostNeedle = $this->catalogSearchHostNeedle($text);
         $catalogSearch->applyTextConstraints(
             $query,
@@ -1371,7 +1380,7 @@ class CatalogController extends Controller
             $siteIds = collect($incoming)->pluck('id')->filter()->unique()->values();
             $sites = $siteIds->isEmpty()
                 ? collect()
-                : Site::query()->notArchived()->whereIn('id', $siteIds)->where('active', 1)->get()->keyBy('id');
+                : Site::query()->catalogVisible()->whereIn('id', $siteIds)->get()->keyBy('id');
 
             $merged = [];
             foreach ($incoming as $row) {
@@ -1463,7 +1472,7 @@ class CatalogController extends Controller
             return response()->json(['success' => false, 'error' => 'That website is not in your cart.'], 404);
         }
 
-        $site = Site::query()->notArchived()->where('id', $siteId)->where('active', 1)->first();
+        $site = Site::query()->catalogVisible()->where('id', $siteId)->first();
         if (! $site) {
             return response()->json(['success' => false, 'error' => 'Site not found or inactive.'], 404);
         }
@@ -1561,7 +1570,7 @@ class CatalogController extends Controller
             $hasHomepageInput = $request->exists('homepage_days');
             $homepageInput = $hasHomepageInput ? $request->input('homepage_days') : null;
 
-            $site = Site::query()->notArchived()->where('id', $id)->where('active', 1)->first();
+            $site = Site::query()->catalogVisible()->where('id', $id)->first();
             if (! $site) {
                 return response()->json([
                     'success' => false,
@@ -1849,7 +1858,7 @@ class CatalogController extends Controller
                     break;
                 }
 
-                $site = Site::query()->notArchived()->where('id', $id)->where('active', 1)->first();
+                $site = Site::query()->catalogVisible()->where('id', $id)->first();
                 if (! $site) {
                     unset($cart[$key]);
                     break;
@@ -4354,11 +4363,9 @@ class CatalogController extends Controller
                 continue;
             }
 
-            $site = Site::query()->notArchived()->where('id', $siteId)->where('active', 1)->first();
+            $site = Site::query()->catalogVisible()->where('id', $siteId)->first();
             if (! $site) {
-                // Inactive / missing sites are not payable.
-                $deferred[] = $item;
-
+                // Hidden / missing listings are dropped, not kept as "pay later".
                 continue;
             }
             if ($site->isOwnedBy(auth()->user())) {
@@ -4410,7 +4417,7 @@ class CatalogController extends Controller
             if (count($resolvedIds) > 1) {
                 $readyItem['content_submission_ids'] = $resolvedIds;
             }
-            // Only charge active listings that still need payment (price can be 0 after discounts).
+            // Only charge catalog-visible listings that still need payment (price can be 0 after discounts).
             $payable[] = $readyItem;
         }
 
@@ -4436,7 +4443,7 @@ class CatalogController extends Controller
         ]);
 
         if (is_array($deferred) && $deferred !== []) {
-            session()->put('cart', array_values($deferred));
+            $this->putCatalogVisibleCart($deferred);
 
             return;
         }
@@ -4467,7 +4474,7 @@ class CatalogController extends Controller
 
         $deferred = session('checkout_deferred_cart');
         if (is_array($deferred) && $deferred !== []) {
-            session()->put('cart', array_values($deferred));
+            $this->putCatalogVisibleCart($deferred);
             session()->forget('checkout_deferred_cart');
 
             return;
@@ -4492,7 +4499,7 @@ class CatalogController extends Controller
         if ($remaining === []) {
             session()->forget('cart');
         } else {
-            session()->put('cart', array_values($remaining));
+            $this->putCatalogVisibleCart($remaining);
         }
     }
 
@@ -4570,7 +4577,7 @@ class CatalogController extends Controller
         }
 
         if ($restoredCart !== []) {
-            session()->put('cart', $restoredCart);
+            $this->putCatalogVisibleCart($restoredCart);
         }
         if ($submissionId) {
             session()->put('checkout_content_submission_id', $submissionId);

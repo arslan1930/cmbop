@@ -25,17 +25,23 @@ class UserController extends Controller
     ) {}
 
     // ✅ Users listing
-    public function index()
+    public function index(Request $request)
     {
-        $users = User::with('roles')
+        $query = User::with('roles')
             ->withCount([
                 'orders as paid_orders_count' => fn ($q) => $q->where('payment_status', 'paid'),
             ])
             ->withSum([
                 'orders as paid_orders_total' => fn ($q) => $q->where('payment_status', 'paid'),
-            ], 'total_amount')
-            ->latest()
-            ->paginate(10);
+            ], 'total_amount');
+
+        // Orders / finance deep-links: /admin/users?user=123#user-123
+        // The hash alone misses when the user is not on page 1 of 10.
+        if ($request->integer('user') > 0) {
+            $query->whereKey($request->integer('user'));
+        }
+
+        $users = $query->latest()->paginate(10)->withQueryString();
         $adminCount = $this->adminCount();
         $marketingCount = $this->marketingCount();
         $maxMarketing = self::MAX_MARKETING;

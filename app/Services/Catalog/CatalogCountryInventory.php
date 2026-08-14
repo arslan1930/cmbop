@@ -336,7 +336,7 @@ class CatalogCountryInventory
         $counts = [];
 
         Site::query()
-            ->where('active', 1)
+            ->catalogVisible()
             ->select(['id', 'country', 'countries'])
             ->orderBy('id')
             ->chunkById(500, function ($sites) use (&$counts, $allow) {

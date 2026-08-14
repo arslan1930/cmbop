@@ -182,6 +182,10 @@ class AdminAssignSiteForPublisherTest extends TestCase
             ->assertDontSee('invite-site.example', false);
 
         $this->actingAs($this->admin)
+            ->postJson(route('admin.sites.verify', $site->id), ['verified' => 1])
+            ->assertOk();
+
+        $this->actingAs($this->admin)
             ->postJson(route('admin.sites.active', $site->id), ['active' => 1])
             ->assertOk()
             ->assertJson(['success' => true]);

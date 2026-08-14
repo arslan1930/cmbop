@@ -229,6 +229,76 @@ class GuestPostWizardTest extends TestCase
             ->assertRedirect(route('advertiser.wizard.content'));
     }
 
+    public function test_content_step_drops_hidden_sites_from_cart(): void
+    {
+        $advertiser = $this->advertiser();
+        $publisher = $this->publisher();
+        $live = $this->activeSite($publisher, 'wizard-live.example');
+        $unverified = $this->activeSite($publisher, 'wizard-unverified.example');
+        $unverified->update(['verified' => false]);
+
+        $this->actingAs($advertiser)
+            ->withSession([
+                GuestPostWizardController::SESSION_KEY => [
+                    'language' => 'en',
+                    'categories' => [],
+                    'country' => 'us',
+                ],
+                'cart' => [[
+                    'id' => $live->id,
+                    'name' => $live->site_name,
+                    'price' => 46,
+                    'quantity' => 1,
+                    'language' => 'en',
+                    'country' => 'us',
+                ], [
+                    'id' => $unverified->id,
+                    'name' => $unverified->site_name,
+                    'price' => 55,
+                    'quantity' => 1,
+                    'language' => 'en',
+                    'country' => 'us',
+                ]],
+            ])
+            ->get(route('advertiser.wizard.content'))
+            ->assertOk()
+            ->assertSee($live->site_name, false)
+            ->assertDontSee($unverified->site_name, false);
+
+        $this->assertCount(1, session('cart'));
+        $this->assertSame($live->id, (int) session('cart')[0]['id']);
+    }
+
+    public function test_pay_with_only_hidden_assigned_site_redirects_to_publishers(): void
+    {
+        $advertiser = $this->advertiser();
+        $hidden = $this->activeSite($this->publisher(), 'wizard-hidden-ready.example');
+        $hidden->update(['verified' => false]);
+        $article = $this->createApprovedSubmission($advertiser, null, 0, 'anchor', 'https://example.com/a', 'us', 'en');
+
+        $this->actingAs($advertiser)
+            ->withSession([
+                GuestPostWizardController::SESSION_KEY => [
+                    'language' => 'en',
+                    'categories' => [],
+                    'country' => 'us',
+                ],
+                'cart' => [[
+                    'id' => $hidden->id,
+                    'name' => $hidden->site_name,
+                    'price' => 46,
+                    'quantity' => 1,
+                    'language' => 'en',
+                    'country' => 'us',
+                    'content_submission_id' => $article->id,
+                ]],
+            ])
+            ->get(route('advertiser.wizard.pay'))
+            ->assertRedirect(route('advertiser.wizard.publishers'));
+
+        $this->assertEmpty(session('cart', []));
+    }
+
     public function test_pay_allows_partial_cart_like_ready_only_checkout(): void
     {
         $advertiser = $this->advertiser();

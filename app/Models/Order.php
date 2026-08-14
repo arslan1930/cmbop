@@ -5,6 +5,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Carbon;
 
 class Order extends Model
 {
@@ -53,6 +54,75 @@ class Order extends Model
     }
 
     /**
+     * True when this order has any scheduled-publish data, including after release.
+     * Timezone alone does not count — checkout stamps UTC on immediate orders too.
+     */
+    public function hasPublicationSchedule(): bool
+    {
+        return $this->isScheduled()
+            || $this->scheduled_publish_at !== null
+            || $this->schedule_released_at !== null
+            || $this->schedule_reminder_sent_at !== null;
+    }
+
+    /**
+     * Still waiting on the scheduled slot (list chip / status filter).
+     * Checkout keeps status=pending and stores the slot on publication_mode.
+     * Processing/review means the publisher already has it.
+     */
+    public function isAwaitingScheduledRelease(): bool
+    {
+        if ($this->schedule_released_at !== null) {
+            return false;
+        }
+
+        if (in_array($this->status, ['cancelled', 'completed', 'processing', 'review'], true)) {
+            return false;
+        }
+
+        return $this->isScheduled();
+    }
+
+    public function scopeAwaitingScheduledRelease($query)
+    {
+        return $query
+            ->whereNull('schedule_released_at')
+            ->whereNotIn('status', ['cancelled', 'completed', 'processing', 'review'])
+            ->where(function ($q) {
+                $q->where('status', 'scheduled')
+                    ->orWhere('publication_mode', 'scheduled');
+            });
+    }
+
+    /**
+     * Advertiser timezone for the scheduled slot. Invalid values fall back to UTC.
+     */
+    public function scheduleTimezoneOrUtc(): string
+    {
+        $tz = filled($this->schedule_timezone) ? (string) $this->schedule_timezone : 'UTC';
+
+        try {
+            new \DateTimeZone($tz);
+        } catch (\Throwable) {
+            return 'UTC';
+        }
+
+        return $tz;
+    }
+
+    /**
+     * Scheduled publish instant in the advertiser timezone (UTC if the TZ is missing/invalid).
+     */
+    public function scheduledPublishAtInScheduleTimezone(): ?Carbon
+    {
+        if (! $this->scheduled_publish_at) {
+            return null;
+        }
+
+        return $this->scheduled_publish_at->copy()->timezone($this->scheduleTimezoneOrUtc());
+    }
+
+    /**
      * Ops unpaid queue: not paid/refunded, and still an open order.
      */
     public function scopeUnpaidOps($query)
@@ -61,6 +131,17 @@ class Order extends Model
             $q->whereNull('payment_status')
                 ->orWhereNotIn('payment_status', ['paid', 'refunded']);
         })->whereIn('status', ['pending', 'processing', 'review']);
+    }
+
+    /**
+     * Same definition as scopeUnpaidOps(), for a loaded row.
+     */
+    public function isUnpaidOps(): bool
+    {
+        $payment = $this->payment_status;
+
+        return ($payment === null || ! in_array($payment, ['paid', 'refunded'], true))
+            && in_array($this->status, ['pending', 'processing', 'review'], true);
     }
 
     public function user()

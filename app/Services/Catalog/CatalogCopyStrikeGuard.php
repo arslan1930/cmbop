@@ -53,7 +53,7 @@ class CatalogCopyStrikeGuard
         $host = $this->normalizeHost($text);
 
         if ($siteId !== null) {
-            $site = Site::query()->where('active', 1)->find($siteId);
+            $site = Site::query()->catalogVisible()->find($siteId);
             if (! $site) {
                 $siteId = null;
             } elseif ($host === '') {

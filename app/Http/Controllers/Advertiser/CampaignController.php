@@ -19,7 +19,7 @@ class CampaignController extends Controller
         }
 
         // Load active sites (same logic as catalog)
-        $query = Site::where('active', 1);
+        $query = Site::query()->catalogVisible();
 
         // Optional: you can later filter based on project (category, country, etc.)
         // Example:

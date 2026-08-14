@@ -130,11 +130,7 @@ class AdvertiserDashboardService
 
     protected function recommendedSites(?User $user = null): Collection
     {
-        $query = Site::query()
-            ->where('active', 1)
-            ->where(function ($q) {
-                $q->where('verified', 1)->orWhere('verified', true);
-            });
+        $query = Site::query()->catalogVisible();
 
         if ($user) {
             $query->where(function ($q) use ($user) {

@@ -35,7 +35,7 @@
             </p>
         </div>
         <div class="d-flex flex-wrap gap-2">
-            <a href="{{ route('admin.users.index') }}#user-{{ $u->id }}" class="btn btn-sm btn-outline-secondary">
+            <a href="{{ route('admin.users.index', ['user' => $u->id]) }}#user-{{ $u->id }}" class="btn btn-sm btn-outline-secondary">
                 <i class="fa fa-user me-1"></i> Users / payout
             </a>
             <a href="{{ route('admin.finance.ledger', ['user_id' => $u->id]) }}" class="btn btn-sm btn-outline-secondary">

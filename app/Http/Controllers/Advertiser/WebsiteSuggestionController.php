@@ -29,10 +29,15 @@ class WebsiteSuggestionController extends Controller
             ], 422);
         }
 
-        if (Site::where('domain', $domain)->exists()) {
+        $existing = Site::query()->where('domain', $domain)->first();
+        if ($existing) {
+            $message = $existing->isCatalogVisible()
+                ? 'That website is already listed in our catalog. Try searching for “'.$domain.'”.'
+                : 'We already have this website on file. It is not currently available in the catalog.';
+
             return response()->json([
                 'success' => false,
-                'message' => 'That website is already listed in our catalog. Try searching for “'.$domain.'”.',
+                'message' => $message,
             ], 422);
         }
 

@@ -198,6 +198,44 @@ class CheckoutSystemFixTest extends TestCase
         $this->assertSame($sub->id, session('checkout_content_submission_id'));
     }
 
+    public function test_stripe_cancel_does_not_restore_a_site_that_left_the_catalog(): void
+    {
+        config(['content_moderation.enabled' => false]);
+        Mail::fake();
+
+        $advertiser = $this->advertiser();
+        $publisher = $this->publisher();
+        $site = $this->activeSite($publisher, 'cancel-hidden', 40);
+        $sub = $this->createApprovedSubmission($advertiser, null);
+        $this->fakeStripeCheckoutSession('cs_test_cancel_hidden');
+
+        $this->actingAs($advertiser)
+            ->withSession([
+                'cart' => [[
+                    'id' => $site->id,
+                    'name' => $site->site_name,
+                    'quantity' => 1,
+                    'content_submission_id' => $sub->id,
+                ]],
+                'checkout_content_submission_id' => $sub->id,
+            ])
+            ->postJson(route('advertiser.checkout.process'), [
+                'payment_method' => 'card',
+                'reference_code' => 'CANH1',
+                'publication_mode' => 'immediate',
+            ])
+            ->assertOk()
+            ->assertJson(['success' => true]);
+
+        $site->update(['verified' => false]);
+
+        $this->actingAs($advertiser)
+            ->get(route('advertiser.checkout', ['canceled' => 1, 'ref' => 'CANH1']))
+            ->assertRedirect(route('advertiser.catalog'));
+
+        $this->assertEmpty(session('cart', []));
+    }
+
     public function test_checkout_page_resolves_library_article_from_cart_without_session_key(): void
     {
         config(['content_moderation.enabled' => false]);

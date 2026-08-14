@@ -149,8 +149,7 @@ class SavedSitesController extends Controller
     private function visibleSavedSites($siteIds)
     {
         return Site::query()
-            ->notArchived()
-            ->where('active', 1)
+            ->catalogVisible()
             ->whereIn('id', $siteIds)
             ->orderBy('site_name')
             ->get()
@@ -171,8 +170,7 @@ class SavedSitesController extends Controller
         }
 
         return Site::query()
-            ->notArchived()
-            ->where('active', 1)
+            ->catalogVisible()
             ->whereIn('id', $siteIds)
             ->count();
     }

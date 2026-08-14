@@ -174,18 +174,36 @@ class BulkSiteRequest extends Model
     }
 
     /**
+     * Sheet emailed is only a start-of-job flag. Never rewind a live batch.
+     */
+    public function canMarkSheetSent(): bool
+    {
+        if ($this->status === self::STATUS_REQUESTED) {
+            return true;
+        }
+
+        return $this->status === self::STATUS_SHEET_SENT
+            && $this->sites()->doesntExist();
+    }
+
+    /**
      * Marketer-facing status label for queue clarity.
      */
     public function statusLabel(): string
     {
-        return match ($this->status) {
+        return self::statusLabelFor($this->status);
+    }
+
+    public static function statusLabelFor(?string $status): string
+    {
+        return match ($status) {
             self::STATUS_REQUESTED => 'Waiting on marketer',
             self::STATUS_SHEET_SENT => 'Sheet emailed',
             self::STATUS_SEEDED => 'Drafts seeded',
             self::STATUS_AWAITING_PUBLISHER => 'Waiting on publisher',
             self::STATUS_COMPLETED => 'Completed — ready to verify',
             self::STATUS_CANCELLED => 'Cancelled',
-            default => str_replace('_', ' ', (string) $this->status),
+            default => str_replace('_', ' ', (string) $status),
         };
     }
 }

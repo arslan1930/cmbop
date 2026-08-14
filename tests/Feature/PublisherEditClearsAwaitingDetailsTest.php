@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\BulkSiteRequest;
 use App\Models\Category;
 use App\Models\Role;
 use App\Models\Site;
@@ -108,7 +109,15 @@ class PublisherEditClearsAwaitingDetailsTest extends TestCase
         $this->assertSame(Site::ONBOARDING_DETAILS_COMPLETE, $site->onboarding_status);
         $this->assertFalse($site->isReadyForAdminReview());
 
-        // Publisher still needs Review & submit before admin queue; staff can still activate.
+        // Publisher still needs Review & submit before admin queue; activate needs verify first.
+        $this->actingAs($this->admin)
+            ->postJson(route('admin.sites.active', $site->id), ['active' => 1])
+            ->assertStatus(422);
+
+        $this->actingAs($this->admin)
+            ->postJson(route('admin.sites.verify', $site->id), ['verified' => 1])
+            ->assertOk();
+
         $this->actingAs($this->admin)
             ->postJson(route('admin.sites.active', $site->id), ['active' => 1])
             ->assertOk()
@@ -117,7 +126,7 @@ class PublisherEditClearsAwaitingDetailsTest extends TestCase
         $this->assertTrue((bool) $site->fresh()->active);
     }
 
-    public function test_admin_can_activate_stale_awaiting_details_site_when_details_already_complete(): void
+    public function test_admin_cannot_activate_stale_awaiting_details_site(): void
     {
         $site = $this->makeAwaitingDetailsSite();
 
@@ -126,16 +135,15 @@ class PublisherEditClearsAwaitingDetailsTest extends TestCase
 
         $this->actingAs($this->admin)
             ->postJson(route('admin.sites.active', $site->id), ['active' => 1])
-            ->assertOk()
-            ->assertJsonPath('success', true);
+            ->assertStatus(422)
+            ->assertJsonPath('success', false);
 
         $site->refresh();
-        $this->assertFalse($site->awaitsPublisherDetails());
-        $this->assertTrue($site->isReadyForAdminReview());
-        $this->assertTrue((bool) $site->active);
+        $this->assertTrue($site->awaitsPublisherDetails());
+        $this->assertFalse((bool) $site->active);
     }
 
-    public function test_admin_can_activate_incomplete_awaiting_details_site(): void
+    public function test_admin_cannot_activate_incomplete_awaiting_details_site(): void
     {
         $site = $this->makeAwaitingDetailsSite([
             'description' => 'Please replace this placeholder with a real site description (at least 50 characters) before submitting for review.',
@@ -148,13 +156,12 @@ class PublisherEditClearsAwaitingDetailsTest extends TestCase
 
         $this->actingAs($this->admin)
             ->postJson(route('admin.sites.active', $site->id), ['active' => 1])
-            ->assertOk()
-            ->assertJsonPath('success', true);
+            ->assertStatus(422)
+            ->assertJsonPath('success', false);
 
         $site->refresh();
-        $this->assertTrue((bool) $site->active);
-        $this->assertFalse($site->awaitsPublisherDetails());
-        $this->assertTrue($site->isReadyForAdminReview());
+        $this->assertFalse((bool) $site->active);
+        $this->assertTrue($site->awaitsPublisherDetails());
     }
 
     public function test_admin_can_approve_incomplete_awaiting_details_site(): void
@@ -186,5 +193,31 @@ class PublisherEditClearsAwaitingDetailsTest extends TestCase
         $this->assertTrue($site->hasCompletedPublisherDetails());
         $this->assertTrue($site->promoteFromAwaitingDetailsIfComplete());
         $this->assertSame(Site::ONBOARDING_READY_FOR_REVIEW, $site->fresh()->onboarding_status);
+    }
+
+    public function test_promoting_a_bulk_draft_refreshes_the_parent_request_status(): void
+    {
+        $bulk = BulkSiteRequest::create([
+            'publisher_id' => $this->publisher->id,
+            'status' => BulkSiteRequest::STATUS_AWAITING_PUBLISHER,
+            'estimated_count' => 1,
+            'seeded_at' => now(),
+        ]);
+
+        $site = $this->makeAwaitingDetailsSite([
+            'site_name' => 'Bulk Draft Site',
+            'site_url' => 'https://bulk-draft.example',
+            'domain' => 'bulk-draft.example',
+            'bulk_site_request_id' => $bulk->id,
+        ]);
+
+        $this->assertTrue($site->bulkSiteRequest()->is($bulk));
+        $this->assertTrue($bulk->sites()->whereKey($site->id)->exists());
+
+        $this->assertTrue($site->promoteFromAwaitingDetailsIfComplete());
+
+        $this->assertSame(Site::ONBOARDING_READY_FOR_REVIEW, $site->fresh()->onboarding_status);
+        $this->assertSame(BulkSiteRequest::STATUS_COMPLETED, $bulk->fresh()->status);
+        $this->assertNotNull($bulk->fresh()->completed_at);
     }
 }

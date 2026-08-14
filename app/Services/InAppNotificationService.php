@@ -602,15 +602,16 @@ class InAppNotificationService
             'activated' => ['Site activated', 'Your site is active and visible to advertisers.'],
             'deactivated' => ['Site deactivated', 'Your site was deactivated and is hidden from the catalog.'],
             'removed' => ['Site submission removed', 'Your site submission was removed and will not be listed.'],
+            'archived' => ['Site archived', 'Your site was archived and is hidden from the catalog. Existing orders are unchanged.'],
         ];
 
         [$title, $defaultMessage] = $labels[$status] ?? ['Site status updated', 'Your site status was updated.'];
         $name = $site->site_name ?: ($site->site_url ?: 'Your site');
         $reason = $reason !== null ? trim($reason) : '';
-        if ($reason === '' && filled($site->status_reason) && in_array($status, ['unverified', 'deactivated', 'removed'], true)) {
+        if ($reason === '' && filled($site->status_reason) && in_array($status, ['unverified', 'deactivated', 'removed', 'archived'], true)) {
             $reason = trim((string) $site->status_reason);
         }
-        if ($reason !== '' && in_array($status, ['unverified', 'deactivated', 'removed'], true)) {
+        if ($reason !== '' && in_array($status, ['unverified', 'deactivated', 'removed', 'archived'], true)) {
             $defaultMessage .= ' Reason: '.$reason;
         }
 
@@ -622,7 +623,7 @@ class InAppNotificationService
             [
                 'category' => self::CATEGORY_ACCOUNT,
                 'icon' => in_array($status, ['verified', 'activated'], true) ? 'check-circle' : 'alert-triangle',
-                'priority' => in_array($status, ['unverified', 'deactivated', 'removed'], true)
+                'priority' => in_array($status, ['unverified', 'deactivated', 'removed', 'archived'], true)
                     ? InAppNotification::PRIORITY_HIGH
                     : InAppNotification::PRIORITY_NORMAL,
                 'related' => $site,

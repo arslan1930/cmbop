@@ -314,12 +314,32 @@ const QUALITY_MIN_TRAFFIC = {{ (int) \App\Models\Site::GOOD_MIN_TRAFFIC }};
 let allSites = [];
 let pendingHighlightSiteId = null;
 
+function siteIsVerified(site) {
+    return Number(site?.verified) === 1 || site?.verified === true;
+}
+
+function siteIsActive(site) {
+    return Number(site?.active) === 1 || site?.active === true;
+}
+
+function siteHasOrders(site) {
+    return (Number(site?.orders_count) || 0) > 0;
+}
+
 function canDeleteSiteRow(site) {
+    if (site?.archived) return false;
+    if (siteHasOrders(site)) return false;
+    if (siteIsVerified(site) || siteIsActive(site)) return false;
     if (CAN_DELETE_ANY_SITE) return true;
     if (!CAN_DELETE_PENDING_SITES) return false;
-    const verified = Number(site?.verified) === 1 || site?.verified === true;
-    const active = Number(site?.active) === 1 || site?.active === true;
-    return !verified && !active;
+    return true;
+}
+
+function canArchiveSiteRow(site) {
+    if (!CAN_DELETE_ANY_SITE) return false;
+    if (site?.archived) return false;
+    if (siteHasOrders(site)) return false;
+    return siteIsVerified(site) || siteIsActive(site);
 }
 
 /* ================= TOAST ================= */
@@ -841,22 +861,7 @@ document.addEventListener('click', function(e){
         const id = e.target.closest('[data-id]').dataset.id;
         const row = document.getElementById('details-' + id);
         if(!row) return;
-        const opening = !row.classList.contains('is-open');
-        document.querySelectorAll('#sitesTable .admin-expand-row.is-open').forEach(function (openRow) {
-            if (openRow !== row) {
-                openRow.classList.remove('is-open');
-            }
-        });
-        row.classList.toggle('is-open', opening);
-        if (opening) {
-            hydrateSiteDetailImages(row);
-        }
-        const label = e.target.closest('.toggle-site-details');
-        if (label) {
-            label.innerHTML = opening
-                ? '<i class="fa fa-chevron-up me-2"></i>Hide details'
-                : '<i class="fa fa-chevron-down me-2"></i>Details';
-        }
+        setSiteDetailsOpen(id, !row.classList.contains('is-open'));
         return;
     }
 
@@ -866,7 +871,7 @@ document.addEventListener('click', function(e){
         editSiteWithImage(id);
     }
 
-    /* DELETE */
+    /* DELETE / ARCHIVE */
     if(e.target.closest('.delete-site')){
         let id = e.target.closest('button').dataset.id;
         let site = allSites.find(s => s.id == id);
@@ -881,6 +886,10 @@ document.addEventListener('click', function(e){
             inputPlaceholder: needsReason ? 'Rejection reason (at least 10 characters)' : undefined,
             inputAttributes: needsReason ? { 'aria-label': 'Rejection reason', maxlength: '1000' } : undefined,
             icon:'warning',
+            input: 'textarea',
+            inputLabel: 'Reason for the publisher',
+            inputPlaceholder: 'Reason (min. 10 characters)',
+            inputAttributes: { 'aria-label': isArchive ? 'Archive reason' : 'Rejection reason', maxlength: '1000' },
             showCancelButton:true,
             confirmButtonText: needsReason ? 'Reject' : 'Delete',
             customClass: { confirmButton: 'slb-swal-danger' },
@@ -1284,6 +1293,35 @@ function sitePreviewHtml(site) {
     `;
 }
 
+function syncSiteDetailsLabel(id, opening) {
+    const label = document.querySelector(`#sitesTable .toggle-site-details[data-id="${id}"]`);
+    if (!label) return;
+    label.innerHTML = opening
+        ? '<i class="fa fa-chevron-up me-2"></i>Hide details'
+        : '<i class="fa fa-chevron-down me-2"></i>Details';
+}
+
+function setSiteDetailsOpen(id, opening) {
+    const row = document.getElementById('details-' + id);
+    if (!row) return false;
+    if (opening) {
+        document.querySelectorAll('#sitesTable .admin-expand-row.is-open').forEach(function (openRow) {
+            if (openRow === row) return;
+            openRow.classList.remove('is-open');
+            const otherId = String(openRow.id || '').replace(/^details-/, '');
+            if (otherId) {
+                syncSiteDetailsLabel(otherId, false);
+            }
+        });
+        row.classList.add('is-open');
+        hydrateSiteDetailImages(row);
+    } else {
+        row.classList.remove('is-open');
+    }
+    syncSiteDetailsLabel(id, opening);
+    return true;
+}
+
 function hydrateSiteDetailImages(scope) {
     (scope || document).querySelectorAll('img[data-detail-src]').forEach(function (img) {
         const src = img.getAttribute('data-detail-src');
@@ -1465,7 +1503,11 @@ function renderSites(data){
 
             const deleteItem = canDeleteSiteRow(site)
                 ? `<li><button type="button" class="dropdown-item text-danger delete-site" data-id="${site.id}"><i class="fa fa-trash me-2"></i>Delete</button></li>`
-                : '';
+                : (canArchiveSiteRow(site)
+                    ? `<li><button type="button" class="dropdown-item text-danger delete-site" data-id="${site.id}" data-archive="1"><i class="fa fa-archive me-2"></i>Archive</button></li>`
+                    : (CAN_DELETE_ANY_SITE && siteHasOrders(site) && !site.archived
+                        ? `<li><button type="button" class="dropdown-item disabled" disabled title="This listing has orders. Deactivate it to hide it from the catalog."><i class="fa fa-ban me-2"></i>Has orders — deactivate instead</button></li>`
+                        : ''));
 
             // Always offer Deactivate after Activate. Marketing cannot activate
             // unfinished, missing-market, or below-quality listings (server also 422s).
@@ -1569,10 +1611,8 @@ function renderSites(data){
         if (row) {
             row.classList.add('site-highlight-row');
             row.scrollIntoView({ block: 'center', behavior: 'smooth' });
-            const details = document.getElementById(`details-${highlightId}`);
-            if (details) {
-                details.classList.remove('d-none');
-            }
+            // CSS reveals the panel via .is-open, not .d-none.
+            setSiteDetailsOpen(highlightId, true);
         }
     }
 }

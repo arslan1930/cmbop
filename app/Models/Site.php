@@ -622,6 +622,11 @@ class Site extends Model
         return $this->belongsTo(AgencySiteImport::class, 'agency_site_import_id');
     }
 
+    public function bulkSiteRequest()
+    {
+        return $this->belongsTo(BulkSiteRequest::class);
+    }
+
     public function isFromAgencyCsvImport(): bool
     {
         if (! static::hasSitesColumn('agency_site_import_id')) {
@@ -916,6 +921,54 @@ class Site extends Model
         }
 
         return $this->archived_at !== null;
+    }
+
+    /**
+     * Advertiser catalog / cart inventory: live, approved, and not staff-archived.
+     *
+     * @param  Builder<Site>  $query
+     * @return Builder<Site>
+     */
+    public function scopeCatalogVisible(Builder $query): Builder
+    {
+        return $query->active()->verified()->notArchived();
+    }
+
+    public function isCatalogVisible(): bool
+    {
+        return (bool) $this->active
+            && (bool) $this->verified
+            && ! $this->isArchived();
+    }
+
+    public function canBeActivated(): bool
+    {
+        return $this->activationBlockReason() === null;
+    }
+
+    public function activationBlockReason(): ?string
+    {
+        if ($this->isArchived()) {
+            return 'This site is archived and cannot be activated.';
+        }
+
+        if ($this->awaitsPublisherDetails()) {
+            return 'Publisher details are still incomplete. The listing cannot be activated yet.';
+        }
+
+        if ($this->isPendingPublisherAcceptance()) {
+            return 'This site is waiting for the publisher to accept it into My Sites.';
+        }
+
+        if (! (bool) $this->verified) {
+            return 'Verify this site before activating it.';
+        }
+
+        if (! $this->hasMarketplaceCountry()) {
+            return 'Set a marketplace country before activating this site.';
+        }
+
+        return null;
     }
 
     public function assignedBy()

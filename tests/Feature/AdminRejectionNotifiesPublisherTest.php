@@ -66,7 +66,11 @@ class AdminRejectionNotifiesPublisherTest extends TestCase
             ])
             ->assertOk();
 
-        Mail::assertQueued(SiteStatusNotification::class, fn ($mail) => $mail->hasTo($publisher->email));
+        Mail::assertQueued(SiteStatusNotification::class, function (SiteStatusNotification $mail) use ($publisher) {
+            return $mail->hasTo($publisher->email)
+                && $mail->action === 'removed'
+                && $mail->reason === 'Traffic could not be verified against the analytics screenshot.';
+        });
 
         $this->assertDatabaseHas('in_app_notifications', [
             'user_id' => $publisher->id,
@@ -83,10 +87,41 @@ class AdminRejectionNotifiesPublisherTest extends TestCase
         $site = $this->site($this->userWithRole('publisher'));
 
         $this->actingAs($admin)
-            ->deleteJson(route('admin.sites.destroy', $site->id))
+            ->deleteJson(route('admin.sites.destroy', $site->id), [
+                'reason' => 'Traffic could not be verified against the analytics screenshot.',
+            ])
             ->assertOk();
 
         $this->assertDatabaseMissing('sites', ['id' => $site->id]);
+    }
+
+    public function test_delete_without_a_reason_is_rejected(): void
+    {
+        $admin = $this->userWithRole('admin');
+        $site = $this->site($this->userWithRole('publisher'));
+
+        $this->actingAs($admin)
+            ->deleteJson(route('admin.sites.destroy', $site->id))
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['reason']);
+
+        $this->assertDatabaseHas('sites', ['id' => $site->id]);
+        Mail::assertNotQueued(SiteStatusNotification::class);
+    }
+
+    public function test_delete_with_a_short_reason_is_rejected(): void
+    {
+        $admin = $this->userWithRole('admin');
+        $site = $this->site($this->userWithRole('publisher'));
+
+        $this->actingAs($admin)
+            ->deleteJson(route('admin.sites.destroy', $site->id), [
+                'reason' => 'too short',
+            ])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['reason']);
+
+        $this->assertDatabaseHas('sites', ['id' => $site->id]);
     }
 
     public function test_cancelling_a_bulk_request_tells_the_publisher(): void

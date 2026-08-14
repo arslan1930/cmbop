@@ -19,7 +19,7 @@
                         <input type="search"
                                id="searchInput"
                                class="form-control form-control-sm"
-                               placeholder="Order #, reference, user…"
+                               placeholder="Order #, reference, user, site, publisher…"
                                title="Results update as you type"
                                autocomplete="off"
                                enterkeyhint="search"
@@ -46,6 +46,7 @@
                     <label class="form-label fw-semibold small text-muted">Payment status</label>
                     <select id="paymentStatusFilter" class="form-select form-select-sm">
                         <option value="">All</option>
+                        <option value="unpaid">Unpaid (ops queue)</option>
                         <option value="pending">Pending</option>
                         <option value="paid">Paid</option>
                         <option value="failed">Failed</option>
@@ -68,7 +69,7 @@
                 </div>
                 <div class="col-md-2 d-flex align-items-end gap-2">
                     <button type="submit" class="btn btn-primary btn-sm">Filter</button>
-                    <button type="reset" id="resetFiltersBtn" class="btn btn-outline-secondary btn-sm">Reset</button>
+                    <button type="button" id="resetFiltersBtn" class="btn btn-outline-secondary btn-sm">Reset</button>
                 </div>
             </form>
         </div>
@@ -108,8 +109,33 @@
 <script>
 (function () {
     const ordersDataUrl = @json(route('admin.orders.data'));
+    const ordersIndexUrl = @json(route('admin.orders.index'));
     const money = (n) => '€' + Number(n || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     let currentPage = 1;
+
+    function readFilters() {
+        return {
+            search: document.getElementById('searchInput').value.trim(),
+            status: document.getElementById('statusFilter').value,
+            payment_status: document.getElementById('paymentStatusFilter').value,
+            dispute: document.getElementById('disputeFilter').value,
+            date_from: document.getElementById('dateFrom').value,
+            date_to: document.getElementById('dateTo').value,
+        };
+    }
+
+    function syncOrdersUrl(page) {
+        const params = new URLSearchParams();
+        const filters = readFilters();
+        Object.keys(filters).forEach((key) => {
+            if (filters[key]) params.set(key, filters[key]);
+        });
+        if (page > 1) params.set('page', String(page));
+        const next = params.toString() ? (ordersIndexUrl + '?' + params.toString()) : ordersIndexUrl;
+        if (history.replaceState) {
+            history.replaceState({}, '', next);
+        }
+    }
 
     function statusBadge(status) {
         const map = {
@@ -140,24 +166,50 @@
             .replace(/'/g, '&#39;');
     }
 
+    function isHttpUrl(value) {
+        return /^https?:\/\//i.test(String(value || ''));
+    }
+
+    function textLink(url, label, extraClass, attrs) {
+        const text = escapeHtml(label || '—');
+        const cls = extraClass ? (' class="' + extraClass + '"') : '';
+        if (!url) {
+            return extraClass ? ('<span' + cls + '>' + text + '</span>') : text;
+        }
+        return '<a href="' + escapeHtml(url) + '"' + cls + (attrs || '') + '>' + text + '</a>';
+    }
+
+    function signalBadges(order) {
+        const chips = [];
+        if (order.has_open_dispute) {
+            chips.push(textLink(order.url + '#order-disputes', 'Dispute', 'badge text-bg-danger text-decoration-none'));
+        }
+        if (order.has_live_url) {
+            chips.push(isHttpUrl(order.live_url)
+                ? textLink(order.live_url, 'Live', 'badge text-bg-success text-decoration-none', ' target="_blank" rel="noopener"')
+                : '<span class="badge text-bg-success">Live</span>');
+        }
+        if (order.is_scheduled) {
+            const when = order.scheduled_publish_at_human
+                ? ' title="' + escapeHtml(order.scheduled_publish_at_human) + '"'
+                : '';
+            chips.push(textLink(order.url + '#order-schedule', 'Scheduled', 'badge text-bg-warning text-dark text-decoration-none', when));
+        }
+        if (!chips.length) return '';
+        return '<div class="d-flex flex-wrap gap-1 mt-1">' + chips.join('') + '</div>';
+    }
+
     function loadOrders(page) {
         currentPage = page || 1;
+        const filters = readFilters();
         const params = new URLSearchParams({
             page: String(currentPage),
             per_page: '20',
         });
-        const search = document.getElementById('searchInput').value.trim();
-        const status = document.getElementById('statusFilter').value;
-        const paymentStatus = document.getElementById('paymentStatusFilter').value;
-        const dispute = document.getElementById('disputeFilter').value;
-        const dateFrom = document.getElementById('dateFrom').value;
-        const dateTo = document.getElementById('dateTo').value;
-        if (search) params.set('search', search);
-        if (status) params.set('status', status);
-        if (paymentStatus) params.set('payment_status', paymentStatus);
-        if (dispute) params.set('dispute', dispute);
-        if (dateFrom) params.set('date_from', dateFrom);
-        if (dateTo) params.set('date_to', dateTo);
+        Object.keys(filters).forEach((key) => {
+            if (filters[key]) params.set(key, filters[key]);
+        });
+        syncOrdersUrl(currentPage);
 
         const body = document.getElementById('ordersTableBody');
         body.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-4">Loading…</td></tr>';
@@ -172,6 +224,13 @@
                     body.innerHTML = '<tr><td colspan="8" class="text-center text-danger py-4">Failed to load orders</td></tr>';
                     return;
                 }
+                const pagination = json.pagination || {};
+                const lastPage = Number(pagination.last_page) || 1;
+                const requested = Number(pagination.current_page) || currentPage;
+                if (requested > lastPage && lastPage >= 1 && currentPage !== lastPage) {
+                    loadOrders(lastPage);
+                    return;
+                }
                 if (!json.data.length) {
                     body.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-4">No orders found</td></tr>';
                     document.getElementById('ordersPaginationMeta').textContent = '';
@@ -181,13 +240,18 @@
 
                 body.innerHTML = json.data.map(order => {
                     const adv = order.advertiser
-                        ? '<div class="fw-semibold">' + escapeHtml(order.advertiser.name) + '</div><div class="small text-muted slb-text-break">' + escapeHtml(order.advertiser.email) + '</div>'
+                        ? '<div class="fw-semibold">' + textLink(order.advertiser.url, order.advertiser.name, 'link-dark') + '</div>'
+                            + '<div class="small text-muted slb-text-break">' + escapeHtml(order.advertiser.email) + '</div>'
                         : '—';
-                    const site = '<div class="fw-semibold slb-text-break">' + escapeHtml(order.site_name || '—') + '</div>'
-                        + '<div class="small text-muted slb-text-break">' + escapeHtml(order.publisher_name || '') + '</div>';
+                    const publisherName = (order.publisher && order.publisher.name) || order.publisher_name || '';
+                    const publisherUrl = order.publisher && order.publisher.url;
+                    const site = textLink(order.site_admin_url, order.site_name || '—', 'fw-semibold slb-text-break link-dark')
+                        + (publisherName
+                            ? '<div>' + textLink(publisherUrl, publisherName, 'small text-muted slb-text-break') + '</div>'
+                            : '');
                     return '<tr>'
                         + '<td><strong class="admin-id-clamp" title="' + escapeHtml(order.order_number) + '">#'
-                            + escapeHtml(order.order_number) + '</strong></td>'
+                            + escapeHtml(order.order_number) + '</strong>' + signalBadges(order) + '</td>'
                         + '<td>' + adv + '</td>'
                         + '<td>' + site + '</td>'
                         + '<td>' + statusBadge(order.status) + '</td>'
@@ -215,7 +279,14 @@
         loadOrders(1);
     });
     document.getElementById('resetFiltersBtn').addEventListener('click', function () {
-        setTimeout(() => loadOrders(1), 0);
+        document.getElementById('orderFilterForm').reset();
+        document.getElementById('searchInput').value = '';
+        document.getElementById('statusFilter').value = '';
+        document.getElementById('paymentStatusFilter').value = '';
+        document.getElementById('disputeFilter').value = '';
+        document.getElementById('dateFrom').value = '';
+        document.getElementById('dateTo').value = '';
+        loadOrders(1);
     });
     {{-- Page clicks are handled by renderAdminPagination's delegated listener. --}}
 
@@ -233,8 +304,11 @@
     if (boot.get('payment_status')) document.getElementById('paymentStatusFilter').value = boot.get('payment_status');
     if (boot.get('dispute')) document.getElementById('disputeFilter').value = boot.get('dispute');
     if (boot.get('search')) document.getElementById('searchInput').value = boot.get('search');
+    if (boot.get('date_from')) document.getElementById('dateFrom').value = boot.get('date_from');
+    if (boot.get('date_to')) document.getElementById('dateTo').value = boot.get('date_to');
+    const bootPage = parseInt(boot.get('page') || '1', 10);
 
-    loadOrders(1);
+    loadOrders(Number.isFinite(bootPage) && bootPage > 0 ? bootPage : 1);
 })();
 </script>
 @endsection

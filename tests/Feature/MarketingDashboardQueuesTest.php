@@ -248,6 +248,116 @@ class MarketingDashboardQueuesTest extends TestCase
         $this->assertStringNotContainsString(route('marketing.bulk-site-requests.show', $leftover), $requestedOnly);
     }
 
+    public function test_partial_done_batch_stays_on_waiting_on_you(): void
+    {
+        $partial = BulkSiteRequest::create([
+            'publisher_id' => $this->publisher->id,
+            'status' => BulkSiteRequest::STATUS_AWAITING_PUBLISHER,
+            'estimated_count' => 2,
+            'seeded_at' => now(),
+        ]);
+        $draft = $this->makeSite([
+            'site_name' => 'Partial Done Draft',
+            'site_url' => 'https://partial-done-draft.example',
+            'domain' => 'partial-done-draft.example',
+            'onboarding_status' => Site::ONBOARDING_AWAITING_DETAILS,
+            'bulk_site_request_id' => $partial->id,
+        ]);
+        BulkSiteRequestItem::create([
+            'bulk_site_request_id' => $partial->id,
+            'site_url' => $draft->site_url,
+            'domain' => $draft->domain,
+            'price' => 40,
+            'site_id' => $draft->id,
+        ]);
+        BulkSiteRequestItem::create([
+            'bulk_site_request_id' => $partial->id,
+            'site_url' => 'https://partial-done-pending.example',
+            'domain' => 'partial-done-pending.example',
+            'price' => 55,
+            'site_id' => null,
+        ]);
+
+        $publisherOnly = BulkSiteRequest::create([
+            'publisher_id' => $this->publisher->id,
+            'status' => BulkSiteRequest::STATUS_AWAITING_PUBLISHER,
+            'estimated_count' => 1,
+        ]);
+        BulkSiteRequestItem::create([
+            'bulk_site_request_id' => $publisherOnly->id,
+            'site_url' => 'https://publisher-only-bulk.example',
+            'domain' => 'publisher-only-bulk.example',
+            'price' => 30,
+            'site_id' => $this->makeSite([
+                'site_name' => 'Publisher Only Draft',
+                'site_url' => 'https://publisher-only-bulk.example',
+                'domain' => 'publisher-only-bulk.example',
+                'onboarding_status' => Site::ONBOARDING_AWAITING_DETAILS,
+                'bulk_site_request_id' => $publisherOnly->id,
+            ])->id,
+        ]);
+
+        $this->assertSame(1, MarketingOpsQueues::bulkWaitingOnMarketer()->count());
+        $this->assertSame(1, MarketingOpsQueues::bulkWaitingOnPublisher()->count());
+        $this->assertTrue(MarketingOpsQueues::bulkWaitingOnMarketer()->whereKey($partial->id)->exists());
+        $this->assertFalse(MarketingOpsQueues::bulkWaitingOnPublisher()->whereKey($partial->id)->exists());
+        $this->assertTrue(MarketingOpsQueues::bulkWaitingOnPublisher()->whereKey($publisherOnly->id)->exists());
+
+        $html = $this->actingAs($this->marketer)
+            ->get(route('marketing.dashboard'))
+            ->assertOk()
+            ->getContent();
+
+        $this->assertSame('1', $this->attrValue($html, 'data-stat', 'bulk-waiting-on-you', 'data-stat-value'));
+        $this->assertSame('1', $this->attrValue($html, 'data-stat', 'waiting-on-publisher', 'data-stat-bulk'));
+        $this->assertSame('1', $this->node($html, 'data-nav-badge', 'bulk')->attributes->getNamedItem('data-count')?->nodeValue);
+
+        $bulkTable = $this->nodeText($html, 'data-queue', 'open-bulk');
+        $this->assertStringContainsString('#'.$partial->id, $bulkTable);
+        $this->assertStringNotContainsString('#'.$publisherOnly->id, $bulkTable);
+
+        $index = $this->actingAs($this->marketer)
+            ->get(route('marketing.bulk-site-requests.index', [
+                'status' => MarketingOpsQueues::FILTER_NEEDS_MARKETER,
+            ]))
+            ->assertOk()
+            ->assertSee('1 waiting on you', false)
+            ->assertSee('Pending to add', false)
+            ->getContent();
+
+        $this->assertStringContainsString(route('marketing.bulk-site-requests.show', $partial), $index);
+        $this->assertStringNotContainsString(route('marketing.bulk-site-requests.show', $publisherOnly), $index);
+    }
+
+    public function test_bulk_index_filter_empty_state_and_status_labels(): void
+    {
+        $this->actingAs($this->marketer)
+            ->get(route('marketing.bulk-site-requests.index'))
+            ->assertOk()
+            ->assertSee('No bulk requests yet.', false)
+            ->assertDontSee('No requests match this filter.', false)
+            ->assertSee('Waiting on marketer', false)
+            ->assertSee('Sheet emailed', false)
+            ->assertSee('Waiting on publisher', false)
+            ->assertDontSee('>sheet_sent<', false)
+            ->assertDontSee('>awaiting_publisher<', false);
+
+        BulkSiteRequest::create([
+            'publisher_id' => $this->publisher->id,
+            'status' => BulkSiteRequest::STATUS_REQUESTED,
+            'estimated_count' => 2,
+        ]);
+
+        $this->actingAs($this->marketer)
+            ->get(route('marketing.bulk-site-requests.index', [
+                'status' => BulkSiteRequest::STATUS_CANCELLED,
+            ]))
+            ->assertOk()
+            ->assertSee('No requests match this filter.', false)
+            ->assertSee('Reset filter', false)
+            ->assertDontSee('No bulk requests yet.', false);
+    }
+
     public function test_dashboard_queues_oldest_first_so_stale_rows_stay_visible(): void
     {
         $newest = null;

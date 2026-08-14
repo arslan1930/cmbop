@@ -24,10 +24,7 @@ class CatalogTeaserService
 
         try {
             $query = Site::query()
-                ->where('active', true)
-                ->where(function ($q) {
-                    $q->where('verified', true)->orWhere('verified', 1);
-                })
+                ->catalogVisible()
                 // Homepage/marketing teasers only promote quality-bar inventory.
                 ->withGoodMetrics();
 

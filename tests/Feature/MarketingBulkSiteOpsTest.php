@@ -130,7 +130,7 @@ class MarketingBulkSiteOpsTest extends TestCase
         $this->actingAs($this->marketer)
             ->post(route('marketing.bulk-site-requests.seed', $bulk), ['rows' => $rows])
             ->assertRedirect()
-            ->assertSessionHas('success');
+            ->assertSessionHas('success', fn ($message) => is_string($message) && str_starts_with($message, 'Seed —'));
 
         $this->assertDatabaseHas('sites', [
             'domain' => 'seed-mkt.example',
@@ -148,7 +148,8 @@ class MarketingBulkSiteOpsTest extends TestCase
             ->assertOk()
             ->assertSee('History')
             ->assertSee('Cannot be deleted')
-            ->assertSee('Seeded / added sites')
+            ->assertSee('<div class="fw-semibold">Seed</div>', false)
+            ->assertDontSee('<div class="fw-semibold">Done</div>', false)
             ->assertDontSee('>bulk_request.seeded<', false)
             ->getContent();
 
@@ -519,7 +520,7 @@ class MarketingBulkSiteOpsTest extends TestCase
                 ],
             ])
             ->assertRedirect()
-            ->assertSessionHas('success');
+            ->assertSessionHas('success', fn ($message) => is_string($message) && str_starts_with($message, 'Done —'));
 
         $this->assertDatabaseHas('sites', [
             'domain' => 'mkt-done-a.example',
@@ -537,6 +538,23 @@ class MarketingBulkSiteOpsTest extends TestCase
                 ->where('title', 'like', '%Pending sites%')
                 ->exists()
         );
+
+        $this->assertDatabaseHas('activity_logs', [
+            'action' => 'bulk_request.done',
+            'user_id' => $this->marketer->id,
+        ]);
+        $this->assertDatabaseMissing('activity_logs', [
+            'action' => 'bulk_request.seeded',
+        ]);
+
+        $html = $this->actingAs($this->marketer)
+            ->get(route('marketing.bulk-site-requests.show', $bulk))
+            ->assertOk()
+            ->getContent();
+
+        $this->assertStringContainsString('<div class="fw-semibold">Done</div>', $html);
+        $this->assertStringNotContainsString('<div class="fw-semibold">Seed</div>', $html);
+        $this->assertStringNotContainsString('>bulk_request.done<', $html);
     }
 
     public function test_marketer_can_delete_awaiting_details_draft_and_history_remains(): void
@@ -560,6 +578,7 @@ class MarketingBulkSiteOpsTest extends TestCase
         $log = ActivityLog::where('action', 'site.deleted_by_marketing')->first();
         $this->assertNotNull($log);
         $this->assertSame($bulk->id, (int) ($log->properties['bulk_site_request_id'] ?? 0));
+        $this->assertSame($this->publisher->id, (int) ($log->properties['publisher_id'] ?? 0));
         $this->assertSame('oops-wrong.example', $log->properties['domain'] ?? null);
         $this->assertSame('Wrong domain submitted by the publisher.', $log->properties['reason'] ?? null);
 
@@ -674,5 +693,29 @@ class MarketingBulkSiteOpsTest extends TestCase
             'user_id' => $this->marketer->id,
         ]);
         $this->assertSame(BulkSiteRequest::STATUS_CANCELLED, $bulk->fresh()->status);
+    }
+
+    public function test_sheet_sent_cannot_rewind_a_live_batch(): void
+    {
+        $bulk = $this->makeBulkRequest();
+        $bulk->update(['status' => BulkSiteRequest::STATUS_AWAITING_PUBLISHER]);
+        $this->seedDraft($bulk, 'sheet-rewind.example');
+
+        $this->assertFalse($bulk->fresh()->canMarkSheetSent());
+
+        $html = $this->actingAs($this->marketer)
+            ->get(route('marketing.bulk-site-requests.show', $bulk))
+            ->assertOk()
+            ->getContent();
+
+        $this->assertStringNotContainsString('Mark sheet emailed (optional)', $html);
+
+        $this->actingAs($this->marketer)
+            ->from(route('marketing.bulk-site-requests.show', $bulk))
+            ->post(route('marketing.bulk-site-requests.sheet-sent', $bulk))
+            ->assertRedirect(route('marketing.bulk-site-requests.show', $bulk))
+            ->assertSessionHas('error', 'Sheet emailed can only be marked before drafts are added.');
+
+        $this->assertSame(BulkSiteRequest::STATUS_AWAITING_PUBLISHER, $bulk->fresh()->status);
     }
 }

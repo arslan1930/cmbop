@@ -277,7 +277,7 @@ class CartPricingService
     }
 
     /**
-     * Keep only cart lines that are still active and not archived.
+     * Keep only cart lines that are still catalog-visible.
      *
      * @param  array<int, array<string, mixed>>  $cart
      * @return array{cart: array<int, array<string, mixed>>, removed: array<int, array<string, mixed>>}
@@ -289,9 +289,8 @@ class CartPricingService
 
         foreach ($cart as $item) {
             $site = Site::query()
-                ->notArchived()
+                ->catalogVisible()
                 ->where('id', $item['id'] ?? null)
-                ->where('active', 1)
                 ->first();
 
             if ($site) {
@@ -329,7 +328,7 @@ class CartPricingService
 
         foreach ($cart as $item) {
             $siteId = $item['id'] ?? null;
-            $site = Site::query()->notArchived()->where('id', $siteId)->where('active', 1)->first();
+            $site = Site::query()->catalogVisible()->where('id', $siteId)->first();
 
             if (! $site) {
                 $unavailable[] = (string) ($item['name'] ?? $siteId ?? 'unknown');
@@ -404,7 +403,7 @@ class CartPricingService
         $savings = 0.0;
 
         foreach ($cart as $item) {
-            $site = Site::query()->notArchived()->where('id', $item['id'] ?? null)->where('active', 1)->first();
+            $site = Site::query()->catalogVisible()->where('id', $item['id'] ?? null)->first();
             if (! $site) {
                 continue;
             }

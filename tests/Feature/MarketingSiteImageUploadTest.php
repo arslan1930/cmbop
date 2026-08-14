@@ -160,6 +160,31 @@ class MarketingSiteImageUploadTest extends TestCase
         $this->assertSame('https://image-upload.example', $site->site_url);
     }
 
+    public function test_marketer_update_keeps_existing_site_image_path_string(): void
+    {
+        $site = $this->makeSite([
+            'site_image' => 'sites/existing-cover.webp',
+            'da' => 10,
+            'dr' => 12,
+            'traffic' => 900,
+        ]);
+
+        $this->actingAs($this->marketer)
+            ->putJson(route('marketing.sites.update', $site->id), [
+                'da' => 33,
+                'dr' => 44,
+                'traffic' => 5000,
+                'language' => 'de',
+                'country' => 'de',
+                'categories' => [$this->nicheName()],
+                'site_image' => 'sites/existing-cover.webp',
+            ])
+            ->assertOk()
+            ->assertJsonPath('success', true);
+
+        $this->assertSame('sites/existing-cover.webp', $site->fresh()->site_image);
+    }
+
     public function test_admin_upload_image_endpoint_still_persists_site_image(): void
     {
         $site = $this->makeSite(['domain' => 'admin-image.example', 'site_url' => 'https://admin-image.example']);

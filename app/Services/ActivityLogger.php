@@ -3,6 +3,8 @@
 namespace App\Services;
 
 use App\Models\ActivityLog;
+use App\Models\BulkSiteRequest;
+use App\Models\Site;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Request;
@@ -20,6 +22,7 @@ class ActivityLogger
         ?string $subjectLabel = null
     ): ActivityLog {
         $user = Auth::user();
+        $properties = self::withSubjectContext($subject, $properties);
 
         return ActivityLog::create([
             'user_id' => $user?->id,
@@ -36,5 +39,29 @@ class ActivityLogger
             'ip_address' => Request::ip(),
             'user_agent' => substr((string) Request::userAgent(), 0, 512),
         ]);
+    }
+
+    /**
+     * Attach publisher / bulk ids from the subject when the caller omitted them.
+     *
+     * @param  array<string, mixed>  $properties
+     * @return array<string, mixed>
+     */
+    private static function withSubjectContext(?Model $subject, array $properties): array
+    {
+        if ($subject instanceof Site) {
+            if (! array_key_exists('publisher_id', $properties) && $subject->publisher_id) {
+                $properties['publisher_id'] = (int) $subject->publisher_id;
+            }
+            if (! array_key_exists('bulk_site_request_id', $properties) && $subject->bulk_site_request_id) {
+                $properties['bulk_site_request_id'] = (int) $subject->bulk_site_request_id;
+            }
+        }
+
+        if ($subject instanceof BulkSiteRequest && ! array_key_exists('publisher_id', $properties) && $subject->publisher_id) {
+            $properties['publisher_id'] = (int) $subject->publisher_id;
+        }
+
+        return $properties;
     }
 }

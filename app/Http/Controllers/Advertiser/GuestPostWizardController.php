@@ -7,6 +7,7 @@ use App\Models\ContentSubmission;
 use App\Models\Country;
 use App\Models\Language;
 use App\Models\Site;
+use App\Services\CartPricingService;
 use App\Services\Marketplace\CountryLanguagePairs;
 use App\Services\Marketplace\LanguageCountryMap;
 use Illuminate\Http\RedirectResponse;
@@ -20,6 +21,7 @@ class GuestPostWizardController extends Controller
     public function __construct(
         private LanguageCountryMap $languageCountryMap,
         private CountryLanguagePairs $countryLanguagePairs,
+        private CartPricingService $cartPricing,
     ) {}
 
     /**
@@ -125,15 +127,12 @@ class GuestPostWizardController extends Controller
             return $state;
         }
 
-        $cart = array_values(session('cart', []));
+        $cart = $this->syncVisibleCart();
         if ($cart === []) {
             return redirect()
                 ->route('advertiser.wizard.publishers')
                 ->with('error', 'Add at least one publisher before assigning content.');
         }
-
-        $this->enrichCartSites($cart);
-        session()->put('cart', $cart);
 
         $approvedArticles = ContentSubmission::query()
             ->where('user_id', auth()->id())
@@ -165,7 +164,7 @@ class GuestPostWizardController extends Controller
             return $state;
         }
 
-        $cart = session('cart', []);
+        $cart = $this->syncVisibleCart();
         if ($cart === []) {
             return redirect()
                 ->route('advertiser.wizard.publishers')
@@ -294,6 +293,22 @@ class GuestPostWizardController extends Controller
     }
 
     /**
+     * Drop hidden/missing listings and refresh market fields from live catalog rows.
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function syncVisibleCart(): array
+    {
+        $cart = array_values(session('cart', []));
+        $pruned = $this->cartPricing->pruneUnavailableCartItems($cart);
+        $cart = array_values($pruned['cart']);
+        $this->enrichCartSites($cart);
+        session()->put('cart', $cart);
+
+        return $cart;
+    }
+
+    /**
      * @param  array<int, array<string, mixed>>  $cart
      */
     private function enrichCartSites(array &$cart): void
@@ -303,21 +318,24 @@ class GuestPostWizardController extends Controller
             return;
         }
 
-        $sites = Site::query()->whereIn('id', $siteIds)->get()->keyBy('id');
-        foreach ($cart as $i => $line) {
+        $sites = Site::query()->catalogVisible()->whereIn('id', $siteIds)->get()->keyBy('id');
+        $kept = [];
+        foreach ($cart as $line) {
             $site = $sites->get((int) ($line['id'] ?? 0));
-            if (! $site) {
+            if (! $site || ! $site->isCatalogVisible()) {
                 continue;
             }
-            $cart[$i]['name'] = $line['name'] ?? $site->site_name;
-            $cart[$i]['url'] = $line['url'] ?? $site->site_url;
-            $cart[$i]['language'] = $line['language'] ?? $site->language;
-            $cart[$i]['country'] = $line['country'] ?? $site->country;
-            $cart[$i]['link_type'] = $line['link_type'] ?? $site->link_type;
-            if (! isset($cart[$i]['price']) && isset($line['price'])) {
-                $cart[$i]['price'] = $line['price'];
+            $line['name'] = $line['name'] ?? $site->site_name;
+            $line['url'] = $line['url'] ?? $site->site_url;
+            $line['language'] = $line['language'] ?? $site->language;
+            $line['country'] = $line['country'] ?? $site->country;
+            $line['link_type'] = $line['link_type'] ?? $site->link_type;
+            if (! isset($line['price'])) {
+                $line['price'] = $site->price;
             }
+            $kept[] = $line;
         }
+        $cart = $kept;
     }
 
     /**
@@ -326,7 +344,7 @@ class GuestPostWizardController extends Controller
     private function nicheCategories(): array
     {
         $fromDb = Site::query()
-            ->where('active', 1)
+            ->catalogVisible()
             ->whereNotNull('category')
             ->where('category', '!=', '')
             ->pluck('category')

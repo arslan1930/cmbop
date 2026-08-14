@@ -21,7 +21,7 @@ class SiteUrlConcealController extends Controller
     {
         try {
             $user = auth()->user();
-            $model = Site::query()->where('active', 1)->find($site);
+            $model = Site::query()->catalogVisible()->find($site);
 
             if (! $model) {
                 return response()->json([

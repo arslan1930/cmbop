@@ -38,9 +38,9 @@ class InactiveCartPruneTest extends TestCase
         $this->publisher->roles()->attach($publisherRole->id);
     }
 
-    private function makeSite(string $slug, bool $active): Site
+    private function makeSite(string $slug, bool $active, array $overrides = []): Site
     {
-        return Site::create([
+        return Site::create(array_merge([
             'publisher_id' => $this->publisher->id,
             'site_name' => 'Site '.$slug,
             'site_url' => 'https://'.$slug.'.example',
@@ -59,7 +59,7 @@ class InactiveCartPruneTest extends TestCase
             'description' => 'Test site',
             'verified' => true,
             'active' => $active,
-        ]);
+        ], $overrides));
     }
 
     public function test_cart_get_prunes_inactive_sites_and_reports_them_once(): void
@@ -142,6 +142,29 @@ class InactiveCartPruneTest extends TestCase
             ->assertSessionHas('error');
 
         $this->assertEmpty(session('cart', []));
+    }
+
+    public function test_cart_get_prunes_unverified_and_archived_sites(): void
+    {
+        $live = $this->makeSite('keep-live', true);
+        $unverified = $this->makeSite('still-active-unverified', true, ['verified' => false]);
+        $archived = $this->makeSite('archived-listing', false, ['archived_at' => now()]);
+
+        $this->actingAs($this->advertiser)
+            ->withSession([
+                'cart' => [
+                    ['id' => $live->id, 'name' => $live->site_name, 'price' => 40, 'quantity' => 1],
+                    ['id' => $unverified->id, 'name' => $unverified->site_name, 'price' => 55, 'quantity' => 1],
+                    ['id' => $archived->id, 'name' => $archived->site_name, 'price' => 60, 'quantity' => 1],
+                ],
+            ])
+            ->getJson(route('advertiser.cart.get'))
+            ->assertOk()
+            ->assertJsonPath('removed_inactive_count', 2)
+            ->assertJsonPath('cart_count', 1);
+
+        $this->assertCount(1, session('cart'));
+        $this->assertSame($live->id, (int) session('cart')[0]['id']);
     }
 
     public function test_advertiser_layout_toasts_removed_inactive_payload(): void

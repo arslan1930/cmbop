@@ -32,8 +32,7 @@ class NewSitesSelector
         $seen = $this->sitesTheyKnow($user);
 
         $candidates = Site::query()
-            ->active()
-            ->verified()
+            ->catalogVisible()
             ->whereNotNull('price')
             ->where('price', '>', 0)
             ->when($seen->isNotEmpty(), fn ($q) => $q->whereNotIn('id', $seen->all()))

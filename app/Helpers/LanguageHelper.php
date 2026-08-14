@@ -1,9 +1,8 @@
 <?php
 
 use App\Models\ActivityLog;
-use App\Models\BulkSiteRequest;
-use App\Models\Site;
 use App\Models\User;
+use App\Support\MarketingHistoryDisplay;
 use App\Support\PublicI18n;
 use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\Request;
@@ -486,7 +485,8 @@ if (! function_exists('marketing_task_labels')) {
     function marketing_task_labels(): array
     {
         return [
-            'bulk_request.seeded' => 'Seeded / added sites',
+            'bulk_request.done' => 'Done',
+            'bulk_request.seeded' => 'Seed',
             'bulk_request.sheet_sent' => 'Marked sheet sent',
             'bulk_request.cancelled' => 'Cancelled bulk request',
             'bulk_request.notes_updated' => 'Updated bulk notes',
@@ -518,7 +518,7 @@ if (! function_exists('marketing_task_label')) {
 
 if (! function_exists('marketing_task_actions_matching')) {
     /**
-     * Action codes whose friendly label or raw code contains the search needle.
+     * Action codes whose friendly label or raw code starts with the search needle as a word.
      *
      * @return list<string>
      */
@@ -529,9 +529,17 @@ if (! function_exists('marketing_task_actions_matching')) {
             return [];
         }
 
+        // Word-start only: "activate" hits Activated, not Deactivated; "Seed" hits Seeded.
+        $pattern = '/\b'.preg_quote($needle, '/').'/u';
         $matched = [];
         foreach (marketing_task_labels() as $code => $label) {
-            if (str_contains(strtolower($label), $needle) || str_contains(strtolower((string) $code), $needle)) {
+            $codeRaw = strtolower((string) $code);
+            $codeWords = str_replace(['.', '_'], ' ', $codeRaw);
+            if (
+                preg_match($pattern, strtolower($label))
+                || preg_match($pattern, $codeRaw)
+                || preg_match($pattern, $codeWords)
+            ) {
                 $matched[] = $code;
             }
         }
@@ -543,52 +551,23 @@ if (! function_exists('marketing_task_actions_matching')) {
 if (! function_exists('marketing_history_subject_url')) {
     /**
      * Deep link for a marketing history row subject, or null when it should stay plain text.
+     *
+     * @param  ?array<string, mixed>  $lookup
      */
-    function marketing_history_subject_url(?ActivityLog $log): ?string
+    function marketing_history_subject_url(?ActivityLog $log, ?array $lookup = null): ?string
     {
-        if (! $log || $log->action === 'site.deleted_by_marketing') {
-            return null;
-        }
-
-        $type = (string) $log->subject_type;
-        $id = (int) $log->subject_id;
-
-        if ($id > 0) {
-            if ($type === Site::class && Site::query()->whereKey($id)->exists()) {
-                return route('marketing.sites.edit', $id);
-            }
-
-            if ($type === BulkSiteRequest::class && BulkSiteRequest::query()->whereKey($id)->exists()) {
-                return route('marketing.bulk-site-requests.show', $id);
-            }
-        }
-
-        $bulkId = (int) data_get($log->properties, 'bulk_site_request_id');
-
-        return $bulkId > 0 && BulkSiteRequest::query()->whereKey($bulkId)->exists()
-            ? route('marketing.bulk-site-requests.show', $bulkId)
-            : null;
+        return MarketingHistoryDisplay::subjectUrl($log, $lookup);
     }
 }
 
 if (! function_exists('marketing_history_bulk_url')) {
     /**
      * Extra bulk-request link when the primary subject is a site on a bulk batch.
+     *
+     * @param  ?array<string, mixed>  $lookup
      */
-    function marketing_history_bulk_url(?ActivityLog $log): ?string
+    function marketing_history_bulk_url(?ActivityLog $log, ?array $lookup = null): ?string
     {
-        if (! $log) {
-            return null;
-        }
-
-        $bulkId = (int) data_get($log->properties, 'bulk_site_request_id');
-        if ($bulkId <= 0 || ! BulkSiteRequest::query()->whereKey($bulkId)->exists()) {
-            return null;
-        }
-
-        $primary = marketing_history_subject_url($log);
-        $bulk = route('marketing.bulk-site-requests.show', $bulkId);
-
-        return $primary !== $bulk ? $bulk : null;
+        return MarketingHistoryDisplay::bulkUrl($log, $lookup);
     }
 }

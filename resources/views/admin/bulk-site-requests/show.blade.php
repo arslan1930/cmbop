@@ -46,15 +46,15 @@
                         <button type="submit" class="btn btn-sm btn-outline-secondary">Save notes</button>
                     </form>
 
+                    @if($bulkRequest->canMarkSheetSent())
+                        <form method="POST" action="{{ staff_route('bulk-site-requests.sheet-sent', $bulkRequest) }}" class="mb-2">
+                            @csrf
+                            <button type="submit" class="btn btn-sm btn-outline-secondary w-100">
+                                Mark sheet emailed (optional)
+                            </button>
+                        </form>
+                    @endif
                     @if($bulkRequest->canAddDraftSites())
-                        @if($bulkRequest->isOpen())
-                            <form method="POST" action="{{ staff_route('bulk-site-requests.sheet-sent', $bulkRequest) }}" class="mb-2">
-                                @csrf
-                                <button type="submit" class="btn btn-sm btn-outline-secondary w-100">
-                                    Mark sheet emailed (optional)
-                                </button>
-                            </form>
-                        @endif
                         <form method="POST" action="{{ staff_route('bulk-site-requests.cancel', $bulkRequest) }}"
                               data-slb-confirm="Cancel this bulk request? History is kept."
                               data-slb-confirm-title="Cancel bulk request?"

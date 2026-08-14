@@ -64,7 +64,7 @@ class DashboardMetricsService
                 : 0,
             'total_sites' => Site::count(),
             'verified_sites' => Site::where('verified', 1)->count(),
-            'live_sites' => Site::where('verified', 1)->where('active', 1)->count(),
+            'live_sites' => Site::query()->catalogVisible()->count(),
             'unverified_sites' => $queues['unverified_sites'],
             'total_orders' => Order::count(),
             'paid_orders' => Order::where('payment_status', 'paid')->count(),

@@ -92,11 +92,22 @@ class MarketingOpsScopeTest extends TestCase
 
         $this->actingAs($this->marketer)
             ->postJson(route('marketing.sites.active', $site->id), ['active' => 1])
+            ->assertStatus(422)
+            ->assertJsonPath('success', false);
+
+        $this->assertFalse((bool) $site->fresh()->active);
+
+        $this->actingAs($this->admin)
+            ->postJson(route('admin.sites.verify', $site->id), ['verified' => 1])
+            ->assertOk();
+
+        $this->actingAs($this->marketer)
+            ->postJson(route('marketing.sites.active', $site->id), ['active' => 1])
             ->assertOk()
             ->assertJsonPath('success', true);
 
         $site->refresh();
-        $this->assertFalse((bool) $site->verified);
+        $this->assertTrue((bool) $site->verified);
         $this->assertTrue((bool) $site->active);
     }
 
@@ -119,21 +130,22 @@ class MarketingOpsScopeTest extends TestCase
         $this->assertTrue((bool) $site->active);
     }
 
-    public function test_admin_can_activate_awaiting_details_site(): void
+    public function test_admin_cannot_activate_awaiting_details_site(): void
     {
         $site = $this->makeSite([
             'onboarding_status' => Site::ONBOARDING_AWAITING_DETAILS,
             'active' => false,
+            'verified' => true,
         ]);
 
         $this->actingAs($this->admin)
             ->postJson(route('admin.sites.active', $site->id), ['active' => 1])
-            ->assertOk()
-            ->assertJsonPath('success', true);
+            ->assertStatus(422)
+            ->assertJsonPath('success', false);
 
         $site->refresh();
-        $this->assertTrue((bool) $site->active);
-        $this->assertFalse($site->awaitsPublisherDetails());
+        $this->assertFalse((bool) $site->active);
+        $this->assertTrue($site->awaitsPublisherDetails());
     }
 
     public function test_marketer_is_blocked_from_non_ops_admin_tools(): void

@@ -422,7 +422,7 @@ class CatalogFilterStatus
         }
 
         $sites = Site::query()
-            ->where('active', 1)
+            ->catalogVisible()
             ->tap(static fn ($q) => Category::constrainQueryToNicheNames($q, $names))
             ->get(['category', 'categories']);
 

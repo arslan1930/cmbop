@@ -19,6 +19,26 @@
         'refunded' => 'secondary',
         default => 'warning',
     };
+    $paymentsUrl = route('admin.payments', array_filter([
+        'search' => $order->order_number,
+        'payment_status' => $order->isUnpaidOps() ? 'unpaid' : null,
+    ]));
+    $remindableItems = $order->items
+        ->filter(fn ($line) => $line->canAdminRemindPublisher($order))
+        ->values();
+    $hasPublicationSchedule = $order->hasPublicationSchedule();
+    $scheduledLocal = $hasPublicationSchedule
+        ? $order->scheduledPublishAtInScheduleTimezone()
+        : null;
+    $scheduleTimezone = $hasPublicationSchedule
+        ? $order->scheduleTimezoneOrUtc()
+        : null;
+    $advertiserAdminUrl = $order->user
+        ? route('admin.users.index', ['user' => $order->user->id]).'#user-'.$order->user->id
+        : null;
+    $publisherAdminUrl = $publisher
+        ? route('admin.users.index', ['user' => $publisher->id]).'#user-'.$publisher->id
+        : null;
 @endphp
 <div class="container-fluid">
     @include('admin.partials.page-header', [
@@ -70,13 +90,41 @@
                         <div class="card-body">
                             <div class="mb-3">
                                 <div class="small text-muted">Advertiser</div>
-                                <div class="fw-semibold">{{ $order->user->name ?? '—' }}</div>
+                                <div class="fw-semibold">
+                                    @if($advertiserAdminUrl)
+                                        <a href="{{ $advertiserAdminUrl }}" class="link-dark">{{ $order->user->name }}</a>
+                                    @else
+                                        {{ $order->user->name ?? '—' }}
+                                    @endif
+                                </div>
                                 <div class="small text-muted">{{ $order->user->email ?? '' }}</div>
                             </div>
                             <div>
                                 <div class="small text-muted">Publisher</div>
-                                <div class="fw-semibold">{{ $publisher->name ?? '—' }}</div>
+                                <div class="fw-semibold">
+                                    @if($publisherAdminUrl)
+                                        <a href="{{ $publisherAdminUrl }}" class="link-dark">{{ $publisher->name }}</a>
+                                    @else
+                                        {{ $publisher->name ?? '—' }}
+                                    @endif
+                                </div>
                                 <div class="small text-muted">{{ $publisher->email ?? '' }}</div>
+                                @if($remindableItems->isNotEmpty())
+                                    <div class="mt-3 d-flex flex-wrap gap-2 align-items-center" id="remind-publisher">
+                                        @foreach($remindableItems as $remindItem)
+                                            <button type="button"
+                                                    class="btn btn-sm btn-outline-primary js-remind-publisher"
+                                                    data-remind-url="{{ route('admin.orders.remind-publisher', $remindItem) }}">
+                                                <i class="fa fa-bell me-1"></i>
+                                                {{ $remindItem->adminRemindTrack() === 'accept' ? 'Remind to accept' : 'Remind to publish' }}
+                                                @if($remindableItems->count() > 1)
+                                                    · {{ $remindItem->site_name ?: ($remindItem->site?->site_name ?: 'placement') }}
+                                                @endif
+                                            </button>
+                                        @endforeach
+                                    </div>
+                                    <div class="small text-muted mt-1">Sends now. Does not use up the automated reminder ladder.</div>
+                                @endif
                             </div>
                         </div>
                     </div>
@@ -89,11 +137,22 @@
                                 @php
                                     $lineSite = $line->site;
                                     $linePublisher = $lineSite?->publisher;
+                                    $briefAnchor = $line->briefAnchorText();
+                                    $briefTarget = $line->briefTargetUrl();
+                                    $publicContentLink = $line->publicContentLink();
                                 @endphp
                                 @if(! $loop->first)
                                     <hr class="my-3">
                                 @endif
-                                <div class="mb-2"><span class="text-muted small">Site</span><div class="fw-semibold">{{ $line->site_name ?? ($lineSite->site_name ?? '—') }}</div></div>
+                                <div class="mb-2"><span class="text-muted small">Site</span>
+                                    <div class="fw-semibold">
+                                        @if($lineSite)
+                                            <a href="{{ route('admin.sites.edit', $lineSite->id) }}" class="link-dark">{{ $line->site_name ?? ($lineSite->site_name ?? '—') }}</a>
+                                        @else
+                                            {{ $line->site_name ?? '—' }}
+                                        @endif
+                                    </div>
+                                </div>
                                 @if($line->site_url || $lineSite?->site_url)
                                     <div class="mb-2"><a href="{{ $line->site_url ?? $lineSite->site_url }}" target="_blank" rel="noopener">{{ $line->site_url ?? $lineSite->site_url }}</a></div>
                                 @endif
@@ -131,6 +190,21 @@
                                         @endif
                                     </div>
                                 @endif
+                                <div class="mb-2"><span class="text-muted small">Anchor text</span>
+                                    <div>{{ $briefAnchor ?: '—' }}</div>
+                                </div>
+                                <div class="mb-2"><span class="text-muted small">Target URL</span>
+                                    <div>
+                                        @if($briefTarget)
+                                            <a href="{{ $briefTarget }}" target="_blank" rel="noopener">{{ $briefTarget }}</a>
+                                        @else
+                                            <span class="text-muted">—</span>
+                                        @endif
+                                    </div>
+                                </div>
+                                <div class="mb-2"><span class="text-muted small">Accepted at</span>
+                                    <div>{{ optional($line->accepted_at)->format('M j, Y g:i A') ?: 'Not accepted' }}</div>
+                                </div>
                                 <div class="mb-2"><span class="text-muted small">Live URL</span>
                                     <div>
                                         @if($line->live_url)
@@ -143,13 +217,27 @@
                                 <div class="mb-2"><span class="text-muted small">Modification requested</span>
                                     <div>{{ $line->modification_requested ?: 'no' }}</div>
                                 </div>
-                                @if($line->content_link)
-                                    <div class="mb-2"><span class="text-muted small">Content</span>
-                                        <div><a href="{{ $line->content_link }}" target="_blank" rel="noopener">Open content link</a></div>
+                                <div class="mb-2"><span class="text-muted small">Content</span>
+                                    <div class="d-flex flex-wrap gap-2 align-items-center">
+                                        @if($publicContentLink)
+                                            <a href="{{ $publicContentLink }}" target="_blank" rel="noopener">Open content link</a>
+                                        @endif
+                                        @if($line->hasDownloadableContent())
+                                            <a href="{{ route('admin.orders.content.download', $line) }}" class="btn btn-sm btn-outline-secondary">
+                                                <i class="fa fa-download me-1"></i>
+                                                {{ $line->contentSubmission?->original_filename ?: ($line->content_original_name ?: 'Download file') }}
+                                            </a>
+                                        @endif
+                                        @if(! $publicContentLink && ! $line->hasDownloadableContent())
+                                            <span class="text-muted">No file uploaded</span>
+                                        @endif
                                     </div>
-                                @endif
+                                </div>
                                 @if($linePublisher && $loop->count > 1)
-                                    <div class="small text-muted">Publisher: {{ $linePublisher->name }}</div>
+                                    <div class="small text-muted">
+                                        Publisher:
+                                        <a href="{{ route('admin.users.index', ['user' => $linePublisher->id]) }}#user-{{ $linePublisher->id }}" class="link-dark">{{ $linePublisher->name }}</a>
+                                    </div>
                                 @endif
                             @empty
                                 <div class="text-muted">No placements on this order.</div>
@@ -169,12 +257,41 @@
                                 <div class="col-md-3"><span class="text-muted small">Subtotal / Tax / Total</span>
                                     <div>€{{ number_format((float) $order->subtotal, 2) }} · €{{ number_format((float) $order->tax, 2) }} · €{{ number_format((float) $order->total_amount, 2) }}</div>
                                 </div>
+                                @if($hasPublicationSchedule)
+                                    <div class="col-12" id="order-schedule">
+                                        <div class="row g-3">
+                                            <div class="col-md-3">
+                                                <span class="text-muted small">Publication mode</span>
+                                                <div>{{ $order->isScheduled() ? 'Scheduled' : 'Immediate' }}</div>
+                                            </div>
+                                            <div class="col-md-3">
+                                                <span class="text-muted small">Scheduled for</span>
+                                                <div>
+                                                    @if($scheduledLocal)
+                                                        {{ $scheduledLocal->format('M j, Y g:i A') }}
+                                                        <span class="text-muted">{{ $scheduleTimezone }}</span>
+                                                    @else
+                                                        —
+                                                    @endif
+                                                </div>
+                                            </div>
+                                            <div class="col-md-3">
+                                                <span class="text-muted small">Released at</span>
+                                                <div>{{ optional($order->schedule_released_at)->format('M j, Y g:i A') ?: 'Not released' }}</div>
+                                            </div>
+                                            <div class="col-md-3">
+                                                <span class="text-muted small">Reminder sent at</span>
+                                                <div>{{ optional($order->schedule_reminder_sent_at)->format('M j, Y g:i A') ?: 'Not sent' }}</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                @endif
                             </div>
                         </div>
                     </div>
                 </div>
                 @if($order->status === 'completed' || ($disputes ?? collect())->isNotEmpty())
-                <div class="col-12">
+                <div class="col-12" id="order-disputes">
                     <div class="card border-0 shadow-sm">
                         <div class="card-header bg-white border-0 d-flex flex-wrap justify-content-between align-items-center gap-2">
                             <strong>Link-removed dispute / clawback</strong>
@@ -215,10 +332,16 @@
                                     @endif
                                     @if($dispute->isOpen())
                                         <div class="d-flex flex-wrap gap-2 mt-3">
-                                            <button type="button" class="btn btn-sm btn-danger" onclick="resolveDispute({{ $dispute->id }}, 'uphold')">
+                                            <button type="button"
+                                                    class="btn btn-sm btn-danger js-resolve-dispute"
+                                                    data-action="uphold"
+                                                    data-resolve-url="{{ route('admin.orders.disputes.uphold', $dispute) }}">
                                                 Uphold &amp; claw back
                                             </button>
-                                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="resolveDispute({{ $dispute->id }}, 'dismiss')">
+                                            <button type="button"
+                                                    class="btn btn-sm btn-outline-secondary js-resolve-dispute"
+                                                    data-action="dismiss"
+                                                    data-resolve-url="{{ route('admin.orders.disputes.dismiss', $dispute) }}">
                                                 Dismiss
                                             </button>
                                         </div>
@@ -361,7 +484,7 @@
                     <p class="text-muted small mb-3">
                         To mark paid, failed, or refunded, use the Order Payments tools. This screen is inspection-only.
                     </p>
-                    <a href="{{ route('admin.payments') }}" class="btn btn-primary btn-sm">
+                    <a href="{{ $paymentsUrl }}" class="btn btn-primary btn-sm">
                         <i class="fa fa-money-bill me-1"></i> Open Order Payments
                     </a>
                 </div>
@@ -369,7 +492,6 @@
         </div>
     </div>
 </div>
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.all.min.js"></script>
 <script>
 (function () {
     const csrf = document.querySelector('meta[name="csrf-token"]')?.content
@@ -441,7 +563,29 @@
         }
     });
 
-    window.resolveDispute = async function (disputeId, action) {
+    document.querySelectorAll('.js-remind-publisher').forEach((btn) => {
+        btn.addEventListener('click', async () => {
+            btn.disabled = true;
+            try {
+                const data = await postJson(btn.dataset.remindUrl, {});
+                btn.outerHTML = '<span class="text-success small fw-semibold">'
+                    + '<i class="fa-solid fa-circle-check me-1" aria-hidden="true"></i>Reminder sent</span>';
+                if (window.showAppToast) {
+                    window.showAppToast(data.message || 'Reminder sent', 'success');
+                }
+            } catch (e) {
+                btn.disabled = false;
+                btn.textContent = 'Retry';
+                if (window.showAppToast) {
+                    window.showAppToast(e.message || 'Could not send the reminder', 'error');
+                } else {
+                    Swal.fire('Error', e.message || 'Could not send the reminder', 'error');
+                }
+            }
+        });
+    });
+
+    async function resolveDispute(url, action) {
         const isUphold = action === 'uphold';
         const { value: notes } = await Swal.fire({
             title: isUphold ? 'Uphold dispute & claw back' : 'Dismiss dispute',
@@ -462,9 +606,6 @@
             },
         });
         if (!notes) return;
-        const url = isUphold
-            ? `/admin/order-disputes/${disputeId}/uphold`
-            : `/admin/order-disputes/${disputeId}/dismiss`;
         try {
             const data = await postJson(url, { admin_notes: notes });
             await Swal.fire('Done', data.message, 'success');
@@ -472,7 +613,11 @@
         } catch (e) {
             Swal.fire('Error', e.message || 'Failed', 'error');
         }
-    };
+    }
+
+    document.querySelectorAll('.js-resolve-dispute').forEach((btn) => {
+        btn.addEventListener('click', () => resolveDispute(btn.dataset.resolveUrl, btn.dataset.action));
+    });
 })();
 </script>
 @endsection

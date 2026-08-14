@@ -9,8 +9,8 @@ use Illuminate\Database\Eloquent\Builder;
 /**
  * Shared marketing / staff ops queue queries.
  *
- * Dashboard cards and the bulk index "open" count must use the same predicates
- * so leftover Done rows (completed + pending items) are not invisible.
+ * Dashboard cards, sidebar badge, and the bulk index "Waiting on you"
+ * count must use the same predicates so leftover Done rows are not invisible.
  */
 class MarketingOpsQueues
 {
@@ -78,8 +78,9 @@ class MarketingOpsQueues
     }
 
     /**
-     * Every bulk request that still needs someone — including completed
-     * batches that still have URL+price rows for Done.
+     * Every bulk request that still needs someone — including publisher-owned
+     * batches and leftover Done rows. Prefer bulkWaitingOnMarketer() for the
+     * index badge and "Waiting on you" filter so the two numbers cannot disagree.
      *
      * @return Builder<BulkSiteRequest>
      */
@@ -89,7 +90,8 @@ class MarketingOpsQueues
     }
 
     /**
-     * Bulk work the marketer can do now (not waiting on the publisher).
+     * Bulk work the marketer can do now, including awaiting_publisher / completed
+     * batches that still have URL+price rows for Done.
      *
      * @return Builder<BulkSiteRequest>
      */
@@ -130,25 +132,26 @@ class MarketingOpsQueues
      */
     public static function constrainWaitingOnMarketer(Builder $q): void
     {
-        $q->whereIn('status', [
-            BulkSiteRequest::STATUS_REQUESTED,
-            BulkSiteRequest::STATUS_SHEET_SENT,
-            BulkSiteRequest::STATUS_SEEDED,
-        ])->orWhere(function ($inner) {
-            $inner->where('status', BulkSiteRequest::STATUS_COMPLETED)
-                ->whereHas('items', fn ($items) => $items->whereNull('site_id'));
-        });
+        $q->where('status', '!=', BulkSiteRequest::STATUS_CANCELLED)
+            ->where(function ($inner) {
+                $inner->whereIn('status', [
+                    BulkSiteRequest::STATUS_REQUESTED,
+                    BulkSiteRequest::STATUS_SHEET_SENT,
+                    BulkSiteRequest::STATUS_SEEDED,
+                ])->orWhereHas('items', fn ($items) => $items->whereNull('site_id'));
+            });
     }
 
     /**
-     * Seeded drafts still with the publisher.
+     * Seeded drafts still with the publisher, and no leftover Done rows.
      *
      * @return Builder<BulkSiteRequest>
      */
     public static function bulkWaitingOnPublisher(): Builder
     {
         return BulkSiteRequest::query()
-            ->where('status', BulkSiteRequest::STATUS_AWAITING_PUBLISHER);
+            ->where('status', BulkSiteRequest::STATUS_AWAITING_PUBLISHER)
+            ->whereDoesntHave('items', fn ($items) => $items->whereNull('site_id'));
     }
 
     public static function siteQueueLabel(Site $site): string

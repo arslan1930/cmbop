@@ -129,6 +129,44 @@ class CheckoutReadySitesOnlyTest extends TestCase
         $response->assertDontSee('€'.$this->formatMoney(55 + 40), false);
     }
 
+    public function test_checkout_drops_unverified_sites_instead_of_deferring_them(): void
+    {
+        config(['content_moderation.enabled' => false]);
+
+        $advertiser = $this->advertiser();
+        $publisher = $this->publisher();
+        $pendingSite = $this->activeSite($publisher, 'stay-pending', 55);
+        $unverified = $this->activeSite($publisher, 'hidden-unverified', 80);
+        $unverified->update(['verified' => false]);
+        $sub = $this->createApprovedSubmission($advertiser, null);
+
+        $this->actingAs($advertiser)
+            ->withSession([
+                'cart' => [
+                    [
+                        'id' => $pendingSite->id,
+                        'name' => $pendingSite->site_name,
+                        'quantity' => 1,
+                        'language' => 'en',
+                    ],
+                    [
+                        'id' => $unverified->id,
+                        'name' => $unverified->site_name,
+                        'quantity' => 1,
+                        'content_submission_id' => $sub->id,
+                        'language' => 'en',
+                    ],
+                ],
+            ])
+            ->get(route('advertiser.checkout'))
+            ->assertOk()
+            ->assertSee($pendingSite->site_name, false)
+            ->assertDontSee($unverified->site_name, false);
+
+        $this->assertCount(1, session('cart', []));
+        $this->assertSame($pendingSite->id, (int) session('cart')[0]['id']);
+    }
+
     public function test_wallet_payment_only_charges_ready_sites_and_keeps_deferred_in_cart(): void
     {
         config(['content_moderation.enabled' => false]);

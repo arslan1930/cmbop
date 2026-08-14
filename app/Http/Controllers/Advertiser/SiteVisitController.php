@@ -27,7 +27,7 @@ class SiteVisitController extends Controller
         SiteUrlVisibility $visibility,
         RevealPaceGuard $pace,
     ): RedirectResponse {
-        $model = Site::query()->where('active', 1)->find($site);
+        $model = Site::query()->catalogVisible()->find($site);
 
         if (! $model || blank($model->site_url)) {
             return redirect()

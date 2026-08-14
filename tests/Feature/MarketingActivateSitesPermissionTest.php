@@ -54,7 +54,7 @@ class MarketingActivateSitesPermissionTest extends TestCase
             'publication_time' => 'permanent',
             'link_type' => 'dofollow',
             'description' => str_repeat('Ready for admin activation description. ', 2),
-            'verified' => false,
+            'verified' => true,
             'active' => false,
             'onboarding_status' => Site::ONBOARDING_READY_FOR_REVIEW,
         ], $overrides));
@@ -257,7 +257,7 @@ class MarketingActivateSitesPermissionTest extends TestCase
         $this->assertFalse((bool) $site->fresh()->active);
     }
 
-    public function test_admin_can_still_activate_awaiting_details_site(): void
+    public function test_admin_cannot_activate_awaiting_details_site(): void
     {
         $admin = $this->userWithRoles(['admin'], 'admin');
         $publisher = $this->userWithRoles(['publisher'], 'publisher');
@@ -267,12 +267,12 @@ class MarketingActivateSitesPermissionTest extends TestCase
 
         $this->actingAs($admin)
             ->postJson(route('admin.sites.active', $site->id), ['active' => 1])
-            ->assertOk()
-            ->assertJsonPath('success', true);
+            ->assertStatus(422)
+            ->assertJsonPath('success', false);
 
         $site->refresh();
-        $this->assertTrue((bool) $site->active);
-        $this->assertFalse($site->awaitsPublisherDetails());
+        $this->assertFalse((bool) $site->active);
+        $this->assertTrue($site->awaitsPublisherDetails());
     }
 
     public function test_marketer_with_permission_can_deactivate(): void
