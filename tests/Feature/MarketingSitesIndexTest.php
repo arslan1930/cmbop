@@ -252,6 +252,9 @@ class MarketingSitesIndexTest extends TestCase
         $this->assertStringContainsString('site.archived', $html);
         $this->assertStringContainsString('Archived</span>', $html);
         $this->assertStringContainsString('syncPublisherOpenReviewBadge(id, allSites, meta)', $html);
+        $this->assertStringContainsString("url.searchParams.delete('flat')", $html);
+        $this->assertStringContainsString('if (FLAT_QUEUE) {', $html);
+        $this->assertStringContainsString('window.location.reload();', $html);
         $this->assertStringNotContainsString("}).then(() => {\n                toast('Deleted successfully');", $html);
     }
 

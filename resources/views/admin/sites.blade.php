@@ -579,6 +579,8 @@ function dropNeedsReviewQueryParam() {
         if (url.searchParams.get('verified') === '0') {
             url.searchParams.delete('verified');
         }
+        // leftover flat queue is gated on needs_review — do not leave orphan ?flat=1.
+        url.searchParams.delete('flat');
         const next = url.pathname + (url.searchParams.toString() ? '?' + url.searchParams.toString() : '');
         window.history.replaceState({}, '', next);
     } catch (e) {
@@ -590,6 +592,10 @@ function afterSiteDecision() {
     // Verify/Activate removes needs_review — keep the row visible with updated status.
     revealAllPublisherSites();
     dropNeedsReviewQueryParam();
+    if (FLAT_QUEUE) {
+        window.location.reload();
+        return;
+    }
     const userId = sessionStorage.getItem('selected_user');
     if (userId) {
         fetchUserSites(userId);
