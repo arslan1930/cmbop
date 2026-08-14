@@ -402,6 +402,24 @@ a.nc-item:focus {
   color: var(--nc-primary-strong) !important;
   font-weight: 600;
   font-size: 11px;
+  cursor: pointer;
+  text-decoration: none !important;
+  pointer-events: auto;
+  position: relative;
+  z-index: 1;
+  padding: 2px 0;
+}
+
+a.nc-item-action:link,
+a.nc-item-action:visited {
+  color: var(--nc-primary-strong) !important;
+  text-decoration: none !important;
+}
+
+a.nc-item-action:hover,
+a.nc-item-action:focus {
+  color: var(--nc-primary-strong) !important;
+  text-decoration: underline !important;
 }
 
 .nc-item-aside {

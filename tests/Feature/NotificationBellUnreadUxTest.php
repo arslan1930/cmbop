@@ -117,6 +117,30 @@ class NotificationBellUnreadUxTest extends TestCase
             ->assertDontSee('Live tip', false);
     }
 
+    public function test_content_library_cta_is_a_real_href_in_api_and_dropdown_js(): void
+    {
+        $user = $this->makeAdvertiser();
+        $notification = app(InAppNotificationService::class)->notify(
+            $user,
+            InAppNotificationService::TYPE_CONTENT_NEEDS_CHANGES,
+            'Language mismatch',
+            'Article language looks like EN, but you selected IT.',
+            [
+                'category' => InAppNotificationService::CATEGORY_SYSTEM,
+                'action_label' => 'Open Content Library',
+                'action_url' => '/advertiser/content-library',
+            ]
+        );
+
+        $this->actingAs($user)
+            ->getJson(route('notifications.index', ['status' => 'unread']))
+            ->assertOk()
+            ->assertJsonPath('notifications.0.action_label', 'Open Content Library')
+            ->assertJsonPath('notifications.0.action_url', '/advertiser/content-library');
+
+        $this->assertSame('/advertiser/content-library', $notification->action_url);
+    }
+
     public function test_api_payload_includes_archived_flag(): void
     {
         $user = $this->makeAdvertiser();
@@ -162,6 +186,11 @@ class NotificationBellUnreadUxTest extends TestCase
             $this->assertStringContainsString('unreadItemUrl', $js);
             $this->assertStringContainsString('window.confirm', $js);
             $this->assertStringContainsString('Switch to All to see earlier notifications.', $js);
+            $this->assertStringContainsString('<a class="nc-item-action" href="', $js);
+            $this->assertStringContainsString('data-nc-action', $js);
+            $this->assertStringContainsString('role="link"', $js);
+            $this->assertStringNotContainsString('<span class="nc-item-action">', $js);
+            $this->assertStringContainsString('if (dest) {', $js);
         }
         $this->assertSame($hashes[0], $hashes[1], 'Both notification-center.js copies must stay identical');
     }

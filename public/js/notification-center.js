@@ -496,7 +496,19 @@
         if (e.target.closest('[data-nc-tool]')) return;
         const id = el.getAttribute('data-nc-id');
         const url = el.getAttribute('data-nc-url');
+        // Real <a class="nc-item-action"> — let the browser follow href.
+        // Mark read in the background so a slow POST cannot swallow the click.
+        if (e.target.closest('a.nc-item-action')) {
+          self.post(self.config.readUrl.replace('__ID__', id)).catch(function () {});
+          return;
+        }
         self.openNotification(id, url);
+      });
+      el.addEventListener('keydown', function (e) {
+        if (e.key !== 'Enter' && e.key !== ' ') return;
+        if (e.target.closest('[data-nc-tool], a.nc-item-action')) return;
+        e.preventDefault();
+        self.openNotification(el.getAttribute('data-nc-id'), el.getAttribute('data-nc-url'));
       });
     });
 
@@ -533,8 +545,10 @@
     const iconName = iconByType[n.type] || n.icon || 'bell';
     const unreadClass = n.is_unread ? ' is-unread' : '';
     const dotPulse = n.is_unread ? ' pulse-badge is-pulsing' : '';
+    const actionUrl = escapeHtml(n.action_url || '');
+    const actionLabel = escapeHtml(n.action_label || 'View details');
     return (
-      '<button type="button" class="nc-item' + unreadClass + '" data-nc-id="' + n.id + '" data-nc-url="' + escapeHtml(n.action_url || '') + '">' +
+      '<div class="nc-item' + unreadClass + '" role="link" tabindex="0" data-nc-id="' + n.id + '" data-nc-url="' + actionUrl + '">' +
         '<div class="nc-icon" aria-hidden="true">' + lucideIcon(iconName) + '</div>' +
         '<div class="nc-item-main">' +
           '<p class="nc-item-title">' + escapeHtml(n.title) + '</p>' +
@@ -542,7 +556,7 @@
           '<div class="nc-item-meta">' +
             '<span class="nc-item-time">' + escapeHtml(relativeTime(n.created_at)) + '</span>' +
             (n.is_unread ? '<span class="nc-item-state">Unread</span>' : (n.is_archived ? '<span class="nc-item-state is-archived">Archived</span>' : '')) +
-            (n.action_url ? '<span class="nc-item-action">' + escapeHtml(n.action_label || 'View details') + ' →</span>' : '') +
+            (n.action_url ? '<a class="nc-item-action" href="' + actionUrl + '" data-nc-action>' + actionLabel + ' →</a>' : '') +
           '</div>' +
         '</div>' +
         '<div class="nc-item-aside">' +
@@ -555,7 +569,7 @@
             '<span class="nc-tool nc-tool--muted" data-nc-tool="delete" data-id="' + n.id + '">Delete</span>' +
           '</div>' +
         '</div>' +
-      '</button>'
+      '</div>'
     );
   };
 
@@ -585,15 +599,16 @@
 
   NotificationCenter.prototype.openNotification = function (id, url) {
     const self = this;
+    const dest = url ? sameOriginUrl(url, url) : '';
     this.post(this.config.readUrl.replace('__ID__', id))
       .then(function (data) {
-        if (data.unread_count != null) self.setUnread(data.unread_count);
-        if (url) window.location.href = url;
-        else self.reload();
+        if (data && data.unread_count != null) self.setUnread(data.unread_count);
+        if (!dest) self.reload();
       })
-      .catch(function () {
-        if (url) window.location.href = url;
-      });
+      .catch(function () {});
+    if (dest) {
+      window.location.href = dest;
+    }
   };
 
   NotificationCenter.prototype.markRead = function (id) {
