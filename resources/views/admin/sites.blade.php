@@ -367,12 +367,21 @@ function releaseSwalBodyLock() {
 }
 
 /* ================= LOAD SITES ================= */
+function setFlatQueueVisible(visible) {
+    document.querySelectorAll('[data-flat-queue="1"]').forEach((el) => {
+        el.classList.toggle('d-none', !visible);
+    });
+}
+
 function fetchUserSites(id, page){
     const userRow = document.querySelector(`.user-row[data-id="${id}"]`);
     const addBtn = document.getElementById('addSiteForPublisherBtn');
 
     document.getElementById('usersSection').classList.add('d-none');
     document.getElementById('sitesSection').classList.remove('d-none');
+    if (FLAT_QUEUE) {
+        setFlatQueueVisible(false);
+    }
 
     if (userRow) {
         document.getElementById('siteUserName').innerText =
@@ -417,6 +426,8 @@ function fetchUserSites(id, page){
                 document.getElementById('sitesSection').classList.add('d-none');
                 if (!FLAT_QUEUE) {
                     document.getElementById('usersSection').classList.remove('d-none');
+                } else {
+                    setFlatQueueVisible(true);
                 }
                 document.getElementById('sitesTable').innerHTML = '';
                 throw new Error('Publisher not found');
@@ -1659,6 +1670,9 @@ document.getElementById('backBtn').addEventListener('click', function(){
     const usersSection = document.getElementById('usersSection');
     if (usersSection && !FLAT_QUEUE) {
         usersSection.classList.remove('d-none');
+    }
+    if (FLAT_QUEUE) {
+        setFlatQueueVisible(true);
     }
     sessionStorage.removeItem('selected_user');
     // Drop deep-link params so refresh stays on the publisher list (not stuck on sites).

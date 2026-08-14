@@ -255,6 +255,8 @@ class MarketingSitesIndexTest extends TestCase
         $this->assertStringContainsString("url.searchParams.delete('flat')", $html);
         $this->assertStringContainsString('if (FLAT_QUEUE) {', $html);
         $this->assertStringContainsString('window.location.reload();', $html);
+        $this->assertStringContainsString('function setFlatQueueVisible', $html);
+        $this->assertStringContainsString("querySelectorAll('[data-flat-queue=\"1\"]')", $html);
         $this->assertStringNotContainsString("}).then(() => {\n                toast('Deleted successfully');", $html);
     }
 

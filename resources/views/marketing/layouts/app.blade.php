@@ -61,18 +61,14 @@
             <i class="fa fa-globe"></i>
             <span class="d-flex align-items-center w-100">
                 <span class="nav-label">Sites</span>
-                @if(($mktReadySiteCount ?? 0) > 0)
-                    <span class="mkt-nav-badge badge bg-warning text-dark rounded-pill ms-auto" data-nav-badge="sites" data-count="{{ $mktReadySiteCount }}">{{ $mktReadySiteCount > 99 ? '99+' : $mktReadySiteCount }}</span>
-                @endif
+                <span class="mkt-nav-badge badge bg-warning text-dark rounded-pill ms-auto" data-nav-badge="sites" data-count="{{ (int) ($mktReadySiteCount ?? 0) }}"@if(($mktReadySiteCount ?? 0) < 1) style="display:none"@endif>{{ ($mktReadySiteCount ?? 0) > 99 ? '99+' : (int) ($mktReadySiteCount ?? 0) }}</span>
             </span>
         </a>
         <a href="{{ route('marketing.bulk-site-requests.index') }}" class="{{ request()->routeIs('marketing.bulk-site-requests.*') ? 'active' : '' }}">
             <i class="fa fa-layer-group"></i>
             <span class="d-flex align-items-center w-100">
                 <span class="nav-label">Bulk requests</span>
-                @if(($mktBulkWaitingCount ?? 0) > 0)
-                    <span class="mkt-nav-badge badge bg-warning text-dark rounded-pill ms-auto" data-nav-badge="bulk" data-count="{{ $mktBulkWaitingCount }}">{{ $mktBulkWaitingCount > 99 ? '99+' : $mktBulkWaitingCount }}</span>
-                @endif
+                <span class="mkt-nav-badge badge bg-warning text-dark rounded-pill ms-auto" data-nav-badge="bulk" data-count="{{ (int) ($mktBulkWaitingCount ?? 0) }}"@if(($mktBulkWaitingCount ?? 0) < 1) style="display:none"@endif>{{ ($mktBulkWaitingCount ?? 0) > 99 ? '99+' : (int) ($mktBulkWaitingCount ?? 0) }}</span>
             </span>
         </a>
         <a href="{{ route('marketing.staff-handbook') }}" class="{{ request()->routeIs('marketing.staff-handbook') ? 'active' : '' }}">

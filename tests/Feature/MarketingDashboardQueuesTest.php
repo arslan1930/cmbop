@@ -423,6 +423,8 @@ class MarketingDashboardQueuesTest extends TestCase
 
         $this->assertStringContainsString(route('marketing.sites.create', [], false), $html);
         $this->assertStringContainsString(route('marketing.bulk-site-requests.index', [], false), $html);
+        $this->assertSame('0', $this->node($html, 'data-nav-badge', 'sites')->attributes->getNamedItem('data-count')?->nodeValue);
+        $this->assertSame('0', $this->node($html, 'data-nav-badge', 'bulk')->attributes->getNamedItem('data-count')?->nodeValue);
     }
 
     public function test_marketer_notification_inbox_uses_marketing_shell(): void
