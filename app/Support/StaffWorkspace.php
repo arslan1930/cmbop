@@ -19,11 +19,26 @@ class StaffWorkspace
             return false;
         }
 
-        if ($user->isAdmin() || $user->hasRole('admin')) {
+        // Active workspace answers without extra queries (inbox rewrite).
+        if ($user->isAdmin()) {
             return false;
         }
+        if ($user->isMarketing()) {
+            return true;
+        }
 
-        return $user->isMarketing() || $user->hasRole('marketing');
+        $names = $user->relationLoaded('roles')
+            ? $user->roles->pluck('name')->all()
+            : null;
+        if (is_array($names)) {
+            if (in_array('admin', $names, true)) {
+                return false;
+            }
+
+            return in_array('marketing', $names, true);
+        }
+
+        return $user->hasRole('marketing') && ! $user->hasRole('admin');
     }
 
     public static function routePrefixFor(?User $user): string
@@ -42,20 +57,25 @@ class StaffWorkspace
      */
     public static function isMarketingOpsPath(string $rest): bool
     {
-        if ($rest === '' || $rest === 'dashboard' || $rest === 'history' || str_starts_with($rest, 'history/')) {
+        if ($rest === '' || $rest === 'dashboard' || self::pathIs($rest, 'history')) {
             return true;
         }
-        if (str_starts_with($rest, 'sites')) {
+        if (self::pathIs($rest, 'sites')) {
+            // Verify and the records sheet stay admin-only. Rewriting those
+            // to /marketing/... 404s (or used to dump marketers on a missing page).
             if (preg_match('#^sites/\d+/verify$#', $rest) === 1) {
+                return false;
+            }
+            if (self::pathIs($rest, 'sites/records')) {
                 return false;
             }
 
             return true;
         }
-        if (str_starts_with($rest, 'bulk-site-requests')) {
+        if (self::pathIs($rest, 'bulk-site-requests')) {
             return true;
         }
-        if (str_starts_with($rest, 'site-enrichment')) {
+        if (self::pathIs($rest, 'site-enrichment')) {
             return true;
         }
         if (preg_match('#^users/\d+/sites$#', $rest) === 1) {
@@ -63,6 +83,11 @@ class StaffWorkspace
         }
 
         return false;
+    }
+
+    private static function pathIs(string $rest, string $prefix): bool
+    {
+        return $rest === $prefix || str_starts_with($rest, $prefix.'/');
     }
 
     /**
@@ -84,7 +109,7 @@ class StaffWorkspace
         if ($path === '' || $path === false) {
             return $url;
         }
-        if (! str_starts_with($path, '/admin')) {
+        if ($path !== '/admin' && ! str_starts_with($path, '/admin/')) {
             return $url;
         }
 

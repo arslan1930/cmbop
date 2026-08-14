@@ -2207,6 +2207,7 @@ class InAppNotificationService
 
         return User::query()
             ->whereHas('roles', fn ($q) => $q->whereIn('name', $roleNames))
+            ->with('roles')
             ->get();
     }
 

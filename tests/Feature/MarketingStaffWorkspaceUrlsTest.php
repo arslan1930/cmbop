@@ -79,6 +79,8 @@ class MarketingStaffWorkspaceUrlsTest extends TestCase
         $bulk = '/admin/bulk-site-requests/12';
         $claim = '/admin/community?tab=claims&status=pending';
         $verify = '/admin/sites/4/verify';
+        $records = '/admin/sites/records';
+        $recordsExport = '/admin/sites/records/export';
 
         $this->assertSame(
             '/marketing/sites?needs_review=1&publisher=9&site=4',
@@ -87,10 +89,16 @@ class MarketingStaffWorkspaceUrlsTest extends TestCase
         $this->assertSame('/marketing/bulk-site-requests/12', staff_ops_url_for($this->marketer, $bulk));
         $this->assertSame($claim, staff_ops_url_for($this->marketer, $claim));
         $this->assertSame($verify, staff_ops_url_for($this->marketer, $verify));
-
+        $this->assertSame($records, staff_ops_url_for($this->marketer, $records));
+        $this->assertSame($recordsExport, staff_ops_url_for($this->marketer, $recordsExport));
         $this->assertSame($search, staff_ops_url_for($this->admin, $search));
         $this->assertSame($bulk, staff_ops_url_for($this->admin, $bulk));
         $this->assertFalse(StaffWorkspace::isMarketingOpsPath('community'));
+        $this->assertFalse(StaffWorkspace::isMarketingOpsPath('sites/records'));
+        $this->assertFalse(StaffWorkspace::isMarketingOpsPath('sites/records/export'));
+        $this->assertFalse(StaffWorkspace::isMarketingOpsPath('sitesomething'));
+        $this->assertTrue(StaffWorkspace::isMarketingOpsPath('sites'));
+        $this->assertTrue(StaffWorkspace::isMarketingOpsPath('sites/4/edit'));
     }
 
     public function test_new_site_bell_and_email_use_workspace_search_url(): void
@@ -258,6 +266,10 @@ class MarketingStaffWorkspaceUrlsTest extends TestCase
 
         $this->actingAs($this->marketer)
             ->get('/admin/community?tab=claims&status=pending')
+            ->assertRedirect(route('marketing.dashboard'));
+
+        $this->actingAs($this->marketer)
+            ->get('/admin/sites/records')
             ->assertRedirect(route('marketing.dashboard'));
     }
 }
