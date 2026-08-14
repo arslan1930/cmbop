@@ -661,6 +661,70 @@ class MarketingBulkSiteOpsTest extends TestCase
         $this->assertStringNotContainsString('TypeError', $html);
     }
 
+    public function test_done_ignores_non_digit_item_keys(): void
+    {
+        Mail::fake();
+        [$country, $language] = $this->marketplaceCodes();
+        $category = Category::query()->firstOrFail();
+
+        $bulk = BulkSiteRequest::create([
+            'publisher_id' => $this->publisher->id,
+            'status' => BulkSiteRequest::STATUS_REQUESTED,
+            'estimated_count' => 1,
+        ]);
+        $item = BulkSiteRequestItem::create([
+            'bulk_site_request_id' => $bulk->id,
+            'site_url' => 'https://digit-keys.example',
+            'domain' => 'digit-keys.example',
+            'price' => 55,
+        ]);
+
+        $this->actingAs($this->marketer)
+            ->from(route('marketing.bulk-site-requests.show', $bulk))
+            ->post(route('marketing.bulk-site-requests.done', $bulk), [
+                'items' => [
+                    $item->id => [
+                        'language' => $language,
+                        'country' => $country,
+                        'da' => 20,
+                        'dr' => 25,
+                        'traffic' => 1000,
+                        'categories' => $category->name,
+                    ],
+                    $item->id.'abc' => [
+                        'language' => '',
+                        'country' => '',
+                        'da' => 1,
+                        'dr' => '',
+                        'traffic' => '',
+                        'categories' => '',
+                    ],
+                ],
+            ])
+            ->assertRedirect()
+            ->assertSessionHas('success')
+            ->assertSessionMissing('error');
+
+        $this->assertNotNull($item->fresh()->site_id);
+        $this->assertDatabaseHas('sites', ['domain' => 'digit-keys.example']);
+    }
+
+    public function test_notes_array_does_not_500(): void
+    {
+        $bulk = $this->makeBulkRequest();
+        $bulk->update(['admin_notes' => 'Keep me']);
+
+        $this->actingAs($this->marketer)
+            ->from(route('marketing.bulk-site-requests.show', $bulk))
+            ->post(route('marketing.bulk-site-requests.notes', $bulk), [
+                'admin_notes' => ['not', 'a', 'string'],
+            ])
+            ->assertRedirect()
+            ->assertSessionHas('success');
+
+        $this->assertSame('Keep me', $bulk->fresh()->admin_notes);
+    }
+
     public function test_done_object_category_values_do_not_500(): void
     {
         Mail::fake();

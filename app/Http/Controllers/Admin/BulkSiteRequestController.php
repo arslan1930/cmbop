@@ -118,11 +118,16 @@ class BulkSiteRequestController extends Controller
                 return null;
             }
 
+            $notes = $request->input('admin_notes', $bulkRequest->admin_notes);
+            if (! is_scalar($notes) && $notes !== null) {
+                $notes = $bulkRequest->admin_notes;
+            }
+
             $bulkRequest->forceFill([
                 'status' => BulkSiteRequest::STATUS_SHEET_SENT,
                 'sheet_sent_at' => now(),
                 'handled_by' => auth()->id(),
-                'admin_notes' => $request->input('admin_notes', $bulkRequest->admin_notes),
+                'admin_notes' => $notes,
             ])->save();
 
             return $bulkRequest;
@@ -151,8 +156,12 @@ class BulkSiteRequestController extends Controller
     public function updateNotes(Request $request, int $id)
     {
         $bulkRequest = BulkSiteRequest::findOrFail($id);
+        $notes = $request->input('admin_notes');
+        if (! is_scalar($notes) && $notes !== null) {
+            $notes = $bulkRequest->admin_notes;
+        }
         $bulkRequest->forceFill([
-            'admin_notes' => $request->input('admin_notes'),
+            'admin_notes' => $notes,
             'handled_by' => auth()->id(),
         ])->save();
 
@@ -395,9 +404,9 @@ class BulkSiteRequestController extends Controller
         // Only validate rows the marketer started or completed. Empty pending rows stay for later.
         $completeItemIds = [];
         $partialItemIds = [];
-        foreach ($inputItems as $itemId => $row) {
-            $itemId = (int) $itemId;
-            if (! in_array($itemId, $pendingIds, true) || ! is_array($row)) {
+        foreach ($inputItems as $rawId => $row) {
+            $itemId = $this->postedDoneItemId($rawId);
+            if ($itemId === null || ! in_array($itemId, $pendingIds, true) || ! is_array($row)) {
                 continue;
             }
             $fill = $this->classifyDoneRowFill($row);
@@ -447,10 +456,10 @@ class BulkSiteRequestController extends Controller
                 return;
             }
 
-            foreach ($inputItems as $itemId => $row) {
-                $itemId = (int) $itemId;
+            foreach ($inputItems as $rawId => $row) {
+                $itemId = $this->postedDoneItemId($rawId);
                 // Stale ids (already added in another tab) must not fail the rest of the batch.
-                if (! in_array($itemId, $pendingIds, true) || ! is_array($row)) {
+                if ($itemId === null || ! in_array($itemId, $pendingIds, true) || ! is_array($row)) {
                     continue;
                 }
 
@@ -547,6 +556,8 @@ class BulkSiteRequestController extends Controller
                 ->withInput()
                 ->with('error', $flash);
         }
+
+        $completeItemIds = array_values(array_unique($completeItemIds));
 
         if ($completeItemIds === []) {
             return back()
@@ -761,7 +772,7 @@ class BulkSiteRequestController extends Controller
 
                     $attached = $this->attachCreatedSiteToBulkItem($bulkRequest, $row, $site, $action);
                     if ($action === 'bulk_request.done' && ! $attached) {
-                        $site->delete();
+                        $this->discardFailedDraftSite($bulkRequest, $row, $site, $action);
                         $stillPending = $bulkRequest->items()
                             ->whereKey((int) ($row['line'] ?? 0))
                             ->pending()
@@ -1124,6 +1135,21 @@ class BulkSiteRequestController extends Controller
         }
 
         return trim((string) $value);
+    }
+
+    private function postedDoneItemId(mixed $rawId): ?int
+    {
+        if (is_int($rawId) && $rawId > 0) {
+            return $rawId;
+        }
+
+        if (is_string($rawId) && preg_match('/^\d+$/', $rawId) === 1) {
+            $itemId = (int) $rawId;
+
+            return $itemId > 0 ? $itemId : null;
+        }
+
+        return null;
     }
 
     /**
