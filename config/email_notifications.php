@@ -9,6 +9,7 @@ use App\Mail\AdvertiserReviewNudge;
 use App\Mail\AudienceCampaignMail;
 use App\Mail\AutoApproveReminderMail;
 use App\Mail\BulkSiteRequestCancelled;
+use App\Mail\BulkSiteRequestItemRejected;
 use App\Mail\BulkSiteRequestSubmitted;
 use App\Mail\BulkSitesSeededNotification;
 use App\Mail\ContentEvaluationResult;
@@ -454,6 +455,13 @@ return [
             'audience' => 'publisher',
             'preference' => 'system_updates',
             'mailable' => BulkSiteRequestCancelled::class,
+            'default_enabled' => true,
+        ],
+        'bulk_request_item_rejected' => [
+            'name' => 'Bulk Website Rejected From Request',
+            'audience' => 'publisher',
+            'preference' => 'system_updates',
+            'mailable' => BulkSiteRequestItemRejected::class,
             'default_enabled' => true,
         ],
         'publisher_add_site_reminder' => [

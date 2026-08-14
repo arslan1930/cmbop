@@ -92,17 +92,22 @@ class BulkSiteRequest extends Model
 
     public function refreshProgressStatus(): void
     {
-        if (in_array($this->status, [self::STATUS_CANCELLED, self::STATUS_REQUESTED, self::STATUS_SHEET_SENT], true)) {
+        if ($this->status === self::STATUS_CANCELLED) {
             return;
         }
 
         $total = $this->sites()->count();
-        if ($total === 0) {
-            return;
-        }
-
         $pendingPublisher = $this->pendingPublisherCount();
         $pendingItems = $this->pendingItemsCount();
+
+        // Stay at the start until staff Dones a row or every submitted row is resolved.
+        if (in_array($this->status, [self::STATUS_REQUESTED, self::STATUS_SHEET_SENT], true)) {
+            if ($pendingItems > 0 || ($total === 0 && $this->items()->doesntExist())) {
+                return;
+            }
+        } elseif ($total === 0 && $pendingItems > 0) {
+            return;
+        }
 
         // Publisher still filling/reviewing seeded drafts.
         if ($pendingPublisher > 0) {
@@ -124,7 +129,7 @@ class BulkSiteRequest extends Model
             return;
         }
 
-        // Every seeded site left the publisher stage and no pending rows remain.
+        // Every row is added or rejected, and no publisher work remains.
         $this->forceFill([
             'status' => self::STATUS_COMPLETED,
             'completed_at' => $this->completed_at ?? now(),
@@ -136,7 +141,17 @@ class BulkSiteRequest extends Model
      */
     public function pendingItemsCount(): int
     {
-        return $this->items()->whereNull('site_id')->count();
+        return $this->items()->pending()->count();
+    }
+
+    public function rejectedItemsCount(): int
+    {
+        return $this->items()->rejected()->count();
+    }
+
+    public function addedItemsCount(): int
+    {
+        return $this->items()->whereNotNull('site_id')->count();
     }
 
     public function hasPendingItems(): bool

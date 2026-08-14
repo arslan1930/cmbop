@@ -667,6 +667,39 @@ class PublisherMySitesPageTest extends TestCase
         $this->assertStringContainsString((string) $withAdmin->id, $html);
     }
 
+    public function test_pending_ajax_hides_rejected_bulk_items(): void
+    {
+        $bulk = BulkSiteRequest::create([
+            'publisher_id' => $this->publisher->id,
+            'status' => BulkSiteRequest::STATUS_REQUESTED,
+            'estimated_count' => 2,
+        ]);
+        BulkSiteRequestItem::create([
+            'bulk_site_request_id' => $bulk->id,
+            'site_url' => 'https://still-waiting.example',
+            'domain' => 'still-waiting.example',
+            'price' => 40,
+        ]);
+        BulkSiteRequestItem::create([
+            'bulk_site_request_id' => $bulk->id,
+            'site_url' => 'https://rejected-waiting.example',
+            'domain' => 'rejected-waiting.example',
+            'price' => 55,
+            'rejected_at' => now(),
+            'reject_reason' => 'Wrong niche.',
+        ]);
+
+        $html = $this->actingAs($this->publisher)
+            ->get(route('publisher.sites.ajax', ['status' => 'pending']))
+            ->assertOk()
+            ->getContent();
+
+        $this->assertStringContainsString('still-waiting.example', $html);
+        $this->assertStringNotContainsString('rejected-waiting.example', $html);
+        $this->assertStringContainsString('data-bulk-waiting="1"', $html);
+        $this->assertStringContainsString('data-pending="1"', $html);
+    }
+
     public function test_pending_empty_state_mentions_open_bulk_request(): void
     {
         BulkSiteRequest::create([

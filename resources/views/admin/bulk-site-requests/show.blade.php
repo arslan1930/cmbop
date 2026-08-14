@@ -7,12 +7,18 @@
             ← Bulk requests
         </a>
         <h3 class="mt-2 mb-1">Bulk request #{{ $bulkRequest->id }}</h3>
-        <p class="text-muted small mb-0">
+        <p class="text-muted small mb-1">
             Publisher: <strong>{{ $bulkRequest->publisher->name }}</strong>
             ({{ $bulkRequest->publisher->email }})
             · Status: <strong>{{ $bulkRequest->statusLabel() }}</strong>
             · Sites submitted: {{ $bulkRequest->items->count() ?: ($bulkRequest->estimated_count ?? '—') }}
-            · Pending to add: {{ $pendingItems->count() }}
+        </p>
+        <p class="small mb-0" data-bulk-progress>
+            Added {{ $bulkRequest->addedItemsCount() }}
+            · Rejected {{ $bulkRequest->rejectedItemsCount() }}
+            · Still to Done {{ $pendingItems->count() }}
+            · Publisher filling {{ $bulkRequest->pendingPublisherCount() }}
+            · Ready {{ $bulkRequest->readyForReviewCount() }}
         </p>
     </div>
 
@@ -105,12 +111,13 @@
                                     <th>Website URL</th>
                                     <th>Price</th>
                                     <th>Domain</th>
-                                    <th>Added?</th>
+                                    <th>Status</th>
+                                    <th></th>
                                 </tr>
                             </thead>
                             <tbody>
                                 @forelse($bulkRequest->items as $item)
-                                    <tr>
+                                    <tr id="bulk-item-{{ $item->id }}">
                                         <td>
                                             <a href="{{ $item->site_url }}" target="_blank" rel="noopener noreferrer">
                                                 {{ $item->site_url }}
@@ -120,15 +127,41 @@
                                         <td class="small text-muted">{{ $item->domain }}</td>
                                         <td>
                                             @if($item->site_id)
-                                                <span class="badge text-bg-success">Yes</span>
+                                                <span class="badge text-bg-success">Added</span>
+                                            @elseif($item->isRejected())
+                                                <span class="badge text-bg-danger">Rejected</span>
+                                                @if($item->reject_reason)
+                                                    <div class="small text-muted mt-1">{{ $item->reject_reason }}</div>
+                                                @endif
                                             @else
                                                 <span class="badge text-bg-light border">Pending</span>
+                                            @endif
+                                        </td>
+                                        <td class="text-end">
+                                            @if($item->isPending() && $bulkRequest->status !== \App\Models\BulkSiteRequest::STATUS_CANCELLED)
+                                                <form method="POST"
+                                                      action="{{ staff_route('bulk-site-requests.items.reject', [$bulkRequest->id, $item->id]) }}"
+                                                      class="d-flex flex-column flex-sm-row gap-1 justify-content-end"
+                                                      data-slb-confirm="Reject this site only. The rest of the batch stays open."
+                                                      data-slb-confirm-title="Reject this website?"
+                                                      data-slb-confirm-text="Reject site"
+                                                      data-slb-confirm-danger="1">
+                                                    @csrf
+                                                    <input type="text"
+                                                           name="reason"
+                                                           class="form-control form-control-sm"
+                                                           required
+                                                           maxlength="500"
+                                                           placeholder="Reason"
+                                                           aria-label="Reject reason for {{ $item->domain }}">
+                                                    <button type="submit" class="btn btn-sm btn-outline-danger">Reject</button>
+                                                </form>
                                             @endif
                                         </td>
                                     </tr>
                                 @empty
                                     <tr>
-                                        <td colspan="4" class="text-muted text-center py-3">
+                                        <td colspan="5" class="text-muted text-center py-3">
                                             No URL + price rows (legacy request before in-app submission).
                                         </td>
                                     </tr>
@@ -147,6 +180,7 @@
                         (publisher + marketer share a {{ \App\Models\BulkSiteRequest::MAX_SITES_PER_REQUEST }}-site batch limit).
                         Fill a complete block (Language, Country, DA, DR, Traffic, Niches) and click Done — one row, several, or all at once.
                         Finished rows become drafts and notify the publisher; the rest stay here until you fill them.
+                        Reject a site you will not add; the rest of the batch stays open.
                     </p>
 
                     @if($errors->any())
@@ -157,7 +191,7 @@
                     @endif
 
                     @if($pendingItems->isEmpty())
-                        <div class="form-text">All submitted rows are already added.</div>
+                        <div class="form-text">All submitted rows are already added or rejected.</div>
                     @else
                         <form method="POST"
                               action="{{ staff_route('bulk-site-requests.done', $bulkRequest) }}"
@@ -177,6 +211,7 @@
                                             <th>DR <span class="text-danger">*</span></th>
                                             <th>Traffic <span class="text-danger">*</span></th>
                                             <th>Niches <span class="text-danger">*</span></th>
+                                            <th></th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -320,6 +355,27 @@
                                                         <div class="invalid-feedback d-block">{{ $message }}</div>
                                                     @enderror
                                                 </td>
+                                                <td>
+                                                    @if($bulkRequest->status !== \App\Models\BulkSiteRequest::STATUS_CANCELLED)
+                                                        <input type="text"
+                                                               form="reject-item-{{ $item->id }}"
+                                                               name="reason"
+                                                               class="form-control form-control-sm mb-1"
+                                                               required
+                                                               maxlength="500"
+                                                               placeholder="Reason"
+                                                               aria-label="Reject reason for {{ $item->domain }}">
+                                                        <button type="submit"
+                                                                class="btn btn-sm btn-outline-danger"
+                                                                form="reject-item-{{ $item->id }}"
+                                                                data-slb-confirm="Reject this site only. The rest of the batch stays open."
+                                                                data-slb-confirm-title="Reject this website?"
+                                                                data-slb-confirm-text="Reject site"
+                                                                data-slb-confirm-danger="1">
+                                                            Reject
+                                                        </button>
+                                                    @endif
+                                                </td>
                                             </tr>
                                         @endforeach
                                     </tbody>
@@ -338,6 +394,14 @@
                                 Done — add filled sites &amp; notify publisher
                             </button>
                         </form>
+                        @foreach($pendingItems as $item)
+                            <form id="reject-item-{{ $item->id }}"
+                                  method="POST"
+                                  action="{{ staff_route('bulk-site-requests.items.reject', [$bulkRequest->id, $item->id]) }}"
+                                  class="d-none">
+                                @csrf
+                            </form>
+                        @endforeach
                     @endif
                 </div>
             </div>

@@ -489,6 +489,7 @@ if (! function_exists('marketing_task_labels')) {
             'bulk_request.seeded' => 'Seed',
             'bulk_request.sheet_sent' => 'Marked sheet sent',
             'bulk_request.cancelled' => 'Cancelled bulk request',
+            'bulk_request.item_rejected' => 'Rejected site from bulk',
             'bulk_request.notes_updated' => 'Updated bulk notes',
             'site.deleted_by_marketing' => 'Deleted pending site',
             'site.updated' => 'Edited site',

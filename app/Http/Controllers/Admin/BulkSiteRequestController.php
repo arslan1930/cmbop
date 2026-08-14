@@ -4,9 +4,11 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Mail\BulkSiteRequestCancelled;
+use App\Mail\BulkSiteRequestItemRejected;
 use App\Mail\BulkSitesSeededNotification;
 use App\Models\ActivityLog;
 use App\Models\BulkSiteRequest;
+use App\Models\BulkSiteRequestItem;
 use App\Models\Category;
 use App\Models\Country;
 use App\Models\Language;
@@ -33,7 +35,7 @@ class BulkSiteRequestController extends Controller
                 'sites',
                 'sites as awaiting_details_count' => fn ($q) => $q->where('onboarding_status', Site::ONBOARDING_AWAITING_DETAILS),
                 'sites as ready_count' => fn ($q) => $q->where('onboarding_status', Site::ONBOARDING_READY_FOR_REVIEW),
-                'items as pending_items_count' => fn ($q) => $q->whereNull('site_id'),
+                'items as pending_items_count' => fn ($q) => $q->pending(),
             ])
             ->latest();
 
@@ -61,7 +63,7 @@ class BulkSiteRequestController extends Controller
 
         // Heal stuck "completed" batches that still have URL+price rows for Done.
         if ($bulkRequest->status === BulkSiteRequest::STATUS_COMPLETED
-            && $bulkRequest->items->whereNull('site_id')->isNotEmpty()) {
+            && $bulkRequest->items->contains(fn ($item) => $item->isPending())) {
             $bulkRequest->refreshProgressStatus();
             $bulkRequest->refresh();
             $bulkRequest->load([
@@ -77,7 +79,7 @@ class BulkSiteRequestController extends Controller
         $countryLanguageMap = app(CountryLanguagePairs::class)->mapWithNames();
         $history = ActivityLog::forBulkSiteRequest($bulkRequest->id);
         $canDeleteDrafts = auth()->user()?->isAdmin() || auth()->user()?->isMarketing();
-        $pendingItems = $bulkRequest->items->whereNull('site_id')->values();
+        $pendingItems = $bulkRequest->items->filter(fn ($item) => $item->isPending())->values();
 
         return view('admin.bulk-site-requests.show', compact(
             'bulkRequest',
@@ -191,6 +193,84 @@ class BulkSiteRequestController extends Controller
             ->with('success', 'Bulk request cancelled. The publisher has been notified. History is kept.');
     }
 
+    public function rejectItem(Request $request, int $id, int $itemId)
+    {
+        $bulkRequest = BulkSiteRequest::with(['publisher', 'items'])->findOrFail($id);
+        $item = BulkSiteRequestItem::query()
+            ->where('bulk_site_request_id', $bulkRequest->id)
+            ->whereKey($itemId)
+            ->firstOrFail();
+
+        if ($bulkRequest->status === BulkSiteRequest::STATUS_CANCELLED) {
+            return back()->with('error', 'Cannot reject a site on a cancelled request.');
+        }
+
+        if (! $item->isPending()) {
+            return back()->with('error', 'That website is already added or rejected.');
+        }
+
+        $request->merge([
+            'reason' => trim((string) $request->input('reason')),
+        ]);
+
+        $validated = $request->validate([
+            'reason' => ['required', 'string', 'min:3', 'max:500'],
+        ], [
+            'reason.required' => 'Give a short reason for rejecting this website.',
+        ]);
+
+        $reason = $validated['reason'];
+
+        $item->forceFill([
+            'rejected_at' => now(),
+            'rejected_by' => auth()->id(),
+            'reject_reason' => $reason,
+        ])->save();
+
+        $bulkRequest->forceFill([
+            'handled_by' => auth()->id(),
+        ])->save();
+        $bulkRequest->refreshProgressStatus();
+
+        ActivityLogger::log(
+            'bulk_request.item_rejected',
+            (auth()->user()->name ?? 'Staff').' rejected '.$item->domain.' on bulk request #'.$bulkRequest->id,
+            $bulkRequest,
+            [
+                'bulk_site_request_id' => $bulkRequest->id,
+                'publisher_id' => $bulkRequest->publisher_id,
+                'item_id' => $item->id,
+                'site_url' => $item->site_url,
+                'domain' => $item->domain,
+                'price' => $item->price,
+                'reason' => $reason,
+            ],
+            $item->domain
+        );
+
+        $fresh = $bulkRequest->fresh(['publisher']);
+        $publisher = $fresh?->publisher;
+
+        try {
+            if ($publisher?->email) {
+                Mail::to($publisher->email)->send(
+                    new BulkSiteRequestItemRejected($fresh, $item->fresh(), $publisher, $reason)
+                );
+            }
+        } catch (\Throwable $e) {
+            Log::warning('Failed to email publisher after bulk item reject: '.$e->getMessage());
+        }
+
+        try {
+            app(InAppNotificationService::class)
+                ->notifyPublisherBulkItemRejected($fresh, $item->fresh(), $reason);
+        } catch (\Throwable $e) {
+            Log::warning('Failed to send in-app bulk item reject notice: '.$e->getMessage());
+        }
+
+        return back()->with('success', 'Rejected '.$item->domain.'. The rest of the batch stays open. Publisher notified.');
+    }
+
     /**
      * Done: create draft sites from publisher-submitted URL+price items, then notify publisher.
      * Drafts stay inactive until the publisher finishes details and staff verify/activate.
@@ -204,7 +284,7 @@ class BulkSiteRequestController extends Controller
             return back()->with('error', 'Cannot complete a cancelled request.');
         }
 
-        $pendingItems = $bulkRequest->items->whereNull('site_id')->keyBy(fn ($item) => (int) $item->id);
+        $pendingItems = $bulkRequest->items->filter(fn ($item) => $item->isPending())->keyBy(fn ($item) => (int) $item->id);
         if ($pendingItems->isEmpty()) {
             return back()->with('error', 'No pending URL + price rows left to add. Use advanced seed if you need to add more.');
         }
@@ -505,7 +585,7 @@ class BulkSiteRequestController extends Controller
 
                 $bulkRequest->items()
                     ->where('domain', $domain)
-                    ->whereNull('site_id')
+                    ->pending()
                     ->update(['site_id' => $site->id]);
 
                 $created++;
@@ -560,7 +640,7 @@ class BulkSiteRequestController extends Controller
             }
         }
 
-        $remaining = $bulkRequest->items()->whereNull('site_id')->count();
+        $remaining = $bulkRequest->pendingItemsCount();
         $headline = $action === 'bulk_request.done' ? 'Done' : 'Seed';
         $message = $created > 0
             ? "{$headline} — {$created} site(s) added to the publisher’s Pending sites. Publisher notified (email + in-app). Still inactive until they finish details and you verify."

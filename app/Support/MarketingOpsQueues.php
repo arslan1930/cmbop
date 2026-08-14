@@ -123,7 +123,7 @@ class MarketingOpsQueues
             BulkSiteRequest::STATUS_CANCELLED,
         ])->orWhere(function ($inner) {
             $inner->where('status', BulkSiteRequest::STATUS_COMPLETED)
-                ->whereHas('items', fn ($items) => $items->whereNull('site_id'));
+                ->whereHas('items', fn ($items) => $items->pending());
         });
     }
 
@@ -138,7 +138,7 @@ class MarketingOpsQueues
                     BulkSiteRequest::STATUS_REQUESTED,
                     BulkSiteRequest::STATUS_SHEET_SENT,
                     BulkSiteRequest::STATUS_SEEDED,
-                ])->orWhereHas('items', fn ($items) => $items->whereNull('site_id'));
+                ])->orWhereHas('items', fn ($items) => $items->pending());
             });
     }
 
@@ -151,7 +151,7 @@ class MarketingOpsQueues
     {
         return BulkSiteRequest::query()
             ->where('status', BulkSiteRequest::STATUS_AWAITING_PUBLISHER)
-            ->whereDoesntHave('items', fn ($items) => $items->whereNull('site_id'));
+            ->whereDoesntHave('items', fn ($items) => $items->pending());
     }
 
     public static function siteQueueLabel(Site $site): string

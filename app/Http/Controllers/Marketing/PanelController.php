@@ -17,6 +17,7 @@ class PanelController extends Controller
         'bulk_request.seeded',
         'bulk_request.sheet_sent',
         'bulk_request.cancelled',
+        'bulk_request.item_rejected',
         'bulk_request.notes_updated',
         'site.deleted_by_marketing',
         'site.updated',
@@ -66,7 +67,7 @@ class PanelController extends Controller
                 'handler:id,name',
             ])
             ->withCount([
-                'items as pending_items_count' => fn ($q) => $q->whereNull('site_id'),
+                'items as pending_items_count' => fn ($q) => $q->pending(),
             ])
             ->orderBy('created_at')
             ->orderBy('id')

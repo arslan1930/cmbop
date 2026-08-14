@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\BulkSiteRequest;
+use App\Models\BulkSiteRequestItem;
 use App\Models\DepositRequest;
 use App\Models\InAppNotification;
 use App\Models\Order;
@@ -1961,6 +1962,38 @@ class InAppNotificationService
                 'action_url' => route('publisher.websites', [], false),
                 'meta' => [
                     'bulk_site_request_id' => $bulk->id,
+                    'reason' => $reason,
+                ],
+            ]
+        );
+    }
+
+    public function notifyPublisherBulkItemRejected(BulkSiteRequest $bulk, BulkSiteRequestItem $item, string $reason): void
+    {
+        $publisherId = (int) ($bulk->publisher_id ?? 0);
+        if ($publisherId <= 0) {
+            return;
+        }
+
+        $url = $item->site_url ?: $item->domain ?: 'a website';
+
+        $this->notify(
+            $publisherId,
+            self::TYPE_SITE_STATUS,
+            'One website was not added',
+            'We did not add '.$url.' from your bulk request. Reason: '.trim($reason).' The rest of the batch is unchanged.',
+            [
+                'category' => self::CATEGORY_ACCOUNT,
+                'icon' => 'alert-triangle',
+                'priority' => InAppNotification::PRIORITY_HIGH,
+                'related' => $bulk,
+                'audience' => InAppNotification::AUDIENCE_PUBLISHER,
+                'action_label' => 'Open websites',
+                'action_url' => route('publisher.websites', [], false),
+                'meta' => [
+                    'bulk_site_request_id' => $bulk->id,
+                    'item_id' => $item->id,
+                    'site_url' => $item->site_url,
                     'reason' => $reason,
                 ],
             ]
