@@ -1257,14 +1257,14 @@ document.querySelectorAll('.bulk-draft-delete').forEach(function (btn) {
                 ? (Array.isArray(data.errors.reason) ? data.errors.reason[0] : data.errors.reason)
                 : null;
             if (!res.ok || !data.success) {
-                if (window.slbAlert) { await window.slbAlert({ icon: 'error', title: reasonErr || data.message || 'Could not delete site.' }); } else { alert(reasonErr || data.message || 'Could not delete site.'); }
+                if (typeof window.slbAlert === 'function') { await window.slbAlert({ icon: 'error', title: reasonErr || data.message || 'Could not delete site.' }); } else { alert(reasonErr || data.message || 'Could not delete site.'); }
                 this.disabled = false;
                 delete this.dataset.bulkDeleteBusy;
                 return;
             }
             location.reload();
         } catch (e) {
-            if (window.slbAlert) { await window.slbAlert({ icon: 'error', title: 'Could not delete site.' }); } else { alert('Could not delete site.'); }
+            if (typeof window.slbAlert === 'function') { await window.slbAlert({ icon: 'error', title: 'Could not delete site.' }); } else { alert('Could not delete site.'); }
             this.disabled = false;
             delete this.dataset.bulkDeleteBusy;
         }

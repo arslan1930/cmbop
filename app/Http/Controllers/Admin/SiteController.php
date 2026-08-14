@@ -1891,13 +1891,25 @@ class SiteController extends Controller
 
         // Do not rely on ON DELETE SET NULL alone — sqlite tests and some
         // hosts skip FKs, and the URL+price row must return to Done.
-        BulkSiteRequestItem::query()->where('site_id', $siteId)->update(['site_id' => null]);
+        // Lock bulk then items (same order as Done) so a concurrent Done
+        // cannot attach a new draft while this one is half-unlinked.
+        DB::transaction(function () use ($siteId, $bulkRequestId) {
+            if ($bulkRequestId) {
+                BulkSiteRequest::query()->whereKey($bulkRequestId)->lockForUpdate()->first();
+            }
 
-        $site->delete();
+            BulkSiteRequestItem::query()->where('site_id', $siteId)->lockForUpdate()->get();
+            BulkSiteRequestItem::query()->where('site_id', $siteId)->update(['site_id' => null]);
 
-        if ($bulkRequestId) {
-            BulkSiteRequest::query()->find($bulkRequestId)?->refreshProgressStatus();
-        }
+            $lockedSite = Site::query()->whereKey($siteId)->lockForUpdate()->first();
+            if ($lockedSite) {
+                $lockedSite->delete();
+            }
+
+            if ($bulkRequestId) {
+                BulkSiteRequest::query()->find($bulkRequestId)?->refreshProgressStatus();
+            }
+        });
 
         $this->notifyPublisherSiteRemoved($notifySnapshot, $publisher, $rejectionReason, 'removed');
 

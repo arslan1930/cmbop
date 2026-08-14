@@ -62,9 +62,15 @@ class BulkSiteRequestController extends Controller
             'sites' => fn ($q) => $q->orderBy('id'),
         ])->findOrFail($id);
 
-        // Heal stuck "completed" batches that still have URL+price rows for Done.
-        if ($bulkRequest->status === BulkSiteRequest::STATUS_COMPLETED
-            && $bulkRequest->items->contains(fn ($item) => $item->isPending())) {
+        // Heal stuck batches that still have URL+price rows for Done.
+        // Completed-with-pending (leftover rows after a partial seed) and
+        // awaiting-publisher with zero drafts (last wrong draft deleted).
+        $hasPendingItems = $bulkRequest->items->contains(fn ($item) => $item->isPending());
+        $healStuckCompleted = $bulkRequest->status === BulkSiteRequest::STATUS_COMPLETED && $hasPendingItems;
+        $healEmptyAwaiting = $bulkRequest->status === BulkSiteRequest::STATUS_AWAITING_PUBLISHER
+            && $hasPendingItems
+            && $bulkRequest->sites->isEmpty();
+        if ($healStuckCompleted || $healEmptyAwaiting) {
             $bulkRequest->refreshProgressStatus();
             $bulkRequest->refresh();
             $bulkRequest->load([
@@ -291,30 +297,31 @@ class BulkSiteRequestController extends Controller
         }
 
         $item = $locked;
+        $freshItem = $item->fresh() ?? $item;
 
         ActivityLogger::log(
             'bulk_request.item_rejected',
-            (auth()->user()->name ?? 'Staff').' rejected '.$item->domain.' on bulk request #'.$bulkRequest->id,
+            (auth()->user()->name ?? 'Staff').' rejected '.$freshItem->domain.' on bulk request #'.$bulkRequest->id,
             $bulkRequest,
             [
                 'bulk_site_request_id' => $bulkRequest->id,
                 'publisher_id' => $bulkRequest->publisher_id,
-                'item_id' => $item->id,
-                'site_url' => $item->site_url,
-                'domain' => $item->domain,
-                'price' => $item->price,
+                'item_id' => $freshItem->id,
+                'site_url' => $freshItem->site_url,
+                'domain' => $freshItem->domain,
+                'price' => $freshItem->price,
                 'reason' => $reason,
             ],
-            $item->domain
+            $freshItem->domain
         );
 
         $fresh = $bulkRequest->fresh(['publisher']);
         $publisher = $fresh?->publisher;
 
         try {
-            if ($publisher?->email) {
+            if ($fresh && $publisher?->email) {
                 Mail::to($publisher->email)->send(
-                    new BulkSiteRequestItemRejected($fresh, $item->fresh(), $publisher, $reason)
+                    new BulkSiteRequestItemRejected($fresh, $freshItem, $publisher, $reason)
                 );
             }
         } catch (\Throwable $e) {
@@ -322,13 +329,15 @@ class BulkSiteRequestController extends Controller
         }
 
         try {
-            app(InAppNotificationService::class)
-                ->notifyPublisherBulkItemRejected($fresh, $item->fresh(), $reason);
+            if ($fresh) {
+                app(InAppNotificationService::class)
+                    ->notifyPublisherBulkItemRejected($fresh, $freshItem, $reason);
+            }
         } catch (\Throwable $e) {
             Log::warning('Failed to send in-app bulk item reject notice: '.$e->getMessage());
         }
 
-        return back()->with('success', 'Rejected '.$item->domain.'. The rest of the batch stays open. Publisher notified.');
+        return back()->with('success', 'Rejected '.$freshItem->domain.'. The rest of the batch stays open. Publisher notified.');
     }
 
     /**
@@ -385,10 +394,11 @@ class BulkSiteRequestController extends Controller
         $maxSites = BulkSiteRequest::MAX_SITES_PER_REQUEST;
 
         $validator = Validator::make($request->all(), [
-            'items' => 'required|array|min:1|max:'.$maxSites,
+            // Cap complete rows later — max on the whole posted array would
+            // block a single valid block when extra stale/empty keys are present.
+            'items' => 'required|array|min:1',
         ], [
             'items.required' => 'Fill at least one complete website block (Language, Country, DA, DR, Traffic, Niches) before Done.',
-            'items.max' => "You can Done at most {$maxSites} websites per submission (same limit as publisher bulk).",
         ]);
 
         $validator->after(function ($validator) use (
@@ -524,7 +534,10 @@ class BulkSiteRequestController extends Controller
             if (! $item) {
                 continue;
             }
-            $row = $inputItems[$itemId] ?? $inputItems[(string) $itemId] ?? [];
+            $row = $inputItems[$itemId] ?? $inputItems[(string) $itemId] ?? null;
+            if (! is_array($row) || $this->classifyDoneRowFill($row) !== 'complete') {
+                continue;
+            }
             $categories = Category::resolveNicheNames($row['categories'] ?? [])['resolved'];
             $rows[] = [
                 'line' => (int) $item->id,
@@ -778,7 +791,7 @@ class BulkSiteRequestController extends Controller
             $publisher = $fresh?->publisher;
 
             try {
-                if ($publisher?->email) {
+                if ($fresh && $publisher?->email) {
                     Mail::to($publisher->email)->send(new BulkSitesSeededNotification($fresh, $created, $publisher));
                 }
             } catch (\Throwable $e) {
@@ -786,7 +799,9 @@ class BulkSiteRequestController extends Controller
             }
 
             try {
-                app(InAppNotificationService::class)->notifyPublisherBulkSitesAdded($fresh, $created);
+                if ($fresh) {
+                    app(InAppNotificationService::class)->notifyPublisherBulkSitesAdded($fresh, $created);
+                }
             } catch (\Throwable $e) {
                 Log::warning('Failed to send in-app bulk Done notice: '.$e->getMessage());
             }
