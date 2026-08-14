@@ -273,6 +273,9 @@ class ContentSubmission extends Model
             ->select($prefixed)
             ->selectRaw(
                 'CASE WHEN '.$table.'.preview_html IS NOT NULL AND '.$table.'.preview_html != \'\' THEN 1 ELSE 0 END as has_preview_html'
+            )
+            ->selectRaw(
+                'CASE WHEN '.$table.'.preview_html LIKE \'%<img%\' OR '.$table.'.preview_html LIKE \'%<IMG%\' THEN 1 ELSE 0 END as has_images'
             );
     }
 
@@ -338,10 +341,19 @@ class ContentSubmission extends Model
 
     /**
      * True when the article contains at least one image in its preview HTML.
+     * Uses the list-query flag when preview_html was not selected.
      */
     public function hasImages(): bool
     {
-        return (bool) preg_match('/<img\b/i', (string) $this->preview_html);
+        if (array_key_exists('preview_html', $this->attributes)) {
+            return (bool) preg_match('/<img\b/i', (string) $this->preview_html);
+        }
+
+        if (array_key_exists('has_images', $this->attributes)) {
+            return (int) $this->attributes['has_images'] === 1;
+        }
+
+        return false;
     }
 
     /**
@@ -567,7 +579,11 @@ class ContentSubmission extends Model
             : $this->orderItems()->with(['site', 'order'])->orderBy('id')->get();
 
         foreach ($items as $item) {
-            $siteName = $item->site?->name ?: ($item->site?->url ?: 'Website');
+            $siteName = $item->site_name
+                ?: $item->site?->site_name
+                ?: $item->site_url
+                ?: $item->site?->site_url
+                ?: 'Website';
             $status = $item->publisher_status ?? $item->status ?? null;
             $events[] = [
                 'at' => optional($item->created_at)?->toIso8601String(),

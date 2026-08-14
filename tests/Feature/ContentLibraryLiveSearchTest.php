@@ -97,6 +97,20 @@ class ContentLibraryLiveSearchTest extends TestCase
             ->assertDontSee('must be of type string', false);
     }
 
+    public function test_index_array_page_does_not_500(): void
+    {
+        $advertiser = $this->advertiser();
+        $this->createApprovedSubmission($advertiser);
+
+        $this->actingAs($advertiser)
+            ->get(route('advertiser.content-library', [
+                'page' => ['2'],
+            ]))
+            ->assertOk()
+            ->assertSee('Content Library')
+            ->assertDontSee('Array to string conversion', false);
+    }
+
     public function test_index_has_catalog_search_chrome(): void
     {
         $advertiser = $this->advertiser();

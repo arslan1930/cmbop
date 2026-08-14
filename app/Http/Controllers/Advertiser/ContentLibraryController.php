@@ -183,7 +183,11 @@ class ContentLibraryController extends Controller
             }
         }
 
-        $submissions = $query->paginate(20)->withQueryString();
+        $page = (int) scalar_text($request->query('page', 1));
+        if ($page < 1) {
+            $page = 1;
+        }
+        $submissions = $query->paginate(20, ['*'], 'page', $page)->withQueryString();
         $submissions->setPath(route('advertiser.content-library', absolute: false));
 
         $baseScope = ContentSubmission::query()->where('user_id', auth()->id());
@@ -398,6 +402,16 @@ class ContentLibraryController extends Controller
             $request->files->set('file', $uploadedFile);
         }
 
+        $title = mb_substr(trim(scalar_text($request->input('title'))), 0, 200);
+        $request->merge([
+            'title' => $title !== '' ? $title : null,
+            'country' => strtolower(trim(scalar_text($request->input('country')))),
+            'language' => strtolower(trim(scalar_text($request->input('language')))),
+            'replace_id' => scalar_text($request->input('replace_id')),
+            'image_rights' => scalar_text($request->input('image_rights')) ?: null,
+            'image_rights_source' => scalar_text($request->input('image_rights_source')) ?: null,
+        ]);
+
         [$contentLength, $clientBytes] = $this->uploads->uploadByteHints($request);
         if ($message = $this->uploads->rejectedUploadMessage(
             $uploadedFile,
@@ -525,7 +539,7 @@ class ContentLibraryController extends Controller
     public function orderInCatalog(Request $request, ?ContentSubmission $submission = null)
     {
         if (! $submission) {
-            $id = (int) $request->input('content_submission_id', 0);
+            $id = (int) scalar_text($request->input('content_submission_id', 0));
             $submission = ContentSubmission::query()
                 ->where('id', $id)
                 ->where('user_id', auth()->id())
@@ -566,7 +580,7 @@ class ContentLibraryController extends Controller
         }
 
         return ContentSubmission::query()
-            ->forArticlePicker()
+            ->forLibraryList()
             ->where('id', $id)
             ->where('user_id', auth()->id())
             ->whereNull('order_id')

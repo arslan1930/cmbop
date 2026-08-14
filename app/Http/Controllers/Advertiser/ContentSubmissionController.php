@@ -462,14 +462,14 @@ class ContentSubmissionController extends Controller
 
     public function drafts(Request $request)
     {
-        $cartKey = $request->query('cart_key');
+        $cartKey = trim(scalar_text($request->query('cart_key')));
         $query = ContentSubmission::query()
             ->forLibraryList()
             ->where('user_id', auth()->id())
             ->whereNull('order_id')
             ->latest('id');
 
-        if ($cartKey) {
+        if ($cartKey !== '') {
             $query->where('cart_key', $cartKey);
         }
 
