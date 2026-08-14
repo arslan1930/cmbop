@@ -105,6 +105,7 @@ class BulkDoneDraftAndNicheUiTest extends TestCase
         $this->assertStringContainsString('function safeItemId', $html);
         $this->assertStringContainsString('const fields =', $html);
         $this->assertStringNotContainsString('function fields()', $html);
+        $this->assertStringContainsString('sealedItemIds', $html);
         $this->assertStringContainsString('if (!/^\\d+$/.test(id)) return;', $html);
         $this->assertStringContainsString('safeItemId(row.getAttribute(\'data-item-id\'))', $html);
         $this->assertStringContainsString('/^\\d+$/', $html);

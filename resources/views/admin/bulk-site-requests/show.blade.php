@@ -633,6 +633,7 @@
     const multiSelects = {};
     const prefills = {};
     const serverOldItemIds = @json(array_map('strval', array_keys(is_array(old('items')) ? old('items') : [])));
+    const sealedItemIds = {};
     const draftKey = @json('bulkDoneDraft:'.$bulkRequest->id.':'.auth()->id());
     const draftTtlMs = 24 * 60 * 60 * 1000;
     const countryLanguageMap = @json($countryLanguageMap ?? new \stdClass());
@@ -748,7 +749,7 @@
             const categories = row.querySelector('input[name*="[categories]"]');
             const rejectNote = row.querySelector('[data-bulk-reject-note]');
             const itemId = rowItemId(row);
-            if (!itemId) return;
+            if (!itemId || sealedItemIds[itemId]) return;
             items[itemId] = {
                 language: language ? language.value : '',
                 country: country ? country.value : '',
@@ -1086,6 +1087,7 @@
                 .map(function (v) { return v.trim(); })
                 .filter(Boolean);
             delete form.dataset.slbBulkSubmittedIds;
+            submittedIds.forEach(function (id) { sealedItemIds[id] = true; });
             pruneDraftForItemIds(submittedIds);
             return;
         }

@@ -960,6 +960,10 @@ class MarketingBulkSiteOpsTest extends TestCase
         $this->assertStringContainsString('cancelledDuringWrite', $controller);
         $this->assertStringContainsString('Those websites were already added or rejected. Refresh and try again.', $controller);
         $this->assertStringContainsString("str_contains(\$itemsError, 'already added')", $controller);
+        $this->assertStringContainsString('$skippedStale', $controller);
+        $this->assertStringContainsString("return 'cancelled'", $controller);
+        $this->assertStringContainsString('Same lock order as Done', $controller);
+        $this->assertStringContainsString('sealedItemIds', $html);
         $this->assertStringContainsString('is_scalar', $controller);
         $this->assertStringContainsString('applyDensity(readStoredDensity(), false)', $html);
         $this->assertStringContainsString('data-bulk-reject-error', $html);
@@ -1086,6 +1090,69 @@ class MarketingBulkSiteOpsTest extends TestCase
             ->assertSee('Deleted pending site')
             ->assertDontSee('>site.deleted_by_marketing<', false)
             ->assertSee('oops-wrong.example');
+    }
+
+    public function test_deleting_a_done_draft_returns_the_row_so_it_can_be_doned_again(): void
+    {
+        Mail::fake();
+        [$country, $language] = $this->marketplaceCodes();
+        $category = Category::query()->firstOrFail();
+
+        $bulk = BulkSiteRequest::create([
+            'publisher_id' => $this->publisher->id,
+            'status' => BulkSiteRequest::STATUS_REQUESTED,
+            'estimated_count' => 1,
+        ]);
+        $item = BulkSiteRequestItem::create([
+            'bulk_site_request_id' => $bulk->id,
+            'site_url' => 'https://done-then-delete.example',
+            'domain' => 'done-then-delete.example',
+            'price' => 55,
+        ]);
+
+        $payload = [
+            'items' => [
+                $item->id => [
+                    'language' => $language,
+                    'country' => $country,
+                    'da' => 20,
+                    'dr' => 25,
+                    'traffic' => 1000,
+                    'categories' => $category->name,
+                ],
+            ],
+        ];
+
+        $this->actingAs($this->marketer)
+            ->post(route('marketing.bulk-site-requests.done', $bulk), $payload)
+            ->assertRedirect()
+            ->assertSessionHas('success');
+
+        $siteId = (int) $item->fresh()->site_id;
+        $this->assertGreaterThan(0, $siteId);
+
+        $this->actingAs($this->marketer)
+            ->deleteJson(route('marketing.sites.destroy', $siteId), [
+                'reason' => 'Wrong draft added for this URL.',
+            ])
+            ->assertOk()
+            ->assertJsonPath('success', true);
+
+        $this->assertTrue($item->fresh()->isPending());
+        $this->assertDatabaseMissing('sites', ['id' => $siteId]);
+
+        $this->actingAs($this->marketer)
+            ->get(route('marketing.bulk-site-requests.show', $bulk))
+            ->assertOk()
+            ->assertSee('name="items['.$item->id.'][country]"', false);
+
+        $this->actingAs($this->marketer)
+            ->post(route('marketing.bulk-site-requests.done', $bulk), $payload)
+            ->assertRedirect()
+            ->assertSessionHas('success');
+
+        $this->assertNotNull($item->fresh()->site_id);
+        $this->assertDatabaseHas('sites', ['domain' => 'done-then-delete.example']);
     }
 
     public function test_marketer_can_delete_ready_for_review_pending_site(): void

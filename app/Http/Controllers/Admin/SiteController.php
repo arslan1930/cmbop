@@ -7,6 +7,8 @@ use App\Jobs\CaptureSiteScreenshotJob;
 use App\Jobs\EnrichSiteJob;
 use App\Mail\AdminAssignedSiteNotification;
 use App\Mail\SiteStatusNotification;
+use App\Models\BulkSiteRequest;
+use App\Models\BulkSiteRequestItem;
 use App\Models\Category;
 use App\Models\Country;
 use App\Models\Language;
@@ -1887,7 +1889,15 @@ class SiteController extends Controller
             Storage::disk('public')->delete($site->site_image);
         }
 
+        // Do not rely on ON DELETE SET NULL alone — sqlite tests and some
+        // hosts skip FKs, and the URL+price row must return to Done.
+        BulkSiteRequestItem::query()->where('site_id', $siteId)->update(['site_id' => null]);
+
         $site->delete();
+
+        if ($bulkRequestId) {
+            BulkSiteRequest::query()->find($bulkRequestId)?->refreshProgressStatus();
+        }
 
         $this->notifyPublisherSiteRemoved($notifySnapshot, $publisher, $rejectionReason, 'removed');
 

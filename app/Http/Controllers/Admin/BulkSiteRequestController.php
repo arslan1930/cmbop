@@ -252,8 +252,14 @@ class BulkSiteRequestController extends Controller
         $reason = $validated['reason'];
 
         $locked = DB::transaction(function () use ($bulkRequest, $itemId, $reason) {
+            // Same lock order as Done (request, then item) so the two cannot deadlock.
+            $lockedBulk = BulkSiteRequest::query()->whereKey($bulkRequest->id)->lockForUpdate()->firstOrFail();
+            if ($lockedBulk->status === BulkSiteRequest::STATUS_CANCELLED) {
+                return 'cancelled';
+            }
+
             $item = BulkSiteRequestItem::query()
-                ->where('bulk_site_request_id', $bulkRequest->id)
+                ->where('bulk_site_request_id', $lockedBulk->id)
                 ->whereKey($itemId)
                 ->lockForUpdate()
                 ->firstOrFail();
@@ -268,13 +274,17 @@ class BulkSiteRequestController extends Controller
                 'reject_reason' => $reason,
             ])->save();
 
-            $bulkRequest->forceFill([
+            $lockedBulk->forceFill([
                 'handled_by' => auth()->id(),
             ])->save();
-            $bulkRequest->refreshProgressStatus();
+            $lockedBulk->refreshProgressStatus();
 
             return $item;
         });
+
+        if ($locked === 'cancelled') {
+            return back()->with('error', 'Cannot reject a site on a cancelled request.');
+        }
 
         if (! $locked) {
             return back()->with('error', 'That website is already added or rejected.');
@@ -606,8 +616,9 @@ class BulkSiteRequestController extends Controller
         $created = 0;
         $createdDomains = [];
         $cancelledDuringWrite = false;
+        $skippedStale = 0;
 
-        DB::transaction(function () use ($bulkRequest, $rows, $action, &$created, &$failures, &$createdDomains, &$cancelledDuringWrite) {
+        DB::transaction(function () use ($bulkRequest, $rows, $action, &$created, &$failures, &$createdDomains, &$cancelledDuringWrite, &$skippedStale) {
             $locked = BulkSiteRequest::query()->whereKey($bulkRequest->id)->lockForUpdate()->firstOrFail();
             if ($locked->status === BulkSiteRequest::STATUS_CANCELLED) {
                 $cancelledDuringWrite = true;
@@ -632,6 +643,8 @@ class BulkSiteRequestController extends Controller
                             ->lockForUpdate()
                             ->first();
                         if (! $pendingItem) {
+                            $skippedStale++;
+
                             continue;
                         }
                     }
@@ -735,6 +748,10 @@ class BulkSiteRequestController extends Controller
                     ? 'Cannot complete a cancelled request.'
                     : 'Cannot seed a cancelled request.'
             );
+        }
+
+        if ($created === 0 && $failures === [] && $skippedStale > 0) {
+            return back()->with('error', 'Those websites were already added or rejected. Refresh and try again.');
         }
 
         if ($created > 0) {
