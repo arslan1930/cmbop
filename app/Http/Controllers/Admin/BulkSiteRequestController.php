@@ -122,6 +122,9 @@ class BulkSiteRequestController extends Controller
             if (! is_scalar($notes) && $notes !== null) {
                 $notes = $bulkRequest->admin_notes;
             }
+            if (is_string($notes) && strlen($notes) > 65535) {
+                $notes = $bulkRequest->admin_notes;
+            }
 
             $bulkRequest->forceFill([
                 'status' => BulkSiteRequest::STATUS_SHEET_SENT,
@@ -160,6 +163,13 @@ class BulkSiteRequestController extends Controller
         if (! is_scalar($notes) && $notes !== null) {
             $notes = $bulkRequest->admin_notes;
         }
+        $request->merge([
+            'admin_notes' => $notes,
+        ]);
+        $validated = $request->validate([
+            'admin_notes' => ['nullable', 'string', 'max:65535'],
+        ]);
+        $notes = $validated['admin_notes'] ?? null;
         $bulkRequest->forceFill([
             'admin_notes' => $notes,
             'handled_by' => auth()->id(),

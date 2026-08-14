@@ -725,6 +725,55 @@ class MarketingBulkSiteOpsTest extends TestCase
         $this->assertSame('Keep me', $bulk->fresh()->admin_notes);
     }
 
+    public function test_oversized_notes_do_not_500_or_look_like_a_done_error(): void
+    {
+        $bulk = $this->makeBulkRequest();
+        $bulk->update(['admin_notes' => 'Keep me', 'status' => BulkSiteRequest::STATUS_REQUESTED]);
+        BulkSiteRequestItem::create([
+            'bulk_site_request_id' => $bulk->id,
+            'site_url' => 'https://notes-too-long.example',
+            'domain' => 'notes-too-long.example',
+            'price' => 40,
+        ]);
+
+        $html = $this->actingAs($this->marketer)
+            ->from(route('marketing.bulk-site-requests.show', $bulk))
+            ->followingRedirects()
+            ->post(route('marketing.bulk-site-requests.notes', $bulk), [
+                'admin_notes' => str_repeat('x', 65536),
+            ])
+            ->assertOk()
+            ->getContent();
+
+        $this->assertSame('Keep me', $bulk->fresh()->admin_notes);
+        $this->assertStringNotContainsString('TypeError', $html);
+        $this->assertStringNotContainsString('Finish the boxes first.', $html);
+        $this->assertStringContainsString('id="bulkDoneForm"', $html);
+    }
+
+    public function test_array_flash_error_does_not_500_the_show_page(): void
+    {
+        $bulk = $this->makeBulkRequest();
+        $bulk->update(['status' => BulkSiteRequest::STATUS_REQUESTED]);
+        BulkSiteRequestItem::create([
+            'bulk_site_request_id' => $bulk->id,
+            'site_url' => 'https://flash-array.example',
+            'domain' => 'flash-array.example',
+            'price' => 40,
+        ]);
+
+        $html = $this->actingAs($this->marketer)
+            ->withSession(['error' => ['FLASH_ARRAY_ERR'], 'success' => ['FLASH_ARRAY_OK']])
+            ->get(route('marketing.bulk-site-requests.show', $bulk))
+            ->assertOk()
+            ->getContent();
+
+        $this->assertStringNotContainsString('TypeError', $html);
+        $this->assertStringContainsString('id="bulkDoneForm"', $html);
+        $this->assertStringContainsString('FLASH_ARRAY_ERR', $html);
+        $this->assertStringContainsString('FLASH_ARRAY_OK', $html);
+    }
+
     public function test_done_object_category_values_do_not_500(): void
     {
         Mail::fake();

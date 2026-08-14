@@ -136,7 +136,11 @@ class BulkDoneDraftAndNicheUiTest extends TestCase
         $this->assertStringNotContainsString('(int) old(\'reject_item_id\')', $blade);
         $this->assertStringContainsString('is_scalar($postedRejectItemId)', $blade);
         $this->assertStringContainsString('is_array($seedFailures)', $blade);
+        $this->assertStringContainsString("! \$errors->has('admin_notes')", $blade);
         $this->assertStringContainsString('function markRequiredField', $blade);
+        $flash = file_get_contents(resource_path('views/partials/session-flash.blade.php'));
+        $this->assertStringContainsString("session_text('error')", $flash);
+        $this->assertStringContainsString("session_text('success')", $flash);
         $this->assertStringNotContainsString('data-bulk-done-closed', $html);
         $this->assertStringNotContainsString('for="categoryInput-done'.$item->id.'"', $html);
         $this->assertStringContainsString('readStoredDensity', $html);

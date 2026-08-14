@@ -84,7 +84,13 @@
                     <form method="POST" action="{{ staff_route('bulk-site-requests.notes', $bulkRequest) }}" class="mb-3">
                         @csrf
                         <label class="form-label small">Internal notes</label>
-                        <textarea name="admin_notes" class="form-control form-control-sm mb-2" rows="3">{{ old_text('admin_notes', $bulkRequest->admin_notes) }}</textarea>
+                        <textarea name="admin_notes"
+                                  class="form-control form-control-sm mb-2 @error('admin_notes') is-invalid @enderror"
+                                  rows="3"
+                                  maxlength="65535">{{ old_text('admin_notes', $bulkRequest->admin_notes) }}</textarea>
+                        @error('admin_notes')
+                            <div class="invalid-feedback d-block mb-2">{{ $message }}</div>
+                        @enderror
                         <button type="submit" class="btn btn-sm btn-outline-secondary">Save notes</button>
                     </form>
 
@@ -220,7 +226,7 @@
                             <strong>Add a note for the publisher.</strong>
                             {{ $reasonError }}
                         </div>
-                    @elseif($errors->any() && ! $errors->has('rows') && ! $errors->has('reason'))
+                    @elseif($errors->any() && ! $errors->has('rows') && ! $errors->has('reason') && ! $errors->has('admin_notes'))
                         <div class="alert alert-danger py-2 small">
                             <strong>Finish the boxes first.</strong>
                             {{ $errors->first() }}
