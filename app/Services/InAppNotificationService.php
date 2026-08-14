@@ -1806,6 +1806,7 @@ class InAppNotificationService
                         // Legacy rows that only stored site_id in meta (title-scoped for safety)
                         $inner->whereIn('title', [
                             'New site to verify',
+                            'New site to review',
                             'Site updated — needs review',
                         ])->where(function ($meta) use ($siteId) {
                             $this->constrainMetaSiteId($meta, $siteId);

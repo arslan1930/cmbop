@@ -2636,6 +2636,39 @@ class SiteController extends Controller
     }
 
     /**
+     * Dedicated admin edit only posts the primary category. Keep extra niches
+     * unless the request sent an explicit categories list (or multiple values).
+     *
+     * @param  list<string>  $incoming
+     * @return list<string>
+     */
+    private function mergeAdminCategoryUpdate(Site $site, array $incoming, bool $replaceAll): array
+    {
+        if ($replaceAll) {
+            return $incoming;
+        }
+
+        $primary = $incoming[0] ?? '';
+        $oldPrimary = trim((string) ($site->category ?? ''));
+        $kept = [];
+        foreach ($site->categories_array ?? [] as $name) {
+            $name = trim((string) $name);
+            if ($name === '') {
+                continue;
+            }
+            if ($oldPrimary !== '' && strcasecmp($name, $oldPrimary) === 0) {
+                continue;
+            }
+            if ($primary !== '' && strcasecmp($name, $primary) === 0) {
+                continue;
+            }
+            $kept[] = $name;
+        }
+
+        return $primary !== '' ? array_merge([$primary], $kept) : $kept;
+    }
+
+    /**
      * Normalize DA/DR/traffic from number inputs (commas, decimals, blanks).
      */
     private function normalizeMetricInt(mixed $value): ?int

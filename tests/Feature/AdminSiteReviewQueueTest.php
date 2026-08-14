@@ -149,6 +149,31 @@ class AdminSiteReviewQueueTest extends TestCase
         $this->assertFalse($site->fresh()->needsAdminReview());
     }
 
+    public function test_verify_archives_marketer_new_site_to_review_bells(): void
+    {
+        $admin = $this->userWithRole('admin');
+        $marketer = $this->userWithRole('marketing');
+        $publisher = $this->userWithRole('publisher');
+        $site = $this->makePendingSite($publisher);
+
+        app(InAppNotificationService::class)->notifyAdminsNewSite($site, 'create');
+
+        $this->actingAs($admin)
+            ->postJson(route('admin.sites.verify', $site->id), ['verified' => 1])
+            ->assertOk()
+            ->assertJson(['success' => true]);
+
+        $note = InAppNotification::query()
+            ->where('user_id', $marketer->id)
+            ->where('title', 'New site to review')
+            ->where('related_id', $site->id)
+            ->first();
+
+        $this->assertNotNull($note);
+        $this->assertSame(InAppNotification::STATUS_ARCHIVED, $note->status);
+        $this->assertNotNull($note->archived_at);
+    }
+
     public function test_activate_archives_admin_site_review_notifications(): void
     {
         $admin = $this->userWithRole('admin');
