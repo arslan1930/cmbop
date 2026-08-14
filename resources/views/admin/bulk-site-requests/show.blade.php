@@ -21,6 +21,11 @@
             · Ready {{ $bulkRequest->readyForReviewCount() }}
         </p>
     </div>
+    @php
+        $reasonError = $errors->first('reason');
+        $isCancelReasonError = is_string($reasonError) && str_contains(strtolower($reasonError), 'cancell');
+        $isRejectReasonError = $errors->has('reason') && ! $isCancelReasonError && $pendingItems->isNotEmpty();
+    @endphp
 
     @if(session('seed_failures'))
         <div class="alert alert-warning">
@@ -75,15 +80,15 @@
                             <label class="form-label small" for="bulk-cancel-reason">Reason for publisher</label>
                             <textarea id="bulk-cancel-reason"
                                       name="reason"
-                                      class="form-control form-control-sm mb-2 @error('reason') is-invalid @enderror"
+                                      class="form-control form-control-sm mb-2 {{ $isCancelReasonError ? 'is-invalid' : '' }}"
                                       rows="2"
                                       required
                                       minlength="3"
                                       maxlength="500"
-                                      placeholder="Why this request is being cancelled">{{ old_text('reason') }}</textarea>
-                            @error('reason')
-                                <div class="invalid-feedback d-block mb-2">{{ $message }}</div>
-                            @enderror
+                                      placeholder="Why this request is being cancelled">{{ $isCancelReasonError ? old_text('reason') : '' }}</textarea>
+                            @if($isCancelReasonError)
+                                <div class="invalid-feedback d-block mb-2">{{ $reasonError }}</div>
+                            @endif
                             <button type="submit" class="btn btn-sm btn-outline-danger w-100">Cancel request</button>
                         </form>
                     @endif
@@ -118,7 +123,8 @@
                 <div class="card-body">
                     <h6 class="fw-semibold mb-1">Publisher submitted (URL + price only)</h6>
                     <p class="small text-muted mb-3">
-                        Review each website, then fill <strong>Language, Country, DA, DR, Traffic, and Niches</strong> per row before Done.
+                        Review each website, then fill <strong>Language, Country, DA, DR, Traffic, and Niches</strong> on the Done cards below.
+                        Reject a site from those cards — the note goes to the publisher. Rejected rows stay listed here.
                         Sites are added to the publisher’s Pending sites as drafts — still inactive until they finish details and you verify.
                     </p>
                     <div class="table-responsive">
@@ -129,7 +135,6 @@
                                     <th>Price</th>
                                     <th>Domain</th>
                                     <th>Status</th>
-                                    <th></th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -154,31 +159,10 @@
                                                 <span class="badge text-bg-light border">Pending</span>
                                             @endif
                                         </td>
-                                        <td class="text-end">
-                                            @if($item->isPending() && $bulkRequest->status !== \App\Models\BulkSiteRequest::STATUS_CANCELLED)
-                                                <form method="POST"
-                                                      action="{{ staff_route('bulk-site-requests.items.reject', [$bulkRequest->id, $item->id]) }}"
-                                                      class="d-flex flex-column flex-sm-row gap-1 justify-content-end"
-                                                      data-slb-confirm="Reject this site only. The rest of the batch stays open."
-                                                      data-slb-confirm-title="Reject this website?"
-                                                      data-slb-confirm-text="Reject site"
-                                                      data-slb-confirm-danger="1">
-                                                    @csrf
-                                                    <input type="text"
-                                                           name="reason"
-                                                           class="form-control form-control-sm"
-                                                           required
-                                                           maxlength="500"
-                                                           placeholder="Reason"
-                                                           aria-label="Reject reason for {{ $item->domain }}">
-                                                    <button type="submit" class="btn btn-sm btn-outline-danger">Reject</button>
-                                                </form>
-                                            @endif
-                                        </td>
                                     </tr>
                                 @empty
                                     <tr>
-                                        <td colspan="5" class="text-muted text-center py-3">
+                                        <td colspan="4" class="text-muted text-center py-3">
                                             No URL + price rows (legacy request before in-app submission).
                                         </td>
                                     </tr>
@@ -200,7 +184,12 @@
                         Reject a site you will not add; the rest of the batch stays open.
                     </p>
 
-                    @if($errors->any() && ! $errors->has('rows'))
+                    @if($isRejectReasonError)
+                        <div class="alert alert-danger py-2 small" data-bulk-reject-error>
+                            <strong>Add a note for the publisher.</strong>
+                            {{ $reasonError }}
+                        </div>
+                    @elseif($errors->any() && ! $errors->has('rows') && ! $errors->has('reason'))
                         <div class="alert alert-danger py-2 small">
                             <strong>Finish the boxes first.</strong>
                             {{ $errors->first() }}
@@ -431,10 +420,12 @@
                                                               maxlength="500"
                                                               rows="3"
                                                               placeholder="Why this site will not be added"
-                                                              aria-label="Note for publisher about {{ $item->domain }}"></textarea>
+                                                              data-bulk-reject-note
+                                                              aria-label="Note for publisher about {{ $item->domain }}">{{ $isRejectReasonError ? old_text('reason') : '' }}</textarea>
                                                     <button type="submit"
                                                             class="btn btn-outline-danger"
                                                             form="reject-item-{{ $item->id }}"
+                                                            data-bulk-reject-submit
                                                             data-slb-confirm="Reject this site only. The rest of the batch stays open."
                                                             data-slb-confirm-title="Reject this website?"
                                                             data-slb-confirm-text="Reject site"
@@ -464,7 +455,11 @@
                             <form id="reject-item-{{ $item->id }}"
                                   method="POST"
                                   action="{{ staff_route('bulk-site-requests.items.reject', [$bulkRequest->id, $item->id]) }}"
-                                  class="d-none">
+                                  class="d-none"
+                                  data-slb-confirm="Reject this site only. The rest of the batch stays open."
+                                  data-slb-confirm-title="Reject this website?"
+                                  data-slb-confirm-text="Reject site"
+                                  data-slb-confirm-danger="1">
                                 @csrf
                             </form>
                         @endforeach
@@ -809,10 +804,25 @@
         return match ? match[1] : null;
     }
 
+    function isRejectControl(el) {
+        if (!el) return false;
+        if (el.hasAttribute('data-bulk-reject-note') || el.hasAttribute('data-bulk-reject-submit')) {
+            return true;
+        }
+        const formId = el.getAttribute('form') || '';
+        return formId.indexOf('reject-item-') === 0;
+    }
+
     function setIncompleteRowsDisabled(disabled) {
         doneRows().forEach(function (row) {
             if (rowFilled(row)) return;
+            const countryEl = row.querySelector('[data-bulk-country]');
             row.querySelectorAll('select, input, textarea, button').forEach(function (el) {
+                if (isRejectControl(el)) return;
+                if (!disabled && el.hasAttribute('data-bulk-language') && countryEl && !countryEl.value) {
+                    el.disabled = true;
+                    return;
+                }
                 el.disabled = !!disabled;
             });
         });
@@ -909,11 +919,13 @@
     });
 
     form.addEventListener('input', function (e) {
+        if (isRejectControl(e.target)) return;
         clampScoreInput(e.target);
         syncDoneState();
         scheduleDraftSave();
     });
     form.addEventListener('change', function (e) {
+        if (isRejectControl(e.target)) return;
         clampScoreInput(e.target);
         syncDoneState();
         scheduleDraftSave();

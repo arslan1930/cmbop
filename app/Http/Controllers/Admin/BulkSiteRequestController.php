@@ -155,6 +155,7 @@ class BulkSiteRequestController extends Controller
             'reason' => ['required', 'string', 'min:3', 'max:500'],
         ], [
             'reason.required' => 'Give a short reason for cancelling this request.',
+            'reason.min' => 'Give a short reason for cancelling this request.',
         ]);
         $reason = $validated['reason'];
 
@@ -229,6 +230,7 @@ class BulkSiteRequestController extends Controller
             'reason' => ['required', 'string', 'min:3', 'max:500'],
         ], [
             'reason.required' => 'Give a short reason for rejecting this website.',
+            'reason.min' => 'Give a short reason for rejecting this website.',
         ]);
 
         $reason = $validated['reason'];

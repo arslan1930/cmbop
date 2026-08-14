@@ -368,6 +368,10 @@
   font-weight: 600;
 }
 
+.bulk-done-field.bulk-done-niches-cell {
+  grid-column: 1 / -1;
+}
+
 .bulk-done-niches-cell .multi-select-wrapper,
 .bulk-done-niches-cell .multi-select-input {
   width: 100%;
