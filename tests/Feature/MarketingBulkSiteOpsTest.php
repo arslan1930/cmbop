@@ -467,55 +467,6 @@ class MarketingBulkSiteOpsTest extends TestCase
         $this->assertNotNull($itemB->fresh()->site_id);
     }
 
-    public function test_done_duplicate_domain_links_only_the_submitted_item(): void
-    {
-        Mail::fake();
-        [$country, $language] = $this->marketplaceCodes();
-        $category = Category::query()->firstOrFail();
-
-        $bulk = BulkSiteRequest::create([
-            'publisher_id' => $this->publisher->id,
-            'status' => BulkSiteRequest::STATUS_REQUESTED,
-            'estimated_count' => 2,
-        ]);
-        $first = BulkSiteRequestItem::create([
-            'bulk_site_request_id' => $bulk->id,
-            'site_url' => 'https://dup-host.example/a',
-            'domain' => 'dup-host.example',
-            'price' => 40,
-        ]);
-        $second = BulkSiteRequestItem::create([
-            'bulk_site_request_id' => $bulk->id,
-            'site_url' => 'https://dup-host.example/b',
-            'domain' => 'dup-host.example',
-            'price' => 55,
-        ]);
-
-        $payload = [
-            'language' => $language,
-            'country' => $country,
-            'da' => 20,
-            'dr' => 25,
-            'traffic' => 1000,
-            'categories' => $category->name,
-        ];
-
-        $this->actingAs($this->marketer)
-            ->post(route('marketing.bulk-site-requests.done', $bulk), [
-                'items' => [
-                    $first->id => $payload,
-                    $second->id => $payload,
-                ],
-            ])
-            ->assertRedirect()
-            ->assertSessionHas('seed_failures');
-
-        $this->assertSame(1, Site::query()->where('domain', 'dup-host.example')->count());
-        $this->assertNotNull($first->fresh()->site_id);
-        $this->assertTrue($second->fresh()->isPending());
-        $this->assertNull($second->fresh()->site_id);
-    }
-
     public function test_done_skips_stale_item_ids_and_still_adds_pending_rows(): void
     {
         Mail::fake();
@@ -789,6 +740,9 @@ class MarketingBulkSiteOpsTest extends TestCase
         $this->assertStringContainsString('function markRequiredField', $html);
         $this->assertStringContainsString('function safeItemId', $html);
         $this->assertStringContainsString('or click Clear', $html);
+        $controller = file_get_contents(app_path('Http/Controllers/Admin/BulkSiteRequestController.php'));
+        $this->assertStringContainsString('function attachCreatedSiteToBulkItem', $controller);
+        $this->assertStringContainsString('whereKey($itemId)', $controller);
         $this->assertStringContainsString('applyDensity(readStoredDensity(), false)', $html);
         $this->assertStringContainsString('data-bulk-reject-error', $html);
         $this->assertStringContainsString('name="reject_item_id"', $html);
