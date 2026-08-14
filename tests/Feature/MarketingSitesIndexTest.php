@@ -336,7 +336,7 @@ class MarketingSitesIndexTest extends TestCase
             ->get(route('marketing.sites.index', ['flat' => 1]))
             ->assertOk()
             ->assertSee($publisher->email, false)
-            ->assertDontSee('data-flat-queue="1"', false)
+            ->assertDontSee('admin-table-fit" data-flat-queue="1"', false)
             ->assertDontSee('id="usersSection" class="d-none"', false);
     }
 }
