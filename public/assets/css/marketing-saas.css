@@ -141,11 +141,15 @@ footer.slb-footer .slb-footer-brand img {
   gap: 0.85rem;
 }
 
-.slb-social-icons__link {
+.slb-social-icons__link,
+.slb-social-icons__link:hover,
+.slb-social-icons__link:focus,
+.slb-social-icons__link:focus-visible {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   line-height: 1;
+  text-decoration: none;
 }
 
 /* —— Shared home section shell —— */

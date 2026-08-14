@@ -7,7 +7,7 @@
         <a href="{{ $profile['url'] }}"
            target="_blank"
            rel="noopener noreferrer"
-           class="slb-social-icons__link text-dark"
+           class="slb-social-icons__link text-dark text-decoration-none"
            aria-label="SEOLinkBuildings on {{ $profile['label'] }}">
             <i class="{{ $profile['icon'] }} fa-lg" aria-hidden="true"></i>
         </a>

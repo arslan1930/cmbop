@@ -124,7 +124,7 @@
      excluded: the surface wash already answers "you can click this".
      --------------------------------------------------------------------- */
 
-  a:not(.btn):not(.dropdown-item):not(.nc-item):not(.nav-link):not(#sidebar a):not(.glass-tip-trigger):hover {
+  a:not(.btn):not(.dropdown-item):not(.nc-item):not(.nav-link):not(#sidebar a):not(.glass-tip-trigger):not(.slb-social-icons__link):hover {
     text-decoration: underline;
   }
 
