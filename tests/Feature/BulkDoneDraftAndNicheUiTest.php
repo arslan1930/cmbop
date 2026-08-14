@@ -103,13 +103,16 @@ class BulkDoneDraftAndNicheUiTest extends TestCase
         $this->assertStringContainsString('function markRequiredField', $html);
         $this->assertStringContainsString('function unmarkFilledField', $html);
         $this->assertStringContainsString('function safeItemId', $html);
-        $this->assertStringContainsString('function fields', $html);
+        $this->assertStringContainsString('const fields =', $html);
+        $this->assertStringNotContainsString('function fields()', $html);
+        $this->assertStringContainsString('if (!/^\\d+$/.test(id)) return;', $html);
         $this->assertStringContainsString('safeItemId(row.getAttribute(\'data-item-id\'))', $html);
         $this->assertStringContainsString('/^\\d+$/', $html);
         $this->assertStringContainsString("indexOf('[categories]')", $html);
         $this->assertStringContainsString('serverOldItemIds', $html);
         $blade = file_get_contents(resource_path('views/admin/bulk-site-requests/show.blade.php'));
         $this->assertStringContainsString("is_array(old('items'))", $blade);
+        $this->assertStringContainsString("is_scalar(\$old['country']", $blade);
         $this->assertStringContainsString('function markRequiredField', $blade);
         $this->assertStringNotContainsString('data-bulk-done-closed', $html);
         $this->assertStringNotContainsString('for="categoryInput-done'.$item->id.'"', $html);

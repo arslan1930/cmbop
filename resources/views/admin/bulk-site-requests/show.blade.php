@@ -249,11 +249,13 @@
                                         }
                                         $oldCategories = $old['categories'] ?? '';
                                         if (is_array($oldCategories)) {
-                                            $oldCategories = implode('|', $oldCategories);
+                                            $oldCategories = implode('|', array_filter($oldCategories, 'is_scalar'));
+                                        } elseif (! is_scalar($oldCategories)) {
+                                            $oldCategories = '';
                                         }
                                         $uid = 'done'.$item->id;
-                                        $oldCountry = strtolower((string) ($old['country'] ?? ''));
-                                        $oldLanguage = strtolower((string) ($old['language'] ?? ''));
+                                        $oldCountry = is_scalar($old['country'] ?? null) ? strtolower((string) $old['country']) : '';
+                                        $oldLanguage = is_scalar($old['language'] ?? null) ? strtolower((string) $old['language']) : '';
                                     @endphp
                                     <article class="bulk-done-card" data-bulk-done-row data-item-id="{{ $item->id }}">
                                         <header class="bulk-done-card-head">
@@ -334,7 +336,7 @@
                                                        class="form-control @error('items.'.$item->id.'.da') is-invalid @enderror"
                                                        placeholder="0–100"
                                                        min="0" max="100" step="1"
-                                                       value="{{ $old['da'] ?? '' }}"
+                                                       value="{{ is_scalar($old['da'] ?? null) ? $old['da'] : '' }}"
                                                        required
                                                        data-bulk-required
                                                        data-score-clamp="100">
@@ -353,7 +355,7 @@
                                                        class="form-control @error('items.'.$item->id.'.dr') is-invalid @enderror"
                                                        placeholder="0–100"
                                                        min="0" max="100" step="1"
-                                                       value="{{ $old['dr'] ?? '' }}"
+                                                       value="{{ is_scalar($old['dr'] ?? null) ? $old['dr'] : '' }}"
                                                        required
                                                        data-bulk-required
                                                        data-score-clamp="100">
@@ -376,7 +378,7 @@
                                                        max="4294967295"
                                                        step="1"
                                                        inputmode="numeric"
-                                                       value="{{ $old['traffic'] ?? '' }}"
+                                                       value="{{ is_scalar($old['traffic'] ?? null) ? $old['traffic'] : '' }}"
                                                        required
                                                        data-bulk-required
                                                        data-traffic-input>
@@ -682,7 +684,9 @@
         @php
             $oldCats = old('items.'.$item->id.'.categories', '');
             if (is_array($oldCats)) {
-                $oldCats = implode('|', $oldCats);
+                $oldCats = implode('|', array_filter($oldCats, 'is_scalar'));
+            } elseif (! is_scalar($oldCats)) {
+                $oldCats = '';
             }
             $oldCatsList = array_values(array_filter(array_map('trim', preg_split('/\|/', (string) $oldCats) ?: [])));
         @endphp
@@ -886,10 +890,6 @@
         return doneRows().filter(function (row) {
             return rowStarted(row) && !rowFilled(row);
         });
-    }
-
-    function fields() {
-        return doneRows().flatMap(rowFields);
     }
 
     function rowItemId(row) {
@@ -1149,7 +1149,8 @@
 
 document.querySelectorAll('.bulk-draft-delete').forEach(function (btn) {
     btn.addEventListener('click', async function () {
-        const id = this.getAttribute('data-site-id');
+        const id = String(this.getAttribute('data-site-id') || '');
+        if (!/^\d+$/.test(id)) return;
         const name = this.getAttribute('data-site-name') || 'this site';
         const ok = await window.slbConfirm({
                 title: 'Delete draft site?',

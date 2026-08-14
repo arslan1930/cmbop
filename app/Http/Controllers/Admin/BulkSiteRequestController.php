@@ -161,12 +161,25 @@ class BulkSiteRequestController extends Controller
         ]);
         $reason = $validated['reason'];
 
-        $previous = $bulkRequest->status;
-        $bulkRequest->forceFill([
-            'status' => BulkSiteRequest::STATUS_CANCELLED,
-            'cancel_reason' => $reason,
-            'handled_by' => auth()->id(),
-        ])->save();
+        [$bulkRequest, $previous] = DB::transaction(function () use ($id, $reason) {
+            $bulkRequest = BulkSiteRequest::query()->whereKey($id)->lockForUpdate()->firstOrFail();
+            $previous = $bulkRequest->status;
+            if ($previous !== BulkSiteRequest::STATUS_CANCELLED) {
+                $bulkRequest->forceFill([
+                    'status' => BulkSiteRequest::STATUS_CANCELLED,
+                    'cancel_reason' => $reason,
+                    'handled_by' => auth()->id(),
+                ])->save();
+            }
+
+            return [$bulkRequest, $previous];
+        });
+
+        if ($previous === BulkSiteRequest::STATUS_CANCELLED) {
+            return redirect()
+                ->to(staff_route('bulk-site-requests.index'))
+                ->with('error', 'This request is already cancelled.');
+        }
 
         ActivityLogger::log(
             'bulk_request.cancelled',
@@ -377,9 +390,18 @@ class BulkSiteRequestController extends Controller
             $allowedLanguages
         ) {
             if ($completeItemIds === [] && $partialItemIds === []) {
+                $submittedStarted = false;
+                foreach ($inputItems as $row) {
+                    if (is_array($row) && $this->classifyDoneRowFill($row) !== 'empty') {
+                        $submittedStarted = true;
+                        break;
+                    }
+                }
                 $validator->errors()->add(
                     'items',
-                    'Fill at least one complete website block before clicking Done.'
+                    $submittedStarted
+                        ? 'Those websites were already added or rejected. Refresh and try again.'
+                        : 'Fill at least one complete website block before clicking Done.'
                 );
 
                 return;
@@ -578,12 +600,19 @@ class BulkSiteRequestController extends Controller
 
         $created = 0;
         $createdDomains = [];
+        $cancelledDuringWrite = false;
 
-        DB::transaction(function () use ($bulkRequest, $rows, $action, &$created, &$failures, &$createdDomains) {
-            BulkSiteRequest::query()->whereKey($bulkRequest->id)->lockForUpdate()->firstOrFail();
+        DB::transaction(function () use ($bulkRequest, $rows, $action, &$created, &$failures, &$createdDomains, &$cancelledDuringWrite) {
+            $locked = BulkSiteRequest::query()->whereKey($bulkRequest->id)->lockForUpdate()->firstOrFail();
+            if ($locked->status === BulkSiteRequest::STATUS_CANCELLED) {
+                $cancelledDuringWrite = true;
+
+                return;
+            }
 
             foreach ($rows as $row) {
                 $domain = $row['domain'];
+                $site = null;
 
                 try {
                     if ($action === 'bulk_request.done') {
@@ -670,6 +699,12 @@ class BulkSiteRequestController extends Controller
                     $created++;
                     $createdDomains[] = $domain;
                 } catch (UniqueConstraintViolationException $e) {
+                    if ($site instanceof Site && $site->exists) {
+                        try {
+                            $site->delete();
+                        } catch (\Throwable $ignored) {
+                        }
+                    }
                     $failures[] = [
                         'line' => $row['line'],
                         'url' => $row['site_url'],
@@ -679,14 +714,23 @@ class BulkSiteRequestController extends Controller
             }
 
             if ($created > 0) {
-                $bulkRequest->forceFill([
+                $locked->forceFill([
                     'status' => BulkSiteRequest::STATUS_AWAITING_PUBLISHER,
-                    'seeded_at' => $bulkRequest->seeded_at ?? now(),
+                    'seeded_at' => $locked->seeded_at ?? now(),
                     'handled_by' => auth()->id(),
                     'completed_at' => null,
                 ])->save();
             }
         });
+
+        if ($cancelledDuringWrite) {
+            return back()->with(
+                'error',
+                $action === 'bulk_request.done'
+                    ? 'Cannot complete a cancelled request.'
+                    : 'Cannot seed a cancelled request.'
+            );
+        }
 
         if ($created > 0) {
             $verb = $action === 'bulk_request.done'
@@ -819,7 +863,12 @@ class BulkSiteRequestController extends Controller
     private function doneRowFieldFilled(array $row, string $field): bool
     {
         if ($field === 'categories') {
-            return $this->parseCategoryList($row['categories'] ?? []) !== [];
+            $raw = $row['categories'] ?? [];
+            if (! is_string($raw) && ! is_array($raw)) {
+                return false;
+            }
+
+            return $this->parseCategoryList($raw) !== [];
         }
 
         if (in_array($field, ['da', 'dr', 'traffic'], true)) {
@@ -830,7 +879,12 @@ class BulkSiteRequestController extends Controller
             return is_numeric($row[$field]);
         }
 
-        return trim((string) ($row[$field] ?? '')) !== '';
+        $value = $row[$field] ?? '';
+        if (! is_scalar($value)) {
+            return false;
+        }
+
+        return trim((string) $value) !== '';
     }
 
     /**
