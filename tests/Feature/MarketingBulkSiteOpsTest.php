@@ -1841,6 +1841,32 @@ class MarketingBulkSiteOpsTest extends TestCase
         $this->assertTrue($other->fresh()->isPending());
     }
 
+    public function test_non_array_seed_failures_do_not_500_the_show_page(): void
+    {
+        $bulk = BulkSiteRequest::create([
+            'publisher_id' => $this->publisher->id,
+            'status' => BulkSiteRequest::STATUS_REQUESTED,
+            'estimated_count' => 1,
+        ]);
+        BulkSiteRequestItem::create([
+            'bulk_site_request_id' => $bulk->id,
+            'site_url' => 'https://seed-fail-session.example',
+            'domain' => 'seed-fail-session.example',
+            'price' => 40,
+        ]);
+
+        $html = $this->actingAs($this->marketer)
+            ->withSession(['seed_failures' => 'not-a-list'])
+            ->get(route('marketing.bulk-site-requests.show', $bulk))
+            ->assertOk()
+            ->getContent();
+
+        $this->assertStringNotContainsString('TypeError', $html);
+        $this->assertStringNotContainsString('foreach() argument', $html);
+        $this->assertStringContainsString('id="bulkDoneForm"', $html);
+        $this->assertStringNotContainsString('Some rows failed', $html);
+    }
+
     public function test_reject_requires_a_reason_and_skips_added_rows(): void
     {
         $bulk = BulkSiteRequest::create([

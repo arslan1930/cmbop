@@ -121,6 +121,8 @@ class BulkDoneDraftAndNicheUiTest extends TestCase
         $this->assertStringContainsString('typeof confirmFn.then', $html);
         $this->assertStringContainsString("addEventListener('pageshow'", $html);
         $this->assertStringContainsString('HTMLFormElement.prototype.submit.call', $html);
+        $this->assertStringContainsString('if (submitBtn) submitBtn.disabled = false;', $html);
+        $this->assertStringContainsString('form.requestSubmit(submitBtn || undefined)', $html);
         $this->assertStringContainsString('typeof window.slbAlert', $html);
         $this->assertStringContainsString('if (!/^\\d+$/.test(id)) return;', $html);
         $this->assertStringContainsString('safeItemId(row.getAttribute(\'data-item-id\'))', $html);
@@ -133,6 +135,7 @@ class BulkDoneDraftAndNicheUiTest extends TestCase
         $this->assertStringContainsString("old('reject_item_id')", $blade);
         $this->assertStringNotContainsString('(int) old(\'reject_item_id\')', $blade);
         $this->assertStringContainsString('is_scalar($postedRejectItemId)', $blade);
+        $this->assertStringContainsString('is_array($seedFailures)', $blade);
         $this->assertStringContainsString('function markRequiredField', $blade);
         $this->assertStringNotContainsString('data-bulk-done-closed', $html);
         $this->assertStringNotContainsString('for="categoryInput-done'.$item->id.'"', $html);

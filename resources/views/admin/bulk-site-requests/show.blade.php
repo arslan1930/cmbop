@@ -35,11 +35,15 @@
         }
     @endphp
 
-    @if(session('seed_failures'))
+    @php
+        $seedFailures = session('seed_failures');
+        $seedFailures = is_array($seedFailures) ? $seedFailures : [];
+    @endphp
+    @if($seedFailures !== [])
         <div class="alert alert-warning">
             <strong>Some rows failed</strong>
             <ul class="mb-0 small mt-2">
-                @foreach(session('seed_failures') as $fail)
+                @foreach($seedFailures as $fail)
                     @continue(! is_array($fail))
                     @php
                         $failErrors = $fail['errors'] ?? [];
@@ -1206,9 +1210,16 @@
                 submittedIds.forEach(function (id) { sealedItemIds[id] = true; });
                 form.dataset.slbBulkSubmittedIds = submittedIds.join(',');
                 form.dataset.slbBulkAllowSubmit = '1';
-                if (typeof form.requestSubmit === 'function') {
-                    form.requestSubmit();
-                } else {
+                // requestSubmit() with no args uses the default button. A
+                // disabled default button can no-op the POST in some browsers.
+                if (submitBtn) submitBtn.disabled = false;
+                try {
+                    if (typeof form.requestSubmit === 'function') {
+                        form.requestSubmit(submitBtn || undefined);
+                    } else {
+                        HTMLFormElement.prototype.submit.call(form);
+                    }
+                } catch (submitErr) {
                     HTMLFormElement.prototype.submit.call(form);
                 }
             } catch (err) {

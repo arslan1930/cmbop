@@ -147,12 +147,30 @@
             slbConfirm(opts).then(function (ok) {
                 if (!ok) return;
                 form.dataset.slbAllowSubmit = '1';
-                if (submitter && typeof form.requestSubmit === 'function') {
-                    form.requestSubmit(submitter);
-                } else if (typeof form.requestSubmit === 'function') {
-                    form.requestSubmit();
-                } else {
-                    HTMLFormElement.prototype.submit.call(form);
+                try {
+                    if (submitter && typeof form.requestSubmit === 'function') {
+                        form.requestSubmit(submitter);
+                    } else if (typeof form.requestSubmit === 'function') {
+                        form.requestSubmit();
+                    } else {
+                        HTMLFormElement.prototype.submit.call(form);
+                    }
+                } catch (err) {
+                    // Submitter may sit outside the form (form="…"). A throw
+                    // here used to leave slbAllowSubmit set and never POST.
+                    try {
+                        if (typeof form.requestSubmit === 'function') {
+                            form.requestSubmit();
+                        } else {
+                            HTMLFormElement.prototype.submit.call(form);
+                        }
+                    } catch (err2) {
+                        try {
+                            HTMLFormElement.prototype.submit.call(form);
+                        } catch (err3) {
+                            delete form.dataset.slbAllowSubmit;
+                        }
+                    }
                 }
             });
         }, true);
