@@ -209,6 +209,10 @@
                         </div>
                     @elseif($pendingItems->isEmpty())
                         <div class="form-text">All submitted rows are already added or rejected.</div>
+                    @elseif(! $bulkRequest->canAddDraftSites())
+                        <div class="form-text" data-bulk-done-closed>
+                            This request is cancelled. Remaining URL + price rows were not added.
+                        </div>
                     @else
                         <form method="POST"
                               action="{{ staff_route('bulk-site-requests.done', $bulkRequest) }}"
@@ -256,7 +260,15 @@
                                                     {{ $item->site_url }}
                                                 </a>
                                             </div>
-                                            <div class="bulk-done-card-price text-nowrap">€{{ number_format((float) $item->price, 2) }}</div>
+                                            <div class="bulk-done-card-head-meta">
+                                                <div class="bulk-done-card-price text-nowrap">€{{ number_format((float) $item->price, 2) }}</div>
+                                                <button type="button"
+                                                        class="btn btn-link btn-sm p-0"
+                                                        data-bulk-done-clear
+                                                        aria-label="Clear boxes for {{ $item->domain }}">
+                                                    Clear
+                                                </button>
+                                            </div>
                                         </header>
 
                                         <div class="bulk-done-card-fields">
@@ -615,7 +627,7 @@
     const fields = () => Array.from(form.querySelectorAll('[data-bulk-required]'));
     const multiSelects = {};
     const prefills = {};
-    const hasServerOld = @json((bool) old('items'));
+    const serverOldItemIds = @json(array_map('strval', array_keys(old('items', []) ?? [])));
     const draftKey = @json('bulkDoneDraft:'.$bulkRequest->id.':'.auth()->id());
     const draftTtlMs = 24 * 60 * 60 * 1000;
     const countryLanguageMap = @json($countryLanguageMap ?? new \stdClass());
@@ -768,7 +780,8 @@
                 || (language && language.closest('[data-bulk-done-row]'))
                 || form.querySelector('[data-bulk-done-row][data-item-id="' + itemId + '"]');
 
-            if (!hasServerOld) {
+            const useDraftFields = serverOldItemIds.indexOf(String(itemId)) === -1;
+            if (useDraftFields) {
                 if (country && data.country) country.value = data.country;
                 if (row) refreshBulkDoneLanguages(row, data.language || '');
                 if (language && data.language) language.value = data.language;
@@ -850,12 +863,39 @@
         return formId.indexOf('reject-item-') === 0;
     }
 
+    function isClearControl(el) {
+        return !!(el && (el.hasAttribute('data-bulk-done-clear') || el.closest('[data-bulk-done-clear]')));
+    }
+
+    function clearRow(row) {
+        const country = row.querySelector('[data-bulk-country]');
+        const da = row.querySelector('input[name*="[da]"]');
+        const dr = row.querySelector('input[name*="[dr]"]');
+        const traffic = row.querySelector('input[name*="[traffic]"]');
+        const categories = row.querySelector('input[name*="[categories]"]');
+        if (country) country.value = '';
+        if (da) da.value = '';
+        if (dr) dr.value = '';
+        if (traffic) traffic.value = '';
+        if (categories) categories.value = '';
+        const itemId = rowItemId(row);
+        if (itemId && multiSelects[itemId] && typeof multiSelects[itemId].clearSelections === 'function') {
+            multiSelects[itemId].clearSelections();
+        }
+        refreshBulkDoneLanguages(row, '');
+        row.querySelectorAll('.is-invalid').forEach(function (el) {
+            if (!isRejectControl(el)) el.classList.remove('is-invalid');
+        });
+        writeDraft();
+        syncDoneState();
+    }
+
     function setIncompleteRowsDisabled(disabled) {
         doneRows().forEach(function (row) {
             if (rowFilled(row)) return;
             const countryEl = row.querySelector('[data-bulk-country]');
             row.querySelectorAll('select, input, textarea, button').forEach(function (el) {
-                if (isRejectControl(el)) return;
+                if (isRejectControl(el) || isClearControl(el)) return;
                 if (!disabled && el.hasAttribute('data-bulk-language') && countryEl && !countryEl.value) {
                     el.disabled = true;
                     return;
@@ -900,7 +940,7 @@
         if (hint) {
             hint.classList.toggle('d-none', ready);
             if (partial.length > 0) {
-                hint.textContent = 'Finish or clear incomplete rows first. You can submit the '
+                hint.textContent = 'Finish each started row or click Clear. You can submit the '
                     + complete.length + ' complete block(s) after that.';
             } else if (complete.length === 0) {
                 hint.textContent = 'Fill at least one complete block (Country, Language, DA, DR, Traffic, Niches) before Done.';
@@ -957,6 +997,13 @@
         el.setAttribute('max', '4294967295');
         el.setAttribute('step', '1');
         el.removeAttribute('data-score-clamp');
+    });
+
+    form.addEventListener('click', function (e) {
+        const btn = e.target.closest('[data-bulk-done-clear]');
+        if (!btn || !form.contains(btn)) return;
+        const row = btn.closest('[data-bulk-done-row]');
+        if (row) clearRow(row);
     });
 
     form.addEventListener('input', function (e) {

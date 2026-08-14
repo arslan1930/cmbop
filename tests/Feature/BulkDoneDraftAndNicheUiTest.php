@@ -98,6 +98,10 @@ class BulkDoneDraftAndNicheUiTest extends TestCase
         $this->assertStringContainsString('reject_note', $html);
         $this->assertStringContainsString('function restoreRejectNote', $html);
         $this->assertStringContainsString('function isRejectControl', $html);
+        $this->assertStringContainsString('data-bulk-done-clear', $html);
+        $this->assertStringContainsString('function clearRow', $html);
+        $this->assertStringContainsString('serverOldItemIds', $html);
+        $this->assertStringNotContainsString('data-bulk-done-closed', $html);
         $this->assertStringNotContainsString('for="categoryInput-done'.$item->id.'"', $html);
         $this->assertStringContainsString('readStoredDensity', $html);
         $this->assertStringContainsString('sessionStorage.getItem(storageKey)', $html);
@@ -106,6 +110,7 @@ class BulkDoneDraftAndNicheUiTest extends TestCase
         $this->assertStringNotContainsString('placeholder="Reason"', $html);
         $staffCss = file_get_contents(public_path('assets/css/staff-sites.css'));
         $this->assertStringContainsString('.bulk-done-card', $staffCss);
+        $this->assertStringContainsString('.bulk-done-card-head-meta', $staffCss);
         $this->assertStringContainsString('.bulk-done-list.is-compact', $staffCss);
         $this->assertStringContainsString('grid-column: 1 / -1', $staffCss);
 

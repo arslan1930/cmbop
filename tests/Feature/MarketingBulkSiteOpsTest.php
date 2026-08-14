@@ -593,6 +593,8 @@ class MarketingBulkSiteOpsTest extends TestCase
         $this->assertStringContainsString('Note for publisher', $html);
         $this->assertStringContainsString('data-bulk-done-density', $html);
         $this->assertStringContainsString('function isRejectControl', $html);
+        $this->assertStringContainsString('data-bulk-done-clear', $html);
+        $this->assertStringContainsString('function clearRow', $html);
         $this->assertStringContainsString('applyDensity(readStoredDensity(), false)', $html);
         $this->assertStringContainsString('data-bulk-reject-error', $html);
         $this->assertStringContainsString('name="reject_item_id"', $html);
@@ -823,6 +825,34 @@ class MarketingBulkSiteOpsTest extends TestCase
             ->assertOk()
             ->assertSee('Cancelled bulk request', false)
             ->assertSee('Publisher asked to stop this batch.', false);
+    }
+
+    public function test_cancelled_request_hides_done_cards(): void
+    {
+        $bulk = BulkSiteRequest::create([
+            'publisher_id' => $this->publisher->id,
+            'status' => BulkSiteRequest::STATUS_CANCELLED,
+            'estimated_count' => 1,
+            'cancel_reason' => 'Publisher asked to stop this batch.',
+        ]);
+        BulkSiteRequestItem::create([
+            'bulk_site_request_id' => $bulk->id,
+            'site_url' => 'https://left-pending.example',
+            'domain' => 'left-pending.example',
+            'price' => 40,
+        ]);
+
+        $html = $this->actingAs($this->marketer)
+            ->get(route('marketing.bulk-site-requests.show', $bulk))
+            ->assertOk()
+            ->assertSee('data-bulk-done-closed', false)
+            ->assertSee('This request is cancelled.', false)
+            ->assertDontSee('id="bulkDoneForm"', false)
+            ->assertDontSee('data-bulk-done-clear', false)
+            ->getContent();
+
+        $this->assertStringNotContainsString('name="items['.$bulk->items()->first()->id.'][country]"', $html);
+        $this->assertTrue($bulk->items()->first()->isPending());
     }
 
     public function test_cancel_requires_a_reason(): void
