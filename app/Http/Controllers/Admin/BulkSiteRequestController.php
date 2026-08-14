@@ -550,7 +550,7 @@ class BulkSiteRequestController extends Controller
         $created = 0;
         $createdDomains = [];
 
-        DB::transaction(function () use ($bulkRequest, $rows, &$created, &$failures, &$createdDomains) {
+        DB::transaction(function () use ($bulkRequest, $rows, $action, &$created, &$failures, &$createdDomains) {
             foreach ($rows as $row) {
                 $domain = $row['domain'];
 
