@@ -593,6 +593,7 @@ class MarketingBulkSiteOpsTest extends TestCase
         $this->assertStringContainsString('Note for publisher', $html);
         $this->assertStringContainsString('data-bulk-done-density', $html);
         $this->assertStringContainsString('function isRejectControl', $html);
+        $this->assertStringContainsString('applyDensity(readStoredDensity(), false)', $html);
         $this->assertStringContainsString('data-bulk-reject-error', $html);
         $this->assertStringContainsString('id="bulk-cancel-reason"', $html);
         $this->assertStringContainsString('data-bulk-advanced-seed', $html);

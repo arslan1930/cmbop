@@ -560,9 +560,11 @@
     const storageKey = 'bulkDoneDensity';
 
     function readStoredDensity() {
+        // Same-tab sessionStorage wins. A stale localStorage "comfortable"
+        // from an earlier apply must not wipe a Compact click in this tab.
         const stores = [];
-        try { stores.push(localStorage.getItem(storageKey)); } catch (e) {}
         try { stores.push(sessionStorage.getItem(storageKey)); } catch (e) {}
+        try { stores.push(localStorage.getItem(storageKey)); } catch (e) {}
         for (let i = 0; i < stores.length; i++) {
             if (stores[i] === 'compact' || stores[i] === 'comfortable') return stores[i];
         }
@@ -570,11 +572,11 @@
     }
 
     function writeStoredDensity(mode) {
-        try { localStorage.setItem(storageKey, mode); } catch (e) {}
         try { sessionStorage.setItem(storageKey, mode); } catch (e) {}
+        try { localStorage.setItem(storageKey, mode); } catch (e) {}
     }
 
-    function applyDensity(mode) {
+    function applyDensity(mode, persist) {
         const next = mode === 'compact' ? 'compact' : 'comfortable';
         list.classList.toggle('is-compact', next === 'compact');
         list.classList.toggle('is-comfortable', next === 'comfortable');
@@ -583,14 +585,14 @@
             btn.classList.toggle('active', on);
             btn.setAttribute('aria-pressed', on ? 'true' : 'false');
         });
-        writeStoredDensity(next);
+        if (persist) writeStoredDensity(next);
     }
 
-    applyDensity(readStoredDensity());
+    applyDensity(readStoredDensity(), false);
 
     buttons.forEach(function (btn) {
         btn.addEventListener('click', function () {
-            applyDensity(btn.getAttribute('data-bulk-done-density-btn'));
+            applyDensity(btn.getAttribute('data-bulk-done-density-btn'), true);
         });
     });
 })();

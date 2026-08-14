@@ -93,6 +93,7 @@ class BulkDoneDraftAndNicheUiTest extends TestCase
         $this->assertStringContainsString('function isRejectControl', $html);
         $this->assertStringContainsString('readStoredDensity', $html);
         $this->assertStringContainsString('sessionStorage.getItem(storageKey)', $html);
+        $this->assertStringContainsString('applyDensity(readStoredDensity(), false)', $html);
         $this->assertStringContainsString("addEventListener('pagehide'", $html);
         $this->assertStringNotContainsString('placeholder="Reason"', $html);
         $staffCss = file_get_contents(public_path('assets/css/staff-sites.css'));
