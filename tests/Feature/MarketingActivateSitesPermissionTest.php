@@ -164,7 +164,7 @@ class MarketingActivateSitesPermissionTest extends TestCase
             ->postJson(route('marketing.sites.active', $site->id), ['active' => 1])
             ->assertStatus(422)
             ->assertJsonPath('success', false)
-            ->assertJsonPath('message', 'Publisher has not finished listing details.');
+            ->assertJsonPath('message', 'Publisher details are still incomplete. The listing cannot be activated yet.');
 
         $site->refresh();
         $this->assertFalse((bool) $site->active);

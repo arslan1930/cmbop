@@ -492,7 +492,7 @@ return [
     'staff_handbook_section5_list2' => 'Si la propriété est contestée, gelez/désactivez et escaladez — ne continuez pas à vendre des placements.',
     'staff_handbook_section5_list3' => 'Renvoyez vers les Conditions et la Politique de confidentialité publiques lorsque les éditeurs demandent pourquoi l’acceptation est requise.',
     'staff_handbook_section6_title' => 'Ops catalogue marketing',
-    'staff_handbook_section6_list1' => 'Le marketing active et désactive les annonces en attente. La vérification (badge TXT) reste réservée à l’admin. N’activez pas tant que l’éditeur doit encore Accepter ou compléter les détails.',
+    'staff_handbook_section6_list1' => 'L’admin vérifie d’abord (badge TXT). Le marketing active ou désactive ensuite. N’activez pas tant que l’éditeur doit encore Accepter ou compléter les détails.',
     'staff_handbook_section6_list2' => 'Seuil qualité avant Activer marketing : DA ≥ 30, DR ≥ 30 et trafic ≥ 10 000. Sans pays marketplace, l’annonce n’apparaît pas dans les filtres pays.',
     'staff_handbook_section6_list3' => 'Corrigez URL, prix, métriques, geo, niches et images uniquement sur les sites en attente (non live). Les annonces live, vérifiées ou archivées sont en lecture seule — demander un admin.',
     'staff_handbook_section6_list4' => 'Les modifications de métriques, geo, niches et images restent internes et n’envoient pas d’e-mail à l’éditeur. Nom, URL ou prix le font.',

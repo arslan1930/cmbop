@@ -112,7 +112,7 @@ class MarketingDashboardQueuesTest extends TestCase
         $this->assertStringContainsString('Below quality bar', $readyTable);
         $this->assertStringContainsString('Open', $readyTable);
         $this->assertStringContainsString('Edit', $readyTable);
-        $this->assertStringContainsString('js-mkt-activate', $this->nodeHtml($html, 'data-queue', 'ready-sites'));
+        $this->assertStringNotContainsString('js-mkt-activate', $this->nodeHtml($html, 'data-queue', 'ready-sites'));
         $this->assertStringContainsString(
             e(route('marketing.sites.index', ['publisher' => $ready->publisher_id, 'site' => $ready->id], false)),
             $html

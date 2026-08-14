@@ -297,7 +297,9 @@ class MarketingSitesIndexTest extends TestCase
             $html
         );
         $this->assertStringContainsString(route('marketing.sites.edit', $ready->id, false), $html);
-        $this->assertStringContainsString('js-mkt-activate', $html);
+        // Ready-queue rows are unverified; Activate stays hidden until admin verifies.
+        $this->assertStringNotContainsString('btn-success js-mkt-activate', $html);
+        $this->assertStringContainsString("e.target.closest('.js-mkt-activate')", $html);
         $this->assertStringContainsString($first->email, $html);
         $this->assertStringContainsString($second->email, $html);
         $this->assertStringContainsString('id="usersSection" class="d-none"', $html);

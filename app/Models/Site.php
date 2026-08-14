@@ -730,6 +730,54 @@ class Site extends Model
     }
 
     /**
+     * Hard delete is safe only for pending listings that were never ordered.
+     */
+    public function canBeHardDeleted(): bool
+    {
+        return ! (bool) $this->verified
+            && ! (bool) $this->active
+            && ! $this->isArchived()
+            && $this->orderItemsCount() === 0;
+    }
+
+    public function orderItemsCount(): int
+    {
+        if (array_key_exists('order_items_count', $this->getAttributes())) {
+            return (int) $this->getAttribute('order_items_count');
+        }
+
+        if (! Schema::hasTable('order_items')) {
+            return 0;
+        }
+
+        return (int) $this->orderItems()->count();
+    }
+
+    /**
+     * Staff hide of a live listing: keep the row (and order history), drop it from the catalog.
+     */
+    public function archiveByStaff(?string $reason = null): bool
+    {
+        if (! static::hasSitesColumn('archived_at')) {
+            return false;
+        }
+
+        $this->archived_at = now();
+        $this->active = 0;
+
+        if ($reason !== null && $reason !== '') {
+            static::ensureStatusReasonColumns();
+            $this->status_reason = $reason;
+            $this->status_reason_at = now();
+            $this->status_reason_by = auth()->id();
+        }
+
+        $this->save();
+
+        return true;
+    }
+
+    /**
      * Live, verified, or archived listings are read-only for marketing.
      */
     public function isLockedForMarketingEdits(): bool
@@ -1415,18 +1463,15 @@ class Site extends Model
     }
 
     /**
-     * Marketing may activate this listing (pending, complete, market + quality bar).
+     * Marketing may activate after admin verify, when the listing clears the quality bar.
      */
     public function marketingCanActivate(): bool
     {
-        if ((bool) $this->active || $this->isArchived()) {
-            return false;
-        }
-        if ($this->isPendingPublisherAcceptance() || $this->isPendingPublisherBulkSubmit()) {
+        if ((bool) $this->active || $this->isPendingPublisherBulkSubmit()) {
             return false;
         }
 
-        return $this->hasMarketplaceCountry() && $this->hasGoodMetrics();
+        return $this->canBeActivated() && $this->hasGoodMetrics();
     }
 
     /**

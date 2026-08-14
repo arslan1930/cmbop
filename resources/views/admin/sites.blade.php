@@ -1509,20 +1509,24 @@ function renderSites(data){
                         ? `<li><button type="button" class="dropdown-item disabled" disabled title="This listing has orders. Deactivate it to hide it from the catalog."><i class="fa fa-ban me-2"></i>Has orders — deactivate instead</button></li>`
                         : ''));
 
-            // Always offer Deactivate after Activate. Marketing cannot activate
-            // unfinished, missing-market, or below-quality listings (server also 422s).
+            // Always offer Deactivate after Activate. Hide/disable Activate when
+            // verify-first or leftover marketing quality/publisher-review blocks apply.
             const marketingActivateBlocked = IS_MARKETING_EDITOR && (
-                !!site.pending_publisher_acceptance
-                || !!site.awaits_publisher_details
-                || !!site.details_complete
-                || !!site.missing_market
+                !!site.details_complete
                 || !!site.below_quality_bar
             );
+            const activateBlocked = site.can_activate === false || marketingActivateBlocked;
+            const activateBlockReason = site.activate_block_reason
+                || (site.below_quality_bar
+                    ? `Below the quality bar (DA ≥ ${QUALITY_MIN_DA}, DR ≥ ${QUALITY_MIN_DR}, traffic ≥ ${QUALITY_MIN_TRAFFIC.toLocaleString('en-US')}).`
+                    : (site.details_complete
+                        ? 'Publisher is still reviewing this listing.'
+                        : 'Cannot activate this listing yet.'));
             const activeItem = CAN_TOGGLE_ACTIVE
                 ? (isActive
                     ? `<li><button type="button" class="dropdown-item toggle-active" data-id="${site.id}" data-status="0"><i class="fa fa-pause me-2"></i>Deactivate</button></li>`
-                    : (marketingActivateBlocked
-                        ? ''
+                    : (activateBlocked
+                        ? `<li><button type="button" class="dropdown-item disabled" disabled title="${escapeHtml(activateBlockReason)}"><i class="fa fa-ban me-2"></i>Cannot activate</button></li>`
                         : `<li><button type="button" class="dropdown-item toggle-active" data-id="${site.id}" data-status="1"><i class="fa fa-play me-2"></i>Activate</button></li>`))
                 : '';
 

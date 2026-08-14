@@ -492,7 +492,7 @@ return [
     'staff_handbook_section5_list2' => 'Bij betwist eigendom: bevriezen/deactiveren en escaleren — blijf geen placements verkopen.',
     'staff_handbook_section5_list3' => 'Verwijs naar de openbare Voorwaarden en het Privacybeleid wanneer publishers vragen waarom Accepteren verplicht is.',
     'staff_handbook_section6_title' => 'Marketing cataloguswerk',
-    'staff_handbook_section6_list1' => 'Marketing activeert en deactiveert openstaande listings. Verificatie (TXT-badge) blijft admin-only. Niet activeren zolang de publisher nog Accepteren of listingdetails verschuldigd is.',
+    'staff_handbook_section6_list1' => 'Admin verifieert eerst (TXT-badge). Marketing activeert of deactiveert daarna. Niet activeren zolang de publisher nog Accepteren of listingdetails verschuldigd is.',
     'staff_handbook_section6_list2' => 'Kwaliteitsdrempel vóór marketing Activeren: DA ≥ 30, DR ≥ 30 en traffic ≥ 10.000. Zonder marktplaatsland verschijnt de listing niet in landfilters.',
     'staff_handbook_section6_list3' => 'Corrigeer URL, prijs, metrics, geo, niches en afbeeldingen alleen op openstaande (niet-live) sites. Live, geverifieerde of gearchiveerde listings zijn alleen-lezen — vraag een admin.',
     'staff_handbook_section6_list4' => 'Wijzigingen aan metrics, geo, niches en afbeeldingen zijn intern en mailen de publisher niet. Naam, URL of prijs wel.',

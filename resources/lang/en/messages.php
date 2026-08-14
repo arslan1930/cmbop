@@ -815,7 +815,7 @@ return [
     'staff_handbook_section5_list2' => 'If ownership is contested, freeze/deactivate and escalate — do not keep selling placements.',
     'staff_handbook_section5_list3' => 'Link public Terms and Privacy when publishers ask why Accept is required.',
     'staff_handbook_section6_title' => 'Marketing catalog ops',
-    'staff_handbook_section6_list1' => 'Marketing activates and deactivates pending listings. Verification (TXT badge) stays admin-only. Do not activate while the publisher still owes Accept or listing details.',
+    'staff_handbook_section6_list1' => 'Admin verifies first (TXT badge). Marketing then activates or deactivates. Do not activate while the publisher still owes Accept or listing details.',
     'staff_handbook_section6_list2' => 'Quality bar before marketing Activate: DA ≥ 30, DR ≥ 30, and traffic ≥ 10,000. Set a marketplace country or the listing will not appear in country filters.',
     'staff_handbook_section6_list3' => 'Fix URL, price, metrics, geo, niches, and images on pending (not-live) sites. Live, verified, or archived listings are read-only — ask an admin.',
     'staff_handbook_section6_list4' => 'Metrics, geo, niche, and image edits are internal ops and do not email the publisher. Changing name, URL, or price does notify them.',
