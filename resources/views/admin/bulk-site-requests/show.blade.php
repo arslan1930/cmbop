@@ -36,7 +36,23 @@
             <strong>Some rows failed</strong>
             <ul class="mb-0 small mt-2">
                 @foreach(session('seed_failures') as $fail)
-                    <li>Line {{ $fail['line'] }} · {{ $fail['url'] ?? '' }} — {{ implode('; ', $fail['errors'] ?? []) }}</li>
+                    @continue(! is_array($fail))
+                    @php
+                        $failErrors = $fail['errors'] ?? [];
+                        if (is_string($failErrors)) {
+                            $failErrors = [$failErrors];
+                        } elseif (! is_array($failErrors)) {
+                            $failErrors = [];
+                        }
+                    @endphp
+                    <li>
+                        @if(! empty($fail['url']))
+                            {{ $fail['url'] }}
+                        @else
+                            Line {{ $fail['line'] ?? '' }}
+                        @endif
+                        — {{ implode('; ', array_map('strval', $failErrors)) }}
+                    </li>
                 @endforeach
             </ul>
         </div>
@@ -739,7 +755,17 @@
     }
 
     function writeDraft() {
+        const previous = readDraft();
         const items = {};
+        // Keep the last snapshot for in-flight (sealed) rows so a 419/500
+        // after confirm can restore them. Do not prune before the POST lands.
+        if (previous && previous.items && typeof previous.items === 'object') {
+            Object.keys(previous.items).forEach(function (id) {
+                if (!safeItemId(id)) return;
+                const snap = previous.items[id];
+                if (snap && typeof snap === 'object') items[id] = snap;
+            });
+        }
         form.querySelectorAll('[data-bulk-done-row]').forEach(function (row) {
             const language = row.querySelector('select[name*="[language]"]');
             const country = row.querySelector('select[name*="[country]"]');
@@ -759,6 +785,12 @@
                 categories: categories ? categories.value : '',
                 reject_note: rejectNote ? String(rejectNote.value || '') : '',
             };
+        });
+        Object.keys(items).forEach(function (id) {
+            if (sealedItemIds[id]) return;
+            if (!form.querySelector('[data-bulk-done-row][data-item-id="' + id + '"]')) {
+                delete items[id];
+            }
         });
         try {
             sessionStorage.setItem(draftKey, JSON.stringify({
@@ -954,22 +986,10 @@
         });
     }
 
-    function pruneDraftForItemIds(itemIds) {
-        const draft = readDraft();
-        if (!draft || !draft.items) return;
-        (itemIds || []).forEach(function (id) {
-            delete draft.items[String(id)];
+    function setRejectControlsDisabled(disabled) {
+        form.querySelectorAll('[data-bulk-reject-note], [data-bulk-reject-submit]').forEach(function (el) {
+            el.disabled = !!disabled;
         });
-        if (Object.keys(draft.items).length === 0) {
-            clearDraft();
-            return;
-        }
-        try {
-            sessionStorage.setItem(draftKey, JSON.stringify({
-                savedAt: Date.now(),
-                items: draft.items,
-            }));
-        } catch (e) {}
     }
 
     function syncDoneState() {
@@ -1078,18 +1098,25 @@
     window.addEventListener('pagehide', writeDraft);
     window.addEventListener('beforeunload', writeDraft);
 
+    let doneConfirmOpen = false;
     form.addEventListener('submit', function (e) {
         // Dedicated flag so shared slb-confirm.js cannot clear imperative allows.
         if (form.dataset.slbBulkAllowSubmit === '1') {
             delete form.dataset.slbBulkAllowSubmit;
-            const submittedIds = (form.dataset.slbBulkSubmittedIds || '')
-                .split(',')
-                .map(function (v) { return v.trim(); })
-                .filter(Boolean);
-            delete form.dataset.slbBulkSubmittedIds;
-            submittedIds.forEach(function (id) { sealedItemIds[id] = true; });
-            pruneDraftForItemIds(submittedIds);
+            try {
+                const submittedIds = (form.dataset.slbBulkSubmittedIds || '')
+                    .split(',')
+                    .map(function (v) { return v.trim(); })
+                    .filter(Boolean);
+                delete form.dataset.slbBulkSubmittedIds;
+                submittedIds.forEach(function (id) { sealedItemIds[id] = true; });
+            } catch (err) {}
             return;
+        }
+
+        if (doneConfirmOpen) {
+            e.preventDefault();
+            return false;
         }
 
         const complete = completeRows();
@@ -1100,19 +1127,23 @@
             if (partial.length > 0) {
                 const firstPartial = rowFields(partial[0]).find((el) => !fieldFilled(el));
                 markRequiredField(firstPartial);
-                slbAlert({
-                    icon: 'warning',
-                    title: 'Finish incomplete blocks',
-                    text: 'Each started row must be fully filled, or click Clear. Then submit the complete block(s). Empty rows can wait for later.',
-                });
+                if (typeof window.slbAlert === 'function') {
+                    window.slbAlert({
+                        icon: 'warning',
+                        title: 'Finish incomplete blocks',
+                        text: 'Each started row must be fully filled, or click Clear. Then submit the complete block(s). Empty rows can wait for later.',
+                    });
+                }
             } else {
                 const firstEmpty = fields().find((el) => !fieldFilled(el));
                 markRequiredField(firstEmpty);
-                slbAlert({
-                    icon: 'warning',
-                    title: 'Fill at least one block',
-                    text: 'Fill Language, Country, DA, DR, Traffic and Niches for at least one website, then click Done. Other rows can stay empty for later.',
-                });
+                if (typeof window.slbAlert === 'function') {
+                    window.slbAlert({
+                        icon: 'warning',
+                        title: 'Fill at least one block',
+                        text: 'Fill Language, Country, DA, DR, Traffic and Niches for at least one website, then click Done. Other rows can stay empty for later.',
+                    });
+                }
             }
             return false;
         }
@@ -1121,29 +1152,84 @@
         const remaining = doneRows().length - count;
         const submittedIds = complete.map(rowItemId).filter(Boolean);
         e.preventDefault();
-        const confirmFn = window.slbConfirm({
-            title: 'Done — add draft sites?',
-            text: remaining > 0
-                ? ('Add ' + count + ' complete draft site(s) now and notify the publisher? ' + remaining + ' unfinished row(s) will stay pending.')
-                : ('Add ' + count + ' draft site(s) to this publisher’s Pending sites and notify them?'),
-            confirmText: 'Done',
-            icon: 'question',
-        });
+        doneConfirmOpen = true;
+        if (submitBtn) submitBtn.disabled = true;
+        setRejectControlsDisabled(true);
+        let confirmFn;
+        try {
+            confirmFn = typeof window.slbConfirm === 'function'
+                ? window.slbConfirm({
+                    title: 'Done — add draft sites?',
+                    text: remaining > 0
+                        ? ('Add ' + count + ' complete draft site(s) now and notify the publisher? ' + remaining + ' unfinished row(s) will stay pending.')
+                        : ('Add ' + count + ' draft site(s) to this publisher’s Pending sites and notify them?'),
+                    confirmText: 'Done',
+                    icon: 'question',
+                })
+                : null;
+        } catch (err) {
+            doneConfirmOpen = false;
+            setRejectControlsDisabled(false);
+            setIncompleteRowsDisabled(false);
+            syncDoneState();
+            return false;
+        }
+        if (!confirmFn || typeof confirmFn.then !== 'function') {
+            doneConfirmOpen = false;
+            setRejectControlsDisabled(false);
+            setIncompleteRowsDisabled(false);
+            syncDoneState();
+            return false;
+        }
 
         confirmFn.then(function (ok) {
             if (!ok) {
+                doneConfirmOpen = false;
+                setRejectControlsDisabled(false);
                 setIncompleteRowsDisabled(false);
+                syncDoneState();
                 return;
             }
-            setIncompleteRowsDisabled(true);
-            form.dataset.slbBulkSubmittedIds = submittedIds.join(',');
-            form.dataset.slbBulkAllowSubmit = '1';
-            if (typeof form.requestSubmit === 'function') {
-                form.requestSubmit();
-            } else {
-                HTMLFormElement.prototype.submit.call(form);
+            try {
+                setIncompleteRowsDisabled(true);
+                // Seal so pagehide writeDraft keeps the last snapshot instead
+                // of rewriting in-flight rows. Do not prune — a 419/500 must
+                // still be able to restore the boxes.
+                submittedIds.forEach(function (id) { sealedItemIds[id] = true; });
+                form.dataset.slbBulkSubmittedIds = submittedIds.join(',');
+                form.dataset.slbBulkAllowSubmit = '1';
+                if (typeof form.requestSubmit === 'function') {
+                    form.requestSubmit();
+                } else {
+                    HTMLFormElement.prototype.submit.call(form);
+                }
+            } catch (err) {
+                doneConfirmOpen = false;
+                delete form.dataset.slbBulkAllowSubmit;
+                setRejectControlsDisabled(false);
+                setIncompleteRowsDisabled(false);
+                syncDoneState();
             }
+        }).catch(function () {
+            doneConfirmOpen = false;
+            setRejectControlsDisabled(false);
+            setIncompleteRowsDisabled(false);
+            syncDoneState();
         });
+    });
+
+    window.addEventListener('pageshow', function (e) {
+        const nav = (typeof performance !== 'undefined' && performance.getEntriesByType)
+            ? (performance.getEntriesByType('navigation')[0] || {})
+            : {};
+        if (!e.persisted && nav.type !== 'back_forward') return;
+        doneConfirmOpen = false;
+        delete form.dataset.slbBulkAllowSubmit;
+        delete form.dataset.slbBulkSubmittedIds;
+        Object.keys(sealedItemIds).forEach(function (id) { delete sealedItemIds[id]; });
+        setRejectControlsDisabled(false);
+        setIncompleteRowsDisabled(false);
+        syncDoneState();
     });
 
     syncDoneState();
@@ -1151,16 +1237,20 @@
 
 document.querySelectorAll('.bulk-draft-delete').forEach(function (btn) {
     btn.addEventListener('click', async function () {
+        if (this.dataset.bulkDeleteBusy === '1') return;
         const id = String(this.getAttribute('data-site-id') || '');
         if (!/^\d+$/.test(id)) return;
+        this.dataset.bulkDeleteBusy = '1';
         const name = this.getAttribute('data-site-name') || 'this site';
-        const ok = await window.slbConfirm({
-                title: 'Delete draft site?',
-                text: 'Delete draft "' + name + '"? This removes the wrong draft. History of the delete is kept.',
-                confirmText: 'Delete draft',
-                danger: true,
-            });
-        if (!ok) {
+        let reason = null;
+        try {
+            reason = await collectBulkDraftDeleteReason(name);
+        } catch (e) {
+            delete this.dataset.bulkDeleteBusy;
+            return;
+        }
+        if (!reason) {
+            delete this.dataset.bulkDeleteBusy;
             return;
         }
         this.disabled = true;
@@ -1168,22 +1258,77 @@ document.querySelectorAll('.bulk-draft-delete').forEach(function (btn) {
             const res = await fetch(@json(staff_base_path() . '/sites') + '/' + id, {
                 method: 'DELETE',
                 headers: {
+                    'Content-Type': 'application/json',
                     'X-CSRF-TOKEN': @json(csrf_token()),
                     'Accept': 'application/json',
                 },
+                body: JSON.stringify({ reason: reason }),
             });
             const data = await res.json().catch(function () { return {}; });
+            const reasonErr = data.errors && data.errors.reason
+                ? (Array.isArray(data.errors.reason) ? data.errors.reason[0] : data.errors.reason)
+                : null;
             if (!res.ok || !data.success) {
-                if (window.slbAlert) { await window.slbAlert({ icon: 'error', title: data.message || 'Could not delete site.' }); } else { alert(data.message || 'Could not delete site.'); }
+                if (typeof window.slbAlert === 'function') { await window.slbAlert({ icon: 'error', title: reasonErr || data.message || 'Could not delete site.' }); } else { alert(reasonErr || data.message || 'Could not delete site.'); }
                 this.disabled = false;
+                delete this.dataset.bulkDeleteBusy;
                 return;
             }
             location.reload();
         } catch (e) {
-            if (window.slbAlert) { await window.slbAlert({ icon: 'error', title: 'Could not delete site.' }); } else { alert('Could not delete site.'); }
+            if (typeof window.slbAlert === 'function') { await window.slbAlert({ icon: 'error', title: 'Could not delete site.' }); } else { alert('Could not delete site.'); }
             this.disabled = false;
+            delete this.dataset.bulkDeleteBusy;
         }
     });
 });
+
+function collectBulkDraftDeleteReason(name) {
+    if (window.Swal && typeof window.Swal.fire === 'function') {
+        return window.Swal.fire({
+            title: 'Delete draft site?',
+            text: 'Delete draft "' + name + '"? This removes the wrong draft. The publisher will see your reason.',
+            icon: 'warning',
+            input: 'textarea',
+            inputLabel: 'Reason for the publisher',
+            inputPlaceholder: 'Why this draft is being removed (min. 10 characters)',
+            inputAttributes: { maxlength: '1000' },
+            showCancelButton: true,
+            confirmButtonText: 'Delete draft',
+            customClass: { confirmButton: 'slb-swal-danger' },
+            reverseButtons: true,
+            focusCancel: true,
+            preConfirm: function (value) {
+                const next = String(value || '').trim();
+                if (next.length < 10) {
+                    window.Swal.showValidationMessage('Please enter a reason (at least 10 characters).');
+                    return false;
+                }
+                if (next.length > 1000) {
+                    window.Swal.showValidationMessage('Reason must be 1000 characters or fewer.');
+                    return false;
+                }
+                return next;
+            },
+        }).then(function (result) {
+            if (!result || !result.isConfirmed) return null;
+            const next = String(result.value || '').trim();
+            return next.length >= 10 ? next : null;
+        });
+    }
+
+    if (typeof window.slbConfirm !== 'function') {
+        return Promise.resolve(null);
+    }
+
+    return window.slbConfirm({
+        title: 'Delete draft site?',
+        text: 'Delete draft "' + name + '"? This removes the wrong draft. History of the delete is kept.',
+        confirmText: 'Delete draft',
+        danger: true,
+    }).then(function (ok) {
+        return ok ? 'Wrong draft removed from this bulk request.' : null;
+    });
+}
 </script>
 @endsection
