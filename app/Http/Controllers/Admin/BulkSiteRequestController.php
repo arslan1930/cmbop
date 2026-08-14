@@ -475,8 +475,16 @@ class BulkSiteRequestController extends Controller
                     }
                 }
 
-                $language = strtolower(trim((string) ($row['language'] ?? '')));
-                $country = strtolower(trim((string) ($row['country'] ?? '')));
+                $languageRaw = $row['language'] ?? '';
+                $countryRaw = $row['country'] ?? '';
+                if (! is_scalar($languageRaw)) {
+                    $languageRaw = '';
+                }
+                if (! is_scalar($countryRaw)) {
+                    $countryRaw = '';
+                }
+                $language = strtolower(trim((string) $languageRaw));
+                $country = strtolower(trim((string) $countryRaw));
                 if ($language !== '' && ! in_array($language, $allowedLanguages, true)) {
                     $validator->errors()->add('items.'.$itemId.'.language', 'Choose a valid marketplace language.');
                 }
@@ -490,7 +498,11 @@ class BulkSiteRequestController extends Controller
                     );
                 }
 
-                $resolved = Category::resolveNicheNames($row['categories'] ?? []);
+                $rawCategories = $row['categories'] ?? [];
+                if (! is_string($rawCategories) && ! is_array($rawCategories)) {
+                    $rawCategories = [];
+                }
+                $resolved = Category::resolveNicheNames($rawCategories);
                 $categories = $resolved['resolved'];
                 if ($categories === [] && $resolved['unknown'] === []) {
                     $validator->errors()->add('items.'.$itemId.'.categories', 'Select at least one niche (max 7).');
@@ -538,7 +550,17 @@ class BulkSiteRequestController extends Controller
             if (! is_array($row) || $this->classifyDoneRowFill($row) !== 'complete') {
                 continue;
             }
-            $categories = Category::resolveNicheNames($row['categories'] ?? [])['resolved'];
+            if (! is_numeric($row['da'] ?? null) || ! is_numeric($row['dr'] ?? null) || ! is_numeric($row['traffic'] ?? null)) {
+                continue;
+            }
+            if (! is_scalar($row['language'] ?? null) || ! is_scalar($row['country'] ?? null)) {
+                continue;
+            }
+            $rawCategories = $row['categories'] ?? [];
+            if (! is_string($rawCategories) && ! is_array($rawCategories)) {
+                $rawCategories = [];
+            }
+            $categories = Category::resolveNicheNames($rawCategories)['resolved'];
             $rows[] = [
                 'line' => (int) $item->id,
                 'site_url' => $item->site_url,
@@ -553,6 +575,12 @@ class BulkSiteRequestController extends Controller
                 'categories' => $categories,
                 'category' => implode('|', $categories),
             ];
+        }
+
+        if ($rows === []) {
+            return back()
+                ->withInput()
+                ->with('error', 'Fill at least one complete website block before clicking Done.');
         }
 
         return $this->createDraftSitesAndNotify($bulkRequest, $rows, [], 'bulk_request.done');
@@ -640,10 +668,20 @@ class BulkSiteRequestController extends Controller
             }
 
             foreach ($rows as $row) {
-                $domain = $row['domain'];
+                $domain = isset($row['domain']) && is_scalar($row['domain']) ? trim((string) $row['domain']) : '';
                 $site = null;
 
                 try {
+                    if ($domain === '') {
+                        $failures[] = [
+                            'line' => $row['line'] ?? null,
+                            'url' => $row['site_url'] ?? '',
+                            'errors' => ['Could not add this website. Try again.'],
+                        ];
+
+                        continue;
+                    }
+
                     if ($action === 'bulk_request.done') {
                         $itemId = (int) ($row['line'] ?? 0);
                         if ($itemId <= 0) {
@@ -730,16 +768,22 @@ class BulkSiteRequestController extends Controller
                     $created++;
                     $createdDomains[] = $domain;
                 } catch (UniqueConstraintViolationException $e) {
-                    if ($site instanceof Site && $site->exists) {
-                        try {
-                            $site->delete();
-                        } catch (\Throwable $ignored) {
-                        }
-                    }
+                    $this->discardFailedDraftSite($bulkRequest, $row, $site, $action);
                     $failures[] = [
-                        'line' => $row['line'],
-                        'url' => $row['site_url'],
+                        'line' => $row['line'] ?? null,
+                        'url' => $row['site_url'] ?? '',
                         'errors' => ['Domain already registered: '.$domain],
+                    ];
+                } catch (\Throwable $e) {
+                    $this->discardFailedDraftSite($bulkRequest, $row, $site, $action);
+                    Log::warning('Failed to add bulk draft site: '.$e->getMessage(), [
+                        'bulk_site_request_id' => $bulkRequest->id,
+                        'domain' => $domain,
+                    ]);
+                    $failures[] = [
+                        'line' => $row['line'] ?? null,
+                        'url' => $row['site_url'] ?? '',
+                        'errors' => ['Could not add this website. Try again.'],
                     ];
                 }
             }
@@ -823,8 +867,8 @@ class BulkSiteRequestController extends Controller
             ->with($created > 0 ? 'success' : 'error', $message)
             ->with('seed_failures', $failures);
 
-        // Failed rows stay pending. Echo their boxes back even if the draft
-        // was pruned before the browser unloaded.
+        // Failed rows stay pending. Echo their boxes back so a sealed draft
+        // or a 419/500 can still refill the same cards.
         if ($failures !== []) {
             $response->withInput();
         }
@@ -854,6 +898,29 @@ class BulkSiteRequestController extends Controller
         $query->where('domain', $row['domain'])->update(['site_id' => $site->id]);
 
         return true;
+    }
+
+    /**
+     * @param  array<string, mixed>  $row
+     * @param  'bulk_request.done'|'bulk_request.seeded'  $action
+     */
+    private function discardFailedDraftSite(BulkSiteRequest $bulkRequest, array $row, mixed $site, string $action): void
+    {
+        if (! $site instanceof Site || ! $site->exists) {
+            return;
+        }
+
+        try {
+            $itemId = (int) ($row['line'] ?? 0);
+            if ($action === 'bulk_request.done' && $itemId > 0) {
+                $bulkRequest->items()
+                    ->whereKey($itemId)
+                    ->where('site_id', $site->id)
+                    ->update(['site_id' => null]);
+            }
+            $site->delete();
+        } catch (\Throwable $ignored) {
+        }
     }
 
     /**

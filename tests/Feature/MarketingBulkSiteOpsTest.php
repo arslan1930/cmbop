@@ -523,6 +523,56 @@ class MarketingBulkSiteOpsTest extends TestCase
         $this->assertSame($already->id, (int) $stale->fresh()->site_id);
     }
 
+    public function test_done_skips_empty_domain_rows_and_still_adds_the_rest(): void
+    {
+        Mail::fake();
+        [$country, $language] = $this->marketplaceCodes();
+        $category = Category::query()->firstOrFail();
+
+        $bulk = BulkSiteRequest::create([
+            'publisher_id' => $this->publisher->id,
+            'status' => BulkSiteRequest::STATUS_REQUESTED,
+            'estimated_count' => 2,
+        ]);
+        $broken = BulkSiteRequestItem::create([
+            'bulk_site_request_id' => $bulk->id,
+            'site_url' => 'https://missing-host.example',
+            'domain' => '',
+            'price' => 40,
+        ]);
+        $ok = BulkSiteRequestItem::create([
+            'bulk_site_request_id' => $bulk->id,
+            'site_url' => 'https://has-host.example',
+            'domain' => 'has-host.example',
+            'price' => 55,
+        ]);
+
+        $payload = [
+            'language' => $language,
+            'country' => $country,
+            'da' => 20,
+            'dr' => 25,
+            'traffic' => 1000,
+            'categories' => $category->name,
+        ];
+
+        $this->actingAs($this->marketer)
+            ->from(route('marketing.bulk-site-requests.show', $bulk))
+            ->post(route('marketing.bulk-site-requests.done', $bulk), [
+                'items' => [
+                    $broken->id => $payload,
+                    $ok->id => $payload,
+                ],
+            ])
+            ->assertRedirect()
+            ->assertSessionHas('success');
+
+        $this->assertTrue($broken->fresh()->isPending());
+        $this->assertNotNull($ok->fresh()->site_id);
+        $this->assertDatabaseHas('sites', ['domain' => 'has-host.example']);
+        $this->assertDatabaseMissing('sites', ['domain' => '']);
+    }
+
     public function test_done_all_stale_ids_asks_to_refresh(): void
     {
         Mail::fake();

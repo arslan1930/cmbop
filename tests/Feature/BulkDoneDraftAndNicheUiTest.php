@@ -107,6 +107,11 @@ class BulkDoneDraftAndNicheUiTest extends TestCase
         $this->assertStringNotContainsString('function fields()', $html);
         $this->assertStringContainsString('sealedItemIds', $html);
         $this->assertStringContainsString('doneConfirmOpen', $html);
+        $this->assertStringContainsString('function setRejectControlsDisabled', $html);
+        $this->assertStringContainsString('typeof window.slbConfirm === \'function\'', $html);
+        $this->assertStringContainsString('previous.items', $html);
+        $this->assertStringNotContainsString('function pruneDraftForItemIds', $html);
+        $this->assertStringNotContainsString('pruneDraftForItemIds(submittedIds)', $html);
         $this->assertStringContainsString('collectBulkDraftDeleteReason', $html);
         $this->assertStringContainsString('JSON.stringify({ reason: reason })', $html);
         $this->assertStringContainsString("input: 'textarea'", $html);

@@ -755,7 +755,17 @@
     }
 
     function writeDraft() {
+        const previous = readDraft();
         const items = {};
+        // Keep the last snapshot for in-flight (sealed) rows so a 419/500
+        // after confirm can restore them. Do not prune before the POST lands.
+        if (previous && previous.items && typeof previous.items === 'object') {
+            Object.keys(previous.items).forEach(function (id) {
+                if (!safeItemId(id)) return;
+                const snap = previous.items[id];
+                if (snap && typeof snap === 'object') items[id] = snap;
+            });
+        }
         form.querySelectorAll('[data-bulk-done-row]').forEach(function (row) {
             const language = row.querySelector('select[name*="[language]"]');
             const country = row.querySelector('select[name*="[country]"]');
@@ -775,6 +785,12 @@
                 categories: categories ? categories.value : '',
                 reject_note: rejectNote ? String(rejectNote.value || '') : '',
             };
+        });
+        Object.keys(items).forEach(function (id) {
+            if (sealedItemIds[id]) return;
+            if (!form.querySelector('[data-bulk-done-row][data-item-id="' + id + '"]')) {
+                delete items[id];
+            }
         });
         try {
             sessionStorage.setItem(draftKey, JSON.stringify({
@@ -970,22 +986,10 @@
         });
     }
 
-    function pruneDraftForItemIds(itemIds) {
-        const draft = readDraft();
-        if (!draft || !draft.items) return;
-        (itemIds || []).forEach(function (id) {
-            delete draft.items[String(id)];
+    function setRejectControlsDisabled(disabled) {
+        form.querySelectorAll('[data-bulk-reject-note], [data-bulk-reject-submit]').forEach(function (el) {
+            el.disabled = !!disabled;
         });
-        if (Object.keys(draft.items).length === 0) {
-            clearDraft();
-            return;
-        }
-        try {
-            sessionStorage.setItem(draftKey, JSON.stringify({
-                savedAt: Date.now(),
-                items: draft.items,
-            }));
-        } catch (e) {}
     }
 
     function syncDoneState() {
@@ -1106,7 +1110,6 @@
                     .filter(Boolean);
                 delete form.dataset.slbBulkSubmittedIds;
                 submittedIds.forEach(function (id) { sealedItemIds[id] = true; });
-                pruneDraftForItemIds(submittedIds);
             } catch (err) {}
             return;
         }
@@ -1151,24 +1154,29 @@
         e.preventDefault();
         doneConfirmOpen = true;
         if (submitBtn) submitBtn.disabled = true;
+        setRejectControlsDisabled(true);
         let confirmFn;
         try {
-            confirmFn = window.slbConfirm({
-                title: 'Done — add draft sites?',
-                text: remaining > 0
-                    ? ('Add ' + count + ' complete draft site(s) now and notify the publisher? ' + remaining + ' unfinished row(s) will stay pending.')
-                    : ('Add ' + count + ' draft site(s) to this publisher’s Pending sites and notify them?'),
-                confirmText: 'Done',
-                icon: 'question',
-            });
+            confirmFn = typeof window.slbConfirm === 'function'
+                ? window.slbConfirm({
+                    title: 'Done — add draft sites?',
+                    text: remaining > 0
+                        ? ('Add ' + count + ' complete draft site(s) now and notify the publisher? ' + remaining + ' unfinished row(s) will stay pending.')
+                        : ('Add ' + count + ' draft site(s) to this publisher’s Pending sites and notify them?'),
+                    confirmText: 'Done',
+                    icon: 'question',
+                })
+                : null;
         } catch (err) {
             doneConfirmOpen = false;
+            setRejectControlsDisabled(false);
             setIncompleteRowsDisabled(false);
             syncDoneState();
             return false;
         }
         if (!confirmFn || typeof confirmFn.then !== 'function') {
             doneConfirmOpen = false;
+            setRejectControlsDisabled(false);
             setIncompleteRowsDisabled(false);
             syncDoneState();
             return false;
@@ -1177,16 +1185,17 @@
         confirmFn.then(function (ok) {
             if (!ok) {
                 doneConfirmOpen = false;
+                setRejectControlsDisabled(false);
                 setIncompleteRowsDisabled(false);
                 syncDoneState();
                 return;
             }
             try {
                 setIncompleteRowsDisabled(true);
-                // Seal/prune before submit so the prototype.submit fallback
-                // (no submit event) cannot write those rows back on pagehide.
+                // Seal so pagehide writeDraft keeps the last snapshot instead
+                // of rewriting in-flight rows. Do not prune — a 419/500 must
+                // still be able to restore the boxes.
                 submittedIds.forEach(function (id) { sealedItemIds[id] = true; });
-                try { pruneDraftForItemIds(submittedIds); } catch (err) {}
                 form.dataset.slbBulkSubmittedIds = submittedIds.join(',');
                 form.dataset.slbBulkAllowSubmit = '1';
                 if (typeof form.requestSubmit === 'function') {
@@ -1197,11 +1206,13 @@
             } catch (err) {
                 doneConfirmOpen = false;
                 delete form.dataset.slbBulkAllowSubmit;
+                setRejectControlsDisabled(false);
                 setIncompleteRowsDisabled(false);
                 syncDoneState();
             }
         }).catch(function () {
             doneConfirmOpen = false;
+            setRejectControlsDisabled(false);
             setIncompleteRowsDisabled(false);
             syncDoneState();
         });
@@ -1216,6 +1227,7 @@
         delete form.dataset.slbBulkAllowSubmit;
         delete form.dataset.slbBulkSubmittedIds;
         Object.keys(sealedItemIds).forEach(function (id) { delete sealedItemIds[id]; });
+        setRejectControlsDisabled(false);
         setIncompleteRowsDisabled(false);
         syncDoneState();
     });
@@ -1305,7 +1317,7 @@ function collectBulkDraftDeleteReason(name) {
         });
     }
 
-    if (!window.slbConfirm) {
+    if (typeof window.slbConfirm !== 'function') {
         return Promise.resolve(null);
     }
 
