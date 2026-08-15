@@ -102,6 +102,14 @@ class WalletStripeDepositService
                 return;
             }
 
+            $orphaned = $this->findCompletedCardMissingPaymentIntent($userId, $amountEuros);
+            if ($orphaned) {
+                $this->attachMissingStripeIds($orphaned, '', $paymentIntentId);
+                $credited = (float) $orphaned->amount;
+
+                return;
+            }
+
             $deposit = $this->createCompletedCardRow(
                 $userId,
                 $amountEuros,
@@ -400,6 +408,7 @@ class WalletStripeDepositService
                 // A completed bank/Wise invoice (or a different PaymentIntent)
                 // must not swallow a new card payment.
                 if ($this->depositMatchesStripePayment($lockedDeposit, $sessionId, $paymentIntentId)) {
+                    $this->attachMissingStripeIds($lockedDeposit, $sessionId, $paymentIntentId);
                     $credited = (float) $lockedDeposit->amount;
 
                     return;
@@ -633,6 +642,10 @@ class WalletStripeDepositService
                 return 0.0;
             }
 
+            if ($alreadyCredited > 0) {
+                $this->attachMissingStripeIds($found, $sessionId, $paymentIntentId);
+            }
+
             return $alreadyCredited;
         }
 
@@ -676,6 +689,73 @@ class WalletStripeDepositService
      * Leftover Checkout / PaymentIntent ids on a bank / Wise / crypto invoice
      * must not block a real card charge from creating its own row.
      */
+    /**
+     * Persist a PaymentIntent / session id onto a completed card that was
+     * recorded before that id was known, so a later webhook cannot mint a
+     * second row for the same charge.
+     */
+    private function attachMissingStripeIds(
+        DepositRequest $deposit,
+        string $sessionId,
+        string $paymentIntentId
+    ): void {
+        if ($deposit->status !== 'completed' || $deposit->isManualPayment()) {
+            return;
+        }
+
+        $updates = [];
+        if ($sessionId !== '' && ! filled($deposit->stripe_session_id)
+            && ! DepositRequest::query()
+                ->where('stripe_session_id', $sessionId)
+                ->where('id', '!=', $deposit->id)
+                ->exists()) {
+            $updates['stripe_session_id'] = $sessionId;
+        }
+        if ($paymentIntentId !== '' && ! filled($deposit->stripe_payment_intent_id)
+            && ! DepositRequest::query()
+                ->where('stripe_payment_intent_id', $paymentIntentId)
+                ->where('id', '!=', $deposit->id)
+                ->exists()) {
+            $updates['stripe_payment_intent_id'] = $paymentIntentId;
+        }
+        if ($updates === []) {
+            return;
+        }
+
+        try {
+            $deposit->update($updates);
+        } catch (QueryException $e) {
+            if (! $this->isUniqueConstraintFailure($e)) {
+                throw $e;
+            }
+        }
+    }
+
+    /**
+     * A Checkout Session can credit a card row before Stripe has attached the
+     * PaymentIntent. If exactly one such row exists for this payer and amount,
+     * the later PI webhook must attach to it instead of crediting again.
+     */
+    private function findCompletedCardMissingPaymentIntent(int $userId, float $amountEuros): ?DepositRequest
+    {
+        $matches = DepositRequest::query()
+            ->where('user_id', $userId)
+            ->where('status', 'completed')
+            ->where('payment_method', 'card')
+            ->whereNotNull('stripe_session_id')
+            ->where('stripe_session_id', '!=', '')
+            ->where(function ($q) {
+                $q->whereNull('stripe_payment_intent_id')
+                    ->orWhere('stripe_payment_intent_id', '');
+            })
+            ->where('amount', $amountEuros)
+            ->where('created_at', '>=', now()->subMinutes(30))
+            ->lockForUpdate()
+            ->get();
+
+        return $matches->count() === 1 ? $matches->first() : null;
+    }
+
     private function detachLeftoverStripeIds(
         DepositRequest $deposit,
         string $sessionId,

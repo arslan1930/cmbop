@@ -1210,4 +1210,82 @@ class DepositCreditAndRejectHardeningTest extends TestCase
             ->where('status', 'completed')
             ->count());
     }
+
+    public function test_session_without_payment_intent_then_pi_does_not_double_credit(): void
+    {
+        $advertiser = $this->advertiser();
+        $wallet = $this->walletFor($advertiser);
+        $sessionId = 'cs_no_pi_'.uniqid();
+        $pi = 'pi_after_session_'.uniqid();
+
+        $fromSession = app(WalletStripeDepositService::class)->creditFromCheckoutSession((object) [
+            'id' => $sessionId,
+            'payment_status' => 'paid',
+            'amount_total' => 4000,
+            'metadata' => (object) [
+                'type' => 'wallet_deposit',
+                'user_id' => (string) $advertiser->id,
+                'amount' => '40.00',
+                'reference_code' => 'DEP-NO-PI-40',
+            ],
+        ]);
+
+        $fromPi = app(WalletStripeDepositService::class)->creditFromPaymentIntentObject((object) [
+            'id' => $pi,
+            'status' => 'succeeded',
+            'amount' => 4000,
+            'amount_received' => 4000,
+            'metadata' => (object) [
+                'type' => 'wallet_deposit',
+                'user_id' => (string) $advertiser->id,
+                'amount' => '40.00',
+                'reference_code' => 'DEP-NO-PI-40',
+            ],
+        ]);
+
+        $this->assertSame(40.0, $fromSession);
+        $this->assertSame(40.0, $fromPi);
+        $this->assertSame(40.0, (float) $wallet->fresh()->balance);
+        $this->assertSame(1, DepositRequest::query()->where('user_id', $advertiser->id)->count());
+        $this->assertSame($pi, DepositRequest::query()
+            ->where('stripe_session_id', $sessionId)
+            ->value('stripe_payment_intent_id'));
+    }
+
+    public function test_completed_card_found_by_session_stores_missing_payment_intent(): void
+    {
+        $advertiser = $this->advertiser();
+        $wallet = $this->walletFor($advertiser);
+        $sessionId = 'cs_missing_pi_'.uniqid();
+        $pi = 'pi_backfill_'.uniqid();
+
+        $card = DepositRequest::create([
+            'user_id' => $advertiser->id,
+            'reference_code' => 'DEP-BACKFILL-PI',
+            'amount' => 25,
+            'payment_method' => 'card',
+            'status' => 'completed',
+            'stripe_session_id' => $sessionId,
+            'approved_at' => now()->subMinute(),
+            'paid_at' => now()->subMinute(),
+        ]);
+        $wallet->update(['balance' => 25]);
+
+        $credited = app(WalletStripeDepositService::class)->creditFromCheckoutSession((object) [
+            'id' => $sessionId,
+            'payment_status' => 'paid',
+            'amount_total' => 2500,
+            'payment_intent' => $pi,
+            'metadata' => (object) [
+                'type' => 'wallet_deposit',
+                'user_id' => (string) $advertiser->id,
+                'amount' => '25.00',
+            ],
+        ]);
+
+        $this->assertSame(25.0, $credited);
+        $this->assertSame(25.0, (float) $wallet->fresh()->balance);
+        $this->assertSame($pi, $card->fresh()->stripe_payment_intent_id);
+        $this->assertSame(1, DepositRequest::query()->where('user_id', $advertiser->id)->count());
+    }
 }
