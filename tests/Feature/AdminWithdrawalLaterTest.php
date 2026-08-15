@@ -106,7 +106,7 @@ class AdminWithdrawalLaterTest extends TestCase
         $this->assertStringContainsString('Array.isArray(options.ids) ? options.ids', $html);
         $this->assertStringContainsString('ids: ids', $html);
         $this->assertStringContainsString('!Array.isArray(withdrawal.payment_details)', $html);
-        $this->assertStringContainsString("failedCount > 0 ? 'warning' : 'success'", $html);
+        $this->assertStringContainsString("(failedCount > 0 || missingStatements > 0) ? 'warning' : 'success'", $html);
         $this->assertStringContainsString('failed.forEach(function (row)', $html);
         $this->assertStringContainsString('addSelectedId(row && row.id)', $html);
         $this->assertStringContainsString('act-statement', $html);
@@ -139,7 +139,7 @@ class AdminWithdrawalLaterTest extends TestCase
             ->assertDontSee('Yes, mark paid', false)
             ->getContent();
 
-        $this->assertStringContainsString('href="'.$queueUrl.'"', $html);
+        $this->assertStringContainsString('href="'.e($queueUrl).'"', $html);
     }
 
     public function test_mark_paid_warns_when_statement_issue_fails(): void
