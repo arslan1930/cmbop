@@ -6,6 +6,7 @@ use App\Mail\SiteClaimOwnershipTransferred;
 use App\Mail\SiteClaimReviewed;
 use App\Mail\SiteClaimSubmitted;
 use App\Models\BulkSiteRequest;
+use App\Models\BulkSiteRequestItem;
 use App\Models\InAppNotification;
 use App\Models\Order;
 use App\Models\OrderItem;
@@ -195,6 +196,65 @@ class SiteClaimHardeningTest extends TestCase
                 'sites' => [
                     ['url' => 'https://after-claim-a.example', 'price' => 40],
                     ['url' => 'https://after-claim-b.example', 'price' => 50],
+                ],
+            ])
+            ->assertRedirect(route('publisher.websites', ['status' => 'pending']))
+            ->assertSessionHas('success')
+            ->assertSessionMissing('error');
+    }
+
+    public function test_approve_drops_pending_www_twin_so_original_publisher_is_not_stuck(): void
+    {
+        Mail::fake();
+
+        $admin = $this->admin();
+        $owner = $this->userWithRole('publisher');
+        $claimer = $this->userWithRole('advertiser');
+        Role::firstOrCreate(['name' => 'publisher']);
+
+        $bulk = BulkSiteRequest::create([
+            'publisher_id' => $owner->id,
+            'status' => BulkSiteRequest::STATUS_AWAITING_PUBLISHER,
+            'estimated_count' => 2,
+        ]);
+        $site = $this->siteFor($owner);
+        $site->forceFill(['bulk_site_request_id' => $bulk->id])->save();
+        BulkSiteRequestItem::create([
+            'bulk_site_request_id' => $bulk->id,
+            'site_url' => $site->site_url,
+            'domain' => $site->domain,
+            'price' => 80,
+            'site_id' => $site->id,
+        ]);
+        $www = BulkSiteRequestItem::create([
+            'bulk_site_request_id' => $bulk->id,
+            'site_url' => 'https://www.'.$site->domain,
+            'domain' => 'www.'.$site->domain,
+            'price' => 80,
+        ]);
+
+        $this->assertTrue(
+            BulkSiteRequest::query()->whereKey($bulk->id)->blockingPublisher()->exists()
+        );
+
+        $claim = $this->pendingClaimFor($site, $claimer);
+        $this->actingAs($admin)->postJson(route('admin.community.claims.approve', $claim->id), [
+            'admin_notes' => 'Verified via domain email.',
+        ])->assertOk()->assertJson(['success' => true]);
+
+        $this->assertDatabaseMissing('bulk_site_request_items', ['id' => $www->id]);
+        $this->assertSame(0, $bulk->fresh()->pendingItemsCount());
+        $this->assertSame(BulkSiteRequest::STATUS_COMPLETED, $bulk->fresh()->status);
+        $this->assertFalse(
+            BulkSiteRequest::query()->whereKey($bulk->id)->blockingPublisher()->exists()
+        );
+
+        $this->actingAs($owner)
+            ->from(route('publisher.websites'))
+            ->post(route('publisher.bulk-sites.request'), [
+                'sites' => [
+                    ['url' => 'https://after-claim-twin-a.example', 'price' => 40],
+                    ['url' => 'https://after-claim-twin-b.example', 'price' => 50],
                 ],
             ])
             ->assertRedirect(route('publisher.websites', ['status' => 'pending']))

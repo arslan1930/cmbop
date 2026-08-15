@@ -159,6 +159,13 @@ class SiteClaimTransferService
             }
             $locked->save();
 
+            // www/apex twins still pending on the old batch cannot be Done
+            // (domain now belongs to the claimer) and would block a new bulk.
+            if ($linkedBulkId) {
+                BulkSiteRequest::query()->lockForUpdate()->find($linkedBulkId)
+                    ?->releasePendingItemsForDomain((string) $locked->domain);
+            }
+
             if (! $claimer->hasRole('publisher')) {
                 $claimer->assignRole('publisher');
             }

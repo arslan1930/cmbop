@@ -177,9 +177,9 @@ class BulkSiteRequestController extends Controller
         $archivedLive = 0;
 
         $alreadyCancelled = false;
-        $blockedByOpenOrders = null;
+        $blockedByOpenWork = null;
 
-        DB::transaction(function () use ($bulkRequest, $reason, &$removedDrafts, &$archivedLive, &$alreadyCancelled, &$blockedByOpenOrders) {
+        DB::transaction(function () use ($bulkRequest, $reason, &$removedDrafts, &$archivedLive, &$alreadyCancelled, &$blockedByOpenWork) {
             $locked = BulkSiteRequest::query()->lockForUpdate()->find($bulkRequest->id);
             if (! $locked || $locked->isCancelled()) {
                 $alreadyCancelled = true;
@@ -189,20 +189,32 @@ class BulkSiteRequestController extends Controller
 
             $orderGuard = app(SiteClaimTransferService::class);
             $openOn = [];
+            $disputeOn = [];
             foreach ($locked->sites()->notArchived()->lockForUpdate()->get() as $site) {
+                $label = Site::normalizeMarketplaceDomain((string) $site->domain);
+                if ($label === '') {
+                    $label = (string) $site->site_name;
+                }
                 $open = $orderGuard->openOrderItemsCount($site);
                 if ($open > 0) {
-                    $label = Site::normalizeMarketplaceDomain((string) $site->domain);
-                    if ($label === '') {
-                        $label = (string) $site->site_name;
-                    }
                     $openOn[] = $label.' ('.$open.')';
+                }
+                $disputes = $orderGuard->openDisputesCount($site);
+                if ($disputes > 0) {
+                    $disputeOn[] = $label.' ('.$disputes.')';
                 }
             }
             if ($openOn !== []) {
-                $blockedByOpenOrders = 'Cannot cancel while these listings have open orders: '
+                $blockedByOpenWork = 'Cannot cancel while these listings have open orders: '
                     .implode(', ', $openOn)
                     .'. Finish, cancel, or resolve those orders first.';
+
+                return;
+            }
+            if ($disputeOn !== []) {
+                $blockedByOpenWork = 'Cannot cancel while these listings have open disputes: '
+                    .implode(', ', $disputeOn)
+                    .'. Resolve those disputes first.';
 
                 return;
             }
@@ -246,8 +258,8 @@ class BulkSiteRequestController extends Controller
                 ->with('error', 'This request is already cancelled.');
         }
 
-        if (is_string($blockedByOpenOrders)) {
-            return back()->with('error', $blockedByOpenOrders);
+        if (is_string($blockedByOpenWork)) {
+            return back()->with('error', $blockedByOpenWork);
         }
 
         ActivityLogger::log(

@@ -17,6 +17,7 @@ use App\Models\InAppNotification;
 use App\Models\Language;
 use App\Models\Order;
 use App\Models\OrderItem;
+use App\Models\OrderItemDispute;
 use App\Models\Role;
 use App\Models\Site;
 use App\Models\User;
@@ -1439,6 +1440,74 @@ class BulkDoneRejectRowsTest extends TestCase
         Mail::assertNotQueued(BulkSiteRequestCancelled::class);
     }
 
+    public function test_cancel_refuses_when_a_live_listing_has_open_disputes(): void
+    {
+        Mail::fake();
+        [$bulk, $items] = $this->makeBulkWithItems(1, 'cancel-dispute');
+
+        $this->actingAs($this->marketer)
+            ->post(route('marketing.bulk-site-requests.done', $bulk), [
+                'items' => $this->completeRow($items[0]),
+            ])
+            ->assertRedirect();
+
+        $live = Site::query()->where('domain', $items[0]->domain)->firstOrFail();
+        $live->forceFill([
+            'verified' => true,
+            'verified_at' => now(),
+            'active' => true,
+            'onboarding_status' => null,
+        ])->save();
+
+        $order = Order::create([
+            'user_id' => $this->advertiser->id,
+            'order_number' => 'ORD-BULK-DISPUTE-1',
+            'subtotal' => 80,
+            'tax' => 0,
+            'total_amount' => 80,
+            'payment_method' => 'wallet',
+            'payment_status' => 'paid',
+            'status' => 'completed',
+        ]);
+        $item = OrderItem::create([
+            'order_id' => $order->id,
+            'site_id' => $live->id,
+            'site_name' => $live->site_name,
+            'site_url' => $live->site_url,
+            'price' => 80,
+            'content_link' => 'https://example.com/live-article',
+            'anchor_text' => 'best seo tools',
+            'target_url' => 'https://advertiser.example',
+            'publisher_status' => 'completed',
+        ]);
+
+        OrderItemDispute::ensureTable();
+        OrderItemDispute::create([
+            'order_id' => $order->id,
+            'order_item_id' => $item->id,
+            'opened_by' => $this->advertiser->id,
+            'status' => OrderItemDispute::STATUS_OPEN,
+            'reason' => 'Live link was removed after approval.',
+        ]);
+
+        $this->actingAs($this->marketer)
+            ->from(route('marketing.bulk-site-requests.show', $bulk))
+            ->post(route('marketing.bulk-site-requests.cancel', $bulk), [
+                'reason' => 'Publisher asked to stop this batch after one listing went live.',
+            ])
+            ->assertRedirect(route('marketing.bulk-site-requests.show', $bulk))
+            ->assertSessionHas('error', function ($message) use ($live) {
+                return is_string($message)
+                    && str_contains($message, 'Cannot cancel while these listings have open disputes')
+                    && str_contains($message, (string) $live->domain);
+            });
+
+        $this->assertFalse($live->fresh()->isArchived());
+        $this->assertTrue((bool) $live->fresh()->active);
+        $this->assertNotSame(BulkSiteRequest::STATUS_CANCELLED, $bulk->fresh()->status);
+        Mail::assertNotQueued(BulkSiteRequestCancelled::class);
+    }
+
     public function test_publisher_can_relist_domain_after_cancelled_bulk_leftover(): void
     {
         Mail::fake();
@@ -2202,6 +2271,50 @@ class BulkDoneRejectRowsTest extends TestCase
             ->assertOk();
 
         $this->assertSame($site->id, (int) $www->fresh()->site_id);
+        $this->assertSame(0, $bulk->fresh()->pendingItemsCount());
+        $this->assertSame(BulkSiteRequest::STATUS_AWAITING_PUBLISHER, $bulk->fresh()->status);
+        $this->assertFalse(
+            MarketingOpsQueues::bulkWaitingOnMarketer()->whereKey($bulk->id)->exists()
+        );
+    }
+
+    public function test_show_drops_pending_row_occupied_by_a_listing_that_left_the_batch(): void
+    {
+        $bulk = BulkSiteRequest::create([
+            'publisher_id' => $this->publisher->id,
+            'status' => BulkSiteRequest::STATUS_AWAITING_PUBLISHER,
+            'estimated_count' => 2,
+        ]);
+        $www = BulkSiteRequestItem::create([
+            'bulk_site_request_id' => $bulk->id,
+            'site_url' => 'https://www.claimed-left.example',
+            'domain' => 'www.claimed-left.example',
+            'price' => 40,
+        ]);
+        $keep = BulkSiteRequestItem::create([
+            'bulk_site_request_id' => $bulk->id,
+            'site_url' => 'https://keep-on-batch.example',
+            'domain' => 'keep-on-batch.example',
+            'price' => 45,
+        ]);
+        $this->existingListing('claimed-left.example', [
+            'verified' => true,
+            'active' => true,
+        ]);
+        $keepSite = $this->existingListing('keep-on-batch.example', [
+            'bulk_site_request_id' => $bulk->id,
+            'onboarding_status' => Site::ONBOARDING_AWAITING_DETAILS,
+        ]);
+        $keep->forceFill(['site_id' => $keepSite->id])->save();
+
+        $this->assertTrue($bulk->needsProgressHeal());
+
+        $this->actingAs($this->marketer)
+            ->get(route('marketing.bulk-site-requests.show', $bulk))
+            ->assertOk();
+
+        $this->assertDatabaseMissing('bulk_site_request_items', ['id' => $www->id]);
+        $this->assertSame($keepSite->id, (int) $keep->fresh()->site_id);
         $this->assertSame(0, $bulk->fresh()->pendingItemsCount());
         $this->assertSame(BulkSiteRequest::STATUS_AWAITING_PUBLISHER, $bulk->fresh()->status);
         $this->assertFalse(

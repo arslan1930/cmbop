@@ -123,6 +123,12 @@ class BulkSiteRequest extends Model
             return true;
         }
 
+        // Claim/archive moved the listing off this batch (or it is archived).
+        // The leftover pending twin cannot be Done and blocks a new bulk.
+        if ($hasPendingItems && $hasSites && $this->hasPendingItemsOccupiedElsewhere()) {
+            return true;
+        }
+
         // Reject-all leftover: no pending rows, no live drafts, not a legacy
         // sheet (count set, no item rows). Show must complete it or the
         // marketer list keeps a ghost "Waiting on marketer" batch.
@@ -181,6 +187,13 @@ class BulkSiteRequest extends Model
         }
         if ($this->status === self::STATUS_SHEET_SENT && $total === 0 && $pendingItems === 0 && $isLegacySheet) {
             return;
+        }
+
+        if ($pendingItems > 0) {
+            $released = $this->releasePendingItemsOccupiedElsewhere();
+            if ($released > 0) {
+                $pendingItems = $this->pendingItemsCount();
+            }
         }
 
         // Last/only draft deleted: the URL+price row is pending again (site_id nullOnDelete).
@@ -280,6 +293,84 @@ class BulkSiteRequest extends Model
         return ! $site->isArchived()
             && (int) $site->publisher_id === (int) $this->publisher_id
             && (int) $site->bulk_site_request_id === (int) $this->id;
+    }
+
+    /**
+     * Drop pending URL+price rows for a domain that left this batch
+     * (claim transfer) or is already listed elsewhere. Done would only
+     * fail "already registered" and the leftover blocks a new bulk.
+     */
+    public function releasePendingItemsForDomain(string $domain): int
+    {
+        $norm = Site::normalizeMarketplaceDomain($domain);
+        if ($norm === '') {
+            return 0;
+        }
+
+        $ids = $this->items()
+            ->whereNull('site_id')
+            ->get(['id', 'domain'])
+            ->filter(fn (BulkSiteRequestItem $item) => Site::normalizeMarketplaceDomain((string) $item->domain) === $norm)
+            ->map(fn (BulkSiteRequestItem $item) => (int) $item->id)
+            ->values()
+            ->all();
+
+        return $this->deletePendingItemsById($ids);
+    }
+
+    public function hasPendingItemsOccupiedElsewhere(): bool
+    {
+        return $this->pendingItemIdsOccupiedElsewhere() !== [];
+    }
+
+    public function releasePendingItemsOccupiedElsewhere(): int
+    {
+        return $this->deletePendingItemsById($this->pendingItemIdsOccupiedElsewhere());
+    }
+
+    /**
+     * @return list<int>
+     */
+    private function pendingItemIdsOccupiedElsewhere(): array
+    {
+        $pending = $this->items()->whereNull('site_id')->get(['id', 'domain']);
+        if ($pending->isEmpty()) {
+            return [];
+        }
+
+        $ids = [];
+        foreach ($pending as $item) {
+            $existing = Site::findOccupyingDomain((string) $item->domain);
+            if ($existing && ! $this->canAbsorbOccupyingSite($existing)) {
+                $ids[] = (int) $item->id;
+            }
+        }
+
+        return $ids;
+    }
+
+    /**
+     * @param  list<int>  $ids
+     */
+    private function deletePendingItemsById(array $ids): int
+    {
+        $ids = array_values(array_unique(array_filter($ids, fn (int $id) => $id > 0)));
+        if ($ids === []) {
+            return 0;
+        }
+
+        $deleted = $this->items()
+            ->whereNull('site_id')
+            ->whereIn('id', $ids)
+            ->delete();
+
+        if ($deleted > 0) {
+            $this->forceFill([
+                'estimated_count' => $this->items()->count(),
+            ])->save();
+        }
+
+        return $deleted;
     }
 
     /**
