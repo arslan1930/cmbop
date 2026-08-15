@@ -60,6 +60,9 @@ class AdminFinanceOpsGapsTest extends TestCase
         $this->assertStringContainsString('href="'.route('admin.withdrawals', [], false).'"', $html);
         $this->assertStringContainsString('href="'.route('admin.finance.user', $publisher, false).'"', $html);
         $this->assertStringNotContainsString('href="'.route('admin.finance.user', $publisher).'"', $html);
+        $this->assertStringContainsString('href="'.route('admin.finance', ['period' => 'week'], false).'"', $html);
+        $this->assertStringContainsString('href="'.route('admin.finance.ledger', [], false).'"', $html);
+        $this->assertStringContainsString('href="'.route('admin.invoices.index', [], false).'"', $html);
     }
 
     public function test_user_search_redirects_unique_match_to_dossier(): void
