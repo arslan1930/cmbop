@@ -193,6 +193,7 @@ class AdminFinanceOpsGapsTest extends TestCase
             ->assertSee($publisher->email)
             ->assertSee('Keep this row')
             ->assertDontSee('Skip this row')
+            ->assertDontSee('Clear filters')
             ->assertSee(route('admin.finance.ledger.export', ['user_id' => $publisher->id]), false);
 
         $csv = $this->actingAs($admin)
@@ -416,6 +417,241 @@ class AdminFinanceOpsGapsTest extends TestCase
         $this->assertStringContainsString('LEDGER-NEW', $truncated);
         $this->assertStringNotContainsString('LEDGER-OLD', $truncated);
         $this->assertStringContainsString('truncated,limit,1', $truncated);
+    }
+
+    public function test_ledger_wallet_role_filter_hides_the_other_wallet(): void
+    {
+        $admin = $this->makeUser('admin');
+        $advertiser = $this->makeUser('advertiser');
+        $publisher = $this->makeUser('publisher');
+        $advRole = Role::firstOrCreate(['name' => 'advertiser']);
+        $pubRole = Role::firstOrCreate(['name' => 'publisher']);
+
+        $advWallet = Wallet::create([
+            'user_id' => $advertiser->id,
+            'role_id' => $advRole->id,
+            'balance' => 40,
+            'reserved_balance' => 0,
+            'currency' => 'EUR',
+        ]);
+        $pubWallet = Wallet::create([
+            'user_id' => $publisher->id,
+            'role_id' => $pubRole->id,
+            'balance' => 12,
+            'reserved_balance' => 0,
+            'currency' => 'EUR',
+        ]);
+
+        app(WalletLedgerService::class)->recordDeposit($advWallet, 40, null, 'bank', 'LEDGER-ADV-ROLE');
+        app(WalletLedgerService::class)->recordTransferIn($pubWallet, 12, null, 'LEDGER-PUB-ROLE', 'Publisher role row');
+
+        $this->actingAs($admin)
+            ->get(route('admin.finance.ledger', ['wallet_role' => 'advertiser']))
+            ->assertOk()
+            ->assertSee('LEDGER-ADV-ROLE')
+            ->assertDontSee('Publisher role row')
+            ->assertSee('value="advertiser" selected', false);
+
+        $csv = $this->actingAs($admin)
+            ->get(route('admin.finance.ledger.export', ['wallet_role' => 'advertiser']))
+            ->assertOk()
+            ->streamedContent();
+
+        $this->assertStringContainsString('LEDGER-ADV-ROLE', $csv);
+        $this->assertStringNotContainsString('LEDGER-PUB-ROLE', $csv);
+    }
+
+    public function test_ledger_totals_strip_matches_filtered_rows(): void
+    {
+        $admin = $this->makeUser('admin');
+        $advertiser = $this->makeUser('advertiser');
+        $publisher = $this->makeUser('publisher');
+        $advRole = Role::firstOrCreate(['name' => 'advertiser']);
+        $pubRole = Role::firstOrCreate(['name' => 'publisher']);
+
+        $advWallet = Wallet::create([
+            'user_id' => $advertiser->id,
+            'role_id' => $advRole->id,
+            'balance' => 40,
+            'reserved_balance' => 0,
+            'currency' => 'EUR',
+        ]);
+        $pubWallet = Wallet::create([
+            'user_id' => $publisher->id,
+            'role_id' => $pubRole->id,
+            'balance' => 25,
+            'reserved_balance' => 0,
+            'currency' => 'EUR',
+        ]);
+
+        app(WalletLedgerService::class)->recordDeposit($advWallet, 40, null, 'bank', 'LEDGER-TOTAL-CREDIT');
+        app(WalletLedgerService::class)->recordWithdrawal($pubWallet, 25, null, 'pending', 'LEDGER-TOTAL-DEBIT');
+
+        $this->actingAs($admin)
+            ->get(route('admin.finance.ledger'))
+            ->assertOk()
+            ->assertSee('across these filters, not this page')
+            ->assertSee('+€40.00', false)
+            ->assertSee('-€25.00', false)
+            ->assertSee('+€15.00', false);
+
+        $this->actingAs($admin)
+            ->get(route('admin.finance.ledger', ['direction' => 'credit']))
+            ->assertOk()
+            ->assertSee('+€40.00', false)
+            ->assertSee('-€0.00', false)
+            ->assertDontSee('LEDGER-TOTAL-DEBIT');
+    }
+
+    public function test_ledger_clear_filters_keeps_user_and_drops_type(): void
+    {
+        $admin = $this->makeUser('admin');
+        $publisher = $this->makeUser('publisher');
+        $pubRole = Role::firstOrCreate(['name' => 'publisher']);
+        $wallet = Wallet::create([
+            'user_id' => $publisher->id,
+            'role_id' => $pubRole->id,
+            'balance' => 10,
+            'reserved_balance' => 0,
+            'currency' => 'EUR',
+        ]);
+        app(WalletLedgerService::class)->recordTransferIn($wallet, 10, null, 'LEDGER-CLEAR', 'Clear filters row');
+
+        $html = $this->actingAs($admin)
+            ->get(route('admin.finance.ledger', [
+                'user_id' => $publisher->id,
+                'type' => 'transfer_in',
+            ]))
+            ->assertOk()
+            ->assertSee('Clear filters')
+            ->assertSee('Clear filters row')
+            ->getContent();
+
+        $this->assertStringContainsString(
+            e(route('admin.finance.ledger', ['user_id' => $publisher->id])),
+            $html
+        );
+        $this->assertStringContainsString(
+            e(route('admin.finance.ledger.export', [
+                'user_id' => $publisher->id,
+                'type' => 'transfer_in',
+            ])),
+            $html
+        );
+    }
+
+    public function test_ledger_payment_method_filter_groups_card_rails(): void
+    {
+        $admin = $this->makeUser('admin');
+        $advertiser = $this->makeUser('advertiser');
+        $advRole = Role::firstOrCreate(['name' => 'advertiser']);
+        $wallet = Wallet::create([
+            'user_id' => $advertiser->id,
+            'role_id' => $advRole->id,
+            'balance' => 70,
+            'reserved_balance' => 0,
+            'currency' => 'EUR',
+        ]);
+
+        app(WalletLedgerService::class)->recordDeposit($wallet, 40, null, 'stripe', 'LEDGER-CARD-RAIL');
+        app(WalletLedgerService::class)->recordDeposit($wallet, 30, null, 'bank', 'LEDGER-BANK-RAIL');
+
+        $this->actingAs($admin)
+            ->get(route('admin.finance.ledger', ['payment_method' => 'card']))
+            ->assertOk()
+            ->assertSee('LEDGER-CARD-RAIL')
+            ->assertSee('Card')
+            ->assertDontSee('LEDGER-BANK-RAIL')
+            ->assertSee('value="card" selected', false);
+
+        $csv = $this->actingAs($admin)
+            ->get(route('admin.finance.ledger.export', ['payment_method' => 'card']))
+            ->assertOk()
+            ->streamedContent();
+
+        $this->assertStringContainsString('payment_method', $csv);
+        $this->assertStringContainsString('LEDGER-CARD-RAIL', $csv);
+        $this->assertStringContainsString('stripe', $csv);
+        $this->assertStringNotContainsString('LEDGER-BANK-RAIL', $csv);
+
+        $this->actingAs($admin)
+            ->get(route('admin.finance.ledger', ['payment_method' => 'stripe']))
+            ->assertOk()
+            ->assertSee('LEDGER-CARD-RAIL')
+            ->assertDontSee('LEDGER-BANK-RAIL')
+            ->assertSee('value="card" selected', false);
+    }
+
+    public function test_ledger_payment_method_filter_finds_withdrawal_via_related(): void
+    {
+        $admin = $this->makeUser('admin');
+        $publisher = $this->makeUser('publisher');
+        $pubRole = Role::firstOrCreate(['name' => 'publisher']);
+        $wallet = Wallet::create([
+            'user_id' => $publisher->id,
+            'role_id' => $pubRole->id,
+            'balance' => 20,
+            'reserved_balance' => 0,
+            'currency' => 'EUR',
+        ]);
+
+        $paypal = Withdrawal::create([
+            'user_id' => $publisher->id,
+            'amount' => 12,
+            'fee' => 0,
+            'net_amount' => 12,
+            'payment_method' => 'paypal',
+            'payment_details' => ['email' => 'p@example.test'],
+            'status' => 'pending',
+        ]);
+        $wise = Withdrawal::create([
+            'user_id' => $publisher->id,
+            'amount' => 8,
+            'fee' => 0,
+            'net_amount' => 8,
+            'payment_method' => 'wise',
+            'payment_details' => ['email' => 'w@example.test'],
+            'status' => 'pending',
+        ]);
+
+        $paypalTx = app(WalletLedgerService::class)->recordWithdrawal($wallet, 12, $paypal, 'pending', 'WD-PAYPAL-METHOD');
+        app(WalletLedgerService::class)->recordWithdrawal($wallet, 8, $wise, 'pending', 'WD-WISE-METHOD');
+
+        $this->assertSame('paypal', $paypalTx?->payment_method);
+
+        // Older withdrawal rows left payment_method empty; the filter still
+        // has to follow the related payout method.
+        $paypalTx?->forceFill(['payment_method' => null])->save();
+
+        $this->actingAs($admin)
+            ->get(route('admin.finance.ledger', ['payment_method' => 'paypal']))
+            ->assertOk()
+            ->assertSee('WD-PAYPAL-METHOD')
+            ->assertSee('PayPal')
+            ->assertDontSee('WD-WISE-METHOD');
+    }
+
+    public function test_dossier_recent_ledger_uses_type_labels(): void
+    {
+        $admin = $this->makeUser('admin');
+        $publisher = $this->makeUser('publisher');
+        $pubRole = Role::firstOrCreate(['name' => 'publisher']);
+        $wallet = Wallet::create([
+            'user_id' => $publisher->id,
+            'role_id' => $pubRole->id,
+            'balance' => 10,
+            'reserved_balance' => 0,
+            'currency' => 'EUR',
+        ]);
+
+        app(WalletLedgerService::class)->recordRoleMoveIn($wallet, 10, null, 'LEDGER-DOSSIER-LABEL', 'Dossier label row');
+
+        $this->actingAs($admin)
+            ->get(route('admin.finance.user', $publisher))
+            ->assertOk()
+            ->assertSee('Earnings Moved for Spending')
+            ->assertDontSee('role_move_in')
+            ->assertDontSee('Role Move In');
     }
 
     public function test_ledger_ignores_array_search_and_invalid_dates(): void

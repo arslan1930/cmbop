@@ -601,6 +601,8 @@ class AdminFinanceCoverageTest extends TestCase
                 'date_to' => ['2026-12-31'],
                 'type' => ['deposit'],
                 'direction' => ['credit'],
+                'wallet_role' => ['advertiser'],
+                'payment_method' => ['card'],
                 'search' => ['%'],
             ]))
             ->assertOk()
@@ -609,6 +611,8 @@ class AdminFinanceCoverageTest extends TestCase
 
         $this->assertStringNotContainsString('value="deposit" selected', $html);
         $this->assertStringNotContainsString('value="credit" selected', $html);
+        $this->assertStringNotContainsString('value="advertiser" selected', $html);
+        $this->assertStringNotContainsString('value="card" selected', $html);
     }
 
     public function test_period_form_and_shortcuts_keep_list_view(): void

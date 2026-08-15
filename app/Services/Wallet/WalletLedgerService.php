@@ -4,6 +4,7 @@ namespace App\Services\Wallet;
 
 use App\Models\Wallet;
 use App\Models\WalletTransaction;
+use App\Models\Withdrawal;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
@@ -138,6 +139,7 @@ class WalletLedgerService
     {
         return $this->record($wallet, WalletTransaction::TYPE_WITHDRAWAL, 'debit', $amount, [
             'related' => $related,
+            'payment_method' => $related instanceof Withdrawal ? $related->payment_method : null,
             'reference' => $reference,
             'status' => $status,
             'description' => 'Withdrawal request',

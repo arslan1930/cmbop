@@ -94,6 +94,25 @@ class WalletTransaction extends Model
         return $status === '' ? '—' : ucfirst(str_replace('_', ' ', $status));
     }
 
+    public function paymentMethodLabel(): string
+    {
+        $key = strtolower(trim((string) ($this->payment_method ?? '')));
+        if ($key === '' && is_object($this->related) && isset($this->related->payment_method)) {
+            $key = strtolower(trim((string) $this->related->payment_method));
+        }
+
+        return match ($key) {
+            'bank', 'bank_transfer' => 'Bank Transfer',
+            'card', 'stripe' => 'Card',
+            'paypal' => 'PayPal',
+            'wise' => 'Wise',
+            'crypto' => 'Cryptocurrency',
+            'wallet' => 'Wallet',
+            '' => '—',
+            default => ucfirst(str_replace('_', ' ', $key)),
+        };
+    }
+
     /**
      * Admin page for the related deposit / withdrawal / order, if we can route it.
      */
