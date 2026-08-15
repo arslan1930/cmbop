@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Mail\SiteClaimOwnershipTransferred;
 use App\Mail\SiteClaimReviewed;
 use App\Mail\SiteClaimSubmitted;
+use App\Models\BulkSiteRequest;
 use App\Models\OrderItem;
 use App\Models\OrderItemDispute;
 use App\Models\Site;
@@ -95,6 +96,7 @@ class SiteClaimTransferService
 
         $previousPublisher = null;
         $previousPublisherId = null;
+        $linkedBulkId = null;
         /** @var list<SiteClaim> $closedSiblings */
         $closedSiblings = [];
 
@@ -106,6 +108,7 @@ class SiteClaimTransferService
             $adminNotes,
             &$previousPublisher,
             &$previousPublisherId,
+            &$linkedBulkId,
             &$closedSiblings
         ) {
             // Lock site + claim so concurrent approves cannot both win.
@@ -150,6 +153,10 @@ class SiteClaimTransferService
                 ], true)) {
                 $locked->onboarding_status = null;
             }
+            if (Site::hasSitesColumn('bulk_site_request_id') && $locked->bulk_site_request_id) {
+                $linkedBulkId = (int) $locked->bulk_site_request_id;
+                $locked->bulk_site_request_id = null;
+            }
             $locked->save();
 
             if (! $claimer->hasRole('publisher')) {
@@ -192,6 +199,10 @@ class SiteClaimTransferService
                 $locked->site_name
             );
         });
+
+        if ($linkedBulkId) {
+            BulkSiteRequest::query()->find($linkedBulkId)?->refreshProgressStatus();
+        }
 
         $claim->refresh()->load(['site', 'claimer', 'reviewer']);
         $this->notifyApproved($claim, $previousPublisher);

@@ -257,6 +257,66 @@ class BulkDoneDraftAndNicheUiTest extends TestCase
         );
     }
 
+    public function test_publisher_submit_heals_stale_awaiting_and_allows_new_bulk(): void
+    {
+        $bulk = BulkSiteRequest::create([
+            'publisher_id' => $this->publisher->id,
+            'status' => BulkSiteRequest::STATUS_AWAITING_PUBLISHER,
+            'estimated_count' => 1,
+        ]);
+        $site = Site::create([
+            'publisher_id' => $this->publisher->id,
+            'bulk_site_request_id' => $bulk->id,
+            'site_name' => 'Stale Awaiting',
+            'site_url' => 'https://stale-awaiting-bulk.example',
+            'domain' => 'stale-awaiting-bulk.example',
+            'da' => 40,
+            'dr' => 40,
+            'traffic' => 12000,
+            'country' => 'de',
+            'language' => 'de',
+            'category' => 'News',
+            'price' => 50,
+            'publication_time' => 'permanent',
+            'link_type' => 'dofollow',
+            'description' => str_repeat('Stale awaiting bulk leftover description. ', 3),
+            'verified' => true,
+            'active' => true,
+            'onboarding_status' => null,
+        ]);
+        BulkSiteRequestItem::create([
+            'bulk_site_request_id' => $bulk->id,
+            'site_url' => $site->site_url,
+            'domain' => $site->domain,
+            'price' => 50,
+            'site_id' => $site->id,
+        ]);
+
+        $this->assertTrue(
+            BulkSiteRequest::query()->whereKey($bulk->id)->blockingPublisher()->exists()
+        );
+
+        $this->actingAs($this->publisher)
+            ->from(route('publisher.websites'))
+            ->post(route('publisher.bulk-sites.request'), [
+                'sites' => [
+                    ['url' => 'https://heal-new-a.example', 'price' => 40],
+                    ['url' => 'https://heal-new-b.example', 'price' => 50],
+                ],
+            ])
+            ->assertRedirect(route('publisher.websites', ['status' => 'pending']))
+            ->assertSessionHas('success')
+            ->assertSessionMissing('error');
+
+        $this->assertSame(BulkSiteRequest::STATUS_COMPLETED, $bulk->fresh()->status);
+        $this->assertDatabaseHas('bulk_site_requests', [
+            'publisher_id' => $this->publisher->id,
+            'status' => BulkSiteRequest::STATUS_REQUESTED,
+            'estimated_count' => 2,
+        ]);
+        $this->assertDatabaseHas('bulk_site_request_items', ['domain' => 'heal-new-a.example']);
+    }
+
     public function test_bulk_notes_reject_non_string_payload(): void
     {
         $bulk = BulkSiteRequest::create([
@@ -933,6 +993,8 @@ class BulkDoneDraftAndNicheUiTest extends TestCase
         $this->assertStringContainsString('lockForUpdate()->find($id)', $model);
         $this->assertStringContainsString('applyProgressStatus', $model);
         $this->assertStringContainsString('stale in-memory status', $model);
+        $this->assertStringContainsString('needsProgressHeal', $model);
+        $this->assertStringContainsString('healProgressStatusIfStale', $model);
 
         $controller = file_get_contents(app_path('Http/Controllers/Admin/BulkSiteRequestController.php'));
         $this->assertStringContainsString('lockForUpdate()->findOrFail($id)', $controller);
@@ -948,7 +1010,7 @@ class BulkDoneDraftAndNicheUiTest extends TestCase
         $this->assertStringContainsString("fresh(['publisher']) ?? \$bulkRequest", $controller);
         $this->assertStringNotContainsString('$bulkRequest->refresh();', $controller);
         $this->assertStringContainsString('$reloaded = $bulkRequest->fresh([', $controller);
-        $this->assertStringContainsString('pendingPublisherCount()', $controller);
+        $this->assertStringContainsString('needsProgressHeal()', $controller);
         $this->assertStringContainsString('findOccupyingPendingDomain', $controller);
         $this->assertStringContainsString('$otherPending', $controller);
         $this->assertStringContainsString('Already in an open bulk request:', $controller);
@@ -968,6 +1030,8 @@ class BulkDoneDraftAndNicheUiTest extends TestCase
         $this->assertStringContainsString('hasDetailsComplete()', $publisherController);
         $this->assertStringContainsString('occupyingBulkDomainMessage', $publisherController);
         $this->assertStringContainsString('occupyingPendingDomainMessage', $publisherController);
+        $this->assertStringContainsString('healProgressStatusIfStale', $publisherController);
+        $this->assertStringContainsString('$open->pendingPublisherCount() > 0', $publisherController);
 
         $siteModel = file_get_contents(app_path('Models/Site.php'));
         $this->assertStringContainsString('Never rewind a site that already left the publisher-complete stage.', $siteModel);

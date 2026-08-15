@@ -593,20 +593,35 @@ class BulkSiteRequestController extends Controller
 
     private function openBlockingBulkRequest(int $publisherId): ?BulkSiteRequest
     {
-        return BulkSiteRequest::query()
-            ->where('publisher_id', $publisherId)
-            ->blockingPublisher()
-            ->latest('id')
-            ->first();
+        while (true) {
+            $open = BulkSiteRequest::query()
+                ->where('publisher_id', $publisherId)
+                ->blockingPublisher()
+                ->latest('id')
+                ->first();
+            if (! $open) {
+                return null;
+            }
+
+            $open->healProgressStatusIfStale();
+            $fresh = $open->fresh();
+            if (! $fresh) {
+                return null;
+            }
+
+            $stillBlocking = BulkSiteRequest::query()
+                ->whereKey($fresh->id)
+                ->blockingPublisher()
+                ->exists();
+            if ($stillBlocking) {
+                return $fresh;
+            }
+        }
     }
 
     private function redirectBecauseBulkAlreadyOpen(?BulkSiteRequest $open)
     {
-        $publisherOwesWork = $open
-            && (
-                $open->status === BulkSiteRequest::STATUS_AWAITING_PUBLISHER
-                || $open->pendingPublisherCount() > 0
-            );
+        $publisherOwesWork = $open && $open->pendingPublisherCount() > 0;
 
         $message = $publisherOwesWork
             ? 'Finish your pending sites under Complete details before submitting another bulk request.'

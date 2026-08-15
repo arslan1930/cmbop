@@ -93,6 +93,48 @@ class BulkSiteRequest extends Model
             ->count();
     }
 
+    /**
+     * Status drifted from sites/items (staff verify, claim transfer, leftover
+     * deletes). Show and publisher submit share this so a stale
+     * awaiting_publisher row cannot block a new bulk forever.
+     */
+    public function needsProgressHeal(): bool
+    {
+        if ($this->status === self::STATUS_CANCELLED) {
+            return false;
+        }
+
+        $hasPendingItems = $this->hasPendingItems();
+        $hasSites = $this->sites()->notArchived()->exists();
+
+        if ($hasPendingItems && ($this->status === self::STATUS_COMPLETED || ! $hasSites)) {
+            return true;
+        }
+
+        if (! $hasSites && in_array($this->status, [
+            self::STATUS_AWAITING_PUBLISHER,
+            self::STATUS_SEEDED,
+        ], true)) {
+            return true;
+        }
+
+        return in_array($this->status, [
+            self::STATUS_AWAITING_PUBLISHER,
+            self::STATUS_SEEDED,
+        ], true) && $this->pendingPublisherCount() === 0;
+    }
+
+    public function healProgressStatusIfStale(): bool
+    {
+        if (! $this->needsProgressHeal()) {
+            return false;
+        }
+
+        $this->refreshProgressStatus();
+
+        return true;
+    }
+
     public function refreshProgressStatus(): void
     {
         $id = (int) $this->getKey();

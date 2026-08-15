@@ -5,6 +5,8 @@ namespace Tests\Feature;
 use App\Mail\SiteClaimOwnershipTransferred;
 use App\Mail\SiteClaimReviewed;
 use App\Mail\SiteClaimSubmitted;
+use App\Models\BulkSiteRequest;
+use App\Models\BulkSiteRequestItem;
 use App\Models\InAppNotification;
 use App\Models\Order;
 use App\Models\OrderItem;
@@ -154,6 +156,53 @@ class SiteClaimHardeningTest extends TestCase
 
         Mail::assertQueued(SiteClaimReviewed::class);
         Mail::assertQueued(SiteClaimOwnershipTransferred::class);
+    }
+
+    public function test_approve_detaches_bulk_and_unblocks_original_publisher(): void
+    {
+        Mail::fake();
+
+        $admin = $this->admin();
+        $owner = $this->userWithRole('publisher');
+        $claimer = $this->userWithRole('publisher');
+
+        $bulk = BulkSiteRequest::create([
+            'publisher_id' => $owner->id,
+            'status' => BulkSiteRequest::STATUS_AWAITING_PUBLISHER,
+            'estimated_count' => 1,
+        ]);
+        $site = $this->siteFor($owner);
+        $site->forceFill([
+            'bulk_site_request_id' => $bulk->id,
+            'onboarding_status' => Site::ONBOARDING_AWAITING_DETAILS,
+            'verified' => false,
+            'active' => false,
+        ])->save();
+        BulkSiteRequestItem::create([
+            'bulk_site_request_id' => $bulk->id,
+            'site_url' => $site->site_url,
+            'domain' => $site->domain,
+            'price' => 40,
+            'site_id' => $site->id,
+        ]);
+
+        $this->assertTrue(
+            BulkSiteRequest::query()->whereKey($bulk->id)->blockingPublisher()->exists()
+        );
+
+        $claim = $this->pendingClaimFor($site, $claimer);
+        $this->actingAs($admin)
+            ->postJson(route('admin.community.claims.approve', $claim->id), [])
+            ->assertOk()
+            ->assertJson(['success' => true]);
+
+        $site->refresh();
+        $this->assertSame($claimer->id, (int) $site->publisher_id);
+        $this->assertNull($site->bulk_site_request_id);
+        $this->assertSame(BulkSiteRequest::STATUS_COMPLETED, $bulk->fresh()->status);
+        $this->assertFalse(
+            BulkSiteRequest::query()->whereKey($bulk->id)->blockingPublisher()->exists()
+        );
     }
 
     public function test_approve_blocked_when_site_has_open_order_item(): void
