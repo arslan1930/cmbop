@@ -69,7 +69,7 @@ class AdminWithdrawalLaterTest extends TestCase
         $this->assertStringContainsString('escapeHtml(label)', $html);
         $this->assertStringContainsString('if (!Object.keys(appliedFilters).length)', $html);
         $this->assertStringContainsString('escapeHtml(adminStatusLabel(w.status))', $html);
-        $this->assertStringContainsString("pendingSet.has(Number(id)) ? 'pending' : 'processing'", $html);
+        $this->assertStringContainsString("pendingSet.has(n) ? 'pending' : 'processing'", $html);
         $this->assertStringContainsString('appliedFilters.page = currentPage', $html);
         $this->assertStringContainsString('notes: notes', $html);
         $this->assertStringContainsString('hasOwnProperty.call(options, \'notes\')', $html);
@@ -80,6 +80,11 @@ class AdminWithdrawalLaterTest extends TestCase
         $this->assertStringContainsString('function getJson', $html);
         $this->assertStringContainsString('cache: false', $html);
         $this->assertStringContainsString('Array.isArray(response.data) ? response.data : []', $html);
+        $this->assertStringContainsString('const SELECTION_LIMIT = 100', $html);
+        $this->assertStringContainsString('function addSelectedId', $html);
+        $this->assertStringContainsString('function clearStatsDisplay', $html);
+        $this->assertStringContainsString('function safeAdminHref', $html);
+        $this->assertStringContainsString('Selection is limited to', $html);
     }
 
     public function test_browser_show_is_html_and_json_accept_stays_json(): void
@@ -642,5 +647,18 @@ class AdminWithdrawalLaterTest extends TestCase
             ->assertJsonPath('success', true)
             ->assertJsonPath('data.pending', 1)
             ->assertJsonPath('data.by_method.unknown.count', 1);
+    }
+
+    public function test_batch_rejects_more_than_one_hundred_ids(): void
+    {
+        $admin = $this->makeUser('admin');
+
+        $this->actingAs($admin)
+            ->postJson(route('admin.withdrawals.batch'), [
+                'ids' => range(1, 101),
+                'action' => 'processing',
+            ])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('ids');
     }
 }

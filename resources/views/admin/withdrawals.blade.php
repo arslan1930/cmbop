@@ -259,6 +259,7 @@ let statsScope = 'all';
 let appliedFilters = {};
 const withdrawalFlags = new Map();
 const duplicateLookbackDays = {{ max(1, (int) config('billing.withdrawal_mark_paid_duplicate_lookback_days', 30)) }};
+const SELECTION_LIMIT = 100;
 
 const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content
     || '{{ csrf_token() }}';
@@ -296,6 +297,15 @@ function resetSelection() {
     $('.row-select').prop('checked', false);
     $('#selectAll').prop('checked', false);
     updateBatchBar();
+}
+
+function addSelectedId(id) {
+    const n = Number(id);
+    if (!Number.isInteger(n) || n <= 0) return false;
+    if (selectedIds.has(n)) return true;
+    if (selectedIds.size >= SELECTION_LIMIT) return false;
+    selectedIds.add(n);
+    return true;
 }
 
 function snapshotFilters() {
@@ -340,6 +350,18 @@ function escapeHtml(str) {
 function detailText(details, key) {
     const value = details && details[key];
     if (typeof value === 'string' || typeof value === 'number') return String(value);
+    return '';
+}
+
+function safeAdminHref(url) {
+    if (!url || typeof url !== 'string') return '';
+    if (url.charAt(0) === '/' && url.charAt(1) !== '/') return url;
+    try {
+        const parsed = new URL(url, window.location.origin);
+        if (parsed.origin === window.location.origin) {
+            return parsed.pathname + parsed.search + parsed.hash;
+        }
+    } catch (e) {}
     return '';
 }
 
@@ -456,7 +478,10 @@ function loadStatistics() {
     delete params.page;
     applyStatsLabels();
     getJson(WD_STATS, params, function(response) {
-        if (!response.success) return;
+        if (!response.success || !response.data) {
+            clearStatsDisplay('Could not load stats');
+            return;
+        }
         const s = response.data;
         $('#statPending').text(s.pending);
         $('#statPendingAmount').text('€' + Number(s.pending_amount || 0).toFixed(2));
@@ -476,8 +501,19 @@ function loadStatistics() {
         }).filter(Boolean);
         $('#statByMethod').html(parts.length ? parts.join('') : '<span class="text-muted">No open payouts</span>');
     }).fail(function() {
-        $('#statByMethod').text('Could not load stats');
+        clearStatsDisplay('Could not load stats');
     });
+}
+
+function clearStatsDisplay(byMethodText) {
+    $('#statPending').text('—');
+    $('#statPendingAmount').text('€—');
+    $('#statProcessing').text('—');
+    $('#statProcessingAmount').text('€—');
+    $('#statToPay').text('€—');
+    $('#statWeek').text('—');
+    $('#statWeekAmount').text('€—');
+    $('#statByMethod').text(byMethodText || 'Could not load stats');
 }
 
 function loadWithdrawals(page = 1) {
@@ -542,6 +578,7 @@ function renderWithdrawals(withdrawals) {
             copyEncoded = '';
         }
         const matchIds = Array.isArray(w.duplicate_match_ids) ? w.duplicate_match_ids : [];
+        const invoiceHref = safeAdminHref(w.invoice_url);
         withdrawalFlags.set(Number(w.id), {
             possible_duplicate: !!w.possible_duplicate,
             duplicate_match_ids: matchIds,
@@ -584,7 +621,7 @@ function renderWithdrawals(withdrawals) {
                         <ul class="dropdown-menu dropdown-menu-end">
                             <li><button type="button" class="dropdown-item view-details" data-id="${w.id}"><i class="fa fa-eye me-2"></i>View</button></li>
                             <li><a class="dropdown-item" href="${escapeHtml(withdrawalUrl(WD_SHOW, w.id))}"><i class="fa fa-external-link-alt me-2"></i>Open page</a></li>
-                            ${w.invoice_url ? `<li><a class="dropdown-item" href="${escapeHtml(w.invoice_url)}"><i class="fa fa-file-invoice-dollar me-2"></i>Open invoice</a></li>` : ''}
+                            ${invoiceHref ? `<li><a class="dropdown-item" href="${escapeHtml(invoiceHref)}"><i class="fa fa-file-invoice-dollar me-2"></i>Open invoice</a></li>` : ''}
                             ${w.status === 'pending' ? `
                             <li><button type="button" class="dropdown-item act-processing" data-id="${w.id}"
                                 data-name="${escapeHtml(w.user?.name || '')}"
@@ -783,19 +820,35 @@ $(document).on('click', '.copy-dest', function() {
 
 $(document).on('change', '.row-select', function() {
     const id = parseInt($(this).val(), 10);
-    if ($(this).is(':checked')) selectedIds.add(id);
-    else selectedIds.delete(id);
+    if ($(this).is(':checked')) {
+        if (!addSelectedId(id)) {
+            $(this).prop('checked', false);
+            toast('Selection is limited to ' + SELECTION_LIMIT, 'info');
+        }
+    } else {
+        selectedIds.delete(id);
+    }
     updateBatchBar();
 });
 
 $('#selectAll').on('change', function() {
     const checked = $(this).is(':checked');
+    let capped = false;
     $('.row-select').each(function() {
         const id = parseInt($(this).val(), 10);
-        $(this).prop('checked', checked);
-        if (checked) selectedIds.add(id);
-        else selectedIds.delete(id);
+        if (!checked) {
+            $(this).prop('checked', false);
+            selectedIds.delete(id);
+            return;
+        }
+        if (!addSelectedId(id)) {
+            $(this).prop('checked', false);
+            capped = true;
+            return;
+        }
+        $(this).prop('checked', true);
     });
+    if (capped) toast('Selection is limited to ' + SELECTION_LIMIT, 'info');
     updateBatchBar();
 });
 
@@ -849,8 +902,12 @@ async function runBatch(action, title, confirmText, confirmClass, options) {
     }
     if (action === 'completed' && !options.skipPendingConfirm && !await confirmPendingPayIfNeeded(Array.from(selectedIds))) return;
 
+    const ids = Array.from(selectedIds)
+        .filter(function (id) { return Number.isInteger(id) && id > 0; })
+        .slice(0, SELECTION_LIMIT);
+    if (ids.length === 0) return;
     const payload = {
-        ids: Array.from(selectedIds),
+        ids: ids,
         action,
         notes,
     };
@@ -926,12 +983,13 @@ $('#selectMatchingBtn').on('click', function() {
             return;
         }
         selectedIds.clear();
-        const pendingSet = new Set((res.pending_ids || []).map(Number));
-        (res.ids || []).forEach(function (id) {
-            selectedIds.add(Number(id));
-            const existing = withdrawalFlags.get(Number(id)) || {};
-            existing.status = pendingSet.has(Number(id)) ? 'pending' : 'processing';
-            withdrawalFlags.set(Number(id), existing);
+        const pendingSet = new Set((Array.isArray(res.pending_ids) ? res.pending_ids : []).map(Number));
+        (Array.isArray(res.ids) ? res.ids : []).forEach(function (id) {
+            if (!addSelectedId(id)) return;
+            const n = Number(id);
+            const existing = withdrawalFlags.get(n) || {};
+            existing.status = pendingSet.has(n) ? 'pending' : 'processing';
+            withdrawalFlags.set(n, existing);
         });
         $('.row-select').each(function() {
             const id = parseInt($(this).val(), 10);
@@ -964,7 +1022,7 @@ $('#batchExportBtn').on('click', function() {
 $(document).on('click', '.view-details', function() {
     const id = $(this).data('id');
     getJson(withdrawalUrl(WD_SHOW, id), {}, function(response) {
-        if (!response.success) {
+        if (!response.success || !response.data) {
             toast('Failed to load details', 'error');
             return;
         }
@@ -1022,10 +1080,11 @@ function renderDetails(withdrawal) {
         $('#openPublisherLink').addClass('d-none');
     }
 
-    if (withdrawal.invoice_url) {
+    const invoiceHref = safeAdminHref(withdrawal.invoice_url);
+    if (invoiceHref) {
         $('#openInvoiceLink')
             .removeClass('d-none')
-            .attr('href', withdrawal.invoice_url);
+            .attr('href', invoiceHref);
     } else {
         $('#openInvoiceLink').addClass('d-none').attr('href', '#');
     }
