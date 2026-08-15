@@ -60,7 +60,13 @@ class WithdrawalMarkPaidConfirmController extends Controller
                 ? $result['message']
                 : 'Marked paid. Net €'.number_format((float) $result['withdrawal']->net_amount, 2).' confirmed for WD-'.$result['withdrawal']->id.'.';
 
-            $focus = ($result['new_status'] === 'completed' && empty($result['has_statement']))
+            // Missing statement, or Create-statement on an already-paid WD:
+            // land on history+search. First-time mark-paid with a statement
+            // still returns to the open queue (pay the next one).
+            $focus = (
+                $result['new_status'] === 'completed'
+                && (empty($result['has_statement']) || ! empty($result['unchanged']))
+            )
                 ? $result['withdrawal']
                 : null;
 

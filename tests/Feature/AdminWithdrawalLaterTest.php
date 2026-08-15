@@ -1431,4 +1431,75 @@ class AdminWithdrawalLaterTest extends TestCase
         $this->assertSame($publisher->id, (int) $statement->user_id);
         $this->assertSame('payout-owner@example.com', $statement->customer_email);
     }
+
+    public function test_find_replaces_stale_payee_when_new_owner_has_blank_profile(): void
+    {
+        $publisher = $this->makeUser('publisher');
+        $publisher->forceFill([
+            'name' => '',
+            'email' => '',
+            'payout_business_name' => null,
+            'billing_name' => null,
+        ])->save();
+        $other = $this->makeUser('publisher');
+        $other->forceFill([
+            'name' => 'Wrong Publisher',
+            'email' => 'wrong-pub@example.com',
+        ])->save();
+        $withdrawal = $this->seedWithdrawal($publisher, [
+            'status' => 'completed',
+            'processed_at' => now(),
+            'payment_method' => 'wise',
+            'payment_details' => ['email' => 'wise-dest@example.com'],
+        ]);
+        $statement = Invoice::create([
+            'user_id' => $other->id,
+            'customer_name' => $other->name,
+            'customer_email' => $other->email,
+            'pdf_path' => 'payouts/stale-blank-owner.pdf',
+            'invoice_number' => 'PAY-BLANK-OWNER-1',
+            'type' => Invoice::TYPE_WITHDRAWAL_PAYOUT,
+            'status' => Invoice::STATUS_PAID,
+            'subtotal' => 95,
+            'total_amount' => 95,
+            'invoice_date' => now(),
+            'line_items' => [['description' => 'Payout', 'line_total' => 95]],
+            'pdf_disk' => 'local',
+            'reference_code' => 'WD-'.$withdrawal->id,
+            'meta' => ['withdrawal_id' => $withdrawal->id],
+            'billing_snapshot' => [
+                'name' => 'Wrong Publisher',
+                'email' => 'wrong-pub@example.com',
+                'payment_details' => ['email' => 'old-dest@example.com'],
+            ],
+        ]);
+
+        $found = app(WithdrawalPayoutStatementService::class)->find($withdrawal);
+        $this->assertNotNull($found);
+        $found = $found->fresh();
+        $this->assertSame($statement->id, $found->id);
+        $this->assertSame($publisher->id, (int) $found->user_id);
+        $this->assertSame('Publisher #'.$publisher->id, $found->customer_name);
+        $this->assertSame('', (string) $found->customer_email);
+        $this->assertNull($found->pdf_path);
+        $this->assertSame('Publisher #'.$publisher->id, data_get($found->billing_snapshot, 'name'));
+        $this->assertNull(data_get($found->billing_snapshot, 'email'));
+        $this->assertSame('wise-dest@example.com', data_get($found->billing_snapshot, 'payment_details.email'));
+    }
+
+    public function test_status_email_renders_when_publisher_user_is_missing(): void
+    {
+        $publisher = $this->makeUser('publisher');
+        $publisher->forceFill(['name' => 'Pat Publisher'])->save();
+        $withdrawal = $this->seedWithdrawal($publisher, [
+            'status' => 'completed',
+            'processed_at' => now(),
+        ]);
+        $withdrawal->setRelation('user', null);
+
+        $html = (new WithdrawalStatusUpdated($withdrawal, 'pending', 'completed', null))->render();
+
+        $this->assertStringContainsString('Dear Publisher', $html);
+        $this->assertStringNotContainsString('Pat Publisher', $html);
+    }
 }

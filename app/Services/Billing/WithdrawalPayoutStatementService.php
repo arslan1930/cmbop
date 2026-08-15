@@ -175,13 +175,18 @@ class WithdrawalPayoutStatementService
             return $statement;
         }
 
+        // Owner change must never keep the previous publisher's name/email,
+        // even when the new owner has a blank profile (Wise/PayPal, no holder).
+        $resolvedName = $payeeName !== '' ? $payeeName : ($ownerMismatch ? 'Publisher #'.$ownerId : '');
+
         $snapshot = is_array($statement->billing_snapshot) ? $statement->billing_snapshot : [];
-        if ($payeeName !== '') {
-            $snapshot['name'] = $payeeName;
+        if ($resolvedName !== '') {
+            $snapshot['name'] = $resolvedName;
         }
-        if ($email !== '') {
-            $snapshot['email'] = $email;
+        if ($ownerMismatch || $email !== '') {
+            $snapshot['email'] = $email !== '' ? $email : null;
         }
+        $snapshot['payment_details'] = $details;
         if ($user) {
             $snapshot['company'] = $this->scalarText($user->payout_business_name) ?: $this->scalarText($user->company_name) ?: null;
             $snapshot['address'] = $this->scalarText($user->address) ?: null;
@@ -191,12 +196,14 @@ class WithdrawalPayoutStatementService
             $snapshot['country'] = $this->scalarText($user->country) ?: null;
         }
 
+        $fromUserId = (int) $statement->user_id;
+
         try {
             $statement->user_id = $ownerId;
-            if ($payeeName !== '') {
-                $statement->customer_name = $payeeName;
+            if ($resolvedName !== '') {
+                $statement->customer_name = $resolvedName;
             }
-            if ($email !== '') {
+            if ($ownerMismatch || $email !== '') {
                 $statement->customer_email = $email;
             }
             $statement->billing_snapshot = $snapshot;
@@ -209,10 +216,11 @@ class WithdrawalPayoutStatementService
             Log::warning('Failed to reassign payout statement to withdrawal owner', [
                 'invoice_id' => $statement->id,
                 'withdrawal_id' => $withdrawal->id,
-                'from_user_id' => $statement->user_id,
+                'from_user_id' => $fromUserId,
                 'to_user_id' => $ownerId,
                 'error' => $e->getMessage(),
             ]);
+            $statement->refresh();
         }
 
         return $statement;

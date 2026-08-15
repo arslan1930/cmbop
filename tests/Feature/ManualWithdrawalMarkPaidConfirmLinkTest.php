@@ -311,7 +311,10 @@ class ManualWithdrawalMarkPaidConfirmLinkTest extends TestCase
 
         $this->actingAs($admin)
             ->post($url)
-            ->assertRedirect(route('admin.withdrawals'))
+            ->assertRedirect(route('admin.withdrawals', [
+                'search' => (string) $withdrawal->id,
+                'queue' => 'history',
+            ]))
             ->assertSessionHas('success', 'Payout statement is ready');
 
         $this->assertNotNull(app(WithdrawalPayoutStatementService::class)->find($withdrawal->fresh()));
