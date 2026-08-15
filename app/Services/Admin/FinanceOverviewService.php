@@ -3,6 +3,7 @@
 namespace App\Services\Admin;
 
 use App\Models\DepositRequest;
+use App\Models\Invoice;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\User;
@@ -15,6 +16,10 @@ use Illuminate\Support\Facades\Schema;
 
 class FinanceOverviewService
 {
+    public const HUB_TABLE_LIMIT = 8;
+
+    public const HUB_EXPANDED_LIMIT = 200;
+
     /**
      * @return array{start: ?Carbon, end: Carbon, label: string, key: string}
      */
@@ -61,13 +66,14 @@ class FinanceOverviewService
      *
      * @return array<string, mixed>
      */
-    public function overview(array $period): array
+    public function overview(array $period, ?string $list = null): array
     {
         $start = $period['start'];
         $end = $period['end'];
+        $list = in_array($list, ['debt', 'wallets'], true) ? $list : null;
 
-        $ops = $this->opsQueues();
-        $liability = $this->walletLiability();
+        $ops = $this->opsQueues($list);
+        $liability = $this->walletLiability($list);
         $moneyIn = $this->moneyIn($start, $end);
         $moneyOut = $this->moneyOut($start, $end);
         $platform = $this->platform($start, $end);
@@ -81,14 +87,30 @@ class FinanceOverviewService
             2
         );
 
+        $cardVolume = round(
+            (float) ($moneyIn['orders_paid']['stripe_card'] ?? 0)
+            + (float) ($moneyIn['deposits_completed']['stripe'] ?? 0),
+            2
+        );
+        $stripePercent = (float) config('billing.stripe_fee_percent', 1.5);
+        $estimatedStripe = round($cardVolume * $stripePercent / 100, 2);
+        $platform['stripe_fee_percent'] = $stripePercent;
+        $platform['estimated_stripe_base'] = $cardVolume;
+        $platform['estimated_stripe_fees'] = $estimatedStripe;
+        $platform['margin_after_estimated_stripe'] = round($platform['margin'] - $estimatedStripe, 2);
+
         return [
             'period' => $period,
+            'list' => $list,
             'ops' => $ops,
             'liability' => $liability,
             'money_in' => $moneyIn,
             'money_out' => $moneyOut,
             'platform' => $platform,
             'cash_split' => $cashSplit,
+            'invoices' => $this->missingTaxInvoices(),
+            'comparison' => $this->periodComparison($period, $platform),
+            'reconciliation' => $this->depositReconciliation($start, $end, (float) ($moneyIn['deposits_completed']['amount'] ?? 0)),
             'payable_now' => $liability['total_publisher_liability'],
             'due_to_pay_now' => $liability['due_to_pay_now'],
             'in_publisher_wallets' => $liability['in_publisher_wallets'],
@@ -99,12 +121,14 @@ class FinanceOverviewService
     /**
      * @return array<string, mixed>
      */
-    public function opsQueues(): array
+    public function opsQueues(?string $list = null): array
     {
         $pendingDeposits = DepositRequest::where('status', 'pending');
         $userMarked = (clone $pendingDeposits)->whereNotNull('user_marked_paid_at');
         $openWithdrawals = Withdrawal::whereIn('status', ['pending', 'processing']);
         $pendingPayments = Order::query()->unpaidOps();
+        $oldestOpenWithdrawal = (clone $openWithdrawals)->orderBy('created_at')->first();
+        $oldestUnpaid = (clone $pendingPayments)->orderBy('created_at')->first();
 
         return [
             'pending_deposits' => [
@@ -117,29 +141,34 @@ class FinanceOverviewService
             'open_withdrawals' => [
                 'count' => (clone $openWithdrawals)->count(),
                 'amount' => (float) (clone $openWithdrawals)->sum('net_amount'),
+                'oldest_days' => $this->ageInDays($oldestOpenWithdrawal?->created_at),
                 'url' => route('admin.withdrawals', ['queue' => 'open']),
             ],
             'unpaid_orders' => [
                 'count' => (clone $pendingPayments)->count(),
                 'amount' => (float) (clone $pendingPayments)->sum('total_amount'),
+                'oldest_days' => $this->ageInDays($oldestUnpaid?->created_at),
                 'url' => route('admin.payments', ['payment_status' => 'unpaid']),
             ],
-            'publisher_debt' => $this->publisherDebt(),
+            'publisher_debt' => $this->publisherDebt($list),
         ];
     }
 
     /**
      * Outstanding publisher clawback debt (blocks their withdrawals).
      *
-     * @return array{count: int, amount: float, rows: list<array<string, mixed>>, url: string}
+     * @return array<string, mixed>
      */
-    public function publisherDebt(): array
+    public function publisherDebt(?string $list = null): array
     {
         $empty = [
             'count' => 0,
             'amount' => 0.0,
             'rows' => [],
+            'truncated' => false,
+            'limit' => self::HUB_TABLE_LIMIT,
             'url' => route('admin.finance').'#finance-debt',
+            'view_all_url' => route('admin.finance', ['list' => 'debt']).'#finance-debt-table',
         ];
 
         if (! Schema::hasColumn('wallets', 'debt_balance')) {
@@ -152,10 +181,12 @@ class FinanceOverviewService
             $query->where('role_id', $publisherRoleId);
         }
 
+        $limit = $list === 'debt' ? self::HUB_EXPANDED_LIMIT : self::HUB_TABLE_LIMIT;
+        $count = (clone $query)->count();
         $rows = (clone $query)
             ->with('user:id,name,email')
             ->orderByDesc('debt_balance')
-            ->limit(8)
+            ->limit($limit)
             ->get()
             ->map(fn (Wallet $wallet) => [
                 'user_id' => $wallet->user_id,
@@ -167,108 +198,74 @@ class FinanceOverviewService
             ->all();
 
         return [
-            'count' => (clone $query)->count(),
+            'count' => $count,
             'amount' => round((float) (clone $query)->sum('debt_balance'), 2),
             'rows' => $rows,
+            'truncated' => $count > count($rows),
+            'limit' => $limit,
             'url' => route('admin.finance').'#finance-debt',
+            'view_all_url' => route('admin.finance', ['list' => 'debt']).'#finance-debt-table',
         ];
     }
 
     /**
      * @return array<string, mixed>
      */
-    public function walletLiability(): array
+    public function walletLiability(?string $list = null): array
     {
         $advertiserRoleId = Wallet::advertiserRoleId();
         $publisherRoleId = Wallet::publisherRoleId();
-        $hasBonus = $this->hasBonusColumns();
+        $withdrawableSql = $this->perWalletWithdrawableSql();
 
-        $adv = [
-            'balance' => 0.0,
-            'bonus' => 0.0,
-            'reserved' => 0.0,
-            'cash' => 0.0,
-        ];
-        $pub = [
-            'balance' => 0.0,
-            'bonus' => 0.0,
-            'reserved' => 0.0,
-            'withdrawable' => 0.0,
-        ];
-
-        // Sum per-wallet withdrawable/cash. Do NOT use
+        // Per-wallet cash/withdrawable in SQL. Do NOT use
         // SUM(balance) - min(SUM(bonus), SUM(balance)) — that under/over-counts
         // when bonus is uneven across wallets.
-        if ($advertiserRoleId) {
-            $columns = ['balance', 'reserved_balance'];
-            if ($hasBonus) {
-                $columns[] = 'bonus_balance';
-            }
-            $wallets = Wallet::where('role_id', $advertiserRoleId)->get($columns);
-            foreach ($wallets as $wallet) {
-                $balance = (float) $wallet->balance;
-                $bonus = $hasBonus ? (float) ($wallet->bonus_balance ?? 0) : 0.0;
-                $lockedBonus = min($bonus, $balance);
-                $adv['balance'] += $balance;
-                $adv['bonus'] += $bonus;
-                $adv['reserved'] += (float) $wallet->reserved_balance;
-                $adv['cash'] += max(0, round($balance - $lockedBonus, 2));
-            }
-            $adv['balance'] = round($adv['balance'], 2);
-            $adv['bonus'] = round($adv['bonus'], 2);
-            $adv['reserved'] = round($adv['reserved'], 2);
-            $adv['cash'] = round($adv['cash'], 2);
-        }
+        $adv = $this->sumRoleWallets($advertiserRoleId, $withdrawableSql, 'cash');
+        $pub = $this->sumRoleWallets($publisherRoleId, $withdrawableSql, 'withdrawable');
 
+        $walletLimit = $list === 'wallets' ? self::HUB_EXPANDED_LIMIT : self::HUB_TABLE_LIMIT;
+        $topPublisherCount = 0;
         $topPublishers = [];
         if ($publisherRoleId) {
-            $wallets = Wallet::where('role_id', $publisherRoleId)
+            $positiveWithdrawable = Wallet::query()
+                ->where('role_id', $publisherRoleId)
+                ->whereRaw("({$withdrawableSql}) > 0");
+            $topPublisherCount = (clone $positiveWithdrawable)->count();
+            $topPublishers = (clone $positiveWithdrawable)
                 ->with('user:id,name,email')
-                ->get();
-            foreach ($wallets as $wallet) {
-                $balance = (float) $wallet->balance;
-                $bonus = $hasBonus ? (float) $wallet->bonus_balance : 0.0;
-                $lockedBonus = min($bonus, $balance);
-                $withdrawable = max(0, round($balance - $lockedBonus, 2));
-                $pub['balance'] += $balance;
-                $pub['bonus'] += $bonus;
-                $pub['reserved'] += (float) $wallet->reserved_balance;
-                $pub['withdrawable'] += $withdrawable;
-
-                if ($withdrawable > 0) {
-                    $topPublishers[] = [
-                        'user_id' => $wallet->user_id,
-                        'name' => $wallet->user?->name ?? 'User #'.$wallet->user_id,
-                        'email' => $wallet->user?->email,
-                        'withdrawable' => $withdrawable,
-                        'url' => route('admin.finance.user', $wallet->user_id),
-                    ];
-                }
-            }
-            $pub['balance'] = round($pub['balance'], 2);
-            $pub['bonus'] = round($pub['bonus'], 2);
-            $pub['reserved'] = round($pub['reserved'], 2);
-            $pub['withdrawable'] = round($pub['withdrawable'], 2);
-
-            usort($topPublishers, fn ($a, $b) => $b['withdrawable'] <=> $a['withdrawable']);
-            $topPublishers = array_slice($topPublishers, 0, 8);
+                ->select('wallets.*')
+                ->selectRaw("({$withdrawableSql}) as withdrawable_cash")
+                ->orderByDesc('withdrawable_cash')
+                ->limit($walletLimit)
+                ->get()
+                ->map(fn (Wallet $wallet) => [
+                    'user_id' => $wallet->user_id,
+                    'name' => $wallet->user?->name ?? 'User #'.$wallet->user_id,
+                    'email' => $wallet->user?->email,
+                    'withdrawable' => round((float) ($wallet->withdrawable_cash ?? 0), 2),
+                    'url' => route('admin.finance.user', $wallet->user_id),
+                ])
+                ->all();
         }
 
-        $openWithdrawals = Withdrawal::with('user:id,name,email')
-            ->whereIn('status', ['pending', 'processing'])
+        $openQuery = Withdrawal::query()->whereIn('status', ['pending', 'processing']);
+        $openWithdrawalCount = (clone $openQuery)->count();
+        $openWithdrawalNets = round((float) (clone $openQuery)->sum('net_amount'), 2);
+        $openWithdrawalRows = (clone $openQuery)
+            ->with('user:id,name,email')
             ->orderBy('created_at')
-            ->get();
-        $openWithdrawalNets = round((float) $openWithdrawals->sum('net_amount'), 2);
-
-        $openWithdrawalRows = $openWithdrawals->take(8)->map(fn (Withdrawal $w) => [
-            'id' => $w->id,
-            'user_id' => $w->user_id,
-            'name' => $w->user?->name ?? 'User #'.$w->user_id,
-            'email' => $w->user?->email,
-            'net_amount' => (float) $w->net_amount,
-            'status' => $w->status,
-            'url' => route('admin.withdrawals', ['search' => (string) $w->id, 'queue' => 'open']),
-        ])->all();
+            ->limit(self::HUB_TABLE_LIMIT)
+            ->get()
+            ->map(fn (Withdrawal $w) => [
+                'id' => $w->id,
+                'user_id' => $w->user_id,
+                'name' => $w->user?->name ?? 'User #'.$w->user_id,
+                'email' => $w->user?->email,
+                'net_amount' => (float) $w->net_amount,
+                'status' => $w->status,
+                'url' => route('admin.withdrawals', ['search' => (string) $w->id, 'queue' => 'open']),
+            ])
+            ->all();
 
         // What admin must send outside the app today (payout queue).
         $dueToPayNow = $openWithdrawalNets;
@@ -289,7 +286,12 @@ class FinanceOverviewService
             'payable_now' => $totalPublisherLiability,
             'open_reserved_total' => round($adv['reserved'] + $pub['reserved'], 2),
             'top_publisher_wallets' => $topPublishers,
+            'top_publisher_wallet_count' => $topPublisherCount,
+            'top_publisher_wallets_truncated' => $topPublisherCount > count($topPublishers),
+            'top_publisher_wallets_limit' => $walletLimit,
             'open_withdrawal_rows' => $openWithdrawalRows,
+            'open_withdrawal_count' => $openWithdrawalCount,
+            'open_withdrawals_truncated' => $openWithdrawalCount > count($openWithdrawalRows),
         ];
     }
 
@@ -605,6 +607,11 @@ class FinanceOverviewService
             ['section' => 'liability', 'metric' => 'advertiser_cash', 'value' => $data['liability']['advertiser']['cash']],
             ['section' => 'liability', 'metric' => 'advertiser_bonus', 'value' => $data['liability']['advertiser']['bonus']],
             ['section' => 'liability', 'metric' => 'advertiser_reserved', 'value' => $data['liability']['advertiser']['reserved']],
+            ['section' => 'liability', 'metric' => 'publisher_reserved', 'value' => $data['liability']['publisher']['reserved']],
+            ['section' => 'invoices', 'metric' => 'missing_tax', 'value' => $data['invoices']['count']],
+            ['section' => 'platform', 'metric' => 'estimated_stripe_fees', 'value' => $data['platform']['estimated_stripe_fees']],
+            ['section' => 'reconciliation', 'metric' => 'deposit_ledger', 'value' => $data['reconciliation']['ledger_deposits']],
+            ['section' => 'reconciliation', 'metric' => 'deposit_delta', 'value' => $data['reconciliation']['delta']],
             ['section' => 'money_in', 'metric' => 'deposits_completed', 'value' => $data['money_in']['deposits_completed']['amount']],
             ['section' => 'money_in', 'metric' => 'orders_gmv', 'value' => $data['money_in']['orders_paid']['gmv']],
             ['section' => 'money_in', 'metric' => 'orders_stripe', 'value' => $data['money_in']['orders_paid']['stripe_card']],
@@ -631,9 +638,166 @@ class FinanceOverviewService
         ];
     }
 
+    /**
+     * Paid orders with no non-cancelled tax invoice.
+     *
+     * @return array{count: int, url: string}
+     */
+    public function missingTaxInvoices(): array
+    {
+        $url = route('admin.invoices.index');
+        if (! Schema::hasTable('invoices') || ! Schema::hasColumn('invoices', 'type')) {
+            return ['count' => 0, 'url' => $url];
+        }
+
+        $count = (int) Order::query()
+            ->where('payment_status', 'paid')
+            ->whereDoesntHave('invoices', function ($query) {
+                $query->where('type', Invoice::TYPE_TAX_INVOICE)
+                    ->where('status', '!=', Invoice::STATUS_CANCELLED);
+            })
+            ->count();
+
+        return [
+            'count' => $count,
+            'url' => $url,
+        ];
+    }
+
+    /**
+     * Week/month GMV and fees vs the previous window of equal length.
+     *
+     * @param  array{start: ?Carbon, end: Carbon, label: string, key: string}  $period
+     * @param  array<string, mixed>  $platform
+     * @return array<string, mixed>|null
+     */
+    public function periodComparison(array $period, array $platform): ?array
+    {
+        $previous = $this->previousPeriodWindow($period);
+        if (! $previous) {
+            return null;
+        }
+
+        $prevPlatform = $this->platform($previous['start'], $previous['end']);
+
+        return [
+            'label' => 'Previous equal window',
+            'from' => $previous['start']->toDateString(),
+            'to' => $previous['end']->toDateString(),
+            'gmv_completed' => $prevPlatform['gmv_completed'],
+            'order_fees' => $prevPlatform['order_fees'],
+            'gmv_delta' => round((float) $platform['gmv_completed'] - $prevPlatform['gmv_completed'], 2),
+            'fees_delta' => round((float) $platform['order_fees'] - $prevPlatform['order_fees'], 2),
+        ];
+    }
+
+    /**
+     * Completed deposit payments vs ledger TYPE_DEPOSIT in the same period.
+     *
+     * @return array{deposits_completed: float, ledger_deposits: float, delta: float, matched: bool}
+     */
+    public function depositReconciliation(?Carbon $start, Carbon $end, float $completedDeposits): array
+    {
+        $ledgerSum = 0.0;
+        if (Schema::hasTable('wallet_transactions')) {
+            $ledger = WalletTransaction::query()->where('type', WalletTransaction::TYPE_DEPOSIT);
+            $this->applyCreatedWindow($ledger, $start, $end);
+            $ledgerSum = round((float) $ledger->sum('amount'), 2);
+        }
+
+        $completed = round($completedDeposits, 2);
+        $delta = round($ledgerSum - $completed, 2);
+
+        return [
+            'deposits_completed' => $completed,
+            'ledger_deposits' => $ledgerSum,
+            'delta' => $delta,
+            'matched' => abs($delta) < 0.01,
+        ];
+    }
+
     private function hasBonusColumns(): bool
     {
         return Schema::hasColumn('wallets', 'bonus_balance');
+    }
+
+    /**
+     * Per-wallet withdrawable/cash: max(0, balance − min(bonus, balance)).
+     * Portable CASE so SQLite tests and MySQL production match.
+     */
+    private function perWalletWithdrawableSql(string $table = 'wallets'): string
+    {
+        $balance = "{$table}.balance";
+        if (! $this->hasBonusColumns()) {
+            return "ROUND(CASE WHEN {$balance} > 0 THEN {$balance} ELSE 0 END, 2)";
+        }
+
+        $bonus = "COALESCE({$table}.bonus_balance, 0)";
+
+        return "ROUND(CASE WHEN {$balance} <= 0 THEN 0 WHEN {$bonus} >= {$balance} THEN 0 ELSE {$balance} - {$bonus} END, 2)";
+    }
+
+    /**
+     * @return array{balance: float, bonus: float, reserved: float, cash?: float, withdrawable?: float}
+     */
+    private function sumRoleWallets(?int $roleId, string $withdrawableSql, string $cashKey): array
+    {
+        $empty = [
+            'balance' => 0.0,
+            'bonus' => 0.0,
+            'reserved' => 0.0,
+            $cashKey => 0.0,
+        ];
+        if (! $roleId) {
+            return $empty;
+        }
+
+        $hasBonus = $this->hasBonusColumns();
+        $row = Wallet::query()
+            ->where('role_id', $roleId)
+            ->selectRaw('COALESCE(SUM(balance), 0) as balance')
+            ->selectRaw($hasBonus ? 'COALESCE(SUM(bonus_balance), 0) as bonus' : '0 as bonus')
+            ->selectRaw('COALESCE(SUM(reserved_balance), 0) as reserved')
+            ->selectRaw("COALESCE(SUM({$withdrawableSql}), 0) as cash_or_wd")
+            ->first();
+
+        return [
+            'balance' => round((float) ($row?->balance ?? 0), 2),
+            'bonus' => round((float) ($row?->bonus ?? 0), 2),
+            'reserved' => round((float) ($row?->reserved ?? 0), 2),
+            $cashKey => round((float) ($row?->cash_or_wd ?? 0), 2),
+        ];
+    }
+
+    /**
+     * @param  array{start: ?Carbon, end: Carbon, key: string}  $period
+     * @return array{start: Carbon, end: Carbon}|null
+     */
+    private function previousPeriodWindow(array $period): ?array
+    {
+        if (! in_array($period['key'] ?? '', ['week', 'month'], true) || ! ($period['start'] instanceof Carbon)) {
+            return null;
+        }
+
+        $start = $period['start']->copy();
+        $end = $period['end'] instanceof Carbon ? $period['end']->copy() : now()->endOfDay();
+        $length = max(1, $end->getTimestamp() - $start->getTimestamp());
+        $prevEnd = $start->copy()->subSecond();
+        $prevStart = $prevEnd->copy()->subSeconds($length);
+
+        return [
+            'start' => $prevStart,
+            'end' => $prevEnd,
+        ];
+    }
+
+    private function ageInDays(?Carbon $at): ?int
+    {
+        if (! $at) {
+            return null;
+        }
+
+        return (int) $at->diffInDays(now());
     }
 
     private function applyCreatedWindow($query, ?Carbon $start, Carbon $end): void

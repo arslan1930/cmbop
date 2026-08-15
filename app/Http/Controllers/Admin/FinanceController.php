@@ -51,7 +51,12 @@ class FinanceController extends Controller
             $request->get('date_to')
         );
 
-        $data = $this->finance->overview($period);
+        $list = is_string($request->get('list')) ? $request->get('list') : null;
+        if (! in_array($list, ['debt', 'wallets'], true)) {
+            $list = null;
+        }
+
+        $data = $this->finance->overview($period, $list);
 
         return view('admin.finance', [
             'data' => $data,
@@ -60,6 +65,7 @@ class FinanceController extends Controller
             'dateTo' => $request->get('date_to'),
             'userQuery' => $userQuery,
             'userMatches' => $userMatches,
+            'list' => $list,
         ]);
     }
 

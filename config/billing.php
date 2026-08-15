@@ -185,6 +185,17 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Estimated Stripe fee (% of card GMV + Stripe deposits)
+    |--------------------------------------------------------------------------
+    |
+    | Not imported from Stripe. Hub shows “Est. Stripe (not from Stripe)”
+    | using this rate × card volume. Override via STRIPE_FEE_PERCENT.
+    |
+    */
+    'stripe_fee_percent' => (float) env('STRIPE_FEE_PERCENT', 1.5),
+
+    /*
+    |--------------------------------------------------------------------------
     | Minimum publisher withdrawal amount (EUR)
     |--------------------------------------------------------------------------
     */
