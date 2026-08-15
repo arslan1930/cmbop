@@ -8,7 +8,7 @@
             <p class="text-muted mb-0 small">All wallet_transactions — deposits, purchases, refunds, withdrawals, bonuses, publisher earnings (transfer_in), and role moves.</p>
         </div>
         <div class="d-flex flex-wrap gap-2">
-            <a href="{{ route('admin.finance.ledger.export', request()->query()) }}" class="btn btn-sm btn-outline-primary">
+            <a href="{{ route('admin.finance.ledger.export', $exportQuery ?? []) }}" class="btn btn-sm btn-outline-primary">
                 <i class="fa fa-file-csv me-1"></i> Export CSV
             </a>
             <a href="{{ route('admin.finance') }}" class="btn btn-sm btn-outline-secondary">
@@ -24,7 +24,7 @@
                 <strong>{{ $ledgerUser->name }}</strong>
                 <span class="text-muted">{{ $ledgerUser->email }}</span>
             </div>
-            <a href="{{ route('admin.finance.ledger', request()->except('user_id')) }}" class="btn btn-sm btn-outline-secondary">Clear user</a>
+            <a href="{{ route('admin.finance.ledger', $clearUserQuery ?? []) }}" class="btn btn-sm btn-outline-secondary">Clear user</a>
         </div>
     @endif
 
@@ -41,8 +41,8 @@
                     <label class="form-label small text-muted">Type</label>
                     <select name="type" class="form-select form-select-sm">
                         <option value="">All types</option>
-                        @foreach($types as $type)
-                            <option value="{{ $type }}" @selected(request('type') === $type)>{{ (new \App\Models\WalletTransaction(['type' => $type]))->typeLabel() }}</option>
+                        @foreach($types as $txType)
+                            <option value="{{ $txType }}" @selected($type === $txType)>{{ (new \App\Models\WalletTransaction(['type' => $txType]))->typeLabel() }}</option>
                         @endforeach
                     </select>
                 </div>
@@ -50,17 +50,17 @@
                     <label class="form-label small text-muted">Direction</label>
                     <select name="direction" class="form-select form-select-sm">
                         <option value="">Any</option>
-                        <option value="credit" @selected(request('direction') === 'credit')>Credit</option>
-                        <option value="debit" @selected(request('direction') === 'debit')>Debit</option>
+                        <option value="credit" @selected($direction === 'credit')>Credit</option>
+                        <option value="debit" @selected($direction === 'debit')>Debit</option>
                     </select>
                 </div>
                 <div class="col-md-2">
                     <label class="form-label small text-muted">From</label>
-                    <input type="date" name="date_from" value="{{ request('date_from') }}" class="form-control form-control-sm">
+                    <input type="date" name="date_from" value="{{ $dateFrom }}" class="form-control form-control-sm">
                 </div>
                 <div class="col-md-2">
                     <label class="form-label small text-muted">To</label>
-                    <input type="date" name="date_to" value="{{ request('date_to') }}" class="form-control form-control-sm">
+                    <input type="date" name="date_to" value="{{ $dateTo }}" class="form-control form-control-sm">
                 </div>
                 <div class="col-md-1">
                     <button class="btn btn-sm btn-primary w-100">Filter</button>

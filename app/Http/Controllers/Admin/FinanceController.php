@@ -45,21 +45,29 @@ class FinanceController extends Controller
             }
         }
 
-        $period = $this->finance->resolvePeriod(
-            $request->get('period'),
-            $request->get('date_from'),
-            $request->get('date_to')
-        );
+        $periodKey = is_string($request->get('period')) ? $request->get('period') : null;
+        $rawFrom = is_string($request->get('date_from')) ? $request->get('date_from') : null;
+        $rawTo = is_string($request->get('date_to')) ? $request->get('date_to') : null;
 
-        $data = $this->finance->overview($period);
+        $period = $this->finance->resolvePeriod($periodKey, $rawFrom, $rawTo);
+        $dateFrom = $this->finance->parseDay($rawFrom, false)?->toDateString();
+        $dateTo = $this->finance->parseDay($rawTo, true)?->toDateString();
+
+        $list = is_string($request->get('list')) ? $request->get('list') : null;
+        if (! in_array($list, ['debt', 'wallets'], true)) {
+            $list = null;
+        }
+
+        $data = $this->finance->overview($period, $list);
 
         return view('admin.finance', [
             'data' => $data,
             'periodKey' => $period['key'],
-            'dateFrom' => $request->get('date_from'),
-            'dateTo' => $request->get('date_to'),
+            'dateFrom' => $dateFrom,
+            'dateTo' => $dateTo,
             'userQuery' => $userQuery,
             'userMatches' => $userMatches,
+            'list' => $list,
         ]);
     }
 
@@ -69,16 +77,42 @@ class FinanceController extends Controller
     public function ledger(Request $request)
     {
         $search = is_string($request->input('search')) ? trim($request->input('search')) : '';
-        $userId = (int) $request->input('user_id');
+        $userId = $this->intQueryId($request->input('user_id'));
         $ledgerUser = $userId > 0
             ? User::query()->whereKey($userId)->first(['id', 'name', 'email'])
             : null;
+        $type = is_string($request->input('type')) && in_array($request->input('type'), $this->ledgerTypes(), true)
+            ? $request->input('type')
+            : '';
+        $direction = is_string($request->input('direction')) && in_array($request->input('direction'), ['credit', 'debit'], true)
+            ? $request->input('direction')
+            : '';
+        $dateFrom = $this->finance->parseDay(
+            is_string($request->input('date_from')) ? $request->input('date_from') : null,
+            false
+        )?->toDateString() ?? '';
+        $dateTo = $this->finance->parseDay(
+            is_string($request->input('date_to')) ? $request->input('date_to') : null,
+            true
+        )?->toDateString() ?? '';
+
+        $exportQuery = array_filter([
+            'search' => $search !== '' ? $search : null,
+            'user_id' => $ledgerUser?->id,
+            'type' => $type !== '' ? $type : null,
+            'direction' => $direction !== '' ? $direction : null,
+            'date_from' => $dateFrom !== '' ? $dateFrom : null,
+            'date_to' => $dateTo !== '' ? $dateTo : null,
+        ], fn ($value) => $value !== null && $value !== '');
+        $clearUserQuery = $exportQuery;
+        unset($clearUserQuery['user_id']);
 
         $transactions = $this->ledgerQuery($request)
             ->with(['user:id,name,email', 'wallet:id,role_id'])
-            ->latest()
+            ->orderByDesc('created_at')
+            ->orderByDesc('id')
             ->paginate(40)
-            ->withQueryString();
+            ->appends($exportQuery);
 
         $types = $this->ledgerTypes();
 
@@ -86,7 +120,13 @@ class FinanceController extends Controller
             'transactions',
             'types',
             'search',
-            'ledgerUser'
+            'ledgerUser',
+            'type',
+            'direction',
+            'dateFrom',
+            'dateTo',
+            'exportQuery',
+            'clearUserQuery'
         ));
     }
 
@@ -197,9 +237,9 @@ class FinanceController extends Controller
     public function export(Request $request): StreamedResponse
     {
         $period = $this->finance->resolvePeriod(
-            $request->get('period'),
-            $request->get('date_from'),
-            $request->get('date_to')
+            is_string($request->get('period')) ? $request->get('period') : null,
+            is_string($request->get('date_from')) ? $request->get('date_from') : null,
+            is_string($request->get('date_to')) ? $request->get('date_to') : null
         );
         $rows = $this->finance->exportRows($period);
         $filename = 'finance-'.$period['key'].'-'.now()->format('Y-m-d-His').'.csv';
@@ -256,49 +296,68 @@ class FinanceController extends Controller
 
         $search = is_string($request->input('search')) ? trim($request->input('search')) : '';
         if ($search !== '') {
-            $query->where(function ($q) use ($search) {
-                $q->where('reference', 'like', "%{$search}%")
-                    ->orWhere('description', 'like', "%{$search}%")
-                    ->orWhere('id', $search)
-                    ->orWhereHas('user', function ($sub) use ($search) {
-                        $sub->where('name', 'like', "%{$search}%")
-                            ->orWhere('email', 'like', "%{$search}%");
+            $like = '%'.addcslashes($search, '%_\\').'%';
+            $query->where(function ($q) use ($search, $like) {
+                $q->where('reference', 'like', $like)
+                    ->orWhere('description', 'like', $like)
+                    ->orWhereHas('user', function ($sub) use ($like) {
+                        $sub->where('name', 'like', $like)
+                            ->orWhere('email', 'like', $like);
                     });
+                $searchId = $this->intQueryId($search);
+                if ($searchId > 0) {
+                    $q->orWhere('id', $searchId);
+                }
             });
         }
 
-        $userId = (int) $request->input('user_id');
+        $userId = $this->intQueryId($request->input('user_id'));
         if ($userId > 0) {
             $query->where('user_id', $userId);
         }
 
-        $dates = validator(
-            [
-                'date_from' => is_string($request->input('date_from')) ? $request->input('date_from') : null,
-                'date_to' => is_string($request->input('date_to')) ? $request->input('date_to') : null,
-            ],
-            [
-                'date_from' => 'nullable|date',
-                'date_to' => 'nullable|date|after_or_equal:date_from',
-            ]
-        )->valid();
-        if (! empty($dates['date_from'])) {
-            $query->whereDate('created_at', '>=', $dates['date_from']);
+        $from = $this->finance->parseDay(
+            is_string($request->input('date_from')) ? $request->input('date_from') : null,
+            false
+        );
+        $to = $this->finance->parseDay(
+            is_string($request->input('date_to')) ? $request->input('date_to') : null,
+            true
+        );
+        if ($from && $to && $to->lt($from)) {
+            $to = $from->copy()->endOfDay();
         }
-        if (! empty($dates['date_to'])) {
-            $query->whereDate('created_at', '<=', $dates['date_to']);
+        if ($from) {
+            $query->where('created_at', '>=', $from);
+        }
+        if ($to) {
+            $query->where('created_at', '<=', $to);
         }
 
         return $query;
     }
 
+    private function intQueryId(mixed $value): int
+    {
+        if (is_int($value) && $value > 0) {
+            return $value;
+        }
+
+        if (is_string($value) && preg_match('/^[1-9]\d*$/', $value)) {
+            return (int) $value;
+        }
+
+        return 0;
+    }
+
     private function redirectToDossierIfUnique(string $userQuery): ?RedirectResponse
     {
-        if (! ctype_digit($userQuery)) {
+        $userId = $this->intQueryId($userQuery);
+        if ($userId < 1) {
             return null;
         }
 
-        $user = User::query()->whereKey((int) $userQuery)->first();
+        $user = User::query()->whereKey($userId)->first();
 
         return $user ? redirect()->route('admin.finance.user', $user) : null;
     }
@@ -308,10 +367,12 @@ class FinanceController extends Controller
      */
     private function searchUsers(string $userQuery)
     {
+        $escaped = addcslashes($userQuery, '%_\\');
+
         return User::query()
-            ->where(function ($query) use ($userQuery) {
-                $query->where('name', 'like', '%'.$userQuery.'%')
-                    ->orWhere('email', 'like', '%'.$userQuery.'%');
+            ->where(function ($query) use ($escaped) {
+                $query->where('name', 'like', '%'.$escaped.'%')
+                    ->orWhere('email', 'like', '%'.$escaped.'%');
             })
             ->orderBy('name')
             ->limit(8)

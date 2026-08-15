@@ -89,7 +89,7 @@
 
         @if(auth()->user()->isAdmin())
         <div class="admin-nav-section">Money</div>
-        <a href="{{ route('admin.finance') }}" class="{{ request()->routeIs('admin.finance') || request()->routeIs('admin.finance.*') ? 'active' : '' }}">
+        <a href="{{ route('admin.finance') }}" class="{{ request()->routeIs('admin.finance') || request()->routeIs('admin.finance.user') ? 'active' : '' }}">
             <i class="fa fa-chart-pie"></i> <span>Finance</span>
         </a>
         <a href="{{ route('admin.finance.ledger') }}" class="{{ request()->routeIs('admin.finance.ledger') ? 'active' : '' }}">

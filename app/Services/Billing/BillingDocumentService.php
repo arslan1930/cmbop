@@ -343,6 +343,7 @@ class BillingDocumentService
         $orders = Order::query()
             ->with(['user', 'items'])
             ->where('payment_status', 'paid')
+            ->where('status', '!=', 'cancelled')
             ->whereDoesntHave('invoices', function ($q) {
                 $q->where('type', Invoice::TYPE_TAX_INVOICE)
                     ->where('status', '!=', Invoice::STATUS_CANCELLED);

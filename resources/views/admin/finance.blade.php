@@ -29,7 +29,7 @@
             <a href="{{ route('admin.finance.ledger') }}" class="btn btn-sm btn-outline-secondary">
                 <i class="fa fa-book me-1"></i> Wallet ledger
             </a>
-            <a href="{{ route('admin.finance.export', request()->query()) }}" class="btn btn-sm btn-outline-primary">
+            <a href="{{ route('admin.finance.export', array_filter(['period' => $periodKey, 'date_from' => is_string($dateFrom ?? null) ? $dateFrom : null, 'date_to' => is_string($dateTo ?? null) ? $dateTo : null])) }}" class="btn btn-sm btn-outline-primary">
                 <i class="fa fa-file-csv me-1"></i> Export period CSV
             </a>
         </div>
@@ -37,11 +37,17 @@
 
     <form method="GET" class="card border-0 shadow-sm mb-3">
         <div class="card-body py-3">
+            @if(in_array($list ?? null, ['debt', 'wallets'], true))
+                <input type="hidden" name="list" value="{{ $list }}">
+            @endif
+            @if(in_array($periodKey ?? null, ['week', 'month', 'all'], true))
+                <input type="hidden" name="period" value="{{ $periodKey }}">
+            @endif
             <div class="row g-2 align-items-end">
                 <div class="col-auto">
                     <div class="btn-group btn-group-sm" role="group">
                         @foreach(['week' => 'This week', 'month' => 'This month', 'all' => 'All time'] as $key => $label)
-                            <a href="{{ route('admin.finance', ['period' => $key]) }}"
+                            <a href="{{ route('admin.finance', array_filter(['period' => $key, 'list' => $list ?? null])) }}"
                                class="btn {{ $periodKey === $key && !$dateFrom && !$dateTo ? 'btn-primary' : 'btn-outline-secondary' }}">
                                 {{ $label }}
                             </a>
@@ -112,7 +118,7 @@
                             Nothing waiting in the payout queue.
                         @endif
                     </div>
-                    <a href="{{ route('admin.withdrawals') }}" class="btn btn-sm btn-outline-danger mt-3">Open payout queue</a>
+                    <a href="{{ route('admin.withdrawals', ['queue' => 'open']) }}" class="btn btn-sm btn-outline-danger mt-3">Open payout queue</a>
                 </div>
             </div>
         </div>
@@ -146,7 +152,12 @@
             @if(!empty($d['liability']['open_withdrawal_rows']))
                 <div class="col-lg-6">
                     <div class="card border-0 shadow-sm h-100">
-                        <div class="card-header bg-white fw-semibold">Open withdrawals (how Due to pay now is built)</div>
+                        <div class="card-header bg-white fw-semibold d-flex justify-content-between align-items-center gap-2">
+                            <span>Open withdrawals (how Due to pay now is built)</span>
+                            @if(!empty($d['liability']['open_withdrawals_truncated']))
+                                <a href="{{ $d['ops']['open_withdrawals']['url'] }}" class="small fw-normal">View all {{ $d['liability']['open_withdrawal_count'] }}</a>
+                            @endif
+                        </div>
                         <div class="table-responsive">
                             <table class="table table-sm mb-0 align-middle">
                                 <thead class="table-light">
@@ -173,9 +184,16 @@
                 </div>
             @endif
             @if(!empty($d['liability']['top_publisher_wallets']))
-                <div class="col-lg-6">
+                <div class="col-lg-6" id="finance-wallets">
                     <div class="card border-0 shadow-sm h-100">
-                        <div class="card-header bg-white fw-semibold">Publisher wallets (how In wallets is built)</div>
+                        <div class="card-header bg-white fw-semibold d-flex justify-content-between align-items-center gap-2">
+                            <span>Publisher wallets (how In wallets is built)</span>
+                            @if(!empty($d['liability']['top_publisher_wallets_truncated']))
+                                <a href="{{ route('admin.finance', array_filter(['period' => $periodKey, 'date_from' => $dateFrom, 'date_to' => $dateTo, 'list' => 'wallets'])) }}#finance-wallets" class="small fw-normal">View all {{ $d['liability']['top_publisher_wallet_count'] }}</a>
+                            @elseif(($list ?? null) === 'wallets')
+                                <a href="{{ route('admin.finance', array_filter(['period' => $periodKey, 'date_from' => $dateFrom, 'date_to' => $dateTo])) }}" class="small fw-normal">Back to top 8</a>
+                            @endif
+                        </div>
                         <div class="table-responsive">
                             <table class="table table-sm mb-0 align-middle">
                                 <thead class="table-light">
@@ -197,6 +215,11 @@
                                 </tbody>
                             </table>
                         </div>
+                        @if(($list ?? null) === 'wallets')
+                            <div class="card-footer bg-white small text-muted">
+                                Showing {{ count($d['liability']['top_publisher_wallets']) }} of {{ $d['liability']['top_publisher_wallet_count'] }}
+                            </div>
+                        @endif
                     </div>
                 </div>
             @endif
@@ -229,6 +252,9 @@
                         <div class="text-muted small">Open withdrawals</div>
                         <div class="fs-4 fw-bold text-danger">{{ $d['ops']['open_withdrawals']['count'] }}</div>
                         <div class="small">{{ $euro($d['ops']['open_withdrawals']['amount']) }}</div>
+                        @if(($d['ops']['open_withdrawals']['oldest_days'] ?? null) !== null)
+                            <div class="small text-muted mt-1">Oldest {{ $d['ops']['open_withdrawals']['oldest_days'] }} day{{ $d['ops']['open_withdrawals']['oldest_days'] === 1 ? '' : 's' }}</div>
+                        @endif
                     </div>
                 </div>
             </a>
@@ -240,6 +266,9 @@
                         <div class="text-muted small">Unpaid orders</div>
                         <div class="fs-4 fw-bold text-info">{{ $d['ops']['unpaid_orders']['count'] }}</div>
                         <div class="small">{{ $euro($d['ops']['unpaid_orders']['amount']) }}</div>
+                        @if(($d['ops']['unpaid_orders']['oldest_days'] ?? null) !== null)
+                            <div class="small text-muted mt-1">Oldest {{ $d['ops']['unpaid_orders']['oldest_days'] }} day{{ $d['ops']['unpaid_orders']['oldest_days'] === 1 ? '' : 's' }}</div>
+                        @endif
                     </div>
                 </div>
             </a>
@@ -264,8 +293,15 @@
     </div>
 
     @if(!empty($d['ops']['publisher_debt']['rows']))
-        <div class="card border-0 shadow-sm mb-3">
-            <div class="card-header bg-white fw-semibold">Publishers with clawback debt</div>
+        <div class="card border-0 shadow-sm mb-3" id="finance-debt-table">
+            <div class="card-header bg-white fw-semibold d-flex justify-content-between align-items-center gap-2">
+                <span>Publishers with clawback debt</span>
+                @if(!empty($d['ops']['publisher_debt']['truncated']))
+                    <a href="{{ route('admin.finance', array_filter(['period' => $periodKey, 'date_from' => $dateFrom, 'date_to' => $dateTo, 'list' => 'debt'])) }}#finance-debt-table" class="small fw-normal">View all {{ $d['ops']['publisher_debt']['count'] }}</a>
+                @elseif(($list ?? null) === 'debt')
+                    <a href="{{ route('admin.finance', array_filter(['period' => $periodKey, 'date_from' => $dateFrom, 'date_to' => $dateTo])) }}#finance-debt" class="small fw-normal">Back to top 8</a>
+                @endif
+            </div>
             <div class="table-responsive">
                 <table class="table table-sm mb-0 align-middle">
                     <thead class="table-light">
@@ -287,6 +323,18 @@
                     </tbody>
                 </table>
             </div>
+            @if(($list ?? null) === 'debt')
+                <div class="card-footer bg-white small text-muted">
+                    Showing {{ count($d['ops']['publisher_debt']['rows']) }} of {{ $d['ops']['publisher_debt']['count'] }}
+                </div>
+            @endif
+        </div>
+    @endif
+
+    @if(($d['invoices']['count'] ?? 0) > 0)
+        <div class="alert alert-warning py-2 small" role="status">
+            {{ $d['invoices']['count'] }} paid order{{ $d['invoices']['count'] === 1 ? '' : 's' }} {{ $d['invoices']['count'] === 1 ? 'has' : 'have' }} no tax invoice.
+            <a href="{{ $d['invoices']['url'] }}" class="alert-link">Open Invoices</a> and use <strong>Backfill missing</strong>.
         </div>
     @endif
 
@@ -298,12 +346,24 @@
                 <div class="col-6 col-lg">
                     <div class="text-muted small">GMV (completed paid)</div>
                     <div class="fs-5 fw-bold">{{ $euro($d['platform']['gmv_completed']) }}</div>
-                    <div class="small text-muted">What advertisers paid on completed orders</div>
+                    <div class="small text-muted">Completed in period (refunds listed separately)</div>
+                    @if(!empty($d['comparison']))
+                        <div class="small mt-1">
+                            vs prev {{ $euro($d['comparison']['gmv_completed']) }}
+                            ({{ $d['comparison']['gmv_delta'] >= 0 ? '+' : '' }}{{ $euro($d['comparison']['gmv_delta']) }})
+                        </div>
+                    @endif
                 </div>
                 <div class="col-6 col-lg">
                     <div class="text-muted small">Order platform fees</div>
                     <div class="fs-5 fw-bold text-success">{{ $euro($d['platform']['order_fees']) }}</div>
                     <div class="small text-muted">Your real product revenue</div>
+                    @if(!empty($d['comparison']))
+                        <div class="small mt-1">
+                            vs prev {{ $euro($d['comparison']['order_fees']) }}
+                            ({{ $d['comparison']['fees_delta'] >= 0 ? '+' : '' }}{{ $euro($d['comparison']['fees_delta']) }})
+                        </div>
+                    @endif
                 </div>
                 <div class="col-6 col-lg">
                     <div class="text-muted small">Withdrawal fees</div>
@@ -323,7 +383,13 @@
                 <div class="col-6 col-lg">
                     <div class="text-muted small">Est. margin</div>
                     <div class="fs-5 fw-bold {{ $d['platform']['margin'] >= 0 ? 'text-success' : 'text-danger' }}">{{ $euro($d['platform']['margin']) }}</div>
-                    <div class="small text-muted">Fees − refunds − bonuses<br><span class="fst-italic">Stripe fees not tracked</span></div>
+                    <div class="small text-muted">
+                        Fees − refunded fees − bonuses<br>
+                        Est. Stripe (not from Stripe) {{ $euro($d['platform']['estimated_stripe_fees'] ?? 0) }}
+                        @if(($d['platform']['stripe_fee_percent'] ?? 0) > 0)
+                            ({{ rtrim(rtrim(number_format($d['platform']['stripe_fee_percent'], 2), '0'), '.') }}% of card volume)
+                        @endif
+                    </div>
                 </div>
             </div>
         </div>
@@ -341,6 +407,16 @@
                             <strong>{{ $euro($d['money_in']['deposits_completed']['amount']) }}</strong>
                         </div>
                         <div class="small text-muted">{{ $d['money_in']['deposits_completed']['count'] }} requests · Stripe {{ $euro($d['money_in']['deposits_completed']['stripe']) }} · Manual {{ $euro($d['money_in']['deposits_completed']['manual']) }}</div>
+                        @if(!empty($d['reconciliation']))
+                            <div class="small mt-1 {{ $d['reconciliation']['matched'] ? 'text-success' : 'text-danger' }}">
+                                Ledger deposits {{ $euro($d['reconciliation']['ledger_deposits']) }}
+                                @if($d['reconciliation']['matched'])
+                                    · match
+                                @else
+                                    · mismatch {{ $d['reconciliation']['delta'] >= 0 ? '+' : '' }}{{ $euro($d['reconciliation']['delta']) }}
+                                @endif
+                            </div>
+                        @endif
                     </div>
                     <div class="mb-3">
                         <div class="d-flex justify-content-between">
@@ -391,7 +467,7 @@
                         </div>
                         <div class="small text-muted">{{ $d['money_out']['withdrawals_open']['count'] }} waiting to send</div>
                     </div>
-                    <a href="{{ route('admin.withdrawals') }}" class="btn btn-sm btn-outline-secondary mt-3 w-100">Payout queue</a>
+                    <a href="{{ route('admin.withdrawals', ['queue' => 'open']) }}" class="btn btn-sm btn-outline-secondary mt-3 w-100">Payout queue</a>
                 </div>
             </div>
         </div>
@@ -432,8 +508,12 @@
                         <span>{{ $euro($d['liability']['advertiser']['bonus']) }}</span>
                     </div>
                     <div class="d-flex justify-content-between small mb-1">
-                        <span class="text-muted">Reserved (in flight)</span>
-                        <span>{{ $euro($d['liability']['open_reserved_total']) }}</span>
+                        <span class="text-muted">Advertiser reserved</span>
+                        <span>{{ $euro($d['liability']['advertiser']['reserved']) }}</span>
+                    </div>
+                    <div class="d-flex justify-content-between small mb-1">
+                        <span class="text-muted">Publisher reserved</span>
+                        <span>{{ $euro($d['liability']['publisher']['reserved']) }}</span>
                     </div>
                     <div class="d-flex justify-content-between small">
                         <span class="text-muted">Publisher withdrawable</span>
