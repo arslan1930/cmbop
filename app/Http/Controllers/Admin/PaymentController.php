@@ -14,7 +14,6 @@ use App\Services\ActivityLogger;
 use App\Services\Advertiser\SpendBudgetService;
 use App\Services\Billing\AdminInvoiceLinks;
 use App\Services\Billing\BillingDocumentService;
-use App\Services\CheckoutIntentService;
 use App\Services\CheckoutSchemaService;
 use App\Services\InAppNotificationService;
 use App\Services\OrderPaymentService;
@@ -532,8 +531,9 @@ class PaymentController extends Controller
 
         foreach ($orders as $order) {
             $documents = $byOrder->get((int) $order->id, []);
-            $order->setAttribute('invoice_documents', $documents);
             $primary = $links->primary($documents);
+            $order->setAttribute('invoice_documents', $documents);
+            $order->setAttribute('invoice', $primary);
             $order->setAttribute('invoice_url', data_get($primary, 'url'));
         }
     }
@@ -643,6 +643,9 @@ class PaymentController extends Controller
                 'email' => $order->user->email,
             ] : null,
             'allowed_statuses' => $this->allowedPaymentStatuses($order),
+            'invoices' => $order->getAttribute('invoice_documents') ?? [],
+            'invoice' => $order->getAttribute('invoice'),
+            'invoice_url' => $order->getAttribute('invoice_url'),
         ];
     }
 
