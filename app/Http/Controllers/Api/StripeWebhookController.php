@@ -325,12 +325,25 @@ class StripeWebhookController extends Controller
             throw new \RuntimeException('site_feature site/user not found');
         }
 
-        if ((int) $site->publisher_id !== (int) $user->id) {
-            throw new \RuntimeException('site_feature publisher mismatch');
-        }
-
         $promotions = app(SitePromotionService::class);
         $promotions->assertStripeChargeMatchesFeaturePrice($session);
+
+        if ((int) $site->publisher_id !== (int) $user->id) {
+            $result = $promotions->creditPayerWhenFeatureCannotApply($site, $user, $sessionId);
+            if (! ($result['success'] ?? false)) {
+                throw new \RuntimeException($result['message'] ?? 'site_feature publisher mismatch');
+            }
+
+            Log::warning('site_feature publisher mismatch; credited payer wallet', [
+                'site_id' => $siteId,
+                'payer_id' => $userId,
+                'owner_id' => $site->publisher_id,
+                'session_id' => $sessionId,
+                'already' => $result['already'] ?? false,
+            ]);
+
+            return;
+        }
 
         $result = $promotions->featureFromStripePayment($site, $user, $sessionId);
         if (! ($result['success'] ?? false)) {

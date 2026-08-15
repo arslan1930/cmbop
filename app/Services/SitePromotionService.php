@@ -118,6 +118,97 @@ class SitePromotionService
     }
 
     /**
+     * When a paid feature session can no longer be applied (site changed owner),
+     * credit the payer's publisher wallet once and record the session so retries
+     * do not feature the new owner's listing or double-credit.
+     *
+     * @return array{success:bool, credited?:bool, already?:bool, message:string}
+     */
+    public function creditPayerWhenFeatureCannotApply(Site $site, User $payer, string $stripeSessionId): array
+    {
+        $price = $this->featurePrice();
+        $roleId = Wallet::publisherRoleId();
+        if (! $roleId) {
+            return ['success' => false, 'message' => 'Publisher wallet is not available.'];
+        }
+        if ($stripeSessionId === '') {
+            return ['success' => false, 'message' => 'Missing Stripe session.'];
+        }
+
+        try {
+            return DB::transaction(function () use ($site, $payer, $stripeSessionId, $price, $roleId) {
+                $already = SiteFeaturePurchase::query()
+                    ->where('payment_method', 'stripe')
+                    ->where('stripe_session_id', $stripeSessionId)
+                    ->lockForUpdate()
+                    ->first();
+                if ($already) {
+                    return [
+                        'success' => true,
+                        'credited' => false,
+                        'already' => true,
+                        'message' => 'Feature already applied for this payment.',
+                    ];
+                }
+
+                $credited = SiteFeaturePurchase::query()
+                    ->where('payment_method', 'stripe_credit')
+                    ->where('stripe_session_id', $stripeSessionId)
+                    ->lockForUpdate()
+                    ->first();
+                if ($credited) {
+                    return [
+                        'success' => true,
+                        'credited' => true,
+                        'already' => true,
+                        'message' => 'This payment was already credited to your wallet.',
+                    ];
+                }
+
+                $wallet = Wallet::lockOrCreateForRole($payer->id, $roleId);
+                $wallet->credit($price);
+                app(WalletLedgerService::class)->recordRefund(
+                    $wallet,
+                    $price,
+                    0,
+                    $site,
+                    'PROMO-FEATURE-CREDIT-'.$stripeSessionId
+                );
+
+                SiteFeaturePurchase::create([
+                    'site_id' => $site->id,
+                    'user_id' => $payer->id,
+                    'amount' => $price,
+                    'days' => 0,
+                    'payment_method' => 'stripe_credit',
+                    'stripe_session_id' => $stripeSessionId,
+                    'starts_at' => now(),
+                    'ends_at' => now(),
+                ]);
+
+                return [
+                    'success' => true,
+                    'credited' => true,
+                    'already' => false,
+                    'message' => 'Featured placement could not be applied because the website changed owner. €'
+                        .number_format($price, 2)
+                        .' was credited to your publisher wallet.',
+                ];
+            });
+        } catch (UniqueConstraintViolationException) {
+            return $this->alreadyCreditedOrAppliedFeature($stripeSessionId);
+        } catch (QueryException $e) {
+            if ($this->isUniqueViolation($e)) {
+                return $this->alreadyCreditedOrAppliedFeature($stripeSessionId);
+            }
+
+            return ['success' => false, 'message' => $e->getMessage()];
+        } catch (\Throwable $e) {
+            return ['success' => false, 'message' => $e->getMessage()];
+        }
+    }
+
+    /**
      * Apply featured placement after a successful Stripe card payment (no wallet debit).
      */
     public function featureFromStripePayment(Site $site, User $publisher, ?string $stripeSessionId = null): array
@@ -133,13 +224,14 @@ class SitePromotionService
 
                 if ($stripeSessionId) {
                     $already = SiteFeaturePurchase::query()
-                        ->where('payment_method', 'stripe')
                         ->where('stripe_session_id', $stripeSessionId)
                         ->first();
                     if ($already) {
                         return [
                             'success' => true,
-                            'message' => 'Feature already applied for this payment.',
+                            'message' => $already->payment_method === 'stripe_credit'
+                                ? 'This payment was already credited to your wallet.'
+                                : 'Feature already applied for this payment.',
                             'site' => $locked->fresh(),
                         ];
                     }
@@ -175,6 +267,27 @@ class SitePromotionService
             'success' => true,
             'message' => 'Feature already applied for this payment.',
             'site' => $site->fresh(),
+        ];
+    }
+
+    /**
+     * @return array{success:bool, credited:bool, already:bool, message:string}
+     */
+    private function alreadyCreditedOrAppliedFeature(string $stripeSessionId): array
+    {
+        $existing = SiteFeaturePurchase::query()
+            ->where('stripe_session_id', $stripeSessionId)
+            ->first();
+
+        $credited = $existing?->payment_method === 'stripe_credit';
+
+        return [
+            'success' => true,
+            'credited' => $credited,
+            'already' => true,
+            'message' => $credited
+                ? 'This payment was already credited to your wallet.'
+                : 'Feature already applied for this payment.',
         ];
     }
 

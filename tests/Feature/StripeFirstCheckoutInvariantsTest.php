@@ -531,4 +531,75 @@ class StripeFirstCheckoutInvariantsTest extends TestCase
         $this->assertContains((int) $articleB->order_id, $created->pluck('id')->all());
         $this->assertNotSame((int) $articleA->order_id, (int) $articleB->order_id);
     }
+
+    public function test_wallet_deposit_session_cannot_materialize_orders(): void
+    {
+        $advertiser = $this->makeUser('advertiser');
+        $publisher = $this->makeUser('publisher');
+        $site = $this->makeSite($publisher, 'wallet-collide.example', 50);
+        $payments = app(OrderPaymentService::class);
+        $payments->storePendingCheckout('COLLIDE-1', $this->package($advertiser, [
+            $this->lineFor($site, 50),
+        ], 50));
+
+        $walletSession = (object) [
+            'id' => 'cs_wallet_collide',
+            'object' => 'checkout.session',
+            'amount_total' => 5000,
+            'payment_intent' => 'pi_wallet_collide',
+            'metadata' => (object) [
+                'type' => 'wallet_deposit',
+                'reference_code' => 'COLLIDE-1',
+                'user_id' => (string) $advertiser->id,
+                'amount' => '50',
+            ],
+        ];
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('not an order payment');
+        $payments->finalizeStripeFirstCheckout('COLLIDE-1', $walletSession);
+    }
+
+    public function test_wallet_deposit_session_cannot_mark_existing_card_orders_paid(): void
+    {
+        $advertiser = $this->makeUser('advertiser');
+        $publisher = $this->makeUser('publisher');
+        $site = $this->makeSite($publisher, 'wallet-mark-paid.example', 50);
+
+        $order = Order::create([
+            'user_id' => $advertiser->id,
+            'order_number' => (string) random_int(100000, 999999),
+            'reference_code' => 'COLLIDE-PAID',
+            'subtotal' => 50,
+            'tax' => 0,
+            'total_amount' => 50,
+            'payment_method' => 'card',
+            'payment_status' => 'pending',
+            'status' => 'pending',
+        ]);
+        OrderItem::create([
+            'order_id' => $order->id,
+            'site_id' => $site->id,
+            'site_name' => $site->site_name,
+            'site_url' => $site->site_url,
+            'price' => 50,
+            'content_link' => 'https://example.com/article',
+        ]);
+
+        $walletSession = (object) [
+            'id' => 'cs_wallet_mark',
+            'object' => 'checkout.session',
+            'amount_total' => 5000,
+            'payment_intent' => 'pi_wallet_mark',
+            'metadata' => (object) [
+                'type' => 'wallet_deposit',
+                'reference_code' => 'COLLIDE-PAID',
+                'expected_amount' => '50',
+            ],
+        ];
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('not an order payment');
+        app(OrderPaymentService::class)->markOrdersPaidFromStripeSession('COLLIDE-PAID', $walletSession);
+    }
 }

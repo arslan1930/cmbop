@@ -282,4 +282,34 @@ class SitePromotionTest extends TestCase
         $this->expectExceptionMessage('featured placement costs');
         $promotions->assertStripeChargeMatchesFeaturePrice((object) ['amount_total' => 100]);
     }
+
+    public function test_feature_owner_mismatch_credits_payer_wallet_once(): void
+    {
+        config(['site_promotions.feature.price' => 10]);
+        $payer = $this->publisherWithWallet(5);
+        $newOwner = $this->publisherWithWallet(0);
+        $site = $this->site($payer);
+        $site->update(['publisher_id' => $newOwner->id]);
+
+        $promotions = app(SitePromotionService::class);
+        $first = $promotions->creditPayerWhenFeatureCannotApply($site, $payer, 'cs_feature_mismatch');
+        $second = $promotions->creditPayerWhenFeatureCannotApply($site, $payer, 'cs_feature_mismatch');
+
+        $this->assertTrue($first['success']);
+        $this->assertTrue($first['credited']);
+        $this->assertFalse($first['already']);
+        $this->assertTrue($second['already']);
+        $this->assertNull($site->fresh()->featured_until);
+        $this->assertEqualsWithDelta(15.0, (float) Wallet::where('user_id', $payer->id)->value('balance'), 0.01);
+        $this->assertSame(1, SiteFeaturePurchase::where('stripe_session_id', 'cs_feature_mismatch')->count());
+        $this->assertDatabaseHas('site_feature_purchases', [
+            'stripe_session_id' => 'cs_feature_mismatch',
+            'payment_method' => 'stripe_credit',
+            'user_id' => $payer->id,
+        ]);
+
+        $apply = $promotions->featureFromStripePayment($site->fresh(), $newOwner, 'cs_feature_mismatch');
+        $this->assertTrue($apply['success']);
+        $this->assertNull($site->fresh()->featured_until);
+    }
 }

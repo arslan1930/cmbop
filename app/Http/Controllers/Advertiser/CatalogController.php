@@ -2890,6 +2890,12 @@ class CatalogController extends Controller
                         ->with('error', 'Payment does not belong to this account.');
                 }
 
+                $intentType = (string) ($intent->metadata->type ?? '');
+                if ($intentType !== '' && ! in_array($intentType, ['order_payment', 'order'], true)) {
+                    return redirect()->route('advertiser.checkout')
+                        ->with('error', 'This payment is not an order checkout.');
+                }
+
                 if ($intent->status !== 'succeeded') {
                     return redirect()->route('advertiser.orders', ['payment_status' => 'failed'])
                         ->with('error', 'Card payment was not completed.');
@@ -2928,6 +2934,12 @@ class CatalogController extends Controller
                 if ((string) ($stripeSession->metadata->user_id ?? '') !== (string) auth()->id()) {
                     return redirect()->route('advertiser.checkout')
                         ->with('error', 'Payment does not belong to this account.');
+                }
+
+                $sessionType = (string) ($stripeSession->metadata->type ?? '');
+                if ($sessionType !== '' && ! in_array($sessionType, ['order_payment', 'order'], true)) {
+                    return redirect()->route('advertiser.checkout')
+                        ->with('error', 'This payment is not an order checkout.');
                 }
 
                 $newlyPaid = $paymentService->finalizeStripeFirstCheckout($referenceCode, $stripeSession);
