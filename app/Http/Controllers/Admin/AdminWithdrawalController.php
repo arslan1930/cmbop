@@ -272,13 +272,18 @@ class AdminWithdrawalController extends Controller
         $ok = 0;
         $failed = [];
         $succeededIds = [];
+        $unchangedIds = [];
 
         foreach ($ids as $id) {
             $response = $this->transitionWithdrawal((int) $id, $action, $notes, quiet: true);
             $payload = $response->getData(true);
             if (! empty($payload['success'])) {
-                $ok++;
-                $succeededIds[] = (int) $id;
+                if (! empty($payload['unchanged'])) {
+                    $unchangedIds[] = (int) $id;
+                } else {
+                    $ok++;
+                    $succeededIds[] = (int) $id;
+                }
             } else {
                 $failed[] = [
                     'id' => (int) $id,
@@ -299,6 +304,7 @@ class AdminWithdrawalController extends Controller
                         'action' => $action,
                         'succeeded' => $ok,
                         'failed' => count($failed),
+                        'unchanged' => count($unchangedIds),
                         'ids' => $succeededIds,
                         'payout_run_id' => $runId,
                     ],
@@ -311,10 +317,19 @@ class AdminWithdrawalController extends Controller
             }
         }
 
+        $parts = [$ok.' updated'];
+        if ($unchangedIds !== []) {
+            $parts[] = count($unchangedIds).' already in that status';
+        }
+        if ($failed !== []) {
+            $parts[] = count($failed).' failed';
+        }
+
         return response()->json([
             'success' => $ok > 0,
-            'message' => $ok.' updated'.(count($failed) ? ', '.count($failed).' failed' : ''),
+            'message' => implode(', ', $parts),
             'succeeded' => $ok,
+            'unchanged' => $unchangedIds,
             'failed' => $failed,
             'payout_run_id' => $runId,
         ], $ok > 0 ? 200 : 422);
@@ -819,6 +834,7 @@ class AdminWithdrawalController extends Controller
 
             return response()->json([
                 'success' => true,
+                'unchanged' => ! empty($result['unchanged']),
                 'message' => $result['message'],
                 'data' => $result['withdrawal'],
             ]);

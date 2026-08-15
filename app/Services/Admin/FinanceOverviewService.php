@@ -127,7 +127,7 @@ class FinanceOverviewService
             'open_withdrawals' => [
                 'count' => (clone $openWithdrawals)->count(),
                 'amount' => (float) (clone $openWithdrawals)->sum('net_amount'),
-                'url' => route('admin.withdrawals', ['queue' => 'open']),
+                'url' => route('admin.withdrawals', ['queue' => 'open'], false),
             ],
             'unpaid_orders' => [
                 'count' => (clone $pendingPayments)->count(),

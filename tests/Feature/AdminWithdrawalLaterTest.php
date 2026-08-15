@@ -105,6 +105,7 @@ class AdminWithdrawalLaterTest extends TestCase
         $this->assertStringContainsString('Array.isArray(options.ids) ? options.ids', $html);
         $this->assertStringContainsString('ids: ids', $html);
         $this->assertStringContainsString('!Array.isArray(withdrawal.payment_details)', $html);
+        $this->assertStringContainsString("failedCount > 0 ? 'warning' : 'success'", $html);
     }
 
     public function test_browser_show_is_html_and_json_accept_stays_json(): void
@@ -861,5 +862,44 @@ class AdminWithdrawalLaterTest extends TestCase
         $this->assertSame([$open->id], $log->properties['ids'] ?? null);
         $this->assertSame(1, $log->properties['succeeded'] ?? null);
         $this->assertSame(1, $log->properties['failed'] ?? null);
+    }
+
+    public function test_batch_does_not_count_already_settled_as_updated(): void
+    {
+        $admin = $this->makeUser('admin');
+        $publisher = $this->makeUser('publisher');
+        $paid = $this->seedWithdrawal($publisher, [
+            'status' => 'completed',
+            'processed_at' => now(),
+            'net_amount' => 10,
+        ]);
+        $open = $this->seedWithdrawal($publisher);
+
+        $this->actingAs($admin)
+            ->postJson(route('admin.withdrawals.batch'), [
+                'ids' => [$paid->id, $open->id],
+                'action' => 'completed',
+            ])
+            ->assertOk()
+            ->assertJsonPath('succeeded', 1)
+            ->assertJsonPath('unchanged', [$paid->id])
+            ->assertJsonPath('failed', []);
+
+        $log = ActivityLog::query()->where('action', 'withdrawal.batch_completed')->latest('id')->first();
+        $this->assertNotNull($log);
+        $this->assertSame([$open->id], $log->properties['ids'] ?? null);
+        $this->assertSame(1, $log->properties['succeeded'] ?? null);
+        $this->assertSame(0, $log->properties['unchanged'] ?? null);
+        $this->assertSame('completed', $open->fresh()->status);
+
+        $this->actingAs($admin)
+            ->postJson(route('admin.withdrawals.batch'), [
+                'ids' => [$paid->id],
+                'action' => 'completed',
+            ])
+            ->assertStatus(422)
+            ->assertJsonPath('success', false)
+            ->assertJsonPath('succeeded', 0)
+            ->assertJsonPath('unchanged', [$paid->id]);
     }
 }
