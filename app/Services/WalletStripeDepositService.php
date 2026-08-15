@@ -214,6 +214,15 @@ class WalletStripeDepositService
             return 0.0;
         }
 
+        // A session-only completed card plus a later PI-only card is a
+        // double credit when both Stripe lookups are still empty. Wait for
+        // the PaymentIntent id so the session row can be found by PI.
+        // Tests without a Stripe secret still allow the session-only path.
+        if ($paymentIntentId === '' && $this->mayCreateFallbackCardRow($type, $sessionReference)
+            && trim((string) config('services.stripe.secret', '')) !== '') {
+            throw new \RuntimeException('Wallet checkout session has no PaymentIntent id yet');
+        }
+
         $stripeAmount = isset($session->amount_total)
             ? StripePaymentService::fromCents((int) $session->amount_total)
             : null;
@@ -1381,10 +1390,13 @@ class WalletStripeDepositService
         callable $callback,
         string $sessionReference = ''
     ): mixed {
-        $key = $sessionReference !== ''
-            ? 'wallet_deposit_sref:'.$sessionReference
-            : ($paymentIntentId !== ''
-                ? 'wallet_deposit_pi:'.$paymentIntentId
+        // Prefer the PaymentIntent lock when both ids exist so a session
+        // webhook that already resolved the PI serializes with
+        // payment_intent.succeeded (which may lack session_reference).
+        $key = $paymentIntentId !== ''
+            ? 'wallet_deposit_pi:'.$paymentIntentId
+            : ($sessionReference !== ''
+                ? 'wallet_deposit_sref:'.$sessionReference
                 : 'wallet_deposit_cs:'.$sessionId);
 
         try {

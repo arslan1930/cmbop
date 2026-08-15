@@ -450,6 +450,7 @@ class StripeWebhookCompletenessTest extends TestCase
 
     public function test_untyped_payment_intent_is_retried_when_checkout_session_is_not_visible_yet(): void
     {
+        $previousSecret = config('services.stripe.secret');
         config(['services.stripe.secret' => 'sk_test_retry_empty_session']);
         $this->app->instance(
             WalletStripeDepositService::class,
@@ -463,24 +464,73 @@ class StripeWebhookCompletenessTest extends TestCase
         );
 
         $eventId = 'evt_pi_session_not_visible_'.uniqid();
-        $this->signedWebhook([
-            'id' => $eventId,
-            'object' => 'event',
-            'type' => 'payment_intent.succeeded',
-            'data' => [
-                'object' => [
-                    'id' => 'pi_session_not_visible_'.uniqid(),
-                    'object' => 'payment_intent',
-                    'status' => 'succeeded',
-                    'amount' => 4000,
-                    'amount_received' => 4000,
-                    'currency' => 'eur',
-                    'metadata' => [],
+        try {
+            $this->signedWebhook([
+                'id' => $eventId,
+                'object' => 'event',
+                'type' => 'payment_intent.succeeded',
+                'data' => [
+                    'object' => [
+                        'id' => 'pi_session_not_visible_'.uniqid(),
+                        'object' => 'payment_intent',
+                        'status' => 'succeeded',
+                        'amount' => 4000,
+                        'amount_received' => 4000,
+                        'currency' => 'eur',
+                        'metadata' => [],
+                    ],
                 ],
-            ],
-        ])->assertStatus(500);
+            ])->assertStatus(500);
 
-        $this->assertFalse((bool) StripeWebhookLog::where('event_id', $eventId)->value('processed'));
+            $this->assertFalse((bool) StripeWebhookLog::where('event_id', $eventId)->value('processed'));
+        } finally {
+            config(['services.stripe.secret' => $previousSecret]);
+        }
+    }
+
+    public function test_wallet_session_without_payment_intent_is_retried_when_stripe_is_configured(): void
+    {
+        $previousSecret = config('services.stripe.secret');
+        config(['services.stripe.secret' => 'sk_test_wait_for_pi_wh']);
+        $this->app->instance(
+            WalletStripeDepositService::class,
+            new class(app(WalletLedgerService::class)) extends WalletStripeDepositService
+            {
+                protected function lookupPaymentIntentIdForSession(string $sessionId): string
+                {
+                    return '';
+                }
+            }
+        );
+
+        $advertiser = $this->makeUser('advertiser');
+        $eventId = 'evt_cs_wait_pi_'.uniqid();
+        try {
+            $this->signedWebhook([
+                'id' => $eventId,
+                'object' => 'event',
+                'type' => 'checkout.session.completed',
+                'data' => [
+                    'object' => [
+                        'id' => 'cs_wait_pi_'.uniqid(),
+                        'object' => 'checkout.session',
+                        'payment_status' => 'paid',
+                        'amount_total' => 4000,
+                        'metadata' => [
+                            'type' => 'wallet_deposit',
+                            'user_id' => (string) $advertiser->id,
+                            'amount' => '40.00',
+                            'session_reference' => 'deposit_wait_pi_wh_40',
+                        ],
+                    ],
+                ],
+            ])->assertStatus(500);
+
+            $this->assertFalse((bool) StripeWebhookLog::where('event_id', $eventId)->value('processed'));
+            $this->assertDatabaseCount('deposit_requests', 0);
+        } finally {
+            config(['services.stripe.secret' => $previousSecret]);
+        }
     }
 
     public function test_untyped_session_with_add_funds_session_reference_credits_wallet(): void
