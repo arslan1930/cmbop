@@ -80,8 +80,22 @@ class CampaignHtml
             return null;
         }
 
-        $scheme = strtolower((string) parse_url($url, PHP_URL_SCHEME));
+        $parts = parse_url($url);
+        if (! is_array($parts)) {
+            return null;
+        }
+
+        $scheme = strtolower((string) ($parts['scheme'] ?? ''));
         if (! in_array($scheme, $schemes, true)) {
+            return null;
+        }
+
+        // https://trusted.example@evil.test is a valid URL whose host is evil.test.
+        if (isset($parts['user']) || isset($parts['pass'])) {
+            return null;
+        }
+
+        if (in_array($scheme, ['http', 'https'], true) && trim((string) ($parts['host'] ?? '')) === '') {
             return null;
         }
 

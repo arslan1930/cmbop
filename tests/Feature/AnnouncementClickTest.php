@@ -51,4 +51,22 @@ class AnnouncementClickTest extends TestCase
             ->assertRedirect('/');
         $this->assertSame(0, (int) $announcement->fresh()->clicks);
     }
+
+    public function test_userinfo_cta_goes_home(): void
+    {
+        $announcement = SiteAnnouncement::create([
+            'title' => 'Phish',
+            'message' => 'Click',
+            'type' => 'limited_offer',
+            'style' => 'promo',
+            'audience' => 'all',
+            'cta_label' => 'Shop',
+            'cta_url' => 'https://google.com@evil.example/sale',
+            'is_active' => true,
+        ]);
+
+        $this->get(route('announcements.click', $announcement))
+            ->assertRedirect('/');
+        $this->assertSame(0, (int) $announcement->fresh()->clicks);
+    }
 }

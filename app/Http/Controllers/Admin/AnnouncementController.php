@@ -110,6 +110,10 @@ class AnnouncementController extends Controller
         $data = $this->validated($request);
         $contentChanged = $announcement->title !== $data['title']
             || $announcement->message !== $data['message']
+            || $announcement->type !== $data['type']
+            || $announcement->style !== $data['style']
+            || $announcement->audience !== $data['audience']
+            || (bool) $announcement->is_dismissible !== (bool) $data['is_dismissible']
             || (string) $announcement->cta_label !== (string) ($data['cta_label'] ?? null)
             || (string) $announcement->cta_url !== (string) ($data['cta_url'] ?? null);
 

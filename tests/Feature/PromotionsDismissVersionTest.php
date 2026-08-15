@@ -51,4 +51,39 @@ class PromotionsDismissVersionTest extends TestCase
             ->assertOk()
             ->assertSee('data-announcement-version="2"', false);
     }
+
+    public function test_style_only_edit_bumps_dismiss_version(): void
+    {
+        $announcement = SiteAnnouncement::create([
+            'title' => 'Notice',
+            'message' => 'Hello',
+            'type' => 'general',
+            'style' => 'info',
+            'audience' => 'all',
+            'is_active' => true,
+            'is_dismissible' => true,
+            'version' => 1,
+        ]);
+
+        $role = Role::firstOrCreate(['name' => 'admin']);
+        $admin = User::factory()->create([
+            'email_verified_at' => now(),
+            'active_role_id' => $role->id,
+        ]);
+        $admin->roles()->attach($role->id);
+
+        $this->actingAs($admin)
+            ->put(route('admin.promotions.announcements.update', $announcement), [
+                'title' => 'Notice',
+                'message' => 'Hello',
+                'type' => 'general',
+                'style' => 'warning',
+                'audience' => 'all',
+                'is_active' => 1,
+                'is_dismissible' => 1,
+            ])
+            ->assertRedirect();
+
+        $this->assertSame(2, (int) $announcement->fresh()->version);
+    }
 }

@@ -91,6 +91,65 @@ class PromotionTrackingTest extends TestCase
         $this->assertSame(1, (int) $banner->fresh()->clicks);
     }
 
+    public function test_forwarded_for_cannot_mint_a_second_daily_impression(): void
+    {
+        $banner = $this->liveBanner();
+
+        $this->postJson(route('promotions.track'), [
+            'subject_type' => 'banner',
+            'subject_id' => $banner->id,
+            'event' => 'impression',
+        ])->assertOk();
+
+        $this->withHeaders(['X-Forwarded-For' => '203.0.113.88'])
+            ->postJson(route('promotions.track'), [
+                'subject_type' => 'banner',
+                'subject_id' => $banner->id,
+                'event' => 'impression',
+            ])
+            ->assertOk();
+
+        $this->assertSame(1, PromotionEvent::query()->count());
+        $this->assertSame(1, (int) $banner->fresh()->impressions);
+    }
+
+    public function test_track_endpoint_rejects_click_events(): void
+    {
+        $banner = $this->liveBanner();
+
+        $this->postJson(route('promotions.track'), [
+            'subject_type' => 'banner',
+            'subject_id' => $banner->id,
+            'event' => 'click',
+        ])->assertUnprocessable();
+
+        $this->assertSame(0, PromotionEvent::query()->count());
+        $this->assertSame(0, (int) $banner->fresh()->clicks);
+    }
+
+    public function test_image_beacon_does_not_count_or_follow_click(): void
+    {
+        $banner = $this->liveBanner();
+
+        $this->withHeaders([
+            'Sec-Fetch-Dest' => 'image',
+            'Accept' => 'image/avif,image/webp,image/apng,image/*,*/*;q=0.8',
+        ])->get(route('banners.click', $banner))
+            ->assertNoContent();
+
+        $this->assertSame(0, (int) $banner->fresh()->clicks);
+        $this->assertSame(0, PromotionEvent::query()->count());
+    }
+
+    public function test_stored_userinfo_url_does_not_redirect_away(): void
+    {
+        $banner = $this->liveBanner();
+        $banner->update(['link_url' => 'https://google.com@evil.example/phish']);
+
+        $this->get(route('banners.click', $banner))->assertRedirect('/');
+        $this->assertSame(0, (int) $banner->fresh()->clicks);
+    }
+
     public function test_preview_page_is_staff_only(): void
     {
         $role = Role::firstOrCreate(['name' => 'admin']);

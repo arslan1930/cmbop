@@ -65,5 +65,7 @@ class CampaignHtmlTest extends TestCase
         $this->assertFalse(CampaignHtml::isSafeHttpUrl('mailto:hello@example.com'));
         $this->assertTrue(CampaignHtml::isSafeHttpUrl('https://seolinkbuildings.com/offer'));
         $this->assertTrue(CampaignHtml::isSafeHttpUrl('http://example.com'));
+        $this->assertFalse(CampaignHtml::isSafeHttpUrl('https://google.com@evil.example/path'));
+        $this->assertFalse(CampaignHtml::isSafeHttpUrl('https://user:pass@evil.example/path'));
     }
 }

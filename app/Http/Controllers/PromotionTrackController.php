@@ -15,7 +15,7 @@ class PromotionTrackController extends Controller
         $data = $request->validate([
             'subject_type' => ['required', 'in:banner,announcement'],
             'subject_id' => ['required', 'integer', 'min:1'],
-            'event' => ['required', 'in:impression,click'],
+            'event' => ['required', 'in:impression'],
         ]);
 
         $subject = $data['subject_type'] === 'banner'

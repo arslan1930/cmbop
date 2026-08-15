@@ -23,6 +23,14 @@ class PromotionUrlTest extends TestCase
         $this->assertFalse(PromotionUrl::isSafe('data:text/html,hi'));
     }
 
+    public function test_rejects_userinfo_open_redirect(): void
+    {
+        $this->assertFalse(PromotionUrl::isSafe('https://google.com@evil.example/path'));
+        $this->assertFalse(PromotionUrl::isSafe('https://user:pass@evil.example/path'));
+        $this->assertNull(PromotionUrl::href('https://google.com@evil.example/path'));
+        $this->assertNull(PromotionUrl::normalizeForStorage('https://user:pass@phish.test'));
+    }
+
     public function test_href_resolves_relative_against_app_url(): void
     {
         $href = PromotionUrl::href('/advertiser/catalog');
