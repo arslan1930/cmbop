@@ -41,6 +41,12 @@ class AdminLibraryStaffActions
             ]);
         }
 
+        if ($submission->isLockedByPaidOrder()) {
+            throw ValidationException::withMessages([
+                'submission' => 'Cannot re-evaluate an article on a paid order. Use an order dispute if the placement must be unwound.',
+            ]);
+        }
+
         if ($submission->isExpired() && ! $submission->isInUse()) {
             throw ValidationException::withMessages([
                 'submission' => 'Expired unused articles are preview only. Ask the advertiser to upload a new file.',
@@ -84,6 +90,19 @@ class AdminLibraryStaffActions
         $report['summary'] = $decision === ContentSubmission::STATUS_APPROVED
             ? 'Manually approved by staff: '.$notes
             : 'Manually rejected by staff: '.$notes;
+
+        if ($decision === ContentSubmission::STATUS_APPROVED) {
+            $report['matched_terms'] = [];
+            $report['blocked_urls'] = [];
+            $checks = is_array($report['checks'] ?? null) ? $report['checks'] : [];
+            $report['checks'] = array_values(array_filter($checks, static function ($check) {
+                if (! is_array($check)) {
+                    return false;
+                }
+
+                return strtolower((string) ($check['status'] ?? '')) !== 'fail';
+            }));
+        }
 
         $submission->forceFill([
             'moderation_status' => $decision,
@@ -166,13 +185,21 @@ class AdminLibraryStaffActions
 
     public function submissionForLog(ContentModerationLog $log): ?ContentSubmission
     {
+        $byLogId = ContentSubmission::query()
+            ->where('moderation_log_id', $log->id)
+            ->first();
+        if ($byLogId) {
+            return $byLogId;
+        }
+
+        if (! filled($log->scan_token)) {
+            return null;
+        }
+
         return ContentSubmission::query()
-            ->where(function ($q) use ($log) {
-                $q->where('moderation_log_id', $log->id);
-                if (filled($log->scan_token)) {
-                    $q->orWhere('scan_token', $log->scan_token);
-                }
-            })
+            ->where('scan_token', $log->scan_token)
+            ->when($log->user_id, fn ($q) => $q->where('user_id', $log->user_id))
+            ->latest('id')
             ->first();
     }
 }

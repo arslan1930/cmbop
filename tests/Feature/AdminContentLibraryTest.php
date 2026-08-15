@@ -291,6 +291,8 @@ class AdminContentLibraryTest extends TestCase
             'title' => 'Support Detail Piece',
             'preview_html' => '<p>Safe intro</p><script>alert(1)</script><img src="/storage/x.jpg" alt="x">',
             'image_rights' => null,
+            'anchor_text' => 'click',
+            'target_url' => 'javascript:alert(1)',
             'evaluation_report' => [
                 'summary' => 'Casino terms found',
                 'matched_terms' => ['casino'],
@@ -325,9 +327,11 @@ class AdminContentLibraryTest extends TestCase
             ->assertSee('https://bad.example/bet')
             ->assertSee('Override approve')
             ->assertDontSee('Override reject')
+            ->assertDontSee('>Re-evaluate<', false)
             ->getContent();
 
         $this->assertStringNotContainsString('<script>alert(1)</script>', $html);
+        $this->assertStringNotContainsString('href="javascript:alert(1)"', $html);
         $this->assertStringContainsString('availability=in_progress', $html);
         $this->assertStringContainsString('user_id='.$advertiser->id, $html);
     }
@@ -442,6 +446,131 @@ class AdminContentLibraryTest extends TestCase
             ->assertRedirect()
             ->assertSessionHas('success');
         $this->assertNull($unused->fresh()->archived_at);
+    }
+
+    public function test_retry_on_paid_article_is_forbidden(): void
+    {
+        $admin = $this->admin();
+        $advertiser = $this->advertiser();
+        $publisher = $this->publisher();
+        $site = $this->siteFor($publisher);
+        $submission = $this->createApprovedSubmission($advertiser);
+        $order = $this->orderFor($advertiser, [
+            'payment_status' => 'paid',
+            'status' => 'processing',
+            'paid_at' => now(),
+        ]);
+        $this->attachToOrder($submission, $order, $site);
+
+        $this->actingAs($admin)
+            ->from(route('admin.content-library.show', $submission))
+            ->post(route('admin.content-library.retry', $submission))
+            ->assertRedirect()
+            ->assertSessionHas('error');
+
+        $this->assertSame(ContentSubmission::STATUS_APPROVED, $submission->fresh()->moderation_status);
+    }
+
+    public function test_override_approve_does_not_claim_unready_article_is_orderable(): void
+    {
+        $admin = $this->admin();
+        $advertiser = $this->advertiser();
+        $submission = $this->createApprovedSubmission($advertiser);
+        $submission->update([
+            'title' => 'Still Unready Piece',
+            'moderation_status' => ContentSubmission::STATUS_REJECTED,
+            'preview_html' => '<p>Hello</p><img src="/storage/x.jpg" alt="x">',
+            'image_rights' => null,
+            'evaluation_report' => [
+                'summary' => 'Casino terms found',
+                'matched_terms' => ['casino'],
+                'checks' => [
+                    ['status' => 'fail', 'detail' => 'Blocked gambling language'],
+                ],
+            ],
+        ]);
+
+        $this->actingAs($admin)
+            ->from(route('admin.content-library.show', $submission))
+            ->post(route('admin.content-library.override', $submission), [
+                'decision' => 'approved',
+                'notes' => 'Brand name is fine here.',
+            ])
+            ->assertRedirect()
+            ->assertSessionHas('success', function ($message) {
+                return is_string($message) && str_contains($message, 'still not checkout-ready');
+            });
+
+        $fresh = $submission->fresh();
+        $this->assertSame(ContentSubmission::STATUS_APPROVED, $fresh->moderation_status);
+        $this->assertFalse($fresh->isReadyForCheckout());
+        $this->assertSame([], $fresh->evaluationMatchedTerms());
+        $this->assertSame([], $fresh->evaluationReasonGroups()['blocking']);
+
+        $this->actingAs($admin)
+            ->get(route('admin.content-library.show', $submission))
+            ->assertOk()
+            ->assertDontSee('Blocked gambling language')
+            ->assertSee('Images are not covered by a rights claim');
+    }
+
+    public function test_moderation_override_does_not_flip_log_when_article_is_archived(): void
+    {
+        $admin = $this->admin();
+        $advertiser = $this->advertiser();
+        $log = ContentModerationLog::create([
+            'user_id' => $advertiser->id,
+            'document_url' => 'https://example.com/doc.docx',
+            'status' => ContentModerationLog::STATUS_REJECTED,
+            'passed' => false,
+            'scan_token' => 'scan-archived-1',
+            'word_count' => 20,
+        ]);
+        $submission = $this->createApprovedSubmission($advertiser);
+        $submission->update([
+            'moderation_status' => ContentSubmission::STATUS_REJECTED,
+            'moderation_log_id' => $log->id,
+            'archived_at' => now(),
+        ]);
+
+        $this->actingAs($admin)
+            ->from(route('admin.moderation.index'))
+            ->post(route('admin.moderation.override', $log))
+            ->assertRedirect()
+            ->assertSessionHas('error');
+
+        $this->assertSame(ContentSubmission::STATUS_REJECTED, $submission->fresh()->moderation_status);
+        $this->assertFalse((bool) $log->fresh()->admin_override);
+        $this->assertSame(ContentModerationLog::STATUS_REJECTED, $log->fresh()->status);
+    }
+
+    public function test_moderation_override_does_not_approve_another_users_scan_token(): void
+    {
+        $admin = $this->admin();
+        $owner = $this->advertiser();
+        $other = $this->advertiser();
+        $log = ContentModerationLog::create([
+            'user_id' => $owner->id,
+            'document_url' => 'https://example.com/doc.docx',
+            'status' => ContentModerationLog::STATUS_REJECTED,
+            'passed' => false,
+            'scan_token' => 'shared-token',
+            'word_count' => 20,
+        ]);
+        $stranger = $this->createApprovedSubmission($other);
+        $stranger->update([
+            'moderation_status' => ContentSubmission::STATUS_REJECTED,
+            'scan_token' => 'shared-token',
+        ]);
+
+        $this->actingAs($admin)
+            ->from(route('admin.moderation.index'))
+            ->post(route('admin.moderation.override', $log))
+            ->assertRedirect()
+            ->assertSessionHas('success');
+
+        $this->assertSame(ContentSubmission::STATUS_REJECTED, $stranger->fresh()->moderation_status);
+        $this->assertTrue((bool) $log->fresh()->admin_override);
     }
 
     public function test_retry_reevaluates_error_article(): void

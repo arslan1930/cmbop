@@ -123,6 +123,19 @@ class ContentModerationController extends Controller
             $notes = 'Approved via moderation scan override.';
         }
 
+        $submission = $staffActions->submissionForLog($log);
+        if ($submission) {
+            try {
+                $staffActions->override($submission, 'approved', $request->user(), $notes);
+            } catch (ValidationException $e) {
+                return back()->with(
+                    'error',
+                    collect($e->errors())->flatten()->first()
+                        ?: 'The linked article could not be approved. The scan log was left unchanged.'
+                );
+            }
+        }
+
         $log->update([
             'passed' => true,
             'status' => ContentModerationLog::STATUS_APPROVED,
@@ -132,19 +145,8 @@ class ContentModerationController extends Controller
             'admin_notes' => $notes,
         ]);
 
-        $submission = $staffActions->submissionForLog($log);
         if (! $submission) {
             return back()->with('success', 'Scan log overridden. No Content Library article is linked to this scan.');
-        }
-
-        try {
-            $staffActions->override($submission, 'approved', $request->user(), $notes);
-        } catch (ValidationException $e) {
-            return back()->with(
-                'error',
-                collect($e->errors())->flatten()->first()
-                    ?: 'Scan log marked approved, but the linked article could not be updated.'
-            );
         }
 
         return redirect()

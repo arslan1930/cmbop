@@ -107,9 +107,11 @@ class ContentLibraryController extends Controller
             abort(404, 'File not found');
         }
 
+        $filename = str_replace(["\r", "\n", '"'], '', basename((string) ($submission->original_filename ?: 'article.docx')));
+
         return $disk->download(
             $submission->path,
-            $submission->original_filename ?: 'article.docx',
+            $filename !== '' ? $filename : 'article.docx',
             ['Content-Type' => $submission->mime ?: 'application/octet-stream']
         );
     }
@@ -144,12 +146,7 @@ class ContentLibraryController extends Controller
             return back()->with('error', collect($e->errors())->flatten()->first() ?: 'Override failed.');
         }
 
-        return back()->with(
-            'success',
-            $data['decision'] === 'approved'
-                ? 'Article #'.$submission->id.' approved. The advertiser can attach it in the catalog.'
-                : 'Article #'.$submission->id.' rejected.'
-        );
+        return back()->with('success', $this->overrideFlash($submission->fresh(), $data['decision']));
     }
 
     public function archive(ContentSubmission $submission): RedirectResponse
@@ -379,6 +376,26 @@ class ContentLibraryController extends Controller
         return $query;
     }
 
+    protected function overrideFlash(?ContentSubmission $submission, string $decision): string
+    {
+        if (! $submission) {
+            return $decision === 'approved' ? 'Article approved.' : 'Article rejected.';
+        }
+
+        if ($decision !== 'approved') {
+            return 'Article #'.$submission->id.' rejected.';
+        }
+
+        if ($submission->isReadyForCheckout()) {
+            return 'Article #'.$submission->id.' approved. The advertiser can attach it in the catalog.';
+        }
+
+        $notice = trim($submission->editorNotice());
+
+        return 'Article #'.$submission->id.' approved, but it is still not checkout-ready'
+            .($notice !== '' ? ': '.$notice : '.');
+    }
+
     protected function staffPreviewHtml(ContentSubmission $submission): string
     {
         $html = $this->sanitizer->sanitize((string) ($submission->preview_html ?? ''));
@@ -390,7 +407,7 @@ class ContentLibraryController extends Controller
 
     protected function canRetry(ContentSubmission $submission, bool $fileOnDisk): bool
     {
-        if ($submission->isArchived()) {
+        if ($submission->isArchived() || $submission->isLockedByPaidOrder()) {
             return false;
         }
 

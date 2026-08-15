@@ -106,7 +106,12 @@
                         <dt class="col-5 text-muted">Live URL</dt>
                         <dd class="col-7">
                             @if($liveUrl)
-                                <a href="{{ $liveUrl }}" target="_blank" rel="noopener noreferrer">{{ $liveUrl }}</a>
+                                @php $safeLive = safe_external_url($liveUrl); @endphp
+                                @if($safeLive !== '#')
+                                    <a href="{{ $safeLive }}" target="_blank" rel="noopener noreferrer">{{ $liveUrl }}</a>
+                                @else
+                                    <span class="text-muted">{{ $liveUrl }}</span>
+                                @endif
                             @else
                                 —
                             @endif
@@ -126,7 +131,12 @@
                             @if($submission->hasLink())
                                 {{ $submission->anchor_text }}
                                 <div>
-                                    <a href="{{ $submission->target_url }}" target="_blank" rel="noopener noreferrer">{{ $submission->target_url }}</a>
+                                    @php $safeTarget = safe_external_url($submission->target_url); @endphp
+                                    @if($safeTarget !== '#')
+                                        <a href="{{ $safeTarget }}" target="_blank" rel="noopener noreferrer">{{ $submission->target_url }}</a>
+                                    @else
+                                        <span class="text-muted">{{ $submission->target_url }}</span>
+                                    @endif
                                 </div>
                             @else
                                 —
