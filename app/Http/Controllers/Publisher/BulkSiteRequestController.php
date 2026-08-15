@@ -18,6 +18,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\ValidationException;
 
 class BulkSiteRequestController extends Controller
 {
@@ -87,6 +88,13 @@ class BulkSiteRequestController extends Controller
                     continue;
                 }
 
+                $pending = BulkSiteRequestItem::occupyingPendingDomainMessage($domain);
+                if ($pending !== null) {
+                    $validator->errors()->add("sites.$index.url", $pending);
+
+                    continue;
+                }
+
                 if (! is_numeric($priceRaw) || (float) $priceRaw < 0) {
                     $validator->errors()->add("sites.$index.price", 'Enter a valid price.');
 
@@ -114,6 +122,21 @@ class BulkSiteRequestController extends Controller
         }
 
         $bulk = DB::transaction(function () use ($request, $parsedRows) {
+            foreach ($parsedRows as $row) {
+                $occupied = Site::findOccupyingDomain($row['domain'], lock: true);
+                if ($occupied) {
+                    throw ValidationException::withMessages([
+                        'sites' => [$occupied->occupyingDomainMessage()],
+                    ]);
+                }
+                $pending = BulkSiteRequestItem::occupyingPendingDomainMessage($row['domain'], lock: true);
+                if ($pending !== null) {
+                    throw ValidationException::withMessages([
+                        'sites' => [$pending],
+                    ]);
+                }
+            }
+
             $bulk = BulkSiteRequest::create([
                 'publisher_id' => auth()->id(),
                 'status' => BulkSiteRequest::STATUS_REQUESTED,

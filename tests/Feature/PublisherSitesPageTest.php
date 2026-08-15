@@ -2,6 +2,8 @@
 
 namespace Tests\Feature;
 
+use App\Models\BulkSiteRequest;
+use App\Models\BulkSiteRequestItem;
 use App\Models\Category;
 use App\Models\Country;
 use App\Models\Language;
@@ -456,6 +458,52 @@ class PublisherSitesPageTest extends TestCase
         $site = Site::where('domain', 'crypto-sensitive.example')->first();
         $this->assertNotNull($site);
         $this->assertSame(25.0, (float) ($site->sensitive_prices['crypto'] ?? 0));
+    }
+
+    public function test_store_rejects_domain_pending_on_open_bulk(): void
+    {
+        $bulk = BulkSiteRequest::create([
+            'publisher_id' => $this->otherPublisher->id,
+            'status' => BulkSiteRequest::STATUS_REQUESTED,
+            'estimated_count' => 1,
+        ]);
+        BulkSiteRequestItem::create([
+            'bulk_site_request_id' => $bulk->id,
+            'site_url' => 'https://pending-mysites.example',
+            'domain' => 'pending-mysites.example',
+            'price' => 40,
+        ]);
+
+        $category = Category::query()->firstOrFail();
+
+        $this->actingAs($this->publisher)
+            ->from(route('publisher.websites'))
+            ->post(route('publisher.sites.store'), [
+                'siteName' => 'Pending Clash',
+                'siteUrl' => 'https://www.pending-mysites.example',
+                'exampleUrl' => 'https://www.pending-mysites.example/post',
+                'da' => 10,
+                'dr' => 10,
+                'traffic' => 100,
+                'country' => 'de',
+                'language' => 'de',
+                'categories' => [$category->name],
+                'price' => 50,
+                'turnaround_time' => '3days',
+                'publicationTime' => 'permanent',
+                'link_type' => 'dofollow',
+                'siteDescription' => str_repeat('Pending bulk occupancy description. ', 4),
+                'site_tag' => 'as_you_prefer',
+            ])
+            ->assertRedirect()
+            ->assertSessionHasErrors('siteUrl');
+
+        $this->assertStringContainsString(
+            'Already in an open bulk request',
+            (string) session('errors')->first('siteUrl')
+        );
+        $this->assertDatabaseMissing('sites', ['domain' => 'pending-mysites.example']);
+        $this->assertDatabaseMissing('sites', ['domain' => 'www.pending-mysites.example']);
     }
 
     public function test_promotions_wallet_top_up_points_to_publisher_balance(): void

@@ -3,6 +3,8 @@
 namespace Tests\Feature;
 
 use App\Mail\AdminAssignedSiteNotification;
+use App\Models\BulkSiteRequest;
+use App\Models\BulkSiteRequestItem;
 use App\Models\Category;
 use App\Models\Country;
 use App\Models\InAppNotification;
@@ -1894,5 +1896,160 @@ class MarketingAssignSiteForPublisherTest extends TestCase
         $pending->refresh();
         $this->assertSame('Pending Name', $pending->site_name);
         $this->assertSame(41, (int) $pending->da);
+    }
+
+    public function test_marketing_store_rejects_domain_pending_on_open_bulk(): void
+    {
+        $bulk = BulkSiteRequest::create([
+            'publisher_id' => $this->publisher->id,
+            'status' => BulkSiteRequest::STATUS_REQUESTED,
+            'estimated_count' => 1,
+        ]);
+        BulkSiteRequestItem::create([
+            'bulk_site_request_id' => $bulk->id,
+            'site_url' => 'https://pending-staff-create.example',
+            'domain' => 'pending-staff-create.example',
+            'price' => 40,
+        ]);
+
+        $this->actingAs($this->marketer)
+            ->from(route('marketing.sites.create'))
+            ->post(route('marketing.sites.store'), $this->validPayload([
+                'site_url' => 'https://www.pending-staff-create.example',
+                'example_url' => 'https://www.pending-staff-create.example/sample',
+            ]))
+            ->assertRedirect(route('marketing.sites.create'))
+            ->assertSessionHasErrors('site_url');
+
+        $this->assertStringContainsString(
+            'Already in an open bulk request',
+            (string) session('errors')->first('site_url')
+        );
+        $this->assertNull(Site::where('domain', 'pending-staff-create.example')->first());
+        $this->assertNull(Site::where('domain', 'www.pending-staff-create.example')->first());
+    }
+
+    public function test_marketing_update_cannot_retarget_onto_pending_bulk_domain(): void
+    {
+        $bulk = BulkSiteRequest::create([
+            'publisher_id' => $this->publisher->id,
+            'status' => BulkSiteRequest::STATUS_REQUESTED,
+            'estimated_count' => 1,
+        ]);
+        BulkSiteRequestItem::create([
+            'bulk_site_request_id' => $bulk->id,
+            'site_url' => 'https://pending-retarget.example',
+            'domain' => 'pending-retarget.example',
+            'price' => 40,
+        ]);
+
+        $pending = Site::create([
+            'publisher_id' => $this->publisher->id,
+            'publisher_accepted_at' => now(),
+            'site_name' => 'Retarget Guard',
+            'site_url' => 'https://retarget-guard.example',
+            'domain' => 'retarget-guard.example',
+            'example_url' => 'https://retarget-guard.example/sample',
+            'da' => 40,
+            'dr' => 40,
+            'traffic' => 12000,
+            'country' => 'de',
+            'language' => 'de',
+            'category' => 'News',
+            'categories' => ['News'],
+            'price' => 50,
+            'turnaround_time' => '3days',
+            'publication_time' => 'permanent',
+            'link_type' => 'dofollow',
+            'description' => str_repeat('Retarget guard description text. ', 3),
+            'verified' => false,
+            'active' => false,
+        ]);
+
+        $this->actingAs($this->marketer)
+            ->from(route('marketing.sites.edit', $pending->id))
+            ->put(route('marketing.sites.update', $pending->id), [
+                'site_name' => 'Retarget Guard',
+                'site_url' => 'https://pending-retarget.example',
+                'example_url' => 'https://pending-retarget.example/sample',
+                'price' => 50,
+                'da' => 40,
+                'dr' => 40,
+                'traffic' => 12000,
+                'country' => 'de',
+                'language' => 'de',
+                'categories' => 'News',
+            ])
+            ->assertRedirect()
+            ->assertSessionHasErrors('site_url');
+
+        $this->assertStringContainsString(
+            'Already in an open bulk request',
+            (string) session('errors')->first('site_url')
+        );
+        $this->assertSame('retarget-guard.example', $pending->fresh()->domain);
+    }
+
+    public function test_marketing_update_cannot_change_url_of_done_attached_draft(): void
+    {
+        $bulk = BulkSiteRequest::create([
+            'publisher_id' => $this->publisher->id,
+            'status' => BulkSiteRequest::STATUS_AWAITING_PUBLISHER,
+            'estimated_count' => 1,
+        ]);
+        $draft = Site::create([
+            'publisher_id' => $this->publisher->id,
+            'publisher_accepted_at' => now(),
+            'bulk_site_request_id' => $bulk->id,
+            'site_name' => 'Attached Draft',
+            'site_url' => 'https://attached-draft.example',
+            'domain' => 'attached-draft.example',
+            'example_url' => 'https://attached-draft.example/sample',
+            'da' => 40,
+            'dr' => 40,
+            'traffic' => 12000,
+            'country' => 'de',
+            'language' => 'de',
+            'category' => 'News',
+            'categories' => ['News'],
+            'price' => 50,
+            'turnaround_time' => '3days',
+            'publication_time' => 'permanent',
+            'link_type' => 'dofollow',
+            'description' => str_repeat('Attached draft description text. ', 3),
+            'verified' => false,
+            'active' => false,
+            'onboarding_status' => Site::ONBOARDING_AWAITING_DETAILS,
+        ]);
+        BulkSiteRequestItem::create([
+            'bulk_site_request_id' => $bulk->id,
+            'site_url' => 'https://attached-draft.example',
+            'domain' => 'attached-draft.example',
+            'price' => 50,
+            'site_id' => $draft->id,
+        ]);
+
+        $this->actingAs($this->marketer)
+            ->from(route('marketing.sites.edit', $draft->id))
+            ->put(route('marketing.sites.update', $draft->id), [
+                'site_name' => 'Attached Draft',
+                'site_url' => 'https://rewritten-draft.example',
+                'example_url' => 'https://rewritten-draft.example/sample',
+                'price' => 50,
+                'da' => 40,
+                'dr' => 40,
+                'traffic' => 12000,
+                'country' => 'de',
+                'language' => 'de',
+                'categories' => 'News',
+            ])
+            ->assertRedirect()
+            ->assertSessionHasErrors('site_url');
+
+        $this->assertStringContainsString(
+            'attached to a bulk request row',
+            (string) session('errors')->first('site_url')
+        );
+        $this->assertSame('attached-draft.example', $draft->fresh()->domain);
     }
 }

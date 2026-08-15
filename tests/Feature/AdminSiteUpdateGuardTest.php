@@ -3,6 +3,8 @@
 namespace Tests\Feature;
 
 use App\Mail\SiteStatusNotification;
+use App\Models\BulkSiteRequest;
+use App\Models\BulkSiteRequestItem;
 use App\Models\Role;
 use App\Models\Site;
 use App\Models\User;
@@ -937,5 +939,68 @@ class AdminSiteUpdateGuardTest extends TestCase
         $site->refresh();
         $this->assertSame('de', $site->country);
         $this->assertSame('de', $site->language);
+    }
+
+    public function test_update_rejects_retarget_onto_pending_bulk_domain(): void
+    {
+        $bulk = BulkSiteRequest::create([
+            'publisher_id' => $this->publisher->id,
+            'status' => BulkSiteRequest::STATUS_REQUESTED,
+            'estimated_count' => 1,
+        ]);
+        BulkSiteRequestItem::create([
+            'bulk_site_request_id' => $bulk->id,
+            'site_url' => 'https://pending-admin-retarget.example',
+            'domain' => 'pending-admin-retarget.example',
+            'price' => 40,
+        ]);
+
+        $site = $this->site();
+
+        $response = $this->actingAs($this->admin)
+            ->putJson(route('admin.sites.update', $site->id), [
+                'site_url' => 'https://www.pending-admin-retarget.example',
+            ]);
+
+        $response->assertStatus(422)->assertJsonValidationErrors(['site_url']);
+        $this->assertStringContainsString(
+            'Already in an open bulk request',
+            (string) $response->json('errors.site_url.0')
+        );
+        $this->assertSame('guard-site.example', $site->fresh()->domain);
+    }
+
+    public function test_update_cannot_change_url_of_done_attached_draft(): void
+    {
+        $bulk = BulkSiteRequest::create([
+            'publisher_id' => $this->publisher->id,
+            'status' => BulkSiteRequest::STATUS_AWAITING_PUBLISHER,
+            'estimated_count' => 1,
+        ]);
+        $draft = $this->site([
+            'site_name' => 'Admin Attached Draft',
+            'site_url' => 'https://admin-attached-draft.example',
+            'domain' => 'admin-attached-draft.example',
+            'verified' => false,
+            'active' => false,
+            'bulk_site_request_id' => $bulk->id,
+            'onboarding_status' => Site::ONBOARDING_AWAITING_DETAILS,
+        ]);
+        BulkSiteRequestItem::create([
+            'bulk_site_request_id' => $bulk->id,
+            'site_url' => 'https://admin-attached-draft.example',
+            'domain' => 'admin-attached-draft.example',
+            'price' => 80,
+            'site_id' => $draft->id,
+        ]);
+
+        $this->actingAs($this->admin)
+            ->putJson(route('admin.sites.update', $draft->id), [
+                'site_url' => 'https://rewritten-admin-draft.example',
+            ])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['site_url']);
+
+        $this->assertSame('admin-attached-draft.example', $draft->fresh()->domain);
     }
 }

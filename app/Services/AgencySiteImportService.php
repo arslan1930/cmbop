@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Jobs\CaptureSiteScreenshotJob;
 use App\Models\AgencySiteImport;
 use App\Models\AgencySiteImportFailure;
+use App\Models\BulkSiteRequestItem;
 use App\Models\Category;
 use App\Models\Country;
 use App\Models\Language;
@@ -209,6 +210,25 @@ class AgencySiteImportService
                     continue;
                 }
 
+                $pending = BulkSiteRequestItem::occupyingPendingDomainMessage($domain);
+                if ($pending !== null) {
+                    $failure = [
+                        'row' => $rowNumber,
+                        'site' => $data['site_url'],
+                        'site_name' => $data['site_name'] ?? null,
+                        'site_url' => $data['site_url'] ?? null,
+                        'errors' => [$pending],
+                    ];
+                    $failed[] = [
+                        'row' => $failure['row'],
+                        'site' => $failure['site'],
+                        'errors' => $failure['errors'],
+                    ];
+                    $failureRecords[] = $failure;
+
+                    continue;
+                }
+
                 if ($dryRun) {
                     $wouldCreate++;
 
@@ -219,8 +239,12 @@ class AgencySiteImportService
                     $site = null;
                     DB::transaction(function () use ($parsed, $publisher, $import, &$site) {
                         Site::releaseCancelledBulkDomain($parsed['domain'], (int) $publisher->id);
-                        if (Site::findOccupyingDomain($parsed['domain'])) {
+                        if (Site::findOccupyingDomain($parsed['domain'], lock: true)) {
                             throw new InvalidArgumentException('This domain is already registered in the system.');
+                        }
+                        $pending = BulkSiteRequestItem::occupyingPendingDomainMessage($parsed['domain'], lock: true);
+                        if ($pending !== null) {
+                            throw new InvalidArgumentException($pending);
                         }
 
                         $listing = [

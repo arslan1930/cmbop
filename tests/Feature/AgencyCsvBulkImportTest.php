@@ -7,6 +7,7 @@ use App\Models\ActivityLog;
 use App\Models\AgencySiteImport;
 use App\Models\AgencySiteImportFailure;
 use App\Models\BulkSiteRequest;
+use App\Models\BulkSiteRequestItem;
 use App\Models\Category;
 use App\Models\Role;
 use App\Models\Site;
@@ -251,6 +252,39 @@ class AgencyCsvBulkImportTest extends TestCase
         $failure = AgencySiteImportFailure::query()->first();
         $this->assertNotNull($failure);
         $this->assertMatchesRegularExpression('/price|99999999/i', implode(' ', $failure->errors));
+    }
+
+    public function test_import_rejects_domain_pending_on_open_bulk(): void
+    {
+        $bulk = BulkSiteRequest::create([
+            'publisher_id' => $this->publisher->id,
+            'status' => BulkSiteRequest::STATUS_REQUESTED,
+            'estimated_count' => 1,
+        ]);
+        BulkSiteRequestItem::create([
+            'bulk_site_request_id' => $bulk->id,
+            'site_url' => 'https://pending-csv.example',
+            'domain' => 'pending-csv.example',
+            'price' => 40,
+        ]);
+
+        $this->uploadCsv([
+            $this->validRow('pending-csv.example', 'Pending Csv'),
+        ])->assertRedirect();
+
+        $this->assertNull(Site::where('domain', 'pending-csv.example')->first());
+
+        $import = AgencySiteImport::query()->first();
+        $this->assertNotNull($import);
+        $this->assertSame(0, (int) $import->created_count);
+        $this->assertSame(1, (int) $import->failed_count);
+
+        $failure = AgencySiteImportFailure::query()->first();
+        $this->assertNotNull($failure);
+        $this->assertStringContainsString(
+            'Already in an open bulk request',
+            implode(' ', $failure->errors)
+        );
     }
 
     public function test_admin_site_list_marks_csv_metrics_for_spot_check(): void

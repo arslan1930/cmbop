@@ -838,6 +838,11 @@ class SiteController extends Controller
                 $validator->errors()->add('site_url', $this->domainAlreadyRegisteredMessage($existing));
             }
 
+            $pending = BulkSiteRequestItem::occupyingPendingDomainMessage($domain);
+            if ($pending !== null) {
+                $validator->errors()->add('site_url', $pending);
+            }
+
             if ($this->exampleUrlHostDiffers($request->input('site_url'), $request->input('example_url'))) {
                 $validator->errors()->add('example_url', 'Example URL must be on the same website domain.');
             }
@@ -878,6 +883,12 @@ class SiteController extends Controller
                 if ($existing) {
                     throw ValidationException::withMessages([
                         'site_url' => [$this->domainAlreadyRegisteredMessage($existing)],
+                    ]);
+                }
+                $pending = BulkSiteRequestItem::occupyingPendingDomainMessage($domain, lock: true);
+                if ($pending !== null) {
+                    throw ValidationException::withMessages([
+                        'site_url' => [$pending],
                     ]);
                 }
 
@@ -1627,6 +1638,14 @@ class SiteController extends Controller
                     if ($existing) {
                         $validator->errors()->add('site_url', $this->domainAlreadyRegisteredMessage($existing));
                     }
+                    $attachedChange = $this->bulkAttachedDomainChangeMessage($site, $domain);
+                    if ($attachedChange !== null) {
+                        $validator->errors()->add('site_url', $attachedChange);
+                    }
+                    $pending = $this->pendingBulkDomainConflictMessage($site, $domain);
+                    if ($pending !== null) {
+                        $validator->errors()->add('site_url', $pending);
+                    }
                 }
             }
 
@@ -1943,6 +1962,14 @@ class SiteController extends Controller
                     $existing = $this->findSiteByDomain($domain, exceptId: $site->id);
                     if ($existing) {
                         $validator->errors()->add('site_url', $this->domainAlreadyRegisteredMessage($existing));
+                    }
+                    $attachedChange = $this->bulkAttachedDomainChangeMessage($site, $domain);
+                    if ($attachedChange !== null) {
+                        $validator->errors()->add('site_url', $attachedChange);
+                    }
+                    $pending = $this->pendingBulkDomainConflictMessage($site, $domain);
+                    if ($pending !== null) {
+                        $validator->errors()->add('site_url', $pending);
                     }
                 }
             }
@@ -3278,6 +3305,36 @@ class SiteController extends Controller
             ->where('domain', $domain)
             ->whereNull('site_id')
             ->exists();
+    }
+
+    private function pendingBulkDomainConflictMessage(Site $site, string $newDomain): ?string
+    {
+        $current = Site::normalizeMarketplaceDomain((string) $site->domain);
+        $next = Site::normalizeMarketplaceDomain($newDomain);
+        if ($next === '' || $next === $current) {
+            return null;
+        }
+
+        return BulkSiteRequestItem::occupyingPendingDomainMessage($next);
+    }
+
+    private function bulkAttachedDomainChangeMessage(Site $site, string $newDomain): ?string
+    {
+        $current = Site::normalizeMarketplaceDomain((string) $site->domain);
+        $next = Site::normalizeMarketplaceDomain($newDomain);
+        if ($next === '' || $next === $current || ! $site->bulk_site_request_id) {
+            return null;
+        }
+
+        $attached = BulkSiteRequestItem::query()
+            ->where('site_id', $site->id)
+            ->where('bulk_site_request_id', $site->bulk_site_request_id)
+            ->exists();
+        if (! $attached) {
+            return null;
+        }
+
+        return 'This draft is attached to a bulk request row. Edit metrics only, or delete and Done the correct row.';
     }
 
     private function notifyPublisherSiteRemoved(

@@ -1714,6 +1714,163 @@ class BulkDoneRejectRowsTest extends TestCase
         $this->assertSame(0, BulkSiteRequest::query()->count());
     }
 
+    public function test_done_attaches_only_the_submitted_www_or_apex_sibling(): void
+    {
+        Mail::fake();
+
+        $bulk = BulkSiteRequest::create([
+            'publisher_id' => $this->publisher->id,
+            'status' => BulkSiteRequest::STATUS_REQUESTED,
+            'estimated_count' => 2,
+        ]);
+        $www = BulkSiteRequestItem::create([
+            'bulk_site_request_id' => $bulk->id,
+            'site_url' => 'https://www.twin-done.example',
+            'domain' => 'www.twin-done.example',
+            'price' => 40,
+        ]);
+        $apex = BulkSiteRequestItem::create([
+            'bulk_site_request_id' => $bulk->id,
+            'site_url' => 'https://twin-done.example',
+            'domain' => 'twin-done.example',
+            'price' => 45,
+        ]);
+
+        $this->actingAs($this->marketer)
+            ->from(route('marketing.bulk-site-requests.show', $bulk))
+            ->post(route('marketing.bulk-site-requests.done', $bulk), [
+                'items' => $this->completeRow($www),
+            ])
+            ->assertRedirect(route('marketing.bulk-site-requests.show', $bulk))
+            ->assertSessionHas('success');
+
+        $this->assertNotNull($www->fresh()->site_id);
+        $this->assertNull($apex->fresh()->site_id);
+        $this->assertSame(1, Site::query()->where('bulk_site_request_id', $bulk->id)->count());
+        $this->assertSame(
+            (int) $www->fresh()->site_id,
+            (int) Site::query()->where('domain', 'twin-done.example')->value('id')
+        );
+    }
+
+    public function test_seed_refuses_when_www_and_apex_pending_rows_share_a_domain(): void
+    {
+        Mail::fake();
+
+        $bulk = BulkSiteRequest::create([
+            'publisher_id' => $this->publisher->id,
+            'status' => BulkSiteRequest::STATUS_REQUESTED,
+            'estimated_count' => 2,
+        ]);
+        $www = BulkSiteRequestItem::create([
+            'bulk_site_request_id' => $bulk->id,
+            'site_url' => 'https://www.twin-seed.example',
+            'domain' => 'www.twin-seed.example',
+            'price' => 40,
+        ]);
+        $apex = BulkSiteRequestItem::create([
+            'bulk_site_request_id' => $bulk->id,
+            'site_url' => 'https://twin-seed.example',
+            'domain' => 'twin-seed.example',
+            'price' => 45,
+        ]);
+        [$country, $language] = $this->marketplaceCodes();
+
+        $this->actingAs($this->marketer)
+            ->from(route('marketing.bulk-site-requests.show', $bulk))
+            ->post(route('marketing.bulk-site-requests.seed', $bulk), [
+                'rows' => "https://twin-seed.example,80,30,35,5000,{$language},{$country},Twin Seed",
+            ])
+            ->assertRedirect()
+            ->assertSessionHas('seed_failures', function ($failures) {
+                return is_array($failures)
+                    && collect($failures)->contains(function ($row) {
+                        return collect($row['errors'] ?? [])->contains(
+                            fn ($error) => str_contains((string) $error, 'www vs apex')
+                        );
+                    });
+            });
+
+        $this->assertNull($www->fresh()->site_id);
+        $this->assertNull($apex->fresh()->site_id);
+        $this->assertDatabaseMissing('sites', ['domain' => 'twin-seed.example']);
+        $this->assertSame(0, Site::query()->where('bulk_site_request_id', $bulk->id)->count());
+    }
+
+    public function test_publisher_deleting_last_bulk_draft_heals_status_to_requested(): void
+    {
+        Mail::fake();
+        [$bulk, $items] = $this->makeBulkWithItems(1, 'pub-del');
+
+        $this->actingAs($this->marketer)
+            ->post(route('marketing.bulk-site-requests.done', $bulk), [
+                'items' => $this->completeRow($items[0]),
+            ])
+            ->assertRedirect();
+
+        $site = Site::query()->where('domain', $items[0]->domain)->firstOrFail();
+        $this->assertSame(BulkSiteRequest::STATUS_AWAITING_PUBLISHER, $bulk->fresh()->status);
+        $this->assertNotNull($items[0]->fresh()->site_id);
+
+        $this->actingAs($this->publisher)
+            ->from(route('publisher.websites', ['status' => 'pending']))
+            ->delete(route('publisher.sites.destroy', $site->id))
+            ->assertRedirect()
+            ->assertSessionHas('success');
+
+        $this->assertDatabaseMissing('sites', ['id' => $site->id]);
+        $this->assertNull($items[0]->fresh()->site_id);
+        $fresh = $bulk->fresh();
+        $this->assertSame(BulkSiteRequest::STATUS_REQUESTED, $fresh->status);
+        $this->assertNull($fresh->completed_at);
+        $this->assertTrue($fresh->canAddDraftSites());
+    }
+
+    public function test_publisher_bulk_rejects_domain_pending_on_another_open_bulk(): void
+    {
+        $otherRole = Role::where('name', 'publisher')->firstOrFail();
+        $other = User::factory()->create([
+            'email_verified_at' => now(),
+            'active_role_id' => $otherRole->id,
+        ]);
+        $other->roles()->attach($otherRole->id);
+
+        $otherBulk = BulkSiteRequest::create([
+            'publisher_id' => $other->id,
+            'status' => BulkSiteRequest::STATUS_REQUESTED,
+            'estimated_count' => 2,
+        ]);
+        BulkSiteRequestItem::create([
+            'bulk_site_request_id' => $otherBulk->id,
+            'site_url' => 'https://taken-pending.example',
+            'domain' => 'taken-pending.example',
+            'price' => 40,
+        ]);
+        BulkSiteRequestItem::create([
+            'bulk_site_request_id' => $otherBulk->id,
+            'site_url' => 'https://other-pending.example',
+            'domain' => 'other-pending.example',
+            'price' => 50,
+        ]);
+
+        $this->actingAs($this->publisher)
+            ->from(route('publisher.websites'))
+            ->post(route('publisher.bulk-sites.request'), [
+                'sites' => [
+                    ['url' => 'https://www.taken-pending.example', 'price' => 60],
+                    ['url' => 'https://fresh-ok.example', 'price' => 70],
+                ],
+            ])
+            ->assertRedirect(route('publisher.websites'))
+            ->assertSessionHasErrors('sites.0.url');
+
+        $this->assertStringContainsString(
+            'Already in an open bulk request',
+            (string) session('errors')->first('sites.0.url')
+        );
+        $this->assertSame(1, BulkSiteRequest::query()->count());
+    }
+
     public function test_publisher_cannot_edit_cancelled_bulk_leftover(): void
     {
         [$bulk, $items] = $this->makeBulkWithItems(1, 'cancel-edit');

@@ -8,6 +8,7 @@ use App\Mail\BulkSiteRequestCancelled;
 use App\Mail\BulkSitesSeededNotification;
 use App\Models\ActivityLog;
 use App\Models\BulkSiteRequest;
+use App\Models\BulkSiteRequestItem;
 use App\Models\Category;
 use App\Models\Country;
 use App\Models\Language;
@@ -658,6 +659,7 @@ class BulkSiteRequestController extends Controller
         $createdDomains = [];
         $deletedCount = 0;
         $deletedDomains = [];
+        $abortedCancelled = false;
         $rejectedIds = array_values(array_unique(array_map(
             static fn (array $item): int => (int) $item['id'],
             $rejectedItems
@@ -668,14 +670,32 @@ class BulkSiteRequestController extends Controller
             $rows,
             $rejectedItems,
             $rejectedIds,
+            $action,
             &$created,
             &$failures,
             &$createdDomains,
             &$deletedCount,
-            &$deletedDomains
+            &$deletedDomains,
+            &$abortedCancelled
         ) {
+            $locked = BulkSiteRequest::query()->lockForUpdate()->find($bulkRequest->id);
+            if (! $locked || $locked->isCancelled()) {
+                $abortedCancelled = true;
+
+                return;
+            }
+
             foreach ($rows as $row) {
-                $domain = $row['domain'];
+                $domain = Site::normalizeMarketplaceDomain((string) ($row['domain'] ?? ''));
+                if ($domain === '') {
+                    $failures[] = [
+                        'line' => $row['line'] ?? 0,
+                        'url' => $row['site_url'] ?? '',
+                        'errors' => ['Invalid domain'],
+                    ];
+
+                    continue;
+                }
 
                 Site::releaseCancelledBulkDomain($domain, (int) $bulkRequest->publisher_id);
                 $existing = Site::findOccupyingDomain($domain, lock: true);
@@ -692,13 +712,60 @@ class BulkSiteRequestController extends Controller
                     continue;
                 }
 
+                $otherPending = BulkSiteRequestItem::findOccupyingPendingDomain(
+                    $domain,
+                    exceptBulkId: (int) $locked->id,
+                    lock: true
+                );
+                if ($otherPending) {
+                    $failures[] = [
+                        'line' => $row['line'] ?? 0,
+                        'url' => $row['site_url'] ?? $domain,
+                        'errors' => ['Already in an open bulk request: '.$domain],
+                    ];
+
+                    continue;
+                }
+
+                $pending = $locked->items()->whereNull('site_id')->get(['id', 'domain']);
+                $doneItemId = $action === 'bulk_request.done' ? (int) ($row['line'] ?? 0) : 0;
+                $itemIds = [];
+                if ($doneItemId > 0) {
+                    $itemIds = $pending->firstWhere('id', $doneItemId) ? [$doneItemId] : [];
+                    if ($itemIds === []) {
+                        $failures[] = [
+                            'line' => $row['line'] ?? 0,
+                            'url' => $row['site_url'] ?? $domain,
+                            'errors' => ['Could not attach this row. Refresh and try again.'],
+                        ];
+
+                        continue;
+                    }
+                } elseif ($pending->isNotEmpty()) {
+                    $matches = $pending
+                        ->filter(fn ($item) => Site::normalizeMarketplaceDomain((string) $item->domain) === $domain)
+                        ->values();
+                    if ($matches->count() !== 1) {
+                        $failures[] = [
+                            'line' => $row['line'] ?? 0,
+                            'url' => $row['site_url'] ?? $domain,
+                            'errors' => [$matches->count() > 1
+                                ? 'This domain matches more than one pending row (www vs apex). Use Done on each row instead of Advanced seed.'
+                                : 'Could not attach this row. Refresh and try again.'],
+                        ];
+
+                        continue;
+                    }
+                    $itemIds = [(int) $matches->first()->id];
+                }
+
                 $site = new Site;
                 $site->applyMarketplaceListing([
                     'publisher_id' => $bulkRequest->publisher_id,
                     'bulk_site_request_id' => $bulkRequest->id,
                     'publisher_accepted_at' => now(),
                     'assigned_by_user_id' => null,
-                    'site_name' => $row['site_name'],
+                    'site_name' => ($row['site_name'] ?? '') !== '' ? $row['site_name'] : $domain,
                     'site_url' => $row['site_url'],
                     'domain' => $domain,
                     'example_url' => $row['site_url'],
@@ -727,35 +794,51 @@ class BulkSiteRequestController extends Controller
                     'enrichment_status' => 'pending',
                     'onboarding_status' => Site::ONBOARDING_AWAITING_DETAILS,
                 ]);
-                $site->save();
+                try {
+                    $site->save();
+                } catch (\Throwable $e) {
+                    Log::warning('Failed to create bulk draft site: '.$e->getMessage(), [
+                        'bulk_site_request_id' => $bulkRequest->id,
+                        'domain' => $domain,
+                    ]);
+                    $failures[] = [
+                        'line' => $row['line'] ?? 0,
+                        'url' => $row['site_url'] ?? $domain,
+                        'errors' => ['Could not add this domain. It may already be registered.'],
+                    ];
 
-                $candidates = Site::domainLookupCandidates($domain);
-                $normalized = Site::normalizeMarketplaceDomain($domain);
-                $bulkRequest->items()
-                    ->whereNull('site_id')
-                    ->where(function ($q) use ($candidates, $normalized) {
-                        if ($candidates !== []) {
-                            $q->whereIn('domain', $candidates);
-                        }
-                        if ($normalized !== '') {
-                            $escaped = addcslashes($normalized, '%_\\');
-                            $q->orWhere('domain', 'like', $escaped.':%')
-                                ->orWhere('domain', 'like', 'www.'.$escaped.':%');
-                        }
-                    })
-                    ->update(['site_id' => $site->id]);
+                    continue;
+                }
+
+                $attached = 0;
+                if ($itemIds !== []) {
+                    $attached = $locked->items()
+                        ->whereNull('site_id')
+                        ->whereIn('id', $itemIds)
+                        ->update(['site_id' => $site->id]);
+                }
+                if ($attached < 1 && ($action === 'bulk_request.done' || $pending->isNotEmpty())) {
+                    $site->delete();
+                    $failures[] = [
+                        'line' => $row['line'] ?? 0,
+                        'url' => $row['site_url'] ?? $domain,
+                        'errors' => ['Could not attach this row. Refresh and try again.'],
+                    ];
+
+                    continue;
+                }
 
                 $created++;
                 $createdDomains[] = $domain;
             }
 
             if ($rejectedIds !== []) {
-                $kept = $bulkRequest->items()
+                $kept = $locked->items()
                     ->whereIn('id', $rejectedIds)
                     ->whereNull('site_id')
                     ->get(['id', 'domain']);
                 $deletedDomains = $kept->pluck('domain')->filter()->map(fn ($d) => (string) $d)->values()->all();
-                $deletedCount = $bulkRequest->items()
+                $deletedCount = $locked->items()
                     ->whereIn('id', $rejectedIds)
                     ->whereNull('site_id')
                     ->delete();
@@ -771,25 +854,38 @@ class BulkSiteRequestController extends Controller
                 }
 
                 if ($deletedCount > 0) {
-                    $bulkRequest->forceFill([
-                        'estimated_count' => $bulkRequest->items()->count(),
+                    $locked->forceFill([
+                        'estimated_count' => $locked->items()->count(),
                         'handled_by' => auth()->id(),
                     ])->save();
                 }
             }
 
             if ($created > 0) {
-                $bulkRequest->forceFill([
+                $locked->forceFill([
                     'status' => BulkSiteRequest::STATUS_AWAITING_PUBLISHER,
-                    'seeded_at' => $bulkRequest->seeded_at ?? now(),
+                    'seeded_at' => $locked->seeded_at ?? now(),
                     'handled_by' => auth()->id(),
                     'completed_at' => null,
                 ])->save();
             }
         });
 
+        if ($abortedCancelled) {
+            return back()->with('error', $action === 'bulk_request.seeded'
+                ? 'Cannot seed a cancelled request.'
+                : 'Cannot complete a cancelled request.');
+        }
+
         $fresh = $bulkRequest->fresh(['publisher']);
-        $publisher = $fresh?->publisher;
+        if (! $fresh || $fresh->isCancelled()) {
+            return back()->with('error', ! $fresh
+                ? 'This bulk request is no longer available.'
+                : ($action === 'bulk_request.seeded'
+                    ? 'Cannot seed a cancelled request.'
+                    : 'Cannot complete a cancelled request.'));
+        }
+        $publisher = $fresh->publisher;
 
         if ($created > 0) {
             $verb = $action === 'bulk_request.done'
@@ -890,19 +986,20 @@ class BulkSiteRequestController extends Controller
         $didWork = $created > 0 || $deletedCount > 0;
         if ($didWork) {
             $bulkRequest->refreshProgressStatus();
-            $bulkRequest->refresh();
-            // Reject-all with no drafts must not stay "requested" — that blocks
-            // the publisher from submitting a new bulk and still enables seed.
-            if ($bulkRequest->pendingItemsCount() === 0
-                && $bulkRequest->sites()->doesntExist()
-                && in_array($bulkRequest->status, [
+            $still = $bulkRequest->fresh();
+            if ($still && ! $still->isCancelled()
+                && $still->pendingItemsCount() === 0
+                && $still->sites()->doesntExist()
+                && in_array($still->status, [
                     BulkSiteRequest::STATUS_REQUESTED,
                     BulkSiteRequest::STATUS_SHEET_SENT,
                     BulkSiteRequest::STATUS_SEEDED,
                 ], true)) {
-                $bulkRequest->forceFill([
+                // Reject-all with no drafts must not stay "requested" — that blocks
+                // the publisher from submitting a new bulk and still enables seed.
+                $still->forceFill([
                     'status' => BulkSiteRequest::STATUS_COMPLETED,
-                    'completed_at' => $bulkRequest->completed_at ?? now(),
+                    'completed_at' => $still->completed_at ?? now(),
                 ])->save();
             }
         }

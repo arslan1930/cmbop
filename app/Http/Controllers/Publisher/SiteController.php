@@ -225,6 +225,13 @@ class SiteController extends Controller
             $validator->errors()->add('siteUrl', 'This website domain is already registered by another publisher. If you own it, use “Claim a website” on this page so we can verify the listing name and transfer ownership.');
         });
 
+        $validator->after(function ($validator) use ($domain) {
+            $pending = BulkSiteRequestItem::occupyingPendingDomainMessage($domain);
+            if ($pending !== null) {
+                $validator->errors()->add('siteUrl', $pending);
+            }
+        });
+
         $validator->after(function ($validator) use ($request) {
             foreach (SiteDescriptionRules::errors(scalar_text($request->input('siteDescription', ''))) as $message) {
                 $validator->errors()->add('siteDescription', $message);
@@ -248,6 +255,12 @@ class SiteController extends Controller
                 if ($existing) {
                     throw ValidationException::withMessages([
                         'siteUrl' => [$existing->occupyingDomainMessage()],
+                    ]);
+                }
+                $pending = BulkSiteRequestItem::occupyingPendingDomainMessage($domain, lock: true);
+                if ($pending !== null) {
+                    throw ValidationException::withMessages([
+                        'siteUrl' => [$pending],
                     ]);
                 }
 
@@ -927,6 +940,7 @@ class SiteController extends Controller
                 'screenshot' => is_string($site->screenshot_path) ? $site->screenshot_path : null,
                 'thumb' => is_string($site->screenshot_thumb_path) ? $site->screenshot_thumb_path : null,
                 'id' => (int) $site->id,
+                'bulk_id' => $site->bulk_site_request_id,
             ];
             $site->delete();
 
@@ -951,6 +965,10 @@ class SiteController extends Controller
             $deleted['thumb'] ?? null,
             (int) ($deleted['id'] ?? 0)
         );
+
+        if (! empty($deleted['bulk_id'])) {
+            BulkSiteRequest::query()->find((int) $deleted['bulk_id'])?->refreshProgressStatus();
+        }
 
         return redirect()->back()->with('success', 'Site deleted successfully!');
     }
