@@ -149,7 +149,8 @@ class OrderItem extends Model
     {
         return (int) ($this->content_submission_id ?? 0) > 0
             || filled($this->content_path)
-            || filled($this->content_original_name);
+            || filled($this->content_original_name)
+            || $this->isInternalAdvertiserDownloadUrl(trim((string) ($this->content_link ?: '')));
     }
 
     /**

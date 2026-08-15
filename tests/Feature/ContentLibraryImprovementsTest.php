@@ -649,6 +649,109 @@ class ContentLibraryImprovementsTest extends TestCase
             ->assertJsonPath('success', false);
     }
 
+    public function test_failed_leftover_order_is_not_checkout_ready(): void
+    {
+        $advertiser = $this->advertiser();
+        $publisher = $this->publisher();
+        $site = $this->activeSite($publisher, 'leftover-claim');
+        $submission = $this->createApprovedSubmission($advertiser);
+        $leftover = $this->failedCardOrder($advertiser);
+        OrderItem::create([
+            'order_id' => $leftover->id,
+            'site_id' => $site->id,
+            'site_name' => $site->site_name,
+            'site_url' => $site->site_url,
+            'content_submission_id' => $submission->id,
+            'content_path' => $submission->path,
+            'content_original_name' => $submission->original_filename,
+            'content_link' => 'https://example.com/article',
+            'price' => 46,
+        ]);
+
+        $fresh = $submission->fresh();
+        $this->assertNull($fresh->order_id);
+        $this->assertTrue($fresh->canBeOrdered());
+        $this->assertTrue($fresh->isClaimedByAnotherOrder());
+        $this->assertFalse($fresh->isReadyForCheckout());
+        $this->assertTrue($fresh->isReadyToFulfill((int) $leftover->id));
+        $this->assertFalse($fresh->isJustApproved());
+        $this->assertSame('needs_fix', $fresh->libraryAvailability());
+        $this->assertSame(ContentSubmission::ACTIVE_ORDER_CLAIM_MESSAGE, $fresh->libraryFixSummary());
+        $this->assertSame(ContentSubmission::ACTIVE_ORDER_CLAIM_MESSAGE, $fresh->editorNotice());
+        $this->assertFalse(
+            ContentSubmission::query()->whereKey($submission->id)->orderable()->exists()
+        );
+        $this->assertFalse(
+            ContentSubmission::query()->whereKey($submission->id)->checkoutReady()->exists()
+        );
+        $this->assertTrue(
+            ContentSubmission::query()->whereKey($submission->id)->needsLibraryFix()->exists()
+        );
+
+        $this->actingAs($advertiser)
+            ->withSession([
+                'cart' => [[
+                    'id' => $site->id,
+                    'name' => $site->site_name,
+                    'quantity' => 1,
+                    'content_submission_id' => null,
+                    'language' => 'en',
+                ]],
+            ])
+            ->postJson(route('advertiser.cart.assign-article'), [
+                'id' => $site->id,
+                'content_submission_id' => $submission->id,
+            ])
+            ->assertStatus(422)
+            ->assertJsonPath('success', false);
+
+        $this->actingAs($advertiser)
+            ->from(route('advertiser.content-library'))
+            ->get(route('advertiser.content-library.order', $submission))
+            ->assertRedirect(route('advertiser.content-library'))
+            ->assertSessionHas('error', ContentSubmission::ACTIVE_ORDER_CLAIM_MESSAGE);
+
+        $leftover->update(['status' => 'cancelled']);
+        $released = $submission->fresh();
+        $this->assertFalse($released->isClaimedByAnotherOrder());
+        $this->assertTrue($released->isReadyForCheckout());
+        $this->assertSame('available', $released->libraryAvailability());
+        $this->assertTrue(
+            ContentSubmission::query()->whereKey($submission->id)->checkoutReady()->exists()
+        );
+        $this->assertFalse(
+            ContentSubmission::query()->whereKey($submission->id)->needsLibraryFix()->exists()
+        );
+    }
+
+    public function test_download_url_only_item_still_looks_like_a_library_line(): void
+    {
+        $item = new OrderItem([
+            'content_submission_id' => null,
+            'content_path' => null,
+            'content_original_name' => null,
+            'content_link' => '/content-submissions/99/download',
+        ]);
+
+        $this->assertTrue($item->looksLikeLibraryLine());
+
+        $absolute = new OrderItem([
+            'content_submission_id' => null,
+            'content_path' => null,
+            'content_original_name' => null,
+            'content_link' => 'https://seolinkbuildings.com/content-submissions/12/download',
+        ]);
+        $this->assertTrue($absolute->looksLikeLibraryLine());
+
+        $external = new OrderItem([
+            'content_submission_id' => null,
+            'content_path' => null,
+            'content_original_name' => null,
+            'content_link' => 'https://example.com/guest-post',
+        ]);
+        $this->assertFalse($external->looksLikeLibraryLine());
+    }
+
     public function test_library_availability_helper_on_model(): void
     {
         $advertiser = $this->advertiser();

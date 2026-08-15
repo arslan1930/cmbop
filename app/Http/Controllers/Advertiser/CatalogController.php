@@ -1483,7 +1483,7 @@ class CatalogController extends Controller
         if (! $submission->isReadyForCheckout()) {
             return response()->json([
                 'success' => false,
-                'error' => ContentSubmission::CHECKOUT_LINK_MESSAGE,
+                'error' => $submission->libraryFixSummary() ?: ContentSubmission::CHECKOUT_LINK_MESSAGE,
             ], 422);
         }
 
@@ -4484,7 +4484,7 @@ class CatalogController extends Controller
             if (! $submission->isReadyForCheckout()) {
                 return response()->json([
                     'success' => false,
-                    'message' => ContentSubmission::CHECKOUT_LINK_MESSAGE,
+                    'message' => $submission->libraryFixSummary() ?: ContentSubmission::CHECKOUT_LINK_MESSAGE,
                 ], 422);
             }
 

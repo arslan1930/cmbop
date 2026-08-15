@@ -92,7 +92,7 @@ class ContentLibraryController extends Controller
 
         $query = ContentSubmission::query()
             ->forLibraryList()
-            ->with(['orderItem.site', 'orderItems.site'])
+            ->with(['orderItem.site', 'orderItems.site', 'orderItems.order'])
             ->where('user_id', auth()->id())
             ->latest('id');
 
@@ -575,7 +575,7 @@ class ContentLibraryController extends Controller
         if (! $submission->isReadyForCheckout()) {
             return redirect()
                 ->route('advertiser.content-library')
-                ->with('error', ContentSubmission::CHECKOUT_LINK_MESSAGE);
+                ->with('error', $submission->libraryFixSummary() ?: ContentSubmission::CHECKOUT_LINK_MESSAGE);
         }
 
         // Keep existing cart sites and any publication date already chosen at checkout.

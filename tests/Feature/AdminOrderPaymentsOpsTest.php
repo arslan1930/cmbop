@@ -1107,4 +1107,35 @@ class AdminOrderPaymentsOpsTest extends TestCase
         $this->assertSame('fresh publisher anchor', $item->anchor_text);
         $this->assertSame('https://example.com/tools', $item->target_url);
     }
+
+    public function test_cannot_mark_paid_when_library_line_only_has_a_download_url(): void
+    {
+        $admin = $this->makeUser('admin');
+        $advertiser = $this->makeUser('advertiser');
+        $site = $this->makeSite($this->makeUser('publisher'), 'lib-download-only');
+        $order = $this->makeOrder($advertiser, $site, [
+            'order_number' => 'PAY-LIB-DOWNLOAD-1',
+            'payment_method' => 'wise',
+            'payment_status' => 'pending',
+            'status' => 'pending',
+        ]);
+        $order->items()->first()->update([
+            'content_submission_id' => null,
+            'content_path' => null,
+            'content_original_name' => null,
+            'content_link' => '/content-submissions/99/download',
+            'anchor_text' => 'stale anchor',
+            'target_url' => 'https://stale.example/backlink',
+        ]);
+
+        $this->actingAs($admin)
+            ->postJson(route('admin.payments.updateStatus', $order->id), [
+                'payment_status' => 'paid',
+            ])
+            ->assertStatus(422)
+            ->assertJsonPath('success', false);
+
+        $this->assertSame('pending', $order->fresh()->payment_status);
+        $this->assertNull($order->fresh()->paid_at);
+    }
 }
