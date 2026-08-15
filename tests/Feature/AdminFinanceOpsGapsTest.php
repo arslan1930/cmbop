@@ -942,6 +942,16 @@ class AdminFinanceOpsGapsTest extends TestCase
             ->get(route('admin.finance.ledger'))
             ->assertOk()
             ->assertSee('Unknown morph row');
+
+        $tx->forceFill([
+            'related_type' => Withdrawal::class.' ',
+            'related_id' => 1,
+        ])->save();
+
+        $this->actingAs($admin)
+            ->get(route('admin.finance.ledger'))
+            ->assertOk()
+            ->assertSee('Unknown morph row');
     }
 
     public function test_ledger_text_search_matches_user_email_and_reference(): void

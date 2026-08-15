@@ -177,7 +177,7 @@ class WalletTransaction extends Model
             }
 
             if ($this->relatedTypeIs(OrderItem::class)) {
-                $orderId = (int) ($this->related?->order_id ?? ($this->meta['order_id'] ?? 0));
+                $orderId = (int) ($this->related?->order_id ?? data_get($this->meta, 'order_id', 0));
 
                 return $orderId > 0 ? route('admin.orders.show', $orderId) : null;
             }
@@ -210,17 +210,20 @@ class WalletTransaction extends Model
 
     private function relatedClass(): ?string
     {
-        $type = ltrim(trim((string) ($this->related_type ?? '')), '\\');
-        if ($type === '') {
+        $type = (string) ($this->related_type ?? '');
+        if (trim($type) === '') {
             return null;
         }
 
-        $class = ltrim((string) Model::getActualClassNameForMorph($type), '\\');
-        if ($class === '' || ! class_exists($class) || ! is_subclass_of($class, Model::class)) {
+        // MorphTo instantiates this exact string. Do not trim/ltrim before
+        // class_exists — "App\Models\Withdrawal " would pass a normalized
+        // check and then 500 on load('related').
+        $class = Model::getActualClassNameForMorph($type);
+        if (! is_string($class) || $class === '' || ! class_exists($class) || ! is_subclass_of($class, Model::class)) {
             return null;
         }
 
-        return $class;
+        return ltrim($class, '\\');
     }
 
     private function relatedTypeIs(string $class): bool
