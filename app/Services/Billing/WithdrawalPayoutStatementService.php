@@ -129,6 +129,24 @@ class WithdrawalPayoutStatementService
     }
 
     /**
+     * Read-only. GET confirm / HTML show must not call find() — that
+     * reconciles leftover payee identity and can null pdf_path.
+     */
+    public function exists(Withdrawal $withdrawal): bool
+    {
+        $id = (int) $withdrawal->id;
+        if ($id <= 0) {
+            return false;
+        }
+
+        return Invoice::query()
+            ->where('type', Invoice::TYPE_WITHDRAWAL_PAYOUT)
+            ->where('status', '!=', Invoice::STATUS_CANCELLED)
+            ->where('reference_code', 'WD-'.$id)
+            ->exists();
+    }
+
+    /**
      * WD-{id} is the owner. A stale invoices.user_id would hide the PAY doc
      * from the publisher and leave it on the wrong billing list.
      */

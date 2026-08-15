@@ -140,7 +140,7 @@
                         <div class="col-6"><div class="border rounded-3 p-2">Mail failed jobs: <strong>{{ $queue['mail_failed_jobs'] }}</strong></div></div>
                     </div>
 
-                    <form method="post" action="{{ route('admin.emails.retry') }}" class="mb-3"
+                    <form method="post" action="{{ route('admin.emails.retry', [], false) }}" class="mb-3"
                           data-slb-confirm="Retry failed queue jobs and reset failed email logs?"
                           data-slb-confirm-title="Retry failed emails?"
                           data-slb-confirm-text="Retry now"
@@ -151,7 +151,7 @@
                         </button>
                     </form>
 
-                    <form method="post" action="{{ route('admin.emails.test') }}" class="border rounded-3 p-3 bg-light">
+                    <form method="post" action="{{ route('admin.emails.test', [], false) }}" class="border rounded-3 p-3 bg-light">
                         @csrf
                         <h6 class="mb-2">Send Test Email</h6>
                         <div class="mb-2">
@@ -203,7 +203,7 @@
                             @endif
                             <div class="d-flex gap-2 mt-3">
                                 @if($tpl['status'] !== 'framework' || $tpl['key'] === 'password_reset')
-                                    <a class="btn btn-sm btn-outline-secondary" target="_blank" href="{{ route('admin.emails.preview', $tpl['key']) }}">
+                                    <a class="btn btn-sm btn-outline-secondary" target="_blank" href="{{ route('admin.emails.preview', $tpl['key'], false) }}">
                                         <i class="fa fa-eye me-1"></i> Preview
                                     </a>
                                 @endif
@@ -224,7 +224,7 @@
                     <p class="small text-muted mb-0">Enable or disable specific notification types globally. User preferences still apply on top.</p>
                 </div>
             </div>
-            <form method="post" action="{{ route('admin.emails.settings') }}">
+            <form method="post" action="{{ route('admin.emails.settings', [], false) }}">
                 @csrf
                 <div class="table-responsive">
                     <table class="table table-sm align-middle">

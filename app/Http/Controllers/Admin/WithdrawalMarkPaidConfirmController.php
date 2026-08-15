@@ -126,7 +126,7 @@ class WithdrawalMarkPaidConfirmController extends Controller
         }
 
         try {
-            return app(WithdrawalPayoutStatementService::class)->find($withdrawal) === null;
+            return ! app(WithdrawalPayoutStatementService::class)->exists($withdrawal);
         } catch (\Throwable) {
             return true;
         }

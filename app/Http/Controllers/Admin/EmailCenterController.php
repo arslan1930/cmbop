@@ -107,7 +107,7 @@ class EmailCenterController extends Controller
 
         EmailNotificationSetting::flushCache();
 
-        return back()->with('success', 'Email notification settings saved.');
+        return $this->redirectToEmailCenter()->with('success', 'Email notification settings saved.');
     }
 
     public function preview(string $key)
@@ -173,7 +173,7 @@ class EmailCenterController extends Controller
                 ]);
             }
 
-            return back()->with('success', 'Test email sent to '.$data['email'].'.');
+            return $this->redirectToEmailCenter()->with('success', 'Test email sent to '.$data['email'].'.');
         } catch (\Throwable $e) {
             EmailLog::create([
                 'uuid' => (string) Str::uuid(),
@@ -187,7 +187,7 @@ class EmailCenterController extends Controller
                 'meta' => ['source' => 'email_center_test'],
             ]);
 
-            return back()->with('error', UserFacingError::message($e, 'Failed to send test email. Please try again.'));
+            return $this->redirectToEmailCenter()->with('error', UserFacingError::message($e, 'Failed to send test email. Please try again.'));
         }
     }
 
@@ -200,7 +200,7 @@ class EmailCenterController extends Controller
                 Artisan::call('queue:retry', ['id' => 'all']);
                 $retried++;
             } catch (\Throwable $e) {
-                return back()->with('error', UserFacingError::message($e, 'Could not retry queue jobs. Please try again.'));
+                return $this->redirectToEmailCenter()->with('error', UserFacingError::message($e, 'Could not retry queue jobs. Please try again.'));
             }
         }
 
@@ -210,7 +210,7 @@ class EmailCenterController extends Controller
             'error' => null,
         ]);
 
-        return back()->with(
+        return $this->redirectToEmailCenter()->with(
             'success',
             'Retry requested. Failed email logs re-queued for attention: '.$updated
             .($retried ? ' · Laravel failed_jobs retry:all dispatched.' : '')
@@ -248,5 +248,14 @@ class EmailCenterController extends Controller
     protected function renderMarkdown(string $view, array $data = []): string
     {
         return app(Markdown::class)->render($view, $data);
+    }
+
+    /**
+     * Stay on the current host. back() uses Referer/APP_URL and can drop
+     * the session after a payout-queue → Email Center hop.
+     */
+    protected function redirectToEmailCenter()
+    {
+        return redirect()->to(route('admin.emails.index', [], false));
     }
 }
