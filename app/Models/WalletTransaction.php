@@ -75,6 +75,25 @@ class WalletTransaction extends Model
         return $this->direction === 'credit';
     }
 
+    public function walletRoleLabel(): string
+    {
+        $name = strtolower((string) ($this->wallet?->role?->name ?? ''));
+
+        return match ($name) {
+            'advertiser' => 'Advertiser',
+            'publisher' => 'Publisher',
+            '' => '—',
+            default => ucfirst($name),
+        };
+    }
+
+    public function statusLabel(): string
+    {
+        $status = trim((string) ($this->status ?? ''));
+
+        return $status === '' ? '—' : ucfirst(str_replace('_', ' ', $status));
+    }
+
     public function typeLabel(): string
     {
         return match ($this->type) {

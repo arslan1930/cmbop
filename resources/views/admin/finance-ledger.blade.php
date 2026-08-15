@@ -76,8 +76,10 @@
                     <tr>
                         <th>When</th>
                         <th>User</th>
+                        <th>Wallet</th>
                         <th>Type</th>
                         <th>Dir</th>
+                        <th>Status</th>
                         <th>Amount</th>
                         <th>Bonus</th>
                         <th>Balance after</th>
@@ -93,6 +95,7 @@
                                 <div class="fw-semibold small">{{ $tx->user?->name ?? '—' }}</div>
                                 <div class="text-muted small">{{ $tx->user?->email }}</div>
                             </td>
+                            <td class="small">{{ $tx->walletRoleLabel() }}</td>
                             <td><span class="badge bg-light text-dark border">{{ $tx->typeLabel() }}</span></td>
                             <td>
                                 @if($tx->direction === 'credit')
@@ -101,7 +104,16 @@
                                     <span class="text-danger small fw-semibold">debit</span>
                                 @endif
                             </td>
-                            <td class="fw-semibold">€{{ number_format((float) $tx->amount, 2) }}</td>
+                            <td>
+                                @if(strtolower((string) ($tx->status ?? '')) === 'pending')
+                                    <span class="badge bg-warning text-dark">{{ $tx->statusLabel() }}</span>
+                                @else
+                                    <span class="badge bg-light text-dark border">{{ $tx->statusLabel() }}</span>
+                                @endif
+                            </td>
+                            <td class="fw-semibold {{ $tx->direction === 'credit' ? 'text-success' : 'text-danger' }}">
+                                {{ $tx->direction === 'credit' ? '+' : '-' }}€{{ number_format((float) $tx->amount, 2) }}
+                            </td>
                             <td class="small text-muted">€{{ number_format((float) $tx->bonus_amount, 2) }}</td>
                             <td class="small">€{{ number_format((float) $tx->balance_after, 2) }}</td>
                             <td class="small text-muted">
@@ -116,7 +128,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="9" class="text-center text-muted py-5">No ledger rows match these filters</td>
+                            <td colspan="11" class="text-center text-muted py-5">No ledger rows match these filters</td>
                         </tr>
                     @endforelse
                 </tbody>
