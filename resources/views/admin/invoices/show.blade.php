@@ -53,7 +53,7 @@
                             <span class="text-muted d-block">Customer</span>
                             <strong>
                                 @if($invoice->user_id)
-                                    <a href="{{ route('admin.users.index', ['user' => $invoice->user_id]) }}">{{ $invoice->customer_name ?: $invoice->user?->name ?: '—' }}</a>
+                                    <a href="{{ route('admin.users.index', ['user' => $invoice->user_id], false) }}">{{ $invoice->customer_name ?: $invoice->user?->name ?: '—' }}</a>
                                 @else
                                     {{ $invoice->customer_name ?: '—' }}
                                 @endif

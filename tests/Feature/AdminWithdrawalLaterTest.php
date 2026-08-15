@@ -1899,4 +1899,51 @@ class AdminWithdrawalLaterTest extends TestCase
         $this->assertSame('Former Owner', $statement->fresh()->customer_name);
         $this->assertSame('payouts/stale-failed-save.pdf', $statement->fresh()->pdf_path);
     }
+
+    public function test_find_replaces_leftover_snapshot_dest_when_identity_already_matches(): void
+    {
+        $publisher = $this->makeUser('publisher');
+        $publisher->forceFill([
+            'name' => 'Current Owner',
+            'email' => 'current-owner@example.com',
+        ])->save();
+        $withdrawal = $this->seedWithdrawal($publisher, [
+            'status' => 'completed',
+            'processed_at' => now(),
+            'payment_method' => 'paypal',
+            'payment_details' => ['email' => 'current-pay@example.com'],
+        ]);
+        $statement = Invoice::create([
+            'user_id' => $publisher->id,
+            'customer_name' => 'Current Owner',
+            'customer_email' => 'current-owner@example.com',
+            'pdf_path' => 'payouts/stale-other-dest.pdf',
+            'invoice_number' => 'PAY-LEFTOVER-DEST-1',
+            'type' => Invoice::TYPE_WITHDRAWAL_PAYOUT,
+            'status' => Invoice::STATUS_PAID,
+            'subtotal' => 95,
+            'total_amount' => 95,
+            'invoice_date' => now(),
+            'line_items' => [['description' => 'Payout', 'line_total' => 95]],
+            'pdf_disk' => 'local',
+            'reference_code' => 'WD-'.$withdrawal->id,
+            'meta' => ['withdrawal_id' => $withdrawal->id],
+            'billing_snapshot' => [
+                'name' => 'Current Owner',
+                'email' => 'current-owner@example.com',
+                'payment_details' => ['email' => 'former-pay@example.com'],
+            ],
+        ]);
+
+        $found = app(WithdrawalPayoutStatementService::class)->find($withdrawal);
+        $this->assertNotNull($found);
+        $found = $found->fresh();
+        $this->assertSame($statement->id, $found->id);
+        $this->assertSame('current-pay@example.com', data_get($found->billing_snapshot, 'payment_details.email'));
+        $this->assertNull($found->pdf_path);
+        $this->assertSame(
+            'c***@example.com',
+            Invoice::maskedPayoutDestination(data_get($found->billing_snapshot, 'payment_details'), 'paypal')
+        );
+    }
 }

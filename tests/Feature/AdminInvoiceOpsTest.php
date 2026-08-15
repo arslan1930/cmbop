@@ -637,6 +637,9 @@ class AdminInvoiceOpsTest extends TestCase
         $this->assertStringNotContainsString('href="'.route('admin.invoices.download', $statement).'"', $html);
         $this->assertStringNotContainsString('action="'.route('admin.invoices.regenerate-pdf', $statement).'"', $html);
         $this->assertStringNotContainsString('action="'.route('admin.invoices.resend', $statement).'"', $html);
+
+        $this->assertStringContainsString('href="'.route('admin.users.index', ['user' => $publisher->id], false).'"', $html);
+        $this->assertStringNotContainsString('href="'.route('admin.users.index', ['user' => $publisher->id]).'"', $html);
     }
 
     public function test_admin_payout_show_strips_legacy_fee_lines_and_ignores_scalar_items(): void

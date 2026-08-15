@@ -266,8 +266,8 @@ class AdminInvoiceUiTest extends TestCase
             ->assertSee('Subtotal', false)
             ->assertSee($receipt->invoice_number, false)
             ->assertSee(route('admin.invoices.show', $receipt), false)
-            ->assertSee(route('admin.users.index', ['user' => $advertiser->id]), false)
-            ->assertSee(route('admin.orders.show', $order->id), false);
+            ->assertSee(route('admin.users.index', ['user' => $advertiser->id], false), false)
+            ->assertSee(route('admin.orders.show', $order->id, false), false);
     }
 
     public function test_deposit_show_uses_reference_and_empty_line_fallback(): void
