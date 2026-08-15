@@ -150,8 +150,8 @@ class AdminFinanceOpsGapsTest extends TestCase
         $this->actingAs($admin)
             ->get(route('admin.finance.user', $advertiser))
             ->assertOk()
-            ->assertSee(route('admin.deposits', ['search' => $deposit->reference_code]), false)
-            ->assertSee(route('admin.orders.show', $order->id), false);
+            ->assertSee(route('admin.deposits', ['search' => $deposit->reference_code], false), false)
+            ->assertSee(route('admin.orders.show', $order->id, false), false);
 
         $this->actingAs($admin)
             ->get(route('admin.finance.user', $publisher))

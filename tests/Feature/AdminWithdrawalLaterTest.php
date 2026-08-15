@@ -7,6 +7,7 @@ use App\Models\ActivityLog;
 use App\Models\Invoice;
 use App\Models\Role;
 use App\Models\User;
+use App\Models\Wallet;
 use App\Models\Withdrawal;
 use App\Services\Admin\FinanceOverviewService;
 use App\Services\Billing\AdminInvoiceLinks;
@@ -738,6 +739,41 @@ class AdminWithdrawalLaterTest extends TestCase
             ->pluck('url');
 
         $this->assertTrue($urls->contains(route('admin.withdrawals.show', $withdrawal->id, false)));
+    }
+
+    public function test_finance_dossier_keeps_payout_actions_on_this_host(): void
+    {
+        $admin = $this->makeUser('admin');
+        $publisher = $this->makeUser('publisher');
+        $pubRole = Role::firstOrCreate(['name' => 'publisher']);
+        $wallet = Wallet::create([
+            'user_id' => $publisher->id,
+            'role_id' => $pubRole->id,
+            'balance' => 10,
+            'reserved_balance' => 0,
+            'bonus_balance' => 0,
+            'bonus_reserved' => 0,
+            'debt_balance' => 20,
+            'currency' => 'EUR',
+        ]);
+
+        $html = $this->actingAs($admin)
+            ->get(route('admin.finance.user', $publisher))
+            ->assertOk()
+            ->getContent();
+
+        $usersHref = route('admin.users.index', ['user' => $publisher->id], false).'#user-'.$publisher->id;
+        $clearAction = route('admin.finance.wallets.clear-debt', $wallet, false);
+        $this->assertStringContainsString('href="'.$usersHref.'"', $html);
+        $this->assertStringContainsString('action="'.$clearAction.'"', $html);
+        $this->assertStringNotContainsString('href="'.route('admin.users.index', ['user' => $publisher->id]).'"', $html);
+        $this->assertStringNotContainsString('action="'.route('admin.finance.wallets.clear-debt', $wallet).'"', $html);
+
+        $this->actingAs($admin)
+            ->post(route('admin.finance.wallets.clear-debt', $wallet), [
+                'reason' => 'Publisher settled debt offline via invoice.',
+            ])
+            ->assertRedirect(route('admin.finance.user', $publisher, false));
     }
 
     public function test_data_clamps_page_past_the_last_page(): void
