@@ -195,7 +195,7 @@
                                     <span class="badge bg-danger">Rejected</span>
                                 @endif
                             </td>
-                            <td>{{ $deposit->created_at->format('M d, Y') }}</td>
+                            <td>{{ optional($deposit->created_at)->format('M d, Y') }}</td>
                             <td>
                                 <div class="d-flex flex-wrap gap-1">
                                     <button class="btn btn-sm btn-outline-primary view-deposit"
@@ -501,7 +501,7 @@ document.addEventListener('DOMContentLoaded', function() {
             if (isCard) {
                 html += `
                     <div class="alert alert-info text-start mb-3" role="alert">
-                        This card deposit settles through Stripe when the payment succeeds.
+                        This deposit settles through Stripe when the payment succeeds.
                         Approving it here would credit the wallet twice.
                     </div>
                 `;

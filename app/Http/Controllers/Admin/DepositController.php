@@ -64,7 +64,7 @@ class DepositController extends Controller
 
         return response()->json([
             'success' => true,
-            'deposit' => $deposit,
+            'deposit' => $this->serializeDeposit($deposit),
             'invoice' => $invoice,
             'wallet' => $wallet,
         ]);
@@ -253,6 +253,33 @@ class DepositController extends Controller
                     });
             });
         }
+    }
+
+    /**
+     * Slim modal payload — never dump Stripe objects or advertiser payout rails.
+     *
+     * @return array<string, mixed>
+     */
+    private function serializeDeposit(DepositRequest $deposit): array
+    {
+        $user = $deposit->user;
+
+        return [
+            'id' => (int) $deposit->id,
+            'reference_code' => $deposit->reference_code,
+            'amount' => (float) $deposit->amount,
+            'payment_method' => $deposit->payment_method,
+            'status' => $deposit->status,
+            'admin_notes' => $deposit->admin_notes,
+            'user_marked_paid_at' => $deposit->user_marked_paid_at?->toIso8601String(),
+            'user_payment_note' => $deposit->user_payment_note,
+            'created_at' => $deposit->created_at?->toIso8601String(),
+            'user' => $user ? [
+                'id' => (int) $user->id,
+                'name' => $user->name,
+                'email' => $user->email,
+            ] : null,
+        ];
     }
 
     private function validatedAdminNotes(Request $request): ?string

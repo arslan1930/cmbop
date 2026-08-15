@@ -11,9 +11,9 @@
                     @if(!empty($isCard) && $deposit->isPending())
                         <div class="text-center mb-4">
                             <i class="fa-solid fa-credit-card fa-3x text-secondary mb-3" aria-hidden="true"></i>
-                            <h1 class="h3 mb-2">Card deposit — waits for Stripe</h1>
+                            <h1 class="h3 mb-2">Stripe deposit — do not credit here</h1>
                             <p class="text-muted mb-0">
-                                This card deposit settles through Stripe when the payment succeeds.
+                                This deposit settles through Stripe when the payment succeeds.
                                 Approving it here would credit the wallet twice.
                             </p>
                         </div>

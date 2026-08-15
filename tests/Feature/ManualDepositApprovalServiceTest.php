@@ -172,4 +172,24 @@ class ManualDepositApprovalServiceTest extends TestCase
         $this->assertSame(0.0, (float) $wallet->fresh()->balance);
         Mail::assertNothingQueued();
     }
+
+    public function test_approve_refuses_manual_method_tied_to_stripe(): void
+    {
+        $admin = $this->admin();
+        $advertiser = $this->advertiser();
+        $wallet = $this->walletFor($advertiser);
+        $deposit = $this->pendingDeposit($advertiser, 40, 'bank');
+        $deposit->update(['stripe_payment_intent_id' => 'pi_mixed_svc']);
+
+        try {
+            app(ManualDepositApprovalService::class)->approve($deposit->fresh(), $admin);
+            $this->fail('Expected ManualDepositNotManualException');
+        } catch (ManualDepositNotManualException $e) {
+            $this->assertStringContainsString('Stripe', $e->getMessage());
+        }
+
+        $this->assertSame('pending', $deposit->fresh()->status);
+        $this->assertSame(0.0, (float) $wallet->fresh()->balance);
+        Mail::assertNothingQueued();
+    }
 }

@@ -201,7 +201,7 @@ class AdminDepositsApproveContextTest extends TestCase
         $this->actingAs($admin)
             ->get($url)
             ->assertOk()
-            ->assertSee('Card deposit — waits for Stripe', false)
+            ->assertSee('Stripe deposit — do not credit here', false)
             ->assertSee('credit the wallet twice', false)
             ->assertSee('Wallet snapshot', false)
             ->assertDontSee('Confirm and credit', false);
@@ -227,6 +227,69 @@ class AdminDepositsApproveContextTest extends TestCase
 
         $this->assertSame('pending', $deposit->fresh()->status);
         $this->assertSame(5.0, (float) $wallet->fresh()->balance);
+        Mail::assertNotQueued(DepositApproved::class);
+    }
+
+    public function test_show_drops_stripe_and_payout_secrets(): void
+    {
+        $admin = $this->makeUser('admin');
+        $advertiser = $this->makeUser('advertiser');
+        $advertiser->forceFill([
+            'stripe_customer_id' => 'cus_secret',
+            'payout_bank_account' => 'DE00SECRET',
+            'password' => 'hashed-secret',
+        ])->save();
+        $this->walletFor($advertiser);
+        $deposit = $this->depositFor($advertiser, [
+            'stripe_session_id' => 'cs_secret',
+            'stripe_payment_intent_id' => 'pi_secret',
+            'stripe_response' => ['client_secret' => 'should-not-leak'],
+        ]);
+
+        $payload = $this->actingAs($admin)
+            ->getJson(route('admin.deposits.show', $deposit->id))
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('deposit.reference_code', $deposit->reference_code)
+            ->assertJsonPath('deposit.user.email', $advertiser->email)
+            ->assertJsonPath('wallet.can_approve', false)
+            ->assertJsonPath('wallet.is_card', true)
+            ->json();
+
+        $row = $payload['deposit'];
+        $this->assertArrayNotHasKey('stripe_response', $row);
+        $this->assertArrayNotHasKey('stripe_session_id', $row);
+        $this->assertArrayNotHasKey('stripe_payment_intent_id', $row);
+        $this->assertArrayNotHasKey('stripe_customer_id', $row['user']);
+        $this->assertArrayNotHasKey('payout_bank_account', $row['user']);
+        $this->assertArrayNotHasKey('password', $row['user']);
+    }
+
+    public function test_bank_row_with_stripe_id_cannot_be_approved(): void
+    {
+        $admin = $this->makeUser('admin');
+        $advertiser = $this->makeUser('advertiser');
+        $wallet = $this->walletFor($advertiser, 10);
+        $deposit = $this->depositFor($advertiser, [
+            'payment_method' => 'bank',
+            'amount' => 40,
+            'stripe_payment_intent_id' => 'pi_mixed_'.uniqid(),
+        ]);
+
+        $this->actingAs($admin)
+            ->getJson(route('admin.deposits.show', $deposit->id))
+            ->assertOk()
+            ->assertJsonPath('wallet.can_approve', false)
+            ->assertJsonPath('wallet.is_card', true);
+
+        $this->actingAs($admin)
+            ->postJson(route('admin.deposits.approve', $deposit->id))
+            ->assertOk()
+            ->assertJsonPath('success', false)
+            ->assertJsonPath('message', ManualDepositNotManualException::forDeposit()->getMessage());
+
+        $this->assertSame('pending', $deposit->fresh()->status);
+        $this->assertSame(10.0, (float) $wallet->fresh()->balance);
         Mail::assertNotQueued(DepositApproved::class);
     }
 }

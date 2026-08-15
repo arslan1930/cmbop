@@ -57,7 +57,7 @@ class ManualDepositApprovalService
                 throw ManualDepositAlreadyProcessedException::forDeposit((int) $locked->id);
             }
 
-            if (! $locked->isManualPayment()) {
+            if (! $locked->canManuallyApprove()) {
                 throw ManualDepositNotManualException::forDeposit();
             }
 
