@@ -7,6 +7,7 @@ use App\Models\ActivityLog;
 use App\Models\AgencySiteImport;
 use App\Models\AgencySiteImportFailure;
 use App\Models\BulkSiteRequest;
+use App\Models\BulkSiteRequestItem;
 use App\Models\Category;
 use App\Models\Role;
 use App\Models\Site;
@@ -232,6 +233,39 @@ class AgencyCsvBulkImportTest extends TestCase
         $this->assertSame(1, AgencySiteImportFailure::query()->where('agency_site_import_id', $import->id)->count());
         $failure = AgencySiteImportFailure::query()->first();
         $this->assertStringContainsString('already registered', implode(' ', $failure->errors));
+    }
+
+    public function test_import_rejects_domain_pending_on_open_bulk(): void
+    {
+        $bulk = BulkSiteRequest::create([
+            'publisher_id' => $this->publisher->id,
+            'status' => BulkSiteRequest::STATUS_REQUESTED,
+            'estimated_count' => 2,
+        ]);
+        BulkSiteRequestItem::create([
+            'bulk_site_request_id' => $bulk->id,
+            'site_url' => 'https://agency-pending.example',
+            'domain' => 'agency-pending.example',
+            'price' => 40,
+        ]);
+        BulkSiteRequestItem::create([
+            'bulk_site_request_id' => $bulk->id,
+            'site_url' => 'https://agency-pending-b.example',
+            'domain' => 'agency-pending-b.example',
+            'price' => 45,
+        ]);
+
+        $this->uploadCsv([
+            $this->validRow('agency-pending.example', 'Pending Clash'),
+        ])->assertRedirect();
+
+        $this->assertDatabaseMissing('sites', ['domain' => 'agency-pending.example']);
+        $failure = AgencySiteImportFailure::query()->first();
+        $this->assertNotNull($failure);
+        $this->assertStringContainsString(
+            'Already in an open bulk request: agency-pending.example',
+            implode(' ', $failure->errors)
+        );
     }
 
     public function test_overflow_price_is_rejected_without_creating_a_site(): void

@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Jobs\CaptureSiteScreenshotJob;
 use App\Models\AgencySiteImport;
 use App\Models\AgencySiteImportFailure;
+use App\Models\BulkSiteRequestItem;
 use App\Models\Category;
 use App\Models\Country;
 use App\Models\Language;
@@ -191,13 +192,14 @@ class AgencySiteImportService
                 }
                 $seenDomainsInFile[$domain] = $rowNumber;
 
-                if (Site::findOccupyingDomain($domain)) {
+                $pending = BulkSiteRequestItem::occupyingPendingDomainMessage($domain);
+                if (Site::findOccupyingDomain($domain) || $pending !== null) {
                     $failure = [
                         'row' => $rowNumber,
                         'site' => $data['site_url'],
                         'site_name' => $data['site_name'] ?? null,
                         'site_url' => $data['site_url'] ?? null,
-                        'errors' => ['This domain is already registered in the system.'],
+                        'errors' => [$pending ?? 'This domain is already registered in the system.'],
                     ];
                     $failed[] = [
                         'row' => $failure['row'],
@@ -221,6 +223,10 @@ class AgencySiteImportService
                         Site::releaseCancelledBulkDomain($parsed['domain'], (int) $publisher->id);
                         if (Site::findOccupyingDomain($parsed['domain'])) {
                             throw new InvalidArgumentException('This domain is already registered in the system.');
+                        }
+                        $pending = BulkSiteRequestItem::occupyingPendingDomainMessage($parsed['domain']);
+                        if ($pending !== null) {
+                            throw new InvalidArgumentException($pending);
                         }
 
                         $listing = [

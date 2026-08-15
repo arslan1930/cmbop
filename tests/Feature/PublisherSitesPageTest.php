@@ -2,6 +2,8 @@
 
 namespace Tests\Feature;
 
+use App\Models\BulkSiteRequest;
+use App\Models\BulkSiteRequestItem;
 use App\Models\Category;
 use App\Models\Country;
 use App\Models\Language;
@@ -417,6 +419,58 @@ class PublisherSitesPageTest extends TestCase
 
         $this->assertStringContainsString('already added', session('errors')->first('siteUrl'));
         $this->assertDatabaseMissing('sites', ['domain' => 'mine-www.example']);
+    }
+
+    public function test_store_rejects_domain_pending_on_open_bulk(): void
+    {
+        $bulk = BulkSiteRequest::create([
+            'publisher_id' => $this->otherPublisher->id,
+            'status' => BulkSiteRequest::STATUS_REQUESTED,
+            'estimated_count' => 2,
+        ]);
+        BulkSiteRequestItem::create([
+            'bulk_site_request_id' => $bulk->id,
+            'site_url' => 'https://pending-single.example',
+            'domain' => 'pending-single.example',
+            'price' => 40,
+        ]);
+        BulkSiteRequestItem::create([
+            'bulk_site_request_id' => $bulk->id,
+            'site_url' => 'https://pending-single-b.example',
+            'domain' => 'pending-single-b.example',
+            'price' => 45,
+        ]);
+
+        $category = Category::query()->firstOrFail();
+
+        $this->actingAs($this->publisher)
+            ->from(route('publisher.websites'))
+            ->post(route('publisher.sites.store'), [
+                'siteName' => 'Steal Pending',
+                'siteUrl' => 'https://www.pending-single.example',
+                'exampleUrl' => 'https://www.pending-single.example/post',
+                'da' => 10,
+                'dr' => 10,
+                'traffic' => 100,
+                'country' => 'de',
+                'language' => 'de',
+                'categories' => [$category->name],
+                'price' => 50,
+                'turnaround_time' => '3days',
+                'publicationTime' => 'permanent',
+                'link_type' => 'dofollow',
+                'siteDescription' => str_repeat('Pending bulk domain must stay reserved. ', 4),
+                'site_tag' => 'as_you_prefer',
+            ])
+            ->assertRedirect()
+            ->assertSessionHasErrors('siteUrl');
+
+        $this->assertStringContainsString(
+            'Already in an open bulk request: pending-single.example',
+            (string) session('errors')->first('siteUrl')
+        );
+        $this->assertDatabaseMissing('sites', ['domain' => 'pending-single.example']);
+        $this->assertDatabaseMissing('sites', ['domain' => 'www.pending-single.example']);
     }
 
     public function test_store_accepts_html_checkbox_on_for_sensitive_crypto(): void

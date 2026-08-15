@@ -869,20 +869,22 @@ class BulkDoneDraftAndNicheUiTest extends TestCase
         $this->assertStringContainsString("loadMissing('bulkSiteRequest')", $publisherController);
         $this->assertStringContainsString('hasDetailsComplete()', $publisherController);
         $this->assertStringContainsString('occupyingBulkDomainMessage', $publisherController);
-        $this->assertStringContainsString('findOccupyingPendingDomain', $publisherController);
-        $this->assertStringContainsString('Already in an open bulk request:', $publisherController);
+        $this->assertStringContainsString('occupyingPendingDomainMessage', $publisherController);
 
         $siteModel = file_get_contents(app_path('Models/Site.php'));
         $this->assertStringContainsString('Never rewind a site that already left the publisher-complete stage.', $siteModel);
 
         $itemModel = file_get_contents(app_path('Models/BulkSiteRequestItem.php'));
         $this->assertStringContainsString('findOccupyingPendingDomain', $itemModel);
+        $this->assertStringContainsString('occupyingPendingDomainMessage', $itemModel);
+        $this->assertStringContainsString('Already in an open bulk request:', $itemModel);
 
         $publisherSiteController = file_get_contents(app_path('Http/Controllers/Publisher/SiteController.php'));
         $this->assertStringContainsString('whereKey($site->id)', $publisherSiteController);
         $this->assertStringContainsString('lockForUpdate()', $publisherSiteController);
         $this->assertStringContainsString('$fresh = $site->fresh()', $publisherSiteController);
         $this->assertStringContainsString("find((int) \$deleted['bulk_id'])?->refreshProgressStatus()", $publisherSiteController);
+        $this->assertStringContainsString('occupyingPendingDomainMessage', $publisherSiteController);
 
         $bulk = BulkSiteRequest::create([
             'publisher_id' => $this->publisher->id,

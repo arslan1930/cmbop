@@ -206,23 +206,28 @@ class SiteController extends Controller
 
         $validator->after(function ($validator) use ($domain) {
             $existing = Site::findOccupyingDomain($domain);
-            if (! $existing) {
+            if ($existing) {
+                if ($existing->isArchived()) {
+                    $validator->errors()->add('siteUrl', $existing->occupyingDomainMessage());
+
+                    return;
+                }
+
+                if ((int) $existing->publisher_id === (int) auth()->id()) {
+                    $validator->errors()->add('siteUrl', 'You have already added this website.');
+
+                    return;
+                }
+
+                $validator->errors()->add('siteUrl', 'This website domain is already registered by another publisher. If you own it, use “Claim a website” on this page so we can verify the listing name and transfer ownership.');
+
                 return;
             }
 
-            if ($existing->isArchived()) {
-                $validator->errors()->add('siteUrl', $existing->occupyingDomainMessage());
-
-                return;
+            $pending = BulkSiteRequestItem::occupyingPendingDomainMessage($domain);
+            if ($pending !== null) {
+                $validator->errors()->add('siteUrl', $pending);
             }
-
-            if ((int) $existing->publisher_id === (int) auth()->id()) {
-                $validator->errors()->add('siteUrl', 'You have already added this website.');
-
-                return;
-            }
-
-            $validator->errors()->add('siteUrl', 'This website domain is already registered by another publisher. If you own it, use “Claim a website” on this page so we can verify the listing name and transfer ownership.');
         });
 
         $validator->after(function ($validator) use ($request) {
@@ -248,6 +253,12 @@ class SiteController extends Controller
                 if ($existing) {
                     throw ValidationException::withMessages([
                         'siteUrl' => [$existing->occupyingDomainMessage()],
+                    ]);
+                }
+                $pending = BulkSiteRequestItem::occupyingPendingDomainMessage($domain, lock: true);
+                if ($pending !== null) {
+                    throw ValidationException::withMessages([
+                        'siteUrl' => [$pending],
                     ]);
                 }
 

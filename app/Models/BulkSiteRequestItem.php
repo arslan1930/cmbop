@@ -61,4 +61,13 @@ class BulkSiteRequestItem extends Model
 
         return $query->first();
     }
+
+    public static function occupyingPendingDomainMessage(string $domain, bool $lock = false): ?string
+    {
+        if (! static::findOccupyingPendingDomain($domain, $lock)) {
+            return null;
+        }
+
+        return "Already in an open bulk request: {$domain}";
+    }
 }

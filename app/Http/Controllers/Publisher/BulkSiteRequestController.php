@@ -626,11 +626,7 @@ class BulkSiteRequestController extends Controller
                 : "Already registered: {$domain}";
         }
 
-        if (BulkSiteRequestItem::findOccupyingPendingDomain($domain, lock: $lockSite)) {
-            return "Already in an open bulk request: {$domain}";
-        }
-
-        return null;
+        return BulkSiteRequestItem::occupyingPendingDomainMessage($domain, lock: $lockSite);
     }
 
     /**

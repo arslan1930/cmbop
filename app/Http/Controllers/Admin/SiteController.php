@@ -837,6 +837,10 @@ class SiteController extends Controller
             if ($existing) {
                 $validator->errors()->add('site_url', $this->domainAlreadyRegisteredMessage($existing));
             }
+            $pending = BulkSiteRequestItem::occupyingPendingDomainMessage($domain);
+            if ($pending !== null) {
+                $validator->errors()->add('site_url', $pending);
+            }
 
             if ($this->exampleUrlHostDiffers($request->input('site_url'), $request->input('example_url'))) {
                 $validator->errors()->add('example_url', 'Example URL must be on the same website domain.');
@@ -878,6 +882,12 @@ class SiteController extends Controller
                 if ($existing) {
                     throw ValidationException::withMessages([
                         'site_url' => [$this->domainAlreadyRegisteredMessage($existing)],
+                    ]);
+                }
+                $pending = BulkSiteRequestItem::occupyingPendingDomainMessage($domain, lock: true);
+                if ($pending !== null) {
+                    throw ValidationException::withMessages([
+                        'site_url' => [$pending],
                     ]);
                 }
 
