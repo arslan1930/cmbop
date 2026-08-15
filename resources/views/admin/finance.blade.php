@@ -458,7 +458,7 @@
                             <span class="text-muted small">Cash into your accounts</span>
                             <strong class="text-success">{{ $euro($d['cash_split']['cash_in_bank']) }}</strong>
                         </div>
-                        <div class="small text-muted">Stripe/card + bank/Wise/crypto deposits &amp; manual order pays + leftover card credits</div>
+                        <div class="small text-muted">Stripe/card + bank/Wise/crypto + leftover card credits + featured-site Stripe. Wallet refunds do not remove collected cash.</div>
                     </div>
                     <div class="mb-3">
                         <div class="d-flex justify-content-between">

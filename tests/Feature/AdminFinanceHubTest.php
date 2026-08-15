@@ -7,6 +7,7 @@ use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Role;
 use App\Models\Site;
+use App\Models\SiteFeaturePurchase;
 use App\Models\User;
 use App\Models\Wallet;
 use App\Models\WalletTransaction;
@@ -333,6 +334,55 @@ class AdminFinanceHubTest extends TestCase
             ->assertSee('€25.00');
     }
 
+    public function test_featured_site_stripe_counts_as_cash_in_not_wallet(): void
+    {
+        $publisher = $this->makeUser('publisher');
+        $site = Site::create([
+            'publisher_id' => $publisher->id,
+            'site_name' => 'Promo Site',
+            'site_url' => 'https://promo-site.test',
+            'domain' => 'promo-site-'.uniqid().'.test',
+            'da' => 10,
+            'dr' => 10,
+            'traffic' => 100,
+            'country' => 'de',
+            'language' => 'de',
+            'category' => 'Technology',
+            'price' => 50,
+            'publication_time' => 'permanent',
+            'link_type' => 'dofollow',
+            'description' => 'Featured site finance cash-in test description.',
+            'verified' => true,
+            'active' => true,
+        ]);
+
+        SiteFeaturePurchase::create([
+            'site_id' => $site->id,
+            'user_id' => $publisher->id,
+            'amount' => 29,
+            'days' => 7,
+            'payment_method' => 'stripe',
+            'starts_at' => now(),
+            'ends_at' => now()->addDays(7),
+        ]);
+        SiteFeaturePurchase::create([
+            'site_id' => $site->id,
+            'user_id' => $publisher->id,
+            'amount' => 29,
+            'days' => 7,
+            'payment_method' => 'wallet',
+            'starts_at' => now(),
+            'ends_at' => now()->addDays(7),
+        ]);
+
+        $overview = app(FinanceOverviewService::class)->overview(
+            app(FinanceOverviewService::class)->resolvePeriod('all')
+        );
+
+        $this->assertEquals(29.0, $overview['money_in']['site_feature_stripe']);
+        $this->assertEquals(29.0, $overview['cash_split']['cash_in_bank']);
+    }
+
     public function test_withdrawable_sums_per_wallet_not_aggregate_bonus(): void
     {
         $admin = $this->makeUser('admin');
@@ -416,6 +466,8 @@ class AdminFinanceHubTest extends TestCase
         $this->assertStringContainsString('payable_now', $csv);
         $this->assertStringContainsString('cash_in_bank', $csv);
         $this->assertStringContainsString('unfulfilled_card_credits', $csv);
+        $this->assertStringContainsString('stripe_card_collected', $csv);
+        $this->assertStringContainsString('site_feature_stripe', $csv);
     }
 
     public function test_billing_config_exposes_withdrawal_fee_percent(): void
@@ -516,9 +568,49 @@ class AdminFinanceHubTest extends TestCase
 
         $this->assertEquals(0.0, $july['platform']['refunds']);
         $this->assertEquals(0.0, $july['platform']['refunded_order_fees']);
+        $this->assertEquals(115.0, $july['platform']['gmv_completed']);
+        $this->assertEquals(15.0, $july['platform']['order_fees']);
         $this->assertEquals(115.0, $august['platform']['refunds']);
         $this->assertEquals(15.0, $august['platform']['refunded_order_fees']);
         $this->assertEquals(-15.0, $august['platform']['margin']);
+
+        $all = app(FinanceOverviewService::class)->overview(
+            app(FinanceOverviewService::class)->resolvePeriod('all')
+        );
+        $this->assertEquals(115.0, $all['platform']['gmv_completed']);
+        $this->assertEquals(15.0, $all['platform']['order_fees']);
+        $this->assertEquals(15.0, $all['platform']['refunded_order_fees']);
+        $this->assertEquals(0.0, $all['platform']['margin']);
+        $this->assertEquals(115.0, $all['cash_split']['cash_in_bank']);
+        $this->assertEquals(0.0, $all['money_in']['orders_paid']['stripe_card']);
+        $this->assertEquals(115.0, $all['money_in']['stripe_card_collected']);
+    }
+
+    public function test_in_progress_refund_does_not_reverse_unearned_fees(): void
+    {
+        $advertiser = $this->makeUser('advertiser');
+        $publisher = $this->makeUser('publisher');
+        $order = $this->seedCompletedPaidOrder($advertiser, $publisher, [
+            'paid_at' => now(),
+            'completed_at' => now(),
+        ]);
+
+        $order->forceFill([
+            'status' => 'cancelled',
+            'payment_status' => 'refunded',
+            'completed_at' => null,
+        ])->save();
+
+        $overview = app(FinanceOverviewService::class)->overview(
+            app(FinanceOverviewService::class)->resolvePeriod('all')
+        );
+
+        $this->assertEquals(0.0, $overview['platform']['gmv_completed']);
+        $this->assertEquals(0.0, $overview['platform']['order_fees']);
+        $this->assertEquals(0.0, $overview['platform']['refunded_order_fees']);
+        $this->assertEquals(115.0, $overview['platform']['refunds']);
+        $this->assertEquals(0.0, $overview['platform']['margin']);
+        $this->assertEquals(115.0, $overview['cash_split']['cash_in_bank']);
     }
 
     public function test_null_paid_at_does_not_enter_every_period(): void
