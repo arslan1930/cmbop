@@ -122,11 +122,13 @@ class OrderPaymentService
         );
         $this->evaluateSpendBudgetAfterPaidOrders($newlyPaid);
         $this->creditHiddenCardOrdersAfterMarkPaid($referenceCode, $sessionMeta, $session);
-        $this->persistPaidCheckoutBonus(
-            (int) ($sessionMeta['user_id'] ?? ($newlyPaid->first()->user_id ?? 0)),
-            $referenceCode,
-            (float) ($sessionMeta['bonus_applied'] ?? 0)
-        );
+        if ($newlyPaid->isNotEmpty()) {
+            $this->persistPaidCheckoutBonus(
+                (int) ($sessionMeta['user_id'] ?? ($newlyPaid->first()->user_id ?? 0)),
+                $referenceCode,
+                (float) ($sessionMeta['bonus_applied'] ?? 0)
+            );
+        }
         $this->cancelUnpaidCardOrdersForPaidCheckout($newlyPaid);
 
         return $newlyPaid;
@@ -222,11 +224,13 @@ class OrderPaymentService
         );
         $this->evaluateSpendBudgetAfterPaidOrders($newlyPaid);
         $this->creditHiddenCardOrdersAfterMarkPaid($referenceCode, $meta, $intent);
-        $this->persistPaidCheckoutBonus(
-            (int) ($meta['user_id'] ?? ($newlyPaid->first()->user_id ?? 0)),
-            $referenceCode,
-            (float) ($meta['bonus_applied'] ?? 0)
-        );
+        if ($newlyPaid->isNotEmpty()) {
+            $this->persistPaidCheckoutBonus(
+                (int) ($meta['user_id'] ?? ($newlyPaid->first()->user_id ?? 0)),
+                $referenceCode,
+                (float) ($meta['bonus_applied'] ?? 0)
+            );
+        }
         $this->cancelUnpaidCardOrdersForPaidCheckout($newlyPaid);
 
         return $newlyPaid;
@@ -518,7 +522,47 @@ class OrderPaymentService
             return;
         }
 
-        app(CheckoutIntentService::class)->rememberBonus($userId, $referenceCode, $bonus);
+        $intents = app(CheckoutIntentService::class);
+        $current = $intents->recordedBonus($userId, $referenceCode);
+        if ($current > 0) {
+            // Catalog-left / taken-article refunds already reduced this hold.
+            // Re-writing the original checkout bonus made a later REF treat
+            // the leftover as still fully reserved and mint promo as cash.
+            $bonus = min($bonus, $current);
+        } else {
+            $remaining = $this->remainingPromoReserveForReference($userId, $referenceCode);
+            if ($remaining <= 0) {
+                return;
+            }
+            $bonus = min($bonus, $remaining);
+        }
+
+        $intents->rememberBonus($userId, $referenceCode, $bonus);
+    }
+
+    /**
+     * Promo still reserved for this REF after other live holds are subtracted.
+     */
+    private function remainingPromoReserveForReference(int $userId, string $referenceCode): float
+    {
+        $roleId = Wallet::advertiserRoleId();
+        if (! $roleId) {
+            return 0.0;
+        }
+
+        $wallet = Wallet::query()
+            ->where('user_id', $userId)
+            ->where('role_id', $roleId)
+            ->first();
+        if (! $wallet) {
+            return 0.0;
+        }
+
+        return app(CheckoutIntentService::class)->releasableBonus(
+            $userId,
+            $referenceCode,
+            (float) $wallet->bonus_reserved
+        );
     }
 
     /**
