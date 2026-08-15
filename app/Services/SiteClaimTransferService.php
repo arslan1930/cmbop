@@ -138,6 +138,18 @@ class SiteClaimTransferService
             $previousPublisherId = $locked->publisher_id;
             $previousPublisher = $locked->publisher;
 
+            // Cancelled leftovers stay on unique(publisher_id, domain). The
+            // original owner can claim the domain back after someone else
+            // listed it; approve must free that row or the save 500s and
+            // the transfer never happens.
+            Site::releaseCancelledBulkDomain((string) $locked->domain, (int) $claimer->id, lock: true);
+            $claimerOccupier = Site::findOccupyingDomain((string) $locked->domain, exceptId: (int) $locked->id, lock: true);
+            if ($claimerOccupier && (int) $claimerOccupier->publisher_id === (int) $claimer->id) {
+                throw ValidationException::withMessages([
+                    'claim' => 'Cannot approve: the claimer already has a listing for this domain. Remove that leftover first.',
+                ]);
+            }
+
             $locked->publisher_id = $claimer->id;
             if (Site::hasSitesColumn('publisher_accepted_at')) {
                 $locked->publisher_accepted_at = now();
@@ -210,6 +222,11 @@ class SiteClaimTransferService
         if ($linkedBulkId) {
             BulkSiteRequest::query()->find($linkedBulkId)?->refreshProgressStatus();
         }
+
+        // Claimer may still have a pending URL+price row for this domain
+        // (occupancy skipped their cancelled leftover). Heal so My Sites
+        // does not keep a ghost open bulk after they just received the listing.
+        BulkSiteRequest::openBlockingForPublisher((int) $claimer->id);
 
         $claim->refresh()->load(['site', 'claimer', 'reviewer']);
         $this->notifyApproved($claim, $previousPublisher);

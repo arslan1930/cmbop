@@ -906,7 +906,7 @@ class Site extends Model
      * Same publisher still has unique(publisher_id, domain) on leftovers.
      * Delete unused cancelled rows; tombstone leftovers that keep order history.
      */
-    public static function releaseCancelledBulkDomain(string $domain, int $publisherId): int
+    public static function releaseCancelledBulkDomain(string $domain, int $publisherId, bool $lock = false): int
     {
         if ($publisherId <= 0 || ! static::hasSitesColumn('bulk_site_request_id')) {
             return 0;
@@ -918,7 +918,7 @@ class Site extends Model
         }
 
         $normalized = static::normalizeMarketplaceDomain($domain);
-        $leftovers = static::query()
+        $query = static::query()
             ->where('publisher_id', $publisherId)
             ->where(function ($q) use ($candidates, $normalized) {
                 $q->whereIn('domain', $candidates);
@@ -931,7 +931,11 @@ class Site extends Model
             ->whereHas('bulkSiteRequest', function ($bulk) {
                 $bulk->where('status', BulkSiteRequest::STATUS_CANCELLED);
             })
-            ->get();
+            ->orderBy('id');
+        if ($lock) {
+            $query->lockForUpdate();
+        }
+        $leftovers = $query->get();
 
         $released = 0;
         foreach ($leftovers as $site) {

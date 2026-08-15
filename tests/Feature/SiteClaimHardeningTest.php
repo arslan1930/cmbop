@@ -317,6 +317,82 @@ class SiteClaimHardeningTest extends TestCase
             ->assertSessionMissing('error');
     }
 
+    public function test_approve_releases_claimer_cancelled_leftover_so_unique_domain_does_not_fail(): void
+    {
+        Mail::fake();
+
+        $admin = $this->admin();
+        $owner = $this->userWithRole('publisher');
+        $claimer = $this->userWithRole('publisher');
+
+        $cancelled = BulkSiteRequest::create([
+            'publisher_id' => $claimer->id,
+            'status' => BulkSiteRequest::STATUS_CANCELLED,
+            'estimated_count' => 1,
+        ]);
+        $leftover = $this->siteFor($claimer);
+        $leftover->forceFill([
+            'bulk_site_request_id' => $cancelled->id,
+            'archived_at' => now(),
+            'verified' => true,
+            'active' => true,
+        ])->save();
+
+        $site = $this->siteFor($owner);
+        $this->assertSame($leftover->domain, $site->domain);
+        $this->assertTrue($leftover->fresh()->isFromCancelledBulk());
+
+        $claim = $this->pendingClaimFor($site, $claimer);
+        $this->actingAs($admin)->postJson(route('admin.community.claims.approve', $claim->id), [
+            'admin_notes' => 'Original owner reclaiming after a cancelled leftover.',
+        ])->assertOk()->assertJson(['success' => true]);
+
+        $this->assertDatabaseMissing('sites', ['id' => $leftover->id]);
+        $this->assertSame($claimer->id, (int) $site->fresh()->publisher_id);
+        $this->assertNotNull(Site::findOccupyingDomain($site->domain));
+        $this->assertSame($site->id, (int) Site::findOccupyingDomain($site->domain)->id);
+    }
+
+    public function test_approve_heals_claimer_pending_row_for_the_claimed_domain(): void
+    {
+        Mail::fake();
+
+        $admin = $this->admin();
+        $owner = $this->userWithRole('publisher');
+        $claimer = $this->userWithRole('publisher');
+
+        $claimerBulk = BulkSiteRequest::create([
+            'publisher_id' => $claimer->id,
+            'status' => BulkSiteRequest::STATUS_REQUESTED,
+            'estimated_count' => 2,
+        ]);
+        $claimedItem = BulkSiteRequestItem::create([
+            'bulk_site_request_id' => $claimerBulk->id,
+            'site_url' => 'https://owned-news.example',
+            'domain' => 'owned-news.example',
+            'price' => 80,
+        ]);
+        $keepItem = BulkSiteRequestItem::create([
+            'bulk_site_request_id' => $claimerBulk->id,
+            'site_url' => 'https://keep-after-claim.example',
+            'domain' => 'keep-after-claim.example',
+            'price' => 40,
+        ]);
+
+        $site = $this->siteFor($owner);
+        $claim = $this->pendingClaimFor($site, $claimer);
+        $this->actingAs($admin)->postJson(route('admin.community.claims.approve', $claim->id), [
+            'admin_notes' => 'Claimer already had this URL pending on their own bulk.',
+        ])->assertOk()->assertJson(['success' => true]);
+
+        $this->assertDatabaseMissing('bulk_site_request_items', ['id' => $claimedItem->id]);
+        $this->assertDatabaseHas('bulk_site_request_items', ['id' => $keepItem->id]);
+        $this->assertSame(BulkSiteRequest::STATUS_REQUESTED, $claimerBulk->fresh()->status);
+        $this->assertTrue(
+            BulkSiteRequest::query()->whereKey($claimerBulk->id)->blockingPublisher()->exists()
+        );
+    }
+
     public function test_approve_blocked_when_site_has_open_order_item(): void
     {
         Mail::fake();
