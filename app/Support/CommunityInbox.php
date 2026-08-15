@@ -170,6 +170,22 @@ class CommunityInbox
     }
 
     /**
+     * Positive suggestion id from a query/body value. Arrays and booleans
+     * must not coerce to 1 the way `(int) ['12']` / `(int) true` do.
+     */
+    public static function suggestionIdFrom(mixed $raw): int
+    {
+        if (is_int($raw)) {
+            return max(0, $raw);
+        }
+        if (is_string($raw) && is_numeric(trim($raw))) {
+            return max(0, (int) trim($raw));
+        }
+
+        return 0;
+    }
+
+    /**
      * Query string to prefill staff site-create from a website suggestion.
      *
      * @return array{site_name?: string, site_url?: string, country?: string, language?: string, suggestion_id: int}
@@ -207,6 +223,26 @@ class CommunityInbox
         $raw = search_text($suggestion->domain);
         if ($raw === '' || preg_match('#^https?://#i', $raw)) {
             $url = self::safeHttpUrl($raw !== '' ? $raw : $suggestion->website_url);
+            if ($url) {
+                $host = parse_url($url, PHP_URL_HOST);
+                $raw = is_string($host) ? $host : '';
+            } elseif (preg_match('#^https?://#i', $raw)) {
+                $raw = '';
+            }
+        }
+
+        return $raw !== '' ? Site::normalizeMarketplaceDomain($raw) : '';
+    }
+
+    /**
+     * Host of a staff-created listing. The in-memory Site after create can
+     * omit `domain` until refresh; fall back to site_url.
+     */
+    public static function listingLookupDomain(Site $site): string
+    {
+        $raw = search_text($site->domain);
+        if ($raw === '' || preg_match('#^https?://#i', $raw)) {
+            $url = self::safeHttpUrl($raw !== '' ? $raw : $site->site_url);
             if ($url) {
                 $host = parse_url($url, PHP_URL_HOST);
                 $raw = is_string($host) ? $host : '';

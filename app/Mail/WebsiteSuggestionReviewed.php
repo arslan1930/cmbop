@@ -30,7 +30,7 @@ class WebsiteSuggestionReviewed extends PlatformMailable
                 'accepted' => $accepted,
                 'siteName' => $name,
                 'notes' => trim((string) ($this->suggestion->admin_notes ?? '')),
-                'actionUrl' => route('advertiser.catalog'),
+                'actionUrl' => $this->publicRoute('advertiser.catalog'),
             ]);
     }
 }

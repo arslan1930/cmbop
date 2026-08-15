@@ -164,4 +164,14 @@ class CommunityInboxTest extends TestCase
         ]);
         $this->assertSame('', CommunityInbox::suggestionLookupDomain($unsafe));
     }
+
+    public function test_suggestion_id_from_keeps_scalars_and_drops_arrays(): void
+    {
+        $this->assertSame(12, CommunityInbox::suggestionIdFrom(12));
+        $this->assertSame(12, CommunityInbox::suggestionIdFrom('12'));
+        $this->assertSame(0, CommunityInbox::suggestionIdFrom(['12']));
+        $this->assertSame(0, CommunityInbox::suggestionIdFrom(true));
+        $this->assertSame(0, CommunityInbox::suggestionIdFrom(null));
+        $this->assertSame(0, CommunityInbox::suggestionIdFrom(''));
+    }
 }

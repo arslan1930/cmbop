@@ -36,7 +36,7 @@ class CommunityFeedbackReviewed extends PlatformMailable
                 'resolved' => $resolved,
                 'subjectLabel' => $subjectLabel,
                 'notes' => trim((string) ($this->item->admin_notes ?? '')),
-                'actionUrl' => url('/'),
+                'actionUrl' => $this->publicRoute('home'),
             ]);
     }
 }

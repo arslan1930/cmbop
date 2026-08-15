@@ -703,6 +703,63 @@ class CommunityFeedbackTest extends TestCase
         Mail::assertNothingQueued();
     }
 
+    public function test_listing_handoff_accepts_a_rejected_suggestion_for_the_same_domain(): void
+    {
+        Mail::fake();
+
+        $admin = $this->userWithRole('admin');
+        $advertiser = $this->userWithRole('advertiser');
+        $publisher = $this->userWithRole('publisher');
+        $suggestion = WebsiteSuggestion::create([
+            'user_id' => $advertiser->id,
+            'website_name' => 'Owned News Daily',
+            'website_url' => 'https://owned-news.example',
+            'domain' => 'owned-news.example',
+            'status' => 'rejected',
+            'admin_notes' => 'Not a fit yet.',
+        ]);
+        $site = $this->siteFor($publisher);
+
+        app(CommunityInboxNotifier::class)->acceptWebsiteSuggestionAfterListing(
+            (int) $suggestion->id,
+            $site,
+            $admin
+        );
+
+        $suggestion->refresh();
+        $this->assertSame('accepted', $suggestion->status);
+        $this->assertStringContainsString('Listing created: '.$site->domain, (string) $suggestion->admin_notes);
+        Mail::assertQueued(WebsiteSuggestionReviewed::class, 1);
+
+        app(CommunityInboxNotifier::class)->acceptWebsiteSuggestionAfterListing(
+            (int) $suggestion->id,
+            $site,
+            $admin
+        );
+        Mail::assertQueued(WebsiteSuggestionReviewed::class, 1);
+    }
+
+    public function test_array_suggestion_id_query_does_not_prefill_site_create(): void
+    {
+        $admin = $this->userWithRole('admin');
+        $advertiser = $this->userWithRole('advertiser');
+        WebsiteSuggestion::create([
+            'user_id' => $advertiser->id,
+            'website_name' => 'Fresh Tech Blog',
+            'website_url' => 'https://fresh-tech.example',
+            'domain' => 'fresh-tech.example',
+            'status' => 'pending',
+        ]);
+
+        $html = $this->actingAs($admin)
+            ->get(route('admin.sites.create', ['suggestion_id' => ['1']]))
+            ->assertOk()
+            ->getContent();
+
+        $this->assertStringNotContainsString('Prefilling from website suggestion', $html);
+        $this->assertStringNotContainsString('name="suggestion_id"', $html);
+    }
+
     public function test_inactive_community_tabs_are_not_paginated(): void
     {
         $admin = $this->userWithRole('admin');
@@ -744,6 +801,8 @@ class CommunityFeedbackTest extends TestCase
         $this->assertInstanceOf(WebsiteSuggestionReviewed::class, $website);
         $this->assertStringContainsString('We reviewed your problem report', $feedback->render());
         $this->assertStringContainsString('We will try to add', $website->render());
+        $this->assertStringContainsString(rtrim(app_public_url(), '/'), $feedback->render());
+        $this->assertStringContainsString('/advertiser/catalog', $website->render());
     }
 
     public function test_blank_report_email_falls_back_to_the_user_account(): void

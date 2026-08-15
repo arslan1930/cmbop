@@ -127,12 +127,12 @@ class CommunityInboxNotifier
         }
 
         $suggestion = WebsiteSuggestion::query()->find($suggestionId);
-        if (! $suggestion || $suggestion->status !== 'pending') {
+        if (! $suggestion || $suggestion->status === 'accepted') {
             return;
         }
 
         $expected = CommunityInbox::suggestionLookupDomain($suggestion);
-        $actual = Site::normalizeMarketplaceDomain((string) $site->domain);
+        $actual = CommunityInbox::listingLookupDomain($site);
         if ($expected === '' || $actual === '' || $expected !== $actual) {
             return;
         }
@@ -140,12 +140,20 @@ class CommunityInboxNotifier
         $note = 'Listing created: '.$site->domain;
         $existing = trim((string) ($suggestion->admin_notes ?? ''));
 
-        $suggestion->forceFill([
-            'status' => 'accepted',
-            'admin_notes' => $existing !== '' ? $existing."\n".$note : $note,
-            'reviewed_at' => now(),
-            'reviewed_by' => $admin->id,
-        ])->save();
+        $affected = WebsiteSuggestion::query()
+            ->whereKey($suggestion->id)
+            ->where('status', '!=', 'accepted')
+            ->update([
+                'status' => 'accepted',
+                'admin_notes' => $existing !== '' ? $existing."\n".$note : $note,
+                'reviewed_at' => now(),
+                'reviewed_by' => $admin->id,
+                'updated_at' => now(),
+            ]);
+
+        if ($affected !== 1) {
+            return;
+        }
 
         $this->notifySubmitterReviewed($suggestion->fresh(['user']), CommunityInbox::TAB_WEBSITES);
     }
