@@ -225,13 +225,9 @@ class StripeFirstCheckoutInvariantsTest extends TestCase
             ],
         ];
 
-        try {
-            app(OrderPaymentService::class)->markOrdersPaidFromPaymentIntent($ref, $intent);
-            $this->fail('PaymentIntent amount mismatch should refuse to mark the order paid.');
-        } catch (\RuntimeException $e) {
-            $this->assertStringContainsString('does not match', $e->getMessage());
-        }
+        $paid = app(OrderPaymentService::class)->markOrdersPaidFromPaymentIntent($ref, $intent);
 
+        $this->assertCount(0, $paid);
         $this->assertSame('pending', $order->fresh()->payment_status);
     }
 
@@ -274,13 +270,9 @@ class StripeFirstCheckoutInvariantsTest extends TestCase
             ],
         ];
 
-        try {
-            app(OrderPaymentService::class)->markOrdersPaidFromStripeSession($ref, $session);
-            $this->fail('Checkout session amount mismatch should refuse to mark the order paid.');
-        } catch (\RuntimeException $e) {
-            $this->assertStringContainsString('does not match', $e->getMessage());
-        }
+        $paid = app(OrderPaymentService::class)->markOrdersPaidFromStripeSession($ref, $session);
 
+        $this->assertCount(0, $paid);
         $this->assertSame('pending', $order->fresh()->payment_status);
     }
 
