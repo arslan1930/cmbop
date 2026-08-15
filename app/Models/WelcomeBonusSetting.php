@@ -111,11 +111,7 @@ class WelcomeBonusSetting extends Model
             DB::transaction(function () use ($enabled, $updatedBy) {
                 $rows = static::configRows(true);
                 $keep = $rows->first();
-                try {
-                    $current = is_array($keep?->value) ? $keep->value : [];
-                } catch (\Throwable) {
-                    $current = [];
-                }
+                $current = static::payloadForWrite($rows, $keep);
 
                 $current['enabled'] = $enabled;
                 $current['updated_at'] = now()->toIso8601String();
@@ -163,8 +159,11 @@ class WelcomeBonusSetting extends Model
     public static function configuredAmount(): float
     {
         $stored = static::config();
-        if (is_array($stored) && isset($stored['amount']) && is_numeric($stored['amount'])) {
-            return static::normalizeAmount($stored['amount']);
+        if (is_array($stored) && array_key_exists('amount', $stored)) {
+            // A present but unreadable amount must not fall back to €20.
+            return is_numeric($stored['amount'])
+                ? static::normalizeAmount($stored['amount'])
+                : 0.0;
         }
 
         return static::normalizeAmount(config('welcome_bonus.amount', 20));
@@ -182,11 +181,7 @@ class WelcomeBonusSetting extends Model
             DB::transaction(function () use ($amount, $updatedBy) {
                 $rows = static::configRows(true);
                 $keep = $rows->first();
-                try {
-                    $current = is_array($keep?->value) ? $keep->value : [];
-                } catch (\Throwable) {
-                    $current = [];
-                }
+                $current = static::payloadForWrite($rows, $keep);
 
                 // Do not default a missing enabled flag to on — that would
                 // undo Disable (or fail-closed) when collapsing duplicates.
@@ -298,11 +293,15 @@ class WelcomeBonusSetting extends Model
      * Duplicate config rows (no unique on key) can leave Disable on one row
      * and enabled=true on another. Any explicit off wins so Disable sticks.
      *
+     * A later ON row with no amount (grant-created leftover) must not wipe an
+     * earlier explicit amount — that falls back to €20 and undoes Set amount 0.
+     *
      * @param  Collection<int, static>  $rows
      */
     private static function authoritativeConfigValue($rows): mixed
     {
         $latestOn = null;
+        $carriedAmount = null;
         foreach ($rows as $row) {
             try {
                 $value = $row->value;
@@ -318,10 +317,50 @@ class WelcomeBonusSetting extends Model
                 return $value;
             }
 
+            if (array_key_exists('amount', $value)) {
+                $carriedAmount = $value['amount'];
+            } elseif ($carriedAmount !== null) {
+                $value['amount'] = $carriedAmount;
+            }
+
             $latestOn = $value;
         }
 
         return $latestOn;
+    }
+
+    /**
+     * Collapse onto the oldest row using the same payload reads trust, so
+     * Enable/Disable cannot resurrect a stale higher amount (or wipe €0).
+     *
+     * @param  Collection<int, static>  $rows
+     */
+    private static function payloadForWrite($rows, ?self $keep): array
+    {
+        try {
+            $current = is_array($keep?->value) ? $keep->value : [];
+        } catch (\Throwable) {
+            $current = [];
+        }
+
+        if ($keep === null || $rows->isEmpty()) {
+            return $current;
+        }
+
+        $authoritative = static::authoritativeConfigValue($rows);
+        if (is_array($authoritative)) {
+            $current = array_merge($current, $authoritative);
+        }
+
+        if (is_array($authoritative) && array_key_exists('amount', $authoritative)) {
+            $current['amount'] = is_numeric($authoritative['amount'])
+                ? static::normalizeAmount($authoritative['amount'])
+                : 0.0;
+        } else {
+            unset($current['amount']);
+        }
+
+        return $current;
     }
 
     /**

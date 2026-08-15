@@ -95,8 +95,11 @@ class CampaignHtml
             return null;
         }
 
-        if (in_array($scheme, ['http', 'https'], true) && trim((string) ($parts['host'] ?? '')) === '') {
-            return null;
+        if (in_array($scheme, ['http', 'https'], true)) {
+            $host = strtolower(trim((string) ($parts['host'] ?? '')));
+            if ($host === '' || str_contains($host, '@') || str_contains($host, '\\')) {
+                return null;
+            }
         }
 
         return $url;

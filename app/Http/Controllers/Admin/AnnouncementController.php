@@ -85,7 +85,11 @@ class AnnouncementController extends Controller
 
         $data = $this->validated($request);
         $data['created_by'] = auth()->id();
-        $data['version'] = 1;
+        if ($this->announcementsHaveColumn('version')) {
+            $data['version'] = 1;
+        } else {
+            unset($data['version']);
+        }
 
         $announcement = SiteAnnouncement::create($data);
         $this->log('announcement.created', $announcement, 'created announcement');
@@ -117,7 +121,8 @@ class AnnouncementController extends Controller
             || (string) $announcement->cta_label !== (string) ($data['cta_label'] ?? null)
             || (string) $announcement->cta_url !== (string) ($data['cta_url'] ?? null);
 
-        if ($contentChanged || $request->boolean('reset_dismissals')) {
+        if (($contentChanged || $request->boolean('reset_dismissals'))
+            && $this->announcementsHaveColumn('version')) {
             $data['version'] = ((int) $announcement->version ?: 1) + 1;
         }
 
@@ -172,8 +177,12 @@ class AnnouncementController extends Controller
         ]);
         $copy->title = $announcement->title.' (copy)';
         $copy->is_active = false;
-        $copy->version = 1;
-        $copy->clicks = 0;
+        if ($this->announcementsHaveColumn('version')) {
+            $copy->version = 1;
+        }
+        if ($this->announcementsHaveColumn('clicks')) {
+            $copy->clicks = 0;
+        }
         $copy->created_by = auth()->id();
         $copy->save();
         $this->log('announcement.duplicated', $copy, 'duplicated announcement', ['source_id' => $announcement->id]);
@@ -208,6 +217,15 @@ class AnnouncementController extends Controller
         unset($data['reset_dismissals']);
 
         return $data;
+    }
+
+    private function announcementsHaveColumn(string $column): bool
+    {
+        try {
+            return Schema::hasColumn('site_announcements', $column);
+        } catch (\Throwable) {
+            return false;
+        }
     }
 
     private function log(string $action, SiteAnnouncement $announcement, string $verb, array $extra = []): void

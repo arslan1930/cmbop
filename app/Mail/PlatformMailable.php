@@ -316,10 +316,12 @@ abstract class PlatformMailable extends Mailable implements ShouldQueue
                 return;
             }
 
+            $duplicate = $this->suppressReason === 'duplicate';
             foreach ($open as $existing) {
                 $existing->fill([
-                    'status' => EmailLog::STATUS_FAILED,
-                    'error' => $error,
+                    'status' => $duplicate ? EmailLog::STATUS_DELIVERED : EmailLog::STATUS_FAILED,
+                    'error' => $duplicate ? null : $error,
+                    'sent_at' => $duplicate ? ($existing->sent_at ?? now()) : $existing->sent_at,
                 ]);
                 $existing->meta = array_filter(array_merge((array) $existing->meta, [
                     'suppressed' => $this->suppressReason ?: 'policy',

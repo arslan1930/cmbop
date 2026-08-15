@@ -3,7 +3,6 @@
 namespace App\Listeners;
 
 use App\Models\EmailLog;
-use App\Support\EmailCatalog;
 use App\Support\MailJobPayload;
 use Illuminate\Queue\Events\JobFailed;
 
@@ -52,7 +51,7 @@ class StampEmailLogFailedJobUuid
             ->latest('id')
             ->limit(50)
             ->get()
-            ->filter(fn (EmailLog $log) => $this->payloadMatchesLog($payload, $log));
+            ->filter(fn (EmailLog $log) => MailJobPayload::matchesEmailLog($payload, $log));
 
         if ($matches->count() !== 1) {
             return;
@@ -66,17 +65,5 @@ class StampEmailLogFailedJobUuid
 
         $meta['failed_job_uuid'] = $uuid;
         $log->update(['meta' => $meta]);
-    }
-
-    protected function payloadMatchesLog(string $payload, EmailLog $log): bool
-    {
-        $catalog = EmailCatalog::get((string) $log->template_key) ?? [];
-        $class = (string) ($log->mailable ?: ($catalog['mailable'] ?? ''));
-        if ($class !== '' && ! MailJobPayload::containsMailable($payload, $class)) {
-            return false;
-        }
-
-        return MailJobPayload::containsToken($payload, (string) $log->to_email)
-            || MailJobPayload::containsToken($payload, (string) $log->dedupe_key);
     }
 }

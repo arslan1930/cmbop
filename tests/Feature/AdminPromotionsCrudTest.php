@@ -124,6 +124,22 @@ class AdminPromotionsCrudTest extends TestCase
             ->assertSessionHasErrors('cta_url');
     }
 
+    public function test_encoded_dotdot_cta_is_rejected(): void
+    {
+        $this->actingAs($this->admin)
+            ->from(route('admin.promotions.announcements.create'))
+            ->post(route('admin.promotions.announcements.store'), [
+                'title' => 'Bad',
+                'message' => 'Nope',
+                'type' => 'general',
+                'style' => 'info',
+                'audience' => 'all',
+                'cta_url' => '/%2e%2e/admin',
+            ])
+            ->assertRedirect(route('admin.promotions.announcements.create'))
+            ->assertSessionHasErrors('cta_url');
+    }
+
     public function test_javascript_cta_is_rejected(): void
     {
         $this->actingAs($this->admin)

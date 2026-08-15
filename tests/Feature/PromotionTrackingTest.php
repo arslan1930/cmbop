@@ -127,6 +127,59 @@ class PromotionTrackingTest extends TestCase
         $this->assertSame(0, (int) $banner->fresh()->clicks);
     }
 
+    public function test_fetch_mode_does_not_count_or_follow_click(): void
+    {
+        $banner = $this->liveBanner();
+
+        $this->withHeaders([
+            'Sec-Fetch-Dest' => 'empty',
+            'Sec-Fetch-Mode' => 'cors',
+        ])->get(route('banners.click', $banner))
+            ->assertNoContent();
+
+        $this->assertSame(0, (int) $banner->fresh()->clicks);
+        $this->assertSame(0, PromotionEvent::query()->count());
+    }
+
+    public function test_scripted_get_without_html_accept_does_not_count(): void
+    {
+        $banner = $this->liveBanner();
+
+        $this->withHeaders(['Accept' => '*/*'])
+            ->get(route('banners.click', $banner))
+            ->assertNoContent();
+
+        $this->assertSame(0, (int) $banner->fresh()->clicks);
+    }
+
+    public function test_forwarded_host_cannot_rewrite_home_fallback(): void
+    {
+        $banner = $this->liveBanner();
+        $banner->update(['is_active' => false]);
+
+        $location = (string) $this->withHeaders(['X-Forwarded-Host' => 'evil.example'])
+            ->get(route('banners.click', $banner))
+            ->assertRedirect()
+            ->headers->get('Location');
+
+        $this->assertSame('/', $location);
+        $this->assertStringNotContainsString('evil.example', $location);
+    }
+
+    public function test_forwarded_host_cannot_rewrite_relative_click_target(): void
+    {
+        $banner = $this->liveBanner();
+        $banner->update(['link_url' => '/advertiser/catalog']);
+
+        $location = (string) $this->withHeaders(['X-Forwarded-Host' => 'evil.example'])
+            ->get(route('banners.click', $banner))
+            ->assertRedirect()
+            ->headers->get('Location');
+
+        $this->assertStringContainsString('/advertiser/catalog', $location);
+        $this->assertStringNotContainsString('evil.example', $location);
+    }
+
     public function test_image_beacon_does_not_count_or_follow_click(): void
     {
         $banner = $this->liveBanner();

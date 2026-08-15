@@ -236,6 +236,49 @@ class ContentLibraryPhases36Test extends TestCase
         $this->assertFalse(Storage::disk($disk)->exists($path));
     }
 
+    public function test_purge_expired_strips_article_still_pointed_at_by_cancelled_leftover(): void
+    {
+        $advertiser = $this->advertiser();
+        $publisher = $this->publisher();
+        $site = $this->activeSite($publisher, 'purge-leftover');
+        $submission = $this->createApprovedSubmission($advertiser);
+        $leftover = $this->makeOrder($advertiser);
+        $leftover->update(['status' => 'cancelled', 'payment_status' => 'failed']);
+        $item = OrderItem::create([
+            'order_id' => $leftover->id,
+            'site_id' => $site->id,
+            'site_name' => $site->site_name,
+            'site_url' => $site->site_url,
+            'price' => 50,
+            'content_link' => 'https://example.com/leftover.docx',
+            'content_submission_id' => $submission->id,
+        ]);
+        $submission->update([
+            'order_id' => null,
+            'order_item_id' => null,
+            'expires_at' => now()->subDay(),
+            'title' => 'Released Leftover Expired',
+        ]);
+
+        $this->assertSame($submission->id, (int) $item->fresh()->content_submission_id);
+        $this->assertFalse($submission->fresh()->isInUse());
+        $this->assertFalse($submission->fresh()->isLinkedToOpenOrderItem());
+        $this->assertTrue(
+            ContentSubmission::query()->whereKey($submission->id)->expiredUnused()->withoutOpenOrderItemLink()->exists()
+        );
+
+        $path = $submission->path;
+        $disk = $submission->disk ?: 'local';
+        $this->assertTrue(Storage::disk($disk)->exists($path));
+
+        $this->assertSame(0, Artisan::call('content:purge-expired'));
+        $stripped = $submission->fresh();
+        $this->assertSame('', (string) $stripped->path);
+        $this->assertFalse($stripped->hasStoredFile());
+        $this->assertFalse(Storage::disk($disk)->exists($path));
+        $this->assertSame($submission->id, (int) $item->fresh()->content_submission_id);
+    }
+
     public function test_dual_role_publisher_cannot_download_unpaid_article_via_advertiser_route(): void
     {
         $advertiser = $this->advertiser();

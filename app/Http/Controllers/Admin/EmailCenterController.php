@@ -320,7 +320,8 @@ class EmailCenterController extends Controller
                 return back()->with('error', UserFacingError::message($e, 'Could not retry the mail job. Please try again.'));
             }
 
-            if ($this->queueRetryMissedJob(Artisan::output())) {
+            if ($this->queueRetryMissedJob(Artisan::output())
+                || $this->actuallyRetriedJobUuids([$uuid]) === []) {
                 return back()->with('error', 'Cannot rebuild production payload — retry the queue job.');
             }
 
@@ -532,22 +533,7 @@ class EmailCenterController extends Controller
 
     protected function failedJobMatchesLog(string $payload, EmailLog $log): bool
     {
-        if (! MailJobPayload::isQueuedMailable($payload)) {
-            return false;
-        }
-
-        $catalog = EmailCatalog::get((string) $log->template_key) ?? [];
-        $class = (string) ($log->mailable ?: ($catalog['mailable'] ?? ''));
-        if ($class !== '' && ! MailJobPayload::containsMailable($payload, $class)) {
-            return false;
-        }
-
-        if (MailJobPayload::containsToken($payload, (string) $log->to_email)
-            || MailJobPayload::containsToken($payload, (string) $log->dedupe_key)) {
-            return true;
-        }
-
-        return ! MailJobPayload::looksIdentified($payload);
+        return MailJobPayload::matchesEmailLog($payload, $log);
     }
 
     protected function refreshFailedJobQueuedAt(string $uuid): void

@@ -9,17 +9,18 @@ class PurgeExpiredContentUploads extends Command
 {
     protected $signature = 'content:purge-expired';
 
-    protected $description = 'Strip original Word files from unused expired articles (keep preview rows; skip anything linked to an order)';
+    protected $description = 'Strip original Word files from unused expired articles (keep preview rows; skip open order claims)';
 
     public function handle(): int
     {
-        // Never strip articles still linked to orders / order items — only unused expired files.
+        // Never strip articles still on an open owner or a non-cancelled
+        // (non-clawed) order item. Cancelled leftover rows keep
+        // content_submission_id and must not block retention strip.
         $query = ContentSubmission::query()
             ->expiredUnused()
+            ->withoutOpenOrderItemLink()
             ->where('path', '!=', '')
             ->whereNotNull('path')
-            ->whereDoesntHave('orderItem')
-            ->whereDoesntHave('orderItems')
             ->limit(200);
 
         $count = 0;

@@ -12,15 +12,7 @@ class PromotionUrl
         }
 
         if (str_starts_with($url, '/')) {
-            if (str_starts_with($url, '//')) {
-                return false;
-            }
-
-            if (str_contains($url, '\\') || str_contains($url, "\0")) {
-                return false;
-            }
-
-            return ! preg_match('/[\s<>"\']/', $url);
+            return self::isSafeRelativePath($url);
         }
 
         return CampaignHtml::isSafeHttpUrl($url);
@@ -43,10 +35,8 @@ class PromotionUrl
             return null;
         }
 
-        if (str_starts_with($url, '/')) {
-            return url($url);
-        }
-
+        // Keep site paths relative so click redirects are not rebuilt from the
+        // request host (trustProxies=* would honor X-Forwarded-Host).
         return $url;
     }
 
@@ -64,5 +54,40 @@ class PromotionUrl
                 $fail('The :attribute must be an http(s) link or a site path like /advertiser/catalog.');
             }
         };
+    }
+
+    private static function isSafeRelativePath(string $url): bool
+    {
+        if (str_starts_with($url, '//')) {
+            return false;
+        }
+
+        $decoded = self::decodeFully($url);
+        if (str_starts_with($decoded, '//')) {
+            return false;
+        }
+
+        $path = parse_url('http://local.invalid'.$decoded, PHP_URL_PATH);
+        $path = is_string($path) ? $path : $decoded;
+
+        if (str_contains($path, '\\') || str_contains($path, "\0") || str_contains($path, '..')) {
+            return false;
+        }
+
+        return ! preg_match('/[\s<>"\']/', $decoded);
+    }
+
+    private static function decodeFully(string $url): string
+    {
+        $current = str_replace('+', '%2B', $url);
+        for ($i = 0; $i < 3; $i++) {
+            $next = rawurldecode($current);
+            if ($next === $current) {
+                break;
+            }
+            $current = $next;
+        }
+
+        return $current;
     }
 }
