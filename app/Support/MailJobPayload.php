@@ -89,27 +89,6 @@ class MailJobPayload
         return ! ($logHasIdentity && self::looksIdentified($payload));
     }
 
-    public static function containsCampaignId(string $payload, int $campaignId): bool
-    {
-        if ($campaignId < 1) {
-            return false;
-        }
-
-        $id = (string) $campaignId;
-        if (preg_match('/s:10:\\\\?"campaignId\\\\?";i:'.$id.';/', $payload)) {
-            return true;
-        }
-
-        if (preg_match('/"campaignId":'.$id.'(?!\d)/', $payload)) {
-            return true;
-        }
-
-        $decoded = json_decode($payload, true);
-        $command = is_array($decoded) ? ($decoded['data']['command'] ?? null) : null;
-
-        return is_string($command) && (bool) preg_match('/s:10:"campaignId";i:'.$id.';/', $command);
-    }
-
     public static function dedupeKey(string $payload): ?string
     {
         $decoded = json_decode($payload, true);

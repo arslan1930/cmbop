@@ -48,4 +48,14 @@ class PromotionUrlTest extends TestCase
         $this->assertNull(PromotionUrl::normalizeForStorage('javascript:alert(1)'));
         $this->assertSame('/advertiser/catalog', PromotionUrl::normalizeForStorage('/advertiser/catalog'));
     }
+
+    public function test_safe_public_storage_path_rejects_encoded_traversal(): void
+    {
+        $this->assertSame('banners/offer.png', PromotionUrl::safePublicStoragePath('banners/offer.png'));
+        $this->assertNull(PromotionUrl::safePublicStoragePath('banners/%2e%2e/etc/passwd'));
+        $this->assertNull(PromotionUrl::safePublicStoragePath('banners/%252e%252e/etc/passwd'));
+        $this->assertNull(PromotionUrl::safePublicStoragePath('banners/%25252e%25252e/etc/passwd'));
+        $this->assertNull(PromotionUrl::safePublicStoragePath("banners/foo.png\0.jpg"));
+        $this->assertNull(PromotionUrl::safePublicStoragePath('/etc/passwd'));
+    }
 }

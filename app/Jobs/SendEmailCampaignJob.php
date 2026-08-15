@@ -34,14 +34,9 @@ class SendEmailCampaignJob implements ShouldQueue
 
     public function __construct(public int $campaignId, public int $failStreak = 0)
     {
-        // Same connection as AudienceCampaignMail / drain / hasQueuedSendJob.
-        // Queue name alone left the job on queue.default, so MAIL_QUEUE_CONNECTION
-        // =sync (inline mail) plus QUEUE_CONNECTION=database made recover miss
-        // the row and enqueue another job on every stale window.
-        $this->onConnection((string) config(
-            'email_notifications.queue_connection',
-            config('queue.default')
-        ));
+        if ($connection = EmailCampaign::preferredSendJobConnection()) {
+            $this->onConnection($connection);
+        }
         $this->onQueue(config('email_notifications.queue', 'emails'));
     }
 

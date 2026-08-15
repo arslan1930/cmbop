@@ -77,6 +77,29 @@ class PromotionUrl
         return ! preg_match('/[\s<>"\']/', $decoded);
     }
 
+    /**
+     * Relative public-disk path safe to prefix with /storage/.
+     * Rejects encoded traversal that a single rawurldecode would miss.
+     */
+    public static function safePublicStoragePath(?string $path): ?string
+    {
+        $path = trim((string) $path);
+        if ($path === '') {
+            return null;
+        }
+
+        $normalized = str_replace('\\', '/', self::decodeFully($path));
+        if ($normalized === ''
+            || str_contains($normalized, '..')
+            || str_starts_with($normalized, '/')
+            || str_contains($normalized, "\0")
+            || preg_match('/%(?:2e|2f|5c)/i', $normalized)) {
+            return null;
+        }
+
+        return $normalized;
+    }
+
     private static function decodeFully(string $url): string
     {
         $current = str_replace('+', '%2B', $url);

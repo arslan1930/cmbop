@@ -357,26 +357,28 @@ class EmailCampaign extends Model
                     continue;
                 }
 
-                $found = DB::table($table)
+                $payloads = DB::table($table)
                     ->where('payload', 'like', '%SendEmailCampaignJob%')
-                    ->pluck('payload')
-                    ->contains(fn ($payload) => MailJobPayload::containsSendCampaignJob(
-                        (string) $payload,
-                        $campaignId
-                    ));
+                    ->pluck('payload');
 
-                if ($found) {
-                    return true;
+                foreach ($payloads as $payload) {
+                    if (MailJobPayload::containsSendCampaignJob((string) $payload, $campaignId)) {
+                        return true;
+                    }
                 }
+            } catch (\Throwable) {
+                // A broken first connection must not hide a job on the other.
             }
-        } catch (\Throwable) {
-            return false;
         }
 
         return false;
     }
 
     /**
+     * The send job pins onConnection() to preferredSendJobConnection()
+     * (mail first, otherwise queue.default). Check both so a sync side
+     * cannot hide a database-queued send job on the other connection.
+     *
      * @return list<string>
      */
     protected static function sendJobQueueConnections(): array
@@ -385,6 +387,57 @@ class EmailCampaign extends Model
             (string) config('email_notifications.queue_connection', config('queue.default')),
             (string) config('queue.default'),
         ])));
+    }
+
+    /**
+     * Connections that can actually store campaign / mail jobs. Sync mail
+     * with a database app queue still has SendEmailCampaignJob rows to drain.
+     *
+     * @return list<string>
+     */
+    public static function drainableQueueConnections(): array
+    {
+        $ready = [];
+
+        foreach (self::sendJobQueueConnections() as $connection) {
+            if ($connection === '' || $connection === 'sync') {
+                continue;
+            }
+
+            if (config("queue.connections.{$connection}.driver") === 'database') {
+                try {
+                    $table = (string) config("queue.connections.{$connection}.table", 'jobs');
+                    if (! Schema::hasTable($table)) {
+                        continue;
+                    }
+                } catch (\Throwable) {
+                    continue;
+                }
+            }
+
+            $ready[] = $connection;
+        }
+
+        return array_values(array_unique($ready));
+    }
+
+    /**
+     * Prefer the mail connection when it can store jobs, otherwise the first
+     * drainable app connection. Null means both are sync (run inline).
+     */
+    public static function preferredSendJobConnection(): ?string
+    {
+        $drainable = self::drainableQueueConnections();
+        if ($drainable === []) {
+            return null;
+        }
+
+        $mail = (string) config('email_notifications.queue_connection', '');
+        if ($mail !== '' && in_array($mail, $drainable, true)) {
+            return $mail;
+        }
+
+        return $drainable[0];
     }
 
     /**
@@ -420,23 +473,48 @@ class EmailCampaign extends Model
 
         $logs = EmailLog::query()
             ->whereIn('dedupe_key', $keys)
-            ->whereIn('status', [EmailLog::STATUS_DELIVERED, EmailLog::STATUS_FAILED])
+            ->whereIn('status', [
+                EmailLog::STATUS_PENDING,
+                EmailLog::STATUS_DELIVERED,
+                EmailLog::STATUS_FAILED,
+            ])
             ->orderByDesc('id')
             ->get()
-            ->unique('dedupe_key');
+            ->groupBy('dedupe_key');
 
         if ($logs->isEmpty()) {
             return;
         }
 
-        $logsByKey = $logs->keyBy('dedupe_key');
         $campaignIds = [];
 
         foreach ($rows as $row) {
-            $log = $logsByKey->get(EmailCampaignRecipient::dedupeKey(
+            $group = $logs->get(EmailCampaignRecipient::dedupeKey(
                 (int) $row->email_campaign_id,
                 (int) $row->user_id
             ));
+            if (! $group || $group->contains(fn (EmailLog $log) => $log->status === EmailLog::STATUS_PENDING)) {
+                continue;
+            }
+
+            $deliveredLog = $group->first(
+                fn (EmailLog $log) => $log->status === EmailLog::STATUS_DELIVERED
+            );
+            $failedLog = $group->first(
+                fn (EmailLog $log) => $log->status === EmailLog::STATUS_FAILED
+            );
+
+            $log = $deliveredLog;
+            if (! $log && $failedLog) {
+                // An older failed log must not kill a newer in-flight retry.
+                if ($failedLog->updated_at
+                    && $row->updated_at
+                    && ! $failedLog->updated_at->greaterThan($row->updated_at)) {
+                    continue;
+                }
+                $log = $failedLog;
+            }
+
             if (! $log) {
                 continue;
             }

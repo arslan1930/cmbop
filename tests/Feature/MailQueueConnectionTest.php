@@ -62,6 +62,21 @@ class MailQueueConnectionTest extends TestCase
             ->assertSuccessful();
     }
 
+    public function test_drain_uses_app_queue_when_mail_is_sync(): void
+    {
+        config([
+            'queue.default' => 'database',
+            'email_notifications.queue_connection' => 'sync',
+            'email_notifications.auto_drain' => true,
+            'queue.connections.database.driver' => 'database',
+            'queue.connections.database.table' => 'jobs',
+        ]);
+
+        $this->artisan('mail:drain-queue')
+            ->doesntExpectOutput('there is no queue to drain')
+            ->assertSuccessful();
+    }
+
     public function test_drain_can_be_disabled_for_hosts_with_a_dedicated_worker(): void
     {
         config([
@@ -84,7 +99,7 @@ class MailQueueConnectionTest extends TestCase
         ]);
 
         $this->artisan('mail:drain-queue')
-            ->expectsOutputToContain('is not ready')
+            ->expectsOutputToContain('there is no queue to drain')
             ->assertSuccessful();
     }
 

@@ -12,10 +12,10 @@
 <link rel="stylesheet" href="{{ asset('assets/css/promotions.css') }}">
 <div class="site-announcements" data-audience="{{ $audience ?? 'auto' }}">
     @foreach($announcements as $item)
-        <div class="site-announcement site-announcement--{{ scalar_text($item->style) }} site-announcement-type--{{ scalar_text($item->type) }}"
+        <div class="site-announcement site-announcement--{{ $item->styleKey() }} site-announcement-type--{{ $item->typeKey() }}"
              data-announcement-id="{{ $item->id }}"
              data-announcement-version="{{ (int) ($item->version ?: 1) }}"
-             data-type="{{ scalar_text($item->type) }}"
+             data-type="{{ $item->typeKey() }}"
              role="status">
             <div class="site-announcement__inner">
                 <div class="site-announcement__icon" aria-hidden="true">

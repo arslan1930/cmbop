@@ -3,15 +3,15 @@
 namespace App\Models;
 
 use App\Models\Concerns\HasPromotionSchedule;
+use App\Models\Concerns\SoftDeletesWhenReady;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\SoftDeletes;
 
 class SiteAnnouncement extends Model
 {
     use HasPromotionSchedule;
-    use SoftDeletes;
+    use SoftDeletesWhenReady;
 
     protected $fillable = [
         'title',
@@ -68,16 +68,30 @@ class SiteAnnouncement extends Model
 
     public function typeLabel(): string
     {
-        $type = scalar_text($this->type);
+        $type = $this->typeKey();
 
         return scalar_text(config("promotions.announcement_types.{$type}.label", ucfirst($type)));
     }
 
     public function typeIcon(): string
     {
-        $type = scalar_text($this->type);
+        $type = $this->typeKey();
 
         return scalar_text(config("promotions.announcement_types.{$type}.icon", 'fa-bullhorn'));
+    }
+
+    public function typeKey(): string
+    {
+        $type = scalar_text($this->type);
+
+        return array_key_exists($type, config('promotions.announcement_types', [])) ? $type : 'general';
+    }
+
+    public function styleKey(): string
+    {
+        $style = scalar_text($this->style);
+
+        return array_key_exists($style, config('promotions.announcement_styles', [])) ? $style : 'info';
     }
 
     public function recordClick(): void

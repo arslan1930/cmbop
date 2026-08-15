@@ -310,11 +310,15 @@ class WelcomeBonusSetting extends Model
             }
 
             if (! is_array($value) || ! array_key_exists('enabled', $value)) {
-                return is_array($value) ? $value : null;
+                // Fail-closed, but keep an earlier explicit amount so Disable /
+                // Enable cannot restore the €20 default after Set amount 0.
+                return is_array($value)
+                    ? static::withCarriedAmount($value, $carriedAmount)
+                    : null;
             }
 
             if (! static::parseEnabledFlag($value['enabled'], false)) {
-                return $value;
+                return static::withCarriedAmount($value, $carriedAmount);
             }
 
             if (array_key_exists('amount', $value)) {
@@ -327,6 +331,19 @@ class WelcomeBonusSetting extends Model
         }
 
         return $latestOn;
+    }
+
+    /**
+     * @param  array<string, mixed>  $value
+     * @return array<string, mixed>
+     */
+    private static function withCarriedAmount(array $value, mixed $carriedAmount): array
+    {
+        if (! array_key_exists('amount', $value) && $carriedAmount !== null) {
+            $value['amount'] = $carriedAmount;
+        }
+
+        return $value;
     }
 
     /**
@@ -356,8 +373,11 @@ class WelcomeBonusSetting extends Model
             $current['amount'] = is_numeric($authoritative['amount'])
                 ? static::normalizeAmount($authoritative['amount'])
                 : 0.0;
-        } else {
+        } elseif (is_array($authoritative)) {
             unset($current['amount']);
+        } elseif (array_key_exists('amount', $current) && ! is_numeric($current['amount'])) {
+            // Unreadable extras: do not wipe keep's explicit amount (including €0).
+            $current['amount'] = 0.0;
         }
 
         return $current;
