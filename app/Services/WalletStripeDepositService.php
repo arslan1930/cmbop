@@ -462,6 +462,21 @@ class WalletStripeDepositService
                     return;
                 }
 
+                // Session webhook can complete this card before Stripe has a
+                // PaymentIntent. A later PI webhook names the same deposit_id
+                // with no session id — that is the same charge, not a new one.
+                if ($this->isLatePaymentIntentForSessionOnlyCard(
+                    $lockedDeposit,
+                    $sessionId,
+                    $paymentIntentId,
+                    $session
+                )) {
+                    $this->attachMissingStripeIds($lockedDeposit, $sessionId, $paymentIntentId);
+                    $credited = (float) $lockedDeposit->amount;
+
+                    return;
+                }
+
                 Log::info('WalletStripeDepositService: completed deposit_id is a different settlement', [
                     'deposit_id' => $lockedDeposit->id,
                     'session_id' => $sessionId,
@@ -652,12 +667,7 @@ class WalletStripeDepositService
                     throw $e;
                 }
 
-                $existing = ($sessionId !== ''
-                    ? DepositRequest::where('stripe_session_id', $sessionId)->first()
-                    : null)
-                    ?: ($paymentIntentId !== ''
-                        ? DepositRequest::where('stripe_payment_intent_id', $paymentIntentId)->first()
-                        : null);
+                $existing = $this->findOtherRowWithStripeIds(0, $sessionId, $paymentIntentId);
                 $resolved = $this->resolveExistingStripeRow(
                     $existing,
                     $sessionId,
@@ -870,6 +880,8 @@ class WalletStripeDepositService
         string $sessionId,
         string $paymentIntentId
     ): ?DepositRequest {
+        $rows = [];
+
         if ($sessionId !== '') {
             $bySession = DepositRequest::query()
                 ->where('stripe_session_id', $sessionId)
@@ -877,19 +889,72 @@ class WalletStripeDepositService
                 ->lockForUpdate()
                 ->first();
             if ($bySession) {
-                return $bySession;
+                $rows[] = $bySession;
             }
         }
 
-        if ($paymentIntentId === '') {
-            return null;
+        if ($paymentIntentId !== '') {
+            $byPi = DepositRequest::query()
+                ->where('stripe_payment_intent_id', $paymentIntentId)
+                ->where('id', '!=', $exceptId)
+                ->lockForUpdate()
+                ->first();
+            if ($byPi) {
+                $alreadyListed = false;
+                foreach ($rows as $row) {
+                    if ((int) $row->id === (int) $byPi->id) {
+                        $alreadyListed = true;
+                        break;
+                    }
+                }
+                if (! $alreadyListed) {
+                    $rows[] = $byPi;
+                }
+            }
         }
 
-        return DepositRequest::query()
+        foreach ($rows as $row) {
+            if ($row->status === 'completed' && ! $row->isManualPayment()) {
+                return $row;
+            }
+        }
+
+        return $rows[0] ?? null;
+    }
+
+    /**
+     * A Checkout Session may credit a card before the PaymentIntent id exists.
+     * The follow-up PI webhook often has deposit_id and no session id — treat
+     * that as the same charge when the named row is a session-only card at
+     * the same amount.
+     */
+    private function isLatePaymentIntentForSessionOnlyCard(
+        DepositRequest $deposit,
+        string $sessionId,
+        string $paymentIntentId,
+        object $session
+    ): bool {
+        if ($sessionId !== '' || $paymentIntentId === '') {
+            return false;
+        }
+        if ($deposit->status !== 'completed' || $deposit->isManualPayment()) {
+            return false;
+        }
+        if (! filled($deposit->stripe_session_id) || filled($deposit->stripe_payment_intent_id)) {
+            return false;
+        }
+
+        $stripeAmount = isset($session->amount_total)
+            ? StripePaymentService::fromCents((int) $session->amount_total)
+            : null;
+        if ($stripeAmount !== null && abs($stripeAmount - (float) $deposit->amount) > 0.01) {
+            return false;
+        }
+
+        return ! DepositRequest::query()
             ->where('stripe_payment_intent_id', $paymentIntentId)
-            ->where('id', '!=', $exceptId)
-            ->lockForUpdate()
-            ->first();
+            ->where('id', '!=', $deposit->id)
+            ->exists();
     }
 
     private function sessionReferenceFromDeposit(DepositRequest $deposit): string

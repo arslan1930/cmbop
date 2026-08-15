@@ -1466,6 +1466,102 @@ class DepositCreditAndRejectHardeningTest extends TestCase
             ->count());
     }
 
+    public function test_leftover_session_does_not_hide_a_completed_card_that_already_has_the_payment_intent(): void
+    {
+        $advertiser = $this->advertiser();
+        $wallet = $this->walletFor($advertiser);
+        $sessionId = 'cs_hide_completed_'.uniqid();
+        $pi = 'pi_already_done_'.uniqid();
+
+        DepositRequest::create([
+            'user_id' => $advertiser->id,
+            'reference_code' => 'DEP-LEFTOVER-CS-HIDE',
+            'amount' => 40,
+            'payment_method' => 'card',
+            'status' => 'pending',
+            'stripe_session_id' => $sessionId,
+        ]);
+        $completed = DepositRequest::create([
+            'user_id' => $advertiser->id,
+            'reference_code' => 'DEP-ALREADY-PI-HIDE',
+            'amount' => 40,
+            'payment_method' => 'card',
+            'status' => 'completed',
+            'stripe_payment_intent_id' => $pi,
+            'approved_at' => now()->subMinute(),
+            'paid_at' => now()->subMinute(),
+        ]);
+        $wallet->update(['balance' => 40]);
+
+        $stale = DepositRequest::create([
+            'user_id' => $advertiser->id,
+            'reference_code' => 'DEP-STALE-DEPOSIT-ID',
+            'amount' => 40,
+            'payment_method' => 'card',
+            'status' => 'pending',
+        ]);
+
+        $credited = app(WalletStripeDepositService::class)->creditFromCheckoutSession((object) [
+            'id' => $sessionId,
+            'payment_status' => 'paid',
+            'amount_total' => 4000,
+            'payment_intent' => $pi,
+            'metadata' => (object) [
+                'type' => 'wallet_deposit',
+                'user_id' => (string) $advertiser->id,
+                'deposit_id' => (string) $stale->id,
+                'amount' => '40.00',
+            ],
+        ]);
+
+        $this->assertSame(40.0, $credited);
+        $this->assertSame('pending', $stale->fresh()->status);
+        $this->assertSame($pi, $completed->fresh()->stripe_payment_intent_id);
+        $this->assertSame(40.0, (float) $wallet->fresh()->balance);
+        $this->assertSame(1, DepositRequest::query()
+            ->where('user_id', $advertiser->id)
+            ->where('status', 'completed')
+            ->count());
+    }
+
+    public function test_late_payment_intent_with_deposit_id_attaches_to_session_only_card(): void
+    {
+        $advertiser = $this->advertiser();
+        $wallet = $this->walletFor($advertiser);
+        $sessionId = 'cs_late_pi_deposit_id_'.uniqid();
+        $pi = 'pi_late_deposit_id_'.uniqid();
+
+        $card = DepositRequest::create([
+            'user_id' => $advertiser->id,
+            'reference_code' => 'DEP-SESSION-ONLY-DID',
+            'amount' => 40,
+            'payment_method' => 'card',
+            'status' => 'completed',
+            'stripe_session_id' => $sessionId,
+            'approved_at' => now()->subMinute(),
+            'paid_at' => now()->subMinute(),
+        ]);
+        $wallet->update(['balance' => 40]);
+
+        $credited = app(WalletStripeDepositService::class)->creditFromPaymentIntentObject((object) [
+            'id' => $pi,
+            'status' => 'succeeded',
+            'amount' => 4000,
+            'amount_received' => 4000,
+            'metadata' => (object) [
+                'type' => 'wallet_deposit',
+                'user_id' => (string) $advertiser->id,
+                'deposit_id' => (string) $card->id,
+                'amount' => '40.00',
+            ],
+        ]);
+
+        $this->assertSame(40.0, $credited);
+        $this->assertSame($pi, $card->fresh()->stripe_payment_intent_id);
+        $this->assertSame(40.0, (float) $wallet->fresh()->balance);
+        $this->assertSame(1, DepositRequest::query()->where('user_id', $advertiser->id)->count());
+    }
+
     public function test_pending_bank_leftover_session_is_detached_when_stripe_refuses_it(): void
     {
         $advertiser = $this->advertiser();
