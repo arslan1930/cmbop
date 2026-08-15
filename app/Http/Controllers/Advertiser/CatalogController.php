@@ -2315,6 +2315,7 @@ class CatalogController extends Controller
                 'bonus_applied' => $bonusApplied,
                 'schedule' => $schedule,
                 'lines' => $packageLines,
+                'stripe_session_id' => 'pending',
             ]);
         } catch (\Throwable $e) {
             if ($bonusApplied > 0) {
@@ -2396,6 +2397,7 @@ class CatalogController extends Controller
             $checkoutSession = app(StripeCustomerService::class)
                 ->createCheckoutSession($sessionPayload, $user, true);
 
+            $paymentService->attachCheckoutSessionId((string) $referenceCode, (string) $checkoutSession->id);
             session()->put('pending_card_reference', $referenceCode);
 
             Log::info('Stripe-first card checkout session ready (Add Funds style)', [
@@ -2606,14 +2608,6 @@ class CatalogController extends Controller
             }
 
             $paymentService = app(OrderPaymentService::class);
-            if ($paymentService->hasInFlightCardCheckout((int) $userId, (string) $referenceCode)) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'A card checkout is already in progress for this order. Cancel it or finish paying by card, then pay from your wallet.',
-                ], 422);
-            }
-            $paymentService->releaseRecordedCheckoutBonus((int) $userId, (string) $referenceCode);
-            $paymentService->forgetPendingCheckout((string) $referenceCode, (int) $userId);
 
             DB::beginTransaction();
 
@@ -2621,6 +2615,36 @@ class CatalogController extends Controller
             $advertiserWallet = Wallet::lockOrCreateForRole((int) $userId, (int) $advertiserRoleId);
             $advertiserWallet->repairOrphanedWelcomeBonus();
             $advertiserWallet->reconcileInflatedBonusBalance();
+            $advertiserWallet->refresh();
+
+            $existingPaid = Order::query()
+                ->where('user_id', $userId)
+                ->where('reference_code', $referenceCode)
+                ->where('payment_status', 'paid')
+                ->lockForUpdate()
+                ->get();
+            if ($existingPaid->isNotEmpty()) {
+                DB::rollBack();
+
+                $orderNumbers = $existingPaid->pluck('order_number')->filter()->implode(', ');
+
+                return response()->json([
+                    'success' => true,
+                    'message' => $existingPaid->count().' order(s) already placed for this checkout.'
+                        .($orderNumbers !== '' ? ' Order numbers: '.$orderNumbers : ''),
+                ]);
+            }
+
+            if ($paymentService->hasInFlightCardCheckout((int) $userId, (string) $referenceCode)) {
+                DB::rollBack();
+
+                return response()->json([
+                    'success' => false,
+                    'message' => 'A card checkout is already in progress for this order. Cancel it or finish paying by card, then pay from your wallet.',
+                ], 422);
+            }
+            $paymentService->releaseRecordedCheckoutBonus((int) $userId, (string) $referenceCode);
+            $paymentService->forgetPendingCheckout((string) $referenceCode, (int) $userId);
             $advertiserWallet->refresh();
 
             $spendable = round((float) $advertiserWallet->balance, 2);

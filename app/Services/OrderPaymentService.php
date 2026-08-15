@@ -288,10 +288,22 @@ class OrderPaymentService
      *
      * @return Collection<int, Order>
      */
-    public function markOrdersFailedFromReference(string $referenceCode, ?string $reason = null, ?int $userId = null, ?float $bonusFallback = null): Collection
+    public function markOrdersFailedFromReference(string $referenceCode, ?string $reason = null, ?int $userId = null, ?float $bonusFallback = null, ?string $expiredSessionId = null): Collection
     {
-        $failed = DB::transaction(function () use ($referenceCode, $reason, $userId, $bonusFallback) {
+        $failed = DB::transaction(function () use ($referenceCode, $reason, $userId, $bonusFallback, $expiredSessionId) {
             $package = $this->getPendingCheckout($referenceCode);
+            $liveSessionId = trim((string) ($package['stripe_session_id'] ?? ''));
+            $expiredSessionId = trim((string) ($expiredSessionId ?? ''));
+            if (is_array($package) && $expiredSessionId !== '' && $liveSessionId !== '' && $expiredSessionId !== $liveSessionId) {
+                Log::info('Ignoring stale checkout.session.expired; live package belongs to another session', [
+                    'reference_code' => $referenceCode,
+                    'expired_session_id' => $expiredSessionId,
+                    'live_session_id' => $liveSessionId,
+                ]);
+
+                return collect();
+            }
+
             $resolvedUserId = $userId && $userId > 0
                 ? (int) $userId
                 : (int) ($package['user_id'] ?? 0);
@@ -301,6 +313,13 @@ class OrderPaymentService
                 ->where('payment_method', 'card')
                 ->where('payment_status', 'pending')
                 ->when($resolvedUserId > 0, fn ($query) => $query->where('user_id', $resolvedUserId))
+                ->when($expiredSessionId !== '', function ($query) use ($expiredSessionId) {
+                    $query->where(function ($session) use ($expiredSessionId) {
+                        $session->where('stripe_session_id', $expiredSessionId)
+                            ->orWhereNull('stripe_session_id')
+                            ->orWhere('stripe_session_id', '');
+                    });
+                })
                 ->lockForUpdate()
                 ->get();
 
@@ -400,7 +419,8 @@ class OrderPaymentService
             return 0.0;
         }
 
-        $recorded = app(CheckoutIntentService::class)->takeBonus($userId, $referenceCode);
+        $intents = app(CheckoutIntentService::class);
+        $recorded = $intents->recordedBonus($userId, $referenceCode);
         if ($recorded <= 0) {
             return 0.0;
         }
@@ -410,7 +430,7 @@ class OrderPaymentService
             return 0.0;
         }
 
-        return (float) DB::transaction(function () use ($userId, $roleId, $recorded) {
+        return (float) DB::transaction(function () use ($userId, $roleId, $recorded, $referenceCode, $intents) {
             $wallet = Wallet::query()
                 ->where('user_id', $userId)
                 ->where('role_id', $roleId)
@@ -422,10 +442,17 @@ class OrderPaymentService
 
             $share = min($recorded, max(0, round((float) $wallet->bonus_reserved, 2)));
             if ($share <= 0) {
+                $intents->takeBonus($userId, $referenceCode);
+
                 return 0.0;
             }
 
             $wallet->refundReserved($share, $share);
+            if ($share + 0.009 >= $recorded) {
+                $intents->takeBonus($userId, $referenceCode);
+            } else {
+                $intents->decrementBonus($userId, $referenceCode, $share);
+            }
 
             return $share;
         });
@@ -859,6 +886,22 @@ class OrderPaymentService
             $this->cancelUnpaidCardOrdersForNewCheckout($referenceCode, $userId);
         }
 
+        app(CheckoutIntentService::class)->storePackage($referenceCode, $package);
+    }
+
+    /**
+     * Bind the live hosted Checkout Session to this REF's package so a
+     * later expiry of a superseded session cannot delete it.
+     */
+    public function attachCheckoutSessionId(string $referenceCode, string $sessionId): void
+    {
+        $sessionId = trim($sessionId);
+        $package = $this->getPendingCheckout($referenceCode);
+        if ($sessionId === '' || ! is_array($package)) {
+            return;
+        }
+
+        $package['stripe_session_id'] = $sessionId;
         app(CheckoutIntentService::class)->storePackage($referenceCode, $package);
     }
 

@@ -1758,6 +1758,149 @@ class StripeFirstCheckoutInvariantsTest extends TestCase
         $this->assertEqualsWithDelta(0.0, $payments->unfulfilledCardCreditAmount($ref, $advertiser->id), 0.01);
     }
 
+    public function test_stale_session_expiry_does_not_wipe_live_package(): void
+    {
+        $advertiser = $this->makeUser('advertiser');
+        $publisher = $this->makeUser('publisher');
+        $site = $this->makeSite($publisher, 'stale-expire.example', 80);
+        $wallet = $this->advertiserWallet($advertiser, 20);
+        $wallet->reserveBonusOnly(20);
+        $ref = 'STALE-EXPIRE-1';
+        $payments = app(OrderPaymentService::class);
+
+        $live = $this->package($advertiser, [$this->lineFor($site, 80)], 60, 20);
+        $live['stripe_session_id'] = 'cs_live_package';
+        $payments->storePendingCheckout($ref, $live);
+
+        $this->signedWebhook([
+            'id' => 'evt_stale_expire_'.uniqid(),
+            'object' => 'event',
+            'type' => 'checkout.session.expired',
+            'data' => [
+                'object' => [
+                    'id' => 'cs_old_superseded',
+                    'object' => 'checkout.session',
+                    'payment_status' => 'unpaid',
+                    'metadata' => [
+                        'type' => 'order_payment',
+                        'reference_code' => $ref,
+                        'user_id' => (string) $advertiser->id,
+                        'bonus_applied' => '20',
+                    ],
+                ],
+            ],
+        ])->assertOk();
+
+        $package = $payments->getPendingCheckout($ref);
+        $this->assertNotNull($package);
+        $this->assertSame('cs_live_package', $package['stripe_session_id'] ?? null);
+        $wallet->refresh();
+        $this->assertEqualsWithDelta(20.0, (float) $wallet->bonus_reserved, 0.01);
+        $this->assertEqualsWithDelta(0.0, (float) $wallet->bonus_balance, 0.01);
+
+        $this->signedWebhook([
+            'id' => 'evt_live_pay_'.uniqid(),
+            'object' => 'event',
+            'type' => 'checkout.session.completed',
+            'data' => [
+                'object' => [
+                    'id' => 'cs_live_package',
+                    'object' => 'checkout.session',
+                    'payment_status' => 'paid',
+                    'amount_total' => 6000,
+                    'payment_intent' => 'pi_live_package',
+                    'metadata' => [
+                        'type' => 'order_payment',
+                        'reference_code' => $ref,
+                        'user_id' => (string) $advertiser->id,
+                        'expected_amount' => '60',
+                    ],
+                ],
+            ],
+        ])->assertOk();
+
+        $this->assertSame(1, Order::query()
+            ->where('user_id', $advertiser->id)
+            ->where('reference_code', $ref)
+            ->where('payment_method', 'card')
+            ->where('payment_status', 'paid')
+            ->count());
+        $this->assertEqualsWithDelta(0.0, $payments->unfulfilledCardCreditAmount($ref, $advertiser->id), 0.01);
+        $wallet->refresh();
+        $this->assertEqualsWithDelta(20.0, (float) $wallet->bonus_reserved, 0.01);
+    }
+
+    public function test_matching_session_expiry_still_releases_live_package(): void
+    {
+        $advertiser = $this->makeUser('advertiser');
+        $publisher = $this->makeUser('publisher');
+        $site = $this->makeSite($publisher, 'match-expire.example', 40);
+        $wallet = $this->advertiserWallet($advertiser, 20);
+        $wallet->reserveBonusOnly(20);
+        $ref = 'MATCH-EXPIRE-1';
+        $payments = app(OrderPaymentService::class);
+
+        $package = $this->package($advertiser, [$this->lineFor($site, 40)], 20, 20);
+        $package['stripe_session_id'] = 'cs_match_expire';
+        $payments->storePendingCheckout($ref, $package);
+
+        $this->signedWebhook([
+            'id' => 'evt_match_expire_'.uniqid(),
+            'object' => 'event',
+            'type' => 'checkout.session.expired',
+            'data' => [
+                'object' => [
+                    'id' => 'cs_match_expire',
+                    'object' => 'checkout.session',
+                    'payment_status' => 'unpaid',
+                    'metadata' => [
+                        'type' => 'order_payment',
+                        'reference_code' => $ref,
+                        'user_id' => (string) $advertiser->id,
+                        'bonus_applied' => '20',
+                    ],
+                ],
+            ],
+        ])->assertOk();
+
+        $this->assertNull($payments->getPendingCheckout($ref));
+        $wallet->refresh();
+        $this->assertEqualsWithDelta(20.0, (float) $wallet->bonus_balance, 0.01);
+        $this->assertEqualsWithDelta(0.0, (float) $wallet->bonus_reserved, 0.01);
+    }
+
+    public function test_stale_expiry_does_not_fail_retry_pending_rows(): void
+    {
+        $advertiser = $this->makeUser('advertiser');
+        $publisher = $this->makeUser('publisher');
+        $site = $this->makeSite($publisher, 'retry-expire.example', 80);
+        $ref = 'RETRY-EXPIRE-1';
+
+        $order = $this->pendingCardOrder($advertiser, $site, $ref, 80);
+        $order->update(['stripe_session_id' => 'cs_retry_live']);
+
+        $this->signedWebhook([
+            'id' => 'evt_retry_stale_'.uniqid(),
+            'object' => 'event',
+            'type' => 'checkout.session.expired',
+            'data' => [
+                'object' => [
+                    'id' => 'cs_retry_old',
+                    'object' => 'checkout.session',
+                    'payment_status' => 'unpaid',
+                    'metadata' => [
+                        'type' => 'order_payment',
+                        'reference_code' => $ref,
+                        'user_id' => (string) $advertiser->id,
+                    ],
+                ],
+            ],
+        ])->assertOk();
+
+        $this->assertSame('pending', $order->fresh()->payment_status);
+        $this->assertSame('cs_retry_live', $order->fresh()->stripe_session_id);
+    }
+
     public function test_allocator_remints_ref_after_wallet_paid_order(): void
     {
         $advertiser = $this->makeUser('advertiser');

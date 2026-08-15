@@ -251,6 +251,10 @@ class StripeWebhookController extends Controller
 
         $intent = $deposits->fetchPaymentIntent($paymentIntentId);
         if (! $intent) {
+            if (trim((string) config('services.stripe.secret', '')) !== '') {
+                throw new \RuntimeException('Untyped Checkout Session PaymentIntent not available');
+            }
+
             Log::warning('Ignoring untyped checkout session; PaymentIntent not available', [
                 'session_id' => $session->id ?? null,
                 'payment_intent_id' => $paymentIntentId,
@@ -406,7 +410,8 @@ class StripeWebhookController extends Controller
                     (string) $referenceCode,
                     $reason,
                     $payerId,
-                    $bonusFallback
+                    $bonusFallback,
+                    isset($session->id) ? (string) $session->id : null
                 );
 
                 return;
@@ -426,7 +431,8 @@ class StripeWebhookController extends Controller
             $referenceCode,
             $reason,
             $userId && $userId > 0 ? $userId : null,
-            $bonusFallback
+            $bonusFallback,
+            isset($session->id) ? (string) $session->id : null
         );
     }
 
