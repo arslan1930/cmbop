@@ -3,9 +3,11 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\DepositRequest;
 use App\Models\User;
 use App\Models\Wallet;
 use App\Models\WalletTransaction;
+use App\Models\Withdrawal;
 use App\Services\Admin\FinanceOverviewService;
 use App\Services\Orders\OrderClawbackService;
 use Illuminate\Database\Eloquent\Builder;
@@ -335,7 +337,13 @@ class FinanceController extends Controller
 
         $paymentMethod = $this->ledgerPaymentMethod($request);
         if ($paymentMethod !== '') {
-            $query->whereIn('payment_method', $this->ledgerPaymentMethodAliases($paymentMethod));
+            $aliases = $this->ledgerPaymentMethodAliases($paymentMethod);
+            $query->where(function ($q) use ($aliases) {
+                $q->whereIn('payment_method', $aliases)
+                    ->orWhereHasMorph('related', [DepositRequest::class, Withdrawal::class], function ($sub) use ($aliases) {
+                        $sub->whereIn('payment_method', $aliases);
+                    });
+            });
         }
 
         $search = is_string($request->input('search')) ? trim($request->input('search')) : '';
@@ -393,11 +401,11 @@ class FinanceController extends Controller
             "COALESCE(SUM(CASE WHEN direction = 'debit' THEN amount ELSE 0 END), 0) as debits"
         )->first();
 
-        $credits = round((float) ($row->credits ?? 0), 2);
-        $debits = round((float) ($row->debits ?? 0), 2);
+        $credits = round((float) ($row?->credits ?? 0), 2);
+        $debits = round((float) ($row?->debits ?? 0), 2);
 
         return [
-            'count' => (int) ($row->row_count ?? 0),
+            'count' => (int) ($row?->row_count ?? 0),
             'credits' => $credits,
             'debits' => $debits,
             'net' => round($credits - $debits, 2),
@@ -414,6 +422,11 @@ class FinanceController extends Controller
     private function ledgerPaymentMethod(Request $request): string
     {
         $method = is_string($request->input('payment_method')) ? strtolower(trim($request->input('payment_method'))) : '';
+        $method = match ($method) {
+            'stripe' => 'card',
+            'bank_transfer' => 'bank',
+            default => $method,
+        };
 
         return array_key_exists($method, $this->ledgerPaymentMethodOptions()) ? $method : '';
     }

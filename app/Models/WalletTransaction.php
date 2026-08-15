@@ -97,6 +97,9 @@ class WalletTransaction extends Model
     public function paymentMethodLabel(): string
     {
         $key = strtolower(trim((string) ($this->payment_method ?? '')));
+        if ($key === '' && is_object($this->related) && isset($this->related->payment_method)) {
+            $key = strtolower(trim((string) $this->related->payment_method));
+        }
 
         return match ($key) {
             'bank', 'bank_transfer' => 'Bank Transfer',

@@ -573,6 +573,62 @@ class AdminFinanceOpsGapsTest extends TestCase
         $this->assertStringContainsString('LEDGER-CARD-RAIL', $csv);
         $this->assertStringContainsString('stripe', $csv);
         $this->assertStringNotContainsString('LEDGER-BANK-RAIL', $csv);
+
+        $this->actingAs($admin)
+            ->get(route('admin.finance.ledger', ['payment_method' => 'stripe']))
+            ->assertOk()
+            ->assertSee('LEDGER-CARD-RAIL')
+            ->assertDontSee('LEDGER-BANK-RAIL')
+            ->assertSee('value="card" selected', false);
+    }
+
+    public function test_ledger_payment_method_filter_finds_withdrawal_via_related(): void
+    {
+        $admin = $this->makeUser('admin');
+        $publisher = $this->makeUser('publisher');
+        $pubRole = Role::firstOrCreate(['name' => 'publisher']);
+        $wallet = Wallet::create([
+            'user_id' => $publisher->id,
+            'role_id' => $pubRole->id,
+            'balance' => 20,
+            'reserved_balance' => 0,
+            'currency' => 'EUR',
+        ]);
+
+        $paypal = Withdrawal::create([
+            'user_id' => $publisher->id,
+            'amount' => 12,
+            'fee' => 0,
+            'net_amount' => 12,
+            'payment_method' => 'paypal',
+            'payment_details' => ['email' => 'p@example.test'],
+            'status' => 'pending',
+        ]);
+        $wise = Withdrawal::create([
+            'user_id' => $publisher->id,
+            'amount' => 8,
+            'fee' => 0,
+            'net_amount' => 8,
+            'payment_method' => 'wise',
+            'payment_details' => ['email' => 'w@example.test'],
+            'status' => 'pending',
+        ]);
+
+        $paypalTx = app(WalletLedgerService::class)->recordWithdrawal($wallet, 12, $paypal, 'pending', 'WD-PAYPAL-METHOD');
+        app(WalletLedgerService::class)->recordWithdrawal($wallet, 8, $wise, 'pending', 'WD-WISE-METHOD');
+
+        $this->assertSame('paypal', $paypalTx?->payment_method);
+
+        // Older withdrawal rows left payment_method empty; the filter still
+        // has to follow the related payout method.
+        $paypalTx?->forceFill(['payment_method' => null])->save();
+
+        $this->actingAs($admin)
+            ->get(route('admin.finance.ledger', ['payment_method' => 'paypal']))
+            ->assertOk()
+            ->assertSee('WD-PAYPAL-METHOD')
+            ->assertSee('PayPal')
+            ->assertDontSee('WD-WISE-METHOD');
     }
 
     public function test_dossier_recent_ledger_uses_type_labels(): void
