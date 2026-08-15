@@ -57,6 +57,7 @@ class AdminFinanceOpsGapsTest extends TestCase
 
         $this->assertStringContainsString('id="finance-debt"', $html);
         $this->assertStringContainsString('Find user dossier', $html);
+        $this->assertStringContainsString('href="'.route('admin.withdrawals', [], false).'"', $html);
     }
 
     public function test_user_search_redirects_unique_match_to_dossier(): void
@@ -193,7 +194,8 @@ class AdminFinanceOpsGapsTest extends TestCase
             ->assertSee($publisher->email)
             ->assertSee('Keep this row')
             ->assertDontSee('Skip this row')
-            ->assertSee(route('admin.finance.ledger.export', ['user_id' => $publisher->id]), false);
+            ->assertSee(route('admin.finance.ledger.export', ['user_id' => $publisher->id], false), false)
+            ->assertSee(route('admin.finance.user', $publisher->id, false), false);
 
         $csv = $this->actingAs($admin)
             ->get(route('admin.finance.ledger.export', ['user_id' => $publisher->id]))

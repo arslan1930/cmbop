@@ -8,10 +8,10 @@
             <p class="text-muted mb-0 small">All wallet_transactions — deposits, purchases, refunds, withdrawals, bonuses, publisher earnings (transfer_in), and role moves.</p>
         </div>
         <div class="d-flex flex-wrap gap-2">
-            <a href="{{ route('admin.finance.ledger.export', request()->query()) }}" class="btn btn-sm btn-outline-primary">
+            <a href="{{ route('admin.finance.ledger.export', request()->query(), false) }}" class="btn btn-sm btn-outline-primary">
                 <i class="fa fa-file-csv me-1"></i> Export CSV
             </a>
-            <a href="{{ route('admin.finance') }}" class="btn btn-sm btn-outline-secondary">
+            <a href="{{ route('admin.finance', [], false) }}" class="btn btn-sm btn-outline-secondary">
                 <i class="fa fa-chart-pie me-1"></i> Finance overview
             </a>
         </div>
@@ -24,7 +24,7 @@
                 <strong>{{ $ledgerUser->name }}</strong>
                 <span class="text-muted">{{ $ledgerUser->email }}</span>
             </div>
-            <a href="{{ route('admin.finance.ledger', request()->except('user_id')) }}" class="btn btn-sm btn-outline-secondary">Clear user</a>
+            <a href="{{ route('admin.finance.ledger', request()->except('user_id'), false) }}" class="btn btn-sm btn-outline-secondary">Clear user</a>
         </div>
     @endif
 
@@ -117,7 +117,7 @@
                             </td>
                             <td>
                                 @if($tx->user_id)
-                                    <a href="{{ route('admin.finance.user', $tx->user_id) }}" class="btn btn-sm btn-outline-secondary">Dossier</a>
+                                    <a href="{{ route('admin.finance.user', $tx->user_id, false) }}" class="btn btn-sm btn-outline-secondary">Dossier</a>
                                 @endif
                             </td>
                         </tr>

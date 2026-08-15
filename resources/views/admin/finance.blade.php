@@ -112,7 +112,7 @@
                             Nothing waiting in the payout queue.
                         @endif
                     </div>
-                    <a href="{{ route('admin.withdrawals') }}" class="btn btn-sm btn-outline-danger mt-3">Open payout queue</a>
+                    <a href="{{ route('admin.withdrawals', [], false) }}" class="btn btn-sm btn-outline-danger mt-3">Open payout queue</a>
                 </div>
             </div>
         </div>
@@ -392,7 +392,7 @@
                         </div>
                         <div class="small text-muted">{{ $d['money_out']['withdrawals_open']['count'] }} waiting to send</div>
                     </div>
-                    <a href="{{ route('admin.withdrawals') }}" class="btn btn-sm btn-outline-secondary mt-3 w-100">Payout queue</a>
+                    <a href="{{ route('admin.withdrawals', [], false) }}" class="btn btn-sm btn-outline-secondary mt-3 w-100">Payout queue</a>
                 </div>
             </div>
         </div>
@@ -448,7 +448,7 @@
     <div class="row g-2">
         <div class="col-md-3"><a href="{{ route('admin.payments') }}" class="btn btn-outline-secondary w-100 btn-sm"><i class="fa fa-money-bill me-1"></i> Order payments</a></div>
         <div class="col-md-3"><a href="{{ route('admin.deposits') }}" class="btn btn-outline-secondary w-100 btn-sm"><i class="fa fa-wallet me-1"></i> Deposits</a></div>
-        <div class="col-md-3"><a href="{{ route('admin.withdrawals') }}" class="btn btn-outline-secondary w-100 btn-sm"><i class="fa fa-money-bill-wave me-1"></i> Withdrawals</a></div>
+        <div class="col-md-3"><a href="{{ route('admin.withdrawals', [], false) }}" class="btn btn-outline-secondary w-100 btn-sm"><i class="fa fa-money-bill-wave me-1"></i> Withdrawals</a></div>
         <div class="col-md-3"><a href="{{ route('admin.invoices.index') }}" class="btn btn-outline-secondary w-100 btn-sm"><i class="fa fa-file-invoice-dollar me-1"></i> Invoices</a></div>
     </div>
 </div>

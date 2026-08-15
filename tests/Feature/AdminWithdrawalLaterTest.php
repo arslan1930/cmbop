@@ -2,6 +2,9 @@
 
 namespace Tests\Feature;
 
+use App\Mail\PayoutProfileUpdatedBySupport;
+use App\Mail\WithdrawalRequestedConfirmation;
+use App\Mail\WithdrawalRequestNotification;
 use App\Mail\WithdrawalStatusUpdated;
 use App\Models\ActivityLog;
 use App\Models\Invoice;
@@ -1981,5 +1984,73 @@ class AdminWithdrawalLaterTest extends TestCase
             'c***@example.com',
             Invoice::maskedPayoutDestination(data_get($found->billing_snapshot, 'payment_details'), 'paypal')
         );
+    }
+
+    public function test_payout_profile_email_points_at_the_public_withdraw_path(): void
+    {
+        $publisher = $this->makeUser('publisher');
+        $mail = new PayoutProfileUpdatedBySupport($publisher, 'paypal');
+        $data = $mail->build()->viewData;
+        $html = $mail->render();
+
+        $this->assertSame(
+            route('publisher.withdraw', [], false),
+            parse_url((string) $data['withdrawUrl'], PHP_URL_PATH)
+        );
+        $this->assertStringContainsString(route('publisher.withdraw', [], false), $html);
+
+        $src = (string) file_get_contents(app_path('Mail/PayoutProfileUpdatedBySupport.php'));
+        $this->assertStringContainsString("publicRoute('publisher.withdraw')", $src);
+    }
+
+    public function test_request_received_email_points_at_the_public_withdraw_path(): void
+    {
+        $publisher = $this->makeUser('publisher');
+        $withdrawal = $this->seedWithdrawal($publisher);
+        $mail = new WithdrawalRequestedConfirmation($withdrawal);
+        $data = $mail->build()->viewData;
+        $html = $mail->render();
+
+        $this->assertSame(
+            route('publisher.withdraw', [], false),
+            parse_url((string) $data['withdrawUrl'], PHP_URL_PATH)
+        );
+        $this->assertStringContainsString(route('publisher.withdraw', [], false), $html);
+        $this->assertStringContainsString($publisher->name, $html);
+
+        $src = (string) file_get_contents(app_path('Mail/WithdrawalRequestedConfirmation.php'));
+        $this->assertStringContainsString("publicRoute('publisher.withdraw')", $src);
+
+        $withdrawal->setRelation('user', null);
+        $orphan = (new WithdrawalRequestedConfirmation($withdrawal))->render();
+        $this->assertStringContainsString('Publisher', $orphan);
+        $this->assertStringNotContainsString('TypeError', $orphan);
+    }
+
+    public function test_request_email_fills_leftover_dest_and_tolerates_scalar_details(): void
+    {
+        $publisher = $this->makeUser('publisher');
+        $paypal = $this->seedWithdrawal($publisher, [
+            'payment_method' => 'paypal',
+            'payment_details' => ['paypal_email' => 'pay@example.com'],
+        ]);
+        $html = (new WithdrawalRequestNotification($paypal, $publisher))->render();
+        $this->assertStringContainsString('pay@example.com', $html);
+        $this->assertStringNotContainsString('PayPal Email: N/A', $html);
+
+        $broken = $this->seedWithdrawal($publisher, [
+            'payment_method' => 'paypal',
+            'payment_details' => ['email' => 'ok@example.com'],
+        ]);
+        $broken->forceFill(['payment_details' => 123])->save();
+        $broken->setRelation('user', null);
+        $broken->created_at = null;
+
+        $html = (new WithdrawalRequestNotification($broken, null))->render();
+        $text = trim(html_entity_decode(strip_tags($html), ENT_QUOTES, 'UTF-8'));
+        $this->assertStringContainsString('Unknown', $text);
+        $this->assertStringContainsString('PayPal Email', $text);
+        $this->assertStringContainsString('N/A', $text);
+        $this->assertStringNotContainsString('TypeError', $html);
     }
 }
