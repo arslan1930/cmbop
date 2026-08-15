@@ -101,6 +101,20 @@ class WalletBalancePageTest extends TestCase
             json_encode(route('advertiser.balance.withdraw', [], false), JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT),
             $html
         );
+        foreach ([
+            'advertiser.add-funds.store',
+            'advertiser.add-funds.pay-saved-card',
+            'advertiser.create-checkout-session',
+        ] as $name) {
+            $this->assertStringContainsString(
+                json_encode(route($name, [], false), JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT),
+                $html
+            );
+            $this->assertStringNotContainsString(
+                json_encode(route($name), JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT),
+                $html
+            );
+        }
     }
 
     public function test_add_funds_publisher_strip_shows_withdrawable_earnings(): void

@@ -46,7 +46,9 @@ class UserController extends Controller
         $marketingCount = $this->marketingCount();
         $maxMarketing = self::MAX_MARKETING;
 
-        return view('admin.users', compact('users', 'adminCount', 'marketingCount', 'maxMarketing'));
+        return response()
+            ->view('admin.users', compact('users', 'adminCount', 'marketingCount', 'maxMarketing'))
+            ->header('Cache-Control', 'no-store');
     }
 
     // ✅ Update Company (AJAX)
@@ -127,7 +129,7 @@ class UserController extends Controller
             'success' => true,
             'message' => 'Payout details updated. The publisher was notified by email.',
             'payout_profile' => $user->fresh()->payoutProfile(),
-        ]);
+        ])->header('Cache-Control', 'no-store');
     }
 
     /**

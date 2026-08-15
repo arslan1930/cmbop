@@ -79,7 +79,9 @@ class BillingController extends Controller
         abort_if($invoice->status === Invoice::STATUS_CANCELLED, 404);
         $invoice = $statements->reconcileInvoice($invoice);
 
-        return view('publisher.billing.show', compact('invoice'));
+        return response()
+            ->view('publisher.billing.show', compact('invoice'))
+            ->header('Cache-Control', 'no-store');
     }
 
     public function download(

@@ -344,7 +344,7 @@
                                             <button type="button"
                                                     class="btn btn-sm btn-danger js-resolve-dispute"
                                                     data-action="uphold"
-                                                    data-resolve-url="{{ route('admin.orders.disputes.uphold', $dispute) }}">
+                                                    data-resolve-url="{{ route('admin.orders.disputes.uphold', $dispute, false) }}">
                                                 Uphold &amp; claw back
                                             </button>
                                             <button type="button"
