@@ -884,12 +884,10 @@ class StripeFirstCheckoutInvariantsTest extends TestCase
         ]);
         $this->assertSame('paid', Order::query()->where('user_id', $other->id)->where('reference_code', $ref)->value('payment_status'));
 
-        $line = [
-            'site_id' => $payerSite->id,
-            'price' => 80,
-            'content_submission_id' => 0,
-        ];
-        app(OrderPaymentService::class)->storePendingCheckout($ref, $this->package($payer, [$line], 80));
+        app(OrderPaymentService::class)->storePendingCheckout(
+            $ref,
+            $this->package($payer, [$this->lineFor($payerSite, 80)], 80)
+        );
 
         $this->signedWebhook([
             'id' => 'evt_payer_after_other_'.uniqid(),
@@ -914,6 +912,80 @@ class StripeFirstCheckoutInvariantsTest extends TestCase
 
         $this->assertSame(1, Order::query()->where('user_id', $payer->id)->where('reference_code', $ref)->where('payment_status', 'paid')->count());
         $this->assertSame(1, Order::query()->where('user_id', $other->id)->where('reference_code', $ref)->where('payment_status', 'paid')->count());
+    }
+
+    public function test_another_users_unfulfilled_credit_does_not_settle_this_payer(): void
+    {
+        $other = $this->makeUser('advertiser');
+        $payer = $this->makeUser('advertiser');
+        $ref = '666666';
+        $payments = app(OrderPaymentService::class);
+
+        $payments->creditUnfulfilledCardCapture($other->id, $ref, 80);
+
+        $this->assertEqualsWithDelta(80.0, $payments->walletCreditForUnfulfillableCardCheckout($ref), 0.01);
+        $this->assertEqualsWithDelta(0.0, $payments->walletCreditForUnfulfillableCardCheckout($ref, $payer->id), 0.01);
+
+        $this->signedWebhook([
+            'id' => 'evt_payer_no_package_'.uniqid(),
+            'object' => 'event',
+            'type' => 'checkout.session.completed',
+            'data' => [
+                'object' => [
+                    'id' => 'cs_payer_no_package',
+                    'object' => 'checkout.session',
+                    'payment_status' => 'paid',
+                    'amount_total' => 8000,
+                    'payment_intent' => 'pi_payer_no_package',
+                    'metadata' => [
+                        'type' => 'order_payment',
+                        'reference_code' => $ref,
+                        'user_id' => (string) $payer->id,
+                        'expected_amount' => '80',
+                    ],
+                ],
+            ],
+        ])->assertStatus(500);
+
+        $this->assertEqualsWithDelta(0.0, $payments->walletCreditForUnfulfillableCardCheckout($ref, $payer->id), 0.01);
+        $this->assertSame(0, Order::query()->where('user_id', $payer->id)->count());
+    }
+
+    public function test_finalize_creates_order_when_another_user_already_used_the_line_key(): void
+    {
+        $first = $this->makeUser('advertiser');
+        $second = $this->makeUser('advertiser');
+        $publisher = $this->makeUser('publisher');
+        $site = $this->makeSite($publisher, 'shared-line.example', 80);
+        $ref = '555555';
+        $payments = app(OrderPaymentService::class);
+
+        $payments->storePendingCheckout($ref, $this->package($first, [$this->lineFor($site, 80)], 80));
+        $firstOrders = $payments->finalizeStripeFirstCheckout($ref, $this->paidSession($ref, 80, 'cs_first_line'));
+        $this->assertCount(1, $firstOrders);
+
+        $payments->storePendingCheckout($ref, $this->package($second, [$this->lineFor($site, 80)], 80));
+        $secondOrders = $payments->finalizeStripeFirstCheckout($ref, (object) [
+            'id' => 'cs_second_line',
+            'object' => 'checkout.session',
+            'amount_total' => 8000,
+            'payment_intent' => 'pi_second_line',
+            'metadata' => (object) [
+                'type' => 'order_payment',
+                'reference_code' => $ref,
+                'user_id' => (string) $second->id,
+                'expected_amount' => '80',
+            ],
+        ]);
+
+        $this->assertCount(1, $secondOrders);
+        $this->assertSame($second->id, (int) $secondOrders->first()->user_id);
+        $this->assertSame('paid', $secondOrders->first()->payment_status);
+        $this->assertNotSame(
+            $firstOrders->first()->checkout_line_key,
+            $secondOrders->first()->checkout_line_key
+        );
+        $this->assertEqualsWithDelta(0.0, $payments->unfulfilledCardCreditAmount($ref, $second->id), 0.01);
     }
 
     public function test_store_package_refuses_to_overwrite_another_users_checkout(): void

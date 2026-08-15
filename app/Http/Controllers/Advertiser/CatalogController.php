@@ -2496,7 +2496,7 @@ class CatalogController extends Controller
                 }
 
                 if ($created->isEmpty()) {
-                    $credited = $paymentService->walletCreditForUnfulfillableCardCheckout($referenceCode);
+                    $credited = $paymentService->walletCreditForUnfulfillableCardCheckout($referenceCode, (int) $userId);
                     if ($credited > 0) {
                         return response()->json([
                             'success' => true,
@@ -3006,7 +3006,7 @@ class CatalogController extends Controller
                 ->get();
 
             if ($orders->isEmpty()) {
-                $credited = $paymentService->walletCreditForUnfulfillableCardCheckout($referenceCode);
+                $credited = $paymentService->walletCreditForUnfulfillableCardCheckout($referenceCode, (int) auth()->id());
                 if ($credited > 0) {
                     return redirect()->route('advertiser.checkout')
                         ->with(
@@ -3029,7 +3029,7 @@ class CatalogController extends Controller
 
             $paidOrders = $orders->filter(fn (Order $order) => $order->payment_status === 'paid');
             if ($paidOrders->isEmpty()) {
-                $credited = $paymentService->walletCreditForUnfulfillableCardCheckout($referenceCode);
+                $credited = $paymentService->walletCreditForUnfulfillableCardCheckout($referenceCode, (int) auth()->id());
                 if ($credited > 0) {
                     return redirect()->route('advertiser.checkout')
                         ->with(
@@ -4965,18 +4965,34 @@ class CatalogController extends Controller
         $candidate = is_string($requested) && trim($requested) !== ''
             ? trim($requested)
             : str_pad((string) random_int(1, 999999), 6, '0', STR_PAD_LEFT);
-        $payments = app(OrderPaymentService::class);
 
         for ($attempt = 0; $attempt < 8; $attempt++) {
-            $package = $payments->getPendingCheckout($candidate);
-            $ownerId = (int) ($package['user_id'] ?? 0);
-            if ($ownerId <= 0 || $ownerId === $userId) {
+            if (! $this->checkoutReferenceTakenByAnotherUser($userId, $candidate)) {
                 return $candidate;
             }
             $candidate = str_pad((string) random_int(1, 999999), 6, '0', STR_PAD_LEFT);
         }
 
         throw new \RuntimeException('Could not allocate a unique checkout reference.');
+    }
+
+    /**
+     * 6-digit client REFs collide. Never reuse a reference that already has
+     * another advertiser's Stripe-first package or card orders.
+     */
+    private function checkoutReferenceTakenByAnotherUser(int $userId, string $referenceCode): bool
+    {
+        $package = app(OrderPaymentService::class)->getPendingCheckout($referenceCode);
+        $ownerId = (int) ($package['user_id'] ?? 0);
+        if ($ownerId > 0 && $ownerId !== $userId) {
+            return true;
+        }
+
+        return Order::query()
+            ->where('reference_code', $referenceCode)
+            ->where('payment_method', 'card')
+            ->where('user_id', '!=', $userId)
+            ->exists();
     }
 
     private function cancelUnpaidCardOrdersAndRestoreCart(string $referenceCode): void

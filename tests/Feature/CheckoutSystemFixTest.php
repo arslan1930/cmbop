@@ -384,4 +384,52 @@ class CheckoutSystemFixTest extends TestCase
     {
         $this->assertSame('immediate', ContentSubmission::MODE_IMMEDIATE);
     }
+
+    public function test_card_checkout_mints_new_ref_when_another_user_already_paid_it(): void
+    {
+        config(['content_moderation.enabled' => false]);
+        Mail::fake();
+
+        $owner = $this->advertiser();
+        $payer = $this->advertiser();
+        $publisher = $this->publisher();
+        $site = $this->activeSite($publisher, 'taken-ref', 40);
+        $sub = $this->createApprovedSubmission($payer, null);
+
+        Order::create([
+            'user_id' => $owner->id,
+            'order_number' => '654321',
+            'reference_code' => '555555',
+            'subtotal' => 40,
+            'tax' => 0,
+            'total_amount' => 40,
+            'payment_method' => 'card',
+            'payment_status' => 'paid',
+            'status' => 'pending',
+        ]);
+
+        $this->fakeStripeCheckoutSession('cs_test_taken_ref');
+
+        $response = $this->actingAs($payer)
+            ->withSession([
+                'cart' => [[
+                    'id' => $site->id,
+                    'name' => $site->site_name,
+                    'quantity' => 1,
+                    'content_submission_id' => $sub->id,
+                ]],
+                'checkout_content_submission_id' => $sub->id,
+            ])
+            ->postJson(route('advertiser.checkout.process'), [
+                'payment_method' => 'card',
+                'reference_code' => '555555',
+                'publication_mode' => 'immediate',
+            ]);
+
+        $response->assertOk()->assertJson(['success' => true]);
+        $minted = (string) $response->json('reference_code');
+        $this->assertNotSame('555555', $minted);
+        $this->assertNotNull(Cache::get('pending_card_checkout:'.$minted));
+        $this->assertNull(Cache::get('pending_card_checkout:555555'));
+    }
 }

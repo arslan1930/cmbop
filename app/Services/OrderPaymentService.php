@@ -651,7 +651,7 @@ class OrderPaymentService
                     continue;
                 }
 
-                $lineKey = $this->checkoutLineKey($referenceCode, $siteId, (int) $index);
+                $lineKey = $this->checkoutLineKey($referenceCode, $siteId, (int) $index, $userId);
 
                 $submissionId = (int) ($line['content_submission_id'] ?? 0);
                 $submission = $submissionId > 0
@@ -779,7 +779,7 @@ class OrderPaymentService
                 $unfulfilled = round(max(0, $expected - $refundedInFinalize), 2);
                 $this->creditUnfulfilledCardCapture($userId, $referenceCode, $unfulfilled);
             }
-            $this->forgetPendingCheckout($referenceCode);
+            $this->forgetPendingCheckout($referenceCode, $userId > 0 ? $userId : null);
             Log::warning('Stripe-first checkout paid but no catalog-visible lines to materialize', [
                 'reference_code' => $referenceCode,
                 'session_id' => $session->id ?? null,
@@ -796,7 +796,7 @@ class OrderPaymentService
             $this->creditUnfulfilledCardCapture($userId, $referenceCode, $unfulfilled);
         }
 
-        $this->forgetPendingCheckout($referenceCode);
+        $this->forgetPendingCheckout($referenceCode, $userId > 0 ? $userId : null);
 
         Log::info('Materialized Stripe-first card orders after payment', [
             'reference_code' => $referenceCode,
@@ -935,6 +935,7 @@ class OrderPaymentService
     private function createPaidCardOrderRow(CheckoutSchemaService $schema, array $attrs): ?Order
     {
         $lineKey = (string) ($attrs['checkout_line_key'] ?? '');
+        $userId = (int) ($attrs['user_id'] ?? 0);
 
         for ($attempt = 0; $attempt < 8; $attempt++) {
             $attrs['order_number'] = $this->freshOrderNumber();
@@ -946,9 +947,25 @@ class OrderPaymentService
                     throw $e;
                 }
 
-                if ($lineKey !== '' && Order::query()->where('checkout_line_key', $lineKey)->exists()) {
+                if ($lineKey === '') {
+                    continue;
+                }
+
+                $existing = Order::query()->where('checkout_line_key', $lineKey)->first();
+                if (! $existing) {
+                    continue;
+                }
+
+                if ((int) $existing->user_id === $userId) {
                     return null;
                 }
+
+                if ($userId <= 0 || str_contains($lineKey, ':user:')) {
+                    return null;
+                }
+
+                $lineKey = $this->payerScopedKeyFromLegacy($lineKey, $userId);
+                $attrs['checkout_line_key'] = $lineKey;
             }
         }
 
@@ -962,13 +979,41 @@ class OrderPaymentService
         return str_pad((string) random_int(1, 999999), 6, '0', STR_PAD_LEFT);
     }
 
-    private function checkoutLineKey(string $referenceCode, int $siteId, int $index): string
+    private function checkoutLineKey(string $referenceCode, int $siteId, int $index, int $userId = 0): string
     {
         // Qty>1 on one site is a real cart (two articles, two placements).
         // Deduping by site_id dropped the extra copies after Stripe charged them.
-        return $siteId > 0
+        $legacy = $siteId > 0
             ? $referenceCode.':site:'.$siteId.':line:'.$index
             : $referenceCode.':line:'.$index;
+
+        if ($userId <= 0) {
+            return $legacy;
+        }
+
+        $existingOwner = Order::query()
+            ->where('checkout_line_key', $legacy)
+            ->value('user_id');
+
+        if ($existingOwner !== null && (int) $existingOwner !== $userId) {
+            return $this->payerScopedCheckoutLineKey($referenceCode, $siteId, $index, $userId);
+        }
+
+        return $legacy;
+    }
+
+    private function payerScopedCheckoutLineKey(string $referenceCode, int $siteId, int $index, int $userId): string
+    {
+        return $siteId > 0
+            ? $referenceCode.':user:'.$userId.':site:'.$siteId.':line:'.$index
+            : $referenceCode.':user:'.$userId.':line:'.$index;
+    }
+
+    private function payerScopedKeyFromLegacy(string $legacyKey, int $userId): string
+    {
+        $parts = explode(':', $legacyKey, 2);
+
+        return $parts[0].':user:'.$userId.(isset($parts[1]) ? ':'.$parts[1] : '');
     }
 
     private function isUniqueConstraintFailure(QueryException $e): bool
