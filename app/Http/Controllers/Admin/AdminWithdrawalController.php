@@ -157,14 +157,21 @@ class AdminWithdrawalController extends Controller
             $this->applyWithdrawalOrder($query, $filters['queue'], $filters['status']);
 
             $total = (clone $query)->count();
-            $rows = $query->limit($limit)->get(['id', 'status']);
+            $rows = $query->limit($limit)->get(['id', 'status', 'user_id', 'net_amount', 'created_at']);
+            $this->attachDuplicateWarnings($rows);
             $ids = $rows->pluck('id')->map(fn ($id) => (int) $id)->values()->all();
             $pendingIds = $rows->where('status', 'pending')->pluck('id')->map(fn ($id) => (int) $id)->values()->all();
+            $duplicateIds = $rows->filter(fn ($row) => $row->possible_duplicate)
+                ->pluck('id')
+                ->map(fn ($id) => (int) $id)
+                ->values()
+                ->all();
 
             return $this->noStoreJson([
                 'success' => true,
                 'ids' => $ids,
                 'pending_ids' => $pendingIds,
+                'duplicate_ids' => $duplicateIds,
                 'total' => $total,
                 'capped' => $total > $limit,
                 'limit' => $limit,

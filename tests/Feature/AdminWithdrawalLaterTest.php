@@ -92,6 +92,10 @@ class AdminWithdrawalLaterTest extends TestCase
         $this->assertStringContainsString('requestId !== detailsRequestId', $html);
         $this->assertStringContainsString('requestId !== matchingRequestId', $html);
         $this->assertStringContainsString('const selectedCount = selectedIds.size', $html);
+        $this->assertStringContainsString(json_encode(route('admin.withdrawals.data', [], false)), $html);
+        $this->assertStringContainsString('existing.possible_duplicate = dupSet.has(n)', $html);
+        $this->assertStringContainsString('Apply to <strong>${ids.length}</strong>', $html);
+        $this->assertStringContainsString('Array.isArray(body.duplicate_ids)', $html);
     }
 
     public function test_browser_show_is_html_and_json_accept_stays_json(): void
@@ -113,8 +117,13 @@ class AdminWithdrawalLaterTest extends TestCase
             ->assertSee('pat-show@example.com', false)
             ->assertSee('Wire ref 44', false)
             ->assertSee('Back to payout queue', false)
-            ->assertSee(route('admin.finance.user', $publisher->id), false)
+            ->assertSee(route('admin.finance.user', $publisher->id, false), false)
             ->getContent();
+
+        $this->assertStringContainsString(
+            'href="'.route('admin.finance.user', $publisher->id, false).'"',
+            $html
+        );
 
         $this->assertStringContainsString('text/html', (string) $this->actingAs($admin)
             ->get(route('admin.withdrawals.show', $withdrawal->id))
@@ -307,6 +316,7 @@ class AdminWithdrawalLaterTest extends TestCase
         $this->assertNotContains($paid->id, $ids);
         $this->assertNotContains($second->id, $ids);
         $this->assertSame([$first->id, $third->id], $response->json('pending_ids'));
+        $this->assertSame([], $response->json('duplicate_ids'));
 
         $this->actingAs($admin)
             ->getJson(route('admin.withdrawals.ids', ['queue' => 'history']))
@@ -314,6 +324,37 @@ class AdminWithdrawalLaterTest extends TestCase
             ->assertJsonPath('success', true)
             ->assertJsonPath('total', 0)
             ->assertJsonPath('ids', []);
+    }
+
+    public function test_matching_ids_include_duplicate_flags(): void
+    {
+        $admin = $this->makeUser('admin');
+        $publisher = $this->makeUser('publisher');
+        $this->seedWithdrawal($publisher, [
+            'status' => 'completed',
+            'processed_at' => now()->subDay(),
+            'net_amount' => 95,
+        ]);
+        $open = $this->seedWithdrawal($publisher, [
+            'status' => 'pending',
+            'net_amount' => 95,
+        ]);
+        $other = $this->seedWithdrawal($publisher, [
+            'status' => 'processing',
+            'net_amount' => 40,
+        ]);
+
+        $this->actingAs($admin)
+            ->getJson(route('admin.withdrawals.ids'))
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('duplicate_ids', [$open->id]);
+
+        $ids = $this->actingAs($admin)
+            ->getJson(route('admin.withdrawals.ids'))
+            ->json('ids');
+        $this->assertContains($open->id, $ids);
+        $this->assertContains($other->id, $ids);
     }
 
     public function test_export_over_row_cap_redirects_or_returns_422(): void

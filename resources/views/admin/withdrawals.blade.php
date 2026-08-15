@@ -268,16 +268,16 @@ const SELECTION_LIMIT = 100;
 const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content
     || '{{ csrf_token() }}';
 
-const WD_DATA = @json(route('admin.withdrawals.data'));
-const WD_STATS = @json(route('admin.withdrawals.statistics'));
-const WD_IDS = @json(route('admin.withdrawals.ids'));
-const WD_EXPORT = @json(route('admin.withdrawals.export'));
-const WD_SHOW = @json(route('admin.withdrawals.show', ['id' => '__ID__']));
-const WD_PAID = @json(route('admin.withdrawals.paid', ['id' => '__ID__']));
-const WD_PROCESSING = @json(route('admin.withdrawals.processing', ['id' => '__ID__']));
-const WD_REJECT = @json(route('admin.withdrawals.reject', ['id' => '__ID__']));
-const WD_BATCH = @json(route('admin.withdrawals.batch'));
-const FINANCE_USER = @json(route('admin.finance.user', ['user' => '__ID__']));
+const WD_DATA = @json(route('admin.withdrawals.data', [], false));
+const WD_STATS = @json(route('admin.withdrawals.statistics', [], false));
+const WD_IDS = @json(route('admin.withdrawals.ids', [], false));
+const WD_EXPORT = @json(route('admin.withdrawals.export', [], false));
+const WD_SHOW = @json(route('admin.withdrawals.show', ['id' => '__ID__'], false));
+const WD_PAID = @json(route('admin.withdrawals.paid', ['id' => '__ID__'], false));
+const WD_PROCESSING = @json(route('admin.withdrawals.processing', ['id' => '__ID__'], false));
+const WD_REJECT = @json(route('admin.withdrawals.reject', ['id' => '__ID__'], false));
+const WD_BATCH = @json(route('admin.withdrawals.batch', [], false));
+const FINANCE_USER = @json(route('admin.finance.user', ['user' => '__ID__'], false));
 
 function withdrawalUrl(template, id) {
     return String(template).replace('__ID__', encodeURIComponent(id));
@@ -515,7 +515,9 @@ function loadStatistics() {
             const row = by[method];
             if (!row || typeof row !== 'object') return '';
             const label = labels[method] || method;
-            return `<span class="d-inline-block me-2 mb-1"><strong>${escapeHtml(String(row.count))}</strong> ${escapeHtml(label)} · €${Number(row.net_total).toFixed(0)}</span>`;
+            const net = Number(row.net_total);
+            const netLabel = Number.isFinite(net) ? net.toFixed(0) : '—';
+            return `<span class="d-inline-block me-2 mb-1"><strong>${escapeHtml(String(row.count))}</strong> ${escapeHtml(label)} · €${netLabel}</span>`;
         }).filter(Boolean);
         $('#statByMethod').html(parts.length ? parts.join('') : '<span class="text-muted">No open payouts</span>');
     }).fail(function() {
@@ -593,6 +595,8 @@ function renderWithdrawals(withdrawals) {
         }
         const matchIds = Array.isArray(w.duplicate_match_ids) ? w.duplicate_match_ids : [];
         const invoiceHref = safeAdminHref(w.invoice_url);
+        const showHref = safeAdminHref(withdrawalUrl(WD_SHOW, w.id));
+        const publisherHref = w.user?.id ? safeAdminHref(withdrawalUrl(FINANCE_USER, w.user.id)) : '';
         withdrawalFlags.set(Number(w.id), {
             possible_duplicate: !!w.possible_duplicate,
             duplicate_match_ids: matchIds,
@@ -609,8 +613,8 @@ function renderWithdrawals(withdrawals) {
                 <td class="text-muted small">WD-${w.id}</td>
                 <td>
                     <div class="d-flex flex-column">
-                        ${w.user?.id
-                            ? `<a href="${escapeHtml(withdrawalUrl(FINANCE_USER, w.user.id))}" class="fw-semibold">${escapeHtml(w.user?.name || 'N/A')}</a>`
+                        ${publisherHref
+                            ? `<a href="${escapeHtml(publisherHref)}" class="fw-semibold">${escapeHtml(w.user?.name || 'N/A')}</a>`
                             : `<span class="fw-semibold">${escapeHtml(w.user?.name || 'N/A')}</span>`}
                         <small class="text-muted">${escapeHtml(w.user?.email || '')}</small>
                     </div>
@@ -634,7 +638,7 @@ function renderWithdrawals(withdrawals) {
                         <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">Manage</button>
                         <ul class="dropdown-menu dropdown-menu-end">
                             <li><button type="button" class="dropdown-item view-details" data-id="${w.id}"><i class="fa fa-eye me-2"></i>View</button></li>
-                            <li><a class="dropdown-item" href="${escapeHtml(withdrawalUrl(WD_SHOW, w.id))}"><i class="fa fa-external-link-alt me-2"></i>Open page</a></li>
+                            ${showHref ? `<li><a class="dropdown-item" href="${escapeHtml(showHref)}"><i class="fa fa-external-link-alt me-2"></i>Open page</a></li>` : ''}
                             ${invoiceHref ? `<li><a class="dropdown-item" href="${escapeHtml(invoiceHref)}"><i class="fa fa-file-invoice-dollar me-2"></i>Open invoice</a></li>` : ''}
                             ${w.status === 'pending' ? `
                             <li><button type="button" class="dropdown-item act-processing" data-id="${w.id}"
@@ -741,7 +745,7 @@ $(document).on('click', '.act-processing', async function() {
     postAction(withdrawalUrl(WD_PROCESSING, id), { notes })
         .done(function(res) {
             toast(res.message || 'Updated');
-            selectedIds.delete(id);
+            selectedIds.delete(Number(id));
             refreshAll();
         })
         .fail(function(xhr) {
@@ -793,7 +797,7 @@ $(document).on('click', '.act-paid', async function() {
     postAction(withdrawalUrl(WD_PAID, id), { notes })
         .done(function(res) {
             toast(res.message || 'Marked paid');
-            selectedIds.delete(id);
+            selectedIds.delete(Number(id));
             refreshAll();
         })
         .fail(function(xhr) {
@@ -815,7 +819,7 @@ $(document).on('click', '.act-reject', async function() {
     postAction(withdrawalUrl(WD_REJECT, id), { notes })
         .done(function(res) {
             toast(res.message || 'Rejected');
-            selectedIds.delete(id);
+            selectedIds.delete(Number(id));
             refreshAll();
         })
         .fail(function(xhr) {
@@ -884,7 +888,10 @@ function selectedDuplicateRefs() {
 }
 
 async function runBatch(action, title, confirmText, confirmClass, options) {
-    if (selectedIds.size === 0) return;
+    const ids = Array.from(selectedIds)
+        .filter(function (id) { return Number.isInteger(id) && id > 0; })
+        .slice(0, SELECTION_LIMIT);
+    if (ids.length === 0) return;
     options = options || {};
     const confirmDuplicates = !!options.confirmDuplicates;
     const dupRefs = action === 'completed'
@@ -898,7 +905,7 @@ async function runBatch(action, title, confirmText, confirmClass, options) {
         notes = options.notes;
         const result = await Swal.fire({
             title,
-            html: `Apply to <strong>${selectedIds.size}</strong> selected withdrawal(s).${warn}`,
+            html: `Apply to <strong>${ids.length}</strong> selected withdrawal(s).${warn}`,
             showCancelButton: true,
             confirmButtonText: confirmText,
             cancelButtonText: 'Cancel',
@@ -908,18 +915,13 @@ async function runBatch(action, title, confirmText, confirmClass, options) {
     } else {
         notes = await confirmNotes(
             title,
-            `Apply to <strong>${selectedIds.size}</strong> selected withdrawal(s).${warn}`,
+            `Apply to <strong>${ids.length}</strong> selected withdrawal(s).${warn}`,
             confirmText,
             confirmClass
         );
         if (notes === null) return;
     }
-    if (action === 'completed' && !options.skipPendingConfirm && !await confirmPendingPayIfNeeded(Array.from(selectedIds))) return;
-
-    const ids = Array.from(selectedIds)
-        .filter(function (id) { return Number.isInteger(id) && id > 0; })
-        .slice(0, SELECTION_LIMIT);
-    if (ids.length === 0) return;
+    if (action === 'completed' && !options.skipPendingConfirm && !await confirmPendingPayIfNeeded(ids)) return;
     const payload = {
         ids: ids,
         action,
@@ -940,7 +942,7 @@ async function runBatch(action, title, confirmText, confirmClass, options) {
                 confirmDuplicates: true,
                 skipPendingConfirm: true,
                 notes: notes,
-                duplicateRefs: (body.duplicate_ids || []).map(function (id) { return 'WD-' + id; }),
+                duplicateRefs: (Array.isArray(body.duplicate_ids) ? body.duplicate_ids : []).map(function (id) { return 'WD-' + id; }),
             });
             return;
         }
@@ -1000,11 +1002,13 @@ $('#selectMatchingBtn').on('click', function() {
         }
         selectedIds.clear();
         const pendingSet = new Set((Array.isArray(res.pending_ids) ? res.pending_ids : []).map(Number));
+        const dupSet = new Set((Array.isArray(res.duplicate_ids) ? res.duplicate_ids : []).map(Number));
         (Array.isArray(res.ids) ? res.ids : []).forEach(function (id) {
             if (!addSelectedId(id)) return;
             const n = Number(id);
             const existing = withdrawalFlags.get(n) || {};
             existing.status = pendingSet.has(n) ? 'pending' : 'processing';
+            existing.possible_duplicate = dupSet.has(n);
             withdrawalFlags.set(n, existing);
         });
         $('.row-select').each(function() {
@@ -1095,12 +1099,13 @@ function renderDetails(withdrawal) {
         : '';
 
     const userId = withdrawal.user?.id;
-    if (userId) {
+    const publisherHref = userId ? safeAdminHref(withdrawalUrl(FINANCE_USER, userId)) : '';
+    if (publisherHref) {
         $('#openPublisherLink')
             .removeClass('d-none')
-            .attr('href', withdrawalUrl(FINANCE_USER, userId));
+            .attr('href', publisherHref);
     } else {
-        $('#openPublisherLink').addClass('d-none');
+        $('#openPublisherLink').addClass('d-none').attr('href', '#');
     }
 
     const invoiceHref = safeAdminHref(withdrawal.invoice_url);
@@ -1112,7 +1117,7 @@ function renderDetails(withdrawal) {
         $('#openInvoiceLink').addClass('d-none').attr('href', '#');
     }
 
-    $('#openShowPageLink').attr('href', withdrawalUrl(WD_SHOW, withdrawal.id));
+    $('#openShowPageLink').attr('href', safeAdminHref(withdrawalUrl(WD_SHOW, withdrawal.id)) || '#');
 
     $('#detailsContent').html(`
         ${duplicateAlert}

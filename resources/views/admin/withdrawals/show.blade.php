@@ -27,7 +27,7 @@
 @endphp
 <div class="container-fluid py-3">
     <div class="mb-3">
-        <a href="{{ route('admin.withdrawals', ['search' => (string) $withdrawal->id, 'queue' => $queue]) }}"
+        <a href="{{ route('admin.withdrawals', ['search' => (string) $withdrawal->id, 'queue' => $queue], false) }}"
            class="small text-muted text-decoration-none">
             <i class="fa fa-arrow-left me-1"></i> Back to payout queue
         </a>
@@ -45,7 +45,7 @@
         </div>
         <div class="d-flex flex-wrap gap-2">
             @if($withdrawal->user_id)
-                <a href="{{ route('admin.finance.user', $withdrawal->user_id) }}" class="btn btn-sm btn-outline-secondary">
+                <a href="{{ route('admin.finance.user', $withdrawal->user_id, false) }}" class="btn btn-sm btn-outline-secondary">
                     <i class="fa fa-user me-1"></i> Open publisher / edit payout
                 </a>
             @endif
