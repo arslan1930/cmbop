@@ -15,6 +15,9 @@ use Illuminate\Support\Facades\Log;
  */
 class WalletStripeDepositService
 {
+    /** @var array<int, true> */
+    private array $completingDepositIds = [];
+
     public function __construct(private WalletLedgerService $ledger) {}
 
     /**
@@ -366,6 +369,31 @@ class WalletStripeDepositService
         object $session,
         ?int $expectedUserId = null
     ): float {
+        if (isset($this->completingDepositIds[$depositId])) {
+            return 0.0;
+        }
+
+        $this->completingDepositIds[$depositId] = true;
+        try {
+            return $this->completeExistingDepositOnce(
+                $depositId,
+                $sessionId,
+                $paymentIntentId,
+                $session,
+                $expectedUserId
+            );
+        } finally {
+            unset($this->completingDepositIds[$depositId]);
+        }
+    }
+
+    private function completeExistingDepositOnce(
+        int $depositId,
+        string $sessionId,
+        string $paymentIntentId,
+        object $session,
+        ?int $expectedUserId
+    ): float {
         $credited = 0.0;
         $notifyDepositId = null;
 
@@ -474,21 +502,33 @@ class WalletStripeDepositService
                 $paymentIntentId
             );
             if ($already) {
-                $alreadyCredited = $this->resolveExistingStripeRow(
+                $alreadyCredited = $this->creditIfAlreadySettledByStripeRow(
                     $already,
                     $sessionId,
-                    $paymentIntentId,
-                    $session,
-                    $expectedUserId ?? $sessionUserId
+                    $paymentIntentId
                 );
                 if ($alreadyCredited !== null) {
-                    // The Checkout Session / PaymentIntent already sits on
-                    // another row. Do not mark this invoice completed — it
-                    // is a different deposit_id, not the same charge.
+                    $ownerId = $expectedUserId ?? $sessionUserId;
+                    if ($ownerId && (int) $already->user_id !== (int) $ownerId) {
+                        $credited = 0.0;
+
+                        return;
+                    }
+                    if ($alreadyCredited > 0) {
+                        $this->attachMissingStripeIds($already, $sessionId, $paymentIntentId);
+                    }
+                    // Completed card already holds this charge. Do not mark
+                    // this invoice completed — and do not recurse into
+                    // completeExistingDeposit on the other row.
                     $credited = $alreadyCredited;
 
                     return;
                 }
+
+                // Unpaid card or manual leftover: free the ids so this row
+                // can take the charge. Settling the other pending card here
+                // recursed when session and PI were split across two rows.
+                $this->detachLeftoverStripeIds($already, $sessionId, $paymentIntentId);
             }
 
             $stripeAmount = isset($session->amount_total)
@@ -529,20 +569,32 @@ class WalletStripeDepositService
                     $sessionId,
                     $paymentIntentId
                 );
-                $resolved = $this->resolveExistingStripeRow(
-                    $conflict,
-                    $sessionId,
-                    $paymentIntentId,
-                    $session,
-                    $expectedUserId ?? $sessionUserId
-                );
+                $resolved = $conflict
+                    ? $this->creditIfAlreadySettledByStripeRow(
+                        $conflict,
+                        $sessionId,
+                        $paymentIntentId
+                    )
+                    : null;
                 if ($resolved !== null) {
+                    $ownerId = $expectedUserId ?? $sessionUserId;
+                    if ($ownerId && $conflict && (int) $conflict->user_id !== (int) $ownerId) {
+                        $credited = 0.0;
+
+                        return;
+                    }
+                    if ($resolved > 0 && $conflict) {
+                        $this->attachMissingStripeIds($conflict, $sessionId, $paymentIntentId);
+                    }
                     $credited = $resolved;
 
                     return;
                 }
+                if ($conflict) {
+                    $this->detachLeftoverStripeIds($conflict, $sessionId, $paymentIntentId);
+                }
 
-                // Leftover ids were detached from a manual row — retry.
+                // Leftover ids were detached from a manual / unpaid row — retry.
                 $lockedDeposit->update($settle);
             }
 

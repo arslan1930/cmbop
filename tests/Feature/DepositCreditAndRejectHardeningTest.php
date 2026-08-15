@@ -1366,6 +1366,106 @@ class DepositCreditAndRejectHardeningTest extends TestCase
             ->count());
     }
 
+    public function test_split_session_and_payment_intent_on_two_pending_cards_credits_once(): void
+    {
+        $advertiser = $this->advertiser();
+        $wallet = $this->walletFor($advertiser);
+        $sessionId = 'cs_split_pending_'.uniqid();
+        $pi = 'pi_split_pending_'.uniqid();
+
+        $hasSession = DepositRequest::create([
+            'user_id' => $advertiser->id,
+            'reference_code' => 'DEP-SPLIT-CS',
+            'amount' => 40,
+            'payment_method' => 'card',
+            'status' => 'pending',
+            'stripe_session_id' => $sessionId,
+        ]);
+        $hasPi = DepositRequest::create([
+            'user_id' => $advertiser->id,
+            'reference_code' => 'DEP-SPLIT-PI',
+            'amount' => 40,
+            'payment_method' => 'card',
+            'status' => 'pending',
+            'stripe_payment_intent_id' => $pi,
+        ]);
+
+        $credited = app(WalletStripeDepositService::class)->creditFromCheckoutSession((object) [
+            'id' => $sessionId,
+            'payment_status' => 'paid',
+            'amount_total' => 4000,
+            'payment_intent' => $pi,
+            'metadata' => (object) [
+                'type' => 'wallet_deposit',
+                'user_id' => (string) $advertiser->id,
+                'deposit_id' => (string) $hasSession->id,
+                'amount' => '40.00',
+            ],
+        ]);
+
+        $this->assertSame(40.0, $credited);
+        $this->assertSame('completed', $hasSession->fresh()->status);
+        $this->assertSame($sessionId, $hasSession->fresh()->stripe_session_id);
+        $this->assertSame($pi, $hasSession->fresh()->stripe_payment_intent_id);
+        $this->assertSame('pending', $hasPi->fresh()->status);
+        $this->assertNull($hasPi->fresh()->stripe_payment_intent_id);
+        $this->assertSame(40.0, (float) $wallet->fresh()->balance);
+        $this->assertSame(1, DepositRequest::query()
+            ->where('user_id', $advertiser->id)
+            ->where('status', 'completed')
+            ->count());
+    }
+
+    public function test_split_session_and_payment_intent_without_deposit_id_credits_once(): void
+    {
+        $advertiser = $this->advertiser();
+        $wallet = $this->walletFor($advertiser);
+        $sessionId = 'cs_split_lookup_'.uniqid();
+        $pi = 'pi_split_lookup_'.uniqid();
+
+        $hasSession = DepositRequest::create([
+            'user_id' => $advertiser->id,
+            'reference_code' => 'DEP-SPLIT-LOOKUP-CS',
+            'amount' => 40,
+            'payment_method' => 'card',
+            'status' => 'pending',
+            'stripe_session_id' => $sessionId,
+        ]);
+        DepositRequest::create([
+            'user_id' => $advertiser->id,
+            'reference_code' => 'DEP-SPLIT-LOOKUP-PI',
+            'amount' => 40,
+            'payment_method' => 'card',
+            'status' => 'pending',
+            'stripe_payment_intent_id' => $pi,
+        ]);
+
+        $credited = app(WalletStripeDepositService::class)->creditFromCheckoutSession((object) [
+            'id' => $sessionId,
+            'payment_status' => 'paid',
+            'amount_total' => 4000,
+            'payment_intent' => $pi,
+            'metadata' => (object) [
+                'type' => 'wallet_deposit',
+                'user_id' => (string) $advertiser->id,
+                'amount' => '40.00',
+            ],
+        ]);
+
+        $this->assertSame(40.0, $credited);
+        $this->assertSame('completed', $hasSession->fresh()->status);
+        $this->assertSame($pi, $hasSession->fresh()->stripe_payment_intent_id);
+        $this->assertSame(40.0, (float) $wallet->fresh()->balance);
+        $this->assertSame(1, DepositRequest::query()
+            ->where('user_id', $advertiser->id)
+            ->where('status', 'completed')
+            ->count());
+        $this->assertSame(0, DepositRequest::query()
+            ->where('stripe_payment_intent_id', $pi)
+            ->where('id', '!=', $hasSession->id)
+            ->count());
+    }
+
     public function test_pending_bank_leftover_session_is_detached_when_stripe_refuses_it(): void
     {
         $advertiser = $this->advertiser();
