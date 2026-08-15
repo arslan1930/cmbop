@@ -256,6 +256,11 @@ class AddFundsController extends Controller
                 $credited = app(WalletStripeDepositService::class)
                     ->creditFromPaymentIntent(auth()->id(), $paymentIntentId, $amountEuros, $ref);
 
+                if ($credited <= 0) {
+                    return redirect()->route('advertiser.add-funds')
+                        ->with('error', 'Payment verification failed. Please contact support.');
+                }
+
                 return redirect()->route('advertiser.add-funds')
                     ->with('success', 'Payment successful! €'.number_format($credited, 2).' added to your wallet.');
             } catch (\Throwable $e) {
@@ -379,16 +384,23 @@ class AddFundsController extends Controller
                 $chargedEuros = ! empty($payResult['amount_received'])
                     ? StripePaymentService::fromCents((int) $payResult['amount_received'])
                     : $amountEuros;
-                app(WalletStripeDepositService::class)->creditFromPaymentIntent(
+                $credited = app(WalletStripeDepositService::class)->creditFromPaymentIntent(
                     $user->id,
                     $payResult['payment_intent_id'],
                     $chargedEuros,
                     $referenceCode
                 );
 
+                if ($credited <= 0) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Payment verification failed. Please contact support.',
+                    ], 422);
+                }
+
                 return response()->json([
                     'success' => true,
-                    'message' => '€'.number_format($chargedEuros, 2).' added to your wallet with your saved card.',
+                    'message' => '€'.number_format($credited, 2).' added to your wallet with your saved card.',
                     'redirect_url' => route('advertiser.add-funds'),
                 ]);
             }

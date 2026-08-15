@@ -242,6 +242,7 @@ class AdminDepositsApproveContextTest extends TestCase
         ])->save();
         $this->walletFor($advertiser);
         $deposit = $this->depositFor($advertiser, [
+            'payment_method' => 'card',
             'stripe_session_id' => 'cs_secret',
             'stripe_payment_intent_id' => 'pi_secret',
             'stripe_response' => ['client_secret' => 'should-not-leak'],
@@ -266,7 +267,7 @@ class AdminDepositsApproveContextTest extends TestCase
         $this->assertArrayNotHasKey('password', $row['user']);
     }
 
-    public function test_bank_row_with_stripe_id_cannot_be_approved(): void
+    public function test_bank_row_with_leftover_stripe_id_can_still_be_approved(): void
     {
         $admin = $this->makeUser('admin');
         $advertiser = $this->makeUser('advertiser');
@@ -280,18 +281,17 @@ class AdminDepositsApproveContextTest extends TestCase
         $this->actingAs($admin)
             ->getJson(route('admin.deposits.show', $deposit->id))
             ->assertOk()
-            ->assertJsonPath('wallet.can_approve', false)
-            ->assertJsonPath('wallet.is_card', true);
+            ->assertJsonPath('wallet.can_approve', true)
+            ->assertJsonPath('wallet.is_card', false);
 
         $this->actingAs($admin)
             ->postJson(route('admin.deposits.approve', $deposit->id))
             ->assertOk()
-            ->assertJsonPath('success', false)
-            ->assertJsonPath('message', ManualDepositNotManualException::forDeposit()->getMessage());
+            ->assertJsonPath('success', true);
 
-        $this->assertSame('pending', $deposit->fresh()->status);
-        $this->assertSame(10.0, (float) $wallet->fresh()->balance);
-        Mail::assertNotQueued(DepositApproved::class);
+        $this->assertSame('completed', $deposit->fresh()->status);
+        $this->assertSame(50.0, (float) $wallet->fresh()->balance);
+        Mail::assertQueued(DepositApproved::class);
     }
 
     public function test_signed_get_for_pending_unknown_method_is_not_already_processed(): void

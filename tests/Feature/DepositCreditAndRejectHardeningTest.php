@@ -1165,4 +1165,49 @@ class DepositCreditAndRejectHardeningTest extends TestCase
         $this->assertSame(40.0, (float) $ownerWallet->fresh()->balance);
         $this->assertSame(0.0, (float) $payerWallet->fresh()->balance);
     }
+
+    public function test_admin_can_approve_pending_bank_with_leftover_stripe_id(): void
+    {
+        $admin = $this->admin();
+        $advertiser = $this->advertiser();
+        $wallet = $this->walletFor($advertiser);
+        $pi = 'pi_leftover_approve_'.uniqid();
+
+        $deposit = DepositRequest::create([
+            'user_id' => $advertiser->id,
+            'reference_code' => 'DEP-BANK-LEFTOVER-APPROVE',
+            'amount' => 40,
+            'payment_method' => 'bank',
+            'status' => 'pending',
+            'stripe_payment_intent_id' => $pi,
+        ]);
+
+        $this->actingAs($admin)
+            ->postJson(route('admin.deposits.approve', $deposit->id))
+            ->assertOk()
+            ->assertJsonPath('success', true);
+
+        $this->assertSame('completed', $deposit->fresh()->status);
+        $this->assertSame(40.0, (float) $wallet->fresh()->balance);
+
+        $credited = app(WalletStripeDepositService::class)->creditFromCheckoutSession((object) [
+            'id' => 'cs_after_approve_'.uniqid(),
+            'payment_status' => 'paid',
+            'amount_total' => 4000,
+            'payment_intent' => $pi,
+            'metadata' => (object) [
+                'type' => 'wallet_deposit',
+                'user_id' => (string) $advertiser->id,
+                'deposit_id' => (string) $deposit->id,
+                'amount' => '40.00',
+            ],
+        ]);
+
+        $this->assertSame(40.0, $credited);
+        $this->assertSame(40.0, (float) $wallet->fresh()->balance);
+        $this->assertSame(1, DepositRequest::query()
+            ->where('user_id', $advertiser->id)
+            ->where('status', 'completed')
+            ->count());
+    }
 }

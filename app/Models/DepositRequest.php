@@ -89,18 +89,16 @@ class DepositRequest extends Model
 
     public function isCardPayment(): bool
     {
-        return in_array(strtolower((string) $this->payment_method), self::CARD_METHODS, true)
-            || $this->hasStripeSettlement();
+        return in_array(strtolower((string) $this->payment_method), self::CARD_METHODS, true);
     }
 
     /**
-     * Admin / email confirm may credit only pending bank / Wise / crypto rows
-     * that are not already tied to a Stripe session or PaymentIntent.
+     * Admin / email confirm may credit pending bank / Wise / crypto rows.
+     * Leftover Stripe ids on a manual invoice are not a card settlement —
+     * Stripe will not complete this row, so they must not hide Approve.
      */
     public function canManuallyApprove(): bool
     {
-        return $this->isPending()
-            && $this->isManualPayment()
-            && ! $this->hasStripeSettlement();
+        return $this->isPending() && $this->isManualPayment();
     }
 }
