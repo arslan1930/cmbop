@@ -168,10 +168,16 @@ class WithdrawalPayoutStatementService
             && strcasecmp(trim((string) $statement->customer_email), $email) !== 0;
         $nameMismatch = $payeeName !== ''
             && trim((string) $statement->customer_name) !== $payeeName;
+        $metaWithdrawalId = (int) data_get($statement->meta, 'withdrawal_id');
+        $metaMismatch = $metaWithdrawalId !== (int) $withdrawal->id;
 
         // user_id may already have been corrected (earlier find()) while the
         // payee line and stored PDF still name the other publisher.
         if (! $ownerMismatch && ! $emailMismatch && ! $nameMismatch) {
+            if ($metaMismatch) {
+                $this->rewriteWithdrawalMeta($statement, $withdrawal);
+            }
+
             return $statement;
         }
 
@@ -207,6 +213,9 @@ class WithdrawalPayoutStatementService
                 $statement->customer_email = $email;
             }
             $statement->billing_snapshot = $snapshot;
+            $meta = is_array($statement->meta) ? $statement->meta : [];
+            $meta['withdrawal_id'] = (int) $withdrawal->id;
+            $statement->meta = $meta;
             // Drop the stored PDF so download/view cannot keep serving the
             // other publisher's name and address.
             $statement->pdf_path = null;
@@ -440,6 +449,26 @@ class WithdrawalPayoutStatementService
         ]);
 
         return $statement->fresh() ?? $statement;
+    }
+
+    private function rewriteWithdrawalMeta(Invoice $statement, Withdrawal $withdrawal): void
+    {
+        $fromUserId = (int) $statement->user_id;
+        $meta = is_array($statement->meta) ? $statement->meta : [];
+        $meta['withdrawal_id'] = (int) $withdrawal->id;
+
+        try {
+            $statement->meta = $meta;
+            $statement->save();
+        } catch (\Throwable $e) {
+            Log::warning('Failed to rewrite payout statement withdrawal meta', [
+                'invoice_id' => $statement->id,
+                'withdrawal_id' => $withdrawal->id,
+                'from_user_id' => $fromUserId,
+                'error' => $e->getMessage(),
+            ]);
+            $statement->refresh();
+        }
     }
 
     private function scalarText(mixed $value): string

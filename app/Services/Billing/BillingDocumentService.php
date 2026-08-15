@@ -744,19 +744,11 @@ class BillingDocumentService
 
     protected function findWithdrawalForStatement(Invoice $statement): ?Withdrawal
     {
-        $id = (int) data_get($statement->meta, 'withdrawal_id');
-        if ($id > 0) {
-            $withdrawal = Withdrawal::query()->with('user')->find($id);
-            if ($withdrawal) {
-                return $withdrawal;
-            }
+        $id = (int) $statement->withdrawalId();
+        if ($id <= 0) {
+            return null;
         }
 
-        $ref = (string) $statement->reference_code;
-        if (preg_match('/^WD-(\d+)$/', $ref, $matches)) {
-            return Withdrawal::query()->with('user')->find((int) $matches[1]);
-        }
-
-        return null;
+        return Withdrawal::query()->with('user')->find($id);
     }
 }

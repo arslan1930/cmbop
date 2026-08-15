@@ -1502,4 +1502,116 @@ class AdminWithdrawalLaterTest extends TestCase
         $this->assertStringContainsString('Dear Publisher', $html);
         $this->assertStringNotContainsString('Pat Publisher', $html);
     }
+
+    public function test_withdrawal_id_prefers_wd_reference_over_stale_meta(): void
+    {
+        $owner = $this->makeUser('publisher');
+        $owner->forceFill([
+            'name' => 'Ref Owner',
+            'email' => 'ref-owner@example.com',
+        ])->save();
+        $other = $this->makeUser('publisher');
+        $other->forceFill([
+            'name' => 'Meta Owner',
+            'email' => 'meta-owner@example.com',
+        ])->save();
+        $owned = $this->seedWithdrawal($owner, [
+            'status' => 'completed',
+            'processed_at' => now(),
+        ]);
+        $otherWd = $this->seedWithdrawal($other, [
+            'status' => 'completed',
+            'processed_at' => now(),
+        ]);
+        $statement = Invoice::create([
+            'user_id' => $other->id,
+            'customer_name' => $other->name,
+            'customer_email' => $other->email,
+            'invoice_number' => 'PAY-META-MISMATCH-1',
+            'type' => Invoice::TYPE_WITHDRAWAL_PAYOUT,
+            'status' => Invoice::STATUS_PAID,
+            'subtotal' => 95,
+            'total_amount' => 95,
+            'invoice_date' => now(),
+            'line_items' => [['description' => 'Payout', 'line_total' => 95]],
+            'pdf_disk' => 'local',
+            'reference_code' => 'WD-'.$owned->id,
+            'meta' => ['withdrawal_id' => $otherWd->id],
+        ]);
+
+        $this->assertSame($owned->id, $statement->withdrawalId());
+        $this->assertSame(
+            route('admin.withdrawals.show', $owned->id, false),
+            $statement->relatedAdminUrl()
+        );
+
+        $repaired = app(WithdrawalPayoutStatementService::class)->reconcileInvoice($statement);
+        $repaired = $repaired->fresh();
+        $this->assertSame($owner->id, (int) $repaired->user_id);
+        $this->assertSame('Ref Owner', $repaired->customer_name);
+        $this->assertSame('ref-owner@example.com', $repaired->customer_email);
+        $this->assertSame($owned->id, (int) data_get($repaired->meta, 'withdrawal_id'));
+
+        $this->actingAs($owner)
+            ->get(route('publisher.billing.show', $statement))
+            ->assertOk()
+            ->assertSee('PAY-META-MISMATCH-1', false)
+            ->assertSee('Ref Owner', false)
+            ->assertDontSee('Meta Owner', false);
+
+        $this->actingAs($other)
+            ->get(route('publisher.billing.show', $statement))
+            ->assertForbidden();
+    }
+
+    public function test_resend_follows_wd_reference_not_stale_meta(): void
+    {
+        Mail::fake();
+
+        $admin = $this->makeUser('admin');
+        $owner = $this->makeUser('publisher');
+        $owner->forceFill([
+            'name' => 'Ref Owner',
+            'email' => 'ref-resend@example.com',
+        ])->save();
+        $other = $this->makeUser('publisher');
+        $other->forceFill([
+            'name' => 'Meta Owner',
+            'email' => 'meta-resend@example.com',
+        ])->save();
+        $owned = $this->seedWithdrawal($owner, [
+            'status' => 'completed',
+            'processed_at' => now(),
+        ]);
+        $otherWd = $this->seedWithdrawal($other, [
+            'status' => 'completed',
+            'processed_at' => now(),
+        ]);
+        $statement = Invoice::create([
+            'user_id' => $other->id,
+            'customer_name' => $other->name,
+            'customer_email' => $other->email,
+            'invoice_number' => 'PAY-META-RESEND-1',
+            'type' => Invoice::TYPE_WITHDRAWAL_PAYOUT,
+            'status' => Invoice::STATUS_PAID,
+            'subtotal' => 95,
+            'total_amount' => 95,
+            'invoice_date' => now(),
+            'line_items' => [['description' => 'Payout', 'line_total' => 95]],
+            'pdf_disk' => 'local',
+            'reference_code' => 'WD-'.$owned->id,
+            'meta' => ['withdrawal_id' => $otherWd->id],
+        ]);
+
+        $this->actingAs($admin)
+            ->from(route('admin.invoices.show', $statement))
+            ->post(route('admin.invoices.resend', $statement))
+            ->assertRedirect(route('admin.invoices.show', $statement))
+            ->assertSessionHas('success');
+
+        Mail::assertQueued(WithdrawalStatusUpdated::class, 1);
+        Mail::assertQueued(WithdrawalStatusUpdated::class, function ($mail) use ($owner, $other) {
+            return $mail->hasTo($owner->email) && ! $mail->hasTo($other->email);
+        });
+    }
 }
