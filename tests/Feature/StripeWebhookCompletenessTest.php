@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\BulkSiteRequest;
+use App\Models\DepositRequest;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Role;
@@ -11,6 +12,8 @@ use App\Models\SiteFeaturePurchase;
 use App\Models\StripeWebhookLog;
 use App\Models\User;
 use App\Models\Wallet;
+use App\Services\Wallet\WalletLedgerService;
+use App\Services\WalletStripeDepositService;
 use Database\Seeders\RolesTableSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Mail;
@@ -63,6 +66,25 @@ class StripeWebhookCompletenessTest extends TestCase
             'verified' => true,
             'active' => true,
         ]);
+    }
+
+    private function bindDepositServiceRecoveringSession(object $session): void
+    {
+        $this->app->instance(
+            WalletStripeDepositService::class,
+            new class(app(WalletLedgerService::class), $session) extends WalletStripeDepositService
+            {
+                public function __construct(WalletLedgerService $ledger, private object $recoveredSession)
+                {
+                    parent::__construct($ledger);
+                }
+
+                public function fetchCheckoutSessionForPaymentIntent(string $paymentIntentId): ?object
+                {
+                    return $this->recoveredSession;
+                }
+            }
+        );
     }
 
     private function signedWebhook(array $event): TestResponse
@@ -276,6 +298,154 @@ class StripeWebhookCompletenessTest extends TestCase
         $this->assertEquals(0.0, (float) $wallet->fresh()->balance);
         $this->assertDatabaseCount('deposit_requests', 0);
         $this->assertTrue((bool) StripeWebhookLog::where('event_id', $eventId)->value('processed'));
+    }
+
+    public function test_untyped_payment_intent_credits_wallet_when_checkout_session_is_recovered(): void
+    {
+        $advertiser = $this->makeUser('advertiser');
+        $roleId = Wallet::advertiserRoleId();
+        $wallet = Wallet::create([
+            'user_id' => $advertiser->id,
+            'role_id' => $roleId,
+            'balance' => 0,
+            'reserved_balance' => 0,
+            'bonus_balance' => 0,
+            'bonus_reserved' => 0,
+            'currency' => 'EUR',
+        ]);
+
+        $sessionId = 'cs_recovered_wallet_'.uniqid();
+        $piId = 'pi_recovered_wallet_'.uniqid();
+        $this->bindDepositServiceRecoveringSession((object) [
+            'id' => $sessionId,
+            'payment_status' => 'unpaid',
+            'amount_total' => 4000,
+            'metadata' => (object) [
+                'type' => 'wallet_deposit',
+                'user_id' => (string) $advertiser->id,
+                'amount' => '40.00',
+                'reference_code' => 'DEP-RECOVERED-40',
+                'session_reference' => 'deposit_recovered_wallet_40',
+            ],
+        ]);
+
+        $eventId = 'evt_pi_recovered_wallet_'.uniqid();
+        $this->signedWebhook([
+            'id' => $eventId,
+            'object' => 'event',
+            'type' => 'payment_intent.succeeded',
+            'data' => [
+                'object' => [
+                    'id' => $piId,
+                    'object' => 'payment_intent',
+                    'status' => 'succeeded',
+                    'amount' => 4000,
+                    'amount_received' => 4000,
+                    'currency' => 'eur',
+                    'metadata' => [],
+                ],
+            ],
+        ])->assertOk();
+
+        $this->assertEquals(40.0, (float) $wallet->fresh()->balance);
+        $this->assertSame($piId, DepositRequest::query()
+            ->where('stripe_session_id', $sessionId)
+            ->value('stripe_payment_intent_id'));
+        $this->assertTrue((bool) StripeWebhookLog::where('event_id', $eventId)->value('processed'));
+    }
+
+    public function test_untyped_payment_intent_settles_order_when_checkout_session_is_recovered(): void
+    {
+        $advertiser = $this->makeUser('advertiser');
+        $publisher = $this->makeUser('publisher');
+        $site = $this->makeSite($publisher);
+        $ref = 'REF-RECOVERED-ORDER';
+
+        $order = Order::create([
+            'user_id' => $advertiser->id,
+            'order_number' => (string) random_int(100000, 999999),
+            'reference_code' => $ref,
+            'subtotal' => 115,
+            'tax' => 0,
+            'total_amount' => 115,
+            'payment_method' => 'card',
+            'payment_status' => 'pending',
+            'status' => 'pending',
+        ]);
+        OrderItem::create([
+            'order_id' => $order->id,
+            'site_id' => $site->id,
+            'site_name' => $site->site_name,
+            'site_url' => $site->site_url,
+            'content_link' => 'https://example.com/a',
+            'price' => 115,
+        ]);
+
+        $this->bindDepositServiceRecoveringSession((object) [
+            'id' => 'cs_recovered_order_'.uniqid(),
+            'payment_status' => 'paid',
+            'amount_total' => 11500,
+            'metadata' => (object) [
+                'type' => 'order_payment',
+                'user_id' => (string) $advertiser->id,
+                'reference_code' => $ref,
+            ],
+        ]);
+
+        $eventId = 'evt_pi_recovered_order_'.uniqid();
+        $this->signedWebhook([
+            'id' => $eventId,
+            'object' => 'event',
+            'type' => 'payment_intent.succeeded',
+            'data' => [
+                'object' => [
+                    'id' => 'pi_recovered_order_'.uniqid(),
+                    'object' => 'payment_intent',
+                    'status' => 'succeeded',
+                    'amount' => 11500,
+                    'amount_received' => 11500,
+                    'currency' => 'eur',
+                    'metadata' => [],
+                ],
+            ],
+        ])->assertOk();
+
+        $this->assertSame('paid', $order->fresh()->payment_status);
+        $this->assertTrue((bool) StripeWebhookLog::where('event_id', $eventId)->value('processed'));
+    }
+
+    public function test_untyped_payment_intent_is_retried_when_session_lookup_fails(): void
+    {
+        $this->app->instance(
+            WalletStripeDepositService::class,
+            new class(app(WalletLedgerService::class)) extends WalletStripeDepositService
+            {
+                public function fetchCheckoutSessionForPaymentIntent(string $paymentIntentId): ?object
+                {
+                    throw new \RuntimeException('Stripe list sessions failed');
+                }
+            }
+        );
+
+        $eventId = 'evt_pi_lookup_fail_'.uniqid();
+        $this->signedWebhook([
+            'id' => $eventId,
+            'object' => 'event',
+            'type' => 'payment_intent.succeeded',
+            'data' => [
+                'object' => [
+                    'id' => 'pi_lookup_fail_'.uniqid(),
+                    'object' => 'payment_intent',
+                    'status' => 'succeeded',
+                    'amount' => 4000,
+                    'amount_received' => 4000,
+                    'currency' => 'eur',
+                    'metadata' => [],
+                ],
+            ],
+        ])->assertStatus(500);
+
+        $this->assertFalse((bool) StripeWebhookLog::where('event_id', $eventId)->value('processed'));
     }
 
     public function test_untyped_session_with_add_funds_session_reference_credits_wallet(): void

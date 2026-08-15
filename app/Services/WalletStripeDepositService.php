@@ -407,6 +407,55 @@ class WalletStripeDepositService
         );
     }
 
+    /**
+     * A PaymentIntent webhook can arrive with empty metadata while the
+     * Checkout Session still has type / user_id / session_reference.
+     * Force paid + the known PI id so the charge is not swallowed.
+     */
+    public function creditFromRecoveredCheckoutSession(object $session, string $paymentIntentId): float
+    {
+        return $this->creditFromCheckoutSession(
+            $this->checkoutSessionWithPaidPaymentIntent($session, $paymentIntentId)
+        );
+    }
+
+    /**
+     * @throws \Throwable when Stripe is configured and the list call fails
+     */
+    public function fetchCheckoutSessionForPaymentIntent(string $paymentIntentId): ?object
+    {
+        $secret = trim((string) config('services.stripe.secret', ''));
+        if ($paymentIntentId === '' || $secret === '') {
+            return null;
+        }
+
+        Stripe::setApiKey($secret);
+        $sessions = Session::all([
+            'payment_intent' => $paymentIntentId,
+            'limit' => 1,
+        ]);
+        $session = $sessions->data[0] ?? null;
+
+        return is_object($session) ? $session : null;
+    }
+
+    public function checkoutSessionWithPaidPaymentIntent(object $session, string $paymentIntentId): object
+    {
+        $data = json_decode(json_encode($session), true);
+        if (! is_array($data)) {
+            $data = [];
+        }
+        if ($paymentIntentId !== '') {
+            $data['payment_intent'] = $paymentIntentId;
+        }
+        $data['payment_status'] = 'paid';
+        if (($data['id'] ?? '') === '' && isset($session->id)) {
+            $data['id'] = (string) $session->id;
+        }
+
+        return json_decode(json_encode($data));
+    }
+
     protected function completeExistingDeposit(
         int $depositId,
         string $sessionId,
@@ -1241,20 +1290,8 @@ class WalletStripeDepositService
      */
     protected function lookupCheckoutSessionIdForPaymentIntent(string $paymentIntentId): string
     {
-        $secret = trim((string) config('services.stripe.secret', ''));
-        if ($paymentIntentId === '' || $secret === '') {
-            return '';
-        }
-
         try {
-            Stripe::setApiKey($secret);
-            $sessions = Session::all([
-                'payment_intent' => $paymentIntentId,
-                'limit' => 1,
-            ]);
-            $session = $sessions->data[0] ?? null;
-
-            return is_object($session) ? (string) ($session->id ?? '') : '';
+            $session = $this->fetchCheckoutSessionForPaymentIntent($paymentIntentId);
         } catch (\Throwable $e) {
             Log::warning('WalletStripeDepositService: could not find Checkout Session for PaymentIntent', [
                 'payment_intent_id' => $paymentIntentId,
@@ -1263,6 +1300,8 @@ class WalletStripeDepositService
 
             return '';
         }
+
+        return is_object($session) ? (string) ($session->id ?? '') : '';
     }
 
     protected function mayCreateFallbackCardRow(?string $type, string $sessionReference = ''): bool

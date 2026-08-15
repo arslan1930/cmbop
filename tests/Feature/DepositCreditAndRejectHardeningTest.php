@@ -2043,6 +2043,36 @@ class DepositCreditAndRejectHardeningTest extends TestCase
             ->value('stripe_payment_intent_id'));
     }
 
+    public function test_recovered_checkout_session_credits_wallet_from_empty_payment_intent_metadata(): void
+    {
+        $advertiser = $this->advertiser();
+        $wallet = $this->walletFor($advertiser);
+        $sessionId = 'cs_recovered_empty_pi_'.uniqid();
+        $pi = 'pi_recovered_empty_meta_'.uniqid();
+
+        $credited = app(WalletStripeDepositService::class)->creditFromRecoveredCheckoutSession(
+            (object) [
+                'id' => $sessionId,
+                'payment_status' => 'unpaid',
+                'amount_total' => 4000,
+                'metadata' => (object) [
+                    'type' => 'wallet_deposit',
+                    'user_id' => (string) $advertiser->id,
+                    'amount' => '40.00',
+                    'reference_code' => 'DEP-RECOVERED-EMPTY',
+                    'session_reference' => 'deposit_recovered_empty_40',
+                ],
+            ],
+            $pi
+        );
+
+        $this->assertSame(40.0, $credited);
+        $this->assertSame(40.0, (float) $wallet->fresh()->balance);
+        $this->assertSame($pi, DepositRequest::query()
+            ->where('stripe_session_id', $sessionId)
+            ->value('stripe_payment_intent_id'));
+    }
+
     public function test_add_funds_session_reference_is_random_not_time_based(): void
     {
         $first = WalletStripeDepositService::newAddFundsSessionReference();

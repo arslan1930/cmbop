@@ -154,10 +154,7 @@ class StripeWebhookController extends Controller
                     break;
                 }
 
-                Log::info('Ignoring payment_intent.succeeded without known type', [
-                    'payment_intent_id' => $intent->id ?? null,
-                    'type' => $paymentType,
-                ]);
+                $this->recoverUntypedPaymentIntentFromCheckoutSession($intent);
                 break;
         }
     }
@@ -199,6 +196,62 @@ class StripeWebhookController extends Controller
     private function handleWalletDepositSession(object $session): void
     {
         app(WalletStripeDepositService::class)->creditFromCheckoutSession($session);
+    }
+
+    /**
+     * payment_intent.succeeded can arrive with empty metadata when Stripe
+     * did not copy payment_intent_data. The Checkout Session still has type.
+     * A Stripe API failure must 500 so the event is retried, not marked processed.
+     */
+    private function recoverUntypedPaymentIntentFromCheckoutSession(object $intent): void
+    {
+        $paymentIntentId = (string) ($intent->id ?? '');
+        if ($paymentIntentId === '') {
+            return;
+        }
+
+        $deposits = app(WalletStripeDepositService::class);
+        $session = $deposits->fetchCheckoutSessionForPaymentIntent($paymentIntentId);
+        if (! $session) {
+            Log::info('Ignoring payment_intent.succeeded without known type', [
+                'payment_intent_id' => $paymentIntentId,
+            ]);
+
+            return;
+        }
+
+        $metadata = $this->metaArray($session->metadata ?? null);
+        $paymentType = isset($metadata['type']) ? (string) $metadata['type'] : null;
+        $paymentType = $paymentType === '' ? null : $paymentType;
+        $paidSession = $deposits->checkoutSessionWithPaidPaymentIntent($session, $paymentIntentId);
+
+        Log::info('Recovered untyped PaymentIntent from Checkout Session', [
+            'payment_intent_id' => $paymentIntentId,
+            'session_id' => $session->id ?? null,
+            'payment_type' => $paymentType,
+        ]);
+
+        switch ($paymentType) {
+            case 'wallet_deposit':
+            case 'deposit':
+                $deposits->creditFromRecoveredCheckoutSession($session, $paymentIntentId);
+
+                return;
+
+            case 'order_payment':
+            case 'order':
+                $this->handleOrderPaymentIntent($intent, $metadata);
+
+                return;
+
+            case 'site_feature':
+                $this->handleSiteFeatureSession($paidSession);
+
+                return;
+
+            default:
+                $this->detectPaymentTypeByMetadata($paidSession, $metadata);
+        }
     }
 
     private function handleOrderCheckoutFailed(object $session, string $reason): void
