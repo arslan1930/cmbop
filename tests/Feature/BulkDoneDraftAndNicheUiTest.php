@@ -93,6 +93,8 @@ class BulkDoneDraftAndNicheUiTest extends TestCase
         $this->assertStringContainsString('function updateBulkDoneChip', $html);
         $this->assertStringContainsString('function refreshBulkDoneQuality', $html);
         $this->assertStringContainsString('function focusFirstInvalidDoneField', $html);
+        $this->assertStringContainsString('Keep the session draft until the next successful render', $html);
+        $this->assertStringNotContainsString('pruneDraftForItemIds(submittedIds)', $html);
         $this->assertStringContainsString('row.open = true', $html);
         $this->assertStringContainsString('[data-bulk-clear-row]', $html);
         $this->assertStringContainsString('[data-bulk-copy-above]', $html);
@@ -523,6 +525,72 @@ class BulkDoneDraftAndNicheUiTest extends TestCase
         $this->assertDatabaseMissing('sites', ['domain' => 'ftp']);
         $this->assertDatabaseMissing('sites', ['domain' => 'ftp-seed.example']);
         $this->assertSame(0, Site::query()->where('bulk_site_request_id', $bulk->id)->count());
+    }
+
+    public function test_done_occupying_failure_keeps_typed_metrics(): void
+    {
+        $bulk = BulkSiteRequest::create([
+            'publisher_id' => $this->publisher->id,
+            'status' => BulkSiteRequest::STATUS_REQUESTED,
+            'estimated_count' => 1,
+        ]);
+        $item = BulkSiteRequestItem::create([
+            'bulk_site_request_id' => $bulk->id,
+            'site_url' => 'https://keep-metrics.example',
+            'domain' => 'keep-metrics.example',
+            'price' => 40,
+        ]);
+
+        $taken = new Site;
+        $taken->applyMarketplaceListing([
+            'publisher_id' => $this->publisher->id,
+            'site_name' => 'Already Taken',
+            'site_url' => 'https://keep-metrics.example',
+            'domain' => 'keep-metrics.example',
+            'example_url' => 'https://keep-metrics.example',
+            'da' => 40,
+            'dr' => 45,
+            'traffic' => 12000,
+            'country' => 'de',
+            'language' => 'de',
+            'category' => 'News',
+            'price' => 40,
+            'publication_time' => 'permanent',
+            'link_type' => 'dofollow',
+            'description' => str_repeat('Existing listing description. ', 3),
+            'verified' => true,
+            'active' => true,
+        ]);
+        $taken->save();
+
+        [$country, $language] = $this->marketplaceCodes();
+        $category = Category::query()->firstOrFail();
+
+        $this->actingAs($this->marketer)
+            ->from(route('marketing.bulk-site-requests.show', $bulk))
+            ->post(route('marketing.bulk-site-requests.done', $bulk), [
+                'items' => [
+                    $item->id => [
+                        'language' => $language,
+                        'country' => $country,
+                        'da' => 41,
+                        'dr' => 46,
+                        'traffic' => 13000,
+                        'categories' => $category->name,
+                    ],
+                ],
+            ])
+            ->assertRedirect()
+            ->assertSessionHas('error')
+            ->assertSessionHas('seed_failures')
+            ->assertSessionHasInput('items.'.$item->id.'.da', '41')
+            ->assertSessionHasInput('items.'.$item->id.'.dr', '46')
+            ->assertSessionHasInput('items.'.$item->id.'.traffic', '13000');
+
+        $this->assertNull($item->fresh()->site_id);
+        $controller = file_get_contents(app_path('Http/Controllers/Admin/BulkSiteRequestController.php'));
+        $this->assertStringContainsString('lockForUpdate()', $controller);
+        $this->assertStringContainsString('$abortedCancelled', $controller);
     }
 
     public function test_marketing_layout_sidebar_collapse_uses_shell_tokens(): void

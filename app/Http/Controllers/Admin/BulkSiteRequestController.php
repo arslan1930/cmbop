@@ -179,8 +179,17 @@ class BulkSiteRequestController extends Controller
         $removedDrafts = 0;
         $archivedLive = 0;
 
-        DB::transaction(function () use ($bulkRequest, $reason, &$removedDrafts, &$archivedLive) {
-            $drafts = $bulkRequest->sites()
+        $alreadyCancelled = false;
+
+        DB::transaction(function () use ($bulkRequest, $reason, &$removedDrafts, &$archivedLive, &$alreadyCancelled) {
+            $locked = BulkSiteRequest::query()->lockForUpdate()->find($bulkRequest->id);
+            if (! $locked || $locked->isCancelled()) {
+                $alreadyCancelled = true;
+
+                return;
+            }
+
+            $drafts = $locked->sites()
                 ->where(function ($q) {
                     $q->where('verified', 0)->orWhereNull('verified');
                 })
@@ -197,20 +206,26 @@ class BulkSiteRequestController extends Controller
                 $removedDrafts++;
             }
 
-            $survivors = $bulkRequest->sites()->notArchived()->get();
+            $survivors = $locked->sites()->notArchived()->get();
             foreach ($survivors as $site) {
                 if ($site->archiveByStaff($reason)) {
                     $archivedLive++;
                 }
             }
 
-            $bulkRequest->items()->whereNull('site_id')->delete();
+            $locked->items()->whereNull('site_id')->delete();
 
-            $bulkRequest->forceFill([
+            $locked->forceFill([
                 'status' => BulkSiteRequest::STATUS_CANCELLED,
                 'handled_by' => auth()->id(),
             ])->save();
         });
+
+        if ($alreadyCancelled) {
+            return redirect()
+                ->to(staff_route('bulk-site-requests.index'))
+                ->with('error', 'This request is already cancelled.');
+        }
 
         ActivityLogger::log(
             'bulk_request.cancelled',
@@ -621,6 +636,7 @@ class BulkSiteRequestController extends Controller
         $createdDomains = [];
         $deletedCount = 0;
         $deletedDomains = [];
+        $abortedCancelled = false;
         $rejectedIds = array_values(array_unique(array_map(
             static fn (array $item): int => (int) $item['id'],
             $rejectedItems
@@ -636,8 +652,16 @@ class BulkSiteRequestController extends Controller
             &$failures,
             &$createdDomains,
             &$deletedCount,
-            &$deletedDomains
+            &$deletedDomains,
+            &$abortedCancelled
         ) {
+            $locked = BulkSiteRequest::query()->lockForUpdate()->find($bulkRequest->id);
+            if (! $locked || $locked->isCancelled()) {
+                $abortedCancelled = true;
+
+                return;
+            }
+
             foreach ($rows as $row) {
                 $domain = Site::normalizeMarketplaceDomain((string) ($row['domain'] ?? ''));
                 if ($domain === '') {
@@ -783,22 +807,26 @@ class BulkSiteRequestController extends Controller
                 }
 
                 if ($deletedCount > 0) {
-                    $bulkRequest->forceFill([
-                        'estimated_count' => $bulkRequest->items()->count(),
+                    $locked->forceFill([
+                        'estimated_count' => $locked->items()->count(),
                         'handled_by' => auth()->id(),
                     ])->save();
                 }
             }
 
             if ($created > 0) {
-                $bulkRequest->forceFill([
+                $locked->forceFill([
                     'status' => BulkSiteRequest::STATUS_AWAITING_PUBLISHER,
-                    'seeded_at' => $bulkRequest->seeded_at ?? now(),
+                    'seeded_at' => $locked->seeded_at ?? now(),
                     'handled_by' => auth()->id(),
                     'completed_at' => null,
                 ])->save();
             }
         });
+
+        if ($abortedCancelled) {
+            return back()->with('error', 'Cannot complete a cancelled request.');
+        }
 
         $fresh = $bulkRequest->fresh(['publisher']);
         $publisher = $fresh?->publisher;
@@ -919,9 +947,14 @@ class BulkSiteRequestController extends Controller
             }
         }
 
-        return back()
+        $response = back()
             ->with($didWork ? 'success' : 'error', $message)
             ->with('seed_failures', $failures);
+        if ($failures !== []) {
+            $response->withInput();
+        }
+
+        return $response;
     }
 
     /**

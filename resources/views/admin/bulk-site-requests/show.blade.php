@@ -1181,12 +1181,8 @@ document.getElementById('bulkCopySeedStarter')?.addEventListener('click', functi
         // Dedicated flag so shared slb-confirm.js cannot clear imperative allows.
         if (form.dataset.slbBulkAllowSubmit === '1') {
             delete form.dataset.slbBulkAllowSubmit;
-            const submittedIds = (form.dataset.slbBulkSubmittedIds || '')
-                .split(',')
-                .map(function (v) { return v.trim(); })
-                .filter(Boolean);
-            delete form.dataset.slbBulkSubmittedIds;
-            pruneDraftForItemIds(submittedIds);
+            // Keep the session draft until the next successful render. Pruning
+            // here dropped typed metrics when Done failed (occupied domain / 500).
             return;
         }
 
@@ -1239,7 +1235,6 @@ document.getElementById('bulkCopySeedStarter')?.addEventListener('click', functi
 
         const count = complete.length;
         const remaining = doneRows().length - count;
-        const submittedIds = complete.map(rowItemId).filter(Boolean).concat(rejected);
         e.preventDefault();
         let confirmTitle = 'Seed draft sites?';
         let confirmText = remaining > 0
@@ -1271,7 +1266,6 @@ document.getElementById('bulkCopySeedStarter')?.addEventListener('click', functi
                 return;
             }
             setIncompleteRowsDisabled(true);
-            form.dataset.slbBulkSubmittedIds = submittedIds.join(',');
             form.dataset.slbBulkAllowSubmit = '1';
             if (typeof form.requestSubmit === 'function') {
                 form.requestSubmit();
