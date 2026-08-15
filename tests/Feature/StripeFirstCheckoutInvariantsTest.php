@@ -557,6 +557,83 @@ class StripeFirstCheckoutInvariantsTest extends TestCase
         );
     }
 
+    public function test_mark_paid_credits_hidden_sibling_on_leftover_retry_rows(): void
+    {
+        $advertiser = $this->makeUser('advertiser');
+        $publisher = $this->makeUser('publisher');
+        $live = $this->makeSite($publisher, 'retry-live.example', 80);
+        $hidden = $this->makeSite($publisher, 'retry-hidden.example', 40);
+        $wallet = $this->advertiserWallet($advertiser, 0);
+        $ref = 'RETRY-PARTIAL-HIDDEN-1';
+
+        $liveOrder = $this->pendingCardOrder($advertiser, $live, $ref, 80);
+        $hiddenOrder = $this->pendingCardOrder($advertiser, $hidden, $ref, 40);
+        $liveOrder->update(['payment_status' => 'failed']);
+        $hiddenOrder->update(['payment_status' => 'failed']);
+        $hidden->update(['verified' => false, 'active' => false]);
+
+        $paid = app(OrderPaymentService::class)->markOrdersPaidFromStripeSession(
+            $ref,
+            $this->paidSession($ref, 120, 'cs_retry_partial_hidden', $advertiser->id)
+        );
+
+        $this->assertCount(1, $paid);
+        $this->assertSame('paid', $liveOrder->fresh()->payment_status);
+        $this->assertSame('pending', $liveOrder->fresh()->status);
+        $this->assertSame('failed', $hiddenOrder->fresh()->payment_status);
+        $this->assertSame('cancelled', $hiddenOrder->fresh()->status);
+
+        $wallet->refresh();
+        $this->assertEqualsWithDelta(40.0, (float) $wallet->balance, 0.01);
+        $this->assertEqualsWithDelta(
+            40.0,
+            app(OrderPaymentService::class)->unfulfilledCardCreditAmount($ref),
+            0.01
+        );
+    }
+
+    public function test_webhook_settles_partial_hidden_retry_rows_without_package(): void
+    {
+        $advertiser = $this->makeUser('advertiser');
+        $publisher = $this->makeUser('publisher');
+        $live = $this->makeSite($publisher, 'wh-retry-live.example', 80);
+        $hidden = $this->makeSite($publisher, 'wh-retry-hidden.example', 40);
+        $wallet = $this->advertiserWallet($advertiser, 0);
+        $ref = 'WH-RETRY-PARTIAL-1';
+
+        $liveOrder = $this->pendingCardOrder($advertiser, $live, $ref, 80);
+        $hiddenOrder = $this->pendingCardOrder($advertiser, $hidden, $ref, 40);
+        $liveOrder->update(['payment_status' => 'failed']);
+        $hiddenOrder->update(['payment_status' => 'failed']);
+        $hidden->update(['verified' => false, 'active' => false]);
+
+        $this->signedWebhook([
+            'id' => 'evt_retry_partial_'.uniqid(),
+            'object' => 'event',
+            'type' => 'checkout.session.completed',
+            'data' => [
+                'object' => [
+                    'id' => 'cs_wh_retry_partial',
+                    'object' => 'checkout.session',
+                    'payment_status' => 'paid',
+                    'amount_total' => 12000,
+                    'payment_intent' => 'pi_wh_retry_partial',
+                    'metadata' => [
+                        'type' => 'order_payment',
+                        'reference_code' => $ref,
+                        'user_id' => (string) $advertiser->id,
+                        'expected_amount' => '120',
+                    ],
+                ],
+            ],
+        ])->assertOk();
+
+        $this->assertSame('paid', $liveOrder->fresh()->payment_status);
+        $this->assertSame('cancelled', $hiddenOrder->fresh()->status);
+        $wallet->refresh();
+        $this->assertEqualsWithDelta(40.0, (float) $wallet->balance, 0.01);
+    }
+
     public function test_taken_content_library_line_is_refunded_once_not_double_credited(): void
     {
         $advertiser = $this->makeUser('advertiser');

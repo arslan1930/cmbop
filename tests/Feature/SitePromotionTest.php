@@ -356,6 +356,30 @@ class SitePromotionTest extends TestCase
         $this->assertStringContainsString('changed owner', $first['message']);
     }
 
+    public function test_feature_mismatch_can_credit_the_charged_amount(): void
+    {
+        config(['site_promotions.feature.price' => 25]);
+        $payer = $this->publisherWithWallet(5);
+        $site = $this->site($payer);
+
+        $result = app(SitePromotionService::class)->creditPayerWhenFeatureCannotApply(
+            $site,
+            $payer,
+            'cs_feature_wrong_amount',
+            'the charged amount did not match featured placement',
+            1.0
+        );
+
+        $this->assertTrue($result['success']);
+        $this->assertTrue($result['credited']);
+        $this->assertEqualsWithDelta(6.0, (float) Wallet::where('user_id', $payer->id)->value('balance'), 0.01);
+        $this->assertDatabaseHas('site_feature_purchases', [
+            'stripe_session_id' => 'cs_feature_wrong_amount',
+            'payment_method' => 'stripe_credit',
+            'amount' => 1,
+        ]);
+    }
+
     public function test_feature_from_stripe_credits_cancelled_bulk_leftover(): void
     {
         config(['site_promotions.feature.price' => 10]);

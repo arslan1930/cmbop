@@ -658,7 +658,30 @@ class StripeWebhookController extends Controller
         }
 
         $promotions = app(SitePromotionService::class);
-        $promotions->assertStripeChargeMatchesFeaturePrice($session);
+        try {
+            $promotions->assertStripeChargeMatchesFeaturePrice($session);
+        } catch (\RuntimeException $e) {
+            $charged = $promotions->stripeChargedEuros($session);
+            $result = $promotions->creditPayerWhenFeatureCannotApply(
+                $site,
+                $user,
+                $sessionId,
+                'the charged amount did not match featured placement',
+                $charged
+            );
+            if (! ($result['success'] ?? false)) {
+                throw new \RuntimeException($result['message'] ?? $e->getMessage());
+            }
+
+            Log::warning('site_feature amount mismatch; credited payer wallet', [
+                'site_id' => $siteId,
+                'session_id' => $sessionId,
+                'charged' => $charged,
+                'already' => $result['already'] ?? false,
+            ]);
+
+            return;
+        }
 
         if ((int) $site->publisher_id !== (int) $user->id) {
             $result = $promotions->creditPayerWhenFeatureCannotApply($site, $user, $sessionId);

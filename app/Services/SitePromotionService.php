@@ -34,6 +34,24 @@ class SitePromotionService
     public function assertStripeChargeMatchesFeaturePrice(object $session): void
     {
         $expected = $this->quotedFeaturePrice($session) ?? $this->featurePrice();
+        $charged = $this->stripeChargedEuros($session);
+        if ($charged <= 0) {
+            throw new \RuntimeException('Stripe site-feature session is missing the charged amount.');
+        }
+
+        if (abs($charged - $expected) > 0.01) {
+            throw new \RuntimeException(
+                'Stripe charged €'.number_format($charged, 2)
+                .' but featured placement costs €'.number_format($expected, 2).'.'
+            );
+        }
+    }
+
+    /**
+     * Amount Stripe actually captured for this feature Checkout / PaymentIntent.
+     */
+    public function stripeChargedEuros(object $session): float
+    {
         $stripeCents = null;
         if (isset($session->amount_total)) {
             $stripeCents = (int) $session->amount_total;
@@ -41,17 +59,7 @@ class SitePromotionService
             $stripeCents = (int) ($session->amount_received ?: $session->amount);
         }
 
-        if ($stripeCents === null) {
-            throw new \RuntimeException('Stripe site-feature session is missing the charged amount.');
-        }
-
-        $charged = StripePaymentService::fromCents($stripeCents);
-        if (abs($charged - $expected) > 0.01) {
-            throw new \RuntimeException(
-                'Stripe charged €'.number_format($charged, 2)
-                .' but featured placement costs €'.number_format($expected, 2).'.'
-            );
-        }
+        return $stripeCents !== null ? StripePaymentService::fromCents($stripeCents) : 0.0;
     }
 
     /**
@@ -158,15 +166,19 @@ class SitePromotionService
         Site $site,
         User $payer,
         string $stripeSessionId,
-        ?string $reason = null
+        ?string $reason = null,
+        ?float $amount = null
     ): array {
-        $price = $this->featurePrice();
+        $price = $amount !== null ? round($amount, 2) : $this->featurePrice();
         $roleId = Wallet::publisherRoleId();
         if (! $roleId) {
             return ['success' => false, 'message' => 'Publisher wallet is not available.'];
         }
         if ($stripeSessionId === '') {
             return ['success' => false, 'message' => 'Missing Stripe session.'];
+        }
+        if ($price <= 0) {
+            return ['success' => false, 'message' => 'Invalid feature credit amount.'];
         }
 
         try {

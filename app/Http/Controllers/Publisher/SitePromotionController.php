@@ -181,7 +181,21 @@ class SitePromotionController extends Controller
                     ->with('error', 'Payment session does not match this website.');
             }
 
-            $this->promotions->assertStripeChargeMatchesFeaturePrice($session);
+            try {
+                $this->promotions->assertStripeChargeMatchesFeaturePrice($session);
+            } catch (\RuntimeException $e) {
+                $charged = $this->promotions->stripeChargedEuros($session);
+                $credit = $this->promotions->creditPayerWhenFeatureCannotApply(
+                    $site,
+                    auth()->user(),
+                    $sessionId,
+                    'the charged amount did not match featured placement',
+                    $charged
+                );
+
+                return redirect()->route('publisher.websites')
+                    ->with($credit['success'] ? 'success' : 'error', $credit['message'] ?? $e->getMessage());
+            }
 
             if ((int) $site->publisher_id !== (int) auth()->id()) {
                 $credit = $this->promotions->creditPayerWhenFeatureCannotApply(

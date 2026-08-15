@@ -59,11 +59,14 @@ class OrderPaymentService
                     return collect();
                 }
 
-                $this->assertStripeAmountMatchesExpected(
-                    $session,
-                    $this->markableCardOrdersDue($orders, $meta),
-                    $referenceCode
-                );
+                if (! $this->canMarkMismatchedCardCharge($orders, $session, $meta)) {
+                    Log::warning('Stripe charge does not match leftover card order totals; leaving rows unsettled', [
+                        'reference_code' => $referenceCode,
+                        'session_id' => $session->id ?? null,
+                    ]);
+
+                    return collect();
+                }
             }
 
             $this->assertStripeAmountMatchesExpected(
@@ -149,11 +152,14 @@ class OrderPaymentService
                     return collect();
                 }
 
-                $this->assertStripeAmountMatchesExpected(
-                    $intent,
-                    $this->markableCardOrdersDue($orders, $meta),
-                    $referenceCode
-                );
+                if (! $this->canMarkMismatchedCardCharge($orders, $intent, $meta)) {
+                    Log::warning('PaymentIntent charge does not match leftover card order totals; leaving rows unsettled', [
+                        'reference_code' => $referenceCode,
+                        'payment_intent' => $intent->id ?? null,
+                    ]);
+
+                    return collect();
+                }
             }
 
             $this->assertStripeAmountMatchesExpected(
@@ -1450,6 +1456,27 @@ class OrderPaymentService
         }
 
         return abs($charged - $orderDue) <= 0.009;
+    }
+
+    /**
+     * Leftover Pay-again rows can stop matching this capture when a listing
+     * leaves the catalog. Mark the still-fulfillable rows when the capture
+     * covers them; otherwise leave the rows for package finalize or an
+     * unfulfillable-capture credit. Never 500 a paid webhook here.
+     *
+     * @param  Collection<int, Order>  $orders
+     * @param  array<string, mixed>  $meta
+     */
+    private function canMarkMismatchedCardCharge(Collection $orders, object $session, array $meta): bool
+    {
+        $charged = $this->stripeEurosFromObject($session);
+        $expected = $this->expectedStripeEurosForOrders($orders, $meta);
+        $markableDue = $this->markableCardOrdersDue($orders, $meta);
+
+        return $charged > 0
+            && $expected > 0
+            && abs($charged - $expected) <= 0.009
+            && $charged + 0.009 >= $markableDue;
     }
 
     /**
