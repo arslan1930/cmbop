@@ -675,6 +675,11 @@ class StripeWebhookCompletenessTest extends TestCase
                 {
                     return $this->recoveredIntent;
                 }
+
+                public function fetchCheckoutSessionForPaymentIntent(string $paymentIntentId): ?object
+                {
+                    return null;
+                }
             }
         );
 
