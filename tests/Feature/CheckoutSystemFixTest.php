@@ -476,6 +476,7 @@ class CheckoutSystemFixTest extends TestCase
             'site_id' => $site->id,
             'site_name' => $site->site_name,
             'site_url' => $site->site_url,
+            'content_link' => 'https://example.com/article',
             'price' => 40,
         ]);
 
@@ -498,6 +499,7 @@ class CheckoutSystemFixTest extends TestCase
             'site_id' => $site->id,
             'site_name' => $site->site_name,
             'site_url' => $site->site_url,
+            'content_link' => 'https://example.com/article',
             'price' => 40,
         ]);
 

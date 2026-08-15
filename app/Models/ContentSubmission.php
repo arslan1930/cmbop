@@ -318,6 +318,8 @@ class ContentSubmission extends Model
             $table.'.order_id',
             $table.'.archived_at',
             $table.'.expires_at',
+            $table.'.anchor_text',
+            $table.'.target_url',
         ]);
     }
 
