@@ -1258,6 +1258,35 @@ class AdminEmailCenterTest extends TestCase
         $this->assertSame($uuid, $log->fresh()->meta['failed_job_uuid'] ?? null);
     }
 
+    public function test_job_failed_event_does_not_stamp_unidentified_payload(): void
+    {
+        $uuid = (string) Str::uuid();
+        $log = EmailLog::create([
+            'uuid' => (string) Str::uuid(),
+            'mailable' => WelcomeEmail::class,
+            'template_key' => 'welcome',
+            'to_email' => 'customer@example.com',
+            'subject' => 'Welcome to SEOLinkBuildings',
+            'status' => EmailLog::STATUS_FAILED,
+            'error' => 'SMTP down',
+            'attempts' => 1,
+            'meta' => ['source' => 'queue'],
+        ]);
+
+        $job = Mockery::mock(Job::class);
+        $job->shouldReceive('uuid')->andReturn($uuid);
+        $job->shouldReceive('getRawBody')->andReturn(json_encode([
+            'displayName' => WelcomeEmail::class,
+            'data' => ['commandName' => 'Illuminate\\Mail\\SendQueuedMailable'],
+        ]));
+
+        (new StampEmailLogFailedJobUuid)->handle(
+            new JobFailed('database', $job, new \RuntimeException('SMTP'))
+        );
+
+        $this->assertNull($log->fresh()->meta['failed_job_uuid'] ?? null);
+    }
+
     public function test_successful_send_closes_every_open_log_for_the_dedupe_key(): void
     {
         $admin = $this->userWithRole('admin');

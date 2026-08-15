@@ -453,7 +453,7 @@ class EmailCenterController extends Controller
 
             $matches = $failed->filter(
                 fn (EmailLog $log) => empty($marked[$log->id])
-                    && MailJobPayload::matchesEmailLog($payload, $log)
+                    && MailJobPayload::matchesEmailLog($payload, $log, requireToken: true)
             );
             if ($matches->count() !== 1) {
                 continue;

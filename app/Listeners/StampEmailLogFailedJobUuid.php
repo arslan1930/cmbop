@@ -51,7 +51,7 @@ class StampEmailLogFailedJobUuid
             ->latest('id')
             ->limit(50)
             ->get()
-            ->filter(fn (EmailLog $log) => MailJobPayload::matchesEmailLog($payload, $log));
+            ->filter(fn (EmailLog $log) => MailJobPayload::matchesEmailLog($payload, $log, requireToken: true));
 
         if ($matches->count() !== 1) {
             return;

@@ -429,11 +429,12 @@ class AudienceInventoryService
      */
     public function collectRecipientRows(string $audience, ?array $selectedIds = null, bool $includeUnverified = false): Collection
     {
-        return $this->recipientRowQuery(
-            $this->recipientBuilder($audience, $selectedIds, $includeUnverified),
-            $includeUnverified,
-            alreadyScoped: true
-        )->get();
+        return $this->recipientBuilder($audience, $selectedIds, $includeUnverified)
+            ->setEagerLoads([])
+            ->reorder()
+            ->orderBy('users.id')
+            ->select(['users.id', 'users.email'])
+            ->get();
     }
 
     /**

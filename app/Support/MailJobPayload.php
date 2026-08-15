@@ -65,7 +65,7 @@ class MailJobPayload
         return self::emails($payload) !== [];
     }
 
-    public static function matchesEmailLog(string $payload, EmailLog $log): bool
+    public static function matchesEmailLog(string $payload, EmailLog $log, bool $requireToken = false): bool
     {
         if (! self::isQueuedMailable($payload)) {
             return false;
@@ -80,6 +80,10 @@ class MailJobPayload
         if (self::containsToken($payload, (string) $log->to_email)
             || self::containsToken($payload, (string) $log->dedupe_key)) {
             return true;
+        }
+
+        if ($requireToken) {
+            return false;
         }
 
         $to = (string) $log->to_email;

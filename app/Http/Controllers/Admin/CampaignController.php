@@ -107,19 +107,19 @@ class CampaignController extends Controller
             return back()->withInput()->with('error', 'Select at least one user for a custom audience.');
         }
 
+        $bodyHtml = CampaignHtml::sanitize($data['body_html']);
+        if (CampaignHtml::isBlank($data['body_html'])) {
+            return back()->withInput()->withErrors([
+                'body_html' => 'Write a message before sending.',
+            ]);
+        }
+
         $includeUnverified = $request->boolean('include_unverified');
         $recipients = $inventory->collectRecipientRows($data['audience'], $data['user_ids'] ?? [], $includeUnverified)
             ->unique('id')
             ->values();
         if ($recipients->isEmpty()) {
             return back()->withInput()->with('error', 'No recipients found for that audience.');
-        }
-
-        $bodyHtml = CampaignHtml::sanitize($data['body_html']);
-        if (CampaignHtml::isBlank($data['body_html'])) {
-            return back()->withInput()->withErrors([
-                'body_html' => 'Write a message before sending.',
-            ]);
         }
 
         $respectPrefs = $request->boolean('respect_preferences');
