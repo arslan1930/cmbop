@@ -81,6 +81,13 @@ trait HasPromotionSchedule
         }
     }
 
+    public function visibleToAudience(string $audience): bool
+    {
+        $mine = scalar_text($this->audience ?: 'all');
+
+        return $mine === 'all' || $mine === $audience;
+    }
+
     public function safeStartsAt(): ?DateTimeInterface
     {
         return $this->safeScheduleDate('starts_at');

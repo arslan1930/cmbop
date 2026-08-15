@@ -77,7 +77,13 @@ class AnnouncementController extends Controller
 
     public function store(Request $request)
     {
-        if (! Schema::hasTable('site_announcements')) {
+        try {
+            if (! Schema::hasTable('site_announcements')) {
+                return redirect()
+                    ->route(staff_route_prefix().'promotions.index')
+                    ->with('error', 'Announcements are unavailable until the database migration has been run.');
+            }
+        } catch (\Throwable) {
             return redirect()
                 ->route(staff_route_prefix().'promotions.index')
                 ->with('error', 'Announcements are unavailable until the database migration has been run.');

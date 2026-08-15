@@ -20,7 +20,12 @@ class PromotionListQuery
         $status = search_text($request->query('status')) ?: 'all';
         if ($status === 'trashed') {
             $query->onlyTrashed();
-        } elseif (in_array($status, ['live', 'scheduled', 'expired', 'paused'], true)) {
+        } elseif ($status === 'live') {
+            $ids = (clone $query)->active()->get()
+                ->filter(fn ($model) => method_exists($model, 'isCurrentlyLive') && $model->isCurrentlyLive())
+                ->pluck($query->getModel()->getKeyName());
+            $query->whereIn($query->getModel()->getQualifiedKeyName(), $ids->isEmpty() ? [0] : $ids->all());
+        } elseif (in_array($status, ['scheduled', 'expired', 'paused'], true)) {
             $query->scheduleState($status);
         }
 
@@ -61,7 +66,9 @@ class PromotionListQuery
         $counts = [];
         foreach (['live', 'scheduled', 'expired', 'paused'] as $status) {
             try {
-                $counts[$status] = (clone $base)->scheduleState($status)->count();
+                $counts[$status] = $status === 'live'
+                    ? (clone $base)->active()->get()->filter->isCurrentlyLive()->count()
+                    : (clone $base)->scheduleState($status)->count();
             } catch (\Throwable) {
                 $counts[$status] = 0;
             }

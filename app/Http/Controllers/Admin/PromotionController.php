@@ -41,7 +41,7 @@ class PromotionController extends Controller
 
                 foreach (array_keys($featuredNotices) as $type) {
                     $noticeCounts[$type] = [
-                        'live' => SiteAnnouncement::query()->active()->where('type', $type)->count(),
+                        'live' => SiteAnnouncement::query()->active()->where('type', $type)->get()->filter->isCurrentlyLive()->count(),
                         'total' => SiteAnnouncement::query()->where('type', $type)->count(),
                     ];
                 }

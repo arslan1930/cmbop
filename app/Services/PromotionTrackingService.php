@@ -58,6 +58,11 @@ class PromotionTrackingService
             return false;
         }
 
+        if (method_exists($subject, 'visibleToAudience')
+            && ! $subject->visibleToAudience(app(PromotionService::class)->resolveAudience())) {
+            return false;
+        }
+
         if ($this->looksLikeBot($request)) {
             return false;
         }
@@ -111,8 +116,10 @@ class PromotionTrackingService
     {
         $href = PromotionUrl::href($storedUrl);
         $live = method_exists($subject, 'isCurrentlyLive') && $subject->isCurrentlyLive();
+        $audienceOk = ! method_exists($subject, 'visibleToAudience')
+            || $subject->visibleToAudience(app(PromotionService::class)->resolveAudience());
 
-        if (! $live || $href === null) {
+        if (! $live || ! $audienceOk || $href === null) {
             return redirect()->away('/');
         }
 

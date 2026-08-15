@@ -2,7 +2,10 @@
 
 namespace Tests\Feature;
 
+use App\Models\Role;
 use App\Models\SiteAnnouncement;
+use App\Models\User;
+use Database\Seeders\RolesTableSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -50,6 +53,54 @@ class AnnouncementClickTest extends TestCase
         $this->get(route('announcements.click', $announcement))
             ->assertRedirect('/');
         $this->assertSame(0, (int) $announcement->fresh()->clicks);
+    }
+
+    public function test_guest_cannot_follow_advertiser_only_cta(): void
+    {
+        $announcement = SiteAnnouncement::create([
+            'title' => 'Advertisers only',
+            'message' => 'Private',
+            'type' => 'limited_offer',
+            'style' => 'promo',
+            'audience' => 'advertiser',
+            'cta_label' => 'Shop',
+            'cta_url' => '/advertiser/catalog',
+            'is_active' => true,
+        ]);
+
+        $this->get(route('announcements.click', $announcement))
+            ->assertRedirect('/');
+        $this->assertSame(0, (int) $announcement->fresh()->clicks);
+    }
+
+    public function test_advertiser_can_follow_advertiser_only_cta(): void
+    {
+        $this->seed(RolesTableSeeder::class);
+        $role = Role::where('name', 'advertiser')->firstOrFail();
+        $advertiser = User::factory()->create([
+            'email_verified_at' => now(),
+            'active_role_id' => $role->id,
+        ]);
+        $advertiser->roles()->attach($role->id);
+
+        $announcement = SiteAnnouncement::create([
+            'title' => 'Advertisers only',
+            'message' => 'Private',
+            'type' => 'limited_offer',
+            'style' => 'promo',
+            'audience' => 'advertiser',
+            'cta_label' => 'Shop',
+            'cta_url' => '/advertiser/catalog',
+            'is_active' => true,
+        ]);
+
+        $this->actingAs($advertiser)
+            ->get(route('announcements.click', $announcement))
+            ->assertRedirect();
+        $this->assertStringContainsString(
+            '/advertiser/catalog',
+            (string) $this->actingAs($advertiser)->get(route('announcements.click', $announcement))->headers->get('Location')
+        );
     }
 
     public function test_userinfo_cta_goes_home(): void

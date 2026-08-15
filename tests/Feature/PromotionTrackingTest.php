@@ -259,6 +259,21 @@ class PromotionTrackingTest extends TestCase
         $this->assertSame(0, PromotionEvent::query()->count());
     }
 
+    public function test_track_ignores_advertiser_banner_for_guest(): void
+    {
+        $banner = $this->liveBanner();
+        $banner->update(['audience' => 'advertiser']);
+
+        $this->postJson(route('promotions.track'), [
+            'subject_type' => 'banner',
+            'subject_id' => $banner->id,
+            'event' => 'impression',
+        ])->assertOk();
+
+        $this->assertSame(0, PromotionEvent::query()->count());
+        $this->assertSame(0, (int) $banner->fresh()->impressions);
+    }
+
     public function test_preview_page_is_staff_only(): void
     {
         $role = Role::firstOrCreate(['name' => 'admin']);

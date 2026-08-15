@@ -1,9 +1,12 @@
 @php
-    $placementKey = $placement ?? 'content_top';
+    $allowedPlacements = array_keys(config('promotions.banner_placements', []));
+    $placementKey = in_array($placement ?? '', $allowedPlacements, true) ? $placement : 'content_top';
+    $allowedAudiences = array_keys(config('promotions.audiences', []));
+    $audienceKey = in_array($audience ?? '', $allowedAudiences, true) ? $audience : null;
     $banners = collect();
     $trackPromos = $track ?? true;
     try {
-        $banners = app(\App\Services\PromotionService::class)->activeBanners($placementKey, $audience ?? null);
+        $banners = app(\App\Services\PromotionService::class)->activeBanners($placementKey, $audienceKey);
     } catch (\Throwable $e) {
         $banners = collect();
     }
@@ -17,7 +20,7 @@
         @php
             $src = $banner->imageSrc();
             $href = $banner->clickHref()
-                ? route('banners.click', $banner)
+                ? ($trackPromos ? route('banners.click', $banner) : $banner->clickHref())
                 : null;
         @endphp
         @if($src)
