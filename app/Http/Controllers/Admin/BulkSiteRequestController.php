@@ -658,6 +658,7 @@ class BulkSiteRequestController extends Controller
 
         $created = 0;
         $createdDomains = [];
+        $folded = 0;
         $deletedCount = 0;
         $deletedDomains = [];
         $abortedCancelled = false;
@@ -675,6 +676,7 @@ class BulkSiteRequestController extends Controller
             &$created,
             &$failures,
             &$createdDomains,
+            &$folded,
             &$deletedCount,
             &$deletedDomains,
             &$abortedCancelled
@@ -685,6 +687,39 @@ class BulkSiteRequestController extends Controller
 
                 return;
             }
+
+            if ($rejectedIds !== []) {
+                $kept = $locked->items()
+                    ->whereIn('id', $rejectedIds)
+                    ->whereNull('site_id')
+                    ->get(['id', 'domain']);
+                $deletedDomains = $kept->pluck('domain')->filter()->map(fn ($d) => (string) $d)->values()->all();
+                $deletedCount = $locked->items()
+                    ->whereIn('id', $rejectedIds)
+                    ->whereNull('site_id')
+                    ->delete();
+                if ($deletedCount > 0 && $deletedDomains === []) {
+                    $deletedDomains = array_values(array_filter(array_map(
+                        static function (array $item): string {
+                            $domain = trim((string) ($item['domain'] ?? ''));
+
+                            return $domain !== '' ? $domain : trim((string) ($item['site_url'] ?? ''));
+                        },
+                        $rejectedItems
+                    )));
+                }
+
+                if ($deletedCount > 0) {
+                    $locked->forceFill([
+                        'estimated_count' => $locked->items()->count(),
+                        'handled_by' => auth()->id(),
+                    ])->save();
+                }
+            }
+
+            // Reject first so a marketer who Dones www and deletes the apex
+            // twin does not have fold re-attach the row they just removed.
+            $folded += $locked->foldPendingTwinsOntoExistingSites();
 
             foreach ($rows as $row) {
                 $domain = Site::normalizeMarketplaceDomain((string) ($row['domain'] ?? ''));
@@ -708,6 +743,23 @@ class BulkSiteRequestController extends Controller
                 $existing = Site::findOccupyingDomain($domain, lock: true);
 
                 if ($existing) {
+                    if ($locked->canAbsorbOccupyingSite($existing)) {
+                        $pending = $locked->items()->whereNull('site_id')->get(['id', 'domain']);
+                        $itemIds = $this->pendingItemIdsForNormalizedDomain($pending, $domain);
+                        if ($doneItemId > 0 && ! in_array($doneItemId, $itemIds, true)
+                            && $pending->firstWhere('id', $doneItemId)) {
+                            $itemIds[] = $doneItemId;
+                        }
+                        if ($itemIds !== []) {
+                            $folded += $locked->items()
+                                ->whereNull('site_id')
+                                ->whereIn('id', $itemIds)
+                                ->update(['site_id' => $existing->id]);
+                        }
+
+                        continue;
+                    }
+
                     $failures[] = [
                         'line' => $row['line'],
                         'url' => $row['site_url'],
@@ -841,35 +893,6 @@ class BulkSiteRequestController extends Controller
                 $createdDomains[] = $domain;
             }
 
-            if ($rejectedIds !== []) {
-                $kept = $locked->items()
-                    ->whereIn('id', $rejectedIds)
-                    ->whereNull('site_id')
-                    ->get(['id', 'domain']);
-                $deletedDomains = $kept->pluck('domain')->filter()->map(fn ($d) => (string) $d)->values()->all();
-                $deletedCount = $locked->items()
-                    ->whereIn('id', $rejectedIds)
-                    ->whereNull('site_id')
-                    ->delete();
-                if ($deletedCount > 0 && $deletedDomains === []) {
-                    $deletedDomains = array_values(array_filter(array_map(
-                        static function (array $item): string {
-                            $domain = trim((string) ($item['domain'] ?? ''));
-
-                            return $domain !== '' ? $domain : trim((string) ($item['site_url'] ?? ''));
-                        },
-                        $rejectedItems
-                    )));
-                }
-
-                if ($deletedCount > 0) {
-                    $locked->forceFill([
-                        'estimated_count' => $locked->items()->count(),
-                        'handled_by' => auth()->id(),
-                    ])->save();
-                }
-            }
-
             if ($created > 0) {
                 $locked->forceFill([
                     'status' => BulkSiteRequest::STATUS_AWAITING_PUBLISHER,
@@ -977,13 +1000,18 @@ class BulkSiteRequestController extends Controller
         if ($created > 0) {
             $parts[] = "{$headline} — {$created} site(s) added to the publisher’s Pending sites. Publisher notified (email + in-app). Still inactive until they finish details and you verify.";
         }
+        if ($folded > 0) {
+            $parts[] = $folded === 1
+                ? '1 duplicate URL was folded onto an existing draft on this request.'
+                : "{$folded} duplicate URLs were folded onto existing drafts on this request.";
+        }
         if ($deletedCount > 0) {
             $parts[] = $deletedCount === 1
                 ? '1 site was removed and the publisher was notified.'
                 : "{$deletedCount} sites were removed and the publisher was notified.";
         }
         $message = $parts !== [] ? implode(' ', $parts) : 'No sites were added.';
-        if ($remaining > 0 && ($created > 0 || $deletedCount > 0)) {
+        if ($remaining > 0 && ($created > 0 || $deletedCount > 0 || $folded > 0)) {
             $message .= $created > 0
                 ? " {$remaining} website(s) still pending — fill and submit them when ready."
                 : " {$remaining} website(s) still pending.";
@@ -992,7 +1020,7 @@ class BulkSiteRequestController extends Controller
             $message .= ' '.count($failures).' row(s) failed.';
         }
 
-        $didWork = $created > 0 || $deletedCount > 0;
+        $didWork = $created > 0 || $deletedCount > 0 || $folded > 0;
         if ($didWork) {
             $bulkRequest->refreshProgressStatus();
             $still = $bulkRequest->fresh();

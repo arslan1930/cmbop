@@ -117,6 +117,12 @@ class BulkSiteRequest extends Model
             return true;
         }
 
+        // Pre-fold leftovers: www still pending while apex is already a draft
+        // on this batch. Show/submit must attach or the publisher stays blocked.
+        if ($hasPendingItems && $hasSites && $this->hasPendingTwinsForExistingSites()) {
+            return true;
+        }
+
         // Reject-all leftover: no pending rows, no live drafts, not a legacy
         // sheet (count set, no item rows). Show must complete it or the
         // marketer list keeps a ghost "Waiting on marketer" batch.
@@ -159,6 +165,8 @@ class BulkSiteRequest extends Model
         if ($this->status === self::STATUS_CANCELLED) {
             return;
         }
+
+        $this->foldPendingTwinsOntoExistingSites();
 
         $total = $this->sites()->notArchived()->count();
         $pendingItems = $this->pendingItemsCount();
@@ -234,6 +242,79 @@ class BulkSiteRequest extends Model
             'status' => self::STATUS_COMPLETED,
             'completed_at' => $this->completed_at ?? now(),
         ])->save();
+    }
+
+    /**
+     * Pending URL+price rows whose www/apex/port twin is already a live draft
+     * on this batch. Leaving them pending blocks the publisher forever
+     * (retry Done hits "already registered").
+     */
+    public function hasPendingTwinsForExistingSites(): bool
+    {
+        return $this->pendingTwinItemIdsByExistingSite() !== [];
+    }
+
+    /**
+     * Attach leftover pending twins to the existing same-batch listing.
+     */
+    public function foldPendingTwinsOntoExistingSites(): int
+    {
+        $groups = $this->pendingTwinItemIdsByExistingSite();
+        if ($groups === []) {
+            return 0;
+        }
+
+        $attached = 0;
+        foreach ($groups as $siteId => $itemIds) {
+            $attached += $this->items()
+                ->whereNull('site_id')
+                ->whereIn('id', $itemIds)
+                ->update(['site_id' => $siteId]);
+        }
+
+        return $attached;
+    }
+
+    public function canAbsorbOccupyingSite(Site $site): bool
+    {
+        return ! $site->isArchived()
+            && (int) $site->publisher_id === (int) $this->publisher_id
+            && (int) $site->bulk_site_request_id === (int) $this->id;
+    }
+
+    /**
+     * @return array<int, list<int>> site id => pending item ids
+     */
+    private function pendingTwinItemIdsByExistingSite(): array
+    {
+        $pending = $this->items()->whereNull('site_id')->get(['id', 'domain']);
+        if ($pending->isEmpty()) {
+            return [];
+        }
+
+        $sites = $this->sites()->notArchived()->get(['id', 'domain']);
+        if ($sites->isEmpty()) {
+            return [];
+        }
+
+        $siteByNorm = [];
+        foreach ($sites as $site) {
+            $norm = Site::normalizeMarketplaceDomain((string) $site->domain);
+            if ($norm !== '' && ! isset($siteByNorm[$norm])) {
+                $siteByNorm[$norm] = (int) $site->id;
+            }
+        }
+
+        $groups = [];
+        foreach ($pending as $item) {
+            $norm = Site::normalizeMarketplaceDomain((string) $item->domain);
+            if ($norm === '' || ! isset($siteByNorm[$norm])) {
+                continue;
+            }
+            $groups[$siteByNorm[$norm]][] = (int) $item->id;
+        }
+
+        return $groups;
     }
 
     /**
