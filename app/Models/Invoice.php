@@ -166,7 +166,7 @@ class Invoice extends Model
 
     /**
      * HTML admin page for the related order, deposit, or withdrawal.
-     * Deposit/payout JSON show endpoints are not used — ops land on the list.
+     * Payout statements open the shareable withdrawal page (browser GET).
      */
     public function relatedAdminUrl(): ?string
     {
@@ -185,10 +185,7 @@ class Invoice extends Model
         }
 
         if ($this->isWithdrawalPayout() && $this->withdrawalId()) {
-            return route('admin.withdrawals', [
-                'search' => (string) $this->withdrawalId(),
-                'queue' => 'history',
-            ]);
+            return route('admin.withdrawals.show', $this->withdrawalId());
         }
 
         return null;

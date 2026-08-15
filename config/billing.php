@@ -217,6 +217,17 @@ return [
     */
     'withdrawal_mark_paid_duplicate_lookback_days' => (int) env('BILLING_WITHDRAWAL_MARK_PAID_DUPLICATE_LOOKBACK_DAYS', 30),
 
+    /*
+    | CSV export row cap for the payout queue. Over this, the export is refused
+    | so a history dump cannot lock the request. Narrow filters and retry.
+    */
+    'withdrawal_export_max_rows' => max(1, (int) env('BILLING_WITHDRAWAL_EXPORT_MAX_ROWS', 2000)),
+
+    /*
+    | Select-all-matching cap (open pending + processing only).
+    */
+    'withdrawal_select_matching_limit' => max(1, (int) env('BILLING_WITHDRAWAL_SELECT_MATCHING_LIMIT', 100)),
+
     'colors' => [
         'primary' => '#0b6266',
         'accent' => '#3aaeb2',

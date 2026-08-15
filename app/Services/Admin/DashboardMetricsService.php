@@ -270,8 +270,7 @@ class DashboardMetricsService
                 'method' => $w->payment_method,
                 'status' => $w->status,
                 'date' => optional($w->created_at)->format('d M Y H:i'),
-                // withdrawals.show is JSON for the list-page modal; the HTML queue is the working page.
-                'url' => route('admin.withdrawals', ['queue' => 'open']),
+                'url' => route('admin.withdrawals.show', $w->id),
             ]);
 
         $sites = Site::with('publisher:id,name,email')

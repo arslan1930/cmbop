@@ -240,6 +240,57 @@ class ManualWithdrawalSettlementServiceTest extends TestCase
         $this->assertSame(10.0, (float) $advertiserWallet->fresh()->balance);
     }
 
+    public function test_cannot_reopen_completed_or_cancelled_to_pending(): void
+    {
+        $admin = $this->makeUser('admin');
+        $publisher = $this->makeUser('publisher');
+        $this->publisherWallet($publisher, 0);
+        $service = app(ManualWithdrawalSettlementService::class);
+
+        $completed = $this->pendingWithdrawal($publisher, 20);
+        $service->markPaid($completed, $admin);
+
+        try {
+            $service->transition($completed->fresh(), 'pending', $admin);
+            $this->fail('Expected completed withdrawals to stay closed.');
+        } catch (ManualWithdrawalInvalidTransitionException $e) {
+            $this->assertStringContainsString('Cannot reopen', $e->getMessage());
+        }
+        $this->assertSame('completed', $completed->fresh()->status);
+
+        $cancelled = $this->pendingWithdrawal($publisher, 15);
+        $service->reject($cancelled, $admin);
+        try {
+            $service->transition($cancelled->fresh(), 'pending', $admin);
+            $this->fail('Expected cancelled withdrawals to stay closed.');
+        } catch (ManualWithdrawalInvalidTransitionException $e) {
+            $this->assertStringContainsString('Cannot reopen', $e->getMessage());
+        }
+        $this->assertSame('cancelled', $cancelled->fresh()->status);
+
+        $this->actingAs($admin)
+            ->postJson(route('admin.withdrawals.update-status', $completed->id), [
+                'status' => 'pending',
+            ])
+            ->assertStatus(400)
+            ->assertJsonPath('success', false);
+    }
+
+    public function test_processing_can_return_to_pending(): void
+    {
+        $admin = $this->makeUser('admin');
+        $publisher = $this->makeUser('publisher');
+        $this->publisherWallet($publisher);
+        $withdrawal = $this->pendingWithdrawal($publisher, 30);
+
+        $service = app(ManualWithdrawalSettlementService::class);
+        $service->markProcessing($withdrawal, $admin);
+        $result = $service->transition($withdrawal->fresh(), 'pending', $admin);
+
+        $this->assertFalse($result['unchanged']);
+        $this->assertSame('pending', $withdrawal->fresh()->status);
+    }
+
     public function test_advertiser_http_withdraw_then_admin_reject_restores_advertiser_wallet(): void
     {
         $admin = $this->makeUser('admin');

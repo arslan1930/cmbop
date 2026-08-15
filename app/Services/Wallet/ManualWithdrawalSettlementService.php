@@ -100,6 +100,12 @@ class ManualWithdrawalSettlementService
                 );
             }
 
+            if ($newStatus === 'pending' && in_array($oldStatus, ['completed', 'cancelled'], true)) {
+                throw ManualWithdrawalInvalidTransitionException::messageFor(
+                    'Cannot reopen a '.$oldStatus.' withdrawal to pending.'
+                );
+            }
+
             $locked->status = $newStatus;
 
             if ($notes !== null && $notes !== '') {

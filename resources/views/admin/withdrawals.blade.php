@@ -16,8 +16,16 @@
                 <i class="fa fa-chart-pie me-1"></i> Finance overview
             </a>
             <button type="button" id="exportCsvBtn" class="btn btn-sm btn-outline-primary">
-                <i class="fa fa-file-csv me-1"></i> Export CSV
+                <i class="fa fa-file-csv me-1"></i> <span id="exportCsvLabel">Export CSV</span>
             </button>
+        </div>
+    </div>
+
+    <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+        <span class="small text-muted">Stats</span>
+        <div class="btn-group btn-group-sm" role="group" aria-label="Stats scope">
+            <button type="button" class="btn btn-outline-secondary active" id="statsScopeAll" data-scope="all">All open</button>
+            <button type="button" class="btn btn-outline-secondary" id="statsScopeView" data-scope="view">This view</button>
         </div>
     </div>
 
@@ -26,7 +34,7 @@
         <div class="col-6 col-lg">
             <div class="card border-0 shadow-sm h-100">
                 <div class="card-body py-3">
-                    <div class="text-muted small">All open · Pending</div>
+                    <div class="text-muted small" id="statPendingLabel">All open · Pending</div>
                     <div class="fs-4 fw-bold text-warning" id="statPending">—</div>
                     <div class="small text-muted" id="statPendingAmount">€—</div>
                 </div>
@@ -35,7 +43,7 @@
         <div class="col-6 col-lg">
             <div class="card border-0 shadow-sm h-100">
                 <div class="card-body py-3">
-                    <div class="text-muted small">All open · Processing</div>
+                    <div class="text-muted small" id="statProcessingLabel">All open · Processing</div>
                     <div class="fs-4 fw-bold text-info" id="statProcessing">—</div>
                     <div class="small text-muted" id="statProcessingAmount">€—</div>
                 </div>
@@ -44,9 +52,9 @@
         <div class="col-6 col-lg">
             <div class="card border-0 shadow-sm h-100">
                 <div class="card-body py-3">
-                    <div class="text-muted small">All open to pay</div>
+                    <div class="text-muted small" id="statToPayLabel">All open to pay</div>
                     <div class="fs-4 fw-bold text-danger" id="statToPay">€—</div>
-                    <div class="small text-muted">All open net</div>
+                    <div class="small text-muted" id="statToPayHint">All open net</div>
                 </div>
             </div>
         </div>
@@ -62,7 +70,7 @@
         <div class="col-12 col-lg">
             <div class="card border-0 shadow-sm h-100">
                 <div class="card-body py-3">
-                    <div class="text-muted small mb-1">All open by method</div>
+                    <div class="text-muted small mb-1" id="statByMethodLabel">All open by method</div>
                     <div id="statByMethod" class="small text-muted">Loading…</div>
                 </div>
             </div>
@@ -166,6 +174,9 @@
                     <span class="text-muted fw-normal small">(fee {{ rtrim(rtrim(number_format($platformChargePercent, 2, '.', ''), '0'), '.') }}%)</span>
                 @endif
             </span>
+            <button type="button" id="selectMatchingBtn" class="btn btn-sm btn-outline-secondary" title="Select up to 100 matching open withdrawals">
+                Select all matching
+            </button>
         </div>
 
         <div class="table-responsive admin-table-fit">
@@ -221,6 +232,9 @@
                 <a href="#" id="openPublisherLink" class="btn btn-outline-secondary btn-sm me-auto d-none" target="_blank">
                     <i class="fa fa-user me-1"></i> Open publisher / edit payout
                 </a>
+                <a href="#" id="openShowPageLink" class="btn btn-outline-secondary btn-sm">
+                    <i class="fa fa-external-link-alt me-1"></i> Open page
+                </a>
                 <a href="#" id="openInvoiceLink" class="btn btn-outline-secondary btn-sm d-none">
                     <i class="fa fa-file-invoice-dollar me-1"></i> Open invoice
                 </a>
@@ -241,6 +255,7 @@
 let currentPage = 1;
 let selectedIds = new Set();
 let lastDetailsCopyText = '';
+let statsScope = 'all';
 const withdrawalFlags = new Map();
 const duplicateLookbackDays = {{ max(1, (int) config('billing.withdrawal_mark_paid_duplicate_lookback_days', 30)) }};
 
@@ -249,6 +264,7 @@ const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content
 
 const WD_DATA = @json(route('admin.withdrawals.data'));
 const WD_STATS = @json(route('admin.withdrawals.statistics'));
+const WD_IDS = @json(route('admin.withdrawals.ids'));
 const WD_EXPORT = @json(route('admin.withdrawals.export'));
 const WD_SHOW = @json(route('admin.withdrawals.show', ['id' => '__ID__']));
 const WD_PAID = @json(route('admin.withdrawals.paid', ['id' => '__ID__']));
@@ -382,8 +398,34 @@ function filterParams() {
     return params;
 }
 
+function statsPrefix() {
+    return statsScope === 'view' ? 'This view' : 'All open';
+}
+
+function applyStatsLabels() {
+    const prefix = statsPrefix();
+    $('#statPendingLabel').text(prefix + ' · Pending');
+    $('#statProcessingLabel').text(prefix + ' · Processing');
+    $('#statToPayLabel').text(prefix + ' to pay');
+    $('#statToPayHint').text(prefix + ' net');
+    $('#statByMethodLabel').text(prefix + ' by method');
+}
+
+function isHistoryExport() {
+    const status = $('#statusFilter').val();
+    const queue = $('#queueFilter').val();
+    return status === 'completed' || status === 'cancelled' || (!status && queue === 'history');
+}
+
+function updateExportButtonLabel() {
+    $('#exportCsvLabel').text(isHistoryExport() ? 'Export history CSV' : 'Export CSV');
+}
+
 function loadStatistics() {
-    $.getJSON(WD_STATS, function(response) {
+    const params = statsScope === 'view' ? Object.assign({ scope: 'view' }, filterParams()) : {};
+    delete params.page;
+    applyStatsLabels();
+    $.getJSON(WD_STATS, params, function(response) {
         if (!response.success) return;
         const s = response.data;
         $('#statPending').text(s.pending);
@@ -410,6 +452,7 @@ function loadWithdrawals(page = 1) {
     params.page = page;
 
     syncFiltersToUrl();
+    updateExportButtonLabel();
 
     $.ajax({
         url: WD_DATA,
@@ -454,6 +497,7 @@ function renderWithdrawals(withdrawals) {
         withdrawalFlags.set(Number(w.id), {
             possible_duplicate: !!w.possible_duplicate,
             duplicate_match_ids: matchIds,
+            status: w.status,
         });
 
         html += `
@@ -491,6 +535,7 @@ function renderWithdrawals(withdrawals) {
                         <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">Manage</button>
                         <ul class="dropdown-menu dropdown-menu-end">
                             <li><button type="button" class="dropdown-item view-details" data-id="${w.id}"><i class="fa fa-eye me-2"></i>View</button></li>
+                            <li><a class="dropdown-item" href="${escapeHtml(withdrawalUrl(WD_SHOW, w.id))}"><i class="fa fa-external-link-alt me-2"></i>Open page</a></li>
                             ${w.invoice_url ? `<li><a class="dropdown-item" href="${escapeHtml(w.invoice_url)}"><i class="fa fa-file-invoice-dollar me-2"></i>Open invoice</a></li>` : ''}
                             ${w.status === 'pending' ? `
                             <li><button type="button" class="dropdown-item act-processing" data-id="${w.id}"
@@ -503,6 +548,7 @@ function renderWithdrawals(withdrawals) {
                                 data-name="${escapeHtml(w.user?.name || '')}"
                                 data-net="${parseFloat(w.net_amount).toFixed(2)}"
                                 data-method="${escapeHtml(w.payment_method)}"
+                                data-status="${escapeHtml(w.status)}"
                                 data-duplicate="${w.possible_duplicate ? '1' : '0'}"
                                 data-duplicate-ids="${escapeHtml(matchIds.map(function (id) { return 'WD-' + id; }).join(', '))}"><i class="fa fa-check me-2"></i>Mark paid</button></li>
                             <li><button type="button" class="dropdown-item text-danger act-reject" data-id="${w.id}"
@@ -609,6 +655,27 @@ function duplicateWarningHtml(matchRefs) {
     return `<br><span class="text-warning small">Same publisher was paid this net amount in the last ${duplicateLookbackDays} days (${escapeHtml(matchRefs)}). Confirm you are not paying twice.</span>`;
 }
 
+async function confirmPendingPayIfNeeded(ids) {
+    const pendingCount = ids.filter(function (id) {
+        const flag = withdrawalFlags.get(Number(id));
+        if (flag && flag.status) {
+            return flag.status === 'pending';
+        }
+        return $('.act-paid[data-id="' + id + '"]').attr('data-status') === 'pending';
+    }).length;
+    if (pendingCount === 0) return true;
+    const result = await Swal.fire({
+        title: 'Pay without processing?',
+        html: pendingCount === 1
+            ? 'You have not marked this processing. Pay anyway?'
+            : 'You have not marked ' + pendingCount + ' of these processing. Pay anyway?',
+        showCancelButton: true,
+        confirmButtonText: 'Pay anyway',
+        cancelButtonText: 'Cancel',
+    });
+    return result.isConfirmed;
+}
+
 $(document).on('click', '.act-paid', async function() {
     const id = $(this).data('id');
     const name = $(this).data('name');
@@ -623,6 +690,7 @@ $(document).on('click', '.act-paid', async function() {
         ''
     );
     if (notes === null) return;
+    if (!await confirmPendingPayIfNeeded([id])) return;
     postAction(withdrawalUrl(WD_PAID, id), { notes })
         .done(function(res) {
             toast(res.message || 'Marked paid');
@@ -717,6 +785,7 @@ async function runBatch(action, title, confirmText, confirmClass, options) {
         confirmClass
     );
     if (notes === null) return;
+    if (action === 'completed' && !options.skipPendingConfirm && !await confirmPendingPayIfNeeded(Array.from(selectedIds))) return;
 
     const payload = {
         ids: Array.from(selectedIds),
@@ -736,6 +805,7 @@ async function runBatch(action, title, confirmText, confirmClass, options) {
         if (action === 'completed' && xhr.status === 422 && body.needs_duplicate_confirm && !confirmDuplicates) {
             runBatch(action, 'Possible duplicate payout', confirmText, confirmClass, {
                 confirmDuplicates: true,
+                skipPendingConfirm: true,
                 duplicateRefs: (body.duplicate_ids || []).map(function (id) { return 'WD-' + id; }),
             });
             return;
@@ -770,8 +840,55 @@ function buildExportUrl(extra = {}) {
     return WD_EXPORT + (qs ? '?' + qs : '');
 }
 
-$('#exportCsvBtn').on('click', function() {
+$('#exportCsvBtn').on('click', async function() {
+    if (isHistoryExport()) {
+        const result = await Swal.fire({
+            title: 'Export history CSV?',
+            text: 'This exports completed and cancelled withdrawals, not the open payout queue.',
+            showCancelButton: true,
+            confirmButtonText: 'Export',
+            cancelButtonText: 'Cancel',
+        });
+        if (!result.isConfirmed) return;
+    }
     window.location = buildExportUrl();
+});
+
+$('#selectMatchingBtn').on('click', function() {
+    const params = filterParams();
+    delete params.page;
+    $.getJSON(WD_IDS, params, function(res) {
+        if (!res.success) {
+            toast(res.message || 'Could not load matching ids', 'error');
+            return;
+        }
+        const pendingSet = new Set((res.pending_ids || []).map(Number));
+        (res.ids || []).forEach(function (id) {
+            selectedIds.add(Number(id));
+            const existing = withdrawalFlags.get(Number(id)) || {};
+            existing.status = pendingSet.has(Number(id)) ? 'pending' : (existing.status || 'processing');
+            withdrawalFlags.set(Number(id), existing);
+        });
+        $('.row-select').each(function() {
+            const id = parseInt($(this).val(), 10);
+            $(this).prop('checked', selectedIds.has(id));
+        });
+        updateBatchBar();
+        if (res.capped) {
+            toast('Selected first ' + res.limit + ' of ' + res.total + ' matching (cap ' + res.limit + ')', 'info');
+        } else {
+            toast((res.ids || []).length + ' matching selected');
+        }
+    }).fail(function() {
+        toast('Could not load matching ids', 'error');
+    });
+});
+
+$('#statsScopeAll, #statsScopeView').on('click', function() {
+    statsScope = $(this).attr('data-scope') === 'view' ? 'view' : 'all';
+    $('#statsScopeAll, #statsScopeView').removeClass('active');
+    $(this).addClass('active');
+    loadStatistics();
 });
 
 $('#batchExportBtn').on('click', function() {
@@ -843,6 +960,8 @@ function renderDetails(withdrawal) {
     } else {
         $('#openInvoiceLink').addClass('d-none').attr('href', '#');
     }
+
+    $('#openShowPageLink').attr('href', withdrawalUrl(WD_SHOW, withdrawal.id));
 
     $('#detailsContent').html(`
         ${duplicateAlert}
