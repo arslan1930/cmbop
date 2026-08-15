@@ -434,8 +434,10 @@ class EmailCenterController extends Controller
 
         $failed = EmailLog::query()
             ->where('status', EmailLog::STATUS_FAILED)
+            ->orderByDesc('id')
             ->get();
         $marked = [];
+        $claimedUuids = [];
 
         foreach ($failed as $log) {
             $stored = (string) data_get($log->meta, 'failed_job_uuid');
@@ -443,14 +445,20 @@ class EmailCenterController extends Controller
             // Legacy unique-class stamps can point at someone else's job.
             if ($stored !== ''
                 && $payload !== ''
+                && empty($claimedUuids[$stored])
                 && in_array($stored, $uuids, true)
                 && $this->failedJobMatchesLog($payload, $log)) {
                 $this->pendingMarkRetriedLog($log);
                 $marked[$log->id] = true;
+                $claimedUuids[$stored] = true;
             }
         }
 
         foreach ($uuids as $uuid) {
+            if (! empty($claimedUuids[$uuid])) {
+                continue;
+            }
+
             $payload = (string) ($payloadsByUuid[$uuid] ?? '');
             if ($payload === '') {
                 continue;

@@ -93,7 +93,8 @@ or marketing, even if that staff account also has a marketplace role.
    no extra unclosed `try`, and `recipientRowQuery` / `containsCampaignId`
    must not be declared twice). A scan that throws (lock wait, missing
    `payload` column) must **not** look like “no job” or recover floods
-   another send. Live send uses the current `@` address, then the stored
+   another send. A successful empty scan of the live jobs table must still
+   redispatch even if the unused connection is broken. Live send uses the current `@` address, then the stored
    recipient email from compose, then fails — a profile wipe after queue
    must not drop someone we already counted.
    Email Center retry of a failed campaign mailable clears `email_log_id`

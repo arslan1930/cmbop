@@ -346,6 +346,7 @@ class EmailCampaign extends Model
         }
 
         $scanFailed = false;
+        $scannedOk = false;
 
         foreach (self::sendJobQueueConnections() as $connection) {
             try {
@@ -382,6 +383,8 @@ class EmailCampaign extends Model
                         return ! $found;
                     });
 
+                $scannedOk = true;
+
                 if ($found) {
                     return true;
                 }
@@ -392,7 +395,10 @@ class EmailCampaign extends Model
             }
         }
 
-        return $scanFailed;
+        // Only fail-closed when every database queue we could read failed.
+        // A healthy empty jobs table must still redispatch, even if the
+        // unused connection is broken — otherwise pending rows sit forever.
+        return $scanFailed && ! $scannedOk;
     }
 
     /**
