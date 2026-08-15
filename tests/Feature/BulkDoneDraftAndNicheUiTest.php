@@ -369,6 +369,122 @@ class BulkDoneDraftAndNicheUiTest extends TestCase
         $this->assertDatabaseMissing('sites', ['domain' => 'off-list-blank.example']);
     }
 
+    public function test_done_does_not_attach_www_sibling_pending_row(): void
+    {
+        $bulk = BulkSiteRequest::create([
+            'publisher_id' => $this->publisher->id,
+            'status' => BulkSiteRequest::STATUS_REQUESTED,
+            'estimated_count' => 2,
+        ]);
+        $www = BulkSiteRequestItem::create([
+            'bulk_site_request_id' => $bulk->id,
+            'site_url' => 'https://www.twin-bulk.example',
+            'domain' => 'www.twin-bulk.example',
+            'price' => 40,
+        ]);
+        $apex = BulkSiteRequestItem::create([
+            'bulk_site_request_id' => $bulk->id,
+            'site_url' => 'https://twin-bulk.example',
+            'domain' => 'twin-bulk.example',
+            'price' => 55,
+        ]);
+
+        [$country, $language] = $this->marketplaceCodes();
+        $category = Category::query()->firstOrFail();
+
+        $this->actingAs($this->marketer)
+            ->from(route('marketing.bulk-site-requests.show', $bulk))
+            ->post(route('marketing.bulk-site-requests.done', $bulk), [
+                'items' => [
+                    $www->id => [
+                        'language' => $language,
+                        'country' => $country,
+                        'da' => 40,
+                        'dr' => 45,
+                        'traffic' => 12000,
+                        'categories' => $category->name,
+                    ],
+                ],
+            ])
+            ->assertRedirect()
+            ->assertSessionHas('success');
+
+        $this->assertNotNull($www->fresh()->site_id);
+        $this->assertNull($apex->fresh()->site_id);
+        $this->assertSame(1, Site::query()->where('bulk_site_request_id', $bulk->id)->count());
+        $this->assertSame('twin-bulk.example', Site::query()->where('bulk_site_request_id', $bulk->id)->value('domain'));
+    }
+
+    public function test_done_rewrites_javascript_site_url_to_https_domain(): void
+    {
+        $bulk = BulkSiteRequest::create([
+            'publisher_id' => $this->publisher->id,
+            'status' => BulkSiteRequest::STATUS_REQUESTED,
+            'estimated_count' => 1,
+        ]);
+        $item = BulkSiteRequestItem::create([
+            'bulk_site_request_id' => $bulk->id,
+            'site_url' => 'javascript:alert(1)',
+            'domain' => 'xss-done.example',
+            'price' => 40,
+        ]);
+
+        [$country, $language] = $this->marketplaceCodes();
+        $category = Category::query()->firstOrFail();
+
+        $this->actingAs($this->marketer)
+            ->from(route('marketing.bulk-site-requests.show', $bulk))
+            ->post(route('marketing.bulk-site-requests.done', $bulk), [
+                'items' => [
+                    $item->id => [
+                        'language' => $language,
+                        'country' => $country,
+                        'da' => 40,
+                        'dr' => 45,
+                        'traffic' => 12000,
+                        'categories' => $category->name,
+                    ],
+                ],
+            ])
+            ->assertRedirect()
+            ->assertSessionHas('success');
+
+        $site = Site::query()->where('bulk_site_request_id', $bulk->id)->first();
+        $this->assertNotNull($site);
+        $this->assertSame('xss-done.example', $site->domain);
+        $this->assertSame('https://xss-done.example', $site->site_url);
+        $this->assertSame('https://xss-done.example', $site->example_url);
+        $this->assertSame($site->id, $item->fresh()->site_id);
+    }
+
+    public function test_seed_rejects_ftp_and_javascript_urls(): void
+    {
+        $bulk = BulkSiteRequest::create([
+            'publisher_id' => $this->publisher->id,
+            'status' => BulkSiteRequest::STATUS_SHEET_SENT,
+            'estimated_count' => 3,
+            'sheet_sent_at' => now(),
+        ]);
+
+        [$country, $language] = $this->marketplaceCodes();
+        $rows = implode("\n", [
+            "javascript:alert(1),99,40,45,12000,{$country},{$language},Js",
+            "ftp://ftp-seed.example,99,40,45,12000,{$country},{$language},Ftp",
+        ]);
+
+        $this->actingAs($this->marketer)
+            ->from(route('marketing.bulk-site-requests.show', $bulk))
+            ->post(route('marketing.bulk-site-requests.seed', $bulk), ['rows' => $rows])
+            ->assertRedirect()
+            ->assertSessionHas('error')
+            ->assertSessionHas('seed_failures');
+
+        $this->assertDatabaseMissing('sites', ['domain' => 'javascript']);
+        $this->assertDatabaseMissing('sites', ['domain' => 'ftp']);
+        $this->assertDatabaseMissing('sites', ['domain' => 'ftp-seed.example']);
+        $this->assertSame(0, Site::query()->where('bulk_site_request_id', $bulk->id)->count());
+    }
+
     public function test_marketing_layout_sidebar_collapse_uses_shell_tokens(): void
     {
         $layout = file_get_contents(resource_path('views/marketing/layouts/app.blade.php'));

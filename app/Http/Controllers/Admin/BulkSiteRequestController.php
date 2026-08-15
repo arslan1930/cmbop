@@ -15,6 +15,7 @@ use App\Models\Site;
 use App\Services\ActivityLogger;
 use App\Services\InAppNotificationService;
 use App\Services\Marketplace\CountryLanguagePairs;
+use App\Support\CommunityInbox;
 use App\Support\MarketingOpsQueues;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -628,6 +629,7 @@ class BulkSiteRequestController extends Controller
         DB::transaction(function () use (
             $bulkRequest,
             $rows,
+            $action,
             $rejectedItems,
             $rejectedIds,
             &$created,
@@ -663,16 +665,30 @@ class BulkSiteRequestController extends Controller
                     continue;
                 }
 
+                $siteUrl = $this->normalizeHttpUrl((string) ($row['site_url'] ?? ''));
+                if ($siteUrl === '') {
+                    $siteUrl = $this->normalizeHttpUrl('https://'.$domain);
+                }
+                if ($siteUrl === '') {
+                    $failures[] = [
+                        'line' => $row['line'] ?? 0,
+                        'url' => $row['site_url'] ?? $domain,
+                        'errors' => ['Invalid website URL'],
+                    ];
+
+                    continue;
+                }
+
                 $site = new Site;
                 $site->applyMarketplaceListing([
                     'publisher_id' => $bulkRequest->publisher_id,
                     'bulk_site_request_id' => $bulkRequest->id,
                     'publisher_accepted_at' => now(),
                     'assigned_by_user_id' => null,
-                    'site_name' => $row['site_name'],
-                    'site_url' => $row['site_url'],
+                    'site_name' => ($row['site_name'] ?? '') !== '' ? $row['site_name'] : $domain,
+                    'site_url' => $siteUrl,
                     'domain' => $domain,
-                    'example_url' => $row['site_url'],
+                    'example_url' => $siteUrl,
                     'da' => $row['da'],
                     'dr' => $row['dr'],
                     'traffic' => $row['traffic'],
@@ -700,22 +716,21 @@ class BulkSiteRequestController extends Controller
                 ]);
                 $site->save();
 
-                $candidates = Site::domainLookupCandidates($domain);
-                $normalized = Site::normalizeMarketplaceDomain($domain);
-                // An empty WHERE group would attach every pending row to this site.
-                if ($candidates !== [] || $normalized !== '') {
+                $pending = $bulkRequest->items()->whereNull('site_id')->get(['id', 'domain']);
+                $doneItemId = $action === 'bulk_request.done' ? (int) ($row['line'] ?? 0) : 0;
+                if ($doneItemId > 0) {
+                    $itemIds = $pending->firstWhere('id', $doneItemId) ? [$doneItemId] : [];
+                } else {
+                    $itemIds = $pending
+                        ->filter(fn ($item) => Site::normalizeMarketplaceDomain((string) $item->domain) === $domain)
+                        ->pluck('id')
+                        ->take(1)
+                        ->all();
+                }
+                if ($itemIds !== []) {
                     $bulkRequest->items()
                         ->whereNull('site_id')
-                        ->where(function ($q) use ($candidates, $normalized) {
-                            if ($candidates !== []) {
-                                $q->whereIn('domain', $candidates);
-                            }
-                            if ($normalized !== '') {
-                                $escaped = addcslashes($normalized, '%_\\');
-                                $q->orWhere('domain', 'like', $escaped.':%')
-                                    ->orWhere('domain', 'like', 'www.'.$escaped.':%');
-                            }
-                        })
+                        ->whereIn('id', $itemIds)
                         ->update(['site_id' => $site->id]);
                 }
 
@@ -1081,14 +1096,27 @@ class BulkSiteRequestController extends Controller
     private function normalizeHttpUrl(string $url): string
     {
         $url = trim($url);
-        if ($url === '') {
-            return $url;
+        if ($url === '' || str_contains($url, "\0") || preg_match('/\s/u', $url) === 1) {
+            return '';
         }
-        if (! preg_match('#^https?://#i', $url)) {
+
+        if (str_starts_with($url, '//')) {
+            $url = 'https:'.$url;
+        } elseif (preg_match('#^https?://#i', $url) !== 1) {
+            if (preg_match('~^([a-z][a-z0-9+.-]*):~i', $url, $schemeMatch) === 1) {
+                $scheme = strtolower($schemeMatch[1]);
+                $hasAuthority = preg_match('~^'.preg_quote($schemeMatch[1], '~').'://~i', $url) === 1;
+                if ($hasAuthority || in_array($scheme, ['javascript', 'data', 'mailto', 'vbscript', 'file', 'about', 'blob', 'ftp', 'ftps'], true)) {
+                    return '';
+                }
+                if (! str_contains($scheme, '.')) {
+                    return '';
+                }
+            }
             $url = 'https://'.$url;
         }
 
-        return $url;
+        return CommunityInbox::safeHttpUrl($url) ?? '';
     }
 
     /**
