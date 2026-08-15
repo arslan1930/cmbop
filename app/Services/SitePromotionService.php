@@ -28,10 +28,12 @@ class SitePromotionService
 
     /**
      * Refuse to apply a featured placement when Stripe charged a different amount.
+     * Prefer the price quoted on the Checkout Session so a later config change
+     * cannot leave a paid session unfulfilled (webhook 500 until Stripe gives up).
      */
     public function assertStripeChargeMatchesFeaturePrice(object $session): void
     {
-        $expected = $this->featurePrice();
+        $expected = $this->quotedFeaturePrice($session) ?? $this->featurePrice();
         $stripeCents = null;
         if (isset($session->amount_total)) {
             $stripeCents = (int) $session->amount_total;
@@ -50,6 +52,28 @@ class SitePromotionService
                 .' but featured placement costs €'.number_format($expected, 2).'.'
             );
         }
+    }
+
+    /**
+     * Price the publisher was quoted when the Checkout Session was created.
+     */
+    private function quotedFeaturePrice(object $session): ?float
+    {
+        $metadata = $session->metadata ?? null;
+        if ($metadata === null) {
+            return null;
+        }
+
+        $meta = is_array($metadata)
+            ? $metadata
+            : (array) json_decode(json_encode($metadata), true);
+        if (! isset($meta['price']) || $meta['price'] === '' || $meta['price'] === null) {
+            return null;
+        }
+
+        $quoted = round((float) $meta['price'], 2);
+
+        return $quoted > 0 ? $quoted : null;
     }
 
     /**

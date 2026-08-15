@@ -306,12 +306,19 @@ class SitePromotionTest extends TestCase
         $this->assertSame(50.0, (float) Wallet::where('user_id', $publisher->id)->value('balance'));
     }
 
-    public function test_feature_stripe_amount_must_match_configured_price(): void
+    public function test_feature_stripe_amount_must_match_quoted_or_configured_price(): void
     {
         config(['site_promotions.feature.price' => 10]);
         $promotions = app(SitePromotionService::class);
 
         $promotions->assertStripeChargeMatchesFeaturePrice((object) ['amount_total' => 1000]);
+
+        // Checkout quoted €10; live config later raised to €15 — still fulfill.
+        config(['site_promotions.feature.price' => 15]);
+        $promotions->assertStripeChargeMatchesFeaturePrice((object) [
+            'amount_total' => 1000,
+            'metadata' => ['price' => '10'],
+        ]);
 
         $this->expectException(\RuntimeException::class);
         $this->expectExceptionMessage('featured placement costs');
