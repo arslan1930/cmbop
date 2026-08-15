@@ -461,6 +461,49 @@ class BulkDoneDraftAndNicheUiTest extends TestCase
         $this->assertSame('twin-bulk.example', Site::query()->where('bulk_site_request_id', $bulk->id)->value('domain'));
     }
 
+    public function test_seed_refuses_ambiguous_www_apex_pending_siblings(): void
+    {
+        $bulk = BulkSiteRequest::create([
+            'publisher_id' => $this->publisher->id,
+            'status' => BulkSiteRequest::STATUS_REQUESTED,
+            'estimated_count' => 2,
+        ]);
+        $www = BulkSiteRequestItem::create([
+            'bulk_site_request_id' => $bulk->id,
+            'site_url' => 'https://www.twin-seed.example',
+            'domain' => 'www.twin-seed.example',
+            'price' => 40,
+        ]);
+        $apex = BulkSiteRequestItem::create([
+            'bulk_site_request_id' => $bulk->id,
+            'site_url' => 'https://twin-seed.example',
+            'domain' => 'twin-seed.example',
+            'price' => 55,
+        ]);
+
+        [$country, $language] = $this->marketplaceCodes();
+
+        $this->actingAs($this->marketer)
+            ->from(route('marketing.bulk-site-requests.show', $bulk))
+            ->post(route('marketing.bulk-site-requests.seed', $bulk), [
+                'rows' => "https://twin-seed.example,40,40,45,12000,{$country},{$language},Twin Seed",
+            ])
+            ->assertRedirect()
+            ->assertSessionHas('error')
+            ->assertSessionHas('seed_failures', function ($failures) {
+                return is_array($failures)
+                    && collect($failures)->contains(function ($row) {
+                        return collect($row['errors'] ?? [])->contains(
+                            fn ($error) => str_contains((string) $error, 'www vs apex')
+                        );
+                    });
+            });
+
+        $this->assertNull($www->fresh()->site_id);
+        $this->assertNull($apex->fresh()->site_id);
+        $this->assertDatabaseMissing('sites', ['domain' => 'twin-seed.example']);
+    }
+
     public function test_done_rewrites_javascript_site_url_to_https_domain(): void
     {
         $bulk = BulkSiteRequest::create([
@@ -859,6 +902,8 @@ class BulkDoneDraftAndNicheUiTest extends TestCase
         $this->assertStringContainsString('findOccupyingPendingDomain', $controller);
         $this->assertStringContainsString('$otherPending', $controller);
         $this->assertStringContainsString('Already in an open bulk request:', $controller);
+        $this->assertStringContainsString('www vs apex', $controller);
+        $this->assertStringNotContainsString('->take(1)', $controller);
 
         $publisherController = file_get_contents(app_path('Http/Controllers/Publisher/BulkSiteRequestController.php'));
         $this->assertStringContainsString('whereKey($site->id)->lockForUpdate()', $publisherController);
@@ -888,6 +933,12 @@ class BulkDoneDraftAndNicheUiTest extends TestCase
         $this->assertStringContainsString('$fresh = $site->fresh()', $publisherSiteController);
         $this->assertStringContainsString("find((int) \$deleted['bulk_id'])?->refreshProgressStatus()", $publisherSiteController);
         $this->assertStringContainsString('occupyingPendingDomainMessage', $publisherSiteController);
+        $this->assertStringContainsString('findOccupyingPendingDomain', $publisherSiteController);
+        $this->assertStringContainsString('reserved by an open bulk request', $publisherSiteController);
+
+        $agencyImport = file_get_contents(app_path('Services/AgencySiteImportService.php'));
+        $this->assertStringContainsString('findOccupyingDomain($parsed[\'domain\'], lock: true)', $agencyImport);
+        $this->assertStringContainsString('occupyingPendingDomainMessage($parsed[\'domain\'], lock: true)', $agencyImport);
 
         $adminSiteController = file_get_contents(app_path('Http/Controllers/Admin/SiteController.php'));
         $this->assertStringContainsString('pendingBulkDomainConflictMessage', $adminSiteController);

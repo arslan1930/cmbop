@@ -732,6 +732,38 @@ class BulkSiteRequestController extends Controller
                     continue;
                 }
 
+                $pending = $bulkRequest->items()->whereNull('site_id')->get(['id', 'domain']);
+                $doneItemId = $action === 'bulk_request.done' ? (int) ($row['line'] ?? 0) : 0;
+                $itemIds = [];
+                if ($doneItemId > 0) {
+                    $itemIds = $pending->firstWhere('id', $doneItemId) ? [$doneItemId] : [];
+                    if ($itemIds === []) {
+                        $failures[] = [
+                            'line' => $row['line'] ?? 0,
+                            'url' => $siteUrl,
+                            'errors' => ['Could not attach this row. Refresh and try again.'],
+                        ];
+
+                        continue;
+                    }
+                } elseif ($pending->isNotEmpty()) {
+                    $matches = $pending
+                        ->filter(fn ($item) => Site::normalizeMarketplaceDomain((string) $item->domain) === $domain)
+                        ->values();
+                    if ($matches->count() !== 1) {
+                        $failures[] = [
+                            'line' => $row['line'] ?? 0,
+                            'url' => $siteUrl,
+                            'errors' => [$matches->count() > 1
+                                ? 'This domain matches more than one pending row (www vs apex). Use Done on each row instead of Advanced seed.'
+                                : 'Could not attach this row. Refresh and try again.'],
+                        ];
+
+                        continue;
+                    }
+                    $itemIds = [(int) $matches->first()->id];
+                }
+
                 $site = new Site;
                 $site->applyMarketplaceListing([
                     'publisher_id' => $bulkRequest->publisher_id,
@@ -783,17 +815,6 @@ class BulkSiteRequestController extends Controller
                     continue;
                 }
 
-                $pending = $bulkRequest->items()->whereNull('site_id')->get(['id', 'domain']);
-                $doneItemId = $action === 'bulk_request.done' ? (int) ($row['line'] ?? 0) : 0;
-                if ($doneItemId > 0) {
-                    $itemIds = $pending->firstWhere('id', $doneItemId) ? [$doneItemId] : [];
-                } else {
-                    $itemIds = $pending
-                        ->filter(fn ($item) => Site::normalizeMarketplaceDomain((string) $item->domain) === $domain)
-                        ->pluck('id')
-                        ->take(1)
-                        ->all();
-                }
                 $attached = 0;
                 if ($itemIds !== []) {
                     $attached = $bulkRequest->items()

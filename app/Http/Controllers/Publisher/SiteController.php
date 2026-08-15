@@ -1061,9 +1061,39 @@ class SiteController extends Controller
             return response()->json(['success' => false, 'message' => 'Site is not archived.'], 422);
         }
 
-        $site->archived_at = null;
-        $site->save();
-        $site->refresh();
+        $blocked = DB::transaction(function () use ($id) {
+            $locked = Site::query()
+                ->where('publisher_id', auth()->id())
+                ->whereKey($id)
+                ->lockForUpdate()
+                ->first();
+            if (! $locked || ! $locked->isArchived()) {
+                return 'Site is not archived.';
+            }
+
+            $domain = Site::normalizeMarketplaceDomain((string) $locked->domain);
+            if ($domain !== '' && BulkSiteRequestItem::findOccupyingPendingDomain($domain, lock: true)) {
+                return 'This domain is reserved by an open bulk request. Finish or cancel that request before restoring this listing.';
+            }
+
+            $other = $domain !== ''
+                ? Site::findOccupyingDomain($domain, exceptId: (int) $locked->id, lock: true)
+                : null;
+            if ($other) {
+                return $other->occupyingDomainMessage();
+            }
+
+            $locked->archived_at = null;
+            $locked->save();
+
+            return null;
+        });
+
+        if (is_string($blocked)) {
+            return response()->json(['success' => false, 'message' => $blocked], 422);
+        }
+
+        $site = $site->fresh() ?? $site;
 
         $message = 'Site restored. It remains inactive until it is active again.';
         if ($site->isCatalogVisible()) {

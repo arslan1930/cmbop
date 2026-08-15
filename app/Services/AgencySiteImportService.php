@@ -221,10 +221,10 @@ class AgencySiteImportService
                     $site = null;
                     DB::transaction(function () use ($parsed, $publisher, $import, &$site) {
                         Site::releaseCancelledBulkDomain($parsed['domain'], (int) $publisher->id);
-                        if (Site::findOccupyingDomain($parsed['domain'])) {
+                        if (Site::findOccupyingDomain($parsed['domain'], lock: true)) {
                             throw new InvalidArgumentException('This domain is already registered in the system.');
                         }
-                        $pending = BulkSiteRequestItem::occupyingPendingDomainMessage($parsed['domain']);
+                        $pending = BulkSiteRequestItem::occupyingPendingDomainMessage($parsed['domain'], lock: true);
                         if ($pending !== null) {
                             throw new InvalidArgumentException($pending);
                         }

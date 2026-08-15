@@ -334,6 +334,49 @@ class PublisherSitesPageTest extends TestCase
         $this->assertFalse((bool) $site->active);
     }
 
+    public function test_unarchive_rejects_domain_pending_on_open_bulk(): void
+    {
+        $cancelled = BulkSiteRequest::create([
+            'publisher_id' => $this->publisher->id,
+            'status' => BulkSiteRequest::STATUS_CANCELLED,
+            'estimated_count' => 1,
+        ]);
+        $site = $this->makeSite($this->publisher, [
+            'site_url' => 'https://restore-pending.example',
+            'domain' => 'restore-pending.example',
+            'verified' => true,
+            'active' => true,
+            'archived_at' => now(),
+            'bulk_site_request_id' => $cancelled->id,
+        ]);
+
+        $open = BulkSiteRequest::create([
+            'publisher_id' => $this->publisher->id,
+            'status' => BulkSiteRequest::STATUS_REQUESTED,
+            'estimated_count' => 2,
+        ]);
+        BulkSiteRequestItem::create([
+            'bulk_site_request_id' => $open->id,
+            'site_url' => 'https://restore-pending.example',
+            'domain' => 'restore-pending.example',
+            'price' => 40,
+        ]);
+        BulkSiteRequestItem::create([
+            'bulk_site_request_id' => $open->id,
+            'site_url' => 'https://restore-pending-b.example',
+            'domain' => 'restore-pending-b.example',
+            'price' => 45,
+        ]);
+
+        $this->actingAs($this->publisher)
+            ->postJson(route('publisher.sites.unarchive', $site->id))
+            ->assertStatus(422)
+            ->assertJsonPath('success', false)
+            ->assertJsonPath('message', 'This domain is reserved by an open bulk request. Finish or cancel that request before restoring this listing.');
+
+        $this->assertNotNull($site->fresh()->archived_at);
+    }
+
     public function test_pending_site_cannot_be_archived(): void
     {
         $site = $this->makeSite($this->publisher, [
