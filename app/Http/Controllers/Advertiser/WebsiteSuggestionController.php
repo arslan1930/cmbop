@@ -6,7 +6,9 @@ use App\Http\Controllers\Controller;
 use App\Models\Site;
 use App\Models\WebsiteSuggestion;
 use App\Services\ActivityLogger;
+use App\Services\CommunityInboxNotifier;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 
 class WebsiteSuggestionController extends Controller
 {
@@ -73,6 +75,12 @@ class WebsiteSuggestionController extends Controller
             ['domain' => $domain],
             $suggestion->website_name
         );
+
+        try {
+            app(CommunityInboxNotifier::class)->notifyAdminsNewWebsite($suggestion);
+        } catch (\Throwable $e) {
+            Log::warning('Failed to notify admins about website suggestion: '.$e->getMessage());
+        }
 
         return response()->json([
             'success' => true,

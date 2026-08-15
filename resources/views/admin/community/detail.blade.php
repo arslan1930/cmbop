@@ -59,6 +59,8 @@
             <dd class="col-sm-8">{{ $item->search_query ?: '—' }}</dd>
             <dt class="col-sm-4">Notes</dt>
             <dd class="col-sm-8" style="white-space:pre-wrap;">{{ $item->notes ?: '—' }}</dd>
+            <dt class="col-sm-4">Listing</dt>
+            <dd class="col-sm-8">@include('admin.community.website-listing-action', ['item' => $item])</dd>
         @else
             <dt class="col-sm-4">Listing</dt>
             <dd class="col-sm-8">

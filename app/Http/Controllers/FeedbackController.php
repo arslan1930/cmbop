@@ -5,7 +5,9 @@ namespace App\Http\Controllers;
 use App\Models\ProblemReport;
 use App\Models\Suggestion;
 use App\Services\ActivityLogger;
+use App\Services\CommunityInboxNotifier;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 
 class FeedbackController extends Controller
 {
@@ -39,14 +41,18 @@ class FeedbackController extends Controller
             'status' => 'pending',
         ]);
 
-        if ($user) {
-            ActivityLogger::log(
-                'feedback.problem',
-                $user->name.' reported a problem: '.$report->subject,
-                $report,
-                ['report_id' => $report->id],
-                $report->subject
-            );
+        ActivityLogger::log(
+            'feedback.problem',
+            ($user?->name ?: ($report->name ?: 'Guest')).' reported a problem: '.$report->subject,
+            $report,
+            ['report_id' => $report->id, 'email' => $report->email],
+            $report->subject
+        );
+
+        try {
+            app(CommunityInboxNotifier::class)->notifyAdminsNewProblem($report);
+        } catch (\Throwable $e) {
+            Log::warning('Failed to notify admins about problem report: '.$e->getMessage());
         }
 
         return response()->json([
@@ -84,14 +90,18 @@ class FeedbackController extends Controller
             'status' => 'pending',
         ]);
 
-        if ($user) {
-            ActivityLogger::log(
-                'feedback.suggestion',
-                $user->name.' sent a suggestion',
-                $suggestion,
-                ['suggestion_id' => $suggestion->id],
-                'Suggestion'
-            );
+        ActivityLogger::log(
+            'feedback.suggestion',
+            ($user?->name ?: ($suggestion->name ?: 'Guest')).' sent a suggestion',
+            $suggestion,
+            ['suggestion_id' => $suggestion->id, 'email' => $suggestion->email],
+            'Suggestion'
+        );
+
+        try {
+            app(CommunityInboxNotifier::class)->notifyAdminsNewSuggestion($suggestion);
+        } catch (\Throwable $e) {
+            Log::warning('Failed to notify admins about suggestion: '.$e->getMessage());
         }
 
         return response()->json([

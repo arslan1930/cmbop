@@ -16,10 +16,12 @@ use App\Models\Site;
 use App\Models\User;
 use App\Services\ActivityLogger;
 use App\Services\CheckoutSchemaService;
+use App\Services\CommunityInboxNotifier;
 use App\Services\InAppNotificationService;
 use App\Services\Marketplace\CountryLanguagePairs;
 use App\Services\SiteDescriptionSanitizer;
 use App\Services\SiteEnrichment\ImageOptimizationService;
+use App\Support\CommunityInbox;
 use App\Support\MarketingOpsQueues;
 use App\Support\PublicStorageLink;
 use App\Support\SiteDescriptionRules;
@@ -672,6 +674,18 @@ class SiteController extends Controller
             ? staff_route('sites.index', ['publisher' => $selectedPublisherId])
             : staff_route('sites.index');
 
+        $prefillSiteName = search_text($request->query('site_name'));
+        $prefillSiteUrl = CommunityInbox::safeHttpUrl($request->query('site_url')) ?? '';
+        $prefillCountry = strtolower(search_text($request->query('country')));
+        if (strlen($prefillCountry) !== 2) {
+            $prefillCountry = '';
+        }
+        $prefillLanguage = strtolower(search_text($request->query('language')));
+        if (strlen($prefillLanguage) !== 2) {
+            $prefillLanguage = '';
+        }
+        $suggestionId = max(0, (int) $request->query('suggestion_id'));
+
         return view('admin.site-create', compact(
             'publishers',
             'languages',
@@ -681,7 +695,12 @@ class SiteController extends Controller
             'selectedPublisherId',
             'selectedPublisherUnverified',
             'isMarketingEditor',
-            'sitesBackUrl'
+            'sitesBackUrl',
+            'prefillSiteName',
+            'prefillSiteUrl',
+            'prefillCountry',
+            'prefillLanguage',
+            'suggestionId'
         ));
     }
 
@@ -793,6 +812,7 @@ class SiteController extends Controller
             'site_image' => 'nullable|file|mimes:jpeg,png,jpg,gif,webp|max:'.$this->siteImageMaxKilobytes(),
             'site_tag' => 'nullable|in:sponsored,partner_material,as_you_prefer',
             'written_request' => 'accepted',
+            'suggestion_id' => 'nullable|integer|exists:website_suggestions,id',
         ] + $this->placementOfferValidationRules(), array_merge($this->siteImageValidationMessages(), [
             'written_request.accepted' => 'Confirm you have a written request from this publisher’s account email.',
             'description.max' => 'Description must be at most 5000 characters.',
@@ -1001,6 +1021,19 @@ class SiteController extends Controller
             return redirect()->back()
                 ->withErrors(['site_url' => 'We could not save this website. Please try again.'])
                 ->withInput();
+        }
+
+        try {
+            app(CommunityInboxNotifier::class)->acceptWebsiteSuggestionAfterListing(
+                (int) $request->input('suggestion_id'),
+                $site,
+                $request->user()
+            );
+        } catch (\Throwable $e) {
+            Log::warning('Failed to accept website suggestion after listing: '.$e->getMessage(), [
+                'site_id' => $site->id,
+                'suggestion_id' => $request->input('suggestion_id'),
+            ]);
         }
 
         try {

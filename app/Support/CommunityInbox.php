@@ -2,7 +2,11 @@
 
 namespace App\Support;
 
+use App\Models\Site;
+use App\Models\WebsiteSuggestion;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Http\Request;
+use Illuminate\Pagination\LengthAwarePaginator;
 
 /**
  * Per-tab status vocabulary for the admin Community inbox.
@@ -155,5 +159,68 @@ class CommunityInbox
                 }
             }
         });
+    }
+
+    public static function emptyPage(Request $request, string $pageName): LengthAwarePaginator
+    {
+        return (new LengthAwarePaginator([], 0, 25, 1, [
+            'path' => $request->url(),
+            'pageName' => $pageName,
+        ]))->withQueryString();
+    }
+
+    /**
+     * Query string to prefill staff site-create from a website suggestion.
+     *
+     * @return array{site_name?: string, site_url?: string, country?: string, language?: string, suggestion_id: int}
+     */
+    public static function createListingQuery(WebsiteSuggestion $suggestion): array
+    {
+        $params = ['suggestion_id' => (int) $suggestion->id];
+        $name = search_text($suggestion->website_name);
+        if ($name !== '') {
+            $params['site_name'] = $name;
+        }
+        $url = self::safeHttpUrl($suggestion->website_url);
+        if ($url) {
+            $params['site_url'] = $url;
+        }
+        $country = strtolower(search_text($suggestion->country));
+        if (strlen($country) === 2) {
+            $params['country'] = $country;
+        }
+        $language = strtolower(search_text($suggestion->language));
+        if (strlen($language) === 2) {
+            $params['language'] = $language;
+        }
+
+        return $params;
+    }
+
+    /**
+     * @param  iterable<int, WebsiteSuggestion>  $suggestions
+     * @return array<int, Site>
+     */
+    public static function occupyingSitesFor(iterable $suggestions): array
+    {
+        $found = [];
+        $seen = [];
+        foreach ($suggestions as $suggestion) {
+            $domain = search_text($suggestion->domain ?: $suggestion->website_url);
+            if ($domain === '' || isset($seen[$domain])) {
+                if ($domain !== '' && isset($seen[$domain]) && $seen[$domain] instanceof Site) {
+                    $found[$suggestion->id] = $seen[$domain];
+                }
+
+                continue;
+            }
+            $site = Site::findOccupyingDomain($domain);
+            $seen[$domain] = $site;
+            if ($site) {
+                $found[$suggestion->id] = $site;
+            }
+        }
+
+        return $found;
     }
 }

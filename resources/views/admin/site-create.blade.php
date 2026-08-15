@@ -10,6 +10,11 @@
     $selectedPublisherId = (int) ($selectedPublisherId ?? 0);
     $selectedPublisherUnverified = $selectedPublisherUnverified ?? false;
     $sitesBackUrl = $sitesBackUrl ?? staff_route('sites.index');
+    $prefillSiteName = $prefillSiteName ?? '';
+    $prefillSiteUrl = $prefillSiteUrl ?? '';
+    $prefillCountry = $prefillCountry ?? '';
+    $prefillLanguage = $prefillLanguage ?? '';
+    $suggestionId = (int) ($suggestionId ?? 0);
     $rawNiches = old('categories', []);
     if (! is_string($rawNiches) && ! is_iterable($rawNiches)) {
         $rawNiches = [];
@@ -60,6 +65,12 @@
         <div class="card-body">
             <form method="POST" action="{{ staff_route('sites.store') }}" enctype="multipart/form-data" id="staffAssignSiteForm">
                 @csrf
+                @if((int) old_text('suggestion_id', $suggestionId) > 0)
+                    <input type="hidden" name="suggestion_id" value="{{ (int) old_text('suggestion_id', $suggestionId) }}">
+                    <div class="alert alert-info border-0 py-2 px-3 small mb-3">
+                        Prefilling from website suggestion #{{ (int) old_text('suggestion_id', $suggestionId) }}. Saving this listing will mark that suggestion accepted.
+                    </div>
+                @endif
 
                 <div class="row g-3">
                     <div class="col-12">
@@ -91,13 +102,13 @@
                     <div class="col-md-6">
                         <label class="form-label fw-semibold" for="site_name">Site name <span class="text-danger">*</span></label>
                         <input type="text" id="site_name" name="site_name" class="form-control @error('site_name') is-invalid @enderror"
-                               value="{{ old_text('site_name') }}" required maxlength="255">
+                               value="{{ old_text('site_name', $prefillSiteName) }}" required maxlength="255">
                         @error('site_name')<div class="invalid-feedback">{{ $message }}</div>@enderror
                     </div>
                     <div class="col-md-6">
                         <label class="form-label fw-semibold" for="site_url">Site URL <span class="text-danger">*</span></label>
                         <input type="text" id="site_url" name="site_url" class="form-control @error('site_url') is-invalid @enderror"
-                               value="{{ old_text('site_url') }}" required placeholder="https://example.com">
+                               value="{{ old_text('site_url', $prefillSiteUrl) }}" required placeholder="https://example.com">
                         @error('site_url')<div class="invalid-feedback">{{ $message }}</div>@enderror
                     </div>
 
@@ -157,7 +168,7 @@
                             <option value="">Select…</option>
                             @foreach($countries as $country)
                                 <option value="{{ strtolower($country->code) }}"
-                                    @selected(old_text('country') === strtolower($country->code))>
+                                    @selected(old_text('country', $prefillCountry) === strtolower($country->code))>
                                     {{ $country->name }}
                                 </option>
                             @endforeach
@@ -167,12 +178,12 @@
                     </div>
                     <div class="col-md-6">
                         <label class="form-label fw-semibold" for="language">Language <span class="text-danger">*</span></label>
-                        <input type="hidden" name="language" id="selectedLanguage" value="{{ old_text('language') }}">
+                        <input type="hidden" name="language" id="selectedLanguage" value="{{ old_text('language', $prefillLanguage) }}">
                         <select id="language" name="language" class="form-select @error('language') is-invalid @enderror" required>
-                            <option value="">{{ old_text('country') !== '' ? 'Select…' : 'Select country first' }}</option>
+                            <option value="">{{ old_text('country', $prefillCountry) !== '' ? 'Select…' : 'Select country first' }}</option>
                             @foreach($languages as $language)
                                 <option value="{{ strtolower($language->code) }}"
-                                    @selected(old_text('language') === strtolower($language->code))>
+                                    @selected(old_text('language', $prefillLanguage) === strtolower($language->code))>
                                     {{ $language->name }}
                                 </option>
                             @endforeach
@@ -376,7 +387,7 @@
     const countryEl = document.getElementById('country');
     const langEl = document.getElementById('language');
     const langHidden = document.getElementById('selectedLanguage');
-    const preferredLang = @json(old_text('language'));
+    const preferredLang = @json(old_text('language', $prefillLanguage));
     const imageInput = document.getElementById('site_image');
     if (imageInput && window.SiteImageUpload) {
         window.SiteImageUpload.bindSiteImageInput({

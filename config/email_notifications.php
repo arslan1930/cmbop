@@ -12,6 +12,7 @@ use App\Mail\BulkSiteItemsRejected;
 use App\Mail\BulkSiteRequestCancelled;
 use App\Mail\BulkSiteRequestSubmitted;
 use App\Mail\BulkSitesSeededNotification;
+use App\Mail\CommunityFeedbackReviewed;
 use App\Mail\ContentEvaluationResult;
 use App\Mail\ContentRevisionFulfilled;
 use App\Mail\ContentRevisionRequested;
@@ -49,6 +50,7 @@ use App\Mail\SiteDiscountEnded;
 use App\Mail\SiteOwnerOrderNotification;
 use App\Mail\SiteStatusNotification;
 use App\Mail\TrustpilotReviewRequest;
+use App\Mail\WebsiteSuggestionReviewed;
 use App\Mail\WeeklyActivitySummary;
 use App\Mail\WelcomeEmail;
 use App\Mail\WithdrawalRequestedConfirmation;
@@ -412,6 +414,20 @@ return [
             'audience' => 'publisher',
             'preference' => 'system_updates',
             'mailable' => SiteClaimOwnershipTransferred::class,
+            'default_enabled' => true,
+        ],
+        'community_feedback_reviewed' => [
+            'name' => 'Community Feedback Reviewed',
+            'audience' => 'user',
+            'preference' => 'system_updates',
+            'mailable' => CommunityFeedbackReviewed::class,
+            'default_enabled' => true,
+        ],
+        'website_suggestion_reviewed' => [
+            'name' => 'Website Suggestion Reviewed',
+            'audience' => 'user',
+            'preference' => 'system_updates',
+            'mailable' => WebsiteSuggestionReviewed::class,
             'default_enabled' => true,
         ],
 

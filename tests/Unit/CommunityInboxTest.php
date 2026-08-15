@@ -2,6 +2,7 @@
 
 namespace Tests\Unit;
 
+use App\Models\WebsiteSuggestion;
 use App\Support\CommunityInbox;
 use Tests\TestCase;
 
@@ -100,5 +101,40 @@ class CommunityInboxTest extends TestCase
         $this->assertSame('bg-warning text-dark', CommunityInbox::statusBadgeClass('pending'));
         $this->assertSame('bg-success', CommunityInbox::statusBadgeClass('approved'));
         $this->assertSame('bg-danger', CommunityInbox::statusBadgeClass('rejected'));
+    }
+
+    public function test_create_listing_query_prefills_safe_http_and_iso_codes(): void
+    {
+        $suggestion = new WebsiteSuggestion([
+            'website_name' => 'Fresh Tech Blog',
+            'website_url' => 'https://fresh-tech.example',
+            'country' => 'US',
+            'language' => 'en',
+        ]);
+        $suggestion->id = 12;
+
+        $this->assertSame([
+            'suggestion_id' => 12,
+            'site_name' => 'Fresh Tech Blog',
+            'site_url' => 'https://fresh-tech.example',
+            'country' => 'us',
+            'language' => 'en',
+        ], CommunityInbox::createListingQuery($suggestion));
+    }
+
+    public function test_create_listing_query_drops_unsafe_url_and_long_locale(): void
+    {
+        $suggestion = new WebsiteSuggestion([
+            'website_name' => 'Bad Site',
+            'website_url' => 'javascript:alert(1)',
+            'country' => 'United States',
+            'language' => 'english',
+        ]);
+        $suggestion->id = 4;
+
+        $this->assertSame([
+            'suggestion_id' => 4,
+            'site_name' => 'Bad Site',
+        ], CommunityInbox::createListingQuery($suggestion));
     }
 }

@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Mail\AdminAssignedSiteNotification;
+use App\Mail\WebsiteSuggestionReviewed;
 use App\Models\Category;
 use App\Models\Country;
 use App\Models\InAppNotification;
@@ -12,6 +13,7 @@ use App\Models\OrderItem;
 use App\Models\Role;
 use App\Models\Site;
 use App\Models\User;
+use App\Models\WebsiteSuggestion;
 use App\Services\InAppNotificationService;
 use Database\Seeders\CategoriesTableSeeder;
 use Database\Seeders\CountriesTableSeeder;
@@ -839,5 +841,62 @@ class AdminAssignSiteForPublisherTest extends TestCase
         $this->assertStringNotContainsString('required disabled', $html);
         $this->assertMatchesRegularExpression('/<select[^>]+id="language"[^>]*required/', $html);
         $this->assertDoesNotMatchRegularExpression('/<select[^>]+id="language"[^>]*disabled/', $html);
+    }
+
+    public function test_admin_create_with_suggestion_id_marks_the_website_suggestion_accepted(): void
+    {
+        Mail::fake();
+
+        $advertiserRole = Role::firstOrCreate(['name' => 'advertiser']);
+        $advertiser = User::factory()->create([
+            'email_verified_at' => now(),
+            'active_role_id' => $advertiserRole->id,
+        ]);
+        $advertiser->roles()->attach($advertiserRole->id);
+
+        $suggestion = WebsiteSuggestion::create([
+            'user_id' => $advertiser->id,
+            'website_name' => 'Staff Added News',
+            'website_url' => 'https://staff-added-news.example',
+            'domain' => 'staff-added-news.example',
+            'status' => 'pending',
+        ]);
+
+        $country = Country::marketplace()->where('code', 'de')->first()
+            ?? Country::marketplace()->firstOrFail();
+        $language = Language::marketplace()->where('code', 'de')->first()
+            ?? Language::marketplace()->firstOrFail();
+        $niche = Category::query()->orderBy('name')->value('name');
+        $this->assertNotEmpty($niche);
+
+        $this->actingAs($this->admin)->post(route('admin.sites.store'), [
+            'publisher_id' => $this->publisher->id,
+            'site_name' => 'Staff Added News',
+            'site_url' => 'https://staff-added-news.example',
+            'example_url' => 'https://staff-added-news.example/sample',
+            'da' => 40,
+            'dr' => 45,
+            'traffic' => 12000,
+            'country' => strtolower($country->code),
+            'language' => strtolower($language->code),
+            'categories' => $niche,
+            'price' => 99,
+            'turnaround_time' => '3days',
+            'publication_time' => 'permanent',
+            'link_type' => 'dofollow',
+            'description' => str_repeat('Quality editorial site for guest posts. ', 4),
+            'site_tag' => 'as_you_prefer',
+            'written_request' => 1,
+            'suggestion_id' => $suggestion->id,
+        ])->assertRedirect()->assertSessionHas('success');
+
+        $suggestion->refresh();
+        $this->assertSame('accepted', $suggestion->status);
+        $this->assertSame($this->admin->id, (int) $suggestion->reviewed_by);
+        $this->assertStringContainsString('Listing created: staff-added-news.example', (string) $suggestion->admin_notes);
+
+        Mail::assertQueued(WebsiteSuggestionReviewed::class, function (WebsiteSuggestionReviewed $mail) use ($advertiser) {
+            return $mail->hasTo($advertiser->email) && $mail->suggestion->status === 'accepted';
+        });
     }
 }

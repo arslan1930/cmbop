@@ -8,6 +8,7 @@ use App\Mail\AdminStalledOrderAlert;
 use App\Mail\AdvertiserOrderStalledNotice;
 use App\Mail\AdvertiserReviewNudge;
 use App\Mail\AutoApproveReminderMail;
+use App\Mail\CommunityFeedbackReviewed;
 use App\Mail\ContentRevisionFulfilled;
 use App\Mail\ContentRevisionRequested;
 use App\Mail\DepositApproved;
@@ -43,6 +44,7 @@ use App\Mail\SiteOwnerOrderNotification;
 use App\Mail\SiteStatusNotification;
 use App\Mail\SpendBudgetAlertMail;
 use App\Mail\TrustpilotReviewRequest;
+use App\Mail\WebsiteSuggestionReviewed;
 use App\Mail\WeeklyActivitySummary;
 use App\Mail\WelcomeEmail;
 use App\Mail\WithdrawalRequestedConfirmation;
@@ -53,9 +55,11 @@ use App\Models\Invoice;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\OrderItemDispute;
+use App\Models\ProblemReport;
 use App\Models\Site;
 use App\Models\SiteClaim;
 use App\Models\User;
+use App\Models\WebsiteSuggestion;
 use App\Models\Withdrawal;
 use Illuminate\Mail\Mailable;
 use Illuminate\Support\Str;
@@ -315,6 +319,20 @@ class EmailCatalog
                 'mailable' => SiteClaimOwnershipTransferred::class,
                 'status' => 'active',
             ],
+            'community_feedback_reviewed' => [
+                'name' => 'Community Feedback Reviewed',
+                'description' => 'Submitter notified when an admin reviews a problem report or suggestion.',
+                'category' => 'Users',
+                'mailable' => CommunityFeedbackReviewed::class,
+                'status' => 'active',
+            ],
+            'website_suggestion_reviewed' => [
+                'name' => 'Website Suggestion Reviewed',
+                'description' => 'Submitter notified when an admin reviews a missing-website suggestion.',
+                'category' => 'Users',
+                'mailable' => WebsiteSuggestionReviewed::class,
+                'status' => 'active',
+            ],
             'publisher_add_site_reminder' => [
                 'name' => 'Publisher Add-Site Reminder (day 3 / day 7)',
                 'description' => 'Scheduled nudge for publishers who registered but never listed a website.',
@@ -527,6 +545,8 @@ class EmailCatalog
             'site_claim_submitted' => new SiteClaimSubmitted(self::sampleSiteClaim()),
             'site_claim_reviewed' => new SiteClaimReviewed(self::sampleSiteClaim('approved')),
             'site_claim_ownership_transferred' => new SiteClaimOwnershipTransferred(self::sampleSiteClaim('approved'), $user),
+            'community_feedback_reviewed' => new CommunityFeedbackReviewed(self::sampleProblemReport(), 'problem'),
+            'website_suggestion_reviewed' => new WebsiteSuggestionReviewed(self::sampleWebsiteSuggestion()),
             'publisher_add_site_reminder' => new PublisherAddSiteReminderMail($user, PublisherAddSiteReminderMail::STEP_DAY3),
             'deposit_reminder' => new DepositReminderMail($user, DepositReminderMail::STEP_DAY14),
             'publisher_accept_nudge' => new PublisherAcceptNudge($user, $order, $item, $site, 2, 36),
@@ -704,6 +724,51 @@ class EmailCatalog
         $claim->setRelation('claimer', $user);
 
         return $claim;
+    }
+
+    protected static function sampleProblemReport(): ProblemReport
+    {
+        $report = ProblemReport::query()->with('user')->latest('id')->first();
+        if ($report) {
+            return $report;
+        }
+
+        $user = self::sampleUser();
+        $report = new ProblemReport([
+            'user_id' => $user->id ?? 0,
+            'name' => $user->name ?? 'Sample User',
+            'email' => $user->email ?? 'sample@example.com',
+            'subject' => 'Checkout button on mobile',
+            'message' => 'Sample problem report for email preview.',
+            'status' => 'resolved',
+            'admin_notes' => 'Fixed the mobile CTA (preview).',
+        ]);
+        $report->id = 0;
+        $report->setRelation('user', $user);
+
+        return $report;
+    }
+
+    protected static function sampleWebsiteSuggestion(): WebsiteSuggestion
+    {
+        $suggestion = WebsiteSuggestion::query()->with('user')->latest('id')->first();
+        if ($suggestion) {
+            return $suggestion;
+        }
+
+        $user = self::sampleUser();
+        $suggestion = new WebsiteSuggestion([
+            'user_id' => $user->id ?? 0,
+            'website_name' => 'Sample Tech Blog',
+            'website_url' => 'https://sample-tech.example',
+            'domain' => 'sample-tech.example',
+            'status' => 'accepted',
+            'admin_notes' => 'We will try to add this listing (preview).',
+        ]);
+        $suggestion->id = 0;
+        $suggestion->setRelation('user', $user);
+
+        return $suggestion;
     }
 
     protected static function sampleDeposit(): DepositRequest

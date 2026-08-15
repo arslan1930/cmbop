@@ -2,6 +2,9 @@
 
 namespace Tests\Feature;
 
+use App\Mail\CommunityFeedbackReviewed;
+use App\Mail\WebsiteSuggestionReviewed;
+use App\Models\InAppNotification;
 use App\Models\ProblemReport;
 use App\Models\Role;
 use App\Models\Site;
@@ -9,7 +12,11 @@ use App\Models\SiteClaim;
 use App\Models\Suggestion;
 use App\Models\User;
 use App\Models\WebsiteSuggestion;
+use App\Services\CommunityInboxNotifier;
+use App\Support\CommunityInbox;
+use App\Support\EmailCatalog;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Mail;
 use Tests\TestCase;
 
 class CommunityFeedbackTest extends TestCase
@@ -513,5 +520,203 @@ class CommunityFeedbackTest extends TestCase
         $this->assertStringContainsString('Landing-tab claim proof unique string.', $html);
         $this->assertStringContainsString('nav-link active', $html);
         $this->assertMatchesRegularExpression('/tab=claims/', $html);
+    }
+
+    public function test_guest_problem_notifies_admins_and_writes_an_activity_log(): void
+    {
+        $admin = $this->userWithRole('admin');
+        $marketing = $this->userWithRole('marketing');
+
+        $this->postJson(route('feedback.problem'), [
+            'name' => 'Guest User',
+            'email' => 'guest@example.com',
+            'subject' => 'Checkout broken',
+            'message' => 'The checkout button does nothing on mobile.',
+        ])->assertOk()->assertJson(['success' => true]);
+
+        $this->assertDatabaseHas('activity_logs', [
+            'action' => 'feedback.problem',
+            'description' => 'Guest User reported a problem: Checkout broken',
+        ]);
+        $this->assertDatabaseHas('in_app_notifications', [
+            'user_id' => $admin->id,
+            'audience' => InAppNotification::AUDIENCE_ADMIN,
+            'title' => 'New problem report',
+        ]);
+        $this->assertDatabaseMissing('in_app_notifications', [
+            'user_id' => $marketing->id,
+            'title' => 'New problem report',
+        ]);
+    }
+
+    public function test_resolving_a_logged_in_problem_mails_and_bells_once(): void
+    {
+        Mail::fake();
+
+        $admin = $this->userWithRole('admin');
+        $advertiser = $this->userWithRole('advertiser');
+        $report = ProblemReport::create([
+            'user_id' => $advertiser->id,
+            'name' => $advertiser->name,
+            'email' => $advertiser->email,
+            'subject' => 'Checkout broken',
+            'message' => 'The pay button does nothing on mobile.',
+            'status' => 'pending',
+        ]);
+
+        $this->actingAs($admin)->patchJson(route('admin.community.problems.update', $report->id), [
+            'status' => 'resolved',
+            'admin_notes' => 'Fixed the mobile CTA.',
+        ])->assertOk()->assertJson(['success' => true]);
+
+        Mail::assertQueued(CommunityFeedbackReviewed::class, 1);
+        Mail::assertQueued(CommunityFeedbackReviewed::class, function (CommunityFeedbackReviewed $mail) use ($advertiser, $report) {
+            return $mail->hasTo($advertiser->email)
+                && $mail->kind === 'problem'
+                && (int) $mail->item->id === (int) $report->id
+                && $mail->item->status === 'resolved';
+        });
+        $this->assertDatabaseHas('in_app_notifications', [
+            'user_id' => $advertiser->id,
+            'title' => 'We reviewed your report — Checkout broken',
+        ]);
+
+        $this->actingAs($admin)->patchJson(route('admin.community.problems.update', $report->id), [
+            'status' => 'resolved',
+            'admin_notes' => 'Still fixed.',
+        ])->assertOk();
+
+        Mail::assertQueued(CommunityFeedbackReviewed::class, 1);
+        $this->assertSame(1, InAppNotification::query()
+            ->where('user_id', $advertiser->id)
+            ->where('title', 'We reviewed your report — Checkout broken')
+            ->count());
+    }
+
+    public function test_website_tab_offers_create_listing_handoff_or_existing_catalog_link(): void
+    {
+        $admin = $this->userWithRole('admin');
+        $advertiser = $this->userWithRole('advertiser');
+        $publisher = $this->userWithRole('publisher');
+        $fresh = WebsiteSuggestion::create([
+            'user_id' => $advertiser->id,
+            'website_name' => 'Fresh Tech Blog',
+            'website_url' => 'https://fresh-tech.example',
+            'domain' => 'fresh-tech.example',
+            'country' => 'us',
+            'language' => 'en',
+            'status' => 'pending',
+        ]);
+        $occupied = WebsiteSuggestion::create([
+            'user_id' => $advertiser->id,
+            'website_name' => 'Owned News Daily',
+            'website_url' => 'https://owned-news.example',
+            'domain' => 'owned-news.example',
+            'status' => 'pending',
+        ]);
+        $site = $this->siteFor($publisher);
+
+        $html = $this->actingAs($admin)
+            ->get(route('admin.community.index', ['tab' => 'websites']))
+            ->assertOk()
+            ->getContent();
+
+        $createUrl = route('admin.sites.create', CommunityInbox::createListingQuery($fresh));
+        $this->assertStringContainsString('Create listing', $html);
+        $this->assertStringContainsString('suggestion_id='.$fresh->id, $html);
+        $this->assertStringContainsString('site_name=Fresh%20Tech%20Blog', $html);
+        $this->assertStringContainsString('Already in catalog', $html);
+        $this->assertStringContainsString(route('admin.sites.edit', $site->id), $html);
+        $this->assertStringNotContainsString('suggestion_id='.$occupied->id, $html);
+
+        $form = $this->actingAs($admin)
+            ->get($createUrl)
+            ->assertOk()
+            ->getContent();
+
+        $this->assertStringContainsString('value="Fresh Tech Blog"', $form);
+        $this->assertStringContainsString('value="https://fresh-tech.example"', $form);
+        $this->assertStringContainsString('name="suggestion_id"', $form);
+        $this->assertStringContainsString('value="'.$fresh->id.'"', $form);
+        $this->assertStringContainsString('Prefilling from website suggestion', $form);
+    }
+
+    public function test_accept_website_suggestion_after_listing_marks_accepted_and_notifies(): void
+    {
+        Mail::fake();
+
+        $admin = $this->userWithRole('admin');
+        $advertiser = $this->userWithRole('advertiser');
+        $publisher = $this->userWithRole('publisher');
+        $suggestion = WebsiteSuggestion::create([
+            'user_id' => $advertiser->id,
+            'website_name' => 'Fresh Tech Blog',
+            'website_url' => 'https://fresh-tech.example',
+            'domain' => 'fresh-tech.example',
+            'status' => 'pending',
+        ]);
+        $site = $this->siteFor($publisher);
+
+        app(CommunityInboxNotifier::class)->acceptWebsiteSuggestionAfterListing(
+            (int) $suggestion->id,
+            $site,
+            $admin
+        );
+
+        $suggestion->refresh();
+        $this->assertSame('accepted', $suggestion->status);
+        $this->assertSame($admin->id, (int) $suggestion->reviewed_by);
+        $this->assertStringContainsString('Listing created: '.$site->domain, (string) $suggestion->admin_notes);
+
+        Mail::assertQueued(WebsiteSuggestionReviewed::class, function (WebsiteSuggestionReviewed $mail) use ($advertiser) {
+            return $mail->hasTo($advertiser->email) && $mail->suggestion->status === 'accepted';
+        });
+        $this->assertDatabaseHas('in_app_notifications', [
+            'user_id' => $advertiser->id,
+            'title' => 'Website suggestion accepted — Fresh Tech Blog',
+        ]);
+    }
+
+    public function test_inactive_community_tabs_are_not_paginated(): void
+    {
+        $admin = $this->userWithRole('admin');
+        $owner = $this->userWithRole('publisher');
+        $claimer = $this->userWithRole('publisher');
+        $site = $this->siteFor($owner);
+
+        SiteClaim::create([
+            'site_id' => $site->id,
+            'claimer_id' => $claimer->id,
+            'website_name' => $site->site_name,
+            'website_url' => $site->site_url,
+            'domain' => $site->domain,
+            'name_matches' => true,
+            'proof_message' => 'Inactive-tab claim should not load on problems.',
+            'contact_email' => $claimer->email,
+            'status' => 'pending',
+        ]);
+
+        $this->actingAs($admin)
+            ->get(route('admin.community.index', ['tab' => 'problems']))
+            ->assertOk()
+            ->assertViewHas('claims', fn ($claims) => $claims->total() === 0)
+            ->assertViewHas('problems', fn ($problems) => $problems->total() === 0);
+
+        $this->actingAs($admin)
+            ->get(route('admin.community.index', ['tab' => 'claims']))
+            ->assertOk()
+            ->assertViewHas('claims', fn ($claims) => $claims->total() === 1)
+            ->assertSee('Inactive-tab claim should not load on problems.', false);
+    }
+
+    public function test_email_catalog_can_preview_community_review_mailables(): void
+    {
+        $feedback = EmailCatalog::makeMailable('community_feedback_reviewed');
+        $website = EmailCatalog::makeMailable('website_suggestion_reviewed');
+
+        $this->assertInstanceOf(CommunityFeedbackReviewed::class, $feedback);
+        $this->assertInstanceOf(WebsiteSuggestionReviewed::class, $website);
+        $this->assertStringContainsString('We reviewed your problem report', $feedback->render());
+        $this->assertStringContainsString('We will try to add', $website->render());
     }
 }

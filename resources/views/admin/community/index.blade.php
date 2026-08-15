@@ -219,6 +219,7 @@
                                     @endif
                                 </td>
                                 <td class="text-end">
+                                    @include('admin.community.website-listing-action', ['item' => $item])
                                     <button type="button" class="btn btn-sm btn-outline-secondary btn-community-drawer"
                                             data-title="Website #{{ $item->id }}"
                                             data-template="community-detail-websites-{{ $item->id }}">Details</button>
