@@ -1880,6 +1880,11 @@ class CatalogController extends Controller
             return redirect()->route('advertiser.catalog')->with('error', 'Your cart is empty or contains sites you can’t order.');
         }
 
+        $this->cancelConflictingUnpaidCardOrders(
+            (int) auth()->id(),
+            $this->collectSubmissionIdsFromRequest($cart, $request)
+        );
+
         $partition = $this->partitionCartByCheckoutReadiness($cart);
         $payableCart = $partition['payable'];
         $deferredCart = $partition['deferred'];
@@ -2027,6 +2032,14 @@ class CatalogController extends Controller
             $paymentMethod = $request->payment_method;
             $userReferenceCode = $request->reference_code;
 
+            // Unlock articles still held by leftover Pay-again rows before
+            // readiness — otherwise canBeOrdered() hides the site and checkout
+            // 422s “not ready” instead of replacing the failed attempt.
+            $this->cancelConflictingUnpaidCardOrders(
+                (int) $userId,
+                $this->collectSubmissionIdsFromRequest($cart, $request)
+            );
+
             // Only charge sites that are ready for checkout (approved article) and need payment.
             $partition = $this->partitionCartByCheckoutReadiness(
                 $cart,
@@ -2042,12 +2055,6 @@ class CatalogController extends Controller
                     'message' => 'No websites are ready for checkout yet. Assign an approved article to at least one site, then pay.',
                 ], 422);
             }
-
-            // If a previous Stripe attempt linked the article, unlock it before re-resolving content.
-            $this->cancelConflictingUnpaidCardOrders(
-                (int) $userId,
-                $this->collectSubmissionIdsFromRequest($payableCart, $request)
-            );
 
             // Resolve approved library articles + schedule (session fallback from Content Library)
             $sessionSchedule = session('checkout_schedule', []);
