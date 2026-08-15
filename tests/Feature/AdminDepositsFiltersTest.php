@@ -50,6 +50,11 @@ class AdminDepositsFiltersTest extends TestCase
             ->get(route('admin.deposits', ['status' => ['pending']]))
             ->assertOk()
             ->assertSee('DEP-KEEP-1', false);
+
+        $this->actingAs($admin)
+            ->get(route('admin.deposits', ['reported_paid' => ['1']]))
+            ->assertOk()
+            ->assertSee('DEP-KEEP-1', false);
     }
 
     public function test_reported_paid_filter_only_shows_pending_marked_paid(): void

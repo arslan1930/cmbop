@@ -215,7 +215,9 @@ class DepositController extends Controller
     private function depositFilters(Request $request): array
     {
         $status = search_text($request->input('status'));
-        $reportedPaid = $request->boolean('reported_paid') || $status === 'reported_paid';
+        $reportedFlag = search_text($request->input('reported_paid'));
+        $reportedPaid = in_array($reportedFlag, ['1', 'true', 'on', 'yes'], true)
+            || $status === 'reported_paid';
 
         if ($reportedPaid) {
             $status = 'reported_paid';
