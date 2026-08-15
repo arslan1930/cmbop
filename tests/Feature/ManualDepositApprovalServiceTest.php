@@ -3,11 +3,13 @@
 namespace Tests\Feature;
 
 use App\Mail\DepositApproved;
+use App\Models\ActivityLog;
 use App\Models\DepositRequest;
 use App\Models\Role;
 use App\Models\User;
 use App\Models\Wallet;
 use App\Models\WalletTransaction;
+use App\Services\DepositSettlementNotifier;
 use App\Services\Wallet\ManualDepositAlreadyProcessedException;
 use App\Services\Wallet\ManualDepositApprovalService;
 use App\Services\Wallet\ManualDepositNotManualException;
@@ -173,7 +175,7 @@ class ManualDepositApprovalServiceTest extends TestCase
         Mail::assertNothingQueued();
     }
 
-    public function test_approve_refuses_manual_method_tied_to_stripe(): void
+    public function test_approve_credits_manual_method_with_leftover_stripe_id(): void
     {
         $admin = $this->admin();
         $advertiser = $this->advertiser();
@@ -181,16 +183,12 @@ class ManualDepositApprovalServiceTest extends TestCase
         $deposit = $this->pendingDeposit($advertiser, 40, 'bank');
         $deposit->update(['stripe_payment_intent_id' => 'pi_mixed_svc']);
 
-        try {
-            app(ManualDepositApprovalService::class)->approve($deposit->fresh(), $admin);
-            $this->fail('Expected ManualDepositNotManualException');
-        } catch (ManualDepositNotManualException $e) {
-            $this->assertStringContainsString('Stripe', $e->getMessage());
-        }
+        $result = app(ManualDepositApprovalService::class)->approve($deposit->fresh(), $admin);
 
-        $this->assertSame('pending', $deposit->fresh()->status);
-        $this->assertSame(0.0, (float) $wallet->fresh()->balance);
-        Mail::assertNothingQueued();
+        $this->assertTrue($result['email_sent']);
+        $this->assertSame('completed', $deposit->fresh()->status);
+        $this->assertSame(40.0, (float) $wallet->fresh()->balance);
+        Mail::assertQueued(DepositApproved::class);
     }
 
     public function test_approve_refuses_zero_amount(): void
@@ -210,5 +208,49 @@ class ManualDepositApprovalServiceTest extends TestCase
         $this->assertSame('pending', $deposit->fresh()->status);
         $this->assertSame(0.0, (float) $wallet->fresh()->balance);
         Mail::assertNothingQueued();
+    }
+
+    public function test_approve_still_succeeds_when_activity_log_throws(): void
+    {
+        $admin = $this->admin();
+        $advertiser = $this->advertiser();
+        $wallet = $this->walletFor($advertiser);
+        $deposit = $this->pendingDeposit($advertiser, 45, 'bank');
+
+        ActivityLog::creating(function () {
+            throw new \RuntimeException('activity log down');
+        });
+
+        $this->actingAs($admin)
+            ->postJson(route('admin.deposits.approve', $deposit->id))
+            ->assertOk()
+            ->assertJsonPath('success', true);
+
+        $this->assertSame('completed', $deposit->fresh()->status);
+        $this->assertSame(45.0, (float) $wallet->fresh()->balance);
+        Mail::assertQueued(DepositApproved::class, 1);
+    }
+
+    public function test_approve_still_succeeds_when_notifier_throws(): void
+    {
+        $admin = $this->admin();
+        $advertiser = $this->advertiser();
+        $wallet = $this->walletFor($advertiser);
+        $deposit = $this->pendingDeposit($advertiser, 30, 'wise');
+
+        $this->mock(DepositSettlementNotifier::class, function ($mock) {
+            $mock->shouldReceive('notifyApproved')
+                ->once()
+                ->andThrow(new \RuntimeException('notifier down'));
+        });
+
+        $this->actingAs($admin)
+            ->postJson(route('admin.deposits.approve', $deposit->id))
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('email_sent', false);
+
+        $this->assertSame('completed', $deposit->fresh()->status);
+        $this->assertSame(30.0, (float) $wallet->fresh()->balance);
     }
 }

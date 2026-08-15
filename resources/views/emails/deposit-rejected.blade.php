@@ -1,7 +1,7 @@
 @component('mail::message')
 # Deposit Request Update
 
-Dear {{ $deposit->user->name }},
+Dear {{ $deposit->user?->name ?? 'there' }},
 
 We regret to inform you that your deposit request has been **rejected**.
 

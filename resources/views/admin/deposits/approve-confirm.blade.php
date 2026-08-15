@@ -27,7 +27,7 @@
 
                             <dt class="col-sm-4 text-muted">Advertiser</dt>
                             <dd class="col-sm-8">
-                                {{ $deposit->user->name ?? 'Unknown' }}
+                                {{ $deposit->user?->name ?? 'Unknown' }}
                                 @if($deposit->user?->email)
                                     <br><span class="text-muted small">{{ $deposit->user->email }}</span>
                                 @endif
@@ -66,7 +66,7 @@
 
                             <dt class="col-sm-4 text-muted">Advertiser</dt>
                             <dd class="col-sm-8">
-                                {{ $deposit->user->name ?? 'Unknown' }}
+                                {{ $deposit->user?->name ?? 'Unknown' }}
                                 @if($deposit->user?->email)
                                     <br><span class="text-muted small">{{ $deposit->user->email }}</span>
                                 @endif
@@ -171,6 +171,46 @@
 
                         <a href="{{ route('admin.deposits') }}" class="btn btn-link w-100 text-muted">
                             Cancel — back to deposits
+                        </a>
+                    @elseif($deposit->isPending())
+                        <div class="text-center mb-4">
+                            <i class="fa-solid fa-circle-info fa-3x text-secondary mb-3" aria-hidden="true"></i>
+                            <h1 class="h3 mb-2">Cannot credit from this link</h1>
+                            <p class="text-muted mb-0">
+                                This deposit is still <strong>pending</strong> but cannot be approved here.
+                                Open Deposits to review it.
+                            </p>
+                        </div>
+
+                        <div class="border rounded p-3 mb-4 bg-light text-start">
+                            <h2 class="h6 text-uppercase text-muted mb-3">Wallet snapshot</h2>
+                            <dl class="row mb-0">
+                                <dt class="col-sm-5 text-muted">Current balance</dt>
+                                <dd class="col-sm-7 fw-semibold">€{{ number_format((float) $currentBalance, 2) }}</dd>
+                            </dl>
+                        </div>
+
+                        @if($priorDeposits->isNotEmpty())
+                            <div class="mb-4 text-start">
+                                <h2 class="h6 text-uppercase text-muted mb-2">Recent completed deposits</h2>
+                                <ul class="list-unstyled mb-0 small">
+                                    @foreach($priorDeposits as $prior)
+                                        <li class="d-flex justify-content-between gap-2 py-1 border-bottom border-light">
+                                            <span>
+                                                <strong>€{{ number_format((float) $prior->amount, 2) }}</strong>
+                                                · {{ ucfirst((string) $prior->payment_method) }}
+                                            </span>
+                                            <span class="text-muted text-nowrap">
+                                                {{ optional($prior->approved_at ?? $prior->created_at)->format('M d, Y') }}
+                                            </span>
+                                        </li>
+                                    @endforeach
+                                </ul>
+                            </div>
+                        @endif
+
+                        <a href="{{ route('admin.deposits') }}" class="btn btn-primary w-100">
+                            Open deposits
                         </a>
                     @else
                         <div class="text-center mb-4">

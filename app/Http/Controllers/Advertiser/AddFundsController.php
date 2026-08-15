@@ -203,6 +203,18 @@ class AddFundsController extends Controller
                     'reference_code' => $referenceCode,
                     'session_reference' => $sessionReference,
                 ],
+                // Copied onto the PaymentIntent so a late PI webhook can
+                // attach to the session-created card without using the
+                // reused client REF.
+                'payment_intent_data' => [
+                    'metadata' => [
+                        'type' => 'wallet_deposit',
+                        'user_id' => (string) $user->id,
+                        'amount' => (string) $amountEuros,
+                        'reference_code' => $referenceCode,
+                        'session_reference' => $sessionReference,
+                    ],
+                ],
             ];
 
             $checkoutSession = app(StripeCustomerService::class)
@@ -253,8 +265,22 @@ class AddFundsController extends Controller
                     (int) ($intent->amount_received ?: $intent->amount)
                 );
                 $ref = $referenceCode ?: (string) ($intent->metadata->reference_code ?? str_pad((string) mt_rand(1, 999999), 6, '0', STR_PAD_LEFT));
+                $sessionReference = trim((string) ($intent->metadata->session_reference ?? ''));
                 $credited = app(WalletStripeDepositService::class)
-                    ->creditFromPaymentIntent(auth()->id(), $paymentIntentId, $amountEuros, $ref);
+                    ->creditFromPaymentIntent(
+                        auth()->id(),
+                        $paymentIntentId,
+                        $amountEuros,
+                        $ref,
+                        null,
+                        true,
+                        $sessionReference
+                    );
+
+                if ($credited <= 0) {
+                    return redirect()->route('advertiser.add-funds')
+                        ->with('error', 'Payment verification failed. Please contact support.');
+                }
 
                 return redirect()->route('advertiser.add-funds')
                     ->with('success', 'Payment successful! €'.number_format($credited, 2).' added to your wallet.');
@@ -281,8 +307,11 @@ class AddFundsController extends Controller
                 $meta = (array) json_decode(json_encode($session->metadata ?? []), true);
                 $sessionType = isset($meta['type']) ? (string) $meta['type'] : null;
                 $hasDepositId = ! empty($meta['deposit_id']);
-                $isWalletSession = $hasDepositId
-                    || in_array((string) $sessionType, ['wallet_deposit', 'deposit'], true);
+                $isExplicitWallet = in_array((string) $sessionType, ['wallet_deposit', 'deposit'], true);
+                // deposit_id alone is only a wallet hint when Stripe did not
+                // tag the session as something else (order / feature).
+                $isWalletSession = $isExplicitWallet
+                    || ($hasDepositId && ($sessionType === null || $sessionType === ''));
 
                 if (! $isWalletSession) {
                     Log::warning('Add Funds checkoutSuccess refused non-wallet session', [
@@ -376,16 +405,23 @@ class AddFundsController extends Controller
                 $chargedEuros = ! empty($payResult['amount_received'])
                     ? StripePaymentService::fromCents((int) $payResult['amount_received'])
                     : $amountEuros;
-                app(WalletStripeDepositService::class)->creditFromPaymentIntent(
+                $credited = app(WalletStripeDepositService::class)->creditFromPaymentIntent(
                     $user->id,
                     $payResult['payment_intent_id'],
                     $chargedEuros,
                     $referenceCode
                 );
 
+                if ($credited <= 0) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Payment verification failed. Please contact support.',
+                    ], 422);
+                }
+
                 return response()->json([
                     'success' => true,
-                    'message' => '€'.number_format($chargedEuros, 2).' added to your wallet with your saved card.',
+                    'message' => '€'.number_format($credited, 2).' added to your wallet with your saved card.',
                     'redirect_url' => route('advertiser.add-funds'),
                 ]);
             }

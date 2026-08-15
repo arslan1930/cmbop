@@ -112,6 +112,31 @@ class AdminDepositsFiltersTest extends TestCase
         $this->assertStringContainsString('search=DEP-PAGE', $html);
     }
 
+    public function test_pagination_uses_normalized_filters_not_raw_arrays(): void
+    {
+        $admin = $this->makeUser('admin');
+        $advertiser = $this->makeUser('advertiser');
+
+        for ($i = 0; $i < 21; $i++) {
+            $this->depositFor($advertiser, [
+                'reference_code' => sprintf('DEP-NORM-%02d', $i),
+                'status' => 'pending',
+            ]);
+        }
+
+        $html = $this->actingAs($admin)
+            ->get(route('admin.deposits', [
+                'status' => 'pending',
+                'reported_paid' => ['1'],
+                'page' => 2,
+            ]))
+            ->assertOk()
+            ->getContent();
+
+        $this->assertStringContainsString('status=pending', $html);
+        $this->assertStringNotContainsString('reported_paid[]', $html);
+    }
+
     public function test_kpis_drop_approved_and_link_reported_paid(): void
     {
         $admin = $this->makeUser('admin');

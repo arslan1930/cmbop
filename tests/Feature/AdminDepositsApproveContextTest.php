@@ -10,6 +10,7 @@ use App\Models\Wallet;
 use App\Services\Wallet\ManualDepositApproveLink;
 use App\Services\Wallet\ManualDepositNotManualException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Mail\Markdown;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\URL;
 use Tests\TestCase;
@@ -241,6 +242,7 @@ class AdminDepositsApproveContextTest extends TestCase
         ])->save();
         $this->walletFor($advertiser);
         $deposit = $this->depositFor($advertiser, [
+            'payment_method' => 'card',
             'stripe_session_id' => 'cs_secret',
             'stripe_payment_intent_id' => 'pi_secret',
             'stripe_response' => ['client_secret' => 'should-not-leak'],
@@ -265,7 +267,7 @@ class AdminDepositsApproveContextTest extends TestCase
         $this->assertArrayNotHasKey('password', $row['user']);
     }
 
-    public function test_bank_row_with_stripe_id_cannot_be_approved(): void
+    public function test_bank_row_with_leftover_stripe_id_can_still_be_approved(): void
     {
         $admin = $this->makeUser('admin');
         $advertiser = $this->makeUser('advertiser');
@@ -279,17 +281,111 @@ class AdminDepositsApproveContextTest extends TestCase
         $this->actingAs($admin)
             ->getJson(route('admin.deposits.show', $deposit->id))
             ->assertOk()
-            ->assertJsonPath('wallet.can_approve', false)
-            ->assertJsonPath('wallet.is_card', true);
+            ->assertJsonPath('wallet.can_approve', true)
+            ->assertJsonPath('wallet.is_card', false);
 
         $this->actingAs($admin)
             ->postJson(route('admin.deposits.approve', $deposit->id))
             ->assertOk()
-            ->assertJsonPath('success', false)
-            ->assertJsonPath('message', ManualDepositNotManualException::forDeposit()->getMessage());
+            ->assertJsonPath('success', true);
 
-        $this->assertSame('pending', $deposit->fresh()->status);
-        $this->assertSame(10.0, (float) $wallet->fresh()->balance);
-        Mail::assertNotQueued(DepositApproved::class);
+        $this->assertSame('completed', $deposit->fresh()->status);
+        $this->assertSame(50.0, (float) $wallet->fresh()->balance);
+        Mail::assertQueued(DepositApproved::class);
+    }
+
+    public function test_signed_get_for_pending_unknown_method_is_not_already_processed(): void
+    {
+        $admin = $this->makeUser('admin');
+        $advertiser = $this->makeUser('advertiser');
+        $this->walletFor($advertiser);
+        $deposit = $this->depositFor($advertiser, ['payment_method' => 'other']);
+        $url = $this->relativeSignedUrl(ManualDepositApproveLink::url($deposit));
+
+        $this->actingAs($admin)
+            ->get($url)
+            ->assertOk()
+            ->assertSee('Cannot credit from this link', false)
+            ->assertSee('still', false)
+            ->assertDontSee('Deposit already processed', false)
+            ->assertDontSee('Confirm and credit', false);
+    }
+
+    public function test_rejected_and_approved_mail_render_without_a_user(): void
+    {
+        $advertiser = $this->makeUser('advertiser');
+        $rejected = $this->depositFor($advertiser, [
+            'status' => 'rejected',
+            'rejected_at' => now(),
+        ]);
+        $rejected->setRelation('user', null);
+
+        $approved = $this->depositFor($advertiser, [
+            'reference_code' => 'DEP-MAIL-OK',
+            'status' => 'completed',
+            'approved_at' => now(),
+        ]);
+        $approved->setRelation('user', null);
+
+        $markdown = app(Markdown::class);
+        $rejectedHtml = $markdown->render('emails.deposit-rejected', ['deposit' => $rejected]);
+        $this->assertStringContainsString('Dear there', $rejectedHtml);
+        $this->assertStringContainsString($rejected->reference_code, $rejectedHtml);
+
+        $approvedHtml = $markdown->render('emails.deposit-approved', [
+            'deposit' => $approved,
+            'isCard' => false,
+            'receipt' => null,
+            'walletBalance' => 0,
+            'balanceUrl' => route('advertiser.balance'),
+            'downloadReceiptUrl' => null,
+        ]);
+        $this->assertStringContainsString('Dear there', $approvedHtml);
+        $this->assertStringContainsString($approved->reference_code, $approvedHtml);
+    }
+
+    public function test_confirm_page_renders_without_a_user(): void
+    {
+        $advertiser = $this->makeUser('advertiser');
+        $this->walletFor($advertiser, 20);
+        $deposit = $this->depositFor($advertiser, ['amount' => 40]);
+        $deposit->setRelation('user', null);
+
+        $this->actingAs($this->makeUser('admin'))->withViewErrors([]);
+
+        $html = view('admin.deposits.approve-confirm', [
+            'deposit' => $deposit,
+            'canApprove' => true,
+            'isCard' => false,
+            'confirmAction' => 'https://example.test/confirm',
+            'currentBalance' => 20.0,
+            'incomingAmount' => 40.0,
+            'projectedBalance' => 60.0,
+            'priorDeposits' => collect(),
+            'bonusBalance' => 0.0,
+            'possibleDuplicate' => false,
+            'duplicateMatches' => collect(),
+        ])->render();
+
+        $this->assertStringContainsString('Unknown', $html);
+        $this->assertStringContainsString('Confirm and credit', $html);
+        $this->assertStringContainsString($deposit->reference_code, $html);
+    }
+
+    public function test_submitted_mail_renders_without_a_user(): void
+    {
+        $advertiser = $this->makeUser('advertiser');
+        $deposit = $this->depositFor($advertiser);
+        $deposit->setRelation('user', null);
+
+        $html = app(Markdown::class)->render('emails.deposit-request-submitted', [
+            'deposit' => $deposit,
+            'user' => null,
+            'approveUrl' => 'https://example.test/approve',
+            'adminUrl' => route('admin.deposits'),
+        ]);
+
+        $this->assertStringContainsString('An advertiser', $html);
+        $this->assertStringContainsString($deposit->reference_code, $html);
     }
 }

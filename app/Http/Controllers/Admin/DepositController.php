@@ -41,7 +41,11 @@ class DepositController extends Controller
             ->orderByRaw('CASE WHEN status = ? AND user_marked_paid_at IS NOT NULL THEN 0 WHEN status = ? THEN 1 ELSE 2 END', ['pending', 'pending'])
             ->latest()
             ->paginate(20)
-            ->withQueryString();
+            ->appends(array_filter([
+                'status' => $filters['status'] !== '' ? $filters['status'] : null,
+                'reported_paid' => $filters['reported_paid'] ? 1 : null,
+                'search' => $filters['search'] !== '' ? $filters['search'] : null,
+            ]));
 
         $invoiceLinks = app(AdminInvoiceLinks::class)->forDeposits($deposits->getCollection());
 
@@ -193,7 +197,7 @@ class DepositController extends Controller
         }
 
         try {
-            app(InAppNotificationService::class)->notifyDepositRejected($deposit->fresh());
+            app(InAppNotificationService::class)->notifyDepositRejected($deposit->fresh() ?? $deposit);
         } catch (\Throwable $e) {
             Log::error('Failed to notify deposit rejection: '.$e->getMessage(), [
                 'deposit_id' => $deposit->id,
