@@ -147,7 +147,7 @@ class WithdrawalPayoutStatementService
     public function reconcileOwner(Invoice $statement, Withdrawal $withdrawal): Invoice
     {
         $ownerId = (int) $withdrawal->user_id;
-        if ($ownerId <= 0 || (int) $statement->user_id === $ownerId) {
+        if ($ownerId <= 0) {
             return $statement;
         }
 
@@ -162,6 +162,18 @@ class WithdrawalPayoutStatementService
                 ?: $this->scalarText($user->name))
             : $accountHolder;
         $email = $user ? $this->scalarText($user->email) : '';
+
+        $ownerMismatch = (int) $statement->user_id !== $ownerId;
+        $emailMismatch = $email !== ''
+            && strcasecmp(trim((string) $statement->customer_email), $email) !== 0;
+        $nameMismatch = $payeeName !== ''
+            && trim((string) $statement->customer_name) !== $payeeName;
+
+        // user_id may already have been corrected (earlier find()) while the
+        // payee line and stored PDF still name the other publisher.
+        if (! $ownerMismatch && ! $emailMismatch && ! $nameMismatch) {
+            return $statement;
+        }
 
         $snapshot = is_array($statement->billing_snapshot) ? $statement->billing_snapshot : [];
         if ($payeeName !== '') {
@@ -192,6 +204,7 @@ class WithdrawalPayoutStatementService
             // other publisher's name and address.
             $statement->pdf_path = null;
             $statement->save();
+            $statement->unsetRelation('user');
         } catch (\Throwable $e) {
             Log::warning('Failed to reassign payout statement to withdrawal owner', [
                 'invoice_id' => $statement->id,
