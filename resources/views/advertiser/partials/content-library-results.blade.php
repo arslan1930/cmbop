@@ -440,7 +440,7 @@
                                                 <button type="button" class="dropdown-item" onclick="archiveLibraryArticle({{ $submission->id }})">Archive</button>
                                             </li>
                                         @endif
-                                        @if(!$submission->isInUse() && !$submission->isClaimedByAnotherOrder())
+                                        @if(!$submission->isLinkedToOpenOrderItem())
                                             <li><hr class="dropdown-divider"></li>
                                             <li>
                                                 <button type="button" class="dropdown-item text-danger"

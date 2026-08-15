@@ -700,6 +700,45 @@ class ContentSubmission extends Model
         return $owner instanceof Order && $owner->status !== 'cancelled';
     }
 
+    /**
+     * True when a non-cancelled, non-refunded order item still points here.
+     * Upheld clawbacks are not a link — those lines already released the article.
+     */
+    public function isLinkedToOpenOrderItem(): bool
+    {
+        if ($this->isInUse()) {
+            return true;
+        }
+
+        if (! Schema::hasColumn('order_items', 'content_submission_id')) {
+            return false;
+        }
+
+        if ($this->relationLoaded('orderItems')) {
+            return $this->orderItems->contains(function (OrderItem $item) {
+                if ($item->isClawedBack()) {
+                    return false;
+                }
+
+                $order = $item->relationLoaded('order')
+                    ? $item->order
+                    : $item->order()->first();
+
+                return $order instanceof Order
+                    && $order->status !== 'cancelled'
+                    && $order->payment_status !== 'refunded';
+            });
+        }
+
+        return $this->orderItems()
+            ->whereHas('order', function ($q) {
+                $q->where('status', '!=', 'cancelled')
+                    ->where('payment_status', '!=', 'refunded');
+            })
+            ->tap(fn ($item) => $this->excludeClawedBackItems($item))
+            ->exists();
+    }
+
     public function isExpired(): bool
     {
         // Match content:purge-expired (`expires_at <= now()`). Carbon isPast() is
@@ -1424,6 +1463,23 @@ class ContentSubmission extends Model
         return $this->canBeOrdered()
             && $this->hasCheckoutReadyLinks()
             && ! $this->isClaimedByAnotherOrder();
+    }
+
+    /**
+     * @param  Builder<OrderItem>  $itemQuery
+     */
+    protected function constrainCurrentOwnerLiveItem($itemQuery, string $submissionTable): void
+    {
+        $hasPublisherStatus = Schema::hasColumn('order_items', 'publisher_status');
+        $itemQuery->whereColumn('order_items.order_id', $submissionTable.'.order_id')
+            ->where(function ($q) use ($hasPublisherStatus) {
+                $q->where(function ($live) {
+                    $live->whereNotNull('live_url')->where('live_url', '!=', '');
+                });
+                if ($hasPublisherStatus) {
+                    $q->orWhere('publisher_status', 'completed');
+                }
+            });
     }
 
     /**

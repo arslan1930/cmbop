@@ -702,7 +702,7 @@ class ContentSubmissionController extends Controller
     public function destroy(ContentSubmission $submission)
     {
         $this->authorizeSubmission($submission);
-        if ($submission->isInUse() || $submission->isClaimedByAnotherOrder()) {
+        if ($submission->isLinkedToOpenOrderItem()) {
             return response()->json(['success' => false, 'message' => 'Cannot delete a submission linked to an order.'], 422);
         }
 
