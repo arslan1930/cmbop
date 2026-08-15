@@ -210,9 +210,9 @@ class Withdrawal extends Model
 
         return match ($this->payment_method) {
             'bank' => $this->bankSnippet($details),
-            'paypal' => 'PayPal · '.$this->maskEmail(self::detailText($details, 'email')),
-            'wise' => 'Wise · '.$this->maskEmail(self::detailText($details, 'email')),
-            'crypto' => trim((self::detailText($details, 'crypto_type') ?: 'Crypto').' · '.$this->maskWallet(self::detailText($details, 'wallet_address'))),
+            'paypal' => 'PayPal · '.$this->maskEmail(self::destinationText($details, 'email')),
+            'wise' => 'Wise · '.$this->maskEmail(self::destinationText($details, 'email')),
+            'crypto' => trim((self::destinationText($details, 'crypto_type') ?: 'Crypto').' · '.$this->maskWallet(self::destinationText($details, 'wallet_address'))),
             default => ucfirst((string) $this->payment_method),
         };
     }
@@ -231,26 +231,26 @@ class Withdrawal extends Model
             'bank' => implode("\n", array_filter([
                 'Amount: €'.$net,
                 'Reference: '.$ref,
-                'Bank: '.self::detailText($details, 'bank_name'),
-                'Account holder: '.self::detailText($details, 'account_holder'),
-                'IBAN / Account: '.self::detailText($details, 'account_number'),
-                self::detailText($details, 'swift_code') !== '' ? 'SWIFT: '.self::detailText($details, 'swift_code') : null,
+                'Bank: '.self::destinationText($details, 'bank_name'),
+                'Account holder: '.self::destinationText($details, 'account_holder'),
+                'IBAN / Account: '.self::destinationText($details, 'account_number'),
+                self::destinationText($details, 'swift_code') !== '' ? 'SWIFT: '.self::destinationText($details, 'swift_code') : null,
             ])),
             'paypal' => implode("\n", [
                 'Amount: €'.$net,
                 'Reference: '.$ref,
-                'PayPal: '.self::detailText($details, 'email'),
+                'PayPal: '.self::destinationText($details, 'email'),
             ]),
             'wise' => implode("\n", [
                 'Amount: €'.$net,
                 'Reference: '.$ref,
-                'Wise: '.self::detailText($details, 'email'),
+                'Wise: '.self::destinationText($details, 'email'),
             ]),
             'crypto' => implode("\n", [
                 'Amount: €'.$net,
                 'Reference: '.$ref,
-                'Coin: '.self::detailText($details, 'crypto_type'),
-                'Wallet: '.self::detailText($details, 'wallet_address'),
+                'Coin: '.self::destinationText($details, 'crypto_type'),
+                'Wallet: '.self::destinationText($details, 'wallet_address'),
             ]),
             default => 'Amount: €'.$net."\nReference: ".$ref,
         };
@@ -328,9 +328,30 @@ class Withdrawal extends Model
         return '';
     }
 
+    /**
+     * Canonical dest field plus leftover aliases used on older WD rows
+     * (paypal_email / iban / crypto_wallet). Same keys as Invoice::maskedPayoutDestination.
+     *
+     * @return list<string>
+     */
+    public static function destinationAliases(string $field): array
+    {
+        return match ($field) {
+            'email' => ['email', 'paypal_email', 'wise_email'],
+            'account_number' => ['account_number', 'iban', 'bank_account'],
+            'wallet_address' => ['wallet_address', 'crypto_wallet'],
+            default => [$field],
+        };
+    }
+
+    public static function destinationText(array $details, string $field): string
+    {
+        return self::firstDetailText($details, ...self::destinationAliases($field));
+    }
+
     private function bankSnippet(array $details): string
     {
-        $account = preg_replace('/\s+/', '', self::detailText($details, 'account_number')) ?? '';
+        $account = preg_replace('/\s+/', '', self::destinationText($details, 'account_number')) ?? '';
         $last4 = $account !== '' ? substr($account, -4) : '????';
         $prefix = strlen($account) >= 2 ? strtoupper(substr($account, 0, 2)) : 'Bank';
 

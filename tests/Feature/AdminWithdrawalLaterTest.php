@@ -81,6 +81,8 @@ class AdminWithdrawalLaterTest extends TestCase
         $this->assertStringContainsString('encodeURIComponent(w.destination_copy_text || \'\')', $html);
         $this->assertStringContainsString("if (!row || typeof row !== 'object') return '';", $html);
         $this->assertStringContainsString('function detailText', $html);
+        $this->assertStringContainsString('function destinationAliases', $html);
+        $this->assertStringContainsString('function destinationText', $html);
         $this->assertStringContainsString('function getJson', $html);
         $this->assertStringContainsString('cache: false', $html);
         $this->assertStringContainsString('Array.isArray(response.data) ? response.data : []', $html);
@@ -1029,6 +1031,62 @@ class AdminWithdrawalLaterTest extends TestCase
             ->assertJsonPath('success', true)
             ->assertJsonPath('data.0.id', $withdrawal->id)
             ->assertJsonPath('data.0.destination_snippet', 'PayPal · —');
+    }
+
+    public function test_leftover_dest_keys_fill_copy_text_html_show_and_csv(): void
+    {
+        $admin = $this->makeUser('admin');
+        $publisher = $this->makeUser('publisher');
+        $paypal = $this->seedWithdrawal($publisher, [
+            'payment_method' => 'paypal',
+            'payment_details' => ['paypal_email' => 'pay@example.com'],
+        ]);
+        $bank = $this->seedWithdrawal($publisher, [
+            'payment_method' => 'bank',
+            'payment_details' => [
+                'bank_name' => 'Sparkasse',
+                'account_holder' => 'Pat Publisher',
+                'iban' => 'DE89370400440532013000',
+            ],
+        ]);
+
+        $this->assertStringContainsString('pay@example.com', $paypal->destination_copy_text);
+        $this->assertSame('PayPal · pa***@example.com', $paypal->destination_snippet);
+        $this->assertStringContainsString('DE89370400440532013000', $bank->destination_copy_text);
+        $this->assertSame('DE · ···3000', $bank->destination_snippet);
+
+        $this->actingAs($admin)
+            ->get(route('admin.withdrawals.show', $paypal->id))
+            ->assertOk()
+            ->assertSee('pay@example.com', false)
+            ->assertDontSee('Email:</strong> N/A', false);
+
+        $this->actingAs($admin)
+            ->get(route('admin.withdrawals.show', $bank->id))
+            ->assertOk()
+            ->assertSee('DE89370400440532013000', false)
+            ->assertDontSee('Account Number:</strong> N/A', false);
+
+        $this->actingAs($admin)
+            ->getJson(route('admin.withdrawals.data'))
+            ->assertOk()
+            ->assertJsonPath('success', true);
+
+        $rows = collect($this->actingAs($admin)->getJson(route('admin.withdrawals.data'))->json('data'));
+        $paypalRow = $rows->firstWhere('id', $paypal->id);
+        $bankRow = $rows->firstWhere('id', $bank->id);
+        $this->assertIsArray($paypalRow);
+        $this->assertStringContainsString('pay@example.com', (string) $paypalRow['destination_copy_text']);
+        $this->assertSame('PayPal · pa***@example.com', $paypalRow['destination_snippet']);
+        $this->assertIsArray($bankRow);
+        $this->assertStringContainsString('DE89370400440532013000', (string) $bankRow['destination_copy_text']);
+
+        $csv = $this->actingAs($admin)
+            ->get(route('admin.withdrawals.export'))
+            ->assertOk()
+            ->streamedContent();
+        $this->assertStringContainsString('pay@example.com', $csv);
+        $this->assertStringContainsString('DE89370400440532013000', $csv);
     }
 
     public function test_later_get_json_is_not_store_cached(): void

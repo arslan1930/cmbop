@@ -3,7 +3,7 @@
 @section('content')
 @php
     $rawDetails = \App\Models\Withdrawal::detailsArray($withdrawal->payment_details);
-    $detail = fn (string $key) => \App\Models\Withdrawal::detailText($rawDetails, $key);
+    $detail = fn (string $key) => \App\Models\Withdrawal::destinationText($rawDetails, $key);
     $detailOrNa = fn (string $key) => ($value = $detail($key)) !== '' ? $value : 'N/A';
     $adminStatus = match ($withdrawal->status) {
         'pending' => 'Pending',
