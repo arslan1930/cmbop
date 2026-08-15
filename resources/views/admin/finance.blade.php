@@ -340,7 +340,7 @@
                 <div class="col-6 col-lg">
                     <div class="text-muted small">GMV (completed paid)</div>
                     <div class="fs-5 fw-bold">{{ $euro($d['platform']['gmv_completed']) }}</div>
-                    <div class="small text-muted">What advertisers paid on completed orders</div>
+                    <div class="small text-muted">Completed in period (refunds listed separately)</div>
                     @if(!empty($d['comparison']))
                         <div class="small mt-1">
                             vs prev {{ $euro($d['comparison']['gmv_completed']) }}

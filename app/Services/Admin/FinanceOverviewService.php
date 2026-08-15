@@ -94,6 +94,7 @@ class FinanceOverviewService
 
         $cardVolume = round(
             (float) ($moneyIn['orders_paid']['stripe_card'] ?? 0)
+            + (float) ($moneyIn['orders_paid']['stripe_card_refunded'] ?? 0)
             + (float) ($moneyIn['deposits_completed']['stripe'] ?? 0),
             2
         );
@@ -343,6 +344,12 @@ class FinanceOverviewService
             ->whereIn('payment_method', ['wise', 'bank', 'crypto'])
             ->sum('total_amount');
 
+        $refundedCardOrders = Order::query()
+            ->where('payment_status', 'refunded')
+            ->where('payment_method', 'card');
+        $this->applyPaidWindow($refundedCardOrders, $start, $end);
+        $stripeRefunded = (float) $refundedCardOrders->sum('total_amount');
+
         $depositsTotal = (float) (clone $depositsCompleted)->sum('amount');
         $stripeDeposits = (float) (clone $depositsCompleted)
             ->where(function ($q) {
@@ -376,6 +383,7 @@ class FinanceOverviewService
                 'gmv' => $gmv,
                 'by_method' => $ordersByMethod,
                 'stripe_card' => $stripeOrders,
+                'stripe_card_refunded' => $stripeRefunded,
                 'wallet' => $walletOrders,
                 'manual' => $manualOrders,
             ],
@@ -393,7 +401,7 @@ class FinanceOverviewService
     {
         $earningsQuery = OrderItem::query()
             ->whereHas('order', function ($q) use ($start, $end) {
-                $q->where('status', 'completed')->where('payment_status', 'paid');
+                $this->constrainRecognizedCompletedOrders($q);
                 $this->applyCompletedWindow($q, $start, $end);
             });
 
@@ -434,14 +442,15 @@ class FinanceOverviewService
     {
         $feeItems = OrderItem::query()
             ->whereHas('order', function ($q) use ($start, $end) {
-                $q->where('status', 'completed')->where('payment_status', 'paid');
+                $this->constrainRecognizedCompletedOrders($q);
                 $this->applyCompletedWindow($q, $start, $end);
             });
 
         $orderFees = (float) (clone $feeItems)->sum(OrderItem::platformFeeSqlExpression());
-        $completedPaid = Order::where('status', 'completed')->where('payment_status', 'paid');
-        $this->applyCompletedWindow($completedPaid, $start, $end);
-        $gmvCompleted = (float) $completedPaid->sum('total_amount');
+        $completedRecognized = Order::query();
+        $this->constrainRecognizedCompletedOrders($completedRecognized);
+        $this->applyCompletedWindow($completedRecognized, $start, $end);
+        $gmvCompleted = (float) $completedRecognized->sum('total_amount');
 
         $withdrawalFees = Withdrawal::where('status', 'completed');
         $this->applyCoalesceWindow($withdrawalFees, $start, $end, 'withdrawals.processed_at', 'withdrawals.updated_at');
@@ -452,7 +461,7 @@ class FinanceOverviewService
         $refundOrderSum = (float) (clone $refundOrders)->sum('total_amount');
         $refundedFeeItems = OrderItem::query()
             ->whereHas('order', function ($q) use ($start, $end) {
-                $q->where('payment_status', 'refunded');
+                $this->constrainRecognizedRefundedOrders($q);
                 $this->applyRefundWindow($q, $start, $end);
             });
         $refundedOrderFees = (float) (clone $refundedFeeItems)->sum(OrderItem::platformFeeSqlExpression());
@@ -639,6 +648,7 @@ class FinanceOverviewService
 
         $count = (int) Order::query()
             ->where('orders.payment_status', 'paid')
+            ->where('orders.status', '!=', 'cancelled')
             ->whereDoesntHave('invoices', function ($query) {
                 $query->where('invoices.type', Invoice::TYPE_TAX_INVOICE);
                 if (Schema::hasColumn('invoices', 'status')) {
@@ -810,6 +820,36 @@ class FinanceOverviewService
             $this->applyCoalesceWindow($query, $start, $end, 'orders.paid_at', 'orders.created_at');
         } else {
             $this->applyCoalesceWindow($query, $start, $end, 'orders.created_at', 'orders.created_at');
+        }
+    }
+
+    /**
+     * Fees/GMV recognized at completion: still-paid completed orders, plus
+     * orders that completed and were later refunded (completed_at set).
+     * Cancel-before-complete refunds never earned a platform fee.
+     */
+    private function constrainRecognizedCompletedOrders($query): void
+    {
+        $query->where(function ($q) {
+            $q->where(function ($standing) {
+                $standing->where('orders.status', 'completed')
+                    ->where('orders.payment_status', 'paid');
+            })->orWhere(function ($refunded) {
+                $this->constrainRecognizedRefundedOrders($refunded);
+            });
+        });
+    }
+
+    /**
+     * Refunded orders whose fee was previously recognized (completion clock).
+     */
+    private function constrainRecognizedRefundedOrders($query): void
+    {
+        $query->where('orders.payment_status', 'refunded');
+        if ($this->ordersHaveColumn('completed_at')) {
+            $query->whereNotNull('orders.completed_at');
+        } else {
+            $query->where('orders.status', 'completed');
         }
     }
 

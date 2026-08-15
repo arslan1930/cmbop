@@ -468,10 +468,11 @@ class AdminFinanceCoverageTest extends TestCase
             app(FinanceOverviewService::class)->resolvePeriod('all')
         );
 
-        $this->assertEquals(15.0, $overview['platform']['order_fees']);
+        $this->assertEquals(230.0, $overview['platform']['gmv_completed']);
+        $this->assertEquals(30.0, $overview['platform']['order_fees']);
         $this->assertEquals(115.0, $overview['platform']['refunds']);
         $this->assertEquals(15.0, $overview['platform']['refunded_order_fees']);
-        $this->assertEquals(0.0, $overview['platform']['margin']);
+        $this->assertEquals(15.0, $overview['platform']['margin']);
     }
 
     public function test_manual_deposit_with_stripe_session_is_not_double_counted(): void
@@ -495,6 +496,60 @@ class AdminFinanceCoverageTest extends TestCase
         $this->assertEquals(40.0, $overview['money_in']['deposits_completed']['manual']);
         $this->assertEquals(40.0, $overview['cash_split']['cash_in_bank']);
         $this->assertEquals(0.0, $overview['platform']['estimated_stripe_fees']);
+    }
+
+    public function test_cancel_before_complete_refund_does_not_hit_fee_margin(): void
+    {
+        $advertiser = $this->makeUser('advertiser');
+        $publisher = $this->makeUser('publisher');
+        $this->completedPaidOrder($advertiser, $publisher, 115, 15, now());
+
+        $cancelled = Order::create([
+            'user_id' => $advertiser->id,
+            'order_number' => 'ORD-CANCEL-REFUND',
+            'subtotal' => 80,
+            'tax' => 0,
+            'total_amount' => 80,
+            'payment_method' => 'card',
+            'payment_status' => 'refunded',
+            'status' => 'cancelled',
+        ]);
+        OrderItem::create([
+            'order_id' => $cancelled->id,
+            'site_id' => $this->makeSite($publisher)->id,
+            'site_name' => 'Cancelled',
+            'site_url' => 'https://cancelled.test',
+            'content_link' => 'https://example.com/cancelled',
+            'price' => 80,
+            'additional_price' => 0,
+            'publisher_price' => 70,
+            'platform_fee_percent' => 12.5,
+            'platform_fee_amount' => 10,
+        ]);
+
+        $overview = app(FinanceOverviewService::class)->overview(
+            app(FinanceOverviewService::class)->resolvePeriod('all')
+        );
+
+        $this->assertEquals(15.0, $overview['platform']['order_fees']);
+        $this->assertEquals(0.0, $overview['platform']['refunded_order_fees']);
+        $this->assertEquals(15.0, $overview['platform']['margin']);
+        $this->assertEquals(80.0, $overview['platform']['refunds']);
+    }
+
+    public function test_refunded_card_order_still_counts_toward_stripe_estimate(): void
+    {
+        $advertiser = $this->makeUser('advertiser');
+        $publisher = $this->makeUser('publisher');
+        $order = $this->completedPaidOrder($advertiser, $publisher, 100, 15, now());
+        $order->forceFill(['payment_status' => 'refunded'])->save();
+
+        $overview = app(FinanceOverviewService::class)->overview(
+            app(FinanceOverviewService::class)->resolvePeriod('all')
+        );
+
+        $this->assertEquals(100.0, $overview['money_in']['orders_paid']['stripe_card_refunded']);
+        $this->assertEquals(1.5, $overview['platform']['estimated_stripe_fees']);
     }
 
     public function test_relative_date_strings_do_not_become_a_custom_period(): void

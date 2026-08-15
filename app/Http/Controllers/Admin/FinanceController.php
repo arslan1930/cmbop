@@ -314,10 +314,12 @@ class FinanceController extends Controller
      */
     private function searchUsers(string $userQuery)
     {
+        $escaped = addcslashes($userQuery, '%_\\');
+
         return User::query()
-            ->where(function ($query) use ($userQuery) {
-                $query->where('name', 'like', '%'.$userQuery.'%')
-                    ->orWhere('email', 'like', '%'.$userQuery.'%');
+            ->where(function ($query) use ($escaped) {
+                $query->where('name', 'like', '%'.$escaped.'%')
+                    ->orWhere('email', 'like', '%'.$escaped.'%');
             })
             ->orderBy('name')
             ->limit(8)
