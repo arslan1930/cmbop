@@ -85,7 +85,12 @@
     <div class="row g-3 mb-3">
         <div class="col-md-6">
             <div class="card border-0 shadow-sm h-100">
-                <div class="card-header bg-white fw-semibold">Advertiser wallet</div>
+                <div class="card-header bg-white fw-semibold d-flex justify-content-between align-items-center">
+                    <span>Advertiser wallet</span>
+                    @if($adv)
+                        <a href="{{ route('admin.finance.ledger', ['user_id' => $u->id, 'wallet_id' => $adv->id]) }}" class="small fw-normal">Ledger</a>
+                    @endif
+                </div>
                 <div class="card-body">
                     @if($adv)
                         <div class="d-flex justify-content-between mb-1"><span class="text-muted">Balance</span><strong>{{ $euro($adv->balance) }}</strong></div>
@@ -100,7 +105,12 @@
         </div>
         <div class="col-md-6">
             <div class="card border-0 shadow-sm h-100">
-                <div class="card-header bg-white fw-semibold">Publisher wallet &amp; payout</div>
+                <div class="card-header bg-white fw-semibold d-flex justify-content-between align-items-center">
+                    <span>Publisher wallet &amp; payout</span>
+                    @if($pub)
+                        <a href="{{ route('admin.finance.ledger', ['user_id' => $u->id, 'wallet_id' => $pub->id]) }}" class="small fw-normal">Ledger</a>
+                    @endif
+                </div>
                 <div class="card-body">
                     @if($pub)
                         <div class="d-flex justify-content-between mb-1"><span class="text-muted">Balance</span><strong>{{ $euro($pub->balance) }}</strong></div>
