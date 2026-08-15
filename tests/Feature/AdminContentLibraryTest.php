@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\ContentModerationLog;
 use App\Models\ContentSubmission;
+use App\Models\InAppNotification;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Role;
@@ -162,6 +163,34 @@ class AdminContentLibraryTest extends TestCase
             ->assertOk()
             ->assertSee('Expired But Owned')
             ->assertSee('In progress');
+    }
+
+    public function test_rejected_owned_article_is_needs_fix_not_in_progress(): void
+    {
+        $admin = $this->admin();
+        $advertiser = $this->advertiser();
+        $publisher = $this->publisher();
+        $site = $this->siteFor($publisher);
+        $submission = $this->createApprovedSubmission($advertiser);
+        $submission->update(['title' => 'Rejected Owned Piece']);
+        $order = $this->orderFor($advertiser);
+        $this->attachToOrder($submission, $order, $site);
+        $submission->update(['moderation_status' => ContentSubmission::STATUS_REJECTED]);
+
+        $this->assertSame('needs_fix', $submission->fresh()->load(['order', 'orderItems.order'])->libraryAvailability());
+        $this->assertFalse(
+            ContentSubmission::query()->whereKey($submission->id)->inProgressInLibrary()->exists()
+        );
+
+        $this->actingAs($admin)
+            ->get(route('admin.content-library.index', ['availability' => 'in_progress']))
+            ->assertOk()
+            ->assertDontSee('Rejected Owned Piece');
+
+        $this->actingAs($admin)
+            ->get(route('admin.content-library.index', ['availability' => 'needs_fix']))
+            ->assertOk()
+            ->assertSee('Rejected Owned Piece');
     }
 
     public function test_legacy_status_approved_maps_to_available_chip(): void
@@ -334,6 +363,21 @@ class AdminContentLibraryTest extends TestCase
         $this->assertStringNotContainsString('href="javascript:alert(1)"', $html);
         $this->assertStringContainsString('availability=in_progress', $html);
         $this->assertStringContainsString('user_id='.$advertiser->id, $html);
+    }
+
+    public function test_download_unknown_disk_is_404_not_500(): void
+    {
+        $admin = $this->admin();
+        $advertiser = $this->advertiser();
+        $submission = $this->createApprovedSubmission($advertiser);
+        $submission->update([
+            'title' => 'Bad Disk Piece',
+            'disk' => 'not-a-real-disk',
+        ]);
+
+        $this->actingAs($admin)
+            ->get(route('admin.content-library.download', $submission))
+            ->assertNotFound();
     }
 
     public function test_show_hides_download_when_file_missing_on_disk(): void
@@ -512,6 +556,11 @@ class AdminContentLibraryTest extends TestCase
             ->assertOk()
             ->assertDontSee('Blocked gambling language')
             ->assertSee('Images are not covered by a rights claim');
+
+        $bell = InAppNotification::query()->where('user_id', $advertiser->id)->latest('id')->first();
+        $this->assertNotNull($bell);
+        $this->assertStringNotContainsString('You can attach it in the catalog', (string) $bell->message);
+        $this->assertStringContainsString('availability=needs_fix', (string) $bell->action_url);
     }
 
     public function test_moderation_override_does_not_flip_log_when_article_is_archived(): void

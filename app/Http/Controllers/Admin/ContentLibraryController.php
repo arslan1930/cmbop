@@ -102,7 +102,11 @@ class ContentLibraryController extends Controller
 
     public function download(ContentSubmission $submission): StreamedResponse
     {
-        $disk = Storage::disk($submission->disk ?: 'local');
+        try {
+            $disk = Storage::disk($submission->disk ?: 'local');
+        } catch (\Throwable) {
+            abort(404, 'File not found');
+        }
         if (! $submission->path || ! $disk->exists($submission->path)) {
             abort(404, 'File not found');
         }
@@ -140,8 +144,11 @@ class ContentLibraryController extends Controller
             'notes' => ['required', 'string', 'min:5', 'max:2000'],
         ]);
 
+        $admin = $request->user();
+        abort_unless($admin instanceof User, 403);
+
         try {
-            $this->staffActions->override($submission, $data['decision'], $request->user(), $data['notes']);
+            $this->staffActions->override($submission, $data['decision'], $admin, $data['notes']);
         } catch (ValidationException $e) {
             return back()->with('error', collect($e->errors())->flatten()->first() ?: 'Override failed.');
         }

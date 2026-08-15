@@ -586,7 +586,12 @@ class ContentSubmission extends Model
      */
     public function scopeInProgressInLibrary($query)
     {
-        return $query->withOpenOwnerOrder()
+        return $query->where('moderation_status', self::STATUS_APPROVED)
+            ->whereNotNull('path')->where('path', '!=', '')
+            ->whereNotNull('country')->where('country', '!=', '')
+            ->whereNotNull('language')->where('language', '!=', '')
+            ->whereNull('archived_at')
+            ->withOpenOwnerOrder()
             ->hasCheckoutReadyLinks()
             ->withImageRightsCover()
             ->withoutCurrentLivePlacement();

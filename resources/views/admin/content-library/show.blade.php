@@ -223,7 +223,7 @@
                             <div class="d-flex flex-wrap gap-2">
                                 @if($canOverrideApprove)
                                     <button type="submit" name="decision" value="approved" class="btn btn-sm btn-success"
-                                            data-slb-confirm="Force-approve this article? The advertiser will be able to order it."
+                                            data-slb-confirm="Force-approve this article? Checkout still needs a file, market, image rights, and a valid link pair."
                                             data-slb-confirm-title="Approve article?"
                                             data-slb-confirm-text="Approve">
                                         Override approve

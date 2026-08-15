@@ -141,24 +141,34 @@ class AdminLibraryStaffActions
         } catch (\Throwable) {
         }
 
-        $owner = $submission->user;
-        if ($owner) {
+        $fresh = $submission->fresh();
+        $owner = $fresh?->user;
+        if ($owner && $fresh) {
             try {
-                $this->notifications->notifyContentEvaluation($owner, $submission->fresh(), [
+                $ready = $decision === ContentSubmission::STATUS_APPROVED && $fresh->isReadyForCheckout();
+                $notice = trim($fresh->editorNotice());
+                $this->notifications->notifyContentEvaluation($owner, $fresh, [
                     'approved' => $decision === ContentSubmission::STATUS_APPROVED,
                     'title' => $decision === ContentSubmission::STATUS_APPROVED
                         ? 'Article approved'
                         : 'Article needs changes',
                     'message' => $decision === ContentSubmission::STATUS_APPROVED
-                        ? 'A staff member approved this article. You can attach it in the catalog.'
+                        ? ($ready
+                            ? 'A staff member approved this article. You can attach it in the catalog.'
+                            : 'A staff member approved this article, but it still needs a fix before you can order it.'
+                                .($notice !== '' ? ' '.$notice : ''))
                         : 'A staff member rejected this article. '.$notes,
                     'moderation_status' => $decision,
+                    'action_url' => route('advertiser.content-library', $ready ? [] : [
+                        'status' => 'all',
+                        'availability' => 'needs_fix',
+                    ], false),
                 ]);
             } catch (\Throwable) {
             }
         }
 
-        return $submission->fresh();
+        return $fresh;
     }
 
     public function archive(ContentSubmission $submission): ContentSubmission

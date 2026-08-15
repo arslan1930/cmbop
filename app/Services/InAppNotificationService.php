@@ -727,10 +727,7 @@ class InAppNotificationService
                 'related' => $submission,
                 'audience' => InAppNotification::AUDIENCE_ADVERTISER,
                 'action_label' => 'Open Content Library',
-                'action_url' => route('advertiser.content-library', $approved ? [] : [
-                    'status' => 'all',
-                    'availability' => 'needs_fix',
-                ], false),
+                'action_url' => $this->contentEvaluationActionUrl($approved, $result),
                 'meta' => [
                     'submission_id' => $submission->id ?? null,
                     'moderation_status' => $result['moderation_status'] ?? null,
@@ -739,6 +736,22 @@ class InAppNotificationService
                 ],
             ]
         );
+    }
+
+    /**
+     * @param  array<string, mixed>  $result
+     */
+    protected function contentEvaluationActionUrl(bool $approved, array $result): string
+    {
+        $override = trim((string) ($result['action_url'] ?? ''));
+        if ($override !== '' && (str_starts_with($override, '/') || str_starts_with($override, 'http://') || str_starts_with($override, 'https://'))) {
+            return $override;
+        }
+
+        return route('advertiser.content-library', $approved ? [] : [
+            'status' => 'all',
+            'availability' => 'needs_fix',
+        ], false);
     }
 
     public function notifyWithdrawalPaid(Withdrawal $withdrawal): void

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\ContentModerationLog;
 use App\Models\ContentModerationSetting;
+use App\Models\User;
 use App\Services\ContentModeration\ContentModerationService;
 use App\Services\ContentUpload\AdminLibraryStaffActions;
 use App\Services\ContentUpload\ContentUploadService;
@@ -123,10 +124,13 @@ class ContentModerationController extends Controller
             $notes = 'Approved via moderation scan override.';
         }
 
+        $admin = $request->user();
+        abort_unless($admin instanceof User, 403);
+
         $submission = $staffActions->submissionForLog($log);
         if ($submission) {
             try {
-                $staffActions->override($submission, 'approved', $request->user(), $notes);
+                $staffActions->override($submission, 'approved', $admin, $notes);
             } catch (ValidationException $e) {
                 return back()->with(
                     'error',
@@ -140,7 +144,7 @@ class ContentModerationController extends Controller
             'passed' => true,
             'status' => ContentModerationLog::STATUS_APPROVED,
             'admin_override' => true,
-            'overridden_by' => auth()->id(),
+            'overridden_by' => $admin->id,
             'overridden_at' => now(),
             'admin_notes' => $notes,
         ]);
@@ -149,9 +153,17 @@ class ContentModerationController extends Controller
             return back()->with('success', 'Scan log overridden. No Content Library article is linked to this scan.');
         }
 
+        $fresh = $submission->fresh();
+        $ready = $fresh?->isReadyForCheckout() ?? false;
+
         return redirect()
             ->route('admin.content-library.show', $submission)
-            ->with('success', 'Article #'.$submission->id.' approved — open in Content Library.');
+            ->with(
+                'success',
+                $ready
+                    ? 'Article #'.$submission->id.' approved — open in Content Library.'
+                    : 'Article #'.$submission->id.' approved, but it is still not checkout-ready.'
+            );
     }
 
     /**
