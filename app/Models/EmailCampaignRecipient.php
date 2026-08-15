@@ -79,7 +79,7 @@ class EmailCampaignRecipient extends Model
      * A real SMTP success (or duplicate-of-a-real-send) may close
      * pending / queued / failed, and a skipped row only when expire
      * parked it as stale while the mailer was still in flight.
-     * Preference, disabled, and unverified skips stay skipped.
+     * Preference, disabled, unverified, and staff skips stay skipped.
      */
     public function scopeOpenForDelivery(Builder $query): Builder
     {

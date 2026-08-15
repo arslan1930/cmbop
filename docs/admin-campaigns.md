@@ -86,9 +86,9 @@ or marketing, even if that staff account also has a marketplace role.
    claim `pending` → `queued` and die before `Mail::send()` inserts the
    mailable. Expire must **not** skip a recipient whose
    `AudienceCampaignMail` is still on a readable mail queue (a 72h
-   backlog is not a lost job). A later SMTP success or a send suppressed as a duplicate
+   backlog is not a lost job; a second retry doubles the send). A later SMTP success or a send suppressed as a duplicate
    still marks the recipient `delivered` (it already went out), including
-   when expire already flipped the row to skipped stale. Preference, disabled, and unverified skips stay skipped — a stray `MessageSent`
+   when expire already flipped the row to skipped stale. Preference, disabled, unverified, and staff skips stay skipped — a stray `MessageSent`
    or duplicate suppress must not hide an opt-out as a successful send.
    Recover also attaches a delivered `email_logs` row to those stale
    leftovers only.

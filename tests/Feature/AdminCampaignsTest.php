@@ -1191,6 +1191,46 @@ class AdminCampaignsTest extends TestCase
         $this->assertSame(1, $campaign->fresh()->skipped_count);
     }
 
+    public function test_successful_send_does_not_overwrite_staff_skip(): void
+    {
+        $admin = $this->makeUser('admin');
+        $advertiser = $this->makeUser('advertiser');
+
+        $campaign = EmailCampaign::create([
+            'name' => 'Keep staff skip',
+            'subject' => 'Keep staff skip',
+            'body_html' => '<p>Hi</p>',
+            'audience' => 'advertisers',
+            'recipients_count' => 1,
+            'sent_count' => 0,
+            'skipped_count' => 1,
+            'status' => EmailCampaign::STATUS_FAILED,
+            'respect_preferences' => false,
+            'created_by' => $admin->id,
+        ]);
+        $row = EmailCampaignRecipient::create([
+            'email_campaign_id' => $campaign->id,
+            'user_id' => $advertiser->id,
+            'email' => $advertiser->email,
+            'status' => EmailCampaignRecipient::STATUS_SKIPPED,
+            'skip_reason' => EmailCampaignRecipient::SKIP_STAFF,
+        ]);
+
+        $mailable = new AudienceCampaignMail($campaign, $advertiser);
+        $mailable->skipUserPreference = true;
+        $mailable->dedupeKey = EmailCampaignRecipient::dedupeKey((int) $campaign->id, (int) $advertiser->id);
+        $mailable->to($advertiser->email);
+        $this->assertNotNull($mailable->send(app('mailer')));
+
+        $fresh = $row->fresh();
+        $this->assertSame(EmailCampaignRecipient::STATUS_SKIPPED, $fresh->status);
+        $this->assertSame(EmailCampaignRecipient::SKIP_STAFF, $fresh->skip_reason);
+        $this->assertNull($fresh->email_log_id);
+        $this->assertSame(0, $campaign->fresh()->sent_count);
+        $this->assertSame(1, $campaign->fresh()->skipped_count);
+        $this->assertSame(EmailCampaign::STATUS_FAILED, $campaign->fresh()->status);
+    }
+
     public function test_mailable_failed_marks_recipient_failed(): void
     {
         $admin = $this->makeUser('admin');
