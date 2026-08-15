@@ -39,7 +39,7 @@ class AdminWithdrawalController extends Controller
             $filters = $this->applyWithdrawalFilters($query, $request);
             $this->applyWithdrawalOrder($query, $filters['queue'], $filters['status']);
 
-            $perPage = (int) $request->get('per_page', 20);
+            $perPage = (int) (filter_number($request->input('per_page')) ?? 20);
             $withdrawals = $query->paginate(max(1, min($perPage, 100)));
 
             $invoiceLinks = app(AdminInvoiceLinks::class)->forWithdrawals($withdrawals->getCollection());
@@ -421,7 +421,7 @@ class AdminWithdrawalController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to fetch statistics',
-            ]);
+            ], 500);
         }
     }
 

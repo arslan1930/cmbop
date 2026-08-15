@@ -318,6 +318,55 @@ class AdminWithdrawalLaterTest extends TestCase
         $this->assertSame('admin.withdrawals.ids', $matched->getName());
     }
 
+    public function test_later_endpoints_ignore_array_filters_and_invalid_per_page(): void
+    {
+        $admin = $this->makeUser('admin');
+        $publisher = $this->makeUser('publisher');
+        $open = $this->seedWithdrawal($publisher);
+        $this->seedWithdrawal($publisher, [
+            'status' => 'completed',
+            'processed_at' => now(),
+            'net_amount' => 10,
+        ]);
+
+        $junk = [
+            'search' => ['injected'],
+            'queue' => ['history'],
+            'status' => ['completed'],
+            'payment_method' => ['bank'],
+            'date_from' => ['not-a-date'],
+            'date_to' => ['2026-01-01'],
+            'scope' => ['view'],
+            'ids' => ['x'],
+            'per_page' => ['20'],
+        ];
+
+        $this->actingAs($admin)
+            ->getJson(route('admin.withdrawals.data', $junk))
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.0.id', $open->id);
+
+        $this->actingAs($admin)
+            ->getJson(route('admin.withdrawals.statistics', $junk))
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.scope', 'all')
+            ->assertJsonPath('data.pending', 1);
+
+        $this->actingAs($admin)
+            ->getJson(route('admin.withdrawals.ids', $junk))
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('ids', [$open->id]);
+
+        $csv = $this->actingAs($admin)
+            ->get(route('admin.withdrawals.export', $junk))
+            ->assertOk()
+            ->streamedContent();
+        $this->assertStringContainsString('WD-'.$open->id, $csv);
+    }
+
     public function test_guest_and_advertiser_cannot_open_show_or_matching_ids(): void
     {
         $advertiser = $this->makeUser('advertiser');
