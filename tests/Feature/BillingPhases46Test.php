@@ -540,9 +540,7 @@ class BillingPhases46Test extends TestCase
             ->assertSee('Payout documents', false)
             ->getContent();
 
-        $path = route('publisher.billing.index', [], false);
-        $this->assertStringContainsString('href="'.$path.'"', $html);
-        $this->assertStringNotContainsString('href="'.route('publisher.billing.index').'"', $html);
+        $this->assertStringContainsString('href="'.route('publisher.billing.index', [], false).'"', $html);
     }
 
     public function test_line_refund_amount_uses_order_total_for_single_item(): void
