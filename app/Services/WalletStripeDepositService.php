@@ -25,7 +25,8 @@ class WalletStripeDepositService
         string $paymentIntentId,
         float $amountEuros,
         string $referenceCode,
-        ?int $completeDepositId = null
+        ?int $completeDepositId = null,
+        bool $allowNewCardIfUnsettled = true
     ): float {
         if ($paymentIntentId === '') {
             throw new \RuntimeException('Missing PaymentIntent id for wallet deposit');
@@ -36,7 +37,8 @@ class WalletStripeDepositService
             $paymentIntentId,
             $amountEuros,
             $referenceCode,
-            $completeDepositId
+            $completeDepositId,
+            $allowNewCardIfUnsettled
         ));
     }
 
@@ -45,9 +47,10 @@ class WalletStripeDepositService
         string $paymentIntentId,
         float $amountEuros,
         string $referenceCode,
-        ?int $completeDepositId = null
+        ?int $completeDepositId = null,
+        bool $allowNewCardIfUnsettled = true
     ): float {
-        if ($completeDepositId && DepositRequest::query()->whereKey($completeDepositId)->exists()) {
+        if ($completeDepositId) {
             $credited = $this->completeExistingDeposit(
                 $completeDepositId,
                 '',
@@ -59,9 +62,19 @@ class WalletStripeDepositService
                 return $credited;
             }
 
-            // Real card payment, but the named row was a manual invoice or
-            // belonged to someone else. Credit a new card row so the charge
-            // is not swallowed.
+            if (! $allowNewCardIfUnsettled) {
+                Log::warning('WalletStripeDepositService: deposit_id did not settle; not creating a card row', [
+                    'payment_intent_id' => $paymentIntentId,
+                    'deposit_id' => $completeDepositId,
+                    'user_id' => $userId,
+                ]);
+
+                return 0.0;
+            }
+
+            // Explicit wallet top-up whose named row was a manual invoice,
+            // missing, or belonged to someone else. Credit a new card row
+            // so the charge is not swallowed.
             Log::info('WalletStripeDepositService: deposit_id did not settle; crediting a new card row', [
                 'payment_intent_id' => $paymentIntentId,
                 'deposit_id' => $completeDepositId,
@@ -77,9 +90,12 @@ class WalletStripeDepositService
                 ->lockForUpdate()
                 ->first();
             if ($existing) {
-                $credited = (float) $existing->amount;
+                $alreadyCredited = $this->creditIfAlreadySettledByStripeRow($existing, '', $paymentIntentId);
+                if ($alreadyCredited !== null) {
+                    $credited = $alreadyCredited;
 
-                return;
+                    return;
+                }
             }
 
             if (DepositRequest::where('reference_code', $referenceCode)->exists()) {
@@ -104,9 +120,13 @@ class WalletStripeDepositService
                     throw $e;
                 }
                 $existing = DepositRequest::where('stripe_payment_intent_id', $paymentIntentId)->first();
-                $credited = (float) ($existing?->amount ?? 0);
+                if ($existing && ! $existing->isManualPayment()) {
+                    $credited = (float) $existing->amount;
 
-                return;
+                    return;
+                }
+
+                throw $e;
             }
 
             $this->creditAdvertiserWallet($userId, (float) $deposit->amount, $deposit);
@@ -159,7 +179,7 @@ class WalletStripeDepositService
         return $this->withStripeDepositLock(
             $paymentIntentId,
             $sessionId,
-            function () use ($depositId, $sessionId, $paymentIntentId, $session, $userId, $finalAmount, $referenceCode) {
+            function () use ($depositId, $sessionId, $paymentIntentId, $session, $userId, $finalAmount, $referenceCode, $type) {
                 if ($depositId) {
                     $credited = $this->completeExistingDeposit(
                         (int) $depositId,
@@ -170,6 +190,16 @@ class WalletStripeDepositService
                     );
                     if ($credited > 0) {
                         return $credited;
+                    }
+
+                    if (! $this->isExplicitWalletDepositType($type)) {
+                        Log::warning('WalletStripeDepositService: deposit_id did not settle and session is not an explicit wallet top-up', [
+                            'session_id' => $sessionId,
+                            'deposit_id' => $depositId,
+                            'type' => $type,
+                        ]);
+
+                        return 0.0;
                     }
 
                     Log::info('WalletStripeDepositService: deposit_id did not settle; crediting a new card row', [
@@ -220,9 +250,12 @@ class WalletStripeDepositService
                 ->lockForUpdate()
                 ->first();
             if ($existing) {
-                $credited = (float) $existing->amount;
+                $alreadyCredited = $this->creditIfAlreadySettledByStripeRow($existing, $sessionId, $paymentIntentId);
+                if ($alreadyCredited !== null) {
+                    $credited = $alreadyCredited;
 
-                return;
+                    return;
+                }
             }
 
             if ($paymentIntentId !== '') {
@@ -230,12 +263,15 @@ class WalletStripeDepositService
                     ->lockForUpdate()
                     ->first();
                 if ($byPi) {
-                    if (! $byPi->stripe_session_id) {
-                        $byPi->update(['stripe_session_id' => $sessionId]);
-                    }
-                    $credited = (float) $byPi->amount;
+                    $alreadyCredited = $this->creditIfAlreadySettledByStripeRow($byPi, $sessionId, $paymentIntentId);
+                    if ($alreadyCredited !== null) {
+                        if (! $byPi->isManualPayment() && ! $byPi->stripe_session_id) {
+                            $byPi->update(['stripe_session_id' => $sessionId]);
+                        }
+                        $credited = $alreadyCredited;
 
-                    return;
+                        return;
+                    }
                 }
             }
 
@@ -267,9 +303,13 @@ class WalletStripeDepositService
                     ?: ($paymentIntentId !== ''
                         ? DepositRequest::where('stripe_payment_intent_id', $paymentIntentId)->first()
                         : null);
-                $credited = (float) ($existing?->amount ?? 0);
+                if ($existing && ! $existing->isManualPayment()) {
+                    $credited = (float) $existing->amount;
 
-                return;
+                    return;
+                }
+
+                throw $e;
             }
 
             $this->creditAdvertiserWallet($userId, (float) $finalAmount, $deposit);
@@ -329,7 +369,8 @@ class WalletStripeDepositService
             (string) $intent->id,
             $amount,
             $referenceCode,
-            $completeDepositId
+            $completeDepositId,
+            $this->isExplicitWalletDepositType($type)
         );
     }
 
@@ -390,9 +431,10 @@ class WalletStripeDepositService
             }
 
             // Bank / Wise / crypto invoices are credited by admin, not by a
-            // Stripe deposit_id. Attaching a PaymentIntent here would un-reject
-            // or settle a manual row the advertiser never paid by card.
-            if ($lockedDeposit->isManualPayment() && ! $lockedDeposit->hasStripeSettlement()) {
+            // Stripe deposit_id — even when a leftover session / PaymentIntent
+            // id is sitting on the row. Attaching this charge would un-reject
+            // or settle a manual invoice the advertiser never paid by card.
+            if ($lockedDeposit->isManualPayment()) {
                 Log::warning('WalletStripeDepositService: refusing to complete a manual deposit from Stripe', [
                     'deposit_id' => $lockedDeposit->id,
                     'status' => $lockedDeposit->status,
@@ -410,18 +452,21 @@ class WalletStripeDepositService
                     ->lockForUpdate()
                     ->first();
                 if ($already) {
-                    $lockedDeposit->update([
-                        'status' => 'completed',
-                        'approved_at' => $lockedDeposit->approved_at ?? now(),
-                        'paid_at' => $lockedDeposit->paid_at ?? now(),
-                        'admin_notes' => trim(implode("\n", array_filter([
-                            $lockedDeposit->admin_notes,
-                            'Settled via Stripe PaymentIntent on deposit #'.$already->id,
-                        ]))),
-                    ]);
-                    $credited = (float) $already->amount;
+                    $alreadyCredited = $this->creditIfAlreadySettledByStripeRow($already, $sessionId, $paymentIntentId);
+                    if ($alreadyCredited !== null) {
+                        $lockedDeposit->update([
+                            'status' => 'completed',
+                            'approved_at' => $lockedDeposit->approved_at ?? now(),
+                            'paid_at' => $lockedDeposit->paid_at ?? now(),
+                            'admin_notes' => trim(implode("\n", array_filter([
+                                $lockedDeposit->admin_notes,
+                                'Settled via Stripe PaymentIntent on deposit #'.$already->id,
+                            ]))),
+                        ]);
+                        $credited = $alreadyCredited;
 
-                    return;
+                        return;
+                    }
                 }
             }
 
@@ -486,6 +531,48 @@ class WalletStripeDepositService
         }
     }
 
+    /**
+     * A card row (or a completed manual row that already carries this charge)
+     * is idempotent. A pending / rejected bank invoice with leftover Stripe
+     * ids is not a settlement — detach those ids so a new card row can use them.
+     */
+    private function creditIfAlreadySettledByStripeRow(
+        DepositRequest $existing,
+        string $sessionId,
+        string $paymentIntentId
+    ): ?float {
+        if ($existing->isManualPayment() && $existing->status !== 'completed') {
+            $this->detachLeftoverStripeIds($existing, $sessionId, $paymentIntentId);
+
+            return null;
+        }
+
+        return (float) $existing->amount;
+    }
+
+    /**
+     * Leftover Checkout / PaymentIntent ids on a bank / Wise / crypto invoice
+     * must not block a real card charge from creating its own row.
+     */
+    private function detachLeftoverStripeIds(
+        DepositRequest $deposit,
+        string $sessionId,
+        string $paymentIntentId
+    ): void {
+        $updates = [];
+        if ($sessionId !== '' && filled($deposit->stripe_session_id)
+            && hash_equals((string) $deposit->stripe_session_id, $sessionId)) {
+            $updates['stripe_session_id'] = null;
+        }
+        if ($paymentIntentId !== '' && filled($deposit->stripe_payment_intent_id)
+            && hash_equals((string) $deposit->stripe_payment_intent_id, $paymentIntentId)) {
+            $updates['stripe_payment_intent_id'] = null;
+        }
+        if ($updates !== []) {
+            $deposit->update($updates);
+        }
+    }
+
     protected function depositMatchesStripePayment(
         DepositRequest $deposit,
         string $sessionId,
@@ -540,6 +627,11 @@ class WalletStripeDepositService
             return $type === null || in_array($type, ['wallet_deposit', 'deposit'], true);
         }
 
+        return $this->isExplicitWalletDepositType($type);
+    }
+
+    protected function isExplicitWalletDepositType(?string $type): bool
+    {
         return in_array((string) $type, ['wallet_deposit', 'deposit'], true);
     }
 

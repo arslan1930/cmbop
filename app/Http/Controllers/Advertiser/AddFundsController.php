@@ -281,8 +281,11 @@ class AddFundsController extends Controller
                 $meta = (array) json_decode(json_encode($session->metadata ?? []), true);
                 $sessionType = isset($meta['type']) ? (string) $meta['type'] : null;
                 $hasDepositId = ! empty($meta['deposit_id']);
-                $isWalletSession = $hasDepositId
-                    || in_array((string) $sessionType, ['wallet_deposit', 'deposit'], true);
+                $isExplicitWallet = in_array((string) $sessionType, ['wallet_deposit', 'deposit'], true);
+                // deposit_id alone is only a wallet hint when Stripe did not
+                // tag the session as something else (order / feature).
+                $isWalletSession = $isExplicitWallet
+                    || ($hasDepositId && ($sessionType === null || $sessionType === ''));
 
                 if (! $isWalletSession) {
                     Log::warning('Add Funds checkoutSuccess refused non-wallet session', [
