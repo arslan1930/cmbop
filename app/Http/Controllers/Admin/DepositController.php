@@ -192,15 +192,28 @@ class DepositController extends Controller
             $message .= ' Email could not be sent.';
         }
 
-        app(InAppNotificationService::class)->notifyDepositRejected($deposit->fresh());
+        try {
+            app(InAppNotificationService::class)->notifyDepositRejected($deposit->fresh());
+        } catch (\Throwable $e) {
+            Log::error('Failed to notify deposit rejection: '.$e->getMessage(), [
+                'deposit_id' => $deposit->id,
+            ]);
+        }
 
-        ActivityLogger::log(
-            'deposit.rejected',
-            auth()->user()->name.' rejected deposit #'.$deposit->id.' (€'.number_format($deposit->amount, 2).')',
-            $deposit,
-            ['amount' => $deposit->amount, 'user_id' => $deposit->user_id],
-            'Deposit #'.$deposit->id
-        );
+        try {
+            $actorName = $request->user()?->name ?: 'Admin';
+            ActivityLogger::log(
+                'deposit.rejected',
+                $actorName.' rejected deposit #'.$deposit->id.' (€'.number_format((float) $deposit->amount, 2).')',
+                $deposit,
+                ['amount' => $deposit->amount, 'user_id' => $deposit->user_id],
+                'Deposit #'.$deposit->id
+            );
+        } catch (\Throwable $e) {
+            Log::error('Failed to log deposit rejection: '.$e->getMessage(), [
+                'deposit_id' => $deposit->id,
+            ]);
+        }
 
         return response()->json([
             'success' => true,

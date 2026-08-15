@@ -61,6 +61,11 @@ class ManualDepositApprovalService
                 throw ManualDepositNotManualException::forDeposit();
             }
 
+            $amount = round((float) $locked->amount, 2);
+            if ($amount <= 0) {
+                throw new RuntimeException('Deposit amount must be greater than zero.');
+            }
+
             $locked->update([
                 'status' => 'approved',
                 'admin_notes' => $adminNotes,
@@ -73,7 +78,6 @@ class ManualDepositApprovalService
             }
 
             $wallet = Wallet::lockOrCreateForRole($locked->user_id, $advertiserRoleId);
-            $amount = (float) $locked->amount;
             $wallet->credit($amount);
             $this->ledger->recordDeposit(
                 $wallet,

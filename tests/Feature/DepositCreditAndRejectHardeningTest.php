@@ -485,4 +485,67 @@ class DepositCreditAndRejectHardeningTest extends TestCase
         $this->assertSame(0.0, (float) $ownerWallet->fresh()->balance);
         $this->assertSame(0.0, (float) $otherWallet->fresh()->balance);
     }
+
+    public function test_stripe_does_not_complete_a_rejected_bank_deposit(): void
+    {
+        $advertiser = $this->advertiser();
+        $wallet = $this->walletFor($advertiser);
+
+        $deposit = DepositRequest::create([
+            'user_id' => $advertiser->id,
+            'reference_code' => 'DEP-REJ-BANK-1',
+            'amount' => 40,
+            'payment_method' => 'bank',
+            'status' => 'rejected',
+            'rejected_at' => now(),
+        ]);
+
+        $credited = app(WalletStripeDepositService::class)->creditFromCheckoutSession((object) [
+            'id' => 'cs_rej_bank_'.uniqid(),
+            'payment_status' => 'paid',
+            'amount_total' => 4000,
+            'payment_intent' => 'pi_rej_bank_'.uniqid(),
+            'metadata' => (object) [
+                'type' => 'wallet_deposit',
+                'user_id' => (string) $advertiser->id,
+                'deposit_id' => (string) $deposit->id,
+                'amount' => '40.00',
+            ],
+        ]);
+
+        $this->assertSame(0.0, $credited);
+        $this->assertSame('rejected', $deposit->fresh()->status);
+        $this->assertSame(0.0, (float) $wallet->fresh()->balance);
+    }
+
+    public function test_stripe_does_not_complete_a_pending_bank_deposit_via_deposit_id(): void
+    {
+        $advertiser = $this->advertiser();
+        $wallet = $this->walletFor($advertiser);
+
+        $deposit = DepositRequest::create([
+            'user_id' => $advertiser->id,
+            'reference_code' => 'DEP-BANK-ID-1',
+            'amount' => 40,
+            'payment_method' => 'bank',
+            'status' => 'pending',
+        ]);
+
+        $credited = app(WalletStripeDepositService::class)->creditFromCheckoutSession((object) [
+            'id' => 'cs_bank_id_'.uniqid(),
+            'payment_status' => 'paid',
+            'amount_total' => 4000,
+            'payment_intent' => 'pi_bank_id_'.uniqid(),
+            'metadata' => (object) [
+                'type' => 'wallet_deposit',
+                'user_id' => (string) $advertiser->id,
+                'deposit_id' => (string) $deposit->id,
+                'amount' => '40.00',
+            ],
+        ]);
+
+        $this->assertSame(0.0, $credited);
+        $this->assertSame('pending', $deposit->fresh()->status);
+        $this->assertSame(0.0, (float) $wallet->fresh()->balance);
+    }
 }

@@ -192,4 +192,23 @@ class ManualDepositApprovalServiceTest extends TestCase
         $this->assertSame(0.0, (float) $wallet->fresh()->balance);
         Mail::assertNothingQueued();
     }
+
+    public function test_approve_refuses_zero_amount(): void
+    {
+        $admin = $this->admin();
+        $advertiser = $this->advertiser();
+        $wallet = $this->walletFor($advertiser);
+        $deposit = $this->pendingDeposit($advertiser, 0, 'bank');
+
+        try {
+            app(ManualDepositApprovalService::class)->approve($deposit, $admin);
+            $this->fail('Expected RuntimeException');
+        } catch (\RuntimeException $e) {
+            $this->assertStringContainsString('greater than zero', $e->getMessage());
+        }
+
+        $this->assertSame('pending', $deposit->fresh()->status);
+        $this->assertSame(0.0, (float) $wallet->fresh()->balance);
+        Mail::assertNothingQueued();
+    }
 }
