@@ -6,6 +6,7 @@ use App\Models\DepositRequest;
 use App\Models\Role;
 use App\Models\User;
 use App\Models\Wallet;
+use App\Services\StripeCustomerService;
 use App\Services\Wallet\WalletLedgerService;
 use App\Services\WalletStripeDepositService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -2601,5 +2602,44 @@ class DepositCreditAndRejectHardeningTest extends TestCase
         $meta = (array) json_decode(json_encode($recovered->metadata ?? []), true);
         $this->assertSame((string) $advertiser->id, (string) ($meta['user_id'] ?? ''));
         $this->assertSame('wallet_deposit', $meta['type'] ?? null);
+    }
+
+    public function test_saved_card_wallet_charge_copies_add_funds_session_reference(): void
+    {
+        $advertiser = $this->advertiser();
+        $this->walletFor($advertiser);
+        $captured = [];
+
+        $this->mock(StripeCustomerService::class, function ($mock) use (&$captured) {
+            $mock->shouldReceive('configured')->andReturn(true);
+            $mock->shouldReceive('payWithSavedCard')
+                ->once()
+                ->andReturnUsing(function ($user, $paymentMethodId, $amountCents, $metadata) use (&$captured) {
+                    $captured = $metadata;
+
+                    return [
+                        'status' => 'succeeded',
+                        'payment_intent_id' => 'pi_saved_wallet_'.uniqid(),
+                        'client_secret' => 'pi_saved_wallet_secret',
+                        'amount_received' => $amountCents,
+                    ];
+                });
+        });
+
+        $this->actingAs($advertiser)
+            ->postJson(route('advertiser.add-funds.pay-saved-card'), [
+                'amount' => 40,
+                'payment_method_id' => 'pm_test_visa',
+                'reference_code' => 'DEP-SAVED-40',
+            ])
+            ->assertOk()
+            ->assertJsonPath('success', true);
+
+        $this->assertTrue(WalletStripeDepositService::isAddFundsSessionReference(
+            $captured['session_reference'] ?? ''
+        ));
+        $this->assertSame('wallet_deposit', $captured['type'] ?? null);
+        $this->assertSame((string) $advertiser->id, (string) ($captured['user_id'] ?? ''));
+        $this->assertSame(40.0, (float) Wallet::query()->where('user_id', $advertiser->id)->value('balance'));
     }
 }

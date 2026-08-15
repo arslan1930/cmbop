@@ -405,6 +405,7 @@ class AddFundsController extends Controller
         $user = auth()->user();
         $amountEuros = round((float) $request->amount, 2);
         $referenceCode = (string) $request->reference_code;
+        $sessionReference = WalletStripeDepositService::newAddFundsSessionReference();
 
         try {
             $payResult = app(StripeCustomerService::class)->payWithSavedCard(
@@ -416,6 +417,7 @@ class AddFundsController extends Controller
                     'user_id' => (string) $user->id,
                     'amount' => (string) $amountEuros,
                     'reference_code' => $referenceCode,
+                    'session_reference' => $sessionReference,
                 ],
                 route('advertiser.checkout.success').'?ref='.urlencode($referenceCode).'&amount='.$amountEuros,
                 'Wallet deposit '.$referenceCode
@@ -429,7 +431,10 @@ class AddFundsController extends Controller
                     $user->id,
                     $payResult['payment_intent_id'],
                     $chargedEuros,
-                    $referenceCode
+                    $referenceCode,
+                    null,
+                    true,
+                    $sessionReference
                 );
 
                 if ($credited <= 0) {

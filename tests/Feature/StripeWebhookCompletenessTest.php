@@ -1643,4 +1643,203 @@ class StripeWebhookCompletenessTest extends TestCase
 
         $this->assertSame('paid', $order->fresh()->payment_status);
     }
+
+    public function test_site_feature_session_missing_site_id_applies_from_live_session(): void
+    {
+        config([
+            'site_promotions.feature.price' => 25,
+            'site_promotions.feature.days' => 7,
+        ]);
+
+        $previousSecret = config('services.stripe.secret');
+        config(['services.stripe.secret' => 'sk_test_feature_refresh']);
+
+        $publisher = $this->makeUser('publisher');
+        $site = $this->makeSite($publisher);
+        $sessionId = 'cs_feature_refresh_'.uniqid();
+
+        $this->app->instance(
+            WalletStripeDepositService::class,
+            new class(app(WalletLedgerService::class), $site->id, $publisher->id) extends WalletStripeDepositService
+            {
+                public function __construct(
+                    WalletLedgerService $ledger,
+                    private int $siteId,
+                    private int $userId
+                ) {
+                    parent::__construct($ledger);
+                }
+
+                public function refreshCheckoutSession(string $sessionId): ?object
+                {
+                    return (object) [
+                        'id' => $sessionId,
+                        'payment_status' => 'paid',
+                        'amount_total' => 2500,
+                        'metadata' => (object) [
+                            'type' => 'site_feature',
+                            'site_id' => (string) $this->siteId,
+                            'user_id' => (string) $this->userId,
+                            'price' => '25',
+                            'days' => '7',
+                        ],
+                    ];
+                }
+            }
+        );
+
+        try {
+            $this->signedWebhook([
+                'id' => 'evt_feature_refresh_'.uniqid(),
+                'object' => 'event',
+                'type' => 'checkout.session.completed',
+                'data' => [
+                    'object' => [
+                        'id' => $sessionId,
+                        'object' => 'checkout.session',
+                        'payment_status' => 'paid',
+                        'payment_intent' => 'pi_feature_refresh',
+                        'amount_total' => 2500,
+                        'metadata' => [
+                            'type' => 'site_feature',
+                        ],
+                    ],
+                ],
+            ])->assertOk();
+
+            $this->assertNotNull($site->fresh()->featured_until);
+        } finally {
+            config(['services.stripe.secret' => $previousSecret]);
+        }
+    }
+
+    public function test_site_feature_session_missing_site_id_applies_from_payment_intent(): void
+    {
+        config([
+            'site_promotions.feature.price' => 25,
+            'site_promotions.feature.days' => 7,
+        ]);
+
+        $previousSecret = config('services.stripe.secret');
+        config(['services.stripe.secret' => 'sk_test_feature_pi_meta']);
+
+        $publisher = $this->makeUser('publisher');
+        $site = $this->makeSite($publisher);
+        $sessionId = 'cs_feature_pi_meta_'.uniqid();
+        $piId = 'pi_feature_meta_'.uniqid();
+
+        $this->app->instance(
+            WalletStripeDepositService::class,
+            new class(app(WalletLedgerService::class), $site->id, $publisher->id) extends WalletStripeDepositService
+            {
+                public function __construct(
+                    WalletLedgerService $ledger,
+                    private int $siteId,
+                    private int $userId
+                ) {
+                    parent::__construct($ledger);
+                }
+
+                public function refreshCheckoutSession(string $sessionId): ?object
+                {
+                    return null;
+                }
+
+                public function fetchPaymentIntent(string $paymentIntentId): ?object
+                {
+                    return (object) [
+                        'id' => $paymentIntentId,
+                        'status' => 'succeeded',
+                        'metadata' => (object) [
+                            'type' => 'site_feature',
+                            'site_id' => (string) $this->siteId,
+                            'user_id' => (string) $this->userId,
+                            'price' => '25',
+                            'days' => '7',
+                        ],
+                    ];
+                }
+            }
+        );
+
+        try {
+            $this->signedWebhook([
+                'id' => 'evt_feature_pi_meta_'.uniqid(),
+                'object' => 'event',
+                'type' => 'checkout.session.completed',
+                'data' => [
+                    'object' => [
+                        'id' => $sessionId,
+                        'object' => 'checkout.session',
+                        'payment_status' => 'paid',
+                        'payment_intent' => $piId,
+                        'amount_total' => 2500,
+                        'metadata' => [
+                            'type' => 'site_feature',
+                        ],
+                    ],
+                ],
+            ])->assertOk();
+
+            $this->assertNotNull($site->fresh()->featured_until);
+        } finally {
+            config(['services.stripe.secret' => $previousSecret]);
+        }
+    }
+
+    public function test_site_feature_payment_intent_applies_feature_from_checkout_session(): void
+    {
+        config([
+            'site_promotions.feature.price' => 25,
+            'site_promotions.feature.days' => 7,
+        ]);
+
+        $previousSecret = config('services.stripe.secret');
+        config(['services.stripe.secret' => 'sk_test_feature_pi_route']);
+
+        $publisher = $this->makeUser('publisher');
+        $site = $this->makeSite($publisher);
+        $sessionId = 'cs_feature_from_pi_'.uniqid();
+        $piId = 'pi_feature_route_'.uniqid();
+
+        $this->bindDepositServiceRecoveringSession((object) [
+            'id' => $sessionId,
+            'payment_status' => 'paid',
+            'amount_total' => 2500,
+            'metadata' => (object) [
+                'type' => 'site_feature',
+                'site_id' => (string) $site->id,
+                'user_id' => (string) $publisher->id,
+                'price' => '25',
+                'days' => '7',
+            ],
+        ]);
+
+        try {
+            $this->signedWebhook([
+                'id' => 'evt_feature_pi_route_'.uniqid(),
+                'object' => 'event',
+                'type' => 'payment_intent.succeeded',
+                'data' => [
+                    'object' => [
+                        'id' => $piId,
+                        'object' => 'payment_intent',
+                        'status' => 'succeeded',
+                        'amount' => 2500,
+                        'amount_received' => 2500,
+                        'currency' => 'eur',
+                        'metadata' => [
+                            'type' => 'site_feature',
+                            'site_id' => (string) $site->id,
+                            'user_id' => (string) $publisher->id,
+                        ],
+                    ],
+                ],
+            ])->assertOk();
+
+            $this->assertNotNull($site->fresh()->featured_until);
+        } finally {
+            config(['services.stripe.secret' => $previousSecret]);
+        }
+    }
 }
