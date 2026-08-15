@@ -533,6 +533,223 @@ class StripeWebhookCompletenessTest extends TestCase
         }
     }
 
+    public function test_untyped_session_credits_wallet_when_live_session_has_type(): void
+    {
+        $previousSecret = config('services.stripe.secret');
+        config(['services.stripe.secret' => 'sk_test_refresh_untyped_cs']);
+
+        $advertiser = $this->makeUser('advertiser');
+        $roleId = Wallet::advertiserRoleId();
+        $wallet = Wallet::create([
+            'user_id' => $advertiser->id,
+            'role_id' => $roleId,
+            'balance' => 0,
+            'reserved_balance' => 0,
+            'bonus_balance' => 0,
+            'bonus_reserved' => 0,
+            'currency' => 'EUR',
+        ]);
+
+        $sessionId = 'cs_refresh_untyped_'.uniqid();
+        $piId = 'pi_refresh_untyped_'.uniqid();
+        $fresh = (object) [
+            'id' => $sessionId,
+            'payment_status' => 'paid',
+            'amount_total' => 4000,
+            'payment_intent' => $piId,
+            'metadata' => (object) [
+                'type' => 'wallet_deposit',
+                'user_id' => (string) $advertiser->id,
+                'amount' => '40.00',
+            ],
+        ];
+
+        $this->app->instance(
+            WalletStripeDepositService::class,
+            new class(app(WalletLedgerService::class), $fresh) extends WalletStripeDepositService
+            {
+                public function __construct(WalletLedgerService $ledger, private object $freshSession)
+                {
+                    parent::__construct($ledger);
+                }
+
+                public function refreshCheckoutSession(string $sessionId): ?object
+                {
+                    return $this->freshSession;
+                }
+            }
+        );
+
+        $eventId = 'evt_cs_refresh_untyped_'.uniqid();
+        try {
+            $this->signedWebhook([
+                'id' => $eventId,
+                'object' => 'event',
+                'type' => 'checkout.session.completed',
+                'data' => [
+                    'object' => [
+                        'id' => $sessionId,
+                        'object' => 'checkout.session',
+                        'payment_status' => 'paid',
+                        'payment_intent' => $piId,
+                        'amount_total' => 4000,
+                        'metadata' => [],
+                    ],
+                ],
+            ])->assertOk();
+
+            $this->assertEquals(40.0, (float) $wallet->fresh()->balance);
+            $this->assertTrue((bool) StripeWebhookLog::where('event_id', $eventId)->value('processed'));
+        } finally {
+            config(['services.stripe.secret' => $previousSecret]);
+        }
+    }
+
+    public function test_untyped_session_with_reference_code_credits_wallet_from_payment_intent(): void
+    {
+        $previousSecret = config('services.stripe.secret');
+        config(['services.stripe.secret' => 'sk_test_pi_recover_cs']);
+
+        $advertiser = $this->makeUser('advertiser');
+        $roleId = Wallet::advertiserRoleId();
+        $wallet = Wallet::create([
+            'user_id' => $advertiser->id,
+            'role_id' => $roleId,
+            'balance' => 0,
+            'reserved_balance' => 0,
+            'bonus_balance' => 0,
+            'bonus_reserved' => 0,
+            'currency' => 'EUR',
+        ]);
+
+        $publisher = $this->makeUser('publisher');
+        $site = $this->makeSite($publisher);
+        $order = Order::create([
+            'user_id' => $advertiser->id,
+            'order_number' => (string) random_int(100000, 999999),
+            'reference_code' => 'UNTYPED-REF-WALLET-PI',
+            'subtotal' => 40,
+            'tax' => 0,
+            'total_amount' => 40,
+            'payment_method' => 'card',
+            'payment_status' => 'pending',
+            'status' => 'pending',
+        ]);
+        OrderItem::create([
+            'order_id' => $order->id,
+            'site_id' => $site->id,
+            'site_name' => $site->site_name,
+            'site_url' => $site->site_url,
+            'content_link' => 'https://example.com/a',
+            'price' => 40,
+        ]);
+
+        $piId = 'pi_untyped_cs_wallet_'.uniqid();
+        $intent = (object) [
+            'id' => $piId,
+            'status' => 'succeeded',
+            'amount' => 4000,
+            'amount_received' => 4000,
+            'metadata' => (object) [
+                'type' => 'wallet_deposit',
+                'user_id' => (string) $advertiser->id,
+                'amount' => '40.00',
+            ],
+        ];
+
+        $this->app->instance(
+            WalletStripeDepositService::class,
+            new class(app(WalletLedgerService::class), $intent) extends WalletStripeDepositService
+            {
+                public function __construct(WalletLedgerService $ledger, private object $recoveredIntent)
+                {
+                    parent::__construct($ledger);
+                }
+
+                public function refreshCheckoutSession(string $sessionId): ?object
+                {
+                    return null;
+                }
+
+                public function fetchPaymentIntent(string $paymentIntentId): ?object
+                {
+                    return $this->recoveredIntent;
+                }
+
+                public function fetchCheckoutSessionForPaymentIntent(string $paymentIntentId): ?object
+                {
+                    return null;
+                }
+            }
+        );
+
+        $eventId = 'evt_cs_pi_wallet_'.uniqid();
+        try {
+            $this->signedWebhook([
+                'id' => $eventId,
+                'object' => 'event',
+                'type' => 'checkout.session.completed',
+                'data' => [
+                    'object' => [
+                        'id' => 'cs_untyped_ref_wallet_'.uniqid(),
+                        'object' => 'checkout.session',
+                        'payment_status' => 'paid',
+                        'payment_intent' => $piId,
+                        'amount_total' => 4000,
+                        'metadata' => [
+                            'reference_code' => $order->reference_code,
+                            'user_id' => (string) $advertiser->id,
+                        ],
+                    ],
+                ],
+            ])->assertOk();
+
+            $this->assertEquals(40.0, (float) $wallet->fresh()->balance);
+            $this->assertSame('pending', $order->fresh()->payment_status);
+            $this->assertTrue((bool) StripeWebhookLog::where('event_id', $eventId)->value('processed'));
+        } finally {
+            config(['services.stripe.secret' => $previousSecret]);
+        }
+    }
+
+    public function test_untyped_session_is_retried_when_live_session_lookup_fails(): void
+    {
+        $previousSecret = config('services.stripe.secret');
+        config(['services.stripe.secret' => 'sk_test_refresh_cs_fail']);
+        $this->app->instance(
+            WalletStripeDepositService::class,
+            new class(app(WalletLedgerService::class)) extends WalletStripeDepositService
+            {
+                public function refreshCheckoutSession(string $sessionId): ?object
+                {
+                    throw new \RuntimeException('Stripe session retrieve failed');
+                }
+            }
+        );
+
+        $eventId = 'evt_cs_refresh_fail_'.uniqid();
+        try {
+            $this->signedWebhook([
+                'id' => $eventId,
+                'object' => 'event',
+                'type' => 'checkout.session.completed',
+                'data' => [
+                    'object' => [
+                        'id' => 'cs_refresh_fail_'.uniqid(),
+                        'object' => 'checkout.session',
+                        'payment_status' => 'paid',
+                        'amount_total' => 4000,
+                        'metadata' => [],
+                    ],
+                ],
+            ])->assertStatus(500);
+
+            $this->assertFalse((bool) StripeWebhookLog::where('event_id', $eventId)->value('processed'));
+        } finally {
+            config(['services.stripe.secret' => $previousSecret]);
+        }
+    }
+
     public function test_untyped_session_with_add_funds_session_reference_credits_wallet(): void
     {
         $advertiser = $this->makeUser('advertiser');

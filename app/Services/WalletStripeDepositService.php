@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Stripe\Checkout\Session;
+use Stripe\PaymentIntent;
 use Stripe\Stripe;
 
 /**
@@ -436,6 +437,67 @@ class WalletStripeDepositService
         return $this->creditFromCheckoutSession(
             $this->checkoutSessionWithPaidPaymentIntent($session, $paymentIntentId)
         );
+    }
+
+    /**
+     * Re-read a Checkout Session from Stripe. Webhook snapshots can omit
+     * type / session_reference that the live object still has.
+     *
+     * @throws \Throwable when Stripe is configured and retrieve fails
+     */
+    public function refreshCheckoutSession(string $sessionId): ?object
+    {
+        $secret = trim((string) config('services.stripe.secret', ''));
+        if ($sessionId === '' || $secret === '') {
+            return null;
+        }
+
+        Stripe::setApiKey($secret);
+        $fresh = Session::retrieve($sessionId);
+
+        return is_object($fresh) ? $fresh : null;
+    }
+
+    /**
+     * @throws \Throwable when Stripe is configured and retrieve fails
+     */
+    public function fetchPaymentIntent(string $paymentIntentId): ?object
+    {
+        $secret = trim((string) config('services.stripe.secret', ''));
+        if ($paymentIntentId === '' || $secret === '') {
+            return null;
+        }
+
+        Stripe::setApiKey($secret);
+        $intent = PaymentIntent::retrieve($paymentIntentId);
+
+        return is_object($intent) ? $intent : null;
+    }
+
+    public function paymentIntentIdFromStripeObject(object $session): string
+    {
+        return $this->paymentIntentIdFromStripeSession($session);
+    }
+
+    /**
+     * Overlay PaymentIntent metadata onto a Checkout Session so feature /
+     * wallet handlers can read type after the session snapshot dropped it.
+     *
+     * @param  array<string, mixed>  $metadata
+     */
+    public function checkoutSessionWithOverlayedMetadata(object $session, array $metadata, string $paymentIntentId = ''): object
+    {
+        $data = json_decode(json_encode($session), true);
+        if (! is_array($data)) {
+            $data = [];
+        }
+        $data['metadata'] = array_merge($this->metaArray($session->metadata ?? null), $metadata);
+        if ($paymentIntentId !== '') {
+            $data['payment_intent'] = $paymentIntentId;
+            $data['payment_status'] = 'paid';
+        }
+
+        return json_decode(json_encode($data));
     }
 
     /**
@@ -1325,15 +1387,9 @@ class WalletStripeDepositService
      */
     protected function lookupPaymentIntentIdForSession(string $sessionId): string
     {
-        $secret = trim((string) config('services.stripe.secret', ''));
-        if ($sessionId === '' || $secret === '') {
-            return '';
-        }
+        $fresh = $this->refreshCheckoutSession($sessionId);
 
-        Stripe::setApiKey($secret);
-        $fresh = Session::retrieve($sessionId);
-
-        return $this->paymentIntentIdFromStripeSession($fresh);
+        return is_object($fresh) ? $this->paymentIntentIdFromStripeSession($fresh) : '';
     }
 
     /**

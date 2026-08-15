@@ -96,6 +96,15 @@ class StripeWebhookController extends Controller
         $paymentType = isset($metadata['type']) ? (string) $metadata['type'] : null;
         $paymentType = $paymentType === '' ? null : $paymentType;
 
+        // Webhook snapshots can omit type. Re-read the live session before
+        // marking the event processed with no credit.
+        if ($paymentType === null) {
+            $session = $this->refreshUntypedCheckoutSession($session);
+            $metadata = $this->metaArray($session->metadata ?? null);
+            $paymentType = isset($metadata['type']) ? (string) $metadata['type'] : null;
+            $paymentType = $paymentType === '' ? null : $paymentType;
+        }
+
         Log::info('Routing checkout.session.completed', [
             'payment_type' => $paymentType,
             'session_id' => $session->id ?? null,
@@ -117,7 +126,11 @@ class StripeWebhookController extends Controller
                 break;
 
             default:
-                $this->detectPaymentTypeByMetadata($session, $metadata);
+                if ($this->detectWalletHintsOnUntypedSession($session, $metadata)) {
+                    break;
+                }
+
+                $this->recoverUntypedCheckoutSessionFromPaymentIntent($session);
                 break;
         }
     }
@@ -162,35 +175,113 @@ class StripeWebhookController extends Controller
     /**
      * @param  array<string, mixed>  $metadata
      */
-    private function detectPaymentTypeByMetadata(object $session, array $metadata): void
+    private function detectWalletHintsOnUntypedSession(object $session, array $metadata): bool
     {
         if (isset($metadata['deposit_id'])) {
             Log::info('Detected deposit payment by deposit_id field');
             $this->handleWalletDepositSession($session);
 
-            return;
+            return true;
         }
 
         if (WalletStripeDepositService::isAddFundsSessionReference($metadata['session_reference'] ?? '')) {
             Log::info('Detected wallet deposit by session_reference field');
             $this->handleWalletDepositSession($session);
 
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * @param  array<string, mixed>  $metadata
+     */
+    private function detectPaymentTypeByMetadata(object $session, array $metadata): void
+    {
+        if ($this->detectWalletHintsOnUntypedSession($session, $metadata)) {
             return;
         }
 
-        if (isset($metadata['reference_code'])) {
-            // Wallet deposits also carry reference_code. Without an explicit
-            // order type, guessing here could settle catalog orders from a
-            // top-up. Typed order_payment / order sessions are routed above.
-            Log::warning('Ignoring untyped checkout session with reference_code', [
+        $this->recoverUntypedCheckoutSessionFromPaymentIntent($session);
+    }
+
+    private function refreshUntypedCheckoutSession(object $session): object
+    {
+        $sessionId = (string) ($session->id ?? '');
+        $fresh = app(WalletStripeDepositService::class)->refreshCheckoutSession($sessionId);
+
+        return is_object($fresh) ? $fresh : $session;
+    }
+
+    /**
+     * Session metadata can be empty while payment_intent_data still has type.
+     * A Stripe retrieve failure must 500 so the event is retried.
+     */
+    private function recoverUntypedCheckoutSessionFromPaymentIntent(object $session): void
+    {
+        $deposits = app(WalletStripeDepositService::class);
+        $paymentIntentId = $deposits->paymentIntentIdFromStripeObject($session);
+        if ($paymentIntentId === '') {
+            Log::warning('Unable to determine payment type', [
                 'session_id' => $session->id ?? null,
-                'type' => $metadata['type'] ?? null,
             ]);
 
             return;
         }
 
-        Log::warning('Unable to determine payment type', ['metadata' => $metadata]);
+        $intent = $deposits->fetchPaymentIntent($paymentIntentId);
+        if (! $intent) {
+            Log::warning('Ignoring untyped checkout session; PaymentIntent not available', [
+                'session_id' => $session->id ?? null,
+                'payment_intent_id' => $paymentIntentId,
+            ]);
+
+            return;
+        }
+
+        $metadata = $this->metaArray($intent->metadata ?? null);
+        $paymentType = isset($metadata['type']) ? (string) $metadata['type'] : null;
+        $paymentType = $paymentType === '' ? null : $paymentType;
+
+        Log::info('Recovered untyped Checkout Session from PaymentIntent', [
+            'session_id' => $session->id ?? null,
+            'payment_intent_id' => $paymentIntentId,
+            'payment_type' => $paymentType,
+        ]);
+
+        switch ($paymentType) {
+            case 'wallet_deposit':
+            case 'deposit':
+                $deposits->creditFromPaymentIntentObject($intent);
+
+                return;
+
+            case 'order_payment':
+            case 'order':
+                $this->handleOrderPaymentIntent($intent, $metadata);
+
+                return;
+
+            case 'site_feature':
+                $this->handleSiteFeatureSession(
+                    $deposits->checkoutSessionWithOverlayedMetadata($session, $metadata, $paymentIntentId)
+                );
+
+                return;
+
+            default:
+                if (WalletStripeDepositService::isAddFundsSessionReference($metadata['session_reference'] ?? '')) {
+                    $deposits->creditFromPaymentIntentObject($intent);
+
+                    return;
+                }
+
+                Log::warning('Ignoring untyped checkout session after PaymentIntent recover', [
+                    'session_id' => $session->id ?? null,
+                    'payment_intent_id' => $paymentIntentId,
+                ]);
+        }
     }
 
     private function handleWalletDepositSession(object $session): void
