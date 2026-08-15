@@ -2,26 +2,33 @@
 
 namespace App\Models\Concerns;
 
+use DateTimeInterface;
 use Illuminate\Database\Eloquent\Builder;
 
 trait HasPromotionSchedule
 {
     public function scheduleState(): string
     {
-        if ($this->isCurrentlyLive()) {
-            return 'live';
-        }
+        try {
+            if ($this->isCurrentlyLive()) {
+                return 'live';
+            }
 
-        if (! $this->is_active) {
+            if (! $this->is_active) {
+                return 'paused';
+            }
+
+            $starts = $this->safeStartsAt();
+            if ($starts && $starts->isFuture()) {
+                return 'scheduled';
+            }
+
+            $ends = $this->safeEndsAt();
+            if ($ends && $ends->isPast()) {
+                return 'expired';
+            }
+        } catch (\Throwable) {
             return 'paused';
-        }
-
-        if ($this->starts_at && $this->starts_at->isFuture()) {
-            return 'scheduled';
-        }
-
-        if ($this->ends_at && $this->ends_at->isPast()) {
-            return 'expired';
         }
 
         return 'paused';
@@ -46,18 +53,45 @@ trait HasPromotionSchedule
 
     public function isCurrentlyLive(): bool
     {
-        if (! $this->is_active) {
-            return false;
-        }
+        try {
+            if (! $this->is_active) {
+                return false;
+            }
 
-        $now = now();
-        if ($this->starts_at && $this->starts_at->gt($now)) {
-            return false;
-        }
-        if ($this->ends_at && $this->ends_at->lt($now)) {
-            return false;
-        }
+            $now = now();
+            $starts = $this->safeStartsAt();
+            if ($starts && $starts->gt($now)) {
+                return false;
+            }
+            $ends = $this->safeEndsAt();
+            if ($ends && $ends->lt($now)) {
+                return false;
+            }
 
-        return true;
+            return true;
+        } catch (\Throwable) {
+            return false;
+        }
+    }
+
+    public function safeStartsAt(): ?DateTimeInterface
+    {
+        return $this->safeScheduleDate('starts_at');
+    }
+
+    public function safeEndsAt(): ?DateTimeInterface
+    {
+        return $this->safeScheduleDate('ends_at');
+    }
+
+    private function safeScheduleDate(string $attribute): ?DateTimeInterface
+    {
+        try {
+            $value = $this->{$attribute};
+
+            return $value instanceof DateTimeInterface ? $value : null;
+        } catch (\Throwable) {
+            return null;
+        }
     }
 }

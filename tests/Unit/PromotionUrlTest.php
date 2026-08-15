@@ -58,4 +58,11 @@ class PromotionUrlTest extends TestCase
         $this->assertNull(PromotionUrl::safePublicStoragePath("banners/foo.png\0.jpg"));
         $this->assertNull(PromotionUrl::safePublicStoragePath('/etc/passwd'));
     }
+
+    public function test_rejects_crlf_in_absolute_urls(): void
+    {
+        $this->assertFalse(PromotionUrl::isSafe("https://example.com/\r\nLocation: https://evil.example"));
+        $this->assertFalse(PromotionUrl::isSafe('https://example.com/%0d%0aLocation:%20https://evil.example'));
+        $this->assertNull(PromotionUrl::href('https://example.com/%0aSet-Cookie:x=1'));
+    }
 }

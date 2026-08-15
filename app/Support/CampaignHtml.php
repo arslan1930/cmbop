@@ -76,7 +76,7 @@ class CampaignHtml
         }
 
         $url = trim($url);
-        if ($url === '' || ! filter_var($url, FILTER_VALIDATE_URL)) {
+        if ($url === '' || preg_match('/%0[da]|[\r\n\x00]/i', $url) || ! filter_var($url, FILTER_VALIDATE_URL)) {
             return null;
         }
 

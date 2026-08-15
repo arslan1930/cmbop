@@ -96,12 +96,12 @@
                             <div class="col-md-4">
                                 <label class="form-label">Starts at</label>
                                 <input type="datetime-local" name="starts_at" class="form-control"
-                                       value="{{ old_text('starts_at', optional($announcement->starts_at)->format('Y-m-d\TH:i')) }}">
+                                       value="{{ old_text('starts_at', optional($announcement->safeStartsAt())->format('Y-m-d\TH:i')) }}">
                             </div>
                             <div class="col-md-4">
                                 <label class="form-label">Ends at</label>
                                 <input type="datetime-local" name="ends_at" class="form-control"
-                                       value="{{ old_text('ends_at', optional($announcement->ends_at)->format('Y-m-d\TH:i')) }}">
+                                       value="{{ old_text('ends_at', optional($announcement->safeEndsAt())->format('Y-m-d\TH:i')) }}">
                             </div>
                             <div class="col-md-6">
                                 <div class="form-check">

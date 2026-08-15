@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\SiteAnnouncement;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
 
@@ -154,5 +155,52 @@ class HomepagePromotionTablesTest extends TestCase
         $this->assertSame(0, SiteAnnouncement::onlyTrashed()->count());
         $this->assertSame(1, SiteAnnouncement::query()->count());
         $this->assertFalse(SiteAnnouncement::query()->first()->restore());
+    }
+
+    public function test_homepage_and_click_ok_when_ends_at_is_unparseable(): void
+    {
+        $announcement = SiteAnnouncement::create([
+            'title' => 'Garbage date notice',
+            'message' => 'Body',
+            'type' => 'limited_offer',
+            'style' => 'promo',
+            'audience' => 'all',
+            'cta_label' => 'Go',
+            'cta_url' => '/advertiser/catalog',
+            'is_active' => true,
+            'ends_at' => now()->addDay(),
+        ]);
+
+        DB::table('site_announcements')->where('id', $announcement->id)->update([
+            'ends_at' => 'not-a-date',
+        ]);
+
+        $this->get('/')
+            ->assertOk()
+            ->assertSee('Garbage date notice', false)
+            ->assertDontSee('Something went wrong');
+
+        $location = (string) $this->get(route('announcements.click', $announcement->id))
+            ->assertRedirect()
+            ->headers->get('Location');
+        $this->assertStringContainsString('/advertiser/catalog', $location);
+    }
+
+    public function test_limited_offer_shows_ends_label(): void
+    {
+        SiteAnnouncement::create([
+            'title' => 'Sale notice',
+            'message' => 'Body',
+            'type' => 'limited_offer',
+            'style' => 'promo',
+            'audience' => 'all',
+            'is_active' => true,
+            'ends_at' => now()->addDays(3),
+        ]);
+
+        $this->get('/')
+            ->assertOk()
+            ->assertSee('Sale notice', false)
+            ->assertSee('Ends', false);
     }
 }

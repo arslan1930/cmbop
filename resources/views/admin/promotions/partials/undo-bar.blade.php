@@ -2,6 +2,8 @@
     $undo = session('promotions_undo');
     $undoValid = is_array($undo)
         && isset($undo['type'], $undo['id'], $undo['until'])
+        && in_array($undo['type'], ['banner', 'announcement'], true)
+        && (int) $undo['id'] > 0
         && (int) $undo['until'] >= now()->timestamp;
 @endphp
 @if($undoValid)

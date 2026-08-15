@@ -98,4 +98,15 @@ class SiteAnnouncement extends Model
     {
         $this->increment('clicks');
     }
+
+    public function offerEndsLabel(): ?string
+    {
+        if (! in_array($this->typeKey(), ['limited_offer', 'discount', 'black_friday', 'offer'], true)) {
+            return null;
+        }
+
+        $ends = $this->safeEndsAt();
+
+        return $ends ? $ends->format('M j') : null;
+    }
 }

@@ -7,6 +7,7 @@ use App\Models\SiteAnnouncement;
 use App\Models\User;
 use Database\Seeders\RolesTableSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
 
@@ -114,5 +115,33 @@ class AdminPromotionsSchemaDriftResilienceTest extends TestCase
             ->post(route('admin.promotions.announcements.restore', $announcement->id))
             ->assertRedirect(route('admin.promotions.announcements.index'))
             ->assertSessionHas('error');
+    }
+
+    public function test_admin_list_and_edit_ok_when_ends_at_is_unparseable(): void
+    {
+        $announcement = SiteAnnouncement::create([
+            'title' => 'Bad schedule row',
+            'message' => 'Body',
+            'type' => 'general',
+            'style' => 'info',
+            'audience' => 'all',
+            'is_active' => true,
+            'ends_at' => now()->addDay(),
+        ]);
+
+        DB::table('site_announcements')->where('id', $announcement->id)->update([
+            'ends_at' => 'not-a-date',
+        ]);
+
+        $this->actingAs($this->admin)
+            ->get(route('admin.promotions.announcements.index'))
+            ->assertOk()
+            ->assertSee('Bad schedule row', false)
+            ->assertDontSee('Something went wrong');
+
+        $this->actingAs($this->admin)
+            ->get(route('admin.promotions.announcements.edit', $announcement->id))
+            ->assertOk()
+            ->assertDontSee('Something went wrong');
     }
 }
