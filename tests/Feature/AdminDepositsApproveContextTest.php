@@ -371,4 +371,21 @@ class AdminDepositsApproveContextTest extends TestCase
         $this->assertStringContainsString('Confirm and credit', $html);
         $this->assertStringContainsString($deposit->reference_code, $html);
     }
+
+    public function test_submitted_mail_renders_without_a_user(): void
+    {
+        $advertiser = $this->makeUser('advertiser');
+        $deposit = $this->depositFor($advertiser);
+        $deposit->setRelation('user', null);
+
+        $html = app(Markdown::class)->render('emails.deposit-request-submitted', [
+            'deposit' => $deposit,
+            'user' => null,
+            'approveUrl' => 'https://example.test/approve',
+            'adminUrl' => route('admin.deposits'),
+        ]);
+
+        $this->assertStringContainsString('An advertiser', $html);
+        $this->assertStringContainsString($deposit->reference_code, $html);
+    }
 }

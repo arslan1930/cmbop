@@ -197,7 +197,7 @@ class DepositController extends Controller
         }
 
         try {
-            app(InAppNotificationService::class)->notifyDepositRejected($deposit->fresh());
+            app(InAppNotificationService::class)->notifyDepositRejected($deposit->fresh() ?? $deposit);
         } catch (\Throwable $e) {
             Log::error('Failed to notify deposit rejection: '.$e->getMessage(), [
                 'deposit_id' => $deposit->id,

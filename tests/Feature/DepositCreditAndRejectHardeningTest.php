@@ -480,10 +480,14 @@ class DepositCreditAndRejectHardeningTest extends TestCase
             ],
         ]);
 
-        $this->assertSame(0.0, $credited);
+        $this->assertSame(40.0, $credited);
         $this->assertSame('pending', $deposit->fresh()->status);
         $this->assertSame(0.0, (float) $ownerWallet->fresh()->balance);
-        $this->assertSame(0.0, (float) $otherWallet->fresh()->balance);
+        $this->assertSame(40.0, (float) $otherWallet->fresh()->balance);
+        $this->assertSame('card', DepositRequest::query()
+            ->where('user_id', $other->id)
+            ->where('status', 'completed')
+            ->value('payment_method'));
     }
 
     public function test_stripe_does_not_complete_a_rejected_bank_deposit(): void
@@ -513,9 +517,15 @@ class DepositCreditAndRejectHardeningTest extends TestCase
             ],
         ]);
 
-        $this->assertSame(0.0, $credited);
+        $this->assertSame(40.0, $credited);
         $this->assertSame('rejected', $deposit->fresh()->status);
-        $this->assertSame(0.0, (float) $wallet->fresh()->balance);
+        $this->assertNull($deposit->fresh()->stripe_payment_intent_id);
+        $this->assertSame(40.0, (float) $wallet->fresh()->balance);
+        $this->assertSame(1, DepositRequest::query()
+            ->where('user_id', $advertiser->id)
+            ->where('payment_method', 'card')
+            ->where('status', 'completed')
+            ->count());
     }
 
     public function test_stripe_does_not_complete_a_pending_bank_deposit_via_deposit_id(): void
@@ -544,8 +554,41 @@ class DepositCreditAndRejectHardeningTest extends TestCase
             ],
         ]);
 
-        $this->assertSame(0.0, $credited);
+        $this->assertSame(40.0, $credited);
         $this->assertSame('pending', $deposit->fresh()->status);
-        $this->assertSame(0.0, (float) $wallet->fresh()->balance);
+        $this->assertNull($deposit->fresh()->stripe_payment_intent_id);
+        $this->assertSame(40.0, (float) $wallet->fresh()->balance);
+        $this->assertSame(1, DepositRequest::query()
+            ->where('user_id', $advertiser->id)
+            ->where('payment_method', 'card')
+            ->where('status', 'completed')
+            ->count());
+    }
+
+    public function test_stale_deposit_id_still_credits_a_new_card_row(): void
+    {
+        $advertiser = $this->advertiser();
+        $wallet = $this->walletFor($advertiser);
+
+        $credited = app(WalletStripeDepositService::class)->creditFromCheckoutSession((object) [
+            'id' => 'cs_stale_'.uniqid(),
+            'payment_status' => 'paid',
+            'amount_total' => 2500,
+            'payment_intent' => 'pi_stale_'.uniqid(),
+            'metadata' => (object) [
+                'type' => 'wallet_deposit',
+                'user_id' => (string) $advertiser->id,
+                'deposit_id' => '999999',
+                'amount' => '25.00',
+            ],
+        ]);
+
+        $this->assertSame(25.0, $credited);
+        $this->assertSame(25.0, (float) $wallet->fresh()->balance);
+        $this->assertSame(1, DepositRequest::query()
+            ->where('user_id', $advertiser->id)
+            ->where('payment_method', 'card')
+            ->where('status', 'completed')
+            ->count());
     }
 }

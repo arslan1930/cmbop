@@ -48,13 +48,25 @@ class WalletStripeDepositService
         ?int $completeDepositId = null
     ): float {
         if ($completeDepositId && DepositRequest::query()->whereKey($completeDepositId)->exists()) {
-            return $this->completeExistingDeposit(
+            $credited = $this->completeExistingDeposit(
                 $completeDepositId,
                 '',
                 $paymentIntentId,
                 (object) ['amount_total' => StripePaymentService::toCents($amountEuros)],
                 $userId
             );
+            if ($credited > 0) {
+                return $credited;
+            }
+
+            // Real card payment, but the named row was a manual invoice or
+            // belonged to someone else. Credit a new card row so the charge
+            // is not swallowed.
+            Log::info('WalletStripeDepositService: deposit_id did not settle; crediting a new card row', [
+                'payment_intent_id' => $paymentIntentId,
+                'deposit_id' => $completeDepositId,
+                'user_id' => $userId,
+            ]);
         }
 
         $credited = 0.0;
@@ -140,7 +152,7 @@ class WalletStripeDepositService
         }
 
         if ($depositId) {
-            return $this->withStripeDepositLock(
+            $credited = $this->withStripeDepositLock(
                 $paymentIntentId,
                 $sessionId,
                 fn () => $this->completeExistingDeposit(
@@ -151,6 +163,15 @@ class WalletStripeDepositService
                     $userId
                 )
             );
+            if ($credited > 0) {
+                return $credited;
+            }
+
+            Log::info('WalletStripeDepositService: deposit_id did not settle; crediting a new card row', [
+                'session_id' => $sessionId,
+                'deposit_id' => $depositId,
+                'user_id' => $userId,
+            ]);
         }
 
         if (! $userId || $sessionId === '') {
@@ -326,7 +347,12 @@ class WalletStripeDepositService
         DB::transaction(function () use ($depositId, $sessionId, $paymentIntentId, $session, $expectedUserId, &$credited, &$notifyDepositId) {
             $lockedDeposit = DepositRequest::where('id', $depositId)->lockForUpdate()->first();
             if (! $lockedDeposit) {
-                throw new \RuntimeException('Deposit not found: '.$depositId);
+                Log::warning('WalletStripeDepositService: deposit_id not found', [
+                    'deposit_id' => $depositId,
+                    'session_id' => $sessionId,
+                ]);
+
+                return;
             }
 
             $sessionUserId = $expectedUserId;

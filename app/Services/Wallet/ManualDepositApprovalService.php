@@ -94,11 +94,18 @@ class ManualDepositApprovalService
 
             $locked->update(['status' => 'completed']);
 
-            return $locked->fresh(['user']);
+            return $locked->fresh(['user']) ?? $locked->loadMissing('user');
         });
 
-        $notified = $this->notifier->notifyApproved($completed);
-        $emailSent = (bool) ($notified['email_sent'] ?? false);
+        $emailSent = false;
+        try {
+            $notified = $this->notifier->notifyApproved($completed);
+            $emailSent = (bool) ($notified['email_sent'] ?? false);
+        } catch (\Throwable $e) {
+            Log::error('Failed to notify deposit approval: '.$e->getMessage(), [
+                'deposit_id' => $completed->id,
+            ]);
+        }
 
         try {
             $actorName = $actor?->name ?: 'System';
