@@ -58,6 +58,8 @@ class AdminWithdrawalLaterTest extends TestCase
         $this->assertStringContainsString('This view', $html);
         $this->assertStringContainsString('Open page', $html);
         $this->assertStringContainsString('data-status=', $html);
+        $this->assertStringContainsString('function reloadFilteredView', $html);
+        $this->assertStringContainsString('selectedIds.clear();', $html);
     }
 
     public function test_browser_show_is_html_and_json_accept_stays_json(): void
@@ -95,6 +97,15 @@ class AdminWithdrawalLaterTest extends TestCase
             ->assertJsonPath('success', true)
             ->assertJsonPath('data.id', $withdrawal->id)
             ->assertJsonPath('data.user.email', 'pat-show@example.com');
+
+        $this->actingAs($admin)
+            ->get(route('admin.withdrawals.show', $withdrawal->id), [
+                'X-Requested-With' => 'XMLHttpRequest',
+                'Accept' => 'text/html,application/xhtml+xml',
+            ])
+            ->assertOk()
+            ->assertSee('Back to payout queue', false)
+            ->assertDontSee('"success":true', false);
     }
 
     public function test_html_show_404_and_json_show_404(): void
@@ -208,6 +219,26 @@ class AdminWithdrawalLaterTest extends TestCase
             ->assertJsonPath('success', false)
             ->assertJsonPath('limit', 2)
             ->assertJsonPath('total', 3);
+
+        $this->seedWithdrawal($publisher, [
+            'status' => 'completed',
+            'processed_at' => now(),
+            'net_amount' => 11,
+        ]);
+        $this->seedWithdrawal($publisher, [
+            'status' => 'completed',
+            'processed_at' => now(),
+            'net_amount' => 12,
+        ]);
+        $this->seedWithdrawal($publisher, [
+            'status' => 'cancelled',
+            'net_amount' => 13,
+        ]);
+
+        $this->actingAs($admin)
+            ->get(route('admin.withdrawals.export', ['queue' => 'history']))
+            ->assertRedirect(route('admin.withdrawals', ['queue' => 'history']))
+            ->assertSessionHas('error');
     }
 
     public function test_export_route_is_rate_limited(): void
@@ -241,6 +272,8 @@ class AdminWithdrawalLaterTest extends TestCase
             'reference_code' => 'WD-'.$withdrawal->id,
             'meta' => ['withdrawal_id' => $withdrawal->id],
         ]);
+
+        $statement->order_id = 999;
 
         $this->assertSame(
             route('admin.withdrawals.show', $withdrawal->id),

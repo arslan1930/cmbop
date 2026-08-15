@@ -85,7 +85,7 @@ class AdminWithdrawalController extends Controller
      */
     public function show(Request $request, $id)
     {
-        $wantsJson = $request->expectsJson() || $request->ajax();
+        $wantsJson = $request->wantsJson();
         $withdrawal = Withdrawal::with('user:id,name,email')->find($id);
 
         if (! $withdrawal) {
@@ -290,7 +290,7 @@ class AdminWithdrawalController extends Controller
             }
 
             return redirect()
-                ->route('admin.withdrawals')
+                ->route('admin.withdrawals', $this->withdrawalIndexQuery($request))
                 ->with('error', $message);
         }
 
@@ -577,6 +577,51 @@ class AdminWithdrawalController extends Controller
 
         $query->orderByRaw("CASE status WHEN 'pending' THEN 0 WHEN 'processing' THEN 1 ELSE 2 END")
             ->orderBy('created_at', 'asc');
+    }
+
+    /**
+     * Safe query string for returning to the payout queue (export over-cap flash).
+     *
+     * @return array<string, string>
+     */
+    private function withdrawalIndexQuery(Request $request): array
+    {
+        $parsed = $this->applyWithdrawalFilters(Withdrawal::query(), $request, applyIds: false);
+        $params = [];
+        if ($parsed['status'] !== '') {
+            $params['status'] = $parsed['status'];
+        } elseif ($parsed['queue'] !== 'open') {
+            $params['queue'] = $parsed['queue'];
+        }
+
+        $search = search_text($request->input('search'));
+        if ($search !== '') {
+            $params['search'] = $search;
+        }
+
+        $paymentMethod = search_text($request->input('payment_method'));
+        if (in_array($paymentMethod, ['bank', 'paypal', 'wise', 'crypto'], true)) {
+            $params['payment_method'] = $paymentMethod;
+        }
+
+        $dates = validator(
+            [
+                'date_from' => search_text($request->input('date_from')) ?: null,
+                'date_to' => search_text($request->input('date_to')) ?: null,
+            ],
+            [
+                'date_from' => 'nullable|date',
+                'date_to' => 'nullable|date|after_or_equal:date_from',
+            ]
+        )->valid();
+        if (! empty($dates['date_from'])) {
+            $params['date_from'] = $dates['date_from'];
+        }
+        if (! empty($dates['date_to'])) {
+            $params['date_to'] = $dates['date_to'];
+        }
+
+        return $params;
     }
 
     /**

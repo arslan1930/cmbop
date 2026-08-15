@@ -862,6 +862,7 @@ $('#selectMatchingBtn').on('click', function() {
             toast(res.message || 'Could not load matching ids', 'error');
             return;
         }
+        selectedIds.clear();
         const pendingSet = new Set((res.pending_ids || []).map(Number));
         (res.ids || []).forEach(function (id) {
             selectedIds.add(Number(id));
@@ -1007,9 +1008,14 @@ $('#copyDetailsBtn').on('click', function() {
     if (lastDetailsCopyText) copyText(lastDetailsCopyText);
 });
 
+function reloadFilteredView() {
+    loadStatistics();
+    loadWithdrawals(1);
+}
+
 $('#filterBtn').on('click', function () {
     resetSelection();
-    loadWithdrawals(1);
+    reloadFilteredView();
 });
 $('#resetFiltersBtn').on('click', function() {
     $('#queueFilter').val('open');
@@ -1020,13 +1026,13 @@ $('#resetFiltersBtn').on('click', function() {
     $('#searchInput').val('');
     withdrawalFlags.clear();
     resetSelection();
-    loadWithdrawals(1);
+    reloadFilteredView();
 });
 
 $('#queueFilter').on('change', function() {
     if ($(this).val() === 'open') $('#statusFilter').val('');
     resetSelection();
-    loadWithdrawals(1);
+    reloadFilteredView();
 });
 
 document.addEventListener('DOMContentLoaded', function () {
@@ -1035,12 +1041,12 @@ document.addEventListener('DOMContentLoaded', function () {
             mode: 'event',
             statusEl: document.getElementById('adminWithdrawalsSearchStatus'),
             clearBtn: document.getElementById('adminWithdrawalsSearchClear'),
-            onSearch: function () { resetSelection(); loadWithdrawals(1); },
+            onSearch: function () { resetSelection(); reloadFilteredView(); },
         });
         return;
     }
     $('#searchInput').on('keypress', function(e) {
-        if (e.which === 13) { resetSelection(); loadWithdrawals(1); }
+        if (e.which === 13) { resetSelection(); reloadFilteredView(); }
     });
 });
 
