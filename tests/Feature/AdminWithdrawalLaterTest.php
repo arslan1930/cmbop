@@ -96,6 +96,7 @@ class AdminWithdrawalLaterTest extends TestCase
         $this->assertStringContainsString('existing.possible_duplicate = dupSet.has(n)', $html);
         $this->assertStringContainsString('Apply to <strong>${ids.length}</strong>', $html);
         $this->assertStringContainsString('Array.isArray(body.duplicate_ids)', $html);
+        $this->assertStringContainsString('href="'.route('admin.finance', [], false).'"', $html);
     }
 
     public function test_browser_show_is_html_and_json_accept_stays_json(): void
@@ -367,10 +368,14 @@ class AdminWithdrawalLaterTest extends TestCase
         $this->seedWithdrawal($publisher, ['net_amount' => 40]);
         $this->seedWithdrawal($publisher, ['net_amount' => 20]);
 
-        $this->actingAs($admin)
+        $overCap = $this->actingAs($admin)
             ->get(route('admin.withdrawals.export'))
             ->assertRedirect(route('admin.withdrawals'))
             ->assertSessionHas('error');
+        $this->assertStringContainsString(
+            route('admin.withdrawals', [], false),
+            (string) $overCap->headers->get('Location')
+        );
 
         $this->actingAs($admin)
             ->getJson(route('admin.withdrawals.export'))
@@ -776,5 +781,18 @@ class AdminWithdrawalLaterTest extends TestCase
             ])
             ->assertStatus(422)
             ->assertJsonValidationErrors('ids');
+    }
+
+    public function test_batch_rejects_non_positive_ids(): void
+    {
+        $admin = $this->makeUser('admin');
+
+        $this->actingAs($admin)
+            ->postJson(route('admin.withdrawals.batch'), [
+                'ids' => [0],
+                'action' => 'processing',
+            ])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('ids.0');
     }
 }

@@ -12,7 +12,7 @@
             <p class="text-muted mb-0 small">Pay publishers outside the app, then mark them paid here. Oldest requests first.</p>
         </div>
         <div class="d-flex flex-wrap gap-2">
-            <a href="{{ route('admin.finance') }}" class="btn btn-sm btn-outline-secondary">
+            <a href="{{ route('admin.finance', [], false) }}" class="btn btn-sm btn-outline-secondary">
                 <i class="fa fa-chart-pie me-1"></i> Finance overview
             </a>
             <button type="button" id="exportCsvBtn" class="btn btn-sm btn-outline-primary">

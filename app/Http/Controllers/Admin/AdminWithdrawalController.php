@@ -246,7 +246,7 @@ class AdminWithdrawalController extends Controller
     {
         $request->validate([
             'ids' => 'required|array|min:1|max:100',
-            'ids.*' => 'integer|distinct',
+            'ids.*' => 'integer|distinct|min:1',
             'action' => 'required|in:processing,completed,cancelled',
             'notes' => 'nullable|string|max:2000',
             'confirm_duplicates' => 'sometimes|boolean',
@@ -334,9 +334,7 @@ class AdminWithdrawalController extends Controller
                     ], 422);
                 }
 
-                return redirect()
-                    ->route('admin.withdrawals', $this->withdrawalIndexQuery($request))
-                    ->with('error', $message);
+                return $this->redirectToWithdrawalIndex($request, $message);
             }
 
             $rows = $query->orderBy('payment_method')->orderBy('created_at')->orderBy('id')->get();
@@ -350,15 +348,7 @@ class AdminWithdrawalController extends Controller
                 ], 500);
             }
 
-            $params = [];
-            try {
-                $params = $this->withdrawalIndexQuery($request);
-            } catch (\Throwable $ignored) {
-            }
-
-            return redirect()
-                ->route('admin.withdrawals', $params)
-                ->with('error', $message);
+            return $this->redirectToWithdrawalIndex($request, $message);
         }
 
         $filename = 'withdrawals-export-'.now()->format('Y-m-d-His').'.csv';
@@ -647,6 +637,23 @@ class AdminWithdrawalController extends Controller
         $query->orderByRaw("CASE status WHEN 'pending' THEN 0 WHEN 'processing' THEN 1 ELSE 2 END")
             ->orderBy('created_at', 'asc')
             ->orderBy('id', 'asc');
+    }
+
+    /**
+     * Stay on the current host. Absolute route() would jump to APP_URL and
+     * drop the session/flash when the tab origin differs (www vs bare host).
+     */
+    private function redirectToWithdrawalIndex(Request $request, string $message): RedirectResponse
+    {
+        $params = [];
+        try {
+            $params = $this->withdrawalIndexQuery($request);
+        } catch (\Throwable $ignored) {
+        }
+
+        return redirect()
+            ->to(route('admin.withdrawals', $params, false))
+            ->with('error', $message);
     }
 
     /**
