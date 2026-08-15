@@ -49,8 +49,8 @@
                     <i class="fa fa-user me-1"></i> Open publisher / edit payout
                 </a>
             @endif
-            @if($withdrawal->invoice_url)
-                <a href="{{ $withdrawal->invoice_url }}" class="btn btn-sm btn-outline-secondary">
+            @if(!empty($invoiceUrl))
+                <a href="{{ $invoiceUrl }}" class="btn btn-sm btn-outline-secondary">
                     <i class="fa fa-file-invoice-dollar me-1"></i> Open invoice
                 </a>
             @endif

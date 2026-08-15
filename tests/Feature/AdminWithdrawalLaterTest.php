@@ -84,7 +84,14 @@ class AdminWithdrawalLaterTest extends TestCase
         $this->assertStringContainsString('function addSelectedId', $html);
         $this->assertStringContainsString('function clearStatsDisplay', $html);
         $this->assertStringContainsString('function safeAdminHref', $html);
+        $this->assertStringContainsString('function isAdminPath', $html);
+        $this->assertStringContainsString('function formatMoney', $html);
         $this->assertStringContainsString('Selection is limited to', $html);
+        $this->assertStringContainsString('requestId !== statsRequestId', $html);
+        $this->assertStringContainsString('requestId !== withdrawalsRequestId', $html);
+        $this->assertStringContainsString('requestId !== detailsRequestId', $html);
+        $this->assertStringContainsString('requestId !== matchingRequestId', $html);
+        $this->assertStringContainsString('const selectedCount = selectedIds.size', $html);
     }
 
     public function test_browser_show_is_html_and_json_accept_stays_json(): void
@@ -131,6 +138,74 @@ class AdminWithdrawalLaterTest extends TestCase
             ->assertOk()
             ->assertSee('Back to payout queue', false)
             ->assertDontSee('"success":true', false);
+    }
+
+    public function test_html_show_invoice_href_is_admin_path(): void
+    {
+        $admin = $this->makeUser('admin');
+        $publisher = $this->makeUser('publisher');
+        $withdrawal = $this->seedWithdrawal($publisher, [
+            'status' => 'completed',
+            'processed_at' => now(),
+        ]);
+        $statement = Invoice::create([
+            'user_id' => $publisher->id,
+            'customer_name' => $publisher->name,
+            'customer_email' => $publisher->email,
+            'invoice_number' => 'PAY-SHOW-SAFE-1',
+            'type' => Invoice::TYPE_WITHDRAWAL_PAYOUT,
+            'status' => Invoice::STATUS_PAID,
+            'subtotal' => 95,
+            'total_amount' => 95,
+            'invoice_date' => now(),
+            'line_items' => [['description' => 'Payout', 'line_total' => 95]],
+            'pdf_disk' => 'local',
+            'reference_code' => 'WD-'.$withdrawal->id,
+            'meta' => ['withdrawal_id' => $withdrawal->id],
+        ]);
+
+        $path = parse_url(route('admin.invoices.show', $statement), PHP_URL_PATH);
+        $this->assertIsString($path);
+
+        $html = $this->actingAs($admin)
+            ->get(route('admin.withdrawals.show', $withdrawal->id))
+            ->assertOk()
+            ->assertSee('Open invoice', false)
+            ->getContent();
+
+        $this->assertStringContainsString('href="'.$path.'"', $html);
+        $this->assertStringNotContainsString('javascript:', $html);
+    }
+
+    public function test_html_show_drops_non_admin_invoice_url(): void
+    {
+        $admin = $this->makeUser('admin');
+        $publisher = $this->makeUser('publisher');
+        $withdrawal = $this->seedWithdrawal($publisher, [
+            'status' => 'completed',
+            'processed_at' => now(),
+        ]);
+
+        $this->mock(AdminInvoiceLinks::class, function ($mock) use ($withdrawal) {
+            $mock->shouldReceive('forWithdrawals')->andReturn(collect([
+                (int) $withdrawal->id => [
+                    'id' => 1,
+                    'invoice_number' => 'PAY-BAD',
+                    'type' => Invoice::TYPE_WITHDRAWAL_PAYOUT,
+                    'type_label' => 'Payout Statement',
+                    'status' => Invoice::STATUS_PAID,
+                    'url' => 'javascript:alert(1)',
+                ],
+            ]));
+        });
+
+        $html = $this->actingAs($admin)
+            ->get(route('admin.withdrawals.show', $withdrawal->id))
+            ->assertOk()
+            ->getContent();
+
+        $this->assertStringNotContainsString('javascript:', $html);
+        $this->assertStringNotContainsString('Open invoice', $html);
     }
 
     public function test_html_show_404_and_json_show_404(): void

@@ -124,6 +124,7 @@ class AdminWithdrawalController extends Controller
 
             return view('admin.withdrawals.show', [
                 'withdrawal' => $withdrawal,
+                'invoiceUrl' => $this->safeAdminUrl(data_get($invoice, 'url')),
             ]);
         } catch (HttpExceptionInterface $e) {
             throw $e;
@@ -718,6 +719,34 @@ class AdminWithdrawalController extends Controller
         }
 
         return '';
+    }
+
+    /**
+     * Same-origin admin path only. APP_URL host/scheme may differ from the
+     * browser; javascript: and off-site hrefs are dropped.
+     */
+    private function safeAdminUrl(mixed $url): ?string
+    {
+        if (! is_string($url) || $url === '') {
+            return null;
+        }
+
+        $path = parse_url($url, PHP_URL_PATH);
+        if (! is_string($path) || ($path !== '/admin' && ! str_starts_with($path, '/admin/'))) {
+            return null;
+        }
+
+        $safe = $path;
+        $query = parse_url($url, PHP_URL_QUERY);
+        if (is_string($query) && $query !== '') {
+            $safe .= '?'.$query;
+        }
+        $fragment = parse_url($url, PHP_URL_FRAGMENT);
+        if (is_string($fragment) && $fragment !== '') {
+            $safe .= '#'.$fragment;
+        }
+
+        return $safe;
     }
 
     private function noStoreJson(array $payload, int $status = 200): JsonResponse

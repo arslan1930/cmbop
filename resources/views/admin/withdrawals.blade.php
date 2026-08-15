@@ -257,6 +257,10 @@ let selectedIds = new Set();
 let lastDetailsCopyText = '';
 let statsScope = 'all';
 let appliedFilters = {};
+let withdrawalsRequestId = 0;
+let statsRequestId = 0;
+let detailsRequestId = 0;
+let matchingRequestId = 0;
 const withdrawalFlags = new Map();
 const duplicateLookbackDays = {{ max(1, (int) config('billing.withdrawal_mark_paid_duplicate_lookback_days', 30)) }};
 const SELECTION_LIMIT = 100;
@@ -353,16 +357,21 @@ function detailText(details, key) {
     return '';
 }
 
+function isAdminPath(pathname) {
+    return pathname === '/admin' || (typeof pathname === 'string' && pathname.indexOf('/admin/') === 0);
+}
+
 function safeAdminHref(url) {
     if (!url || typeof url !== 'string') return '';
-    if (url.charAt(0) === '/' && url.charAt(1) !== '/') return url;
     try {
         const parsed = new URL(url, window.location.origin);
-        if (parsed.origin === window.location.origin) {
-            return parsed.pathname + parsed.search + parsed.hash;
-        }
-    } catch (e) {}
-    return '';
+        if (!isAdminPath(parsed.pathname)) return '';
+        // Path only: APP_URL host/scheme can differ from the tab, and
+        // //evil.example/admin/... must not leave this origin.
+        return parsed.pathname + parsed.search + parsed.hash;
+    } catch (e) {
+        return '';
+    }
 }
 
 function getJson(url, params, success) {
@@ -422,11 +431,18 @@ function adminStatusLabel(status) {
 }
 
 function waitingLabel(days) {
-    if (days == null) return '<span class="text-muted">—</span>';
+    if (days == null || days === '') return '<span class="text-muted">—</span>';
     const n = parseInt(days, 10);
+    if (!Number.isFinite(n)) return '<span class="text-muted">—</span>';
     if (n <= 0) return '<span class="text-muted">Today</span>';
     const cls = n >= 3 ? 'waiting-urgent' : 'text-muted';
     return `<span class="${cls}">${n}d</span>`;
+}
+
+function formatMoney(value) {
+    const n = Number(value);
+    if (!Number.isFinite(n)) return '—';
+    return n.toFixed(2);
 }
 
 function filterParams() {
@@ -477,7 +493,9 @@ function loadStatistics() {
     const params = statsScope === 'view' ? Object.assign({ scope: 'view' }, viewFilterParams()) : {};
     delete params.page;
     applyStatsLabels();
+    const requestId = ++statsRequestId;
     getJson(WD_STATS, params, function(response) {
+        if (requestId !== statsRequestId) return;
         if (!response.success || !response.data) {
             clearStatsDisplay('Could not load stats');
             return;
@@ -501,6 +519,7 @@ function loadStatistics() {
         }).filter(Boolean);
         $('#statByMethod').html(parts.length ? parts.join('') : '<span class="text-muted">No open payouts</span>');
     }).fail(function() {
+        if (requestId !== statsRequestId) return;
         clearStatsDisplay('Could not load stats');
     });
 }
@@ -527,36 +546,31 @@ function loadWithdrawals(page = 1) {
     syncFiltersToUrl();
     updateExportButtonLabel();
 
-    $.ajax({
-        url: WD_DATA,
-        method: 'GET',
-        data: params,
-        cache: false,
-        headers: { 'Accept': 'application/json' },
-        success: function(response) {
-            if (response.success) {
-                if (response.pagination && response.pagination.current_page) {
-                    currentPage = response.pagination.current_page;
-                    appliedFilters.page = currentPage;
-                }
-                renderWithdrawals(Array.isArray(response.data) ? response.data : []);
-                renderAdminPagination(response.pagination, {
-                    links: '#paginationLinks',
-                    info: '#paginationInfo',
-                    label: 'withdrawals',
-                    onNavigate: loadWithdrawals,
-                });
-            } else {
-                $('#withdrawalsTable').html('<tr><td colspan="10" class="text-center text-danger py-5">' + escapeHtml(response.message || 'Failed to load') + '</td></tr>');
-                $('#paginationInfo').text('');
-                $('#paginationLinks').empty();
+    const requestId = ++withdrawalsRequestId;
+    getJson(WD_DATA, params, function(response) {
+        if (requestId !== withdrawalsRequestId) return;
+        if (response.success) {
+            if (response.pagination && response.pagination.current_page) {
+                currentPage = response.pagination.current_page;
+                appliedFilters.page = currentPage;
             }
-        },
-        error: function() {
-            $('#withdrawalsTable').html('<tr><td colspan="10" class="text-center text-danger py-5">Error loading withdrawals</td></tr>');
+            renderWithdrawals(Array.isArray(response.data) ? response.data : []);
+            renderAdminPagination(response.pagination, {
+                links: '#paginationLinks',
+                info: '#paginationInfo',
+                label: 'withdrawals',
+                onNavigate: loadWithdrawals,
+            });
+        } else {
+            $('#withdrawalsTable').html('<tr><td colspan="10" class="text-center text-danger py-5">' + escapeHtml(response.message || 'Failed to load') + '</td></tr>');
             $('#paginationInfo').text('');
             $('#paginationLinks').empty();
         }
+    }).fail(function() {
+        if (requestId !== withdrawalsRequestId) return;
+        $('#withdrawalsTable').html('<tr><td colspan="10" class="text-center text-danger py-5">Error loading withdrawals</td></tr>');
+        $('#paginationInfo').text('');
+        $('#paginationLinks').empty();
     });
 }
 
@@ -603,8 +617,8 @@ function renderWithdrawals(withdrawals) {
                 </td>
                 <td>${waitingLabel(w.waiting_days)}</td>
                 <td>
-                    <div class="fw-bold text-success">€${parseFloat(w.net_amount).toFixed(2)}</div>
-                    <small class="text-muted">gross €${parseFloat(w.amount).toFixed(2)}</small>
+                    <div class="fw-bold text-success">€${formatMoney(w.net_amount)}</div>
+                    <small class="text-muted">gross €${formatMoney(w.amount)}</small>
                 </td>
                 <td>${getPaymentMethodBadge(w.payment_method)}</td>
                 <td class="dest-cell">
@@ -625,20 +639,20 @@ function renderWithdrawals(withdrawals) {
                             ${w.status === 'pending' ? `
                             <li><button type="button" class="dropdown-item act-processing" data-id="${w.id}"
                                 data-name="${escapeHtml(w.user?.name || '')}"
-                                data-net="${parseFloat(w.net_amount).toFixed(2)}"
+                                data-net="${formatMoney(w.net_amount)}"
                                 data-method="${escapeHtml(w.payment_method)}"><i class="fa fa-play me-2"></i>Start</button></li>` : ''}
                             ${actionable ? `
                             <li><hr class="dropdown-divider"></li>
                             <li><button type="button" class="dropdown-item act-paid" data-id="${w.id}"
                                 data-name="${escapeHtml(w.user?.name || '')}"
-                                data-net="${parseFloat(w.net_amount).toFixed(2)}"
+                                data-net="${formatMoney(w.net_amount)}"
                                 data-method="${escapeHtml(w.payment_method)}"
                                 data-status="${escapeHtml(w.status)}"
                                 data-duplicate="${w.possible_duplicate ? '1' : '0'}"
                                 data-duplicate-ids="${escapeHtml(matchIds.map(function (id) { return 'WD-' + id; }).join(', '))}"><i class="fa fa-check me-2"></i>Mark paid</button></li>
                             <li><button type="button" class="dropdown-item text-danger act-reject" data-id="${w.id}"
                                 data-name="${escapeHtml(w.user?.name || '')}"
-                                data-amount="${parseFloat(w.amount).toFixed(2)}"><i class="fa fa-times me-2"></i>Reject</button></li>` : ''}
+                                data-amount="${formatMoney(w.amount)}"><i class="fa fa-times me-2"></i>Reject</button></li>` : ''}
                         </ul>
                     </div>
                 </td>
@@ -977,7 +991,9 @@ $('#exportCsvBtn').on('click', async function() {
 $('#selectMatchingBtn').on('click', function() {
     const params = viewFilterParams();
     delete params.page;
+    const requestId = ++matchingRequestId;
     getJson(WD_IDS, params, function(res) {
+        if (requestId !== matchingRequestId) return;
         if (!res.success) {
             toast(res.message || 'Could not load matching ids', 'error');
             return;
@@ -996,12 +1012,16 @@ $('#selectMatchingBtn').on('click', function() {
             $(this).prop('checked', selectedIds.has(id));
         });
         updateBatchBar();
-        if (res.capped) {
-            toast('Selected first ' + res.limit + ' of ' + res.total + ' matching (cap ' + res.limit + ')', 'info');
+        const selectedCount = selectedIds.size;
+        const returned = Array.isArray(res.ids) ? res.ids.length : 0;
+        const total = Number(res.total);
+        if (res.capped || selectedCount < returned || (Number.isFinite(total) && selectedCount < total)) {
+            toast('Selected first ' + selectedCount + ' of ' + (Number.isFinite(total) ? total : returned) + ' matching (cap ' + SELECTION_LIMIT + ')', 'info');
         } else {
-            toast((res.ids || []).length + ' matching selected');
+            toast(selectedCount + ' matching selected');
         }
     }).fail(function() {
+        if (requestId !== matchingRequestId) return;
         toast('Could not load matching ids', 'error');
     });
 });
@@ -1021,7 +1041,9 @@ $('#batchExportBtn').on('click', function() {
 // Details modal
 $(document).on('click', '.view-details', function() {
     const id = $(this).data('id');
+    const requestId = ++detailsRequestId;
     getJson(withdrawalUrl(WD_SHOW, id), {}, function(response) {
+        if (requestId !== detailsRequestId) return;
         if (!response.success || !response.data) {
             toast('Failed to load details', 'error');
             return;
@@ -1029,6 +1051,7 @@ $(document).on('click', '.view-details', function() {
         renderDetails(response.data);
         $('#detailsModal').modal('show');
     }).fail(function() {
+        if (requestId !== detailsRequestId) return;
         toast('Failed to load details', 'error');
     });
 });
@@ -1115,9 +1138,9 @@ function renderDetails(withdrawal) {
             <div class="col-md-6">
                 <div class="bg-light p-3 rounded">
                     <h6 class="mb-3">Amounts</h6>
-                    <p class="mb-1"><strong>Gross:</strong> €${parseFloat(withdrawal.amount).toFixed(2)}</p>
-                    <p class="mb-1"><strong>Fee:</strong> €${parseFloat(withdrawal.fee).toFixed(2)}</p>
-                    <p class="mb-1"><strong>Net to pay:</strong> <span class="text-success fw-bold">€${parseFloat(withdrawal.net_amount).toFixed(2)}</span></p>
+                    <p class="mb-1"><strong>Gross:</strong> €${formatMoney(withdrawal.amount)}</p>
+                    <p class="mb-1"><strong>Fee:</strong> €${formatMoney(withdrawal.fee)}</p>
+                    <p class="mb-1"><strong>Net to pay:</strong> <span class="text-success fw-bold">€${formatMoney(withdrawal.net_amount)}</span></p>
                 </div>
             </div>
             <div class="col-md-6">
