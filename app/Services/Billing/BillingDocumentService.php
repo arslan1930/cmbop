@@ -283,6 +283,11 @@ class BillingDocumentService
      */
     public function resendInvoiceEmail(Invoice $invoice): array
     {
+        if ($invoice->isWithdrawalPayout()) {
+            $invoice = app(WithdrawalPayoutStatementService::class)->reconcileInvoice($invoice);
+            $invoice->unsetRelation('user');
+        }
+
         $invoice->loadMissing(['user', 'order.items', 'parentInvoice']);
 
         if ($invoice->isCancelled()) {
@@ -694,10 +699,6 @@ class BillingDocumentService
 
     protected function emailPayoutStatement(Invoice $statement): bool|string
     {
-        if (! $statement->user?->email) {
-            return 'This document has no customer email.';
-        }
-
         $withdrawal = $this->findWithdrawalForStatement($statement);
         if (! $withdrawal) {
             Log::warning('Cannot resend payout statement — withdrawal not found', [
@@ -707,6 +708,15 @@ class BillingDocumentService
             return 'Cannot resend this payout statement — the withdrawal was not found.';
         }
 
+        $statement = app(WithdrawalPayoutStatementService::class)->reconcileOwner($statement, $withdrawal);
+        $statement->unsetRelation('user');
+
+        $recipient = $withdrawal->user;
+        $email = $recipient?->email ?: $statement->customer_email;
+        if (! filled($email)) {
+            return 'This document has no customer email.';
+        }
+
         $mail = new WithdrawalStatusUpdated(
             $withdrawal,
             (string) $withdrawal->status,
@@ -714,9 +724,9 @@ class BillingDocumentService
             'Payout statement resent.'
         );
         $mail->dedupeKey = 'withdrawal_payout_resent:'.$statement->id.':'.now()->timestamp;
-        $mail->recipientUser = $statement->user;
+        $mail->recipientUser = $recipient;
 
-        Mail::to($statement->user->email)->send($mail);
+        Mail::to($email)->send($mail);
         $statement->update([
             'emailed_at' => now(),
             'email_count' => ((int) $statement->email_count) + 1,

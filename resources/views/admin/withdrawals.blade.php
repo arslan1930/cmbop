@@ -1271,6 +1271,9 @@ function showHistoryForStatementRetry(id) {
     const n = Number(id);
     $('#queueFilter').val('history');
     $('#statusFilter').val('');
+    $('#paymentMethodFilter').val('');
+    $('#dateFrom').val('');
+    $('#dateTo').val('');
     $('#searchInput').val(Number.isInteger(n) && n > 0 ? String(n) : '');
     refreshSearchClear();
     reloadFilteredView();
