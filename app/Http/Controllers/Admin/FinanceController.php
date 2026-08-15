@@ -4,12 +4,14 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\DepositRequest;
+use App\Models\Order;
 use App\Models\User;
 use App\Models\Wallet;
 use App\Models\WalletTransaction;
 use App\Models\Withdrawal;
 use App\Services\Admin\FinanceOverviewService;
 use App\Services\Orders\OrderClawbackService;
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -96,14 +98,9 @@ class FinanceController extends Controller
         $ledgerWallet = $walletId > 0
             ? Wallet::query()->with(['user:id,name,email', 'role:id,name'])->whereKey($walletId)->first()
             : null;
-        $dateFrom = $this->finance->parseDay(
-            is_string($request->input('date_from')) ? $request->input('date_from') : null,
-            false
-        )?->toDateString() ?? '';
-        $dateTo = $this->finance->parseDay(
-            is_string($request->input('date_to')) ? $request->input('date_to') : null,
-            true
-        )?->toDateString() ?? '';
+        [$boundFrom, $boundTo] = $this->ledgerDateBounds($request);
+        $dateFrom = $boundFrom?->toDateString() ?? '';
+        $dateTo = $boundTo?->toDateString() ?? '';
 
         $exportQuery = array_filter([
             'search' => $search !== '' ? $search : null,
@@ -365,7 +362,7 @@ class FinanceController extends Controller
             $aliases = $this->ledgerPaymentMethodAliases($paymentMethod);
             $query->where(function ($q) use ($aliases) {
                 $q->whereIn('payment_method', $aliases)
-                    ->orWhereHasMorph('related', [DepositRequest::class, Withdrawal::class], function ($sub) use ($aliases) {
+                    ->orWhereHasMorph('related', [DepositRequest::class, Withdrawal::class, Order::class], function ($sub) use ($aliases) {
                         $sub->whereIn('payment_method', $aliases);
                     });
             });
@@ -414,17 +411,7 @@ class FinanceController extends Controller
             $query->where('status', $status);
         }
 
-        $from = $this->finance->parseDay(
-            is_string($request->input('date_from')) ? $request->input('date_from') : null,
-            false
-        );
-        $to = $this->finance->parseDay(
-            is_string($request->input('date_to')) ? $request->input('date_to') : null,
-            true
-        );
-        if ($from && $to && $to->lt($from)) {
-            $to = $from->copy()->endOfDay();
-        }
+        [$from, $to] = $this->ledgerDateBounds($request);
         if ($from) {
             $query->where('created_at', '>=', $from);
         }
@@ -455,6 +442,29 @@ class FinanceController extends Controller
             'debits' => $debits,
             'net' => round($credits - $debits, 2),
         ];
+    }
+
+    /**
+     * Parsed from/to bounds. Inverted ranges are swapped so the form,
+     * table, totals, and export all use the same window.
+     *
+     * @return array{0: ?Carbon, 1: ?Carbon}
+     */
+    private function ledgerDateBounds(Request $request): array
+    {
+        $from = $this->finance->parseDay(
+            is_string($request->input('date_from')) ? $request->input('date_from') : null,
+            false
+        );
+        $to = $this->finance->parseDay(
+            is_string($request->input('date_to')) ? $request->input('date_to') : null,
+            true
+        );
+        if ($from && $to && $to->lt($from)) {
+            [$from, $to] = [$to->copy()->startOfDay(), $from->copy()->endOfDay()];
+        }
+
+        return [$from, $to];
     }
 
     /**

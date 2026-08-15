@@ -673,6 +673,74 @@ class AdminFinanceOpsGapsTest extends TestCase
         $this->assertStringNotContainsString('WD-WISE-METHOD', $csv);
     }
 
+    public function test_ledger_payment_method_filter_finds_purchase_via_related_order(): void
+    {
+        $admin = $this->makeUser('admin');
+        $advertiser = $this->makeUser('advertiser');
+        $advRole = Role::firstOrCreate(['name' => 'advertiser']);
+        $wallet = Wallet::create([
+            'user_id' => $advertiser->id,
+            'role_id' => $advRole->id,
+            'balance' => 40,
+            'reserved_balance' => 0,
+            'currency' => 'EUR',
+        ]);
+
+        $walletOrder = Order::create([
+            'user_id' => $advertiser->id,
+            'order_number' => 'ORD-LEDGER-WALLET',
+            'subtotal' => 18,
+            'tax' => 0,
+            'total_amount' => 18,
+            'payment_method' => 'wallet',
+            'payment_status' => 'paid',
+            'status' => 'completed',
+        ]);
+        $cardOrder = Order::create([
+            'user_id' => $advertiser->id,
+            'order_number' => 'ORD-LEDGER-CARD',
+            'subtotal' => 11,
+            'tax' => 0,
+            'total_amount' => 11,
+            'payment_method' => 'card',
+            'payment_status' => 'paid',
+            'status' => 'completed',
+        ]);
+
+        $walletTx = app(WalletLedgerService::class)->recordPurchase(
+            $wallet,
+            18,
+            0,
+            $walletOrder,
+            'LEDGER-ORDER-WALLET'
+        );
+        app(WalletLedgerService::class)->recordPurchase(
+            $wallet,
+            11,
+            0,
+            $cardOrder,
+            'LEDGER-ORDER-CARD'
+        );
+
+        $this->assertNull($walletTx?->payment_method);
+
+        $this->actingAs($admin)
+            ->get(route('admin.finance.ledger', ['payment_method' => 'wallet']))
+            ->assertOk()
+            ->assertSee('LEDGER-ORDER-WALLET')
+            ->assertSee('Wallet')
+            ->assertDontSee('LEDGER-ORDER-CARD');
+
+        $csv = $this->actingAs($admin)
+            ->get(route('admin.finance.ledger.export', ['payment_method' => 'wallet']))
+            ->assertOk()
+            ->streamedContent();
+
+        $this->assertStringContainsString('LEDGER-ORDER-WALLET', $csv);
+        $this->assertStringContainsString('wallet', $csv);
+        $this->assertStringNotContainsString('LEDGER-ORDER-CARD', $csv);
+    }
+
     public function test_ledger_wallet_id_filter_hides_other_wallets(): void
     {
         $admin = $this->makeUser('admin');
@@ -1104,6 +1172,72 @@ class AdminFinanceOpsGapsTest extends TestCase
             ]))
             ->assertOk()
             ->assertSee('Wallet ledger');
+    }
+
+    public function test_ledger_inverted_dates_swap_to_the_intended_range(): void
+    {
+        $admin = $this->makeUser('admin');
+        $publisher = $this->makeUser('publisher');
+        $pubRole = Role::firstOrCreate(['name' => 'publisher']);
+        $wallet = Wallet::create([
+            'user_id' => $publisher->id,
+            'role_id' => $pubRole->id,
+            'balance' => 30,
+            'reserved_balance' => 0,
+            'currency' => 'EUR',
+        ]);
+
+        $insideEarly = app(WalletLedgerService::class)->recordTransferIn(
+            $wallet,
+            8,
+            null,
+            'LEDGER-DATE-EARLY',
+            'Inverted date early row'
+        );
+        $insideLate = app(WalletLedgerService::class)->recordTransferIn(
+            $wallet,
+            9,
+            null,
+            'LEDGER-DATE-LATE',
+            'Inverted date late row'
+        );
+        $outside = app(WalletLedgerService::class)->recordTransferIn(
+            $wallet,
+            7,
+            null,
+            'LEDGER-DATE-OUT',
+            'Inverted date outside row'
+        );
+
+        $insideEarly?->forceFill(['created_at' => '2026-08-02 10:00:00'])->save();
+        $insideLate?->forceFill(['created_at' => '2026-08-10 10:00:00'])->save();
+        $outside?->forceFill(['created_at' => '2026-07-20 10:00:00'])->save();
+
+        $html = $this->actingAs($admin)
+            ->get(route('admin.finance.ledger', [
+                'date_from' => '2026-08-12',
+                'date_to' => '2026-08-01',
+            ]))
+            ->assertOk()
+            ->assertSee('Inverted date early row')
+            ->assertSee('Inverted date late row')
+            ->assertDontSee('Inverted date outside row')
+            ->getContent();
+
+        $this->assertStringContainsString('value="2026-08-01"', $html);
+        $this->assertStringContainsString('value="2026-08-12"', $html);
+
+        $csv = $this->actingAs($admin)
+            ->get(route('admin.finance.ledger.export', [
+                'date_from' => '2026-08-12',
+                'date_to' => '2026-08-01',
+            ]))
+            ->assertOk()
+            ->streamedContent();
+
+        $this->assertStringContainsString('LEDGER-DATE-EARLY', $csv);
+        $this->assertStringContainsString('LEDGER-DATE-LATE', $csv);
+        $this->assertStringNotContainsString('LEDGER-DATE-OUT', $csv);
     }
 
     public function test_withdrawals_page_honors_search_query_param(): void
