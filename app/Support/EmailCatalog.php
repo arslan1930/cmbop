@@ -88,8 +88,9 @@ class EmailCatalog
             return false;
         }
 
-        return (int) $user->id === self::PREVIEW_ID
-            || $user->email === self::PREVIEW_EMAIL;
+        // Only unsaved / id-0 catalog stand-ins. A real account that happens
+        // to use PREVIEW_EMAIL must still get live verify URLs and role copy.
+        return (int) $user->id === self::PREVIEW_ID;
     }
 
     public static function previewVerificationUrl(): string

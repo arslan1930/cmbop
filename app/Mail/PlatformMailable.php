@@ -375,10 +375,18 @@ abstract class PlatformMailable extends Mailable implements ShouldQueue
     {
         try {
             $type = $this->notificationType ?: EmailCatalog::keyFromMailable(static::class);
-            $to = $this->recipientUser?->email
-                ?? data_get($this->to, '0.address')
-                ?? data_get($this->to, '0')
-                ?? 'unknown';
+            $envelopeTo = data_get($this->to, '0.address');
+            if (! is_string($envelopeTo) || $envelopeTo === '') {
+                $first = data_get($this->to, '0');
+                $envelopeTo = is_string($first) ? $first : null;
+            }
+
+            // Test sends are addressed to the admin; the synthetic recipient
+            // must not be written onto the failure log.
+            $to = $this->forceSend
+                ? ($envelopeTo ?: $this->recipientUser?->email)
+                : ($this->recipientUser?->email ?: $envelopeTo);
+            $to = is_string($to) && $to !== '' ? $to : 'unknown';
 
             $meta = array_filter([
                 'source' => $this->forceSend ? 'email_center_test' : 'queue',
@@ -390,7 +398,7 @@ abstract class PlatformMailable extends Mailable implements ShouldQueue
                 'template_key' => $type,
                 'notification_type' => $type,
                 'dedupe_key' => $this->dedupeKey,
-                'to_email' => is_string($to) ? $to : 'unknown',
+                'to_email' => $to,
                 'subject' => $this->subject,
                 'status' => EmailLog::STATUS_FAILED,
                 'error' => $exception?->getMessage(),

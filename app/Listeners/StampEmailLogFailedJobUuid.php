@@ -11,17 +11,22 @@ class StampEmailLogFailedJobUuid
 {
     public function handle(JobFailed $event): void
     {
+        try {
+            $this->stamp($event);
+        } catch (\Throwable) {
+            // Never break Laravel's fail pipeline (failed_jobs already written).
+        }
+    }
+
+    protected function stamp(JobFailed $event): void
+    {
         $job = $event->job;
         if (! is_object($job) || ! method_exists($job, 'uuid') || ! method_exists($job, 'getRawBody')) {
             return;
         }
 
-        try {
-            $uuid = $job->uuid();
-            $payload = (string) $job->getRawBody();
-        } catch (\Throwable) {
-            return;
-        }
+        $uuid = $job->uuid();
+        $payload = (string) $job->getRawBody();
 
         if (! is_string($uuid) || $uuid === '' || ! MailJobPayload::isQueuedMailable($payload)) {
             return;

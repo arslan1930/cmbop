@@ -259,6 +259,38 @@ class AdminEmailCenterTest extends TestCase
             ->assertSee('/email/verify/preview-id/preview-hash', false);
     }
 
+    public function test_live_user_with_preview_email_is_not_treated_as_catalog_stand_in(): void
+    {
+        $user = $this->userWithRole('advertiser', [
+            'email' => EmailCatalog::PREVIEW_EMAIL,
+            'email_verified_at' => null,
+        ]);
+
+        $this->assertFalse(EmailCatalog::isPreviewUser($user));
+
+        $html = (new WelcomeEmail($user))->render();
+        $this->assertStringNotContainsString('/email/verify/preview-id/preview-hash', $html);
+        $this->assertStringContainsString('/email/verify/'.$user->id.'/', $html);
+    }
+
+    public function test_force_send_failure_logs_envelope_recipient_not_sample_user(): void
+    {
+        $admin = $this->userWithRole('admin');
+        $mail = EmailCatalog::makeMailable('welcome');
+        $this->assertNotNull($mail);
+        $mail->forceSend = true;
+        $mail->skipUserPreference = true;
+        $mail->dedupeKey = 'email_center_test:welcome:force-fail';
+        $mail->to($admin->email);
+        $mail->failed(new \RuntimeException('SMTP down'));
+
+        $log = EmailLog::query()->first();
+        $this->assertNotNull($log);
+        $this->assertSame($admin->email, $log->to_email);
+        $this->assertNotSame(EmailCatalog::PREVIEW_EMAIL, $log->to_email);
+        $this->assertSame('email_center_test', $log->meta['source'] ?? null);
+    }
+
     public function test_send_test_rejects_non_admin_inbox(): void
     {
         $admin = $this->userWithRole('admin');

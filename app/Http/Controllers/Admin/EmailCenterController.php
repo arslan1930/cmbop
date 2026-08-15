@@ -201,22 +201,23 @@ class EmailCenterController extends Controller
         $template = EmailCatalog::get($key);
         abort_unless($template, 404);
 
+        $dedupe = 'email_center_test:'.$key.':'.(string) Str::uuid();
+        $mailable = null;
+        if (! $this->frameworkPreviewHtml($key)) {
+            $mailable = EmailCatalog::makeMailable($key);
+            abort_unless($mailable, 404);
+        }
+
         try {
-            if ($this->frameworkPreviewHtml($key)) {
-                $this->sendFrameworkTestHtml(
-                    $key,
-                    $adminEmail,
-                    'email_center_test:'.$key.':'.(string) Str::uuid()
-                );
-            } else {
-                $mailable = EmailCatalog::makeMailable($key);
-                abort_unless($mailable, 404);
+            if ($mailable) {
                 if ($mailable instanceof PlatformMailable) {
                     $mailable->forceSend = true;
                     $mailable->skipUserPreference = true;
-                    $mailable->dedupeKey = 'email_center_test:'.$key.':'.(string) Str::uuid();
+                    $mailable->dedupeKey = $dedupe;
                 }
                 Mail::to($adminEmail)->sendNow($mailable);
+            } else {
+                $this->sendFrameworkTestHtml($key, $adminEmail, $dedupe);
             }
 
             return back()->with(
@@ -224,22 +225,42 @@ class EmailCenterController extends Controller
                 'Test email sent to '.$adminEmail.' (synthetic preview — ignores global disable).'
             );
         } catch (\Throwable $e) {
-            EmailLog::create([
-                'uuid' => (string) Str::uuid(),
-                'mailable' => $template['mailable'] ?? null,
-                'template_key' => $key,
-                'notification_type' => $key,
-                'dedupe_key' => 'email_center_test:'.$key.':failed:'.(string) Str::uuid(),
-                'to_email' => $adminEmail,
-                'subject' => ($template['name'] ?? $key).' (Test)',
-                'status' => EmailLog::STATUS_FAILED,
-                'error' => $e->getMessage(),
-                'attempts' => 1,
-                'meta' => ['source' => 'email_center_test'],
-            ]);
+            $this->recordTestSendFailure($template, $key, $adminEmail, $dedupe, $e);
 
             return back()->with('error', UserFacingError::message($e, 'Failed to send test email. Please try again.'));
         }
+    }
+
+    /**
+     * @param  array<string, mixed>  $template
+     */
+    protected function recordTestSendFailure(array $template, string $key, string $adminEmail, string $dedupe, \Throwable $e): void
+    {
+        $payload = [
+            'mailable' => $template['mailable'] ?? null,
+            'template_key' => $key,
+            'notification_type' => $key,
+            'dedupe_key' => $dedupe,
+            'to_email' => $adminEmail,
+            'subject' => ($template['name'] ?? $key).' (Test)',
+            'status' => EmailLog::STATUS_FAILED,
+            'error' => $e->getMessage(),
+            'meta' => ['source' => 'email_center_test'],
+        ];
+
+        $existing = EmailLog::findOpenByDedupe($dedupe);
+        if ($existing) {
+            $existing->fill($payload);
+            $existing->attempts = max(1, (int) $existing->attempts) + 1;
+            $existing->save();
+
+            return;
+        }
+
+        EmailLog::create(array_merge($payload, [
+            'uuid' => (string) Str::uuid(),
+            'attempts' => 1,
+        ]));
     }
 
     public function retryFailed(Request $request)
