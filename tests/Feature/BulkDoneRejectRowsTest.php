@@ -296,6 +296,61 @@ class BulkDoneRejectRowsTest extends TestCase
         }
     }
 
+    public function test_reject_all_completes_when_only_archived_sites_remain(): void
+    {
+        Mail::fake();
+        [$bulk, $items] = $this->makeBulkWithItems(1, 'arch-left');
+
+        Site::query()->create([
+            'publisher_id' => $this->publisher->id,
+            'bulk_site_request_id' => $bulk->id,
+            'site_name' => 'Archived leftover',
+            'site_url' => 'https://arch-left-old.example',
+            'domain' => 'arch-left-old.example',
+            'da' => 20,
+            'dr' => 20,
+            'traffic' => 1000,
+            'country' => 'de',
+            'language' => 'de',
+            'category' => 'News',
+            'price' => 40,
+            'publication_time' => 'permanent',
+            'link_type' => 'dofollow',
+            'description' => str_repeat('Archived leftover from an earlier seed. ', 2),
+            'verified' => false,
+            'active' => false,
+            'archived_at' => now(),
+        ]);
+
+        $this->actingAs($this->marketer)
+            ->from(route('marketing.bulk-site-requests.show', $bulk))
+            ->post(route('marketing.bulk-site-requests.done', $bulk), [
+                'rejected_item_ids' => [$items[0]->id],
+                'rejection_note' => 'We are not listing this domain after review.',
+            ])
+            ->assertSessionHas('success');
+
+        $fresh = $bulk->fresh();
+        $this->assertSame(BulkSiteRequest::STATUS_COMPLETED, $fresh->status);
+        $this->assertFalse(
+            BulkSiteRequest::query()->whereKey($bulk->id)->blockingPublisher()->exists()
+        );
+        $this->assertFalse(
+            MarketingOpsQueues::bulkWaitingOnMarketer()->whereKey($bulk->id)->exists()
+        );
+
+        $this->actingAs($this->publisher)
+            ->from(route('publisher.websites'))
+            ->post(route('publisher.bulk-sites.request'), [
+                'sites' => [
+                    ['url' => 'https://after-arch-reject-a.example', 'price' => 40],
+                    ['url' => 'https://after-arch-reject-b.example', 'price' => 50],
+                ],
+            ])
+            ->assertRedirect(route('publisher.websites', ['status' => 'pending']))
+            ->assertSessionHas('success');
+    }
+
     public function test_reject_all_blocks_seed_and_clears_publisher_open_banner(): void
     {
         Mail::fake();
@@ -969,6 +1024,47 @@ class BulkDoneRejectRowsTest extends TestCase
         }
     }
 
+    public function test_staff_delete_of_www_draft_does_not_email_removal_when_item_repends(): void
+    {
+        Mail::fake();
+
+        $bulk = BulkSiteRequest::create([
+            'publisher_id' => $this->publisher->id,
+            'status' => BulkSiteRequest::STATUS_REQUESTED,
+            'estimated_count' => 1,
+        ]);
+        $item = BulkSiteRequestItem::create([
+            'bulk_site_request_id' => $bulk->id,
+            'site_url' => 'https://www.repend-mail.example',
+            'domain' => 'www.repend-mail.example',
+            'price' => 40,
+        ]);
+
+        $this->actingAs($this->marketer)
+            ->post(route('marketing.bulk-site-requests.done', $bulk), [
+                'items' => $this->completeRow($item),
+            ])
+            ->assertRedirect();
+
+        $site = Site::query()->where('domain', 'repend-mail.example')->firstOrFail();
+        $this->assertNotNull($item->fresh()->site_id);
+
+        $this->actingAs($this->marketer)
+            ->deleteJson(route('marketing.sites.destroy', $site->id), [
+                'reason' => 'Wrong www variant was seeded from the bulk row.',
+            ])
+            ->assertOk()
+            ->assertJsonPath('success', true);
+
+        $this->assertNull($item->fresh()->site_id);
+        $this->assertSame(BulkSiteRequest::STATUS_REQUESTED, $bulk->fresh()->status);
+        Mail::assertNotQueued(SiteStatusNotification::class);
+        $this->assertSame(0, InAppNotification::query()
+            ->where('user_id', $this->publisher->id)
+            ->where('title', 'like', 'Site submission removed%')
+            ->count());
+    }
+
     public function test_done_after_last_draft_delete_reseeds_and_awaits_publisher(): void
     {
         Mail::fake();
@@ -1014,6 +1110,46 @@ class BulkDoneRejectRowsTest extends TestCase
             ->assertSee('Waiting on publisher', false)
             ->assertSee('Complete details, then we approve', false)
             ->assertDontSee('our marketer adds DA/DR', false);
+    }
+
+    public function test_show_heals_requested_reject_all_leftover_with_only_archived_sites(): void
+    {
+        $bulk = BulkSiteRequest::create([
+            'publisher_id' => $this->publisher->id,
+            'status' => BulkSiteRequest::STATUS_REQUESTED,
+            'estimated_count' => 0,
+        ]);
+        Site::query()->create([
+            'publisher_id' => $this->publisher->id,
+            'bulk_site_request_id' => $bulk->id,
+            'site_name' => 'Ghost archived',
+            'site_url' => 'https://ghost-arch.example',
+            'domain' => 'ghost-arch.example',
+            'da' => 20,
+            'dr' => 20,
+            'traffic' => 1000,
+            'country' => 'de',
+            'language' => 'de',
+            'category' => 'News',
+            'price' => 40,
+            'publication_time' => 'permanent',
+            'link_type' => 'dofollow',
+            'description' => str_repeat('Ghost archived leftover description. ', 2),
+            'verified' => false,
+            'active' => false,
+            'archived_at' => now(),
+        ]);
+
+        $this->assertTrue($bulk->needsProgressHeal());
+
+        $this->actingAs($this->marketer)
+            ->get(route('marketing.bulk-site-requests.show', $bulk))
+            ->assertOk();
+
+        $this->assertSame(BulkSiteRequest::STATUS_COMPLETED, $bulk->fresh()->status);
+        $this->assertFalse(
+            BulkSiteRequest::query()->whereKey($bulk->id)->blockingPublisher()->exists()
+        );
     }
 
     public function test_show_heals_awaiting_publisher_with_no_sites_and_pending_rows(): void
@@ -1714,7 +1850,7 @@ class BulkDoneRejectRowsTest extends TestCase
         $this->assertSame(0, BulkSiteRequest::query()->count());
     }
 
-    public function test_done_attaches_only_the_submitted_www_or_apex_sibling(): void
+    public function test_done_folds_www_and_apex_pending_rows_onto_one_draft(): void
     {
         Mail::fake();
 
@@ -1744,16 +1880,58 @@ class BulkDoneRejectRowsTest extends TestCase
             ->assertRedirect(route('marketing.bulk-site-requests.show', $bulk))
             ->assertSessionHas('success');
 
-        $this->assertNotNull($www->fresh()->site_id);
-        $this->assertNull($apex->fresh()->site_id);
+        $siteId = (int) $www->fresh()->site_id;
+        $this->assertGreaterThan(0, $siteId);
+        $this->assertSame($siteId, (int) $apex->fresh()->site_id);
         $this->assertSame(1, Site::query()->where('bulk_site_request_id', $bulk->id)->count());
-        $this->assertSame(
-            (int) $www->fresh()->site_id,
-            (int) Site::query()->where('domain', 'twin-done.example')->value('id')
+        $this->assertSame($siteId, (int) Site::query()->where('domain', 'twin-done.example')->value('id'));
+        $this->assertSame(0, $bulk->fresh()->pendingItemsCount());
+        $this->assertSame(BulkSiteRequest::STATUS_AWAITING_PUBLISHER, $bulk->fresh()->status);
+        $this->assertTrue(
+            BulkSiteRequest::query()->whereKey($bulk->id)->blockingPublisher()->exists()
+        );
+        $this->assertFalse(
+            MarketingOpsQueues::bulkWaitingOnMarketer()->whereKey($bulk->id)->exists()
         );
     }
 
-    public function test_seed_refuses_when_www_and_apex_pending_rows_share_a_domain(): void
+    public function test_done_of_both_www_and_apex_blocks_in_one_request_creates_one_site(): void
+    {
+        Mail::fake();
+
+        $bulk = BulkSiteRequest::create([
+            'publisher_id' => $this->publisher->id,
+            'status' => BulkSiteRequest::STATUS_REQUESTED,
+            'estimated_count' => 2,
+        ]);
+        $www = BulkSiteRequestItem::create([
+            'bulk_site_request_id' => $bulk->id,
+            'site_url' => 'https://www.twin-both.example',
+            'domain' => 'www.twin-both.example',
+            'price' => 40,
+        ]);
+        $apex = BulkSiteRequestItem::create([
+            'bulk_site_request_id' => $bulk->id,
+            'site_url' => 'https://twin-both.example',
+            'domain' => 'twin-both.example',
+            'price' => 45,
+        ]);
+
+        $this->actingAs($this->marketer)
+            ->from(route('marketing.bulk-site-requests.show', $bulk))
+            ->post(route('marketing.bulk-site-requests.done', $bulk), [
+                'items' => $this->completeRow($www) + $this->completeRow($apex),
+            ])
+            ->assertRedirect(route('marketing.bulk-site-requests.show', $bulk))
+            ->assertSessionHas('success')
+            ->assertSessionHas('seed_failures', fn ($failures) => $failures === [] || $failures === null);
+
+        $this->assertSame(1, Site::query()->where('bulk_site_request_id', $bulk->id)->count());
+        $this->assertSame((int) $www->fresh()->site_id, (int) $apex->fresh()->site_id);
+        $this->assertSame(0, $bulk->fresh()->pendingItemsCount());
+    }
+
+    public function test_seed_folds_www_and_apex_pending_rows_onto_one_draft(): void
     {
         Mail::fake();
 
@@ -1782,19 +1960,14 @@ class BulkDoneRejectRowsTest extends TestCase
                 'rows' => "https://twin-seed.example,80,30,35,5000,{$language},{$country},Twin Seed",
             ])
             ->assertRedirect()
-            ->assertSessionHas('seed_failures', function ($failures) {
-                return is_array($failures)
-                    && collect($failures)->contains(function ($row) {
-                        return collect($row['errors'] ?? [])->contains(
-                            fn ($error) => str_contains((string) $error, 'www vs apex')
-                        );
-                    });
-            });
+            ->assertSessionHas('success')
+            ->assertSessionHas('seed_failures', fn ($failures) => $failures === [] || $failures === null);
 
-        $this->assertNull($www->fresh()->site_id);
-        $this->assertNull($apex->fresh()->site_id);
-        $this->assertDatabaseMissing('sites', ['domain' => 'twin-seed.example']);
-        $this->assertSame(0, Site::query()->where('bulk_site_request_id', $bulk->id)->count());
+        $siteId = (int) $www->fresh()->site_id;
+        $this->assertGreaterThan(0, $siteId);
+        $this->assertSame($siteId, (int) $apex->fresh()->site_id);
+        $this->assertSame(1, Site::query()->where('bulk_site_request_id', $bulk->id)->count());
+        $this->assertSame(0, $bulk->fresh()->pendingItemsCount());
     }
 
     public function test_publisher_deleting_last_bulk_draft_heals_status_to_requested(): void

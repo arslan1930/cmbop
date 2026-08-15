@@ -19,6 +19,7 @@ use App\Services\Marketplace\CountryLanguagePairs;
 use App\Services\SiteClaimTransferService;
 use App\Support\MarketingOpsQueues;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
@@ -731,7 +732,26 @@ class BulkSiteRequestController extends Controller
                 $doneItemId = $action === 'bulk_request.done' ? (int) ($row['line'] ?? 0) : 0;
                 $itemIds = [];
                 if ($doneItemId > 0) {
-                    $itemIds = $pending->firstWhere('id', $doneItemId) ? [$doneItemId] : [];
+                    if (! $pending->firstWhere('id', $doneItemId)) {
+                        // Twin www/apex row already folded onto a site created
+                        // earlier in this request — not a failure.
+                        if ($locked->items()->whereKey($doneItemId)->whereNotNull('site_id')->exists()) {
+                            continue;
+                        }
+                        $failures[] = [
+                            'line' => $row['line'] ?? 0,
+                            'url' => $row['site_url'] ?? $domain,
+                            'errors' => ['Could not attach this row. Refresh and try again.'],
+                        ];
+
+                        continue;
+                    }
+                    $itemIds = $this->pendingItemIdsForNormalizedDomain($pending, $domain);
+                    if (! in_array($doneItemId, $itemIds, true)) {
+                        $itemIds[] = $doneItemId;
+                    }
+                } elseif ($pending->isNotEmpty()) {
+                    $itemIds = $this->pendingItemIdsForNormalizedDomain($pending, $domain);
                     if ($itemIds === []) {
                         $failures[] = [
                             'line' => $row['line'] ?? 0,
@@ -741,22 +761,6 @@ class BulkSiteRequestController extends Controller
 
                         continue;
                     }
-                } elseif ($pending->isNotEmpty()) {
-                    $matches = $pending
-                        ->filter(fn ($item) => Site::normalizeMarketplaceDomain((string) $item->domain) === $domain)
-                        ->values();
-                    if ($matches->count() !== 1) {
-                        $failures[] = [
-                            'line' => $row['line'] ?? 0,
-                            'url' => $row['site_url'] ?? $domain,
-                            'errors' => [$matches->count() > 1
-                                ? 'This domain matches more than one pending row (www vs apex). Use Done on each row instead of Advanced seed.'
-                                : 'Could not attach this row. Refresh and try again.'],
-                        ];
-
-                        continue;
-                    }
-                    $itemIds = [(int) $matches->first()->id];
                 }
 
                 $site = new Site;
@@ -1007,6 +1011,23 @@ class BulkSiteRequestController extends Controller
         return back()
             ->with($didWork ? 'success' : 'error', $message)
             ->with('seed_failures', $failures);
+    }
+
+    /**
+     * www / apex / port twins on the same batch share one listing. Leaving
+     * the sibling pending blocks the publisher forever (second Done hits
+     * "already registered").
+     *
+     * @param  Collection<int, BulkSiteRequestItem>  $pending
+     * @return list<int>
+     */
+    private function pendingItemIdsForNormalizedDomain(Collection $pending, string $domain): array
+    {
+        return $pending
+            ->filter(fn ($item) => Site::normalizeMarketplaceDomain((string) $item->domain) === $domain)
+            ->map(fn ($item) => (int) $item->id)
+            ->values()
+            ->all();
     }
 
     /**

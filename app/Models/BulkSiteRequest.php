@@ -117,6 +117,19 @@ class BulkSiteRequest extends Model
             return true;
         }
 
+        // Reject-all leftover: no pending rows, no live drafts, not a legacy
+        // sheet (count set, no item rows). Show must complete it or the
+        // marketer list keeps a ghost "Waiting on marketer" batch.
+        if (! $hasSites && ! $hasPendingItems
+            && in_array($this->status, [
+                self::STATUS_REQUESTED,
+                self::STATUS_SHEET_SENT,
+                self::STATUS_SEEDED,
+            ], true)
+            && ! ($this->items()->doesntExist() && (int) $this->estimated_count > 0)) {
+            return true;
+        }
+
         if (! $hasSites && in_array($this->status, [
             self::STATUS_AWAITING_PUBLISHER,
             self::STATUS_SEEDED,
@@ -154,10 +167,11 @@ class BulkSiteRequest extends Model
         // URL+price rows stays sheet-sent (legacy). Sheet-sent + pending rows
         // and no drafts must become "Waiting on marketer" so heal/index match.
         // Publisher-submitted URL+price rows with no drafts yet stay requested.
+        $isLegacySheet = $this->items()->doesntExist() && (int) $this->estimated_count > 0;
         if ($this->status === self::STATUS_REQUESTED && $total === 0 && $pendingItems > 0) {
             return;
         }
-        if ($this->status === self::STATUS_SHEET_SENT && $total === 0 && $pendingItems === 0) {
+        if ($this->status === self::STATUS_SHEET_SENT && $total === 0 && $pendingItems === 0 && $isLegacySheet) {
             return;
         }
 
@@ -175,7 +189,6 @@ class BulkSiteRequest extends Model
             // Legacy sheet (count set, no item rows): staff delete of the last
             // seed must stay open so they can reseed. Claim transfer of the
             // last listing is finished — do not rewind into a fake sheet.
-            $isLegacySheet = $this->items()->doesntExist() && (int) $this->estimated_count > 0;
             if ($isLegacySheet && ($keepLegacySheetOpen
                 || in_array($this->status, [self::STATUS_REQUESTED, self::STATUS_SHEET_SENT], true))) {
                 $this->forceFill([
