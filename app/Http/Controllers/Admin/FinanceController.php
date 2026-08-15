@@ -119,9 +119,10 @@ class FinanceController extends Controller
         unset($clearUserQuery['user_id']);
         $clearWalletQuery = $exportQuery;
         unset($clearWalletQuery['wallet_id']);
-        $hasLedgerFilters = collect($exportQuery)->except(['user_id'])->isNotEmpty();
+        $hasLedgerFilters = collect($exportQuery)->except(['user_id', 'wallet_id'])->isNotEmpty();
         $clearFiltersQuery = array_filter([
             'user_id' => $userId > 0 ? $userId : null,
+            'wallet_id' => $walletId > 0 ? $walletId : null,
         ]);
 
         $filtered = $this->ledgerQuery($request);

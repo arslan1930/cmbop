@@ -211,6 +211,8 @@
                                 @if($hasLedgerFilters)
                                     <div class="mb-2">No ledger rows match these filters</div>
                                     <a href="{{ route('admin.finance.ledger', $clearFiltersQuery ?? []) }}" class="btn btn-sm btn-outline-secondary">Clear filters</a>
+                                @elseif(($walletId ?? 0) > 0)
+                                    No ledger rows for this wallet
                                 @elseif(($userId ?? 0) > 0)
                                     No ledger rows for this user
                                 @else

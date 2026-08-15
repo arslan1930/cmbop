@@ -573,6 +573,40 @@ class AdminFinanceOpsGapsTest extends TestCase
         );
     }
 
+    public function test_ledger_clear_filters_keeps_wallet_and_drops_type(): void
+    {
+        $admin = $this->makeUser('admin');
+        $publisher = $this->makeUser('publisher');
+        $pubRole = Role::firstOrCreate(['name' => 'publisher']);
+        $wallet = Wallet::create([
+            'user_id' => $publisher->id,
+            'role_id' => $pubRole->id,
+            'balance' => 10,
+            'reserved_balance' => 0,
+            'currency' => 'EUR',
+        ]);
+        app(WalletLedgerService::class)->recordTransferIn($wallet, 10, null, 'LEDGER-CLEAR-WALLET', 'Clear wallet filters row');
+
+        $html = $this->actingAs($admin)
+            ->get(route('admin.finance.ledger', [
+                'user_id' => $publisher->id,
+                'wallet_id' => $wallet->id,
+                'type' => 'deposit',
+            ]))
+            ->assertOk()
+            ->assertSee('Clear filters')
+            ->assertSee('No ledger rows match these filters')
+            ->getContent();
+
+        $this->assertStringContainsString(
+            e(route('admin.finance.ledger', [
+                'user_id' => $publisher->id,
+                'wallet_id' => $wallet->id,
+            ])),
+            $html
+        );
+    }
+
     public function test_ledger_payment_method_filter_groups_card_rails(): void
     {
         $admin = $this->makeUser('admin');
@@ -805,7 +839,8 @@ class AdminFinanceOpsGapsTest extends TestCase
             ->assertOk()
             ->assertSee('Showing wallet')
             ->assertSee('not found')
-            ->assertSee('No ledger rows match these filters');
+            ->assertSee('No ledger rows for this wallet')
+            ->assertDontSee('No ledger rows match these filters');
     }
 
     public function test_ledger_status_filter_hides_other_statuses(): void
