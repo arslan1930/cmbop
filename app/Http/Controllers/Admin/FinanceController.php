@@ -54,8 +54,9 @@ class FinanceController extends Controller
         $rawTo = is_string($request->get('date_to')) ? $request->get('date_to') : null;
 
         $period = $this->finance->resolvePeriod($periodKey, $rawFrom, $rawTo);
-        $dateFrom = $this->finance->parseDay($rawFrom, false)?->toDateString();
-        $dateTo = $this->finance->parseDay($rawTo, true)?->toDateString();
+        [$boundFrom, $boundTo] = $this->finance->dateBounds($rawFrom, $rawTo);
+        $dateFrom = $boundFrom?->toDateString();
+        $dateTo = $boundTo?->toDateString();
 
         $list = is_string($request->get('list')) ? $request->get('list') : null;
         if (! in_array($list, ['debt', 'wallets'], true)) {
@@ -452,19 +453,10 @@ class FinanceController extends Controller
      */
     private function ledgerDateBounds(Request $request): array
     {
-        $from = $this->finance->parseDay(
+        return $this->finance->dateBounds(
             is_string($request->input('date_from')) ? $request->input('date_from') : null,
-            false
+            is_string($request->input('date_to')) ? $request->input('date_to') : null
         );
-        $to = $this->finance->parseDay(
-            is_string($request->input('date_to')) ? $request->input('date_to') : null,
-            true
-        );
-        if ($from && $to && $to->lt($from)) {
-            [$from, $to] = [$to->copy()->startOfDay(), $from->copy()->endOfDay()];
-        }
-
-        return [$from, $to];
     }
 
     /**

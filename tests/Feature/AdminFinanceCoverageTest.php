@@ -779,6 +779,43 @@ class AdminFinanceCoverageTest extends TestCase
         );
     }
 
+    public function test_hub_inverted_dates_swap_to_the_intended_range(): void
+    {
+        $admin = $this->makeUser('admin');
+
+        $period = app(FinanceOverviewService::class)->resolvePeriod(
+            'month',
+            '2026-08-12',
+            '2026-08-01'
+        );
+        $this->assertSame('custom', $period['key']);
+        $this->assertSame('2026-08-01', $period['start']?->toDateString());
+        $this->assertSame('2026-08-12', $period['end']?->toDateString());
+        $this->assertSame('2026-08-01 → 2026-08-12', $period['label']);
+
+        $html = $this->actingAs($admin)
+            ->get(route('admin.finance', [
+                'date_from' => '2026-08-12',
+                'date_to' => '2026-08-01',
+            ]))
+            ->assertOk()
+            ->assertSee('2026-08-01 → 2026-08-12', false)
+            ->getContent();
+
+        $this->assertStringContainsString('value="2026-08-01"', $html);
+        $this->assertStringContainsString('value="2026-08-12"', $html);
+
+        $csv = $this->actingAs($admin)
+            ->get(route('admin.finance.export', [
+                'date_from' => '2026-08-12',
+                'date_to' => '2026-08-01',
+            ]))
+            ->assertOk()
+            ->streamedContent();
+
+        $this->assertStringContainsString('2026-08-01 → 2026-08-12', $csv);
+    }
+
     public function test_ledger_search_leading_zero_does_not_match_transaction_id(): void
     {
         $admin = $this->makeUser('admin');
