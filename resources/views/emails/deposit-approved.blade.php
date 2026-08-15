@@ -5,7 +5,7 @@
 # Deposit Approved
 @endif
 
-Dear {{ $deposit->user->name }},
+Dear {{ $deposit->user?->name ?? 'there' }},
 
 @if($isCard)
 Your card payment succeeded and **€{{ number_format($deposit->amount, 2) }}** has been added to your wallet.

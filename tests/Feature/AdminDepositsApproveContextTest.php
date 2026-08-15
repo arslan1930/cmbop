@@ -292,4 +292,53 @@ class AdminDepositsApproveContextTest extends TestCase
         $this->assertSame(10.0, (float) $wallet->fresh()->balance);
         Mail::assertNotQueued(DepositApproved::class);
     }
+
+    public function test_signed_get_for_pending_unknown_method_is_not_already_processed(): void
+    {
+        $admin = $this->makeUser('admin');
+        $advertiser = $this->makeUser('advertiser');
+        $this->walletFor($advertiser);
+        $deposit = $this->depositFor($advertiser, ['payment_method' => 'other']);
+        $url = $this->relativeSignedUrl(ManualDepositApproveLink::url($deposit));
+
+        $this->actingAs($admin)
+            ->get($url)
+            ->assertOk()
+            ->assertSee('Cannot credit from this link', false)
+            ->assertSee('still', false)
+            ->assertDontSee('Deposit already processed', false)
+            ->assertDontSee('Confirm and credit', false);
+    }
+
+    public function test_rejected_and_approved_mail_render_without_a_user(): void
+    {
+        $advertiser = $this->makeUser('advertiser');
+        $rejected = $this->depositFor($advertiser, [
+            'status' => 'rejected',
+            'rejected_at' => now(),
+        ]);
+        $rejected->setRelation('user', null);
+
+        $approved = $this->depositFor($advertiser, [
+            'reference_code' => 'DEP-MAIL-OK',
+            'status' => 'completed',
+            'approved_at' => now(),
+        ]);
+        $approved->setRelation('user', null);
+
+        $rejectedHtml = view('emails.deposit-rejected', ['deposit' => $rejected])->render();
+        $this->assertStringContainsString('Dear there', $rejectedHtml);
+        $this->assertStringContainsString($rejected->reference_code, $rejectedHtml);
+
+        $approvedHtml = view('emails.deposit-approved', [
+            'deposit' => $approved,
+            'isCard' => false,
+            'receipt' => null,
+            'walletBalance' => 0,
+            'balanceUrl' => route('advertiser.balance'),
+            'downloadReceiptUrl' => null,
+        ])->render();
+        $this->assertStringContainsString('Dear there', $approvedHtml);
+        $this->assertStringContainsString($approved->reference_code, $approvedHtml);
+    }
 }
