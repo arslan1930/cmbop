@@ -26,7 +26,8 @@ class WalletStripeDepositService
         float $amountEuros,
         string $referenceCode,
         ?int $completeDepositId = null,
-        bool $allowNewCardIfUnsettled = true
+        bool $allowNewCardIfUnsettled = true,
+        string $sessionReference = ''
     ): float {
         if ($paymentIntentId === '') {
             throw new \RuntimeException('Missing PaymentIntent id for wallet deposit');
@@ -36,14 +37,20 @@ class WalletStripeDepositService
             throw new \RuntimeException('Invalid deposit amount from PaymentIntent');
         }
 
-        return $this->withStripeDepositLock($paymentIntentId, '', fn () => $this->creditFromPaymentIntentLocked(
-            $userId,
+        return $this->withStripeDepositLock(
             $paymentIntentId,
-            $amountEuros,
-            $referenceCode,
-            $completeDepositId,
-            $allowNewCardIfUnsettled
-        ));
+            '',
+            fn () => $this->creditFromPaymentIntentLocked(
+                $userId,
+                $paymentIntentId,
+                $amountEuros,
+                $referenceCode,
+                $completeDepositId,
+                $allowNewCardIfUnsettled,
+                $sessionReference
+            ),
+            $sessionReference
+        );
     }
 
     private function creditFromPaymentIntentLocked(
@@ -52,7 +59,8 @@ class WalletStripeDepositService
         float $amountEuros,
         string $referenceCode,
         ?int $completeDepositId = null,
-        bool $allowNewCardIfUnsettled = true
+        bool $allowNewCardIfUnsettled = true,
+        string $sessionReference = ''
     ): float {
         if ($completeDepositId) {
             $credited = $this->completeExistingDeposit(
@@ -102,7 +110,7 @@ class WalletStripeDepositService
                 return;
             }
 
-            $orphaned = $this->findCompletedCardForLatePaymentIntent($userId, $amountEuros, $referenceCode);
+            $orphaned = $this->findCompletedCardForLatePaymentIntent($userId, $amountEuros, $sessionReference);
             if ($orphaned) {
                 $this->attachMissingStripeIds($orphaned, '', $paymentIntentId);
                 $credited = (float) $orphaned->amount;
@@ -148,6 +156,7 @@ class WalletStripeDepositService
         $metaAmount = isset($metadata['amount']) ? round((float) $metadata['amount'], 2) : null;
 
         $sessionId = (string) ($session->id ?? '');
+        $sessionReference = trim((string) ($metadata['session_reference'] ?? ''));
         $paymentIntentId = is_string($session->payment_intent ?? null)
             ? $session->payment_intent
             : (string) ($session->payment_intent->id ?? ($session->payment_intent ?? ''));
@@ -226,7 +235,8 @@ class WalletStripeDepositService
                     $finalAmount,
                     $referenceCode
                 );
-            }
+            },
+            $sessionReference
         );
     }
 
@@ -341,13 +351,16 @@ class WalletStripeDepositService
             throw new \RuntimeException('Invalid wallet_deposit PaymentIntent metadata/amount');
         }
 
+        $sessionReference = trim((string) ($metadata['session_reference'] ?? ''));
+
         return $this->creditFromPaymentIntent(
             $userId,
             (string) $intent->id,
             $amount,
             $referenceCode,
             $completeDepositId,
-            $this->isExplicitWalletDepositType($type)
+            $this->isExplicitWalletDepositType($type),
+            $sessionReference
         );
     }
 
@@ -386,11 +399,11 @@ class WalletStripeDepositService
                 return;
             }
             if ((int) $sessionUserId !== (int) $lockedDeposit->user_id) {
-                // Leftover Stripe ids on someone else's unpaid row must not
-                // block the payer from getting their own card credit.
-                // Never detach ids from a completed settlement — that would
-                // free the PaymentIntent and double-credit the same charge.
-                if ($lockedDeposit->status !== 'completed') {
+                // Leftover Stripe ids on someone else's unpaid row — or a
+                // completed bank/Wise/crypto invoice — must not block the
+                // payer from getting their own card credit. Never detach
+                // ids from a completed card settlement.
+                if ($lockedDeposit->status !== 'completed' || $lockedDeposit->isManualPayment()) {
                     $this->detachLeftoverStripeIds($lockedDeposit, $sessionId, $paymentIntentId);
                 }
                 Log::warning('WalletStripeDepositService: refusing deposit owned by another user', [
@@ -404,9 +417,21 @@ class WalletStripeDepositService
             }
 
             if ($lockedDeposit->status === 'completed') {
+                // Admin-approved bank/Wise/crypto is not a Stripe card
+                // settlement. Leftover ids must not swallow a real charge.
+                if ($lockedDeposit->isManualPayment()) {
+                    $this->detachLeftoverStripeIds($lockedDeposit, $sessionId, $paymentIntentId);
+                    Log::info('WalletStripeDepositService: completed manual deposit_id is not a Stripe settlement', [
+                        'deposit_id' => $lockedDeposit->id,
+                        'session_id' => $sessionId,
+                        'payment_intent_id' => $paymentIntentId,
+                    ]);
+
+                    return;
+                }
+
                 // Only treat this as the same Stripe charge when the ids match.
-                // A completed bank/Wise invoice (or a different PaymentIntent)
-                // must not swallow a new card payment.
+                // A different PaymentIntent must not swallow a new card payment.
                 if ($this->depositMatchesStripePayment($lockedDeposit, $sessionId, $paymentIntentId)) {
                     $this->attachMissingStripeIds($lockedDeposit, $sessionId, $paymentIntentId);
                     $credited = (float) $lockedDeposit->amount;
@@ -462,18 +487,9 @@ class WalletStripeDepositService
                         $expectedUserId ?? $sessionUserId
                     );
                     if ($alreadyCredited !== null) {
-                        $already->refresh();
-                        if ($alreadyCredited > 0 && (int) $already->user_id === (int) $lockedDeposit->user_id) {
-                            $lockedDeposit->update([
-                                'status' => 'completed',
-                                'approved_at' => $lockedDeposit->approved_at ?? now(),
-                                'paid_at' => $lockedDeposit->paid_at ?? now(),
-                                'admin_notes' => trim(implode("\n", array_filter([
-                                    $lockedDeposit->admin_notes,
-                                    'Settled via Stripe PaymentIntent on deposit #'.$already->id,
-                                ]))),
-                            ]);
-                        }
+                        // The PaymentIntent already sits on another row.
+                        // Do not mark this invoice completed — it is a
+                        // different deposit_id, not the same charge.
                         $credited = $alreadyCredited;
 
                         return;
@@ -675,6 +691,12 @@ class WalletStripeDepositService
         string $paymentIntentId
     ): ?float {
         if ($existing->status === 'completed') {
+            if ($existing->isManualPayment()) {
+                $this->detachLeftoverStripeIds($existing, $sessionId, $paymentIntentId);
+
+                return null;
+            }
+
             return (float) $existing->amount;
         }
 
@@ -729,34 +751,65 @@ class WalletStripeDepositService
 
     /**
      * A Checkout Session can credit a card row before Stripe has attached the
-     * PaymentIntent. Only reuse that row when the PaymentIntent metadata
-     * reference matches — same amount alone would swallow a second top-up.
+     * PaymentIntent. Only reuse that row when the per-checkout session_reference
+     * matches — the client REF is reused on Add Funds and would swallow a
+     * second same-amount top-up.
      */
     private function findCompletedCardForLatePaymentIntent(
         int $userId,
         float $amountEuros,
-        string $referenceCode
+        string $sessionReference
     ): ?DepositRequest {
-        if ($referenceCode === '') {
+        if ($sessionReference === '') {
             return null;
         }
 
-        $row = DepositRequest::query()
-            ->where('reference_code', $referenceCode)
+        $candidates = DepositRequest::query()
+            ->where('user_id', $userId)
+            ->where('status', 'completed')
+            ->whereIn('payment_method', DepositRequest::CARD_METHODS)
+            ->whereNotNull('stripe_session_id')
+            ->where('stripe_session_id', '!=', '')
+            ->where(function ($q) {
+                $q->whereNull('stripe_payment_intent_id')
+                    ->orWhere('stripe_payment_intent_id', '');
+            })
             ->lockForUpdate()
-            ->first();
+            ->get();
 
-        if (! $row
-            || (int) $row->user_id !== $userId
-            || $row->status !== 'completed'
-            || $row->isManualPayment()
-            || ! filled($row->stripe_session_id)
-            || filled($row->stripe_payment_intent_id)
-            || abs((float) $row->amount - $amountEuros) > 0.01) {
-            return null;
+        foreach ($candidates as $row) {
+            if (abs((float) $row->amount - $amountEuros) > 0.01) {
+                continue;
+            }
+            $stored = $this->sessionReferenceFromDeposit($row);
+            if ($stored !== '' && hash_equals($stored, $sessionReference)) {
+                return $row;
+            }
         }
 
-        return $row;
+        return null;
+    }
+
+    private function sessionReferenceFromDeposit(DepositRequest $deposit): string
+    {
+        $response = $deposit->stripe_response;
+        if (is_string($response)) {
+            $decoded = json_decode($response, true);
+            $response = is_array($decoded) ? $decoded : [];
+        }
+        if (! is_array($response)) {
+            return '';
+        }
+
+        $meta = $response['metadata'] ?? [];
+        if (is_object($meta)) {
+            $meta = $this->metaArray($meta);
+        }
+        if (! is_array($meta)) {
+            return '';
+        }
+
+        return trim((string) ($meta['session_reference'] ?? ''));
     }
 
     private function detachLeftoverStripeIds(
@@ -764,7 +817,10 @@ class WalletStripeDepositService
         string $sessionId,
         string $paymentIntentId
     ): void {
-        if ($deposit->status === 'completed') {
+        // Completed cards are the Stripe settlement — freeing those ids
+        // would let a retry mint a second credit. Completed bank/Wise/crypto
+        // leftover ids are not a card settlement.
+        if ($deposit->status === 'completed' && ! $deposit->isManualPayment()) {
             return;
         }
 
@@ -853,11 +909,17 @@ class WalletStripeDepositService
         return json_encode($obj);
     }
 
-    private function withStripeDepositLock(string $paymentIntentId, string $sessionId, callable $callback): mixed
-    {
-        $key = $paymentIntentId !== ''
-            ? 'wallet_deposit_pi:'.$paymentIntentId
-            : 'wallet_deposit_cs:'.$sessionId;
+    private function withStripeDepositLock(
+        string $paymentIntentId,
+        string $sessionId,
+        callable $callback,
+        string $sessionReference = ''
+    ): mixed {
+        $key = $sessionReference !== ''
+            ? 'wallet_deposit_sref:'.$sessionReference
+            : ($paymentIntentId !== ''
+                ? 'wallet_deposit_pi:'.$paymentIntentId
+                : 'wallet_deposit_cs:'.$sessionId);
 
         try {
             return Cache::lock($key, 20)->block(15, $callback);

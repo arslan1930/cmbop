@@ -203,6 +203,18 @@ class AddFundsController extends Controller
                     'reference_code' => $referenceCode,
                     'session_reference' => $sessionReference,
                 ],
+                // Copied onto the PaymentIntent so a late PI webhook can
+                // attach to the session-created card without using the
+                // reused client REF.
+                'payment_intent_data' => [
+                    'metadata' => [
+                        'type' => 'wallet_deposit',
+                        'user_id' => (string) $user->id,
+                        'amount' => (string) $amountEuros,
+                        'reference_code' => $referenceCode,
+                        'session_reference' => $sessionReference,
+                    ],
+                ],
             ];
 
             $checkoutSession = app(StripeCustomerService::class)
@@ -253,8 +265,17 @@ class AddFundsController extends Controller
                     (int) ($intent->amount_received ?: $intent->amount)
                 );
                 $ref = $referenceCode ?: (string) ($intent->metadata->reference_code ?? str_pad((string) mt_rand(1, 999999), 6, '0', STR_PAD_LEFT));
+                $sessionReference = trim((string) ($intent->metadata->session_reference ?? ''));
                 $credited = app(WalletStripeDepositService::class)
-                    ->creditFromPaymentIntent(auth()->id(), $paymentIntentId, $amountEuros, $ref);
+                    ->creditFromPaymentIntent(
+                        auth()->id(),
+                        $paymentIntentId,
+                        $amountEuros,
+                        $ref,
+                        null,
+                        true,
+                        $sessionReference
+                    );
 
                 if ($credited <= 0) {
                     return redirect()->route('advertiser.add-funds')
