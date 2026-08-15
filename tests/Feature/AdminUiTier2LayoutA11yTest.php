@@ -170,7 +170,7 @@ class AdminUiTier2LayoutA11yTest extends TestCase
             ->get(route('admin.withdrawals'))
             ->assertOk()
             ->getContent();
-        foreach (['queueFilter', 'statusFilter', 'paymentMethodFilter', 'dateFrom', 'searchInput'] as $id) {
+        foreach (['queueFilter', 'statusFilter', 'paymentMethodFilter', 'dateFrom', 'dateTo', 'searchInput'] as $id) {
             $this->assertStringContainsString('for="'.$id.'"', $withdrawals);
         }
         $this->assertStringContainsString('aria-label="Requested from date"', $withdrawals);

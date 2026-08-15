@@ -78,6 +78,9 @@ class AdminPayoutQueueTest extends TestCase
         $this->assertStringContainsString('const FINANCE_USER', $html);
         $this->assertStringContainsString('function withdrawalUrl', $html);
         $this->assertStringContainsString('function syncFiltersToUrl', $html);
+        $this->assertStringContainsString('function resetSelection', $html);
+        $this->assertStringContainsString('function applySelectIfAllowed', $html);
+        $this->assertStringContainsString('function applyDateIfValid', $html);
         $this->assertStringContainsString("q.get('date_from')", $html);
         $this->assertStringContainsString("q.get('date_to')", $html);
         $this->assertStringContainsString('info: \'#paginationInfo\'', $html);
@@ -85,7 +88,7 @@ class AdminPayoutQueueTest extends TestCase
         $this->assertStringContainsString('including other pages', $html);
         $this->assertStringContainsString('All open · Pending', $html);
         $this->assertStringContainsString('All open net', $html);
-        foreach (['queueFilter', 'statusFilter', 'paymentMethodFilter', 'dateFrom', 'searchInput'] as $id) {
+        foreach (['queueFilter', 'statusFilter', 'paymentMethodFilter', 'dateFrom', 'dateTo', 'searchInput'] as $id) {
             $this->assertStringContainsString('for="'.$id.'"', $html);
         }
         $this->assertStringContainsString('aria-label="Requested from date"', $html);

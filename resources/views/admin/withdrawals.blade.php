@@ -105,6 +105,7 @@
                     <label class="form-label fw-semibold small text-muted" for="dateFrom">Date Range</label>
                     <div class="d-flex gap-2">
                         <input type="date" id="dateFrom" class="form-control form-control-sm" aria-label="Requested from date">
+                        <label class="visually-hidden" for="dateTo">Requested to date</label>
                         <input type="date" id="dateTo" class="form-control form-control-sm" aria-label="Requested to date">
                     </div>
                 </div>
@@ -127,10 +128,10 @@
                 </div>
             </div>
             <div class="mt-3 d-flex flex-wrap gap-2">
-                <button id="filterBtn" class="btn btn-primary btn-sm px-3">
+                <button type="button" id="filterBtn" class="btn btn-primary btn-sm px-3">
                     <i class="fa fa-search"></i> Filter
                 </button>
-                <button id="resetFiltersBtn" class="btn btn-secondary btn-sm px-3">
+                <button type="button" id="resetFiltersBtn" class="btn btn-secondary btn-sm px-3">
                     <i class="fa fa-undo"></i> Reset
                 </button>
             </div>
@@ -258,6 +259,26 @@ const FINANCE_USER = @json(route('admin.finance.user', ['user' => '__ID__']));
 
 function withdrawalUrl(template, id) {
     return String(template).replace('__ID__', encodeURIComponent(id));
+}
+
+function applySelectIfAllowed(selector, value) {
+    if (!value) return;
+    const $el = $(selector);
+    if ($el.find('option').filter(function () { return this.value === value; }).length) {
+        $el.val(value);
+    }
+}
+
+function applyDateIfValid(selector, value) {
+    if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return;
+    $(selector).val(value);
+}
+
+function resetSelection() {
+    selectedIds.clear();
+    $('.row-select').prop('checked', false);
+    $('#selectAll').prop('checked', false);
+    updateBatchBar();
 }
 
 function syncFiltersToUrl() {
@@ -405,10 +426,14 @@ function loadWithdrawals(page = 1) {
                 });
             } else {
                 $('#withdrawalsTable').html('<tr><td colspan="10" class="text-center text-danger py-5">' + escapeHtml(response.message || 'Failed to load') + '</td></tr>');
+                $('#paginationInfo').text('');
+                $('#paginationLinks').empty();
             }
         },
         error: function() {
             $('#withdrawalsTable').html('<tr><td colspan="10" class="text-center text-danger py-5">Error loading withdrawals</td></tr>');
+            $('#paginationInfo').text('');
+            $('#paginationLinks').empty();
         }
     });
 }
@@ -423,7 +448,7 @@ function renderWithdrawals(withdrawals) {
     let html = '';
     withdrawals.forEach(function(w) {
         const actionable = w.status === 'pending' || w.status === 'processing';
-        const checked = selectedIds.has(w.id) ? 'checked' : '';
+        const checked = selectedIds.has(Number(w.id)) ? 'checked' : '';
         const copyEncoded = encodeURIComponent(w.destination_copy_text || '');
         const matchIds = Array.isArray(w.duplicate_match_ids) ? w.duplicate_match_ids : [];
         withdrawalFlags.set(Number(w.id), {
@@ -863,7 +888,10 @@ $('#copyDetailsBtn').on('click', function() {
     if (lastDetailsCopyText) copyText(lastDetailsCopyText);
 });
 
-$('#filterBtn').on('click', () => loadWithdrawals(1));
+$('#filterBtn').on('click', function () {
+    resetSelection();
+    loadWithdrawals(1);
+});
 $('#resetFiltersBtn').on('click', function() {
     $('#queueFilter').val('open');
     $('#statusFilter').val('');
@@ -871,13 +899,14 @@ $('#resetFiltersBtn').on('click', function() {
     $('#dateFrom').val('');
     $('#dateTo').val('');
     $('#searchInput').val('');
-    selectedIds.clear();
     withdrawalFlags.clear();
+    resetSelection();
     loadWithdrawals(1);
 });
 
 $('#queueFilter').on('change', function() {
     if ($(this).val() === 'open') $('#statusFilter').val('');
+    resetSelection();
     loadWithdrawals(1);
 });
 
@@ -887,24 +916,24 @@ document.addEventListener('DOMContentLoaded', function () {
             mode: 'event',
             statusEl: document.getElementById('adminWithdrawalsSearchStatus'),
             clearBtn: document.getElementById('adminWithdrawalsSearchClear'),
-            onSearch: function () { loadWithdrawals(1); },
+            onSearch: function () { resetSelection(); loadWithdrawals(1); },
         });
         return;
     }
     $('#searchInput').on('keypress', function(e) {
-        if (e.which === 13) loadWithdrawals(1);
+        if (e.which === 13) { resetSelection(); loadWithdrawals(1); }
     });
 });
 
 // Deep-link query support (?status=completed&queue=history)
 (function initFromQuery() {
     const q = new URLSearchParams(window.location.search);
-    if (q.get('queue')) $('#queueFilter').val(q.get('queue'));
-    if (q.get('status')) $('#statusFilter').val(q.get('status'));
-    if (q.get('payment_method')) $('#paymentMethodFilter').val(q.get('payment_method'));
+    applySelectIfAllowed('#queueFilter', q.get('queue'));
+    applySelectIfAllowed('#statusFilter', q.get('status'));
+    applySelectIfAllowed('#paymentMethodFilter', q.get('payment_method'));
     if (q.get('search')) $('#searchInput').val(q.get('search'));
-    if (q.get('date_from')) $('#dateFrom').val(q.get('date_from'));
-    if (q.get('date_to')) $('#dateTo').val(q.get('date_to'));
+    applyDateIfValid('#dateFrom', q.get('date_from'));
+    applyDateIfValid('#dateTo', q.get('date_to'));
 })();
 
 loadStatistics();
