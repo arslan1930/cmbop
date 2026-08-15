@@ -28,6 +28,7 @@ class AdminCampaignsDocsTest extends TestCase
         $this->assertStringContainsString('each** queue connection', $body);
         $this->assertStringContainsString('25s timeout mid-batch', $body);
         $this->assertStringContainsString('must not overwrite `sent`', $body);
+        $this->assertStringContainsString('before** hydrating', $body);
         $this->assertStringContainsString('Do **not** use `ShouldBeUnique`', $body);
         $this->assertStringContainsString('mail:drain-queue', $body);
         $this->assertStringContainsString('Fail streak is stored in cache', $body);

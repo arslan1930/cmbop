@@ -71,7 +71,9 @@ or marketing, even if that staff account also has a marketplace role.
    campaign ends `failed`.
 6. Preview renders a catalog stand-in (not the admin) and a placeholder
    unsubscribe URL. The preview iframe is sandboxed so a click cannot opt
-   the operator out.    A dispatch exception marks the campaign `failed` instead
+   the operator out. Blank bodies are rejected **before** hydrating the
+   audience so a whitespace-only compose cannot OOM collect. A dispatch
+   exception marks the campaign `failed` instead
    of leaving it stuck `queued`, but must not overwrite `sent` if a sync
    job already delivered. Do **not** use `ShouldBeUnique` on the send
    job — a stale unique lock silently drops the only dispatch. The `queued` →

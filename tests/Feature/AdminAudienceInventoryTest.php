@@ -562,6 +562,7 @@ class AdminAudienceInventoryTest extends TestCase
         $this->assertSame($ids, $rowIds);
         $this->assertSame(0, $inventory->count('selected', [$blank->id, $tabOnly->id, $noAt->id], true));
         $this->assertSame(1, $inventory->count('advertisers', null, true));
+        $this->assertSame([$plain->id], $inventory->pickerUsers('advertiser')->pluck('id')->all());
     }
 
     public function test_all_advertisers_campaign_skips_dual_role_staff(): void
