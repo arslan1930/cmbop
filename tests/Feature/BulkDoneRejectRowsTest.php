@@ -2395,7 +2395,94 @@ class BulkDoneRejectRowsTest extends TestCase
             ->assertRedirect(route('publisher.bulk-sites.review'))
             ->assertSessionHas('error');
 
+        $this->actingAs($this->publisher)
+            ->get(route('publisher.websites'))
+            ->assertOk()
+            ->assertDontSee('Complete details (', false);
+
         $this->assertSame(Site::ONBOARDING_DETAILS_COMPLETE, $site->fresh()->onboarding_status);
+    }
+
+    public function test_show_completes_requested_batch_whose_pending_domains_are_already_listed(): void
+    {
+        $bulk = BulkSiteRequest::create([
+            'publisher_id' => $this->publisher->id,
+            'status' => BulkSiteRequest::STATUS_REQUESTED,
+            'estimated_count' => 2,
+        ]);
+        $first = BulkSiteRequestItem::create([
+            'bulk_site_request_id' => $bulk->id,
+            'site_url' => 'https://taken-req-a.example',
+            'domain' => 'taken-req-a.example',
+            'price' => 40,
+        ]);
+        $second = BulkSiteRequestItem::create([
+            'bulk_site_request_id' => $bulk->id,
+            'site_url' => 'https://taken-req-b.example',
+            'domain' => 'taken-req-b.example',
+            'price' => 50,
+        ]);
+        $this->existingListing('taken-req-a.example', ['verified' => true, 'active' => true]);
+        $this->existingListing('taken-req-b.example', ['verified' => true, 'active' => true]);
+
+        $this->assertTrue($bulk->needsProgressHeal());
+
+        $this->actingAs($this->marketer)
+            ->get(route('marketing.bulk-site-requests.show', $bulk))
+            ->assertOk();
+
+        $this->assertDatabaseMissing('bulk_site_request_items', ['id' => $first->id]);
+        $this->assertDatabaseMissing('bulk_site_request_items', ['id' => $second->id]);
+        $this->assertSame(BulkSiteRequest::STATUS_COMPLETED, $bulk->fresh()->status);
+        $this->assertFalse(
+            BulkSiteRequest::query()->whereKey($bulk->id)->blockingPublisher()->exists()
+        );
+
+        $this->actingAs($this->publisher)
+            ->from(route('publisher.websites'))
+            ->post(route('publisher.bulk-sites.request'), [
+                'sites' => [
+                    ['url' => 'https://after-taken-a.example', 'price' => 40],
+                    ['url' => 'https://after-taken-b.example', 'price' => 50],
+                ],
+            ])
+            ->assertRedirect(route('publisher.websites', ['status' => 'pending']))
+            ->assertSessionHas('success')
+            ->assertSessionMissing('error');
+    }
+
+    public function test_publisher_websites_heals_requested_occupied_leftover(): void
+    {
+        $bulk = BulkSiteRequest::create([
+            'publisher_id' => $this->publisher->id,
+            'status' => BulkSiteRequest::STATUS_REQUESTED,
+            'estimated_count' => 2,
+        ]);
+        BulkSiteRequestItem::create([
+            'bulk_site_request_id' => $bulk->id,
+            'site_url' => 'https://www.sites-heal.example',
+            'domain' => 'www.sites-heal.example',
+            'price' => 40,
+        ]);
+        BulkSiteRequestItem::create([
+            'bulk_site_request_id' => $bulk->id,
+            'site_url' => 'https://sites-heal-b.example',
+            'domain' => 'sites-heal-b.example',
+            'price' => 50,
+        ]);
+        $this->existingListing('sites-heal.example', ['verified' => true, 'active' => true]);
+        $this->existingListing('sites-heal-b.example', ['verified' => true, 'active' => true]);
+
+        $this->actingAs($this->publisher)
+            ->get(route('publisher.websites'))
+            ->assertOk()
+            ->assertDontSee('Bulk request #'.$bulk->id, false);
+
+        $this->assertSame(0, $bulk->fresh()->pendingItemsCount());
+        $this->assertSame(BulkSiteRequest::STATUS_COMPLETED, $bulk->fresh()->status);
+        $this->assertFalse(
+            BulkSiteRequest::query()->whereKey($bulk->id)->blockingPublisher()->exists()
+        );
     }
 
     /**

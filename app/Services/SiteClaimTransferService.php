@@ -163,7 +163,7 @@ class SiteClaimTransferService
             // (domain now belongs to the claimer) and would block a new bulk.
             if ($linkedBulkId) {
                 BulkSiteRequest::query()->lockForUpdate()->find($linkedBulkId)
-                    ?->releasePendingItemsForDomain((string) $locked->domain);
+                    ?->releaseItemsForTransferredSite($locked);
             }
 
             if (! $claimer->hasRole('publisher')) {

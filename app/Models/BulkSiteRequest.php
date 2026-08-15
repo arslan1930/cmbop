@@ -125,7 +125,13 @@ class BulkSiteRequest extends Model
 
         // Claim/archive moved the listing off this batch (or it is archived).
         // The leftover pending twin cannot be Done and blocks a new bulk.
-        if ($hasPendingItems && $hasSites && $this->hasPendingItemsOccupiedElsewhere()) {
+        if ($hasPendingItems && $this->hasPendingItemsOccupiedElsewhere()) {
+            return true;
+        }
+
+        // Items still pointing at a listing that left this batch (claim).
+        // If that site is later deleted, nullOnDelete re-pends them.
+        if ($this->hasOrphanAttachedItems()) {
             return true;
         }
 
@@ -173,6 +179,7 @@ class BulkSiteRequest extends Model
         }
 
         $this->foldPendingTwinsOntoExistingSites();
+        $this->releaseOrphanAttachedItems();
 
         $total = $this->sites()->notArchived()->count();
         $pendingItems = $this->pendingItemsCount();
@@ -183,7 +190,13 @@ class BulkSiteRequest extends Model
         // Publisher-submitted URL+price rows with no drafts yet stay requested.
         $isLegacySheet = $this->items()->doesntExist() && (int) $this->estimated_count > 0;
         if ($this->status === self::STATUS_REQUESTED && $total === 0 && $pendingItems > 0) {
-            return;
+            $released = $this->releasePendingItemsOccupiedElsewhere();
+            if ($released > 0) {
+                $pendingItems = $this->pendingItemsCount();
+            }
+            if ($pendingItems > 0) {
+                return;
+            }
         }
         if ($this->status === self::STATUS_SHEET_SENT && $total === 0 && $pendingItems === 0 && $isLegacySheet) {
             return;
@@ -296,6 +309,90 @@ class BulkSiteRequest extends Model
     }
 
     /**
+     * Remove rows tied to a listing that left this batch (claim transfer).
+     * Attached rows must go too: deleting that site later nullOnDeletes
+     * site_id and re-opens a finished batch.
+     */
+    public function releaseItemsForTransferredSite(Site $site): int
+    {
+        $attached = $this->items()->where('site_id', $site->id)->delete();
+        $pending = $this->releasePendingItemsForDomain((string) $site->domain);
+        if ($attached > 0 && $pending === 0) {
+            $this->forceFill([
+                'estimated_count' => $this->items()->count(),
+            ])->save();
+        }
+
+        return $attached + $pending;
+    }
+
+    public function hasOrphanAttachedItems(): bool
+    {
+        return $this->items()
+            ->whereNotNull('site_id')
+            ->whereDoesntHave('site', function ($q) {
+                $q->where('bulk_site_request_id', $this->id);
+            })
+            ->exists();
+    }
+
+    public function releaseOrphanAttachedItems(): int
+    {
+        $ids = $this->items()
+            ->whereNotNull('site_id')
+            ->whereDoesntHave('site', function ($q) {
+                $q->where('bulk_site_request_id', $this->id);
+            })
+            ->pluck('id')
+            ->map(fn ($id) => (int) $id)
+            ->all();
+        if ($ids === []) {
+            return 0;
+        }
+
+        $deleted = $this->items()->whereIn('id', $ids)->delete();
+        if ($deleted > 0) {
+            $this->forceFill([
+                'estimated_count' => $this->items()->count(),
+            ])->save();
+        }
+
+        return $deleted;
+    }
+
+    /**
+     * Publisher-facing banner / second-submit guard. Heals stale leftovers
+     * so My Sites does not keep a ghost "open bulk" after claim or Done.
+     */
+    public static function openBlockingForPublisher(int $publisherId): ?self
+    {
+        while (true) {
+            $open = static::query()
+                ->where('publisher_id', $publisherId)
+                ->blockingPublisher()
+                ->latest('id')
+                ->first();
+            if (! $open) {
+                return null;
+            }
+
+            $open->healProgressStatusIfStale();
+            $fresh = $open->fresh();
+            if (! $fresh) {
+                return null;
+            }
+
+            $stillBlocking = static::query()
+                ->whereKey($fresh->id)
+                ->blockingPublisher()
+                ->exists();
+            if ($stillBlocking) {
+                return $fresh;
+            }
+        }
+    }
+
+    /**
      * Drop pending URL+price rows for a domain that left this batch
      * (claim transfer) or is already listed elsewhere. Done would only
      * fail "already registered" and the leftover blocks a new bulk.
@@ -338,11 +435,45 @@ class BulkSiteRequest extends Model
             return [];
         }
 
-        $ids = [];
+        $itemNorms = [];
+        $candidates = [];
         foreach ($pending as $item) {
-            $existing = Site::findOccupyingDomain((string) $item->domain);
-            if ($existing && ! $this->canAbsorbOccupyingSite($existing)) {
-                $ids[] = (int) $item->id;
+            $norm = Site::normalizeMarketplaceDomain((string) $item->domain);
+            if ($norm === '') {
+                continue;
+            }
+            $itemNorms[(int) $item->id] = $norm;
+            foreach (Site::domainLookupCandidates($norm) as $candidate) {
+                $candidates[$candidate] = true;
+            }
+        }
+        if ($candidates === []) {
+            return [];
+        }
+
+        $query = Site::query();
+        if (Site::hasSitesColumn('bulk_site_request_id')) {
+            $query->notFromCancelledBulk();
+        }
+        $occupiers = $query
+            ->whereIn('domain', array_keys($candidates))
+            ->get(['id', 'domain', 'publisher_id', 'bulk_site_request_id', 'archived_at']);
+
+        $occupiedNorms = [];
+        foreach ($occupiers as $site) {
+            if ($this->canAbsorbOccupyingSite($site)) {
+                continue;
+            }
+            $norm = Site::normalizeMarketplaceDomain((string) $site->domain);
+            if ($norm !== '') {
+                $occupiedNorms[$norm] = true;
+            }
+        }
+
+        $ids = [];
+        foreach ($itemNorms as $id => $norm) {
+            if (isset($occupiedNorms[$norm])) {
+                $ids[] = $id;
             }
         }
 

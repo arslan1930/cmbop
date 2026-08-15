@@ -243,6 +243,7 @@ class SiteClaimHardeningTest extends TestCase
         ])->assertOk()->assertJson(['success' => true]);
 
         $this->assertDatabaseMissing('bulk_site_request_items', ['id' => $www->id]);
+        $this->assertSame(0, $bulk->items()->count());
         $this->assertSame(0, $bulk->fresh()->pendingItemsCount());
         $this->assertSame(BulkSiteRequest::STATUS_COMPLETED, $bulk->fresh()->status);
         $this->assertFalse(
@@ -255,6 +256,60 @@ class SiteClaimHardeningTest extends TestCase
                 'sites' => [
                     ['url' => 'https://after-claim-twin-a.example', 'price' => 40],
                     ['url' => 'https://after-claim-twin-b.example', 'price' => 50],
+                ],
+            ])
+            ->assertRedirect(route('publisher.websites', ['status' => 'pending']))
+            ->assertSessionHas('success')
+            ->assertSessionMissing('error');
+    }
+
+    public function test_approve_deletes_attached_item_so_site_delete_does_not_reopen_bulk(): void
+    {
+        Mail::fake();
+
+        $admin = $this->admin();
+        $owner = $this->userWithRole('publisher');
+        $claimer = $this->userWithRole('advertiser');
+        Role::firstOrCreate(['name' => 'publisher']);
+
+        $bulk = BulkSiteRequest::create([
+            'publisher_id' => $owner->id,
+            'status' => BulkSiteRequest::STATUS_COMPLETED,
+            'estimated_count' => 1,
+            'completed_at' => now(),
+        ]);
+        $site = $this->siteFor($owner);
+        $site->forceFill(['bulk_site_request_id' => $bulk->id])->save();
+        $item = BulkSiteRequestItem::create([
+            'bulk_site_request_id' => $bulk->id,
+            'site_url' => $site->site_url,
+            'domain' => $site->domain,
+            'price' => 80,
+            'site_id' => $site->id,
+        ]);
+
+        $claim = $this->pendingClaimFor($site, $claimer);
+        $this->actingAs($admin)->postJson(route('admin.community.claims.approve', $claim->id), [
+            'admin_notes' => 'Verified via domain email.',
+        ])->assertOk()->assertJson(['success' => true]);
+
+        $this->assertDatabaseMissing('bulk_site_request_items', ['id' => $item->id]);
+        $this->assertSame(BulkSiteRequest::STATUS_COMPLETED, $bulk->fresh()->status);
+
+        $site->delete();
+
+        $this->assertSame(0, $bulk->fresh()->pendingItemsCount());
+        $this->assertSame(BulkSiteRequest::STATUS_COMPLETED, $bulk->fresh()->status);
+        $this->assertFalse(
+            BulkSiteRequest::query()->whereKey($bulk->id)->blockingPublisher()->exists()
+        );
+
+        $this->actingAs($owner)
+            ->from(route('publisher.websites'))
+            ->post(route('publisher.bulk-sites.request'), [
+                'sites' => [
+                    ['url' => 'https://after-delete-a.example', 'price' => 40],
+                    ['url' => 'https://after-delete-b.example', 'price' => 50],
                 ],
             ])
             ->assertRedirect(route('publisher.websites', ['status' => 'pending']))

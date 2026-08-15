@@ -50,21 +50,19 @@ class SiteController extends Controller
         // Keep language→countries for any legacy UI that still reads it.
         $languageCountryMap = app(LanguageCountryMap::class)->map();
 
-        $openBulkRequest = BulkSiteRequest::query()
-            ->where('publisher_id', auth()->id())
-            ->blockingPublisher()
-            ->latest()
-            ->first();
+        $openBulkRequest = BulkSiteRequest::openBlockingForPublisher((int) auth()->id());
 
         $awaitingDetailsCount = Site::query()
             ->where('publisher_id', auth()->id())
             ->notFromCancelledBulk()
+            ->notArchived()
             ->where('onboarding_status', Site::ONBOARDING_AWAITING_DETAILS)
             ->count();
 
         $detailsCompleteCount = Site::query()
             ->where('publisher_id', auth()->id())
             ->notFromCancelledBulk()
+            ->notArchived()
             ->where('onboarding_status', Site::ONBOARDING_DETAILS_COMPLETE)
             ->count();
 
@@ -372,11 +370,7 @@ class SiteController extends Controller
             $base = Site::where('publisher_id', auth()->id());
             $acceptedBase = (clone $base)->acceptedByPublisher();
 
-            $openBulkRequest = BulkSiteRequest::query()
-                ->where('publisher_id', auth()->id())
-                ->blockingPublisher()
-                ->latest()
-                ->first();
+            $openBulkRequest = BulkSiteRequest::openBlockingForPublisher((int) auth()->id());
 
             $waitingItemsQuery = BulkSiteRequestItem::query()
                 ->whereNull('site_id')
