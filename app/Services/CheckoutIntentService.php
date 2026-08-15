@@ -161,12 +161,20 @@ class CheckoutIntentService
             ->get();
 
         foreach ($intents as $intent) {
+            if ($intent->expires_at && $intent->expires_at->isPast()) {
+                continue;
+            }
+
             $fromRow = round((float) $intent->bonus_applied, 2);
             $fromPackage = is_array($intent->package)
                 ? round((float) ($intent->package['bonus_applied'] ?? 0), 2)
                 : 0.0;
             $fromCache = round((float) Cache::get(self::bonusCacheKey($userId, (string) $intent->reference_code), 0), 2);
-            $total += max($fromRow, $fromPackage, $fromCache);
+            $held = max($fromRow, $fromPackage, $fromCache);
+            if ($held <= 0) {
+                continue;
+            }
+            $total += $held;
         }
 
         return round($total, 2);

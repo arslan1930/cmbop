@@ -5021,9 +5021,10 @@ class CatalogController extends Controller
 
     /**
      * 6-digit client REFs are reused from session after a successful pay.
-     * Never reuse a reference that already settled a card charge (this
-     * advertiser or another) — a second capture would look idempotent.
-     * Failed/pending rows stay reusable for Pay again.
+     * Never reuse a reference that already settled (this advertiser, any
+     * method) or that another advertiser used on a card charge — a second
+     * capture would look idempotent, and a later checkout would release
+     * the paid promo hold. Failed/pending rows stay reusable for Pay again.
      */
     private function checkoutReferenceUnavailable(int $userId, string $referenceCode): bool
     {
@@ -5035,13 +5036,14 @@ class CatalogController extends Controller
 
         return Order::query()
             ->where('reference_code', $referenceCode)
-            ->where('payment_method', 'card')
             ->where(function ($query) use ($userId) {
-                $query->where('user_id', '!=', $userId)
-                    ->orWhere(function ($own) use ($userId) {
-                        $own->where('user_id', $userId)
-                            ->whereIn('payment_status', ['paid', 'refunded']);
-                    });
+                $query->where(function ($foreignCard) use ($userId) {
+                    $foreignCard->where('user_id', '!=', $userId)
+                        ->where('payment_method', 'card');
+                })->orWhere(function ($ownSettled) use ($userId) {
+                    $ownSettled->where('user_id', $userId)
+                        ->whereIn('payment_status', ['paid', 'refunded']);
+                });
             })
             ->exists();
     }

@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Http\Controllers\Advertiser\CatalogController;
 use App\Models\CheckoutIntent;
 use App\Models\Order;
 use App\Models\OrderItem;
@@ -17,6 +18,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Testing\TestResponse;
+use ReflectionMethod;
 use Tests\Support\CreatesContentSubmissions;
 use Tests\TestCase;
 
@@ -1609,6 +1611,117 @@ class StripeFirstCheckoutInvariantsTest extends TestCase
         $this->assertEqualsWithDelta(20.0, (float) $wallet->bonus_balance, 0.01);
         $this->assertEqualsWithDelta(0.0, (float) $wallet->bonus_reserved, 0.01);
         $this->assertEqualsWithDelta(0.0, (float) $wallet->reserved_balance, 0.01);
+    }
+
+    public function test_release_recorded_bonus_keeps_hold_when_paid_siblings_still_open(): void
+    {
+        $advertiser = $this->makeUser('advertiser');
+        $publisher = $this->makeUser('publisher');
+        $site = $this->makeSite($publisher, 'paid-sibling-hold.example', 100);
+        $wallet = $this->advertiserWallet($advertiser, 20);
+        $wallet->reserveBonusOnly(20);
+        $ref = 'PAID-SIBLING-HOLD';
+        $payments = app(OrderPaymentService::class);
+
+        $payments->persistPaidCheckoutBonus($advertiser->id, $ref, 20);
+        $order = $this->pendingCardOrder($advertiser, $site, $ref, 100);
+        $order->update([
+            'payment_status' => 'paid',
+            'paid_at' => now(),
+        ]);
+
+        $this->assertEqualsWithDelta(0.0, $payments->releaseRecordedCheckoutBonus($advertiser->id, $ref), 0.01);
+        $wallet->refresh();
+        $this->assertEqualsWithDelta(20.0, (float) $wallet->bonus_reserved, 0.01);
+        $this->assertEqualsWithDelta(0.0, (float) $wallet->bonus_balance, 0.01);
+
+        app(OrderRefundService::class)->cancelAndRefund($order->fresh(), 'publisher rejected');
+
+        $wallet->refresh();
+        $this->assertEqualsWithDelta(20.0, (float) $wallet->bonus_balance, 0.01);
+        $this->assertEqualsWithDelta(0.0, (float) $wallet->bonus_reserved, 0.01);
+        $this->assertEqualsWithDelta(100.0, (float) $wallet->balance, 0.01);
+        $this->assertEqualsWithDelta(80.0, $wallet->withdrawableBalance(), 0.01);
+    }
+
+    public function test_pending_unpaid_card_rows_still_allow_abandoned_bonus_release(): void
+    {
+        $advertiser = $this->makeUser('advertiser');
+        $publisher = $this->makeUser('publisher');
+        $site = $this->makeSite($publisher, 'pay-again-bonus.example', 100);
+        $wallet = $this->advertiserWallet($advertiser, 20);
+        $wallet->reserveBonusOnly(20);
+        $ref = 'PAY-AGAIN-BONUS';
+        $payments = app(OrderPaymentService::class);
+
+        $payments->storePendingCheckout($ref, $this->package($advertiser, [$this->lineFor($site, 100)], 80, 20));
+        $this->pendingCardOrder($advertiser, $site, $ref, 100);
+
+        $this->assertEqualsWithDelta(20.0, $payments->releaseRecordedCheckoutBonus($advertiser->id, $ref), 0.01);
+        $wallet->refresh();
+        $this->assertEqualsWithDelta(20.0, (float) $wallet->bonus_balance, 0.01);
+        $this->assertEqualsWithDelta(0.0, (float) $wallet->bonus_reserved, 0.01);
+    }
+
+    public function test_expired_ghost_intent_does_not_turn_reject_promo_into_cash(): void
+    {
+        $advertiser = $this->makeUser('advertiser');
+        $publisher = $this->makeUser('publisher');
+        $site = $this->makeSite($publisher, 'ghost-intent-reject.example', 100);
+        $wallet = $this->advertiserWallet($advertiser, 20);
+        $wallet->reserveBonusOnly(20);
+        $liveRef = 'LIVE-PROMO-REF';
+        $ghostRef = 'EXPIRED-GHOST-REF';
+
+        CheckoutIntent::query()->create([
+            'user_id' => $advertiser->id,
+            'reference_code' => $ghostRef,
+            'bonus_applied' => 20,
+            'package' => ['user_id' => $advertiser->id, 'bonus_applied' => 20],
+            'expires_at' => now()->subHour(),
+        ]);
+        Cache::forget(CheckoutIntentService::bonusCacheKey($advertiser->id, $ghostRef));
+
+        $this->assertEqualsWithDelta(
+            0.0,
+            app(CheckoutIntentService::class)->otherRecordedBonus($advertiser->id, $liveRef),
+            0.01
+        );
+
+        $order = $this->pendingCardOrder($advertiser, $site, $liveRef, 100);
+        $order->update([
+            'payment_status' => 'paid',
+            'paid_at' => now(),
+        ]);
+
+        app(OrderRefundService::class)->cancelAndRefund($order->fresh(), 'publisher rejected');
+
+        $wallet->refresh();
+        $this->assertEqualsWithDelta(20.0, (float) $wallet->bonus_balance, 0.01);
+        $this->assertEqualsWithDelta(0.0, (float) $wallet->bonus_reserved, 0.01);
+        $this->assertEqualsWithDelta(100.0, (float) $wallet->balance, 0.01);
+        $this->assertEqualsWithDelta(80.0, $wallet->withdrawableBalance(), 0.01);
+    }
+
+    public function test_allocator_remints_ref_after_wallet_paid_order(): void
+    {
+        $advertiser = $this->makeUser('advertiser');
+        $publisher = $this->makeUser('publisher');
+        $site = $this->makeSite($publisher, 'wallet-ref-reuse.example', 40);
+        $ref = 'WALLET-PAID-REF';
+
+        $order = $this->pendingCardOrder($advertiser, $site, $ref, 40);
+        $order->update([
+            'payment_method' => 'wallet',
+            'payment_status' => 'paid',
+            'paid_at' => now(),
+        ]);
+
+        $allocate = new ReflectionMethod(CatalogController::class, 'allocateCheckoutReferenceCode');
+        $allocated = $allocate->invoke(app(CatalogController::class), $advertiser->id, $ref);
+
+        $this->assertNotSame($ref, $allocated);
+        $this->assertNotSame('', $allocated);
     }
 
     private function pendingCardOrder(User $advertiser, Site $site, string $ref, float $amount): Order

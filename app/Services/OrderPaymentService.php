@@ -387,10 +387,16 @@ class OrderPaymentService
      * Return promo reserved for an abandoned Stripe-first attempt on this REF.
      * Only this reference's recorded bonus is released so a later full-card
      * charge on the same REF cannot be approved by burning leftover promo.
+     * Paid siblings still waiting on approve keep their hold — releasing it
+     * would return promo to spendable, then a later reject credits cash.
      */
     public function releaseRecordedCheckoutBonus(int $userId, string $referenceCode): float
     {
         if ($userId <= 0 || $referenceCode === '') {
+            return 0.0;
+        }
+
+        if ($this->hasOpenPaidCheckoutSiblings($userId, $referenceCode)) {
             return 0.0;
         }
 
@@ -423,6 +429,21 @@ class OrderPaymentService
 
             return $share;
         });
+    }
+
+    /**
+     * Paid rows that still need this REF's promo hold (pending publisher
+     * approve). Pending/failed unpaid card rows do not count — Pay again
+     * must still be able to return an abandoned Use-bonus reserve.
+     */
+    private function hasOpenPaidCheckoutSiblings(int $userId, string $referenceCode): bool
+    {
+        return Order::query()
+            ->where('user_id', $userId)
+            ->where('reference_code', $referenceCode)
+            ->where('payment_status', 'paid')
+            ->whereNotIn('status', ['completed', 'cancelled'])
+            ->exists();
     }
 
     public function persistPaidCheckoutBonus(int $userId, string $referenceCode, float $bonus): void
