@@ -93,7 +93,8 @@ class StripeWebhookController extends Controller
     private function routeCheckoutSessionCompleted(object $session): void
     {
         $metadata = $this->metaArray($session->metadata ?? null);
-        $paymentType = $metadata['type'] ?? null;
+        $paymentType = isset($metadata['type']) ? (string) $metadata['type'] : null;
+        $paymentType = $paymentType === '' ? null : $paymentType;
 
         Log::info('Routing checkout.session.completed', [
             'payment_type' => $paymentType,
@@ -124,7 +125,8 @@ class StripeWebhookController extends Controller
     private function routePaymentIntentSucceeded(object $intent): void
     {
         $metadata = $this->metaArray($intent->metadata ?? null);
-        $paymentType = $metadata['type'] ?? null;
+        $paymentType = isset($metadata['type']) ? (string) $metadata['type'] : null;
+        $paymentType = $paymentType === '' ? null : $paymentType;
 
         Log::info('Routing payment_intent.succeeded', [
             'payment_type' => $paymentType,
@@ -143,6 +145,15 @@ class StripeWebhookController extends Controller
                 break;
 
             default:
+                // Add Funds copies session_reference (deposit_{uniqid}) onto the
+                // PaymentIntent. If Stripe omitted type but kept that key,
+                // this is still a paid wallet top-up — do not mark processed
+                // and swallow it.
+                if (WalletStripeDepositService::isAddFundsSessionReference($metadata['session_reference'] ?? '')) {
+                    app(WalletStripeDepositService::class)->creditFromPaymentIntentObject($intent);
+                    break;
+                }
+
                 Log::info('Ignoring payment_intent.succeeded without known type', [
                     'payment_intent_id' => $intent->id ?? null,
                     'type' => $paymentType,
@@ -158,6 +169,13 @@ class StripeWebhookController extends Controller
     {
         if (isset($metadata['deposit_id'])) {
             Log::info('Detected deposit payment by deposit_id field');
+            $this->handleWalletDepositSession($session);
+
+            return;
+        }
+
+        if (WalletStripeDepositService::isAddFundsSessionReference($metadata['session_reference'] ?? '')) {
+            Log::info('Detected wallet deposit by session_reference field');
             $this->handleWalletDepositSession($session);
 
             return;

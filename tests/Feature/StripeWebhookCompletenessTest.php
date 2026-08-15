@@ -192,6 +192,135 @@ class StripeWebhookCompletenessTest extends TestCase
         $this->assertDatabaseCount('deposit_requests', 1);
     }
 
+    public function test_untyped_payment_intent_with_add_funds_session_reference_credits_wallet(): void
+    {
+        $advertiser = $this->makeUser('advertiser');
+        $roleId = Wallet::advertiserRoleId();
+        $wallet = Wallet::create([
+            'user_id' => $advertiser->id,
+            'role_id' => $roleId,
+            'balance' => 0,
+            'reserved_balance' => 0,
+            'bonus_balance' => 0,
+            'bonus_reserved' => 0,
+            'currency' => 'EUR',
+        ]);
+
+        $eventId = 'evt_pi_untyped_sref_'.uniqid();
+        $piId = 'pi_untyped_sref_wh_'.uniqid();
+        $event = [
+            'id' => $eventId,
+            'object' => 'event',
+            'type' => 'payment_intent.succeeded',
+            'data' => [
+                'object' => [
+                    'id' => $piId,
+                    'object' => 'payment_intent',
+                    'status' => 'succeeded',
+                    'amount' => 4000,
+                    'amount_received' => 4000,
+                    'currency' => 'eur',
+                    'metadata' => [
+                        'user_id' => (string) $advertiser->id,
+                        'amount' => '40.00',
+                        'reference_code' => 'DEP-PI-SREF-40',
+                        'session_reference' => 'deposit_webhook_untyped_40',
+                    ],
+                ],
+            ],
+        ];
+
+        $this->signedWebhook($event)->assertOk();
+        $this->assertEquals(40.0, (float) $wallet->fresh()->balance);
+        $this->assertDatabaseCount('deposit_requests', 1);
+        $this->assertTrue((bool) StripeWebhookLog::where('event_id', $eventId)->value('processed'));
+    }
+
+    public function test_untyped_payment_intent_without_session_reference_is_ignored(): void
+    {
+        $advertiser = $this->makeUser('advertiser');
+        $roleId = Wallet::advertiserRoleId();
+        $wallet = Wallet::create([
+            'user_id' => $advertiser->id,
+            'role_id' => $roleId,
+            'balance' => 0,
+            'reserved_balance' => 0,
+            'bonus_balance' => 0,
+            'bonus_reserved' => 0,
+            'currency' => 'EUR',
+        ]);
+
+        $eventId = 'evt_pi_untyped_ignore_'.uniqid();
+        $event = [
+            'id' => $eventId,
+            'object' => 'event',
+            'type' => 'payment_intent.succeeded',
+            'data' => [
+                'object' => [
+                    'id' => 'pi_untyped_ignore_'.uniqid(),
+                    'object' => 'payment_intent',
+                    'status' => 'succeeded',
+                    'amount' => 4000,
+                    'amount_received' => 4000,
+                    'currency' => 'eur',
+                    'metadata' => [
+                        'user_id' => (string) $advertiser->id,
+                        'amount' => '40.00',
+                        'reference_code' => 'DEP-PI-IGNORE',
+                    ],
+                ],
+            ],
+        ];
+
+        $this->signedWebhook($event)->assertOk();
+        $this->assertEquals(0.0, (float) $wallet->fresh()->balance);
+        $this->assertDatabaseCount('deposit_requests', 0);
+        $this->assertTrue((bool) StripeWebhookLog::where('event_id', $eventId)->value('processed'));
+    }
+
+    public function test_untyped_session_with_add_funds_session_reference_credits_wallet(): void
+    {
+        $advertiser = $this->makeUser('advertiser');
+        $roleId = Wallet::advertiserRoleId();
+        $wallet = Wallet::create([
+            'user_id' => $advertiser->id,
+            'role_id' => $roleId,
+            'balance' => 0,
+            'reserved_balance' => 0,
+            'bonus_balance' => 0,
+            'bonus_reserved' => 0,
+            'currency' => 'EUR',
+        ]);
+
+        $eventId = 'evt_cs_untyped_sref_'.uniqid();
+        $sessionId = 'cs_untyped_sref_wh_'.uniqid();
+        $event = [
+            'id' => $eventId,
+            'object' => 'event',
+            'type' => 'checkout.session.completed',
+            'data' => [
+                'object' => [
+                    'id' => $sessionId,
+                    'object' => 'checkout.session',
+                    'payment_status' => 'paid',
+                    'payment_intent' => 'pi_untyped_sref_cs_wh_'.uniqid(),
+                    'amount_total' => 4000,
+                    'metadata' => [
+                        'user_id' => (string) $advertiser->id,
+                        'amount' => '40.00',
+                        'reference_code' => 'DEP-CS-SREF-40',
+                        'session_reference' => 'deposit_webhook_cs_untyped_40',
+                    ],
+                ],
+            ],
+        ];
+
+        $this->signedWebhook($event)->assertOk();
+        $this->assertEquals(40.0, (float) $wallet->fresh()->balance);
+        $this->assertDatabaseCount('deposit_requests', 1);
+        $this->assertTrue((bool) StripeWebhookLog::where('event_id', $eventId)->value('processed'));
+    }
+
     public function test_payment_intent_succeeded_marks_orders_paid(): void
     {
         $advertiser = $this->makeUser('advertiser');
