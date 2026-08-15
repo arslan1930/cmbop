@@ -4,12 +4,14 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\DepositRequest;
+use App\Models\Order;
 use App\Models\User;
 use App\Models\Wallet;
 use App\Models\WalletTransaction;
 use App\Models\Withdrawal;
 use App\Services\Admin\FinanceOverviewService;
 use App\Services\Orders\OrderClawbackService;
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -52,8 +54,9 @@ class FinanceController extends Controller
         $rawTo = is_string($request->get('date_to')) ? $request->get('date_to') : null;
 
         $period = $this->finance->resolvePeriod($periodKey, $rawFrom, $rawTo);
-        $dateFrom = $this->finance->parseDay($rawFrom, false)?->toDateString();
-        $dateTo = $this->finance->parseDay($rawTo, true)?->toDateString();
+        [$boundFrom, $boundTo] = $this->finance->dateBounds($rawFrom, $rawTo);
+        $dateFrom = $boundFrom?->toDateString();
+        $dateTo = $boundTo?->toDateString();
 
         $list = is_string($request->get('list')) ? $request->get('list') : null;
         if (! in_array($list, ['debt', 'wallets'], true)) {
@@ -96,18 +99,13 @@ class FinanceController extends Controller
         $ledgerWallet = $walletId > 0
             ? Wallet::query()->with(['user:id,name,email', 'role:id,name'])->whereKey($walletId)->first()
             : null;
-        $dateFrom = $this->finance->parseDay(
-            is_string($request->input('date_from')) ? $request->input('date_from') : null,
-            false
-        )?->toDateString() ?? '';
-        $dateTo = $this->finance->parseDay(
-            is_string($request->input('date_to')) ? $request->input('date_to') : null,
-            true
-        )?->toDateString() ?? '';
+        [$boundFrom, $boundTo] = $this->ledgerDateBounds($request);
+        $dateFrom = $boundFrom?->toDateString() ?? '';
+        $dateTo = $boundTo?->toDateString() ?? '';
 
         $exportQuery = array_filter([
             'search' => $search !== '' ? $search : null,
-            'user_id' => $ledgerUser?->id,
+            'user_id' => $userId > 0 ? $userId : null,
             'type' => $type !== '' ? $type : null,
             'direction' => $direction !== '' ? $direction : null,
             'wallet_role' => $walletRole !== '' ? $walletRole : null,
@@ -121,31 +119,39 @@ class FinanceController extends Controller
         unset($clearUserQuery['user_id']);
         $clearWalletQuery = $exportQuery;
         unset($clearWalletQuery['wallet_id']);
-        $hasLedgerFilters = collect($exportQuery)->except(['user_id'])->isNotEmpty();
+        $hasLedgerFilters = collect($exportQuery)->except(['user_id', 'wallet_id'])->isNotEmpty();
         $clearFiltersQuery = array_filter([
-            'user_id' => $ledgerUser?->id,
+            'user_id' => $userId > 0 ? $userId : null,
+            'wallet_id' => $walletId > 0 ? $walletId : null,
         ]);
 
         $filtered = $this->ledgerQuery($request);
         $totals = $this->ledgerTotals($filtered);
         $transactions = (clone $filtered)
-            ->with(['user:id,name,email', 'wallet:id,role_id', 'wallet.role:id,name', 'related'])
+            ->with(['user:id,name,email', 'wallet:id,role_id', 'wallet.role:id,name'])
             ->orderByDesc('created_at')
             ->orderByDesc('id')
             ->paginate(40)
             ->appends($exportQuery);
+        WalletTransaction::eagerLoadKnownRelated($transactions->getCollection());
 
         $types = $this->ledgerTypes();
+        $typeLabels = [];
+        foreach ($types as $txType) {
+            $typeLabels[$txType] = WalletTransaction::typeLabelFor($txType);
+        }
         $paymentMethods = $this->ledgerPaymentMethodOptions();
         $statuses = $this->ledgerStatuses();
 
         return view('admin.finance-ledger', compact(
             'transactions',
             'types',
+            'typeLabels',
             'paymentMethods',
             'statuses',
             'search',
             'ledgerUser',
+            'userId',
             'ledgerWallet',
             'walletId',
             'type',
@@ -179,7 +185,7 @@ class FinanceController extends Controller
 
         return response()->streamDownload(function () use ($query, $request, $limit) {
             $out = fopen('php://output', 'w');
-            fputcsv($out, [
+            $this->writeCsvRow($out, [
                 'id',
                 'created_at',
                 'user_id',
@@ -200,27 +206,28 @@ class FinanceController extends Controller
 
             $exported = 0;
             $query->chunkByIdDesc(500, function ($rows) use ($out, &$exported, $limit) {
+                WalletTransaction::eagerLoadKnownRelated($rows);
                 foreach ($rows as $tx) {
                     if ($exported >= $limit) {
                         return false;
                     }
-                    fputcsv($out, [
+                    $this->writeCsvRow($out, [
                         $tx->id,
-                        optional($tx->created_at)?->toDateTimeString(),
+                        $this->csvCell(optional($tx->created_at)?->toDateTimeString()),
                         $tx->user_id,
-                        $tx->user?->name,
-                        $tx->user?->email,
+                        $this->csvCell($tx->user?->name),
+                        $this->csvCell($tx->user?->email),
                         $tx->wallet_id,
-                        $tx->walletRoleLabel(),
-                        $tx->type,
-                        $tx->direction,
-                        $tx->status,
-                        $tx->payment_method,
+                        $this->csvCell($tx->walletRoleLabel()),
+                        $this->csvCell($tx->type),
+                        $this->csvCell($tx->direction),
+                        $this->csvCell($tx->status),
+                        $this->csvCell($tx->paymentMethodKey()),
                         $tx->amount,
                         $tx->bonus_amount,
                         $tx->balance_after,
-                        $tx->reference,
-                        $tx->description,
+                        $this->csvCell($tx->reference),
+                        $this->csvCell($tx->description),
                     ]);
                     $exported++;
                 }
@@ -229,7 +236,7 @@ class FinanceController extends Controller
             });
 
             if ($exported >= $limit && $this->ledgerQuery($request)->count() > $limit) {
-                fputcsv($out, ['truncated', 'limit', $limit]);
+                $this->writeCsvRow($out, ['truncated', 'limit', $limit]);
             }
 
             fclose($out);
@@ -297,9 +304,9 @@ class FinanceController extends Controller
 
         return response()->streamDownload(function () use ($rows, $period) {
             $out = fopen('php://output', 'w');
-            fputcsv($out, ['period', 'section', 'metric', 'value']);
+            $this->writeCsvRow($out, ['period', 'section', 'metric', 'value']);
             foreach ($rows as $row) {
-                fputcsv($out, [
+                $this->writeCsvRow($out, [
                     $period['label'],
                     $row['section'],
                     $row['metric'],
@@ -357,7 +364,7 @@ class FinanceController extends Controller
             $aliases = $this->ledgerPaymentMethodAliases($paymentMethod);
             $query->where(function ($q) use ($aliases) {
                 $q->whereIn('payment_method', $aliases)
-                    ->orWhereHasMorph('related', [DepositRequest::class, Withdrawal::class], function ($sub) use ($aliases) {
+                    ->orWhereHasMorph('related', [DepositRequest::class, Withdrawal::class, Order::class], function ($sub) use ($aliases) {
                         $sub->whereIn('payment_method', $aliases);
                     });
             });
@@ -365,19 +372,29 @@ class FinanceController extends Controller
 
         $search = is_string($request->input('search')) ? trim($request->input('search')) : '';
         if ($search !== '') {
-            $like = '%'.addcslashes($search, '%_\\').'%';
-            $query->where(function ($q) use ($search, $like) {
+            $searchId = $this->intQueryId($search);
+            $query->where(function ($q) use ($search, $searchId) {
+                if (preg_match('/^\d+$/', $search)) {
+                    if ($searchId > 0) {
+                        $q->where('id', $searchId)
+                            ->orWhere('user_id', $searchId)
+                            ->orWhere('wallet_id', $searchId);
+                    } else {
+                        $q->whereRaw('0 = 1');
+                    }
+
+                    return;
+                }
+
+                $like = '%'.addcslashes($search, '%_\\').'%';
                 $q->where('reference', 'like', $like)
                     ->orWhere('description', 'like', $like)
-                    ->orWhereHas('user', function ($sub) use ($like) {
-                        $sub->where('name', 'like', $like)
-                            ->orWhere('email', 'like', $like);
-                    });
-                $searchId = $this->intQueryId($search);
-                if ($searchId > 0) {
-                    $q->orWhere('id', $searchId)
-                        ->orWhere('user_id', $searchId);
-                }
+                    ->orWhereIn('user_id', User::query()
+                        ->where(function ($sub) use ($like) {
+                            $sub->where('name', 'like', $like)
+                                ->orWhere('email', 'like', $like);
+                        })
+                        ->select('id'));
             });
         }
 
@@ -396,17 +413,7 @@ class FinanceController extends Controller
             $query->where('status', $status);
         }
 
-        $from = $this->finance->parseDay(
-            is_string($request->input('date_from')) ? $request->input('date_from') : null,
-            false
-        );
-        $to = $this->finance->parseDay(
-            is_string($request->input('date_to')) ? $request->input('date_to') : null,
-            true
-        );
-        if ($from && $to && $to->lt($from)) {
-            $to = $from->copy()->endOfDay();
-        }
+        [$from, $to] = $this->ledgerDateBounds($request);
         if ($from) {
             $query->where('created_at', '>=', $from);
         }
@@ -437,6 +444,20 @@ class FinanceController extends Controller
             'debits' => $debits,
             'net' => round($credits - $debits, 2),
         ];
+    }
+
+    /**
+     * Parsed from/to bounds. Inverted ranges are swapped so the form,
+     * table, totals, and export all use the same window.
+     *
+     * @return array{0: ?Carbon, 1: ?Carbon}
+     */
+    private function ledgerDateBounds(Request $request): array
+    {
+        return $this->finance->dateBounds(
+            is_string($request->input('date_from')) ? $request->input('date_from') : null,
+            is_string($request->input('date_to')) ? $request->input('date_to') : null
+        );
     }
 
     /**
@@ -500,6 +521,33 @@ class FinanceController extends Controller
         };
     }
 
+    /**
+     * @param  resource  $out
+     * @param  list<mixed>  $fields
+     */
+    private function writeCsvRow($out, array $fields): void
+    {
+        // Empty escape is RFC 4180. PHP's default "\" merges the next
+        // columns when a cell ends with a backslash.
+        fputcsv($out, $fields, ',', '"', '');
+    }
+
+    private function csvCell(mixed $value): mixed
+    {
+        if (! is_string($value) || $value === '') {
+            return $value;
+        }
+
+        // Excel/LibreOffice still treat whitespace- or newline-prefixed
+        // = + - @ as formulas. Probe the first visible character.
+        $probe = ltrim($value, " \t\r\n\x0B\x00");
+        if ($probe !== '' && preg_match('/^[=+\-@]/', $probe)) {
+            return "'".$value;
+        }
+
+        return $value;
+    }
+
     private function ledgerExportLimit(): int
     {
         $configured = config('billing.ledger_export_limit');
@@ -516,8 +564,11 @@ class FinanceController extends Controller
             return $value;
         }
 
-        if (is_string($value) && preg_match('/^[1-9]\d*$/', $value)) {
-            return (int) $value;
+        if (is_string($value)) {
+            $value = trim($value);
+            if (preg_match('/^[1-9]\d*$/', $value)) {
+                return (int) $value;
+            }
         }
 
         return 0;

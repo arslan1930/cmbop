@@ -208,6 +208,39 @@ class AdminFinanceOpsGapsTest extends TestCase
         $this->assertStringNotContainsString($other->email, $csv);
     }
 
+    public function test_ledger_unknown_user_id_keeps_scope_and_does_not_export_everyone(): void
+    {
+        $admin = $this->makeUser('admin');
+        $publisher = $this->makeUser('publisher');
+        $pubRole = Role::firstOrCreate(['name' => 'publisher']);
+        $wallet = Wallet::create([
+            'user_id' => $publisher->id,
+            'role_id' => $pubRole->id,
+            'balance' => 6,
+            'reserved_balance' => 0,
+            'currency' => 'EUR',
+        ]);
+        app(WalletLedgerService::class)->recordTransferIn($wallet, 6, null, 'LEDGER-OTHER-USER', 'Other user row');
+
+        $this->actingAs($admin)
+            ->get(route('admin.finance.ledger', ['user_id' => 99991]))
+            ->assertOk()
+            ->assertSee('Showing ledger for')
+            ->assertSee('#99991')
+            ->assertSee('not found')
+            ->assertSee('No ledger rows for this user')
+            ->assertDontSee('Other user row')
+            ->assertSee(route('admin.finance.ledger.export', ['user_id' => 99991]), false);
+
+        $csv = $this->actingAs($admin)
+            ->get(route('admin.finance.ledger.export', ['user_id' => 99991]))
+            ->assertOk()
+            ->streamedContent();
+
+        $this->assertStringNotContainsString('LEDGER-OTHER-USER', $csv);
+        $this->assertStringNotContainsString('Other user row', $csv);
+    }
+
     public function test_ledger_row_shows_signed_amount_wallet_role_and_status(): void
     {
         $admin = $this->makeUser('admin');
@@ -540,6 +573,40 @@ class AdminFinanceOpsGapsTest extends TestCase
         );
     }
 
+    public function test_ledger_clear_filters_keeps_wallet_and_drops_type(): void
+    {
+        $admin = $this->makeUser('admin');
+        $publisher = $this->makeUser('publisher');
+        $pubRole = Role::firstOrCreate(['name' => 'publisher']);
+        $wallet = Wallet::create([
+            'user_id' => $publisher->id,
+            'role_id' => $pubRole->id,
+            'balance' => 10,
+            'reserved_balance' => 0,
+            'currency' => 'EUR',
+        ]);
+        app(WalletLedgerService::class)->recordTransferIn($wallet, 10, null, 'LEDGER-CLEAR-WALLET', 'Clear wallet filters row');
+
+        $html = $this->actingAs($admin)
+            ->get(route('admin.finance.ledger', [
+                'user_id' => $publisher->id,
+                'wallet_id' => $wallet->id,
+                'type' => 'deposit',
+            ]))
+            ->assertOk()
+            ->assertSee('Clear filters')
+            ->assertSee('No ledger rows match these filters')
+            ->getContent();
+
+        $this->assertStringContainsString(
+            e(route('admin.finance.ledger', [
+                'user_id' => $publisher->id,
+                'wallet_id' => $wallet->id,
+            ])),
+            $html
+        );
+    }
+
     public function test_ledger_payment_method_filter_groups_card_rails(): void
     {
         $admin = $this->makeUser('admin');
@@ -629,6 +696,83 @@ class AdminFinanceOpsGapsTest extends TestCase
             ->assertSee('WD-PAYPAL-METHOD')
             ->assertSee('PayPal')
             ->assertDontSee('WD-WISE-METHOD');
+
+        $csv = $this->actingAs($admin)
+            ->get(route('admin.finance.ledger.export', ['payment_method' => 'paypal']))
+            ->assertOk()
+            ->streamedContent();
+
+        $this->assertStringContainsString('WD-PAYPAL-METHOD', $csv);
+        $this->assertStringContainsString('paypal', $csv);
+        $this->assertStringNotContainsString('WD-WISE-METHOD', $csv);
+    }
+
+    public function test_ledger_payment_method_filter_finds_purchase_via_related_order(): void
+    {
+        $admin = $this->makeUser('admin');
+        $advertiser = $this->makeUser('advertiser');
+        $advRole = Role::firstOrCreate(['name' => 'advertiser']);
+        $wallet = Wallet::create([
+            'user_id' => $advertiser->id,
+            'role_id' => $advRole->id,
+            'balance' => 40,
+            'reserved_balance' => 0,
+            'currency' => 'EUR',
+        ]);
+
+        $walletOrder = Order::create([
+            'user_id' => $advertiser->id,
+            'order_number' => 'ORD-LEDGER-WALLET',
+            'subtotal' => 18,
+            'tax' => 0,
+            'total_amount' => 18,
+            'payment_method' => 'wallet',
+            'payment_status' => 'paid',
+            'status' => 'completed',
+        ]);
+        $cardOrder = Order::create([
+            'user_id' => $advertiser->id,
+            'order_number' => 'ORD-LEDGER-CARD',
+            'subtotal' => 11,
+            'tax' => 0,
+            'total_amount' => 11,
+            'payment_method' => 'card',
+            'payment_status' => 'paid',
+            'status' => 'completed',
+        ]);
+
+        $walletTx = app(WalletLedgerService::class)->recordPurchase(
+            $wallet,
+            18,
+            0,
+            $walletOrder,
+            'LEDGER-ORDER-WALLET'
+        );
+        app(WalletLedgerService::class)->recordPurchase(
+            $wallet,
+            11,
+            0,
+            $cardOrder,
+            'LEDGER-ORDER-CARD'
+        );
+
+        $this->assertNull($walletTx?->payment_method);
+
+        $this->actingAs($admin)
+            ->get(route('admin.finance.ledger', ['payment_method' => 'wallet']))
+            ->assertOk()
+            ->assertSee('LEDGER-ORDER-WALLET')
+            ->assertSee('Wallet')
+            ->assertDontSee('LEDGER-ORDER-CARD');
+
+        $csv = $this->actingAs($admin)
+            ->get(route('admin.finance.ledger.export', ['payment_method' => 'wallet']))
+            ->assertOk()
+            ->streamedContent();
+
+        $this->assertStringContainsString('LEDGER-ORDER-WALLET', $csv);
+        $this->assertStringContainsString('wallet', $csv);
+        $this->assertStringNotContainsString('LEDGER-ORDER-CARD', $csv);
     }
 
     public function test_ledger_wallet_id_filter_hides_other_wallets(): void
@@ -678,6 +822,13 @@ class AdminFinanceOpsGapsTest extends TestCase
         $this->assertStringNotContainsString('LEDGER-WALLET-MISS', $csv);
 
         $this->actingAs($admin)
+            ->get(route('admin.finance.ledger', ['wallet_id' => ' '.$wallet->id.' ']))
+            ->assertOk()
+            ->assertSee('Showing wallet')
+            ->assertSee('Wallet id hit row')
+            ->assertDontSee('Wallet id miss row');
+
+        $this->actingAs($admin)
             ->get(route('admin.finance.ledger', ['wallet_id' => '0'.$wallet->id]))
             ->assertOk()
             ->assertDontSee('Showing wallet')
@@ -688,7 +839,8 @@ class AdminFinanceOpsGapsTest extends TestCase
             ->assertOk()
             ->assertSee('Showing wallet')
             ->assertSee('not found')
-            ->assertSee('No ledger rows match these filters');
+            ->assertSee('No ledger rows for this wallet')
+            ->assertDontSee('No ledger rows match these filters');
     }
 
     public function test_ledger_status_filter_hides_other_statuses(): void
@@ -813,6 +965,236 @@ class AdminFinanceOpsGapsTest extends TestCase
             ->assertDontSee('Role Move In');
     }
 
+    public function test_ledger_export_prefixes_csv_formula_cells(): void
+    {
+        $admin = $this->makeUser('admin');
+        $publisher = $this->makeUser('publisher');
+        $publisher->forceFill([
+            'name' => '=1+2',
+            'email' => 'formula-user@example.test',
+        ])->save();
+        $pubRole = Role::firstOrCreate(['name' => 'publisher']);
+        $wallet = Wallet::create([
+            'user_id' => $publisher->id,
+            'role_id' => $pubRole->id,
+            'balance' => 10,
+            'reserved_balance' => 0,
+            'currency' => 'EUR',
+        ]);
+
+        app(WalletLedgerService::class)->recordTransferIn(
+            $wallet,
+            10,
+            null,
+            "\t=HYPERLINK(\"http://evil.test\")",
+            ' =cmd|calc'
+        );
+
+        $csv = $this->actingAs($admin)
+            ->get(route('admin.finance.ledger.export'))
+            ->assertOk()
+            ->streamedContent();
+
+        $this->assertStringContainsString("'=1+2", $csv);
+        $this->assertStringContainsString("'\t=HYPERLINK", $csv);
+        $this->assertStringContainsString("' =cmd|calc", $csv);
+    }
+
+    public function test_ledger_export_keeps_columns_when_a_cell_ends_with_backslash(): void
+    {
+        $admin = $this->makeUser('admin');
+        $publisher = $this->makeUser('publisher');
+        $publisher->forceFill([
+            'name' => 'slash-end\\',
+            'email' => 'slash-end@example.test',
+        ])->save();
+        $pubRole = Role::firstOrCreate(['name' => 'publisher']);
+        $wallet = Wallet::create([
+            'user_id' => $publisher->id,
+            'role_id' => $pubRole->id,
+            'balance' => 3,
+            'reserved_balance' => 0,
+            'currency' => 'EUR',
+        ]);
+
+        app(WalletLedgerService::class)->recordTransferIn($wallet, 3, null, 'LEDGER-SLASH-END', 'Slash end row');
+
+        $csv = $this->actingAs($admin)
+            ->get(route('admin.finance.ledger.export'))
+            ->assertOk()
+            ->streamedContent();
+
+        $row = null;
+        foreach (preg_split('/\r\n|\n|\r/', trim($csv)) as $line) {
+            if (str_contains($line, 'LEDGER-SLASH-END')) {
+                $row = str_getcsv($line, ',', '"', '');
+                break;
+            }
+        }
+
+        $this->assertIsArray($row);
+        $this->assertContains('slash-end@example.test', $row);
+        $this->assertContains('LEDGER-SLASH-END', $row);
+        $this->assertGreaterThanOrEqual(16, count($row));
+    }
+
+    public function test_ledger_survives_unknown_related_type(): void
+    {
+        $admin = $this->makeUser('admin');
+        $publisher = $this->makeUser('publisher');
+        $pubRole = Role::firstOrCreate(['name' => 'publisher']);
+        $wallet = Wallet::create([
+            'user_id' => $publisher->id,
+            'role_id' => $pubRole->id,
+            'balance' => 5,
+            'reserved_balance' => 0,
+            'currency' => 'EUR',
+        ]);
+
+        $tx = app(WalletLedgerService::class)->recordTransferIn(
+            $wallet,
+            5,
+            null,
+            'LEDGER-BAD-MORPH',
+            'Unknown morph row'
+        );
+        $tx->forceFill([
+            'related_type' => 'App\\Models\\DoesNotExistLedgerRelated',
+            'related_id' => 1,
+        ])->save();
+
+        $this->actingAs($admin)
+            ->get(route('admin.finance.ledger'))
+            ->assertOk()
+            ->assertSee('Unknown morph row')
+            ->assertSee('LEDGER-BAD-MORPH');
+
+        $tx->forceFill([
+            'related_type' => 'Fake\\DepositRequest',
+            'related_id' => 1,
+        ])->save();
+
+        $this->actingAs($admin)
+            ->get(route('admin.finance.ledger'))
+            ->assertOk()
+            ->assertSee('Unknown morph row');
+
+        $tx->forceFill([
+            'related_type' => Withdrawal::class.' ',
+            'related_id' => 1,
+        ])->save();
+
+        $this->actingAs($admin)
+            ->get(route('admin.finance.ledger'))
+            ->assertOk()
+            ->assertSee('Unknown morph row');
+    }
+
+    public function test_ledger_text_search_matches_user_email_and_reference(): void
+    {
+        $admin = $this->makeUser('admin');
+        $pubRole = Role::firstOrCreate(['name' => 'publisher']);
+        $advRole = Role::firstOrCreate(['name' => 'advertiser']);
+
+        $hitUser = $this->makeUser('publisher');
+        $hitUser->forceFill(['email' => 'unique-ledger-hit@example.test'])->save();
+        $missUser = $this->makeUser('advertiser');
+        $missUser->forceFill(['email' => 'unique-ledger-miss@example.test'])->save();
+
+        $wallet = Wallet::create([
+            'user_id' => $hitUser->id,
+            'role_id' => $pubRole->id,
+            'balance' => 8,
+            'reserved_balance' => 0,
+            'currency' => 'EUR',
+        ]);
+        $otherWallet = Wallet::create([
+            'user_id' => $missUser->id,
+            'role_id' => $advRole->id,
+            'balance' => 4,
+            'reserved_balance' => 0,
+            'currency' => 'EUR',
+        ]);
+
+        app(WalletLedgerService::class)->recordTransferIn($wallet, 8, null, 'LEDGER-TEXT-HIT', 'Text search hit row');
+        app(WalletLedgerService::class)->recordTransferIn($otherWallet, 4, null, 'LEDGER-TEXT-MISS', 'Text search miss row');
+
+        $this->actingAs($admin)
+            ->get(route('admin.finance.ledger', ['search' => 'unique-ledger-hit']))
+            ->assertOk()
+            ->assertSee('Text search hit row')
+            ->assertDontSee('Text search miss row');
+
+        $this->actingAs($admin)
+            ->get(route('admin.finance.ledger', ['search' => 'LEDGER-TEXT-HIT']))
+            ->assertOk()
+            ->assertSee('Text search hit row')
+            ->assertDontSee('Text search miss row');
+    }
+
+    public function test_ledger_type_filter_does_not_instantiate_model_in_markup(): void
+    {
+        $admin = $this->makeUser('admin');
+
+        $html = $this->actingAs($admin)
+            ->get(route('admin.finance.ledger'))
+            ->assertOk()
+            ->assertSee('Moved to Advertiser Wallet')
+            ->assertSee('Earnings Moved for Spending')
+            ->getContent();
+
+        $this->assertStringNotContainsString('new \\App\\Models\\WalletTransaction', $html);
+        $this->assertStringNotContainsString('new App\\Models\\WalletTransaction', $html);
+    }
+
+    public function test_ledger_digit_search_matches_wallet_id(): void
+    {
+        $admin = $this->makeUser('admin');
+        $pubRole = Role::firstOrCreate(['name' => 'publisher']);
+        $advRole = Role::firstOrCreate(['name' => 'advertiser']);
+
+        $hitUser = User::factory()->create([
+            'id' => 4301,
+            'email_verified_at' => now(),
+            'active_role_id' => $pubRole->id,
+        ]);
+        $hitUser->roles()->attach($pubRole->id);
+        $missUser = User::factory()->create([
+            'id' => 4302,
+            'email_verified_at' => now(),
+            'active_role_id' => $advRole->id,
+        ]);
+        $missUser->roles()->attach($advRole->id);
+
+        $wallet = new Wallet([
+            'user_id' => $hitUser->id,
+            'role_id' => $pubRole->id,
+            'balance' => 11,
+            'reserved_balance' => 0,
+            'currency' => 'EUR',
+        ]);
+        $wallet->id = 4401;
+        $wallet->save();
+        $otherWallet = new Wallet([
+            'user_id' => $missUser->id,
+            'role_id' => $advRole->id,
+            'balance' => 6,
+            'reserved_balance' => 0,
+            'currency' => 'EUR',
+        ]);
+        $otherWallet->id = 4402;
+        $otherWallet->save();
+
+        app(WalletLedgerService::class)->recordTransferIn($wallet, 11, null, 'LEDGER-WALLET-SEARCH-HIT', 'Wallet search hit row');
+        app(WalletLedgerService::class)->recordTransferIn($otherWallet, 6, null, 'LEDGER-WALLET-SEARCH-MISS', 'Wallet search miss row');
+
+        $this->actingAs($admin)
+            ->get(route('admin.finance.ledger', ['search' => '4401']))
+            ->assertOk()
+            ->assertSee('Wallet search hit row')
+            ->assertDontSee('Wallet search miss row');
+    }
+
     public function test_ledger_ignores_array_search_and_invalid_dates(): void
     {
         $admin = $this->makeUser('admin');
@@ -825,6 +1207,72 @@ class AdminFinanceOpsGapsTest extends TestCase
             ]))
             ->assertOk()
             ->assertSee('Wallet ledger');
+    }
+
+    public function test_ledger_inverted_dates_swap_to_the_intended_range(): void
+    {
+        $admin = $this->makeUser('admin');
+        $publisher = $this->makeUser('publisher');
+        $pubRole = Role::firstOrCreate(['name' => 'publisher']);
+        $wallet = Wallet::create([
+            'user_id' => $publisher->id,
+            'role_id' => $pubRole->id,
+            'balance' => 30,
+            'reserved_balance' => 0,
+            'currency' => 'EUR',
+        ]);
+
+        $insideEarly = app(WalletLedgerService::class)->recordTransferIn(
+            $wallet,
+            8,
+            null,
+            'LEDGER-DATE-EARLY',
+            'Inverted date early row'
+        );
+        $insideLate = app(WalletLedgerService::class)->recordTransferIn(
+            $wallet,
+            9,
+            null,
+            'LEDGER-DATE-LATE',
+            'Inverted date late row'
+        );
+        $outside = app(WalletLedgerService::class)->recordTransferIn(
+            $wallet,
+            7,
+            null,
+            'LEDGER-DATE-OUT',
+            'Inverted date outside row'
+        );
+
+        $insideEarly?->forceFill(['created_at' => '2026-08-02 10:00:00'])->save();
+        $insideLate?->forceFill(['created_at' => '2026-08-10 10:00:00'])->save();
+        $outside?->forceFill(['created_at' => '2026-07-20 10:00:00'])->save();
+
+        $html = $this->actingAs($admin)
+            ->get(route('admin.finance.ledger', [
+                'date_from' => '2026-08-12',
+                'date_to' => '2026-08-01',
+            ]))
+            ->assertOk()
+            ->assertSee('Inverted date early row')
+            ->assertSee('Inverted date late row')
+            ->assertDontSee('Inverted date outside row')
+            ->getContent();
+
+        $this->assertStringContainsString('value="2026-08-01"', $html);
+        $this->assertStringContainsString('value="2026-08-12"', $html);
+
+        $csv = $this->actingAs($admin)
+            ->get(route('admin.finance.ledger.export', [
+                'date_from' => '2026-08-12',
+                'date_to' => '2026-08-01',
+            ]))
+            ->assertOk()
+            ->streamedContent();
+
+        $this->assertStringContainsString('LEDGER-DATE-EARLY', $csv);
+        $this->assertStringContainsString('LEDGER-DATE-LATE', $csv);
+        $this->assertStringNotContainsString('LEDGER-DATE-OUT', $csv);
     }
 
     public function test_withdrawals_page_honors_search_query_param(): void

@@ -26,15 +26,11 @@ class FinanceOverviewService
     public function resolvePeriod(?string $period, ?string $dateFrom = null, ?string $dateTo = null): array
     {
         $end = now()->endOfDay();
-        $from = $this->parseDay($dateFrom, false);
-        $to = $this->parseDay($dateTo, true);
+        [$from, $to] = $this->dateBounds($dateFrom, $dateTo);
 
         if ($from || $to) {
             $start = $from;
             $end = $to ?? $end;
-            if ($start && $end->lt($start)) {
-                $end = $start->copy()->endOfDay();
-            }
 
             return [
                 'start' => $start,
@@ -917,6 +913,23 @@ class FinanceOverviewService
     private function manualRailMethods(): array
     {
         return ['wise', 'bank', 'bank_transfer', 'crypto'];
+    }
+
+    /**
+     * Inclusive calendar bounds. Inverted from/to are swapped so the form,
+     * totals, and export all use the same window.
+     *
+     * @return array{0: ?Carbon, 1: ?Carbon}
+     */
+    public function dateBounds(?string $dateFrom, ?string $dateTo): array
+    {
+        $from = $this->parseDay($dateFrom, false);
+        $to = $this->parseDay($dateTo, true);
+        if ($from && $to && $to->lt($from)) {
+            [$from, $to] = [$to->copy()->startOfDay(), $from->copy()->endOfDay()];
+        }
+
+        return [$from, $to];
     }
 
     public function parseDay(?string $value, bool $endOfDay): ?Carbon

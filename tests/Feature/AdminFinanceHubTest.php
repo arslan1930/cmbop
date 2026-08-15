@@ -212,6 +212,7 @@ class AdminFinanceHubTest extends TestCase
             ->assertSee('Transfer In', false)
             ->assertSee('Moved to Advertiser Wallet', false)
             ->assertSee('Earnings Moved for Spending', false)
+            ->assertDontSee('new \\App\\Models\\WalletTransaction', false)
             ->assertSee('Test earnings');
 
         $this->actingAs($admin)

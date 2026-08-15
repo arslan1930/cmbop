@@ -17,12 +17,17 @@
         </div>
     </div>
 
-    @if($ledgerUser)
+    @if(($userId ?? 0) > 0)
         <div class="alert alert-light border d-flex flex-wrap justify-content-between align-items-center gap-2 py-2 mb-3">
             <div class="small mb-0">
                 Showing ledger for
-                <strong>{{ $ledgerUser->name }}</strong>
-                <span class="text-muted">{{ $ledgerUser->email }}</span>
+                @if($ledgerUser)
+                    <strong>{{ $ledgerUser->name }}</strong>
+                    <span class="text-muted">{{ $ledgerUser->email }}</span>
+                @else
+                    <strong>#{{ $userId }}</strong>
+                    <span class="text-muted">not found</span>
+                @endif
             </div>
             <a href="{{ route('admin.finance.ledger', $clearUserQuery ?? []) }}" class="btn btn-sm btn-outline-secondary">Clear user</a>
         </div>
@@ -46,8 +51,8 @@
 
     <form method="GET" class="card border-0 shadow-sm mb-3">
         <div class="card-body">
-            @if($ledgerUser)
-                <input type="hidden" name="user_id" value="{{ $ledgerUser->id }}">
+            @if(($userId ?? 0) > 0)
+                <input type="hidden" name="user_id" value="{{ $userId }}">
             @endif
             <div class="row g-2 align-items-end">
                 <div class="col-md-3">
@@ -58,7 +63,7 @@
                     <select name="type" class="form-select form-select-sm">
                         <option value="">All types</option>
                         @foreach($types as $txType)
-                            <option value="{{ $txType }}" @selected($type === $txType)>{{ (new \App\Models\WalletTransaction(['type' => $txType]))->typeLabel() }}</option>
+                            <option value="{{ $txType }}" @selected($type === $txType)>{{ ($typeLabels ?? [])[$txType] ?? $txType }}</option>
                         @endforeach
                     </select>
                 </div>
@@ -206,7 +211,9 @@
                                 @if($hasLedgerFilters)
                                     <div class="mb-2">No ledger rows match these filters</div>
                                     <a href="{{ route('admin.finance.ledger', $clearFiltersQuery ?? []) }}" class="btn btn-sm btn-outline-secondary">Clear filters</a>
-                                @elseif($ledgerUser)
+                                @elseif(($walletId ?? 0) > 0)
+                                    No ledger rows for this wallet
+                                @elseif(($userId ?? 0) > 0)
                                     No ledger rows for this user
                                 @else
                                     No wallet transactions yet
