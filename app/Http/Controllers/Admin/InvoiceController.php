@@ -121,7 +121,9 @@ class InvoiceController extends Controller
                 $invoice->refresh();
             }
         } catch (\Throwable $e) {
-            return back()->with('error', UserFacingError::message($e, 'Could not generate the PDF.'));
+            report($e);
+            // Fall through — stream() can still render a live PDF after
+            // identity repair cleared pdf_path.
         }
 
         $billing->recordAdminDownload($invoice, auth()->user());
@@ -139,7 +141,9 @@ class InvoiceController extends Controller
                 $invoice->refresh();
             }
         } catch (\Throwable $e) {
-            return back()->with('error', UserFacingError::message($e, 'Could not generate the PDF.'));
+            report($e);
+            // Fall through — download() can still render a live PDF after
+            // identity repair cleared pdf_path.
         }
 
         $billing->recordAdminDownload($invoice, auth()->user());

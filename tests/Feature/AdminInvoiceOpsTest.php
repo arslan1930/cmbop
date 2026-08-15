@@ -13,6 +13,7 @@ use App\Models\Site;
 use App\Models\User;
 use App\Models\Withdrawal;
 use App\Services\Billing\BillingDocumentService;
+use App\Services\Billing\InvoicePdfGenerator;
 use App\Services\Billing\WithdrawalPayoutStatementService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -521,5 +522,62 @@ class AdminInvoiceOpsTest extends TestCase
         $this->assertSame('current-owner@example.com', $fresh->customer_email);
         $this->assertNotSame('payouts/stale-backfill.pdf', $fresh->pdf_path);
         $this->assertTrue($fresh->pdfExists());
+    }
+
+    public function test_admin_download_live_renders_when_payout_pdf_regen_fails(): void
+    {
+        Mail::fake();
+        Storage::fake('local');
+
+        $admin = $this->admin();
+        $publisher = $this->publisher();
+        $publisher->forceFill([
+            'name' => 'Current Owner',
+            'email' => 'current-owner@example.com',
+            'payout_business_name' => null,
+        ])->save();
+        $withdrawal = Withdrawal::create([
+            'user_id' => $publisher->id,
+            'amount' => 100,
+            'fee' => 5,
+            'net_amount' => 95,
+            'payment_method' => 'wise',
+            'payment_details' => ['email' => 'wise@example.com'],
+            'status' => 'completed',
+            'processed_at' => now(),
+        ]);
+        $statement = Invoice::create([
+            'user_id' => $publisher->id,
+            'customer_name' => 'Former Owner',
+            'customer_email' => 'former-owner@example.com',
+            'pdf_path' => 'payouts/stale-admin-live.pdf',
+            'invoice_number' => 'PAY-ADMIN-LIVE-1',
+            'type' => Invoice::TYPE_WITHDRAWAL_PAYOUT,
+            'status' => Invoice::STATUS_PAID,
+            'subtotal' => 95,
+            'total_amount' => 95,
+            'invoice_date' => now(),
+            'line_items' => [['description' => 'Payout', 'line_total' => 95]],
+            'pdf_disk' => 'local',
+            'reference_code' => 'WD-'.$withdrawal->id,
+            'meta' => ['withdrawal_id' => $withdrawal->id],
+        ]);
+        Storage::disk('local')->put('payouts/stale-admin-live.pdf', '%PDF-stale-admin-live');
+
+        $pdfs = \Mockery::mock(InvoicePdfGenerator::class)->makePartial();
+        $pdfs->shouldReceive('generateAndStore')->once()->andThrow(new \RuntimeException('disk full'));
+        $pdfs->shouldReceive('download')->once()->andReturn(response('live-pdf', 200, [
+            'Content-Type' => 'application/pdf',
+        ]));
+        $this->app->instance(InvoicePdfGenerator::class, $pdfs);
+
+        $this->actingAs($admin)
+            ->get(route('admin.invoices.download', $statement))
+            ->assertOk()
+            ->assertSee('live-pdf', false);
+
+        $fresh = $statement->fresh();
+        $this->assertSame('Current Owner', $fresh->customer_name);
+        $this->assertNull($fresh->pdf_path);
     }
 }
