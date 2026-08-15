@@ -680,6 +680,100 @@ class PublisherContentRevisionRequestTest extends TestCase
         $this->assertSame($item->order_id, (int) $replacement->fresh()->order_id);
     }
 
+    public function test_library_item_cannot_reattach_an_article_with_an_incomplete_link(): void
+    {
+        $current = $this->createApprovedSubmission($this->advertiser);
+        $replacement = $this->createApprovedSubmission($this->advertiser);
+        $replacement->update([
+            'title' => 'Broken Link Piece',
+            'target_url' => null,
+        ]);
+
+        $item = $this->makeProcessingItem();
+        $item->update([
+            'content_submission_id' => $current->id,
+            'content_original_name' => $current->original_filename,
+            'content_disk' => $current->disk,
+            'content_path' => $current->path,
+            'content_revision_requested' => 'yes',
+            'content_revision_requested_at' => now(),
+            'content_revision_reason' => 'Please attach a cleaner draft from the library.',
+        ]);
+        $current->update([
+            'order_id' => $item->order_id,
+            'order_item_id' => $item->id,
+        ]);
+
+        $this->actingAs($this->advertiser)
+            ->postJson(route('advertiser.orders.fulfill-content-revision', $item->order_id), [
+                'content_submission_id' => $replacement->id,
+                'order_item_id' => $item->id,
+            ])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['content_submission_id']);
+
+        $this->assertTrue($item->fresh()->isContentRevisionRequested());
+        $this->assertSame($current->id, (int) $item->fresh()->content_submission_id);
+        Mail::assertNotQueued(ContentRevisionFulfilled::class);
+    }
+
+    public function test_library_item_cannot_confirm_existing_with_an_incomplete_link(): void
+    {
+        $submission = $this->createApprovedSubmission($this->advertiser);
+        $submission->update(['anchor_text' => 'only the label', 'target_url' => null]);
+        $item = $this->makeProcessingItem();
+        $item->update([
+            'content_submission_id' => $submission->id,
+            'content_original_name' => $submission->original_filename,
+            'content_disk' => $submission->disk,
+            'content_path' => $submission->path,
+            'content_revision_requested' => 'yes',
+            'content_revision_requested_at' => now(),
+            'content_revision_reason' => 'Please fix the outbound link.',
+        ]);
+        $submission->update([
+            'order_id' => $item->order_id,
+            'order_item_id' => $item->id,
+        ]);
+
+        $this->actingAs($this->advertiser)
+            ->postJson(route('advertiser.orders.fulfill-content-revision', $item->order_id), [
+                'confirm_existing' => true,
+                'note' => 'Kept the existing library article.',
+                'order_item_id' => $item->id,
+            ])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['confirm_existing']);
+
+        $this->assertTrue($item->fresh()->isContentRevisionRequested());
+        Mail::assertNotQueued(ContentRevisionFulfilled::class);
+    }
+
+    public function test_revision_options_omit_articles_with_incomplete_links(): void
+    {
+        $ready = $this->createApprovedSubmission($this->advertiser);
+        $broken = $this->createApprovedSubmission($this->advertiser);
+        $broken->update(['title' => 'Incomplete Link Article', 'target_url' => null]);
+        $item = $this->makeProcessingItem();
+        $item->update([
+            'content_submission_id' => $ready->id,
+            'content_revision_requested' => 'yes',
+            'content_revision_requested_at' => now(),
+        ]);
+        $ready->update([
+            'order_id' => $item->order_id,
+            'order_item_id' => $item->id,
+        ]);
+
+        $response = $this->actingAs($this->advertiser)
+            ->getJson(route('advertiser.orders.content-revision-options', $item->order_id))
+            ->assertOk()
+            ->assertJsonPath('success', true);
+
+        $orderableIds = collect($response->json('orderable'))->pluck('id')->all();
+        $this->assertNotContains($broken->id, $orderableIds);
+    }
+
     public function test_sibling_live_url_submit_keeps_order_processing_while_revision_open(): void
     {
         $order = Order::create([

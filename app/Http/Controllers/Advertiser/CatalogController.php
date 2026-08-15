@@ -769,7 +769,7 @@ class CatalogController extends Controller
             ->orderable()
             ->first();
 
-        if (! $submission || ! $submission->canBeOrdered()) {
+        if (! $submission || ! $submission->canBeOrdered() || ! $submission->isReadyForCheckout()) {
             session()->forget(['checkout_content_submission_id', 'ordering_from_library']);
 
             return null;
@@ -1592,7 +1592,7 @@ class CatalogController extends Controller
                     ->orderable()
                     ->first();
 
-                if (! $librarySubmission || ! $librarySubmission->canBeOrdered()) {
+                if (! $librarySubmission || ! $librarySubmission->canBeOrdered() || ! $librarySubmission->isReadyForCheckout()) {
                     session()->forget(['checkout_content_submission_id', 'ordering_from_library']);
                     $librarySubmission = null;
                 } else {
@@ -3377,8 +3377,10 @@ class CatalogController extends Controller
             ->where('user_id', auth()->id())
             ->orderable()
             ->latest('id')
-            ->limit(50)
-            ->get(['id', 'title', 'original_filename', 'language', 'country'])
+            ->limit(80)
+            ->get(['id', 'title', 'original_filename', 'language', 'country', 'anchor_text', 'target_url'])
+            ->filter(fn (ContentSubmission $s) => $s->hasCheckoutReadyLinks())
+            ->take(50)
             ->map(fn (ContentSubmission $s) => [
                 'id' => $s->id,
                 'label' => $s->title ?: $s->original_filename ?: ('Article #'.$s->id),

@@ -97,6 +97,47 @@ class ContentLibraryCatalogOrderTest extends TestCase
             ->assertDontSee('language=en', false);
     }
 
+    public function test_catalog_query_does_not_start_ordering_an_incomplete_link_article(): void
+    {
+        $advertiser = $this->advertiser();
+        $article = $this->createApprovedSubmission($advertiser);
+        $article->update(['anchor_text' => 'only the label', 'target_url' => null]);
+
+        $this->actingAs($advertiser)
+            ->withSession([
+                'checkout_content_submission_id' => $article->id,
+                'ordering_from_library' => true,
+            ])
+            ->get(route('advertiser.catalog', [
+                'content_submission_id' => $article->id,
+            ]))
+            ->assertOk();
+
+        $this->assertTrue(session()->missing('checkout_content_submission_id'));
+        $this->assertTrue(session()->missing('ordering_from_library'));
+    }
+
+    public function test_add_to_cart_does_not_auto_attach_an_incomplete_link_article(): void
+    {
+        $advertiser = $this->advertiser();
+        $publisher = $this->publisher();
+        $site = $this->activeSite($publisher, 'no-auto-link', 40);
+        $article = $this->createApprovedSubmission($advertiser);
+        $article->update(['target_url' => null]);
+
+        $this->actingAs($advertiser)
+            ->withSession([
+                'checkout_content_submission_id' => $article->id,
+                'ordering_from_library' => true,
+            ])
+            ->postJson(route('advertiser.cart.add'), ['id' => $site->id])
+            ->assertOk()
+            ->assertJsonPath('success', true);
+
+        $this->assertEmpty(session('cart')[0]['content_submission_id'] ?? null);
+        $this->assertTrue(session()->missing('checkout_content_submission_id'));
+    }
+
     public function test_library_add_to_cart_allows_any_site_language(): void
     {
         config(['content_moderation.enabled' => false]);
