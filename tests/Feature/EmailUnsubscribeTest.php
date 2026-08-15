@@ -53,10 +53,17 @@ class EmailUnsubscribeTest extends TestCase
         $user = $this->makeUser('advertiser');
         $url = $this->relativeSignedUrl(EmailUnsubscribeLink::url($user));
 
-        $this->get($url)
+        $html = $this->get($url)
             ->assertOk()
             ->assertSee('Unsubscribe from marketing emails', false)
-            ->assertSee($user->email, false);
+            ->assertSee($user->email, false)
+            ->getContent();
+
+        $this->assertMatchesRegularExpression(
+            '/<form[^>]+action="\/email\/unsubscribe\/'.$user->id.'\?/',
+            $html
+        );
+        $this->assertStringNotContainsString('action="http', $html);
 
         $this->assertTrue(EmailNotificationPreference::allows($user, 'marketing_emails'));
     }

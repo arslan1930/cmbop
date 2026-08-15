@@ -24,6 +24,7 @@ class AdminCampaignsDocsTest extends TestCase
         $this->assertStringContainsString('advertisers_no_paid_orders', $body);
         $this->assertStringContainsString('collectRecipientRows', $body);
         $this->assertStringContainsString('Do **not** use `ShouldBeUnique`', $body);
+        $this->assertStringContainsString('mail:drain-queue', $body);
         $this->assertStringContainsString('ops-mail-reminders.md', $body);
         $this->assertStringNotContainsString('/advertiser/campaigns', $body);
     }

@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\EmailCampaign;
 use Closure;
 use Illuminate\Contracts\Cache\LockProvider;
 use Illuminate\Contracts\Queue\Factory as QueueFactory;
@@ -127,6 +128,12 @@ class DrainQueuedMail
 
     private function drain(): void
     {
+        try {
+            EmailCampaign::recoverStalled();
+        } catch (\Throwable $e) {
+            Log::warning('Campaign stall recovery failed', ['error' => $e->getMessage()]);
+        }
+
         $connection = $this->connection();
         $queues = $this->queues();
 

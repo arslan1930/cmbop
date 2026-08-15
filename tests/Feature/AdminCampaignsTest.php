@@ -581,7 +581,7 @@ class AdminCampaignsTest extends TestCase
             'status' => EmailCampaignRecipient::STATUS_PENDING,
         ]);
 
-        $job = new class($campaign->id) extends SendEmailCampaignJob
+        $job = new class($campaign->id, SendEmailCampaignJob::MAX_FAIL_STREAK) extends SendEmailCampaignJob
         {
             protected function processPending(EmailCampaign $campaign): bool
             {
@@ -630,7 +630,7 @@ class AdminCampaignsTest extends TestCase
             'status' => EmailCampaignRecipient::STATUS_PENDING,
         ]);
 
-        $job = new class($campaign->id) extends SendEmailCampaignJob
+        $job = new class($campaign->id, SendEmailCampaignJob::MAX_FAIL_STREAK) extends SendEmailCampaignJob
         {
             protected function processPending(EmailCampaign $campaign): bool
             {
@@ -1091,5 +1091,121 @@ class AdminCampaignsTest extends TestCase
 
         Queue::assertPushed(SendEmailCampaignJob::class, fn (SendEmailCampaignJob $job) => $job->campaignId === $campaign->id);
         $this->assertSame(EmailCampaign::STATUS_QUEUED, $campaign->fresh()->status);
+    }
+
+    public function test_first_job_exception_redispatches_instead_of_wiping_pending(): void
+    {
+        Queue::fake();
+
+        $admin = $this->makeUser('admin');
+        $advertiser = $this->makeUser('advertiser');
+
+        $campaign = EmailCampaign::create([
+            'name' => 'Blip',
+            'subject' => 'Blip',
+            'body_html' => '<p>Hi</p>',
+            'audience' => 'advertisers',
+            'recipients_count' => 1,
+            'status' => EmailCampaign::STATUS_QUEUED,
+            'respect_preferences' => false,
+            'created_by' => $admin->id,
+        ]);
+        EmailCampaignRecipient::create([
+            'email_campaign_id' => $campaign->id,
+            'user_id' => $advertiser->id,
+            'email' => $advertiser->email,
+            'status' => EmailCampaignRecipient::STATUS_PENDING,
+        ]);
+
+        $job = new class($campaign->id) extends SendEmailCampaignJob
+        {
+            protected function processPending(EmailCampaign $campaign): bool
+            {
+                throw new \RuntimeException('deadlock');
+            }
+        };
+        $job->handle();
+
+        $this->assertSame(EmailCampaign::STATUS_SENDING, $campaign->fresh()->status);
+        $this->assertSame(
+            EmailCampaignRecipient::STATUS_PENDING,
+            $campaign->recipients()->where('user_id', $advertiser->id)->value('status')
+        );
+        Queue::assertPushed(
+            SendEmailCampaignJob::class,
+            fn (SendEmailCampaignJob $queued) => $queued->campaignId === $campaign->id && $queued->failStreak === 1
+        );
+    }
+
+    public function test_job_failed_before_claim_does_not_wipe_pending(): void
+    {
+        Queue::fake();
+
+        $admin = $this->makeUser('admin');
+        $advertiser = $this->makeUser('advertiser');
+
+        $campaign = EmailCampaign::create([
+            'name' => 'Unclaimed',
+            'subject' => 'Unclaimed',
+            'body_html' => '<p>Hi</p>',
+            'audience' => 'advertisers',
+            'recipients_count' => 1,
+            'status' => EmailCampaign::STATUS_QUEUED,
+            'respect_preferences' => false,
+            'created_by' => $admin->id,
+        ]);
+        EmailCampaignRecipient::create([
+            'email_campaign_id' => $campaign->id,
+            'user_id' => $advertiser->id,
+            'email' => $advertiser->email,
+            'status' => EmailCampaignRecipient::STATUS_PENDING,
+        ]);
+
+        (new SendEmailCampaignJob($campaign->id))->failed(new \RuntimeException('worker died'));
+
+        $this->assertSame(EmailCampaign::STATUS_QUEUED, $campaign->fresh()->status);
+        $this->assertSame(
+            EmailCampaignRecipient::STATUS_PENDING,
+            $campaign->recipients()->where('user_id', $advertiser->id)->value('status')
+        );
+        Queue::assertNothingPushed();
+    }
+
+    public function test_drain_command_recovers_stalled_campaigns_when_auto_drain_is_off(): void
+    {
+        Queue::fake();
+        config([
+            'email_notifications.auto_drain' => false,
+            'email_notifications.queue_connection' => 'database',
+            'queue.connections.database.driver' => 'database',
+            'queue.connections.database.table' => 'jobs',
+        ]);
+
+        $admin = $this->makeUser('admin');
+        $advertiser = $this->makeUser('advertiser');
+
+        $campaign = EmailCampaign::create([
+            'name' => 'Cron recover',
+            'subject' => 'Cron recover',
+            'body_html' => '<p>Hi</p>',
+            'audience' => 'advertisers',
+            'recipients_count' => 1,
+            'status' => EmailCampaign::STATUS_QUEUED,
+            'respect_preferences' => false,
+            'created_by' => $admin->id,
+        ]);
+        EmailCampaignRecipient::create([
+            'email_campaign_id' => $campaign->id,
+            'user_id' => $advertiser->id,
+            'email' => $advertiser->email,
+            'status' => EmailCampaignRecipient::STATUS_PENDING,
+        ]);
+        $campaign->forceFill(['updated_at' => now()->subMinutes(5)])->save();
+
+        $this->artisan('mail:drain-queue')
+            ->expectsOutputToContain('auto-drain is disabled')
+            ->assertSuccessful();
+
+        Queue::assertPushed(SendEmailCampaignJob::class, fn (SendEmailCampaignJob $job) => $job->campaignId === $campaign->id);
     }
 }

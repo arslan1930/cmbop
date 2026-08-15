@@ -143,7 +143,8 @@ class AudienceCampaignMail extends PlatformMailable
      */
     protected function syncRecipientRow(array $payload): void
     {
-        if (! $this->campaign->id || ! $this->recipient->id) {
+        [$campaignId, $userId] = $this->campaignAndUserIds();
+        if ($campaignId < 1 || $userId < 1) {
             return;
         }
 
@@ -153,8 +154,8 @@ class AudienceCampaignMail extends PlatformMailable
             }
 
             $updated = EmailCampaignRecipient::query()
-                ->where('email_campaign_id', $this->campaign->id)
-                ->where('user_id', $this->recipient->id)
+                ->where('email_campaign_id', $campaignId)
+                ->where('user_id', $userId)
                 ->whereIn('status', [
                     EmailCampaignRecipient::STATUS_PENDING,
                     EmailCampaignRecipient::STATUS_QUEUED,
@@ -162,14 +163,37 @@ class AudienceCampaignMail extends PlatformMailable
                 ->update($payload);
 
             if ($updated) {
-                $this->campaign->refresh()->recountRecipientTotals();
+                $campaign = EmailCampaign::query()->find($campaignId);
+                $campaign?->recountRecipientTotals();
             }
         } catch (\Throwable $e) {
             Log::warning('Campaign recipient status sync failed', [
-                'campaign_id' => $this->campaign->id,
-                'user_id' => $this->recipient->id,
+                'campaign_id' => $campaignId,
+                'user_id' => $userId,
                 'error' => $e->getMessage(),
             ]);
         }
+    }
+
+    /**
+     * @return array{0: int, 1: int}
+     */
+    protected function campaignAndUserIds(): array
+    {
+        try {
+            $campaignId = (int) ($this->campaign->id ?? 0);
+            $userId = (int) ($this->recipient->id ?? 0);
+            if ($campaignId > 0 && $userId > 0) {
+                return [$campaignId, $userId];
+            }
+        } catch (\Throwable) {
+        }
+
+        if (is_string($this->dedupeKey)
+            && preg_match('/^audience_campaign:(\d+):user:(\d+)$/', $this->dedupeKey, $m)) {
+            return [(int) $m[1], (int) $m[2]];
+        }
+
+        return [0, 0];
     }
 }

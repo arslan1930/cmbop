@@ -3,9 +3,13 @@
 namespace App\Models;
 
 use App\Jobs\SendEmailCampaignJob;
+use Illuminate\Contracts\Cache\LockProvider;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 
 class EmailCampaign extends Model
 {
@@ -127,6 +131,39 @@ class EmailCampaign extends Model
      */
     public static function recoverStalled(int $staleMinutes = 2): int
     {
+        try {
+            if (! Schema::hasTable((new static)->getTable())) {
+                return 0;
+            }
+        } catch (\Throwable) {
+            return 0;
+        }
+
+        $lock = null;
+        try {
+            $store = Cache::store()->getStore();
+            if ($store instanceof LockProvider) {
+                $lock = Cache::store()->lock('email-campaigns:recover-stalled', 15);
+                if (! $lock->get()) {
+                    return 0;
+                }
+            }
+        } catch (\Throwable) {
+            $lock = null;
+        }
+
+        try {
+            return self::recoverStalledLocked($staleMinutes);
+        } finally {
+            try {
+                $lock?->release();
+            } catch (\Throwable) {
+            }
+        }
+    }
+
+    protected static function recoverStalledLocked(int $staleMinutes): int
+    {
         $stale = now()->subMinutes(max(1, $staleMinutes));
         $dispatched = 0;
 
@@ -164,8 +201,15 @@ class EmailCampaign extends Model
                 continue;
             }
 
-            SendEmailCampaignJob::dispatch((int) $id);
-            $dispatched++;
+            try {
+                SendEmailCampaignJob::dispatch((int) $id);
+                $dispatched++;
+            } catch (\Throwable $e) {
+                Log::warning('Stalled campaign re-queue failed', [
+                    'campaign_id' => $id,
+                    'error' => $e->getMessage(),
+                ]);
+            }
         }
 
         return $dispatched;

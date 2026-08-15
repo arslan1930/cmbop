@@ -12,7 +12,6 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
-use Illuminate\Queue\TimeoutExceededException;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 
@@ -21,6 +20,8 @@ class SendEmailCampaignJob implements ShouldQueue
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
     public const BATCH_SIZE = 20;
+
+    public const MAX_FAIL_STREAK = 2;
 
     public int $tries = 1;
 
@@ -31,7 +32,7 @@ class SendEmailCampaignJob implements ShouldQueue
      */
     public int $timeout = 25;
 
-    public function __construct(public int $campaignId)
+    public function __construct(public int $campaignId, public int $failStreak = 0)
     {
         $this->onQueue(config('email_notifications.queue', 'emails'));
     }
@@ -76,12 +77,7 @@ class SendEmailCampaignJob implements ShouldQueue
                 'campaign_id' => $campaign->id,
                 'error' => $e->getMessage(),
             ]);
-            if ($this->isTimeout($e) && $this->hasPending($campaign)) {
-                self::dispatch($this->campaignId);
-
-                return;
-            }
-            $this->markFailed($campaign);
+            $this->continueOrGiveUp($campaign);
         }
     }
 
@@ -92,25 +88,7 @@ class SendEmailCampaignJob implements ShouldQueue
             return;
         }
 
-        $campaign->refresh();
-        if (in_array($campaign->status, [EmailCampaign::STATUS_SENT, EmailCampaign::STATUS_FAILED], true)) {
-            return;
-        }
-
-        // A drain/worker timeout must not wipe the rest of the audience.
-        if ($campaign->status === EmailCampaign::STATUS_SENDING && $this->hasPending($campaign)) {
-            self::dispatch($this->campaignId);
-
-            return;
-        }
-
-        if ($campaign->status === EmailCampaign::STATUS_SENDING) {
-            $this->finalize($campaign);
-
-            return;
-        }
-
-        $this->markFailed($campaign);
+        $this->continueOrGiveUp($campaign);
     }
 
     protected function processPending(EmailCampaign $campaign): bool
@@ -212,10 +190,41 @@ class SendEmailCampaignJob implements ShouldQueue
             ->exists();
     }
 
-    protected function isTimeout(\Throwable $e): bool
+    /**
+     * A timeout or transient DB error must not wipe leftover pending rows.
+     * Leave an unclaimed `queued` campaign for recoverStalled(); retry a
+     * `sending` campaign a few times; only then markFailed().
+     */
+    protected function continueOrGiveUp(EmailCampaign $campaign): void
     {
-        return $e instanceof TimeoutExceededException
-            || str_contains(strtolower($e->getMessage()), 'timed out');
+        $campaign->refresh();
+        if (in_array($campaign->status, [EmailCampaign::STATUS_SENT, EmailCampaign::STATUS_FAILED], true)) {
+            return;
+        }
+
+        if ($campaign->status === EmailCampaign::STATUS_QUEUED) {
+            return;
+        }
+
+        if ($campaign->status === EmailCampaign::STATUS_SENDING && $this->hasPending($campaign)) {
+            if ($this->failStreak >= self::MAX_FAIL_STREAK) {
+                $this->markFailed($campaign);
+
+                return;
+            }
+
+            self::dispatch($this->campaignId, $this->failStreak + 1);
+
+            return;
+        }
+
+        if ($campaign->status === EmailCampaign::STATUS_SENDING) {
+            $this->finalize($campaign);
+
+            return;
+        }
+
+        $this->markFailed($campaign);
     }
 
     protected function finalize(EmailCampaign $campaign): void

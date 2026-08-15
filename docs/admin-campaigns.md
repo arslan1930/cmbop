@@ -22,10 +22,12 @@ UI). Recipients are marketplace advertisers and publishers only — never admins
    rows (fits the web-drain 30s worker timeout) and re-dispatches itself when
    more remain. Recipients are claimed `pending` → `queued` atomically so two
    workers cannot double-send. A thrown handle still fails leftover **pending**
-   rows and marks the campaign `failed`. A **timeout** (or `failed()`) must
-   **not** wipe the rest of the audience — it re-queues the job. Opening
-   Admin → Campaigns also re-dispatches `queued`/`sending` rows that have
-   gone stale (worker died / unique lock dropped the only job).
+   rows only after **3** failed batches (`failStreak`). A timeout, a
+   transient DB error, or `failed()` before the claim must **not** wipe the
+   rest of the audience. An unclaimed `queued` job is left for stall
+   recovery. Opening Admin → Campaigns, web mail drain, and
+   `mail:drain-queue` (even when auto-drain is off) re-dispatch stale
+   `queued`/`sending` rows so a lost continuation does not sit forever.
 5. Individual `AudienceCampaignMail` failures mark that recipient `failed`
    (`error`) and recount. If a `sent` campaign later has no queued/delivered
    rows left, status is downgraded to `failed`. A late `marketing_emails`
@@ -83,7 +85,9 @@ and add-site / deposit reminders keep their own queries.
   `MAIL_UNSUBSCRIBE_EXPIRE_DAYS` (30). The `{user}` segment is numeric; the
   controller checks the signature **before** loading the user so missing ids
   and bad signatures both **403** (no existence leak).
-- GET shows a confirm page. POST sets **only** `marketing_emails=false`.
+- GET shows a confirm page. The confirm form posts to the **relative**
+  request URI (not `fullUrl()`) so a spoofed Host header cannot send the
+  signed POST off-site. POST sets **only** `marketing_emails=false`.
 - One-click (`List-Unsubscribe=One-Click` or JSON) returns empty **200**.
 - CSRF is excepted for `email/unsubscribe/*` (Gmail POSTs have no token).
 - Campaign markdown footer + `List-Unsubscribe` / `List-Unsubscribe-Post`

@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Models\EmailCampaign;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Schema;
 
@@ -20,6 +21,8 @@ class DrainMailQueue extends Command
 
     public function handle(): int
     {
+        $this->recoverStalledCampaigns();
+
         if (! config('email_notifications.auto_drain')) {
             $this->info('Mail queue auto-drain is disabled (MAIL_QUEUE_AUTO_DRAIN=false).');
 
@@ -52,6 +55,28 @@ class DrainMailQueue extends Command
             '--max-time' => (int) $this->option('max-time'),
             '--tries' => (int) $this->option('tries'),
         ]);
+    }
+
+    /**
+     * Lost campaign continuation jobs (PHP killed mid-batch) must be
+     * re-queued even when auto-drain is off — those hosts still run this
+     * command from the scheduler.
+     */
+    private function recoverStalledCampaigns(): void
+    {
+        $connection = (string) config('email_notifications.queue_connection', 'sync');
+        if ($connection === 'sync' || ! $this->backendReady($connection)) {
+            return;
+        }
+
+        try {
+            $n = EmailCampaign::recoverStalled();
+            if ($n > 0) {
+                $this->info("Re-queued {$n} stalled campaign(s).");
+            }
+        } catch (\Throwable $e) {
+            $this->warn('Campaign stall recovery failed: '.$e->getMessage());
+        }
     }
 
     /**

@@ -24,7 +24,7 @@ class EmailUnsubscribeController extends Controller
         if ($request->isMethod('get')) {
             return view('email.unsubscribe-confirm', [
                 'user' => $account,
-                'confirmAction' => $request->fullUrl(),
+                'confirmAction' => $request->getRequestUri(),
                 'brand' => config('email_notifications.brand.name', config('app.name')),
             ]);
         }
