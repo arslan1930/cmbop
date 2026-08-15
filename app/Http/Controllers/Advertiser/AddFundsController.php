@@ -255,8 +255,11 @@ class AddFundsController extends Controller
                     return redirect()->route('advertiser.add-funds')
                         ->with('error', 'Payment does not belong to this account.');
                 }
-                $intentType = (string) ($intent->metadata->type ?? '');
-                if (! in_array($intentType, ['wallet_deposit', 'deposit'], true)) {
+                $intentType = trim((string) ($intent->metadata->type ?? ''));
+                $sessionReference = trim((string) ($intent->metadata->session_reference ?? ''));
+                $isWalletIntent = in_array($intentType, ['wallet_deposit', 'deposit'], true)
+                    || ($intentType === '' && WalletStripeDepositService::isAddFundsSessionReference($sessionReference));
+                if (! $isWalletIntent) {
                     return redirect()->route('advertiser.add-funds')
                         ->with('error', 'This payment is not a wallet top-up.');
                 }
@@ -265,7 +268,6 @@ class AddFundsController extends Controller
                     (int) ($intent->amount_received ?: $intent->amount)
                 );
                 $ref = $referenceCode ?: (string) ($intent->metadata->reference_code ?? str_pad((string) mt_rand(1, 999999), 6, '0', STR_PAD_LEFT));
-                $sessionReference = trim((string) ($intent->metadata->session_reference ?? ''));
                 $credited = app(WalletStripeDepositService::class)
                     ->creditFromPaymentIntent(
                         auth()->id(),
@@ -307,11 +309,12 @@ class AddFundsController extends Controller
                 $meta = (array) json_decode(json_encode($session->metadata ?? []), true);
                 $sessionType = isset($meta['type']) ? (string) $meta['type'] : null;
                 $hasDepositId = ! empty($meta['deposit_id']);
+                $hasAddFundsSref = WalletStripeDepositService::isAddFundsSessionReference($meta['session_reference'] ?? '');
                 $isExplicitWallet = in_array((string) $sessionType, ['wallet_deposit', 'deposit'], true);
-                // deposit_id alone is only a wallet hint when Stripe did not
-                // tag the session as something else (order / feature).
+                // deposit_id / Add Funds session_reference are wallet hints
+                // only when Stripe did not tag the session as something else.
                 $isWalletSession = $isExplicitWallet
-                    || ($hasDepositId && ($sessionType === null || $sessionType === ''));
+                    || (($sessionType === null || $sessionType === '') && ($hasDepositId || $hasAddFundsSref));
 
                 if (! $isWalletSession) {
                     Log::warning('Add Funds checkoutSuccess refused non-wallet session', [

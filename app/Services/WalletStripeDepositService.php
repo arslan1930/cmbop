@@ -65,12 +65,14 @@ class WalletStripeDepositService
         bool $allowNewCardIfUnsettled = true,
         string $sessionReference = ''
     ): float {
+        $session = $this->paymentIntentAmountSession($userId, $amountEuros, $sessionReference);
+
         if ($completeDepositId) {
             $credited = $this->completeExistingDeposit(
                 $completeDepositId,
                 '',
                 $paymentIntentId,
-                (object) ['amount_total' => StripePaymentService::toCents($amountEuros)],
+                $session,
                 $userId
             );
             if ($credited > 0) {
@@ -99,8 +101,6 @@ class WalletStripeDepositService
 
         $credited = 0.0;
         $notifyDepositId = null;
-
-        $session = (object) ['amount_total' => StripePaymentService::toCents($amountEuros)];
 
         DB::transaction(function () use ($userId, $paymentIntentId, $amountEuros, $session, $sessionReference, &$referenceCode, &$credited, &$notifyDepositId) {
             $existing = DepositRequest::where('stripe_payment_intent_id', $paymentIntentId)
@@ -170,7 +170,7 @@ class WalletStripeDepositService
         }
 
         // Never wallet-credit order / feature Checkout Sessions that land on Add Funds success.
-        if (! $this->isWalletDepositType($type, $depositId)) {
+        if (! $this->isWalletDepositType($type, $depositId, $sessionReference)) {
             Log::warning('WalletStripeDepositService: refusing non-wallet Checkout Session', [
                 'session_id' => $sessionId,
                 'type' => $type,
@@ -187,7 +187,7 @@ class WalletStripeDepositService
         return $this->withStripeDepositLock(
             $paymentIntentId,
             $sessionId,
-            function () use ($depositId, $sessionId, $paymentIntentId, $session, $userId, $finalAmount, $referenceCode, $type) {
+            function () use ($depositId, $sessionId, $paymentIntentId, $session, $userId, $finalAmount, $referenceCode, $type, $sessionReference) {
                 if ($depositId) {
                     $credited = $this->completeExistingDeposit(
                         (int) $depositId,
@@ -200,7 +200,7 @@ class WalletStripeDepositService
                         return $credited;
                     }
 
-                    if (! $this->isExplicitWalletDepositType($type)) {
+                    if (! $this->mayCreateFallbackCardRow($type, $sessionReference)) {
                         Log::warning('WalletStripeDepositService: deposit_id did not settle and session is not an explicit wallet top-up', [
                             'session_id' => $sessionId,
                             'deposit_id' => $depositId,
@@ -324,7 +324,8 @@ class WalletStripeDepositService
         $metadata = $this->metaArray($intent->metadata ?? null);
         $type = isset($metadata['type']) ? (string) $metadata['type'] : null;
         $type = $type === '' ? null : $type;
-        if (! $this->isWalletDepositType($type, $metadata['deposit_id'] ?? null)) {
+        $sessionReference = trim((string) ($metadata['session_reference'] ?? ''));
+        if (! $this->isWalletDepositType($type, $metadata['deposit_id'] ?? null, $sessionReference)) {
             Log::warning('WalletStripeDepositService: refusing non-wallet PaymentIntent', [
                 'payment_intent_id' => $intent->id ?? null,
                 'type' => $type,
@@ -349,15 +350,13 @@ class WalletStripeDepositService
             throw new \RuntimeException('Invalid wallet_deposit PaymentIntent metadata/amount');
         }
 
-        $sessionReference = trim((string) ($metadata['session_reference'] ?? ''));
-
         return $this->creditFromPaymentIntent(
             $userId,
             (string) $intent->id,
             $amount,
             $referenceCode,
             $completeDepositId,
-            $this->isExplicitWalletDepositType($type),
+            $this->mayCreateFallbackCardRow($type, $sessionReference),
             $sessionReference
         );
     }
@@ -951,6 +950,13 @@ class WalletStripeDepositService
             return false;
         }
 
+        $incomingReference = $this->sessionReferenceFromStripeObject($session);
+        $storedReference = $this->sessionReferenceFromDeposit($deposit);
+        if ($incomingReference !== '' && $storedReference !== ''
+            && ! hash_equals($incomingReference, $storedReference)) {
+            return false;
+        }
+
         return ! DepositRequest::query()
             ->where('stripe_payment_intent_id', $paymentIntentId)
             ->where('id', '!=', $deposit->id)
@@ -1052,19 +1058,72 @@ class WalletStripeDepositService
     /**
      * Wallet top-ups only — order_payment / site_feature sessions must never credit the wallet.
      */
-    protected function isWalletDepositType(?string $type, mixed $depositId = null): bool
+    protected function isWalletDepositType(?string $type, mixed $depositId = null, string $sessionReference = ''): bool
     {
-        if ($depositId !== null && $depositId !== '') {
-            // Completing an existing DepositRequest row is always a wallet path.
-            return $type === null || in_array($type, ['wallet_deposit', 'deposit'], true);
+        if ($this->isExplicitWalletDepositType($type)) {
+            return true;
         }
 
-        return $this->isExplicitWalletDepositType($type);
+        // Typed as something else (order / feature): never a wallet top-up.
+        if ($type !== null && $type !== '') {
+            return false;
+        }
+
+        if (self::isAddFundsSessionReference($sessionReference)) {
+            return true;
+        }
+
+        if ($depositId !== null && $depositId !== '') {
+            // Completing an existing DepositRequest row is a wallet path when
+            // Stripe did not tag the payment as something else.
+            return true;
+        }
+
+        return false;
     }
 
     protected function isExplicitWalletDepositType(?string $type): bool
     {
         return in_array((string) $type, ['wallet_deposit', 'deposit'], true);
+    }
+
+    /**
+     * Add Funds Checkout writes session_reference as deposit_{uniqid} on both
+     * the session and the PaymentIntent. That prefix is unique to wallet
+     * top-ups — catalog orders never set it.
+     */
+    public static function isAddFundsSessionReference(mixed $sessionReference): bool
+    {
+        $value = trim((string) $sessionReference);
+
+        return $value !== '' && str_starts_with($value, 'deposit_');
+    }
+
+    protected function mayCreateFallbackCardRow(?string $type, string $sessionReference = ''): bool
+    {
+        return $this->isExplicitWalletDepositType($type)
+            || self::isAddFundsSessionReference($sessionReference);
+    }
+
+    /**
+     * @return object{amount_total: int, metadata: array<string, string>}
+     */
+    private function paymentIntentAmountSession(int $userId, float $amountEuros, string $sessionReference): object
+    {
+        return (object) [
+            'amount_total' => StripePaymentService::toCents($amountEuros),
+            'metadata' => [
+                'user_id' => (string) $userId,
+                'session_reference' => $sessionReference,
+            ],
+        ];
+    }
+
+    private function sessionReferenceFromStripeObject(object $session): string
+    {
+        $metadata = $this->metaArray($session->metadata ?? null);
+
+        return trim((string) ($metadata['session_reference'] ?? ''));
     }
 
     protected function encodeStripeObject(object $obj): string

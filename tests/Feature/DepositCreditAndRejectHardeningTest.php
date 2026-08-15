@@ -832,6 +832,120 @@ class DepositCreditAndRejectHardeningTest extends TestCase
         $this->assertSame(0, DepositRequest::query()->where('payment_method', 'card')->count());
     }
 
+    public function test_untyped_payment_intent_with_add_funds_session_reference_credits_wallet(): void
+    {
+        $advertiser = $this->advertiser();
+        $wallet = $this->walletFor($advertiser);
+
+        $credited = app(WalletStripeDepositService::class)->creditFromPaymentIntentObject((object) [
+            'id' => 'pi_untyped_sref_'.uniqid(),
+            'status' => 'succeeded',
+            'amount' => 4000,
+            'amount_received' => 4000,
+            'metadata' => (object) [
+                'user_id' => (string) $advertiser->id,
+                'amount' => '40.00',
+                'reference_code' => 'DEP-UNTYPED-SREF',
+                'session_reference' => 'deposit_untyped_pi_40',
+            ],
+        ]);
+
+        $this->assertSame(40.0, $credited);
+        $this->assertSame(40.0, (float) $wallet->fresh()->balance);
+        $this->assertSame(1, DepositRequest::query()
+            ->where('user_id', $advertiser->id)
+            ->where('payment_method', 'card')
+            ->where('status', 'completed')
+            ->count());
+    }
+
+    public function test_untyped_session_with_add_funds_session_reference_credits_wallet(): void
+    {
+        $advertiser = $this->advertiser();
+        $wallet = $this->walletFor($advertiser);
+        $sessionId = 'cs_untyped_sref_'.uniqid();
+
+        $credited = app(WalletStripeDepositService::class)->creditFromCheckoutSession((object) [
+            'id' => $sessionId,
+            'payment_status' => 'paid',
+            'amount_total' => 4000,
+            'payment_intent' => 'pi_untyped_sref_cs_'.uniqid(),
+            'metadata' => (object) [
+                'user_id' => (string) $advertiser->id,
+                'amount' => '40.00',
+                'reference_code' => 'DEP-UNTYPED-SREF-CS',
+                'session_reference' => 'deposit_untyped_cs_40',
+            ],
+        ]);
+
+        $this->assertSame(40.0, $credited);
+        $this->assertSame(40.0, (float) $wallet->fresh()->balance);
+        $this->assertSame($sessionId, DepositRequest::query()
+            ->where('user_id', $advertiser->id)
+            ->where('payment_method', 'card')
+            ->where('status', 'completed')
+            ->value('stripe_session_id'));
+    }
+
+    public function test_untyped_payment_intent_with_session_reference_still_credits_when_bank_deposit_id_is_stale(): void
+    {
+        $advertiser = $this->advertiser();
+        $wallet = $this->walletFor($advertiser);
+
+        $bank = DepositRequest::create([
+            'user_id' => $advertiser->id,
+            'reference_code' => 'DEP-UNTYPED-SREF-BANK',
+            'amount' => 40,
+            'payment_method' => 'bank',
+            'status' => 'pending',
+        ]);
+
+        $credited = app(WalletStripeDepositService::class)->creditFromPaymentIntentObject((object) [
+            'id' => 'pi_untyped_sref_bank_'.uniqid(),
+            'status' => 'succeeded',
+            'amount' => 4000,
+            'amount_received' => 4000,
+            'metadata' => (object) [
+                'user_id' => (string) $advertiser->id,
+                'deposit_id' => (string) $bank->id,
+                'amount' => '40.00',
+                'reference_code' => 'DEP-UNTYPED-SREF-BANK',
+                'session_reference' => 'deposit_untyped_bank_40',
+            ],
+        ]);
+
+        $this->assertSame(40.0, $credited);
+        $this->assertSame('pending', $bank->fresh()->status);
+        $this->assertSame(40.0, (float) $wallet->fresh()->balance);
+        $this->assertSame(1, DepositRequest::query()
+            ->where('user_id', $advertiser->id)
+            ->where('payment_method', 'card')
+            ->where('status', 'completed')
+            ->count());
+    }
+
+    public function test_payment_intent_without_wallet_type_or_session_reference_does_not_credit(): void
+    {
+        $advertiser = $this->advertiser();
+        $wallet = $this->walletFor($advertiser);
+
+        $credited = app(WalletStripeDepositService::class)->creditFromPaymentIntentObject((object) [
+            'id' => 'pi_no_wallet_signal_'.uniqid(),
+            'status' => 'succeeded',
+            'amount' => 4000,
+            'amount_received' => 4000,
+            'metadata' => (object) [
+                'user_id' => (string) $advertiser->id,
+                'amount' => '40.00',
+                'reference_code' => 'DEP-NO-SIGNAL',
+            ],
+        ]);
+
+        $this->assertSame(0.0, $credited);
+        $this->assertSame(0.0, (float) $wallet->fresh()->balance);
+        $this->assertSame(0, DepositRequest::count());
+    }
+
     public function test_wallet_payment_intent_with_stale_deposit_id_still_credits_a_new_card_row(): void
     {
         $advertiser = $this->advertiser();
@@ -1553,6 +1667,97 @@ class DepositCreditAndRejectHardeningTest extends TestCase
                 'user_id' => (string) $advertiser->id,
                 'deposit_id' => (string) $card->id,
                 'amount' => '40.00',
+            ],
+        ]);
+
+        $this->assertSame(40.0, $credited);
+        $this->assertSame($pi, $card->fresh()->stripe_payment_intent_id);
+        $this->assertSame(40.0, (float) $wallet->fresh()->balance);
+        $this->assertSame(1, DepositRequest::query()->where('user_id', $advertiser->id)->count());
+    }
+
+    public function test_late_payment_intent_with_different_session_reference_does_not_attach_via_deposit_id(): void
+    {
+        $advertiser = $this->advertiser();
+        $wallet = $this->walletFor($advertiser);
+        $sessionId = 'cs_late_pi_other_sref_'.uniqid();
+        $pi = 'pi_second_checkout_sref_'.uniqid();
+
+        $card = DepositRequest::create([
+            'user_id' => $advertiser->id,
+            'reference_code' => 'DEP-SESSION-ONLY-SREF',
+            'amount' => 40,
+            'payment_method' => 'card',
+            'status' => 'completed',
+            'stripe_session_id' => $sessionId,
+            'stripe_response' => json_encode([
+                'metadata' => ['session_reference' => 'deposit_first_checkout'],
+            ]),
+            'approved_at' => now()->subMinute(),
+            'paid_at' => now()->subMinute(),
+        ]);
+        $wallet->update(['balance' => 40]);
+
+        $credited = app(WalletStripeDepositService::class)->creditFromPaymentIntentObject((object) [
+            'id' => $pi,
+            'status' => 'succeeded',
+            'amount' => 4000,
+            'amount_received' => 4000,
+            'metadata' => (object) [
+                'type' => 'wallet_deposit',
+                'user_id' => (string) $advertiser->id,
+                'deposit_id' => (string) $card->id,
+                'amount' => '40.00',
+                'session_reference' => 'deposit_second_checkout',
+            ],
+        ]);
+
+        $this->assertSame(40.0, $credited);
+        $this->assertNull($card->fresh()->stripe_payment_intent_id);
+        $this->assertSame(80.0, (float) $wallet->fresh()->balance);
+        $this->assertSame(2, DepositRequest::query()
+            ->where('user_id', $advertiser->id)
+            ->where('status', 'completed')
+            ->count());
+        $this->assertSame($pi, DepositRequest::query()
+            ->where('user_id', $advertiser->id)
+            ->where('stripe_payment_intent_id', $pi)
+            ->value('stripe_payment_intent_id'));
+    }
+
+    public function test_late_payment_intent_with_matching_session_reference_still_attaches_via_deposit_id(): void
+    {
+        $advertiser = $this->advertiser();
+        $wallet = $this->walletFor($advertiser);
+        $sessionId = 'cs_late_pi_same_sref_'.uniqid();
+        $pi = 'pi_same_checkout_sref_'.uniqid();
+
+        $card = DepositRequest::create([
+            'user_id' => $advertiser->id,
+            'reference_code' => 'DEP-SESSION-ONLY-SAME-SREF',
+            'amount' => 40,
+            'payment_method' => 'card',
+            'status' => 'completed',
+            'stripe_session_id' => $sessionId,
+            'stripe_response' => json_encode([
+                'metadata' => ['session_reference' => 'deposit_same_checkout'],
+            ]),
+            'approved_at' => now()->subMinute(),
+            'paid_at' => now()->subMinute(),
+        ]);
+        $wallet->update(['balance' => 40]);
+
+        $credited = app(WalletStripeDepositService::class)->creditFromPaymentIntentObject((object) [
+            'id' => $pi,
+            'status' => 'succeeded',
+            'amount' => 4000,
+            'amount_received' => 4000,
+            'metadata' => (object) [
+                'type' => 'wallet_deposit',
+                'user_id' => (string) $advertiser->id,
+                'deposit_id' => (string) $card->id,
+                'amount' => '40.00',
+                'session_reference' => 'deposit_same_checkout',
             ],
         ]);
 
