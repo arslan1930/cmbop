@@ -136,12 +136,17 @@ class FinanceController extends Controller
             ->appends($exportQuery);
 
         $types = $this->ledgerTypes();
+        $typeLabels = [];
+        foreach ($types as $txType) {
+            $typeLabels[$txType] = WalletTransaction::typeLabelFor($txType);
+        }
         $paymentMethods = $this->ledgerPaymentMethodOptions();
         $statuses = $this->ledgerStatuses();
 
         return view('admin.finance-ledger', compact(
             'transactions',
             'types',
+            'typeLabels',
             'paymentMethods',
             'statuses',
             'search',
@@ -206,21 +211,21 @@ class FinanceController extends Controller
                     }
                     fputcsv($out, [
                         $tx->id,
-                        optional($tx->created_at)?->toDateTimeString(),
+                        $this->csvCell(optional($tx->created_at)?->toDateTimeString()),
                         $tx->user_id,
-                        $tx->user?->name,
-                        $tx->user?->email,
+                        $this->csvCell($tx->user?->name),
+                        $this->csvCell($tx->user?->email),
                         $tx->wallet_id,
-                        $tx->walletRoleLabel(),
-                        $tx->type,
-                        $tx->direction,
-                        $tx->status,
-                        $tx->payment_method,
+                        $this->csvCell($tx->walletRoleLabel()),
+                        $this->csvCell($tx->type),
+                        $this->csvCell($tx->direction),
+                        $this->csvCell($tx->status),
+                        $this->csvCell($tx->payment_method),
                         $tx->amount,
                         $tx->bonus_amount,
                         $tx->balance_after,
-                        $tx->reference,
-                        $tx->description,
+                        $this->csvCell($tx->reference),
+                        $this->csvCell($tx->description),
                     ]);
                     $exported++;
                 }
@@ -365,19 +370,29 @@ class FinanceController extends Controller
 
         $search = is_string($request->input('search')) ? trim($request->input('search')) : '';
         if ($search !== '') {
-            $like = '%'.addcslashes($search, '%_\\').'%';
-            $query->where(function ($q) use ($search, $like) {
+            $searchId = $this->intQueryId($search);
+            $query->where(function ($q) use ($search, $searchId) {
+                if (preg_match('/^\d+$/', $search)) {
+                    if ($searchId > 0) {
+                        $q->where('id', $searchId)
+                            ->orWhere('user_id', $searchId)
+                            ->orWhere('wallet_id', $searchId);
+                    } else {
+                        $q->whereRaw('0 = 1');
+                    }
+
+                    return;
+                }
+
+                $like = '%'.addcslashes($search, '%_\\').'%';
                 $q->where('reference', 'like', $like)
                     ->orWhere('description', 'like', $like)
-                    ->orWhereHas('user', function ($sub) use ($like) {
-                        $sub->where('name', 'like', $like)
-                            ->orWhere('email', 'like', $like);
-                    });
-                $searchId = $this->intQueryId($search);
-                if ($searchId > 0) {
-                    $q->orWhere('id', $searchId)
-                        ->orWhere('user_id', $searchId);
-                }
+                    ->orWhereIn('user_id', User::query()
+                        ->where(function ($sub) use ($like) {
+                            $sub->where('name', 'like', $like)
+                                ->orWhere('email', 'like', $like);
+                        })
+                        ->select('id'));
             });
         }
 
@@ -498,6 +513,15 @@ class FinanceController extends Controller
             'bank' => ['bank', 'bank_transfer'],
             default => [$method],
         };
+    }
+
+    private function csvCell(mixed $value): mixed
+    {
+        if (! is_string($value) || $value === '') {
+            return $value;
+        }
+
+        return preg_match('/^[=+\-@\t\r]/', $value) ? "'".$value : $value;
     }
 
     private function ledgerExportLimit(): int

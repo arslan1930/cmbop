@@ -58,7 +58,7 @@
                     <select name="type" class="form-select form-select-sm">
                         <option value="">All types</option>
                         @foreach($types as $txType)
-                            <option value="{{ $txType }}" @selected($type === $txType)>{{ (new \App\Models\WalletTransaction(['type' => $txType]))->typeLabel() }}</option>
+                            <option value="{{ $txType }}" @selected($type === $txType)>{{ $typeLabels[$txType] ?? $txType }}</option>
                         @endforeach
                     </select>
                 </div>

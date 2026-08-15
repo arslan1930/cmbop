@@ -179,9 +179,9 @@ class WalletTransaction extends Model
         return $stored === $class || str_ends_with($stored, '\\'.class_basename($class));
     }
 
-    public function typeLabel(): string
+    public static function typeLabelFor(?string $type): string
     {
-        return match ($this->type) {
+        return match ($type) {
             self::TYPE_DEPOSIT => 'Deposit',
             self::TYPE_BONUS_CREDIT => 'Bonus Credit',
             self::TYPE_PURCHASE => 'Purchase',
@@ -192,7 +192,12 @@ class WalletTransaction extends Model
             self::TYPE_TRANSFER_IN => 'Transfer In',
             self::TYPE_ROLE_MOVE_OUT => 'Moved to Advertiser Wallet',
             self::TYPE_ROLE_MOVE_IN => 'Earnings Moved for Spending',
-            default => ucfirst(str_replace('_', ' ', (string) $this->type)),
+            default => ucfirst(str_replace('_', ' ', (string) $type)),
         };
+    }
+
+    public function typeLabel(): string
+    {
+        return self::typeLabelFor($this->type);
     }
 }

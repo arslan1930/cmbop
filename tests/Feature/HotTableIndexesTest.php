@@ -64,4 +64,13 @@ class HotTableIndexesTest extends TestCase
         $this->assertIndexed('deposit_requests', ['status']);
         $this->assertIndexed('deposit_requests', ['user_id', 'status']);
     }
+
+    public function test_ledger_filter_columns_are_indexed(): void
+    {
+        $this->assertIndexed('wallet_transactions', ['created_at']);
+        $this->assertIndexed('wallet_transactions', ['type', 'created_at']);
+        $this->assertIndexed('wallet_transactions', ['status', 'created_at']);
+        $this->assertIndexed('wallet_transactions', ['user_id', 'created_at']);
+        $this->assertIndexed('wallet_transactions', ['reference']);
+    }
 }

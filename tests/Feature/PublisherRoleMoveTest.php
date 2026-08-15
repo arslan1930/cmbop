@@ -270,6 +270,8 @@ class PublisherRoleMoveTest extends TestCase
 
         $this->assertSame('Moved to Advertiser Wallet', $out->typeLabel());
         $this->assertSame('Earnings Moved for Spending', $in->typeLabel());
+        $this->assertSame('Moved to Advertiser Wallet', WalletTransaction::typeLabelFor(WalletTransaction::TYPE_ROLE_MOVE_OUT));
+        $this->assertSame('Earnings Moved for Spending', WalletTransaction::typeLabelFor(WalletTransaction::TYPE_ROLE_MOVE_IN));
     }
 
     public function test_only_withdrawable_cash_moves_and_publisher_bonus_stays(): void
