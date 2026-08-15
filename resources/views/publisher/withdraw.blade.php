@@ -441,8 +441,8 @@ document.addEventListener('DOMContentLoaded', function() {
     const feePercent = {{ json_encode((float) $platformChargePercent) }};
     const payoutLocked = @json((bool) $payoutLocked);
     const formBlocked = @json((bool) $formBlocked);
-    const historyUrl = @json(route('publisher.withdrawals.history'));
-    const cancelUrlTemplate = @json(url('/publisher/withdrawals/__ID__/cancel'));
+    const historyUrl = @json(route('publisher.withdrawals.history', [], false));
+    const cancelUrlTemplate = @json(route('publisher.withdrawals.cancel', ['id' => '__ID__'], false));
     const csrfToken = form.querySelector('[name=_token]').value;
     let submitting = false;
 
@@ -743,7 +743,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
 
         try {
-            const response = await fetch(@json(route('publisher.withdraw.request')), {
+            const response = await fetch(@json(route('publisher.withdraw.request', [], false)), {
                 method: 'POST',
                 headers: {
                     'X-CSRF-TOKEN': csrfToken,

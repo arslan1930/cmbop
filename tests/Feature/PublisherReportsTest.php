@@ -118,6 +118,7 @@ class PublisherReportsTest extends TestCase
             ->assertOk()
             ->assertSee('Financial Reports', false)
             ->assertSee(route('publisher.reports.statistics', absolute: false), false)
+            ->assertSee('href="'.route('publisher.withdraw', [], false).'"', false)
             ->assertSee('Available to Withdraw', false);
 
         $this->actingAs($publisher)
@@ -168,7 +169,7 @@ class PublisherReportsTest extends TestCase
             'processed_at' => now(),
         ]);
 
-        $this->actingAs($publisher)
+        $stats = $this->actingAs($publisher)
             ->getJson(route('publisher.reports.statistics'))
             ->assertOk()
             ->assertJsonPath('success', true)
@@ -179,6 +180,8 @@ class PublisherReportsTest extends TestCase
             ->assertJsonPath('data.total_withdrawn_gross', 40)
             ->assertJsonPath('data.total_withdrawal_fees', 2)
             ->assertJsonPath('data.available_to_withdraw', 50);
+
+        $this->assertStringContainsString('no-store', (string) $stats->headers->get('Cache-Control'));
     }
 
     public function test_orders_list_exposes_payout_and_filters_status(): void
@@ -290,7 +293,7 @@ class PublisherReportsTest extends TestCase
             'processed_at' => now(),
         ]);
 
-        $this->actingAs($publisher)
+        $payload = $this->actingAs($publisher)
             ->getJson(route('publisher.reports.withdrawals', ['status' => 'completed']))
             ->assertOk()
             ->assertJsonPath('success', true)
@@ -300,5 +303,7 @@ class PublisherReportsTest extends TestCase
             ->assertJsonPath('data.0.fee', 1.25)
             ->assertJsonPath('data.0.net_amount', 23.75)
             ->assertJsonPath('data.0.status_label', 'Paid');
+
+        $this->assertStringContainsString('no-store', (string) $payload->headers->get('Cache-Control'));
     }
 }

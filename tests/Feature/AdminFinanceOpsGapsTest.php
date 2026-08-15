@@ -228,6 +228,17 @@ class AdminFinanceOpsGapsTest extends TestCase
             ->assertSee('Wallet ledger');
     }
 
+    public function test_period_export_invalid_dates_stay_on_this_host(): void
+    {
+        $admin = $this->makeUser('admin');
+
+        $this->actingAs($admin)
+            ->from(route('admin.finance'))
+            ->get(route('admin.finance.export', ['date_from' => 'nope']))
+            ->assertRedirect(route('admin.finance', [], false))
+            ->assertSessionHasErrors('date_from');
+    }
+
     public function test_withdrawals_page_honors_search_query_param(): void
     {
         $admin = $this->makeUser('admin');

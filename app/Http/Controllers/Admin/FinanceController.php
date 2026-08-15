@@ -196,9 +196,13 @@ class FinanceController extends Controller
     /**
      * Period summary CSV for accounting.
      */
-    public function export(Request $request): StreamedResponse
+    public function export(Request $request): StreamedResponse|RedirectResponse
     {
-        $input = $this->validatedPeriodInput($request);
+        try {
+            $input = $this->validatedPeriodInput($request);
+        } catch (ValidationException $e) {
+            return redirect()->to(route('admin.finance', [], false))->withErrors($e->errors());
+        }
         $period = $this->finance->resolvePeriod(
             $input['period'] ?? null,
             $input['date_from'] ?? null,

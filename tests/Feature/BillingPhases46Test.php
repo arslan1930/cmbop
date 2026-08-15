@@ -541,6 +541,12 @@ class BillingPhases46Test extends TestCase
             ->getContent();
 
         $this->assertStringContainsString('href="'.route('publisher.billing.index', [], false).'"', $html);
+        $jsonFlags = JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT;
+        $this->assertStringContainsString(json_encode(route('publisher.withdrawals.history', [], false), $jsonFlags), $html);
+        $this->assertStringContainsString(json_encode(route('publisher.withdraw.request', [], false), $jsonFlags), $html);
+        $this->assertStringContainsString(json_encode(route('publisher.withdrawals.cancel', ['id' => '__ID__'], false), $jsonFlags), $html);
+        $this->assertStringNotContainsString(json_encode(route('publisher.withdraw.request'), $jsonFlags), $html);
+        $this->assertStringNotContainsString(json_encode(route('publisher.withdrawals.history'), $jsonFlags), $html);
     }
 
     public function test_line_refund_amount_uses_order_total_for_single_item(): void

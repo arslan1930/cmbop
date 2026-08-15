@@ -268,6 +268,48 @@ class ManualWithdrawalMarkPaidConfirmLinkTest extends TestCase
             ->assertDontSee('Confirm marked paid —', false);
     }
 
+    public function test_confirm_get_does_not_reconcile_leftover_statement(): void
+    {
+        $admin = $this->makeUser('admin');
+        $publisher = $this->makeUser('publisher');
+        $other = $this->makeUser('publisher');
+        $other->update([
+            'name' => 'Leftover Confirm Payee',
+            'email' => 'leftover-confirm@example.com',
+        ]);
+        $withdrawal = $this->pendingWithdrawal($publisher);
+        $withdrawal->update(['status' => 'completed', 'processed_at' => now()]);
+        $statement = Invoice::create([
+            'user_id' => $other->id,
+            'customer_name' => $other->name,
+            'customer_email' => $other->email,
+            'invoice_number' => 'PAY-CONFIRM-GET-RO',
+            'type' => Invoice::TYPE_WITHDRAWAL_PAYOUT,
+            'status' => Invoice::STATUS_PAID,
+            'subtotal' => 90,
+            'total_amount' => 90,
+            'invoice_date' => now(),
+            'line_items' => [['description' => 'Payout', 'line_total' => 90]],
+            'pdf_disk' => 'local',
+            'pdf_path' => 'payouts/leftover-confirm.pdf',
+            'reference_code' => 'WD-'.$withdrawal->id,
+            'meta' => ['withdrawal_id' => $withdrawal->id],
+        ]);
+        $url = $this->relativeSignedUrl(ManualWithdrawalMarkPaidLink::url($withdrawal));
+
+        $this->actingAs($admin)
+            ->get($url)
+            ->assertOk()
+            ->assertSee('Withdrawal already settled', false)
+            ->assertDontSee('Create payout statement', false);
+
+        $statement->refresh();
+        $this->assertSame($other->id, (int) $statement->user_id);
+        $this->assertSame('Leftover Confirm Payee', $statement->customer_name);
+        $this->assertSame('leftover-confirm@example.com', $statement->customer_email);
+        $this->assertSame('payouts/leftover-confirm.pdf', $statement->pdf_path);
+    }
+
     public function test_already_completed_with_statement_does_not_offer_create(): void
     {
         $admin = $this->makeUser('admin');

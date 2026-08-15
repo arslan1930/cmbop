@@ -70,7 +70,9 @@ class PublisherBalanceHistoryUiTest extends TestCase
         $this->assertStringContainsString('id="roleMoveForm"', $html);
         $this->assertStringContainsString('id="roleMoveAmount"', $html);
         $this->assertStringContainsString('id="roleMoveBtn"', $html);
-        $this->assertStringContainsString(route('publisher.balance.transfer'), $html);
+        $this->assertStringContainsString(route('publisher.balance.transfer', [], false), $html);
+        $this->assertStringContainsString('action="'.route('publisher.balance.transfer', [], false).'"', $html);
+        $this->assertStringContainsString('data-url="'.route('publisher.balance.transfer', [], false).'"', $html);
         $this->assertStringContainsString('Move withdrawable earnings into your advertiser wallet', $html);
         $this->assertStringContainsString('assets/js/publisher-balance.js', $html);
         $this->assertStringNotContainsString('Transfer to Advertiser Wallet', $html);
@@ -186,7 +188,7 @@ class PublisherBalanceHistoryUiTest extends TestCase
             ->getContent();
 
         $this->assertStringContainsString('Ready to withdraw', $html);
-        $this->assertStringContainsString(route('publisher.withdraw'), $html);
+        $this->assertStringContainsString('href="'.route('publisher.withdraw', [], false).'"', $html);
         $this->assertMatchesRegularExpression('/<a[^>]*id="withdrawCta"/', $html);
         $this->assertStringNotContainsString('You need at least €20.00 withdrawable balance', $html);
     }

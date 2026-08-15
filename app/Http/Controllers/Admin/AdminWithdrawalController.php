@@ -341,7 +341,7 @@ class AdminWithdrawalController extends Controller
                 .' ('.$label.')';
         }
 
-        return response()->json([
+        return $this->noStoreJson([
             'success' => $ok > 0,
             'message' => implode(', ', $parts),
             'succeeded' => $ok,
@@ -366,7 +366,7 @@ class AdminWithdrawalController extends Controller
             if ($total > $maxRows) {
                 $message = 'Export is limited to '.$maxRows.' rows. This view has '.$total.'. Narrow the filters and try again.';
                 if ($request->wantsJson()) {
-                    return response()->json([
+                    return $this->noStoreJson([
                         'success' => false,
                         'message' => $message,
                         'total' => $total,
@@ -382,7 +382,7 @@ class AdminWithdrawalController extends Controller
             Log::error('Error exporting withdrawals: '.$e->getMessage());
             $message = UserFacingError::message($e, 'Failed to export withdrawals. Please try again.');
             if ($request->wantsJson()) {
-                return response()->json([
+                return $this->noStoreJson([
                     'success' => false,
                     'message' => $message,
                 ], 500);
@@ -559,7 +559,7 @@ class AdminWithdrawalController extends Controller
             $refs = array_map(fn (int $id) => 'WD-'.$id, $duplicateIds);
         }
 
-        return response()->json([
+        return $this->noStoreJson([
             'success' => false,
             'needs_duplicate_confirm' => true,
             'message' => 'Possible duplicate payout: same publisher was paid this net amount recently ('.implode(', ', $refs).'). Confirm you are not paying twice.',
@@ -859,21 +859,21 @@ class AdminWithdrawalController extends Controller
                 $payload['has_statement'] = (bool) $result['has_statement'];
             }
 
-            return response()->json($payload);
+            return $this->noStoreJson($payload);
         } catch (ManualWithdrawalInvalidTransitionException $e) {
-            return response()->json([
+            return $this->noStoreJson([
                 'success' => false,
                 'message' => UserFacingError::message($e, 'This withdrawal cannot be updated from its current status.'),
             ], 400);
         } catch (ManualWithdrawalUnknownWalletException $e) {
-            return response()->json([
+            return $this->noStoreJson([
                 'success' => false,
                 'message' => UserFacingError::message($e, 'Cannot return these funds: the source wallet is unknown.'),
             ], 422);
         } catch (\Throwable $e) {
             Log::error('Error updating withdrawal status: '.$e->getMessage());
 
-            return response()->json([
+            return $this->noStoreJson([
                 'success' => false,
                 'message' => UserFacingError::message($e, 'Failed to update status. Please try again.'),
             ], 500);

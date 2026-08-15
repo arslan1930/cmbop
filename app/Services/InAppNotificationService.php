@@ -756,7 +756,7 @@ class InAppNotificationService
         $actionLabel = 'View payout documents';
         try {
             $statement = app(WithdrawalPayoutStatementService::class)
-                ->find($withdrawal);
+                ->findExisting($withdrawal);
             if ($statement) {
                 $actionUrl = route('publisher.billing.show', $statement, false);
                 $actionLabel = 'View payout document';

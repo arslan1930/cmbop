@@ -38,7 +38,7 @@ class WithdrawalStatusUpdated extends PlatformMailable
         if ($this->newStatus === 'completed') {
             try {
                 $statement = app(WithdrawalPayoutStatementService::class)
-                    ->find($this->withdrawal);
+                    ->findExisting($this->withdrawal);
                 if ($statement) {
                     $hasStatement = true;
                     $statementUrl = $this->publicRoute('publisher.billing.download', $statement);

@@ -59,12 +59,9 @@ class DepositApproveConfirmController extends Controller
                 $message .= ' New wallet balance: €'.number_format($balance, 2).'.';
             }
 
-            return redirect()
-                ->route('admin.deposits')
-                ->with('success', $message);
+            return $this->redirectToDeposits()->with('success', $message);
         } catch (ManualDepositAlreadyProcessedException $e) {
-            return redirect()
-                ->route('admin.deposits')
+            return $this->redirectToDeposits()
                 ->with('error', UserFacingError::message($e, 'This deposit was already processed.'));
         } catch (\Exception $e) {
             Log::error('Failed to approve deposit from email confirm link', [
@@ -72,8 +69,7 @@ class DepositApproveConfirmController extends Controller
                 'error' => $e->getMessage(),
             ]);
 
-            return redirect()
-                ->route('admin.deposits')
+            return $this->redirectToDeposits()
                 ->with('error', UserFacingError::message($e, 'Failed to approve deposit. Please try again.'));
         }
     }
@@ -176,8 +172,16 @@ class DepositApproveConfirmController extends Controller
 
     protected function invalidSignatureResponse()
     {
-        return redirect()
-            ->route('admin.deposits')
+        return $this->redirectToDeposits()
             ->with('error', 'This approve link is invalid or has expired. Open Deposits and approve from the admin panel, or request a fresh email.');
+    }
+
+    /**
+     * Stay on the current host. Absolute route() would jump to APP_URL
+     * (www vs bare) and drop the session/flash after confirm.
+     */
+    protected function redirectToDeposits()
+    {
+        return redirect()->to(route('admin.deposits', [], false));
     }
 }

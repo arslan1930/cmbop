@@ -239,6 +239,13 @@ class PublisherWithdrawHardeningTest extends TestCase
         $this->assertSame(45.0, (float) $history['net_amount']);
         $this->assertSame('WD-'.$history['id'], $history['reference']);
         $this->assertTrue($history['cancellable']);
+
+        $historyCache = (string) $this->actingAs($publisher)
+            ->getJson(route('publisher.withdrawals.history'))
+            ->assertOk()
+            ->headers
+            ->get('Cache-Control');
+        $this->assertStringContainsString('no-store', $historyCache);
     }
 
     public function test_statistics_include_processing_as_in_flight(): void
@@ -264,10 +271,12 @@ class PublisherWithdrawHardeningTest extends TestCase
             'status' => 'processing',
         ]);
 
-        $this->actingAs($publisher)
+        $stats = $this->actingAs($publisher)
             ->getJson(route('publisher.withdrawals.statistics'))
             ->assertOk()
             ->assertJsonPath('data.pending_withdrawals', 70);
+
+        $this->assertStringContainsString('no-store', (string) $stats->headers->get('Cache-Control'));
     }
 
     public function test_invalid_iban_is_rejected(): void

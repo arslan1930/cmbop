@@ -487,6 +487,14 @@ class EmailCatalog
             };
         }
 
+        if (in_array($key, ['payment_successful_invoice', 'payment_failed', 'refund_receipt'], true)) {
+            return match ($key) {
+                'payment_successful_invoice' => new PaymentSuccessfulInvoiceMail(self::sampleTaxInvoice()),
+                'payment_failed' => new PaymentFailedMail(self::sampleFailureDocument()),
+                default => new RefundReceiptMail(self::sampleRefundDocument()),
+            };
+        }
+
         $order = self::sampleOrder();
         $item = self::sampleOrderItem();
         $site = self::sampleSite();
@@ -505,10 +513,7 @@ class EmailCatalog
                 description: 'Great news — the publisher accepted this order and work can begin.',
             ),
             'order_payment_confirmed' => new OrderPaymentConfirmed($order),
-            'payment_successful_invoice' => new PaymentSuccessfulInvoiceMail(self::sampleTaxInvoice()),
-            'payment_failed' => new PaymentFailedMail(self::sampleFailureDocument()),
             'payment_pending' => new PaymentPendingMail($order),
-            'refund_receipt' => new RefundReceiptMail(self::sampleRefundDocument()),
             'order_completed' => new OrderApprovedByAdvertiser($order, $item, $site),
             'publisher_new_order' => new SiteOwnerOrderNotification($site, [$order]),
             'order_accepted' => new OrderAccepted($order, $item, $site),
@@ -598,45 +603,27 @@ class EmailCatalog
 
     protected static function sampleUser(): User
     {
-        return User::query()->first() ?? new User([
+        $user = new User([
             'name' => 'Sample User',
             'email' => 'sample@example.com',
         ]);
+        $user->id = 0;
+
+        return $user;
     }
 
     protected static function sampleOrder(): Order
     {
-        $order = Order::query()->with(['user', 'items.site'])->latest('id')->first();
-        if ($order) {
-            return $order;
-        }
-
-        $user = self::sampleUser();
-        $order = new Order([
-            'order_number' => 'ORD-PREVIEW',
-            'total_amount' => 99.00,
-            'subtotal' => 99.00,
-            'tax' => 0,
-            'payment_status' => 'paid',
-            'status' => 'completed',
-            'payment_method' => 'wallet',
-        ]);
-        $order->id = 0;
-        $order->user_id = $user->id ?? 0;
-        $order->setRelation('user', $user);
-        $order->setRelation('items', collect());
-        $order->created_at = now();
+        $order = self::samplePreviewOrder();
+        $item = self::sampleOrderItem();
+        $item->setRelation('order', $order);
+        $order->setRelation('items', collect([$item]));
 
         return $order;
     }
 
     protected static function sampleOrderItem(): OrderItem
     {
-        $item = OrderItem::query()->with('site')->latest('id')->first();
-        if ($item) {
-            return $item;
-        }
-
         $item = new OrderItem([
             'site_name' => 'Sample Publisher Site',
             'site_url' => 'https://example.com',
@@ -647,6 +634,7 @@ class EmailCatalog
             'social_channels' => ['facebook', 'x'],
             'content_link' => 'https://example.com/content.docx',
         ]);
+        $item->id = 0;
         $item->setRelation('site', self::sampleSite());
 
         return $item;
@@ -675,15 +663,11 @@ class EmailCatalog
 
     protected static function sampleSite(): Site
     {
-        $site = Site::query()->with('publisher')->latest('id')->first();
-        if ($site) {
-            return $site;
-        }
-
         $user = self::sampleUser();
         $site = new Site([
             'site_name' => 'Sample Site',
             'site_url' => 'https://example.com',
+            'domain' => 'example.com',
             'publisher_id' => $user->id ?? 0,
             'verified' => true,
             'active' => true,
@@ -696,11 +680,6 @@ class EmailCatalog
 
     protected static function sampleSiteClaim(string $status = 'pending'): SiteClaim
     {
-        $claim = SiteClaim::query()->with(['site', 'claimer'])->latest('id')->first();
-        if ($claim) {
-            return $claim;
-        }
-
         $site = self::sampleSite();
         $user = self::sampleUser();
         $claim = new SiteClaim([
@@ -742,17 +721,8 @@ class EmailCatalog
 
     protected static function sampleTaxInvoice(): Invoice
     {
-        $invoice = Invoice::query()
-            ->where('type', Invoice::TYPE_TAX_INVOICE)
-            ->with(['user', 'order'])
-            ->latest('id')
-            ->first();
-        if ($invoice) {
-            return $invoice;
-        }
-
         $user = self::sampleUser();
-        $order = self::sampleOrder();
+        $order = self::samplePreviewOrder();
         $invoice = new Invoice([
             'invoice_number' => 'INV-PREVIEW-000001',
             'type' => Invoice::TYPE_TAX_INVOICE,
@@ -773,17 +743,8 @@ class EmailCatalog
 
     protected static function sampleFailureDocument(): Invoice
     {
-        $invoice = Invoice::query()
-            ->where('type', Invoice::TYPE_PAYMENT_FAILURE)
-            ->with(['user', 'order'])
-            ->latest('id')
-            ->first();
-        if ($invoice) {
-            return $invoice;
-        }
-
         $user = self::sampleUser();
-        $order = self::sampleOrder();
+        $order = self::samplePreviewOrder();
         $invoice = new Invoice([
             'invoice_number' => 'RCPT-PREVIEW-000001',
             'type' => Invoice::TYPE_PAYMENT_FAILURE,
@@ -806,17 +767,8 @@ class EmailCatalog
 
     protected static function sampleRefundDocument(): Invoice
     {
-        $invoice = Invoice::query()
-            ->where('type', Invoice::TYPE_REFUND_RECEIPT)
-            ->with(['user', 'order', 'parentInvoice'])
-            ->latest('id')
-            ->first();
-        if ($invoice) {
-            return $invoice;
-        }
-
         $user = self::sampleUser();
-        $order = self::sampleOrder();
+        $order = self::samplePreviewOrder();
         $parent = self::sampleTaxInvoice();
         $invoice = new Invoice([
             'invoice_number' => 'CN-PREVIEW-000001',
@@ -837,6 +789,27 @@ class EmailCatalog
         $invoice->setRelation('parentInvoice', $parent);
 
         return $invoice;
+    }
+
+    protected static function samplePreviewOrder(): Order
+    {
+        $user = self::sampleUser();
+        $order = new Order([
+            'order_number' => 'ORD-PREVIEW',
+            'total_amount' => 99.00,
+            'subtotal' => 99.00,
+            'tax' => 0,
+            'payment_status' => 'paid',
+            'status' => 'completed',
+            'payment_method' => 'wallet',
+        ]);
+        $order->id = 0;
+        $order->user_id = 0;
+        $order->setRelation('user', $user);
+        $order->setRelation('items', collect());
+        $order->created_at = now();
+
+        return $order;
     }
 
     protected static function sampleWithdrawal(): Withdrawal
