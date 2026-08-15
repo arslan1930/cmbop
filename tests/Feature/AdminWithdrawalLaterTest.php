@@ -2,12 +2,14 @@
 
 namespace Tests\Feature;
 
+use App\Models\ActivityLog;
 use App\Models\Invoice;
 use App\Models\Role;
 use App\Models\User;
 use App\Models\Withdrawal;
 use App\Services\Admin\FinanceOverviewService;
 use App\Services\Billing\AdminInvoiceLinks;
+use App\Services\Billing\WithdrawalPayoutStatementService;
 use App\Services\Wallet\ManualWithdrawalSettlementService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Request;
@@ -104,6 +106,113 @@ class AdminWithdrawalLaterTest extends TestCase
         $this->assertStringContainsString('Array.isArray(options.ids) ? options.ids', $html);
         $this->assertStringContainsString('ids: ids', $html);
         $this->assertStringContainsString('!Array.isArray(withdrawal.payment_details)', $html);
+        $this->assertStringContainsString("(failedCount > 0 || missingStatements > 0) ? 'warning' : 'success'", $html);
+        $this->assertStringContainsString('failed.forEach(function (row)', $html);
+        $this->assertStringContainsString('addSelectedId(row && row.id)', $html);
+        $this->assertStringContainsString('act-statement', $html);
+        $this->assertStringContainsString('Create statement', $html);
+        $this->assertStringContainsString('res.has_statement === false', $html);
+        $this->assertStringContainsString('res.missing_statement_ids', $html);
+        $this->assertStringContainsString('missingStatementAlert', $html);
+    }
+
+    public function test_html_show_warns_when_paid_statement_is_missing(): void
+    {
+        $admin = $this->makeUser('admin');
+        $publisher = $this->makeUser('publisher');
+        $withdrawal = $this->seedWithdrawal($publisher, [
+            'status' => 'completed',
+            'processed_at' => now(),
+        ]);
+
+        $queueUrl = route('admin.withdrawals', [
+            'search' => (string) $withdrawal->id,
+            'queue' => 'history',
+        ], false);
+
+        $html = $this->actingAs($admin)
+            ->get(route('admin.withdrawals.show', $withdrawal->id))
+            ->assertOk()
+            ->assertSee('Payout statement is missing', false)
+            ->assertSee('Create statement', false)
+            ->assertSee('Open this withdrawal in the payout queue', false)
+            ->assertDontSee('Yes, mark paid', false)
+            ->getContent();
+
+        $this->assertStringContainsString('href="'.e($queueUrl).'"', $html);
+    }
+
+    public function test_mark_paid_warns_when_statement_issue_fails(): void
+    {
+        $this->mock(WithdrawalPayoutStatementService::class, function ($mock) {
+            $mock->shouldReceive('issue')->once()->andReturn(null);
+        });
+
+        $admin = $this->makeUser('admin');
+        $publisher = $this->makeUser('publisher');
+        $withdrawal = $this->seedWithdrawal($publisher);
+
+        $this->actingAs($admin)
+            ->postJson(route('admin.withdrawals.paid', $withdrawal->id), ['notes' => 'Paid'])
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('unchanged', false)
+            ->assertJsonPath('has_statement', false)
+            ->assertJsonPath(
+                'message',
+                'Marked paid, but the payout statement could not be created. Open history and choose Create statement.'
+            );
+
+        $this->assertSame('completed', $withdrawal->fresh()->status);
+    }
+
+    public function test_batch_reports_missing_payout_statements(): void
+    {
+        $this->mock(WithdrawalPayoutStatementService::class, function ($mock) {
+            $mock->shouldReceive('issue')->once()->andReturn(null);
+        });
+
+        $admin = $this->makeUser('admin');
+        $publisher = $this->makeUser('publisher');
+        $withdrawal = $this->seedWithdrawal($publisher);
+
+        $this->actingAs($admin)
+            ->postJson(route('admin.withdrawals.batch'), [
+                'ids' => [$withdrawal->id],
+                'action' => 'completed',
+            ])
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('succeeded', 1)
+            ->assertJsonPath('missing_statement_ids', [$withdrawal->id]);
+
+        $this->assertSame('completed', $withdrawal->fresh()->status);
+    }
+
+    public function test_http_mark_paid_on_completed_creates_missing_statement(): void
+    {
+        $admin = $this->makeUser('admin');
+        $publisher = $this->makeUser('publisher');
+        $withdrawal = $this->seedWithdrawal($publisher, [
+            'status' => 'completed',
+            'processed_at' => now(),
+        ]);
+
+        $this->actingAs($admin)
+            ->postJson(route('admin.withdrawals.paid', $withdrawal->id), ['notes' => ''])
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('unchanged', true)
+            ->assertJsonPath('has_statement', true)
+            ->assertJsonPath('message', 'Payout statement is ready');
+
+        $this->assertNotNull(
+            Invoice::query()
+                ->where('type', Invoice::TYPE_WITHDRAWAL_PAYOUT)
+                ->where('reference_code', 'WD-'.$withdrawal->id)
+                ->where('status', '!=', Invoice::STATUS_CANCELLED)
+                ->first()
+        );
     }
 
     public function test_browser_show_is_html_and_json_accept_stays_json(): void
@@ -457,7 +566,7 @@ class AdminWithdrawalLaterTest extends TestCase
         $statement->order_id = 999;
 
         $this->assertSame(
-            route('admin.withdrawals.show', $withdrawal->id),
+            route('admin.withdrawals.show', $withdrawal->id, false),
             $statement->relatedAdminUrl()
         );
     }
@@ -605,7 +714,7 @@ class AdminWithdrawalLaterTest extends TestCase
         $urls = collect(app(FinanceOverviewService::class)->walletLiability()['open_withdrawal_rows'] ?? [])
             ->pluck('url');
 
-        $this->assertTrue($urls->contains(route('admin.withdrawals.show', $withdrawal->id)));
+        $this->assertTrue($urls->contains(route('admin.withdrawals.show', $withdrawal->id, false)));
     }
 
     public function test_data_clamps_page_past_the_last_page(): void
@@ -751,6 +860,132 @@ class AdminWithdrawalLaterTest extends TestCase
         $this->assertStringNotContainsString('Array', $csv);
     }
 
+    public function test_unchanged_mark_paid_retries_missing_payout_statement(): void
+    {
+        $admin = $this->makeUser('admin');
+        $publisher = $this->makeUser('publisher');
+        $withdrawal = $this->seedWithdrawal($publisher, [
+            'status' => 'completed',
+            'processed_at' => now(),
+        ]);
+
+        $this->assertNull(
+            Invoice::query()
+                ->where('type', Invoice::TYPE_WITHDRAWAL_PAYOUT)
+                ->where('reference_code', 'WD-'.$withdrawal->id)
+                ->where('status', '!=', Invoice::STATUS_CANCELLED)
+                ->first()
+        );
+
+        $result = app(ManualWithdrawalSettlementService::class)->markPaid($withdrawal, $admin);
+        $this->assertTrue($result['unchanged']);
+        $this->assertSame('Payout statement is ready', $result['message']);
+
+        $statement = Invoice::query()
+            ->where('type', Invoice::TYPE_WITHDRAWAL_PAYOUT)
+            ->where('reference_code', 'WD-'.$withdrawal->id)
+            ->where('status', '!=', Invoice::STATUS_CANCELLED)
+            ->first();
+        $this->assertNotNull($statement);
+
+        $again = app(ManualWithdrawalSettlementService::class)->markPaid($withdrawal->fresh(), $admin);
+        $this->assertTrue($again['unchanged']);
+        $this->assertSame(1, Invoice::query()
+            ->where('type', Invoice::TYPE_WITHDRAWAL_PAYOUT)
+            ->where('reference_code', 'WD-'.$withdrawal->id)
+            ->where('status', '!=', Invoice::STATUS_CANCELLED)
+            ->count());
+    }
+
+    public function test_masked_payout_destination_ignores_nested_detail_arrays(): void
+    {
+        $this->assertNull(Invoice::maskedPayoutDestination([
+            'account_number' => ['not-a-string'],
+        ], 'bank'));
+        $this->assertSame('···3000', Invoice::maskedPayoutDestination([
+            'account_number' => 'DE89370400440532013000',
+        ], 'bank'));
+
+        $this->assertNull(Invoice::maskedPayoutDestination([
+            'email' => ['not-a-string'],
+        ], 'paypal'));
+        $this->assertSame('p***@example.com', Invoice::maskedPayoutDestination([
+            'email' => 'pub@example.com',
+        ], 'paypal'));
+
+        $this->assertSame('Crypto', Invoice::maskedPayoutDestination([
+            'wallet_address' => ['not-a-string'],
+            'crypto_type' => ['not-a-string'],
+        ], 'crypto'));
+        $this->assertSame('TRX · ···wxyz', Invoice::maskedPayoutDestination([
+            'crypto_type' => 'TRX',
+            'wallet_address' => 'TAbcdefghijklmnopqrstuvwxyz',
+        ], 'crypto'));
+
+        $publisher = $this->makeUser('publisher');
+        $statement = Invoice::create([
+            'user_id' => $publisher->id,
+            'customer_name' => $publisher->name,
+            'customer_email' => $publisher->email,
+            'invoice_number' => 'PAY-NEST-MASK-1',
+            'type' => Invoice::TYPE_WITHDRAWAL_PAYOUT,
+            'status' => Invoice::STATUS_PAID,
+            'payment_method' => 'bank',
+            'subtotal' => 95,
+            'total_amount' => 95,
+            'invoice_date' => now(),
+            'line_items' => [['description' => 'Payout', 'line_total' => 95]],
+            'pdf_disk' => 'local',
+            'reference_code' => 'WD-9001',
+            'billing_snapshot' => [
+                'payment_details' => [
+                    'account_number' => ['not-a-string'],
+                ],
+            ],
+            'meta' => ['withdrawal_id' => 9001],
+        ]);
+
+        $html = view('billing.pdf.invoice', [
+            'invoice' => $statement,
+            'company' => config('billing.company'),
+            'colors' => config('billing.colors'),
+            'currencySymbol' => '€',
+        ])->render();
+
+        $this->assertStringNotContainsString('Array', $html);
+        $this->assertStringNotContainsString('···rray', $html);
+    }
+
+    public function test_mark_paid_issues_statement_when_payment_details_are_nested(): void
+    {
+        $admin = $this->makeUser('admin');
+        $publisher = $this->makeUser('publisher');
+        $publisher->forceFill(['name' => 'Pat Publisher'])->save();
+        $withdrawal = $this->seedWithdrawal($publisher, [
+            'payment_method' => 'bank',
+            'payment_details' => [
+                'bank_name' => 'Test Bank',
+                'account_holder' => ['not-a-string'],
+                'account_number' => 'DE89370400440532013000',
+            ],
+        ]);
+
+        $this->actingAs($admin)
+            ->postJson(route('admin.withdrawals.paid', $withdrawal->id), ['notes' => 'Paid'])
+            ->assertOk()
+            ->assertJsonPath('success', true);
+
+        $this->assertSame('completed', $withdrawal->fresh()->status);
+        $statement = Invoice::query()
+            ->where('type', Invoice::TYPE_WITHDRAWAL_PAYOUT)
+            ->where('reference_code', 'WD-'.$withdrawal->id)
+            ->where('status', '!=', Invoice::STATUS_CANCELLED)
+            ->first();
+        $this->assertNotNull($statement);
+        $this->assertSame('Pat Publisher', $statement->customer_name);
+        $this->assertStringNotContainsString('Array', (string) $statement->customer_name);
+    }
+
     public function test_html_show_and_list_tolerate_nested_payment_details(): void
     {
         $admin = $this->makeUser('admin');
@@ -834,5 +1069,70 @@ class AdminWithdrawalLaterTest extends TestCase
             ])
             ->assertStatus(422)
             ->assertJsonValidationErrors('ids.0');
+    }
+
+    public function test_batch_activity_log_lists_only_succeeded_ids(): void
+    {
+        $admin = $this->makeUser('admin');
+        $publisher = $this->makeUser('publisher');
+        $open = $this->seedWithdrawal($publisher);
+        $cancelled = $this->seedWithdrawal($publisher, [
+            'status' => 'cancelled',
+            'net_amount' => 10,
+        ]);
+
+        $this->actingAs($admin)
+            ->postJson(route('admin.withdrawals.batch'), [
+                'ids' => [$cancelled->id, $open->id],
+                'action' => 'completed',
+            ])
+            ->assertOk()
+            ->assertJsonPath('succeeded', 1)
+            ->assertJsonPath('failed.0.id', $cancelled->id);
+
+        $log = ActivityLog::query()->where('action', 'withdrawal.batch_completed')->latest('id')->first();
+        $this->assertNotNull($log);
+        $this->assertSame([$open->id], $log->properties['ids'] ?? null);
+        $this->assertSame(1, $log->properties['succeeded'] ?? null);
+        $this->assertSame(1, $log->properties['failed'] ?? null);
+    }
+
+    public function test_batch_does_not_count_already_settled_as_updated(): void
+    {
+        $admin = $this->makeUser('admin');
+        $publisher = $this->makeUser('publisher');
+        $paid = $this->seedWithdrawal($publisher, [
+            'status' => 'completed',
+            'processed_at' => now(),
+            'net_amount' => 10,
+        ]);
+        $open = $this->seedWithdrawal($publisher);
+
+        $this->actingAs($admin)
+            ->postJson(route('admin.withdrawals.batch'), [
+                'ids' => [$paid->id, $open->id],
+                'action' => 'completed',
+            ])
+            ->assertOk()
+            ->assertJsonPath('succeeded', 1)
+            ->assertJsonPath('unchanged', [$paid->id])
+            ->assertJsonPath('failed', []);
+
+        $log = ActivityLog::query()->where('action', 'withdrawal.batch_completed')->latest('id')->first();
+        $this->assertNotNull($log);
+        $this->assertSame([$open->id], $log->properties['ids'] ?? null);
+        $this->assertSame(1, $log->properties['succeeded'] ?? null);
+        $this->assertSame(1, $log->properties['unchanged'] ?? null);
+        $this->assertSame('completed', $open->fresh()->status);
+
+        $this->actingAs($admin)
+            ->postJson(route('admin.withdrawals.batch'), [
+                'ids' => [$paid->id],
+                'action' => 'completed',
+            ])
+            ->assertStatus(422)
+            ->assertJsonPath('success', false)
+            ->assertJsonPath('succeeded', 0)
+            ->assertJsonPath('unchanged', [$paid->id]);
     }
 }

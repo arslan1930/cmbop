@@ -135,10 +135,12 @@ class WithdrawalPayoutStatementService
         // Fee is shown once in totals as "Withdrawal fee" (discount_amount),
         // not also as a negative line item.
 
-        $details = is_array($withdrawal->payment_details) ? $withdrawal->payment_details : [];
-        $payeeName = $user->payout_business_name
-            ?: ($details['account_holder'] ?? null)
-            ?: ($user->billing_name ?? $user->name);
+        $details = Withdrawal::detailsArray($withdrawal->payment_details);
+        $accountHolder = Withdrawal::detailText($details, 'account_holder');
+        $payeeName = $this->scalarText($user->payout_business_name)
+            ?: $accountHolder
+            ?: $this->scalarText($user->billing_name)
+            ?: $this->scalarText($user->name);
 
         return [
             'invoice_number' => $this->numbers->nextPayoutStatement(),
@@ -160,16 +162,16 @@ class WithdrawalPayoutStatementService
             'invoice_date' => $paidAt,
             'paid_at' => $paidAt,
             'customer_name' => $payeeName,
-            'customer_email' => $user->email,
+            'customer_email' => $this->scalarText($user->email) ?: null,
             'billing_snapshot' => [
                 'name' => $payeeName,
-                'email' => $user->email,
-                'company' => $user->payout_business_name ?: ($user->company_name ?? null),
-                'address' => $user->address ?? null,
-                'city' => $user->city ?? null,
-                'state' => $user->state ?? null,
-                'postal_code' => $user->postal_code ?? null,
-                'country' => $user->country ?? null,
+                'email' => $this->scalarText($user->email) ?: null,
+                'company' => $this->scalarText($user->payout_business_name) ?: $this->scalarText($user->company_name) ?: null,
+                'address' => $this->scalarText($user->address) ?: null,
+                'city' => $this->scalarText($user->city) ?: null,
+                'state' => $this->scalarText($user->state) ?: null,
+                'postal_code' => $this->scalarText($user->postal_code) ?: null,
+                'country' => $this->scalarText($user->country) ?: null,
                 'payment_details' => $details,
             ],
             'line_items' => $lineItems,
@@ -322,6 +324,15 @@ class WithdrawalPayoutStatementService
         ]);
 
         return $statement->fresh() ?? $statement;
+    }
+
+    private function scalarText(mixed $value): string
+    {
+        if (is_string($value) || is_int($value) || is_float($value)) {
+            return trim((string) $value);
+        }
+
+        return '';
     }
 
     /**

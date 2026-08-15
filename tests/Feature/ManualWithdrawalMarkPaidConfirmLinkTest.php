@@ -2,10 +2,12 @@
 
 namespace Tests\Feature;
 
+use App\Models\Invoice;
 use App\Models\Role;
 use App\Models\User;
 use App\Models\Wallet;
 use App\Models\Withdrawal;
+use App\Services\Billing\WithdrawalPayoutStatementService;
 use App\Services\Wallet\ManualWithdrawalMarkPaidLink;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Mail;
@@ -78,7 +80,7 @@ class ManualWithdrawalMarkPaidConfirmLinkTest extends TestCase
         $withdrawal = $this->pendingWithdrawal($publisher, 90);
         $url = $this->relativeSignedUrl(ManualWithdrawalMarkPaidLink::url($withdrawal));
 
-        $this->actingAs($admin)
+        $confirm = $this->actingAs($admin)
             ->get($url)
             ->assertOk()
             ->assertSee('Confirm marked paid', false)
@@ -86,8 +88,10 @@ class ManualWithdrawalMarkPaidConfirmLinkTest extends TestCase
             ->assertSee('WD-'.$withdrawal->id, false)
             ->assertSee('Confirm marked paid —', false)
             ->assertSee('Wallet snapshot', false)
-            ->assertSee('No completed payouts yet', false);
+            ->assertSee('No completed payouts yet', false)
+            ->assertSee('href="'.route('admin.withdrawals', [], false).'"', false);
 
+        $this->assertStringContainsString('no-store', (string) $confirm->headers->get('Cache-Control'));
         $this->assertSame('pending', $withdrawal->fresh()->status);
     }
 
@@ -208,6 +212,28 @@ class ManualWithdrawalMarkPaidConfirmLinkTest extends TestCase
         $this->assertSame('Sent on Wise', $withdrawal->fresh()->admin_notes);
     }
 
+    public function test_signed_post_warns_when_statement_issue_fails(): void
+    {
+        $this->mock(WithdrawalPayoutStatementService::class, function ($mock) {
+            $mock->shouldReceive('issue')->once()->andReturn(null);
+        });
+
+        $admin = $this->makeUser('admin');
+        $publisher = $this->makeUser('publisher');
+        $withdrawal = $this->pendingWithdrawal($publisher, 90);
+        $url = $this->relativeSignedUrl(ManualWithdrawalMarkPaidLink::url($withdrawal));
+
+        $this->actingAs($admin)
+            ->post($url, ['notes' => 'Sent'])
+            ->assertRedirect(route('admin.withdrawals'))
+            ->assertSessionHas(
+                'success',
+                'Marked paid, but the payout statement could not be created. Open history and choose Create statement.'
+            );
+
+        $this->assertSame('completed', $withdrawal->fresh()->status);
+    }
+
     public function test_guest_and_unsigned_are_blocked(): void
     {
         $publisher = $this->makeUser('publisher');
@@ -235,6 +261,57 @@ class ManualWithdrawalMarkPaidConfirmLinkTest extends TestCase
             ->get($url)
             ->assertOk()
             ->assertSee('Withdrawal already settled', false)
+            ->assertSee('Create payout statement', false)
             ->assertDontSee('Confirm marked paid —', false);
+    }
+
+    public function test_already_completed_with_statement_does_not_offer_create(): void
+    {
+        $admin = $this->makeUser('admin');
+        $publisher = $this->makeUser('publisher');
+        $withdrawal = $this->pendingWithdrawal($publisher);
+        $withdrawal->update(['status' => 'completed', 'processed_at' => now()]);
+        Invoice::create([
+            'user_id' => $publisher->id,
+            'customer_name' => $publisher->name,
+            'customer_email' => $publisher->email,
+            'invoice_number' => 'PAY-CONFIRM-1',
+            'type' => Invoice::TYPE_WITHDRAWAL_PAYOUT,
+            'status' => Invoice::STATUS_PAID,
+            'subtotal' => 90,
+            'total_amount' => 90,
+            'invoice_date' => now(),
+            'line_items' => [['description' => 'Payout', 'line_total' => 90]],
+            'pdf_disk' => 'local',
+            'reference_code' => 'WD-'.$withdrawal->id,
+            'meta' => ['withdrawal_id' => $withdrawal->id],
+        ]);
+        $url = $this->relativeSignedUrl(ManualWithdrawalMarkPaidLink::url($withdrawal));
+
+        $this->actingAs($admin)
+            ->get($url)
+            ->assertOk()
+            ->assertSee('Withdrawal already settled', false)
+            ->assertDontSee('Create payout statement', false)
+            ->assertDontSee('Confirm marked paid —', false);
+    }
+
+    public function test_already_completed_post_creates_missing_statement(): void
+    {
+        $admin = $this->makeUser('admin');
+        $publisher = $this->makeUser('publisher');
+        $withdrawal = $this->pendingWithdrawal($publisher);
+        $withdrawal->update(['status' => 'completed', 'processed_at' => now()]);
+        $url = $this->relativeSignedUrl(ManualWithdrawalMarkPaidLink::url($withdrawal));
+
+        $this->assertNull(app(WithdrawalPayoutStatementService::class)->find($withdrawal));
+
+        $this->actingAs($admin)
+            ->post($url)
+            ->assertRedirect(route('admin.withdrawals'))
+            ->assertSessionHas('success', 'Payout statement is ready');
+
+        $this->assertNotNull(app(WithdrawalPayoutStatementService::class)->find($withdrawal->fresh()));
+        $this->assertSame('completed', $withdrawal->fresh()->status);
     }
 }

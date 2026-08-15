@@ -204,7 +204,7 @@
                             @forelse($dossier['withdrawals'] as $w)
                                 <tr>
                                     <td class="small">
-                                        <a href="{{ route('admin.withdrawals.show', $w->id) }}">WD-{{ $w->id }}</a>
+                                        <a href="{{ route('admin.withdrawals.show', $w->id, false) }}">WD-{{ $w->id }}</a>
                                     </td>
                                     <td>{{ $euro($w->net_amount) }}</td>
                                     <td class="small">{{ $w->payment_method }}</td>

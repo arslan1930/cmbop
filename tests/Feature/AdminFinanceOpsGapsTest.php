@@ -156,8 +156,8 @@ class AdminFinanceOpsGapsTest extends TestCase
         $this->actingAs($admin)
             ->get(route('admin.finance.user', $publisher))
             ->assertOk()
-            ->assertSee(e(route('admin.withdrawals.show', $open->id)), false)
-            ->assertSee(e(route('admin.withdrawals.show', $paid->id)), false);
+            ->assertSee(e(route('admin.withdrawals.show', $open->id, false)), false)
+            ->assertSee(e(route('admin.withdrawals.show', $paid->id, false)), false);
     }
 
     public function test_ledger_shows_user_filter_and_exports_csv(): void

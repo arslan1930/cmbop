@@ -640,6 +640,7 @@ function renderWithdrawals(withdrawals) {
                             <li><button type="button" class="dropdown-item view-details" data-id="${w.id}"><i class="fa fa-eye me-2"></i>View</button></li>
                             ${showHref ? `<li><a class="dropdown-item" href="${escapeHtml(showHref)}"><i class="fa fa-external-link-alt me-2"></i>Open page</a></li>` : ''}
                             ${invoiceHref ? `<li><a class="dropdown-item" href="${escapeHtml(invoiceHref)}"><i class="fa fa-file-invoice-dollar me-2"></i>Open invoice</a></li>` : ''}
+                            ${w.status === 'completed' && !invoiceHref ? `<li><button type="button" class="dropdown-item act-statement" data-id="${w.id}"><i class="fa fa-file-invoice-dollar me-2"></i>Create statement</button></li>` : ''}
                             ${w.status === 'pending' ? `
                             <li><button type="button" class="dropdown-item act-processing" data-id="${w.id}"
                                 data-name="${escapeHtml(w.user?.name || '')}"
@@ -796,8 +797,21 @@ $(document).on('click', '.act-paid', async function() {
     if (!await confirmPendingPayIfNeeded([id])) return;
     postAction(withdrawalUrl(WD_PAID, id), { notes })
         .done(function(res) {
-            toast(res.message || 'Marked paid');
+            toast(res.message || 'Marked paid', res.has_statement === false ? 'warning' : 'success');
             selectedIds.delete(Number(id));
+            refreshAll();
+        })
+        .fail(function(xhr) {
+            toast(xhr.responseJSON?.message || 'Failed', 'error');
+        });
+});
+
+$(document).on('click', '.act-statement', function() {
+    const id = $(this).data('id');
+    postAction(withdrawalUrl(WD_PAID, id), { notes: '' })
+        .done(function(res) {
+            toast(res.message || 'Payout statement is ready', res.has_statement === false ? 'warning' : 'success');
+            $('#detailsModal').modal('hide');
             refreshAll();
         })
         .fail(function(xhr) {
@@ -963,8 +977,17 @@ async function runBatch(action, title, confirmText, confirmClass, options) {
     }
 
     postAction(WD_BATCH, payload).done(function(res) {
-        toast(res.message + (res.payout_run_id ? ' · ' + res.payout_run_id : ''));
+        const failed = Array.isArray(res.failed) ? res.failed : [];
+        const failedCount = failed.length;
+        const missingStatements = Array.isArray(res.missing_statement_ids) ? res.missing_statement_ids.length : 0;
+        toast(
+            res.message + (res.payout_run_id ? ' · ' + res.payout_run_id : ''),
+            (failedCount > 0 || missingStatements > 0) ? 'warning' : 'success'
+        );
         selectedIds.clear();
+        failed.forEach(function (row) {
+            addSelectedId(row && row.id);
+        });
         refreshAll();
     }).fail(function(xhr) {
         const body = xhr.responseJSON || {};
@@ -1159,10 +1182,15 @@ function renderDetails(withdrawal) {
         $('#openInvoiceLink').addClass('d-none').attr('href', '#');
     }
 
+    const missingStatementAlert = (withdrawal.status === 'completed' && !invoiceHref)
+        ? `<div class="alert alert-warning" role="alert">Payout statement is missing. <button type="button" class="btn btn-sm btn-warning act-statement" data-id="${withdrawal.id}">Create statement</button></div>`
+        : '';
+
     $('#openShowPageLink').attr('href', safeAdminHref(withdrawalUrl(WD_SHOW, withdrawal.id)) || '#');
 
     $('#detailsContent').html(`
         ${duplicateAlert}
+        ${missingStatementAlert}
         <div class="row mb-3">
             <div class="col-md-6">
                 <div class="bg-light p-3 rounded">

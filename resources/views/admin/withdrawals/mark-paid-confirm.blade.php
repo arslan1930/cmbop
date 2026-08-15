@@ -124,7 +124,7 @@
                             </button>
                         </form>
 
-                        <a href="{{ route('admin.withdrawals') }}" class="btn btn-link w-100 text-muted">
+                        <a href="{{ route('admin.withdrawals', [], false) }}" class="btn btn-link w-100 text-muted">
                             Cancel — back to payout queue
                         </a>
                     @else
@@ -144,7 +144,19 @@
                             </dl>
                         </div>
 
-                        <a href="{{ route('admin.withdrawals') }}" class="btn btn-primary w-100">Open payout queue</a>
+                        @if(!empty($missingStatement))
+                            <div class="alert alert-warning text-start mb-4" role="alert">
+                                The payout statement is missing. Create it so the publisher can download the PAY document. This does not send money again.
+                            </div>
+                            <form method="POST" action="{{ $confirmAction }}">
+                                @csrf
+                                <button type="submit" class="btn btn-primary w-100 mb-2">
+                                    Create payout statement
+                                </button>
+                            </form>
+                        @endif
+
+                        <a href="{{ route('admin.withdrawals', [], false) }}" class="btn {{ !empty($missingStatement) ? 'btn-link text-muted' : 'btn-primary' }} w-100">Open payout queue</a>
                     @endif
                 </div>
             </div>

@@ -20,12 +20,13 @@
         default => 'status-pending',
     };
     $queue = in_array($withdrawal->status, ['completed', 'cancelled'], true) ? 'history' : 'open';
+    $queueUrl = route('admin.withdrawals', ['search' => (string) $withdrawal->id, 'queue' => $queue], false);
     $duplicateIds = is_array($withdrawal->duplicate_match_ids) ? $withdrawal->duplicate_match_ids : [];
     $lookbackDays = max(1, (int) config('billing.withdrawal_mark_paid_duplicate_lookback_days', 30));
 @endphp
 <div class="container-fluid py-3">
     <div class="mb-3">
-        <a href="{{ route('admin.withdrawals', ['search' => (string) $withdrawal->id, 'queue' => $queue], false) }}"
+        <a href="{{ $queueUrl }}"
            class="small text-muted text-decoration-none">
             <i class="fa fa-arrow-left me-1"></i> Back to payout queue
         </a>
@@ -54,6 +55,14 @@
             @endif
         </div>
     </div>
+
+    @if($withdrawal->status === 'completed' && empty($invoiceUrl))
+        <div class="alert alert-warning" role="alert">
+            Payout statement is missing.
+            <a href="{{ $queueUrl }}">Open this withdrawal in the payout queue</a>
+            and choose <strong>Create statement</strong>.
+        </div>
+    @endif
 
     @if($withdrawal->possible_duplicate && $duplicateIds !== [])
         <div class="alert alert-warning" role="alert">

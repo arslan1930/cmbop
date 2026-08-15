@@ -341,8 +341,8 @@ class AdminInvoiceCrossLinksTest extends TestCase
             ->assertOk()
             ->assertSee($receipt->invoice_number, false)
             ->assertSee($statement->invoice_number, false)
-            ->assertSee(e(route('admin.deposits', ['search' => 'DEP-INDEX-9'])), false)
-            ->assertSee(e(route('admin.withdrawals.show', 88)), false);
+            ->assertSee(e(route('admin.deposits', ['search' => 'DEP-INDEX-9'], false)), false)
+            ->assertSee(e(route('admin.withdrawals.show', 88, false)), false);
     }
 
     public function test_junk_filters_are_ignored_and_status_filter_works(): void

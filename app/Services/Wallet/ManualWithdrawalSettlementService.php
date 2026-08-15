@@ -3,6 +3,7 @@
 namespace App\Services\Wallet;
 
 use App\Mail\WithdrawalStatusUpdated;
+use App\Models\Invoice;
 use App\Models\User;
 use App\Models\Withdrawal;
 use App\Services\ActivityLogger;
@@ -26,7 +27,8 @@ class ManualWithdrawalSettlementService
      *     old_status: string,
      *     new_status: string,
      *     unchanged: bool,
-     *     message: string
+     *     message: string,
+     *     has_statement?: bool
      * }
      *
      * @throws ManualWithdrawalInvalidTransitionException
@@ -132,11 +134,21 @@ class ManualWithdrawalSettlementService
             ];
         });
 
-        if (! $result['unchanged']) {
-            if ($result['new_status'] === 'completed') {
-                $this->issuePayoutStatement($result['withdrawal']);
+        // Retry even when status is already completed: the first issue() can
+        // fail after the wallet row is paid, and issue() is idempotent.
+        if ($result['new_status'] === 'completed') {
+            $statement = $this->issuePayoutStatement($result['withdrawal']);
+            $result['has_statement'] = $statement !== null;
+            if ($statement === null) {
+                $result['message'] = $result['unchanged']
+                    ? 'Status unchanged — payout statement is still missing'
+                    : 'Marked paid, but the payout statement could not be created. Open history and choose Create statement.';
+            } elseif ($result['unchanged']) {
+                $result['message'] = 'Payout statement is ready';
             }
+        }
 
+        if (! $result['unchanged']) {
             $this->notifyStatusChange(
                 $result['withdrawal'],
                 $result['old_status'],
@@ -216,15 +228,17 @@ class ManualWithdrawalSettlementService
         }
     }
 
-    protected function issuePayoutStatement(Withdrawal $withdrawal): void
+    protected function issuePayoutStatement(Withdrawal $withdrawal): ?Invoice
     {
         try {
-            app(WithdrawalPayoutStatementService::class)->issue($withdrawal->fresh(['user']));
+            return app(WithdrawalPayoutStatementService::class)->issue($withdrawal->fresh(['user']));
         } catch (\Throwable $e) {
             Log::warning('Failed to issue withdrawal payout statement', [
                 'withdrawal_id' => $withdrawal->id,
                 'error' => $e->getMessage(),
             ]);
+
+            return null;
         }
     }
 

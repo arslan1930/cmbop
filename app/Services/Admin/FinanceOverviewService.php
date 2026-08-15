@@ -127,7 +127,7 @@ class FinanceOverviewService
             'open_withdrawals' => [
                 'count' => (clone $openWithdrawals)->count(),
                 'amount' => (float) (clone $openWithdrawals)->sum('net_amount'),
-                'url' => route('admin.withdrawals', ['queue' => 'open']),
+                'url' => route('admin.withdrawals', ['queue' => 'open'], false),
             ],
             'unpaid_orders' => [
                 'count' => (clone $pendingPayments)->count(),
@@ -278,7 +278,7 @@ class FinanceOverviewService
             'email' => $w->user?->email,
             'net_amount' => (float) $w->net_amount,
             'status' => $w->status,
-            'url' => route('admin.withdrawals.show', $w->id),
+            'url' => route('admin.withdrawals.show', $w->id, false),
         ])->all();
 
         // What admin must send outside the app today (payout queue).

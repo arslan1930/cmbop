@@ -271,12 +271,23 @@ class AdminWithdrawalController extends Controller
 
         $ok = 0;
         $failed = [];
+        $succeededIds = [];
+        $unchangedIds = [];
+        $missingStatementIds = [];
 
         foreach ($ids as $id) {
             $response = $this->transitionWithdrawal((int) $id, $action, $notes, quiet: true);
             $payload = $response->getData(true);
             if (! empty($payload['success'])) {
-                $ok++;
+                if (! empty($payload['unchanged'])) {
+                    $unchangedIds[] = (int) $id;
+                } else {
+                    $ok++;
+                    $succeededIds[] = (int) $id;
+                }
+                if ($action === 'completed' && array_key_exists('has_statement', $payload) && $payload['has_statement'] === false) {
+                    $missingStatementIds[] = (int) $id;
+                }
             } else {
                 $failed[] = [
                     'id' => (int) $id,
@@ -297,7 +308,8 @@ class AdminWithdrawalController extends Controller
                         'action' => $action,
                         'succeeded' => $ok,
                         'failed' => count($failed),
-                        'ids' => $ids,
+                        'unchanged' => count($unchangedIds),
+                        'ids' => $succeededIds,
                         'payout_run_id' => $runId,
                     ],
                     $runId
@@ -309,11 +321,25 @@ class AdminWithdrawalController extends Controller
             }
         }
 
+        $parts = [$ok.' updated'];
+        if ($unchangedIds !== []) {
+            $parts[] = count($unchangedIds).' already in that status';
+        }
+        if ($failed !== []) {
+            $parts[] = count($failed).' failed';
+        }
+        if ($missingStatementIds !== []) {
+            $parts[] = count($missingStatementIds).' missing payout statement'
+                .(count($missingStatementIds) === 1 ? '' : 's');
+        }
+
         return response()->json([
             'success' => $ok > 0,
-            'message' => $ok.' updated'.(count($failed) ? ', '.count($failed).' failed' : ''),
+            'message' => implode(', ', $parts),
             'succeeded' => $ok,
+            'unchanged' => $unchangedIds,
             'failed' => $failed,
+            'missing_statement_ids' => $missingStatementIds,
             'payout_run_id' => $runId,
         ], $ok > 0 ? 200 : 422);
     }
@@ -815,11 +841,17 @@ class AdminWithdrawalController extends Controller
                 $quiet
             );
 
-            return response()->json([
+            $payload = [
                 'success' => true,
+                'unchanged' => ! empty($result['unchanged']),
                 'message' => $result['message'],
                 'data' => $result['withdrawal'],
-            ]);
+            ];
+            if (array_key_exists('has_statement', $result)) {
+                $payload['has_statement'] = (bool) $result['has_statement'];
+            }
+
+            return response()->json($payload);
         } catch (ManualWithdrawalInvalidTransitionException $e) {
             return response()->json([
                 'success' => false,
