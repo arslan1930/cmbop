@@ -2023,6 +2023,45 @@ class DepositCreditAndRejectHardeningTest extends TestCase
             ->value('stripe_session_id'));
     }
 
+    public function test_empty_pi_wallet_session_throws_when_stripe_is_configured_instead_of_minting_a_session_only_card(): void
+    {
+        $previousSecret = config('services.stripe.secret');
+        config(['services.stripe.secret' => 'sk_test_wait_for_pi']);
+
+        $advertiser = $this->advertiser();
+        $wallet = $this->walletFor($advertiser);
+
+        $service = new class(app(WalletLedgerService::class)) extends WalletStripeDepositService
+        {
+            protected function lookupPaymentIntentIdForSession(string $sessionId): string
+            {
+                return '';
+            }
+        };
+
+        try {
+            $service->creditFromCheckoutSession((object) [
+                'id' => 'cs_wait_for_pi_'.uniqid(),
+                'payment_status' => 'paid',
+                'amount_total' => 4000,
+                'metadata' => (object) [
+                    'type' => 'wallet_deposit',
+                    'user_id' => (string) $advertiser->id,
+                    'amount' => '40.00',
+                    'session_reference' => 'deposit_wait_for_pi_40',
+                ],
+            ]);
+            $this->fail('Expected empty PaymentIntent to abort credit when Stripe is configured');
+        } catch (\RuntimeException $e) {
+            $this->assertSame('Wallet checkout session has no PaymentIntent id yet', $e->getMessage());
+        } finally {
+            config(['services.stripe.secret' => $previousSecret]);
+        }
+
+        $this->assertSame(0.0, (float) $wallet->fresh()->balance);
+        $this->assertSame(0, DepositRequest::query()->where('user_id', $advertiser->id)->count());
+    }
+
     public function test_explicit_wallet_session_without_user_id_throws_instead_of_being_marked_processed(): void
     {
         $this->expectException(\RuntimeException::class);
