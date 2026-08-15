@@ -785,6 +785,122 @@ class BulkSiteGuidedWorkflowTest extends TestCase
         $this->assertNotNull($archived->fresh()->archived_at);
     }
 
+    public function test_publisher_cannot_submit_domain_pending_on_another_open_bulk(): void
+    {
+        $otherRole = Role::where('name', 'publisher')->firstOrFail();
+        $other = User::factory()->create([
+            'email_verified_at' => now(),
+            'active_role_id' => $otherRole->id,
+        ]);
+        $other->roles()->attach($otherRole->id);
+
+        $theirs = BulkSiteRequest::create([
+            'publisher_id' => $other->id,
+            'status' => BulkSiteRequest::STATUS_REQUESTED,
+            'estimated_count' => 2,
+        ]);
+        BulkSiteRequestItem::create([
+            'bulk_site_request_id' => $theirs->id,
+            'site_url' => 'https://taken-pending.example',
+            'domain' => 'taken-pending.example',
+            'price' => 40,
+        ]);
+        BulkSiteRequestItem::create([
+            'bulk_site_request_id' => $theirs->id,
+            'site_url' => 'https://taken-pending-b.example',
+            'domain' => 'taken-pending-b.example',
+            'price' => 45,
+        ]);
+
+        $this->actingAs($this->publisher)
+            ->from(route('publisher.websites'))
+            ->post(route('publisher.bulk-sites.request'), [
+                'sites' => [
+                    ['url' => 'https://www.taken-pending.example', 'price' => 10],
+                    ['url' => 'https://my-other.example', 'price' => 20],
+                ],
+            ])
+            ->assertRedirect(route('publisher.websites'))
+            ->assertSessionHasErrors('sites.0.url');
+
+        $this->assertSame(0, BulkSiteRequest::query()->where('publisher_id', $this->publisher->id)->count());
+        $this->assertTrue(
+            str_contains(
+                (string) session('errors')->first('sites.0.url'),
+                'Already in an open bulk request: taken-pending.example'
+            )
+        );
+    }
+
+    public function test_publisher_delete_of_last_bulk_draft_heals_status(): void
+    {
+        $bulk = BulkSiteRequest::create([
+            'publisher_id' => $this->publisher->id,
+            'status' => BulkSiteRequest::STATUS_AWAITING_PUBLISHER,
+            'estimated_count' => 1,
+            'seeded_at' => now(),
+        ]);
+        $site = $this->makeAwaitingBulkSite($bulk, 'https://publisher-delete.example', 'Publisher delete');
+        BulkSiteRequestItem::create([
+            'bulk_site_request_id' => $bulk->id,
+            'site_url' => $site->site_url,
+            'domain' => $site->domain,
+            'price' => 80,
+            'site_id' => $site->id,
+        ]);
+
+        $this->actingAs($this->publisher)
+            ->from(route('publisher.websites', ['status' => 'pending']))
+            ->delete(route('publisher.sites.destroy', $site->id))
+            ->assertRedirect()
+            ->assertSessionHas('success');
+
+        $this->assertDatabaseMissing('sites', ['id' => $site->id]);
+        $this->assertNull(BulkSiteRequestItem::query()->where('domain', 'publisher-delete.example')->value('site_id'));
+        $this->assertSame(BulkSiteRequest::STATUS_REQUESTED, $bulk->fresh()->status);
+    }
+
+    public function test_websites_edit_does_not_rewind_ready_for_review_bulk_draft(): void
+    {
+        $bulk = BulkSiteRequest::create([
+            'publisher_id' => $this->publisher->id,
+            'status' => BulkSiteRequest::STATUS_COMPLETED,
+            'estimated_count' => 1,
+            'seeded_at' => now(),
+            'completed_at' => now(),
+        ]);
+        $site = $this->makeAwaitingBulkSite($bulk, 'https://edit-queued.example', 'Edit queued');
+        $original = str_repeat('Original queued listing description. ', 4);
+        $site->forceFill([
+            'onboarding_status' => Site::ONBOARDING_READY_FOR_REVIEW,
+            'description' => $original,
+        ])->save();
+
+        $this->actingAs($this->publisher)
+            ->from(route('publisher.websites'))
+            ->put(route('publisher.sites.update', $site->id), [
+                'exampleUrl' => $site->example_url,
+                'da' => $site->da,
+                'dr' => $site->dr,
+                'traffic' => $site->traffic,
+                'country' => $site->country,
+                'language' => $site->language,
+                'categories' => $site->categories,
+                'price' => $site->price,
+                'turnaround_time' => $site->turnaround_time,
+                'publicationTime' => $site->publication_time,
+                'link_type' => $site->link_type,
+                'siteDescription' => str_repeat('Stale websites edit trying to overwrite. ', 4),
+                'site_tag' => 'as_you_prefer',
+            ])
+            ->assertRedirect();
+
+        $site->refresh();
+        $this->assertSame(Site::ONBOARDING_READY_FOR_REVIEW, $site->onboarding_status);
+        $this->assertFalse((bool) $site->verified);
+        $this->assertFalse((bool) $site->active);
+    }
+
     public function test_websites_page_exposes_paste_urls_helper(): void
     {
         $html = $this->actingAs($this->publisher)

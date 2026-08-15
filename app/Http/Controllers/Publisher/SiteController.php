@@ -791,12 +791,36 @@ class SiteController extends Controller
 
         $needsRereview = $this->updateRequiresRereview($site, $countryCodes[0] ?? null, $languageCodes[0] ?? null, $categoriesArray ?? []);
         $wasLive = $site->verified || $site->active;
-        $keepAsBulkDraft = $site->awaitsPublisherDetails() || $site->hasDetailsComplete();
 
         $this->ensureListingSchema();
 
+        $blockedCancelled = false;
+        $blockedArchived = false;
+        $blockedMissing = false;
+
         try {
-            DB::transaction(function () use ($site, $request, $cleanDescription, $categoriesArray, $primaryCategory, $countryCodes, $languageCodes, $needsRereview, $keepAsBulkDraft) {
+            DB::transaction(function () use ($site, $request, $cleanDescription, $categoriesArray, $primaryCategory, $countryCodes, $languageCodes, $needsRereview, &$blockedCancelled, &$blockedArchived, &$blockedMissing) {
+                $locked = Site::query()
+                    ->where('publisher_id', auth()->id())
+                    ->whereKey($site->id)
+                    ->lockForUpdate()
+                    ->first();
+                if (! $locked) {
+                    $blockedMissing = true;
+
+                    return;
+                }
+                if ($locked->isFromCancelledBulk()) {
+                    $blockedCancelled = true;
+
+                    return;
+                }
+                if ($locked->isArchived()) {
+                    $blockedArchived = true;
+
+                    return;
+                }
+
                 $sensitivePrices = $this->collectSensitivePrices($request);
                 $homepagePrices = $this->collectHomepagePlacementPrices($request);
                 $socialPromotion = $this->collectSocialPromotion($request);
@@ -824,22 +848,27 @@ class SiteController extends Controller
                     'social_promotion' => $socialPromotion,
                 ];
 
+                // Re-read after lock so a concurrent Review & submit is not
+                // rewound from ready_for_review back to details_complete.
+                $keepAsBulkDraft = $locked->awaitsPublisherDetails() || $locked->hasDetailsComplete();
+
                 if ($keepAsBulkDraft || $needsRereview) {
                     $payload['verified'] = false;
                     $payload['active'] = false;
                 }
 
-                // Bulk drafts stay with the publisher until Review & submit.
-                $keepAsBulkDraft = $site->awaitsPublisherDetails() || $site->hasDetailsComplete();
-
-                $site->applyMarketplaceListing($payload);
-                $this->applySiteTag($site, $request);
-                $site->save();
+                $locked->applyMarketplaceListing($payload);
+                $this->applySiteTag($locked, $request);
+                $locked->save();
 
                 // Move awaiting_details → details_complete (not admin queue yet).
-                if ($keepAsBulkDraft && ! $site->markDetailsComplete()) {
+                if ($keepAsBulkDraft && ! $locked->markDetailsComplete()) {
                     throw new \RuntimeException('onboarding_status details_complete rejected by database');
                 }
+
+                $site->setRawAttributes($locked->getAttributes());
+                $site->exists = true;
+                $site->syncOriginal();
             });
         } catch (\Throwable $e) {
             Log::error('Publisher site update failed', [
@@ -863,7 +892,27 @@ class SiteController extends Controller
                 ->with('editing_site_id', $site->id);
         }
 
-        $site->refresh();
+        if ($blockedMissing) {
+            return redirect()
+                ->route('publisher.websites', ['status' => 'pending'])
+                ->with('error', 'This listing is no longer available.');
+        }
+
+        if ($blockedCancelled) {
+            return redirect()->back()->with('error', 'This listing is from a cancelled bulk request and cannot be edited.');
+        }
+
+        if ($blockedArchived) {
+            return redirect()->back()->with('error', 'Archived sites cannot be edited. Restore the site first.');
+        }
+
+        $fresh = $site->fresh();
+        if (! $fresh) {
+            return redirect()
+                ->route('publisher.websites', ['status' => 'pending'])
+                ->with('error', 'This listing is no longer available.');
+        }
+        $site = $fresh;
 
         // Pre-submit bulk drafts: no admin notify until Review & submit.
         if ($site->hasDetailsComplete() || $site->awaitsPublisherDetails()) {
@@ -927,6 +976,7 @@ class SiteController extends Controller
                 'screenshot' => is_string($site->screenshot_path) ? $site->screenshot_path : null,
                 'thumb' => is_string($site->screenshot_thumb_path) ? $site->screenshot_thumb_path : null,
                 'id' => (int) $site->id,
+                'bulk_id' => $site->bulk_site_request_id ? (int) $site->bulk_site_request_id : null,
             ];
             $site->delete();
 
@@ -951,6 +1001,10 @@ class SiteController extends Controller
             $deleted['thumb'] ?? null,
             (int) ($deleted['id'] ?? 0)
         );
+
+        if (! empty($deleted['bulk_id'])) {
+            BulkSiteRequest::query()->find((int) $deleted['bulk_id'])?->refreshProgressStatus();
+        }
 
         return redirect()->back()->with('success', 'Site deleted successfully!');
     }

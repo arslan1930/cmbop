@@ -28,4 +28,37 @@ class BulkSiteRequestItem extends Model
     {
         return $this->belongsTo(Site::class);
     }
+
+    /**
+     * Pending URL+price row on a non-cancelled batch that already claims this domain.
+     */
+    public static function findOccupyingPendingDomain(string $domain, bool $lock = false): ?self
+    {
+        $candidates = Site::domainLookupCandidates($domain);
+        if ($candidates === []) {
+            return null;
+        }
+
+        $normalized = Site::normalizeMarketplaceDomain($domain);
+        $query = static::query()
+            ->whereNull('site_id')
+            ->where(function ($q) use ($candidates, $normalized) {
+                $q->whereIn('domain', $candidates);
+                if ($normalized !== '') {
+                    $escaped = addcslashes($normalized, '%_\\');
+                    $q->orWhere('domain', 'like', $escaped.':%')
+                        ->orWhere('domain', 'like', 'www.'.$escaped.':%');
+                }
+            })
+            ->whereHas('bulkRequest', function ($bulk) {
+                $bulk->where('status', '!=', BulkSiteRequest::STATUS_CANCELLED);
+            })
+            ->orderBy('id');
+
+        if ($lock) {
+            $query->lockForUpdate();
+        }
+
+        return $query->first();
+    }
 }

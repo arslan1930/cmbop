@@ -76,14 +76,9 @@ class BulkSiteRequestController extends Controller
                 }
                 $seenDomains[$domain] = true;
 
-                $existing = Site::findOccupyingDomain($domain);
-                if ($existing) {
-                    $validator->errors()->add(
-                        "sites.$index.url",
-                        $existing->isArchived()
-                            ? $existing->occupyingDomainMessage()
-                            : "Already registered: {$domain}"
-                    );
+                $occupied = $this->occupyingBulkDomainMessage($domain);
+                if ($occupied !== null) {
+                    $validator->errors()->add("sites.$index.url", $occupied);
 
                     continue;
                 }
@@ -115,13 +110,24 @@ class BulkSiteRequestController extends Controller
         }
 
         $raceOpen = null;
-        $bulk = DB::transaction(function () use ($request, $parsedRows, &$raceOpen) {
+        $blockedDomains = [];
+        $bulk = DB::transaction(function () use ($request, $parsedRows, &$raceOpen, &$blockedDomains) {
             User::query()->whereKey((int) auth()->id())->lockForUpdate()->firstOrFail();
 
             $open = $this->openBlockingBulkRequest((int) auth()->id());
             if ($open) {
                 $raceOpen = $open;
 
+                return null;
+            }
+
+            foreach ($parsedRows as $row) {
+                $occupied = $this->occupyingBulkDomainMessage((string) $row['domain'], lockSite: true);
+                if ($occupied !== null) {
+                    $blockedDomains[(string) $row['domain']] = $occupied;
+                }
+            }
+            if ($blockedDomains !== []) {
                 return null;
             }
 
@@ -143,6 +149,29 @@ class BulkSiteRequestController extends Controller
 
             return $bulk;
         });
+
+        if ($blockedDomains !== []) {
+            $errors = [];
+            foreach ($request->input('sites', []) as $index => $row) {
+                if (! is_array($row)) {
+                    continue;
+                }
+                $siteUrl = $this->normalizeHttpUrl(trim((string) ($row['url'] ?? '')));
+                $host = parse_url($siteUrl, PHP_URL_HOST);
+                $domain = is_string($host) && $host !== ''
+                    ? Site::normalizeMarketplaceDomain($host)
+                    : '';
+                if ($domain !== '' && isset($blockedDomains[$domain])) {
+                    $errors["sites.$index.url"] = $blockedDomains[$domain];
+                }
+            }
+
+            return redirect()
+                ->route('publisher.websites')
+                ->withErrors($errors !== [] ? $errors : ['sites' => (string) reset($blockedDomains)])
+                ->withInput()
+                ->with('open_bulk_request_modal', true);
+        }
 
         if ($raceOpen || ! $bulk) {
             return $this->redirectBecauseBulkAlreadyOpen(
@@ -586,6 +615,22 @@ class BulkSiteRequestController extends Controller
         return redirect()
             ->route('publisher.websites')
             ->with('error', $message);
+    }
+
+    private function occupyingBulkDomainMessage(string $domain, bool $lockSite = false): ?string
+    {
+        $existing = Site::findOccupyingDomain($domain, lock: $lockSite);
+        if ($existing) {
+            return $existing->isArchived()
+                ? $existing->occupyingDomainMessage()
+                : "Already registered: {$domain}";
+        }
+
+        if (BulkSiteRequestItem::findOccupyingPendingDomain($domain, lock: $lockSite)) {
+            return "Already in an open bulk request: {$domain}";
+        }
+
+        return null;
     }
 
     /**
