@@ -167,25 +167,26 @@ class Invoice extends Model
     /**
      * HTML admin page for the related order, deposit, or withdrawal.
      * Payout statements open the shareable withdrawal page (browser GET).
+     * Root-relative so APP_URL host mismatch does not drop the admin session.
      */
     public function relatedAdminUrl(): ?string
     {
         if ($this->isWithdrawalPayout() && $this->withdrawalId()) {
-            return route('admin.withdrawals.show', $this->withdrawalId());
+            return route('admin.withdrawals.show', $this->withdrawalId(), false);
         }
 
         if ($this->isDepositReceipt()) {
             if (filled($this->reference_code)) {
-                return route('admin.deposits', ['search' => $this->reference_code]);
+                return route('admin.deposits', ['search' => $this->reference_code], false);
             }
 
             if ($this->depositRequestId()) {
-                return route('admin.deposits.show', $this->depositRequestId());
+                return route('admin.deposits.show', $this->depositRequestId(), false);
             }
         }
 
         if ($this->order_id) {
-            return route('admin.orders.show', $this->order_id);
+            return route('admin.orders.show', $this->order_id, false);
         }
 
         return null;

@@ -86,7 +86,8 @@ class ManualWithdrawalMarkPaidConfirmLinkTest extends TestCase
             ->assertSee('WD-'.$withdrawal->id, false)
             ->assertSee('Confirm marked paid —', false)
             ->assertSee('Wallet snapshot', false)
-            ->assertSee('No completed payouts yet', false);
+            ->assertSee('No completed payouts yet', false)
+            ->assertSee('href="'.route('admin.withdrawals', [], false).'"', false);
 
         $this->assertSame('pending', $withdrawal->fresh()->status);
     }

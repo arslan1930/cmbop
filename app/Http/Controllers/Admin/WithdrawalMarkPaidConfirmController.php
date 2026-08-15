@@ -56,12 +56,9 @@ class WithdrawalMarkPaidConfirmController extends Controller
                 ? $result['message']
                 : 'Marked paid. Net €'.number_format((float) $result['withdrawal']->net_amount, 2).' confirmed for WD-'.$result['withdrawal']->id.'.';
 
-            return redirect()
-                ->route('admin.withdrawals')
-                ->with('success', $message);
+            return $this->redirectToPayoutQueue()->with('success', $message);
         } catch (ManualWithdrawalInvalidTransitionException $e) {
-            return redirect()
-                ->route('admin.withdrawals')
+            return $this->redirectToPayoutQueue()
                 ->with('error', UserFacingError::message($e, 'This withdrawal cannot be updated from its current status.'));
         } catch (\Throwable $e) {
             Log::error('Failed to mark withdrawal paid from email confirm link', [
@@ -69,8 +66,7 @@ class WithdrawalMarkPaidConfirmController extends Controller
                 'error' => $e->getMessage(),
             ]);
 
-            return redirect()
-                ->route('admin.withdrawals')
+            return $this->redirectToPayoutQueue()
                 ->with('error', UserFacingError::message($e, 'Failed to mark withdrawal paid. Please try again.'));
         }
     }
@@ -114,10 +110,18 @@ class WithdrawalMarkPaidConfirmController extends Controller
         return $request->hasValidRelativeSignatureWhileIgnoring(signed_url_ignored_query_params());
     }
 
+    /**
+     * Stay on the current host. Absolute route() would jump to APP_URL
+     * (www vs bare) and drop the session/flash after confirm.
+     */
+    protected function redirectToPayoutQueue()
+    {
+        return redirect()->to(route('admin.withdrawals', [], false));
+    }
+
     protected function invalidSignatureResponse()
     {
-        return redirect()
-            ->route('admin.withdrawals')
+        return $this->redirectToPayoutQueue()
             ->with('error', 'This mark-paid link is invalid or has expired. Open the payout queue and mark paid from the admin panel, or request a fresh email.');
     }
 }

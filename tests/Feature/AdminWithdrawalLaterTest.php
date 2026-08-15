@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\ActivityLog;
 use App\Models\Invoice;
 use App\Models\Role;
 use App\Models\User;
@@ -457,7 +458,7 @@ class AdminWithdrawalLaterTest extends TestCase
         $statement->order_id = 999;
 
         $this->assertSame(
-            route('admin.withdrawals.show', $withdrawal->id),
+            route('admin.withdrawals.show', $withdrawal->id, false),
             $statement->relatedAdminUrl()
         );
     }
@@ -605,7 +606,7 @@ class AdminWithdrawalLaterTest extends TestCase
         $urls = collect(app(FinanceOverviewService::class)->walletLiability()['open_withdrawal_rows'] ?? [])
             ->pluck('url');
 
-        $this->assertTrue($urls->contains(route('admin.withdrawals.show', $withdrawal->id)));
+        $this->assertTrue($urls->contains(route('admin.withdrawals.show', $withdrawal->id, false)));
     }
 
     public function test_data_clamps_page_past_the_last_page(): void
@@ -834,5 +835,31 @@ class AdminWithdrawalLaterTest extends TestCase
             ])
             ->assertStatus(422)
             ->assertJsonValidationErrors('ids.0');
+    }
+
+    public function test_batch_activity_log_lists_only_succeeded_ids(): void
+    {
+        $admin = $this->makeUser('admin');
+        $publisher = $this->makeUser('publisher');
+        $open = $this->seedWithdrawal($publisher);
+        $cancelled = $this->seedWithdrawal($publisher, [
+            'status' => 'cancelled',
+            'net_amount' => 10,
+        ]);
+
+        $this->actingAs($admin)
+            ->postJson(route('admin.withdrawals.batch'), [
+                'ids' => [$cancelled->id, $open->id],
+                'action' => 'completed',
+            ])
+            ->assertOk()
+            ->assertJsonPath('succeeded', 1)
+            ->assertJsonPath('failed.0.id', $cancelled->id);
+
+        $log = ActivityLog::query()->where('action', 'withdrawal.batch_completed')->latest('id')->first();
+        $this->assertNotNull($log);
+        $this->assertSame([$open->id], $log->properties['ids'] ?? null);
+        $this->assertSame(1, $log->properties['succeeded'] ?? null);
+        $this->assertSame(1, $log->properties['failed'] ?? null);
     }
 }

@@ -271,12 +271,14 @@ class AdminWithdrawalController extends Controller
 
         $ok = 0;
         $failed = [];
+        $succeededIds = [];
 
         foreach ($ids as $id) {
             $response = $this->transitionWithdrawal((int) $id, $action, $notes, quiet: true);
             $payload = $response->getData(true);
             if (! empty($payload['success'])) {
                 $ok++;
+                $succeededIds[] = (int) $id;
             } else {
                 $failed[] = [
                     'id' => (int) $id,
@@ -297,7 +299,7 @@ class AdminWithdrawalController extends Controller
                         'action' => $action,
                         'succeeded' => $ok,
                         'failed' => count($failed),
-                        'ids' => $ids,
+                        'ids' => $succeededIds,
                         'payout_run_id' => $runId,
                     ],
                     $runId

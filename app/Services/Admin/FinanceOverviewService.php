@@ -278,7 +278,7 @@ class FinanceOverviewService
             'email' => $w->user?->email,
             'net_amount' => (float) $w->net_amount,
             'status' => $w->status,
-            'url' => route('admin.withdrawals.show', $w->id),
+            'url' => route('admin.withdrawals.show', $w->id, false),
         ])->all();
 
         // What admin must send outside the app today (payout queue).

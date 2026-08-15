@@ -124,7 +124,7 @@
                             </button>
                         </form>
 
-                        <a href="{{ route('admin.withdrawals') }}" class="btn btn-link w-100 text-muted">
+                        <a href="{{ route('admin.withdrawals', [], false) }}" class="btn btn-link w-100 text-muted">
                             Cancel — back to payout queue
                         </a>
                     @else
@@ -144,7 +144,7 @@
                             </dl>
                         </div>
 
-                        <a href="{{ route('admin.withdrawals') }}" class="btn btn-primary w-100">Open payout queue</a>
+                        <a href="{{ route('admin.withdrawals', [], false) }}" class="btn btn-primary w-100">Open payout queue</a>
                     @endif
                 </div>
             </div>

@@ -410,7 +410,7 @@ class AdminDashboardTest extends TestCase
             ->getJson(route('admin.dashboard.action-queue'))
             ->assertOk()
             ->assertJsonPath('deposits.0.url', route('admin.deposits', ['status' => 'pending']))
-            ->assertJsonPath('withdrawals.0.url', route('admin.withdrawals.show', $withdrawal->id))
+            ->assertJsonPath('withdrawals.0.url', route('admin.withdrawals.show', $withdrawal->id, false))
             ->assertJsonPath('withdrawals.0.id', $withdrawal->id)
             ->assertJsonPath('sites.0.url', route('admin.sites.edit', $site->id));
     }

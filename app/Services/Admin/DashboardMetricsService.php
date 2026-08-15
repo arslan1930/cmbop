@@ -270,7 +270,7 @@ class DashboardMetricsService
                 'method' => $w->payment_method,
                 'status' => $w->status,
                 'date' => optional($w->created_at)->format('d M Y H:i'),
-                'url' => route('admin.withdrawals.show', $w->id),
+                'url' => route('admin.withdrawals.show', $w->id, false),
             ]);
 
         $sites = Site::with('publisher:id,name,email')
