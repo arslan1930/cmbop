@@ -262,10 +262,23 @@ class AdminFinanceOpsGapsTest extends TestCase
     public function test_ledger_search_by_user_id_finds_that_users_rows(): void
     {
         $admin = $this->makeUser('admin');
-        $publisher = $this->makeUser('publisher');
-        $other = $this->makeUser('advertiser');
         $pubRole = Role::firstOrCreate(['name' => 'publisher']);
         $advRole = Role::firstOrCreate(['name' => 'advertiser']);
+
+        // Digit search matches transaction id OR user_id. Pin user ids that
+        // cannot collide with the two ledger rows created below.
+        $publisher = User::factory()->create([
+            'id' => 4242,
+            'email_verified_at' => now(),
+            'active_role_id' => $pubRole->id,
+        ]);
+        $publisher->roles()->attach($pubRole->id);
+        $other = User::factory()->create([
+            'id' => 4243,
+            'email_verified_at' => now(),
+            'active_role_id' => $advRole->id,
+        ]);
+        $other->roles()->attach($advRole->id);
 
         $wallet = Wallet::create([
             'user_id' => $publisher->id,
