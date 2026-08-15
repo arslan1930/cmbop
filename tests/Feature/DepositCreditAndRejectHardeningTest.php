@@ -1313,6 +1313,99 @@ class DepositCreditAndRejectHardeningTest extends TestCase
             ->count());
     }
 
+    public function test_pending_card_deposit_id_does_not_steal_a_session_already_on_another_card(): void
+    {
+        $advertiser = $this->advertiser();
+        $wallet = $this->walletFor($advertiser);
+        $sessionId = 'cs_already_session_'.uniqid();
+        $pi = 'pi_after_existing_cs_'.uniqid();
+
+        $existing = DepositRequest::create([
+            'user_id' => $advertiser->id,
+            'reference_code' => 'DEP-HAS-CS',
+            'amount' => 40,
+            'payment_method' => 'card',
+            'status' => 'completed',
+            'stripe_session_id' => $sessionId,
+            'approved_at' => now()->subMinute(),
+            'paid_at' => now()->subMinute(),
+        ]);
+        $wallet->update(['balance' => 40]);
+
+        $pending = DepositRequest::create([
+            'user_id' => $advertiser->id,
+            'reference_code' => 'DEP-STEAL-CS',
+            'amount' => 40,
+            'payment_method' => 'card',
+            'status' => 'pending',
+        ]);
+
+        $credited = app(WalletStripeDepositService::class)->creditFromCheckoutSession((object) [
+            'id' => $sessionId,
+            'payment_status' => 'paid',
+            'amount_total' => 4000,
+            'payment_intent' => $pi,
+            'metadata' => (object) [
+                'type' => 'wallet_deposit',
+                'user_id' => (string) $advertiser->id,
+                'deposit_id' => (string) $pending->id,
+                'amount' => '40.00',
+            ],
+        ]);
+
+        $this->assertSame(40.0, $credited);
+        $this->assertSame('pending', $pending->fresh()->status);
+        $this->assertNull($pending->fresh()->stripe_session_id);
+        $this->assertNull($pending->fresh()->stripe_payment_intent_id);
+        $this->assertSame($sessionId, $existing->fresh()->stripe_session_id);
+        $this->assertSame($pi, $existing->fresh()->stripe_payment_intent_id);
+        $this->assertSame(40.0, (float) $wallet->fresh()->balance);
+        $this->assertSame(1, DepositRequest::query()
+            ->where('user_id', $advertiser->id)
+            ->where('status', 'completed')
+            ->count());
+    }
+
+    public function test_pending_bank_leftover_session_is_detached_when_stripe_refuses_it(): void
+    {
+        $advertiser = $this->advertiser();
+        $wallet = $this->walletFor($advertiser);
+        $sessionId = 'cs_bank_leftover_session_'.uniqid();
+        $pi = 'pi_after_bank_cs_'.uniqid();
+
+        $bank = DepositRequest::create([
+            'user_id' => $advertiser->id,
+            'reference_code' => 'DEP-BANK-LEFTOVER-CS',
+            'amount' => 40,
+            'payment_method' => 'bank',
+            'status' => 'pending',
+            'stripe_session_id' => $sessionId,
+        ]);
+
+        $credited = app(WalletStripeDepositService::class)->creditFromCheckoutSession((object) [
+            'id' => $sessionId,
+            'payment_status' => 'paid',
+            'amount_total' => 4000,
+            'payment_intent' => $pi,
+            'metadata' => (object) [
+                'type' => 'wallet_deposit',
+                'user_id' => (string) $advertiser->id,
+                'deposit_id' => (string) $bank->id,
+                'amount' => '40.00',
+            ],
+        ]);
+
+        $this->assertSame(40.0, $credited);
+        $this->assertSame('pending', $bank->fresh()->status);
+        $this->assertNull($bank->fresh()->stripe_session_id);
+        $this->assertSame(40.0, (float) $wallet->fresh()->balance);
+        $this->assertSame($sessionId, DepositRequest::query()
+            ->where('user_id', $advertiser->id)
+            ->where('payment_method', 'card')
+            ->where('status', 'completed')
+            ->value('stripe_session_id'));
+    }
+
     public function test_session_without_payment_intent_then_pi_does_not_double_credit(): void
     {
         $advertiser = $this->advertiser();
