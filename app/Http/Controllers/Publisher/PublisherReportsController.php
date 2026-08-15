@@ -10,6 +10,7 @@ use App\Models\Withdrawal;
 use App\Support\UserFacingError;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -77,7 +78,7 @@ class PublisherReportsController extends Controller
                 $availableToWithdraw = round($wallet->withdrawableBalance(), 2);
             }
 
-            return response()->json([
+            return $this->noStoreJson([
                 'success' => true,
                 'data' => [
                     'total_earned' => round($totalEarned, 2),
@@ -92,7 +93,7 @@ class PublisherReportsController extends Controller
         } catch (\Exception $e) {
             Log::error('Error fetching publisher statistics: '.$e->getMessage());
 
-            return response()->json([
+            return $this->noStoreJson([
                 'success' => false,
                 'message' => UserFacingError::message($e, 'Failed to fetch statistics. Please try again.'),
             ], 500);
@@ -106,7 +107,7 @@ class PublisherReportsController extends Controller
             $siteIds = Site::where('publisher_id', $userId)->pluck('id')->toArray();
 
             if ($siteIds === []) {
-                return response()->json([
+                return $this->noStoreJson([
                     'success' => true,
                     'data' => [],
                     'pagination' => $this->emptyPagination((int) $request->get('per_page', 20)),
@@ -170,7 +171,7 @@ class PublisherReportsController extends Controller
                 ];
             })->values();
 
-            return response()->json([
+            return $this->noStoreJson([
                 'success' => true,
                 'data' => $data,
                 'pagination' => $this->paginationMeta($orderItems),
@@ -178,7 +179,7 @@ class PublisherReportsController extends Controller
         } catch (\Exception $e) {
             Log::error('Error fetching publisher orders: '.$e->getMessage());
 
-            return response()->json([
+            return $this->noStoreJson([
                 'success' => false,
                 'message' => UserFacingError::message($e, 'Failed to fetch orders. Please try again.'),
             ], 500);
@@ -202,7 +203,7 @@ class PublisherReportsController extends Controller
             $payout = $orderItem->publisherPayoutAmount();
             $additional = (float) ($orderItem->additional_price ?? 0);
 
-            return response()->json([
+            return $this->noStoreJson([
                 'success' => true,
                 'data' => [
                     'id' => $orderItem->id,
@@ -229,7 +230,7 @@ class PublisherReportsController extends Controller
         } catch (\Exception $e) {
             Log::error('Error fetching order details: '.$e->getMessage());
 
-            return response()->json([
+            return $this->noStoreJson([
                 'success' => false,
                 'message' => 'Order not found',
             ], 404);
@@ -272,7 +273,7 @@ class PublisherReportsController extends Controller
                 ];
             })->values();
 
-            return response()->json([
+            return $this->noStoreJson([
                 'success' => true,
                 'data' => $items,
                 'pagination' => $this->paginationMeta($withdrawals),
@@ -280,7 +281,7 @@ class PublisherReportsController extends Controller
         } catch (\Exception $e) {
             Log::error('Error fetching withdrawals: '.$e->getMessage());
 
-            return response()->json([
+            return $this->noStoreJson([
                 'success' => false,
                 'message' => UserFacingError::message($e, 'Failed to fetch withdrawals. Please try again.'),
             ], 500);
@@ -357,5 +358,11 @@ class PublisherReportsController extends Controller
             'from' => null,
             'to' => null,
         ];
+    }
+
+    private function noStoreJson(array $payload, int $status = 200): JsonResponse
+    {
+        return response()->json($payload, $status)
+            ->header('Cache-Control', 'no-store');
     }
 }

@@ -67,7 +67,7 @@
                     <div>
                         <h6 class="text-muted mb-1">Available to Withdraw</h6>
                         <h3 class="mb-0" id="availableToWithdraw">€0.00</h3>
-                        <a href="{{ route('publisher.withdraw') }}" class="small">Go to Withdraw</a>
+                        <a href="{{ route('publisher.withdraw', [], false) }}" class="small">Go to Withdraw</a>
                     </div>
                     <div class="bg-info bg-opacity-10 p-3 rounded-circle">
                         <i class="fa fa-wallet fa-2x text-info"></i>

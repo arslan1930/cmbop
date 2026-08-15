@@ -86,7 +86,7 @@
 
             <div class="pb-wallet-card__actions">
                 @if($canWithdraw)
-                    <a href="{{ route('publisher.withdraw') }}" class="btn btn-primary" id="withdrawCta">
+                    <a href="{{ route('publisher.withdraw', [], false) }}" class="btn btn-primary" id="withdrawCta">
                         Withdraw
                     </a>
                 @else
@@ -103,8 +103,8 @@
                     id="roleMoveForm"
                     class="pb-role-move"
                     method="post"
-                    action="{{ route('publisher.balance.transfer') }}"
-                    data-url="{{ route('publisher.balance.transfer') }}"
+                    action="{{ route('publisher.balance.transfer', [], false) }}"
+                    data-url="{{ route('publisher.balance.transfer', [], false) }}"
                     data-min="{{ number_format($roleMoveMinAmount, 2, '.', '') }}"
                     data-max="{{ number_format((float) $publisher['withdrawable'], 2, '.', '') }}"
                     data-can-move="{{ $canMove ? '1' : '0' }}"

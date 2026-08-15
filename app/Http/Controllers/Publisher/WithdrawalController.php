@@ -10,6 +10,7 @@ use App\Services\EmailNotificationService;
 use App\Services\Wallet\PayoutProfileService;
 use App\Services\Wallet\WalletLedgerService;
 use App\Support\UserFacingError;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -54,7 +55,7 @@ class WithdrawalController extends Controller
             $wallet = $user->activeWallet();
 
             if (! $wallet) {
-                return response()->json([
+                return $this->noStoreJson([
                     'success' => false,
                     'message' => 'No wallet found. Please contact support.',
                 ]);
@@ -63,7 +64,7 @@ class WithdrawalController extends Controller
             // Debt blocks all withdrawals — check before amount/min validation so
             // indebted publishers always get a clear wallet_debt response.
             if ($wallet->hasDebt()) {
-                return response()->json([
+                return $this->noStoreJson([
                     'success' => false,
                     'code' => 'wallet_debt',
                     'message' => 'Withdrawals are blocked while you have outstanding clawback debt of €'
@@ -86,7 +87,7 @@ class WithdrawalController extends Controller
             $availableBalance = $wallet->withdrawableBalance();
 
             if ($amount < $min) {
-                return response()->json([
+                return $this->noStoreJson([
                     'success' => false,
                     'code' => 'below_minimum',
                     'message' => 'Minimum withdrawal amount is €'.number_format($min, 2).'.',
@@ -96,7 +97,7 @@ class WithdrawalController extends Controller
 
             if ($amount > $availableBalance) {
                 if ($wallet->lockedBonusBalance() > 0 && $availableBalance <= 0) {
-                    return response()->json([
+                    return $this->noStoreJson([
                         'success' => false,
                         'code' => 'bonus_not_withdrawable',
                         'message' => Wallet::PROMOTIONAL_BONUS_MESSAGE,
@@ -108,7 +109,7 @@ class WithdrawalController extends Controller
                     ? ' '.Wallet::PROMOTIONAL_BONUS_MESSAGE
                     : '';
 
-                return response()->json([
+                return $this->noStoreJson([
                     'success' => false,
                     'code' => $wallet->lockedBonusBalance() > 0 ? 'bonus_not_withdrawable' : 'insufficient_balance',
                     'message' => 'Insufficient withdrawable balance for this withdrawal. Available to withdraw: €'.number_format($availableBalance, 2).'.'.$promoNote,
@@ -131,7 +132,7 @@ class WithdrawalController extends Controller
             if ($wallet && $wallet->hasDebt()) {
                 DB::rollBack();
 
-                return response()->json([
+                return $this->noStoreJson([
                     'success' => false,
                     'code' => 'wallet_debt',
                     'message' => 'Withdrawals are blocked while you have outstanding clawback debt of €'
@@ -145,14 +146,14 @@ class WithdrawalController extends Controller
                 $lockedBonus = $wallet?->lockedBonusBalance() ?? 0;
                 $available = $wallet?->withdrawableBalance() ?? 0;
                 if ($lockedBonus > 0 && $available <= 0) {
-                    return response()->json([
+                    return $this->noStoreJson([
                         'success' => false,
                         'code' => 'bonus_not_withdrawable',
                         'message' => Wallet::PROMOTIONAL_BONUS_MESSAGE,
                     ], 422);
                 }
 
-                return response()->json([
+                return $this->noStoreJson([
                     'success' => false,
                     'message' => 'Insufficient withdrawable balance for this withdrawal. Available to withdraw: €'.number_format($available, 2),
                 ], 422);
@@ -200,7 +201,7 @@ class WithdrawalController extends Controller
             $this->sendAdminNotification($withdrawal, $user);
             $this->sendPublisherConfirmation($withdrawal);
 
-            return response()->json([
+            return $this->noStoreJson([
                 'success' => true,
                 'message' => 'Withdrawal request submitted successfully! Amount: €'.number_format($amount, 2),
                 'payout_locked' => true,
@@ -209,7 +210,7 @@ class WithdrawalController extends Controller
                 'net_amount' => $netAmount,
             ]);
         } catch (ValidationException $e) {
-            return response()->json([
+            return $this->noStoreJson([
                 'success' => false,
                 'message' => 'Validation failed: '.implode(', ', array_merge(...array_values($e->errors()))),
             ], 422);
@@ -220,7 +221,7 @@ class WithdrawalController extends Controller
                 'trace' => $e->getTraceAsString(),
             ]);
 
-            return response()->json([
+            return $this->noStoreJson([
                 'success' => false,
                 'message' => UserFacingError::message($e, 'We could not process your withdrawal request. Please try again later.'),
             ]);
@@ -294,14 +295,14 @@ class WithdrawalController extends Controller
                 ];
             });
 
-            return response()->json([
+            return $this->noStoreJson([
                 'success' => true,
                 'data' => $withdrawals,
             ]);
         } catch (\Exception $e) {
             Log::error('Failed to fetch withdrawal history: '.$e->getMessage());
 
-            return response()->json([
+            return $this->noStoreJson([
                 'success' => false,
                 'message' => 'Failed to fetch withdrawal history',
             ]);
@@ -323,7 +324,7 @@ class WithdrawalController extends Controller
 
             $withdrawalCount = Withdrawal::where('user_id', $user->id)->count();
 
-            return response()->json([
+            return $this->noStoreJson([
                 'success' => true,
                 'data' => [
                     'total_withdrawn' => $totalWithdrawn,
@@ -334,7 +335,7 @@ class WithdrawalController extends Controller
         } catch (\Exception $e) {
             Log::error('Failed to fetch withdrawal statistics: '.$e->getMessage());
 
-            return response()->json([
+            return $this->noStoreJson([
                 'success' => false,
                 'message' => 'Failed to fetch statistics',
             ]);
@@ -357,7 +358,7 @@ class WithdrawalController extends Controller
             if (! $withdrawal) {
                 DB::rollBack();
 
-                return response()->json([
+                return $this->noStoreJson([
                     'success' => false,
                     'message' => 'Withdrawal request not found or cannot be cancelled',
                 ], 404);
@@ -367,7 +368,7 @@ class WithdrawalController extends Controller
             if (! $wallet) {
                 DB::rollBack();
 
-                return response()->json([
+                return $this->noStoreJson([
                     'success' => false,
                     'message' => 'Cannot return these funds: the source wallet is unknown. Please contact support.',
                 ], 422);
@@ -405,7 +406,7 @@ class WithdrawalController extends Controller
 
             DB::commit();
 
-            return response()->json([
+            return $this->noStoreJson([
                 'success' => true,
                 'message' => 'Withdrawal request cancelled successfully. €'.number_format($withdrawal->amount, 2).' has been returned to your wallet.',
             ]);
@@ -413,10 +414,16 @@ class WithdrawalController extends Controller
             DB::rollBack();
             Log::error('Failed to cancel withdrawal: '.$e->getMessage());
 
-            return response()->json([
+            return $this->noStoreJson([
                 'success' => false,
                 'message' => 'Failed to cancel withdrawal request',
             ]);
         }
+    }
+
+    private function noStoreJson(array $payload, int $status = 200): JsonResponse
+    {
+        return response()->json($payload, $status)
+            ->header('Cache-Control', 'no-store');
     }
 }

@@ -1147,6 +1147,13 @@ class AdminWithdrawalLaterTest extends TestCase
                 ->get('Cache-Control');
             $this->assertStringContainsString('no-store', $cache, $url);
         }
+
+        $paidCache = (string) $this->actingAs($admin)
+            ->postJson(route('admin.withdrawals.paid', $withdrawal->id), ['notes' => 'Paid'])
+            ->assertOk()
+            ->headers
+            ->get('Cache-Control');
+        $this->assertStringContainsString('no-store', $paidCache);
     }
 
     public function test_statistics_tolerates_blank_payment_method(): void
