@@ -591,4 +591,121 @@ class DepositCreditAndRejectHardeningTest extends TestCase
             ->where('status', 'completed')
             ->count());
     }
+
+    public function test_completed_bank_deposit_id_does_not_swallow_a_new_card_charge(): void
+    {
+        $advertiser = $this->advertiser();
+        $wallet = $this->walletFor($advertiser);
+        $wallet->update(['balance' => 40]);
+
+        $bank = DepositRequest::create([
+            'user_id' => $advertiser->id,
+            'reference_code' => 'DEP-DONE-BANK-1',
+            'amount' => 40,
+            'payment_method' => 'bank',
+            'status' => 'completed',
+            'approved_at' => now()->subHour(),
+        ]);
+
+        $credited = app(WalletStripeDepositService::class)->creditFromCheckoutSession((object) [
+            'id' => 'cs_done_bank_'.uniqid(),
+            'payment_status' => 'paid',
+            'amount_total' => 2500,
+            'payment_intent' => 'pi_done_bank_'.uniqid(),
+            'metadata' => (object) [
+                'type' => 'wallet_deposit',
+                'user_id' => (string) $advertiser->id,
+                'deposit_id' => (string) $bank->id,
+                'amount' => '25.00',
+            ],
+        ]);
+
+        $this->assertSame(25.0, $credited);
+        $this->assertSame('completed', $bank->fresh()->status);
+        $this->assertNull($bank->fresh()->stripe_payment_intent_id);
+        $this->assertSame(65.0, (float) $wallet->fresh()->balance);
+        $this->assertSame(1, DepositRequest::query()
+            ->where('user_id', $advertiser->id)
+            ->where('payment_method', 'card')
+            ->where('status', 'completed')
+            ->count());
+    }
+
+    public function test_completed_card_with_same_payment_intent_does_not_credit_again(): void
+    {
+        $advertiser = $this->advertiser();
+        $wallet = $this->walletFor($advertiser);
+        $pi = 'pi_same_'.uniqid();
+        $sessionId = 'cs_same_'.uniqid();
+
+        $card = DepositRequest::create([
+            'user_id' => $advertiser->id,
+            'reference_code' => 'DEP-SAME-PI-1',
+            'amount' => 30,
+            'payment_method' => 'card',
+            'status' => 'completed',
+            'stripe_session_id' => $sessionId,
+            'stripe_payment_intent_id' => $pi,
+            'approved_at' => now()->subMinute(),
+            'paid_at' => now()->subMinute(),
+        ]);
+        $wallet->update(['balance' => 30]);
+
+        $credited = app(WalletStripeDepositService::class)->creditFromCheckoutSession((object) [
+            'id' => $sessionId,
+            'payment_status' => 'paid',
+            'amount_total' => 3000,
+            'payment_intent' => $pi,
+            'metadata' => (object) [
+                'type' => 'wallet_deposit',
+                'user_id' => (string) $advertiser->id,
+                'deposit_id' => (string) $card->id,
+                'amount' => '30.00',
+            ],
+        ]);
+
+        $this->assertSame(30.0, $credited);
+        $this->assertSame(30.0, (float) $wallet->fresh()->balance);
+        $this->assertSame(1, DepositRequest::query()->where('user_id', $advertiser->id)->count());
+    }
+
+    public function test_completed_card_with_a_new_payment_intent_credits_a_new_row(): void
+    {
+        $advertiser = $this->advertiser();
+        $wallet = $this->walletFor($advertiser);
+
+        $card = DepositRequest::create([
+            'user_id' => $advertiser->id,
+            'reference_code' => 'DEP-OLD-PI-1',
+            'amount' => 30,
+            'payment_method' => 'card',
+            'status' => 'completed',
+            'stripe_session_id' => 'cs_old_'.uniqid(),
+            'stripe_payment_intent_id' => 'pi_old_'.uniqid(),
+            'approved_at' => now()->subMinute(),
+            'paid_at' => now()->subMinute(),
+        ]);
+        $wallet->update(['balance' => 30]);
+
+        $credited = app(WalletStripeDepositService::class)->creditFromCheckoutSession((object) [
+            'id' => 'cs_new_'.uniqid(),
+            'payment_status' => 'paid',
+            'amount_total' => 1500,
+            'payment_intent' => 'pi_new_'.uniqid(),
+            'metadata' => (object) [
+                'type' => 'wallet_deposit',
+                'user_id' => (string) $advertiser->id,
+                'deposit_id' => (string) $card->id,
+                'amount' => '15.00',
+            ],
+        ]);
+
+        $this->assertSame(15.0, $credited);
+        $this->assertSame(45.0, (float) $wallet->fresh()->balance);
+        $this->assertSame(2, DepositRequest::query()
+            ->where('user_id', $advertiser->id)
+            ->where('payment_method', 'card')
+            ->where('status', 'completed')
+            ->count());
+    }
 }

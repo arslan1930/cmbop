@@ -151,57 +151,56 @@ class WalletStripeDepositService
             return 0.0;
         }
 
-        if ($depositId) {
-            $credited = $this->withStripeDepositLock(
-                $paymentIntentId,
-                $sessionId,
-                fn () => $this->completeExistingDeposit(
-                    (int) $depositId,
-                    $sessionId,
-                    $paymentIntentId,
-                    $session,
-                    $userId
-                )
-            );
-            if ($credited > 0) {
-                return $credited;
-            }
-
-            Log::info('WalletStripeDepositService: deposit_id did not settle; crediting a new card row', [
-                'session_id' => $sessionId,
-                'deposit_id' => $depositId,
-                'user_id' => $userId,
-            ]);
-        }
-
-        if (! $userId || $sessionId === '') {
-            Log::warning('WalletStripeDepositService: missing user_id or session id', [
-                'session_id' => $sessionId,
-                'user_id' => $userId,
-            ]);
-
-            return 0.0;
-        }
-
         $stripeAmount = isset($session->amount_total)
             ? StripePaymentService::fromCents((int) $session->amount_total)
             : null;
         $finalAmount = $stripeAmount !== null ? $stripeAmount : ($metaAmount ?? 0.0);
-        if ($finalAmount <= 0) {
-            throw new \RuntimeException('Invalid deposit amount from Stripe session');
-        }
 
         return $this->withStripeDepositLock(
             $paymentIntentId,
             $sessionId,
-            fn () => $this->creditFromCheckoutSessionLocked(
-                $session,
-                $sessionId,
-                $paymentIntentId,
-                (int) $userId,
-                $finalAmount,
-                $referenceCode
-            )
+            function () use ($depositId, $sessionId, $paymentIntentId, $session, $userId, $finalAmount, $referenceCode) {
+                if ($depositId) {
+                    $credited = $this->completeExistingDeposit(
+                        (int) $depositId,
+                        $sessionId,
+                        $paymentIntentId,
+                        $session,
+                        $userId
+                    );
+                    if ($credited > 0) {
+                        return $credited;
+                    }
+
+                    Log::info('WalletStripeDepositService: deposit_id did not settle; crediting a new card row', [
+                        'session_id' => $sessionId,
+                        'deposit_id' => $depositId,
+                        'user_id' => $userId,
+                    ]);
+                }
+
+                if (! $userId || $sessionId === '') {
+                    Log::warning('WalletStripeDepositService: missing user_id or session id', [
+                        'session_id' => $sessionId,
+                        'user_id' => $userId,
+                    ]);
+
+                    return 0.0;
+                }
+
+                if ($finalAmount <= 0) {
+                    throw new \RuntimeException('Invalid deposit amount from Stripe session');
+                }
+
+                return $this->creditFromCheckoutSessionLocked(
+                    $session,
+                    $sessionId,
+                    $paymentIntentId,
+                    (int) $userId,
+                    $finalAmount,
+                    $referenceCode
+                );
+            }
         );
     }
 
@@ -372,7 +371,20 @@ class WalletStripeDepositService
             }
 
             if ($lockedDeposit->status === 'completed') {
-                $credited = (float) $lockedDeposit->amount;
+                // Only treat this as the same Stripe charge when the ids match.
+                // A completed bank/Wise invoice (or a different PaymentIntent)
+                // must not swallow a new card payment.
+                if ($this->depositMatchesStripePayment($lockedDeposit, $sessionId, $paymentIntentId)) {
+                    $credited = (float) $lockedDeposit->amount;
+
+                    return;
+                }
+
+                Log::info('WalletStripeDepositService: completed deposit_id is a different settlement', [
+                    'deposit_id' => $lockedDeposit->id,
+                    'session_id' => $sessionId,
+                    'payment_intent_id' => $paymentIntentId,
+                ]);
 
                 return;
             }
@@ -464,8 +476,28 @@ class WalletStripeDepositService
             return;
         }
 
-        // Same email + bell path as admin bank/Wise approval (DepositSettlementNotifier).
-        app(DepositSettlementNotifier::class)->notifyApproved($deposit);
+        try {
+            // Same email + bell path as admin bank/Wise approval (DepositSettlementNotifier).
+            app(DepositSettlementNotifier::class)->notifyApproved($deposit);
+        } catch (\Throwable $e) {
+            Log::error('Failed to notify Stripe deposit credit: '.$e->getMessage(), [
+                'deposit_id' => $depositId,
+            ]);
+        }
+    }
+
+    protected function depositMatchesStripePayment(
+        DepositRequest $deposit,
+        string $sessionId,
+        string $paymentIntentId
+    ): bool {
+        if ($paymentIntentId !== '' && filled($deposit->stripe_payment_intent_id)
+            && hash_equals((string) $deposit->stripe_payment_intent_id, $paymentIntentId)) {
+            return true;
+        }
+
+        return $sessionId !== '' && filled($deposit->stripe_session_id)
+            && hash_equals((string) $deposit->stripe_session_id, $sessionId);
     }
 
     protected function creditAdvertiserWallet(int $userId, float $amount, DepositRequest $deposit): void
