@@ -497,6 +497,13 @@ class OrderPaymentService
     public function creditCapturedCardWhenUnfulfillable(int $userId, string $referenceCode, object $session): float
     {
         $amount = $this->stripeEurosFromObject($session);
+        $alreadySettled = round(
+            (float) $this->paidCardOrdersForStripeCharge($referenceCode, $session, $userId)
+                ->sum(fn (Order $order) => (float) $order->total_amount)
+            + $this->refundedCardOrderAmountForStripeCharge($referenceCode, $session, $userId),
+            2
+        );
+        $amount = round(max(0, $amount - $alreadySettled), 2);
 
         return $this->creditUnfulfilledCardCapture(
             $userId,
@@ -545,6 +552,29 @@ class OrderPaymentService
             ->where('payment_method', 'card')
             ->where('payment_status', 'refunded')
             ->when($userId && $userId > 0, fn ($query) => $query->where('user_id', $userId))
+            ->sum('total_amount'), 2);
+    }
+
+    public function refundedCardOrderAmountForStripeCharge(string $referenceCode, object $session, int $payerId = 0): float
+    {
+        [$sessionId, $paymentIntentId] = $this->stripeChargeIds($session);
+        if ($sessionId === '' && $paymentIntentId === '') {
+            return 0.0;
+        }
+
+        return round((float) Order::query()
+            ->where('reference_code', $referenceCode)
+            ->where('payment_method', 'card')
+            ->where('payment_status', 'refunded')
+            ->when($payerId > 0, fn ($query) => $query->where('user_id', $payerId))
+            ->where(function ($query) use ($sessionId, $paymentIntentId) {
+                if ($sessionId !== '') {
+                    $query->orWhere('stripe_session_id', $sessionId);
+                }
+                if ($paymentIntentId !== '') {
+                    $query->orWhere('stripe_payment_intent_id', $paymentIntentId);
+                }
+            })
             ->sum('total_amount'), 2);
     }
 
