@@ -811,6 +811,40 @@ class BulkDoneDraftAndNicheUiTest extends TestCase
         $this->assertSame(0, Site::query()->where('bulk_site_request_id', $bulk->id)->count());
     }
 
+    public function test_refresh_progress_does_not_uncancel_a_stale_in_memory_request(): void
+    {
+        $bulk = BulkSiteRequest::create([
+            'publisher_id' => $this->publisher->id,
+            'status' => BulkSiteRequest::STATUS_REQUESTED,
+            'estimated_count' => 8,
+        ]);
+        BulkSiteRequest::query()->whereKey($bulk->id)->update([
+            'status' => BulkSiteRequest::STATUS_CANCELLED,
+        ]);
+
+        $this->assertSame(BulkSiteRequest::STATUS_REQUESTED, $bulk->status);
+        $bulk->refreshProgressStatus();
+
+        $this->assertSame(BulkSiteRequest::STATUS_CANCELLED, $bulk->status);
+        $this->assertSame(BulkSiteRequest::STATUS_CANCELLED, $bulk->fresh()->status);
+
+        $this->actingAs($this->marketer)
+            ->get(route('marketing.bulk-site-requests.show', $bulk))
+            ->assertOk()
+            ->assertSee('Cancelled', false);
+
+        $this->assertSame(BulkSiteRequest::STATUS_CANCELLED, $bulk->fresh()->status);
+
+        $model = file_get_contents(app_path('Models/BulkSiteRequest.php'));
+        $this->assertStringContainsString('lockForUpdate()->find($id)', $model);
+        $this->assertStringContainsString('applyProgressStatus', $model);
+        $this->assertStringContainsString('stale in-memory status', $model);
+
+        $controller = file_get_contents(app_path('Http/Controllers/Admin/BulkSiteRequestController.php'));
+        $this->assertStringContainsString('lockForUpdate()->findOrFail($id)', $controller);
+        $this->assertStringContainsString('$blocked', $controller);
+    }
+
     private function marketplaceCodes(): array
     {
         $country = Country::marketplace()->where('code', 'de')->first()

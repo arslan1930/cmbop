@@ -134,6 +134,27 @@ class BulkSiteGuidedWorkflowTest extends TestCase
         $publisherController = file_get_contents(app_path('Http/Controllers/Publisher/BulkSiteRequestController.php'));
         $this->assertStringContainsString('lockForUpdate()->firstOrFail()', $publisherController);
         $this->assertStringContainsString('openBlockingBulkRequest', $publisherController);
+        $this->assertStringContainsString('CommunityInbox::safeHttpUrl', $publisherController);
+        $this->assertStringContainsString("'javascript', 'data', 'mailto'", $publisherController);
+    }
+
+    public function test_publisher_bulk_rejects_javascript_and_ftp_urls(): void
+    {
+        $this->actingAs($this->publisher)
+            ->from(route('publisher.websites'))
+            ->post(route('publisher.bulk-sites.request'), [
+                'sites' => [
+                    ['url' => 'javascript:alert(1)', 'price' => 10],
+                    ['url' => 'ftp://ftp-pub.example', 'price' => 20],
+                    ['url' => 'https://ok-pub.example', 'price' => 30],
+                ],
+            ])
+            ->assertRedirect(route('publisher.websites'))
+            ->assertSessionHasErrors(['sites.0.url', 'sites.1.url']);
+
+        $this->assertSame(0, BulkSiteRequest::where('publisher_id', $this->publisher->id)->count());
+        $this->assertDatabaseMissing('bulk_site_request_items', ['domain' => 'javascript']);
+        $this->assertDatabaseMissing('bulk_site_request_items', ['domain' => 'ftp-pub.example']);
     }
 
     public function test_websites_page_shows_url_price_bulk_columns(): void

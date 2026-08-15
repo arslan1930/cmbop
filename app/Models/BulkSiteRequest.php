@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Facades\DB;
 
 class BulkSiteRequest extends Model
 {
@@ -94,27 +95,49 @@ class BulkSiteRequest extends Model
 
     public function refreshProgressStatus(): void
     {
-        if ($this->status === self::STATUS_CANCELLED) {
+        $id = (int) $this->getKey();
+        if ($id <= 0) {
             return;
         }
 
-        $total = $this->sites()->notArchived()->count();
-        $pendingItems = $this->pendingItemsCount();
+        // Always re-read under lock. A stale in-memory status (show heal, Done
+        // after-commit, site delete) used to overwrite a concurrent cancel.
+        DB::transaction(function () use ($id) {
+            $model = static::query()->lockForUpdate()->find($id);
+            if (! $model) {
+                return;
+            }
+
+            $this->applyProgressStatus($model);
+            $this->setRawAttributes($model->getAttributes());
+            $this->exists = true;
+            $this->syncOriginal();
+        });
+    }
+
+    private function applyProgressStatus(self $model): void
+    {
+        if ($model->status === self::STATUS_CANCELLED) {
+            return;
+        }
+
+        $total = $model->sites()->notArchived()->count();
+        $pendingItems = $model->pendingItemsCount();
 
         // Brand-new requested batches stay put. Sheet-sent with no leftover
         // URL+price rows stays sheet-sent (legacy). Sheet-sent + pending rows
         // and no drafts must become "Waiting on marketer" so heal/index match.
-        if ($this->status === self::STATUS_REQUESTED && $total === 0) {
+        if ($model->status === self::STATUS_REQUESTED && $total === 0) {
             return;
         }
-        if ($this->status === self::STATUS_SHEET_SENT && $total === 0 && $pendingItems === 0) {
+        if ($model->status === self::STATUS_SHEET_SENT && $total === 0 && $pendingItems === 0) {
             return;
         }
 
         // Last/only draft deleted: the URL+price row is pending again (site_id nullOnDelete).
         if ($total === 0) {
             if ($pendingItems > 0) {
-                $this->forceFill([
+                $model->forceFill([
                     'status' => self::STATUS_REQUESTED,
                     'completed_at' => null,
                 ])->save();
@@ -123,8 +146,8 @@ class BulkSiteRequest extends Model
             }
 
             // Legacy sheet: count set, no item rows — keep the batch open so staff can re-seed.
-            if ($this->items()->doesntExist() && (int) $this->estimated_count > 0) {
-                $this->forceFill([
+            if ($model->items()->doesntExist() && (int) $model->estimated_count > 0) {
+                $model->forceFill([
                     'status' => self::STATUS_REQUESTED,
                     'completed_at' => null,
                 ])->save();
@@ -132,19 +155,19 @@ class BulkSiteRequest extends Model
                 return;
             }
 
-            $this->forceFill([
+            $model->forceFill([
                 'status' => self::STATUS_COMPLETED,
-                'completed_at' => $this->completed_at ?? now(),
+                'completed_at' => $model->completed_at ?? now(),
             ])->save();
 
             return;
         }
 
-        $pendingPublisher = $this->pendingPublisherCount();
+        $pendingPublisher = $model->pendingPublisherCount();
 
         // Publisher still filling/reviewing seeded drafts.
         if ($pendingPublisher > 0) {
-            $this->forceFill([
+            $model->forceFill([
                 'status' => self::STATUS_AWAITING_PUBLISHER,
                 'completed_at' => null,
             ])->save();
@@ -154,7 +177,7 @@ class BulkSiteRequest extends Model
 
         // Publisher finished current drafts, but marketer still has URL+price rows to Done.
         if ($pendingItems > 0) {
-            $this->forceFill([
+            $model->forceFill([
                 'status' => self::STATUS_SEEDED,
                 'completed_at' => null,
             ])->save();
@@ -163,9 +186,9 @@ class BulkSiteRequest extends Model
         }
 
         // Every seeded site left the publisher stage and no pending rows remain.
-        $this->forceFill([
+        $model->forceFill([
             'status' => self::STATUS_COMPLETED,
-            'completed_at' => $this->completed_at ?? now(),
+            'completed_at' => $model->completed_at ?? now(),
         ])->save();
     }
 

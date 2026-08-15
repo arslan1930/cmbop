@@ -110,17 +110,28 @@ class BulkSiteRequestController extends Controller
 
     public function markSheetSent(Request $request, int $id)
     {
-        $bulkRequest = BulkSiteRequest::findOrFail($id);
+        $blocked = false;
+        $bulkRequest = null;
 
-        if (! $bulkRequest->canMarkSheetSent()) {
+        DB::transaction(function () use ($id, &$blocked, &$bulkRequest) {
+            $locked = BulkSiteRequest::query()->lockForUpdate()->findOrFail($id);
+            if (! $locked->canMarkSheetSent()) {
+                $blocked = true;
+
+                return;
+            }
+
+            $locked->forceFill([
+                'status' => BulkSiteRequest::STATUS_SHEET_SENT,
+                'sheet_sent_at' => now(),
+                'handled_by' => auth()->id(),
+            ])->save();
+            $bulkRequest = $locked;
+        });
+
+        if ($blocked || ! $bulkRequest) {
             return back()->with('error', 'Sheet emailed can only be marked before drafts are added.');
         }
-
-        $bulkRequest->forceFill([
-            'status' => BulkSiteRequest::STATUS_SHEET_SENT,
-            'sheet_sent_at' => now(),
-            'handled_by' => auth()->id(),
-        ])->save();
 
         ActivityLogger::log(
             'bulk_request.sheet_sent',

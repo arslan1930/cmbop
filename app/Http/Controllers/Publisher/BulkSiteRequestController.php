@@ -12,6 +12,7 @@ use App\Services\ActivityLogger;
 use App\Services\EmailNotificationService;
 use App\Services\InAppNotificationService;
 use App\Services\SiteDescriptionSanitizer;
+use App\Support\CommunityInbox;
 use App\Support\SiteDescriptionRules;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -560,13 +561,26 @@ class BulkSiteRequestController extends Controller
         }
 
         $url = trim((string) $url);
-        if ($url === '') {
-            return $url;
+        if ($url === '' || str_contains($url, "\0") || preg_match('/\s/u', $url) === 1) {
+            return '';
         }
-        if (! preg_match('#^https?://#i', $url)) {
+
+        if (str_starts_with($url, '//')) {
+            $url = 'https:'.$url;
+        } elseif (preg_match('#^https?://#i', $url) !== 1) {
+            if (preg_match('~^([a-z][a-z0-9+.-]*):~i', $url, $schemeMatch) === 1) {
+                $scheme = strtolower($schemeMatch[1]);
+                $hasAuthority = preg_match('~^'.preg_quote($schemeMatch[1], '~').'://~i', $url) === 1;
+                if ($hasAuthority || in_array($scheme, ['javascript', 'data', 'mailto', 'vbscript', 'file', 'about', 'blob', 'ftp', 'ftps'], true)) {
+                    return '';
+                }
+                if (! str_contains($scheme, '.')) {
+                    return '';
+                }
+            }
             $url = 'https://'.$url;
         }
 
-        return $url;
+        return CommunityInbox::safeHttpUrl($url) ?? '';
     }
 }
