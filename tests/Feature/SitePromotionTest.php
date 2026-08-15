@@ -379,4 +379,25 @@ class SitePromotionTest extends TestCase
             'user_id' => $publisher->id,
         ]);
     }
+
+    public function test_feature_from_stripe_credits_when_listing_left_the_catalog(): void
+    {
+        config(['site_promotions.feature.price' => 10]);
+        $publisher = $this->publisherWithWallet(5);
+        $site = $this->site($publisher);
+        $site->update(['verified' => false, 'active' => false]);
+
+        $promotions = app(SitePromotionService::class);
+        $first = $promotions->featureFromStripePayment($site, $publisher, 'cs_feature_delisted');
+        $second = $promotions->featureFromStripePayment($site->fresh(), $publisher, 'cs_feature_delisted');
+
+        $this->assertTrue($first['success']);
+        $this->assertTrue($first['credited']);
+        $this->assertFalse($first['already']);
+        $this->assertTrue($second['already']);
+        $this->assertStringContainsString('no longer in the catalog', $first['message']);
+        $this->assertNull($site->fresh()->featured_until);
+        $this->assertEqualsWithDelta(15.0, (float) Wallet::where('user_id', $publisher->id)->value('balance'), 0.01);
+        $this->assertSame(1, SiteFeaturePurchase::where('stripe_session_id', 'cs_feature_delisted')->count());
+    }
 }

@@ -49,6 +49,23 @@ class OrderPaymentService
             }
 
             $meta = $this->sessionMetadataArray($session);
+            if (! $this->existingCardOrdersMatchStripeCharge($orders, $session, $meta)) {
+                if ($this->pendingPackageBelongsToPayer($referenceCode, $meta)) {
+                    Log::warning('Stripe charge does not match existing card order totals; leaving rows for package finalize', [
+                        'reference_code' => $referenceCode,
+                        'session_id' => $session->id ?? null,
+                    ]);
+
+                    return collect();
+                }
+
+                $this->assertStripeAmountMatchesExpected(
+                    $session,
+                    $this->markableCardOrdersDue($orders, $meta),
+                    $referenceCode
+                );
+            }
+
             $this->assertStripeAmountMatchesExpected(
                 $session,
                 $this->expectedStripeEurosForOrders($orders, $meta),
@@ -115,6 +132,23 @@ class OrderPaymentService
 
             if ($orders->isEmpty()) {
                 return collect();
+            }
+
+            if (! $this->existingCardOrdersMatchStripeCharge($orders, $intent, $meta)) {
+                if ($this->pendingPackageBelongsToPayer($referenceCode, $meta)) {
+                    Log::warning('PaymentIntent charge does not match existing card order totals; leaving rows for package finalize', [
+                        'reference_code' => $referenceCode,
+                        'payment_intent' => $intent->id ?? null,
+                    ]);
+
+                    return collect();
+                }
+
+                $this->assertStripeAmountMatchesExpected(
+                    $intent,
+                    $this->markableCardOrdersDue($orders, $meta),
+                    $referenceCode
+                );
             }
 
             $this->assertStripeAmountMatchesExpected(
@@ -592,6 +626,51 @@ class OrderPaymentService
     }
 
     /**
+     * Settlement ack for THIS Stripe capture only. A prior refund or catalog-left
+     * credit on the same 6-digit REF must not make a later charge look settled.
+     */
+    public function walletCreditForThisCardCharge(string $referenceCode, object $session, ?int $userId = null): float
+    {
+        $payerId = $userId && $userId > 0 ? (int) $userId : 0;
+
+        return round(
+            $this->unfulfilledCardCreditAmountForCharge($referenceCode, $session, $userId)
+            + $this->refundedCardOrderAmountForStripeCharge($referenceCode, $session, $payerId),
+            2
+        );
+    }
+
+    public function unfulfilledCardCreditAmountForCharge(string $referenceCode, object $session, ?int $userId = null): float
+    {
+        if (! Schema::hasTable((new WalletTransaction)->getTable())) {
+            return 0.0;
+        }
+
+        $token = $this->stripeChargeToken($session);
+        if ($token === '') {
+            return 0.0;
+        }
+
+        $reference = self::unfulfilledCardCreditReference($referenceCode, $token);
+        $query = WalletTransaction::query()
+            ->where('direction', 'credit')
+            ->where('reference', $reference);
+
+        if ($userId && $userId > 0) {
+            $roleId = Wallet::advertiserRoleId();
+            $walletId = $roleId
+                ? Wallet::query()->where('user_id', $userId)->where('role_id', $roleId)->value('id')
+                : null;
+            if (! $walletId) {
+                return 0.0;
+            }
+            $query->where('wallet_id', $walletId);
+        }
+
+        return round((float) $query->sum('amount'), 2);
+    }
+
+    /**
      * Idempotency is per Stripe charge, not per 6-digit REF. A later checkout
      * that reused the session REF must not look "already paid".
      */
@@ -641,6 +720,11 @@ class OrderPaymentService
      */
     public function storePendingCheckout(string $referenceCode, array $package): void
     {
+        $userId = (int) ($package['user_id'] ?? 0);
+        if ($userId > 0) {
+            $this->cancelUnpaidCardOrdersForNewCheckout($referenceCode, $userId);
+        }
+
         app(CheckoutIntentService::class)->storePackage($referenceCode, $package);
     }
 
@@ -689,7 +773,10 @@ class OrderPaymentService
             ->get();
 
         if ($existing->contains(fn (Order $order) => $this->canMarkCardOrderPaid($order))) {
-            return $this->markOrdersPaidFromStripeSession($referenceCode, $session);
+            $marked = $this->markOrdersPaidFromStripeSession($referenceCode, $session);
+            if ($marked->isNotEmpty()) {
+                return $marked;
+            }
         }
 
         if ($this->paidCardOrderCountForStripeCharge($referenceCode, $session, $payerId) > 0) {
@@ -1033,10 +1120,75 @@ class OrderPaymentService
             return round((float) $meta['expected_amount'], 2);
         }
 
-        $total = round((float) $orders->sum(fn (Order $order) => (float) $order->total_amount), 2);
+        return $this->markableCardOrdersDue($orders, $meta);
+    }
+
+    /**
+     * @param  Collection<int, Order>  $orders
+     * @param  array<string, mixed>  $meta
+     */
+    private function markableCardOrdersDue(Collection $orders, array $meta): float
+    {
+        $markable = $orders->filter(fn (Order $order) => $this->canMarkCardOrderPaid($order));
+        $total = round((float) $markable->sum(fn (Order $order) => (float) $order->total_amount), 2);
         $bonus = round((float) ($meta['bonus_applied'] ?? 0), 2);
 
         return round(max(0, $total - $bonus), 2);
+    }
+
+    /**
+     * @param  Collection<int, Order>  $orders
+     * @param  array<string, mixed>  $meta
+     */
+    private function existingCardOrdersMatchStripeCharge(Collection $orders, object $session, array $meta): bool
+    {
+        $markable = $orders->filter(fn (Order $order) => $this->canMarkCardOrderPaid($order));
+        if ($markable->isEmpty()) {
+            return true;
+        }
+
+        $orderDue = $this->markableCardOrdersDue($orders, $meta);
+        $charged = $this->stripeEurosFromObject($session);
+        if ($orderDue <= 0 || $charged <= 0) {
+            return true;
+        }
+
+        return abs($charged - $orderDue) <= 0.009;
+    }
+
+    /**
+     * @param  array<string, mixed>  $meta
+     */
+    private function pendingPackageBelongsToPayer(string $referenceCode, array $meta): bool
+    {
+        $package = $this->getPendingCheckout($referenceCode);
+        if ($package === null) {
+            return false;
+        }
+
+        $packageUserId = (int) ($package['user_id'] ?? 0);
+        $payerId = isset($meta['user_id']) ? (int) $meta['user_id'] : 0;
+
+        return $packageUserId <= 0 || $payerId <= 0 || $packageUserId === $payerId;
+    }
+
+    private function cancelUnpaidCardOrdersForNewCheckout(string $referenceCode, int $userId): void
+    {
+        $rows = Order::query()
+            ->where('reference_code', $referenceCode)
+            ->where('user_id', $userId)
+            ->where('payment_method', 'card')
+            ->whereIn('payment_status', ['pending', 'failed'])
+            ->whereNotIn('status', ['cancelled', 'completed'])
+            ->get();
+
+        foreach ($rows as $order) {
+            ContentSubmission::releaseAllForOrder((int) $order->id);
+            $order->update([
+                'status' => 'cancelled',
+                'payment_status' => $order->payment_status === 'paid' ? $order->payment_status : 'failed',
+            ]);
+        }
     }
 
     /**

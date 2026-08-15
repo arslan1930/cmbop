@@ -232,7 +232,7 @@ class SitePromotionService
                 // Lock the site first so webhook + success URL cannot both
                 // pass an unlocked exists() check and stack two 7-day periods.
                 $locked = Site::query()->whereKey($site->id)->lockForUpdate()->firstOrFail();
-                if ($locked->isFromCancelledBulk()) {
+                if (! $locked->isCatalogVisible()) {
                     if (is_string($stripeSessionId) && $stripeSessionId !== '') {
                         return $this->creditPayerWhenFeatureCannotApply(
                             $locked,

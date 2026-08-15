@@ -486,8 +486,9 @@ class StripeWebhookController extends Controller
                     ? $paymentService->creditCapturedCardWhenUnfulfillable($payerId, $referenceCode, $session)
                     : 0.0;
                 if ($credited <= 0) {
-                    $credited = $paymentService->walletCreditForUnfulfillableCardCheckout(
+                    $credited = $paymentService->walletCreditForThisCardCharge(
                         $referenceCode,
+                        $session,
                         $payerId > 0 ? $payerId : null
                     );
                 }
@@ -569,8 +570,9 @@ class StripeWebhookController extends Controller
                     ? $paymentService->creditCapturedCardWhenUnfulfillable($payerId, $referenceCode, $intent)
                     : 0.0;
                 if ($credited <= 0) {
-                    $credited = $paymentService->walletCreditForUnfulfillableCardCheckout(
+                    $credited = $paymentService->walletCreditForThisCardCharge(
                         $referenceCode,
+                        $intent,
                         $payerId > 0 ? $payerId : null
                     );
                 }

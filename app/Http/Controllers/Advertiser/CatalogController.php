@@ -2516,7 +2516,11 @@ class CatalogController extends Controller
                         $intent
                     );
                     if ($credited <= 0) {
-                        $credited = $paymentService->walletCreditForUnfulfillableCardCheckout($referenceCode, (int) $userId);
+                        $credited = $paymentService->walletCreditForThisCardCharge(
+                            $referenceCode,
+                            $intent,
+                            (int) $userId
+                        );
                     }
                     if ($credited > 0) {
                         return response()->json([
@@ -3042,9 +3046,10 @@ class CatalogController extends Controller
                         $stripeObject
                     );
                 }
-                if ($credited <= 0) {
-                    $credited = $paymentService->walletCreditForUnfulfillableCardCheckout(
+                if ($credited <= 0 && $stripeObject) {
+                    $credited = $paymentService->walletCreditForThisCardCharge(
                         $referenceCode,
+                        $stripeObject,
                         (int) auth()->id()
                     );
                 }

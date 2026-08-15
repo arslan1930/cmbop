@@ -1141,6 +1141,173 @@ class StripeFirstCheckoutInvariantsTest extends TestCase
         $this->assertEqualsWithDelta(80.0, $payments->unfulfilledCardCreditAmount($ref, $advertiser->id), 0.01);
     }
 
+    public function test_failed_rows_are_not_paid_by_a_later_smaller_package(): void
+    {
+        $advertiser = $this->makeUser('advertiser');
+        $publisher = $this->makeUser('publisher');
+        $staleSite = $this->makeSite($publisher, 'stale-failed-a.example', 80);
+        $liveSite = $this->makeSite($publisher, 'stale-failed-b.example', 40);
+        $ref = 'STALE-FAIL-1';
+        $payments = app(OrderPaymentService::class);
+
+        $stale = $this->pendingCardOrder($advertiser, $staleSite, $ref, 80);
+        $stale->update(['payment_status' => 'failed']);
+
+        $payments->storePendingCheckout($ref, $this->package($advertiser, [$this->lineFor($liveSite, 40)], 40));
+        $this->assertSame('cancelled', $stale->fresh()->status);
+
+        $this->signedWebhook([
+            'id' => 'evt_stale_fail_'.uniqid(),
+            'object' => 'event',
+            'type' => 'checkout.session.completed',
+            'data' => [
+                'object' => [
+                    'id' => 'cs_stale_fail_small',
+                    'object' => 'checkout.session',
+                    'payment_status' => 'paid',
+                    'amount_total' => 4000,
+                    'payment_intent' => 'pi_stale_fail_small',
+                    'metadata' => [
+                        'type' => 'order_payment',
+                        'reference_code' => $ref,
+                        'user_id' => (string) $advertiser->id,
+                        'expected_amount' => '40',
+                    ],
+                ],
+            ],
+        ])->assertOk();
+
+        $this->assertSame('failed', $stale->fresh()->payment_status);
+        $this->assertSame('cancelled', $stale->fresh()->status);
+        $this->assertSame(1, Order::query()
+            ->where('user_id', $advertiser->id)
+            ->where('reference_code', $ref)
+            ->where('payment_status', 'paid')
+            ->count());
+        $this->assertSame($liveSite->id, (int) OrderItem::query()
+            ->whereIn('order_id', Order::query()->where('reference_code', $ref)->where('payment_status', 'paid')->pluck('id'))
+            ->value('site_id'));
+        $this->assertEqualsWithDelta(0.0, $payments->unfulfilledCardCreditAmount($ref, $advertiser->id), 0.01);
+    }
+
+    public function test_failed_rows_do_not_swallow_a_later_larger_package(): void
+    {
+        $advertiser = $this->makeUser('advertiser');
+        $publisher = $this->makeUser('publisher');
+        $staleSite = $this->makeSite($publisher, 'stale-small-fail.example', 40);
+        $liveSite = $this->makeSite($publisher, 'stale-large-live.example', 80);
+        $wallet = $this->advertiserWallet($advertiser, 0);
+        $ref = 'STALE-FAIL-2';
+        $payments = app(OrderPaymentService::class);
+
+        $stale = $this->pendingCardOrder($advertiser, $staleSite, $ref, 40);
+        $stale->update(['payment_status' => 'failed']);
+
+        $payments->storePendingCheckout($ref, $this->package($advertiser, [$this->lineFor($liveSite, 80)], 80));
+
+        $this->signedWebhook([
+            'id' => 'evt_stale_fail_large_'.uniqid(),
+            'object' => 'event',
+            'type' => 'checkout.session.completed',
+            'data' => [
+                'object' => [
+                    'id' => 'cs_stale_fail_large',
+                    'object' => 'checkout.session',
+                    'payment_status' => 'paid',
+                    'amount_total' => 8000,
+                    'payment_intent' => 'pi_stale_fail_large',
+                    'metadata' => [
+                        'type' => 'order_payment',
+                        'reference_code' => $ref,
+                        'user_id' => (string) $advertiser->id,
+                        'expected_amount' => '80',
+                    ],
+                ],
+            ],
+        ])->assertOk();
+
+        $this->assertSame('cancelled', $stale->fresh()->status);
+        $this->assertSame(1, Order::query()
+            ->where('user_id', $advertiser->id)
+            ->where('reference_code', $ref)
+            ->where('payment_status', 'paid')
+            ->count());
+        $this->assertSame($liveSite->id, (int) OrderItem::query()
+            ->whereIn('order_id', Order::query()->where('reference_code', $ref)->where('payment_status', 'paid')->pluck('id'))
+            ->value('site_id'));
+        $wallet->refresh();
+        $this->assertEqualsWithDelta(0.0, (float) $wallet->balance, 0.01);
+    }
+
+    public function test_prior_refund_does_not_ack_a_later_orphan_capture(): void
+    {
+        $advertiser = $this->makeUser('advertiser');
+        $publisher = $this->makeUser('publisher');
+        $site = $this->makeSite($publisher, 'prior-refund-orphan.example', 80);
+        $wallet = $this->advertiserWallet($advertiser, 0);
+        $ref = 'PRIOR-REFUND-1';
+        $payments = app(OrderPaymentService::class);
+
+        $prior = Order::create([
+            'user_id' => $advertiser->id,
+            'order_number' => (string) random_int(100000, 999999),
+            'reference_code' => $ref,
+            'subtotal' => 80,
+            'tax' => 0,
+            'total_amount' => 80,
+            'payment_method' => 'card',
+            'payment_status' => 'refunded',
+            'status' => 'cancelled',
+            'stripe_session_id' => 'cs_prior_refund',
+            'stripe_payment_intent_id' => 'pi_prior_refund',
+        ]);
+        OrderItem::create([
+            'order_id' => $prior->id,
+            'site_id' => $site->id,
+            'site_name' => $site->site_name,
+            'site_url' => $site->site_url,
+            'content_link' => 'https://example.com/a',
+            'price' => 80,
+        ]);
+
+        $this->assertEqualsWithDelta(80.0, $payments->walletCreditForUnfulfillableCardCheckout($ref, $advertiser->id), 0.01);
+        $this->assertEqualsWithDelta(0.0, $payments->walletCreditForThisCardCharge(
+            $ref,
+            $this->paidSession($ref, 80, 'cs_later_orphan', $advertiser->id),
+            $advertiser->id
+        ), 0.01);
+
+        $this->signedWebhook([
+            'id' => 'evt_later_orphan_'.uniqid(),
+            'object' => 'event',
+            'type' => 'checkout.session.completed',
+            'data' => [
+                'object' => [
+                    'id' => 'cs_later_orphan',
+                    'object' => 'checkout.session',
+                    'payment_status' => 'paid',
+                    'amount_total' => 8000,
+                    'payment_intent' => 'pi_later_orphan',
+                    'metadata' => [
+                        'type' => 'order_payment',
+                        'reference_code' => $ref,
+                        'user_id' => (string) $advertiser->id,
+                        'expected_amount' => '80',
+                    ],
+                ],
+            ],
+        ])->assertOk();
+
+        $wallet->refresh();
+        $this->assertEqualsWithDelta(80.0, (float) $wallet->balance, 0.01);
+        $this->assertEqualsWithDelta(80.0, $payments->unfulfilledCardCreditAmount($ref, $advertiser->id), 0.01);
+        $this->assertSame(0, Order::query()
+            ->where('user_id', $advertiser->id)
+            ->where('reference_code', $ref)
+            ->where('payment_status', 'paid')
+            ->count());
+    }
+
     public function test_store_package_refuses_to_overwrite_another_users_checkout(): void
     {
         $owner = $this->makeUser('advertiser');
