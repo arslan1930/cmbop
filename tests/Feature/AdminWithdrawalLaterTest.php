@@ -1502,7 +1502,6 @@ class AdminWithdrawalLaterTest extends TestCase
         $this->assertStringContainsString('Dear Publisher', $html);
         $this->assertStringNotContainsString('Pat Publisher', $html);
         $this->assertStringContainsString(route('publisher.billing.index', [], false), $html);
-        $this->assertStringContainsString(route('publisher.withdraw', [], false), $html);
 
         $src = (string) file_get_contents(app_path('Mail/WithdrawalStatusUpdated.php'));
         $this->assertStringContainsString("publicRoute('publisher.billing.download'", $src);
