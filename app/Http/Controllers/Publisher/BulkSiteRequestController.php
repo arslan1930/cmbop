@@ -207,9 +207,7 @@ class BulkSiteRequestController extends Controller
 
     public function completeIndex()
     {
-        $sites = Site::query()
-            ->where('publisher_id', auth()->id())
-            ->notFromCancelledBulk()
+        $sites = $this->publisherBulkDraftQuery()
             ->whereIn('onboarding_status', [
                 Site::ONBOARDING_AWAITING_DETAILS,
                 Site::ONBOARDING_DETAILS_COMPLETE,
@@ -243,16 +241,18 @@ class BulkSiteRequestController extends Controller
     {
         $site = Site::query()
             ->where('publisher_id', auth()->id())
-            ->whereIn('onboarding_status', [
-                Site::ONBOARDING_AWAITING_DETAILS,
-                Site::ONBOARDING_DETAILS_COMPLETE,
-            ])
             ->findOrFail($id);
 
         if ($site->bulkSiteRequest?->isCancelled()) {
             return redirect()
                 ->route('publisher.websites', ['status' => 'pending'])
                 ->with('error', 'This bulk request was cancelled. Those sites will not be prepared.');
+        }
+
+        if (! $this->siteStillCompletable($site)) {
+            return redirect()
+                ->route('publisher.websites', ['status' => 'pending'])
+                ->with('error', 'This site is no longer waiting for details. It may already be in review.');
         }
 
         if ($request->filled('exampleUrl')) {
@@ -271,7 +271,7 @@ class BulkSiteRequestController extends Controller
             'price_sensitive.*' => 'nullable|numeric|min:0|max:99999999.99',
         ]);
 
-        $existingCategories = collect($site->categories ?? [])
+        $existingCategories = collect($site->categories_array ?? [])
             ->map(fn ($v) => trim((string) $v))
             ->filter(fn ($v) => $v !== '' && strtolower($v) !== 'pending')
             ->values()
@@ -308,11 +308,20 @@ class BulkSiteRequestController extends Controller
             ->sanitize((string) $request->siteDescription);
 
         $blockedCancelled = false;
+        $blockedUnavailable = false;
         try {
-            DB::transaction(function () use ($site, $request, $cleanDescription, $existingCategories, &$blockedCancelled) {
+            DB::transaction(function () use ($site, $request, $cleanDescription, $existingCategories, &$blockedCancelled, &$blockedUnavailable) {
                 $locked = Site::query()->whereKey($site->id)->lockForUpdate()->first();
                 if (! $locked || $locked->bulkSiteRequest?->isCancelled()) {
                     $blockedCancelled = true;
+
+                    return;
+                }
+
+                // A concurrent Review & submit (or staff verify) must not be
+                // rewound to details_complete or have verified/active cleared.
+                if (! $this->siteStillCompletable($locked)) {
+                    $blockedUnavailable = true;
 
                     return;
                 }
@@ -382,6 +391,12 @@ class BulkSiteRequestController extends Controller
                 ->with('error', 'This bulk request was cancelled. Those sites will not be prepared.');
         }
 
+        if ($blockedUnavailable) {
+            return redirect()
+                ->route('publisher.websites', ['status' => 'pending'])
+                ->with('error', 'This site is no longer waiting for details. It may already be in review.');
+        }
+
         $freshSite = $site->fresh();
         if (! $freshSite) {
             return redirect()
@@ -393,8 +408,7 @@ class BulkSiteRequestController extends Controller
             $site->bulkSiteRequest?->refreshProgressStatus();
         }
 
-        $remainingAwaiting = Site::query()
-            ->where('publisher_id', auth()->id())
+        $remainingAwaiting = $this->publisherBulkDraftQuery()
             ->where('onboarding_status', Site::ONBOARDING_AWAITING_DETAILS)
             ->count();
 
@@ -414,16 +428,12 @@ class BulkSiteRequestController extends Controller
      */
     public function reviewIndex()
     {
-        $sites = Site::query()
-            ->where('publisher_id', auth()->id())
-            ->notFromCancelledBulk()
+        $sites = $this->publisherBulkDraftQuery()
             ->where('onboarding_status', Site::ONBOARDING_DETAILS_COMPLETE)
             ->orderByDesc('id')
             ->get();
 
-        $awaitingCount = Site::query()
-            ->where('publisher_id', auth()->id())
-            ->notFromCancelledBulk()
+        $awaitingCount = $this->publisherBulkDraftQuery()
             ->where('onboarding_status', Site::ONBOARDING_AWAITING_DETAILS)
             ->count();
 
@@ -450,9 +460,7 @@ class BulkSiteRequestController extends Controller
             'submit_all' => 'nullable|boolean',
         ]);
 
-        $query = Site::query()
-            ->where('publisher_id', auth()->id())
-            ->notFromCancelledBulk()
+        $query = $this->publisherBulkDraftQuery()
             ->where('onboarding_status', Site::ONBOARDING_DETAILS_COMPLETE);
 
         if (! ($validated['submit_all'] ?? false)) {
@@ -487,7 +495,11 @@ class BulkSiteRequestController extends Controller
                         continue;
                     }
 
-                    if (! $locked->hasCompletedPublisherDetails()) {
+                    if ($locked->isArchived() || (bool) $locked->verified || (bool) $locked->active) {
+                        continue;
+                    }
+
+                    if (! $locked->hasDetailsComplete() || ! $locked->hasCompletedPublisherDetails()) {
                         continue;
                     }
 
@@ -574,6 +586,38 @@ class BulkSiteRequestController extends Controller
         return redirect()
             ->route('publisher.websites')
             ->with('error', $message);
+    }
+
+    /**
+     * Drafts the publisher may still complete or submit — not archived,
+     * not leftovers from a cancelled bulk.
+     */
+    private function publisherBulkDraftQuery()
+    {
+        return Site::query()
+            ->where('publisher_id', auth()->id())
+            ->notFromCancelledBulk()
+            ->notArchived();
+    }
+
+    /**
+     * Listing fields may still be edited. Ready-for-review / live / archived
+     * rows must not be rewound or unverified by a stale Complete form.
+     */
+    private function siteStillCompletable(Site $site): bool
+    {
+        if ($site->isArchived() || $site->bulkSiteRequest?->isCancelled()) {
+            return false;
+        }
+
+        if ((bool) $site->verified || (bool) $site->active) {
+            return false;
+        }
+
+        return in_array($site->onboarding_status, [
+            Site::ONBOARDING_AWAITING_DETAILS,
+            Site::ONBOARDING_DETAILS_COMPLETE,
+        ], true);
     }
 
     private function normalizeHttpUrl(mixed $url): string

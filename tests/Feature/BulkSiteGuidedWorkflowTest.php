@@ -652,6 +652,139 @@ class BulkSiteGuidedWorkflowTest extends TestCase
         $this->assertStringContainsString('/admin/sites', (string) $adminNotes->last()->action_url);
     }
 
+    public function test_cancelled_bulk_leftovers_do_not_block_review_redirect(): void
+    {
+        $cancelled = BulkSiteRequest::create([
+            'publisher_id' => $this->publisher->id,
+            'status' => BulkSiteRequest::STATUS_CANCELLED,
+            'estimated_count' => 1,
+        ]);
+        $leftover = $this->makeAwaitingBulkSite($cancelled, 'https://legacy-cancel.example', 'Legacy leftover');
+
+        $bulk = BulkSiteRequest::create([
+            'publisher_id' => $this->publisher->id,
+            'status' => BulkSiteRequest::STATUS_AWAITING_PUBLISHER,
+            'estimated_count' => 1,
+            'seeded_at' => now(),
+        ]);
+        $site = $this->makeAwaitingBulkSite($bulk, 'https://current-bulk.example', 'Current bulk');
+
+        $this->actingAs($this->publisher)
+            ->post(route('publisher.bulk-sites.complete.store', $site->id), [
+                'exampleUrl' => 'https://current-bulk.example/guest-post',
+                'turnaround_time' => '48h',
+                'publicationTime' => '1year',
+                'link_type' => 'nofollow',
+                'site_tag' => 'as_you_prefer',
+                'siteDescription' => str_repeat('Quality editorial site for guest posts. ', 4),
+            ])
+            ->assertRedirect(route('publisher.bulk-sites.review'))
+            ->assertSessionHas('success');
+
+        $this->assertSame(Site::ONBOARDING_DETAILS_COMPLETE, $site->fresh()->onboarding_status);
+        $this->assertSame(Site::ONBOARDING_AWAITING_DETAILS, $leftover->fresh()->onboarding_status);
+
+        $this->actingAs($this->publisher)
+            ->get(route('publisher.bulk-sites.complete'))
+            ->assertOk()
+            ->assertDontSee('legacy-cancel.example', false)
+            ->assertDontSee('Legacy leftover', false);
+    }
+
+    public function test_complete_store_does_not_rewind_ready_for_review_or_live_sites(): void
+    {
+        $bulk = BulkSiteRequest::create([
+            'publisher_id' => $this->publisher->id,
+            'status' => BulkSiteRequest::STATUS_COMPLETED,
+            'estimated_count' => 2,
+            'seeded_at' => now(),
+            'completed_at' => now(),
+        ]);
+
+        $queued = $this->makeAwaitingBulkSite($bulk, 'https://already-queued.example', 'Already queued');
+        $queued->forceFill([
+            'onboarding_status' => Site::ONBOARDING_READY_FOR_REVIEW,
+            'description' => str_repeat('Original queued listing description. ', 4),
+        ])->save();
+
+        $live = $this->makeAwaitingBulkSite($bulk, 'https://already-live.example', 'Already live');
+        $live->forceFill([
+            'onboarding_status' => Site::ONBOARDING_DETAILS_COMPLETE,
+            'verified' => true,
+            'active' => true,
+            'description' => str_repeat('Original live listing description. ', 4),
+        ])->save();
+
+        $payload = [
+            'exampleUrl' => 'https://attacker.example/overwrite',
+            'turnaround_time' => '24h',
+            'publicationTime' => '6months',
+            'link_type' => 'nofollow',
+            'site_tag' => 'sponsored',
+            'siteDescription' => str_repeat('Stale complete form trying to overwrite. ', 4),
+        ];
+
+        $this->actingAs($this->publisher)
+            ->post(route('publisher.bulk-sites.complete.store', $queued->id), $payload)
+            ->assertRedirect(route('publisher.websites', ['status' => 'pending']))
+            ->assertSessionHas('error');
+
+        $queued->refresh();
+        $this->assertSame(Site::ONBOARDING_READY_FOR_REVIEW, $queued->onboarding_status);
+        $this->assertStringContainsString('Original queued listing description.', (string) $queued->description);
+        $this->assertFalse((bool) $queued->verified);
+        $this->assertFalse((bool) $queued->active);
+
+        $this->actingAs($this->publisher)
+            ->post(route('publisher.bulk-sites.complete.store', $live->id), $payload)
+            ->assertRedirect(route('publisher.websites', ['status' => 'pending']))
+            ->assertSessionHas('error');
+
+        $live->refresh();
+        $this->assertTrue((bool) $live->verified);
+        $this->assertTrue((bool) $live->active);
+        $this->assertSame(Site::ONBOARDING_DETAILS_COMPLETE, $live->onboarding_status);
+        $this->assertStringContainsString('Original live listing description.', (string) $live->description);
+    }
+
+    public function test_review_submit_skips_archived_and_already_queued_sites(): void
+    {
+        $bulk = BulkSiteRequest::create([
+            'publisher_id' => $this->publisher->id,
+            'status' => BulkSiteRequest::STATUS_AWAITING_PUBLISHER,
+            'estimated_count' => 2,
+            'seeded_at' => now(),
+        ]);
+
+        $ready = $this->makeAwaitingBulkSite($bulk, 'https://review-ready.example', 'Review ready');
+        $ready->forceFill([
+            'onboarding_status' => Site::ONBOARDING_DETAILS_COMPLETE,
+            'description' => str_repeat('Quality editorial site for guest posts. ', 4),
+        ])->save();
+
+        $archived = $this->makeAwaitingBulkSite($bulk, 'https://review-archived.example', 'Review archived');
+        $archived->forceFill([
+            'onboarding_status' => Site::ONBOARDING_DETAILS_COMPLETE,
+            'archived_at' => now(),
+            'description' => str_repeat('Quality editorial site for guest posts. ', 4),
+        ])->save();
+
+        $this->actingAs($this->publisher)
+            ->get(route('publisher.bulk-sites.review'))
+            ->assertOk()
+            ->assertSee('review-ready.example', false)
+            ->assertDontSee('review-archived.example', false);
+
+        $this->actingAs($this->publisher)
+            ->post(route('publisher.bulk-sites.review.submit'), ['submit_all' => 1])
+            ->assertRedirect(route('publisher.websites', ['status' => 'pending']))
+            ->assertSessionHas('success');
+
+        $this->assertSame(Site::ONBOARDING_READY_FOR_REVIEW, $ready->fresh()->onboarding_status);
+        $this->assertSame(Site::ONBOARDING_DETAILS_COMPLETE, $archived->fresh()->onboarding_status);
+        $this->assertNotNull($archived->fresh()->archived_at);
+    }
+
     public function test_websites_page_exposes_paste_urls_helper(): void
     {
         $html = $this->actingAs($this->publisher)

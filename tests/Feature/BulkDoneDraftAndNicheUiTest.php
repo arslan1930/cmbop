@@ -862,7 +862,15 @@ class BulkDoneDraftAndNicheUiTest extends TestCase
         $this->assertStringContainsString('$freshSite = $site->fresh()', $publisherController);
         $this->assertStringContainsString('$site = $site->fresh()', $publisherController);
         $this->assertStringContainsString('$blockedCancelled', $publisherController);
+        $this->assertStringContainsString('$blockedUnavailable', $publisherController);
+        $this->assertStringContainsString('siteStillCompletable', $publisherController);
+        $this->assertStringContainsString('publisherBulkDraftQuery', $publisherController);
+        $this->assertStringContainsString('notArchived()', $publisherController);
         $this->assertStringContainsString("loadMissing('bulkSiteRequest')", $publisherController);
+        $this->assertStringContainsString('hasDetailsComplete()', $publisherController);
+
+        $siteModel = file_get_contents(app_path('Models/Site.php'));
+        $this->assertStringContainsString('Never rewind a site that already left the publisher-complete stage.', $siteModel);
 
         $bulk = BulkSiteRequest::create([
             'publisher_id' => $this->publisher->id,

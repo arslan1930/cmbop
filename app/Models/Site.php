@@ -1005,6 +1005,14 @@ class Site extends Model
             return false;
         }
 
+        // Never rewind a site that already left the publisher-complete stage.
+        if (! in_array($this->onboarding_status, [
+            self::ONBOARDING_AWAITING_DETAILS,
+            self::ONBOARDING_DETAILS_COMPLETE,
+        ], true)) {
+            return false;
+        }
+
         self::ensureOnboardingStatusColumnAcceptsValues();
 
         $previous = $this->onboarding_status;
