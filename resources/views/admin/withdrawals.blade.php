@@ -888,11 +888,13 @@ function selectedDuplicateRefs() {
 }
 
 async function runBatch(action, title, confirmText, confirmClass, options) {
-    const ids = Array.from(selectedIds)
+    options = options || {};
+    const ids = (Array.isArray(options.ids) ? options.ids : Array.from(selectedIds))
+        .map(Number)
         .filter(function (id) { return Number.isInteger(id) && id > 0; })
+        .filter(function (id, index, all) { return all.indexOf(id) === index; })
         .slice(0, SELECTION_LIMIT);
     if (ids.length === 0) return;
-    options = options || {};
     const confirmDuplicates = !!options.confirmDuplicates;
     const dupRefs = action === 'completed'
         ? (options.duplicateRefs && options.duplicateRefs.length ? options.duplicateRefs : selectedDuplicateRefs())
@@ -942,6 +944,7 @@ async function runBatch(action, title, confirmText, confirmClass, options) {
                 confirmDuplicates: true,
                 skipPendingConfirm: true,
                 notes: notes,
+                ids: ids,
                 duplicateRefs: (Array.isArray(body.duplicate_ids) ? body.duplicate_ids : []).map(function (id) { return 'WD-' + id; }),
             });
             return;
@@ -1061,7 +1064,7 @@ $(document).on('click', '.view-details', function() {
 });
 
 function renderDetails(withdrawal) {
-    const paymentDetails = withdrawal.payment_details && typeof withdrawal.payment_details === 'object'
+    const paymentDetails = withdrawal.payment_details && typeof withdrawal.payment_details === 'object' && !Array.isArray(withdrawal.payment_details)
         ? withdrawal.payment_details
         : {};
     const detailOrNa = function (key) {

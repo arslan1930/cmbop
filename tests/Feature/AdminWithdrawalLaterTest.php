@@ -97,6 +97,9 @@ class AdminWithdrawalLaterTest extends TestCase
         $this->assertStringContainsString('Apply to <strong>${ids.length}</strong>', $html);
         $this->assertStringContainsString('Array.isArray(body.duplicate_ids)', $html);
         $this->assertStringContainsString('href="'.route('admin.finance', [], false).'"', $html);
+        $this->assertStringContainsString('Array.isArray(options.ids) ? options.ids', $html);
+        $this->assertStringContainsString('ids: ids', $html);
+        $this->assertStringContainsString('!Array.isArray(withdrawal.payment_details)', $html);
     }
 
     public function test_browser_show_is_html_and_json_accept_stays_json(): void
@@ -707,6 +710,37 @@ class AdminWithdrawalLaterTest extends TestCase
             ->assertOk()
             ->streamedContent();
 
+        $this->assertStringContainsString('WD-'.$withdrawal->id, $csv);
+        $this->assertStringNotContainsString('Array', $csv);
+    }
+
+    public function test_html_show_list_and_export_tolerate_scalar_payment_details(): void
+    {
+        $admin = $this->makeUser('admin');
+        $publisher = $this->makeUser('publisher');
+        $withdrawal = $this->seedWithdrawal($publisher, [
+            'payment_method' => 'paypal',
+            'payment_details' => ['email' => 'pub@example.com'],
+        ]);
+        $withdrawal->forceFill(['payment_details' => 123])->save();
+
+        $this->actingAs($admin)
+            ->get(route('admin.withdrawals.show', $withdrawal->id))
+            ->assertOk()
+            ->assertSee('WD-'.$withdrawal->id, false)
+            ->assertDontSee('TypeError', false);
+
+        $this->actingAs($admin)
+            ->getJson(route('admin.withdrawals.data'))
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.0.id', $withdrawal->id)
+            ->assertJsonPath('data.0.destination_snippet', 'PayPal · —');
+
+        $csv = $this->actingAs($admin)
+            ->get(route('admin.withdrawals.export'))
+            ->assertOk()
+            ->streamedContent();
         $this->assertStringContainsString('WD-'.$withdrawal->id, $csv);
         $this->assertStringNotContainsString('Array', $csv);
     }

@@ -206,9 +206,7 @@ class Withdrawal extends Model
      */
     public function getDestinationSnippetAttribute(): string
     {
-        $details = is_array($this->payment_details)
-            ? $this->payment_details
-            : (json_decode((string) $this->payment_details, true) ?: []);
+        $details = self::detailsArray($this->payment_details);
 
         return match ($this->payment_method) {
             'bank' => $this->bankSnippet($details),
@@ -224,9 +222,7 @@ class Withdrawal extends Model
      */
     public function getDestinationCopyTextAttribute(): string
     {
-        $details = is_array($this->payment_details)
-            ? $this->payment_details
-            : (json_decode((string) $this->payment_details, true) ?: []);
+        $details = self::detailsArray($this->payment_details);
 
         $ref = 'WD-'.$this->id;
         $net = number_format((float) $this->net_amount, 2, '.', '');
@@ -281,6 +277,27 @@ class Withdrawal extends Model
             'cancelled' => $this->wasCancelledByUser() ? 'Cancelled' : 'Rejected',
             default => ucfirst((string) $this->status),
         };
+    }
+
+    /**
+     * payment_details as an array. JSON scalars / invalid payloads become [].
+     *
+     * @return array<string, mixed>
+     */
+    public static function detailsArray(mixed $value): array
+    {
+        if (is_array($value)) {
+            return $value;
+        }
+
+        if (is_string($value) && $value !== '') {
+            $decoded = json_decode($value, true);
+            if (is_array($decoded)) {
+                return $decoded;
+            }
+        }
+
+        return [];
     }
 
     /**

@@ -2,9 +2,7 @@
 
 @section('content')
 @php
-    $rawDetails = is_array($withdrawal->payment_details)
-        ? $withdrawal->payment_details
-        : (json_decode((string) $withdrawal->payment_details, true) ?: []);
+    $rawDetails = \App\Models\Withdrawal::detailsArray($withdrawal->payment_details);
     $detail = fn (string $key) => \App\Models\Withdrawal::detailText($rawDetails, $key);
     $detailOrNa = fn (string $key) => ($value = $detail($key)) !== '' ? $value : 'N/A';
     $adminStatus = match ($withdrawal->status) {

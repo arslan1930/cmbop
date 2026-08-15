@@ -51,9 +51,7 @@ class AdminWithdrawalController extends Controller
             $this->attachDuplicateWarnings($withdrawals->getCollection());
 
             $withdrawals->getCollection()->transform(function ($withdrawal) use ($invoiceLinks) {
-                if (is_string($withdrawal->payment_details)) {
-                    $withdrawal->payment_details = json_decode($withdrawal->payment_details, true);
-                }
+                $withdrawal->payment_details = Withdrawal::detailsArray($withdrawal->payment_details);
 
                 $invoice = $invoiceLinks->get((int) $withdrawal->id);
                 $withdrawal->setAttribute('invoice', $invoice);
@@ -106,9 +104,7 @@ class AdminWithdrawalController extends Controller
                 abort(404);
             }
 
-            if (is_string($withdrawal->payment_details)) {
-                $withdrawal->payment_details = json_decode($withdrawal->payment_details, true);
-            }
+            $withdrawal->payment_details = Withdrawal::detailsArray($withdrawal->payment_details);
 
             $invoice = app(AdminInvoiceLinks::class)->forWithdrawals(collect([$withdrawal]))->get((int) $withdrawal->id);
             $withdrawal->setAttribute('invoice', $invoice);
@@ -378,9 +374,7 @@ class AdminWithdrawalController extends Controller
             ]);
 
             foreach ($rows as $w) {
-                $details = is_array($w->payment_details)
-                    ? $w->payment_details
-                    : (json_decode((string) $w->payment_details, true) ?: []);
+                $details = Withdrawal::detailsArray($w->payment_details);
 
                 fputcsv($out, [
                     'WD-'.$w->id,
@@ -394,13 +388,13 @@ class AdminWithdrawalController extends Controller
                     $this->csvCell($w->payment_method),
                     $this->csvCell($w->status),
                     $this->csvCell($w->waiting_days),
-                    $this->csvCell($details['bank_name'] ?? ''),
-                    $this->csvCell($details['account_holder'] ?? ''),
-                    $this->csvCell($details['account_number'] ?? ''),
-                    $this->csvCell($details['swift_code'] ?? ''),
-                    $this->csvCell($details['email'] ?? ''),
-                    $this->csvCell($details['crypto_type'] ?? ''),
-                    $this->csvCell($details['wallet_address'] ?? ''),
+                    $this->csvCell(Withdrawal::detailText($details, 'bank_name')),
+                    $this->csvCell(Withdrawal::detailText($details, 'account_holder')),
+                    $this->csvCell(Withdrawal::detailText($details, 'account_number')),
+                    $this->csvCell(Withdrawal::detailText($details, 'swift_code')),
+                    $this->csvCell(Withdrawal::detailText($details, 'email')),
+                    $this->csvCell(Withdrawal::detailText($details, 'crypto_type')),
+                    $this->csvCell(Withdrawal::detailText($details, 'wallet_address')),
                     optional($w->created_at)->toDateTimeString(),
                 ]);
             }
