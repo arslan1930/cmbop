@@ -122,6 +122,7 @@ class AdminWithdrawalController extends Controller
                 ->view('admin.withdrawals.show', [
                     'withdrawal' => $withdrawal,
                     'invoiceUrl' => $this->safeAdminUrl(data_get($invoice, 'url')),
+                    'hasPayoutStatement' => is_array($invoice),
                 ])
                 ->header('Cache-Control', 'no-store');
         } catch (HttpExceptionInterface $e) {

@@ -23,6 +23,7 @@
     $queueUrl = route('admin.withdrawals', ['search' => (string) $withdrawal->id, 'queue' => $queue], false);
     $duplicateIds = is_array($withdrawal->duplicate_match_ids) ? $withdrawal->duplicate_match_ids : [];
     $lookbackDays = max(1, (int) config('billing.withdrawal_mark_paid_duplicate_lookback_days', 30));
+    $hasPayoutStatement = ! empty($hasPayoutStatement);
 @endphp
 <div class="container-fluid py-3">
     <div class="mb-3">
@@ -56,7 +57,7 @@
         </div>
     </div>
 
-    @if($withdrawal->status === 'completed' && empty($invoiceUrl))
+    @if($withdrawal->status === 'completed' && empty($hasPayoutStatement))
         <div class="alert alert-warning" role="alert">
             Payout statement is missing.
             <a href="{{ $queueUrl }}">Open this withdrawal in the payout queue</a>

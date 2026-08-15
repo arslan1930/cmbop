@@ -116,6 +116,11 @@ class AdminWithdrawalLaterTest extends TestCase
         $this->assertStringContainsString('missingStatementAlert', $html);
         $this->assertStringContainsString('function showHistoryForStatementRetry', $html);
         $this->assertStringContainsString('showHistoryForStatementRetry(id)', $html);
+        $this->assertStringContainsString('function hasPayoutStatement', $html);
+        $this->assertStringContainsString('function refreshSearchClear', $html);
+        $this->assertStringContainsString('minChars: 1', $html);
+        $this->assertStringContainsString('if (missingStatements > 0)', $html);
+        $this->assertStringNotContainsString('missingStatements > 0 && failedCount === 0', $html);
     }
 
     public function test_html_show_warns_when_paid_statement_is_missing(): void
@@ -336,6 +341,7 @@ class AdminWithdrawalLaterTest extends TestCase
 
         $this->assertStringNotContainsString('javascript:', $html);
         $this->assertStringNotContainsString('Open invoice', $html);
+        $this->assertStringNotContainsString('Payout statement is missing', $html);
     }
 
     public function test_html_show_404_and_json_show_404(): void
@@ -1137,5 +1143,66 @@ class AdminWithdrawalLaterTest extends TestCase
             ->assertJsonPath('success', false)
             ->assertJsonPath('succeeded', 0)
             ->assertJsonPath('unchanged', [$paid->id]);
+    }
+
+    public function test_statement_lookup_uses_wd_reference_not_invoice_user_id(): void
+    {
+        $admin = $this->makeUser('admin');
+        $publisher = $this->makeUser('publisher');
+        $other = $this->makeUser('publisher');
+        $withdrawal = $this->seedWithdrawal($publisher, [
+            'status' => 'completed',
+            'processed_at' => now(),
+        ]);
+        $statement = Invoice::create([
+            'user_id' => $other->id,
+            'customer_name' => $other->name,
+            'customer_email' => $other->email,
+            'invoice_number' => 'PAY-USER-MISMATCH-1',
+            'type' => Invoice::TYPE_WITHDRAWAL_PAYOUT,
+            'status' => Invoice::STATUS_PAID,
+            'subtotal' => 95,
+            'total_amount' => 95,
+            'invoice_date' => now(),
+            'line_items' => [['description' => 'Payout', 'line_total' => 95]],
+            'pdf_disk' => 'local',
+            'reference_code' => 'WD-'.$withdrawal->id,
+            'meta' => ['withdrawal_id' => $withdrawal->id],
+        ]);
+
+        $found = app(WithdrawalPayoutStatementService::class)->find($withdrawal);
+        $this->assertNotNull($found);
+        $this->assertSame($statement->id, $found->id);
+
+        $issued = app(WithdrawalPayoutStatementService::class)->issue($withdrawal);
+        $this->assertNotNull($issued);
+        $this->assertSame($statement->id, $issued->id);
+        $this->assertSame(
+            1,
+            Invoice::query()
+                ->where('type', Invoice::TYPE_WITHDRAWAL_PAYOUT)
+                ->where('reference_code', 'WD-'.$withdrawal->id)
+                ->where('status', '!=', Invoice::STATUS_CANCELLED)
+                ->count()
+        );
+
+        $this->actingAs($admin)
+            ->getJson(route('admin.withdrawals.data', ['queue' => 'history', 'search' => (string) $withdrawal->id]))
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.0.id', $withdrawal->id)
+            ->assertJsonPath('data.0.invoice.id', $statement->id)
+            ->assertJsonPath('data.0.invoice.invoice_number', 'PAY-USER-MISMATCH-1');
+
+        $html = $this->actingAs($admin)
+            ->get(route('admin.withdrawals.show', $withdrawal->id))
+            ->assertOk()
+            ->assertSee('Open invoice', false)
+            ->assertDontSee('Payout statement is missing', false)
+            ->getContent();
+
+        $path = parse_url(route('admin.invoices.show', $statement), PHP_URL_PATH);
+        $this->assertIsString($path);
+        $this->assertStringContainsString('href="'.$path.'"', $html);
     }
 }

@@ -374,6 +374,11 @@ function safeAdminHref(url) {
     }
 }
 
+function hasPayoutStatement(withdrawal) {
+    const invoice = withdrawal && withdrawal.invoice;
+    return !!(invoice && (invoice.id || invoice.invoice_number));
+}
+
 function getJson(url, params, success) {
     return $.ajax({
         url: url,
@@ -595,6 +600,7 @@ function renderWithdrawals(withdrawals) {
         }
         const matchIds = Array.isArray(w.duplicate_match_ids) ? w.duplicate_match_ids : [];
         const invoiceHref = safeAdminHref(w.invoice_url);
+        const statementReady = hasPayoutStatement(w);
         const showHref = safeAdminHref(withdrawalUrl(WD_SHOW, w.id));
         const publisherHref = w.user?.id ? safeAdminHref(withdrawalUrl(FINANCE_USER, w.user.id)) : '';
         withdrawalFlags.set(Number(w.id), {
@@ -640,7 +646,7 @@ function renderWithdrawals(withdrawals) {
                             <li><button type="button" class="dropdown-item view-details" data-id="${w.id}"><i class="fa fa-eye me-2"></i>View</button></li>
                             ${showHref ? `<li><a class="dropdown-item" href="${escapeHtml(showHref)}"><i class="fa fa-external-link-alt me-2"></i>Open page</a></li>` : ''}
                             ${invoiceHref ? `<li><a class="dropdown-item" href="${escapeHtml(invoiceHref)}"><i class="fa fa-file-invoice-dollar me-2"></i>Open invoice</a></li>` : ''}
-                            ${w.status === 'completed' && !invoiceHref ? `<li><button type="button" class="dropdown-item act-statement" data-id="${w.id}"><i class="fa fa-file-invoice-dollar me-2"></i>Create statement</button></li>` : ''}
+                            ${w.status === 'completed' && !statementReady ? `<li><button type="button" class="dropdown-item act-statement" data-id="${w.id}"><i class="fa fa-file-invoice-dollar me-2"></i>Create statement</button></li>` : ''}
                             ${w.status === 'pending' ? `
                             <li><button type="button" class="dropdown-item act-processing" data-id="${w.id}"
                                 data-name="${escapeHtml(w.user?.name || '')}"
@@ -992,7 +998,7 @@ async function runBatch(action, title, confirmText, confirmClass, options) {
         failed.forEach(function (row) {
             addSelectedId(row && row.id);
         });
-        if (missingStatements > 0 && failedCount === 0) {
+        if (missingStatements > 0) {
             showHistoryForStatementRetry(missingStatements === 1 ? res.missing_statement_ids[0] : 0);
             return;
         }
@@ -1190,7 +1196,7 @@ function renderDetails(withdrawal) {
         $('#openInvoiceLink').addClass('d-none').attr('href', '#');
     }
 
-    const missingStatementAlert = (withdrawal.status === 'completed' && !invoiceHref)
+    const missingStatementAlert = (withdrawal.status === 'completed' && !hasPayoutStatement(withdrawal))
         ? `<div class="alert alert-warning" role="alert">Payout statement is missing. <button type="button" class="btn btn-sm btn-warning act-statement" data-id="${withdrawal.id}">Create statement</button></div>`
         : '';
 
@@ -1248,11 +1254,19 @@ function reloadFilteredView() {
     loadWithdrawals(1);
 }
 
+function refreshSearchClear() {
+    const input = document.getElementById('searchInput');
+    if (input && input._slbLiveSearch && typeof input._slbLiveSearch.refreshClear === 'function') {
+        input._slbLiveSearch.refreshClear();
+    }
+}
+
 function showHistoryForStatementRetry(id) {
     const n = Number(id);
     $('#queueFilter').val('history');
     $('#statusFilter').val('');
     $('#searchInput').val(Number.isInteger(n) && n > 0 ? String(n) : '');
+    refreshSearchClear();
     reloadFilteredView();
 }
 
@@ -1267,6 +1281,7 @@ $('#resetFiltersBtn').on('click', function() {
     $('#dateFrom').val('');
     $('#dateTo').val('');
     $('#searchInput').val('');
+    refreshSearchClear();
     withdrawalFlags.clear();
     resetSelection();
     reloadFilteredView();
@@ -1282,6 +1297,7 @@ document.addEventListener('DOMContentLoaded', function () {
     if (typeof window.SlbLiveSearch !== 'undefined') {
         window.SlbLiveSearch.init(document.getElementById('searchInput'), {
             mode: 'event',
+            minChars: 1,
             statusEl: document.getElementById('adminWithdrawalsSearchStatus'),
             clearBtn: document.getElementById('adminWithdrawalsSearchClear'),
             onSearch: function () { resetSelection(); reloadFilteredView(); },
