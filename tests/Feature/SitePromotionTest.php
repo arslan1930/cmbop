@@ -114,6 +114,20 @@ class SitePromotionTest extends TestCase
         $this->assertFalse($site->fresh()->isFeatured());
     }
 
+    public function test_wallet_feature_does_not_debit_when_listing_left_the_catalog(): void
+    {
+        $publisher = $this->publisherWithWallet(50);
+        $site = $this->site($publisher);
+        $site->update(['verified' => false, 'active' => false]);
+
+        $result = app(SitePromotionService::class)->featureWithWallet($site, $publisher);
+
+        $this->assertFalse($result['success']);
+        $this->assertFalse($site->fresh()->isFeatured());
+        $this->assertEqualsWithDelta(50.0, (float) Wallet::where('user_id', $publisher->id)->value('balance'), 0.01);
+        $this->assertSame(0, SiteFeaturePurchase::query()->where('site_id', $site->id)->count());
+    }
+
     public function test_bulk_discount_applies_for_three_to_five_articles(): void
     {
         $publisher = $this->publisherWithWallet();

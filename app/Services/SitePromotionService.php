@@ -84,8 +84,6 @@ class SitePromotionService
                     ];
                 }
 
-                $wallet->deductWithdrawable($price);
-
                 $lockedSite = Site::query()->whereKey($site->id)->lockForUpdate()->firstOrFail();
                 if (! $lockedSite->isCatalogVisible()) {
                     return [
@@ -93,6 +91,8 @@ class SitePromotionService
                         'message' => 'This listing is not in the catalog and cannot be promoted.',
                     ];
                 }
+
+                $wallet->deductWithdrawable($price);
                 $site = $this->applyFeaturePeriod($lockedSite, $publisher, $price, $days, 'wallet');
 
                 // Promo feature spends are intentionally excluded from INV tax
