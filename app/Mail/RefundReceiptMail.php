@@ -30,7 +30,7 @@ class RefundReceiptMail extends PlatformMailable
                 'originalInvoice' => $this->refund->parentInvoice,
                 'reason' => $reason,
                 'symbol' => $symbol,
-                'downloadUrl' => route('advertiser.billing.download', $this->refund),
+                'downloadUrl' => $this->publicRoute('advertiser.billing.download', $this->refund),
                 'ordersUrl' => $this->advertiserOrdersUrl(
                     $this->refund->order_id ? (int) $this->refund->order_id : null
                 ),

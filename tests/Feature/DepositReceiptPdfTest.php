@@ -143,13 +143,21 @@ class DepositReceiptPdfTest extends TestCase
         $deposit = $this->deposit($user);
         $receipt = Invoice::where('type', Invoice::TYPE_DEPOSIT_RECEIPT)->firstOrFail();
 
-        $this->actingAs($user)
+        $view = $this->actingAs($user)
             ->get(route('advertiser.invoice', $deposit->reference_code))
             ->assertRedirect(route('advertiser.billing.view', $receipt));
+        $this->assertStringContainsString(
+            route('advertiser.billing.view', $receipt, false),
+            (string) $view->headers->get('Location')
+        );
 
-        $this->actingAs($user)
+        $download = $this->actingAs($user)
             ->get(route('advertiser.invoice', ['referenceCode' => $deposit->reference_code, 'download' => 1]))
             ->assertRedirect(route('advertiser.billing.download', $receipt));
+        $this->assertStringContainsString(
+            route('advertiser.billing.download', $receipt, false),
+            (string) $download->headers->get('Location')
+        );
     }
 
     public function test_pending_deposit_still_shows_payment_instructions(): void

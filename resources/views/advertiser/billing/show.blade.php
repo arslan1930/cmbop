@@ -4,15 +4,15 @@
 <div class="container-fluid">
     <div class="row mb-4 align-items-end g-3">
         <div class="col-md-8">
-            <a href="{{ route('advertiser.billing.index') }}" class="small text-muted text-decoration-none">
+            <a href="{{ route('advertiser.billing.index', [], false) }}" class="small text-muted text-decoration-none">
                 <i class="fa fa-arrow-left me-1"></i> Billing &amp; Invoices
             </a>
             <h2 class="mb-1 fw-semibold mt-1">{{ $invoice->invoice_number }}</h2>
             <p class="text-muted mb-0">{{ $invoice->typeLabel() }} · {{ ucfirst($invoice->status) }}</p>
         </div>
         <div class="col-md-4 text-md-end d-flex flex-wrap gap-2 justify-content-md-end">
-            <a href="{{ route('advertiser.billing.view', $invoice) }}" class="btn btn-sm btn-outline-secondary" target="_blank">View PDF</a>
-            <a href="{{ route('advertiser.billing.download', $invoice) }}" class="btn btn-sm btn-primary">Download PDF</a>
+            <a href="{{ route('advertiser.billing.view', $invoice, false) }}" class="btn btn-sm btn-outline-secondary" target="_blank">View PDF</a>
+            <a href="{{ route('advertiser.billing.download', $invoice, false) }}" class="btn btn-sm btn-primary">Download PDF</a>
         </div>
     </div>
 
@@ -74,7 +74,7 @@
                     @if($invoice->parentInvoice)
                         <hr>
                         <div class="small text-muted">Related invoice</div>
-                        <a href="{{ route('advertiser.billing.show', $invoice->parentInvoice) }}" class="fw-semibold">
+                        <a href="{{ route('advertiser.billing.show', $invoice->parentInvoice, false) }}" class="fw-semibold">
                             {{ $invoice->parentInvoice->invoice_number }}
                         </a>
                     @endif

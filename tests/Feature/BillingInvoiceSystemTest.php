@@ -222,10 +222,26 @@ class BillingInvoiceSystemTest extends TestCase
         $order = $this->paidOrder($advertiser);
         $invoice = app(BillingDocumentService::class)->handlePaymentPaid($order);
 
-        $this->actingAs($advertiser)
+        $index = $this->actingAs($advertiser)
             ->get(route('advertiser.billing.index'))
             ->assertOk()
-            ->assertSee($invoice->invoice_number, false);
+            ->assertSee($invoice->invoice_number, false)
+            ->getContent();
+
+        $showPath = route('advertiser.billing.show', $invoice, false);
+        $downloadPath = route('advertiser.billing.download', $invoice, false);
+        $this->assertStringContainsString('href="'.$showPath.'"', $index);
+        $this->assertStringContainsString('href="'.$downloadPath.'"', $index);
+        $this->assertStringNotContainsString('href="'.route('advertiser.billing.show', $invoice).'"', $index);
+        $this->assertStringNotContainsString('href="'.route('advertiser.billing.download', $invoice).'"', $index);
+
+        $show = $this->actingAs($advertiser)
+            ->get(route('advertiser.billing.show', $invoice))
+            ->assertOk()
+            ->getContent();
+        $this->assertStringContainsString('href="'.route('advertiser.billing.view', $invoice, false).'"', $show);
+        $this->assertStringContainsString('href="'.$downloadPath.'"', $show);
+        $this->assertStringNotContainsString('href="'.route('advertiser.billing.download', $invoice).'"', $show);
 
         $this->actingAs($advertiser)
             ->get(route('advertiser.billing.download', $invoice))
@@ -404,8 +420,25 @@ class BillingInvoiceSystemTest extends TestCase
         $order = $this->paidOrder($advertiser);
         $invoice = app(BillingDocumentService::class)->handlePaymentPaid($order);
 
-        $this->actingAs($advertiser)
+        $redirect = $this->actingAs($advertiser)
             ->get(route('advertiser.invoice', $order->reference_code))
             ->assertRedirect(route('advertiser.billing.view', $invoice));
+
+        $this->assertStringContainsString(
+            route('advertiser.billing.view', $invoice, false),
+            (string) $redirect->headers->get('Location')
+        );
+    }
+
+    public function test_invoice_emails_point_at_the_public_billing_download_path(): void
+    {
+        $src = (string) file_get_contents(app_path('Mail/PaymentSuccessfulInvoiceMail.php'));
+        $this->assertStringContainsString("publicRoute('advertiser.billing.download'", $src);
+
+        $src = (string) file_get_contents(app_path('Mail/RefundReceiptMail.php'));
+        $this->assertStringContainsString("publicRoute('advertiser.billing.download'", $src);
+
+        $src = (string) file_get_contents(app_path('Mail/DepositApproved.php'));
+        $this->assertStringContainsString("publicRoute('advertiser.billing.download'", $src);
     }
 }
