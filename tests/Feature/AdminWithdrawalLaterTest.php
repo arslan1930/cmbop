@@ -1425,12 +1425,13 @@ class AdminWithdrawalLaterTest extends TestCase
             ->assertOk()
             ->assertSee('PAY-OWNER-ACCESS-1', false);
 
-        $this->actingAs($publisher)
+        $show = $this->actingAs($publisher)
             ->get(route('publisher.billing.show', $statement))
             ->assertOk()
             ->assertSee('PAY-OWNER-ACCESS-1', false)
             ->assertSee('Right Owner', false)
             ->assertDontSee('Stale Owner', false);
+        $this->assertStringContainsString('no-store', (string) $show->headers->get('Cache-Control'));
 
         $this->actingAs($other)
             ->get(route('publisher.billing.index'))

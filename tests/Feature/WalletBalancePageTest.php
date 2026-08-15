@@ -62,7 +62,7 @@ class WalletBalancePageTest extends TestCase
 
     public function test_add_funds_page_renders_deposit_first_ui(): void
     {
-        $html = $this->actingAs($this->user)
+        $page = $this->actingAs($this->user)
             ->get(route('advertiser.add-funds'))
             ->assertOk()
             ->assertSee('Add funds', false)
@@ -80,8 +80,9 @@ class WalletBalancePageTest extends TestCase
             ->assertDontSee('Processing Fee', false)
             ->assertDontSee('Transfer to Publisher Wallet', false)
             ->assertDontSee('Lifetime Spending', false)
-            ->assertDontSee('Lifetime Withdrawals', false)
-            ->getContent();
+            ->assertDontSee('Lifetime Withdrawals', false);
+
+        $html = $page->getContent();
 
         // Header twin "Add Funds" primary CTA removed; composer is the path.
         $this->assertStringNotContainsString('href="#depositSection" class="btn btn-sm btn-primary"', $html);
@@ -95,6 +96,26 @@ class WalletBalancePageTest extends TestCase
         $this->assertStringContainsString('id="publisherRoleStrip"', $html);
         $this->assertStringContainsString(route('publisher.balance'), $html);
         $this->assertStringContainsString(route('publisher.withdraw'), $html);
+        $this->assertStringContainsString('no-store', (string) $page->headers->get('Cache-Control'));
+        $this->assertStringContainsString(
+            json_encode(route('advertiser.balance.withdraw', [], false), JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT),
+            $html
+        );
+        $jsonFlags = JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT;
+        foreach ([
+            'store' => 'advertiser.add-funds.store',
+            'paySavedCard' => 'advertiser.add-funds.pay-saved-card',
+            'createCheckout' => 'advertiser.create-checkout-session',
+        ] as $bootKey => $name) {
+            $this->assertStringContainsString(
+                $bootKey.': '.json_encode(route($name, [], false), $jsonFlags),
+                $html
+            );
+            $this->assertStringNotContainsString(
+                $bootKey.': '.json_encode(route($name), $jsonFlags),
+                $html
+            );
+        }
     }
 
     public function test_add_funds_publisher_strip_shows_withdrawable_earnings(): void

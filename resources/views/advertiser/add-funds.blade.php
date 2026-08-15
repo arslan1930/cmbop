@@ -122,7 +122,7 @@
                             </a>
                             @if($deposit->canUserMarkPaid())
                                 <button type="button" class="btn btn-sm btn-outline-primary mark-deposit-paid-btn"
-                                        data-mark-url="{{ route('advertiser.add-funds.mark-paid', $deposit) }}"
+                                        data-mark-url="{{ route('advertiser.add-funds.mark-paid', $deposit, false) }}"
                                         data-ref="{{ $pendingRef }}"
                                         data-amount="{{ number_format((float) $deposit->amount, 2, '.', '') }}">
                                     <i class="fa fa-check me-1"></i> Mark paid
@@ -759,7 +759,7 @@
         transactionShow: @json(url('/advertiser/balance/transactions')),
         analytics: @json(route('advertiser.balance.analytics')),
         export: @json(route('advertiser.balance.export')),
-        withdraw: @json(route('advertiser.balance.withdraw')),
+        withdraw: @json(route('advertiser.balance.withdraw', [], false)),
         addFunds: @json(route('advertiser.add-funds')),
         catalog: @json(route('advertiser.catalog')),
     };
@@ -1480,11 +1480,11 @@ window.AddFundsBoot = {
     prefillMethod: @json($prefillMethod ?? null),
     openCardsTab: @json((bool) ($openCardsTab ?? false)),
     routes: {
-        store: @json(route('advertiser.add-funds.store')),
+        store: @json(route('advertiser.add-funds.store', [], false)),
         addFunds: @json(route('advertiser.add-funds')),
         saveBilling: @json(route('advertiser.save-billing-info')),
-        paySavedCard: @json(route('advertiser.add-funds.pay-saved-card')),
-        createCheckout: @json(route('advertiser.create-checkout-session')),
+        paySavedCard: @json(route('advertiser.add-funds.pay-saved-card', [], false)),
+        createCheckout: @json(route('advertiser.create-checkout-session', [], false)),
         getBilling: @json(route('advertiser.get-billing-info')),
         paymentMethodsSetup: @json(route('advertiser.payment-methods.setup')),
         paymentMethodsBase: @json(url('/advertiser/payment-methods')),

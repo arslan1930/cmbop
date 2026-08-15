@@ -217,15 +217,37 @@ class PublisherWithdrawPayoutLockTest extends TestCase
 
         $admin = $this->admin();
 
-        $this->actingAs($admin)
+        $update = $this->actingAs($admin)
             ->postJson(route('admin.users.updatePayoutProfile', $publisher->id), [
                 'payment_method' => 'paypal',
                 'paypal_email' => 'new@example.com',
             ])
             ->assertOk()
-            ->assertJsonPath('success', true);
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('payout_profile.paypal_email', 'new@example.com');
+        $this->assertStringContainsString('no-store', (string) $update->headers->get('Cache-Control'));
 
         $this->assertSame('new@example.com', $publisher->fresh()->payout_paypal_email);
         Mail::assertQueued(PayoutProfileUpdatedBySupport::class);
+    }
+
+    public function test_admin_users_page_does_not_store_cache_payout_dest(): void
+    {
+        $publisher = $this->publisher();
+        $publisher->forceFill([
+            'payout_paypal_email' => 'hidden-pay@example.com',
+            'payout_bank_account' => 'DE89370400440532013000',
+            'payout_crypto_trx_wallet' => 'TXhiddenwallet',
+            'payout_preferred_method' => 'paypal',
+        ])->save();
+
+        $page = $this->actingAs($this->admin())
+            ->get(route('admin.users.index', ['user' => $publisher->id]))
+            ->assertOk()
+            ->assertSee('data-paypal="hidden-pay@example.com"', false)
+            ->assertSee('data-account="DE89370400440532013000"', false)
+            ->assertSee('data-wallet="TXhiddenwallet"', false);
+
+        $this->assertStringContainsString('no-store', (string) $page->headers->get('Cache-Control'));
     }
 }

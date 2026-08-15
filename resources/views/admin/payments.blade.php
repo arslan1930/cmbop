@@ -253,7 +253,7 @@ function escapeHtml(value) {
 }
 
 const PAYMENTS_DATA = @json(route('admin.payments.data'));
-const PAYMENTS_UPDATE = @json(route('admin.payments.updateStatus', ['id' => '__ID__']));
+const PAYMENTS_UPDATE = @json(route('admin.payments.updateStatus', ['id' => '__ID__'], false));
 const PAYMENTS_EXPORT = @json(route('admin.payments.export'));
 const ORDERS_SHOW = @json(route('admin.orders.show', ['id' => '__ID__']));
 

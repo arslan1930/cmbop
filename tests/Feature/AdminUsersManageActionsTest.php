@@ -45,7 +45,7 @@ class AdminUsersManageActionsTest extends TestCase
         ]);
         $member->roles()->attach($advertiser->id);
 
-        $html = $this->actingAs($this->adminUser())
+        $page = $this->actingAs($this->adminUser())
             ->get(route('admin.users.index'))
             ->assertOk()
             ->assertSee('User Management', false)
@@ -61,8 +61,9 @@ class AdminUsersManageActionsTest extends TestCase
             ->assertSee('admin-components.css', false)
             ->assertSee('function escapeHtml', false)
             ->assertSee('escapeHtml(name)', false)
-            ->assertSee('admins stay in Admin', false)
-            ->getContent();
+            ->assertSee('admins stay in Admin', false);
+        $this->assertStringContainsString('no-store', (string) $page->headers->get('Cache-Control'));
+        $html = $page->getContent();
 
         // Table chrome lives in admin-components.css (Tier 3). Keep Manage menus
         // unclipped and avoid a table-wide center alignment that fights column classes.
