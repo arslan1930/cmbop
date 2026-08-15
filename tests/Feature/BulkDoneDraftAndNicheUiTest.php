@@ -2,6 +2,8 @@
 
 namespace Tests\Feature;
 
+use App\Mail\BulkSiteRequestSubmitted;
+use App\Mail\BulkSitesSeededNotification;
 use App\Models\BulkSiteRequest;
 use App\Models\BulkSiteRequestItem;
 use App\Models\Category;
@@ -843,6 +845,33 @@ class BulkDoneDraftAndNicheUiTest extends TestCase
         $controller = file_get_contents(app_path('Http/Controllers/Admin/BulkSiteRequestController.php'));
         $this->assertStringContainsString('lockForUpdate()->findOrFail($id)', $controller);
         $this->assertStringContainsString('$blocked', $controller);
+    }
+
+    public function test_done_does_not_notify_after_a_post_commit_cancel(): void
+    {
+        $controller = file_get_contents(app_path('Http/Controllers/Admin/BulkSiteRequestController.php'));
+        $this->assertStringContainsString('if (! $fresh || $fresh->isCancelled())', $controller);
+        $this->assertStringContainsString('This bulk request is no longer available.', $controller);
+
+        $publisherController = file_get_contents(app_path('Http/Controllers/Publisher/BulkSiteRequestController.php'));
+        $this->assertStringContainsString('whereKey($site->id)->lockForUpdate()', $publisherController);
+        $this->assertStringContainsString('$freshSite = $site->fresh()', $publisherController);
+        $this->assertStringContainsString('$blockedCancelled', $publisherController);
+
+        $bulk = BulkSiteRequest::create([
+            'publisher_id' => $this->publisher->id,
+            'status' => BulkSiteRequest::STATUS_REQUESTED,
+            'estimated_count' => 1,
+        ]);
+        $bulk->setRelation('publisher', null);
+
+        $seeded = (new BulkSitesSeededNotification($bulk, 1, $this->publisher, ['mail-null-pub.example']))->render();
+        $this->assertStringContainsString($this->publisher->name, $seeded);
+
+        $submitted = (new BulkSiteRequestSubmitted($bulk, route('admin.bulk-site-requests.show', $bulk), $this->marketer))->render();
+        $this->assertStringContainsString('Unknown', $submitted);
+        $this->assertStringContainsString('publisher?->name', file_get_contents(app_path('Mail/BulkSiteRequestSubmitted.php')));
+        $this->assertStringContainsString('publisher?->name', file_get_contents(app_path('Mail/BulkSitesSeededNotification.php')));
     }
 
     private function marketplaceCodes(): array

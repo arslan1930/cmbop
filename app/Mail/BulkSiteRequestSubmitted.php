@@ -23,12 +23,12 @@ class BulkSiteRequestSubmitted extends PlatformMailable
     {
         $publisher = $this->bulkRequest->publisher;
 
-        return $this->subject('Bulk site request from '.($publisher->name ?? 'publisher'))
+        return $this->subject('Bulk site request from '.($publisher?->name ?? 'publisher'))
             ->markdown('emails.bulk-site-request-submitted')
             ->with([
                 'bulkRequest' => $this->bulkRequest,
-                'publisherName' => $publisher->name ?? 'Unknown',
-                'publisherEmail' => $publisher->email ?? 'Unknown',
+                'publisherName' => $publisher?->name ?? 'Unknown',
+                'publisherEmail' => $publisher?->email ?? 'Unknown',
                 'adminUrl' => $this->openUrl ?: route('admin.bulk-site-requests.show', $this->bulkRequest),
             ]);
     }

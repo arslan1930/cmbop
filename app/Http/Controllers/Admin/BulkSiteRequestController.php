@@ -844,7 +844,15 @@ class BulkSiteRequestController extends Controller
         }
 
         $fresh = $bulkRequest->fresh(['publisher']);
-        $publisher = $fresh?->publisher;
+        if (! $fresh || $fresh->isCancelled()) {
+            return back()->with('error', ! $fresh
+                ? 'This bulk request is no longer available.'
+                : ($action === 'bulk_request.seeded'
+                    ? 'Cannot seed a cancelled request.'
+                    : 'Cannot complete a cancelled request.'));
+        }
+
+        $publisher = $fresh->publisher;
 
         if ($created > 0) {
             $verb = $action === 'bulk_request.done'

@@ -307,8 +307,16 @@ class BulkSiteRequestController extends Controller
         $cleanDescription = app(SiteDescriptionSanitizer::class)
             ->sanitize((string) $request->siteDescription);
 
+        $blockedCancelled = false;
         try {
-            DB::transaction(function () use ($site, $request, $cleanDescription, $existingCategories) {
+            DB::transaction(function () use ($site, $request, $cleanDescription, $existingCategories, &$blockedCancelled) {
+                $locked = Site::query()->whereKey($site->id)->lockForUpdate()->first();
+                if (! $locked || $locked->bulkSiteRequest?->isCancelled()) {
+                    $blockedCancelled = true;
+
+                    return;
+                }
+
                 $sensitivePrices = [];
                 foreach (['crypto', 'trading', 'CBD', 'forex'] as $topic) {
                     if ($request->input("sensitive.$topic")) {
@@ -316,7 +324,7 @@ class BulkSiteRequestController extends Controller
                     }
                 }
 
-                $site->applyMarketplaceListing([
+                $locked->applyMarketplaceListing([
                     'example_url' => $request->exampleUrl,
                     // Niches were set by marketing during Done / metrics edit — keep them.
                     'category' => Site::fitCategoryColumn(implode('|', $existingCategories), $existingCategories),
@@ -331,17 +339,21 @@ class BulkSiteRequestController extends Controller
                 ]);
 
                 $tag = $request->input('site_tag', 'as_you_prefer');
-                $site->sponsored = $tag === 'sponsored';
-                $site->partner_material = $tag === 'partner_material';
-                $site->as_you_prefer = $tag === 'as_you_prefer' || $tag === null || $tag === '';
+                $locked->sponsored = $tag === 'sponsored';
+                $locked->partner_material = $tag === 'partner_material';
+                $locked->as_you_prefer = $tag === 'as_you_prefer' || $tag === null || $tag === '';
 
                 // Saved for Review & submit — not yet in the admin queue.
                 // Persist listing fields first, then set onboarding_status safely.
-                $site->save();
+                $locked->save();
 
-                if (! $site->markDetailsComplete()) {
+                if (! $locked->markDetailsComplete()) {
                     throw new \RuntimeException('onboarding_status details_complete rejected by database');
                 }
+
+                $site->setRawAttributes($locked->getAttributes());
+                $site->exists = true;
+                $site->syncOriginal();
             });
         } catch (\Throwable $e) {
             Log::error('Publisher bulk completeStore failed', [
@@ -364,7 +376,19 @@ class BulkSiteRequestController extends Controller
                 ->with('complete_site_id', $site->id);
         }
 
-        $site->refresh();
+        if ($blockedCancelled) {
+            return redirect()
+                ->route('publisher.websites', ['status' => 'pending'])
+                ->with('error', 'This bulk request was cancelled. Those sites will not be prepared.');
+        }
+
+        $freshSite = $site->fresh();
+        if (! $freshSite) {
+            return redirect()
+                ->route('publisher.websites', ['status' => 'pending'])
+                ->with('error', 'This bulk request was cancelled. Those sites will not be prepared.');
+        }
+        $site = $freshSite;
         if ($site->bulk_site_request_id) {
             $site->bulkSiteRequest?->refreshProgressStatus();
         }
