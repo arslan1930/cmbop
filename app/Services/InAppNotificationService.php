@@ -744,7 +744,7 @@ class InAppNotificationService
     protected function contentEvaluationActionUrl(bool $approved, array $result): string
     {
         $override = trim((string) ($result['action_url'] ?? ''));
-        if ($override !== '' && (str_starts_with($override, '/') || str_starts_with($override, 'http://') || str_starts_with($override, 'https://'))) {
+        if ($override !== '' && str_starts_with($override, '/') && ! str_starts_with($override, '//')) {
             return $override;
         }
 

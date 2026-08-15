@@ -145,30 +145,46 @@ class AdminLibraryStaffActions
         $owner = $fresh?->user;
         if ($owner && $fresh) {
             try {
-                $ready = $decision === ContentSubmission::STATUS_APPROVED && $fresh->isReadyForCheckout();
-                $notice = trim($fresh->editorNotice());
                 $this->notifications->notifyContentEvaluation($owner, $fresh, [
                     'approved' => $decision === ContentSubmission::STATUS_APPROVED,
                     'title' => $decision === ContentSubmission::STATUS_APPROVED
                         ? 'Article approved'
                         : 'Article needs changes',
-                    'message' => $decision === ContentSubmission::STATUS_APPROVED
-                        ? ($ready
-                            ? 'A staff member approved this article. You can attach it in the catalog.'
-                            : 'A staff member approved this article, but it still needs a fix before you can order it.'
-                                .($notice !== '' ? ' '.$notice : ''))
-                        : 'A staff member rejected this article. '.$notes,
+                    'message' => $this->overrideNotice($fresh, $decision, $notes),
                     'moderation_status' => $decision,
-                    'action_url' => route('advertiser.content-library', $ready ? [] : [
-                        'status' => 'all',
-                        'availability' => 'needs_fix',
-                    ], false),
+                    'action_url' => route(
+                        'advertiser.content-library',
+                        $decision === ContentSubmission::STATUS_APPROVED
+                            ? $fresh->staffApprovalLibraryParams()
+                            : ['status' => 'all', 'availability' => 'needs_fix'],
+                        false
+                    ),
                 ]);
             } catch (\Throwable) {
             }
         }
 
         return $fresh;
+    }
+
+    protected function overrideNotice(ContentSubmission $submission, string $decision, string $notes): string
+    {
+        if ($decision !== ContentSubmission::STATUS_APPROVED) {
+            return 'A staff member rejected this article. '.$notes;
+        }
+
+        if ($submission->isReadyForCheckout()) {
+            return 'A staff member approved this article. You can attach it in the catalog.';
+        }
+
+        if ($submission->isUsableAfterStaffApproval()) {
+            return 'A staff member approved this article. You can continue the open order it is already attached to.';
+        }
+
+        $notice = trim($submission->editorNotice());
+
+        return 'A staff member approved this article, but it still needs a fix before you can order it.'
+            .($notice !== '' ? ' '.$notice : '');
     }
 
     public function archive(ContentSubmission $submission): ContentSubmission
@@ -202,13 +218,13 @@ class AdminLibraryStaffActions
             return $byLogId;
         }
 
-        if (! filled($log->scan_token)) {
+        if (! filled($log->scan_token) || ! $log->user_id) {
             return null;
         }
 
         return ContentSubmission::query()
             ->where('scan_token', $log->scan_token)
-            ->when($log->user_id, fn ($q) => $q->where('user_id', $log->user_id))
+            ->where('user_id', $log->user_id)
             ->latest('id')
             ->first();
     }

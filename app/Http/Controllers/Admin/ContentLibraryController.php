@@ -107,14 +107,15 @@ class ContentLibraryController extends Controller
         } catch (\Throwable) {
             abort(404, 'File not found');
         }
-        if (! $submission->path || ! $disk->exists($submission->path)) {
+        $path = (string) $submission->path;
+        if ($path === '' || str_contains($path, '..') || ! $disk->exists($path)) {
             abort(404, 'File not found');
         }
 
         $filename = str_replace(["\r", "\n", '"'], '', basename((string) ($submission->original_filename ?: 'article.docx')));
 
         return $disk->download(
-            $submission->path,
+            $path,
             $filename !== '' ? $filename : 'article.docx',
             ['Content-Type' => $submission->mime ?: 'application/octet-stream']
         );
@@ -395,6 +396,10 @@ class ContentLibraryController extends Controller
 
         if ($submission->isReadyForCheckout()) {
             return 'Article #'.$submission->id.' approved. The advertiser can attach it in the catalog.';
+        }
+
+        if ($submission->isUsableAfterStaffApproval()) {
+            return 'Article #'.$submission->id.' approved. It stays on the open order and can be fulfilled.';
         }
 
         $notice = trim($submission->editorNotice());

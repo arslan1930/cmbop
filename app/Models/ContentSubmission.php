@@ -663,7 +663,11 @@ class ContentSubmission extends Model
                 });
             })
             ->where(function ($exp) {
-                $exp->whereNull('expires_at')->orWhere('expires_at', '>', now());
+                $exp->where(function ($active) {
+                    $active->whereNull('expires_at')->orWhere('expires_at', '>', now());
+                })->orWhere(function ($owned) {
+                    $owned->withOpenOwnerOrder();
+                });
             });
 
         return $query;
@@ -1793,14 +1797,54 @@ class ContentSubmission extends Model
 
         // Do not call isReadyForCheckout() here: that gate also rejects leftover
         // claims, including this order when submission.order_id is still null.
+        // Expiry is a catalog-reuse clock. Once this order already owns the
+        // row, Pay again / fulfill must not fail just because unused retention
+        // elapsed — nightly purge clears `path` when the file is actually gone.
+        $ownedByThisOrder = $orderId !== null && (int) $this->order_id === (int) $orderId;
+
         return $this->moderation_status === self::STATUS_APPROVED
             && filled($this->path)
             && ! $this->isArchived()
-            && ($this->expires_at === null || $this->expires_at->isFuture())
+            && ($ownedByThisOrder || $this->expires_at === null || $this->expires_at->isFuture())
             && filled($this->country)
             && filled($this->language)
             && $this->imageRightsCoverContent()
             && $this->hasCheckoutReadyLinks();
+    }
+
+    /**
+     * True after a staff approve when the advertiser can order it, or keep
+     * paying / fulfilling the open owner order. isReadyForCheckout() is false
+     * once order_id is set, which must not be treated as "still broken".
+     */
+    public function isUsableAfterStaffApproval(): bool
+    {
+        if ($this->isReadyForCheckout()) {
+            return true;
+        }
+
+        $ownerId = (int) ($this->order_id ?? 0);
+
+        return $ownerId > 0 && $this->isReadyToFulfill($ownerId);
+    }
+
+    /**
+     * Advertiser library query for the post-approval notification / CTA.
+     *
+     * @return array<string, string>
+     */
+    public function staffApprovalLibraryParams(): array
+    {
+        if ($this->isReadyForCheckout()) {
+            return [];
+        }
+
+        $availability = $this->libraryAvailability();
+        if (in_array($availability, ['in_progress', 'needs_fix', 'expired', 'archived', 'evaluating', 'published'], true)) {
+            return ['status' => 'all', 'availability' => $availability];
+        }
+
+        return ['status' => 'all', 'availability' => 'needs_fix'];
     }
 
     public function deleteStoredFile(): void

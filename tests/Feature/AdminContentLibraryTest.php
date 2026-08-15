@@ -163,6 +163,9 @@ class AdminContentLibraryTest extends TestCase
             ->assertOk()
             ->assertSee('Expired But Owned')
             ->assertSee('In progress');
+
+        $this->assertSame('in_progress', $submission->fresh()->load(['order', 'orderItems.order'])->libraryAvailability());
+        $this->assertTrue($submission->fresh()->isReadyToFulfill((int) $order->id));
     }
 
     public function test_rejected_owned_article_is_needs_fix_not_in_progress(): void
@@ -191,6 +194,38 @@ class AdminContentLibraryTest extends TestCase
             ->get(route('admin.content-library.index', ['availability' => 'needs_fix']))
             ->assertOk()
             ->assertSee('Rejected Owned Piece');
+    }
+
+    public function test_expired_rejected_leftover_stays_in_needs_fix_not_expired(): void
+    {
+        $admin = $this->admin();
+        $advertiser = $this->advertiser();
+        $publisher = $this->publisher();
+        $site = $this->siteFor($publisher);
+        $submission = $this->createApprovedSubmission($advertiser);
+        $submission->update([
+            'title' => 'Expired Rejected Leftover',
+            'expires_at' => now()->subDay(),
+            'moderation_status' => ContentSubmission::STATUS_REJECTED,
+        ]);
+        $order = $this->orderFor($advertiser);
+        $this->attachToOrder($submission, $order, $site);
+
+        $fresh = $submission->fresh()->load(['order', 'orderItems.order']);
+        $this->assertSame('needs_fix', $fresh->libraryAvailability());
+        $this->assertTrue(
+            ContentSubmission::query()->whereKey($submission->id)->needsLibraryFix()->exists()
+        );
+
+        $this->actingAs($admin)
+            ->get(route('admin.content-library.index', ['availability' => 'needs_fix']))
+            ->assertOk()
+            ->assertSee('Expired Rejected Leftover');
+
+        $this->actingAs($admin)
+            ->get(route('admin.content-library.index', ['availability' => 'expired']))
+            ->assertOk()
+            ->assertDontSee('Expired Rejected Leftover');
     }
 
     public function test_legacy_status_approved_maps_to_available_chip(): void
@@ -363,6 +398,20 @@ class AdminContentLibraryTest extends TestCase
         $this->assertStringNotContainsString('href="javascript:alert(1)"', $html);
         $this->assertStringContainsString('availability=in_progress', $html);
         $this->assertStringContainsString('user_id='.$advertiser->id, $html);
+    }
+
+    public function test_download_rejects_path_traversal(): void
+    {
+        $admin = $this->admin();
+        $advertiser = $this->advertiser();
+        $submission = $this->createApprovedSubmission($advertiser);
+        $submission->update([
+            'path' => '../content-uploads/escaped.docx',
+        ]);
+
+        $this->actingAs($admin)
+            ->get(route('admin.content-library.download', $submission))
+            ->assertNotFound();
     }
 
     public function test_download_unknown_disk_is_404_not_500(): void
@@ -561,6 +610,82 @@ class AdminContentLibraryTest extends TestCase
         $this->assertNotNull($bell);
         $this->assertStringNotContainsString('You can attach it in the catalog', (string) $bell->message);
         $this->assertStringContainsString('availability=needs_fix', (string) $bell->action_url);
+    }
+
+    public function test_override_approve_of_rejected_unpaid_leftover_is_usable_not_needs_fix(): void
+    {
+        $admin = $this->admin();
+        $advertiser = $this->advertiser();
+        $publisher = $this->publisher();
+        $site = $this->siteFor($publisher);
+        $submission = $this->createApprovedSubmission($advertiser);
+        $submission->update([
+            'title' => 'Leftover after decline',
+            'moderation_status' => ContentSubmission::STATUS_REJECTED,
+            'evaluation_status' => ContentSubmission::STATUS_REJECTED,
+        ]);
+        $order = $this->orderFor($advertiser, [
+            'payment_status' => 'unpaid',
+            'status' => 'pending',
+        ]);
+        $this->attachToOrder($submission, $order, $site);
+
+        $this->actingAs($admin)
+            ->from(route('admin.content-library.show', $submission))
+            ->post(route('admin.content-library.override', $submission), [
+                'decision' => 'approved',
+                'notes' => 'Staff restore leftover',
+            ])
+            ->assertRedirect(route('admin.content-library.show', $submission))
+            ->assertSessionHas('success', function ($message) {
+                return is_string($message) && str_contains($message, 'stays on the open order');
+            });
+
+        $fresh = $submission->fresh()->load(['order', 'orderItems.order']);
+        $this->assertSame(ContentSubmission::STATUS_APPROVED, $fresh->moderation_status);
+        $this->assertTrue($fresh->isUsableAfterStaffApproval());
+        $this->assertFalse($fresh->isReadyForCheckout());
+        $this->assertSame('in_progress', $fresh->libraryAvailability());
+        $this->assertSame(['status' => 'all', 'availability' => 'in_progress'], $fresh->staffApprovalLibraryParams());
+
+        $bell = InAppNotification::query()->where('user_id', $advertiser->id)->latest('id')->first();
+        $this->assertNotNull($bell);
+        $this->assertStringContainsString('continue the open order', (string) $bell->message);
+        $this->assertStringNotContainsString('still needs a fix', (string) $bell->message);
+        $this->assertStringContainsString('availability=in_progress', (string) $bell->action_url);
+    }
+
+    public function test_override_approve_of_unused_expired_article_points_at_expired_chip(): void
+    {
+        $admin = $this->admin();
+        $advertiser = $this->advertiser();
+        $submission = $this->createApprovedSubmission($advertiser);
+        $submission->update([
+            'title' => 'Expired Unused Override',
+            'moderation_status' => ContentSubmission::STATUS_REJECTED,
+            'expires_at' => now()->subDay(),
+        ]);
+
+        $this->actingAs($admin)
+            ->from(route('admin.content-library.show', $submission))
+            ->post(route('admin.content-library.override', $submission), [
+                'decision' => 'approved',
+                'notes' => 'False positive after expiry.',
+            ])
+            ->assertRedirect()
+            ->assertSessionHas('success', function ($message) {
+                return is_string($message) && str_contains($message, 'still not checkout-ready');
+            });
+
+        $fresh = $submission->fresh();
+        $this->assertFalse($fresh->isUsableAfterStaffApproval());
+        $this->assertSame('expired', $fresh->libraryAvailability());
+        $this->assertSame(['status' => 'all', 'availability' => 'expired'], $fresh->staffApprovalLibraryParams());
+
+        $bell = InAppNotification::query()->where('user_id', $advertiser->id)->latest('id')->first();
+        $this->assertNotNull($bell);
+        $this->assertStringContainsString('availability=expired', (string) $bell->action_url);
+        $this->assertStringNotContainsString('availability=needs_fix', (string) $bell->action_url);
     }
 
     public function test_moderation_override_does_not_flip_log_when_article_is_archived(): void

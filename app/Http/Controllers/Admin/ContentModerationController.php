@@ -154,13 +154,13 @@ class ContentModerationController extends Controller
         }
 
         $fresh = $submission->fresh();
-        $ready = $fresh?->isReadyForCheckout() ?? false;
+        $usable = $fresh?->isUsableAfterStaffApproval() ?? false;
 
         return redirect()
             ->route('admin.content-library.show', $submission)
             ->with(
                 'success',
-                $ready
+                $usable
                     ? 'Article #'.$submission->id.' approved — open in Content Library.'
                     : 'Article #'.$submission->id.' approved, but it is still not checkout-ready.'
             );
