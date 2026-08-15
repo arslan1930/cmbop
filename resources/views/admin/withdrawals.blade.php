@@ -799,6 +799,10 @@ $(document).on('click', '.act-paid', async function() {
         .done(function(res) {
             toast(res.message || 'Marked paid', res.has_statement === false ? 'warning' : 'success');
             selectedIds.delete(Number(id));
+            if (res.has_statement === false) {
+                showHistoryForStatementRetry(id);
+                return;
+            }
             refreshAll();
         })
         .fail(function(xhr) {
@@ -988,6 +992,10 @@ async function runBatch(action, title, confirmText, confirmClass, options) {
         failed.forEach(function (row) {
             addSelectedId(row && row.id);
         });
+        if (missingStatements > 0 && failedCount === 0) {
+            showHistoryForStatementRetry(missingStatements === 1 ? res.missing_statement_ids[0] : 0);
+            return;
+        }
         refreshAll();
     }).fail(function(xhr) {
         const body = xhr.responseJSON || {};
@@ -1238,6 +1246,14 @@ function reloadFilteredView() {
     snapshotFilters();
     loadStatistics();
     loadWithdrawals(1);
+}
+
+function showHistoryForStatementRetry(id) {
+    const n = Number(id);
+    $('#queueFilter').val('history');
+    $('#statusFilter').val('');
+    $('#searchInput').val(Number.isInteger(n) && n > 0 ? String(n) : '');
+    reloadFilteredView();
 }
 
 $('#filterBtn').on('click', function () {

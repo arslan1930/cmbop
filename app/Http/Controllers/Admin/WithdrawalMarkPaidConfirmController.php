@@ -60,7 +60,11 @@ class WithdrawalMarkPaidConfirmController extends Controller
                 ? $result['message']
                 : 'Marked paid. Net €'.number_format((float) $result['withdrawal']->net_amount, 2).' confirmed for WD-'.$result['withdrawal']->id.'.';
 
-            return $this->redirectToPayoutQueue()->with('success', $message);
+            $focus = ($result['new_status'] === 'completed' && empty($result['has_statement']))
+                ? $result['withdrawal']
+                : null;
+
+            return $this->redirectToPayoutQueue($focus)->with('success', $message);
         } catch (ManualWithdrawalInvalidTransitionException $e) {
             return $this->redirectToPayoutQueue()
                 ->with('error', UserFacingError::message($e, 'This withdrawal cannot be updated from its current status.'));
@@ -131,9 +135,19 @@ class WithdrawalMarkPaidConfirmController extends Controller
      * Stay on the current host. Absolute route() would jump to APP_URL
      * (www vs bare) and drop the session/flash after confirm.
      */
-    protected function redirectToPayoutQueue()
+    protected function redirectToPayoutQueue(?Withdrawal $focus = null)
     {
-        return redirect()->to(route('admin.withdrawals', [], false));
+        $params = [];
+        if ($focus && (int) $focus->id > 0) {
+            $params = [
+                'search' => (string) $focus->id,
+                'queue' => in_array((string) $focus->status, ['completed', 'cancelled'], true)
+                    ? 'history'
+                    : 'open',
+            ];
+        }
+
+        return redirect()->to(route('admin.withdrawals', $params, false));
     }
 
     protected function invalidSignatureResponse()

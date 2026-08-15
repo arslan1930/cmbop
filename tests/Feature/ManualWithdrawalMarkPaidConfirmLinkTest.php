@@ -225,10 +225,13 @@ class ManualWithdrawalMarkPaidConfirmLinkTest extends TestCase
 
         $this->actingAs($admin)
             ->post($url, ['notes' => 'Sent'])
-            ->assertRedirect(route('admin.withdrawals'))
+            ->assertRedirect(route('admin.withdrawals', [
+                'search' => (string) $withdrawal->id,
+                'queue' => 'history',
+            ]))
             ->assertSessionHas(
                 'success',
-                'Marked paid, but the payout statement could not be created. Open history and choose Create statement.'
+                'Marked paid, but the payout statement could not be created for WD-'.$withdrawal->id.'. Open history and choose Create statement.'
             );
 
         $this->assertSame('completed', $withdrawal->fresh()->status);

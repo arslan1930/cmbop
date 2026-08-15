@@ -114,6 +114,8 @@ class AdminWithdrawalLaterTest extends TestCase
         $this->assertStringContainsString('res.has_statement === false', $html);
         $this->assertStringContainsString('res.missing_statement_ids', $html);
         $this->assertStringContainsString('missingStatementAlert', $html);
+        $this->assertStringContainsString('function showHistoryForStatementRetry', $html);
+        $this->assertStringContainsString('showHistoryForStatementRetry(id)', $html);
     }
 
     public function test_html_show_warns_when_paid_statement_is_missing(): void
@@ -160,7 +162,7 @@ class AdminWithdrawalLaterTest extends TestCase
             ->assertJsonPath('has_statement', false)
             ->assertJsonPath(
                 'message',
-                'Marked paid, but the payout statement could not be created. Open history and choose Create statement.'
+                'Marked paid, but the payout statement could not be created for WD-'.$withdrawal->id.'. Open history and choose Create statement.'
             );
 
         $this->assertSame('completed', $withdrawal->fresh()->status);
@@ -184,7 +186,8 @@ class AdminWithdrawalLaterTest extends TestCase
             ->assertOk()
             ->assertJsonPath('success', true)
             ->assertJsonPath('succeeded', 1)
-            ->assertJsonPath('missing_statement_ids', [$withdrawal->id]);
+            ->assertJsonPath('missing_statement_ids', [$withdrawal->id])
+            ->assertJsonPath('message', '1 updated, 1 missing payout statement (WD-'.$withdrawal->id.')');
 
         $this->assertSame('completed', $withdrawal->fresh()->status);
     }

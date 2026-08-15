@@ -329,8 +329,15 @@ class AdminWithdrawalController extends Controller
             $parts[] = count($failed).' failed';
         }
         if ($missingStatementIds !== []) {
+            $refs = array_map(fn (int $id) => 'WD-'.$id, $missingStatementIds);
+            $shown = array_slice($refs, 0, 5);
+            $label = implode(', ', $shown);
+            if (count($refs) > 5) {
+                $label .= '…';
+            }
             $parts[] = count($missingStatementIds).' missing payout statement'
-                .(count($missingStatementIds) === 1 ? '' : 's');
+                .(count($missingStatementIds) === 1 ? '' : 's')
+                .' ('.$label.')';
         }
 
         return response()->json([
