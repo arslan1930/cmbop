@@ -408,6 +408,10 @@ class AdminAudienceInventoryTest extends TestCase
         $this->assertContains($customer->id, $inventory->collectRecipientRows('advertisers_paid_orders')->pluck('id'));
         $this->assertContains($fundedIdle->id, $inventory->collectRecipientRows('advertisers_deposited_no_orders')->pluck('id'));
         $this->assertContains($draftOnly->id, $inventory->collectRecipientRows('publishers_no_active_sites')->pluck('id'));
+        $this->assertEqualsCanonicalizing(
+            ['id', 'email'],
+            array_keys($inventory->collectRecipientRows('advertisers_paid_orders')->first()->getAttributes())
+        );
     }
 
     public function test_inverted_registration_dates_are_swapped(): void

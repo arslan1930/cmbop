@@ -20,8 +20,9 @@ or marketing, even if that staff account also has a marketplace role.
    queue. Flash: **Campaign queued for N recipient(s).**
 4. The job claims a `queued` row (`queued` → `sending`) or continues an
    already-`sending` campaign. Each handle processes at most **20** pending
-   rows (fits the web-drain 30s worker timeout) and re-dispatches itself when
-   more remain. Recipients are claimed `pending` → `queued` atomically so two
+   rows (fits the web-drain 30s worker timeout), or **5** when the send job
+   is on a worker but mail itself is `sync` (20 inline SMTP sends miss the
+   25s job timeout). It re-dispatches itself when more remain. Recipients are claimed `pending` → `queued` atomically so two
    workers cannot double-send. A thrown handle still fails leftover **pending**
    rows only after **3** failed batches (`failStreak`). Give-up sets the
    campaign `failed` first, then recounts: a real delivery leaves it

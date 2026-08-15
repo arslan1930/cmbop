@@ -466,6 +466,23 @@ class AudienceInventoryService
         return $this->applyRecipientScope($this->queryForAudienceKey($key), $includeUnverified);
     }
 
+    /**
+     * id + email only. recipientBuilder already applied the verified /
+     * selected scope; this only strips eager-loads so compose cannot OOM.
+     */
+    protected function recipientRowQuery(Builder $query, bool $includeUnverified, bool $alreadyScoped = false): Builder
+    {
+        if (! $alreadyScoped) {
+            $query = $this->applyRecipientScope($query, $includeUnverified);
+        }
+
+        return $query
+            ->setEagerLoads([])
+            ->reorder()
+            ->orderBy('users.id')
+            ->select(['users.id', 'users.email']);
+    }
+
     public function bothUniqueCount(bool $includeUnverified = true): int
     {
         return $this->count(self::AUDIENCE_BOTH, null, $includeUnverified);
