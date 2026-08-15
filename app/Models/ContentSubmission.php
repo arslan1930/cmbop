@@ -152,7 +152,7 @@ class ContentSubmission extends Model
      */
     public function isJustApproved(): bool
     {
-        if (! $this->canBeOrdered() || $this->evaluated_at === null) {
+        if (! $this->isReadyForCheckout() || $this->evaluated_at === null) {
             return false;
         }
 
@@ -385,7 +385,11 @@ class ContentSubmission extends Model
             $table.'.expires_at',
             $table.'.anchor_text',
             $table.'.target_url',
-        ]);
+            $table.'.image_rights',
+            $table.'.image_rights_source',
+        ])->selectRaw(
+            'CASE WHEN '.$table.'.preview_html LIKE \'%<img%\' OR '.$table.'.preview_html LIKE \'%<IMG%\' THEN 1 ELSE 0 END as has_images'
+        );
     }
 
     /**

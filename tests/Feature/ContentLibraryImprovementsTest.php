@@ -595,6 +595,60 @@ class ContentLibraryImprovementsTest extends TestCase
         $this->assertDatabaseHas('content_submissions', ['id' => $submission->id]);
     }
 
+    public function test_cannot_retry_payment_when_library_article_was_deleted(): void
+    {
+        $advertiser = $this->advertiser();
+        $publisher = $this->publisher();
+        $site = $this->activeSite($publisher, 'retry-deleted');
+        $order = $this->failedCardOrder($advertiser);
+        OrderItem::create([
+            'order_id' => $order->id,
+            'site_id' => $site->id,
+            'site_name' => $site->site_name,
+            'site_url' => $site->site_url,
+            'content_submission_id' => null,
+            'content_path' => 'content-uploads/'.$advertiser->id.'/gone.docx',
+            'content_original_name' => 'gone.docx',
+            'content_link' => 'https://example.com/article',
+            'price' => 46,
+        ]);
+
+        $this->actingAs($advertiser)
+            ->postJson(route('advertiser.orders.retry-payment', $order))
+            ->assertStatus(422)
+            ->assertJsonPath('success', false);
+    }
+
+    public function test_cannot_retry_payment_when_library_article_is_unready(): void
+    {
+        $advertiser = $this->advertiser();
+        $publisher = $this->publisher();
+        $site = $this->activeSite($publisher, 'retry-unready');
+        $submission = $this->createApprovedSubmission($advertiser);
+        $order = $this->failedCardOrder($advertiser);
+        $item = OrderItem::create([
+            'order_id' => $order->id,
+            'site_id' => $site->id,
+            'site_name' => $site->site_name,
+            'site_url' => $site->site_url,
+            'content_submission_id' => $submission->id,
+            'content_path' => $submission->path,
+            'content_original_name' => $submission->original_filename,
+            'content_link' => 'https://example.com/article',
+            'price' => 46,
+        ]);
+        $submission->update([
+            'order_id' => $order->id,
+            'order_item_id' => $item->id,
+            'target_url' => null,
+        ]);
+
+        $this->actingAs($advertiser)
+            ->postJson(route('advertiser.orders.retry-payment', $order))
+            ->assertStatus(422)
+            ->assertJsonPath('success', false);
+    }
+
     public function test_library_availability_helper_on_model(): void
     {
         $advertiser = $this->advertiser();
@@ -696,6 +750,18 @@ class ContentLibraryImprovementsTest extends TestCase
         ]);
         $this->assertFalse($evaluating->fresh()->isJustApproved());
 
+        $needsLink = $this->createApprovedSubmission($advertiser);
+        $needsLink->update([
+            'title' => 'Needs Checkout Link Piece',
+            'anchor_text' => 'half filled',
+            'target_url' => null,
+            'evaluated_at' => now(),
+        ]);
+        $this->assertTrue($needsLink->fresh()->canBeOrdered());
+        $this->assertFalse($needsLink->fresh()->isReadyForCheckout());
+        $this->assertFalse($needsLink->fresh()->isJustApproved());
+        $this->assertNull($needsLink->fresh()->justApprovedLabel());
+
         $html = $this->actingAs($advertiser)
             ->get(route('advertiser.content-library', ['status' => 'approved', 'availability' => 'available']))
             ->assertOk()
@@ -708,6 +774,7 @@ class ContentLibraryImprovementsTest extends TestCase
             ->assertSee('Stale Approved Piece')
             ->assertDontSee('Needs Fix Piece')
             ->assertDontSee('Expired Approved Piece')
+            ->assertDontSee('Needs Checkout Link Piece')
             ->getContent();
 
         $this->assertStringContainsString('class="library-just-approved"', $html);
@@ -2140,12 +2207,37 @@ class ContentLibraryImprovementsTest extends TestCase
         $this->assertArrayNotHasKey('extracted_text', $row->getAttributes());
         $this->assertArrayNotHasKey('preview_html', $row->getAttributes());
         $this->assertTrue($row->canBeOrdered());
+        $this->assertTrue($row->isReadyForCheckout());
+        $this->assertFalse($row->hasImages());
 
         $this->actingAs($advertiser)
             ->getJson(route('advertiser.cart.get'))
             ->assertOk()
             ->assertJsonPath('approved_articles.0.id', $submission->id)
             ->assertJsonPath('approved_articles.0.language', 'en');
+    }
+
+    public function test_article_picker_scope_sees_missing_image_rights(): void
+    {
+        $advertiser = $this->advertiser();
+        $submission = $this->createApprovedSubmission($advertiser);
+        $submission->update([
+            'preview_html' => '<p>Article with a picture <img src="/storage/content-articles/1/hero.png" alt=""></p>',
+            'image_rights' => null,
+            'image_rights_source' => null,
+        ]);
+
+        $row = ContentSubmission::query()
+            ->forArticlePicker()
+            ->where('id', $submission->id)
+            ->first();
+
+        $this->assertNotNull($row);
+        $this->assertArrayNotHasKey('preview_html', $row->getAttributes());
+        $this->assertTrue($row->hasImages());
+        $this->assertFalse($row->imageRightsCoverContent());
+        $this->assertFalse($row->canBeOrdered());
+        $this->assertFalse($row->isReadyForCheckout());
     }
 
     public function test_uniqueness_corpus_selects_truncated_extracted_text(): void
@@ -2566,6 +2658,21 @@ class ContentLibraryImprovementsTest extends TestCase
             'total_amount' => 46,
             'payment_method' => 'wallet',
             'payment_status' => 'unpaid',
+            'status' => 'pending',
+        ]);
+    }
+
+    private function failedCardOrder(User $advertiser): Order
+    {
+        return Order::create([
+            'user_id' => $advertiser->id,
+            'order_number' => 'ORD-'.uniqid(),
+            'reference_code' => 'REF-'.uniqid(),
+            'subtotal' => 46,
+            'tax' => 0,
+            'total_amount' => 46,
+            'payment_method' => 'card',
+            'payment_status' => 'failed',
             'status' => 'pending',
         ]);
     }

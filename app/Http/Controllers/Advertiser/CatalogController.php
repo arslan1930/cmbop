@@ -3636,6 +3636,10 @@ class CatalogController extends Controller
         foreach ($order->items as $item) {
             $id = (int) ($item->content_submission_id ?? 0);
             if ($id <= 0) {
+                if ($item->looksLikeLibraryLine()) {
+                    return false;
+                }
+
                 continue;
             }
             $submission = ContentSubmission::query()->whereKey($id)->first();

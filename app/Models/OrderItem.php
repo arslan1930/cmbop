@@ -141,6 +141,18 @@ class OrderItem extends Model
     }
 
     /**
+     * True when this placement was fulfilled from Content Library.
+     * After the article is deleted, nullOnDelete clears content_submission_id
+     * but the snapshotted file name/path still mark the line as a library row.
+     */
+    public function looksLikeLibraryLine(): bool
+    {
+        return (int) ($this->content_submission_id ?? 0) > 0
+            || filled($this->content_path)
+            || filled($this->content_original_name);
+    }
+
+    /**
      * Uploaded article on the submission or a path snapshotted onto the item.
      */
     public function hasDownloadableContent(): bool
