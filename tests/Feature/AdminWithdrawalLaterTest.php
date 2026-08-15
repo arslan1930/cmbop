@@ -75,6 +75,7 @@ class AdminWithdrawalLaterTest extends TestCase
         $this->assertStringContainsString('hasOwnProperty.call(options, \'notes\')', $html);
         $this->assertStringContainsString('if (!dateString) return', $html);
         $this->assertStringContainsString('encodeURIComponent(w.destination_copy_text || \'\')', $html);
+        $this->assertStringContainsString("if (!row || typeof row !== 'object') return '';", $html);
     }
 
     public function test_browser_show_is_html_and_json_accept_stays_json(): void
@@ -578,5 +579,29 @@ class AdminWithdrawalLaterTest extends TestCase
 
         $this->assertStringContainsString('WD-'.$withdrawal->id, $csv);
         $this->assertStringNotContainsString('Array', $csv);
+    }
+
+    public function test_html_show_and_list_tolerate_nested_payment_details(): void
+    {
+        $admin = $this->makeUser('admin');
+        $publisher = $this->makeUser('publisher');
+        $withdrawal = $this->seedWithdrawal($publisher, [
+            'payment_method' => 'paypal',
+            'payment_details' => ['email' => ['not-a-string']],
+        ]);
+
+        $this->actingAs($admin)
+            ->get(route('admin.withdrawals.show', $withdrawal->id))
+            ->assertOk()
+            ->assertSee('WD-'.$withdrawal->id, false)
+            ->assertSee('N/A', false)
+            ->assertDontSee('Array', false);
+
+        $this->actingAs($admin)
+            ->getJson(route('admin.withdrawals.data'))
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.0.id', $withdrawal->id)
+            ->assertJsonPath('data.0.destination_snippet', 'PayPal · —');
     }
 }

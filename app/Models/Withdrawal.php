@@ -212,9 +212,9 @@ class Withdrawal extends Model
 
         return match ($this->payment_method) {
             'bank' => $this->bankSnippet($details),
-            'paypal' => 'PayPal · '.$this->maskEmail((string) ($details['email'] ?? '')),
-            'wise' => 'Wise · '.$this->maskEmail((string) ($details['email'] ?? '')),
-            'crypto' => trim(($details['crypto_type'] ?? 'Crypto').' · '.$this->maskWallet((string) ($details['wallet_address'] ?? ''))),
+            'paypal' => 'PayPal · '.$this->maskEmail(self::detailText($details, 'email')),
+            'wise' => 'Wise · '.$this->maskEmail(self::detailText($details, 'email')),
+            'crypto' => trim((self::detailText($details, 'crypto_type') ?: 'Crypto').' · '.$this->maskWallet(self::detailText($details, 'wallet_address'))),
             default => ucfirst((string) $this->payment_method),
         };
     }
@@ -235,26 +235,26 @@ class Withdrawal extends Model
             'bank' => implode("\n", array_filter([
                 'Amount: €'.$net,
                 'Reference: '.$ref,
-                'Bank: '.($details['bank_name'] ?? ''),
-                'Account holder: '.($details['account_holder'] ?? ''),
-                'IBAN / Account: '.($details['account_number'] ?? ''),
-                ! empty($details['swift_code']) ? 'SWIFT: '.$details['swift_code'] : null,
+                'Bank: '.self::detailText($details, 'bank_name'),
+                'Account holder: '.self::detailText($details, 'account_holder'),
+                'IBAN / Account: '.self::detailText($details, 'account_number'),
+                self::detailText($details, 'swift_code') !== '' ? 'SWIFT: '.self::detailText($details, 'swift_code') : null,
             ])),
             'paypal' => implode("\n", [
                 'Amount: €'.$net,
                 'Reference: '.$ref,
-                'PayPal: '.($details['email'] ?? ''),
+                'PayPal: '.self::detailText($details, 'email'),
             ]),
             'wise' => implode("\n", [
                 'Amount: €'.$net,
                 'Reference: '.$ref,
-                'Wise: '.($details['email'] ?? ''),
+                'Wise: '.self::detailText($details, 'email'),
             ]),
             'crypto' => implode("\n", [
                 'Amount: €'.$net,
                 'Reference: '.$ref,
-                'Coin: '.($details['crypto_type'] ?? ''),
-                'Wallet: '.($details['wallet_address'] ?? ''),
+                'Coin: '.self::detailText($details, 'crypto_type'),
+                'Wallet: '.self::detailText($details, 'wallet_address'),
             ]),
             default => 'Amount: €'.$net."\nReference: ".$ref,
         };
@@ -283,9 +283,22 @@ class Withdrawal extends Model
         };
     }
 
+    /**
+     * Scalar payout-detail field, or empty when the value is nested/invalid.
+     */
+    public static function detailText(array $details, string $key): string
+    {
+        $value = $details[$key] ?? null;
+        if (is_string($value) || is_int($value) || is_float($value)) {
+            return (string) $value;
+        }
+
+        return '';
+    }
+
     private function bankSnippet(array $details): string
     {
-        $account = preg_replace('/\s+/', '', (string) ($details['account_number'] ?? '')) ?? '';
+        $account = preg_replace('/\s+/', '', self::detailText($details, 'account_number')) ?? '';
         $last4 = $account !== '' ? substr($account, -4) : '????';
         $prefix = strlen($account) >= 2 ? strtoupper(substr($account, 0, 2)) : 'Bank';
 

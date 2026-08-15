@@ -2,9 +2,11 @@
 
 @section('content')
 @php
-    $details = is_array($withdrawal->payment_details)
+    $rawDetails = is_array($withdrawal->payment_details)
         ? $withdrawal->payment_details
         : (json_decode((string) $withdrawal->payment_details, true) ?: []);
+    $detail = fn (string $key) => \App\Models\Withdrawal::detailText($rawDetails, $key);
+    $detailOrNa = fn (string $key) => ($value = $detail($key)) !== '' ? $value : 'N/A';
     $adminStatus = match ($withdrawal->status) {
         'pending' => 'Pending',
         'processing' => 'Processing',
@@ -88,15 +90,15 @@
                 <div class="card-body">
                     <h6 class="mb-3">Payout destination ({{ \App\Models\Invoice::paymentMethodLabel($withdrawal->payment_method) }})</h6>
                     @if($withdrawal->payment_method === 'bank')
-                        <p class="mb-1"><strong>Bank Name:</strong> {{ $details['bank_name'] ?? 'N/A' }}</p>
-                        <p class="mb-1"><strong>Account Holder:</strong> {{ $details['account_holder'] ?? 'N/A' }}</p>
-                        <p class="mb-1"><strong>Account Number:</strong> {{ $details['account_number'] ?? 'N/A' }}</p>
-                        <p class="mb-0"><strong>SWIFT Code:</strong> {{ $details['swift_code'] ?? 'N/A' }}</p>
+                        <p class="mb-1"><strong>Bank Name:</strong> {{ $detailOrNa('bank_name') }}</p>
+                        <p class="mb-1"><strong>Account Holder:</strong> {{ $detailOrNa('account_holder') }}</p>
+                        <p class="mb-1"><strong>Account Number:</strong> {{ $detailOrNa('account_number') }}</p>
+                        <p class="mb-0"><strong>SWIFT Code:</strong> {{ $detailOrNa('swift_code') }}</p>
                     @elseif(in_array($withdrawal->payment_method, ['paypal', 'wise'], true))
-                        <p class="mb-0"><strong>Email:</strong> {{ $details['email'] ?? 'N/A' }}</p>
+                        <p class="mb-0"><strong>Email:</strong> {{ $detailOrNa('email') }}</p>
                     @elseif($withdrawal->payment_method === 'crypto')
-                        <p class="mb-1"><strong>Cryptocurrency:</strong> {{ $details['crypto_type'] ?? 'N/A' }}</p>
-                        <p class="mb-0"><strong>Wallet Address:</strong> {{ $details['wallet_address'] ?? 'N/A' }}</p>
+                        <p class="mb-1"><strong>Cryptocurrency:</strong> {{ $detailOrNa('crypto_type') }}</p>
+                        <p class="mb-0"><strong>Wallet Address:</strong> {{ $detailOrNa('wallet_address') }}</p>
                     @else
                         <p class="mb-0 text-muted">{{ $withdrawal->destination_snippet ?: '—' }}</p>
                     @endif

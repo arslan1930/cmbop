@@ -18,6 +18,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
 use Symfony\Component\HttpFoundation\StreamedResponse;
+use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 
 class AdminWithdrawalController extends Controller
 {
@@ -124,6 +125,8 @@ class AdminWithdrawalController extends Controller
             return view('admin.withdrawals.show', [
                 'withdrawal' => $withdrawal,
             ]);
+        } catch (HttpExceptionInterface $e) {
+            throw $e;
         } catch (\Throwable $e) {
             Log::error('Error fetching withdrawal: '.$e->getMessage());
 
@@ -340,7 +343,7 @@ class AdminWithdrawalController extends Controller
             }
 
             return redirect()
-                ->route('admin.withdrawals', $this->withdrawalIndexQuery($request))
+                ->route('admin.withdrawals')
                 ->with('error', $message);
         }
 
