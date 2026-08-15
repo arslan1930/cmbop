@@ -127,7 +127,7 @@ class WalletStripeDepositService
                 $referenceCode,
                 '',
                 $paymentIntentId,
-                null,
+                $this->encodeStripeObject($session),
                 $session,
                 $credited
             );
@@ -236,7 +236,8 @@ class WalletStripeDepositService
                     $paymentIntentId,
                     (int) $userId,
                     $finalAmount,
-                    $referenceCode
+                    $referenceCode,
+                    $sessionReference
                 );
             },
             $sessionReference
@@ -249,12 +250,13 @@ class WalletStripeDepositService
         string $paymentIntentId,
         int $userId,
         float $finalAmount,
-        mixed $referenceCode
+        mixed $referenceCode,
+        string $sessionReference = ''
     ): float {
         $credited = 0.0;
         $notifyDepositId = null;
 
-        DB::transaction(function () use ($userId, $session, $sessionId, $paymentIntentId, $finalAmount, $referenceCode, &$credited, &$notifyDepositId) {
+        DB::transaction(function () use ($userId, $session, $sessionId, $paymentIntentId, $finalAmount, $referenceCode, $sessionReference, &$credited, &$notifyDepositId) {
             $existing = DepositRequest::where('stripe_session_id', $sessionId)
                 ->lockForUpdate()
                 ->first();
@@ -279,6 +281,18 @@ class WalletStripeDepositService
 
                     return;
                 }
+            }
+
+            // payment_intent.succeeded often lands first. The later
+            // checkout.session.completed can still have an empty
+            // payment_intent — attach that session instead of minting
+            // a second card for the same session_reference.
+            $orphaned = $this->findCompletedCardForLateCheckoutSession($userId, $finalAmount, $sessionReference);
+            if ($orphaned) {
+                $this->attachMissingStripeIds($orphaned, $sessionId, $paymentIntentId);
+                $credited = (float) $orphaned->amount;
+
+                return;
             }
 
             $ref = $referenceCode ?: str_pad((string) mt_rand(1, 999999), 6, '0', STR_PAD_LEFT);
@@ -857,6 +871,46 @@ class WalletStripeDepositService
             ->where(function ($q) {
                 $q->whereNull('stripe_payment_intent_id')
                     ->orWhere('stripe_payment_intent_id', '');
+            })
+            ->lockForUpdate()
+            ->get();
+
+        foreach ($candidates as $row) {
+            if (abs((float) $row->amount - $amountEuros) > 0.01) {
+                continue;
+            }
+            $stored = $this->sessionReferenceFromDeposit($row);
+            if ($stored !== '' && hash_equals($stored, $sessionReference)) {
+                return $row;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * payment_intent.succeeded can credit a card before checkout.session.completed
+     * arrives — and that session payload may still lack a PaymentIntent id.
+     * Reuse the PI-only row when session_reference matches.
+     */
+    private function findCompletedCardForLateCheckoutSession(
+        int $userId,
+        float $amountEuros,
+        string $sessionReference
+    ): ?DepositRequest {
+        if ($sessionReference === '') {
+            return null;
+        }
+
+        $candidates = DepositRequest::query()
+            ->where('user_id', $userId)
+            ->where('status', 'completed')
+            ->whereIn('payment_method', DepositRequest::CARD_METHODS)
+            ->whereNotNull('stripe_payment_intent_id')
+            ->where('stripe_payment_intent_id', '!=', '')
+            ->where(function ($q) {
+                $q->whereNull('stripe_session_id')
+                    ->orWhere('stripe_session_id', '');
             })
             ->lockForUpdate()
             ->get();

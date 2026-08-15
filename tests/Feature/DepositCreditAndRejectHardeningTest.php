@@ -1850,6 +1850,90 @@ class DepositCreditAndRejectHardeningTest extends TestCase
             ->value('stripe_payment_intent_id'));
     }
 
+    public function test_payment_intent_then_session_without_payment_intent_does_not_double_credit(): void
+    {
+        $advertiser = $this->advertiser();
+        $wallet = $this->walletFor($advertiser);
+        $sessionId = 'cs_after_pi_'.uniqid();
+        $pi = 'pi_before_session_'.uniqid();
+
+        $fromPi = app(WalletStripeDepositService::class)->creditFromPaymentIntentObject((object) [
+            'id' => $pi,
+            'status' => 'succeeded',
+            'amount' => 4000,
+            'amount_received' => 4000,
+            'metadata' => (object) [
+                'type' => 'wallet_deposit',
+                'user_id' => (string) $advertiser->id,
+                'amount' => '40.00',
+                'reference_code' => 'DEP-PI-FIRST-40',
+                'session_reference' => 'deposit_pi_first_checkout_40',
+            ],
+        ]);
+
+        $fromSession = app(WalletStripeDepositService::class)->creditFromCheckoutSession((object) [
+            'id' => $sessionId,
+            'payment_status' => 'paid',
+            'amount_total' => 4000,
+            'metadata' => (object) [
+                'type' => 'wallet_deposit',
+                'user_id' => (string) $advertiser->id,
+                'amount' => '40.00',
+                'reference_code' => 'DEP-PI-FIRST-40',
+                'session_reference' => 'deposit_pi_first_checkout_40',
+            ],
+        ]);
+
+        $this->assertSame(40.0, $fromPi);
+        $this->assertSame(40.0, $fromSession);
+        $this->assertSame(40.0, (float) $wallet->fresh()->balance);
+        $this->assertSame(1, DepositRequest::query()->where('user_id', $advertiser->id)->count());
+        $this->assertSame($pi, DepositRequest::query()
+            ->where('stripe_session_id', $sessionId)
+            ->value('stripe_payment_intent_id'));
+    }
+
+    public function test_payment_intent_then_session_with_different_session_reference_credits_separately(): void
+    {
+        $advertiser = $this->advertiser();
+        $wallet = $this->walletFor($advertiser);
+
+        $fromPi = app(WalletStripeDepositService::class)->creditFromPaymentIntentObject((object) [
+            'id' => 'pi_first_sref_'.uniqid(),
+            'status' => 'succeeded',
+            'amount' => 4000,
+            'amount_received' => 4000,
+            'metadata' => (object) [
+                'type' => 'wallet_deposit',
+                'user_id' => (string) $advertiser->id,
+                'amount' => '40.00',
+                'reference_code' => 'DEP-PI-SREF-A',
+                'session_reference' => 'deposit_first_pi_checkout',
+            ],
+        ]);
+
+        $fromSession = app(WalletStripeDepositService::class)->creditFromCheckoutSession((object) [
+            'id' => 'cs_second_sref_'.uniqid(),
+            'payment_status' => 'paid',
+            'amount_total' => 4000,
+            'metadata' => (object) [
+                'type' => 'wallet_deposit',
+                'user_id' => (string) $advertiser->id,
+                'amount' => '40.00',
+                'reference_code' => 'DEP-CS-SREF-B',
+                'session_reference' => 'deposit_second_cs_checkout',
+            ],
+        ]);
+
+        $this->assertSame(40.0, $fromPi);
+        $this->assertSame(40.0, $fromSession);
+        $this->assertSame(80.0, (float) $wallet->fresh()->balance);
+        $this->assertSame(2, DepositRequest::query()
+            ->where('user_id', $advertiser->id)
+            ->where('status', 'completed')
+            ->count());
+    }
+
     public function test_late_payment_intent_does_not_attach_to_a_different_same_amount_card(): void
     {
         $advertiser = $this->advertiser();
