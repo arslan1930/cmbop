@@ -912,13 +912,16 @@ class OrderPaymentService
 
     public function forgetPendingCheckout(string $referenceCode, ?int $userId = null): void
     {
-        if ($userId && $userId > 0 && $this->hasOpenPaidCheckoutSiblings($userId, $referenceCode)) {
-            app(CheckoutIntentService::class)->forgetPackage($referenceCode, $userId);
+        $intents = app(CheckoutIntentService::class);
+        if ($userId && $userId > 0
+            && $this->hasOpenPaidCheckoutSiblings($userId, $referenceCode)
+            && $intents->recordedBonus($userId, $referenceCode) > 0) {
+            $intents->forgetPackage($referenceCode, $userId);
 
             return;
         }
 
-        app(CheckoutIntentService::class)->forget($referenceCode, $userId);
+        $intents->forget($referenceCode, $userId);
     }
 
     /**
