@@ -478,22 +478,27 @@ class BulkSiteRequestController extends Controller
         try {
             DB::transaction(function () use ($sites, &$submitted, &$bulkIds) {
                 foreach ($sites as $site) {
-                    if ($site->bulkSiteRequest?->isCancelled()) {
+                    $locked = Site::query()->whereKey($site->id)->lockForUpdate()->first();
+                    if (! $locked) {
+                        continue;
+                    }
+                    $locked->loadMissing('bulkSiteRequest');
+                    if ($locked->bulkSiteRequest?->isCancelled()) {
                         continue;
                     }
 
-                    if (! $site->hasCompletedPublisherDetails()) {
+                    if (! $locked->hasCompletedPublisherDetails()) {
                         continue;
                     }
 
-                    if (! $site->markReadyForAdminReview()) {
+                    if (! $locked->markReadyForAdminReview()) {
                         continue;
                     }
 
                     $submitted++;
 
-                    if ($site->bulk_site_request_id) {
-                        $bulkIds[$site->bulk_site_request_id] = true;
+                    if ($locked->bulk_site_request_id) {
+                        $bulkIds[$locked->bulk_site_request_id] = true;
                     }
                 }
             });
@@ -514,7 +519,10 @@ class BulkSiteRequestController extends Controller
 
         $emails = app(EmailNotificationService::class);
         foreach ($sites as $site) {
-            $site->refresh();
+            $site = $site->fresh();
+            if (! $site) {
+                continue;
+            }
             if (! $site->isReadyForAdminReview() || $site->hasDetailsComplete() || $site->awaitsPublisherDetails()) {
                 continue;
             }

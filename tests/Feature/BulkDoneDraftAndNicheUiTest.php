@@ -852,11 +852,17 @@ class BulkDoneDraftAndNicheUiTest extends TestCase
         $controller = file_get_contents(app_path('Http/Controllers/Admin/BulkSiteRequestController.php'));
         $this->assertStringContainsString('if (! $fresh || $fresh->isCancelled())', $controller);
         $this->assertStringContainsString('This bulk request is no longer available.', $controller);
+        $this->assertStringContainsString('$still = $bulkRequest->fresh()', $controller);
+        $this->assertStringContainsString("fresh(['publisher']) ?? \$bulkRequest", $controller);
+        $this->assertStringNotContainsString('$bulkRequest->refresh();', $controller);
+        $this->assertStringContainsString('$reloaded = $bulkRequest->fresh([', $controller);
 
         $publisherController = file_get_contents(app_path('Http/Controllers/Publisher/BulkSiteRequestController.php'));
         $this->assertStringContainsString('whereKey($site->id)->lockForUpdate()', $publisherController);
         $this->assertStringContainsString('$freshSite = $site->fresh()', $publisherController);
+        $this->assertStringContainsString('$site = $site->fresh()', $publisherController);
         $this->assertStringContainsString('$blockedCancelled', $publisherController);
+        $this->assertStringContainsString("loadMissing('bulkSiteRequest')", $publisherController);
 
         $bulk = BulkSiteRequest::create([
             'publisher_id' => $this->publisher->id,

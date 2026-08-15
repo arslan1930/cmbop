@@ -80,11 +80,16 @@ class BulkSiteRequestController extends Controller
             );
         if ($needsHeal) {
             $bulkRequest->refreshProgressStatus();
-            $bulkRequest->refresh();
-            $bulkRequest->load([
+            $reloaded = $bulkRequest->fresh([
+                'publisher',
+                'handler',
                 'items' => fn ($q) => $q->orderBy('id'),
                 'sites' => fn ($q) => $q->notArchived()->orderBy('id'),
             ]);
+            if (! $reloaded) {
+                abort(404);
+            }
+            $bulkRequest = $reloaded;
         }
 
         $countries = Country::marketplace()->orderBy('name')->get();
@@ -257,12 +262,13 @@ class BulkSiteRequestController extends Controller
 
         // Cancelling was silent, so the request simply vanished from the
         // publisher's queue — which reads as us losing their work.
-        $publisher = $bulkRequest->publisher;
+        $fresh = $bulkRequest->fresh(['publisher']) ?? $bulkRequest;
+        $publisher = $fresh->publisher ?? $bulkRequest->publisher;
 
         try {
             if ($publisher?->email) {
                 Mail::to($publisher->email)->send(
-                    new BulkSiteRequestCancelled($bulkRequest->fresh(), $publisher, $reason)
+                    new BulkSiteRequestCancelled($fresh, $publisher, $reason)
                 );
             }
         } catch (\Throwable $e) {
@@ -271,7 +277,7 @@ class BulkSiteRequestController extends Controller
 
         try {
             app(InAppNotificationService::class)
-                ->notifyPublisherBulkRequestCancelled($bulkRequest->fresh(), $reason);
+                ->notifyPublisherBulkRequestCancelled($fresh, $reason);
         } catch (\Throwable $e) {
             Log::warning('Failed to send in-app bulk cancel notice: '.$e->getMessage());
         }
@@ -953,19 +959,21 @@ class BulkSiteRequestController extends Controller
         $didWork = $created > 0 || $deletedCount > 0;
         if ($didWork) {
             $bulkRequest->refreshProgressStatus();
-            $bulkRequest->refresh();
-            // Reject-all with no drafts must not stay "requested" — that blocks
-            // the publisher from submitting a new bulk and still enables seed.
-            if ($bulkRequest->pendingItemsCount() === 0
-                && $bulkRequest->sites()->doesntExist()
-                && in_array($bulkRequest->status, [
+            // fresh() not refresh() — a concurrent delete must not 500 here.
+            $still = $bulkRequest->fresh();
+            if ($still && ! $still->isCancelled()
+                && $still->pendingItemsCount() === 0
+                && $still->sites()->doesntExist()
+                && in_array($still->status, [
                     BulkSiteRequest::STATUS_REQUESTED,
                     BulkSiteRequest::STATUS_SHEET_SENT,
                     BulkSiteRequest::STATUS_SEEDED,
                 ], true)) {
-                $bulkRequest->forceFill([
+                // Reject-all with no drafts must not stay "requested" — that blocks
+                // the publisher from submitting a new bulk and still enables seed.
+                $still->forceFill([
                     'status' => BulkSiteRequest::STATUS_COMPLETED,
-                    'completed_at' => $bulkRequest->completed_at ?? now(),
+                    'completed_at' => $still->completed_at ?? now(),
                 ])->save();
             }
         }
