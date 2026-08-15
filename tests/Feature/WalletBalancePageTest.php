@@ -101,17 +101,18 @@ class WalletBalancePageTest extends TestCase
             json_encode(route('advertiser.balance.withdraw', [], false), JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT),
             $html
         );
+        $jsonFlags = JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT;
         foreach ([
-            'advertiser.add-funds.store',
-            'advertiser.add-funds.pay-saved-card',
-            'advertiser.create-checkout-session',
-        ] as $name) {
+            'store' => 'advertiser.add-funds.store',
+            'paySavedCard' => 'advertiser.add-funds.pay-saved-card',
+            'createCheckout' => 'advertiser.create-checkout-session',
+        ] as $bootKey => $name) {
             $this->assertStringContainsString(
-                json_encode(route($name, [], false), JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT),
+                $bootKey.': '.json_encode(route($name, [], false), $jsonFlags),
                 $html
             );
             $this->assertStringNotContainsString(
-                json_encode(route($name), JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT),
+                $bootKey.': '.json_encode(route($name), $jsonFlags),
                 $html
             );
         }
