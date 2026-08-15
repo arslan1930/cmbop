@@ -29,6 +29,13 @@ class SitePromotionController extends Controller
             ], 422);
         }
 
+        if (! $site->isCatalogVisible()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'This listing is not in the catalog and cannot be promoted.',
+            ], 422);
+        }
+
         if (! $site->active && ! $site->verified) {
             return response()->json([
                 'success' => false,

@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Mail\SiteDiscountEnded;
+use App\Models\BulkSiteRequest;
 use App\Models\Role;
 use App\Models\Site;
 use App\Models\SiteFeaturePurchase;
@@ -269,6 +270,26 @@ class SitePromotionTest extends TestCase
             'payment_method' => 'stripe',
             'stripe_session_id' => 'cs_test_feature_audit_1',
         ]);
+    }
+
+    public function test_feature_rejects_cancelled_bulk_leftover(): void
+    {
+        $publisher = $this->publisherWithWallet(50);
+        $site = $this->site($publisher);
+        $bulk = BulkSiteRequest::create([
+            'publisher_id' => $publisher->id,
+            'status' => BulkSiteRequest::STATUS_CANCELLED,
+            'estimated_count' => 1,
+        ]);
+        $site->forceFill(['bulk_site_request_id' => $bulk->id])->save();
+
+        $this->actingAs($publisher)->postJson(route('publisher.sites.feature', $site->id))
+            ->assertStatus(422)
+            ->assertJsonPath('success', false)
+            ->assertJsonPath('message', 'This listing is not in the catalog and cannot be promoted.');
+
+        $this->assertFalse($site->fresh()->isFeatured());
+        $this->assertSame(50.0, (float) Wallet::where('user_id', $publisher->id)->value('balance'));
     }
 
     public function test_feature_stripe_amount_must_match_configured_price(): void

@@ -87,6 +87,12 @@ class SitePromotionService
                 $wallet->deductWithdrawable($price);
 
                 $lockedSite = Site::query()->whereKey($site->id)->lockForUpdate()->firstOrFail();
+                if (! $lockedSite->isCatalogVisible()) {
+                    return [
+                        'success' => false,
+                        'message' => 'This listing is not in the catalog and cannot be promoted.',
+                    ];
+                }
                 $site = $this->applyFeaturePeriod($lockedSite, $publisher, $price, $days, 'wallet');
 
                 // Promo feature spends are intentionally excluded from INV tax
@@ -130,6 +136,12 @@ class SitePromotionService
                 // Lock the site first so webhook + success URL cannot both
                 // pass an unlocked exists() check and stack two 7-day periods.
                 $locked = Site::query()->whereKey($site->id)->lockForUpdate()->firstOrFail();
+                if ($locked->isFromCancelledBulk()) {
+                    return [
+                        'success' => false,
+                        'message' => 'This listing is not in the catalog and cannot be promoted.',
+                    ];
+                }
 
                 if ($stripeSessionId) {
                     $already = SiteFeaturePurchase::query()

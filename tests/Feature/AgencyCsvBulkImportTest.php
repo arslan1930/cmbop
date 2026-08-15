@@ -6,6 +6,7 @@ use App\Jobs\CaptureSiteScreenshotJob;
 use App\Models\ActivityLog;
 use App\Models\AgencySiteImport;
 use App\Models\AgencySiteImportFailure;
+use App\Models\BulkSiteRequest;
 use App\Models\Category;
 use App\Models\Role;
 use App\Models\Site;
@@ -154,6 +155,45 @@ class AgencyCsvBulkImportTest extends TestCase
 
         $this->assertSame(0, AgencySiteImport::query()->count());
         $this->assertSame(0, Site::query()->count());
+    }
+
+    public function test_dry_run_does_not_release_cancelled_bulk_leftover(): void
+    {
+        $bulk = BulkSiteRequest::create([
+            'publisher_id' => $this->publisher->id,
+            'status' => BulkSiteRequest::STATUS_CANCELLED,
+            'estimated_count' => 1,
+        ]);
+        $leftover = Site::create([
+            'publisher_id' => $this->publisher->id,
+            'site_name' => 'Cancelled Leftover',
+            'site_url' => 'https://dry-cancel.example',
+            'domain' => 'dry-cancel.example',
+            'da' => 10,
+            'dr' => 10,
+            'traffic' => 100,
+            'country' => 'de',
+            'language' => 'de',
+            'category' => $this->categoryName,
+            'price' => 50,
+            'publication_time' => 'permanent',
+            'description' => str_repeat('Cancelled leftover description text. ', 4),
+            'link_type' => 'dofollow',
+            'verified' => true,
+            'active' => false,
+            'archived_at' => now(),
+            'bulk_site_request_id' => $bulk->id,
+        ]);
+
+        $this->uploadCsv([
+            $this->validRow('dry-cancel.example'),
+        ], dryRun: true)->assertRedirect();
+
+        $this->assertSame(0, AgencySiteImport::query()->count());
+        $this->assertDatabaseHas('sites', [
+            'id' => $leftover->id,
+            'domain' => 'dry-cancel.example',
+        ]);
     }
 
     public function test_partial_failures_are_persisted_on_the_import(): void

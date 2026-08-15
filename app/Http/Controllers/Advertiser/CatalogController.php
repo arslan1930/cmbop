@@ -2482,6 +2482,18 @@ class CatalogController extends Controller
                 }
 
                 if ($created->isEmpty()) {
+                    $credited = $paymentService->unfulfilledCardCreditAmount($referenceCode);
+                    if ($credited > 0) {
+                        return response()->json([
+                            'success' => true,
+                            'message' => 'Payment received. The listing(s) were no longer available, so €'
+                                .number_format($credited, 2)
+                                .' was credited to your advertiser wallet.',
+                            'reference_code' => $referenceCode,
+                            'wallet_credit' => $credited,
+                        ]);
+                    }
+
                     throw new \RuntimeException('Saved card payment succeeded but orders were not created');
                 }
 
@@ -2940,6 +2952,17 @@ class CatalogController extends Controller
                 ->get();
 
             if ($orders->isEmpty()) {
+                $credited = $paymentService->unfulfilledCardCreditAmount($referenceCode);
+                if ($credited > 0) {
+                    return redirect()->route('advertiser.checkout')
+                        ->with(
+                            'success',
+                            'Payment received. The listing(s) were no longer available, so €'
+                            .number_format($credited, 2)
+                            .' was credited to your advertiser wallet.'
+                        );
+                }
+
                 Log::error('No card orders found on success callback', [
                     'reference_code' => $referenceCode,
                     'session_id' => $sessionId,

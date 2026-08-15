@@ -244,6 +244,17 @@ class StripeWebhookController extends Controller
             $newlyPaid = $paymentService->finalizeStripeFirstCheckout($referenceCode, $session);
 
             if ($newlyPaid->isEmpty()) {
+                $credited = $paymentService->unfulfilledCardCreditAmount($referenceCode);
+                if ($credited > 0) {
+                    Log::warning('Stripe webhook settled without catalog-visible lines', [
+                        'reference_code' => $referenceCode,
+                        'session_id' => $session->id ?? null,
+                        'wallet_credit' => $credited,
+                    ]);
+
+                    return;
+                }
+
                 throw new \RuntimeException('No pending card orders or checkout package found for webhook ref '.$referenceCode);
             }
         }
@@ -291,6 +302,16 @@ class StripeWebhookController extends Controller
             $newlyPaid = $paymentService->finalizeStripeFirstCheckout($referenceCode, $intent);
 
             if ($newlyPaid->isEmpty()) {
+                $credited = $paymentService->unfulfilledCardCreditAmount($referenceCode);
+                if ($credited > 0) {
+                    Log::warning('PaymentIntent webhook settled without catalog-visible lines', [
+                        'reference_code' => $referenceCode,
+                        'wallet_credit' => $credited,
+                    ]);
+
+                    return;
+                }
+
                 throw new \RuntimeException('No pending card orders or checkout package found for PaymentIntent ref '.$referenceCode);
             }
         }

@@ -441,6 +441,7 @@ class StripeFirstCheckoutInvariantsTest extends TestCase
         $publisher = $this->makeUser('publisher');
         $hidden = $this->makeSite($publisher, 'left-catalog.example', 80);
         $live = $this->makeSite($publisher, 'still-live.example', 40);
+        $wallet = $this->advertiserWallet($advertiser, 0);
         $ref = 'LEFT-CATALOG-1';
         $payments = app(OrderPaymentService::class);
         $payments->storePendingCheckout($ref, $this->package($advertiser, [
@@ -458,6 +459,10 @@ class StripeFirstCheckoutInvariantsTest extends TestCase
         $this->assertCount(1, $created);
         $this->assertSame($live->id, (int) $created->first()->items()->first()?->site_id);
         $this->assertSame(0, OrderItem::query()->where('site_id', $hidden->id)->count());
+
+        $wallet->refresh();
+        $this->assertEqualsWithDelta(80.0, (float) $wallet->balance, 0.01);
+        $this->assertEqualsWithDelta(80.0, $payments->unfulfilledCardCreditAmount($ref), 0.01);
     }
 
     public function test_finalize_creates_no_orders_when_every_line_left_the_catalog(): void
@@ -483,8 +488,11 @@ class StripeFirstCheckoutInvariantsTest extends TestCase
         $this->assertCount(0, $created);
         $this->assertSame(0, Order::query()->where('reference_code', $ref)->count());
         $wallet->refresh();
+        $this->assertEqualsWithDelta(80.0, (float) $wallet->balance, 0.01);
         $this->assertEqualsWithDelta(20.0, (float) $wallet->bonus_balance, 0.01);
         $this->assertEqualsWithDelta(0.0, (float) $wallet->bonus_reserved, 0.01);
+        $this->assertEqualsWithDelta(60.0, $payments->unfulfilledCardCreditAmount($ref), 0.01);
+        $this->assertEqualsWithDelta(60.0, $wallet->withdrawableBalance(), 0.01);
     }
 
     public function test_mark_paid_skips_legacy_order_when_listing_left_the_catalog(): void
@@ -524,5 +532,45 @@ class StripeFirstCheckoutInvariantsTest extends TestCase
         $this->assertCount(0, $paid);
         $this->assertSame('pending', $order->fresh()->payment_status);
         $this->assertSame('pending', $order->fresh()->status);
+    }
+
+    public function test_webhook_settles_without_retry_when_every_line_left_the_catalog(): void
+    {
+        $advertiser = $this->makeUser('advertiser');
+        $publisher = $this->makeUser('publisher');
+        $hidden = $this->makeSite($publisher, 'webhook-left-catalog.example', 80);
+        $wallet = $this->advertiserWallet($advertiser, 0);
+        $ref = 'WH-LEFT-CATALOG-1';
+        app(OrderPaymentService::class)->storePendingCheckout($ref, $this->package($advertiser, [
+            $this->lineFor($hidden, 80),
+        ], 80));
+
+        $hidden->update(['verified' => false, 'active' => false]);
+
+        $this->signedWebhook([
+            'id' => 'evt_left_catalog_'.uniqid(),
+            'object' => 'event',
+            'type' => 'checkout.session.completed',
+            'data' => [
+                'object' => [
+                    'id' => 'cs_wh_left_catalog',
+                    'object' => 'checkout.session',
+                    'payment_status' => 'paid',
+                    'amount_total' => 8000,
+                    'payment_intent' => 'pi_wh_left',
+                    'metadata' => [
+                        'type' => 'order_payment',
+                        'reference_code' => $ref,
+                        'user_id' => (string) $advertiser->id,
+                        'expected_amount' => '80',
+                    ],
+                ],
+            ],
+        ])->assertOk();
+
+        $this->assertSame(0, Order::query()->where('reference_code', $ref)->count());
+        $wallet->refresh();
+        $this->assertEqualsWithDelta(80.0, (float) $wallet->balance, 0.01);
+        $this->assertEqualsWithDelta(80.0, $wallet->withdrawableBalance(), 0.01);
     }
 }

@@ -9,6 +9,7 @@ use App\Models\OrderItem;
 use App\Models\Site;
 use App\Models\User;
 use App\Models\Wallet;
+use App\Models\WalletTransaction;
 use App\Services\Advertiser\SpendBudgetService;
 use App\Services\Orders\OrderRefundService;
 use App\Services\Wallet\WalletLedgerService;
@@ -18,6 +19,7 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Schema;
 
 class OrderPaymentService
 {
@@ -327,6 +329,74 @@ class OrderPaymentService
         }
     }
 
+    public static function unfulfilledCardCreditReference(string $referenceCode): string
+    {
+        return 'UNFULFILLED-CARD-'.$referenceCode;
+    }
+
+    /**
+     * Credit captured card cash when Stripe-first lines left the catalog.
+     * Idempotent per checkout reference.
+     */
+    public function creditUnfulfilledCardCapture(int $userId, string $referenceCode, float $amount): float
+    {
+        $amount = round($amount, 2);
+        if ($userId <= 0 || $amount <= 0) {
+            return 0.0;
+        }
+
+        $roleId = Wallet::advertiserRoleId();
+        if (! $roleId) {
+            return 0.0;
+        }
+
+        $reference = self::unfulfilledCardCreditReference($referenceCode);
+
+        return (float) DB::transaction(function () use ($userId, $roleId, $amount, $reference, $referenceCode) {
+            $wallet = Wallet::lockOrCreateForRole($userId, $roleId);
+            if (Schema::hasTable((new WalletTransaction)->getTable())
+                && WalletTransaction::query()
+                    ->where('wallet_id', $wallet->id)
+                    ->where('reference', $reference)
+                    ->exists()) {
+                return 0.0;
+            }
+
+            $wallet->credit($amount);
+            app(WalletLedgerService::class)->recordAdjustment(
+                $wallet,
+                $amount,
+                'credit',
+                null,
+                $reference,
+                'Card payment credited because listing(s) left the catalog',
+                ['reference_code' => $referenceCode]
+            );
+
+            Log::info('Credited unfulfilled Stripe-first card capture to advertiser wallet', [
+                'user_id' => $userId,
+                'reference_code' => $referenceCode,
+                'amount' => $amount,
+            ]);
+
+            return $amount;
+        });
+    }
+
+    public function unfulfilledCardCreditAmount(string $referenceCode): float
+    {
+        if (! Schema::hasTable((new WalletTransaction)->getTable())) {
+            return 0.0;
+        }
+
+        $row = WalletTransaction::query()
+            ->where('reference', self::unfulfilledCardCreditReference($referenceCode))
+            ->where('direction', 'credit')
+            ->first();
+
+        return $row ? round((float) $row->amount, 2) : 0.0;
+    }
+
     /**
      * Cache key for Stripe-first card checkout packages (Add Funds style).
      */
@@ -586,6 +656,7 @@ class OrderPaymentService
                     $referenceCode,
                     round((float) ($package['bonus_applied'] ?? 0), 2)
                 );
+                $this->creditUnfulfilledCardCapture($userId, $referenceCode, $expected);
             }
             $this->forgetPendingCheckout($referenceCode);
             Log::warning('Stripe-first checkout paid but no catalog-visible lines to materialize', [
@@ -595,6 +666,13 @@ class OrderPaymentService
             ]);
 
             return collect();
+        }
+
+        $userId = (int) ($package['user_id'] ?? 0);
+        $fulfilled = round((float) $created->sum(fn (Order $order) => (float) $order->total_amount), 2);
+        $unfulfilled = round(max(0, $expected - $fulfilled), 2);
+        if ($userId > 0 && $unfulfilled > 0.009) {
+            $this->creditUnfulfilledCardCapture($userId, $referenceCode, $unfulfilled);
         }
 
         $this->forgetPendingCheckout($referenceCode);
