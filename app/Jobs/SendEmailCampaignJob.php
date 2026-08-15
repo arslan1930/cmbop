@@ -67,10 +67,12 @@ class SendEmailCampaignJob implements ShouldQueue
         try {
             $more = $this->processPending($campaign);
             if ($more) {
+                $campaign->clearFailStreak();
                 SendEmailCampaignJob::dispatch($this->campaignId);
 
                 return;
             }
+            $campaign->clearFailStreak();
             $this->finalize($campaign);
         } catch (\Throwable $e) {
             Log::error('Campaign job failed', [
@@ -207,13 +209,17 @@ class SendEmailCampaignJob implements ShouldQueue
         }
 
         if ($campaign->status === EmailCampaign::STATUS_SENDING && $this->hasPending($campaign)) {
-            if ($this->failStreak >= self::MAX_FAIL_STREAK) {
+            $streak = max($this->failStreak, $campaign->currentFailStreak());
+            if ($streak >= self::MAX_FAIL_STREAK) {
+                $campaign->clearFailStreak();
                 $this->markFailed($campaign);
 
                 return;
             }
 
-            SendEmailCampaignJob::dispatch($this->campaignId, $this->failStreak + 1);
+            $next = $streak + 1;
+            $campaign->rememberFailStreak($next);
+            SendEmailCampaignJob::dispatch($this->campaignId, $next);
 
             return;
         }

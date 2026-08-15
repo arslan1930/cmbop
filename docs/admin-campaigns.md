@@ -24,10 +24,14 @@ UI). Recipients are marketplace advertisers and publishers only — never admins
    workers cannot double-send. A thrown handle still fails leftover **pending**
    rows only after **3** failed batches (`failStreak`). A timeout, a
    transient DB error, or `failed()` before the claim must **not** wipe the
-   rest of the audience. An unclaimed `queued` job is left for stall
-   recovery. Opening Admin → Campaigns, web mail drain, and
+   rest of the audience. Fail streak is stored in cache so stall recovery
+   cannot reset it and retry forever. An unclaimed `queued` job is left
+   for stall recovery. Opening Admin → Campaigns, web mail drain, and
    `mail:drain-queue` (even when auto-drain is off) re-dispatch stale
    `queued`/`sending` rows so a lost continuation does not sit forever.
+   `queued` rows with no email log older than `MAIL_CAMPAIGN_MAX_AGE_HOURS`
+   are skipped (`stale`) — a timeout can claim `pending` → `queued` and
+   die before `Mail::send()` inserts the mailable.
 5. Individual `AudienceCampaignMail` failures mark that recipient `failed`
    (`error`) and recount. If a `sent` campaign later has no queued/delivered
    rows left, status is downgraded to `failed`. A late `marketing_emails`

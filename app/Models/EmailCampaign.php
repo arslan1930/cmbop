@@ -98,6 +98,39 @@ class EmailCampaign extends Model
         return self::labelForAudience($this->audience);
     }
 
+    public static function failStreakKey(int $campaignId): string
+    {
+        return 'email-campaign:fail-streak:'.$campaignId;
+    }
+
+    public function currentFailStreak(): int
+    {
+        try {
+            return max(0, (int) Cache::get(self::failStreakKey((int) $this->id), 0));
+        } catch (\Throwable) {
+            return 0;
+        }
+    }
+
+    public function rememberFailStreak(int $streak): int
+    {
+        $streak = max(0, $streak);
+        try {
+            Cache::put(self::failStreakKey((int) $this->id), $streak, now()->addHours(6));
+        } catch (\Throwable) {
+        }
+
+        return $streak;
+    }
+
+    public function clearFailStreak(): void
+    {
+        try {
+            Cache::forget(self::failStreakKey((int) $this->id));
+        } catch (\Throwable) {
+        }
+    }
+
     /**
      * Re-queue campaigns whose worker died (OOM, deploy, drain timeout)
      * instead of leaving them stuck on queued/sending.
@@ -137,6 +170,8 @@ class EmailCampaign extends Model
 
     protected static function recoverStalledLocked(int $staleMinutes): int
     {
+        self::expireOrphanedQueuedRecipients();
+
         $stale = now()->subMinutes(max(1, $staleMinutes));
         $dispatched = 0;
 
@@ -162,12 +197,32 @@ class EmailCampaign extends Model
                 && ! $campaign->recipients()
                     ->where('status', EmailCampaignRecipient::STATUS_PENDING)
                     ->exists()) {
+                $campaign->clearFailStreak();
                 $campaign->recountRecipientTotals();
                 $campaign->refresh();
                 $campaign->update([
                     'status' => $campaign->sent_count > 0
                         ? self::STATUS_SENT
                         : self::STATUS_FAILED,
+                    'sent_at' => $campaign->sent_at ?? now(),
+                ]);
+
+                continue;
+            }
+
+            if ($campaign->status === self::STATUS_SENDING
+                && $campaign->currentFailStreak() >= SendEmailCampaignJob::MAX_FAIL_STREAK) {
+                EmailCampaignRecipient::query()
+                    ->where('email_campaign_id', $campaign->id)
+                    ->where('status', EmailCampaignRecipient::STATUS_PENDING)
+                    ->update([
+                        'status' => EmailCampaignRecipient::STATUS_FAILED,
+                        'skip_reason' => EmailCampaignRecipient::SKIP_ERROR,
+                    ]);
+                $campaign->clearFailStreak();
+                $campaign->recountRecipientTotals();
+                $campaign->update([
+                    'status' => self::STATUS_FAILED,
                     'sent_at' => $campaign->sent_at ?? now(),
                 ]);
 
@@ -186,5 +241,46 @@ class EmailCampaign extends Model
         }
 
         return $dispatched;
+    }
+
+    /**
+     * A timeout can claim pending → queued and die before Mail::send()
+     * inserts the mailable. Those rows count as sent forever. After the
+     * campaign stale window they are skipped so recount can go failed.
+     */
+    protected static function expireOrphanedQueuedRecipients(): void
+    {
+        $hours = (int) config('email_notifications.campaign_max_age_hours', 72);
+        if ($hours <= 0 || ! Schema::hasTable((new EmailCampaignRecipient)->getTable())) {
+            return;
+        }
+
+        $cutoff = now()->subHours($hours);
+        $campaignIds = EmailCampaignRecipient::query()
+            ->where('status', EmailCampaignRecipient::STATUS_QUEUED)
+            ->whereNull('email_log_id')
+            ->where('updated_at', '<=', $cutoff)
+            ->pluck('email_campaign_id')
+            ->unique()
+            ->filter()
+            ->all();
+
+        if ($campaignIds === []) {
+            return;
+        }
+
+        EmailCampaignRecipient::query()
+            ->whereIn('email_campaign_id', $campaignIds)
+            ->where('status', EmailCampaignRecipient::STATUS_QUEUED)
+            ->whereNull('email_log_id')
+            ->where('updated_at', '<=', $cutoff)
+            ->update([
+                'status' => EmailCampaignRecipient::STATUS_SKIPPED,
+                'skip_reason' => EmailCampaignRecipient::SKIP_STALE,
+            ]);
+
+        foreach ($campaignIds as $id) {
+            static::query()->find($id)?->recountRecipientTotals();
+        }
     }
 }
