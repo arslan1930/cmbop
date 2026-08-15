@@ -94,6 +94,58 @@ class WalletTransaction extends Model
         return $status === '' ? '—' : ucfirst(str_replace('_', ' ', $status));
     }
 
+    /**
+     * Admin page for the related deposit / withdrawal / order, if we can route it.
+     */
+    public function adminRelatedUrl(): ?string
+    {
+        $id = (int) ($this->related_id ?? 0);
+        if ($id < 1) {
+            return null;
+        }
+
+        $type = (string) ($this->related_type ?? '');
+        if ($type === '') {
+            return null;
+        }
+
+        try {
+            if ($this->relatedTypeIs($type, DepositRequest::class)) {
+                return route('admin.deposits.show', $id);
+            }
+
+            if ($this->relatedTypeIs($type, Withdrawal::class)) {
+                $queue = in_array((string) $this->status, ['completed', 'cancelled'], true)
+                    ? 'history'
+                    : 'open';
+
+                return route('admin.withdrawals', [
+                    'search' => (string) $id,
+                    'queue' => $queue,
+                ]);
+            }
+
+            if ($this->relatedTypeIs($type, Order::class)) {
+                return route('admin.orders.show', $id);
+            }
+
+            if ($this->relatedTypeIs($type, OrderItem::class)) {
+                $orderId = (int) ($this->related?->order_id ?? ($this->meta['order_id'] ?? 0));
+
+                return $orderId > 0 ? route('admin.orders.show', $orderId) : null;
+            }
+        } catch (\Throwable) {
+            return null;
+        }
+
+        return null;
+    }
+
+    private function relatedTypeIs(string $stored, string $class): bool
+    {
+        return $stored === $class || str_ends_with($stored, '\\'.class_basename($class));
+    }
+
     public function typeLabel(): string
     {
         return match ($this->type) {

@@ -259,6 +259,133 @@ class AdminFinanceOpsGapsTest extends TestCase
         $this->assertStringContainsString('pending', $csv);
     }
 
+    public function test_ledger_search_by_user_id_finds_that_users_rows(): void
+    {
+        $admin = $this->makeUser('admin');
+        $publisher = $this->makeUser('publisher');
+        $other = $this->makeUser('advertiser');
+        $pubRole = Role::firstOrCreate(['name' => 'publisher']);
+        $advRole = Role::firstOrCreate(['name' => 'advertiser']);
+
+        $wallet = Wallet::create([
+            'user_id' => $publisher->id,
+            'role_id' => $pubRole->id,
+            'balance' => 50,
+            'reserved_balance' => 0,
+            'currency' => 'EUR',
+        ]);
+        $otherWallet = Wallet::create([
+            'user_id' => $other->id,
+            'role_id' => $advRole->id,
+            'balance' => 9,
+            'reserved_balance' => 0,
+            'currency' => 'EUR',
+        ]);
+
+        app(WalletLedgerService::class)->recordTransferIn($wallet, 50, null, 'LEDGER-USER-HIT', 'User id hit row');
+        app(WalletLedgerService::class)->recordTransferIn($otherWallet, 9, null, 'LEDGER-USER-MISS', 'User id miss row');
+
+        $this->actingAs($admin)
+            ->get(route('admin.finance.ledger', ['search' => (string) $publisher->id]))
+            ->assertOk()
+            ->assertSee('User id hit row')
+            ->assertDontSee('User id miss row');
+    }
+
+    public function test_ledger_reference_links_to_related_admin_pages(): void
+    {
+        $admin = $this->makeUser('admin');
+        $advertiser = $this->makeUser('advertiser');
+        $publisher = $this->makeUser('publisher');
+        $advRole = Role::firstOrCreate(['name' => 'advertiser']);
+        $pubRole = Role::firstOrCreate(['name' => 'publisher']);
+
+        $advWallet = Wallet::create([
+            'user_id' => $advertiser->id,
+            'role_id' => $advRole->id,
+            'balance' => 40,
+            'reserved_balance' => 0,
+            'currency' => 'EUR',
+        ]);
+        $pubWallet = Wallet::create([
+            'user_id' => $publisher->id,
+            'role_id' => $pubRole->id,
+            'balance' => 15,
+            'reserved_balance' => 0,
+            'currency' => 'EUR',
+        ]);
+
+        $deposit = DepositRequest::create([
+            'user_id' => $advertiser->id,
+            'reference_code' => 'DEP-LEDGER-LINK',
+            'amount' => 40,
+            'payment_method' => 'bank',
+            'status' => 'completed',
+            'approved_at' => now(),
+        ]);
+        $withdrawal = Withdrawal::create([
+            'user_id' => $publisher->id,
+            'amount' => 15,
+            'fee' => 0,
+            'net_amount' => 15,
+            'payment_method' => 'paypal',
+            'payment_details' => ['email' => 'p@example.test'],
+            'status' => 'pending',
+        ]);
+
+        app(WalletLedgerService::class)->recordDeposit($advWallet, 40, $deposit, 'bank', 'DEP-LEDGER-LINK');
+        app(WalletLedgerService::class)->recordWithdrawal($pubWallet, 15, $withdrawal, 'pending', 'WD-'.$withdrawal->id);
+
+        $this->actingAs($admin)
+            ->get(route('admin.finance.ledger'))
+            ->assertOk()
+            ->assertSee(route('admin.deposits.show', $deposit->id), false)
+            ->assertSee(e(route('admin.withdrawals', [
+                'search' => (string) $withdrawal->id,
+                'queue' => 'open',
+            ])), false);
+    }
+
+    public function test_ledger_export_is_newest_first_and_notes_truncation(): void
+    {
+        $admin = $this->makeUser('admin');
+        $publisher = $this->makeUser('publisher');
+        $pubRole = Role::firstOrCreate(['name' => 'publisher']);
+        $wallet = Wallet::create([
+            'user_id' => $publisher->id,
+            'role_id' => $pubRole->id,
+            'balance' => 30,
+            'reserved_balance' => 0,
+            'currency' => 'EUR',
+        ]);
+
+        app(WalletLedgerService::class)->recordTransferIn($wallet, 10, null, 'LEDGER-OLD', 'Older export row');
+        app(WalletLedgerService::class)->recordTransferIn($wallet, 20, null, 'LEDGER-NEW', 'Newer export row');
+
+        $csv = $this->actingAs($admin)
+            ->get(route('admin.finance.ledger.export'))
+            ->assertOk()
+            ->streamedContent();
+
+        $newPos = strpos($csv, 'LEDGER-NEW');
+        $oldPos = strpos($csv, 'LEDGER-OLD');
+        $this->assertNotFalse($newPos);
+        $this->assertNotFalse($oldPos);
+        $this->assertLessThan($oldPos, $newPos);
+        $this->assertStringNotContainsString('truncated', $csv);
+
+        config(['billing.ledger_export_limit' => 1]);
+
+        $truncated = $this->actingAs($admin)
+            ->get(route('admin.finance.ledger.export'))
+            ->assertOk()
+            ->streamedContent();
+
+        $this->assertStringContainsString('LEDGER-NEW', $truncated);
+        $this->assertStringNotContainsString('LEDGER-OLD', $truncated);
+        $this->assertStringContainsString('truncated,limit,1', $truncated);
+    }
+
     public function test_ledger_ignores_array_search_and_invalid_dates(): void
     {
         $admin = $this->makeUser('admin');
