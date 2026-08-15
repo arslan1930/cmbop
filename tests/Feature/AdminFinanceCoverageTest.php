@@ -621,8 +621,8 @@ class AdminFinanceCoverageTest extends TestCase
             ->assertSee('name="list"', false)
             ->assertSee('value="wallets"', false)
             ->assertSee('name="period"', false)
-            ->assertSee(route('admin.finance', ['period' => 'week', 'list' => 'wallets']), false)
-            ->assertSee(route('admin.finance', ['period' => 'month', 'list' => 'wallets']), false);
+            ->assertSee(e(route('admin.finance', ['period' => 'week', 'list' => 'wallets'])), false)
+            ->assertSee(e(route('admin.finance', ['period' => 'month', 'list' => 'wallets'])), false);
     }
 
     public function test_deposit_reconciliation_ignores_deposit_debits(): void
