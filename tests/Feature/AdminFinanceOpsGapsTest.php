@@ -631,6 +631,165 @@ class AdminFinanceOpsGapsTest extends TestCase
             ->assertDontSee('WD-WISE-METHOD');
     }
 
+    public function test_ledger_wallet_id_filter_hides_other_wallets(): void
+    {
+        $admin = $this->makeUser('admin');
+        $publisher = $this->makeUser('publisher');
+        $other = $this->makeUser('advertiser');
+        $pubRole = Role::firstOrCreate(['name' => 'publisher']);
+        $advRole = Role::firstOrCreate(['name' => 'advertiser']);
+
+        $wallet = Wallet::create([
+            'user_id' => $publisher->id,
+            'role_id' => $pubRole->id,
+            'balance' => 20,
+            'reserved_balance' => 0,
+            'currency' => 'EUR',
+        ]);
+        $otherWallet = Wallet::create([
+            'user_id' => $other->id,
+            'role_id' => $advRole->id,
+            'balance' => 7,
+            'reserved_balance' => 0,
+            'currency' => 'EUR',
+        ]);
+
+        app(WalletLedgerService::class)->recordTransferIn($wallet, 20, null, 'LEDGER-WALLET-HIT', 'Wallet id hit row');
+        app(WalletLedgerService::class)->recordTransferIn($otherWallet, 7, null, 'LEDGER-WALLET-MISS', 'Wallet id miss row');
+
+        $this->actingAs($admin)
+            ->get(route('admin.finance.ledger', ['wallet_id' => $wallet->id]))
+            ->assertOk()
+            ->assertSee('Showing wallet')
+            ->assertSee('#'.$wallet->id)
+            ->assertSee('Wallet id hit row')
+            ->assertDontSee('Wallet id miss row')
+            ->assertSee('Clear wallet')
+            ->assertSee(e(route('admin.finance.ledger', array_filter([
+                'wallet_id' => $wallet->id,
+            ]))), false);
+
+        $csv = $this->actingAs($admin)
+            ->get(route('admin.finance.ledger.export', ['wallet_id' => $wallet->id]))
+            ->assertOk()
+            ->streamedContent();
+
+        $this->assertStringContainsString('LEDGER-WALLET-HIT', $csv);
+        $this->assertStringNotContainsString('LEDGER-WALLET-MISS', $csv);
+
+        $this->actingAs($admin)
+            ->get(route('admin.finance.ledger', ['wallet_id' => '0'.$wallet->id]))
+            ->assertOk()
+            ->assertDontSee('Showing wallet')
+            ->assertSee('Wallet id miss row');
+
+        $this->actingAs($admin)
+            ->get(route('admin.finance.ledger', ['wallet_id' => 99999]))
+            ->assertOk()
+            ->assertSee('Showing wallet')
+            ->assertSee('not found')
+            ->assertSee('No ledger rows match these filters');
+    }
+
+    public function test_ledger_status_filter_hides_other_statuses(): void
+    {
+        $admin = $this->makeUser('admin');
+        $advertiser = $this->makeUser('advertiser');
+        $publisher = $this->makeUser('publisher');
+        $advRole = Role::firstOrCreate(['name' => 'advertiser']);
+        $pubRole = Role::firstOrCreate(['name' => 'publisher']);
+
+        $advWallet = Wallet::create([
+            'user_id' => $advertiser->id,
+            'role_id' => $advRole->id,
+            'balance' => 40,
+            'reserved_balance' => 0,
+            'currency' => 'EUR',
+        ]);
+        $pubWallet = Wallet::create([
+            'user_id' => $publisher->id,
+            'role_id' => $pubRole->id,
+            'balance' => 15,
+            'reserved_balance' => 0,
+            'currency' => 'EUR',
+        ]);
+
+        app(WalletLedgerService::class)->recordDeposit($advWallet, 40, null, 'bank', 'LEDGER-STATUS-DONE');
+        app(WalletLedgerService::class)->recordWithdrawal($pubWallet, 15, null, 'pending', 'LEDGER-STATUS-OPEN');
+
+        $this->actingAs($admin)
+            ->get(route('admin.finance.ledger', ['status' => 'pending']))
+            ->assertOk()
+            ->assertSee('LEDGER-STATUS-OPEN')
+            ->assertDontSee('LEDGER-STATUS-DONE')
+            ->assertSee('value="pending" selected', false);
+
+        $csv = $this->actingAs($admin)
+            ->get(route('admin.finance.ledger.export', ['status' => 'pending']))
+            ->assertOk()
+            ->streamedContent();
+
+        $this->assertStringContainsString('LEDGER-STATUS-OPEN', $csv);
+        $this->assertStringNotContainsString('LEDGER-STATUS-DONE', $csv);
+    }
+
+    public function test_ledger_empty_state_distinguishes_filters_from_no_rows(): void
+    {
+        $admin = $this->makeUser('admin');
+
+        $this->actingAs($admin)
+            ->get(route('admin.finance.ledger'))
+            ->assertOk()
+            ->assertSee('No wallet transactions yet')
+            ->assertDontSee('No ledger rows match these filters');
+
+        $publisher = $this->makeUser('publisher');
+        $pubRole = Role::firstOrCreate(['name' => 'publisher']);
+        $wallet = Wallet::create([
+            'user_id' => $publisher->id,
+            'role_id' => $pubRole->id,
+            'balance' => 10,
+            'reserved_balance' => 0,
+            'currency' => 'EUR',
+        ]);
+        app(WalletLedgerService::class)->recordTransferIn($wallet, 10, null, 'LEDGER-EMPTY-KEEP', 'Empty state keep row');
+
+        $html = $this->actingAs($admin)
+            ->get(route('admin.finance.ledger', ['type' => 'deposit']))
+            ->assertOk()
+            ->assertSee('No ledger rows match these filters')
+            ->assertDontSee('No wallet transactions yet')
+            ->assertDontSee('Empty state keep row')
+            ->getContent();
+
+        $this->assertStringContainsString(
+            e(route('admin.finance.ledger')),
+            $html
+        );
+    }
+
+    public function test_dossier_wallet_cards_link_to_that_wallet_ledger(): void
+    {
+        $admin = $this->makeUser('admin');
+        $publisher = $this->makeUser('publisher');
+        $pubRole = Role::firstOrCreate(['name' => 'publisher']);
+        $wallet = Wallet::create([
+            'user_id' => $publisher->id,
+            'role_id' => $pubRole->id,
+            'balance' => 10,
+            'reserved_balance' => 0,
+            'currency' => 'EUR',
+        ]);
+
+        $this->actingAs($admin)
+            ->get(route('admin.finance.user', $publisher))
+            ->assertOk()
+            ->assertSee(e(route('admin.finance.ledger', [
+                'user_id' => $publisher->id,
+                'wallet_id' => $wallet->id,
+            ])), false);
+    }
+
     public function test_dossier_recent_ledger_uses_type_labels(): void
     {
         $admin = $this->makeUser('admin');

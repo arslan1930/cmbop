@@ -91,6 +91,11 @@ class FinanceController extends Controller
             : '';
         $walletRole = $this->ledgerWalletRole($request);
         $paymentMethod = $this->ledgerPaymentMethod($request);
+        $status = $this->ledgerStatus($request);
+        $walletId = $this->intQueryId($request->input('wallet_id'));
+        $ledgerWallet = $walletId > 0
+            ? Wallet::query()->with(['user:id,name,email', 'role:id,name'])->whereKey($walletId)->first()
+            : null;
         $dateFrom = $this->finance->parseDay(
             is_string($request->input('date_from')) ? $request->input('date_from') : null,
             false
@@ -107,13 +112,19 @@ class FinanceController extends Controller
             'direction' => $direction !== '' ? $direction : null,
             'wallet_role' => $walletRole !== '' ? $walletRole : null,
             'payment_method' => $paymentMethod !== '' ? $paymentMethod : null,
+            'status' => $status !== '' ? $status : null,
+            'wallet_id' => $walletId > 0 ? $walletId : null,
             'date_from' => $dateFrom !== '' ? $dateFrom : null,
             'date_to' => $dateTo !== '' ? $dateTo : null,
         ], fn ($value) => $value !== null && $value !== '');
         $clearUserQuery = $exportQuery;
         unset($clearUserQuery['user_id']);
+        $clearWalletQuery = $exportQuery;
+        unset($clearWalletQuery['wallet_id']);
         $hasLedgerFilters = collect($exportQuery)->except(['user_id'])->isNotEmpty();
-        $clearFiltersQuery = $ledgerUser ? ['user_id' => $ledgerUser->id] : [];
+        $clearFiltersQuery = array_filter([
+            'user_id' => $ledgerUser?->id,
+        ]);
 
         $filtered = $this->ledgerQuery($request);
         $totals = $this->ledgerTotals($filtered);
@@ -126,24 +137,30 @@ class FinanceController extends Controller
 
         $types = $this->ledgerTypes();
         $paymentMethods = $this->ledgerPaymentMethodOptions();
+        $statuses = $this->ledgerStatuses();
 
         return view('admin.finance-ledger', compact(
             'transactions',
             'types',
             'paymentMethods',
+            'statuses',
             'search',
             'ledgerUser',
+            'ledgerWallet',
+            'walletId',
             'type',
             'direction',
             'walletRole',
             'paymentMethod',
+            'status',
             'dateFrom',
             'dateTo',
             'totals',
             'hasLedgerFilters',
             'clearFiltersQuery',
             'exportQuery',
-            'clearUserQuery'
+            'clearUserQuery',
+            'clearWalletQuery'
         ));
     }
 
@@ -369,6 +386,16 @@ class FinanceController extends Controller
             $query->where('user_id', $userId);
         }
 
+        $walletId = $this->intQueryId($request->input('wallet_id'));
+        if ($walletId > 0) {
+            $query->where('wallet_id', $walletId);
+        }
+
+        $status = $this->ledgerStatus($request);
+        if ($status !== '') {
+            $query->where('status', $status);
+        }
+
         $from = $this->finance->parseDay(
             is_string($request->input('date_from')) ? $request->input('date_from') : null,
             false
@@ -410,6 +437,21 @@ class FinanceController extends Controller
             'debits' => $debits,
             'net' => round($credits - $debits, 2),
         ];
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function ledgerStatuses(): array
+    {
+        return ['pending', 'completed', 'cancelled'];
+    }
+
+    private function ledgerStatus(Request $request): string
+    {
+        $status = is_string($request->input('status')) ? strtolower(trim($request->input('status'))) : '';
+
+        return in_array($status, $this->ledgerStatuses(), true) ? $status : '';
     }
 
     private function ledgerWalletRole(Request $request): string

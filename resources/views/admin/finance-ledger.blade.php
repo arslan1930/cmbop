@@ -28,6 +28,22 @@
         </div>
     @endif
 
+    @if(($walletId ?? 0) > 0)
+        <div class="alert alert-light border d-flex flex-wrap justify-content-between align-items-center gap-2 py-2 mb-3">
+            <div class="small mb-0">
+                Showing wallet
+                <strong>#{{ $walletId }}</strong>
+                @if($ledgerWallet)
+                    <span class="text-muted">{{ $ledgerWallet->role?->name ? ucfirst($ledgerWallet->role->name) : '' }}</span>
+                    <span class="text-muted">{{ $ledgerWallet->user?->email }}</span>
+                @else
+                    <span class="text-muted">not found</span>
+                @endif
+            </div>
+            <a href="{{ route('admin.finance.ledger', $clearWalletQuery ?? []) }}" class="btn btn-sm btn-outline-secondary">Clear wallet</a>
+        </div>
+    @endif
+
     <form method="GET" class="card border-0 shadow-sm mb-3">
         <div class="card-body">
             @if($ledgerUser)
@@ -84,6 +100,19 @@
                         @endforeach
                     </select>
                 </div>
+                <div class="col-md-2">
+                    <label class="form-label small text-muted">Status</label>
+                    <select name="status" class="form-select form-select-sm">
+                        <option value="">Any status</option>
+                        @foreach($statuses as $statusValue)
+                            <option value="{{ $statusValue }}" @selected($status === $statusValue)>{{ ucfirst($statusValue) }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small text-muted">Wallet id</label>
+                    <input type="text" inputmode="numeric" name="wallet_id" value="{{ ($walletId ?? 0) > 0 ? $walletId : '' }}" class="form-control form-control-sm" placeholder="e.g. 12" autocomplete="off">
+                </div>
                 @if($hasLedgerFilters)
                     <div class="col-auto">
                         <a href="{{ route('admin.finance.ledger', $clearFiltersQuery ?? []) }}" class="btn btn-sm btn-outline-secondary">Clear filters</a>
@@ -128,7 +157,12 @@
                                 <div class="fw-semibold small">{{ $tx->user?->name ?? '—' }}</div>
                                 <div class="text-muted small">{{ $tx->user?->email }}</div>
                             </td>
-                            <td class="small">{{ $tx->walletRoleLabel() }}</td>
+                            <td class="small">
+                                <div>{{ $tx->walletRoleLabel() }}</div>
+                                @if($tx->wallet_id)
+                                    <a href="{{ route('admin.finance.ledger', array_filter(array_merge($exportQuery ?? [], ['wallet_id' => $tx->wallet_id]))) }}" class="text-muted">#{{ $tx->wallet_id }}</a>
+                                @endif
+                            </td>
                             <td><span class="badge bg-light text-dark border">{{ $tx->typeLabel() }}</span></td>
                             <td class="small text-muted">{{ $tx->paymentMethodLabel() }}</td>
                             <td>
@@ -168,7 +202,16 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="12" class="text-center text-muted py-5">No ledger rows match these filters</td>
+                            <td colspan="12" class="text-center text-muted py-5">
+                                @if($hasLedgerFilters)
+                                    <div class="mb-2">No ledger rows match these filters</div>
+                                    <a href="{{ route('admin.finance.ledger', $clearFiltersQuery ?? []) }}" class="btn btn-sm btn-outline-secondary">Clear filters</a>
+                                @elseif($ledgerUser)
+                                    No ledger rows for this user
+                                @else
+                                    No wallet transactions yet
+                                @endif
+                            </td>
                         </tr>
                     @endforelse
                 </tbody>
