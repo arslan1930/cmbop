@@ -323,6 +323,7 @@ class ManualWithdrawalMarkPaidConfirmLinkTest extends TestCase
         $publisher = $this->makeUser('publisher');
         $withdrawal = $this->pendingWithdrawal($publisher);
         $withdrawal->setRelation('user', null);
+        $this->withViewErrors([]);
 
         $html = view('admin.withdrawals.mark-paid-confirm', [
             'withdrawal' => $withdrawal,
