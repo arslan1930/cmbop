@@ -413,6 +413,14 @@ class WalletStripeDepositService
         $amount = $amountFromStripe !== null ? $amountFromStripe : ($metaAmount ?? 0.0);
 
         if ($userId <= 0 || $amount <= 0) {
+            $session = $this->fetchCheckoutSessionForPaymentIntent((string) ($intent->id ?? ''));
+            if (is_object($session)) {
+                // PI can have type while only the Checkout Session has user_id.
+                return $this->creditFromCheckoutSession(
+                    $this->checkoutSessionWithOverlayedMetadata($session, $metadata, (string) $intent->id)
+                );
+            }
+
             throw new \RuntimeException('Invalid wallet_deposit PaymentIntent metadata/amount');
         }
 
@@ -491,7 +499,13 @@ class WalletStripeDepositService
         if (! is_array($data)) {
             $data = [];
         }
-        $data['metadata'] = array_merge($this->metaArray($session->metadata ?? null), $metadata);
+        $overlay = [];
+        foreach ($metadata as $key => $value) {
+            if ($value !== null && $value !== '') {
+                $overlay[$key] = $value;
+            }
+        }
+        $data['metadata'] = array_merge($this->metaArray($session->metadata ?? null), $overlay);
         if ($paymentIntentId !== '') {
             $data['payment_intent'] = $paymentIntentId;
             $data['payment_status'] = 'paid';

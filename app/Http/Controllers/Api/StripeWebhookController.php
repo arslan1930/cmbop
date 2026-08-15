@@ -223,6 +223,14 @@ class StripeWebhookController extends Controller
         $deposits = app(WalletStripeDepositService::class);
         $paymentIntentId = $deposits->paymentIntentIdFromStripeObject($session);
         if ($paymentIntentId === '') {
+            // A paid session should get a PaymentIntent. Marking processed
+            // here swallowed the charge when the later PI webhook was also
+            // untyped. Tests without a Stripe secret still ignore.
+            if (($session->payment_status ?? null) === 'paid'
+                && trim((string) config('services.stripe.secret', '')) !== '') {
+                throw new \RuntimeException('Untyped paid Checkout Session has no PaymentIntent yet');
+            }
+
             Log::warning('Unable to determine payment type', [
                 'session_id' => $session->id ?? null,
             ]);
@@ -240,9 +248,15 @@ class StripeWebhookController extends Controller
             return;
         }
 
-        $metadata = $this->metaArray($intent->metadata ?? null);
+        $piMetadata = $this->metaArray($intent->metadata ?? null);
+        $sessionMetadata = $this->metaArray($session->metadata ?? null);
+        $metadata = array_merge($sessionMetadata, array_filter(
+            $piMetadata,
+            static fn ($value) => $value !== null && $value !== ''
+        ));
         $paymentType = isset($metadata['type']) ? (string) $metadata['type'] : null;
         $paymentType = $paymentType === '' ? null : $paymentType;
+        $overlayed = $deposits->checkoutSessionWithOverlayedMetadata($session, $piMetadata, $paymentIntentId);
 
         Log::info('Recovered untyped Checkout Session from PaymentIntent', [
             'session_id' => $session->id ?? null,
@@ -253,7 +267,7 @@ class StripeWebhookController extends Controller
         switch ($paymentType) {
             case 'wallet_deposit':
             case 'deposit':
-                $deposits->creditFromPaymentIntentObject($intent);
+                $deposits->creditFromCheckoutSession($overlayed);
 
                 return;
 
@@ -264,15 +278,13 @@ class StripeWebhookController extends Controller
                 return;
 
             case 'site_feature':
-                $this->handleSiteFeatureSession(
-                    $deposits->checkoutSessionWithOverlayedMetadata($session, $metadata, $paymentIntentId)
-                );
+                $this->handleSiteFeatureSession($overlayed);
 
                 return;
 
             default:
                 if (WalletStripeDepositService::isAddFundsSessionReference($metadata['session_reference'] ?? '')) {
-                    $deposits->creditFromPaymentIntentObject($intent);
+                    $deposits->creditFromCheckoutSession($overlayed);
 
                     return;
                 }
