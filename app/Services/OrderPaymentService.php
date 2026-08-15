@@ -456,6 +456,57 @@ class OrderPaymentService
         app(CheckoutIntentService::class)->rememberBonus($userId, $referenceCode, $bonus);
     }
 
+    /**
+     * Reserve leftover welcome bonus for a card / manual checkout.
+     * Must lock the wallet row so two tabs cannot both apply the same €20.
+     */
+    public function reserveCheckoutBonus(int $userId, float $orderTotal): float
+    {
+        $orderTotal = round(max(0, $orderTotal), 2);
+        if ($userId <= 0 || $orderTotal <= 0) {
+            return 0.0;
+        }
+
+        return (float) DB::transaction(function () use ($userId, $orderTotal) {
+            $roleId = Wallet::advertiserRoleId();
+            if (! $roleId) {
+                return 0.0;
+            }
+
+            $wallet = Wallet::lockOrCreateForRole($userId, $roleId);
+            $wallet->repairOrphanedWelcomeBonus();
+            $wallet->reconcileInflatedBonusBalance();
+            $wallet->refresh();
+
+            return $wallet->reserveBonusOnly(min($wallet->lockedBonusBalance(), $orderTotal));
+        });
+    }
+
+    /**
+     * Hosted card checkout (or leftover pending card rows) still open on this REF.
+     * Wallet must not forget that package — a later Stripe capture would credit
+     * cash while wallet orders also stand, so the advertiser pays twice.
+     */
+    public function hasInFlightCardCheckout(int $userId, string $referenceCode): bool
+    {
+        if ($userId <= 0 || $referenceCode === '') {
+            return false;
+        }
+
+        $package = $this->getPendingCheckout($referenceCode);
+        if (is_array($package) && (int) ($package['user_id'] ?? 0) === $userId) {
+            return true;
+        }
+
+        return Order::query()
+            ->where('user_id', $userId)
+            ->where('reference_code', $referenceCode)
+            ->where('payment_method', 'card')
+            ->where('payment_status', 'pending')
+            ->whereNotIn('status', ['completed', 'cancelled'])
+            ->exists();
+    }
+
     public static function unfulfilledCardCreditReference(string $referenceCode, string $chargeToken = ''): string
     {
         $base = 'UNFULFILLED-CARD-'.$referenceCode;

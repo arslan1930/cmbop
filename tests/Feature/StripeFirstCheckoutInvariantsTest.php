@@ -1703,6 +1703,61 @@ class StripeFirstCheckoutInvariantsTest extends TestCase
         $this->assertEqualsWithDelta(80.0, $wallet->withdrawableBalance(), 0.01);
     }
 
+    public function test_second_card_bonus_reserve_cannot_reapply_the_same_promo(): void
+    {
+        $advertiser = $this->makeUser('advertiser');
+        $wallet = $this->advertiserWallet($advertiser, 20);
+        $payments = app(OrderPaymentService::class);
+
+        $this->assertEqualsWithDelta(20.0, $payments->reserveCheckoutBonus($advertiser->id, 80), 0.01);
+        $this->assertEqualsWithDelta(0.0, $payments->reserveCheckoutBonus($advertiser->id, 80), 0.01);
+
+        $wallet->refresh();
+        $this->assertEqualsWithDelta(20.0, (float) $wallet->bonus_reserved, 0.01);
+        $this->assertEqualsWithDelta(0.0, (float) $wallet->bonus_balance, 0.01);
+    }
+
+    public function test_in_flight_card_package_is_not_forgotten_so_later_capture_can_settle(): void
+    {
+        $advertiser = $this->makeUser('advertiser');
+        $publisher = $this->makeUser('publisher');
+        $site = $this->makeSite($publisher, 'inflight-wallet.example', 80);
+        $ref = 'INFLIGHT-CARD-1';
+        $payments = app(OrderPaymentService::class);
+
+        $payments->storePendingCheckout($ref, $this->package($advertiser, [$this->lineFor($site, 80)], 80));
+        $this->assertTrue($payments->hasInFlightCardCheckout($advertiser->id, $ref));
+
+        $this->signedWebhook([
+            'id' => 'evt_inflight_'.uniqid(),
+            'object' => 'event',
+            'type' => 'checkout.session.completed',
+            'data' => [
+                'object' => [
+                    'id' => 'cs_inflight_card',
+                    'object' => 'checkout.session',
+                    'payment_status' => 'paid',
+                    'amount_total' => 8000,
+                    'payment_intent' => 'pi_inflight_card',
+                    'metadata' => [
+                        'type' => 'order_payment',
+                        'reference_code' => $ref,
+                        'user_id' => (string) $advertiser->id,
+                        'expected_amount' => '80',
+                    ],
+                ],
+            ],
+        ])->assertOk();
+
+        $this->assertSame(1, Order::query()
+            ->where('user_id', $advertiser->id)
+            ->where('reference_code', $ref)
+            ->where('payment_method', 'card')
+            ->where('payment_status', 'paid')
+            ->count());
+        $this->assertEqualsWithDelta(0.0, $payments->unfulfilledCardCreditAmount($ref, $advertiser->id), 0.01);
+    }
+
     public function test_allocator_remints_ref_after_wallet_paid_order(): void
     {
         $advertiser = $this->makeUser('advertiser');

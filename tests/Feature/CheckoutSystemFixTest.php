@@ -479,4 +479,71 @@ class CheckoutSystemFixTest extends TestCase
         $this->assertNotNull(Cache::get('pending_card_checkout:'.$minted));
         $this->assertNull(Cache::get('pending_card_checkout:666666'));
     }
+
+    public function test_wallet_checkout_refuses_in_flight_card_package_on_same_ref(): void
+    {
+        config(['content_moderation.enabled' => false]);
+        Mail::fake();
+
+        $advertiser = $this->advertiser();
+        $publisher = $this->publisher();
+        $site = $this->activeSite($publisher, 'card-then-wallet', 40);
+        $sub = $this->createApprovedSubmission($advertiser, null);
+        $this->fakeStripeCheckoutSession('cs_test_card_then_wallet');
+
+        $advRole = Role::where('name', 'advertiser')->first();
+        $wallet = Wallet::create([
+            'user_id' => $advertiser->id,
+            'role_id' => $advRole->id,
+            'balance' => 500,
+            'reserved_balance' => 0,
+            'bonus_balance' => 0,
+            'bonus_reserved' => 0,
+            'currency' => 'EUR',
+        ]);
+
+        $this->actingAs($advertiser)
+            ->withSession([
+                'cart' => [[
+                    'id' => $site->id,
+                    'name' => $site->site_name,
+                    'quantity' => 1,
+                    'content_submission_id' => $sub->id,
+                ]],
+                'checkout_content_submission_id' => $sub->id,
+            ])
+            ->postJson(route('advertiser.checkout.process'), [
+                'payment_method' => 'card',
+                'reference_code' => 'CARDW1',
+                'publication_mode' => 'immediate',
+            ])
+            ->assertOk()
+            ->assertJson(['success' => true]);
+
+        $this->assertNotNull(Cache::get('pending_card_checkout:CARDW1'));
+
+        $this->actingAs($advertiser)
+            ->withSession([
+                'cart' => [[
+                    'id' => $site->id,
+                    'name' => $site->site_name,
+                    'quantity' => 1,
+                    'content_submission_id' => $sub->id,
+                ]],
+                'checkout_content_submission_id' => $sub->id,
+            ])
+            ->postJson(route('advertiser.checkout.process'), [
+                'payment_method' => 'wallet',
+                'reference_code' => 'CARDW1',
+                'publication_mode' => 'immediate',
+            ])
+            ->assertStatus(422)
+            ->assertJson(['success' => false]);
+
+        $this->assertNotNull(Cache::get('pending_card_checkout:CARDW1'));
+        $this->assertSame(0, Order::where('reference_code', 'CARDW1')->count());
+        $wallet->refresh();
+        $this->assertEqualsWithDelta(500.0, (float) $wallet->balance, 0.01);
+        $this->assertEqualsWithDelta(0.0, (float) $wallet->reserved_balance, 0.01);
+    }
 }

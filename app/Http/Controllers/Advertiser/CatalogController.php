@@ -2163,15 +2163,8 @@ class CatalogController extends Controller
 
         try {
             if ($useBonus) {
-                $advertiserRoleId = Wallet::advertiserRoleId();
-                if ($advertiserRoleId) {
-                    $wallet = Wallet::lockOrCreateForRole((int) $userId, (int) $advertiserRoleId);
-                    $wallet->repairOrphanedWelcomeBonus();
-                    $wallet->reconcileInflatedBonusBalance();
-                    $wallet->refresh();
-                    $bonusApplied = $wallet->reserveBonusOnly(min($wallet->lockedBonusBalance(), $totalAmount));
-                    $amountDue = round(max(0, $totalAmount - $bonusApplied), 2);
-                }
+                $bonusApplied = $paymentService->reserveCheckoutBonus((int) $userId, $totalAmount);
+                $amountDue = round(max(0, $totalAmount - $bonusApplied), 2);
             }
         } catch (\Throwable $e) {
             Log::error('Bonus reserve failed before Stripe checkout', [
@@ -2613,6 +2606,12 @@ class CatalogController extends Controller
             }
 
             $paymentService = app(OrderPaymentService::class);
+            if ($paymentService->hasInFlightCardCheckout((int) $userId, (string) $referenceCode)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'A card checkout is already in progress for this order. Cancel it or finish paying by card, then pay from your wallet.',
+                ], 422);
+            }
             $paymentService->releaseRecordedCheckoutBonus((int) $userId, (string) $referenceCode);
             $paymentService->forgetPendingCheckout((string) $referenceCode, (int) $userId);
 
@@ -2809,23 +2808,22 @@ class CatalogController extends Controller
             $bonusApplied = 0.0;
             $amountDue = $totalAmount;
             $paymentService = app(OrderPaymentService::class);
+            if ($paymentService->hasInFlightCardCheckout((int) $userId, (string) $referenceCode)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'A card checkout is already in progress for this order. Cancel it or finish paying by card, then pay from your wallet.',
+                ], 422);
+            }
             $paymentService->releaseRecordedCheckoutBonus((int) $userId, (string) $referenceCode);
             $paymentService->forgetPendingCheckout((string) $referenceCode, (int) $userId);
 
             DB::beginTransaction();
 
             if ($useBonus) {
-                $advertiserRoleId = Wallet::advertiserRoleId();
-                if ($advertiserRoleId) {
-                    $wallet = Wallet::lockOrCreateForRole((int) $userId, (int) $advertiserRoleId);
-                    $wallet->repairOrphanedWelcomeBonus();
-                    $wallet->reconcileInflatedBonusBalance();
-                    $wallet->refresh();
-                    $bonusApplied = $wallet->reserveBonusOnly(min($wallet->lockedBonusBalance(), $totalAmount));
-                    $amountDue = round(max(0, $totalAmount - $bonusApplied), 2);
-                    if ($bonusApplied > 0) {
-                        $paymentService->persistPaidCheckoutBonus((int) $userId, (string) $referenceCode, $bonusApplied);
-                    }
+                $bonusApplied = $paymentService->reserveCheckoutBonus((int) $userId, $totalAmount);
+                $amountDue = round(max(0, $totalAmount - $bonusApplied), 2);
+                if ($bonusApplied > 0) {
+                    $paymentService->persistPaidCheckoutBonus((int) $userId, (string) $referenceCode, $bonusApplied);
                 }
             }
 
