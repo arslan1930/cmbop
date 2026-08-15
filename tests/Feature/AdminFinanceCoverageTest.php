@@ -86,6 +86,7 @@ class AdminFinanceCoverageTest extends TestCase
             Order::whereKey($order->id)->update([
                 'updated_at' => $updatedAt,
                 'paid_at' => $updatedAt,
+                'completed_at' => $updatedAt,
             ]);
         }
 
@@ -409,5 +410,49 @@ class AdminFinanceCoverageTest extends TestCase
             ->assertOk()
             ->assertSee('Oldest 5 days')
             ->assertSee('Oldest 4 days');
+    }
+
+    public function test_hub_ignores_invalid_dates_and_array_query_params(): void
+    {
+        $admin = $this->makeUser('admin');
+
+        $this->actingAs($admin)
+            ->get(route('admin.finance', [
+                'period' => ['week'],
+                'date_from' => 'not-a-date',
+                'date_to' => ['2026-08-01'],
+                'list' => ['debt'],
+            ]))
+            ->assertOk()
+            ->assertSee('Finance overview');
+
+        $service = app(FinanceOverviewService::class);
+        $period = $service->resolvePeriod('month', 'nope', 'also-bad');
+        $this->assertSame('month', $period['key']);
+        $this->assertNotNull($period['start']);
+    }
+
+    public function test_completed_and_withdrawal_windows_qualify_table_columns(): void
+    {
+        $service = app(FinanceOverviewService::class);
+        $start = now()->startOfWeek();
+        $end = now()->endOfDay();
+
+        $completed = new \ReflectionMethod($service, 'applyCompletedWindow');
+        $completed->setAccessible(true);
+        $orders = Order::query();
+        $completed->invoke($service, $orders, $start, $end);
+        $orderSql = $orders->toSql();
+        $this->assertStringContainsString('orders.completed_at', $orderSql);
+        $this->assertStringContainsString('orders.updated_at', $orderSql);
+        $this->assertStringNotContainsString('COALESCE(completed_at, updated_at)', $orderSql);
+
+        $coalesce = new \ReflectionMethod($service, 'applyCoalesceWindow');
+        $coalesce->setAccessible(true);
+        $withdrawals = Withdrawal::query();
+        $coalesce->invoke($service, $withdrawals, $start, $end, 'withdrawals.processed_at', 'withdrawals.updated_at');
+        $wdSql = $withdrawals->toSql();
+        $this->assertStringContainsString('withdrawals.processed_at', $wdSql);
+        $this->assertStringContainsString('withdrawals.updated_at', $wdSql);
     }
 }

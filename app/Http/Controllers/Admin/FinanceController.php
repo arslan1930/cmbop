@@ -45,11 +45,11 @@ class FinanceController extends Controller
             }
         }
 
-        $period = $this->finance->resolvePeriod(
-            $request->get('period'),
-            $request->get('date_from'),
-            $request->get('date_to')
-        );
+        $periodKey = is_string($request->get('period')) ? $request->get('period') : null;
+        $dateFrom = is_string($request->get('date_from')) ? $request->get('date_from') : null;
+        $dateTo = is_string($request->get('date_to')) ? $request->get('date_to') : null;
+
+        $period = $this->finance->resolvePeriod($periodKey, $dateFrom, $dateTo);
 
         $list = is_string($request->get('list')) ? $request->get('list') : null;
         if (! in_array($list, ['debt', 'wallets'], true)) {
@@ -61,8 +61,8 @@ class FinanceController extends Controller
         return view('admin.finance', [
             'data' => $data,
             'periodKey' => $period['key'],
-            'dateFrom' => $request->get('date_from'),
-            'dateTo' => $request->get('date_to'),
+            'dateFrom' => $dateFrom,
+            'dateTo' => $dateTo,
             'userQuery' => $userQuery,
             'userMatches' => $userMatches,
             'list' => $list,
@@ -203,9 +203,9 @@ class FinanceController extends Controller
     public function export(Request $request): StreamedResponse
     {
         $period = $this->finance->resolvePeriod(
-            $request->get('period'),
-            $request->get('date_from'),
-            $request->get('date_to')
+            is_string($request->get('period')) ? $request->get('period') : null,
+            is_string($request->get('date_from')) ? $request->get('date_from') : null,
+            is_string($request->get('date_to')) ? $request->get('date_to') : null
         );
         $rows = $this->finance->exportRows($period);
         $filename = 'finance-'.$period['key'].'-'.now()->format('Y-m-d-His').'.csv';

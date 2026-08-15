@@ -246,7 +246,7 @@
                         <div class="text-muted small">Open withdrawals</div>
                         <div class="fs-4 fw-bold text-danger">{{ $d['ops']['open_withdrawals']['count'] }}</div>
                         <div class="small">{{ $euro($d['ops']['open_withdrawals']['amount']) }}</div>
-                        @if($d['ops']['open_withdrawals']['oldest_days'] !== null)
+                        @if(($d['ops']['open_withdrawals']['oldest_days'] ?? null) !== null)
                             <div class="small text-muted mt-1">Oldest {{ $d['ops']['open_withdrawals']['oldest_days'] }} day{{ $d['ops']['open_withdrawals']['oldest_days'] === 1 ? '' : 's' }}</div>
                         @endif
                     </div>
@@ -260,7 +260,7 @@
                         <div class="text-muted small">Unpaid orders</div>
                         <div class="fs-4 fw-bold text-info">{{ $d['ops']['unpaid_orders']['count'] }}</div>
                         <div class="small">{{ $euro($d['ops']['unpaid_orders']['amount']) }}</div>
-                        @if($d['ops']['unpaid_orders']['oldest_days'] !== null)
+                        @if(($d['ops']['unpaid_orders']['oldest_days'] ?? null) !== null)
                             <div class="small text-muted mt-1">Oldest {{ $d['ops']['unpaid_orders']['oldest_days'] }} day{{ $d['ops']['unpaid_orders']['oldest_days'] === 1 ? '' : 's' }}</div>
                         @endif
                     </div>
@@ -291,7 +291,7 @@
             <div class="card-header bg-white fw-semibold d-flex justify-content-between align-items-center gap-2">
                 <span>Publishers with clawback debt</span>
                 @if(!empty($d['ops']['publisher_debt']['truncated']))
-                    <a href="{{ $d['ops']['publisher_debt']['view_all_url'] }}" class="small fw-normal">View all {{ $d['ops']['publisher_debt']['count'] }}</a>
+                    <a href="{{ route('admin.finance', array_filter(['period' => $periodKey, 'date_from' => $dateFrom, 'date_to' => $dateTo, 'list' => 'debt'])) }}#finance-debt-table" class="small fw-normal">View all {{ $d['ops']['publisher_debt']['count'] }}</a>
                 @elseif(($list ?? null) === 'debt')
                     <a href="{{ route('admin.finance', array_filter(['period' => $periodKey, 'date_from' => $dateFrom, 'date_to' => $dateTo])) }}#finance-debt" class="small fw-normal">Back to top 8</a>
                 @endif
