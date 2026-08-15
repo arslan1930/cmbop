@@ -135,9 +135,10 @@ class WithdrawalPayoutStatementService
         // Fee is shown once in totals as "Withdrawal fee" (discount_amount),
         // not also as a negative line item.
 
-        $details = is_array($withdrawal->payment_details) ? $withdrawal->payment_details : [];
+        $details = Withdrawal::detailsArray($withdrawal->payment_details);
+        $accountHolder = Withdrawal::detailText($details, 'account_holder');
         $payeeName = $user->payout_business_name
-            ?: ($details['account_holder'] ?? null)
+            ?: ($accountHolder !== '' ? $accountHolder : null)
             ?: ($user->billing_name ?? $user->name);
 
         return [

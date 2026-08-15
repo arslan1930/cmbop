@@ -753,6 +753,36 @@ class AdminWithdrawalLaterTest extends TestCase
         $this->assertStringNotContainsString('Array', $csv);
     }
 
+    public function test_mark_paid_issues_statement_when_payment_details_are_nested(): void
+    {
+        $admin = $this->makeUser('admin');
+        $publisher = $this->makeUser('publisher');
+        $publisher->forceFill(['name' => 'Pat Publisher'])->save();
+        $withdrawal = $this->seedWithdrawal($publisher, [
+            'payment_method' => 'bank',
+            'payment_details' => [
+                'bank_name' => 'Test Bank',
+                'account_holder' => ['not-a-string'],
+                'account_number' => 'DE89370400440532013000',
+            ],
+        ]);
+
+        $this->actingAs($admin)
+            ->postJson(route('admin.withdrawals.paid', $withdrawal->id), ['notes' => 'Paid'])
+            ->assertOk()
+            ->assertJsonPath('success', true);
+
+        $this->assertSame('completed', $withdrawal->fresh()->status);
+        $statement = Invoice::query()
+            ->where('type', Invoice::TYPE_WITHDRAWAL_PAYOUT)
+            ->where('reference_code', 'WD-'.$withdrawal->id)
+            ->where('status', '!=', Invoice::STATUS_CANCELLED)
+            ->first();
+        $this->assertNotNull($statement);
+        $this->assertSame('Pat Publisher', $statement->customer_name);
+        $this->assertStringNotContainsString('Array', (string) $statement->customer_name);
+    }
+
     public function test_html_show_and_list_tolerate_nested_payment_details(): void
     {
         $admin = $this->makeUser('admin');
