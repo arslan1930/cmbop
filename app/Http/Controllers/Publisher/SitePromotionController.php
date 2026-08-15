@@ -236,7 +236,7 @@ class SitePromotionController extends Controller
             }
 
             return redirect()->route('publisher.websites')
-                ->with('error', $result['message'] ?? 'Could not apply feature after payment.');
+                ->with('error', $result['message'] ?? 'Your card was charged. Do not pay again — contact support if the feature does not appear.');
         } catch (\Throwable $e) {
             Log::error('Feature Stripe success handling failed', ['error' => $e->getMessage()]);
 

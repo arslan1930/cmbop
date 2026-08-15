@@ -2796,11 +2796,12 @@ class CatalogController extends Controller
                 ]);
             }
 
-            // Reserve funds; bonus is only used when the checkout checkbox is enabled
+            // Reserve funds; bonus is only used when the checkout checkbox is enabled.
+            // Persist the hold only after orders exist — rememberBonus writes cache
+            // outside the DB transaction, and a later attach/create rollback would
+            // leave a live ghost that otherRecordedBonus subtracts from a real hold
+            // (publisher reject then mints that promo as cash).
             $bonusUsed = $advertiserWallet->reserveForOrder($totalAmount, $useBonus);
-            if ($bonusUsed > 0) {
-                $paymentService->persistPaidCheckoutBonus((int) $userId, (string) $referenceCode, $bonusUsed);
-            }
 
             app(WalletLedgerService::class)->recordPurchase(
                 $advertiserWallet,
@@ -2866,6 +2867,10 @@ class CatalogController extends Controller
             }
 
             $paymentService->cancelUnpaidCardOrdersForPaidCheckout(collect($createdOrders));
+
+            if ($bonusUsed > 0) {
+                $paymentService->persistPaidCheckoutBonus((int) $userId, (string) $referenceCode, $bonusUsed);
+            }
 
             // Link the purchase ledger row to the first order so wallet activity
             // can resolve the INV tax invoice by order_id / reference.
@@ -2939,6 +2944,9 @@ class CatalogController extends Controller
             ]);
         } catch (\Exception $e) {
             DB::rollBack();
+            if (! empty($userId) && is_string($referenceCode) && $referenceCode !== '') {
+                app(CheckoutIntentService::class)->forgetBonus((int) $userId, (string) $referenceCode);
+            }
             Log::error('Wallet payment failed: '.$e->getMessage(), [
                 'user_id' => $userId,
                 'reference_code' => $referenceCode,
@@ -3245,7 +3253,7 @@ class CatalogController extends Controller
                 ]);
 
                 return redirect()->route('advertiser.checkout')
-                    ->with('error', 'Order not found. Please contact support with your payment reference.');
+                    ->with('error', 'Your card was charged. Do not pay again — contact support if the order does not appear.');
             }
 
             if ($newlyPaid->isNotEmpty()) {
