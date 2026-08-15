@@ -546,6 +546,49 @@ class OrderPaymentService
     }
 
     /**
+     * Lock the advertiser wallet and paid rows so a concurrent bonus-only /
+     * wallet checkout that just committed is visible before this attempt
+     * opens Stripe or overwrites the persist hold.
+     *
+     * @return Collection<int, Order>
+     */
+    public function existingPaidCheckoutAfterReserve(
+        int $userId,
+        string $referenceCode,
+        float $bonusJustReserved = 0.0
+    ): Collection {
+        if ($userId <= 0 || $referenceCode === '') {
+            return collect();
+        }
+
+        return DB::transaction(function () use ($userId, $referenceCode, $bonusJustReserved) {
+            $roleId = Wallet::advertiserRoleId();
+            if ($roleId) {
+                Wallet::query()
+                    ->where('user_id', $userId)
+                    ->where('role_id', $roleId)
+                    ->lockForUpdate()
+                    ->first();
+            }
+
+            $paid = Order::query()
+                ->where('user_id', $userId)
+                ->where('reference_code', $referenceCode)
+                ->where('payment_status', 'paid')
+                ->lockForUpdate()
+                ->get();
+
+            if ($paid->isEmpty()) {
+                return $paid;
+            }
+
+            $this->releaseReservedBonusAmount($userId, $bonusJustReserved);
+
+            return $paid;
+        });
+    }
+
+    /**
      * Reserve leftover welcome bonus for a card / manual checkout.
      * Must lock the wallet row so two tabs cannot both apply the same €20.
      */

@@ -2183,12 +2183,12 @@ class CatalogController extends Controller
             ]);
         }
 
-        $alreadyPaid = $paymentService->paidCheckoutOrdersForReference((int) $userId, (string) $referenceCode);
+        $alreadyPaid = $paymentService->existingPaidCheckoutAfterReserve(
+            (int) $userId,
+            (string) $referenceCode,
+            $bonusApplied
+        );
         if ($alreadyPaid->isNotEmpty()) {
-            if ($bonusApplied > 0) {
-                $paymentService->releaseReservedBonusAmount((int) $userId, $bonusApplied);
-            }
-
             return $this->alreadyPlacedCheckoutResponse($alreadyPaid);
         }
 
@@ -2197,7 +2197,7 @@ class CatalogController extends Controller
         // Consuming here made approveOrder() consumeReserved() again (negative reserved)
         // and reject refundReserved() mint withdrawable cash from a zero reserved bucket.
         if ($amountDue <= 0 && $bonusApplied > 0) {
-            $this->rememberCheckoutBonus((int) $userId, (string) $referenceCode, $bonusApplied);
+            $committed = false;
             try {
                 app(CheckoutSchemaService::class)->ensureCheckoutTables();
                 $schema = app(CheckoutSchemaService::class);
@@ -2249,8 +2249,9 @@ class CatalogController extends Controller
                     $this->attachSubmissionToOrder($submission, $order, $item);
                     $created->push($order);
                 }
-                DB::commit();
                 $paymentService->persistPaidCheckoutBonus((int) $userId, (string) $referenceCode, $bonusApplied);
+                DB::commit();
+                $committed = true;
                 $this->restoreDeferredCartAfterPayment();
                 $advertiserRoleId = Wallet::advertiserRoleId();
                 if ($advertiserRoleId) {
@@ -2281,6 +2282,19 @@ class CatalogController extends Controller
                     'message' => count($created).' order(s) placed using your bonus balance. Reference: '.$referenceCode,
                 ]);
             } catch (\Throwable $e) {
+                if ($committed) {
+                    Log::warning('Bonus-only checkout succeeded but post-commit work failed', [
+                        'reference_code' => $referenceCode,
+                        'user_id' => $userId,
+                        'error' => $e->getMessage(),
+                    ]);
+
+                    return response()->json([
+                        'success' => true,
+                        'message' => 'Order(s) placed using your bonus balance. Reference: '.$referenceCode,
+                    ]);
+                }
+
                 DB::rollBack();
                 $alreadyPaid = $paymentService->paidCheckoutOrdersForReference((int) $userId, (string) $referenceCode);
                 if ($alreadyPaid->isNotEmpty()) {
@@ -2344,6 +2358,15 @@ class CatalogController extends Controller
                 'feature_image_url' => $submission->feature_image_url,
                 'moderation_status' => $submission->moderation_status,
             ];
+        }
+
+        $alreadyPaid = $paymentService->existingPaidCheckoutAfterReserve(
+            (int) $userId,
+            (string) $referenceCode,
+            $bonusApplied
+        );
+        if ($alreadyPaid->isNotEmpty()) {
+            return $this->alreadyPlacedCheckoutResponse($alreadyPaid);
         }
 
         try {

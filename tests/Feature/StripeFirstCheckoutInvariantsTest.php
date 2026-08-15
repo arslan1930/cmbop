@@ -2102,6 +2102,41 @@ class StripeFirstCheckoutInvariantsTest extends TestCase
         $this->assertEqualsWithDelta(90.0, $wallet->withdrawableBalance(), 0.01);
     }
 
+    public function test_existing_paid_after_reserve_returns_extra_promo_without_touching_persist(): void
+    {
+        $advertiser = $this->makeUser('advertiser');
+        $publisher = $this->makeUser('publisher');
+        $site = $this->makeSite($publisher, 'paid-after-reserve.example', 100);
+        $wallet = $this->advertiserWallet($advertiser, 25);
+        $wallet->reserveBonusOnly(20);
+        $ref = 'PAID-AFTER-RESERVE';
+        $payments = app(OrderPaymentService::class);
+
+        $payments->persistPaidCheckoutBonus($advertiser->id, $ref, 20);
+        $order = $this->pendingCardOrder($advertiser, $site, $ref, 100);
+        $order->update([
+            'payment_status' => 'paid',
+            'paid_at' => now(),
+        ]);
+
+        $wallet->refresh();
+        $this->assertEqualsWithDelta(5.0, $payments->reserveCheckoutBonus($advertiser->id, 100), 0.01);
+        $this->assertEqualsWithDelta(25.0, (float) $wallet->fresh()->bonus_reserved, 0.01);
+
+        $paid = $payments->existingPaidCheckoutAfterReserve($advertiser->id, $ref, 5);
+        $this->assertCount(1, $paid);
+        $this->assertSame($order->id, $paid->first()->id);
+
+        $this->assertEqualsWithDelta(
+            20.0,
+            app(CheckoutIntentService::class)->recordedBonus($advertiser->id, $ref),
+            0.01
+        );
+        $wallet->refresh();
+        $this->assertEqualsWithDelta(20.0, (float) $wallet->bonus_reserved, 0.01);
+        $this->assertEqualsWithDelta(5.0, (float) $wallet->bonus_balance, 0.01);
+    }
+
     public function test_allocator_remints_ref_after_wallet_paid_order(): void
     {
         $advertiser = $this->makeUser('advertiser');
