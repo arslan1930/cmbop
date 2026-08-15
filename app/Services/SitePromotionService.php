@@ -281,13 +281,13 @@ class SitePromotionService
     /**
      * Apply featured placement after a successful Stripe card payment (no wallet debit).
      */
-    public function featureFromStripePayment(Site $site, User $publisher, ?string $stripeSessionId = null): array
+    public function featureFromStripePayment(Site $site, User $publisher, ?string $stripeSessionId = null, ?float $chargedEuros = null): array
     {
         $price = $this->featurePrice();
         $days = $this->featureDays();
 
         try {
-            return DB::transaction(function () use ($site, $publisher, $price, $days, $stripeSessionId) {
+            return DB::transaction(function () use ($site, $publisher, $price, $days, $stripeSessionId, $chargedEuros) {
                 // Lock the site first so webhook + success URL cannot both
                 // pass an unlocked exists() check and stack two 7-day periods.
                 $locked = Site::query()->whereKey($site->id)->lockForUpdate()->firstOrFail();
@@ -297,7 +297,8 @@ class SitePromotionService
                             $locked,
                             $publisher,
                             $stripeSessionId,
-                            'the listing is no longer in the catalog'
+                            'the listing is no longer in the catalog',
+                            $chargedEuros
                         );
                     }
 

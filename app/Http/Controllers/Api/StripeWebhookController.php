@@ -727,8 +727,16 @@ class StripeWebhookController extends Controller
             return;
         }
 
+        $charged = $promotions->stripeChargedEuros($session);
+
         if ((int) $site->publisher_id !== (int) $user->id) {
-            $result = $promotions->creditPayerWhenFeatureCannotApply($site, $user, $sessionId);
+            $result = $promotions->creditPayerWhenFeatureCannotApply(
+                $site,
+                $user,
+                $sessionId,
+                null,
+                $charged > 0 ? $charged : null
+            );
             if (! ($result['success'] ?? false)) {
                 throw new \RuntimeException($result['message'] ?? 'site_feature publisher mismatch');
             }
@@ -744,7 +752,12 @@ class StripeWebhookController extends Controller
             return;
         }
 
-        $result = $promotions->featureFromStripePayment($site, $user, $sessionId);
+        $result = $promotions->featureFromStripePayment(
+            $site,
+            $user,
+            $sessionId,
+            $charged > 0 ? $charged : null
+        );
         if (! ($result['success'] ?? false)) {
             throw new \RuntimeException($result['message'] ?? 'Failed to apply site feature from webhook');
         }

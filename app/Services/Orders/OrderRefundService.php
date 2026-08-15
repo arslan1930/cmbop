@@ -139,6 +139,8 @@ class OrderRefundService
             }
         }
 
+        $this->syncRecordedCheckoutBonusAfterRefund($order, $bonusRestored);
+
         $this->ledger->recordRefund(
             $wallet,
             $amount,
@@ -346,6 +348,32 @@ class OrderRefundService
         }
 
         app(CheckoutIntentService::class)->decrementBonus($userId, $reference, $amount);
+    }
+
+    /**
+     * Reject / cancel restores wallet promo but used to leave bonus_applied
+     * on the checkout intent. A later checkout on a new REF then saw that
+     * stale hold in otherRecordedBonus and minted the promo as cash.
+     */
+    private function syncRecordedCheckoutBonusAfterRefund(Order $order, float $bonusRestored): void
+    {
+        $userId = (int) ($order->user_id ?? 0);
+        $reference = (string) ($order->reference_code ?? '');
+        if ($userId <= 0 || $reference === '') {
+            return;
+        }
+
+        $openTotal = $this->openCheckoutSiblingTotal($userId, $reference, [(int) $order->id]);
+        $intents = app(CheckoutIntentService::class);
+        if ($openTotal > 0) {
+            if ($bonusRestored > 0) {
+                $intents->decrementBonus($userId, $reference, $bonusRestored);
+            }
+
+            return;
+        }
+
+        $intents->takeBonus($userId, $reference);
     }
 
     /**

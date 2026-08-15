@@ -197,11 +197,15 @@ class SitePromotionController extends Controller
                     ->with($credit['success'] ? 'success' : 'error', $credit['message'] ?? $e->getMessage());
             }
 
+            $charged = $this->promotions->stripeChargedEuros($session);
+
             if ((int) $site->publisher_id !== (int) auth()->id()) {
                 $credit = $this->promotions->creditPayerWhenFeatureCannotApply(
                     $site,
                     auth()->user(),
-                    $sessionId
+                    $sessionId,
+                    null,
+                    $charged > 0 ? $charged : null
                 );
 
                 return redirect()->route('publisher.websites')
@@ -210,7 +214,12 @@ class SitePromotionController extends Controller
 
             // Apply after payment is confirmed — even if the site was archived meantime —
             // so the publisher is not charged without receiving the feature.
-            $result = $this->promotions->featureFromStripePayment($site, auth()->user(), $sessionId);
+            $result = $this->promotions->featureFromStripePayment(
+                $site,
+                auth()->user(),
+                $sessionId,
+                $charged > 0 ? $charged : null
+            );
 
             if ($result['credited'] ?? false) {
                 return redirect()->route('publisher.websites')
