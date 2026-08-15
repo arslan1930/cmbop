@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Withdrawal;
+use App\Services\Billing\WithdrawalPayoutStatementService;
 use App\Services\Wallet\ManualWithdrawalInvalidTransitionException;
 use App\Services\Wallet\ManualWithdrawalSettlementService;
 use App\Services\Wallet\WithdrawalDuplicatePayoutWarning;
@@ -32,6 +33,7 @@ class WithdrawalMarkPaidConfirmController extends Controller
             ->view('admin.withdrawals.mark-paid-confirm', array_merge($context, [
                 'withdrawal' => $withdrawal,
                 'canMarkPaid' => $canMarkPaid,
+                'missingStatement' => $this->missingPayoutStatement($withdrawal),
                 'confirmAction' => $request->fullUrl(),
             ]))
             ->header('Cache-Control', 'no-store');
@@ -105,6 +107,19 @@ class WithdrawalMarkPaidConfirmController extends Controller
             'possibleDuplicate' => $duplicateMatches->isNotEmpty(),
             'duplicateMatches' => $duplicateMatches,
         ];
+    }
+
+    protected function missingPayoutStatement(Withdrawal $withdrawal): bool
+    {
+        if ($withdrawal->status !== 'completed') {
+            return false;
+        }
+
+        try {
+            return app(WithdrawalPayoutStatementService::class)->find($withdrawal) === null;
+        } catch (\Throwable) {
+            return true;
+        }
     }
 
     protected function hasValidSignature(Request $request): bool

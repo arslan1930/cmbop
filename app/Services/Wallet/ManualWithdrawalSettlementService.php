@@ -3,6 +3,7 @@
 namespace App\Services\Wallet;
 
 use App\Mail\WithdrawalStatusUpdated;
+use App\Models\Invoice;
 use App\Models\User;
 use App\Models\Withdrawal;
 use App\Services\ActivityLogger;
@@ -134,8 +135,15 @@ class ManualWithdrawalSettlementService
 
         // Retry even when status is already completed: the first issue() can
         // fail after the wallet row is paid, and issue() is idempotent.
+        $statement = null;
         if ($result['new_status'] === 'completed') {
-            $this->issuePayoutStatement($result['withdrawal']);
+            $statement = $this->issuePayoutStatement($result['withdrawal']);
+        }
+
+        if ($result['unchanged'] && $result['new_status'] === 'completed') {
+            $result['message'] = $statement
+                ? 'Payout statement is ready'
+                : 'Status unchanged — payout statement is still missing';
         }
 
         if (! $result['unchanged']) {
@@ -218,15 +226,17 @@ class ManualWithdrawalSettlementService
         }
     }
 
-    protected function issuePayoutStatement(Withdrawal $withdrawal): void
+    protected function issuePayoutStatement(Withdrawal $withdrawal): ?Invoice
     {
         try {
-            app(WithdrawalPayoutStatementService::class)->issue($withdrawal->fresh(['user']));
+            return app(WithdrawalPayoutStatementService::class)->issue($withdrawal->fresh(['user']));
         } catch (\Throwable $e) {
             Log::warning('Failed to issue withdrawal payout statement', [
                 'withdrawal_id' => $withdrawal->id,
                 'error' => $e->getMessage(),
             ]);
+
+            return null;
         }
     }
 

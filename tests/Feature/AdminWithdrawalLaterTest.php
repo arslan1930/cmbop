@@ -108,6 +108,50 @@ class AdminWithdrawalLaterTest extends TestCase
         $this->assertStringContainsString("failedCount > 0 ? 'warning' : 'success'", $html);
         $this->assertStringContainsString('failed.forEach(function (row)', $html);
         $this->assertStringContainsString('addSelectedId(row && row.id)', $html);
+        $this->assertStringContainsString('act-statement', $html);
+        $this->assertStringContainsString('Create statement', $html);
+    }
+
+    public function test_html_show_warns_when_paid_statement_is_missing(): void
+    {
+        $admin = $this->makeUser('admin');
+        $publisher = $this->makeUser('publisher');
+        $withdrawal = $this->seedWithdrawal($publisher, [
+            'status' => 'completed',
+            'processed_at' => now(),
+        ]);
+
+        $this->actingAs($admin)
+            ->get(route('admin.withdrawals.show', $withdrawal->id))
+            ->assertOk()
+            ->assertSee('Payout statement is missing', false)
+            ->assertSee('Create statement', false)
+            ->assertDontSee('Yes, mark paid', false);
+    }
+
+    public function test_http_mark_paid_on_completed_creates_missing_statement(): void
+    {
+        $admin = $this->makeUser('admin');
+        $publisher = $this->makeUser('publisher');
+        $withdrawal = $this->seedWithdrawal($publisher, [
+            'status' => 'completed',
+            'processed_at' => now(),
+        ]);
+
+        $this->actingAs($admin)
+            ->postJson(route('admin.withdrawals.paid', $withdrawal->id), ['notes' => ''])
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('unchanged', true)
+            ->assertJsonPath('message', 'Payout statement is ready');
+
+        $this->assertNotNull(
+            Invoice::query()
+                ->where('type', Invoice::TYPE_WITHDRAWAL_PAYOUT)
+                ->where('reference_code', 'WD-'.$withdrawal->id)
+                ->where('status', '!=', Invoice::STATUS_CANCELLED)
+                ->first()
+        );
     }
 
     public function test_browser_show_is_html_and_json_accept_stays_json(): void
@@ -774,6 +818,7 @@ class AdminWithdrawalLaterTest extends TestCase
 
         $result = app(ManualWithdrawalSettlementService::class)->markPaid($withdrawal, $admin);
         $this->assertTrue($result['unchanged']);
+        $this->assertSame('Payout statement is ready', $result['message']);
 
         $statement = Invoice::query()
             ->where('type', Invoice::TYPE_WITHDRAWAL_PAYOUT)

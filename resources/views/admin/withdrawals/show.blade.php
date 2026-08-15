@@ -55,6 +55,13 @@
         </div>
     </div>
 
+    @if($withdrawal->status === 'completed' && empty($invoiceUrl))
+        <div class="alert alert-warning" role="alert">
+            Payout statement is missing. Open the payout queue and choose <strong>Create statement</strong> for
+            <span class="admin-id-clamp">WD-{{ $withdrawal->id }}</span>.
+        </div>
+    @endif
+
     @if($withdrawal->possible_duplicate && $duplicateIds !== [])
         <div class="alert alert-warning" role="alert">
             Same publisher was paid this net amount in the last {{ $lookbackDays }} days

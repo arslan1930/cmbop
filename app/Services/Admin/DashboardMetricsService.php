@@ -260,6 +260,7 @@ class DashboardMetricsService
         $withdrawals = Withdrawal::with('user:id,name,email')
             ->whereIn('status', ['pending', 'processing'])
             ->latest()
+            ->orderByDesc('id')
             ->take(5)
             ->get()
             ->map(fn ($w) => [

@@ -640,6 +640,7 @@ function renderWithdrawals(withdrawals) {
                             <li><button type="button" class="dropdown-item view-details" data-id="${w.id}"><i class="fa fa-eye me-2"></i>View</button></li>
                             ${showHref ? `<li><a class="dropdown-item" href="${escapeHtml(showHref)}"><i class="fa fa-external-link-alt me-2"></i>Open page</a></li>` : ''}
                             ${invoiceHref ? `<li><a class="dropdown-item" href="${escapeHtml(invoiceHref)}"><i class="fa fa-file-invoice-dollar me-2"></i>Open invoice</a></li>` : ''}
+                            ${w.status === 'completed' && !invoiceHref ? `<li><button type="button" class="dropdown-item act-statement" data-id="${w.id}"><i class="fa fa-file-invoice-dollar me-2"></i>Create statement</button></li>` : ''}
                             ${w.status === 'pending' ? `
                             <li><button type="button" class="dropdown-item act-processing" data-id="${w.id}"
                                 data-name="${escapeHtml(w.user?.name || '')}"
@@ -798,6 +799,18 @@ $(document).on('click', '.act-paid', async function() {
         .done(function(res) {
             toast(res.message || 'Marked paid');
             selectedIds.delete(Number(id));
+            refreshAll();
+        })
+        .fail(function(xhr) {
+            toast(xhr.responseJSON?.message || 'Failed', 'error');
+        });
+});
+
+$(document).on('click', '.act-statement', function() {
+    const id = $(this).data('id');
+    postAction(withdrawalUrl(WD_PAID, id), { notes: '' })
+        .done(function(res) {
+            toast(res.message || 'Payout statement is ready');
             refreshAll();
         })
         .fail(function(xhr) {

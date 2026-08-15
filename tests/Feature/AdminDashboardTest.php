@@ -230,6 +230,38 @@ class AdminDashboardTest extends TestCase
             ->assertJsonPath('needs_attention', 1);
     }
 
+    public function test_action_queue_withdrawals_break_created_at_ties_by_id(): void
+    {
+        $admin = $this->makeAdmin();
+        $at = now()->subHour();
+        $first = Withdrawal::create([
+            'user_id' => $admin->id,
+            'amount' => 10,
+            'fee' => 0,
+            'net_amount' => 10,
+            'payment_method' => 'paypal',
+            'payment_details' => ['email' => 'a@b.com'],
+            'status' => 'pending',
+        ]);
+        $second = Withdrawal::create([
+            'user_id' => $admin->id,
+            'amount' => 20,
+            'fee' => 0,
+            'net_amount' => 20,
+            'payment_method' => 'wise',
+            'payment_details' => ['email' => 'b@c.com'],
+            'status' => 'pending',
+        ]);
+        $first->forceFill(['created_at' => $at, 'updated_at' => $at])->save();
+        $second->forceFill(['created_at' => $at, 'updated_at' => $at])->save();
+
+        $this->actingAs($admin)
+            ->getJson(route('admin.dashboard.action-queue'))
+            ->assertOk()
+            ->assertJsonPath('withdrawals.0.id', $second->id)
+            ->assertJsonPath('withdrawals.1.id', $first->id);
+    }
+
     public function test_needs_attention_includes_unpaid_orders_and_community(): void
     {
         $admin = $this->makeAdmin();
