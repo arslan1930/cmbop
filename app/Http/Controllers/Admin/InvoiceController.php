@@ -8,6 +8,7 @@ use App\Models\Invoice;
 use App\Models\Order;
 use App\Services\Billing\BillingDocumentService;
 use App\Services\Billing\InvoicePdfGenerator;
+use App\Services\Billing\WithdrawalPayoutStatementService;
 use App\Support\UserFacingError;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -91,8 +92,9 @@ class InvoiceController extends Controller
         ]);
     }
 
-    public function show(Invoice $invoice)
+    public function show(Invoice $invoice, WithdrawalPayoutStatementService $statements)
     {
+        $invoice = $statements->reconcileInvoice($invoice);
         $invoice->load([
             'user:id,name,email',
             'order:id,order_number',
@@ -109,8 +111,9 @@ class InvoiceController extends Controller
         ]);
     }
 
-    public function viewPdf(Invoice $invoice, InvoicePdfGenerator $pdfs, BillingDocumentService $billing)
+    public function viewPdf(Invoice $invoice, InvoicePdfGenerator $pdfs, BillingDocumentService $billing, WithdrawalPayoutStatementService $statements)
     {
+        $invoice = $statements->reconcileInvoice($invoice);
         try {
             if (! $invoice->hasPdf() || ! $invoice->pdfExists()) {
                 $pdfs->generateAndStore($invoice);
@@ -125,8 +128,9 @@ class InvoiceController extends Controller
         return $pdfs->stream($invoice);
     }
 
-    public function download(Invoice $invoice, InvoicePdfGenerator $pdfs, BillingDocumentService $billing)
+    public function download(Invoice $invoice, InvoicePdfGenerator $pdfs, BillingDocumentService $billing, WithdrawalPayoutStatementService $statements)
     {
+        $invoice = $statements->reconcileInvoice($invoice);
         try {
             if (! $invoice->hasPdf() || ! $invoice->pdfExists()) {
                 $pdfs->generateAndStore($invoice);

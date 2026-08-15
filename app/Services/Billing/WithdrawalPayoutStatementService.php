@@ -128,6 +128,22 @@ class WithdrawalPayoutStatementService
      * WD-{id} is the owner. A stale invoices.user_id would hide the PAY doc
      * from the publisher and leave it on the wrong billing list.
      */
+    public function reconcileInvoice(Invoice $invoice): Invoice
+    {
+        if (! $invoice->isWithdrawalPayout()) {
+            return $invoice;
+        }
+
+        $withdrawalId = $invoice->withdrawalId();
+        if ($withdrawalId <= 0) {
+            return $invoice;
+        }
+
+        $withdrawal = Withdrawal::query()->with('user')->find($withdrawalId);
+
+        return $withdrawal ? $this->reconcileOwner($invoice, $withdrawal) : $invoice;
+    }
+
     public function reconcileOwner(Invoice $statement, Withdrawal $withdrawal): Invoice
     {
         $ownerId = (int) $withdrawal->user_id;
@@ -135,8 +151,46 @@ class WithdrawalPayoutStatementService
             return $statement;
         }
 
+        $withdrawal->loadMissing('user');
+        $user = $withdrawal->user;
+        $details = Withdrawal::detailsArray($withdrawal->payment_details);
+        $accountHolder = Withdrawal::detailText($details, 'account_holder');
+        $payeeName = $user
+            ? ($this->scalarText($user->payout_business_name)
+                ?: $accountHolder
+                ?: $this->scalarText($user->billing_name)
+                ?: $this->scalarText($user->name))
+            : $accountHolder;
+        $email = $user ? $this->scalarText($user->email) : '';
+
+        $snapshot = is_array($statement->billing_snapshot) ? $statement->billing_snapshot : [];
+        if ($payeeName !== '') {
+            $snapshot['name'] = $payeeName;
+        }
+        if ($email !== '') {
+            $snapshot['email'] = $email;
+        }
+        if ($user) {
+            $snapshot['company'] = $this->scalarText($user->payout_business_name) ?: $this->scalarText($user->company_name) ?: null;
+            $snapshot['address'] = $this->scalarText($user->address) ?: null;
+            $snapshot['city'] = $this->scalarText($user->city) ?: null;
+            $snapshot['state'] = $this->scalarText($user->state) ?: null;
+            $snapshot['postal_code'] = $this->scalarText($user->postal_code) ?: null;
+            $snapshot['country'] = $this->scalarText($user->country) ?: null;
+        }
+
         try {
             $statement->user_id = $ownerId;
+            if ($payeeName !== '') {
+                $statement->customer_name = $payeeName;
+            }
+            if ($email !== '') {
+                $statement->customer_email = $email;
+            }
+            $statement->billing_snapshot = $snapshot;
+            // Drop the stored PDF so download/view cannot keep serving the
+            // other publisher's name and address.
+            $statement->pdf_path = null;
             $statement->save();
         } catch (\Throwable $e) {
             Log::warning('Failed to reassign payout statement to withdrawal owner', [

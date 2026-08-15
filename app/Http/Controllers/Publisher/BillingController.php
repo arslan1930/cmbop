@@ -72,11 +72,12 @@ class BillingController extends Controller
         ]);
     }
 
-    public function show(Invoice $invoice)
+    public function show(Invoice $invoice, WithdrawalPayoutStatementService $statements)
     {
         $this->authorizeOwner($invoice);
         abort_unless($invoice->type === Invoice::TYPE_WITHDRAWAL_PAYOUT, 404);
         abort_if($invoice->status === Invoice::STATUS_CANCELLED, 404);
+        $invoice = $statements->reconcileInvoice($invoice);
 
         return view('publisher.billing.show', compact('invoice'));
     }
@@ -91,6 +92,7 @@ class BillingController extends Controller
         abort_unless($invoice->type === Invoice::TYPE_WITHDRAWAL_PAYOUT, 404);
         abort_if($invoice->status === Invoice::STATUS_CANCELLED, 404);
 
+        $invoice = $statements->reconcileInvoice($invoice);
         // normalizeLegacyFeeLineItems() clears pdf_path when it strips legacy fee lines.
         $invoice = $statements->normalizeLegacyFeeLineItems($invoice);
 
@@ -119,6 +121,7 @@ class BillingController extends Controller
         abort_unless($invoice->type === Invoice::TYPE_WITHDRAWAL_PAYOUT, 404);
         abort_if($invoice->status === Invoice::STATUS_CANCELLED, 404);
 
+        $invoice = $statements->reconcileInvoice($invoice);
         $invoice = $statements->normalizeLegacyFeeLineItems($invoice);
 
         if (! $invoice->hasPdf() || ! $invoice->pdfExists()) {
