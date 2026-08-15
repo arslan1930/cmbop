@@ -130,6 +130,10 @@ class StripeWebhookController extends Controller
                     break;
                 }
 
+                if ($this->trySettleUntypedPaidOrderFromPackage($session, $metadata)) {
+                    break;
+                }
+
                 $this->recoverUntypedCheckoutSessionFromPaymentIntent($session);
                 break;
         }
@@ -204,6 +208,10 @@ class StripeWebhookController extends Controller
     private function detectPaymentTypeByMetadata(object $session, array $metadata): void
     {
         if ($this->detectWalletHintsOnUntypedSession($session, $metadata)) {
+            return;
+        }
+
+        if ($this->trySettleUntypedPaidOrderFromPackage($session, $metadata)) {
             return;
         }
 
@@ -290,6 +298,10 @@ class StripeWebhookController extends Controller
                 if (WalletStripeDepositService::isAddFundsSessionReference($metadata['session_reference'] ?? '')) {
                     $deposits->creditFromCheckoutSession($overlayed);
 
+                    return;
+                }
+
+                if ($this->trySettleUntypedPaidOrderFromPackage($overlayed, $metadata)) {
                     return;
                 }
 
@@ -380,8 +392,27 @@ class StripeWebhookController extends Controller
 
         // Same rule as completed-session routing: wallet deposits also carry
         // reference_code. An untyped expiry must not fail colliding card
-        // checkouts or refund their reserved bonus.
+        // checkouts. A matching Stripe-first package for this payer is safe
+        // to release (bonus + package) without touching another user's rows.
         if (! in_array($paymentType, ['order_payment', 'order'], true)) {
+            $payerId = isset($metadata['user_id']) ? (int) $metadata['user_id'] : 0;
+            $package = $payerId > 0
+                ? app(OrderPaymentService::class)->getPendingCheckout((string) $referenceCode)
+                : null;
+            if (is_array($package) && (int) ($package['user_id'] ?? 0) === $payerId) {
+                $bonusFallback = isset($metadata['bonus_applied'])
+                    ? round((float) $metadata['bonus_applied'], 2)
+                    : null;
+                app(OrderPaymentService::class)->markOrdersFailedFromReference(
+                    (string) $referenceCode,
+                    $reason,
+                    $payerId,
+                    $bonusFallback
+                );
+
+                return;
+            }
+
             Log::warning('Ignoring checkout.session.expired without explicit order type', [
                 'session_id' => $session->id ?? null,
                 'type' => $paymentType,
@@ -670,6 +701,44 @@ class StripeWebhookController extends Controller
         }
 
         return $deposits->withRecoveredPaymentIntentMetadata($session);
+    }
+
+    /**
+     * Untyped paid events must not 200-ack a Stripe-first charge. A package
+     * owned by metadata.user_id is enough to settle without guessing wallet
+     * deposits (those use deposit_* session_reference, not a cart package).
+     *
+     * @param  array<string, mixed>  $metadata
+     */
+    private function trySettleUntypedPaidOrderFromPackage(object $stripeObject, array $metadata): bool
+    {
+        $referenceCode = $metadata['reference_code'] ?? null;
+        $userId = isset($metadata['user_id']) ? (int) $metadata['user_id'] : 0;
+        if (! is_string($referenceCode) || $referenceCode === '' || $userId <= 0) {
+            return false;
+        }
+
+        $package = app(OrderPaymentService::class)->getPendingCheckout($referenceCode);
+        if (! is_array($package) || (int) ($package['user_id'] ?? 0) !== $userId) {
+            return false;
+        }
+
+        $objectType = $stripeObject->object ?? null;
+        $objectId = (string) ($stripeObject->id ?? '');
+        if ($objectType === 'payment_intent' || str_starts_with($objectId, 'pi_')) {
+            $this->handleOrderPaymentIntent(
+                $stripeObject,
+                array_merge($metadata, ['type' => 'order_payment'])
+            );
+
+            return true;
+        }
+
+        $this->handleOrderPaymentSession(
+            $this->mergeStripeMetadata($stripeObject, ['type' => 'order_payment'])
+        );
+
+        return true;
     }
 
     /**

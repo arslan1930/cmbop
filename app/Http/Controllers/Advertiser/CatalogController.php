@@ -2312,15 +2312,31 @@ class CatalogController extends Controller
             ];
         }
 
-        $paymentService->storePendingCheckout($referenceCode, [
-            'user_id' => (int) $userId,
-            'reference_code' => (string) $referenceCode,
-            'order_total' => $totalAmount,
-            'amount_due' => $amountDue,
-            'bonus_applied' => $bonusApplied,
-            'schedule' => $schedule,
-            'lines' => $packageLines,
-        ]);
+        try {
+            $paymentService->storePendingCheckout($referenceCode, [
+                'user_id' => (int) $userId,
+                'reference_code' => (string) $referenceCode,
+                'order_total' => $totalAmount,
+                'amount_due' => $amountDue,
+                'bonus_applied' => $bonusApplied,
+                'schedule' => $schedule,
+                'lines' => $packageLines,
+            ]);
+        } catch (\Throwable $e) {
+            if ($bonusApplied > 0) {
+                $this->refundCheckoutBonus((int) $userId, (string) $referenceCode);
+            }
+
+            Log::error('Stripe-first checkout package store failed: '.$e->getMessage(), [
+                'reference_code' => $referenceCode,
+                'user_id' => $userId,
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => UserFacingError::message($e, 'We could not start card checkout. Please try again.'),
+            ]);
+        }
 
         if ($bonusApplied > 0) {
             $this->rememberCheckoutBonus((int) $userId, (string) $referenceCode, $bonusApplied);

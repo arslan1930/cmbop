@@ -2,12 +2,14 @@
 
 namespace Tests\Feature;
 
+use App\Models\CheckoutIntent;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Role;
 use App\Models\Site;
 use App\Models\User;
 use App\Models\Wallet;
+use App\Services\CheckoutIntentService;
 use App\Services\OrderPaymentService;
 use Database\Seeders\RolesTableSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -1024,6 +1026,136 @@ class StripeFirstCheckoutInvariantsTest extends TestCase
         $package = app(OrderPaymentService::class)->getPendingCheckout($ref);
         $this->assertNotNull($package);
         $this->assertSame($owner->id, (int) ($package['user_id'] ?? 0));
+    }
+
+    public function test_expired_foreign_intent_does_not_block_later_payer_store(): void
+    {
+        $owner = $this->makeUser('advertiser');
+        $payer = $this->makeUser('advertiser');
+        $publisher = $this->makeUser('publisher');
+        $site = $this->makeSite($publisher, 'expired-intent.example', 80);
+        $ref = '777777';
+        $payments = app(OrderPaymentService::class);
+
+        $payments->storePendingCheckout($ref, $this->package($owner, [$this->lineFor($site, 80)], 80));
+        CheckoutIntent::query()->where('reference_code', $ref)->update([
+            'expires_at' => now()->subHour(),
+        ]);
+        Cache::forget(OrderPaymentService::pendingCheckoutCacheKey($ref));
+
+        $payments->storePendingCheckout($ref, $this->package($payer, [$this->lineFor($site, 80)], 80));
+
+        $stored = $payments->getPendingCheckout($ref);
+        $this->assertNotNull($stored);
+        $this->assertSame($payer->id, (int) ($stored['user_id'] ?? 0));
+    }
+
+    public function test_take_bonus_does_not_clear_another_users_intent(): void
+    {
+        $owner = $this->makeUser('advertiser');
+        $other = $this->makeUser('advertiser');
+        $ref = '888888';
+        $intents = app(CheckoutIntentService::class);
+        $intents->storePackage($ref, $this->package($owner, [], 20, 20));
+
+        $this->assertSame(0.0, $intents->takeBonus($other->id, $ref));
+        $this->assertEqualsWithDelta(
+            20.0,
+            (float) CheckoutIntent::query()->where('reference_code', $ref)->value('bonus_applied'),
+            0.01
+        );
+
+        $this->assertEqualsWithDelta(20.0, $intents->takeBonus($owner->id, $ref), 0.01);
+        $this->assertEqualsWithDelta(
+            0.0,
+            (float) CheckoutIntent::query()->where('reference_code', $ref)->value('bonus_applied'),
+            0.01
+        );
+    }
+
+    public function test_untyped_paid_session_with_package_materializes_orders(): void
+    {
+        $advertiser = $this->makeUser('advertiser');
+        $publisher = $this->makeUser('publisher');
+        $site = $this->makeSite($publisher, 'untyped-pkg.example', 80);
+        $ref = 'UNTYPED-PKG-1';
+
+        app(OrderPaymentService::class)->storePendingCheckout(
+            $ref,
+            $this->package($advertiser, [$this->lineFor($site, 80)], 80)
+        );
+
+        $this->signedWebhook([
+            'id' => 'evt_untyped_pkg_'.uniqid(),
+            'object' => 'event',
+            'type' => 'checkout.session.completed',
+            'data' => [
+                'object' => [
+                    'id' => 'cs_untyped_pkg',
+                    'object' => 'checkout.session',
+                    'payment_status' => 'paid',
+                    'amount_total' => 8000,
+                    'payment_intent' => 'pi_untyped_pkg',
+                    'metadata' => [
+                        'reference_code' => $ref,
+                        'user_id' => (string) $advertiser->id,
+                        'expected_amount' => '80',
+                    ],
+                ],
+            ],
+        ])->assertOk();
+
+        $this->assertSame(1, Order::query()
+            ->where('user_id', $advertiser->id)
+            ->where('reference_code', $ref)
+            ->where('payment_status', 'paid')
+            ->count());
+    }
+
+    public function test_untyped_expiry_with_package_releases_bonus_without_failing_other_users_order(): void
+    {
+        $owner = $this->makeUser('advertiser');
+        $other = $this->makeUser('advertiser');
+        $publisher = $this->makeUser('publisher');
+        $site = $this->makeSite($publisher, 'untyped-expire-pkg.example', 40);
+        $otherSite = $this->makeSite($publisher, 'untyped-expire-other.example', 80);
+        $wallet = $this->advertiserWallet($owner, 20);
+        $wallet->reserveBonusOnly(20);
+        $ref = 'UNTYPED-EXPIRE-PKG';
+
+        app(OrderPaymentService::class)->storePendingCheckout($ref, $this->package(
+            $owner,
+            [$this->lineFor($site, 40)],
+            20,
+            20
+        ));
+        $otherOrder = $this->pendingCardOrder($other, $otherSite, $ref, 80);
+
+        $this->signedWebhook([
+            'id' => 'evt_untyped_expire_pkg_'.uniqid(),
+            'object' => 'event',
+            'type' => 'checkout.session.expired',
+            'data' => [
+                'object' => [
+                    'id' => 'cs_untyped_expire_pkg',
+                    'object' => 'checkout.session',
+                    'payment_status' => 'unpaid',
+                    'metadata' => [
+                        'reference_code' => $ref,
+                        'user_id' => (string) $owner->id,
+                        'bonus_applied' => '20',
+                    ],
+                ],
+            ],
+        ])->assertOk();
+
+        $this->assertNull(app(OrderPaymentService::class)->getPendingCheckout($ref));
+        $this->assertSame('pending', $otherOrder->fresh()->payment_status);
+
+        $wallet->refresh();
+        $this->assertEqualsWithDelta(20.0, (float) $wallet->bonus_balance, 0.01);
+        $this->assertEqualsWithDelta(0.0, (float) $wallet->bonus_reserved, 0.01);
+        $this->assertEqualsWithDelta(0.0, (float) $wallet->reserved_balance, 0.01);
     }
 
     private function pendingCardOrder(User $advertiser, Site $site, string $ref, float $amount): Order
