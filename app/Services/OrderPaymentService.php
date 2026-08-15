@@ -90,7 +90,7 @@ class OrderPaymentService
             (float) ($sessionMeta['order_total'] ?? 0)
         );
         $this->evaluateSpendBudgetAfterPaidOrders($newlyPaid);
-        $this->creditHiddenCardOrdersAfterMarkPaid($referenceCode, $sessionMeta);
+        $this->creditHiddenCardOrdersAfterMarkPaid($referenceCode, $sessionMeta, $session);
 
         return $newlyPaid;
     }
@@ -153,7 +153,7 @@ class OrderPaymentService
             (float) ($meta['order_total'] ?? 0)
         );
         $this->evaluateSpendBudgetAfterPaidOrders($newlyPaid);
-        $this->creditHiddenCardOrdersAfterMarkPaid($referenceCode, $meta);
+        $this->creditHiddenCardOrdersAfterMarkPaid($referenceCode, $meta, $intent);
 
         return $newlyPaid;
     }
@@ -339,16 +339,21 @@ class OrderPaymentService
         );
     }
 
-    public static function unfulfilledCardCreditReference(string $referenceCode): string
+    public static function unfulfilledCardCreditReference(string $referenceCode, string $chargeToken = ''): string
     {
-        return 'UNFULFILLED-CARD-'.$referenceCode;
+        $base = 'UNFULFILLED-CARD-'.$referenceCode;
+        if ($chargeToken === '') {
+            return $base;
+        }
+
+        return $base.'-'.substr($chargeToken, 0, 40);
     }
 
     /**
-     * Credit captured card cash when Stripe-first lines left the catalog.
-     * Idempotent per checkout reference.
+     * Credit captured card cash when Stripe-first lines cannot be fulfilled.
+     * Idempotent per checkout reference, or per Stripe charge when $chargeToken is set.
      */
-    public function creditUnfulfilledCardCapture(int $userId, string $referenceCode, float $amount): float
+    public function creditUnfulfilledCardCapture(int $userId, string $referenceCode, float $amount, string $chargeToken = ''): float
     {
         $amount = round($amount, 2);
         if ($userId <= 0 || $amount <= 0) {
@@ -360,9 +365,9 @@ class OrderPaymentService
             return 0.0;
         }
 
-        $reference = self::unfulfilledCardCreditReference($referenceCode);
+        $reference = self::unfulfilledCardCreditReference($referenceCode, $chargeToken);
 
-        return (float) DB::transaction(function () use ($userId, $roleId, $amount, $reference, $referenceCode) {
+        return (float) DB::transaction(function () use ($userId, $roleId, $amount, $reference, $referenceCode, $chargeToken) {
             $wallet = Wallet::lockOrCreateForRole($userId, $roleId);
             if (Schema::hasTable((new WalletTransaction)->getTable())
                 && WalletTransaction::query()
@@ -379,8 +384,11 @@ class OrderPaymentService
                 'credit',
                 null,
                 $reference,
-                'Card payment credited because listing(s) left the catalog',
-                ['reference_code' => $referenceCode]
+                'Card payment credited because listing(s) could not be fulfilled',
+                array_filter([
+                    'reference_code' => $referenceCode,
+                    'charge_token' => $chargeToken !== '' ? $chargeToken : null,
+                ])
             );
 
             Log::info('Credited unfulfilled Stripe-first card capture to advertiser wallet', [
@@ -399,7 +407,7 @@ class OrderPaymentService
      *
      * @param  array<string, mixed>  $meta
      */
-    private function creditHiddenCardOrdersAfterMarkPaid(string $referenceCode, array $meta): void
+    private function creditHiddenCardOrdersAfterMarkPaid(string $referenceCode, array $meta, ?object $session = null): void
     {
         $orders = Order::with('items.site')
             ->where('reference_code', $referenceCode)
@@ -432,7 +440,12 @@ class OrderPaymentService
         $expected = $this->expectedStripeEurosForOrders($orders, $meta);
         $unfulfilled = round(max(0, $expected - $paidTotal), 2);
         if ($userId > 0 && $unfulfilled > 0.009) {
-            $this->creditUnfulfilledCardCapture($userId, $referenceCode, $unfulfilled);
+            $this->creditUnfulfilledCardCapture(
+                $userId,
+                $referenceCode,
+                $unfulfilled,
+                $session ? $this->stripeChargeToken($session) : ''
+            );
         }
 
         foreach ($hiddenPending as $order) {
@@ -455,9 +468,13 @@ class OrderPaymentService
             return 0.0;
         }
 
+        $base = self::unfulfilledCardCreditReference($referenceCode);
         $query = WalletTransaction::query()
-            ->where('reference', self::unfulfilledCardCreditReference($referenceCode))
-            ->where('direction', 'credit');
+            ->where('direction', 'credit')
+            ->where(function ($credit) use ($base) {
+                $credit->where('reference', $base)
+                    ->orWhere('reference', 'like', $base.'-%');
+            });
 
         if ($userId && $userId > 0) {
             $roleId = Wallet::advertiserRoleId();
@@ -470,9 +487,52 @@ class OrderPaymentService
             $query->where('wallet_id', $walletId);
         }
 
-        $row = $query->first();
+        return round((float) $query->sum('amount'), 2);
+    }
 
-        return $row ? round((float) $row->amount, 2) : 0.0;
+    /**
+     * Credit this Stripe capture when it cannot create or mark orders.
+     * Idempotent per session / PaymentIntent so a second charge on the same REF is not lost.
+     */
+    public function creditCapturedCardWhenUnfulfillable(int $userId, string $referenceCode, object $session): float
+    {
+        $amount = $this->stripeEurosFromObject($session);
+
+        return $this->creditUnfulfilledCardCapture(
+            $userId,
+            $referenceCode,
+            $amount,
+            $this->stripeChargeToken($session)
+        );
+    }
+
+    /**
+     * Paid card orders created or marked paid by this Stripe session / PaymentIntent.
+     *
+     * @return Collection<int, Order>
+     */
+    public function paidCardOrdersForStripeCharge(string $referenceCode, object $session, int $payerId = 0): Collection
+    {
+        [$sessionId, $paymentIntentId] = $this->stripeChargeIds($session);
+        if ($sessionId === '' && $paymentIntentId === '') {
+            return collect();
+        }
+
+        return Order::query()
+            ->with('items')
+            ->where('reference_code', $referenceCode)
+            ->where('payment_method', 'card')
+            ->where('payment_status', 'paid')
+            ->when($payerId > 0, fn ($query) => $query->where('user_id', $payerId))
+            ->where(function ($query) use ($sessionId, $paymentIntentId) {
+                if ($sessionId !== '') {
+                    $query->orWhere('stripe_session_id', $sessionId);
+                }
+                if ($paymentIntentId !== '') {
+                    $query->orWhere('stripe_payment_intent_id', $paymentIntentId);
+                }
+            })
+            ->get();
     }
 
     /**
@@ -507,25 +567,7 @@ class OrderPaymentService
      */
     public function paidCardOrderCountForStripeCharge(string $referenceCode, object $session, int $payerId = 0): int
     {
-        [$sessionId, $paymentIntentId] = $this->stripeChargeIds($session);
-        if ($sessionId === '' && $paymentIntentId === '') {
-            return 0;
-        }
-
-        return (int) Order::query()
-            ->where('reference_code', $referenceCode)
-            ->where('payment_method', 'card')
-            ->where('payment_status', 'paid')
-            ->when($payerId > 0, fn ($query) => $query->where('user_id', $payerId))
-            ->where(function ($query) use ($sessionId, $paymentIntentId) {
-                if ($sessionId !== '') {
-                    $query->orWhere('stripe_session_id', $sessionId);
-                }
-                if ($paymentIntentId !== '') {
-                    $query->orWhere('stripe_payment_intent_id', $paymentIntentId);
-                }
-            })
-            ->count();
+        return $this->paidCardOrdersForStripeCharge($referenceCode, $session, $payerId)->count();
     }
 
     /**
@@ -545,6 +587,13 @@ class OrderPaymentService
         }
 
         return [$id, (string) $paymentIntent];
+    }
+
+    private function stripeChargeToken(object $session): string
+    {
+        [$sessionId, $paymentIntentId] = $this->stripeChargeIds($session);
+
+        return $sessionId !== '' ? $sessionId : $paymentIntentId;
     }
 
     /**
@@ -624,6 +673,10 @@ class OrderPaymentService
                 'session_id' => $session->id ?? null,
             ]);
 
+            if ($payerId > 0) {
+                $this->creditCapturedCardWhenUnfulfillable($payerId, $referenceCode, $session);
+            }
+
             return collect();
         }
 
@@ -636,18 +689,29 @@ class OrderPaymentService
                 'metadata_user_id' => $metaUserId,
             ]);
 
-            $charged = $this->stripeEurosFromObject($session);
-            if ($charged > 0) {
-                $this->creditUnfulfilledCardCapture($metaUserId, $referenceCode, $charged);
-            }
+            $this->creditCapturedCardWhenUnfulfillable($metaUserId, $referenceCode, $session);
 
             return collect();
         }
 
         $expected = round((float) ($package['amount_due'] ?? $package['order_total'] ?? 0), 2);
-        if (isset($meta['expected_amount'])) {
-            $expected = round((float) $meta['expected_amount'], 2);
+        $charged = $this->stripeEurosFromObject($session);
+        if ($expected > 0 && $charged > 0 && abs($charged - $expected) > 0.009) {
+            Log::warning('Stripe card charge does not match the current checkout package; crediting this capture and leaving the package', [
+                'reference_code' => $referenceCode,
+                'session_id' => $session->id ?? null,
+                'charged' => $charged,
+                'package_amount' => $expected,
+            ]);
+
+            $creditUserId = $metaUserId > 0 ? $metaUserId : $packageUserId;
+            if ($creditUserId > 0) {
+                $this->creditCapturedCardWhenUnfulfillable($creditUserId, $referenceCode, $session);
+            }
+
+            return collect();
         }
+
         $this->assertStripeAmountMatchesExpected($session, $expected, $referenceCode);
 
         $schema = app(CheckoutSchemaService::class);
@@ -839,7 +903,12 @@ class OrderPaymentService
                     round((float) ($package['bonus_applied'] ?? 0), 2)
                 );
                 $unfulfilled = round(max(0, $expected - $refundedInFinalize), 2);
-                $this->creditUnfulfilledCardCapture($userId, $referenceCode, $unfulfilled);
+                $this->creditUnfulfilledCardCapture(
+                    $userId,
+                    $referenceCode,
+                    $unfulfilled,
+                    $this->stripeChargeToken($session)
+                );
             }
             $this->forgetPendingCheckout($referenceCode, $userId > 0 ? $userId : null);
             Log::warning('Stripe-first checkout paid but no catalog-visible lines to materialize', [
@@ -855,7 +924,12 @@ class OrderPaymentService
         $fulfilled = round((float) $created->sum(fn (Order $order) => (float) $order->total_amount), 2);
         $unfulfilled = round(max(0, $expected - $fulfilled - $refundedInFinalize), 2);
         if ($userId > 0 && $unfulfilled > 0.009) {
-            $this->creditUnfulfilledCardCapture($userId, $referenceCode, $unfulfilled);
+            $this->creditUnfulfilledCardCapture(
+                $userId,
+                $referenceCode,
+                $unfulfilled,
+                $this->stripeChargeToken($session)
+            );
         }
 
         $this->forgetPendingCheckout($referenceCode, $userId > 0 ? $userId : null);

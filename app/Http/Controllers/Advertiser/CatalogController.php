@@ -2502,17 +2502,22 @@ class CatalogController extends Controller
 
                 $created = $paymentService->finalizeStripeFirstCheckout($referenceCode, $intent);
                 if ($created->isEmpty()) {
-                    $created = Order::query()
-                        ->where('reference_code', $referenceCode)
-                        ->where('payment_method', 'card')
-                        ->where('user_id', $userId)
-                        ->where('payment_status', 'paid')
-                        ->where('status', '!=', 'cancelled')
-                        ->get();
+                    $created = $paymentService->paidCardOrdersForStripeCharge(
+                        $referenceCode,
+                        $intent,
+                        (int) $userId
+                    );
                 }
 
                 if ($created->isEmpty()) {
-                    $credited = $paymentService->walletCreditForUnfulfillableCardCheckout($referenceCode, (int) $userId);
+                    $credited = $paymentService->creditCapturedCardWhenUnfulfillable(
+                        (int) $userId,
+                        $referenceCode,
+                        $intent
+                    );
+                    if ($credited <= 0) {
+                        $credited = $paymentService->walletCreditForUnfulfillableCardCheckout($referenceCode, (int) $userId);
+                    }
                     if ($credited > 0) {
                         return response()->json([
                             'success' => true,
@@ -2912,6 +2917,7 @@ class CatalogController extends Controller
             Stripe::setApiKey(config('services.stripe.secret'));
             $paymentService = app(OrderPaymentService::class);
             $newlyPaid = collect();
+            $stripeObject = null;
 
             // Saved-card / PaymentIntent return (3DS) path
             if ($paymentIntentId && $paymentIntentId !== '{PAYMENT_INTENT_ID}') {
@@ -2957,6 +2963,7 @@ class CatalogController extends Controller
                         ->with('error', 'Card payment was not completed.');
                 }
 
+                $stripeObject = $intent;
                 $newlyPaid = $paymentService->finalizeStripeFirstCheckout($referenceCode, $intent);
             } else {
                 if (! $sessionId || $sessionId === '{CHECKOUT_SESSION_ID}') {
@@ -3012,17 +3019,35 @@ class CatalogController extends Controller
                         ->with('error', 'This payment is not an order checkout.');
                 }
 
+                $stripeObject = $stripeSession;
                 $newlyPaid = $paymentService->finalizeStripeFirstCheckout($referenceCode, $stripeSession);
             }
 
-            $orders = Order::with('items')
-                ->where('reference_code', $referenceCode)
-                ->where('payment_method', 'card')
-                ->where('user_id', auth()->id())
-                ->get();
+            $paidOrders = $newlyPaid->isNotEmpty()
+                ? $newlyPaid
+                : ($stripeObject
+                    ? $paymentService->paidCardOrdersForStripeCharge(
+                        $referenceCode,
+                        $stripeObject,
+                        (int) auth()->id()
+                    )
+                    : collect());
 
-            if ($orders->isEmpty()) {
-                $credited = $paymentService->walletCreditForUnfulfillableCardCheckout($referenceCode, (int) auth()->id());
+            if ($paidOrders->isEmpty()) {
+                $credited = 0.0;
+                if ($stripeObject) {
+                    $credited = $paymentService->creditCapturedCardWhenUnfulfillable(
+                        (int) auth()->id(),
+                        $referenceCode,
+                        $stripeObject
+                    );
+                }
+                if ($credited <= 0) {
+                    $credited = $paymentService->walletCreditForUnfulfillableCardCheckout(
+                        $referenceCode,
+                        (int) auth()->id()
+                    );
+                }
                 if ($credited > 0) {
                     return redirect()->route('advertiser.checkout')
                         ->with(
@@ -3041,23 +3066,6 @@ class CatalogController extends Controller
 
                 return redirect()->route('advertiser.checkout')
                     ->with('error', 'Order not found. Please contact support with your payment reference.');
-            }
-
-            $paidOrders = $orders->filter(fn (Order $order) => $order->payment_status === 'paid');
-            if ($paidOrders->isEmpty()) {
-                $credited = $paymentService->walletCreditForUnfulfillableCardCheckout($referenceCode, (int) auth()->id());
-                if ($credited > 0) {
-                    return redirect()->route('advertiser.checkout')
-                        ->with(
-                            'success',
-                            'Payment received. The listing(s) were no longer available, so €'
-                            .number_format($credited, 2)
-                            .' was credited to your advertiser wallet.'
-                        );
-                }
-
-                return redirect()->route('advertiser.checkout')
-                    ->with('error', 'Payment was received but the listing(s) are no longer available. Contact support with your payment reference.');
             }
 
             if ($newlyPaid->isNotEmpty()) {

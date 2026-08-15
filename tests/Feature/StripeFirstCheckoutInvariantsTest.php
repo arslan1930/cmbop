@@ -113,18 +113,23 @@ class StripeFirstCheckoutInvariantsTest extends TestCase
         ];
     }
 
-    private function paidSession(string $ref, float $euros, string $sessionId = 'cs_test_finalize'): object
+    private function paidSession(string $ref, float $euros, string $sessionId = 'cs_test_finalize', ?int $userId = null): object
     {
+        $metadata = [
+            'type' => 'order_payment',
+            'reference_code' => $ref,
+            'expected_amount' => (string) $euros,
+        ];
+        if ($userId !== null) {
+            $metadata['user_id'] = (string) $userId;
+        }
+
         return (object) [
             'id' => $sessionId,
             'object' => 'checkout.session',
             'amount_total' => (int) round($euros * 100),
             'payment_intent' => 'pi_'.substr($sessionId, -8),
-            'metadata' => (object) [
-                'type' => 'order_payment',
-                'reference_code' => $ref,
-                'expected_amount' => (string) $euros,
-            ],
+            'metadata' => (object) $metadata,
         ];
     }
 
@@ -947,9 +952,10 @@ class StripeFirstCheckoutInvariantsTest extends TestCase
                     ],
                 ],
             ],
-        ])->assertStatus(500);
+        ])->assertOk();
 
-        $this->assertEqualsWithDelta(0.0, $payments->walletCreditForUnfulfillableCardCheckout($ref, $payer->id), 0.01);
+        $this->assertEqualsWithDelta(80.0, $payments->walletCreditForUnfulfillableCardCheckout($ref, $payer->id), 0.01);
+        $this->assertEqualsWithDelta(80.0, $payments->walletCreditForUnfulfillableCardCheckout($ref, $other->id), 0.01);
         $this->assertSame(0, Order::query()->where('user_id', $payer->id)->count());
     }
 
@@ -1033,6 +1039,106 @@ class StripeFirstCheckoutInvariantsTest extends TestCase
             ->count());
         $this->assertSame(1, Order::query()->where('stripe_session_id', 'cs_reuse_second')->count());
         $this->assertEqualsWithDelta(0.0, $payments->unfulfilledCardCreditAmount($ref, $advertiser->id), 0.01);
+    }
+
+    public function test_orphan_second_session_after_package_cleared_credits_wallet(): void
+    {
+        $advertiser = $this->makeUser('advertiser');
+        $publisher = $this->makeUser('publisher');
+        $site = $this->makeSite($publisher, 'orphan-second.example', 80);
+        $wallet = $this->advertiserWallet($advertiser, 0);
+        $ref = 'ORPHAN-SECOND-1';
+        $payments = app(OrderPaymentService::class);
+
+        $payments->storePendingCheckout($ref, $this->package($advertiser, [$this->lineFor($site, 80)], 80));
+        $first = $payments->finalizeStripeFirstCheckout(
+            $ref,
+            $this->paidSession($ref, 80, 'cs_orphan_first', $advertiser->id)
+        );
+        $this->assertCount(1, $first);
+        $this->assertNull($payments->getPendingCheckout($ref));
+
+        $this->signedWebhook([
+            'id' => 'evt_orphan_second_'.uniqid(),
+            'object' => 'event',
+            'type' => 'checkout.session.completed',
+            'data' => [
+                'object' => [
+                    'id' => 'cs_orphan_second',
+                    'object' => 'checkout.session',
+                    'payment_status' => 'paid',
+                    'amount_total' => 8000,
+                    'payment_intent' => 'pi_orphan_second',
+                    'metadata' => [
+                        'type' => 'order_payment',
+                        'reference_code' => $ref,
+                        'user_id' => (string) $advertiser->id,
+                        'expected_amount' => '80',
+                    ],
+                ],
+            ],
+        ])->assertOk();
+
+        $this->assertSame(1, Order::query()
+            ->where('user_id', $advertiser->id)
+            ->where('reference_code', $ref)
+            ->where('payment_status', 'paid')
+            ->count());
+        $this->assertSame(0, Order::query()->where('stripe_session_id', 'cs_orphan_second')->count());
+        $wallet->refresh();
+        $this->assertEqualsWithDelta(80.0, (float) $wallet->balance, 0.01);
+        $this->assertEqualsWithDelta(80.0, $payments->unfulfilledCardCreditAmount($ref, $advertiser->id), 0.01);
+    }
+
+    public function test_stale_session_after_package_overwrite_credits_and_leaves_package(): void
+    {
+        $advertiser = $this->makeUser('advertiser');
+        $publisher = $this->makeUser('publisher');
+        $firstSite = $this->makeSite($publisher, 'stale-overwrite-a.example', 80);
+        $secondSite = $this->makeSite($publisher, 'stale-overwrite-b.example', 40);
+        $wallet = $this->advertiserWallet($advertiser, 0);
+        $ref = 'STALE-OVERWRITE-1';
+        $payments = app(OrderPaymentService::class);
+
+        $payments->storePendingCheckout($ref, $this->package($advertiser, [$this->lineFor($firstSite, 80)], 80));
+        $payments->storePendingCheckout($ref, $this->package($advertiser, [$this->lineFor($secondSite, 40)], 40));
+
+        $this->signedWebhook([
+            'id' => 'evt_stale_overwrite_'.uniqid(),
+            'object' => 'event',
+            'type' => 'checkout.session.completed',
+            'data' => [
+                'object' => [
+                    'id' => 'cs_stale_overwrite',
+                    'object' => 'checkout.session',
+                    'payment_status' => 'paid',
+                    'amount_total' => 8000,
+                    'payment_intent' => 'pi_stale_overwrite',
+                    'metadata' => [
+                        'type' => 'order_payment',
+                        'reference_code' => $ref,
+                        'user_id' => (string) $advertiser->id,
+                        'expected_amount' => '80',
+                    ],
+                ],
+            ],
+        ])->assertOk();
+
+        $this->assertSame(0, Order::query()->where('reference_code', $ref)->count());
+        $this->assertSame(40.0, (float) ($payments->getPendingCheckout($ref)['amount_due'] ?? 0));
+        $wallet->refresh();
+        $this->assertEqualsWithDelta(80.0, (float) $wallet->balance, 0.01);
+
+        $live = $payments->finalizeStripeFirstCheckout(
+            $ref,
+            $this->paidSession($ref, 40, 'cs_live_overwrite', $advertiser->id)
+        );
+        $this->assertCount(1, $live);
+        $this->assertSame($secondSite->id, (int) $live->first()->items()->first()?->site_id);
+        $this->assertNull($payments->getPendingCheckout($ref));
+        $wallet->refresh();
+        $this->assertEqualsWithDelta(80.0, (float) $wallet->balance, 0.01);
+        $this->assertEqualsWithDelta(80.0, $payments->unfulfilledCardCreditAmount($ref, $advertiser->id), 0.01);
     }
 
     public function test_store_package_refuses_to_overwrite_another_users_checkout(): void

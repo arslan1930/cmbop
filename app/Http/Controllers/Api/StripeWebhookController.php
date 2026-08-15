@@ -482,10 +482,15 @@ class StripeWebhookController extends Controller
             $newlyPaid = $paymentService->finalizeStripeFirstCheckout($referenceCode, $session);
 
             if ($newlyPaid->isEmpty()) {
-                $credited = $paymentService->walletCreditForUnfulfillableCardCheckout(
-                    $referenceCode,
-                    $payerId > 0 ? $payerId : null
-                );
+                $credited = $payerId > 0
+                    ? $paymentService->creditCapturedCardWhenUnfulfillable($payerId, $referenceCode, $session)
+                    : 0.0;
+                if ($credited <= 0) {
+                    $credited = $paymentService->walletCreditForUnfulfillableCardCheckout(
+                        $referenceCode,
+                        $payerId > 0 ? $payerId : null
+                    );
+                }
                 if ($credited > 0) {
                     Log::warning('Stripe webhook settled without catalog-visible lines', [
                         'reference_code' => $referenceCode,
@@ -560,10 +565,15 @@ class StripeWebhookController extends Controller
             $newlyPaid = $paymentService->finalizeStripeFirstCheckout($referenceCode, $intent);
 
             if ($newlyPaid->isEmpty()) {
-                $credited = $paymentService->walletCreditForUnfulfillableCardCheckout(
-                    $referenceCode,
-                    $payerId > 0 ? $payerId : null
-                );
+                $credited = $payerId > 0
+                    ? $paymentService->creditCapturedCardWhenUnfulfillable($payerId, $referenceCode, $intent)
+                    : 0.0;
+                if ($credited <= 0) {
+                    $credited = $paymentService->walletCreditForUnfulfillableCardCheckout(
+                        $referenceCode,
+                        $payerId > 0 ? $payerId : null
+                    );
+                }
                 if ($credited > 0) {
                     Log::warning('PaymentIntent webhook settled without catalog-visible lines', [
                         'reference_code' => $referenceCode,
