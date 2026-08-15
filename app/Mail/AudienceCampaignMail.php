@@ -63,7 +63,9 @@ class AudienceCampaignMail extends PlatformMailable
     {
         $result = parent::send($mailer);
 
-        if ($result === null && $this->suppressReason !== 'duplicate') {
+        if ($result !== null || $this->suppressReason === 'duplicate') {
+            $this->markRecipientDelivered();
+        } elseif ($result === null) {
             $this->markRecipientSkipped($this->skipReasonForSuppressedSend());
         }
 
@@ -119,24 +121,51 @@ class AudienceCampaignMail extends PlatformMailable
 
     protected function markRecipientFailed(): void
     {
-        $logId = null;
-        if (filled($this->dedupeKey)) {
-            $logId = EmailLog::query()
-                ->where('dedupe_key', $this->dedupeKey)
-                ->where('status', EmailLog::STATUS_FAILED)
-                ->latest('id')
-                ->value('id');
-        }
-
         $payload = [
             'status' => EmailCampaignRecipient::STATUS_FAILED,
             'skip_reason' => EmailCampaignRecipient::SKIP_ERROR,
         ];
-        if ($logId) {
-            $payload['email_log_id'] = (int) $logId;
+        if ($logId = $this->latestLogIdForStatus(EmailLog::STATUS_FAILED)) {
+            $payload['email_log_id'] = $logId;
         }
 
         $this->syncRecipientRow($payload);
+    }
+
+    protected function markRecipientDelivered(): void
+    {
+        $payload = [
+            'status' => EmailCampaignRecipient::STATUS_DELIVERED,
+            'skip_reason' => null,
+        ];
+        if ($logId = $this->latestLogIdForStatus(EmailLog::STATUS_DELIVERED)) {
+            $payload['email_log_id'] = $logId;
+        }
+
+        $this->syncRecipientRow($payload);
+    }
+
+    protected function latestLogIdForStatus(string $status): ?int
+    {
+        if (! filled($this->dedupeKey)) {
+            return null;
+        }
+
+        try {
+            if (! Schema::hasTable((new EmailLog)->getTable())) {
+                return null;
+            }
+
+            $id = EmailLog::query()
+                ->where('dedupe_key', $this->dedupeKey)
+                ->where('status', $status)
+                ->latest('id')
+                ->value('id');
+
+            return $id ? (int) $id : null;
+        } catch (\Throwable) {
+            return null;
+        }
     }
 
     /**

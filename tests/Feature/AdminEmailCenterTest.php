@@ -42,10 +42,17 @@ class AdminEmailCenterTest extends TestCase
      */
     private function mockQueueRetry(array|string $ids, string $output = 'Pushing failed queue jobs back onto the queue.'): void
     {
+        $ids = is_array($ids) ? $ids : [$ids];
         Artisan::shouldReceive('call')
             ->once()
-            ->with('queue:retry', ['id' => is_array($ids) ? $ids : [$ids]])
-            ->andReturn(0);
+            ->with('queue:retry', ['id' => $ids])
+            ->andReturnUsing(function () use ($ids, $output) {
+                if (str_contains($output, 'Pushing failed queue jobs')) {
+                    DB::table('failed_jobs')->whereIn('uuid', $ids)->delete();
+                }
+
+                return 0;
+            });
         Artisan::shouldReceive('output')->andReturn($output);
     }
 
@@ -1461,6 +1468,75 @@ class AdminEmailCenterTest extends TestCase
         $this->assertSame(EmailLog::STATUS_FAILED, $unlinked->fresh()->status);
         $this->assertSame(EmailCampaignRecipient::STATUS_QUEUED, $row->fresh()->status);
         $this->assertSame(EmailCampaign::STATUS_SENT, $campaign->fresh()->status);
+    }
+
+    public function test_bulk_retry_does_not_mark_logs_when_jobs_remain_failed(): void
+    {
+        $admin = $this->userWithRole('admin');
+        $advertiser = $this->userWithRole('advertiser');
+        $mailUuid = (string) Str::uuid();
+        $campaign = EmailCampaign::create([
+            'name' => 'Stale uuid',
+            'subject' => 'Stale uuid',
+            'body_html' => '<p>Hi</p>',
+            'audience' => 'advertisers',
+            'recipients_count' => 1,
+            'sent_count' => 0,
+            'skipped_count' => 1,
+            'status' => EmailCampaign::STATUS_FAILED,
+            'respect_preferences' => false,
+            'created_by' => $admin->id,
+        ]);
+        $row = EmailCampaignRecipient::create([
+            'email_campaign_id' => $campaign->id,
+            'user_id' => $advertiser->id,
+            'email' => $advertiser->email,
+            'status' => EmailCampaignRecipient::STATUS_FAILED,
+            'skip_reason' => EmailCampaignRecipient::SKIP_ERROR,
+        ]);
+        $log = EmailLog::create([
+            'uuid' => (string) Str::uuid(),
+            'mailable' => AudienceCampaignMail::class,
+            'template_key' => 'audience_campaign',
+            'dedupe_key' => 'audience_campaign:'.$campaign->id.':user:'.$advertiser->id,
+            'to_email' => $advertiser->email,
+            'subject' => 'Stale uuid',
+            'status' => EmailLog::STATUS_FAILED,
+            'error' => 'SMTP down',
+            'attempts' => 1,
+            'meta' => [
+                'source' => 'queue',
+                'failed_job_uuid' => $mailUuid,
+                'campaign_id' => $campaign->id,
+                'user_id' => $advertiser->id,
+            ],
+        ]);
+
+        DB::table('failed_jobs')->insert([
+            'uuid' => $mailUuid,
+            'connection' => 'database',
+            'queue' => 'emails',
+            'payload' => json_encode([
+                'displayName' => AudienceCampaignMail::class,
+                'data' => ['commandName' => 'Illuminate\\Mail\\SendQueuedMailable'],
+            ]),
+            'exception' => 'SMTP failed',
+            'failed_at' => now(),
+        ]);
+
+        Artisan::shouldReceive('call')->once()->andReturn(0);
+        Artisan::shouldReceive('output')->andReturn('Pushing failed queue jobs back onto the queue.');
+
+        $this->actingAs($admin)
+            ->from(route('admin.emails.index'))
+            ->post(route('admin.emails.retry'))
+            ->assertRedirect(route('admin.emails.index'))
+            ->assertSessionHas('success');
+
+        $this->assertTrue(DB::table('failed_jobs')->where('uuid', $mailUuid)->exists());
+        $this->assertSame(EmailLog::STATUS_FAILED, $log->fresh()->status);
+        $this->assertSame(EmailCampaignRecipient::STATUS_FAILED, $row->fresh()->status);
+        $this->assertSame(EmailCampaign::STATUS_FAILED, $campaign->fresh()->status);
     }
 
     public function test_mail_failure_does_not_wipe_known_recipient(): void

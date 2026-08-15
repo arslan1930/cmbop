@@ -293,7 +293,7 @@ class EmailCenterController extends Controller
             return back()->with('error', 'Could not retry mail jobs. Please try again.');
         }
 
-        $this->markRetriedMailLogsPending($uuids);
+        $this->markRetriedMailLogsPending($this->actuallyRetriedJobUuids($uuids));
 
         return back()->with('success', 'Retried '.count($uuids).' failed mail job(s). Other failed jobs were left untouched.');
     }
@@ -374,6 +374,29 @@ class EmailCenterController extends Controller
     }
 
     /**
+     * queue:retry prints "Pushing..." whenever the ID list is non-empty, even
+     * if every UUID is already gone. Only treat jobs that left failed_jobs
+     * as actually requeued.
+     *
+     * @param  list<string>  $uuids
+     * @return list<string>
+     */
+    protected function actuallyRetriedJobUuids(array $uuids): array
+    {
+        if ($uuids === [] || ! Schema::hasTable('failed_jobs')) {
+            return [];
+        }
+
+        $stillFailed = DB::table('failed_jobs')
+            ->whereIn('uuid', $uuids)
+            ->pluck('uuid')
+            ->map(fn ($uuid) => (string) $uuid)
+            ->all();
+
+        return array_values(array_diff($uuids, $stillFailed));
+    }
+
+    /**
      * @param  list<string>  $uuids
      */
     protected function markRetriedMailLogsPending(array $uuids): void
@@ -382,19 +405,15 @@ class EmailCenterController extends Controller
             return;
         }
 
-        $lookup = array_flip($uuids);
-
         EmailLog::query()
             ->where('status', EmailLog::STATUS_FAILED)
-            ->latest('id')
-            ->limit(500)
-            ->get()
-            ->each(function (EmailLog $log) use ($lookup) {
-                $stored = data_get($log->meta, 'failed_job_uuid');
-                if (! is_string($stored) || $stored === '' || ! isset($lookup[$stored])) {
-                    return;
+            ->where(function ($q) use ($uuids) {
+                foreach ($uuids as $uuid) {
+                    $q->orWhere('meta->failed_job_uuid', $uuid);
                 }
-
+            })
+            ->get()
+            ->each(function (EmailLog $log) {
                 $log->update([
                     'status' => EmailLog::STATUS_PENDING,
                     'error' => null,
