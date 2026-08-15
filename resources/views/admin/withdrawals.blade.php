@@ -26,7 +26,7 @@
         <div class="col-6 col-lg">
             <div class="card border-0 shadow-sm h-100">
                 <div class="card-body py-3">
-                    <div class="text-muted small">Pending</div>
+                    <div class="text-muted small">All open · Pending</div>
                     <div class="fs-4 fw-bold text-warning" id="statPending">—</div>
                     <div class="small text-muted" id="statPendingAmount">€—</div>
                 </div>
@@ -35,7 +35,7 @@
         <div class="col-6 col-lg">
             <div class="card border-0 shadow-sm h-100">
                 <div class="card-body py-3">
-                    <div class="text-muted small">Processing</div>
+                    <div class="text-muted small">All open · Processing</div>
                     <div class="fs-4 fw-bold text-info" id="statProcessing">—</div>
                     <div class="small text-muted" id="statProcessingAmount">€—</div>
                 </div>
@@ -44,9 +44,9 @@
         <div class="col-6 col-lg">
             <div class="card border-0 shadow-sm h-100">
                 <div class="card-body py-3">
-                    <div class="text-muted small">Total to pay</div>
+                    <div class="text-muted small">All open to pay</div>
                     <div class="fs-4 fw-bold text-danger" id="statToPay">€—</div>
-                    <div class="small text-muted">Open queue net</div>
+                    <div class="small text-muted">All open net</div>
                 </div>
             </div>
         </div>
@@ -62,7 +62,7 @@
         <div class="col-12 col-lg">
             <div class="card border-0 shadow-sm h-100">
                 <div class="card-body py-3">
-                    <div class="text-muted small mb-1">Open by method</div>
+                    <div class="text-muted small mb-1">All open by method</div>
                     <div id="statByMethod" class="small text-muted">Loading…</div>
                 </div>
             </div>
@@ -74,7 +74,7 @@
         <div class="card-body">
             <div class="row g-3 align-items-end">
                 <div class="col-md-2">
-                    <label class="form-label fw-semibold small text-muted">Queue</label>
+                    <label class="form-label fw-semibold small text-muted" for="queueFilter">Queue</label>
                     <select id="queueFilter" class="form-select form-select-sm">
                         <option value="open" selected>Open (pay these)</option>
                         <option value="history">History</option>
@@ -82,7 +82,7 @@
                     </select>
                 </div>
                 <div class="col-md-2">
-                    <label class="form-label fw-semibold small text-muted">Status</label>
+                    <label class="form-label fw-semibold small text-muted" for="statusFilter">Status</label>
                     <select id="statusFilter" class="form-select form-select-sm">
                         <option value="">Any in queue</option>
                         <option value="pending">Pending</option>
@@ -92,7 +92,7 @@
                     </select>
                 </div>
                 <div class="col-md-2">
-                    <label class="form-label fw-semibold small text-muted">Payment Method</label>
+                    <label class="form-label fw-semibold small text-muted" for="paymentMethodFilter">Payment Method</label>
                     <select id="paymentMethodFilter" class="form-select form-select-sm">
                         <option value="">All Methods</option>
                         <option value="bank">Bank Transfer</option>
@@ -102,10 +102,11 @@
                     </select>
                 </div>
                 <div class="col-md-3">
-                    <label class="form-label fw-semibold small text-muted">Date Range</label>
+                    <label class="form-label fw-semibold small text-muted" for="dateFrom">Date Range</label>
                     <div class="d-flex gap-2">
-                        <input type="date" id="dateFrom" class="form-control form-control-sm">
-                        <input type="date" id="dateTo" class="form-control form-control-sm">
+                        <input type="date" id="dateFrom" class="form-control form-control-sm" aria-label="Requested from date">
+                        <label class="visually-hidden" for="dateTo">Requested to date</label>
+                        <input type="date" id="dateTo" class="form-control form-control-sm" aria-label="Requested to date">
                     </div>
                 </div>
                 <div class="col-md-3">
@@ -127,10 +128,10 @@
                 </div>
             </div>
             <div class="mt-3 d-flex flex-wrap gap-2">
-                <button id="filterBtn" class="btn btn-primary btn-sm px-3">
+                <button type="button" id="filterBtn" class="btn btn-primary btn-sm px-3">
                     <i class="fa fa-search"></i> Filter
                 </button>
-                <button id="resetFiltersBtn" class="btn btn-secondary btn-sm px-3">
+                <button type="button" id="resetFiltersBtn" class="btn btn-secondary btn-sm px-3">
                     <i class="fa fa-undo"></i> Reset
                 </button>
             </div>
@@ -172,7 +173,8 @@
                 <thead class="table-light">
                     <tr>
                         <th class="admin-num-col">
-                            <input type="checkbox" class="form-check-input" id="selectAll" title="Select all on page">
+                            <label class="visually-hidden" for="selectAll">Select all on this page</label>
+                            <input type="checkbox" class="form-check-input" id="selectAll" title="Select all on this page">
                         </th>
                         <th class="admin-num-col">#</th>
                         <th>Publisher</th>
@@ -197,7 +199,8 @@
             </table>
         </div>
 
-        <div class="p-2">
+        <div class="p-2 d-flex flex-wrap justify-content-between align-items-center gap-2">
+            <div id="paginationInfo" class="text-muted small"></div>
             <div id="paginationLinks"></div>
         </div>
     </div>
@@ -243,6 +246,57 @@ const duplicateLookbackDays = {{ max(1, (int) config('billing.withdrawal_mark_pa
 
 const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content
     || '{{ csrf_token() }}';
+
+const WD_DATA = @json(route('admin.withdrawals.data'));
+const WD_STATS = @json(route('admin.withdrawals.statistics'));
+const WD_EXPORT = @json(route('admin.withdrawals.export'));
+const WD_SHOW = @json(route('admin.withdrawals.show', ['id' => '__ID__']));
+const WD_PAID = @json(route('admin.withdrawals.paid', ['id' => '__ID__']));
+const WD_PROCESSING = @json(route('admin.withdrawals.processing', ['id' => '__ID__']));
+const WD_REJECT = @json(route('admin.withdrawals.reject', ['id' => '__ID__']));
+const WD_BATCH = @json(route('admin.withdrawals.batch'));
+const FINANCE_USER = @json(route('admin.finance.user', ['user' => '__ID__']));
+
+function withdrawalUrl(template, id) {
+    return String(template).replace('__ID__', encodeURIComponent(id));
+}
+
+function applySelectIfAllowed(selector, value) {
+    if (!value) return;
+    const $el = $(selector);
+    if ($el.find('option').filter(function () { return this.value === value; }).length) {
+        $el.val(value);
+    }
+}
+
+function applyDateIfValid(selector, value) {
+    if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return;
+    $(selector).val(value);
+}
+
+function resetSelection() {
+    selectedIds.clear();
+    $('.row-select').prop('checked', false);
+    $('#selectAll').prop('checked', false);
+    updateBatchBar();
+}
+
+function syncFiltersToUrl() {
+    const params = new URLSearchParams();
+    const data = filterParams();
+    Object.keys(data).forEach(function (key) {
+        if (key === 'page') return;
+        const value = data[key];
+        if (value == null || String(value).trim() === '') return;
+        if (key === 'queue' && value === 'open') return;
+        params.set(key, value);
+    });
+    const qs = params.toString();
+    const next = qs ? (window.location.pathname + '?' + qs) : window.location.pathname;
+    if (window.location.pathname + window.location.search !== next) {
+        history.replaceState({}, '', next);
+    }
+}
 
 function toast(msg, icon = 'success') {
     showAppToast(msg, icon);
@@ -329,7 +383,7 @@ function filterParams() {
 }
 
 function loadStatistics() {
-    $.getJSON('/admin/withdrawals/statistics', function(response) {
+    $.getJSON(WD_STATS, function(response) {
         if (!response.success) return;
         const s = response.data;
         $('#statPending').text(s.pending);
@@ -355,8 +409,10 @@ function loadWithdrawals(page = 1) {
     const params = filterParams();
     params.page = page;
 
+    syncFiltersToUrl();
+
     $.ajax({
-        url: '/admin/withdrawals/data',
+        url: WD_DATA,
         method: 'GET',
         data: params,
         success: function(response) {
@@ -364,15 +420,20 @@ function loadWithdrawals(page = 1) {
                 renderWithdrawals(response.data);
                 renderAdminPagination(response.pagination, {
                     links: '#paginationLinks',
+                    info: '#paginationInfo',
                     label: 'withdrawals',
                     onNavigate: loadWithdrawals,
                 });
             } else {
                 $('#withdrawalsTable').html('<tr><td colspan="10" class="text-center text-danger py-5">' + escapeHtml(response.message || 'Failed to load') + '</td></tr>');
+                $('#paginationInfo').text('');
+                $('#paginationLinks').empty();
             }
         },
         error: function() {
             $('#withdrawalsTable').html('<tr><td colspan="10" class="text-center text-danger py-5">Error loading withdrawals</td></tr>');
+            $('#paginationInfo').text('');
+            $('#paginationLinks').empty();
         }
     });
 }
@@ -387,7 +448,7 @@ function renderWithdrawals(withdrawals) {
     let html = '';
     withdrawals.forEach(function(w) {
         const actionable = w.status === 'pending' || w.status === 'processing';
-        const checked = selectedIds.has(w.id) ? 'checked' : '';
+        const checked = selectedIds.has(Number(w.id)) ? 'checked' : '';
         const copyEncoded = encodeURIComponent(w.destination_copy_text || '');
         const matchIds = Array.isArray(w.duplicate_match_ids) ? w.duplicate_match_ids : [];
         withdrawalFlags.set(Number(w.id), {
@@ -405,7 +466,9 @@ function renderWithdrawals(withdrawals) {
                 <td class="text-muted small">WD-${w.id}</td>
                 <td>
                     <div class="d-flex flex-column">
-                        <span class="fw-semibold">${escapeHtml(w.user?.name || 'N/A')}</span>
+                        ${w.user?.id
+                            ? `<a href="${escapeHtml(withdrawalUrl(FINANCE_USER, w.user.id))}" class="fw-semibold">${escapeHtml(w.user?.name || 'N/A')}</a>`
+                            : `<span class="fw-semibold">${escapeHtml(w.user?.name || 'N/A')}</span>`}
                         <small class="text-muted">${escapeHtml(w.user?.email || '')}</small>
                     </div>
                 </td>
@@ -458,9 +521,19 @@ function renderWithdrawals(withdrawals) {
 
 function updateBatchBar() {
     const n = selectedIds.size;
+    const pageIds = new Set();
+    $('.row-select').each(function () {
+        pageIds.add(parseInt($(this).val(), 10));
+    });
+    let offPage = 0;
+    selectedIds.forEach(function (id) {
+        if (!pageIds.has(id)) offPage++;
+    });
     if (n > 0) {
         $('#batchBar').removeClass('d-none');
-        $('#batchCount').text(n + ' selected');
+        $('#batchCount').text(offPage > 0
+            ? n + ' selected (including other pages)'
+            : n + ' selected');
     } else {
         $('#batchBar').addClass('d-none');
     }
@@ -520,7 +593,7 @@ $(document).on('click', '.act-processing', async function() {
         ''
     );
     if (notes === null) return;
-    postAction(`/admin/withdrawals/${id}/processing`, { notes })
+    postAction(withdrawalUrl(WD_PROCESSING, id), { notes })
         .done(function(res) {
             toast(res.message || 'Updated');
             selectedIds.delete(id);
@@ -550,7 +623,7 @@ $(document).on('click', '.act-paid', async function() {
         ''
     );
     if (notes === null) return;
-    postAction(`/admin/withdrawals/${id}/paid`, { notes })
+    postAction(withdrawalUrl(WD_PAID, id), { notes })
         .done(function(res) {
             toast(res.message || 'Marked paid');
             selectedIds.delete(id);
@@ -572,7 +645,7 @@ $(document).on('click', '.act-reject', async function() {
         'slb-swal-danger'
     );
     if (notes === null) return;
-    postAction(`/admin/withdrawals/${id}/reject`, { notes })
+    postAction(withdrawalUrl(WD_REJECT, id), { notes })
         .done(function(res) {
             toast(res.message || 'Rejected');
             selectedIds.delete(id);
@@ -654,7 +727,7 @@ async function runBatch(action, title, confirmText, confirmClass, options) {
         payload.confirm_duplicates = 1;
     }
 
-    postAction('/admin/withdrawals/batch', payload).done(function(res) {
+    postAction(WD_BATCH, payload).done(function(res) {
         toast(res.message + (res.payout_run_id ? ' · ' + res.payout_run_id : ''));
         selectedIds.clear();
         refreshAll();
@@ -693,7 +766,8 @@ function buildExportUrl(extra = {}) {
             params.set(k, extra[k]);
         }
     });
-    return '/admin/withdrawals/export?' + params.toString();
+    const qs = params.toString();
+    return WD_EXPORT + (qs ? '?' + qs : '');
 }
 
 $('#exportCsvBtn').on('click', function() {
@@ -708,7 +782,7 @@ $('#batchExportBtn').on('click', function() {
 // Details modal
 $(document).on('click', '.view-details', function() {
     const id = $(this).data('id');
-    $.getJSON(`/admin/withdrawals/${id}`, function(response) {
+    $.getJSON(withdrawalUrl(WD_SHOW, id), function(response) {
         if (!response.success) {
             toast('Failed to load details', 'error');
             return;
@@ -757,7 +831,7 @@ function renderDetails(withdrawal) {
     if (userId) {
         $('#openPublisherLink')
             .removeClass('d-none')
-            .attr('href', `/admin/finance/users/${userId}`);
+            .attr('href', withdrawalUrl(FINANCE_USER, userId));
     } else {
         $('#openPublisherLink').addClass('d-none');
     }
@@ -814,7 +888,10 @@ $('#copyDetailsBtn').on('click', function() {
     if (lastDetailsCopyText) copyText(lastDetailsCopyText);
 });
 
-$('#filterBtn').on('click', () => loadWithdrawals(1));
+$('#filterBtn').on('click', function () {
+    resetSelection();
+    loadWithdrawals(1);
+});
 $('#resetFiltersBtn').on('click', function() {
     $('#queueFilter').val('open');
     $('#statusFilter').val('');
@@ -822,13 +899,14 @@ $('#resetFiltersBtn').on('click', function() {
     $('#dateFrom').val('');
     $('#dateTo').val('');
     $('#searchInput').val('');
-    selectedIds.clear();
     withdrawalFlags.clear();
+    resetSelection();
     loadWithdrawals(1);
 });
 
 $('#queueFilter').on('change', function() {
     if ($(this).val() === 'open') $('#statusFilter').val('');
+    resetSelection();
     loadWithdrawals(1);
 });
 
@@ -838,22 +916,24 @@ document.addEventListener('DOMContentLoaded', function () {
             mode: 'event',
             statusEl: document.getElementById('adminWithdrawalsSearchStatus'),
             clearBtn: document.getElementById('adminWithdrawalsSearchClear'),
-            onSearch: function () { loadWithdrawals(1); },
+            onSearch: function () { resetSelection(); loadWithdrawals(1); },
         });
         return;
     }
     $('#searchInput').on('keypress', function(e) {
-        if (e.which === 13) loadWithdrawals(1);
+        if (e.which === 13) { resetSelection(); loadWithdrawals(1); }
     });
 });
 
 // Deep-link query support (?status=completed&queue=history)
 (function initFromQuery() {
     const q = new URLSearchParams(window.location.search);
-    if (q.get('queue')) $('#queueFilter').val(q.get('queue'));
-    if (q.get('status')) $('#statusFilter').val(q.get('status'));
-    if (q.get('payment_method')) $('#paymentMethodFilter').val(q.get('payment_method'));
+    applySelectIfAllowed('#queueFilter', q.get('queue'));
+    applySelectIfAllowed('#statusFilter', q.get('status'));
+    applySelectIfAllowed('#paymentMethodFilter', q.get('payment_method'));
     if (q.get('search')) $('#searchInput').val(q.get('search'));
+    applyDateIfValid('#dateFrom', q.get('date_from'));
+    applyDateIfValid('#dateTo', q.get('date_to'));
 })();
 
 loadStatistics();
