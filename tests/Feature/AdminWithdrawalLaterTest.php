@@ -1501,6 +1501,14 @@ class AdminWithdrawalLaterTest extends TestCase
 
         $this->assertStringContainsString('Dear Publisher', $html);
         $this->assertStringNotContainsString('Pat Publisher', $html);
+        $this->assertStringContainsString(route('publisher.billing.index', [], false), $html);
+        $this->assertStringContainsString(route('publisher.withdraw', [], false), $html);
+
+        $src = (string) file_get_contents(app_path('Mail/WithdrawalStatusUpdated.php'));
+        $this->assertStringContainsString("publicRoute('publisher.billing.download'", $src);
+        $this->assertStringContainsString("publicRoute('publisher.billing.index')", $src);
+        $this->assertStringContainsString("publicRoute('publisher.withdraw')", $src);
+        $this->assertStringNotContainsString("route('publisher.billing.download'", $src);
     }
 
     public function test_withdrawal_id_prefers_wd_reference_over_stale_meta(): void

@@ -244,6 +244,10 @@ class AdminInvoiceOpsTest extends TestCase
             'invoice_id' => $statement->id,
             'event_type' => 'invoice_resent',
         ]);
+
+        $this->actingAs($admin)
+            ->post(route('admin.invoices.resend', $statement))
+            ->assertRedirect(route('admin.invoices.show', $statement, false));
     }
 
     public function test_resend_payout_without_withdrawal_fails(): void

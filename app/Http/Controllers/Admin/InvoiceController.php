@@ -157,10 +157,10 @@ class InvoiceController extends Controller
         $result = $billing->resendInvoiceEmail($invoice);
 
         if (! $result['ok']) {
-            return back()->with('error', $result['message']);
+            return $this->redirectToInvoiceShow($invoice)->with('error', $result['message']);
         }
 
-        return back()->with('success', $result['message']);
+        return $this->redirectToInvoiceShow($invoice)->with('success', $result['message']);
     }
 
     public function cancel(Request $request, Invoice $invoice, BillingDocumentService $billing)
@@ -170,12 +170,12 @@ class InvoiceController extends Controller
         ]);
 
         if ($invoice->type !== Invoice::TYPE_TAX_INVOICE) {
-            return back()->with('error', 'Only tax invoices can be cancelled.');
+            return $this->redirectToInvoiceShow($invoice)->with('error', 'Only tax invoices can be cancelled.');
         }
 
         $billing->cancelInvoice($invoice, auth()->user(), $data['reason'] ?? null);
 
-        return back()->with('success', 'Invoice cancelled. The PDF is retained for audit.');
+        return $this->redirectToInvoiceShow($invoice)->with('success', 'Invoice cancelled. The PDF is retained for audit.');
     }
 
     public function generate(Request $request, BillingDocumentService $billing)
@@ -251,10 +251,19 @@ class InvoiceController extends Controller
         try {
             $billing->regeneratePdf($invoice);
         } catch (\Throwable $e) {
-            return back()->with('error', UserFacingError::message($e, 'Could not regenerate the PDF.'));
+            return $this->redirectToInvoiceShow($invoice)->with('error', UserFacingError::message($e, 'Could not regenerate the PDF.'));
         }
 
-        return back()->with('success', 'PDF regenerated for '.$invoice->invoice_number);
+        return $this->redirectToInvoiceShow($invoice)->with('success', 'PDF regenerated for '.$invoice->invoice_number);
+    }
+
+    /**
+     * Stay on this host after a show-page POST. back() uses Referer or APP_URL
+     * and can drop the admin session after a same-host payout-queue open.
+     */
+    private function redirectToInvoiceShow(Invoice $invoice)
+    {
+        return redirect()->to(route('admin.invoices.show', $invoice, false));
     }
 
     private function parseDate(mixed $value): ?Carbon

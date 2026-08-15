@@ -512,8 +512,14 @@ class BillingPhases46Test extends TestCase
             $built = $mail->build();
             $data = $built->viewData;
 
+            $statementPath = route('publisher.billing.download', $statement, false);
+            $documentsPath = route('publisher.billing.index', [], false);
+
             return ($data['hasStatement'] ?? false) === true
-                && ($data['statementUrl'] ?? null) === route('publisher.billing.download', $statement)
+                && is_string($data['statementUrl'] ?? null)
+                && parse_url($data['statementUrl'], PHP_URL_PATH) === $statementPath
+                && is_string($data['documentsUrl'] ?? null)
+                && parse_url($data['documentsUrl'], PHP_URL_PATH) === $documentsPath
                 && (float) $data['withdrawal']->net_amount === 50.0;
         });
 

@@ -41,7 +41,7 @@ class WithdrawalStatusUpdated extends PlatformMailable
                     ->find($this->withdrawal);
                 if ($statement) {
                     $hasStatement = true;
-                    $statementUrl = route('publisher.billing.download', $statement);
+                    $statementUrl = $this->publicRoute('publisher.billing.download', $statement);
                 }
             } catch (\Throwable) {
                 $hasStatement = false;
@@ -58,6 +58,8 @@ class WithdrawalStatusUpdated extends PlatformMailable
                 'notes' => $this->notes,
                 'statementUrl' => $statementUrl,
                 'hasStatement' => $hasStatement,
+                'documentsUrl' => $this->publicRoute('publisher.billing.index'),
+                'withdrawUrl' => $this->publicRoute('publisher.withdraw'),
             ]);
     }
 }
