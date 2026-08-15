@@ -122,6 +122,21 @@ class BulkSiteRequestController extends Controller
         }
 
         $bulk = DB::transaction(function () use ($request, $parsedRows) {
+            // Serialize per publisher so two concurrent submits cannot each pass
+            // the pre-transaction blocking check and open duplicate batches (or
+            // duplicate pending rows for the same domain on different bulk ids).
+            $publisherId = (int) auth()->id();
+            User::query()->whereKey($publisherId)->lockForUpdate()->first();
+
+            if (BulkSiteRequest::query()
+                ->where('publisher_id', $publisherId)
+                ->blockingPublisher()
+                ->exists()) {
+                throw ValidationException::withMessages([
+                    'sites' => ['You already have an open bulk request. Wait for our team to finish it, or message support.'],
+                ]);
+            }
+
             foreach ($parsedRows as $row) {
                 $occupied = Site::findOccupyingDomain($row['domain'], lock: true);
                 if ($occupied) {

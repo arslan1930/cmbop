@@ -3300,11 +3300,16 @@ class SiteController extends Controller
             return false;
         }
 
+        $normalized = Site::normalizeMarketplaceDomain((string) $domain);
+        if ($normalized === '') {
+            return false;
+        }
+
         return BulkSiteRequestItem::query()
             ->where('bulk_site_request_id', $bulkRequestId)
-            ->where('domain', $domain)
             ->whereNull('site_id')
-            ->exists();
+            ->get(['domain'])
+            ->contains(fn (BulkSiteRequestItem $item) => Site::normalizeMarketplaceDomain((string) $item->domain) === $normalized);
     }
 
     private function pendingBulkDomainConflictMessage(Site $site, string $newDomain): ?string

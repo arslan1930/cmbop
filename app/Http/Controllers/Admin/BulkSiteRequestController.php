@@ -989,7 +989,7 @@ class BulkSiteRequestController extends Controller
             $still = $bulkRequest->fresh();
             if ($still && ! $still->isCancelled()
                 && $still->pendingItemsCount() === 0
-                && $still->sites()->doesntExist()
+                && $still->sites()->notArchived()->doesntExist()
                 && in_array($still->status, [
                     BulkSiteRequest::STATUS_REQUESTED,
                     BulkSiteRequest::STATUS_SHEET_SENT,

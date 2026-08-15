@@ -153,7 +153,8 @@ class BulkSiteRequest extends Model
         // Brand-new requested batches stay put. Sheet-sent with no leftover
         // URL+price rows stays sheet-sent (legacy). Sheet-sent + pending rows
         // and no drafts must become "Waiting on marketer" so heal/index match.
-        if ($this->status === self::STATUS_REQUESTED && $total === 0) {
+        // Publisher-submitted URL+price rows with no drafts yet stay requested.
+        if ($this->status === self::STATUS_REQUESTED && $total === 0 && $pendingItems > 0) {
             return;
         }
         if ($this->status === self::STATUS_SHEET_SENT && $total === 0 && $pendingItems === 0) {
