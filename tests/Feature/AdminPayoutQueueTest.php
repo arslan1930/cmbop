@@ -69,7 +69,7 @@ class AdminPayoutQueueTest extends TestCase
         $this->assertStringContainsString('function escapeHtml', $html);
         $this->assertStringContainsString('Mark paid', $html);
         $this->assertStringContainsString('Open (pay these)', $html);
-        $this->assertStringContainsString('const filters = filterParams();', $html);
+        $this->assertStringContainsString('const filters = viewFilterParams();', $html);
         $this->assertStringContainsString('params.set(key, value);', $html);
         $this->assertStringContainsString('function duplicateWarningHtml', $html);
         $this->assertStringContainsString('confirm_duplicates', $html);

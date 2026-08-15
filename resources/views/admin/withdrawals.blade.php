@@ -256,6 +256,7 @@ let currentPage = 1;
 let selectedIds = new Set();
 let lastDetailsCopyText = '';
 let statsScope = 'all';
+let appliedFilters = {};
 const withdrawalFlags = new Map();
 const duplicateLookbackDays = {{ max(1, (int) config('billing.withdrawal_mark_paid_duplicate_lookback_days', 30)) }};
 
@@ -297,9 +298,17 @@ function resetSelection() {
     updateBatchBar();
 }
 
+function snapshotFilters() {
+    appliedFilters = Object.assign({}, filterParams());
+}
+
+function viewFilterParams() {
+    return Object.keys(appliedFilters).length ? Object.assign({}, appliedFilters) : filterParams();
+}
+
 function syncFiltersToUrl() {
     const params = new URLSearchParams();
-    const data = filterParams();
+    const data = viewFilterParams();
     Object.keys(data).forEach(function (key) {
         if (key === 'page') return;
         const value = data[key];
@@ -412,8 +421,9 @@ function applyStatsLabels() {
 }
 
 function isHistoryExport() {
-    const status = $('#statusFilter').val();
-    const queue = $('#queueFilter').val();
+    const applied = viewFilterParams();
+    const status = applied.status || '';
+    const queue = applied.queue || 'open';
     return status === 'completed' || status === 'cancelled' || (!status && queue === 'history');
 }
 
@@ -422,7 +432,7 @@ function updateExportButtonLabel() {
 }
 
 function loadStatistics() {
-    const params = statsScope === 'view' ? Object.assign({ scope: 'view' }, filterParams()) : {};
+    const params = statsScope === 'view' ? Object.assign({ scope: 'view' }, viewFilterParams()) : {};
     delete params.page;
     applyStatsLabels();
     $.getJSON(WD_STATS, params, function(response) {
@@ -448,8 +458,8 @@ function loadStatistics() {
 
 function loadWithdrawals(page = 1) {
     currentPage = page;
-    const params = filterParams();
-    params.page = page;
+    const params = Object.assign({}, viewFilterParams(), { page: page });
+    appliedFilters.page = page;
 
     syncFiltersToUrl();
     updateExportButtonLabel();
@@ -821,7 +831,7 @@ $('#batchRejectBtn').on('click', () => runBatch('cancelled', 'Reject selected & 
 
 function buildExportUrl(extra = {}) {
     const params = new URLSearchParams();
-    const filters = filterParams();
+    const filters = viewFilterParams();
     Object.keys(filters).forEach(function (key) {
         if (key === 'page') return;
         const value = filters[key];
@@ -855,7 +865,7 @@ $('#exportCsvBtn').on('click', async function() {
 });
 
 $('#selectMatchingBtn').on('click', function() {
-    const params = filterParams();
+    const params = viewFilterParams();
     delete params.page;
     $.getJSON(WD_IDS, params, function(res) {
         if (!res.success) {
@@ -1009,6 +1019,8 @@ $('#copyDetailsBtn').on('click', function() {
 });
 
 function reloadFilteredView() {
+    currentPage = 1;
+    snapshotFilters();
     loadStatistics();
     loadWithdrawals(1);
 }
@@ -1061,6 +1073,7 @@ document.addEventListener('DOMContentLoaded', function () {
     applyDateIfValid('#dateTo', q.get('date_to'));
 })();
 
+snapshotFilters();
 loadStatistics();
 loadWithdrawals(1);
 </script>

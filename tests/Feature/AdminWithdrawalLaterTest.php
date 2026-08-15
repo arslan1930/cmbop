@@ -7,6 +7,7 @@ use App\Models\Role;
 use App\Models\User;
 use App\Models\Withdrawal;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use Tests\TestCase;
 
@@ -59,6 +60,8 @@ class AdminWithdrawalLaterTest extends TestCase
         $this->assertStringContainsString('Open page', $html);
         $this->assertStringContainsString('data-status=', $html);
         $this->assertStringContainsString('function reloadFilteredView', $html);
+        $this->assertStringContainsString('function snapshotFilters', $html);
+        $this->assertStringContainsString('function viewFilterParams', $html);
         $this->assertStringContainsString('selectedIds.clear();', $html);
     }
 
@@ -160,6 +163,17 @@ class AdminWithdrawalLaterTest extends TestCase
             ->assertJsonPath('data.scope', 'view')
             ->assertJsonPath('data.pending', 1)
             ->assertJsonPath('data.total_to_pay', 40);
+
+        $this->actingAs($admin)
+            ->getJson(route('admin.withdrawals.statistics', [
+                'scope' => 'view',
+                'status' => 'completed',
+            ]))
+            ->assertOk()
+            ->assertJsonPath('data.scope', 'view')
+            ->assertJsonPath('data.pending', 0)
+            ->assertJsonPath('data.processing', 0)
+            ->assertJsonPath('data.total_to_pay', 0);
     }
 
     public function test_matching_ids_are_actionable_capped_and_ignore_ids_param(): void
@@ -196,6 +210,13 @@ class AdminWithdrawalLaterTest extends TestCase
         $this->assertNotContains($paid->id, $ids);
         $this->assertNotContains($second->id, $ids);
         $this->assertSame([$first->id, $third->id], $response->json('pending_ids'));
+
+        $this->actingAs($admin)
+            ->getJson(route('admin.withdrawals.ids', ['queue' => 'history']))
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('total', 0)
+            ->assertJsonPath('ids', []);
     }
 
     public function test_export_over_row_cap_redirects_or_returns_422(): void
@@ -239,6 +260,14 @@ class AdminWithdrawalLaterTest extends TestCase
             ->get(route('admin.withdrawals.export', ['queue' => 'history']))
             ->assertRedirect(route('admin.withdrawals', ['queue' => 'history']))
             ->assertSessionHas('error');
+
+        $this->actingAs($admin)
+            ->get(route('admin.withdrawals.export'), [
+                'X-Requested-With' => 'XMLHttpRequest',
+                'Accept' => 'text/html,application/xhtml+xml',
+            ])
+            ->assertRedirect(route('admin.withdrawals'))
+            ->assertSessionHas('error');
     }
 
     public function test_export_route_is_rate_limited(): void
@@ -279,5 +308,32 @@ class AdminWithdrawalLaterTest extends TestCase
             route('admin.withdrawals.show', $withdrawal->id),
             $statement->relatedAdminUrl()
         );
+    }
+
+    public function test_ids_route_is_not_shadowed_by_show(): void
+    {
+        $matched = app('router')->getRoutes()->match(
+            Request::create('/admin/withdrawals/ids', 'GET')
+        );
+        $this->assertSame('admin.withdrawals.ids', $matched->getName());
+    }
+
+    public function test_guest_and_advertiser_cannot_open_show_or_matching_ids(): void
+    {
+        $advertiser = $this->makeUser('advertiser');
+        $publisher = $this->makeUser('publisher');
+        $withdrawal = $this->seedWithdrawal($publisher);
+
+        $this->get(route('admin.withdrawals.show', $withdrawal->id))
+            ->assertRedirect();
+        $this->getJson(route('admin.withdrawals.ids'))
+            ->assertUnauthorized();
+
+        $this->actingAs($advertiser)
+            ->get(route('admin.withdrawals.show', $withdrawal->id))
+            ->assertForbidden();
+        $this->actingAs($advertiser)
+            ->getJson(route('admin.withdrawals.ids'))
+            ->assertForbidden();
     }
 }

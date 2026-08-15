@@ -280,7 +280,7 @@ class AdminWithdrawalController extends Controller
         $total = (clone $query)->count();
         if ($total > $maxRows) {
             $message = 'Export is limited to '.$maxRows.' rows. This view has '.$total.'. Narrow the filters and try again.';
-            if ($request->expectsJson() || $request->ajax()) {
+            if ($request->wantsJson()) {
                 return response()->json([
                     'success' => false,
                     'message' => $message,
