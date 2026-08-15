@@ -138,6 +138,7 @@ class ContentLibraryController extends Controller
             } elseif ($availability === 'in_progress') {
                 $hasPublisherStatus = Schema::hasColumn('order_items', 'publisher_status');
                 $query->withOpenOwnerOrder()
+                    ->hasCheckoutReadyLinks()
                     ->whereDoesntHave('orderItems', function ($item) use ($hasPublisherStatus) {
                         $item->where(function ($q) use ($hasPublisherStatus) {
                             $q->where(function ($live) {
@@ -241,6 +242,7 @@ class ContentLibraryController extends Controller
                 ->count(),
             'in_progress' => (int) (clone $countScope)
                 ->withOpenOwnerOrder()
+                ->hasCheckoutReadyLinks()
                 ->whereDoesntHave('orderItems', function ($item) use ($hasPublisherStatus) {
                     $item->where(function ($q) use ($hasPublisherStatus) {
                         $q->where(function ($live) {
@@ -452,7 +454,6 @@ class ContentLibraryController extends Controller
             $replace = ContentSubmission::query()
                 ->where('id', $data['replace_id'])
                 ->where('user_id', auth()->id())
-                ->whereNull('order_id')
                 ->first();
             if ($replace?->isExpired()) {
                 return response()->json([
@@ -466,6 +467,13 @@ class ContentLibraryController extends Controller
                     'success' => false,
                     'title' => 'Archived',
                     'message' => 'Restore this article before replacing it.',
+                ], 422);
+            }
+            if ($replace && ! $replace->canEditArticle()) {
+                return response()->json([
+                    'success' => false,
+                    'title' => 'In use',
+                    'message' => 'This article is already linked to an order.',
                 ], 422);
             }
         }
@@ -599,14 +607,15 @@ class ContentLibraryController extends Controller
             return null;
         }
 
-        return ContentSubmission::query()
+        $submission = ContentSubmission::query()
             ->forLibraryList()
             ->where('id', $id)
             ->where('user_id', auth()->id())
-            ->whereNull('order_id')
             ->whereNull('archived_at')
             ->needsLibraryFix()
             ->first();
+
+        return $submission && $submission->canEditArticle() ? $submission : null;
     }
 
     /**

@@ -1158,6 +1158,19 @@ class OrderPaymentService
             if ($fields !== []) {
                 $item->update($fields);
             }
+
+            // Pay again / admin mark-paid can settle a leftover whose order_id is
+            // still null or pointed at a cancelled owner. Rewrite ownership so
+            // the paid row shows in progress and stays locked.
+            if ($submission->shouldAdoptOwnerOrder((int) $order->id)) {
+                $ownerFields = $schema->filterExistingColumns($submission->getTable(), [
+                    'order_id' => $order->id,
+                    'order_item_id' => $item->id,
+                ]);
+                if ($ownerFields !== []) {
+                    $submission->update($ownerFields);
+                }
+            }
         }
     }
 

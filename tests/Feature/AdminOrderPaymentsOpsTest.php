@@ -1216,4 +1216,80 @@ class AdminOrderPaymentsOpsTest extends TestCase
         $this->assertTrue($held->isReadyToFulfill((int) $order->id));
         $this->assertFalse($held->isReadyForCheckout());
     }
+
+    public function test_mark_paid_rewrites_stale_cancelled_owner_order_id(): void
+    {
+        $admin = $this->makeUser('admin');
+        $advertiser = $this->makeUser('advertiser');
+        $site = $this->makeSite($this->makeUser('publisher'), 'stale-owner-paid');
+        $submission = $this->createApprovedSubmission($advertiser);
+        $cancelled = $this->makeOrder($advertiser, $site, [
+            'order_number' => 'PAY-STALE-OWNER-OLD',
+            'payment_method' => 'wise',
+            'payment_status' => 'failed',
+            'status' => 'cancelled',
+        ]);
+        $order = $this->makeOrder($advertiser, $site, [
+            'order_number' => 'PAY-STALE-OWNER-NEW',
+            'payment_method' => 'wise',
+            'payment_status' => 'pending',
+            'status' => 'pending',
+        ]);
+        $item = $order->items()->first();
+        $item->update([
+            'content_submission_id' => $submission->id,
+            'content_path' => $submission->path,
+            'content_original_name' => $submission->original_filename,
+        ]);
+        $submission->update([
+            'order_id' => $cancelled->id,
+            'order_item_id' => null,
+        ]);
+
+        $this->actingAs($admin)
+            ->postJson(route('admin.payments.updateStatus', $order->id), [
+                'payment_status' => 'paid',
+            ])
+            ->assertOk()
+            ->assertJsonPath('success', true);
+
+        $fresh = $submission->fresh();
+        $this->assertSame($order->id, (int) $fresh->order_id);
+        $this->assertSame($item->id, (int) $fresh->order_item_id);
+        $this->assertTrue($fresh->isLockedByPaidOrder());
+        $this->assertSame('in_progress', $fresh->libraryAvailability());
+    }
+
+    public function test_mark_paid_adopts_library_article_with_null_order_id(): void
+    {
+        $admin = $this->makeUser('admin');
+        $advertiser = $this->makeUser('advertiser');
+        $site = $this->makeSite($this->makeUser('publisher'), 'null-owner-paid');
+        $submission = $this->createApprovedSubmission($advertiser);
+        $order = $this->makeOrder($advertiser, $site, [
+            'order_number' => 'PAY-NULL-OWNER-1',
+            'payment_method' => 'card',
+            'payment_status' => 'failed',
+            'status' => 'pending',
+        ]);
+        $item = $order->items()->first();
+        $item->update([
+            'content_submission_id' => $submission->id,
+            'content_path' => $submission->path,
+            'content_original_name' => $submission->original_filename,
+        ]);
+        $this->assertNull($submission->fresh()->order_id);
+
+        $this->actingAs($admin)
+            ->postJson(route('admin.payments.updateStatus', $order->id), [
+                'payment_status' => 'paid',
+            ])
+            ->assertOk()
+            ->assertJsonPath('success', true);
+
+        $fresh = $submission->fresh();
+        $this->assertSame($order->id, (int) $fresh->order_id);
+        $this->assertTrue($fresh->isLockedByPaidOrder());
+        $this->assertSame('in_progress', $fresh->libraryAvailability());
+    }
 }

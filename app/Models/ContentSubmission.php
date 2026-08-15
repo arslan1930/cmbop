@@ -432,6 +432,11 @@ class ContentSubmission extends Model
                         });
                 })->orWhere(function ($links) {
                     $links->orderable()->withoutCheckoutReadyLinks();
+                })->orWhere(function ($ownedUnready) {
+                    $ownedUnready->where('moderation_status', self::STATUS_APPROVED)
+                        ->withOpenOwnerOrder()
+                        ->whereNull('archived_at')
+                        ->withoutCheckoutReadyLinks();
                 })->orWhere(function ($leftover) {
                     $leftover->where('moderation_status', self::STATUS_APPROVED)
                         ->withoutOpenOwnerOrder()
@@ -802,12 +807,12 @@ class ContentSubmission extends Model
             return 'This article contains images. Confirm you own them, or add the source URL or copyright details.';
         }
 
-        if ($this->canBeOrdered() && $this->isClaimedByAnotherOrder()) {
-            return self::ACTIVE_ORDER_CLAIM_MESSAGE;
+        if (! $this->hasCheckoutReadyLinks() && ($this->canBeOrdered() || $this->canEditArticle())) {
+            return self::CHECKOUT_LINK_MESSAGE;
         }
 
-        if ($this->canBeOrdered() && ! $this->hasCheckoutReadyLinks()) {
-            return self::CHECKOUT_LINK_MESSAGE;
+        if ($this->canBeOrdered() && $this->isClaimedByAnotherOrder()) {
+            return self::ACTIVE_ORDER_CLAIM_MESSAGE;
         }
 
         return '';
@@ -998,6 +1003,11 @@ class ContentSubmission extends Model
         }
 
         if ($this->isInUse()) {
+            $ownerId = (int) ($this->order_id ?? 0);
+            if ($ownerId > 0 && ! $this->isReadyToFulfill($ownerId)) {
+                return 'needs_fix';
+            }
+
             return 'in_progress';
         }
 

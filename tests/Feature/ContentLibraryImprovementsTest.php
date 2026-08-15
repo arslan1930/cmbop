@@ -804,6 +804,27 @@ class ContentLibraryImprovementsTest extends TestCase
         $this->assertFalse($fresh->isLockedByPaidOrder());
         $this->assertTrue($fresh->canEditArticle());
         $this->assertFalse($fresh->isReadyToFulfill((int) $leftover->id));
+        $this->assertSame('needs_fix', $fresh->libraryAvailability());
+        $this->assertSame(ContentSubmission::CHECKOUT_LINK_MESSAGE, $fresh->editorNotice());
+        $this->assertTrue(
+            ContentSubmission::query()->whereKey($submission->id)->needsLibraryFix()->exists()
+        );
+
+        $this->actingAs($advertiser)
+            ->get(route('advertiser.content-library', [
+                'edit' => $submission->id,
+                'upload' => 1,
+                'status' => 'all',
+                'availability' => 'needs_fix',
+            ]))
+            ->assertOk()
+            ->assertSee('value="'.$submission->id.'"', false)
+            ->assertSee(ContentSubmission::CHECKOUT_LINK_MESSAGE);
+
+        $this->actingAs($advertiser)
+            ->get(route('advertiser.content-library', ['availability' => 'in_progress']))
+            ->assertOk()
+            ->assertDontSee('data-submission-id="'.$submission->id.'"', false);
 
         $html = '<p>Fixed leftover article with a <a href="https://example.com/tools">complete link</a> for marketers.</p>'
             .'<p>More compliant content about software tools and productivity for digital teams worldwide.</p>';
@@ -816,7 +837,12 @@ class ContentLibraryImprovementsTest extends TestCase
             ->assertOk()
             ->assertJsonPath('success', true);
 
-        $this->assertTrue($submission->fresh()->isReadyToFulfill((int) $leftover->id));
+        $fixed = $submission->fresh();
+        $this->assertTrue($fixed->isReadyToFulfill((int) $leftover->id));
+        $this->assertSame('in_progress', $fixed->libraryAvailability());
+        $this->assertFalse(
+            ContentSubmission::query()->whereKey($submission->id)->needsLibraryFix()->exists()
+        );
     }
 
     public function test_wallet_checkout_rewrites_stale_cancelled_owner_order_id(): void

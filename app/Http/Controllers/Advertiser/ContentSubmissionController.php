@@ -106,7 +106,6 @@ class ContentSubmissionController extends Controller
             $replace = ContentSubmission::query()
                 ->where('id', $data['replace_id'])
                 ->where('user_id', auth()->id())
-                ->whereNull('order_id')
                 ->first();
             if ($replace?->isExpired()) {
                 return response()->json([
@@ -120,6 +119,13 @@ class ContentSubmissionController extends Controller
                     'success' => false,
                     'title' => 'Archived',
                     'message' => 'Restore this article before replacing it.',
+                ], 422);
+            }
+            if ($replace && ! $replace->canEditArticle()) {
+                return response()->json([
+                    'success' => false,
+                    'title' => 'In use',
+                    'message' => 'This article is already linked to an order.',
                 ], 422);
             }
         }
