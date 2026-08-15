@@ -996,6 +996,13 @@ class SiteController extends Controller
             return response()->json(['success' => false, 'message' => 'Site is not archived.'], 422);
         }
 
+        if ($site->isFromCancelledBulk()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'This listing is from a cancelled bulk request. Add the domain again via My Sites or a new bulk request — restoring it would be deleted on the next relist.',
+            ], 422);
+        }
+
         $site->archived_at = null;
         $site->save();
         $site->refresh();

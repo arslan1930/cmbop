@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Mail\SiteClaimOwnershipTransferred;
 use App\Mail\SiteClaimReviewed;
 use App\Mail\SiteClaimSubmitted;
+use App\Models\BulkSiteRequest;
 use App\Models\InAppNotification;
 use App\Models\Order;
 use App\Models\OrderItem;
@@ -154,6 +155,51 @@ class SiteClaimHardeningTest extends TestCase
 
         Mail::assertQueued(SiteClaimReviewed::class);
         Mail::assertQueued(SiteClaimOwnershipTransferred::class);
+    }
+
+    public function test_approve_detaches_bulk_and_unblocks_original_publisher(): void
+    {
+        Mail::fake();
+
+        $admin = $this->admin();
+        $owner = $this->userWithRole('publisher');
+        $claimer = $this->userWithRole('advertiser');
+        Role::firstOrCreate(['name' => 'publisher']);
+
+        $bulk = BulkSiteRequest::create([
+            'publisher_id' => $owner->id,
+            'status' => BulkSiteRequest::STATUS_AWAITING_PUBLISHER,
+            'estimated_count' => 1,
+        ]);
+        $site = $this->siteFor($owner);
+        $site->forceFill(['bulk_site_request_id' => $bulk->id])->save();
+
+        $this->assertTrue(
+            BulkSiteRequest::query()->whereKey($bulk->id)->blockingPublisher()->exists()
+        );
+
+        $claim = $this->pendingClaimFor($site, $claimer);
+        $this->actingAs($admin)->postJson(route('admin.community.claims.approve', $claim->id), [
+            'admin_notes' => 'Verified via domain email.',
+        ])->assertOk()->assertJson(['success' => true]);
+
+        $this->assertNull($site->fresh()->bulk_site_request_id);
+        $this->assertSame($claimer->id, (int) $site->fresh()->publisher_id);
+        $this->assertFalse(
+            BulkSiteRequest::query()->whereKey($bulk->id)->blockingPublisher()->exists()
+        );
+
+        $this->actingAs($owner)
+            ->from(route('publisher.websites'))
+            ->post(route('publisher.bulk-sites.request'), [
+                'sites' => [
+                    ['url' => 'https://after-claim-a.example', 'price' => 40],
+                    ['url' => 'https://after-claim-b.example', 'price' => 50],
+                ],
+            ])
+            ->assertRedirect(route('publisher.websites', ['status' => 'pending']))
+            ->assertSessionHas('success')
+            ->assertSessionMissing('error');
     }
 
     public function test_approve_blocked_when_site_has_open_order_item(): void

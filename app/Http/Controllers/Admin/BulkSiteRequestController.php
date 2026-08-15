@@ -69,11 +69,16 @@ class BulkSiteRequestController extends Controller
         // or unverify restored publisher work while status still says completed.
         if ($bulkRequest->needsProgressHeal()) {
             $bulkRequest->refreshProgressStatus();
-            $bulkRequest->refresh();
-            $bulkRequest->load([
+            $reloaded = $bulkRequest->fresh([
+                'publisher',
+                'handler',
                 'items' => fn ($q) => $q->orderBy('id'),
                 'sites' => fn ($q) => $q->notArchived()->orderBy('id'),
             ]);
+            if (! $reloaded) {
+                abort(404);
+            }
+            $bulkRequest = $reloaded;
         }
 
         $countries = Country::marketplace()->orderBy('name')->get();

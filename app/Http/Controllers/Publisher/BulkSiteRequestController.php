@@ -23,23 +23,9 @@ class BulkSiteRequestController extends Controller
 {
     public function store(Request $request)
     {
-        $open = BulkSiteRequest::query()
-            ->where('publisher_id', auth()->id())
-            ->blockingPublisher()
-            ->latest('id')
-            ->first();
-
+        $open = $this->openBlockingBulkRequest((int) auth()->id());
         if ($open) {
-            $publisherOwesWork = $open->status === BulkSiteRequest::STATUS_AWAITING_PUBLISHER
-                || $open->pendingPublisherCount() > 0;
-
-            $message = $publisherOwesWork
-                ? 'Finish your pending sites under Complete details before submitting another bulk request.'
-                : 'You already have an open bulk request. Wait for our team to finish it, or message support.';
-
-            return redirect()
-                ->route('publisher.websites')
-                ->with('error', $message);
+            return $this->redirectBecauseBulkAlreadyOpen($open);
         }
 
         $maxSites = BulkSiteRequest::MAX_SITES_PER_REQUEST;
@@ -252,6 +238,12 @@ class BulkSiteRequestController extends Controller
                 ->with('error', 'This bulk request was cancelled. Those sites will not be prepared.');
         }
 
+        if (! $this->siteStillCompletable($site)) {
+            return redirect()
+                ->route('publisher.websites', ['status' => 'pending'])
+                ->with('error', 'This site is no longer waiting for details. It may already be in review.');
+        }
+
         if ($request->filled('exampleUrl')) {
             $request->merge([
                 'exampleUrl' => $this->normalizeHttpUrl($request->input('exampleUrl')),
@@ -304,8 +296,25 @@ class BulkSiteRequestController extends Controller
         $cleanDescription = app(SiteDescriptionSanitizer::class)
             ->sanitize((string) $request->siteDescription);
 
+        $blockedCancelled = false;
+        $blockedUnavailable = false;
         try {
-            DB::transaction(function () use ($site, $request, $cleanDescription, $existingCategories) {
+            DB::transaction(function () use ($site, $request, $cleanDescription, $existingCategories, &$blockedCancelled, &$blockedUnavailable) {
+                $locked = Site::query()->whereKey($site->id)->lockForUpdate()->first();
+                if (! $locked || $locked->bulkSiteRequest?->isCancelled()) {
+                    $blockedCancelled = true;
+
+                    return;
+                }
+
+                // A concurrent Review & submit (or staff verify) must not be
+                // rewound to details_complete or have verified/active cleared.
+                if (! $this->siteStillCompletable($locked)) {
+                    $blockedUnavailable = true;
+
+                    return;
+                }
+
                 $sensitivePrices = [];
                 foreach (['crypto', 'trading', 'CBD', 'forex'] as $topic) {
                     if ($request->input("sensitive.$topic")) {
@@ -313,7 +322,7 @@ class BulkSiteRequestController extends Controller
                     }
                 }
 
-                $site->applyMarketplaceListing([
+                $locked->applyMarketplaceListing([
                     'example_url' => $request->exampleUrl,
                     // Niches were set by marketing during Done / metrics edit — keep them.
                     'category' => Site::fitCategoryColumn(implode('|', $existingCategories), $existingCategories),
@@ -328,15 +337,15 @@ class BulkSiteRequestController extends Controller
                 ]);
 
                 $tag = $request->input('site_tag', 'as_you_prefer');
-                $site->sponsored = $tag === 'sponsored';
-                $site->partner_material = $tag === 'partner_material';
-                $site->as_you_prefer = $tag === 'as_you_prefer' || $tag === null || $tag === '';
+                $locked->sponsored = $tag === 'sponsored';
+                $locked->partner_material = $tag === 'partner_material';
+                $locked->as_you_prefer = $tag === 'as_you_prefer' || $tag === null || $tag === '';
 
                 // Saved for Review & submit — not yet in the admin queue.
                 // Persist listing fields first, then set onboarding_status safely.
-                $site->save();
+                $locked->save();
 
-                if (! $site->markDetailsComplete()) {
+                if (! $locked->markDetailsComplete()) {
                     throw new \RuntimeException('onboarding_status details_complete rejected by database');
                 }
             });
@@ -361,6 +370,18 @@ class BulkSiteRequestController extends Controller
                 ->with('complete_site_id', $site->id);
         }
 
+        if ($blockedCancelled) {
+            return redirect()
+                ->route('publisher.websites', ['status' => 'pending'])
+                ->with('error', 'This bulk request was cancelled. Those sites will not be prepared.');
+        }
+
+        if ($blockedUnavailable) {
+            return redirect()
+                ->route('publisher.websites', ['status' => 'pending'])
+                ->with('error', 'This site is no longer waiting for details. It may already be in review.');
+        }
+
         $site->refresh();
         if ($site->bulk_site_request_id) {
             $site->bulkSiteRequest?->refreshProgressStatus();
@@ -368,6 +389,8 @@ class BulkSiteRequestController extends Controller
 
         $remainingAwaiting = Site::query()
             ->where('publisher_id', auth()->id())
+            ->notFromCancelledBulk()
+            ->notArchived()
             ->where('onboarding_status', Site::ONBOARDING_AWAITING_DETAILS)
             ->count();
 
@@ -513,6 +536,67 @@ class BulkSiteRequestController extends Controller
             ->with('success', $submitted === 1
                 ? '1 site submitted for admin review — it stays in Pending until approved.'
                 : $submitted.' sites submitted for admin review — they stay in Pending until approved.');
+    }
+
+    private function openBlockingBulkRequest(int $publisherId): ?BulkSiteRequest
+    {
+        while (true) {
+            $open = BulkSiteRequest::query()
+                ->where('publisher_id', $publisherId)
+                ->blockingPublisher()
+                ->latest('id')
+                ->first();
+            if (! $open) {
+                return null;
+            }
+
+            $open->healProgressStatusIfStale();
+            $fresh = $open->fresh();
+            if (! $fresh) {
+                return null;
+            }
+
+            $stillBlocking = BulkSiteRequest::query()
+                ->whereKey($fresh->id)
+                ->blockingPublisher()
+                ->exists();
+            if ($stillBlocking) {
+                return $fresh;
+            }
+        }
+    }
+
+    private function redirectBecauseBulkAlreadyOpen(?BulkSiteRequest $open)
+    {
+        $publisherOwesWork = $open && $open->pendingPublisherCount() > 0;
+
+        $message = $publisherOwesWork
+            ? 'Finish your pending sites under Complete details before submitting another bulk request.'
+            : 'You already have an open bulk request. Wait for our team to finish it, or message support.';
+
+        return redirect()
+            ->route('publisher.websites')
+            ->with('error', $message);
+    }
+
+    /**
+     * Listing fields may still be edited. Ready-for-review / live / archived
+     * rows must not be rewound or unverified by a stale Complete form.
+     */
+    private function siteStillCompletable(Site $site): bool
+    {
+        if ($site->isArchived() || $site->bulkSiteRequest?->isCancelled()) {
+            return false;
+        }
+
+        if ((bool) $site->verified || (bool) $site->active) {
+            return false;
+        }
+
+        return in_array($site->onboarding_status, [
+            Site::ONBOARDING_AWAITING_DETAILS,
+            Site::ONBOARDING_DETAILS_COMPLETE,
+        ], true);
     }
 
     private function normalizeHttpUrl(mixed $url): string

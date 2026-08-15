@@ -1470,6 +1470,72 @@ class BulkDoneRejectRowsTest extends TestCase
         $this->assertStringNotContainsString($site->domain, $html);
     }
 
+    public function test_cancelled_leftover_does_not_block_review_after_finishing_current_batch(): void
+    {
+        [$old, $oldItems] = $this->makeBulkWithItems(1, 'left-await');
+        $this->actingAs($this->marketer)
+            ->post(route('marketing.bulk-site-requests.done', $old), [
+                'items' => $this->completeRow($oldItems[0]),
+            ])
+            ->assertRedirect();
+        $old->forceFill(['status' => BulkSiteRequest::STATUS_CANCELLED])->save();
+
+        [$bulk, $items] = $this->makeBulkWithItems(1, 'fresh-await');
+        $this->actingAs($this->marketer)
+            ->post(route('marketing.bulk-site-requests.done', $bulk), [
+                'items' => $this->completeRow($items[0]),
+            ])
+            ->assertRedirect();
+
+        $site = Site::query()->where('domain', $items[0]->domain)->firstOrFail();
+
+        $this->actingAs($this->publisher)
+            ->post(route('publisher.bulk-sites.complete.store', $site->id), [
+                'exampleUrl' => 'https://'.$items[0]->domain.'/example',
+                'turnaround_time' => '3days',
+                'publicationTime' => 'permanent',
+                'link_type' => 'dofollow',
+                'siteDescription' => str_repeat('Publisher listing description text. ', 4),
+            ])
+            ->assertRedirect(route('publisher.bulk-sites.review'))
+            ->assertSessionHas('success');
+    }
+
+    public function test_publisher_cannot_unarchive_cancelled_bulk_leftover(): void
+    {
+        Mail::fake();
+        [$bulk, $items] = $this->makeBulkWithItems(1, 'unarch-live');
+
+        $this->actingAs($this->marketer)
+            ->post(route('marketing.bulk-site-requests.done', $bulk), [
+                'items' => $this->completeRow($items[0]),
+            ])
+            ->assertRedirect();
+
+        $live = Site::query()->where('domain', $items[0]->domain)->firstOrFail();
+        $live->forceFill([
+            'verified' => true,
+            'verified_at' => now(),
+            'active' => true,
+            'onboarding_status' => null,
+        ])->save();
+
+        $this->actingAs($this->marketer)
+            ->post(route('marketing.bulk-site-requests.cancel', $bulk), [
+                'reason' => 'Publisher asked to stop this batch after one listing went live.',
+            ])
+            ->assertRedirect();
+
+        $this->assertTrue($live->fresh()->isArchived());
+
+        $this->actingAs($this->publisher)
+            ->postJson(route('publisher.sites.unarchive', $live->id))
+            ->assertStatus(422)
+            ->assertJsonPath('success', false);
+
+        $this->assertTrue($live->fresh()->isArchived());
+    }
+
     public function test_done_rejects_www_variant_of_an_existing_domain(): void
     {
         [$bulk, $items] = $this->makeBulkWithItems(1, 'www-collide');

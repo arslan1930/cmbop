@@ -94,9 +94,9 @@ class BulkSiteRequest extends Model
 
     /**
      * Status drifted from sites/items (staff verify/unverify, leftover
-     * deletes). Show uses this so a stale awaiting_publisher row cannot
-     * block a new bulk forever, and a stale completed row cannot hide
-     * publisher work that is still owed.
+     * deletes, claim transfer). Show and publisher submit share this so a
+     * stale awaiting_publisher row cannot block a new bulk forever, and a
+     * stale completed row cannot hide publisher work that is still owed.
      */
     public function needsProgressHeal(): bool
     {

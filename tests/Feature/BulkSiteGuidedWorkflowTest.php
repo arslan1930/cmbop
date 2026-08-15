@@ -559,6 +559,39 @@ class BulkSiteGuidedWorkflowTest extends TestCase
         $this->assertSame(0, InAppNotification::where('user_id', $this->admin->id)->count());
     }
 
+    public function test_complete_store_does_not_unverify_a_live_listing(): void
+    {
+        $bulk = BulkSiteRequest::create([
+            'publisher_id' => $this->publisher->id,
+            'status' => BulkSiteRequest::STATUS_AWAITING_PUBLISHER,
+            'estimated_count' => 1,
+            'seeded_at' => now(),
+        ]);
+        $site = $this->makeAwaitingBulkSite($bulk, 'https://already-live-complete.example', 'Already Live');
+        $site->forceFill([
+            'verified' => true,
+            'verified_at' => now(),
+            'active' => true,
+        ])->save();
+
+        $this->actingAs($this->publisher)
+            ->post(route('publisher.bulk-sites.complete.store', $site->id), [
+                'exampleUrl' => 'https://already-live-complete.example/guest-post',
+                'turnaround_time' => '48h',
+                'publicationTime' => '1year',
+                'link_type' => 'nofollow',
+                'site_tag' => 'as_you_prefer',
+                'siteDescription' => str_repeat('Quality editorial site for guest posts. ', 4),
+            ])
+            ->assertRedirect(route('publisher.websites', ['status' => 'pending']))
+            ->assertSessionHas('error');
+
+        $fresh = $site->fresh();
+        $this->assertTrue((bool) $fresh->verified);
+        $this->assertTrue((bool) $fresh->active);
+        $this->assertSame(Site::ONBOARDING_AWAITING_DETAILS, $fresh->onboarding_status);
+    }
+
     public function test_review_submit_moves_sites_to_admin_queue_and_bells(): void
     {
         $category = Category::query()->where('name', 'Business & Finance')->first()
