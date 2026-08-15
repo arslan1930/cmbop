@@ -10,6 +10,7 @@ use App\Models\Role;
 use App\Models\Site;
 use App\Models\User;
 use App\Models\Wallet;
+use App\Models\WalletTransaction;
 use App\Models\Withdrawal;
 use App\Services\Admin\FinanceOverviewService;
 use App\Services\Wallet\WalletLedgerService;
@@ -576,5 +577,89 @@ class AdminFinanceCoverageTest extends TestCase
             '/href="'.preg_quote(route('admin.finance.ledger'), '/').'"[^>]*class="active"/',
             $html
         );
+    }
+
+    public function test_ledger_array_user_id_does_not_resolve_to_user_one(): void
+    {
+        $admin = $this->makeUser('admin');
+
+        $this->actingAs($admin)
+            ->get(route('admin.finance.ledger', [
+                'user_id' => ['8'],
+            ]))
+            ->assertOk()
+            ->assertDontSee('Showing ledger for');
+    }
+
+    public function test_ledger_array_filters_do_not_500_or_select_every_type(): void
+    {
+        $admin = $this->makeUser('admin');
+
+        $html = $this->actingAs($admin)
+            ->get(route('admin.finance.ledger', [
+                'date_from' => ['2026-01-01'],
+                'date_to' => ['2026-12-31'],
+                'type' => ['deposit'],
+                'direction' => ['credit'],
+                'search' => ['%'],
+            ]))
+            ->assertOk()
+            ->assertSee('Wallet ledger')
+            ->getContent();
+
+        $this->assertStringNotContainsString('value="deposit" selected', $html);
+        $this->assertStringNotContainsString('value="credit" selected', $html);
+    }
+
+    public function test_period_form_and_shortcuts_keep_list_view(): void
+    {
+        $admin = $this->makeUser('admin');
+
+        $this->actingAs($admin)
+            ->get(route('admin.finance', ['list' => 'wallets']))
+            ->assertOk()
+            ->assertSee('name="list"', false)
+            ->assertSee('value="wallets"', false)
+            ->assertSee('name="period"', false)
+            ->assertSee(route('admin.finance', ['period' => 'week', 'list' => 'wallets']), false)
+            ->assertSee(route('admin.finance', ['period' => 'month', 'list' => 'wallets']), false);
+    }
+
+    public function test_deposit_reconciliation_ignores_deposit_debits(): void
+    {
+        $advertiser = $this->makeUser('advertiser');
+        $advRole = Role::firstOrCreate(['name' => 'advertiser']);
+        $wallet = Wallet::create([
+            'user_id' => $advertiser->id,
+            'role_id' => $advRole->id,
+            'balance' => 50,
+            'reserved_balance' => 0,
+            'currency' => 'EUR',
+        ]);
+
+        DepositRequest::create([
+            'user_id' => $advertiser->id,
+            'reference_code' => 'DEP-RECON-CREDIT',
+            'amount' => 50,
+            'payment_method' => 'bank',
+            'status' => 'completed',
+            'approved_at' => now(),
+        ]);
+        app(WalletLedgerService::class)->recordDeposit($wallet, 50, null, 'bank', 'DEP-RECON-CREDIT');
+        app(WalletLedgerService::class)->record(
+            $wallet,
+            WalletTransaction::TYPE_DEPOSIT,
+            'debit',
+            10,
+            ['reference' => 'DEP-RECON-DEBIT', 'description' => 'Deposit reversal']
+        );
+
+        $overview = app(FinanceOverviewService::class)->overview(
+            app(FinanceOverviewService::class)->resolvePeriod('all')
+        );
+
+        $this->assertTrue($overview['reconciliation']['matched']);
+        $this->assertEquals(50.0, $overview['reconciliation']['deposits_completed']);
+        $this->assertEquals(50.0, $overview['reconciliation']['ledger_deposits']);
     }
 }

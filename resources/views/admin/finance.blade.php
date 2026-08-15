@@ -29,7 +29,7 @@
             <a href="{{ route('admin.finance.ledger') }}" class="btn btn-sm btn-outline-secondary">
                 <i class="fa fa-book me-1"></i> Wallet ledger
             </a>
-            <a href="{{ route('admin.finance.export', request()->query()) }}" class="btn btn-sm btn-outline-primary">
+            <a href="{{ route('admin.finance.export', array_filter(['period' => $periodKey, 'date_from' => is_string($dateFrom ?? null) ? $dateFrom : null, 'date_to' => is_string($dateTo ?? null) ? $dateTo : null])) }}" class="btn btn-sm btn-outline-primary">
                 <i class="fa fa-file-csv me-1"></i> Export period CSV
             </a>
         </div>
@@ -37,11 +37,17 @@
 
     <form method="GET" class="card border-0 shadow-sm mb-3">
         <div class="card-body py-3">
+            @if(in_array($list ?? null, ['debt', 'wallets'], true))
+                <input type="hidden" name="list" value="{{ $list }}">
+            @endif
+            @if(in_array($periodKey ?? null, ['week', 'month', 'all'], true))
+                <input type="hidden" name="period" value="{{ $periodKey }}">
+            @endif
             <div class="row g-2 align-items-end">
                 <div class="col-auto">
                     <div class="btn-group btn-group-sm" role="group">
                         @foreach(['week' => 'This week', 'month' => 'This month', 'all' => 'All time'] as $key => $label)
-                            <a href="{{ route('admin.finance', ['period' => $key]) }}"
+                            <a href="{{ route('admin.finance', array_filter(['period' => $key, 'list' => $list ?? null])) }}"
                                class="btn {{ $periodKey === $key && !$dateFrom && !$dateTo ? 'btn-primary' : 'btn-outline-secondary' }}">
                                 {{ $label }}
                             </a>
@@ -461,7 +467,7 @@
                         </div>
                         <div class="small text-muted">{{ $d['money_out']['withdrawals_open']['count'] }} waiting to send</div>
                     </div>
-                    <a href="{{ route('admin.withdrawals') }}" class="btn btn-sm btn-outline-secondary mt-3 w-100">Payout queue</a>
+                    <a href="{{ route('admin.withdrawals', ['queue' => 'open']) }}" class="btn btn-sm btn-outline-secondary mt-3 w-100">Payout queue</a>
                 </div>
             </div>
         </div>

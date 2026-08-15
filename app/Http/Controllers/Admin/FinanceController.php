@@ -75,16 +75,24 @@ class FinanceController extends Controller
     public function ledger(Request $request)
     {
         $search = is_string($request->input('search')) ? trim($request->input('search')) : '';
-        $userId = (int) $request->input('user_id');
+        $userId = $this->intQueryId($request->input('user_id'));
         $ledgerUser = $userId > 0
             ? User::query()->whereKey($userId)->first(['id', 'name', 'email'])
             : null;
+        $type = is_string($request->input('type')) ? $request->input('type') : '';
+        $direction = is_string($request->input('direction')) ? $request->input('direction') : '';
+        $dateFrom = is_string($request->input('date_from')) ? $request->input('date_from') : '';
+        $dateTo = is_string($request->input('date_to')) ? $request->input('date_to') : '';
+
+        $exportQuery = $this->scalarQuery($request, ['page']);
+        $clearUserQuery = $exportQuery;
+        unset($clearUserQuery['user_id']);
 
         $transactions = $this->ledgerQuery($request)
             ->with(['user:id,name,email', 'wallet:id,role_id'])
             ->latest()
             ->paginate(40)
-            ->withQueryString();
+            ->appends($exportQuery);
 
         $types = $this->ledgerTypes();
 
@@ -92,7 +100,13 @@ class FinanceController extends Controller
             'transactions',
             'types',
             'search',
-            'ledgerUser'
+            'ledgerUser',
+            'type',
+            'direction',
+            'dateFrom',
+            'dateTo',
+            'exportQuery',
+            'clearUserQuery'
         ));
     }
 
@@ -262,18 +276,21 @@ class FinanceController extends Controller
 
         $search = is_string($request->input('search')) ? trim($request->input('search')) : '';
         if ($search !== '') {
-            $query->where(function ($q) use ($search) {
-                $q->where('reference', 'like', "%{$search}%")
-                    ->orWhere('description', 'like', "%{$search}%")
-                    ->orWhere('id', $search)
-                    ->orWhereHas('user', function ($sub) use ($search) {
-                        $sub->where('name', 'like', "%{$search}%")
-                            ->orWhere('email', 'like', "%{$search}%");
+            $like = '%'.addcslashes($search, '%_\\').'%';
+            $query->where(function ($q) use ($search, $like) {
+                $q->where('reference', 'like', $like)
+                    ->orWhere('description', 'like', $like)
+                    ->orWhereHas('user', function ($sub) use ($like) {
+                        $sub->where('name', 'like', $like)
+                            ->orWhere('email', 'like', $like);
                     });
+                if (ctype_digit($search)) {
+                    $q->orWhere('id', (int) $search);
+                }
             });
         }
 
-        $userId = (int) $request->input('user_id');
+        $userId = $this->intQueryId($request->input('user_id'));
         if ($userId > 0) {
             $query->where('user_id', $userId);
         }
@@ -296,6 +313,38 @@ class FinanceController extends Controller
         }
 
         return $query;
+    }
+
+    private function intQueryId(mixed $value): int
+    {
+        if (is_int($value) && $value > 0) {
+            return $value;
+        }
+
+        if (is_string($value) && ctype_digit($value)) {
+            return (int) $value;
+        }
+
+        return 0;
+    }
+
+    /**
+     * @param  list<string>  $except
+     * @return array<string, string|int|float>
+     */
+    private function scalarQuery(Request $request, array $except = []): array
+    {
+        $out = [];
+        foreach ($request->query() as $key => $value) {
+            if (! is_string($key) || in_array($key, $except, true)) {
+                continue;
+            }
+            if (is_string($value) || is_int($value) || is_float($value)) {
+                $out[$key] = $value;
+            }
+        }
+
+        return $out;
     }
 
     private function redirectToDossierIfUnique(string $userQuery): ?RedirectResponse

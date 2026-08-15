@@ -699,7 +699,9 @@ class FinanceOverviewService
     {
         $ledgerSum = 0.0;
         if (Schema::hasTable('wallet_transactions')) {
-            $ledger = WalletTransaction::query()->where('type', WalletTransaction::TYPE_DEPOSIT);
+            $ledger = WalletTransaction::query()
+                ->where('type', WalletTransaction::TYPE_DEPOSIT)
+                ->where('direction', 'credit');
             $this->applyCreatedWindow($ledger, $start, $end);
             $ledgerSum = round((float) $ledger->sum('amount'), 2);
         }
