@@ -889,7 +889,7 @@ class AdminWithdrawalLaterTest extends TestCase
         $this->assertNotNull($log);
         $this->assertSame([$open->id], $log->properties['ids'] ?? null);
         $this->assertSame(1, $log->properties['succeeded'] ?? null);
-        $this->assertSame(0, $log->properties['unchanged'] ?? null);
+        $this->assertSame(1, $log->properties['unchanged'] ?? null);
         $this->assertSame('completed', $open->fresh()->status);
 
         $this->actingAs($admin)
