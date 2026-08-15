@@ -164,6 +164,40 @@ class AdminSiteUpdateGuardTest extends TestCase
         $this->assertSame('guard-site.example', $site->fresh()->domain);
     }
 
+    public function test_update_rejects_url_change_on_bulk_attached_draft(): void
+    {
+        $bulk = BulkSiteRequest::create([
+            'publisher_id' => $this->publisher->id,
+            'status' => BulkSiteRequest::STATUS_AWAITING_PUBLISHER,
+            'estimated_count' => 1,
+        ]);
+        $site = $this->site([
+            'site_name' => 'Bulk Draft',
+            'site_url' => 'https://bulk-draft.example',
+            'domain' => 'bulk-draft.example',
+            'verified' => false,
+            'active' => false,
+            'bulk_site_request_id' => $bulk->id,
+        ]);
+        BulkSiteRequestItem::create([
+            'bulk_site_request_id' => $bulk->id,
+            'site_url' => 'https://bulk-draft.example',
+            'domain' => 'bulk-draft.example',
+            'price' => 40,
+            'site_id' => $site->id,
+        ]);
+
+        $this->actingAs($this->admin)
+            ->putJson(route('admin.sites.update', $site->id), [
+                'site_url' => 'https://retargeted-draft.example',
+            ])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['site_url']);
+
+        $this->assertSame('bulk-draft.example', $site->fresh()->domain);
+        $this->assertSame('bulk-draft.example', BulkSiteRequestItem::query()->where('site_id', $site->id)->value('domain'));
+    }
+
     public function test_update_allows_metrics_when_site_already_matches_leftover_pending_domain(): void
     {
         $site = $this->site([

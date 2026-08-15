@@ -1641,6 +1641,10 @@ class SiteController extends Controller
                     if ($pending !== null) {
                         $validator->errors()->add('site_url', $pending);
                     }
+                    $tied = $this->bulkAttachedDomainChangeMessage($domain, $site);
+                    if ($tied !== null) {
+                        $validator->errors()->add('site_url', $tied);
+                    }
                 }
             }
 
@@ -1962,6 +1966,10 @@ class SiteController extends Controller
                     if ($pending !== null) {
                         $validator->errors()->add('site_url', $pending);
                     }
+                    $tied = $this->bulkAttachedDomainChangeMessage($domain, $site);
+                    if ($tied !== null) {
+                        $validator->errors()->add('site_url', $tied);
+                    }
                 }
             }
 
@@ -2109,6 +2117,27 @@ class SiteController extends Controller
         }
 
         return BulkSiteRequestItem::occupyingPendingDomainMessage($domain);
+    }
+
+    /**
+     * Done/repend keys off the item row. Changing the draft URL without
+     * syncing that row leaves the pending list on the old domain.
+     */
+    private function bulkAttachedDomainChangeMessage(string $domain, Site $site): ?string
+    {
+        $current = Site::normalizeMarketplaceDomain((string) $site->domain);
+        if ($domain === '' || $domain === $current || ! $site->bulk_site_request_id) {
+            return null;
+        }
+
+        $attached = BulkSiteRequestItem::query()
+            ->where('site_id', $site->id)
+            ->exists();
+        if (! $attached) {
+            return null;
+        }
+
+        return 'This draft is tied to a bulk request row. Delete it and use Done on the correct URL, or edit metrics only.';
     }
 
     /**
@@ -2777,6 +2806,8 @@ class SiteController extends Controller
                 ], 500);
             }
 
+            $this->syncLinkedBulkProgress($site->bulk_site_request_id);
+
             $action = $site->verified ? 'site.approved' : 'site.rejected';
             $label = $site->verified ? 'approved' : 'rejected';
 
@@ -2953,6 +2984,7 @@ class SiteController extends Controller
                 $this->applyStatusReason($site, $reason);
             }
             $site->save();
+            $this->syncLinkedBulkProgress($site->bulk_site_request_id);
 
             $action = $site->active ? 'site.activated' : 'site.deactivated';
             $label = $site->active ? 'activated' : 'deactivated';
@@ -3196,7 +3228,7 @@ class SiteController extends Controller
                 $siteName
             );
 
-            $this->syncLinkedBulkAfterSiteRemoved($bulkRequestId);
+            $this->syncLinkedBulkProgress($bulkRequestId);
 
             return response()->json([
                 'success' => true,
@@ -3248,7 +3280,7 @@ class SiteController extends Controller
             $siteName
         );
 
-        $this->syncLinkedBulkAfterSiteRemoved($bulkRequestId);
+        $this->syncLinkedBulkProgress($bulkRequestId);
 
         return response()->json([
             'success' => true,
@@ -3257,7 +3289,7 @@ class SiteController extends Controller
         ]);
     }
 
-    private function syncLinkedBulkAfterSiteRemoved(?int $bulkRequestId): void
+    private function syncLinkedBulkProgress(?int $bulkRequestId): void
     {
         if (! $bulkRequestId) {
             return;

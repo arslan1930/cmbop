@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\BulkSiteRequest;
+use App\Models\BulkSiteRequestItem;
 use App\Models\Role;
 use App\Models\Site;
 use App\Models\User;
@@ -115,6 +116,80 @@ class AdminSiteActivateGuardTest extends TestCase
             ->assertJsonPath('success', false);
 
         $this->assertFalse((bool) $site->fresh()->active);
+    }
+
+    public function test_verify_completes_bulk_when_publisher_no_longer_owes_work(): void
+    {
+        $bulk = BulkSiteRequest::create([
+            'publisher_id' => $this->publisher->id,
+            'status' => BulkSiteRequest::STATUS_AWAITING_PUBLISHER,
+            'estimated_count' => 1,
+        ]);
+        $site = $this->site([
+            'site_name' => 'Awaiting Verify',
+            'site_url' => 'https://awaiting-verify.example',
+            'domain' => 'awaiting-verify.example',
+            'verified' => false,
+            'active' => false,
+            'onboarding_status' => Site::ONBOARDING_AWAITING_DETAILS,
+            'bulk_site_request_id' => $bulk->id,
+        ]);
+        BulkSiteRequestItem::create([
+            'bulk_site_request_id' => $bulk->id,
+            'site_url' => $site->site_url,
+            'domain' => $site->domain,
+            'price' => 40,
+            'site_id' => $site->id,
+        ]);
+
+        $this->assertTrue(
+            BulkSiteRequest::query()->whereKey($bulk->id)->blockingPublisher()->exists()
+        );
+
+        $this->actingAs($this->admin)
+            ->postJson(route('admin.sites.verify', $site->id), ['verified' => 1])
+            ->assertOk()
+            ->assertJsonPath('success', true);
+
+        $this->assertSame(BulkSiteRequest::STATUS_COMPLETED, $bulk->fresh()->status);
+        $this->assertFalse(
+            BulkSiteRequest::query()->whereKey($bulk->id)->blockingPublisher()->exists()
+        );
+    }
+
+    public function test_marketer_activate_completes_bulk_when_publisher_no_longer_owes_work(): void
+    {
+        $bulk = BulkSiteRequest::create([
+            'publisher_id' => $this->publisher->id,
+            'status' => BulkSiteRequest::STATUS_AWAITING_PUBLISHER,
+            'estimated_count' => 1,
+        ]);
+        $site = $this->site([
+            'site_name' => 'Awaiting Activate',
+            'site_url' => 'https://awaiting-activate.example',
+            'domain' => 'awaiting-activate.example',
+            'verified' => false,
+            'active' => false,
+            'onboarding_status' => Site::ONBOARDING_READY_FOR_REVIEW,
+            'bulk_site_request_id' => $bulk->id,
+        ]);
+        BulkSiteRequestItem::create([
+            'bulk_site_request_id' => $bulk->id,
+            'site_url' => $site->site_url,
+            'domain' => $site->domain,
+            'price' => 40,
+            'site_id' => $site->id,
+        ]);
+
+        $this->actingAs($this->marketer)
+            ->postJson(route('marketing.sites.active', $site->id), ['active' => 1])
+            ->assertOk()
+            ->assertJsonPath('success', true);
+
+        $this->assertSame(BulkSiteRequest::STATUS_COMPLETED, $bulk->fresh()->status);
+        $this->assertFalse(
+            BulkSiteRequest::query()->whereKey($bulk->id)->blockingPublisher()->exists()
+        );
     }
 
     public function test_marketer_can_activate_unverified_review_queue_site(): void

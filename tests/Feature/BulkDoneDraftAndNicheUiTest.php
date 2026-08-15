@@ -208,6 +208,55 @@ class BulkDoneDraftAndNicheUiTest extends TestCase
             ->assertDontSee('Undefined variable $belowQuality', false);
     }
 
+    public function test_show_heals_awaiting_status_after_staff_already_verified(): void
+    {
+        $bulk = BulkSiteRequest::create([
+            'publisher_id' => $this->publisher->id,
+            'status' => BulkSiteRequest::STATUS_AWAITING_PUBLISHER,
+            'estimated_count' => 1,
+        ]);
+        $site = Site::create([
+            'publisher_id' => $this->publisher->id,
+            'bulk_site_request_id' => $bulk->id,
+            'site_name' => 'Already Verified',
+            'site_url' => 'https://already-verified-bulk.example',
+            'domain' => 'already-verified-bulk.example',
+            'da' => 40,
+            'dr' => 40,
+            'traffic' => 12000,
+            'country' => 'de',
+            'language' => 'de',
+            'category' => 'News',
+            'price' => 50,
+            'publication_time' => 'permanent',
+            'link_type' => 'dofollow',
+            'description' => str_repeat('Already verified bulk leftover description. ', 3),
+            'verified' => true,
+            'active' => true,
+            'onboarding_status' => null,
+        ]);
+        BulkSiteRequestItem::create([
+            'bulk_site_request_id' => $bulk->id,
+            'site_url' => $site->site_url,
+            'domain' => $site->domain,
+            'price' => 50,
+            'site_id' => $site->id,
+        ]);
+
+        $this->assertTrue(
+            BulkSiteRequest::query()->whereKey($bulk->id)->blockingPublisher()->exists()
+        );
+
+        $this->actingAs($this->marketer)
+            ->get(route('marketing.bulk-site-requests.show', $bulk))
+            ->assertOk();
+
+        $this->assertSame(BulkSiteRequest::STATUS_COMPLETED, $bulk->fresh()->status);
+        $this->assertFalse(
+            BulkSiteRequest::query()->whereKey($bulk->id)->blockingPublisher()->exists()
+        );
+    }
+
     public function test_bulk_notes_reject_non_string_payload(): void
     {
         $bulk = BulkSiteRequest::create([
@@ -899,6 +948,7 @@ class BulkDoneDraftAndNicheUiTest extends TestCase
         $this->assertStringContainsString("fresh(['publisher']) ?? \$bulkRequest", $controller);
         $this->assertStringNotContainsString('$bulkRequest->refresh();', $controller);
         $this->assertStringContainsString('$reloaded = $bulkRequest->fresh([', $controller);
+        $this->assertStringContainsString('pendingPublisherCount()', $controller);
         $this->assertStringContainsString('findOccupyingPendingDomain', $controller);
         $this->assertStringContainsString('$otherPending', $controller);
         $this->assertStringContainsString('Already in an open bulk request:', $controller);
@@ -935,6 +985,8 @@ class BulkDoneDraftAndNicheUiTest extends TestCase
         $this->assertStringContainsString('occupyingPendingDomainMessage', $publisherSiteController);
         $this->assertStringContainsString('findOccupyingPendingDomain', $publisherSiteController);
         $this->assertStringContainsString('reserved by an open bulk request', $publisherSiteController);
+        $this->assertStringContainsString('isFromCancelledBulk()', $publisherSiteController);
+        $this->assertStringContainsString('from a cancelled bulk request', $publisherSiteController);
 
         $agencyImport = file_get_contents(app_path('Services/AgencySiteImportService.php'));
         $this->assertStringContainsString('findOccupyingDomain($parsed[\'domain\'], lock: true)', $agencyImport);
@@ -943,6 +995,8 @@ class BulkDoneDraftAndNicheUiTest extends TestCase
         $adminSiteController = file_get_contents(app_path('Http/Controllers/Admin/SiteController.php'));
         $this->assertStringContainsString('pendingBulkDomainConflictMessage', $adminSiteController);
         $this->assertStringContainsString('occupyingPendingDomainMessage', $adminSiteController);
+        $this->assertStringContainsString('bulkAttachedDomainChangeMessage', $adminSiteController);
+        $this->assertStringContainsString('syncLinkedBulkProgress', $adminSiteController);
 
         $bulk = BulkSiteRequest::create([
             'publisher_id' => $this->publisher->id,

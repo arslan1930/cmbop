@@ -64,8 +64,9 @@ class BulkSiteRequestController extends Controller
             'sites' => fn ($q) => $q->notArchived()->orderBy('id'),
         ])->findOrFail($id);
 
-        // Heal stuck batches: completed-with-pending-rows, or drafts deleted so
-        // only URL+price rows remain (status still says waiting on publisher).
+        // Heal stuck batches: completed-with-pending-rows, drafts deleted so
+        // only URL+price rows remain, or staff verified/activated every draft
+        // while status still says waiting on publisher (blocks a new bulk).
         $hasPendingItems = $bulkRequest->items->whereNull('site_id')->isNotEmpty();
         $needsHeal = $bulkRequest->status !== BulkSiteRequest::STATUS_CANCELLED
             && (
@@ -78,6 +79,10 @@ class BulkSiteRequestController extends Controller
                         BulkSiteRequest::STATUS_AWAITING_PUBLISHER,
                         BulkSiteRequest::STATUS_SEEDED,
                     ], true))
+                || (in_array($bulkRequest->status, [
+                    BulkSiteRequest::STATUS_AWAITING_PUBLISHER,
+                    BulkSiteRequest::STATUS_SEEDED,
+                ], true) && $bulkRequest->pendingPublisherCount() === 0)
             );
         if ($needsHeal) {
             $bulkRequest->refreshProgressStatus();

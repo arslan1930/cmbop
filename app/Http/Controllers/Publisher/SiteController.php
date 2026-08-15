@@ -1071,6 +1071,10 @@ class SiteController extends Controller
                 return 'Site is not archived.';
             }
 
+            if ($locked->isFromCancelledBulk()) {
+                return 'This listing is from a cancelled bulk request. Add the domain again via My Sites or a new bulk request — restoring it would be deleted on the next relist.';
+            }
+
             $domain = Site::normalizeMarketplaceDomain((string) $locked->domain);
             if ($domain !== '' && BulkSiteRequestItem::findOccupyingPendingDomain($domain, lock: true)) {
                 return 'This domain is reserved by an open bulk request. Finish or cancel that request before restoring this listing.';
