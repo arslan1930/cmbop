@@ -775,4 +775,112 @@ class StripeFirstCheckoutInvariantsTest extends TestCase
         $this->assertEqualsWithDelta(80.0, (float) $wallet->balance, 0.01);
         $this->assertEqualsWithDelta(0.0, app(OrderPaymentService::class)->unfulfilledCardCreditAmount($ref), 0.01);
     }
+
+    public function test_card_settlement_does_not_pay_another_users_colliding_reference(): void
+    {
+        $payer = $this->makeUser('advertiser');
+        $other = $this->makeUser('advertiser');
+        $publisher = $this->makeUser('publisher');
+        $payerSite = $this->makeSite($publisher, 'payer-collide.example', 80);
+        $otherSite = $this->makeSite($publisher, 'other-collide.example', 80);
+        $ref = '123456';
+
+        $payerOrder = $this->pendingCardOrder($payer, $payerSite, $ref, 80);
+        $otherOrder = $this->pendingCardOrder($other, $otherSite, $ref, 80);
+
+        $session = (object) [
+            'id' => 'cs_collide_payer',
+            'object' => 'checkout.session',
+            'payment_status' => 'paid',
+            'amount_total' => 8000,
+            'payment_intent' => 'pi_collide_payer',
+            'metadata' => (object) [
+                'type' => 'order_payment',
+                'reference_code' => $ref,
+                'user_id' => (string) $payer->id,
+                'expected_amount' => '80',
+            ],
+        ];
+
+        $paid = app(OrderPaymentService::class)->markOrdersPaidFromStripeSession($ref, $session);
+
+        $this->assertSame(1, $paid->count());
+        $this->assertSame('paid', $payerOrder->fresh()->payment_status);
+        $this->assertSame('pending', $otherOrder->fresh()->payment_status);
+    }
+
+    public function test_card_expiry_does_not_fail_another_users_colliding_reference(): void
+    {
+        $payer = $this->makeUser('advertiser');
+        $other = $this->makeUser('advertiser');
+        $publisher = $this->makeUser('publisher');
+        $payerSite = $this->makeSite($publisher, 'payer-expire.example', 80);
+        $otherSite = $this->makeSite($publisher, 'other-expire.example', 80);
+        $ref = '654321';
+
+        $payerOrder = $this->pendingCardOrder($payer, $payerSite, $ref, 80);
+        $otherOrder = $this->pendingCardOrder($other, $otherSite, $ref, 80);
+
+        app(OrderPaymentService::class)->markOrdersFailedFromReference(
+            $ref,
+            'Checkout session expired',
+            $payer->id
+        );
+
+        $this->assertSame('failed', $payerOrder->fresh()->payment_status);
+        $this->assertSame('pending', $otherOrder->fresh()->payment_status);
+    }
+
+    public function test_card_settlement_without_user_id_refuses_ambiguous_reference(): void
+    {
+        $first = $this->makeUser('advertiser');
+        $second = $this->makeUser('advertiser');
+        $publisher = $this->makeUser('publisher');
+        $firstSite = $this->makeSite($publisher, 'ambig-a.example', 80);
+        $secondSite = $this->makeSite($publisher, 'ambig-b.example', 80);
+        $ref = '111111';
+
+        $this->pendingCardOrder($first, $firstSite, $ref, 80);
+        $this->pendingCardOrder($second, $secondSite, $ref, 80);
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('Order payment reference is ambiguous without user_id');
+
+        app(OrderPaymentService::class)->markOrdersPaidFromStripeSession($ref, (object) [
+            'id' => 'cs_ambig',
+            'object' => 'checkout.session',
+            'payment_status' => 'paid',
+            'amount_total' => 8000,
+            'metadata' => (object) [
+                'type' => 'order_payment',
+                'reference_code' => $ref,
+                'expected_amount' => '80',
+            ],
+        ]);
+    }
+
+    private function pendingCardOrder(User $advertiser, Site $site, string $ref, float $amount): Order
+    {
+        $order = Order::create([
+            'user_id' => $advertiser->id,
+            'order_number' => (string) random_int(100000, 999999),
+            'reference_code' => $ref,
+            'subtotal' => $amount,
+            'tax' => 0,
+            'total_amount' => $amount,
+            'payment_method' => 'card',
+            'payment_status' => 'pending',
+            'status' => 'pending',
+        ]);
+        OrderItem::create([
+            'order_id' => $order->id,
+            'site_id' => $site->id,
+            'site_name' => $site->site_name,
+            'site_url' => $site->site_url,
+            'content_link' => 'https://example.com/a',
+            'price' => $amount,
+        ]);
+
+        return $order;
+    }
 }
