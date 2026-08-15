@@ -35,7 +35,7 @@
             @endif
             <div class="row g-2 align-items-end">
                 <div class="col-md-3">
-                    <x-slb-search-field name="search" id="adminFinanceLedgerSearch" :value="$search" placeholder="User, email, reference…" />
+                    <x-slb-search-field name="search" id="adminFinanceLedgerSearch" :value="$search" placeholder="User, email, reference, or id…" />
                 </div>
                 <div class="col-md-2">
                     <label class="form-label small text-muted">Type</label>
@@ -117,7 +117,13 @@
                             <td class="small text-muted">€{{ number_format((float) $tx->bonus_amount, 2) }}</td>
                             <td class="small">€{{ number_format((float) $tx->balance_after, 2) }}</td>
                             <td class="small text-muted">
-                                <div>{{ $tx->reference }}</div>
+                                <div>
+                                    @if($relatedUrl = $tx->adminRelatedUrl())
+                                        <a href="{{ $relatedUrl }}">{{ $tx->reference ?: 'Open' }}</a>
+                                    @else
+                                        {{ $tx->reference }}
+                                    @endif
+                                </div>
                                 <div class="text-truncate" style="max-width:180px" title="{{ $tx->description }}">{{ $tx->description }}</div>
                             </td>
                             <td>

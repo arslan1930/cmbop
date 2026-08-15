@@ -108,7 +108,7 @@ class FinanceController extends Controller
         unset($clearUserQuery['user_id']);
 
         $transactions = $this->ledgerQuery($request)
-            ->with(['user:id,name,email', 'wallet:id,role_id', 'wallet.role:id,name'])
+            ->with(['user:id,name,email', 'wallet:id,role_id', 'wallet.role:id,name', 'related'])
             ->orderByDesc('created_at')
             ->orderByDesc('id')
             ->paginate(40)
@@ -140,9 +140,10 @@ class FinanceController extends Controller
             'wallet:id,role_id',
             'wallet.role:id,name',
         ]);
+        $limit = $this->ledgerExportLimit();
         $filename = 'wallet-ledger-'.now()->format('Y-m-d-His').'.csv';
 
-        return response()->streamDownload(function () use ($query) {
+        return response()->streamDownload(function () use ($query, $request, $limit) {
             $out = fopen('php://output', 'w');
             fputcsv($out, [
                 'id',
@@ -163,9 +164,9 @@ class FinanceController extends Controller
             ]);
 
             $exported = 0;
-            $query->chunkById(500, function ($rows) use ($out, &$exported) {
+            $query->chunkByIdDesc(500, function ($rows) use ($out, &$exported, $limit) {
                 foreach ($rows as $tx) {
-                    if ($exported >= self::LEDGER_EXPORT_LIMIT) {
+                    if ($exported >= $limit) {
                         return false;
                     }
                     fputcsv($out, [
@@ -188,8 +189,12 @@ class FinanceController extends Controller
                     $exported++;
                 }
 
-                return $exported < self::LEDGER_EXPORT_LIMIT;
+                return $exported < $limit;
             });
+
+            if ($exported >= $limit && $this->ledgerQuery($request)->count() > $limit) {
+                fputcsv($out, ['truncated', 'limit', $limit]);
+            }
 
             fclose($out);
         }, $filename, [
@@ -316,7 +321,8 @@ class FinanceController extends Controller
                     });
                 $searchId = $this->intQueryId($search);
                 if ($searchId > 0) {
-                    $q->orWhere('id', $searchId);
+                    $q->orWhere('id', $searchId)
+                        ->orWhere('user_id', $searchId);
                 }
             });
         }
@@ -345,6 +351,16 @@ class FinanceController extends Controller
         }
 
         return $query;
+    }
+
+    private function ledgerExportLimit(): int
+    {
+        $configured = config('billing.ledger_export_limit');
+        if (is_int($configured) || (is_string($configured) && ctype_digit($configured))) {
+            return max(1, (int) $configured);
+        }
+
+        return self::LEDGER_EXPORT_LIMIT;
     }
 
     private function intQueryId(mixed $value): int

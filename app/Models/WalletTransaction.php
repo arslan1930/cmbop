@@ -94,6 +94,72 @@ class WalletTransaction extends Model
         return $status === '' ? '—' : ucfirst(str_replace('_', ' ', $status));
     }
 
+    /**
+     * Admin page for the related deposit / withdrawal / order, if we can route it.
+     */
+    public function adminRelatedUrl(): ?string
+    {
+        $id = (int) ($this->related_id ?? 0);
+        if ($id < 1) {
+            return null;
+        }
+
+        $type = (string) ($this->related_type ?? '');
+        if ($type === '') {
+            return null;
+        }
+
+        try {
+            if ($this->relatedTypeIs($type, DepositRequest::class)) {
+                $search = $this->related instanceof DepositRequest
+                    ? trim((string) ($this->related->reference_code ?: ''))
+                    : '';
+                if ($search === '') {
+                    $search = trim((string) ($this->reference ?: ''));
+                }
+
+                return $search !== ''
+                    ? route('admin.deposits', ['search' => $search])
+                    : route('admin.deposits');
+            }
+
+            if ($this->relatedTypeIs($type, Withdrawal::class)) {
+                // Ledger withdrawal rows stay "pending" after payout; the
+                // Withdrawal status is what the queue actually filters on.
+                $status = $this->related instanceof Withdrawal
+                    ? (string) $this->related->status
+                    : '';
+                $queue = in_array($status, ['completed', 'cancelled'], true)
+                    ? 'history'
+                    : 'open';
+
+                return route('admin.withdrawals', [
+                    'search' => (string) $id,
+                    'queue' => $queue,
+                ]);
+            }
+
+            if ($this->relatedTypeIs($type, Order::class)) {
+                return route('admin.orders.show', $id);
+            }
+
+            if ($this->relatedTypeIs($type, OrderItem::class)) {
+                $orderId = (int) ($this->related?->order_id ?? ($this->meta['order_id'] ?? 0));
+
+                return $orderId > 0 ? route('admin.orders.show', $orderId) : null;
+            }
+        } catch (\Throwable) {
+            return null;
+        }
+
+        return null;
+    }
+
+    private function relatedTypeIs(string $stored, string $class): bool
+    {
+        return $stored === $class || str_ends_with($stored, '\\'.class_basename($class));
+    }
+
     public function typeLabel(): string
     {
         return match ($this->type) {
