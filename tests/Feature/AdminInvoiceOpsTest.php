@@ -642,6 +642,58 @@ class AdminInvoiceOpsTest extends TestCase
         $this->assertStringNotContainsString('href="'.route('admin.users.index', ['user' => $publisher->id]).'"', $html);
     }
 
+    public function test_invoice_index_keeps_payout_hops_on_this_host(): void
+    {
+        $admin = $this->admin();
+        $publisher = $this->publisher();
+        $withdrawal = Withdrawal::create([
+            'user_id' => $publisher->id,
+            'amount' => 80,
+            'fee' => 0,
+            'net_amount' => 80,
+            'payment_method' => 'paypal',
+            'payment_details' => ['email' => 'pay@example.com'],
+            'status' => 'completed',
+            'processed_at' => now(),
+        ]);
+        $statement = Invoice::create([
+            'user_id' => $publisher->id,
+            'customer_name' => $publisher->name,
+            'customer_email' => $publisher->email,
+            'invoice_number' => 'PAY-INDEX-HOST-1',
+            'type' => Invoice::TYPE_WITHDRAWAL_PAYOUT,
+            'status' => Invoice::STATUS_PAID,
+            'subtotal' => 80,
+            'total_amount' => 80,
+            'invoice_date' => now(),
+            'line_items' => [['description' => 'Payout', 'line_total' => 80]],
+            'pdf_disk' => 'local',
+            'reference_code' => 'WD-'.$withdrawal->id,
+            'meta' => ['withdrawal_id' => $withdrawal->id],
+        ]);
+
+        $html = $this->actingAs($admin)
+            ->get(route('admin.invoices.index'))
+            ->assertOk()
+            ->getContent();
+
+        $showPath = route('admin.invoices.show', $statement, false);
+        $userPath = route('admin.users.index', ['user' => $publisher->id], false);
+        $indexPath = route('admin.invoices.index', [], false);
+
+        $this->assertStringContainsString('href="'.$showPath.'"', $html);
+        $this->assertStringContainsString('href="'.$userPath.'"', $html);
+        $this->assertStringContainsString('href="'.$indexPath.'"', $html);
+        $this->assertStringContainsString('action="'.route('admin.invoices.regenerate-missing-pdfs', [], false).'"', $html);
+        $this->assertStringNotContainsString('href="'.route('admin.invoices.show', $statement).'"', $html);
+        $this->assertStringNotContainsString('action="'.route('admin.invoices.regenerate-missing-pdfs').'"', $html);
+
+        $this->actingAs($admin)
+            ->post(route('admin.invoices.regenerate-missing-pdfs'), ['limit' => 1])
+            ->assertRedirect($indexPath)
+            ->assertSessionHas('success');
+    }
+
     public function test_admin_payout_show_strips_legacy_fee_lines_and_ignores_scalar_items(): void
     {
         $admin = $this->admin();

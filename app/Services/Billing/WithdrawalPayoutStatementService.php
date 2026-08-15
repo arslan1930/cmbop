@@ -491,7 +491,8 @@ class WithdrawalPayoutStatementService
                 'from_user_id' => $fromUserId,
                 'error' => $e->getMessage(),
             ]);
-            $statement->refresh();
+            // Keep the in-memory meta. refresh() would restore a leftover
+            // withdrawal_id for the rest of this request.
         }
     }
 

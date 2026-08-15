@@ -191,8 +191,9 @@ class AdminInvoiceUiTest extends TestCase
             ->assertSee($invoice->invoice_number, false)
             ->getContent();
 
-        $this->assertStringContainsString(route('admin.users.index', ['user' => $advertiser->id]), $html);
-        $this->assertStringContainsString(route('admin.orders.show', $order->id), $html);
+        $this->assertStringContainsString('href="'.route('admin.users.index', ['user' => $advertiser->id], false).'"', $html);
+        $this->assertStringContainsString('href="'.route('admin.orders.show', $order->id, false).'"', $html);
+        $this->assertStringContainsString('href="'.route('admin.invoices.show', $invoice, false).'"', $html);
         $this->assertStringContainsString('text-bg-success', $html);
     }
 
@@ -291,7 +292,7 @@ class AdminInvoiceUiTest extends TestCase
             ->assertOk()
             ->assertSee('DEP-UI-1', false)
             ->assertSee('Wallet top-up', false)
-            ->assertSee(route('admin.deposits', ['search' => 'DEP-UI-1']), false)
+            ->assertSee(route('admin.deposits', ['search' => 'DEP-UI-1'], false), false)
             ->assertDontSee('Cancel invoice', false);
     }
 }

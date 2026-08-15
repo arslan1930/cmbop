@@ -189,11 +189,11 @@ class InvoiceController extends Controller
         try {
             $invoice = $billing->generateManually($order, auth()->user());
         } catch (\Throwable $e) {
-            return back()->with('error', UserFacingError::message($e, 'Could not generate the invoice.'));
+            return $this->redirectToInvoiceIndex()
+                ->with('error', UserFacingError::message($e, 'Could not generate the invoice.'));
         }
 
-        $redirect = redirect()
-            ->route('admin.invoices.show', $invoice)
+        $redirect = $this->redirectToInvoiceShow($invoice)
             ->with('success', 'Invoice '.$invoice->invoice_number.' generated.');
 
         if ($order->payment_status !== 'paid') {
@@ -214,7 +214,7 @@ class InvoiceController extends Controller
 
         $result = $billing->backfillMissingTaxInvoices((int) ($data['limit'] ?? 50));
 
-        return back()->with(
+        return $this->redirectToInvoiceIndex()->with(
             'success',
             sprintf(
                 'Backfill complete: %d tax invoices created, %d skipped, %d failed. Payment receipts are not backfilled.',
@@ -236,7 +236,7 @@ class InvoiceController extends Controller
 
         $result = $billing->regenerateMissingPdfs((int) ($data['limit'] ?? 50));
 
-        return back()->with(
+        return $this->redirectToInvoiceIndex()->with(
             'success',
             sprintf(
                 'PDF regenerate complete: %d regenerated, %d failed.',
@@ -264,6 +264,16 @@ class InvoiceController extends Controller
     private function redirectToInvoiceShow(Invoice $invoice)
     {
         return redirect()->to(route('admin.invoices.show', $invoice, false));
+    }
+
+    /**
+     * Index POSTs (backfill / fix PDFs / generate) are reached from PAY show
+     * via a relative “All invoices” link. back() or absolute route() would
+     * jump to APP_URL when Referer is missing.
+     */
+    private function redirectToInvoiceIndex()
+    {
+        return redirect()->to(route('admin.invoices.index', [], false));
     }
 
     private function parseDate(mixed $value): ?Carbon
