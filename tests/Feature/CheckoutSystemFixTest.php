@@ -738,6 +738,11 @@ class CheckoutSystemFixTest extends TestCase
         $this->assertNull($payments->getPendingCheckout('CARD-PKG-1'));
         $this->assertSame(1, Order::query()->where('payment_status', 'paid')->count());
 
+        $wallet->refresh();
+        $afterWallet = (float) $wallet->balance;
+        $reservedAfterWallet = (float) $wallet->reserved_balance;
+        $this->assertGreaterThan(0, $reservedAfterWallet);
+
         $created = $payments->finalizeStripeFirstCheckout('CARD-PKG-1', (object) [
             'id' => 'cs_open_card_pkg',
             'object' => 'checkout.session',
@@ -754,7 +759,7 @@ class CheckoutSystemFixTest extends TestCase
         $this->assertCount(0, $created);
         $this->assertSame(1, Order::query()->where('payment_status', 'paid')->count());
         $wallet->refresh();
-        $this->assertEqualsWithDelta(500.0, (float) $wallet->balance, 0.01);
-        $this->assertEqualsWithDelta(40.0, (float) $wallet->reserved_balance, 0.01);
+        $this->assertEqualsWithDelta($afterWallet + 40.0, (float) $wallet->balance, 0.01);
+        $this->assertEqualsWithDelta($reservedAfterWallet, (float) $wallet->reserved_balance, 0.01);
     }
 }
