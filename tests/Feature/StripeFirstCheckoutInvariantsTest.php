@@ -11,6 +11,7 @@ use App\Models\User;
 use App\Models\Wallet;
 use App\Services\CheckoutIntentService;
 use App\Services\OrderPaymentService;
+use App\Services\Orders\OrderRefundService;
 use Database\Seeders\RolesTableSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
@@ -1306,6 +1307,64 @@ class StripeFirstCheckoutInvariantsTest extends TestCase
             ->where('reference_code', $ref)
             ->where('payment_status', 'paid')
             ->count());
+    }
+
+    public function test_abandoned_bonus_reserve_is_not_burned_on_later_full_card_approve(): void
+    {
+        $advertiser = $this->makeUser('advertiser');
+        $publisher = $this->makeUser('publisher');
+        $site = $this->makeSite($publisher, 'stale-bonus-approve.example', 100);
+        $wallet = $this->advertiserWallet($advertiser, 20);
+        $wallet->reserveBonusOnly(20);
+        $ref = 'STALE-BONUS-1';
+        $payments = app(OrderPaymentService::class);
+
+        $payments->storePendingCheckout($ref, $this->package($advertiser, [$this->lineFor($site, 100)], 80, 20));
+        $this->assertEqualsWithDelta(20.0, (float) $wallet->fresh()->bonus_reserved, 0.01);
+
+        $released = $payments->releaseRecordedCheckoutBonus($advertiser->id, $ref);
+        $this->assertEqualsWithDelta(20.0, $released, 0.01);
+        $wallet->refresh();
+        $this->assertEqualsWithDelta(20.0, (float) $wallet->bonus_balance, 0.01);
+        $this->assertEqualsWithDelta(0.0, (float) $wallet->bonus_reserved, 0.01);
+
+        $payments->storePendingCheckout($ref, $this->package($advertiser, [$this->lineFor($site, 100)], 100, 0));
+        $orders = $payments->finalizeStripeFirstCheckout(
+            $ref,
+            $this->paidSession($ref, 100, 'cs_stale_bonus_full', $advertiser->id)
+        );
+        $this->assertCount(1, $orders);
+
+        app(OrderRefundService::class)->consumeReservedForSettledOrder($orders->first(), $wallet->fresh());
+
+        $wallet->refresh();
+        $this->assertEqualsWithDelta(20.0, (float) $wallet->bonus_balance, 0.01);
+        $this->assertEqualsWithDelta(0.0, (float) $wallet->bonus_reserved, 0.01);
+        $this->assertEqualsWithDelta(0.0, (float) $wallet->reserved_balance, 0.01);
+    }
+
+    public function test_release_recorded_bonus_does_not_touch_another_refs_reserve(): void
+    {
+        $advertiser = $this->makeUser('advertiser');
+        $publisher = $this->makeUser('publisher');
+        $site = $this->makeSite($publisher, 'bonus-other-ref.example', 40);
+        $wallet = $this->advertiserWallet($advertiser, 40);
+        $payments = app(OrderPaymentService::class);
+
+        $wallet->reserveBonusOnly(20);
+        $payments->storePendingCheckout('BONUS-REF-A', $this->package($advertiser, [$this->lineFor($site, 40)], 20, 20));
+        $wallet->refresh();
+        $wallet->reserveBonusOnly(20);
+        $payments->storePendingCheckout('BONUS-REF-B', $this->package($advertiser, [$this->lineFor($site, 40)], 20, 20));
+
+        $released = $payments->releaseRecordedCheckoutBonus($advertiser->id, 'BONUS-REF-A');
+        $this->assertEqualsWithDelta(20.0, $released, 0.01);
+
+        $wallet->refresh();
+        $this->assertEqualsWithDelta(20.0, (float) $wallet->bonus_reserved, 0.01);
+        $this->assertEqualsWithDelta(20.0, (float) $wallet->bonus_balance, 0.01);
+        $this->assertNotNull($payments->getPendingCheckout('BONUS-REF-B'));
+        $this->assertEqualsWithDelta(20.0, (float) ($payments->getPendingCheckout('BONUS-REF-B')['bonus_applied'] ?? 0), 0.01);
     }
 
     public function test_store_package_refuses_to_overwrite_another_users_checkout(): void

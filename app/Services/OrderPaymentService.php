@@ -373,6 +373,58 @@ class OrderPaymentService
         );
     }
 
+    /**
+     * Return promo reserved for an abandoned Stripe-first attempt on this REF.
+     * Only this reference's recorded bonus is released so a later full-card
+     * charge on the same REF cannot be approved by burning leftover promo.
+     */
+    public function releaseRecordedCheckoutBonus(int $userId, string $referenceCode): float
+    {
+        if ($userId <= 0 || $referenceCode === '') {
+            return 0.0;
+        }
+
+        $package = $this->getPendingCheckout($referenceCode);
+        $packageUserId = (int) ($package['user_id'] ?? 0);
+        $packageBonus = ($package !== null && ($packageUserId === 0 || $packageUserId === $userId))
+            ? round((float) ($package['bonus_applied'] ?? 0), 2)
+            : 0.0;
+
+        $recorded = app(CheckoutIntentService::class)->takeBonus(
+            $userId,
+            $referenceCode,
+            $packageBonus > 0 ? $packageBonus : null
+        );
+        if ($recorded <= 0) {
+            return 0.0;
+        }
+
+        $roleId = Wallet::advertiserRoleId();
+        if (! $roleId) {
+            return 0.0;
+        }
+
+        return (float) DB::transaction(function () use ($userId, $roleId, $recorded) {
+            $wallet = Wallet::query()
+                ->where('user_id', $userId)
+                ->where('role_id', $roleId)
+                ->lockForUpdate()
+                ->first();
+            if (! $wallet) {
+                return 0.0;
+            }
+
+            $share = min($recorded, max(0, round((float) $wallet->bonus_reserved, 2)));
+            if ($share <= 0) {
+                return 0.0;
+            }
+
+            $wallet->refundReserved($share, $share);
+
+            return $share;
+        });
+    }
+
     public static function unfulfilledCardCreditReference(string $referenceCode, string $chargeToken = ''): string
     {
         $base = 'UNFULFILLED-CARD-'.$referenceCode;

@@ -2159,6 +2159,7 @@ class CatalogController extends Controller
         $bonusApplied = 0.0;
         $amountDue = $totalAmount;
         $paymentService = app(OrderPaymentService::class);
+        $paymentService->releaseRecordedCheckoutBonus((int) $userId, (string) $referenceCode);
 
         try {
             if ($useBonus) {
