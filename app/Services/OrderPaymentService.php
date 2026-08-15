@@ -34,11 +34,10 @@ class OrderPaymentService
         $this->assertStripeObjectIsOrderPayment($session);
         $sessionMeta = $this->sessionMetadataArray($session);
         $newlyPaid = DB::transaction(function () use ($referenceCode, $session) {
-            $orders = Order::with('items')
-                ->where('reference_code', $referenceCode)
-                ->where('payment_method', 'card')
-                ->lockForUpdate()
-                ->get();
+            $orders = $this->lockCardOrdersForPayer(
+                $referenceCode,
+                $this->sessionMetadataArray($session)
+            );
 
             if ($orders->isEmpty()) {
                 Log::warning('No card orders found for Stripe payment', [
@@ -112,11 +111,7 @@ class OrderPaymentService
         }
 
         $newlyPaid = DB::transaction(function () use ($referenceCode, $intent, $meta) {
-            $orders = Order::with('items')
-                ->where('reference_code', $referenceCode)
-                ->where('payment_method', 'card')
-                ->lockForUpdate()
-                ->get();
+            $orders = $this->lockCardOrdersForPayer($referenceCode, $meta);
 
             if ($orders->isEmpty()) {
                 return collect();
@@ -252,12 +247,22 @@ class OrderPaymentService
     public function markOrdersFailedFromReference(string $referenceCode, ?string $reason = null, ?int $userId = null, ?float $bonusFallback = null): Collection
     {
         $failed = DB::transaction(function () use ($referenceCode, $reason, $userId, $bonusFallback) {
+            $package = $this->getPendingCheckout($referenceCode);
+            $resolvedUserId = $userId && $userId > 0
+                ? (int) $userId
+                : (int) ($package['user_id'] ?? 0);
+
             $orders = Order::query()
                 ->where('reference_code', $referenceCode)
                 ->where('payment_method', 'card')
                 ->where('payment_status', 'pending')
+                ->when($resolvedUserId > 0, fn ($query) => $query->where('user_id', $resolvedUserId))
                 ->lockForUpdate()
                 ->get();
+
+            if ($resolvedUserId <= 0 && $orders->pluck('user_id')->unique()->count() > 1) {
+                throw new \RuntimeException('Order payment reference is ambiguous without user_id');
+            }
 
             $marked = collect();
             foreach ($orders as $order) {
@@ -267,7 +272,6 @@ class OrderPaymentService
                 $marked->push($order->fresh());
             }
 
-            $package = $this->getPendingCheckout($referenceCode);
             $resolvedUserId = (int) ($marked->first()?->user_id
                 ?? ($package['user_id'] ?? 0)
                 ?: ($userId ?? 0));
@@ -279,7 +283,10 @@ class OrderPaymentService
                 }
                 $this->refundBonusReservedForReference($resolvedUserId, $referenceCode, $fallback, $marked);
             }
-            $this->forgetPendingCheckout($referenceCode);
+            $packageUserId = (int) ($package['user_id'] ?? 0);
+            if ($packageUserId <= 0 || $resolvedUserId <= 0 || $packageUserId === $resolvedUserId) {
+                $this->forgetPendingCheckout($referenceCode);
+            }
 
             if ($marked->isNotEmpty()) {
                 Log::info('Marked card orders payment_status=failed', [
@@ -397,6 +404,10 @@ class OrderPaymentService
         $orders = Order::with('items.site')
             ->where('reference_code', $referenceCode)
             ->where('payment_method', 'card')
+            ->when(
+                isset($meta['user_id']) && (int) $meta['user_id'] > 0,
+                fn ($query) => $query->where('user_id', (int) $meta['user_id'])
+            )
             ->get();
 
         $hiddenPending = $orders->filter(function (Order $order) {
@@ -531,9 +542,14 @@ class OrderPaymentService
     {
         $this->assertStripeObjectIsOrderPayment($session);
 
+        $meta = $this->sessionMetadataArray($session);
         $existingCount = Order::query()
             ->where('reference_code', $referenceCode)
             ->where('payment_method', 'card')
+            ->when(
+                isset($meta['user_id']) && (int) $meta['user_id'] > 0,
+                fn ($query) => $query->where('user_id', (int) $meta['user_id'])
+            )
             ->count();
 
         if ($existingCount > 0) {
@@ -550,7 +566,6 @@ class OrderPaymentService
             return collect();
         }
 
-        $meta = $this->sessionMetadataArray($session);
         $packageUserId = (int) ($package['user_id'] ?? 0);
         $metaUserId = isset($meta['user_id']) ? (int) $meta['user_id'] : 0;
         if ($packageUserId > 0 && $metaUserId > 0 && $packageUserId !== $metaUserId) {
@@ -574,11 +589,10 @@ class OrderPaymentService
 
         $refundedInFinalize = 0.0;
         $created = DB::transaction(function () use ($package, $referenceCode, $session, $schema, &$refundedInFinalize) {
-            $already = Order::query()
-                ->where('reference_code', $referenceCode)
-                ->where('payment_method', 'card')
-                ->lockForUpdate()
-                ->get();
+            $already = $this->lockCardOrdersForPayer(
+                $referenceCode,
+                $this->sessionMetadataArray($session)
+            );
 
             if ($already->isNotEmpty()) {
                 return $this->markOrdersPaidFromStripeSession($referenceCode, $session);
@@ -725,11 +739,14 @@ class OrderPaymentService
         });
 
         if ($created->isEmpty()) {
-            $existing = Order::query()
-                ->where('reference_code', $referenceCode)
-                ->where('payment_method', 'card')
-                ->where('status', '!=', 'cancelled')
-                ->get();
+            $existing = $this->restrictCardOrdersToPayer(
+                Order::query()
+                    ->where('reference_code', $referenceCode)
+                    ->where('payment_method', 'card')
+                    ->where('status', '!=', 'cancelled')
+                    ->get(),
+                $this->sessionMetadataArray($session)
+            );
             if ($existing->isNotEmpty()) {
                 return $this->markOrdersPaidFromStripeSession($referenceCode, $session);
             }
@@ -836,6 +853,47 @@ class OrderPaymentService
         $bonus = round((float) ($meta['bonus_applied'] ?? 0), 2);
 
         return round(max(0, $total - $bonus), 2);
+    }
+
+    /**
+     * @param  array<string, mixed>  $meta
+     * @return Collection<int, Order>
+     */
+    private function lockCardOrdersForPayer(string $referenceCode, array $meta): Collection
+    {
+        $orders = Order::with('items')
+            ->where('reference_code', $referenceCode)
+            ->where('payment_method', 'card')
+            ->lockForUpdate()
+            ->get();
+
+        return $this->restrictCardOrdersToPayer($orders, $meta);
+    }
+
+    /**
+     * 6-digit client REFs can collide. Never settle another advertiser's
+     * card orders from this Stripe charge.
+     *
+     * @param  Collection<int, Order>  $orders
+     * @param  array<string, mixed>  $meta
+     * @return Collection<int, Order>
+     */
+    private function restrictCardOrdersToPayer(Collection $orders, array $meta): Collection
+    {
+        $payerId = isset($meta['user_id']) ? (int) $meta['user_id'] : 0;
+        if ($payerId > 0) {
+            return $orders->where('user_id', $payerId)->values();
+        }
+
+        $userIds = $orders->pluck('user_id')
+            ->unique()
+            ->filter(fn ($id) => (int) $id > 0)
+            ->values();
+        if ($userIds->count() > 1) {
+            throw new \RuntimeException('Order payment reference is ambiguous without user_id');
+        }
+
+        return $orders->values();
     }
 
     /**

@@ -47,6 +47,7 @@ use App\Services\PlatformFeeService;
 use App\Services\StripeCustomerService;
 use App\Services\StripePaymentService;
 use App\Services\Wallet\WalletLedgerService;
+use App\Services\WalletStripeDepositService;
 use App\Support\AdvertiserOrderStatus;
 use App\Support\UserFacingError;
 use Carbon\CarbonInterface;
@@ -2901,17 +2902,31 @@ class CatalogController extends Controller
                         ->with('error', 'Unable to verify card payment. Please contact support.');
                 }
 
-                if (($intent->metadata->reference_code ?? null) && $intent->metadata->reference_code !== $referenceCode) {
+                $deposits = app(WalletStripeDepositService::class);
+                $meta = (array) json_decode(json_encode($intent->metadata ?? []), true);
+                if (trim((string) ($meta['user_id'] ?? '')) === ''
+                    || trim((string) ($meta['type'] ?? '')) === ''
+                    || trim((string) ($meta['reference_code'] ?? '')) === '') {
+                    $intent = $deposits->withRecoveredCheckoutSessionMetadata($intent);
+                    $meta = (array) json_decode(json_encode($intent->metadata ?? []), true);
+                }
+
+                if (($meta['reference_code'] ?? null) && $meta['reference_code'] !== $referenceCode) {
                     return redirect()->route('advertiser.checkout')
                         ->with('error', 'Payment reference mismatch.');
                 }
 
-                if ((string) ($intent->metadata->user_id ?? '') !== (string) auth()->id()) {
+                $intentUserId = trim((string) ($meta['user_id'] ?? ''));
+                if ($intentUserId === '') {
+                    return redirect()->route('advertiser.checkout')
+                        ->with('error', 'Unable to verify card payment. Please contact support.');
+                }
+                if ($intentUserId !== (string) auth()->id()) {
                     return redirect()->route('advertiser.checkout')
                         ->with('error', 'Payment does not belong to this account.');
                 }
 
-                $intentType = (string) ($intent->metadata->type ?? '');
+                $intentType = (string) ($meta['type'] ?? '');
                 if ($intentType !== '' && ! in_array($intentType, ['order_payment', 'order'], true)) {
                     return redirect()->route('advertiser.checkout')
                         ->with('error', 'This payment is not an order checkout.');
@@ -2946,18 +2961,32 @@ class CatalogController extends Controller
                         ->with('error', 'Payment not completed.');
                 }
 
-                $sessionRef = $stripeSession->metadata->reference_code ?? null;
+                $deposits = app(WalletStripeDepositService::class);
+                $meta = (array) json_decode(json_encode($stripeSession->metadata ?? []), true);
+                if (trim((string) ($meta['user_id'] ?? '')) === ''
+                    || trim((string) ($meta['type'] ?? '')) === ''
+                    || trim((string) ($meta['reference_code'] ?? '')) === '') {
+                    $stripeSession = $deposits->withRecoveredPaymentIntentMetadata($stripeSession);
+                    $meta = (array) json_decode(json_encode($stripeSession->metadata ?? []), true);
+                }
+
+                $sessionRef = $meta['reference_code'] ?? null;
                 if ($sessionRef && $sessionRef !== $referenceCode) {
                     return redirect()->route('advertiser.checkout')
                         ->with('error', 'Payment reference mismatch.');
                 }
 
-                if ((string) ($stripeSession->metadata->user_id ?? '') !== (string) auth()->id()) {
+                $sessionUserId = trim((string) ($meta['user_id'] ?? ''));
+                if ($sessionUserId === '') {
+                    return redirect()->route('advertiser.checkout')
+                        ->with('error', 'Unable to verify payment. Please contact support.');
+                }
+                if ($sessionUserId !== (string) auth()->id()) {
                     return redirect()->route('advertiser.checkout')
                         ->with('error', 'Payment does not belong to this account.');
                 }
 
-                $sessionType = (string) ($stripeSession->metadata->type ?? '');
+                $sessionType = (string) ($meta['type'] ?? '');
                 if ($sessionType !== '' && ! in_array($sessionType, ['order_payment', 'order'], true)) {
                     return redirect()->route('advertiser.checkout')
                         ->with('error', 'This payment is not an order checkout.');
@@ -4957,7 +4986,8 @@ class CatalogController extends Controller
         if ($stillPending->isNotEmpty()) {
             $paymentService->markOrdersFailedFromReference(
                 $referenceCode,
-                'Checkout canceled by customer'
+                'Checkout canceled by customer',
+                auth()->id()
             );
             $canceled = Order::with('items')
                 ->where('user_id', auth()->id())
