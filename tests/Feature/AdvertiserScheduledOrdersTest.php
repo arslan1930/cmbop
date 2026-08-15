@@ -112,7 +112,7 @@ class AdvertiserScheduledOrdersTest extends TestCase
             'scheduled_publish_at' => now()->subDays(2),
         ]);
 
-        $this->actingAs($advertiser)
+        $upcomingPage = $this->actingAs($advertiser)
             ->get(route('advertiser.scheduled-orders', ['tab' => 'upcoming']))
             ->assertOk()
             ->assertSee('Upcoming')
@@ -122,6 +122,15 @@ class AdvertiserScheduledOrdersTest extends TestCase
             ->assertSee('Funds held · refunded on cancel')
             ->assertSee('focus=order', false)
             ->assertSee('order='.$upcoming->id, false);
+        $upcomingHtml = $upcomingPage->getContent();
+        $this->assertStringContainsString(
+            'action="'.route('advertiser.scheduled-orders.update', $upcoming, false).'"',
+            $upcomingHtml
+        );
+        $this->assertStringNotContainsString(
+            'action="'.route('advertiser.scheduled-orders.update', $upcoming).'"',
+            $upcomingHtml
+        );
 
         $this->actingAs($advertiser)
             ->get(route('advertiser.scheduled-orders', ['tab' => 'with_publisher']))

@@ -118,7 +118,7 @@ class ManualWalletFundingFlowTest extends TestCase
             'active' => true,
         ]);
 
-        $this->actingAs($advertiser)
+        $page = $this->actingAs($advertiser)
             ->withSession([
                 'cart' => [['id' => $site->id, 'name' => $site->site_name, 'quantity' => 1]],
             ])
@@ -128,6 +128,17 @@ class ManualWalletFundingFlowTest extends TestCase
             ->assertSee('Add funds &amp; get invoice', false)
             ->assertDontSee('data-method="wise"', false)
             ->assertDontSee('data-method="bank"', false);
+
+        $html = $page->getContent();
+        $jsonFlags = JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT;
+        $this->assertStringContainsString(
+            json_encode(route('advertiser.checkout.process', [], false), $jsonFlags),
+            $html
+        );
+        $this->assertStringNotContainsString(
+            json_encode(route('advertiser.checkout.process'), $jsonFlags),
+            $html
+        );
     }
 
     public function test_add_funds_creates_invoice_for_wise_deposit(): void

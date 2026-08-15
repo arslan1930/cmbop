@@ -1497,7 +1497,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Submit order function
     function submitOrder() {
         const schedule = checkoutSchedulePayload();
-        fetch('{{ route("advertiser.checkout.process") }}', {
+        fetch(@json(route('advertiser.checkout.process', [], false)), {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',

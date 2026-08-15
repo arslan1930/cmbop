@@ -126,7 +126,7 @@
                                 <td>
                                     @if($editable)
                                         <div class="d-flex flex-wrap gap-2 align-items-end">
-                                            <form method="POST" action="{{ route('advertiser.scheduled-orders.update', $order) }}" class="d-flex flex-wrap gap-2 align-items-end">
+                                            <form method="POST" action="{{ route('advertiser.scheduled-orders.update', $order, false) }}" class="d-flex flex-wrap gap-2 align-items-end">
                                                 @csrf
                                                 <div>
                                                     <label class="form-label small mb-0">New date</label>
@@ -153,7 +153,7 @@
                                                 <button type="submit" name="action" value="reschedule" class="btn btn-sm btn-outline-primary">Update</button>
                                             </form>
                                             @if($isPaid)
-                                                <form method="POST" action="{{ route('advertiser.scheduled-orders.update', $order) }}">
+                                                <form method="POST" action="{{ route('advertiser.scheduled-orders.update', $order, false) }}">
                                                     @csrf
                                                     <button type="submit" name="action" value="publish_now" class="btn btn-sm btn-primary"
                                                             data-slb-confirm="Release this order to the publisher now? They will be notified to publish."
@@ -162,7 +162,7 @@
                                                             data-slb-confirm-icon="question">Publish now</button>
                                                 </form>
                                             @endif
-                                            <form method="POST" action="{{ route('advertiser.scheduled-orders.update', $order) }}">
+                                            <form method="POST" action="{{ route('advertiser.scheduled-orders.update', $order, false) }}">
                                                 @csrf
                                                 <button type="submit" name="action" value="cancel" class="btn btn-sm btn-outline-danger"
                                                         data-slb-confirm="{{ $cancelConfirm }}"
