@@ -1074,4 +1074,95 @@ class DepositCreditAndRejectHardeningTest extends TestCase
             ->where('status', 'completed')
             ->value('stripe_payment_intent_id'));
     }
+
+    public function test_does_not_steal_payment_intent_from_another_users_completed_card(): void
+    {
+        $owner = $this->advertiser();
+        $payer = $this->advertiser();
+        $ownerWallet = $this->walletFor($owner);
+        $payerWallet = $this->walletFor($payer);
+        $pi = 'pi_completed_foreign_'.uniqid();
+
+        $ownersCard = DepositRequest::create([
+            'user_id' => $owner->id,
+            'reference_code' => 'DEP-OWNER-DONE',
+            'amount' => 40,
+            'payment_method' => 'card',
+            'status' => 'completed',
+            'stripe_payment_intent_id' => $pi,
+            'approved_at' => now()->subMinute(),
+            'paid_at' => now()->subMinute(),
+        ]);
+        $ownerWallet->update(['balance' => 40]);
+
+        $credited = app(WalletStripeDepositService::class)->creditFromCheckoutSession((object) [
+            'id' => 'cs_steal_pi_'.uniqid(),
+            'payment_status' => 'paid',
+            'amount_total' => 4000,
+            'payment_intent' => $pi,
+            'metadata' => (object) [
+                'type' => 'wallet_deposit',
+                'user_id' => (string) $payer->id,
+                'deposit_id' => (string) $ownersCard->id,
+                'amount' => '40.00',
+            ],
+        ]);
+
+        $this->assertSame(0.0, $credited);
+        $this->assertSame($pi, $ownersCard->fresh()->stripe_payment_intent_id);
+        $this->assertSame('completed', $ownersCard->fresh()->status);
+        $this->assertSame(40.0, (float) $ownerWallet->fresh()->balance);
+        $this->assertSame(0.0, (float) $payerWallet->fresh()->balance);
+        $this->assertSame(1, DepositRequest::query()
+            ->where('stripe_payment_intent_id', $pi)
+            ->count());
+    }
+
+    public function test_pending_card_is_not_marked_completed_via_another_users_charge(): void
+    {
+        $owner = $this->advertiser();
+        $payer = $this->advertiser();
+        $ownerWallet = $this->walletFor($owner);
+        $payerWallet = $this->walletFor($payer);
+        $pi = 'pi_via_foreign_'.uniqid();
+
+        DepositRequest::create([
+            'user_id' => $owner->id,
+            'reference_code' => 'DEP-OWNER-PI',
+            'amount' => 40,
+            'payment_method' => 'card',
+            'status' => 'completed',
+            'stripe_payment_intent_id' => $pi,
+            'approved_at' => now()->subMinute(),
+            'paid_at' => now()->subMinute(),
+        ]);
+        $ownerWallet->update(['balance' => 40]);
+
+        $pending = DepositRequest::create([
+            'user_id' => $payer->id,
+            'reference_code' => 'DEP-PAYER-PENDING',
+            'amount' => 40,
+            'payment_method' => 'card',
+            'status' => 'pending',
+        ]);
+
+        $credited = app(WalletStripeDepositService::class)->creditFromCheckoutSession((object) [
+            'id' => 'cs_via_foreign_'.uniqid(),
+            'payment_status' => 'paid',
+            'amount_total' => 4000,
+            'payment_intent' => $pi,
+            'metadata' => (object) [
+                'type' => 'wallet_deposit',
+                'user_id' => (string) $payer->id,
+                'deposit_id' => (string) $pending->id,
+                'amount' => '40.00',
+            ],
+        ]);
+
+        $this->assertSame(0.0, $credited);
+        $this->assertSame('pending', $pending->fresh()->status);
+        $this->assertNull($pending->fresh()->stripe_payment_intent_id);
+        $this->assertSame(40.0, (float) $ownerWallet->fresh()->balance);
+        $this->assertSame(0.0, (float) $payerWallet->fresh()->balance);
+    }
 }
