@@ -230,6 +230,46 @@ class BulkDoneDraftAndNicheUiTest extends TestCase
         $this->assertSame('Keep this note', $bulk->fresh()->admin_notes);
     }
 
+    public function test_notes_and_seed_errors_do_not_show_done_boxes_alert(): void
+    {
+        $bulk = BulkSiteRequest::create([
+            'publisher_id' => $this->publisher->id,
+            'status' => BulkSiteRequest::STATUS_REQUESTED,
+            'estimated_count' => 1,
+        ]);
+        BulkSiteRequestItem::create([
+            'bulk_site_request_id' => $bulk->id,
+            'site_url' => 'https://notes-alert.example',
+            'domain' => 'notes-alert.example',
+            'price' => 40,
+        ]);
+
+        $notesHtml = $this->actingAs($this->marketer)
+            ->from(route('marketing.bulk-site-requests.show', $bulk))
+            ->followingRedirects()
+            ->post(route('marketing.bulk-site-requests.notes', $bulk), [
+                'admin_notes' => str_repeat('n', 20001),
+            ])
+            ->assertOk()
+            ->assertSee('is-invalid', false)
+            ->getContent();
+
+        $this->assertStringNotContainsString('Finish the boxes first.', $notesHtml);
+        $this->assertStringContainsString('name="admin_notes"', $notesHtml);
+
+        $seedHtml = $this->actingAs($this->marketer)
+            ->from(route('marketing.bulk-site-requests.show', $bulk))
+            ->followingRedirects()
+            ->post(route('marketing.bulk-site-requests.seed', $bulk), [
+                'rows' => '',
+            ])
+            ->assertOk()
+            ->getContent();
+
+        $this->assertStringNotContainsString('Finish the boxes first.', $seedHtml);
+        $this->assertStringContainsString('$hasDoneFormErrors', file_get_contents(resource_path('views/admin/bulk-site-requests/show.blade.php')));
+    }
+
     public function test_sheet_sent_does_not_overwrite_admin_notes(): void
     {
         $bulk = BulkSiteRequest::create([

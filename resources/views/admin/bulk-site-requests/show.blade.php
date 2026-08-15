@@ -162,11 +162,14 @@
                         Marketing Activate needs DA ≥ {{ \App\Models\Site::GOOD_MIN_DA }}, DR ≥ {{ \App\Models\Site::GOOD_MIN_DR }}, and traffic ≥ {{ number_format(\App\Models\Site::GOOD_MIN_TRAFFIC) }}. Done below this is allowed.
                     </p>
 
-                    @if($errors->any())
+                    @php
+                        $hasItemErrors = collect($errors->keys())->contains(
+                            fn ($key) => $key === 'items' || str_starts_with((string) $key, 'items.')
+                        );
+                        $hasDoneFormErrors = $hasItemErrors || $errors->has('rejection_note');
+                    @endphp
+                    @if($hasDoneFormErrors)
                         @php
-                            $hasItemErrors = collect($errors->keys())->contains(
-                                fn ($key) => $key === 'items' || str_starts_with((string) $key, 'items.')
-                            );
                             $itemError = $hasItemErrors
                                 ? collect($errors->messages())->first(
                                     fn ($msgs, $key) => $key === 'items' || str_starts_with((string) $key, 'items.')
@@ -174,7 +177,9 @@
                                 : null;
                             $alertBody = is_array($itemError)
                                 ? ($itemError[0] ?? $errors->first())
-                                : $errors->first();
+                                : ($hasItemErrors
+                                    ? $errors->first()
+                                    : $errors->first('rejection_note'));
                         @endphp
                         <div class="alert alert-danger py-2 small">
                             <strong>

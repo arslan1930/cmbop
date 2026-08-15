@@ -714,7 +714,21 @@ class BulkSiteRequestController extends Controller
                     'enrichment_status' => 'pending',
                     'onboarding_status' => Site::ONBOARDING_AWAITING_DETAILS,
                 ]);
-                $site->save();
+                try {
+                    $site->save();
+                } catch (\Throwable $e) {
+                    Log::warning('Failed to create bulk draft site: '.$e->getMessage(), [
+                        'bulk_site_request_id' => $bulkRequest->id,
+                        'domain' => $domain,
+                    ]);
+                    $failures[] = [
+                        'line' => $row['line'] ?? 0,
+                        'url' => $siteUrl,
+                        'errors' => ['Could not add this domain. It may already be registered.'],
+                    ];
+
+                    continue;
+                }
 
                 $pending = $bulkRequest->items()->whereNull('site_id')->get(['id', 'domain']);
                 $doneItemId = $action === 'bulk_request.done' ? (int) ($row['line'] ?? 0) : 0;
@@ -732,6 +746,15 @@ class BulkSiteRequestController extends Controller
                         ->whereNull('site_id')
                         ->whereIn('id', $itemIds)
                         ->update(['site_id' => $site->id]);
+                } elseif ($action === 'bulk_request.done' || $pending->isNotEmpty()) {
+                    $site->delete();
+                    $failures[] = [
+                        'line' => $row['line'] ?? 0,
+                        'url' => $siteUrl,
+                        'errors' => ['Could not attach this row. Refresh and try again.'],
+                    ];
+
+                    continue;
                 }
 
                 $created++;
