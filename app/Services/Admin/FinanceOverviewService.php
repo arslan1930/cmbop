@@ -149,7 +149,7 @@ class FinanceOverviewService
             'count' => 0,
             'amount' => 0.0,
             'rows' => [],
-            'url' => route('admin.finance').'#finance-debt',
+            'url' => route('admin.finance', [], false).'#finance-debt',
         ];
 
         if (! Schema::hasColumn('wallets', 'debt_balance')) {
@@ -172,7 +172,7 @@ class FinanceOverviewService
                 'name' => $wallet->user?->name ?? 'User #'.$wallet->user_id,
                 'email' => $wallet->user?->email,
                 'debt' => round((float) $wallet->debt_balance, 2),
-                'url' => route('admin.finance.user', $wallet->user_id),
+                'url' => route('admin.finance.user', $wallet->user_id, false),
             ])
             ->all();
 
@@ -180,7 +180,7 @@ class FinanceOverviewService
             'count' => (clone $query)->count(),
             'amount' => round((float) (clone $query)->sum('debt_balance'), 2),
             'rows' => $rows,
-            'url' => route('admin.finance').'#finance-debt',
+            'url' => route('admin.finance', [], false).'#finance-debt',
         ];
     }
 
@@ -251,7 +251,7 @@ class FinanceOverviewService
                         'name' => $wallet->user?->name ?? 'User #'.$wallet->user_id,
                         'email' => $wallet->user?->email,
                         'withdrawable' => $withdrawable,
-                        'url' => route('admin.finance.user', $wallet->user_id),
+                        'url' => route('admin.finance.user', $wallet->user_id, false),
                     ];
                 }
             }

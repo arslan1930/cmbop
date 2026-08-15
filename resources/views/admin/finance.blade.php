@@ -81,11 +81,11 @@
                                 @foreach($userMatches as $match)
                                     <tr>
                                         <td class="small">
-                                            <a href="{{ route('admin.finance.user', $match) }}">{{ $match->name }}</a>
+                                            <a href="{{ route('admin.finance.user', $match, false) }}">{{ $match->name }}</a>
                                             <div class="text-muted">{{ $match->email }}</div>
                                         </td>
                                         <td class="text-end">
-                                            <a href="{{ route('admin.finance.user', $match) }}" class="btn btn-sm btn-outline-secondary">Dossier</a>
+                                            <a href="{{ route('admin.finance.user', $match, false) }}" class="btn btn-sm btn-outline-secondary">Dossier</a>
                                         </td>
                                     </tr>
                                 @endforeach
@@ -159,7 +159,7 @@
                                                 <a href="{{ $row['url'] }}">WD-{{ $row['id'] }}</a>
                                             </td>
                                             <td class="small">
-                                                <a href="{{ route('admin.finance.user', $row['user_id']) }}">{{ $row['name'] }}</a>
+                                                <a href="{{ route('admin.finance.user', $row['user_id'], false) }}">{{ $row['name'] }}</a>
                                                 <div class="text-muted">{{ $row['email'] }}</div>
                                             </td>
                                             <td class="fw-semibold">{{ $euro($row['net_amount']) }}</td>

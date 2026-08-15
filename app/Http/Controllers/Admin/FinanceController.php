@@ -40,7 +40,7 @@ class FinanceController extends Controller
             if (strlen($userQuery) >= 2) {
                 $userMatches = $this->searchUsers($userQuery);
                 if ($userMatches->count() === 1) {
-                    return redirect()->route('admin.finance.user', $userMatches->first());
+                    return redirect()->to(route('admin.finance.user', $userMatches->first(), false));
                 }
             }
         }
@@ -303,7 +303,7 @@ class FinanceController extends Controller
 
         $user = User::query()->whereKey((int) $userQuery)->first();
 
-        return $user ? redirect()->route('admin.finance.user', $user) : null;
+        return $user ? redirect()->to(route('admin.finance.user', $user, false)) : null;
     }
 
     /**

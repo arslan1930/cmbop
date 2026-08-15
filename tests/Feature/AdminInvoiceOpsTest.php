@@ -642,6 +642,48 @@ class AdminInvoiceOpsTest extends TestCase
         $this->assertStringNotContainsString('href="'.route('admin.users.index', ['user' => $publisher->id]).'"', $html);
     }
 
+    public function test_admin_payout_show_fills_leftover_dest(): void
+    {
+        $admin = $this->admin();
+        $publisher = $this->publisher();
+        $withdrawal = Withdrawal::create([
+            'user_id' => $publisher->id,
+            'amount' => 60,
+            'fee' => 0,
+            'net_amount' => 60,
+            'payment_method' => 'paypal',
+            'payment_details' => ['paypal_email' => 'leftover-pay@example.com'],
+            'status' => 'completed',
+            'processed_at' => now(),
+        ]);
+        $statement = Invoice::create([
+            'user_id' => $publisher->id,
+            'customer_name' => $publisher->name,
+            'customer_email' => $publisher->email,
+            'invoice_number' => 'PAY-SHOW-DEST-1',
+            'type' => Invoice::TYPE_WITHDRAWAL_PAYOUT,
+            'status' => Invoice::STATUS_PAID,
+            'subtotal' => 60,
+            'total_amount' => 60,
+            'invoice_date' => now(),
+            'line_items' => [['description' => 'Payout', 'line_total' => 60]],
+            'pdf_disk' => 'local',
+            'reference_code' => 'WD-'.$withdrawal->id,
+            'meta' => ['withdrawal_id' => $withdrawal->id],
+            'billing_snapshot' => [
+                'name' => $publisher->name,
+                'email' => $publisher->email,
+                'payment_details' => ['paypal_email' => 'leftover-pay@example.com'],
+            ],
+        ]);
+
+        $this->actingAs($admin)
+            ->get(route('admin.invoices.show', $statement))
+            ->assertOk()
+            ->assertSee('Sent to', false)
+            ->assertSee('leftover-pay@example.com', false);
+    }
+
     public function test_invoice_index_keeps_payout_hops_on_this_host(): void
     {
         $admin = $this->admin();

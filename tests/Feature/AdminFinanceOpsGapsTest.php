@@ -52,12 +52,14 @@ class AdminFinanceOpsGapsTest extends TestCase
             ->assertSee('€42.50')
             ->assertSee('1 publisher wallet blocked')
             ->assertSee($publisher->email)
-            ->assertSee(route('admin.finance.user', $publisher), false)
+            ->assertSee(route('admin.finance.user', $publisher, false), false)
             ->getContent();
 
         $this->assertStringContainsString('id="finance-debt"', $html);
         $this->assertStringContainsString('Find user dossier', $html);
         $this->assertStringContainsString('href="'.route('admin.withdrawals', [], false).'"', $html);
+        $this->assertStringContainsString('href="'.route('admin.finance.user', $publisher, false).'"', $html);
+        $this->assertStringNotContainsString('href="'.route('admin.finance.user', $publisher).'"', $html);
     }
 
     public function test_user_search_redirects_unique_match_to_dossier(): void
@@ -89,8 +91,8 @@ class AdminFinanceOpsGapsTest extends TestCase
             ->assertSee('2 users match')
             ->assertSee($one->email)
             ->assertSee($two->email)
-            ->assertSee(route('admin.finance.user', $one), false)
-            ->assertSee(route('admin.finance.user', $two), false);
+            ->assertSee(route('admin.finance.user', $one, false), false)
+            ->assertSee(route('admin.finance.user', $two, false), false);
     }
 
     public function test_dossier_rows_deep_link_to_admin_money_pages(): void
