@@ -846,41 +846,47 @@ class EmailCampaign extends Model
      * Retry pending-marks the Email Center row and clears the recipient FK.
      * If that mailable is then lost, expire skipped the recipient but the
      * log stayed pending — retry only works on failed logs.
+     *
+     * Do not Schema::hasTable('email_logs') here: recoverStalled() runs on
+     * Email Center page views, and that probe is counted as an email_logs
+     * query. Skip the table entirely when there are no stale-skip keys.
      */
     protected static function failPendingLogsForStaleRecipients(): void
     {
         try {
-            if (! Schema::hasTable((new EmailLog)->getTable())
-                || ! Schema::hasTable((new EmailCampaignRecipient)->getTable())) {
-                return;
-            }
+            $keys = EmailCampaignRecipient::query()
+                ->where('status', EmailCampaignRecipient::STATUS_SKIPPED)
+                ->where('skip_reason', EmailCampaignRecipient::SKIP_STALE)
+                ->get(['email_campaign_id', 'user_id'])
+                ->map(fn (EmailCampaignRecipient $row) => EmailCampaignRecipient::dedupeKey(
+                    (int) $row->email_campaign_id,
+                    (int) $row->user_id
+                ))
+                ->unique()
+                ->values();
         } catch (\Throwable) {
             return;
         }
-
-        $keys = EmailCampaignRecipient::query()
-            ->where('status', EmailCampaignRecipient::STATUS_SKIPPED)
-            ->where('skip_reason', EmailCampaignRecipient::SKIP_STALE)
-            ->get(['email_campaign_id', 'user_id'])
-            ->map(fn (EmailCampaignRecipient $row) => EmailCampaignRecipient::dedupeKey(
-                (int) $row->email_campaign_id,
-                (int) $row->user_id
-            ))
-            ->unique()
-            ->values();
 
         if ($keys->isEmpty()) {
             return;
         }
 
-        foreach ($keys->chunk(500) as $chunk) {
-            EmailLog::query()
-                ->whereIn('dedupe_key', $chunk->all())
-                ->where('status', EmailLog::STATUS_PENDING)
-                ->update([
-                    'status' => EmailLog::STATUS_FAILED,
-                    'error' => 'Expired: campaign mail was not confirmed',
-                ]);
+        $now = now();
+
+        try {
+            foreach ($keys->chunk(500) as $chunk) {
+                EmailLog::query()
+                    ->whereIn('dedupe_key', $chunk->all())
+                    ->where('status', EmailLog::STATUS_PENDING)
+                    ->update([
+                        'status' => EmailLog::STATUS_FAILED,
+                        'error' => 'Expired: campaign mail was not confirmed',
+                        'updated_at' => $now,
+                    ]);
+            }
+        } catch (\Throwable) {
+            // Recipient expire still lets recount leave sending.
         }
     }
 }
