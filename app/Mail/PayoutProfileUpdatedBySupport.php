@@ -21,9 +21,10 @@ class PayoutProfileUpdatedBySupport extends PlatformMailable
         return $this->subject('Your payout details were updated')
             ->markdown('emails.publisher.payout-profile-updated')
             ->with([
-                'userName' => $this->user->name,
+                'userName' => $this->user->name ?: 'Publisher',
                 'method' => $this->method,
                 'supportEmail' => config('email_notifications.brand.support_email', config('mail.from.address')),
+                'withdrawUrl' => $this->publicRoute('publisher.withdraw'),
             ]);
     }
 }

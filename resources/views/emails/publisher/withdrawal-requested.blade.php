@@ -1,7 +1,7 @@
 @component('mail::message')
 # Withdrawal request received
 
-Hi {{ $withdrawal->user->name }},
+Hi {{ $userName ?? ($withdrawal->user?->name ?: 'Publisher') }},
 
 We received your withdrawal request **WD-{{ $withdrawal->id }}**.
 
@@ -17,7 +17,7 @@ We received your withdrawal request **WD-{{ $withdrawal->id }}**.
 
 We usually process payouts within 1–2 business days. You can cancel while the status is still **Requested**.
 
-@component('mail::button', ['url' => route('publisher.withdraw')])
+@component('mail::button', ['url' => $withdrawUrl])
 View withdrawals
 @endcomponent
 

@@ -95,6 +95,7 @@ class InvoiceController extends Controller
     public function show(Invoice $invoice, WithdrawalPayoutStatementService $statements)
     {
         $invoice = $statements->reconcileInvoice($invoice);
+        $invoice = $statements->normalizeLegacyFeeLineItems($invoice);
         $invoice->load([
             'user:id,name,email',
             'order:id,order_number',
@@ -121,7 +122,9 @@ class InvoiceController extends Controller
                 $invoice->refresh();
             }
         } catch (\Throwable $e) {
-            return back()->with('error', UserFacingError::message($e, 'Could not generate the PDF.'));
+            report($e);
+            // Fall through — stream() can still render a live PDF after
+            // identity repair cleared pdf_path.
         }
 
         $billing->recordAdminDownload($invoice, auth()->user());
@@ -139,7 +142,9 @@ class InvoiceController extends Controller
                 $invoice->refresh();
             }
         } catch (\Throwable $e) {
-            return back()->with('error', UserFacingError::message($e, 'Could not generate the PDF.'));
+            report($e);
+            // Fall through — download() can still render a live PDF after
+            // identity repair cleared pdf_path.
         }
 
         $billing->recordAdminDownload($invoice, auth()->user());
@@ -152,10 +157,10 @@ class InvoiceController extends Controller
         $result = $billing->resendInvoiceEmail($invoice);
 
         if (! $result['ok']) {
-            return back()->with('error', $result['message']);
+            return $this->redirectToInvoiceShow($invoice)->with('error', $result['message']);
         }
 
-        return back()->with('success', $result['message']);
+        return $this->redirectToInvoiceShow($invoice)->with('success', $result['message']);
     }
 
     public function cancel(Request $request, Invoice $invoice, BillingDocumentService $billing)
@@ -165,12 +170,12 @@ class InvoiceController extends Controller
         ]);
 
         if ($invoice->type !== Invoice::TYPE_TAX_INVOICE) {
-            return back()->with('error', 'Only tax invoices can be cancelled.');
+            return $this->redirectToInvoiceShow($invoice)->with('error', 'Only tax invoices can be cancelled.');
         }
 
         $billing->cancelInvoice($invoice, auth()->user(), $data['reason'] ?? null);
 
-        return back()->with('success', 'Invoice cancelled. The PDF is retained for audit.');
+        return $this->redirectToInvoiceShow($invoice)->with('success', 'Invoice cancelled. The PDF is retained for audit.');
     }
 
     public function generate(Request $request, BillingDocumentService $billing)
@@ -184,11 +189,11 @@ class InvoiceController extends Controller
         try {
             $invoice = $billing->generateManually($order, auth()->user());
         } catch (\Throwable $e) {
-            return back()->with('error', UserFacingError::message($e, 'Could not generate the invoice.'));
+            return $this->redirectToInvoiceIndex()
+                ->with('error', UserFacingError::message($e, 'Could not generate the invoice.'));
         }
 
-        $redirect = redirect()
-            ->route('admin.invoices.show', $invoice)
+        $redirect = $this->redirectToInvoiceShow($invoice)
             ->with('success', 'Invoice '.$invoice->invoice_number.' generated.');
 
         if ($order->payment_status !== 'paid') {
@@ -209,7 +214,7 @@ class InvoiceController extends Controller
 
         $result = $billing->backfillMissingTaxInvoices((int) ($data['limit'] ?? 50));
 
-        return back()->with(
+        return $this->redirectToInvoiceIndex()->with(
             'success',
             sprintf(
                 'Backfill complete: %d tax invoices created, %d skipped, %d failed. Payment receipts are not backfilled.',
@@ -231,7 +236,7 @@ class InvoiceController extends Controller
 
         $result = $billing->regenerateMissingPdfs((int) ($data['limit'] ?? 50));
 
-        return back()->with(
+        return $this->redirectToInvoiceIndex()->with(
             'success',
             sprintf(
                 'PDF regenerate complete: %d regenerated, %d failed.',
@@ -246,10 +251,29 @@ class InvoiceController extends Controller
         try {
             $billing->regeneratePdf($invoice);
         } catch (\Throwable $e) {
-            return back()->with('error', UserFacingError::message($e, 'Could not regenerate the PDF.'));
+            return $this->redirectToInvoiceShow($invoice)->with('error', UserFacingError::message($e, 'Could not regenerate the PDF.'));
         }
 
-        return back()->with('success', 'PDF regenerated for '.$invoice->invoice_number);
+        return $this->redirectToInvoiceShow($invoice)->with('success', 'PDF regenerated for '.$invoice->invoice_number);
+    }
+
+    /**
+     * Stay on this host after a show-page POST. back() uses Referer or APP_URL
+     * and can drop the admin session after a same-host payout-queue open.
+     */
+    private function redirectToInvoiceShow(Invoice $invoice)
+    {
+        return redirect()->to(route('admin.invoices.show', $invoice, false));
+    }
+
+    /**
+     * Index POSTs (backfill / fix PDFs / generate) are reached from PAY show
+     * via a relative “All invoices” link. back() or absolute route() would
+     * jump to APP_URL when Referer is missing.
+     */
+    private function redirectToInvoiceIndex()
+    {
+        return redirect()->to(route('admin.invoices.index', [], false));
     }
 
     private function parseDate(mixed $value): ?Carbon

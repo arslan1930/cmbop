@@ -11,13 +11,13 @@
             <p class="text-muted mb-0">Tax invoices, receipts, deposits, payouts, failures, and refunds.</p>
         </div>
         <div class="col-md-5">
-            <form method="POST" action="{{ route('admin.invoices.generate') }}" class="d-flex gap-2 justify-content-md-end mb-2">
+            <form method="POST" action="{{ route('admin.invoices.generate', [], false) }}" class="d-flex gap-2 justify-content-md-end mb-2">
                 @csrf
                 <input type="number" name="order_id" class="form-control form-control-sm" style="max-width:160px;" placeholder="Order ID" required>
                 <button type="submit" class="btn btn-sm btn-primary">Generate invoice</button>
             </form>
             <div class="d-flex gap-2 justify-content-md-end flex-wrap">
-                <form method="POST" action="{{ route('admin.invoices.backfill-missing') }}">
+                <form method="POST" action="{{ route('admin.invoices.backfill-missing', [], false) }}">
                     @csrf
                     <input type="hidden" name="limit" value="50">
                     <button type="button" class="btn btn-sm btn-outline-secondary"
@@ -25,7 +25,7 @@
                         Backfill missing
                     </button>
                 </form>
-                <form method="POST" action="{{ route('admin.invoices.regenerate-missing-pdfs') }}">
+                <form method="POST" action="{{ route('admin.invoices.regenerate-missing-pdfs', [], false) }}">
                     @csrf
                     <input type="hidden" name="limit" value="50">
                     <button type="button" class="btn btn-sm btn-outline-secondary"
@@ -97,7 +97,7 @@
                 </div>
                 <div class="col-12 d-flex gap-2">
                     <button class="btn btn-sm btn-primary">Filter</button>
-                    <a href="{{ route('admin.invoices.index') }}" class="btn btn-sm btn-outline-secondary">Reset</a>
+                    <a href="{{ route('admin.invoices.index', [], false) }}" class="btn btn-sm btn-outline-secondary">Reset</a>
                 </div>
             </form>
         </div>
@@ -133,7 +133,7 @@
                             <td class="small">
                                 <div>
                                     @if($invoice->user_id)
-                                        <a href="{{ route('admin.users.index', ['user' => $invoice->user_id]) }}">{{ $invoice->customer_name ?: $invoice->user?->name ?: '—' }}</a>
+                                        <a href="{{ route('admin.users.index', ['user' => $invoice->user_id], false) }}">{{ $invoice->customer_name ?: $invoice->user?->name ?: '—' }}</a>
                                     @else
                                         {{ $invoice->customer_name ?: '—' }}
                                     @endif
@@ -154,7 +154,7 @@
                             <td class="small">{{ $invoice->typeLabel() }}</td>
                             <td class="small">{{ optional($invoice->invoice_date)->format('Y-m-d') }}</td>
                             <td class="text-end">
-                                <a href="{{ route('admin.invoices.show', $invoice) }}" class="btn btn-sm btn-outline-primary">Open</a>
+                                <a href="{{ route('admin.invoices.show', $invoice, false) }}" class="btn btn-sm btn-outline-primary">Open</a>
                             </td>
                         </tr>
                     @empty

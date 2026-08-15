@@ -2,11 +2,15 @@
 
 namespace Tests\Feature;
 
+use App\Mail\PayoutProfileUpdatedBySupport;
+use App\Mail\WithdrawalRequestedConfirmation;
+use App\Mail\WithdrawalRequestNotification;
 use App\Mail\WithdrawalStatusUpdated;
 use App\Models\ActivityLog;
 use App\Models\Invoice;
 use App\Models\Role;
 use App\Models\User;
+use App\Models\Wallet;
 use App\Models\Withdrawal;
 use App\Services\Admin\FinanceOverviewService;
 use App\Services\Billing\AdminInvoiceLinks;
@@ -81,6 +85,8 @@ class AdminWithdrawalLaterTest extends TestCase
         $this->assertStringContainsString('encodeURIComponent(w.destination_copy_text || \'\')', $html);
         $this->assertStringContainsString("if (!row || typeof row !== 'object') return '';", $html);
         $this->assertStringContainsString('function detailText', $html);
+        $this->assertStringContainsString('function destinationAliases', $html);
+        $this->assertStringContainsString('function destinationText', $html);
         $this->assertStringContainsString('function getJson', $html);
         $this->assertStringContainsString('cache: false', $html);
         $this->assertStringContainsString('Array.isArray(response.data) ? response.data : []', $html);
@@ -738,6 +744,41 @@ class AdminWithdrawalLaterTest extends TestCase
         $this->assertTrue($urls->contains(route('admin.withdrawals.show', $withdrawal->id, false)));
     }
 
+    public function test_finance_dossier_keeps_payout_actions_on_this_host(): void
+    {
+        $admin = $this->makeUser('admin');
+        $publisher = $this->makeUser('publisher');
+        $pubRole = Role::firstOrCreate(['name' => 'publisher']);
+        $wallet = Wallet::create([
+            'user_id' => $publisher->id,
+            'role_id' => $pubRole->id,
+            'balance' => 10,
+            'reserved_balance' => 0,
+            'bonus_balance' => 0,
+            'bonus_reserved' => 0,
+            'debt_balance' => 20,
+            'currency' => 'EUR',
+        ]);
+
+        $html = $this->actingAs($admin)
+            ->get(route('admin.finance.user', $publisher))
+            ->assertOk()
+            ->getContent();
+
+        $usersHref = route('admin.users.index', ['user' => $publisher->id], false).'#user-'.$publisher->id;
+        $clearAction = route('admin.finance.wallets.clear-debt', $wallet, false);
+        $this->assertStringContainsString('href="'.$usersHref.'"', $html);
+        $this->assertStringContainsString('action="'.$clearAction.'"', $html);
+        $this->assertStringNotContainsString('href="'.route('admin.users.index', ['user' => $publisher->id]).'"', $html);
+        $this->assertStringNotContainsString('action="'.route('admin.finance.wallets.clear-debt', $wallet).'"', $html);
+
+        $this->actingAs($admin)
+            ->post(route('admin.finance.wallets.clear-debt', $wallet), [
+                'reason' => 'Publisher settled debt offline via invoice.',
+            ])
+            ->assertRedirect(route('admin.finance.user', $publisher, false));
+    }
+
     public function test_data_clamps_page_past_the_last_page(): void
     {
         $admin = $this->makeUser('admin');
@@ -1029,6 +1070,62 @@ class AdminWithdrawalLaterTest extends TestCase
             ->assertJsonPath('success', true)
             ->assertJsonPath('data.0.id', $withdrawal->id)
             ->assertJsonPath('data.0.destination_snippet', 'PayPal · —');
+    }
+
+    public function test_leftover_dest_keys_fill_copy_text_html_show_and_csv(): void
+    {
+        $admin = $this->makeUser('admin');
+        $publisher = $this->makeUser('publisher');
+        $paypal = $this->seedWithdrawal($publisher, [
+            'payment_method' => 'paypal',
+            'payment_details' => ['paypal_email' => 'pay@example.com'],
+        ]);
+        $bank = $this->seedWithdrawal($publisher, [
+            'payment_method' => 'bank',
+            'payment_details' => [
+                'bank_name' => 'Sparkasse',
+                'account_holder' => 'Pat Publisher',
+                'iban' => 'DE89370400440532013000',
+            ],
+        ]);
+
+        $this->assertStringContainsString('pay@example.com', $paypal->destination_copy_text);
+        $this->assertSame('PayPal · pa***@example.com', $paypal->destination_snippet);
+        $this->assertStringContainsString('DE89370400440532013000', $bank->destination_copy_text);
+        $this->assertSame('DE · ···3000', $bank->destination_snippet);
+
+        $this->actingAs($admin)
+            ->get(route('admin.withdrawals.show', $paypal->id))
+            ->assertOk()
+            ->assertSee('pay@example.com', false)
+            ->assertDontSee('Email:</strong> N/A', false);
+
+        $this->actingAs($admin)
+            ->get(route('admin.withdrawals.show', $bank->id))
+            ->assertOk()
+            ->assertSee('DE89370400440532013000', false)
+            ->assertDontSee('Account Number:</strong> N/A', false);
+
+        $this->actingAs($admin)
+            ->getJson(route('admin.withdrawals.data'))
+            ->assertOk()
+            ->assertJsonPath('success', true);
+
+        $rows = collect($this->actingAs($admin)->getJson(route('admin.withdrawals.data'))->json('data'));
+        $paypalRow = $rows->firstWhere('id', $paypal->id);
+        $bankRow = $rows->firstWhere('id', $bank->id);
+        $this->assertIsArray($paypalRow);
+        $this->assertStringContainsString('pay@example.com', (string) $paypalRow['destination_copy_text']);
+        $this->assertSame('PayPal · pa***@example.com', $paypalRow['destination_snippet']);
+        $this->assertIsArray($bankRow);
+        $this->assertStringContainsString('DE89370400440532013000', (string) $bankRow['destination_copy_text']);
+
+        $csv = $this->actingAs($admin)
+            ->get(route('admin.withdrawals.export'))
+            ->assertOk()
+            ->streamedContent();
+        $this->assertStringContainsString('pay@example.com', $csv);
+        $this->assertStringContainsString('DE89370400440532013000', $csv);
     }
 
     public function test_later_get_json_is_not_store_cached(): void
@@ -1501,6 +1598,13 @@ class AdminWithdrawalLaterTest extends TestCase
 
         $this->assertStringContainsString('Dear Publisher', $html);
         $this->assertStringNotContainsString('Pat Publisher', $html);
+        $this->assertStringContainsString(route('publisher.billing.index', [], false), $html);
+
+        $src = (string) file_get_contents(app_path('Mail/WithdrawalStatusUpdated.php'));
+        $this->assertStringContainsString("publicRoute('publisher.billing.download'", $src);
+        $this->assertStringContainsString("publicRoute('publisher.billing.index')", $src);
+        $this->assertStringContainsString("publicRoute('publisher.withdraw')", $src);
+        $this->assertStringNotContainsString("route('publisher.billing.download'", $src);
     }
 
     public function test_withdrawal_id_prefers_wd_reference_over_stale_meta(): void
@@ -1744,5 +1848,209 @@ class AdminWithdrawalLaterTest extends TestCase
         $this->assertSame('Publisher #'.$publisher->id, data_get($found->billing_snapshot, 'name'));
         $this->assertNull(data_get($found->billing_snapshot, 'email'));
         $this->assertNull($found->pdf_path);
+    }
+
+    public function test_publisher_billing_keeps_pdf_actions_on_this_host(): void
+    {
+        $publisher = $this->makeUser('publisher');
+        $withdrawal = $this->seedWithdrawal($publisher, [
+            'status' => 'completed',
+            'processed_at' => now(),
+        ]);
+        $statement = Invoice::create([
+            'user_id' => $publisher->id,
+            'customer_name' => $publisher->name,
+            'customer_email' => $publisher->email,
+            'invoice_number' => 'PAY-PUB-HOST-1',
+            'type' => Invoice::TYPE_WITHDRAWAL_PAYOUT,
+            'status' => Invoice::STATUS_PAID,
+            'subtotal' => 95,
+            'total_amount' => 95,
+            'invoice_date' => now(),
+            'line_items' => [['description' => 'Payout', 'line_total' => 95]],
+            'pdf_disk' => 'local',
+            'reference_code' => 'WD-'.$withdrawal->id,
+            'meta' => ['withdrawal_id' => $withdrawal->id],
+        ]);
+
+        $index = $this->actingAs($publisher)
+            ->get(route('publisher.billing.index'))
+            ->assertOk()
+            ->getContent();
+        $downloadPath = route('publisher.billing.download', $statement, false);
+        $this->assertStringContainsString('href="'.$downloadPath.'"', $index);
+        $this->assertStringNotContainsString('href="'.route('publisher.billing.download', $statement).'"', $index);
+
+        $show = $this->actingAs($publisher)
+            ->get(route('publisher.billing.show', $statement))
+            ->assertOk()
+            ->getContent();
+        $this->assertStringContainsString('href="'.$downloadPath.'"', $show);
+        $this->assertStringNotContainsString('href="'.route('publisher.billing.download', $statement).'"', $show);
+    }
+
+    public function test_failed_identity_repair_does_not_restore_leftover_pdf_path(): void
+    {
+        $publisher = $this->makeUser('publisher');
+        $publisher->forceFill([
+            'name' => 'Current Owner',
+            'email' => 'current-owner@example.com',
+            'payout_business_name' => null,
+        ])->save();
+        $withdrawal = $this->seedWithdrawal($publisher, [
+            'status' => 'completed',
+            'processed_at' => now(),
+        ]);
+        $statement = Invoice::create([
+            'user_id' => $publisher->id,
+            'customer_name' => 'Former Owner',
+            'customer_email' => 'former-owner@example.com',
+            'pdf_path' => 'payouts/stale-failed-save.pdf',
+            'invoice_number' => 'PAY-FAIL-SAVE-1',
+            'type' => Invoice::TYPE_WITHDRAWAL_PAYOUT,
+            'status' => Invoice::STATUS_PAID,
+            'subtotal' => 95,
+            'total_amount' => 95,
+            'invoice_date' => now(),
+            'line_items' => [['description' => 'Payout', 'line_total' => 95]],
+            'pdf_disk' => 'local',
+            'reference_code' => 'WD-'.$withdrawal->id,
+            'meta' => ['withdrawal_id' => $withdrawal->id],
+        ]);
+
+        Invoice::saving(function (Invoice $invoice) use ($statement) {
+            if ((int) $invoice->id === (int) $statement->id && $invoice->isDirty('customer_name')) {
+                throw new \RuntimeException('db down');
+            }
+        });
+
+        try {
+            $found = app(WithdrawalPayoutStatementService::class)->find($withdrawal);
+        } finally {
+            Invoice::flushEventListeners();
+        }
+
+        $this->assertNotNull($found);
+        $this->assertSame($statement->id, $found->id);
+        $this->assertSame('Current Owner', $found->customer_name);
+        $this->assertSame('current-owner@example.com', $found->customer_email);
+        $this->assertNull($found->pdf_path);
+        $this->assertSame('Former Owner', $statement->fresh()->customer_name);
+        $this->assertSame('payouts/stale-failed-save.pdf', $statement->fresh()->pdf_path);
+    }
+
+    public function test_find_replaces_leftover_snapshot_dest_when_identity_already_matches(): void
+    {
+        $publisher = $this->makeUser('publisher');
+        $publisher->forceFill([
+            'name' => 'Current Owner',
+            'email' => 'current-owner@example.com',
+        ])->save();
+        $withdrawal = $this->seedWithdrawal($publisher, [
+            'status' => 'completed',
+            'processed_at' => now(),
+            'payment_method' => 'paypal',
+            'payment_details' => ['email' => 'current-pay@example.com'],
+        ]);
+        $statement = Invoice::create([
+            'user_id' => $publisher->id,
+            'customer_name' => 'Current Owner',
+            'customer_email' => 'current-owner@example.com',
+            'pdf_path' => 'payouts/stale-other-dest.pdf',
+            'invoice_number' => 'PAY-LEFTOVER-DEST-1',
+            'type' => Invoice::TYPE_WITHDRAWAL_PAYOUT,
+            'status' => Invoice::STATUS_PAID,
+            'subtotal' => 95,
+            'total_amount' => 95,
+            'invoice_date' => now(),
+            'line_items' => [['description' => 'Payout', 'line_total' => 95]],
+            'pdf_disk' => 'local',
+            'reference_code' => 'WD-'.$withdrawal->id,
+            'meta' => ['withdrawal_id' => $withdrawal->id],
+            'billing_snapshot' => [
+                'name' => 'Current Owner',
+                'email' => 'current-owner@example.com',
+                'payment_details' => ['email' => 'former-pay@example.com'],
+            ],
+        ]);
+
+        $found = app(WithdrawalPayoutStatementService::class)->find($withdrawal);
+        $this->assertNotNull($found);
+        $found = $found->fresh();
+        $this->assertSame($statement->id, $found->id);
+        $this->assertSame('current-pay@example.com', data_get($found->billing_snapshot, 'payment_details.email'));
+        $this->assertNull($found->pdf_path);
+        $this->assertSame(
+            'c***@example.com',
+            Invoice::maskedPayoutDestination(data_get($found->billing_snapshot, 'payment_details'), 'paypal')
+        );
+    }
+
+    public function test_payout_profile_email_points_at_the_public_withdraw_path(): void
+    {
+        $publisher = $this->makeUser('publisher');
+        $mail = new PayoutProfileUpdatedBySupport($publisher, 'paypal');
+        $data = $mail->build()->viewData;
+        $html = $mail->render();
+
+        $this->assertSame(
+            route('publisher.withdraw', [], false),
+            parse_url((string) $data['withdrawUrl'], PHP_URL_PATH)
+        );
+        $this->assertStringContainsString(route('publisher.withdraw', [], false), $html);
+
+        $src = (string) file_get_contents(app_path('Mail/PayoutProfileUpdatedBySupport.php'));
+        $this->assertStringContainsString("publicRoute('publisher.withdraw')", $src);
+    }
+
+    public function test_request_received_email_points_at_the_public_withdraw_path(): void
+    {
+        $publisher = $this->makeUser('publisher');
+        $withdrawal = $this->seedWithdrawal($publisher);
+        $mail = new WithdrawalRequestedConfirmation($withdrawal);
+        $data = $mail->build()->viewData;
+        $html = $mail->render();
+
+        $this->assertSame(
+            route('publisher.withdraw', [], false),
+            parse_url((string) $data['withdrawUrl'], PHP_URL_PATH)
+        );
+        $this->assertStringContainsString(route('publisher.withdraw', [], false), $html);
+        $this->assertStringContainsString($publisher->name, $html);
+
+        $src = (string) file_get_contents(app_path('Mail/WithdrawalRequestedConfirmation.php'));
+        $this->assertStringContainsString("publicRoute('publisher.withdraw')", $src);
+
+        $withdrawal->setRelation('user', null);
+        $orphan = (new WithdrawalRequestedConfirmation($withdrawal))->render();
+        $this->assertStringContainsString('Publisher', $orphan);
+        $this->assertStringNotContainsString('TypeError', $orphan);
+    }
+
+    public function test_request_email_fills_leftover_dest_and_tolerates_scalar_details(): void
+    {
+        $publisher = $this->makeUser('publisher');
+        $paypal = $this->seedWithdrawal($publisher, [
+            'payment_method' => 'paypal',
+            'payment_details' => ['paypal_email' => 'pay@example.com'],
+        ]);
+        $html = (new WithdrawalRequestNotification($paypal, $publisher))->render();
+        $this->assertStringContainsString('pay@example.com', $html);
+        $this->assertStringNotContainsString('PayPal Email: N/A', $html);
+
+        $broken = $this->seedWithdrawal($publisher, [
+            'payment_method' => 'paypal',
+            'payment_details' => ['email' => 'ok@example.com'],
+        ]);
+        $broken->forceFill(['payment_details' => 123])->save();
+        $broken->setRelation('user', null);
+        $broken->created_at = null;
+
+        $html = (new WithdrawalRequestNotification($broken, null))->render();
+        $text = trim(html_entity_decode(strip_tags($html), ENT_QUOTES, 'UTF-8'));
+        $this->assertStringContainsString('Unknown', $text);
+        $this->assertStringContainsString('PayPal Email', $text);
+        $this->assertStringContainsString('N/A', $text);
+        $this->assertStringNotContainsString('TypeError', $html);
     }
 }

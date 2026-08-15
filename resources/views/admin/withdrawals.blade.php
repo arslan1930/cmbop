@@ -357,6 +357,25 @@ function detailText(details, key) {
     return '';
 }
 
+function destinationAliases(field) {
+    if (field === 'email') return ['email', 'paypal_email', 'wise_email'];
+    if (field === 'account_number') return ['account_number', 'iban', 'bank_account'];
+    if (field === 'wallet_address') return ['wallet_address', 'crypto_wallet'];
+    return [field];
+}
+
+function firstDetailText(details, keys) {
+    for (let i = 0; i < keys.length; i++) {
+        const text = detailText(details, keys[i]);
+        if (text !== '') return text;
+    }
+    return '';
+}
+
+function destinationText(details, field) {
+    return firstDetailText(details, destinationAliases(field));
+}
+
 function isAdminPath(pathname) {
     return pathname === '/admin' || (typeof pathname === 'string' && pathname.indexOf('/admin/') === 0);
 }
@@ -1154,7 +1173,7 @@ function renderDetails(withdrawal) {
         ? withdrawal.payment_details
         : {};
     const detailOrNa = function (key) {
-        return detailText(paymentDetails, key) || 'N/A';
+        return destinationText(paymentDetails, key) || 'N/A';
     };
     let paymentDetailsHtml = '';
 

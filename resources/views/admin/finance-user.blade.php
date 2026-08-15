@@ -35,13 +35,13 @@
             </p>
         </div>
         <div class="d-flex flex-wrap gap-2">
-            <a href="{{ route('admin.users.index', ['user' => $u->id]) }}#user-{{ $u->id }}" class="btn btn-sm btn-outline-secondary">
+            <a href="{{ route('admin.users.index', ['user' => $u->id], false) }}#user-{{ $u->id }}" class="btn btn-sm btn-outline-secondary">
                 <i class="fa fa-user me-1"></i> Users / payout
             </a>
-            <a href="{{ route('admin.finance.ledger', ['user_id' => $u->id]) }}" class="btn btn-sm btn-outline-secondary">
+            <a href="{{ route('admin.finance.ledger', ['user_id' => $u->id], false) }}" class="btn btn-sm btn-outline-secondary">
                 <i class="fa fa-book me-1"></i> Full ledger
             </a>
-            <a href="{{ route('admin.finance') }}" class="btn btn-sm btn-outline-secondary">Finance</a>
+            <a href="{{ route('admin.finance', [], false) }}" class="btn btn-sm btn-outline-secondary">Finance</a>
         </div>
     </div>
 
@@ -111,7 +111,7 @@
                             <strong class="{{ $pub->hasDebt() ? 'text-danger' : '' }}">{{ $euro($pub->debtBalance()) }}</strong>
                         </div>
                         @if($pub->hasDebt())
-                            <form method="POST" action="{{ route('admin.finance.wallets.clear-debt', $pub) }}" class="mb-3"
+                            <form method="POST" action="{{ route('admin.finance.wallets.clear-debt', $pub, false) }}" class="mb-3"
                                   data-slb-confirm="Clear all outstanding clawback debt on this wallet?"
                                   data-slb-confirm-title="Clear wallet debt?"
                                   data-slb-confirm-text="Clear debt"
@@ -158,7 +158,7 @@
                             @forelse($dossier['deposits'] as $dep)
                                 <tr>
                                     <td class="small">
-                                        <a href="{{ route('admin.deposits', ['search' => $dep->reference_code]) }}">{{ $dep->reference_code }}</a>
+                                        <a href="{{ route('admin.deposits', ['search' => $dep->reference_code], false) }}">{{ $dep->reference_code }}</a>
                                     </td>
                                     <td>{{ $euro($dep->amount) }}</td>
                                     <td class="small">{{ $dep->payment_method }}</td>
@@ -180,7 +180,7 @@
                             @forelse($dossier['orders'] as $order)
                                 <tr>
                                     <td class="small">
-                                        <a href="{{ route('admin.orders.show', $order->id) }}">{{ $order->order_number ?? '#'.$order->id }}</a>
+                                        <a href="{{ route('admin.orders.show', $order->id, false) }}">{{ $order->order_number ?? '#'.$order->id }}</a>
                                     </td>
                                     <td>{{ $euro($order->total_amount) }}</td>
                                     <td class="small">{{ $order->payment_method }} / {{ $order->payment_status }}</td>

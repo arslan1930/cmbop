@@ -32,9 +32,9 @@ The amount of **€{{ number_format($netPaid, 2) }}** has been sent to your {{ \
 Download payout statement
 @endcomponent
 
-You can also review past payouts under [Payout documents]({{ route('publisher.billing.index') }}) or [Withdrawals]({{ route('publisher.withdraw') }}).
+You can also review past payouts under [Payout documents]({{ $documentsUrl }}) or [Withdrawals]({{ $withdrawUrl }}).
 @else
-@component('mail::button', ['url' => route('publisher.billing.index')])
+@component('mail::button', ['url' => $documentsUrl])
 View payout documents
 @endcomponent
 @endif
@@ -42,19 +42,19 @@ View payout documents
 @elseif($newStatus == 'cancelled')
 The amount of **€{{ number_format((float) $withdrawal->amount, 2) }}** has been refunded to your wallet balance.
 
-@component('mail::button', ['url' => route('publisher.withdraw')])
+@component('mail::button', ['url' => $withdrawUrl])
 View Withdrawals
 @endcomponent
 
 @elseif($newStatus == 'processing')
 Your withdrawal request is now being processed. You will be notified once it's completed.
 
-@component('mail::button', ['url' => route('publisher.withdraw')])
+@component('mail::button', ['url' => $withdrawUrl])
 View Withdrawals
 @endcomponent
 
 @else
-@component('mail::button', ['url' => route('publisher.withdraw')])
+@component('mail::button', ['url' => $withdrawUrl])
 View Withdrawals
 @endcomponent
 @endif

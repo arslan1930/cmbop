@@ -28,7 +28,7 @@
         <x-slb-search-field name="user_search" id="userSearch" placeholder="Search users (name, email, company…)" input-class="form-control" mode="" />
     </div>
     @if(request()->integer('user') > 0)
-        <a href="{{ route('admin.users.index') }}" class="btn btn-sm btn-outline-secondary">All users</a>
+        <a href="{{ route('admin.users.index', [], false) }}" class="btn btn-sm btn-outline-secondary">All users</a>
     @endif
 </div>
 
@@ -123,7 +123,7 @@
                         </button>
                     </li>
                     <li>
-                        <a class="dropdown-item" href="{{ route('admin.finance.user', $user) }}">
+                        <a class="dropdown-item" href="{{ route('admin.finance.user', $user, false) }}">
                             <i class="fa fa-coins me-2"></i>Finance
                         </a>
                     </li>

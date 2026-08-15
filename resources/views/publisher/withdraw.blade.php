@@ -59,7 +59,7 @@
             <p class="text-muted mb-0">Request a withdrawal of your earnings. Withdrawals are processed within 1–2 business days.</p>
         </div>
         <div class="col-md-4 text-md-end">
-            <a href="{{ route('publisher.billing.index') }}" class="btn btn-sm btn-outline-secondary">
+            <a href="{{ route('publisher.billing.index', [], false) }}" class="btn btn-sm btn-outline-secondary">
                 <i class="fa fa-file-invoice-dollar me-1" aria-hidden="true"></i> Payout documents
             </a>
         </div>

@@ -262,7 +262,7 @@ class Invoice extends Model
         $key = strtolower(trim((string) $method));
 
         if (in_array($key, ['paypal', 'wise'], true)) {
-            $email = Withdrawal::firstDetailText($details, 'email', 'paypal_email', 'wise_email');
+            $email = Withdrawal::destinationText($details, 'email');
             if ($email === '' || ! str_contains($email, '@')) {
                 return null;
             }
@@ -272,7 +272,7 @@ class Invoice extends Model
         }
 
         if ($key === 'bank' || $key === 'bank_transfer') {
-            $account = preg_replace('/\s+/', '', Withdrawal::firstDetailText($details, 'account_number', 'iban', 'bank_account')) ?? '';
+            $account = preg_replace('/\s+/', '', Withdrawal::destinationText($details, 'account_number')) ?? '';
             if ($account === '') {
                 return null;
             }
@@ -281,8 +281,8 @@ class Invoice extends Model
         }
 
         if ($key === 'crypto') {
-            $wallet = Withdrawal::firstDetailText($details, 'wallet_address', 'crypto_wallet');
-            $coin = Withdrawal::firstDetailText($details, 'crypto_type') ?: 'Crypto';
+            $wallet = Withdrawal::destinationText($details, 'wallet_address');
+            $coin = Withdrawal::destinationText($details, 'crypto_type') ?: 'Crypto';
             if ($wallet === '') {
                 return $coin !== '' ? $coin : null;
             }

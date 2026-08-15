@@ -3,7 +3,7 @@
 @section('content')
 <div class="container-fluid" style="max-width:720px;">
     <div class="mb-3">
-        <a href="{{ route('publisher.billing.index') }}" class="btn btn-sm btn-outline-secondary">&larr; All documents</a>
+        <a href="{{ route('publisher.billing.index', [], false) }}" class="btn btn-sm btn-outline-secondary">&larr; All documents</a>
     </div>
 
     <div class="card border-0 shadow-sm">
@@ -14,8 +14,8 @@
                     <p class="text-muted mb-0">{{ $invoice->typeLabel() }} · {{ optional($invoice->invoice_date)->format('M j, Y') }}</p>
                 </div>
                 <div class="d-inline-flex flex-wrap gap-1">
-                    <a href="{{ route('publisher.billing.view', $invoice) }}" class="btn btn-sm btn-outline-secondary" target="_blank" rel="noopener">View PDF</a>
-                    <a href="{{ route('publisher.billing.download', $invoice) }}" class="btn btn-sm btn-primary">Download PDF</a>
+                    <a href="{{ route('publisher.billing.view', $invoice, false) }}" class="btn btn-sm btn-outline-secondary" target="_blank" rel="noopener">View PDF</a>
+                    <a href="{{ route('publisher.billing.download', $invoice, false) }}" class="btn btn-sm btn-primary">Download PDF</a>
                 </div>
             </div>
 
@@ -49,7 +49,7 @@
             @endif
 
             <div class="mt-3">
-                <a href="{{ route('publisher.withdraw') }}" class="small">Open withdrawals</a>
+                <a href="{{ route('publisher.withdraw', [], false) }}" class="small">Open withdrawals</a>
             </div>
         </div>
     </div>

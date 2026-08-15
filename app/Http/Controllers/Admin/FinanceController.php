@@ -178,7 +178,8 @@ class FinanceController extends Controller
                 ]);
             }
 
-            return back()->with('success', 'Cleared €'.number_format($cleared, 2).' of wallet debt.');
+            return $this->redirectToWalletDossier($wallet)
+                ->with('success', 'Cleared €'.number_format($cleared, 2).' of wallet debt.');
         } catch (ValidationException $e) {
             if ($request->expectsJson()) {
                 return response()->json([
@@ -188,7 +189,7 @@ class FinanceController extends Controller
                 ], 422);
             }
 
-            return back()->withErrors($e->errors());
+            return $this->redirectToWalletDossier($wallet)->withErrors($e->errors());
         }
     }
 
@@ -303,6 +304,20 @@ class FinanceController extends Controller
         $user = User::query()->whereKey((int) $userQuery)->first();
 
         return $user ? redirect()->route('admin.finance.user', $user) : null;
+    }
+
+    /**
+     * Stay on the current host. back() uses Referer/APP_URL and can drop
+     * the session after a same-host payout-queue → dossier open.
+     */
+    private function redirectToWalletDossier(Wallet $wallet): RedirectResponse
+    {
+        $userId = (int) $wallet->user_id;
+        if ($userId > 0) {
+            return redirect()->to(route('admin.finance.user', $userId, false));
+        }
+
+        return redirect()->to(route('admin.finance', [], false));
     }
 
     /**

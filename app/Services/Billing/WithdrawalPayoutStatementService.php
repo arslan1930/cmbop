@@ -49,17 +49,21 @@ class WithdrawalPayoutStatementService
 
                     if (! $existing->hasPdf() || ! $existing->pdfExists()) {
                         try {
-                            $this->pdfs->generateAndStore($existing);
+                            return $this->pdfs->generateAndStore($existing);
                         } catch (\Throwable $e) {
                             Log::warning('Failed to regenerate missing payout statement PDF', [
                                 'withdrawal_id' => $locked->id,
                                 'invoice_id' => $existing->id,
                                 'error' => $e->getMessage(),
                             ]);
+
+                            // Keep the reconciled in-memory row. fresh() would
+                            // restore a leftover payee / dest and the old PDF.
+                            return $existing;
                         }
                     }
 
-                    return $existing->fresh();
+                    return $existing;
                 }
 
                 if (! $locked->user) {
@@ -174,10 +178,15 @@ class WithdrawalPayoutStatementService
             : $storedName !== '';
         $metaWithdrawalId = (int) data_get($statement->meta, 'withdrawal_id');
         $metaMismatch = $metaWithdrawalId !== (int) $withdrawal->id;
+        $snapshot = is_array($statement->billing_snapshot) ? $statement->billing_snapshot : [];
+        $detailsMismatch = $this->destinationDetailsDiffer(
+            Withdrawal::detailsArray($snapshot['payment_details'] ?? null),
+            $details
+        );
 
         // user_id may already have been corrected (earlier find()) while the
-        // payee line and stored PDF still name the other publisher.
-        if (! $ownerMismatch && ! $emailMismatch && ! $nameMismatch) {
+        // payee line, dest snapshot, and stored PDF still name the other publisher.
+        if (! $ownerMismatch && ! $emailMismatch && ! $nameMismatch && ! $detailsMismatch) {
             if ($metaMismatch) {
                 $this->rewriteWithdrawalMeta($statement, $withdrawal);
             }
@@ -190,8 +199,6 @@ class WithdrawalPayoutStatementService
         $resolvedName = $payeeName !== ''
             ? $payeeName
             : (($ownerMismatch || $nameMismatch) ? 'Publisher #'.$ownerId : '');
-
-        $snapshot = is_array($statement->billing_snapshot) ? $statement->billing_snapshot : [];
         if ($resolvedName !== '') {
             $snapshot['name'] = $resolvedName;
         }
@@ -242,7 +249,11 @@ class WithdrawalPayoutStatementService
                 'to_user_id' => $ownerId,
                 'error' => $e->getMessage(),
             ]);
-            $statement->refresh();
+            // Keep the repaired identity in memory and drop the stored PDF
+            // path. refresh() would restore the leftover payee and the old
+            // file, and this request would stream the previous publisher.
+            $statement->pdf_path = null;
+            $statement->unsetRelation('user');
         }
 
         return $statement;
@@ -480,8 +491,28 @@ class WithdrawalPayoutStatementService
                 'from_user_id' => $fromUserId,
                 'error' => $e->getMessage(),
             ]);
-            $statement->refresh();
+            // Keep the in-memory meta. refresh() would restore a leftover
+            // withdrawal_id for the rest of this request.
         }
+    }
+
+    /**
+     * Snapshot dest vs the WD being paid. Compare canonical dest fields so
+     * leftover paypal_email / iban aliases do not force a rewrite, but a
+     * previous publisher's dest still does.
+     *
+     * @param  array<string, mixed>  $snapshot
+     * @param  array<string, mixed>  $current
+     */
+    private function destinationDetailsDiffer(array $snapshot, array $current): bool
+    {
+        foreach (['email', 'account_number', 'wallet_address', 'bank_name', 'account_holder', 'swift_code', 'crypto_type'] as $field) {
+            if (Withdrawal::destinationText($snapshot, $field) !== Withdrawal::destinationText($current, $field)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private function scalarText(mixed $value): string
