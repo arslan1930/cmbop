@@ -698,6 +698,12 @@ class BulkSiteRequestController extends Controller
                     continue;
                 }
 
+                $doneItemId = $action === 'bulk_request.done' ? (int) ($row['line'] ?? 0) : 0;
+                if ($doneItemId > 0
+                    && $locked->items()->whereKey($doneItemId)->whereNotNull('site_id')->exists()) {
+                    continue;
+                }
+
                 Site::releaseCancelledBulkDomain($domain, (int) $bulkRequest->publisher_id);
                 $existing = Site::findOccupyingDomain($domain, lock: true);
 
@@ -729,7 +735,6 @@ class BulkSiteRequestController extends Controller
                 }
 
                 $pending = $locked->items()->whereNull('site_id')->get(['id', 'domain']);
-                $doneItemId = $action === 'bulk_request.done' ? (int) ($row['line'] ?? 0) : 0;
                 $itemIds = [];
                 if ($doneItemId > 0) {
                     if (! $pending->firstWhere('id', $doneItemId)) {
