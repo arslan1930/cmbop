@@ -31,9 +31,12 @@ UI). Recipients are marketplace advertisers and publishers only — never admins
    `queued`/`sending` rows so a lost continuation does not sit forever.
    Recovery **touches** the campaign after a re-dispatch (or when a send
    job is already in the `jobs` table) so a backed-up emails queue cannot
-   enqueue another job on every page view. A `sending` campaign that still
+   enqueue another job on every page view.    A `sending` campaign that still
    has `queued` recipients is left sending — leftover queued rows are not
-   treated as a successful send. `queued` rows with no email
+   treated as a successful send. A timeout after the last `pending` →
+   `queued` claim must **not** finalize as sent (`failed()` used to, because
+   `sent_count` includes queued). Recount promotes `sending` → `sent` only
+   when no pending or queued rows remain and at least one delivery landed. `queued` rows with no email
    log are first reconciled against `email_logs` by
    `audience_campaign:{id}:user:{id}`; a delivered/failed log is attached
    instead of counting as a fake send. Leftovers older than

@@ -192,6 +192,14 @@ class SendEmailCampaignJob implements ShouldQueue
             ->exists();
     }
 
+    protected function hasQueued(EmailCampaign $campaign): bool
+    {
+        return EmailCampaignRecipient::query()
+            ->where('email_campaign_id', $campaign->id)
+            ->where('status', EmailCampaignRecipient::STATUS_QUEUED)
+            ->exists();
+    }
+
     /**
      * A timeout or transient DB error must not wipe leftover pending rows.
      * Leave an unclaimed `queued` campaign for recoverStalled(); retry a
@@ -225,6 +233,12 @@ class SendEmailCampaignJob implements ShouldQueue
         }
 
         if ($campaign->status === EmailCampaign::STATUS_SENDING) {
+            // Last-batch timeout can claim pending → queued and die before
+            // Mail::send(). Those rows are in-flight (or lost), not sent.
+            if ($this->hasQueued($campaign)) {
+                return;
+            }
+
             $this->finalize($campaign);
 
             return;

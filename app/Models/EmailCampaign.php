@@ -63,11 +63,11 @@ class EmailCampaign extends Model
 
     public function recountRecipientTotals(): void
     {
-        $sent = $this->recipients()
-            ->whereIn('status', [
-                EmailCampaignRecipient::STATUS_QUEUED,
-                EmailCampaignRecipient::STATUS_DELIVERED,
-            ])
+        $queued = $this->recipients()
+            ->where('status', EmailCampaignRecipient::STATUS_QUEUED)
+            ->count();
+        $delivered = $this->recipients()
+            ->where('status', EmailCampaignRecipient::STATUS_DELIVERED)
             ->count();
         $skipped = $this->recipients()
             ->whereIn('status', [
@@ -77,7 +77,7 @@ class EmailCampaign extends Model
             ->count();
 
         $payload = [
-            'sent_count' => $sent,
+            'sent_count' => $queued + $delivered,
             'skipped_count' => $skipped,
         ];
 
@@ -85,17 +85,20 @@ class EmailCampaign extends Model
         // "sent" after at least one real delivery. Otherwise a retry or a
         // lost mail job would flip failed → sent while nothing went out.
         if (in_array($this->status, [self::STATUS_SENT, self::STATUS_FAILED], true)) {
-            $delivered = $this->recipients()
-                ->where('status', EmailCampaignRecipient::STATUS_DELIVERED)
-                ->count();
-            $queued = $this->recipients()
-                ->where('status', EmailCampaignRecipient::STATUS_QUEUED)
-                ->count();
-
             if ($delivered > 0) {
                 $payload['status'] = self::STATUS_SENT;
             } elseif ($queued === 0) {
                 $payload['status'] = self::STATUS_FAILED;
+            }
+        } elseif ($this->status === self::STATUS_SENDING) {
+            $pending = $this->recipients()
+                ->where('status', EmailCampaignRecipient::STATUS_PENDING)
+                ->count();
+            if ($pending === 0 && $queued === 0) {
+                $payload['status'] = $delivered > 0
+                    ? self::STATUS_SENT
+                    : self::STATUS_FAILED;
+                $payload['sent_at'] = $this->sent_at ?? now();
             }
         }
 
