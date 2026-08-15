@@ -93,16 +93,16 @@ class AdminInvoiceLinks
      */
     public function forWithdrawals(Collection $withdrawals): Collection
     {
-        $userIds = $withdrawals->pluck('user_id')->filter()->unique()->values();
+        // WD-{id} is the statement key. Matching invoices.user_id would hide a
+        // PAY doc after a publisher user_id correction and offer "Create statement".
         $refs = $withdrawals->map(fn (Withdrawal $withdrawal) => 'WD-'.$withdrawal->id)->unique()->values();
-        if ($userIds->isEmpty() || $refs->isEmpty()) {
+        if ($refs->isEmpty()) {
             return $withdrawals->mapWithKeys(fn (Withdrawal $withdrawal) => [(int) $withdrawal->id => null]);
         }
 
         $statements = Invoice::query()
             ->where('type', Invoice::TYPE_WITHDRAWAL_PAYOUT)
             ->where('status', '!=', Invoice::STATUS_CANCELLED)
-            ->whereIn('user_id', $userIds->all())
             ->whereIn('reference_code', $refs->all())
             ->orderByDesc('id')
             ->get()

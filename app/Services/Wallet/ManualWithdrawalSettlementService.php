@@ -139,10 +139,11 @@ class ManualWithdrawalSettlementService
         if ($result['new_status'] === 'completed') {
             $statement = $this->issuePayoutStatement($result['withdrawal']);
             $result['has_statement'] = $statement !== null;
+            $wdRef = 'WD-'.$result['withdrawal']->id;
             if ($statement === null) {
                 $result['message'] = $result['unchanged']
-                    ? 'Status unchanged — payout statement is still missing'
-                    : 'Marked paid, but the payout statement could not be created. Open history and choose Create statement.';
+                    ? 'Status unchanged — payout statement is still missing for '.$wdRef.'. Open history and choose Create statement.'
+                    : 'Marked paid, but the payout statement could not be created for '.$wdRef.'. Open history and choose Create statement.';
             } elseif ($result['unchanged']) {
                 $result['message'] = 'Payout statement is ready';
             }

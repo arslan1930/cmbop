@@ -40,7 +40,7 @@ class WithdrawalPayoutStatementService
                     ->lockForUpdate()
                     ->first();
 
-                if (! $locked || $locked->status !== 'completed' || ! $locked->user) {
+                if (! $locked || $locked->status !== 'completed') {
                     return null;
                 }
 
@@ -60,6 +60,10 @@ class WithdrawalPayoutStatementService
                     }
 
                     return $existing->fresh();
+                }
+
+                if (! $locked->user) {
+                    return null;
                 }
 
                 $statement = Invoice::create($this->payload($locked));
@@ -101,13 +105,20 @@ class WithdrawalPayoutStatementService
         }
     }
 
+    /**
+     * One PAY document per WD-{id}. Do not require invoices.user_id to match:
+     * a publisher merge / corrected user_id would otherwise hide the statement
+     * and issue() would create a second PAY row.
+     */
     public function find(Withdrawal $withdrawal): ?Invoice
     {
+        $reference = 'WD-'.$withdrawal->id;
+
         return Invoice::query()
-            ->where('user_id', $withdrawal->user_id)
             ->where('type', Invoice::TYPE_WITHDRAWAL_PAYOUT)
             ->where('status', '!=', Invoice::STATUS_CANCELLED)
-            ->where('reference_code', 'WD-'.$withdrawal->id)
+            ->where('reference_code', $reference)
+            ->orderByDesc('id')
             ->first();
     }
 
