@@ -62,7 +62,7 @@ class AdminWithdrawalController extends Controller
                 return $withdrawal;
             });
 
-            return response()->json([
+            return $this->noStoreJson([
                 'success' => true,
                 'data' => $withdrawals->items(),
                 'pagination' => [
@@ -77,7 +77,7 @@ class AdminWithdrawalController extends Controller
         } catch (\Throwable $e) {
             Log::error('Error fetching withdrawals: '.$e->getMessage());
 
-            return response()->json([
+            return $this->noStoreJson([
                 'success' => false,
                 'message' => UserFacingError::message($e, 'Failed to fetch withdrawals. Please try again.'),
             ], 500);
@@ -97,7 +97,7 @@ class AdminWithdrawalController extends Controller
 
             if (! $withdrawal) {
                 if ($wantsJson) {
-                    return response()->json([
+                    return $this->noStoreJson([
                         'success' => false,
                         'message' => 'Withdrawal not found',
                     ], 404);
@@ -116,7 +116,7 @@ class AdminWithdrawalController extends Controller
             $this->attachDuplicateWarnings(collect([$withdrawal]));
 
             if ($wantsJson) {
-                return response()->json([
+                return $this->noStoreJson([
                     'success' => true,
                     'data' => $withdrawal,
                 ]);
@@ -131,7 +131,7 @@ class AdminWithdrawalController extends Controller
             Log::error('Error fetching withdrawal: '.$e->getMessage());
 
             if ($wantsJson) {
-                return response()->json([
+                return $this->noStoreJson([
                     'success' => false,
                     'message' => UserFacingError::message($e, 'Failed to load withdrawal.'),
                 ], 500);
@@ -160,7 +160,7 @@ class AdminWithdrawalController extends Controller
             $ids = $rows->pluck('id')->map(fn ($id) => (int) $id)->values()->all();
             $pendingIds = $rows->where('status', 'pending')->pluck('id')->map(fn ($id) => (int) $id)->values()->all();
 
-            return response()->json([
+            return $this->noStoreJson([
                 'success' => true,
                 'ids' => $ids,
                 'pending_ids' => $pendingIds,
@@ -171,7 +171,7 @@ class AdminWithdrawalController extends Controller
         } catch (\Throwable $e) {
             Log::error('Error fetching matching withdrawal ids: '.$e->getMessage());
 
-            return response()->json([
+            return $this->noStoreJson([
                 'success' => false,
                 'message' => 'Failed to load matching withdrawals.',
             ], 500);
@@ -342,8 +342,14 @@ class AdminWithdrawalController extends Controller
                 ], 500);
             }
 
+            $params = [];
+            try {
+                $params = $this->withdrawalIndexQuery($request);
+            } catch (\Throwable $ignored) {
+            }
+
             return redirect()
-                ->route('admin.withdrawals')
+                ->route('admin.withdrawals', $params)
                 ->with('error', $message);
         }
 
@@ -434,7 +440,7 @@ class AdminWithdrawalController extends Controller
                 ->groupBy('payment_method')
                 ->get()
                 ->mapWithKeys(fn ($row) => [
-                    $row->payment_method => [
+                    (string) ($row->payment_method ?: 'unknown') => [
                         'count' => (int) $row->count,
                         'net_total' => (float) $row->net_total,
                     ],
@@ -462,14 +468,14 @@ class AdminWithdrawalController extends Controller
                 'by_method' => $byMethod,
             ];
 
-            return response()->json([
+            return $this->noStoreJson([
                 'success' => true,
                 'data' => $stats,
             ]);
         } catch (\Throwable $e) {
             Log::error('Error fetching withdrawal statistics: '.$e->getMessage());
 
-            return response()->json([
+            return $this->noStoreJson([
                 'success' => false,
                 'message' => 'Failed to fetch statistics',
             ], 500);
@@ -712,6 +718,12 @@ class AdminWithdrawalController extends Controller
         }
 
         return '';
+    }
+
+    private function noStoreJson(array $payload, int $status = 200): JsonResponse
+    {
+        return response()->json($payload, $status)
+            ->header('Cache-Control', 'no-store');
     }
 
     /**

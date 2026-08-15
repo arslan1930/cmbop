@@ -76,6 +76,10 @@ class AdminWithdrawalLaterTest extends TestCase
         $this->assertStringContainsString('if (!dateString) return', $html);
         $this->assertStringContainsString('encodeURIComponent(w.destination_copy_text || \'\')', $html);
         $this->assertStringContainsString("if (!row || typeof row !== 'object') return '';", $html);
+        $this->assertStringContainsString('function detailText', $html);
+        $this->assertStringContainsString('function getJson', $html);
+        $this->assertStringContainsString('cache: false', $html);
+        $this->assertStringContainsString('Array.isArray(response.data) ? response.data : []', $html);
     }
 
     public function test_browser_show_is_html_and_json_accept_stays_json(): void
@@ -603,5 +607,40 @@ class AdminWithdrawalLaterTest extends TestCase
             ->assertJsonPath('success', true)
             ->assertJsonPath('data.0.id', $withdrawal->id)
             ->assertJsonPath('data.0.destination_snippet', 'PayPal · —');
+    }
+
+    public function test_later_get_json_is_not_store_cached(): void
+    {
+        $admin = $this->makeUser('admin');
+        $publisher = $this->makeUser('publisher');
+        $withdrawal = $this->seedWithdrawal($publisher);
+
+        foreach ([
+            route('admin.withdrawals.data'),
+            route('admin.withdrawals.statistics'),
+            route('admin.withdrawals.ids'),
+            route('admin.withdrawals.show', $withdrawal->id),
+        ] as $url) {
+            $cache = (string) $this->actingAs($admin)
+                ->getJson($url)
+                ->assertOk()
+                ->headers
+                ->get('Cache-Control');
+            $this->assertStringContainsString('no-store', $cache, $url);
+        }
+    }
+
+    public function test_statistics_tolerates_blank_payment_method(): void
+    {
+        $admin = $this->makeUser('admin');
+        $publisher = $this->makeUser('publisher');
+        $this->seedWithdrawal($publisher, ['payment_method' => '']);
+
+        $this->actingAs($admin)
+            ->getJson(route('admin.withdrawals.statistics'))
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.pending', 1)
+            ->assertJsonPath('data.by_method.unknown.count', 1);
     }
 }

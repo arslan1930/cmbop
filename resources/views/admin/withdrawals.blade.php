@@ -337,6 +337,24 @@ function escapeHtml(str) {
         .replace(/'/g, '&#39;');
 }
 
+function detailText(details, key) {
+    const value = details && details[key];
+    if (typeof value === 'string' || typeof value === 'number') return String(value);
+    return '';
+}
+
+function getJson(url, params, success) {
+    return $.ajax({
+        url: url,
+        method: 'GET',
+        data: params || {},
+        dataType: 'json',
+        cache: false,
+        headers: { 'Accept': 'application/json' },
+        success: success,
+    });
+}
+
 function capitalize(str) {
     if (!str) return '';
     return str.charAt(0).toUpperCase() + str.slice(1);
@@ -437,7 +455,7 @@ function loadStatistics() {
     const params = statsScope === 'view' ? Object.assign({ scope: 'view' }, viewFilterParams()) : {};
     delete params.page;
     applyStatsLabels();
-    $.getJSON(WD_STATS, params, function(response) {
+    getJson(WD_STATS, params, function(response) {
         if (!response.success) return;
         const s = response.data;
         $('#statPending').text(s.pending);
@@ -477,13 +495,15 @@ function loadWithdrawals(page = 1) {
         url: WD_DATA,
         method: 'GET',
         data: params,
+        cache: false,
+        headers: { 'Accept': 'application/json' },
         success: function(response) {
             if (response.success) {
                 if (response.pagination && response.pagination.current_page) {
                     currentPage = response.pagination.current_page;
                     appliedFilters.page = currentPage;
                 }
-                renderWithdrawals(response.data);
+                renderWithdrawals(Array.isArray(response.data) ? response.data : []);
                 renderAdminPagination(response.pagination, {
                     links: '#paginationLinks',
                     info: '#paginationInfo',
@@ -900,7 +920,7 @@ $('#exportCsvBtn').on('click', async function() {
 $('#selectMatchingBtn').on('click', function() {
     const params = viewFilterParams();
     delete params.page;
-    $.getJSON(WD_IDS, params, function(res) {
+    getJson(WD_IDS, params, function(res) {
         if (!res.success) {
             toast(res.message || 'Could not load matching ids', 'error');
             return;
@@ -943,7 +963,7 @@ $('#batchExportBtn').on('click', function() {
 // Details modal
 $(document).on('click', '.view-details', function() {
     const id = $(this).data('id');
-    $.getJSON(withdrawalUrl(WD_SHOW, id), function(response) {
+    getJson(withdrawalUrl(WD_SHOW, id), {}, function(response) {
         if (!response.success) {
             toast('Failed to load details', 'error');
             return;
@@ -956,26 +976,31 @@ $(document).on('click', '.view-details', function() {
 });
 
 function renderDetails(withdrawal) {
-    const paymentDetails = withdrawal.payment_details || {};
+    const paymentDetails = withdrawal.payment_details && typeof withdrawal.payment_details === 'object'
+        ? withdrawal.payment_details
+        : {};
+    const detailOrNa = function (key) {
+        return detailText(paymentDetails, key) || 'N/A';
+    };
     let paymentDetailsHtml = '';
 
     switch (withdrawal.payment_method) {
         case 'bank':
             paymentDetailsHtml = `
-                <p class="mb-1"><strong>Bank Name:</strong> ${escapeHtml(paymentDetails.bank_name || 'N/A')}</p>
-                <p class="mb-1"><strong>Account Holder:</strong> ${escapeHtml(paymentDetails.account_holder || 'N/A')}</p>
-                <p class="mb-1"><strong>Account Number:</strong> ${escapeHtml(paymentDetails.account_number || 'N/A')}</p>
-                <p class="mb-1"><strong>SWIFT Code:</strong> ${escapeHtml(paymentDetails.swift_code || 'N/A')}</p>
+                <p class="mb-1"><strong>Bank Name:</strong> ${escapeHtml(detailOrNa('bank_name'))}</p>
+                <p class="mb-1"><strong>Account Holder:</strong> ${escapeHtml(detailOrNa('account_holder'))}</p>
+                <p class="mb-1"><strong>Account Number:</strong> ${escapeHtml(detailOrNa('account_number'))}</p>
+                <p class="mb-1"><strong>SWIFT Code:</strong> ${escapeHtml(detailOrNa('swift_code'))}</p>
             `;
             break;
         case 'paypal':
         case 'wise':
-            paymentDetailsHtml = `<p class="mb-1"><strong>Email:</strong> ${escapeHtml(paymentDetails.email || 'N/A')}</p>`;
+            paymentDetailsHtml = `<p class="mb-1"><strong>Email:</strong> ${escapeHtml(detailOrNa('email'))}</p>`;
             break;
         case 'crypto':
             paymentDetailsHtml = `
-                <p class="mb-1"><strong>Cryptocurrency:</strong> ${escapeHtml(paymentDetails.crypto_type || 'N/A')}</p>
-                <p class="mb-1"><strong>Wallet Address:</strong> ${escapeHtml(paymentDetails.wallet_address || 'N/A')}</p>
+                <p class="mb-1"><strong>Cryptocurrency:</strong> ${escapeHtml(detailOrNa('crypto_type'))}</p>
+                <p class="mb-1"><strong>Wallet Address:</strong> ${escapeHtml(detailOrNa('wallet_address'))}</p>
             `;
             break;
     }
