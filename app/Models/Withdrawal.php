@@ -285,7 +285,7 @@ class Withdrawal extends Model
 
     private function bankSnippet(array $details): string
     {
-        $account = preg_replace('/\s+/', '', (string) ($details['account_number'] ?? ''));
+        $account = preg_replace('/\s+/', '', (string) ($details['account_number'] ?? '')) ?? '';
         $last4 = $account !== '' ? substr($account, -4) : '????';
         $prefix = strlen($account) >= 2 ? strtoupper(substr($account, 0, 2)) : 'Bank';
 

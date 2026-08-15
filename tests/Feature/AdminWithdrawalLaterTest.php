@@ -7,6 +7,7 @@ use App\Models\Role;
 use App\Models\User;
 use App\Models\Withdrawal;
 use App\Services\Admin\FinanceOverviewService;
+use App\Services\Wallet\ManualWithdrawalSettlementService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -66,6 +67,9 @@ class AdminWithdrawalLaterTest extends TestCase
         $this->assertStringContainsString('selectedIds.clear();', $html);
         $this->assertStringContainsString('escapeHtml(label)', $html);
         $this->assertStringContainsString('if (!Object.keys(appliedFilters).length)', $html);
+        $this->assertStringContainsString('escapeHtml(adminStatusLabel(w.status))', $html);
+        $this->assertStringContainsString("pendingSet.has(Number(id)) ? 'pending' : 'processing'", $html);
+        $this->assertStringContainsString('appliedFilters.page = currentPage', $html);
     }
 
     public function test_browser_show_is_html_and_json_accept_stays_json(): void
@@ -457,5 +461,82 @@ class AdminWithdrawalLaterTest extends TestCase
             ->pluck('url');
 
         $this->assertTrue($urls->contains(route('admin.withdrawals.show', $withdrawal->id)));
+    }
+
+    public function test_data_clamps_page_past_the_last_page(): void
+    {
+        $admin = $this->makeUser('admin');
+        $publisher = $this->makeUser('publisher');
+        $this->seedWithdrawal($publisher, ['net_amount' => 11]);
+        $last = $this->seedWithdrawal($publisher, ['net_amount' => 22]);
+
+        $this->actingAs($admin)
+            ->getJson(route('admin.withdrawals.data', [
+                'per_page' => 1,
+                'page' => 99,
+            ]))
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('pagination.current_page', 2)
+            ->assertJsonPath('pagination.last_page', 2)
+            ->assertJsonPath('pagination.total', 2)
+            ->assertJsonPath('data.0.id', $last->id);
+    }
+
+    public function test_data_ignores_array_page_and_defaults_to_first(): void
+    {
+        $admin = $this->makeUser('admin');
+        $publisher = $this->makeUser('publisher');
+        $first = $this->seedWithdrawal($publisher, ['created_at' => now()->subDay()]);
+        $this->seedWithdrawal($publisher);
+
+        $this->actingAs($admin)
+            ->getJson(route('admin.withdrawals.data', [
+                'per_page' => 1,
+                'page' => ['99'],
+            ]))
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('pagination.current_page', 1)
+            ->assertJsonPath('data.0.id', $first->id);
+    }
+
+    public function test_export_ids_are_capped_to_export_max_rows(): void
+    {
+        config(['billing.withdrawal_export_max_rows' => 2]);
+
+        $admin = $this->makeUser('admin');
+        $publisher = $this->makeUser('publisher');
+        $one = $this->seedWithdrawal($publisher, ['net_amount' => 11]);
+        $two = $this->seedWithdrawal($publisher, ['net_amount' => 22]);
+        $three = $this->seedWithdrawal($publisher, ['net_amount' => 33]);
+
+        $csv = $this->actingAs($admin)
+            ->get(route('admin.withdrawals.export', [
+                'ids' => [$one->id, $two->id, $three->id],
+            ]))
+            ->assertOk()
+            ->streamedContent();
+
+        $this->assertStringContainsString('WD-'.$one->id, $csv);
+        $this->assertStringContainsString('WD-'.$two->id, $csv);
+        $this->assertStringNotContainsString('WD-'.$three->id, $csv);
+    }
+
+    public function test_mark_paid_type_error_returns_json_500(): void
+    {
+        $admin = $this->makeUser('admin');
+        $publisher = $this->makeUser('publisher');
+        $withdrawal = $this->seedWithdrawal($publisher);
+
+        $this->mock(ManualWithdrawalSettlementService::class, function ($mock) {
+            $mock->shouldReceive('transition')->andThrow(new \TypeError('simulated type error'));
+        });
+
+        $this->actingAs($admin)
+            ->postJson(route('admin.withdrawals.paid', $withdrawal->id), ['notes' => 'x'])
+            ->assertStatus(500)
+            ->assertJsonPath('success', false)
+            ->assertJsonPath('message', 'Failed to update status. Please try again.');
     }
 }

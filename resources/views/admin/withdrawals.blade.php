@@ -476,6 +476,10 @@ function loadWithdrawals(page = 1) {
         data: params,
         success: function(response) {
             if (response.success) {
+                if (response.pagination && response.pagination.current_page) {
+                    currentPage = response.pagination.current_page;
+                    appliedFilters.page = currentPage;
+                }
                 renderWithdrawals(response.data);
                 renderAdminPagination(response.pagination, {
                     links: '#paginationLinks',
@@ -544,7 +548,7 @@ function renderWithdrawals(withdrawals) {
                         <i class="fa fa-copy me-1"></i>Copy
                     </button>
                 </td>
-                <td><span class="status-badge ${getStatusClass(w.status)}">${adminStatusLabel(w.status)}</span></td>
+                <td><span class="status-badge ${getStatusClass(w.status)}">${escapeHtml(adminStatusLabel(w.status))}</span></td>
                 <td class="small">${formatDate(w.created_at)}</td>
                 <td>
                     <div class="dropdown admin-manage-dropdown">
@@ -883,7 +887,7 @@ $('#selectMatchingBtn').on('click', function() {
         (res.ids || []).forEach(function (id) {
             selectedIds.add(Number(id));
             const existing = withdrawalFlags.get(Number(id)) || {};
-            existing.status = pendingSet.has(Number(id)) ? 'pending' : (existing.status || 'processing');
+            existing.status = pendingSet.has(Number(id)) ? 'pending' : 'processing';
             withdrawalFlags.set(Number(id), existing);
         });
         $('.row-select').each(function() {
@@ -995,7 +999,7 @@ function renderDetails(withdrawal) {
                     <h6 class="mb-3">Request</h6>
                     <p class="mb-1"><strong>Reference:</strong> WD-${withdrawal.id}</p>
                     <p class="mb-1"><strong>Date:</strong> ${formatDate(withdrawal.created_at)}</p>
-                    <p class="mb-1"><strong>Status:</strong> <span class="status-badge ${getStatusClass(withdrawal.status)}">${adminStatusLabel(withdrawal.status)}</span></p>
+                    <p class="mb-1"><strong>Status:</strong> <span class="status-badge ${getStatusClass(withdrawal.status)}">${escapeHtml(adminStatusLabel(withdrawal.status))}</span></p>
                     ${withdrawal.waiting_days != null ? `<p class="mb-1"><strong>Waiting:</strong> ${withdrawal.waiting_days}d</p>` : ''}
                 </div>
             </div>

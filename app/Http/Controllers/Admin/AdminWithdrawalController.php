@@ -39,8 +39,12 @@ class AdminWithdrawalController extends Controller
             $filters = $this->applyWithdrawalFilters($query, $request);
             $this->applyWithdrawalOrder($query, $filters['queue'], $filters['status']);
 
-            $perPage = (int) (filter_number($request->input('per_page')) ?? 20);
-            $withdrawals = $query->paginate(max(1, min($perPage, 100)));
+            $perPage = max(1, min((int) (filter_number($request->input('per_page')) ?? 20), 100));
+            $page = max(1, (int) (filter_number($request->input('page')) ?? 1));
+            $withdrawals = (clone $query)->paginate($perPage, ['*'], 'page', $page);
+            if ($withdrawals->lastPage() >= 1 && $page > $withdrawals->lastPage()) {
+                $withdrawals = (clone $query)->paginate($perPage, ['*'], 'page', $withdrawals->lastPage());
+            }
 
             $invoiceLinks = app(AdminInvoiceLinks::class)->forWithdrawals($withdrawals->getCollection());
             $this->attachDuplicateWarnings($withdrawals->getCollection());
@@ -657,7 +661,10 @@ class AdminWithdrawalController extends Controller
             }
         }
 
-        return array_values(array_unique($normalized));
+        $normalized = array_values(array_unique($normalized));
+        $max = max(1, (int) config('billing.withdrawal_export_max_rows', 2000));
+
+        return array_slice($normalized, 0, $max);
     }
 
     /**
@@ -689,7 +696,7 @@ class AdminWithdrawalController extends Controller
                 'success' => false,
                 'message' => UserFacingError::message($e, 'Cannot return these funds: the source wallet is unknown.'),
             ], 422);
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             Log::error('Error updating withdrawal status: '.$e->getMessage());
 
             return response()->json([
