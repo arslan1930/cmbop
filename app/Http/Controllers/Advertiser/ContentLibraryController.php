@@ -14,7 +14,6 @@ use App\Services\Marketplace\LanguageCountryMap;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\Rule;
 
 class ContentLibraryController extends Controller
@@ -136,19 +135,9 @@ class ContentLibraryController extends Controller
                         $exp->whereNull('expires_at')->orWhere('expires_at', '>', now());
                     });
             } elseif ($availability === 'in_progress') {
-                $hasPublisherStatus = Schema::hasColumn('order_items', 'publisher_status');
                 $query->withOpenOwnerOrder()
                     ->hasCheckoutReadyLinks()
-                    ->whereDoesntHave('orderItems', function ($item) use ($hasPublisherStatus) {
-                        $item->where(function ($q) use ($hasPublisherStatus) {
-                            $q->where(function ($live) {
-                                $live->whereNotNull('live_url')->where('live_url', '!=', '');
-                            });
-                            if ($hasPublisherStatus) {
-                                $q->orWhere('publisher_status', 'completed');
-                            }
-                        });
-                    });
+                    ->withoutCurrentLivePlacement();
             } elseif ($availability === 'expired') {
                 $query->whereNull('order_id')
                     ->whereNotNull('expires_at')
@@ -156,18 +145,7 @@ class ContentLibraryController extends Controller
             } elseif ($availability === 'needs_fix') {
                 $query->needsLibraryFix();
             } elseif ($availability === 'published') {
-                $hasPublisherStatus = Schema::hasColumn('order_items', 'publisher_status');
-                $query->whereNotNull('order_id')
-                    ->whereHas('orderItems', function ($item) use ($hasPublisherStatus) {
-                        $item->where(function ($q) use ($hasPublisherStatus) {
-                            $q->where(function ($live) {
-                                $live->whereNotNull('live_url')->where('live_url', '!=', '');
-                            });
-                            if ($hasPublisherStatus) {
-                                $q->orWhere('publisher_status', 'completed');
-                            }
-                        });
-                    });
+                $query->withCurrentLivePlacement();
             }
         }
 
@@ -226,7 +204,6 @@ class ContentLibraryController extends Controller
                 + (int) ($statusTotals[ContentSubmission::STATUS_ERROR] ?? 0),
         ];
 
-        $hasPublisherStatus = Schema::hasColumn('order_items', 'publisher_status');
         $availabilityCounts = [
             'all' => (int) (clone $countScope)->count(),
             'available' => (int) (clone $countScope)->checkoutReady()->count(),
@@ -243,29 +220,10 @@ class ContentLibraryController extends Controller
             'in_progress' => (int) (clone $countScope)
                 ->withOpenOwnerOrder()
                 ->hasCheckoutReadyLinks()
-                ->whereDoesntHave('orderItems', function ($item) use ($hasPublisherStatus) {
-                    $item->where(function ($q) use ($hasPublisherStatus) {
-                        $q->where(function ($live) {
-                            $live->whereNotNull('live_url')->where('live_url', '!=', '');
-                        });
-                        if ($hasPublisherStatus) {
-                            $q->orWhere('publisher_status', 'completed');
-                        }
-                    });
-                })
+                ->withoutCurrentLivePlacement()
                 ->count(),
             'completed' => (int) (clone $countScope)
-                ->whereNotNull('order_id')
-                ->whereHas('orderItems', function ($item) use ($hasPublisherStatus) {
-                    $item->where(function ($q) use ($hasPublisherStatus) {
-                        $q->where(function ($live) {
-                            $live->whereNotNull('live_url')->where('live_url', '!=', '');
-                        });
-                        if ($hasPublisherStatus) {
-                            $q->orWhere('publisher_status', 'completed');
-                        }
-                    });
-                })
+                ->withCurrentLivePlacement()
                 ->count(),
             'expired' => (int) (clone $countScope)
                 ->whereNull('order_id')

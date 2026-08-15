@@ -199,6 +199,114 @@ class ContentLibraryImprovementsTest extends TestCase
             ->assertSee('Completed/LIVE');
     }
 
+    public function test_cancelled_published_placement_does_not_keep_article_completed(): void
+    {
+        $advertiser = $this->advertiser();
+        $publisher = $this->publisher();
+        $site = $this->activeSite($publisher, 'was-live');
+        $submission = $this->createApprovedSubmission($advertiser);
+        $submission->update(['title' => 'Freed After Live']);
+        $order = $this->makeOrder($advertiser);
+        $order->update(['status' => 'cancelled', 'payment_status' => 'refunded']);
+        OrderItem::create([
+            'order_id' => $order->id,
+            'site_id' => $site->id,
+            'site_name' => $site->site_name,
+            'site_url' => $site->site_url,
+            'price' => 46,
+            'content_submission_id' => $submission->id,
+            'live_url' => 'https://live.example/old-post',
+            'live_url_submitted_at' => now(),
+        ]);
+        $submission->update(['order_id' => null, 'order_item_id' => null]);
+
+        $fresh = $submission->fresh()->load(['orderItems.order', 'orderItem']);
+        $this->assertFalse($fresh->isInUse());
+        $this->assertFalse($fresh->isPublished());
+        $this->assertTrue($fresh->isReadyForCheckout());
+        $this->assertSame('available', $fresh->libraryAvailability());
+        $this->assertTrue(
+            ContentSubmission::query()->whereKey($submission->id)->checkoutReady()->exists()
+        );
+        $this->assertFalse(
+            ContentSubmission::query()->whereKey($submission->id)->withCurrentLivePlacement()->exists()
+        );
+
+        $this->actingAs($advertiser)
+            ->get(route('advertiser.content-library', ['availability' => 'available']))
+            ->assertOk()
+            ->assertSee('Freed After Live')
+            ->assertSee(route('advertiser.content-library.order', $submission, false), false)
+            ->assertDontSee('https://live.example/old-post');
+
+        $this->actingAs($advertiser)
+            ->get(route('advertiser.content-library', ['availability' => 'completed']))
+            ->assertOk()
+            ->assertDontSee('Freed After Live');
+    }
+
+    public function test_reused_article_after_published_cancel_stays_in_progress(): void
+    {
+        $advertiser = $this->advertiser();
+        $publisher = $this->publisher();
+        $oldSite = $this->activeSite($publisher, 'old-live');
+        $newSite = $this->activeSite($publisher, 'new-progress');
+        $submission = $this->createApprovedSubmission($advertiser);
+        $submission->update(['title' => 'Reused After Live']);
+
+        $cancelled = $this->makeOrder($advertiser);
+        $cancelled->update(['status' => 'cancelled', 'payment_status' => 'refunded']);
+        OrderItem::create([
+            'order_id' => $cancelled->id,
+            'site_id' => $oldSite->id,
+            'site_name' => $oldSite->site_name,
+            'site_url' => $oldSite->site_url,
+            'price' => 46,
+            'content_submission_id' => $submission->id,
+            'live_url' => 'https://live.example/old-post',
+            'live_url_submitted_at' => now(),
+        ]);
+
+        $current = $this->makeOrder($advertiser);
+        $current->update(['payment_status' => 'paid', 'status' => 'processing', 'paid_at' => now()]);
+        $item = OrderItem::create([
+            'order_id' => $current->id,
+            'site_id' => $newSite->id,
+            'site_name' => $newSite->site_name,
+            'site_url' => $newSite->site_url,
+            'price' => 46,
+            'content_submission_id' => $submission->id,
+        ]);
+        $submission->update([
+            'order_id' => $current->id,
+            'order_item_id' => $item->id,
+        ]);
+
+        $fresh = $submission->fresh()->load(['orderItems.order', 'orderItem.site']);
+        $this->assertTrue($fresh->isInUse());
+        $this->assertFalse($fresh->isPublished());
+        $this->assertSame('in_progress', $fresh->libraryAvailability());
+        $this->assertSame($item->id, (int) $fresh->placementItem()?->id);
+        $this->assertTrue(
+            ContentSubmission::query()->whereKey($submission->id)->withoutCurrentLivePlacement()->exists()
+        );
+        $this->assertFalse(
+            ContentSubmission::query()->whereKey($submission->id)->withCurrentLivePlacement()->exists()
+        );
+
+        $this->actingAs($advertiser)
+            ->get(route('advertiser.content-library', ['availability' => 'in_progress']))
+            ->assertOk()
+            ->assertSee('Reused After Live')
+            ->assertSee($newSite->site_name)
+            ->assertDontSee('https://live.example/old-post');
+
+        $this->actingAs($advertiser)
+            ->get(route('advertiser.content-library', ['availability' => 'completed']))
+            ->assertOk()
+            ->assertDontSee('Reused After Live');
+    }
+
     public function test_approved_chip_excludes_completed_and_in_progress(): void
     {
         $advertiser = $this->advertiser();
