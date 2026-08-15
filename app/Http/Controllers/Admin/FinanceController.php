@@ -155,7 +155,9 @@ class FinanceController extends Controller
     {
         $dossier = $this->finance->userDossier($user);
 
-        return view('admin.finance-user', ['dossier' => $dossier]);
+        return response()
+            ->view('admin.finance-user', ['dossier' => $dossier])
+            ->header('Cache-Control', 'no-store');
     }
 
     /**

@@ -1120,10 +1120,11 @@ class AdminWithdrawalLaterTest extends TestCase
         $this->assertIsArray($bankRow);
         $this->assertStringContainsString('DE89370400440532013000', (string) $bankRow['destination_copy_text']);
 
-        $csv = $this->actingAs($admin)
+        $export = $this->actingAs($admin)
             ->get(route('admin.withdrawals.export'))
-            ->assertOk()
-            ->streamedContent();
+            ->assertOk();
+        $this->assertStringContainsString('no-store', (string) $export->headers->get('Cache-Control'));
+        $csv = $export->streamedContent();
         $this->assertStringContainsString('pay@example.com', $csv);
         $this->assertStringContainsString('DE89370400440532013000', $csv);
     }

@@ -159,11 +159,13 @@ class AdminFinanceOpsGapsTest extends TestCase
             ->assertSee(route('admin.deposits', ['search' => $deposit->reference_code], false), false)
             ->assertSee(route('admin.orders.show', $order->id, false), false);
 
-        $this->actingAs($admin)
+        $dossier = $this->actingAs($admin)
             ->get(route('admin.finance.user', $publisher))
             ->assertOk()
             ->assertSee(e(route('admin.withdrawals.show', $open->id, false)), false)
             ->assertSee(e(route('admin.withdrawals.show', $paid->id, false)), false);
+
+        $this->assertStringContainsString('no-store', (string) $dossier->headers->get('Cache-Control'));
     }
 
     public function test_ledger_shows_user_filter_and_exports_csv(): void

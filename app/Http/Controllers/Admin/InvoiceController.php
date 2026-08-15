@@ -12,6 +12,7 @@ use App\Services\Billing\WithdrawalPayoutStatementService;
 use App\Support\UserFacingError;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Symfony\Component\HttpFoundation\Response;
 
 class InvoiceController extends Controller
 {
@@ -105,11 +106,13 @@ class InvoiceController extends Controller
             'events' => fn ($q) => $q->latest()->limit(30),
         ]);
 
-        return view('admin.invoices.show', [
-            'invoice' => $invoice,
-            'relatedUrl' => $invoice->relatedAdminUrl(),
-            'currencySymbol' => (string) config('billing.currency_symbol', '€'),
-        ]);
+        return response()
+            ->view('admin.invoices.show', [
+                'invoice' => $invoice,
+                'relatedUrl' => $invoice->relatedAdminUrl(),
+                'currencySymbol' => (string) config('billing.currency_symbol', '€'),
+            ])
+            ->header('Cache-Control', 'no-store');
     }
 
     public function viewPdf(Invoice $invoice, InvoicePdfGenerator $pdfs, BillingDocumentService $billing, WithdrawalPayoutStatementService $statements)
@@ -129,7 +132,7 @@ class InvoiceController extends Controller
 
         $billing->recordAdminDownload($invoice, auth()->user());
 
-        return $pdfs->stream($invoice);
+        return $this->noStoreResponse($pdfs->stream($invoice));
     }
 
     public function download(Invoice $invoice, InvoicePdfGenerator $pdfs, BillingDocumentService $billing, WithdrawalPayoutStatementService $statements)
@@ -149,7 +152,7 @@ class InvoiceController extends Controller
 
         $billing->recordAdminDownload($invoice, auth()->user());
 
-        return $pdfs->download($invoice);
+        return $this->noStoreResponse($pdfs->download($invoice));
     }
 
     public function resend(Invoice $invoice, BillingDocumentService $billing)
@@ -293,5 +296,12 @@ class InvoiceController extends Controller
         }
 
         return Carbon::create($year, $month, $day)->startOfDay();
+    }
+
+    private function noStoreResponse(Response $response): Response
+    {
+        $response->headers->set('Cache-Control', 'no-store');
+
+        return $response;
     }
 }

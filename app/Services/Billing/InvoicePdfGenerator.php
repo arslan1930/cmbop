@@ -47,7 +47,10 @@ class InvoicePdfGenerator
             return Storage::disk($invoice->pdf_disk)->response(
                 $invoice->pdf_path,
                 $invoice->invoice_number.'.pdf',
-                ['Content-Type' => 'application/pdf']
+                [
+                    'Content-Type' => 'application/pdf',
+                    'Cache-Control' => 'no-store',
+                ]
             );
         }
 
@@ -60,7 +63,8 @@ class InvoicePdfGenerator
 
         return Pdf::loadHTML($html)
             ->setPaper('a4', 'portrait')
-            ->stream($invoice->invoice_number.'.pdf');
+            ->stream($invoice->invoice_number.'.pdf')
+            ->header('Cache-Control', 'no-store');
     }
 
     public function download(Invoice $invoice)
@@ -69,7 +73,10 @@ class InvoicePdfGenerator
             return Storage::disk($invoice->pdf_disk)->download(
                 $invoice->pdf_path,
                 $invoice->invoice_number.'.pdf',
-                ['Content-Type' => 'application/pdf']
+                [
+                    'Content-Type' => 'application/pdf',
+                    'Cache-Control' => 'no-store',
+                ]
             );
         }
 
@@ -82,7 +89,8 @@ class InvoicePdfGenerator
 
         return Pdf::loadHTML($html)
             ->setPaper('a4', 'portrait')
-            ->download($invoice->invoice_number.'.pdf');
+            ->download($invoice->invoice_number.'.pdf')
+            ->header('Cache-Control', 'no-store');
     }
 
     public function absolutePath(Invoice $invoice): ?string

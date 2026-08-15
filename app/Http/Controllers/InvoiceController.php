@@ -29,10 +29,11 @@ class InvoiceController extends Controller
                 // Once a top-up has settled the customer wants the receipt, not
                 // the page of bank details telling them how to pay it.
                 if ($receipts->isSettled($deposit) && ($receipt = $receipts->issue($deposit))) {
-                    return redirect()->route(
+                    return redirect()->to(route(
                         $request->boolean('download') ? 'advertiser.billing.download' : 'advertiser.billing.view',
-                        $receipt
-                    );
+                        $receipt,
+                        false
+                    ));
                 }
 
                 $response = response()->view('advertiser.invoice', $this->depositInvoiceData($deposit, $user));
@@ -67,10 +68,11 @@ class InvoiceController extends Controller
                     ->first();
 
                 if ($taxInvoice) {
-                    return redirect()->route(
+                    return redirect()->to(route(
                         $request->boolean('download') ? 'advertiser.billing.download' : 'advertiser.billing.view',
-                        $taxInvoice
-                    );
+                        $taxInvoice,
+                        false
+                    ));
                 }
 
                 $response = response()->view('advertiser.invoice', $this->orderInvoiceData($order, $user));
@@ -121,7 +123,7 @@ class InvoiceController extends Controller
             'deposit' => $deposit,
             'canMarkPaid' => $deposit->canUserMarkPaid(),
             'userMarkedPaid' => $deposit->userHasMarkedPaid(),
-            'markPaidUrl' => route('advertiser.add-funds.mark-paid', $deposit),
+            'markPaidUrl' => route('advertiser.add-funds.mark-paid', $deposit, false),
         ];
     }
 

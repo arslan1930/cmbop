@@ -575,10 +575,12 @@ class AdminInvoiceOpsTest extends TestCase
         ]));
         $this->app->instance(InvoicePdfGenerator::class, $pdfs);
 
-        $this->actingAs($admin)
+        $download = $this->actingAs($admin)
             ->get(route('admin.invoices.download', $statement))
             ->assertOk()
             ->assertSee('live-pdf', false);
+
+        $this->assertStringContainsString('no-store', (string) $download->headers->get('Cache-Control'));
 
         $fresh = $statement->fresh();
         $this->assertSame('Current Owner', $fresh->customer_name);
@@ -677,11 +679,13 @@ class AdminInvoiceOpsTest extends TestCase
             ],
         ]);
 
-        $this->actingAs($admin)
+        $show = $this->actingAs($admin)
             ->get(route('admin.invoices.show', $statement))
             ->assertOk()
             ->assertSee('Sent to', false)
             ->assertSee('leftover-pay@example.com', false);
+
+        $this->assertStringContainsString('no-store', (string) $show->headers->get('Cache-Control'));
     }
 
     public function test_invoice_index_keeps_payout_hops_on_this_host(): void

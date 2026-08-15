@@ -19,6 +19,8 @@ class DepositRejected extends PlatformMailable
     public function build()
     {
         return $this->subject('Deposit Request Update - '.$this->deposit->reference_code)
-            ->markdown('emails.deposit-rejected');
+            ->markdown('emails.deposit-rejected', [
+                'addFundsUrl' => $this->publicRoute('advertiser.add-funds'),
+            ]);
     }
 }

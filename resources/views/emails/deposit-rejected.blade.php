@@ -18,7 +18,7 @@ We regret to inform you that your deposit request has been **rejected**.
 
 If you believe this is an error, please contact our support team.
 
-@component('mail::button', ['url' => route('advertiser.add-funds')])
+@component('mail::button', ['url' => $addFundsUrl])
 Try Again
 @endcomponent
 

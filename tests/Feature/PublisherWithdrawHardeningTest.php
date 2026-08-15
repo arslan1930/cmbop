@@ -356,11 +356,13 @@ class PublisherWithdrawHardeningTest extends TestCase
     {
         $publisher = $this->publisher(15);
 
-        $this->actingAs($publisher)
+        $page = $this->actingAs($publisher)
             ->get(route('publisher.withdraw'))
             ->assertOk()
             ->assertSee('Minimum:', false)
             ->assertSee('Below minimum', false)
             ->assertSee('disabled', false);
+
+        $this->assertStringContainsString('no-store', (string) $page->headers->get('Cache-Control'));
     }
 }

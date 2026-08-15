@@ -31,8 +31,8 @@ class PaymentSuccessfulInvoiceMail extends PlatformMailable
                 'user' => $user,
                 'symbol' => $symbol,
                 'viewOrderUrl' => $this->advertiserOrdersUrl($order?->id ? (int) $order->id : null),
-                'downloadInvoiceUrl' => route('advertiser.billing.download', $this->invoice),
-                'dashboardUrl' => route('advertiser.dashboard'),
+                'downloadInvoiceUrl' => $this->publicRoute('advertiser.billing.download', $this->invoice),
+                'dashboardUrl' => $this->publicRoute('advertiser.dashboard'),
             ]);
 
         $path = app(InvoicePdfGenerator::class)->absolutePath($this->invoice);

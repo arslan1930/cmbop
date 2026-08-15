@@ -18,7 +18,7 @@
 
     <div class="card border-0 shadow-sm mb-4">
         <div class="card-body">
-            <form method="GET" action="{{ route('advertiser.billing.index') }}" class="row g-3 align-items-end">
+            <form method="GET" action="{{ route('advertiser.billing.index', [], false) }}" class="row g-3 align-items-end">
                 <div class="col-md-4">
                     <x-slb-search-field name="search" id="advertiserBillingSearch" :value="request('search')" placeholder="Invoice #, order #, transaction…" />
                 </div>
@@ -51,7 +51,7 @@
                 </div>
                 <div class="col-12 d-flex gap-2">
                     <button type="submit" class="btn btn-sm btn-primary">Filter</button>
-                    <a href="{{ route('advertiser.billing.index') }}" class="btn btn-sm btn-cta-tertiary">Reset</a>
+                    <a href="{{ route('advertiser.billing.index', [], false) }}" class="btn btn-sm btn-cta-tertiary">Reset</a>
                 </div>
             </form>
         </div>
@@ -97,9 +97,9 @@
                                 <td class="small">{{ $invoice->typeLabel() }}</td>
                                 <td class="text-end">
                                     <div class="d-inline-flex flex-wrap gap-1 justify-content-end">
-                                        <a href="{{ route('advertiser.billing.show', $invoice) }}" class="btn btn-sm btn-outline-secondary">View</a>
+                                        <a href="{{ route('advertiser.billing.show', $invoice, false) }}" class="btn btn-sm btn-outline-secondary">View</a>
                                         @if($invoice->status !== 'pending' || $invoice->hasPdf())
-                                            <a href="{{ route('advertiser.billing.download', $invoice) }}" class="btn btn-sm btn-primary">Download PDF</a>
+                                            <a href="{{ route('advertiser.billing.download', $invoice, false) }}" class="btn btn-sm btn-primary">Download PDF</a>
                                         @endif
                                     </div>
                                 </td>

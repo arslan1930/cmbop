@@ -109,7 +109,7 @@ class ManualDepositApproveConfirmLinkTest extends TestCase
 
         $url = $this->relativeSignedUrl(ManualDepositApproveLink::url($deposit));
 
-        $this->actingAs($admin)
+        $html = $this->actingAs($admin)
             ->get($url)
             ->assertOk()
             ->assertSee('Confirm deposit approval', false)
@@ -119,7 +119,11 @@ class ManualDepositApproveConfirmLinkTest extends TestCase
             ->assertSee('Wallet snapshot', false)
             ->assertSee('Current balance', false)
             ->assertSee('After this approval', false)
-            ->assertSee('No completed deposits yet', false);
+            ->assertSee('No completed deposits yet', false)
+            ->getContent();
+
+        $this->assertStringContainsString('href="'.route('admin.deposits', [], false).'"', $html);
+        $this->assertStringNotContainsString('href="'.route('admin.deposits').'"', $html);
 
         $this->assertSame('pending', $deposit->fresh()->status);
         $this->assertSame(0.0, (float) $wallet->fresh()->balance);
