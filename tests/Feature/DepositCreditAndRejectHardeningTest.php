@@ -6,6 +6,7 @@ use App\Models\DepositRequest;
 use App\Models\Role;
 use App\Models\User;
 use App\Models\Wallet;
+use App\Services\Wallet\WalletLedgerService;
 use App\Services\WalletStripeDepositService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Mail;
@@ -56,6 +57,30 @@ class DepositCreditAndRejectHardeningTest extends TestCase
             'bonus_reserved' => 0,
             'currency' => 'EUR',
         ]);
+    }
+
+    private function depositServiceWithStripeLookup(string $piForSession = '', string $sessionForPi = ''): WalletStripeDepositService
+    {
+        return new class(app(WalletLedgerService::class), $piForSession, $sessionForPi) extends WalletStripeDepositService
+        {
+            public function __construct(
+                WalletLedgerService $ledger,
+                private string $piForSession,
+                private string $sessionForPi
+            ) {
+                parent::__construct($ledger);
+            }
+
+            protected function lookupPaymentIntentIdForSession(string $sessionId): string
+            {
+                return $this->piForSession;
+            }
+
+            protected function lookupCheckoutSessionIdForPaymentIntent(string $paymentIntentId): string
+            {
+                return $this->sessionForPi;
+            }
+        };
     }
 
     public function test_checkout_session_credit_refuses_order_payment_metadata(): void
@@ -1932,6 +1957,102 @@ class DepositCreditAndRejectHardeningTest extends TestCase
             ->where('user_id', $advertiser->id)
             ->where('status', 'completed')
             ->count());
+    }
+
+    public function test_session_without_payment_intent_then_pi_without_session_reference_attaches_via_stripe_lookup(): void
+    {
+        $advertiser = $this->advertiser();
+        $wallet = $this->walletFor($advertiser);
+        $sessionId = 'cs_lookup_pi_'.uniqid();
+        $pi = 'pi_lookup_after_cs_'.uniqid();
+        $service = $this->depositServiceWithStripeLookup('', $sessionId);
+
+        $fromSession = $service->creditFromCheckoutSession((object) [
+            'id' => $sessionId,
+            'payment_status' => 'paid',
+            'amount_total' => 4000,
+            'metadata' => (object) [
+                'type' => 'wallet_deposit',
+                'user_id' => (string) $advertiser->id,
+                'amount' => '40.00',
+                'reference_code' => 'DEP-LOOKUP-CS-40',
+            ],
+        ]);
+
+        $fromPi = $service->creditFromPaymentIntentObject((object) [
+            'id' => $pi,
+            'status' => 'succeeded',
+            'amount' => 4000,
+            'amount_received' => 4000,
+            'metadata' => (object) [
+                'type' => 'wallet_deposit',
+                'user_id' => (string) $advertiser->id,
+                'amount' => '40.00',
+                'reference_code' => 'DEP-LOOKUP-CS-40',
+            ],
+        ]);
+
+        $this->assertSame(40.0, $fromSession);
+        $this->assertSame(40.0, $fromPi);
+        $this->assertSame(40.0, (float) $wallet->fresh()->balance);
+        $this->assertSame(1, DepositRequest::query()->where('user_id', $advertiser->id)->count());
+        $this->assertSame($pi, DepositRequest::query()
+            ->where('stripe_session_id', $sessionId)
+            ->value('stripe_payment_intent_id'));
+    }
+
+    public function test_payment_intent_then_empty_session_attaches_via_refreshed_payment_intent_id(): void
+    {
+        $advertiser = $this->advertiser();
+        $wallet = $this->walletFor($advertiser);
+        $sessionId = 'cs_refresh_pi_'.uniqid();
+        $pi = 'pi_refresh_before_cs_'.uniqid();
+        $service = $this->depositServiceWithStripeLookup($pi, '');
+
+        $fromPi = $service->creditFromPaymentIntentObject((object) [
+            'id' => $pi,
+            'status' => 'succeeded',
+            'amount' => 4000,
+            'amount_received' => 4000,
+            'metadata' => (object) [
+                'type' => 'wallet_deposit',
+                'user_id' => (string) $advertiser->id,
+                'amount' => '40.00',
+                'reference_code' => 'DEP-REFRESH-PI-40',
+            ],
+        ]);
+
+        $fromSession = $service->creditFromCheckoutSession((object) [
+            'id' => $sessionId,
+            'payment_status' => 'paid',
+            'amount_total' => 4000,
+            'metadata' => (object) [
+                'type' => 'wallet_deposit',
+                'user_id' => (string) $advertiser->id,
+                'amount' => '40.00',
+                'reference_code' => 'DEP-REFRESH-PI-40',
+            ],
+        ]);
+
+        $this->assertSame(40.0, $fromPi);
+        $this->assertSame(40.0, $fromSession);
+        $this->assertSame(40.0, (float) $wallet->fresh()->balance);
+        $this->assertSame(1, DepositRequest::query()->where('user_id', $advertiser->id)->count());
+        $this->assertSame($pi, DepositRequest::query()
+            ->where('stripe_session_id', $sessionId)
+            ->value('stripe_payment_intent_id'));
+    }
+
+    public function test_add_funds_session_reference_is_random_not_time_based(): void
+    {
+        $first = WalletStripeDepositService::newAddFundsSessionReference();
+        $second = WalletStripeDepositService::newAddFundsSessionReference();
+
+        $this->assertTrue(WalletStripeDepositService::isAddFundsSessionReference($first));
+        $this->assertTrue(WalletStripeDepositService::isAddFundsSessionReference($second));
+        $this->assertNotSame($first, $second);
+        $this->assertMatchesRegularExpression('/^deposit_[0-9a-f]{32}$/', $first);
+        $this->assertFalse(WalletStripeDepositService::isAddFundsSessionReference('order_abc'));
     }
 
     public function test_late_payment_intent_does_not_attach_to_a_different_same_amount_card(): void

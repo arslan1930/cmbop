@@ -178,7 +178,7 @@ class AddFundsController extends Controller
             $user = auth()->user();
 
             // Generate a unique session reference (NO deposit record created here)
-            $sessionReference = 'deposit_'.uniqid();
+            $sessionReference = WalletStripeDepositService::newAddFundsSessionReference();
 
             $sessionPayload = [
                 'payment_method_types' => ['card'],

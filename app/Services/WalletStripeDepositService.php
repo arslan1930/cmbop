@@ -9,6 +9,8 @@ use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Stripe\Checkout\Session;
+use Stripe\Stripe;
 
 /**
  * Idempotent wallet credits from Stripe Checkout Sessions / PaymentIntents.
@@ -121,6 +123,32 @@ class WalletStripeDepositService
                 return;
             }
 
+            // Session webhook may have credited first with an empty
+            // payment_intent, and this PI may lack session_reference.
+            // Ask Stripe which Checkout Session owns the PI and attach.
+            $checkoutSessionId = $this->lookupCheckoutSessionIdForPaymentIntent($paymentIntentId);
+            if ($checkoutSessionId !== '') {
+                $bySession = DepositRequest::where('stripe_session_id', $checkoutSessionId)
+                    ->lockForUpdate()
+                    ->first();
+                $resolved = $this->resolveExistingStripeRow(
+                    $bySession,
+                    $checkoutSessionId,
+                    $paymentIntentId,
+                    $session,
+                    $userId
+                );
+                if ($resolved !== null) {
+                    if ($resolved > 0 && $bySession) {
+                        $bySession->refresh();
+                        $this->attachMissingStripeIds($bySession, $checkoutSessionId, $paymentIntentId);
+                    }
+                    $credited = $resolved;
+
+                    return;
+                }
+            }
+
             $deposit = $this->createCompletedCardRow(
                 $userId,
                 $amountEuros,
@@ -160,9 +188,13 @@ class WalletStripeDepositService
 
         $sessionId = (string) ($session->id ?? '');
         $sessionReference = trim((string) ($metadata['session_reference'] ?? ''));
-        $paymentIntentId = is_string($session->payment_intent ?? null)
-            ? $session->payment_intent
-            : (string) ($session->payment_intent->id ?? ($session->payment_intent ?? ''));
+        $paymentIntentId = $this->paymentIntentIdFromStripeSession($session);
+        // checkout.session.completed can land before Stripe has attached the
+        // PaymentIntent id. Resolve it now so a PI-first card is found by id
+        // even when session_reference was not copied onto the PaymentIntent.
+        if ($paymentIntentId === '' && $sessionId !== '') {
+            $paymentIntentId = $this->lookupPaymentIntentIdForSession($sessionId);
+        }
 
         $paymentStatus = $session->payment_status ?? null;
         if ($paymentStatus !== 'paid') {
@@ -1142,7 +1174,7 @@ class WalletStripeDepositService
     }
 
     /**
-     * Add Funds Checkout writes session_reference as deposit_{uniqid} on both
+     * Add Funds Checkout writes session_reference as deposit_{random} on both
      * the session and the PaymentIntent. That prefix is unique to wallet
      * top-ups — catalog orders never set it.
      */
@@ -1151,6 +1183,86 @@ class WalletStripeDepositService
         $value = trim((string) $sessionReference);
 
         return $value !== '' && str_starts_with($value, 'deposit_');
+    }
+
+    /**
+     * Per-checkout id. Do not use time-based uniqid() — two Add Funds clicks
+     * in the same microsecond would share a reference and the later
+     * PaymentIntent could attach to the first session-only card.
+     */
+    public static function newAddFundsSessionReference(): string
+    {
+        return 'deposit_'.bin2hex(random_bytes(16));
+    }
+
+    private function paymentIntentIdFromStripeSession(object $session): string
+    {
+        $paymentIntent = $session->payment_intent ?? null;
+        if (is_string($paymentIntent)) {
+            return $paymentIntent;
+        }
+        if (is_object($paymentIntent)) {
+            return (string) ($paymentIntent->id ?? '');
+        }
+
+        return '';
+    }
+
+    /**
+     * When checkout.session.completed has no PaymentIntent id yet, retrieve
+     * the session from Stripe. Fail closed (empty) so tests and API errors
+     * fall through to session_reference matching.
+     */
+    protected function lookupPaymentIntentIdForSession(string $sessionId): string
+    {
+        $secret = trim((string) config('services.stripe.secret', ''));
+        if ($sessionId === '' || $secret === '') {
+            return '';
+        }
+
+        try {
+            Stripe::setApiKey($secret);
+            $fresh = Session::retrieve($sessionId);
+
+            return $this->paymentIntentIdFromStripeSession($fresh);
+        } catch (\Throwable $e) {
+            Log::warning('WalletStripeDepositService: could not refresh PaymentIntent from session', [
+                'session_id' => $sessionId,
+                'error' => $e->getMessage(),
+            ]);
+
+            return '';
+        }
+    }
+
+    /**
+     * When a PaymentIntent has no session_reference, find the Checkout
+     * Session that created it so a session-only card can be reused.
+     */
+    protected function lookupCheckoutSessionIdForPaymentIntent(string $paymentIntentId): string
+    {
+        $secret = trim((string) config('services.stripe.secret', ''));
+        if ($paymentIntentId === '' || $secret === '') {
+            return '';
+        }
+
+        try {
+            Stripe::setApiKey($secret);
+            $sessions = Session::all([
+                'payment_intent' => $paymentIntentId,
+                'limit' => 1,
+            ]);
+            $session = $sessions->data[0] ?? null;
+
+            return is_object($session) ? (string) ($session->id ?? '') : '';
+        } catch (\Throwable $e) {
+            Log::warning('WalletStripeDepositService: could not find Checkout Session for PaymentIntent', [
+                'payment_intent_id' => $paymentIntentId,
+                'error' => $e->getMessage(),
+            ]);
+
+            return '';
+        }
     }
 
     protected function mayCreateFallbackCardRow(?string $type, string $sessionReference = ''): bool
