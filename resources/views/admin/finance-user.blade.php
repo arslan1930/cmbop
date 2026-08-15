@@ -204,10 +204,7 @@
                             @forelse($dossier['withdrawals'] as $w)
                                 <tr>
                                     <td class="small">
-                                        <a href="{{ route('admin.withdrawals', array_filter([
-                                            'search' => (string) $w->id,
-                                            'queue' => in_array($w->status, ['completed', 'cancelled'], true) ? 'history' : 'open',
-                                        ])) }}">WD-{{ $w->id }}</a>
+                                        <a href="{{ route('admin.withdrawals.show', $w->id) }}">WD-{{ $w->id }}</a>
                                     </td>
                                     <td>{{ $euro($w->net_amount) }}</td>
                                     <td class="small">{{ $w->payment_method }}</td>

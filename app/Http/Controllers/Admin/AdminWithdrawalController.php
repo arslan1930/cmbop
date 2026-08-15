@@ -69,7 +69,7 @@ class AdminWithdrawalController extends Controller
                     'to' => $withdrawals->lastItem(),
                 ],
             ]);
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             Log::error('Error fetching withdrawals: '.$e->getMessage());
 
             return response()->json([
@@ -126,26 +126,35 @@ class AdminWithdrawalController extends Controller
      */
     public function matchingIds(Request $request): JsonResponse
     {
-        $limit = max(1, (int) config('billing.withdrawal_select_matching_limit', 100));
+        try {
+            $limit = max(1, (int) config('billing.withdrawal_select_matching_limit', 100));
 
-        $query = Withdrawal::query();
-        $filters = $this->applyWithdrawalFilters($query, $request, applyIds: false);
-        $query->whereIn('status', ['pending', 'processing']);
-        $this->applyWithdrawalOrder($query, $filters['queue'], $filters['status']);
+            $query = Withdrawal::query();
+            $filters = $this->applyWithdrawalFilters($query, $request, applyIds: false);
+            $query->whereIn('status', ['pending', 'processing']);
+            $this->applyWithdrawalOrder($query, $filters['queue'], $filters['status']);
 
-        $total = (clone $query)->count();
-        $rows = $query->limit($limit)->get();
-        $ids = $rows->pluck('id')->map(fn ($id) => (int) $id)->values()->all();
-        $pendingIds = $rows->where('status', 'pending')->pluck('id')->map(fn ($id) => (int) $id)->values()->all();
+            $total = (clone $query)->count();
+            $rows = $query->limit($limit)->get(['id', 'status']);
+            $ids = $rows->pluck('id')->map(fn ($id) => (int) $id)->values()->all();
+            $pendingIds = $rows->where('status', 'pending')->pluck('id')->map(fn ($id) => (int) $id)->values()->all();
 
-        return response()->json([
-            'success' => true,
-            'ids' => $ids,
-            'pending_ids' => $pendingIds,
-            'total' => $total,
-            'capped' => $total > $limit,
-            'limit' => $limit,
-        ]);
+            return response()->json([
+                'success' => true,
+                'ids' => $ids,
+                'pending_ids' => $pendingIds,
+                'total' => $total,
+                'capped' => $total > $limit,
+                'limit' => $limit,
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('Error fetching matching withdrawal ids: '.$e->getMessage());
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to load matching withdrawals.',
+            ], 500);
+        }
     }
 
     /**
@@ -294,7 +303,7 @@ class AdminWithdrawalController extends Controller
                 ->with('error', $message);
         }
 
-        $rows = $query->orderBy('payment_method')->orderBy('created_at')->get();
+        $rows = $query->orderBy('payment_method')->orderBy('created_at')->orderBy('id')->get();
 
         $filename = 'withdrawals-export-'.now()->format('Y-m-d-His').'.csv';
 
@@ -415,7 +424,7 @@ class AdminWithdrawalController extends Controller
                 'success' => true,
                 'data' => $stats,
             ]);
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             Log::error('Error fetching withdrawal statistics: '.$e->getMessage());
 
             return response()->json([
@@ -558,8 +567,12 @@ class AdminWithdrawalController extends Controller
             }
 
             $inner->orWhereHas('user', function ($sub) use ($search) {
-                $sub->where('name', 'like', '%'.$search.'%')
-                    ->orWhere('email', 'like', '%'.$search.'%');
+                $sub->where(function ($user) use ($search) {
+                    // INSTR treats %/_ as literals (LIKE would not, and ESCAPE
+                    // differs between MySQL and SQLite).
+                    $user->whereRaw('INSTR(LOWER(name), LOWER(?)) > 0', [$search])
+                        ->orWhereRaw('INSTR(LOWER(email), LOWER(?)) > 0', [$search]);
+                });
             });
         });
     }
@@ -570,13 +583,14 @@ class AdminWithdrawalController extends Controller
     private function applyWithdrawalOrder(Builder $query, string $queue, string $status): void
     {
         if (in_array($status, ['completed', 'cancelled'], true) || $queue === 'history') {
-            $query->orderBy('created_at', 'desc');
+            $query->orderBy('created_at', 'desc')->orderBy('id', 'desc');
 
             return;
         }
 
         $query->orderByRaw("CASE status WHEN 'pending' THEN 0 WHEN 'processing' THEN 1 ELSE 2 END")
-            ->orderBy('created_at', 'asc');
+            ->orderBy('created_at', 'asc')
+            ->orderBy('id', 'asc');
     }
 
     /**

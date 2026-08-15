@@ -6,6 +6,7 @@ use App\Models\Invoice;
 use App\Models\Role;
 use App\Models\User;
 use App\Models\Withdrawal;
+use App\Services\Admin\FinanceOverviewService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -63,6 +64,8 @@ class AdminWithdrawalLaterTest extends TestCase
         $this->assertStringContainsString('function snapshotFilters', $html);
         $this->assertStringContainsString('function viewFilterParams', $html);
         $this->assertStringContainsString('selectedIds.clear();', $html);
+        $this->assertStringContainsString('escapeHtml(label)', $html);
+        $this->assertStringContainsString('if (!Object.keys(appliedFilters).length)', $html);
     }
 
     public function test_browser_show_is_html_and_json_accept_stays_json(): void
@@ -384,5 +387,75 @@ class AdminWithdrawalLaterTest extends TestCase
         $this->actingAs($advertiser)
             ->getJson(route('admin.withdrawals.ids'))
             ->assertForbidden();
+    }
+
+    public function test_same_timestamp_rows_paginate_and_match_in_stable_id_order(): void
+    {
+        $admin = $this->makeUser('admin');
+        $publisher = $this->makeUser('publisher');
+        $when = now()->subHours(2);
+
+        $first = $this->seedWithdrawal($publisher, ['net_amount' => 11]);
+        $second = $this->seedWithdrawal($publisher, ['net_amount' => 22]);
+        $third = $this->seedWithdrawal($publisher, ['net_amount' => 33]);
+
+        foreach ([$first, $second, $third] as $row) {
+            $row->forceFill(['created_at' => $when, 'updated_at' => $when])->save();
+        }
+
+        $page1 = $this->actingAs($admin)
+            ->getJson(route('admin.withdrawals.data', ['per_page' => 2, 'page' => 1]))
+            ->assertOk()
+            ->json('data');
+        $page2 = $this->actingAs($admin)
+            ->getJson(route('admin.withdrawals.data', ['per_page' => 2, 'page' => 2]))
+            ->assertOk()
+            ->json('data');
+
+        $page1Ids = collect($page1)->pluck('id')->map(fn ($id) => (int) $id)->all();
+        $page2Ids = collect($page2)->pluck('id')->map(fn ($id) => (int) $id)->all();
+
+        $this->assertSame([$first->id, $second->id], $page1Ids);
+        $this->assertSame([$third->id], $page2Ids);
+
+        $this->actingAs($admin)
+            ->getJson(route('admin.withdrawals.ids'))
+            ->assertOk()
+            ->assertJsonPath('ids', [$first->id, $second->id, $third->id]);
+    }
+
+    public function test_search_treats_like_wildcards_as_literals(): void
+    {
+        $admin = $this->makeUser('admin');
+        $percent = $this->makeUser('publisher');
+        $percent->forceFill(['name' => '100% Club', 'email' => 'user_name@example.com'])->save();
+        $other = $this->makeUser('publisher');
+        $other->forceFill(['name' => '100X Club', 'email' => 'userXname@example.com'])->save();
+
+        $percentRow = $this->seedWithdrawal($percent);
+        $this->seedWithdrawal($other);
+
+        $this->actingAs($admin)
+            ->getJson(route('admin.withdrawals.data', ['search' => '100%']))
+            ->assertOk()
+            ->assertJsonPath('pagination.total', 1)
+            ->assertJsonPath('data.0.id', $percentRow->id);
+
+        $this->actingAs($admin)
+            ->getJson(route('admin.withdrawals.data', ['search' => 'user_name']))
+            ->assertOk()
+            ->assertJsonPath('pagination.total', 1)
+            ->assertJsonPath('data.0.id', $percentRow->id);
+    }
+
+    public function test_finance_hub_open_row_links_to_html_show(): void
+    {
+        $publisher = $this->makeUser('publisher');
+        $withdrawal = $this->seedWithdrawal($publisher);
+
+        $urls = collect(app(FinanceOverviewService::class)->walletLiability()['open_withdrawal_rows'] ?? [])
+            ->pluck('url');
+
+        $this->assertTrue($urls->contains(route('admin.withdrawals.show', $withdrawal->id)));
     }
 }

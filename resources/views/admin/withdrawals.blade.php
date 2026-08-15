@@ -450,14 +450,20 @@ function loadStatistics() {
         const labels = { bank: 'Bank', paypal: 'PayPal', wise: 'Wise', crypto: 'Crypto' };
         const parts = Object.keys(by).map(function(method) {
             const row = by[method];
-            return `<span class="d-inline-block me-2 mb-1"><strong>${row.count}</strong> ${labels[method] || method} · €${Number(row.net_total).toFixed(0)}</span>`;
+            const label = labels[method] || method;
+            return `<span class="d-inline-block me-2 mb-1"><strong>${escapeHtml(String(row.count))}</strong> ${escapeHtml(label)} · €${Number(row.net_total).toFixed(0)}</span>`;
         });
         $('#statByMethod').html(parts.length ? parts.join('') : '<span class="text-muted">No open payouts</span>');
+    }).fail(function() {
+        $('#statByMethod').text('Could not load stats');
     });
 }
 
 function loadWithdrawals(page = 1) {
     currentPage = page;
+    if (!Object.keys(appliedFilters).length) {
+        snapshotFilters();
+    }
     const params = Object.assign({}, viewFilterParams(), { page: page });
     appliedFilters.page = page;
 

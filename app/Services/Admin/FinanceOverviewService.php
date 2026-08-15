@@ -267,6 +267,7 @@ class FinanceOverviewService
         $openWithdrawals = Withdrawal::with('user:id,name,email')
             ->whereIn('status', ['pending', 'processing'])
             ->orderBy('created_at')
+            ->orderBy('id')
             ->get();
         $openWithdrawalNets = round((float) $openWithdrawals->sum('net_amount'), 2);
 
@@ -277,7 +278,7 @@ class FinanceOverviewService
             'email' => $w->user?->email,
             'net_amount' => (float) $w->net_amount,
             'status' => $w->status,
-            'url' => route('admin.withdrawals', ['search' => (string) $w->id, 'queue' => 'open']),
+            'url' => route('admin.withdrawals.show', $w->id),
         ])->all();
 
         // What admin must send outside the app today (payout queue).
