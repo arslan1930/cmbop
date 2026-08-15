@@ -54,7 +54,7 @@ class DepositApproveConfirmController extends Controller
             );
 
             $message = $result['message'];
-            $fresh = $result['deposit']->fresh(['user']);
+            $fresh = $result['deposit']->fresh(['user']) ?? $result['deposit'];
             $balance = app(DepositApproveContext::class)->advertiserBalance((int) $fresh->user_id);
             if ($balance !== null) {
                 $message .= ' New wallet balance: €'.number_format($balance, 2).'.';

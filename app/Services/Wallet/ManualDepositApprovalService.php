@@ -8,6 +8,7 @@ use App\Models\Wallet;
 use App\Services\ActivityLogger;
 use App\Services\DepositSettlementNotifier;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use RuntimeException;
 
 /**
@@ -66,6 +67,10 @@ class ManualDepositApprovalService
                 throw new RuntimeException('Deposit amount must be greater than zero.');
             }
 
+            if (! User::query()->whereKey($locked->user_id)->exists()) {
+                throw new RuntimeException('This deposit has no advertiser account to credit.');
+            }
+
             $locked->update([
                 'status' => 'approved',
                 'admin_notes' => $adminNotes,
@@ -95,18 +100,24 @@ class ManualDepositApprovalService
         $notified = $this->notifier->notifyApproved($completed);
         $emailSent = (bool) ($notified['email_sent'] ?? false);
 
-        $actorName = $actor?->name ?: 'System';
-        ActivityLogger::log(
-            'deposit.approved',
-            $actorName.' approved deposit #'.$completed->id.' (€'.number_format((float) $completed->amount, 2).')',
-            $completed,
-            [
-                'amount' => $completed->amount,
-                'user_id' => $completed->user_id,
-                'actor_id' => $actor?->id,
-            ],
-            'Deposit #'.$completed->id
-        );
+        try {
+            $actorName = $actor?->name ?: 'System';
+            ActivityLogger::log(
+                'deposit.approved',
+                $actorName.' approved deposit #'.$completed->id.' (€'.number_format((float) $completed->amount, 2).')',
+                $completed,
+                [
+                    'amount' => $completed->amount,
+                    'user_id' => $completed->user_id,
+                    'actor_id' => $actor?->id,
+                ],
+                'Deposit #'.$completed->id
+            );
+        } catch (\Throwable $e) {
+            Log::error('Failed to log deposit approval: '.$e->getMessage(), [
+                'deposit_id' => $completed->id,
+            ]);
+        }
 
         $message = 'Deposit approved and funds added to user wallet.';
         $message .= $emailSent

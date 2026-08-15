@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Mail\DepositApproved;
+use App\Models\ActivityLog;
 use App\Models\DepositRequest;
 use App\Models\Role;
 use App\Models\User;
@@ -210,5 +211,26 @@ class ManualDepositApprovalServiceTest extends TestCase
         $this->assertSame('pending', $deposit->fresh()->status);
         $this->assertSame(0.0, (float) $wallet->fresh()->balance);
         Mail::assertNothingQueued();
+    }
+
+    public function test_approve_still_succeeds_when_activity_log_throws(): void
+    {
+        $admin = $this->admin();
+        $advertiser = $this->advertiser();
+        $wallet = $this->walletFor($advertiser);
+        $deposit = $this->pendingDeposit($advertiser, 45, 'bank');
+
+        ActivityLog::creating(function () {
+            throw new \RuntimeException('activity log down');
+        });
+
+        $this->actingAs($admin)
+            ->postJson(route('admin.deposits.approve', $deposit->id))
+            ->assertOk()
+            ->assertJsonPath('success', true);
+
+        $this->assertSame('completed', $deposit->fresh()->status);
+        $this->assertSame(45.0, (float) $wallet->fresh()->balance);
+        Mail::assertQueued(DepositApproved::class, 1);
     }
 }

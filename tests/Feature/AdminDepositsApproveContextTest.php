@@ -10,6 +10,7 @@ use App\Models\Wallet;
 use App\Services\Wallet\ManualDepositApproveLink;
 use App\Services\Wallet\ManualDepositNotManualException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Mail\Markdown;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\URL;
 use Tests\TestCase;
@@ -326,19 +327,48 @@ class AdminDepositsApproveContextTest extends TestCase
         ]);
         $approved->setRelation('user', null);
 
-        $rejectedHtml = view('emails.deposit-rejected', ['deposit' => $rejected])->render();
+        $markdown = app(Markdown::class);
+        $rejectedHtml = $markdown->render('emails.deposit-rejected', ['deposit' => $rejected]);
         $this->assertStringContainsString('Dear there', $rejectedHtml);
         $this->assertStringContainsString($rejected->reference_code, $rejectedHtml);
 
-        $approvedHtml = view('emails.deposit-approved', [
+        $approvedHtml = $markdown->render('emails.deposit-approved', [
             'deposit' => $approved,
             'isCard' => false,
             'receipt' => null,
             'walletBalance' => 0,
             'balanceUrl' => route('advertiser.balance'),
             'downloadReceiptUrl' => null,
-        ])->render();
+        ]);
         $this->assertStringContainsString('Dear there', $approvedHtml);
         $this->assertStringContainsString($approved->reference_code, $approvedHtml);
+    }
+
+    public function test_confirm_page_renders_without_a_user(): void
+    {
+        $advertiser = $this->makeUser('advertiser');
+        $this->walletFor($advertiser, 20);
+        $deposit = $this->depositFor($advertiser, ['amount' => 40]);
+        $deposit->setRelation('user', null);
+
+        $this->actingAs($this->makeUser('admin'))->withViewErrors([]);
+
+        $html = view('admin.deposits.approve-confirm', [
+            'deposit' => $deposit,
+            'canApprove' => true,
+            'isCard' => false,
+            'confirmAction' => 'https://example.test/confirm',
+            'currentBalance' => 20.0,
+            'incomingAmount' => 40.0,
+            'projectedBalance' => 60.0,
+            'priorDeposits' => collect(),
+            'bonusBalance' => 0.0,
+            'possibleDuplicate' => false,
+            'duplicateMatches' => collect(),
+        ])->render();
+
+        $this->assertStringContainsString('Unknown', $html);
+        $this->assertStringContainsString('Confirm and credit', $html);
+        $this->assertStringContainsString($deposit->reference_code, $html);
     }
 }
