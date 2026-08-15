@@ -50,4 +50,9 @@ class EmailCampaignRecipient extends Model
     {
         return $this->belongsTo(EmailLog::class);
     }
+
+    public static function dedupeKey(int $campaignId, int $userId): string
+    {
+        return 'audience_campaign:'.$campaignId.':user:'.$userId;
+    }
 }

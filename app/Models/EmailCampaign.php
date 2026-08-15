@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 
@@ -183,6 +184,7 @@ class EmailCampaign extends Model
 
     protected static function recoverStalledLocked(int $staleMinutes): int
     {
+        self::reconcileQueuedRecipientsFromLogs($staleMinutes);
         self::expireOrphanedQueuedRecipients();
 
         $stale = now()->subMinutes(max(1, $staleMinutes));
@@ -210,6 +212,17 @@ class EmailCampaign extends Model
                 && ! $campaign->recipients()
                     ->where('status', EmailCampaignRecipient::STATUS_PENDING)
                     ->exists()) {
+                if ($campaign->recipients()
+                    ->where('status', EmailCampaignRecipient::STATUS_QUEUED)
+                    ->exists()) {
+                    // Mail is still in flight (or the job was lost). Do not
+                    // pretend the campaign sent. Touch so recover does not
+                    // keep selecting this row on every page view.
+                    $campaign->touch();
+
+                    continue;
+                }
+
                 $campaign->clearFailStreak();
                 $campaign->recountRecipientTotals();
                 $campaign->refresh();
@@ -243,7 +256,13 @@ class EmailCampaign extends Model
             }
 
             try {
+                if (self::hasQueuedSendJob((int) $id)) {
+                    $campaign->touch();
+
+                    continue;
+                }
                 SendEmailCampaignJob::dispatch((int) $id);
+                $campaign->touch();
                 $dispatched++;
             } catch (\Throwable $e) {
                 Log::warning('Stalled campaign re-queue failed', [
@@ -254,6 +273,115 @@ class EmailCampaign extends Model
         }
 
         return $dispatched;
+    }
+
+    /**
+     * Recover used to dispatch without bumping updated_at, so a backed-up
+     * emails queue made every page view / drain enqueue another send job.
+     */
+    protected static function hasQueuedSendJob(int $campaignId): bool
+    {
+        if ($campaignId < 1) {
+            return false;
+        }
+
+        try {
+            $connection = (string) config(
+                'email_notifications.queue_connection',
+                config('queue.default')
+            );
+            if ($connection === 'sync'
+                || config("queue.connections.{$connection}.driver") !== 'database') {
+                return false;
+            }
+
+            $table = (string) config("queue.connections.{$connection}.table", 'jobs');
+            if (! Schema::hasTable($table)) {
+                return false;
+            }
+
+            return DB::table($table)
+                ->where('payload', 'like', '%SendEmailCampaignJob%')
+                ->where('payload', 'like', '%campaignId";i:'.$campaignId.';%')
+                ->exists();
+        } catch (\Throwable) {
+            return false;
+        }
+    }
+
+    /**
+     * LogSentEmail can persist a delivered/failed row and still miss the
+     * recipient FK. Re-attach those before expire treats them as stale.
+     */
+    protected static function reconcileQueuedRecipientsFromLogs(int $staleMinutes = 2): void
+    {
+        try {
+            if (! Schema::hasTable((new EmailCampaignRecipient)->getTable())
+                || ! Schema::hasTable((new EmailLog)->getTable())) {
+                return;
+            }
+        } catch (\Throwable) {
+            return;
+        }
+
+        $cutoff = now()->subMinutes(max(1, $staleMinutes));
+        $rows = EmailCampaignRecipient::query()
+            ->where('status', EmailCampaignRecipient::STATUS_QUEUED)
+            ->whereNull('email_log_id')
+            ->where('updated_at', '<=', $cutoff)
+            ->get(['id', 'email_campaign_id', 'user_id']);
+
+        if ($rows->isEmpty()) {
+            return;
+        }
+
+        $keys = $rows->map(fn (EmailCampaignRecipient $row) => EmailCampaignRecipient::dedupeKey(
+            (int) $row->email_campaign_id,
+            (int) $row->user_id
+        ))->unique()->values()->all();
+
+        $logs = EmailLog::query()
+            ->whereIn('dedupe_key', $keys)
+            ->whereIn('status', [EmailLog::STATUS_DELIVERED, EmailLog::STATUS_FAILED])
+            ->orderByDesc('id')
+            ->get()
+            ->unique('dedupe_key');
+
+        if ($logs->isEmpty()) {
+            return;
+        }
+
+        $logsByKey = $logs->keyBy('dedupe_key');
+        $campaignIds = [];
+
+        foreach ($rows as $row) {
+            $log = $logsByKey->get(EmailCampaignRecipient::dedupeKey(
+                (int) $row->email_campaign_id,
+                (int) $row->user_id
+            ));
+            if (! $log) {
+                continue;
+            }
+
+            $delivered = $log->status === EmailLog::STATUS_DELIVERED;
+            EmailCampaignRecipient::query()
+                ->whereKey($row->id)
+                ->where('status', EmailCampaignRecipient::STATUS_QUEUED)
+                ->whereNull('email_log_id')
+                ->update([
+                    'status' => $delivered
+                        ? EmailCampaignRecipient::STATUS_DELIVERED
+                        : EmailCampaignRecipient::STATUS_FAILED,
+                    'email_log_id' => (int) $log->id,
+                    'skip_reason' => $delivered ? null : EmailCampaignRecipient::SKIP_ERROR,
+                ]);
+
+            $campaignIds[(int) $row->email_campaign_id] = true;
+        }
+
+        foreach (array_keys($campaignIds) as $id) {
+            static::query()->find($id)?->recountRecipientTotals();
+        }
     }
 
     /**

@@ -27,6 +27,8 @@ class AdminCampaignsDocsTest extends TestCase
         $this->assertStringContainsString('Do **not** use `ShouldBeUnique`', $body);
         $this->assertStringContainsString('mail:drain-queue', $body);
         $this->assertStringContainsString('Fail streak is stored in cache', $body);
+        $this->assertStringContainsString('touches', $body);
+        $this->assertStringContainsString('reconciled against `email_logs`', $body);
         $this->assertStringContainsString('ops-mail-reminders.md', $body);
         $this->assertStringNotContainsString('/advertiser/campaigns', $body);
     }

@@ -149,7 +149,7 @@ class SendEmailCampaignJob implements ShouldQueue
         try {
             $mailable = new AudienceCampaignMail($campaign, $user);
             $mailable->notificationType = 'audience_campaign';
-            $mailable->dedupeKey = 'audience_campaign:'.$campaign->id.':user:'.$user->id;
+            $mailable->dedupeKey = EmailCampaignRecipient::dedupeKey((int) $campaign->id, (int) $user->id);
 
             Mail::to($user->email)->send($mailable);
         } catch (\Throwable $e) {

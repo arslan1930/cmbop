@@ -29,9 +29,18 @@ UI). Recipients are marketplace advertisers and publishers only — never admins
    for stall recovery. Opening Admin → Campaigns, web mail drain, and
    `mail:drain-queue` (even when auto-drain is off) re-dispatch stale
    `queued`/`sending` rows so a lost continuation does not sit forever.
-   `queued` rows with no email log older than `MAIL_CAMPAIGN_MAX_AGE_HOURS`
-   are skipped (`stale`) — a timeout can claim `pending` → `queued` and
-   die before `Mail::send()` inserts the mailable.
+   Recovery **touches** the campaign after a re-dispatch (or when a send
+   job is already in the `jobs` table) so a backed-up emails queue cannot
+   enqueue another job on every page view. A `sending` campaign that still
+   has `queued` recipients is left sending — leftover queued rows are not
+   treated as a successful send. `queued` rows with no email
+   log are first reconciled against `email_logs` by
+   `audience_campaign:{id}:user:{id}`; a delivered/failed log is attached
+   instead of counting as a fake send. Leftovers older than
+   `MAIL_CAMPAIGN_MAX_AGE_HOURS` are skipped (`stale`) — a timeout can
+   claim `pending` → `queued` and die before `Mail::send()` inserts the
+   mailable. A later send suppressed as a duplicate marks the recipient
+   `delivered` (it already went out).
 5. Individual `AudienceCampaignMail` failures mark that recipient `failed`
    (`error`) and recount. If a `sent` campaign later has no queued/delivered
    rows left, status is downgraded to `failed`. A late `marketing_emails`
