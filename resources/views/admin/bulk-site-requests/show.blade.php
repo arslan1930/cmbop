@@ -8,8 +8,8 @@
         </a>
         <h3 class="bulk-request-show__title">Bulk request #{{ $bulkRequest->id }}</h3>
         <p class="text-muted small mb-0">
-            Publisher: <strong>{{ $bulkRequest->publisher->name }}</strong>
-            ({{ $bulkRequest->publisher->email }})
+            Publisher: <strong>{{ $bulkRequest->publisher?->name ?: '—' }}</strong>
+            ({{ $bulkRequest->publisher?->email ?: '—' }})
             · Status: <strong>{{ $bulkRequest->statusLabel() }}</strong>
             · Sites submitted: {{ $bulkRequest->items->count() ?: ($bulkRequest->estimated_count ?? '—') }}
             · Pending to add: {{ $pendingItems->count() }}
@@ -32,7 +32,7 @@
             <div class="card border-0 shadow-sm bulk-request-note">
                 <div class="card-body">
                     <h6 class="fw-semibold">Publisher note</h6>
-                    <p class="small mb-0">{{ $bulkRequest->publisher_note ?: '—' }}</p>
+                    <p class="small mb-0 text-break">{{ $bulkRequest->publisher_note ?: '—' }}</p>
                 </div>
             </div>
 
@@ -42,7 +42,10 @@
                     <form method="POST" action="{{ staff_route('bulk-site-requests.notes', $bulkRequest) }}">
                         @csrf
                         <label class="form-label small mb-1">Internal notes</label>
-                        <textarea name="admin_notes" class="form-control form-control-sm" rows="3">{{ old_text('admin_notes', $bulkRequest->admin_notes) }}</textarea>
+                        <textarea name="admin_notes" class="form-control form-control-sm @error('admin_notes') is-invalid @enderror" rows="3">{{ old_text('admin_notes', $bulkRequest->admin_notes) }}</textarea>
+                        @error('admin_notes')
+                            <div class="invalid-feedback">{{ $message }}</div>
+                        @enderror
                         <button type="submit" class="btn btn-sm btn-outline-secondary mt-2">Save notes</button>
                     </form>
 
@@ -116,12 +119,12 @@
                                 @forelse($bulkRequest->items as $item)
                                     <tr>
                                         <td>
-                                            <a href="{{ $item->site_url }}" target="_blank" rel="noopener noreferrer">
+                                            <a class="text-break" href="{{ safe_external_url($item->site_url) }}" target="_blank" rel="noopener noreferrer">
                                                 {{ $item->site_url }}
                                             </a>
                                         </td>
                                         <td>€{{ number_format((float) $item->price, 2) }}</td>
-                                        <td class="small text-muted">{{ $item->domain }}</td>
+                                        <td class="small text-muted text-break">{{ $item->domain }}</td>
                                         <td>
                                             @if($item->site_id)
                                                 <span class="badge text-bg-success">Yes</span>
@@ -273,7 +276,7 @@
                                         <summary class="bulk-done-row__summary">
                                             <span class="bulk-done-row__identity">
                                                 <span class="fw-semibold text-break">{{ $item->domain }}</span>
-                                                <a class="small text-muted text-break" href="{{ $item->site_url }}" target="_blank" rel="noopener noreferrer">
+                                                <a class="small text-muted text-break" href="{{ safe_external_url($item->site_url) }}" target="_blank" rel="noopener noreferrer">
                                                     {{ $item->site_url }}
                                                 </a>
                                             </span>

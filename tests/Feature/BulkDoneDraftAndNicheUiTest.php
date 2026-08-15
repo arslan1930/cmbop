@@ -128,6 +128,7 @@ class BulkDoneDraftAndNicheUiTest extends TestCase
         $this->assertStringContainsString('.bulk-request-sidebar', $staffCss);
         $this->assertStringContainsString('.bulk-request-show > .bulk-request-done', $staffCss);
         $this->assertStringContainsString('.bulk-request-show .bulk-history-list', $staffCss);
+        $this->assertStringContainsString('overflow-wrap: anywhere', $staffCss);
         $this->assertStringContainsString('align-items: flex-start', $staffCss);
         $this->assertStringContainsString('.bulk-done-panel', $staffCss);
         $this->assertStringContainsString('.bulk-done-row__fields', $staffCss);
@@ -227,6 +228,145 @@ class BulkDoneDraftAndNicheUiTest extends TestCase
             ->assertSessionHas('success');
 
         $this->assertSame('Keep this note', $bulk->fresh()->admin_notes);
+    }
+
+    public function test_sheet_sent_does_not_overwrite_admin_notes(): void
+    {
+        $bulk = BulkSiteRequest::create([
+            'publisher_id' => $this->publisher->id,
+            'status' => BulkSiteRequest::STATUS_REQUESTED,
+            'estimated_count' => 1,
+            'admin_notes' => 'Keep these internal notes',
+        ]);
+
+        $this->actingAs($this->marketer)
+            ->post(route('marketing.bulk-site-requests.sheet-sent', $bulk), [
+                'admin_notes' => ['wiped'],
+            ])
+            ->assertRedirect();
+
+        $fresh = $bulk->fresh();
+        $this->assertSame(BulkSiteRequest::STATUS_SHEET_SENT, $fresh->status);
+        $this->assertSame('Keep these internal notes', $fresh->admin_notes);
+    }
+
+    public function test_bulk_index_renders_when_handler_is_missing(): void
+    {
+        $bulk = BulkSiteRequest::create([
+            'publisher_id' => $this->publisher->id,
+            'status' => BulkSiteRequest::STATUS_REQUESTED,
+            'estimated_count' => 1,
+        ]);
+
+        $this->actingAs($this->marketer)
+            ->get(route('marketing.bulk-site-requests.index'))
+            ->assertOk()
+            ->assertSee((string) $bulk->id, false)
+            ->assertSee($this->publisher->name, false)
+            ->assertDontSee('Attempt to read property', false);
+
+        $indexBlade = file_get_contents(resource_path('views/admin/bulk-site-requests/index.blade.php'));
+        $this->assertStringContainsString('$req->handler?->name', $indexBlade);
+        $this->assertStringContainsString('$req->publisher?->name', $indexBlade);
+    }
+
+    public function test_show_does_not_link_javascript_site_urls(): void
+    {
+        $bulk = BulkSiteRequest::create([
+            'publisher_id' => $this->publisher->id,
+            'status' => BulkSiteRequest::STATUS_REQUESTED,
+            'estimated_count' => 1,
+        ]);
+        BulkSiteRequestItem::create([
+            'bulk_site_request_id' => $bulk->id,
+            'site_url' => 'javascript:alert(1)',
+            'domain' => 'xss-bulk.example',
+            'price' => 40,
+        ]);
+
+        $html = $this->actingAs($this->marketer)
+            ->get(route('marketing.bulk-site-requests.show', $bulk))
+            ->assertOk()
+            ->assertSee('javascript:alert(1)', false)
+            ->getContent();
+
+        $this->assertStringNotContainsString('href="javascript:', $html);
+        $this->assertStringNotContainsString("href='javascript:", $html);
+        $this->assertStringContainsString('safe_external_url($item->site_url)', file_get_contents(resource_path('views/admin/bulk-site-requests/show.blade.php')));
+    }
+
+    public function test_done_empty_domain_does_not_attach_sibling_pending_rows(): void
+    {
+        $bulk = BulkSiteRequest::create([
+            'publisher_id' => $this->publisher->id,
+            'status' => BulkSiteRequest::STATUS_REQUESTED,
+            'estimated_count' => 2,
+        ]);
+        $empty = BulkSiteRequestItem::create([
+            'bulk_site_request_id' => $bulk->id,
+            'site_url' => 'https://empty-domain.example',
+            'domain' => '',
+            'price' => 40,
+        ]);
+        $sibling = BulkSiteRequestItem::create([
+            'bulk_site_request_id' => $bulk->id,
+            'site_url' => 'https://keep-pending.example',
+            'domain' => 'keep-pending.example',
+            'price' => 55,
+        ]);
+
+        [$country, $language] = $this->marketplaceCodes();
+        $category = Category::query()->firstOrFail();
+
+        $this->actingAs($this->marketer)
+            ->from(route('marketing.bulk-site-requests.show', $bulk))
+            ->post(route('marketing.bulk-site-requests.done', $bulk), [
+                'items' => [
+                    $empty->id => [
+                        'language' => $language,
+                        'country' => $country,
+                        'da' => 40,
+                        'dr' => 45,
+                        'traffic' => 12000,
+                        'categories' => $category->name,
+                    ],
+                ],
+            ])
+            ->assertRedirect()
+            ->assertSessionHas('seed_failures');
+
+        $this->assertNull($empty->fresh()->site_id);
+        $this->assertNull($sibling->fresh()->site_id);
+        $this->assertDatabaseMissing('sites', ['domain' => '']);
+        $this->assertDatabaseMissing('sites', ['domain' => 'keep-pending.example']);
+    }
+
+    public function test_seed_does_not_skip_allowlist_when_pending_domains_are_empty(): void
+    {
+        $bulk = BulkSiteRequest::create([
+            'publisher_id' => $this->publisher->id,
+            'status' => BulkSiteRequest::STATUS_REQUESTED,
+            'estimated_count' => 1,
+        ]);
+        BulkSiteRequestItem::create([
+            'bulk_site_request_id' => $bulk->id,
+            'site_url' => 'https://blank-domain.example',
+            'domain' => '',
+            'price' => 40,
+        ]);
+
+        [$country, $language] = $this->marketplaceCodes();
+
+        $this->actingAs($this->marketer)
+            ->from(route('marketing.bulk-site-requests.show', $bulk))
+            ->post(route('marketing.bulk-site-requests.seed', $bulk), [
+                'rows' => "https://off-list-blank.example,90,40,45,8000,{$country},{$language},Off List",
+            ])
+            ->assertRedirect()
+            ->assertSessionHas('error')
+            ->assertSessionHas('seed_failures');
+
+        $this->assertDatabaseMissing('sites', ['domain' => 'off-list-blank.example']);
     }
 
     public function test_marketing_layout_sidebar_collapse_uses_shell_tokens(): void

@@ -119,7 +119,6 @@ class BulkSiteRequestController extends Controller
             'status' => BulkSiteRequest::STATUS_SHEET_SENT,
             'sheet_sent_at' => now(),
             'handled_by' => auth()->id(),
-            'admin_notes' => $request->input('admin_notes', $bulkRequest->admin_notes),
         ])->save();
 
         ActivityLogger::log(
@@ -562,19 +561,18 @@ class BulkSiteRequestController extends Controller
                 ->withInput();
         }
 
-        $pendingDomains = $bulkRequest->items()
-            ->whereNull('site_id')
-            ->pluck('domain')
-            ->map(fn ($domain) => Site::normalizeMarketplaceDomain((string) $domain))
-            ->filter()
-            ->values()
-            ->all();
+        $pendingItems = $bulkRequest->items()->whereNull('site_id')->get(['id', 'domain']);
+        if ($pendingItems->isNotEmpty()) {
+            $pendingDomains = $pendingItems
+                ->map(fn ($item) => Site::normalizeMarketplaceDomain((string) $item->domain))
+                ->filter()
+                ->values()
+                ->all();
 
-        if ($pendingDomains !== []) {
             $allowed = [];
             foreach ($parsed['rows'] as $row) {
                 $domain = Site::normalizeMarketplaceDomain((string) ($row['domain'] ?? ''));
-                if (! in_array($domain, $pendingDomains, true)) {
+                if ($domain === '' || ! in_array($domain, $pendingDomains, true)) {
                     $parsed['failures'][] = [
                         'line' => $row['line'] ?? 0,
                         'url' => $row['site_url'] ?? $domain,
@@ -639,7 +637,16 @@ class BulkSiteRequestController extends Controller
             &$deletedDomains
         ) {
             foreach ($rows as $row) {
-                $domain = $row['domain'];
+                $domain = Site::normalizeMarketplaceDomain((string) ($row['domain'] ?? ''));
+                if ($domain === '') {
+                    $failures[] = [
+                        'line' => $row['line'] ?? 0,
+                        'url' => $row['site_url'] ?? '',
+                        'errors' => ['Invalid domain'],
+                    ];
+
+                    continue;
+                }
 
                 Site::releaseCancelledBulkDomain($domain, (int) $bulkRequest->publisher_id);
                 $existing = Site::findOccupyingDomain($domain, lock: true);
@@ -695,19 +702,22 @@ class BulkSiteRequestController extends Controller
 
                 $candidates = Site::domainLookupCandidates($domain);
                 $normalized = Site::normalizeMarketplaceDomain($domain);
-                $bulkRequest->items()
-                    ->whereNull('site_id')
-                    ->where(function ($q) use ($candidates, $normalized) {
-                        if ($candidates !== []) {
-                            $q->whereIn('domain', $candidates);
-                        }
-                        if ($normalized !== '') {
-                            $escaped = addcslashes($normalized, '%_\\');
-                            $q->orWhere('domain', 'like', $escaped.':%')
-                                ->orWhere('domain', 'like', 'www.'.$escaped.':%');
-                        }
-                    })
-                    ->update(['site_id' => $site->id]);
+                // An empty WHERE group would attach every pending row to this site.
+                if ($candidates !== [] || $normalized !== '') {
+                    $bulkRequest->items()
+                        ->whereNull('site_id')
+                        ->where(function ($q) use ($candidates, $normalized) {
+                            if ($candidates !== []) {
+                                $q->whereIn('domain', $candidates);
+                            }
+                            if ($normalized !== '') {
+                                $escaped = addcslashes($normalized, '%_\\');
+                                $q->orWhere('domain', 'like', $escaped.':%')
+                                    ->orWhere('domain', 'like', 'www.'.$escaped.':%');
+                            }
+                        })
+                        ->update(['site_id' => $site->id]);
+                }
 
                 $created++;
                 $createdDomains[] = $domain;

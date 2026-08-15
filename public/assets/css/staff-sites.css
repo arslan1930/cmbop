@@ -615,3 +615,10 @@
   padding-top: 0.45rem;
   padding-bottom: 0.45rem;
 }
+
+.bulk-request-show .text-break,
+.bulk-request-show .bulk-history-item,
+.bulk-request-show .bulk-request-note p {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
