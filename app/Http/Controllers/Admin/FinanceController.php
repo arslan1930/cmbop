@@ -46,10 +46,12 @@ class FinanceController extends Controller
         }
 
         $periodKey = is_string($request->get('period')) ? $request->get('period') : null;
-        $dateFrom = is_string($request->get('date_from')) ? $request->get('date_from') : null;
-        $dateTo = is_string($request->get('date_to')) ? $request->get('date_to') : null;
+        $rawFrom = is_string($request->get('date_from')) ? $request->get('date_from') : null;
+        $rawTo = is_string($request->get('date_to')) ? $request->get('date_to') : null;
 
-        $period = $this->finance->resolvePeriod($periodKey, $dateFrom, $dateTo);
+        $period = $this->finance->resolvePeriod($periodKey, $rawFrom, $rawTo);
+        $dateFrom = $this->finance->parseDay($rawFrom, false)?->toDateString();
+        $dateTo = $this->finance->parseDay($rawTo, true)?->toDateString();
 
         $list = is_string($request->get('list')) ? $request->get('list') : null;
         if (! in_array($list, ['debt', 'wallets'], true)) {
@@ -79,12 +81,29 @@ class FinanceController extends Controller
         $ledgerUser = $userId > 0
             ? User::query()->whereKey($userId)->first(['id', 'name', 'email'])
             : null;
-        $type = is_string($request->input('type')) ? $request->input('type') : '';
-        $direction = is_string($request->input('direction')) ? $request->input('direction') : '';
-        $dateFrom = is_string($request->input('date_from')) ? $request->input('date_from') : '';
-        $dateTo = is_string($request->input('date_to')) ? $request->input('date_to') : '';
+        $type = is_string($request->input('type')) && in_array($request->input('type'), $this->ledgerTypes(), true)
+            ? $request->input('type')
+            : '';
+        $direction = is_string($request->input('direction')) && in_array($request->input('direction'), ['credit', 'debit'], true)
+            ? $request->input('direction')
+            : '';
+        $dateFrom = $this->finance->parseDay(
+            is_string($request->input('date_from')) ? $request->input('date_from') : null,
+            false
+        )?->toDateString() ?? '';
+        $dateTo = $this->finance->parseDay(
+            is_string($request->input('date_to')) ? $request->input('date_to') : null,
+            true
+        )?->toDateString() ?? '';
 
-        $exportQuery = $this->scalarQuery($request, ['page']);
+        $exportQuery = array_filter([
+            'search' => $search !== '' ? $search : null,
+            'user_id' => $ledgerUser?->id,
+            'type' => $type !== '' ? $type : null,
+            'direction' => $direction !== '' ? $direction : null,
+            'date_from' => $dateFrom !== '' ? $dateFrom : null,
+            'date_to' => $dateTo !== '' ? $dateTo : null,
+        ], fn ($value) => $value !== null && $value !== '');
         $clearUserQuery = $exportQuery;
         unset($clearUserQuery['user_id']);
 
@@ -295,21 +314,22 @@ class FinanceController extends Controller
             $query->where('user_id', $userId);
         }
 
-        $dates = validator(
-            [
-                'date_from' => is_string($request->input('date_from')) ? $request->input('date_from') : null,
-                'date_to' => is_string($request->input('date_to')) ? $request->input('date_to') : null,
-            ],
-            [
-                'date_from' => 'nullable|date',
-                'date_to' => 'nullable|date|after_or_equal:date_from',
-            ]
-        )->valid();
-        if (! empty($dates['date_from'])) {
-            $query->whereDate('created_at', '>=', $dates['date_from']);
+        $from = $this->finance->parseDay(
+            is_string($request->input('date_from')) ? $request->input('date_from') : null,
+            false
+        );
+        $to = $this->finance->parseDay(
+            is_string($request->input('date_to')) ? $request->input('date_to') : null,
+            true
+        );
+        if ($from && $to && $to->lt($from)) {
+            $to = $from->copy()->endOfDay();
         }
-        if (! empty($dates['date_to'])) {
-            $query->whereDate('created_at', '<=', $dates['date_to']);
+        if ($from) {
+            $query->where('created_at', '>=', $from);
+        }
+        if ($to) {
+            $query->where('created_at', '<=', $to);
         }
 
         return $query;
@@ -321,39 +341,21 @@ class FinanceController extends Controller
             return $value;
         }
 
-        if (is_string($value) && ctype_digit($value)) {
+        if (is_string($value) && preg_match('/^[1-9]\d*$/', $value)) {
             return (int) $value;
         }
 
         return 0;
     }
 
-    /**
-     * @param  list<string>  $except
-     * @return array<string, string|int|float>
-     */
-    private function scalarQuery(Request $request, array $except = []): array
-    {
-        $out = [];
-        foreach ($request->query() as $key => $value) {
-            if (! is_string($key) || in_array($key, $except, true)) {
-                continue;
-            }
-            if (is_string($value) || is_int($value) || is_float($value)) {
-                $out[$key] = $value;
-            }
-        }
-
-        return $out;
-    }
-
     private function redirectToDossierIfUnique(string $userQuery): ?RedirectResponse
     {
-        if (! ctype_digit($userQuery)) {
+        $userId = $this->intQueryId($userQuery);
+        if ($userId < 1) {
             return null;
         }
 
-        $user = User::query()->whereKey((int) $userQuery)->first();
+        $user = User::query()->whereKey($userId)->first();
 
         return $user ? redirect()->route('admin.finance.user', $user) : null;
     }

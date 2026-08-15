@@ -662,4 +662,109 @@ class AdminFinanceCoverageTest extends TestCase
         $this->assertEquals(50.0, $overview['reconciliation']['deposits_completed']);
         $this->assertEquals(50.0, $overview['reconciliation']['ledger_deposits']);
     }
+
+    public function test_ledger_relative_dates_do_not_filter_or_echo(): void
+    {
+        $admin = $this->makeUser('admin');
+        $publisher = $this->makeUser('publisher');
+        $pubRole = Role::firstOrCreate(['name' => 'publisher']);
+        $wallet = Wallet::create([
+            'user_id' => $publisher->id,
+            'role_id' => $pubRole->id,
+            'balance' => 9,
+            'reserved_balance' => 0,
+            'currency' => 'EUR',
+        ]);
+        app(WalletLedgerService::class)->recordTransferIn($wallet, 9, null, 'LEDGER-TODAY', 'Today ledger row');
+
+        $html = $this->actingAs($admin)
+            ->get(route('admin.finance.ledger', [
+                'date_from' => 'yesterday',
+                'date_to' => 'yesterday',
+            ]))
+            ->assertOk()
+            ->assertSee('Today ledger row')
+            ->getContent();
+
+        $this->assertStringNotContainsString('value="yesterday"', $html);
+    }
+
+    public function test_leading_zero_user_id_does_not_resolve_to_user_one(): void
+    {
+        $admin = $this->makeUser('admin');
+
+        $this->actingAs($admin)
+            ->get(route('admin.finance.ledger', ['user_id' => '0'.$admin->id]))
+            ->assertOk()
+            ->assertDontSee('Showing ledger for');
+
+        $this->actingAs($admin)
+            ->get(route('admin.finance', ['q' => '0'.$admin->id]))
+            ->assertOk()
+            ->assertSee('Finance overview');
+    }
+
+    public function test_dossier_keeps_earnings_after_completed_then_refunded(): void
+    {
+        $advertiser = $this->makeUser('advertiser');
+        $publisher = $this->makeUser('publisher');
+        $order = $this->completedPaidOrder($advertiser, $publisher, 115, 15, now());
+        $order->forceFill(['payment_status' => 'refunded'])->save();
+
+        $dossier = app(FinanceOverviewService::class)->userDossier($publisher);
+
+        $this->assertEquals(100.0, $dossier['totals']['earnings_as_publisher']);
+        $this->assertEquals(15.0, $dossier['totals']['platform_fees_on_their_sites']);
+    }
+
+    public function test_bonus_debit_does_not_inflate_issued_bonuses(): void
+    {
+        $advertiser = $this->makeUser('advertiser');
+        $advRole = Role::firstOrCreate(['name' => 'advertiser']);
+        $wallet = Wallet::create([
+            'user_id' => $advertiser->id,
+            'role_id' => $advRole->id,
+            'balance' => 20,
+            'bonus_balance' => 20,
+            'reserved_balance' => 0,
+            'currency' => 'EUR',
+        ]);
+        app(WalletLedgerService::class)->recordBonusCredit($wallet, 20);
+        app(WalletLedgerService::class)->record(
+            $wallet,
+            WalletTransaction::TYPE_BONUS_CREDIT,
+            'debit',
+            5,
+            ['reference' => 'BONUS-CLAW', 'description' => 'Bonus clawback']
+        );
+
+        $overview = app(FinanceOverviewService::class)->overview(
+            app(FinanceOverviewService::class)->resolvePeriod('all')
+        );
+
+        $this->assertEquals(20.0, $overview['platform']['bonuses_issued']);
+        $this->assertEquals(20.0, $overview['money_in']['bonuses_issued']['amount']);
+    }
+
+    public function test_hub_drops_relative_dates_from_form_and_export(): void
+    {
+        $admin = $this->makeUser('admin');
+
+        $html = $this->actingAs($admin)
+            ->get(route('admin.finance', [
+                'period' => 'week',
+                'date_from' => 'yesterday',
+                'date_to' => 'tomorrow',
+            ]))
+            ->assertOk()
+            ->assertSee('This week')
+            ->getContent();
+
+        $this->assertStringNotContainsString('value="yesterday"', $html);
+        $this->assertStringNotContainsString('value="tomorrow"', $html);
+        $this->assertStringContainsString(
+            e(route('admin.finance.export', ['period' => 'week'])),
+            $html
+        );
+    }
 }

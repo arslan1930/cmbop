@@ -367,7 +367,8 @@ class FinanceOverviewService
             ->whereIn('payment_method', ['wise', 'bank', 'crypto'])
             ->sum('amount');
 
-        $bonuses = WalletTransaction::where('type', WalletTransaction::TYPE_BONUS_CREDIT);
+        $bonuses = WalletTransaction::where('type', WalletTransaction::TYPE_BONUS_CREDIT)
+            ->where('direction', 'credit');
         $this->applyCreatedWindow($bonuses, $start, $end);
 
         return [
@@ -408,7 +409,8 @@ class FinanceOverviewService
         $earnings = (float) (clone $earningsQuery)->sum(OrderItem::publisherPayoutSqlExpression());
         $earningsCount = (clone $earningsQuery)->count();
 
-        $ledgerEarnings = WalletTransaction::where('type', WalletTransaction::TYPE_TRANSFER_IN);
+        $ledgerEarnings = WalletTransaction::where('type', WalletTransaction::TYPE_TRANSFER_IN)
+            ->where('direction', 'credit');
         $this->applyCreatedWindow($ledgerEarnings, $start, $end);
 
         $paidWithdrawals = Withdrawal::where('status', 'completed');
@@ -466,10 +468,12 @@ class FinanceOverviewService
             });
         $refundedOrderFees = (float) (clone $refundedFeeItems)->sum(OrderItem::platformFeeSqlExpression());
 
-        $walletRefunds = WalletTransaction::where('type', WalletTransaction::TYPE_REFUND);
+        $walletRefunds = WalletTransaction::where('type', WalletTransaction::TYPE_REFUND)
+            ->where('direction', 'credit');
         $this->applyCreatedWindow($walletRefunds, $start, $end);
 
-        $bonuses = WalletTransaction::where('type', WalletTransaction::TYPE_BONUS_CREDIT);
+        $bonuses = WalletTransaction::where('type', WalletTransaction::TYPE_BONUS_CREDIT)
+            ->where('direction', 'credit');
         $this->applyCreatedWindow($bonuses, $start, $end);
 
         return [
@@ -545,10 +549,14 @@ class FinanceOverviewService
 
         $siteIds = DB::table('sites')->where('publisher_id', $user->id)->pluck('id');
         $earnings = $siteIds->isEmpty() ? 0.0 : (float) OrderItem::whereIn('site_id', $siteIds)
-            ->whereHas('order', fn ($q) => $q->where('status', 'completed')->where('payment_status', 'paid'))
+            ->whereHas('order', function ($q) {
+                $this->constrainRecognizedCompletedOrders($q);
+            })
             ->sum(OrderItem::publisherPayoutSqlExpression());
         $feesOnTheirSales = $siteIds->isEmpty() ? 0.0 : (float) OrderItem::whereIn('site_id', $siteIds)
-            ->whereHas('order', fn ($q) => $q->where('status', 'completed')->where('payment_status', 'paid'))
+            ->whereHas('order', function ($q) {
+                $this->constrainRecognizedCompletedOrders($q);
+            })
             ->sum(OrderItem::platformFeeSqlExpression());
 
         $gmvAsAdvertiser = (float) Order::where('user_id', $user->id)
@@ -893,7 +901,7 @@ class FinanceOverviewService
         }
     }
 
-    private function parseDay(?string $value, bool $endOfDay): ?Carbon
+    public function parseDay(?string $value, bool $endOfDay): ?Carbon
     {
         if (! is_string($value) || ! preg_match('/^\d{4}-\d{2}-\d{2}$/', trim($value))) {
             return null;
