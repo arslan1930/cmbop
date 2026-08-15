@@ -99,7 +99,7 @@ class WalletStripeDepositService
 
         $session = (object) ['amount_total' => StripePaymentService::toCents($amountEuros)];
 
-        DB::transaction(function () use ($userId, $paymentIntentId, $amountEuros, $session, &$referenceCode, &$credited, &$notifyDepositId) {
+        DB::transaction(function () use ($userId, $paymentIntentId, $amountEuros, $session, $sessionReference, &$referenceCode, &$credited, &$notifyDepositId) {
             $existing = DepositRequest::where('stripe_payment_intent_id', $paymentIntentId)
                 ->lockForUpdate()
                 ->first();
