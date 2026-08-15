@@ -112,7 +112,7 @@
                             Nothing waiting in the payout queue.
                         @endif
                     </div>
-                    <a href="{{ route('admin.withdrawals') }}" class="btn btn-sm btn-outline-danger mt-3">Open payout queue</a>
+                    <a href="{{ route('admin.withdrawals', ['queue' => 'open']) }}" class="btn btn-sm btn-outline-danger mt-3">Open payout queue</a>
                 </div>
             </div>
         </div>
@@ -378,7 +378,7 @@
                     <div class="text-muted small">Est. margin</div>
                     <div class="fs-5 fw-bold {{ $d['platform']['margin'] >= 0 ? 'text-success' : 'text-danger' }}">{{ $euro($d['platform']['margin']) }}</div>
                     <div class="small text-muted">
-                        Fees − refunds − bonuses<br>
+                        Fees − refunded fees − bonuses<br>
                         Est. Stripe (not from Stripe) {{ $euro($d['platform']['estimated_stripe_fees'] ?? 0) }}
                         @if(($d['platform']['stripe_fee_percent'] ?? 0) > 0)
                             ({{ rtrim(rtrim(number_format($d['platform']['stripe_fee_percent'], 2), '0'), '.') }}% of card volume)

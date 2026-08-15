@@ -455,4 +455,71 @@ class AdminFinanceCoverageTest extends TestCase
         $this->assertStringContainsString('withdrawals.processed_at', $wdSql);
         $this->assertStringContainsString('withdrawals.updated_at', $wdSql);
     }
+
+    public function test_margin_subtracts_refunded_fees_not_order_gmv(): void
+    {
+        $advertiser = $this->makeUser('advertiser');
+        $publisher = $this->makeUser('publisher');
+        $this->completedPaidOrder($advertiser, $publisher, 115, 15, now());
+        $refunded = $this->completedPaidOrder($advertiser, $publisher, 115, 15, now());
+        $refunded->forceFill(['payment_status' => 'refunded'])->save();
+
+        $overview = app(FinanceOverviewService::class)->overview(
+            app(FinanceOverviewService::class)->resolvePeriod('all')
+        );
+
+        $this->assertEquals(15.0, $overview['platform']['order_fees']);
+        $this->assertEquals(115.0, $overview['platform']['refunds']);
+        $this->assertEquals(15.0, $overview['platform']['refunded_order_fees']);
+        $this->assertEquals(0.0, $overview['platform']['margin']);
+    }
+
+    public function test_manual_deposit_with_stripe_session_is_not_double_counted(): void
+    {
+        $advertiser = $this->makeUser('advertiser');
+        DepositRequest::create([
+            'user_id' => $advertiser->id,
+            'reference_code' => 'DEP-OVERLAP-1',
+            'amount' => 40,
+            'payment_method' => 'wise',
+            'stripe_session_id' => 'cs_test_overlap',
+            'status' => 'completed',
+            'approved_at' => now(),
+        ]);
+
+        $overview = app(FinanceOverviewService::class)->overview(
+            app(FinanceOverviewService::class)->resolvePeriod('all')
+        );
+
+        $this->assertEquals(0.0, $overview['money_in']['deposits_completed']['stripe']);
+        $this->assertEquals(40.0, $overview['money_in']['deposits_completed']['manual']);
+        $this->assertEquals(40.0, $overview['cash_split']['cash_in_bank']);
+        $this->assertEquals(0.0, $overview['platform']['estimated_stripe_fees']);
+    }
+
+    public function test_relative_date_strings_do_not_become_a_custom_period(): void
+    {
+        $service = app(FinanceOverviewService::class);
+        $period = $service->resolvePeriod('month', 'yesterday', 'tomorrow');
+        $this->assertSame('month', $period['key']);
+    }
+
+    public function test_ledger_does_not_mark_finance_hub_nav_active(): void
+    {
+        $admin = $this->makeUser('admin');
+
+        $html = $this->actingAs($admin)
+            ->get(route('admin.finance.ledger'))
+            ->assertOk()
+            ->getContent();
+
+        $this->assertDoesNotMatchRegularExpression(
+            '/href="'.preg_quote(route('admin.finance'), '/').'"[^>]*class="active"/',
+            $html
+        );
+        $this->assertMatchesRegularExpression(
+            '/href="'.preg_quote(route('admin.finance.ledger'), '/').'"[^>]*class="active"/',
+            $html
+        );
+    }
 }

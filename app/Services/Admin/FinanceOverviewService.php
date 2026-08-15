@@ -73,8 +73,8 @@ class FinanceOverviewService
      */
     public function overview(array $period, ?string $list = null): array
     {
-        $start = $period['start'];
-        $end = $period['end'];
+        $start = $period['start'] instanceof Carbon ? $period['start'] : null;
+        $end = $period['end'] instanceof Carbon ? $period['end'] : now()->endOfDay();
         $list = in_array($list, ['debt', 'wallets'], true) ? $list : null;
 
         $ops = $this->opsQueues($list);
@@ -82,12 +82,12 @@ class FinanceOverviewService
         $moneyIn = $this->moneyIn($start, $end);
         $moneyOut = $this->moneyOut($start, $end);
         $platform = $this->platform($start, $end);
-        $cashSplit = $this->cashVsInternal($start, $end);
+        $cashSplit = $this->cashVsInternal($start, $end, $moneyIn);
 
         $platform['margin'] = round(
             $platform['order_fees']
             + $platform['withdrawal_fees']
-            - $platform['refunds']
+            - (float) ($platform['refunded_order_fees'] ?? 0)
             - $platform['bonuses_issued'],
             2
         );
@@ -176,7 +176,7 @@ class FinanceOverviewService
             'view_all_url' => route('admin.finance', ['list' => 'debt']).'#finance-debt-table',
         ];
 
-        if (! Schema::hasColumn('wallets', 'debt_balance')) {
+        if (! Schema::hasColumn((new Wallet)->getTable(), 'debt_balance')) {
             return $empty;
         }
 
@@ -346,12 +346,16 @@ class FinanceOverviewService
         $depositsTotal = (float) (clone $depositsCompleted)->sum('amount');
         $stripeDeposits = (float) (clone $depositsCompleted)
             ->where(function ($q) {
-                $q->where('payment_method', 'card')
-                    ->orWhere('payment_method', 'stripe')
-                    ->orWhereNotNull('stripe_session_id');
+                $q->whereIn('payment_method', ['card', 'stripe'])
+                    ->orWhere(function ($q2) {
+                        $q2->whereNotNull('stripe_session_id')
+                            ->where(function ($q3) {
+                                $q3->whereNull('payment_method')
+                                    ->orWhereNotIn('payment_method', ['wise', 'bank', 'crypto']);
+                            });
+                    });
             })
             ->sum('amount');
-        // Avoid double-counting stripe: prefer method card/stripe; if using stripe_session_id only, still ok
         $manualDeposits = (float) (clone $depositsCompleted)
             ->whereIn('payment_method', ['wise', 'bank', 'crypto'])
             ->sum('amount');
@@ -446,6 +450,12 @@ class FinanceOverviewService
         $refundOrders = Order::where('payment_status', 'refunded');
         $this->applyRefundWindow($refundOrders, $start, $end);
         $refundOrderSum = (float) (clone $refundOrders)->sum('total_amount');
+        $refundedFeeItems = OrderItem::query()
+            ->whereHas('order', function ($q) use ($start, $end) {
+                $q->where('payment_status', 'refunded');
+                $this->applyRefundWindow($q, $start, $end);
+            });
+        $refundedOrderFees = (float) (clone $refundedFeeItems)->sum(OrderItem::platformFeeSqlExpression());
 
         $walletRefunds = WalletTransaction::where('type', WalletTransaction::TYPE_REFUND);
         $this->applyCreatedWindow($walletRefunds, $start, $end);
@@ -459,6 +469,7 @@ class FinanceOverviewService
             'withdrawal_fees' => round($withdrawalFeeSum, 2),
             'withdrawal_fee_percent' => (float) config('billing.withdrawal_fee_percent', 0),
             'refunds' => round($refundOrderSum, 2),
+            'refunded_order_fees' => round($refundedOrderFees, 2),
             'refund_orders_count' => (clone $refundOrders)->count(),
             'wallet_refunds' => (float) (clone $walletRefunds)->sum('amount'),
             'bonuses_issued' => (float) (clone $bonuses)->sum('amount'),
@@ -470,9 +481,9 @@ class FinanceOverviewService
     /**
      * @return array<string, mixed>
      */
-    public function cashVsInternal(?Carbon $start, Carbon $end): array
+    public function cashVsInternal(?Carbon $start, Carbon $end, ?array $moneyIn = null): array
     {
-        $in = $this->moneyIn($start, $end);
+        $in = $moneyIn ?? $this->moneyIn($start, $end);
 
         $cashIn = round(
             ($in['deposits_completed']['stripe'] ?? 0)
@@ -600,6 +611,7 @@ class FinanceOverviewService
             ['section' => 'platform', 'metric' => 'order_fees', 'value' => $data['platform']['order_fees']],
             ['section' => 'platform', 'metric' => 'withdrawal_fees', 'value' => $data['platform']['withdrawal_fees']],
             ['section' => 'platform', 'metric' => 'refunds', 'value' => $data['platform']['refunds']],
+            ['section' => 'platform', 'metric' => 'refunded_order_fees', 'value' => $data['platform']['refunded_order_fees']],
             ['section' => 'platform', 'metric' => 'bonuses_issued', 'value' => $data['platform']['bonuses_issued']],
             ['section' => 'platform', 'metric' => 'margin', 'value' => $data['platform']['margin']],
             ['section' => 'cash_split', 'metric' => 'cash_in_bank', 'value' => $data['cash_split']['cash_in_bank']],
@@ -841,13 +853,17 @@ class FinanceOverviewService
 
     private function parseDay(?string $value, bool $endOfDay): ?Carbon
     {
-        if (! is_string($value) || trim($value) === '') {
+        if (! is_string($value) || ! preg_match('/^\d{4}-\d{2}-\d{2}$/', trim($value))) {
             return null;
         }
 
         try {
-            $day = Carbon::parse(trim($value));
+            $day = Carbon::createFromFormat('Y-m-d', trim($value));
         } catch (\Throwable) {
+            return null;
+        }
+
+        if (! $day || $day->format('Y-m-d') !== trim($value)) {
             return null;
         }
 

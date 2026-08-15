@@ -160,7 +160,7 @@
                 <div class="card-body py-3">
                     <div class="text-muted small">Margin (this month)</div>
                     <div class="fs-4 fw-semibold" id="financeMargin">—</div>
-                    <div class="small text-muted">Fees − refunds − bonuses</div>
+                    <div class="small text-muted">Fees − refunded fees − bonuses</div>
                 </div>
             </div>
         </div>
