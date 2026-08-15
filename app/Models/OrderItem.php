@@ -361,19 +361,40 @@ class OrderItem extends Model
 
     /**
      * SQL expression for publisher payout amounts (for SUM/aggregates).
-     * Removes the 15% platform markup from the stored advertiser price.
+     * Must match publisherPayoutAmount(): snapshotted publisher_price + add-ons,
+     * not advertiser price / 1.15 (discounts and tiered fees break that).
      *
      * @param  string  $table  Qualify columns when the query joins other tables.
      */
     public static function publisherPayoutSqlExpression(string $table = 'order_items')
     {
         $rate = self::PLATFORM_MARKUP_RATE;
-        $qualified = $table === '' ? '' : rtrim($table, '.').'.';
+        try {
+            if (function_exists('app') && app()->bound('config')) {
+                $configured = config('pricing.legacy_markup_rate');
+                if ($configured) {
+                    $rate = (float) $configured;
+                }
+            }
+        } catch (\Throwable) {
+            // keep legacy constant
+        }
 
-        return DB::raw(
-            "({$qualified}price - COALESCE({$qualified}additional_price, 0) - COALESCE({$qualified}homepage_price, 0)) / {$rate}"
-            ." + COALESCE({$qualified}additional_price, 0) + COALESCE({$qualified}homepage_price, 0)"
-        );
+        $qualified = $table === '' ? '' : rtrim($table, '.').'.';
+        $base = "({$qualified}price - COALESCE({$qualified}additional_price, 0) - COALESCE({$qualified}homepage_price, 0))";
+        $extras = "COALESCE({$qualified}additional_price, 0) + COALESCE({$qualified}homepage_price, 0)";
+        $legacyPayout = "{$base} / {$rate}";
+
+        $publisherBase = $legacyPayout;
+        try {
+            if (Schema::hasColumn('order_items', 'publisher_price')) {
+                $publisherBase = "COALESCE({$qualified}publisher_price, {$legacyPayout})";
+            }
+        } catch (\Throwable) {
+            // tests / partially migrated schemas
+        }
+
+        return DB::raw("ROUND({$publisherBase} + {$extras}, 2)");
     }
 
     /**

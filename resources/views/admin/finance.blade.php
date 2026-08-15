@@ -396,6 +396,15 @@
                             · Dated by paid date
                         </div>
                     </div>
+                    @if(($d['money_in']['unfulfilled_card_credits'] ?? 0) > 0)
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between">
+                            <span class="text-muted small">Leftover card credits</span>
+                            <strong>{{ $euro($d['money_in']['unfulfilled_card_credits']) }}</strong>
+                        </div>
+                        <div class="small text-muted">Stripe captured, listing left the catalog — credited to advertiser wallet</div>
+                    </div>
+                    @endif
                     <div>
                         <div class="d-flex justify-content-between">
                             <span class="text-muted small">Bonuses issued</span>
@@ -449,7 +458,7 @@
                             <span class="text-muted small">Cash into your accounts</span>
                             <strong class="text-success">{{ $euro($d['cash_split']['cash_in_bank']) }}</strong>
                         </div>
-                        <div class="small text-muted">Stripe/card + bank/Wise/crypto deposits &amp; manual order pays</div>
+                        <div class="small text-muted">Stripe/card + bank/Wise/crypto deposits &amp; manual order pays + leftover card credits</div>
                     </div>
                     <div class="mb-3">
                         <div class="d-flex justify-content-between">
