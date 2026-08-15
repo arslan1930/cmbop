@@ -141,7 +141,7 @@ class BulkSiteRequest extends Model
         return true;
     }
 
-    public function refreshProgressStatus(): void
+    public function refreshProgressStatus(bool $keepLegacySheetOpen = false): void
     {
         if ($this->status === self::STATUS_CANCELLED) {
             return;
@@ -171,11 +171,12 @@ class BulkSiteRequest extends Model
                 return;
             }
 
-            // Legacy sheet: count set, no item rows, still in the pre-draft
-            // staff workflow. An emptied awaiting/seeded batch (claim transfer,
-            // last listing gone) is finished — not a brand-new sheet.
-            if ($this->items()->doesntExist() && (int) $this->estimated_count > 0
-                && in_array($this->status, [self::STATUS_REQUESTED, self::STATUS_SHEET_SENT], true)) {
+            // Legacy sheet (count set, no item rows): staff delete of the last
+            // seed must stay open so they can reseed. Claim transfer of the
+            // last listing is finished — do not rewind into a fake sheet.
+            $isLegacySheet = $this->items()->doesntExist() && (int) $this->estimated_count > 0;
+            if ($isLegacySheet && ($keepLegacySheetOpen
+                || in_array($this->status, [self::STATUS_REQUESTED, self::STATUS_SHEET_SENT], true))) {
                 $this->forceFill([
                     'status' => self::STATUS_REQUESTED,
                     'completed_at' => null,

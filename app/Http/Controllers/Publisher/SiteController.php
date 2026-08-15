@@ -967,7 +967,8 @@ class SiteController extends Controller
         );
 
         if (! empty($deleted['bulk_id'])) {
-            BulkSiteRequest::query()->find((int) $deleted['bulk_id'])?->refreshProgressStatus();
+            BulkSiteRequest::query()->find((int) $deleted['bulk_id'])
+                ?->refreshProgressStatus(keepLegacySheetOpen: true);
         }
 
         return redirect()->back()->with('success', 'Site deleted successfully!');

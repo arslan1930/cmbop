@@ -3268,7 +3268,7 @@ class SiteController extends Controller
             return;
         }
 
-        $bulk->refreshProgressStatus();
+        $bulk->refreshProgressStatus(keepLegacySheetOpen: true);
     }
 
     /**
