@@ -95,9 +95,7 @@ class AdBannerController extends Controller
         $this->assertImageMatchesPreset($request, $data);
 
         if ($request->hasFile('image')) {
-            if ($banner->image_path) {
-                Storage::disk('public')->delete($banner->image_path);
-            }
+            $this->deleteStoredImage($banner->image_path);
             $data['image_path'] = $this->storeImage($request);
         }
 
@@ -132,8 +130,20 @@ class AdBannerController extends Controller
 
     public function restore(int $id)
     {
-        $model = AdBanner::withTrashed()->findOrFail($id);
-        $model->restore();
+        try {
+            if (! Schema::hasTable('ad_banners')) {
+                return back()->with('error', 'Banner could not be restored.');
+            }
+
+            $model = AdBanner::withTrashed()->findOrFail($id);
+        } catch (\Throwable) {
+            return back()->with('error', 'Banner could not be restored.');
+        }
+
+        if (! $model->restore()) {
+            return back()->with('error', 'Banner could not be restored.');
+        }
+
         $this->log('banner.restored', $model, 'restored banner');
         session()->forget('promotions_undo');
 
@@ -157,12 +167,7 @@ class AdBannerController extends Controller
         $copy->clicks = 0;
         $copy->created_by = auth()->id();
 
-        if ($banner->image_path && Storage::disk('public')->exists($banner->image_path)) {
-            $ext = pathinfo($banner->image_path, PATHINFO_EXTENSION);
-            $newPath = 'banners/'.Str::uuid().($ext ? '.'.$ext : '');
-            Storage::disk('public')->copy($banner->image_path, $newPath);
-            $copy->image_path = $newPath;
-        }
+        $copy->image_path = $this->copyStoredImage($banner->image_path);
 
         $copy->save();
         $this->log('banner.duplicated', $copy, 'duplicated banner', ['source_id' => $banner->id]);
@@ -265,6 +270,42 @@ class AdBannerController extends Controller
         }
 
         return $request->file('image')->store('banners', 'public');
+    }
+
+    private function deleteStoredImage(?string $path): void
+    {
+        $safe = PromotionUrl::safePublicStoragePath($path);
+        if ($safe === null) {
+            return;
+        }
+
+        try {
+            Storage::disk('public')->delete($safe);
+        } catch (\Throwable) {
+            // Tainted leftover paths must not 500 a staff update.
+        }
+    }
+
+    private function copyStoredImage(?string $path): ?string
+    {
+        $safe = PromotionUrl::safePublicStoragePath($path);
+        if ($safe === null) {
+            return null;
+        }
+
+        try {
+            if (! Storage::disk('public')->exists($safe)) {
+                return null;
+            }
+
+            $ext = pathinfo($safe, PATHINFO_EXTENSION);
+            $newPath = 'banners/'.Str::uuid().($ext ? '.'.$ext : '');
+            Storage::disk('public')->copy($safe, $newPath);
+
+            return $newPath;
+        } catch (\Throwable) {
+            return null;
+        }
     }
 
     protected function unwiredWarning(string $placement): ?string

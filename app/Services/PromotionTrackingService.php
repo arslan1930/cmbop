@@ -171,7 +171,8 @@ class PromotionTrackingService
 
     public function looksLikeUserNavigation(Request $request): bool
     {
-        if ($request->prefetch()) {
+        // Route::get also answers HEAD. Uptime checks must not count or follow.
+        if (! $request->isMethod('GET') || $request->prefetch()) {
             return false;
         }
 

@@ -108,6 +108,48 @@ class AdminPromotionsCrudTest extends TestCase
         $this->assertSame(728, (int) $banner->width);
     }
 
+    public function test_banner_update_and_duplicate_tolerate_tainted_image_path(): void
+    {
+        $this->actingAs($this->admin)
+            ->post(route('admin.promotions.banners.store'), [
+                'name' => 'Header offer',
+                'size_key' => 'leaderboard',
+                'placement' => 'header',
+                'audience' => 'all',
+                'image_url' => 'https://example.com/banner.png',
+                'link_url' => '/advertiser/catalog',
+                'is_active' => 1,
+                'priority' => 10,
+            ])
+            ->assertRedirect(route('admin.promotions.banners.index'));
+
+        $banner = AdBanner::query()->firstOrFail();
+        $banner->forceFill(['image_path' => '../victim.txt'])->save();
+
+        $this->actingAs($this->admin)
+            ->put(route('admin.promotions.banners.update', $banner), [
+                'name' => 'Header offer v2',
+                'size_key' => 'leaderboard',
+                'placement' => 'header',
+                'audience' => 'all',
+                'image_url' => 'https://example.com/banner.png',
+                'link_url' => '/advertiser/catalog',
+                'is_active' => 1,
+                'priority' => 10,
+            ])
+            ->assertRedirect(route('admin.promotions.banners.index'))
+            ->assertSessionHas('success');
+
+        $this->actingAs($this->admin)
+            ->post(route('admin.promotions.banners.duplicate', $banner))
+            ->assertRedirect();
+
+        $copy = AdBanner::query()->where('id', '!=', $banner->id)->first();
+        $this->assertNotNull($copy);
+        $this->assertNull($copy->image_path);
+        $this->assertSame('https://example.com/banner.png', $copy->image_url);
+    }
+
     public function test_userinfo_cta_is_rejected(): void
     {
         $this->actingAs($this->admin)

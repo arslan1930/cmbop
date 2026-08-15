@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Role;
+use App\Models\SiteAnnouncement;
 use App\Models\User;
 use Database\Seeders\RolesTableSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -78,5 +79,40 @@ class AdminPromotionsSchemaDriftResilienceTest extends TestCase
             ->assertSee('€20 welcome credit', false)
             ->assertSee('Unknown', false)
             ->assertDontSee('Something went wrong');
+    }
+
+    public function test_restore_is_not_500_when_announcement_table_is_missing(): void
+    {
+        Schema::dropIfExists('site_announcements');
+        $this->assertFalse(Schema::hasTable('site_announcements'));
+
+        $this->actingAs($this->admin)
+            ->from(route('admin.promotions.index'))
+            ->post(route('admin.promotions.announcements.restore', 1))
+            ->assertRedirect(route('admin.promotions.index'))
+            ->assertSessionHas('error');
+    }
+
+    public function test_restore_reports_error_when_deleted_at_is_missing(): void
+    {
+        $announcement = SiteAnnouncement::create([
+            'title' => 'Undo me',
+            'message' => 'Body',
+            'type' => 'general',
+            'style' => 'info',
+            'audience' => 'all',
+            'is_active' => true,
+        ]);
+
+        Schema::table('site_announcements', function ($table) {
+            $table->dropSoftDeletes();
+        });
+        $this->assertFalse(Schema::hasColumn('site_announcements', 'deleted_at'));
+
+        $this->actingAs($this->admin)
+            ->from(route('admin.promotions.announcements.index'))
+            ->post(route('admin.promotions.announcements.restore', $announcement->id))
+            ->assertRedirect(route('admin.promotions.announcements.index'))
+            ->assertSessionHas('error');
     }
 }

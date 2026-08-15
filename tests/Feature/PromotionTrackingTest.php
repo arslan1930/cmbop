@@ -92,6 +92,17 @@ class PromotionTrackingTest extends TestCase
         $this->assertSame(1, (int) $banner->fresh()->clicks);
     }
 
+    public function test_head_click_does_not_count_or_follow(): void
+    {
+        $banner = $this->liveBanner();
+
+        $this->call('HEAD', route('banners.click', $banner))
+            ->assertNoContent();
+
+        $this->assertSame(0, (int) $banner->fresh()->clicks);
+        $this->assertSame(0, PromotionEvent::query()->count());
+    }
+
     public function test_forwarded_for_cannot_mint_a_second_daily_impression(): void
     {
         $banner = $this->liveBanner();
@@ -226,7 +237,7 @@ class PromotionTrackingTest extends TestCase
         $this->assertSame('https://example.com/safe.png', $banner->fresh()->imageSrc());
     }
 
-    public function test_track_endpoint_is_404_when_table_is_missing(): void
+    public function test_track_endpoint_is_ok_when_table_is_missing(): void
     {
         Schema::dropIfExists('ad_banners');
 
@@ -234,7 +245,18 @@ class PromotionTrackingTest extends TestCase
             'subject_type' => 'banner',
             'subject_id' => 1,
             'event' => 'impression',
-        ])->assertNotFound();
+        ])->assertOk()->assertJson(['ok' => true]);
+    }
+
+    public function test_track_unknown_id_does_not_reveal_missing_subject(): void
+    {
+        $this->postJson(route('promotions.track'), [
+            'subject_type' => 'banner',
+            'subject_id' => 999999,
+            'event' => 'impression',
+        ])->assertOk()->assertJson(['ok' => true]);
+
+        $this->assertSame(0, PromotionEvent::query()->count());
     }
 
     public function test_preview_page_is_staff_only(): void

@@ -154,8 +154,20 @@ class AnnouncementController extends Controller
 
     public function restore(int $id)
     {
-        $model = SiteAnnouncement::withTrashed()->findOrFail($id);
-        $model->restore();
+        try {
+            if (! Schema::hasTable('site_announcements')) {
+                return back()->with('error', 'Announcement could not be restored.');
+            }
+
+            $model = SiteAnnouncement::withTrashed()->findOrFail($id);
+        } catch (\Throwable) {
+            return back()->with('error', 'Announcement could not be restored.');
+        }
+
+        if (! $model->restore()) {
+            return back()->with('error', 'Announcement could not be restored.');
+        }
+
         $this->log('announcement.restored', $model, 'restored announcement');
         session()->forget('promotions_undo');
 
