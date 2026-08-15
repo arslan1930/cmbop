@@ -249,11 +249,12 @@ class EmailCampaign extends Model
                         'skip_reason' => EmailCampaignRecipient::SKIP_ERROR,
                     ]);
                 $campaign->clearFailStreak();
-                $campaign->recountRecipientTotals();
                 $campaign->update([
                     'status' => self::STATUS_FAILED,
                     'sent_at' => $campaign->sent_at ?? now(),
                 ]);
+                $campaign->refresh();
+                $campaign->recountRecipientTotals();
 
                 continue;
             }

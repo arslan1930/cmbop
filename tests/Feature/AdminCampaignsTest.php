@@ -741,6 +741,58 @@ class AdminCampaignsTest extends TestCase
         );
     }
 
+    public function test_job_give_up_keeps_partial_delivery_as_sent(): void
+    {
+        $admin = $this->makeUser('admin');
+        $deliveredUser = $this->makeUser('advertiser');
+        $pendingUser = $this->makeUser('advertiser');
+
+        $campaign = EmailCampaign::create([
+            'name' => 'Partial send',
+            'subject' => 'Partial send',
+            'body_html' => '<p>Hi</p>',
+            'audience' => 'advertisers',
+            'recipients_count' => 2,
+            'status' => EmailCampaign::STATUS_QUEUED,
+            'respect_preferences' => false,
+            'created_by' => $admin->id,
+        ]);
+        EmailCampaignRecipient::create([
+            'email_campaign_id' => $campaign->id,
+            'user_id' => $deliveredUser->id,
+            'email' => $deliveredUser->email,
+            'status' => EmailCampaignRecipient::STATUS_DELIVERED,
+        ]);
+        EmailCampaignRecipient::create([
+            'email_campaign_id' => $campaign->id,
+            'user_id' => $pendingUser->id,
+            'email' => $pendingUser->email,
+            'status' => EmailCampaignRecipient::STATUS_PENDING,
+        ]);
+
+        $job = new class($campaign->id, SendEmailCampaignJob::MAX_FAIL_STREAK) extends SendEmailCampaignJob
+        {
+            protected function processPending(EmailCampaign $campaign): bool
+            {
+                throw new \RuntimeException('boom');
+            }
+        };
+        $job->handle();
+
+        $fresh = $campaign->fresh();
+        $this->assertSame(EmailCampaign::STATUS_SENT, $fresh->status);
+        $this->assertSame(1, $fresh->sent_count);
+        $this->assertSame(1, $fresh->skipped_count);
+        $this->assertSame(
+            EmailCampaignRecipient::STATUS_DELIVERED,
+            $campaign->recipients()->where('user_id', $deliveredUser->id)->value('status')
+        );
+        $this->assertSame(
+            EmailCampaignRecipient::STATUS_FAILED,
+            $campaign->recipients()->where('user_id', $pendingUser->id)->value('status')
+        );
+    }
+
     public function test_sent_mail_syncs_email_log_and_marks_recipient_delivered(): void
     {
         $admin = $this->makeUser('admin');
@@ -1431,6 +1483,55 @@ class AdminCampaignsTest extends TestCase
         $this->assertSame(
             EmailCampaignRecipient::STATUS_FAILED,
             $campaign->recipients()->where('user_id', $advertiser->id)->value('status')
+        );
+        Queue::assertNothingPushed();
+    }
+
+    public function test_stall_recovery_give_up_keeps_partial_delivery_as_sent(): void
+    {
+        Queue::fake();
+
+        $admin = $this->makeUser('admin');
+        $deliveredUser = $this->makeUser('advertiser');
+        $pendingUser = $this->makeUser('advertiser');
+
+        $campaign = EmailCampaign::create([
+            'name' => 'Partial loop',
+            'subject' => 'Partial loop',
+            'body_html' => '<p>Hi</p>',
+            'audience' => 'advertisers',
+            'recipients_count' => 2,
+            'status' => EmailCampaign::STATUS_SENDING,
+            'respect_preferences' => false,
+            'created_by' => $admin->id,
+        ]);
+        EmailCampaignRecipient::create([
+            'email_campaign_id' => $campaign->id,
+            'user_id' => $deliveredUser->id,
+            'email' => $deliveredUser->email,
+            'status' => EmailCampaignRecipient::STATUS_DELIVERED,
+        ]);
+        EmailCampaignRecipient::create([
+            'email_campaign_id' => $campaign->id,
+            'user_id' => $pendingUser->id,
+            'email' => $pendingUser->email,
+            'status' => EmailCampaignRecipient::STATUS_PENDING,
+        ]);
+        $campaign->rememberFailStreak(SendEmailCampaignJob::MAX_FAIL_STREAK);
+        $campaign->forceFill(['updated_at' => now()->subMinutes(5)])->save();
+
+        $this->assertSame(0, EmailCampaign::recoverStalled());
+
+        $fresh = $campaign->fresh();
+        $this->assertSame(EmailCampaign::STATUS_SENT, $fresh->status);
+        $this->assertSame(1, $fresh->sent_count);
+        $this->assertSame(
+            EmailCampaignRecipient::STATUS_DELIVERED,
+            $campaign->recipients()->where('user_id', $deliveredUser->id)->value('status')
+        );
+        $this->assertSame(
+            EmailCampaignRecipient::STATUS_FAILED,
+            $campaign->recipients()->where('user_id', $pendingUser->id)->value('status')
         );
         Queue::assertNothingPushed();
     }

@@ -22,7 +22,10 @@ UI). Recipients are marketplace advertisers and publishers only — never admins
    rows (fits the web-drain 30s worker timeout) and re-dispatches itself when
    more remain. Recipients are claimed `pending` → `queued` atomically so two
    workers cannot double-send. A thrown handle still fails leftover **pending**
-   rows only after **3** failed batches (`failStreak`). A timeout, a
+   rows only after **3** failed batches (`failStreak`). Give-up sets the
+   campaign `failed` first, then recounts: a real delivery leaves it
+   **sent** (partial success) instead of overwriting that to failed.
+   Leftover `queued` rows with no delivery stay failed. A timeout, a
    transient DB error, or `failed()` before the claim must **not** wipe the
    rest of the audience. Fail streak is stored in cache so stall recovery
    cannot reset it and retry forever. An unclaimed `queued` job is left

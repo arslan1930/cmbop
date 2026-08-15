@@ -276,10 +276,15 @@ class SendEmailCampaignJob implements ShouldQueue
                 'skip_reason' => EmailCampaignRecipient::SKIP_ERROR,
             ]);
 
-        $campaign->recountRecipientTotals();
+        // Terminal first so recount can promote FAILED → SENT when some
+        // recipients already delivered. Forcing FAILED after recount used
+        // to overwrite that partial success. Leftover queued (no delivery)
+        // stays failed — do not treat in-flight rows as a send.
         $campaign->update([
             'status' => EmailCampaign::STATUS_FAILED,
-            'sent_at' => now(),
+            'sent_at' => $campaign->sent_at ?? now(),
         ]);
+        $campaign->refresh();
+        $campaign->recountRecipientTotals();
     }
 }
