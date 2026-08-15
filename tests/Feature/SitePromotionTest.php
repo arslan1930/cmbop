@@ -431,4 +431,33 @@ class SitePromotionTest extends TestCase
         $this->assertEqualsWithDelta(15.0, (float) Wallet::where('user_id', $publisher->id)->value('balance'), 0.01);
         $this->assertSame(1, SiteFeaturePurchase::where('stripe_session_id', 'cs_feature_delisted')->count());
     }
+
+    public function test_feature_credit_without_a_site_row_is_idempotent(): void
+    {
+        config(['site_promotions.feature.price' => 10]);
+        $payer = $this->publisherWithWallet(5);
+
+        $promotions = app(SitePromotionService::class);
+        $first = $promotions->creditPayerWhenFeatureCannotApply(
+            null,
+            $payer,
+            'cs_feature_site_gone',
+            'the listing was removed',
+            10.0
+        );
+        $second = $promotions->creditPayerWhenFeatureCannotApply(
+            null,
+            $payer,
+            'cs_feature_site_gone',
+            'the listing was removed',
+            10.0
+        );
+
+        $this->assertTrue($first['success']);
+        $this->assertTrue($first['credited']);
+        $this->assertFalse($first['already']);
+        $this->assertTrue($second['already']);
+        $this->assertEqualsWithDelta(15.0, (float) Wallet::where('user_id', $payer->id)->value('balance'), 0.01);
+        $this->assertSame(0, SiteFeaturePurchase::where('stripe_session_id', 'cs_feature_site_gone')->count());
+    }
 }

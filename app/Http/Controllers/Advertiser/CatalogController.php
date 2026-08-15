@@ -2695,7 +2695,9 @@ class CatalogController extends Controller
 
             return response()->json([
                 'success' => false,
-                'message' => UserFacingError::message($e, 'Saved card payment failed. Please try again or use a new card.'),
+                'message' => ($payResult['status'] ?? '') === 'succeeded'
+                    ? 'Your card was charged. Do not pay again — contact support if the order does not appear.'
+                    : UserFacingError::message($e, 'Saved card payment failed. Please try again or use a new card.'),
             ], 422);
         }
     }
@@ -3298,7 +3300,12 @@ class CatalogController extends Controller
             }
 
             return redirect()->route('advertiser.checkout')
-                ->with('error', UserFacingError::message($e, 'Payment verification failed. Please try again.'));
+                ->with(
+                    'error',
+                    isset($stripeObject) && is_object($stripeObject)
+                        ? 'Your card was charged. Do not pay again — contact support if the order does not appear.'
+                        : UserFacingError::message($e, 'Payment verification failed. Please try again.')
+                );
         }
     }
 

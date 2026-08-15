@@ -1334,6 +1334,61 @@ class StripeWebhookCompletenessTest extends TestCase
         ]);
     }
 
+    public function test_site_feature_deleted_listing_credits_wallet_and_acks(): void
+    {
+        config([
+            'site_promotions.feature.price' => 25,
+            'site_promotions.feature.days' => 7,
+        ]);
+
+        $publisher = $this->makeUser('publisher');
+        $site = $this->makeSite($publisher);
+        $siteId = $site->id;
+        $roleId = Wallet::publisherRoleId();
+        $wallet = Wallet::create([
+            'user_id' => $publisher->id,
+            'role_id' => $roleId,
+            'balance' => 0,
+            'reserved_balance' => 0,
+            'bonus_balance' => 0,
+            'bonus_reserved' => 0,
+            'currency' => 'EUR',
+        ]);
+        $site->delete();
+
+        $sessionId = 'cs_feature_deleted_'.uniqid();
+        $event = [
+            'id' => 'evt_feature_deleted_'.uniqid(),
+            'object' => 'event',
+            'type' => 'checkout.session.completed',
+            'data' => [
+                'object' => [
+                    'id' => $sessionId,
+                    'object' => 'checkout.session',
+                    'payment_status' => 'paid',
+                    'payment_intent' => 'pi_feature_deleted',
+                    'amount_total' => 2500,
+                    'metadata' => [
+                        'type' => 'site_feature',
+                        'site_id' => (string) $siteId,
+                        'user_id' => (string) $publisher->id,
+                        'price' => '25',
+                        'days' => '7',
+                    ],
+                ],
+            ],
+        ];
+
+        $this->signedWebhook($event)->assertOk();
+        $this->assertEquals(25.0, (float) $wallet->fresh()->balance);
+
+        $event['id'] = 'evt_feature_deleted_again_'.uniqid();
+        $this->signedWebhook($event)->assertOk();
+
+        $this->assertEquals(25.0, (float) $wallet->fresh()->balance);
+        $this->assertSame(0, SiteFeaturePurchase::where('stripe_session_id', $sessionId)->count());
+    }
+
     public function test_unpaid_order_checkout_session_is_rejected(): void
     {
         $advertiser = $this->makeUser('advertiser');

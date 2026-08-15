@@ -626,6 +626,113 @@ class StripeFirstCheckoutInvariantsTest extends TestCase
         $this->assertEqualsWithDelta(40.0, (float) $wallet->balance, 0.01);
     }
 
+    public function test_leftover_payment_intent_mark_paid_does_not_credit_the_later_session_webhook(): void
+    {
+        $advertiser = $this->makeUser('advertiser');
+        $publisher = $this->makeUser('publisher');
+        $site = $this->makeSite($publisher, 'pi-leftover-ids.example', 80);
+        $wallet = $this->advertiserWallet($advertiser, 0);
+        $ref = 'PI-LEFTOVER-IDS-1';
+        $order = $this->pendingCardOrder($advertiser, $site, $ref, 80);
+        $order->update(['payment_status' => 'failed']);
+
+        $intent = (object) [
+            'id' => 'pi_leftover_ids',
+            'object' => 'payment_intent',
+            'amount' => 8000,
+            'amount_received' => 8000,
+            'metadata' => [
+                'type' => 'order_payment',
+                'reference_code' => $ref,
+                'user_id' => (string) $advertiser->id,
+                'expected_amount' => '80',
+            ],
+        ];
+
+        $paid = app(OrderPaymentService::class)->finalizeStripeFirstCheckout($ref, $intent);
+
+        $this->assertCount(1, $paid);
+        $order->refresh();
+        $this->assertSame('paid', $order->payment_status);
+        $this->assertSame('pi_leftover_ids', $order->stripe_payment_intent_id);
+        $this->assertNotSame('pi_leftover_ids', $order->stripe_session_id);
+
+        $this->assertEqualsWithDelta(
+            0.0,
+            app(OrderPaymentService::class)->creditCapturedCardWhenUnfulfillable(
+                $advertiser->id,
+                $ref,
+                $intent
+            ),
+            0.01
+        );
+
+        $this->signedWebhook([
+            'id' => 'evt_pi_leftover_session_'.uniqid(),
+            'object' => 'event',
+            'type' => 'checkout.session.completed',
+            'data' => [
+                'object' => [
+                    'id' => 'cs_pi_leftover_ids',
+                    'object' => 'checkout.session',
+                    'payment_status' => 'paid',
+                    'amount_total' => 8000,
+                    'payment_intent' => 'pi_leftover_ids',
+                    'metadata' => [
+                        'type' => 'order_payment',
+                        'reference_code' => $ref,
+                        'user_id' => (string) $advertiser->id,
+                        'expected_amount' => '80',
+                    ],
+                ],
+            ],
+        ])->assertOk();
+
+        $this->assertSame(1, Order::query()->where('reference_code', $ref)->where('payment_status', 'paid')->count());
+        $wallet->refresh();
+        $this->assertEqualsWithDelta(0.0, (float) $wallet->balance, 0.01);
+    }
+
+    public function test_legacy_payment_intent_stored_on_session_column_is_still_treated_as_paid(): void
+    {
+        $advertiser = $this->makeUser('advertiser');
+        $publisher = $this->makeUser('publisher');
+        $site = $this->makeSite($publisher, 'legacy-pi-session-col.example', 80);
+        $wallet = $this->advertiserWallet($advertiser, 0);
+        $ref = 'LEGACY-PI-SESSION-1';
+        $order = $this->pendingCardOrder($advertiser, $site, $ref, 80);
+        $order->update([
+            'payment_status' => 'paid',
+            'status' => 'pending',
+            'paid_at' => now(),
+            'stripe_session_id' => 'pi_legacy_session_col',
+            'stripe_payment_intent_id' => null,
+        ]);
+
+        $intent = (object) [
+            'id' => 'pi_legacy_session_col',
+            'object' => 'payment_intent',
+            'amount' => 8000,
+            'amount_received' => 8000,
+            'metadata' => [
+                'type' => 'order_payment',
+                'reference_code' => $ref,
+                'user_id' => (string) $advertiser->id,
+                'expected_amount' => '80',
+            ],
+        ];
+
+        $payments = app(OrderPaymentService::class);
+        $this->assertSame(1, $payments->paidCardOrderCountForStripeCharge($ref, $intent, $advertiser->id));
+        $this->assertEqualsWithDelta(
+            0.0,
+            $payments->creditCapturedCardWhenUnfulfillable($advertiser->id, $ref, $intent),
+            0.01
+        );
+        $wallet->refresh();
+        $this->assertEqualsWithDelta(0.0, (float) $wallet->balance, 0.01);
+    }
+
     public function test_taken_content_library_line_is_refunded_once_not_double_credited(): void
     {
         $advertiser = $this->makeUser('advertiser');

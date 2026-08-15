@@ -13,6 +13,7 @@ use App\Models\WalletTransaction;
 use App\Services\Advertiser\SpendBudgetService;
 use App\Services\Orders\OrderRefundService;
 use App\Services\Wallet\WalletLedgerService;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
@@ -83,16 +84,14 @@ class OrderPaymentService
                 }
 
                 // Keep publisher-visible pending status (scheduled date is in publication_mode).
-                $order->update([
-                    'stripe_session_id' => $session->id ?? $order->stripe_session_id,
-                    'stripe_payment_intent_id' => $session->payment_intent ?? $order->stripe_payment_intent_id,
+                $order->update($this->paidCardStripeIdUpdates($session, [
                     'stripe_response' => method_exists($session, 'toArray')
                         ? json_encode($session->toArray())
                         : json_encode($session),
                     'paid_at' => now(),
                     'payment_status' => 'paid',
                     'status' => 'pending',
-                ]);
+                ]));
 
                 $newlyPaid->push($order->fresh('items'));
             }
@@ -174,15 +173,14 @@ class OrderPaymentService
                     continue;
                 }
 
-                $order->update([
-                    'stripe_payment_intent_id' => $intent->id ?? $order->stripe_payment_intent_id,
+                $order->update($this->paidCardStripeIdUpdates($intent, [
                     'stripe_response' => method_exists($intent, 'toArray')
                         ? json_encode($intent->toArray())
                         : json_encode($intent),
                     'paid_at' => now(),
                     'payment_status' => 'paid',
                     'status' => 'pending',
-                ]);
+                ]));
                 $newlyPaid->push($order->fresh('items'));
             }
 
@@ -838,12 +836,7 @@ class OrderPaymentService
             ->where('payment_status', 'paid')
             ->when($payerId > 0, fn ($query) => $query->where('user_id', $payerId))
             ->where(function ($query) use ($sessionId, $paymentIntentId) {
-                if ($sessionId !== '') {
-                    $query->orWhere('stripe_session_id', $sessionId);
-                }
-                if ($paymentIntentId !== '') {
-                    $query->orWhere('stripe_payment_intent_id', $paymentIntentId);
-                }
+                $this->constrainOrdersToStripeCharge($query, $sessionId, $paymentIntentId);
             })
             ->get();
     }
@@ -874,12 +867,7 @@ class OrderPaymentService
             ->where('payment_status', 'refunded')
             ->when($payerId > 0, fn ($query) => $query->where('user_id', $payerId))
             ->where(function ($query) use ($sessionId, $paymentIntentId) {
-                if ($sessionId !== '') {
-                    $query->orWhere('stripe_session_id', $sessionId);
-                }
-                if ($paymentIntentId !== '') {
-                    $query->orWhere('stripe_payment_intent_id', $paymentIntentId);
-                }
+                $this->constrainOrdersToStripeCharge($query, $sessionId, $paymentIntentId);
             })
             ->sum('total_amount'), 2);
     }
@@ -952,6 +940,24 @@ class OrderPaymentService
     }
 
     /**
+     * Leftover Pay-again rows must use the PaymentIntent mark-paid path.
+     * markOrdersPaidFromStripeSession used to store pi_… on stripe_session_id,
+     * so the later Checkout Session webhook could not see the paid rows and
+     * credited the capture a second time.
+     *
+     * @return Collection<int, Order>
+     */
+    private function markExistingCardOrdersPaid(string $referenceCode, object $session): Collection
+    {
+        [$sessionId, $paymentIntentId] = $this->stripeChargeIds($session);
+        if ($sessionId === '' && $paymentIntentId !== '') {
+            return $this->markOrdersPaidFromPaymentIntent($referenceCode, $session);
+        }
+
+        return $this->markOrdersPaidFromStripeSession($referenceCode, $session);
+    }
+
+    /**
      * @return array{0: string, 1: string}
      */
     private function stripeChargeIds(object $session): array
@@ -968,6 +974,40 @@ class OrderPaymentService
         }
 
         return [$id, (string) $paymentIntent];
+    }
+
+    /**
+     * @param  array<string, mixed>  $updates
+     * @return array<string, mixed>
+     */
+    private function paidCardStripeIdUpdates(object $session, array $updates): array
+    {
+        [$sessionId, $paymentIntentId] = $this->stripeChargeIds($session);
+        if ($sessionId !== '') {
+            $updates['stripe_session_id'] = $sessionId;
+        }
+        if ($paymentIntentId !== '') {
+            $updates['stripe_payment_intent_id'] = $paymentIntentId;
+        }
+
+        return $updates;
+    }
+
+    /**
+     * @param  Builder<Order>|\Illuminate\Database\Query\Builder  $query
+     */
+    private function constrainOrdersToStripeCharge($query, string $sessionId, string $paymentIntentId): void
+    {
+        if ($sessionId !== '') {
+            $query->orWhere('stripe_session_id', $sessionId);
+        }
+        if ($paymentIntentId !== '') {
+            $query->orWhere('stripe_payment_intent_id', $paymentIntentId);
+            // Older leftover mark-paid wrote the PaymentIntent id onto
+            // stripe_session_id. Keep finding those rows so a later
+            // checkout.session.completed cannot wallet-credit them again.
+            $query->orWhere('stripe_session_id', $paymentIntentId);
+        }
     }
 
     private function stripeChargeToken(object $session): string
@@ -1070,7 +1110,7 @@ class OrderPaymentService
             ->get();
 
         if ($existing->contains(fn (Order $order) => $this->canMarkCardOrderPaid($order))) {
-            $marked = $this->markOrdersPaidFromStripeSession($referenceCode, $session);
+            $marked = $this->markExistingCardOrdersPaid($referenceCode, $session);
             if ($marked->isNotEmpty()) {
                 return $marked;
             }
@@ -1139,7 +1179,7 @@ class OrderPaymentService
             );
 
             if ($already->contains(fn (Order $order) => $this->canMarkCardOrderPaid($order))) {
-                return $this->markOrdersPaidFromStripeSession($referenceCode, $session);
+                return $this->markExistingCardOrdersPaid($referenceCode, $session);
             }
 
             if ($this->paidCardOrderCountForStripeCharge(
@@ -1306,7 +1346,7 @@ class OrderPaymentService
                 $this->sessionMetadataArray($session)
             );
             if ($existing->isNotEmpty()) {
-                return $this->markOrdersPaidFromStripeSession($referenceCode, $session);
+                return $this->markExistingCardOrdersPaid($referenceCode, $session);
             }
 
             $userId = (int) ($package['user_id'] ?? 0);

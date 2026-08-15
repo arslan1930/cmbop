@@ -647,17 +647,47 @@ class StripeWebhookController extends Controller
         $userId = isset($metadata['user_id']) ? (int) $metadata['user_id'] : 0;
         $sessionId = (string) ($session->id ?? '');
 
-        if ($siteId <= 0 || $userId <= 0 || $sessionId === '') {
+        if ($userId <= 0 || $sessionId === '') {
             throw new \RuntimeException('Invalid site_feature session metadata');
         }
 
-        $site = Site::find($siteId);
         $user = User::find($userId);
-        if (! $site || ! $user) {
-            throw new \RuntimeException('site_feature site/user not found');
+        if (! $user) {
+            Log::warning('site_feature payer no longer exists; cannot credit captured charge', [
+                'site_id' => $siteId,
+                'user_id' => $userId,
+                'session_id' => $sessionId,
+            ]);
+
+            return;
         }
 
         $promotions = app(SitePromotionService::class);
+        $site = $siteId > 0 ? Site::find($siteId) : null;
+        if (! $site) {
+            $charged = $promotions->stripeChargedEuros($session);
+            $result = $promotions->creditPayerWhenFeatureCannotApply(
+                null,
+                $user,
+                $sessionId,
+                'the listing was removed',
+                $charged > 0 ? $charged : null
+            );
+            if (! ($result['success'] ?? false)) {
+                throw new \RuntimeException($result['message'] ?? 'site_feature site not found');
+            }
+
+            Log::warning('site_feature listing missing; credited payer wallet', [
+                'site_id' => $siteId,
+                'user_id' => $userId,
+                'session_id' => $sessionId,
+                'charged' => $charged,
+                'already' => $result['already'] ?? false,
+            ]);
+
+            return;
+        }
+
         try {
             $promotions->assertStripeChargeMatchesFeaturePrice($session);
         } catch (\RuntimeException $e) {
