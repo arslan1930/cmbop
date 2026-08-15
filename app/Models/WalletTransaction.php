@@ -111,11 +111,25 @@ class WalletTransaction extends Model
 
         try {
             if ($this->relatedTypeIs($type, DepositRequest::class)) {
-                return route('admin.deposits.show', $id);
+                $search = $this->related instanceof DepositRequest
+                    ? trim((string) ($this->related->reference_code ?: ''))
+                    : '';
+                if ($search === '') {
+                    $search = trim((string) ($this->reference ?: ''));
+                }
+
+                return $search !== ''
+                    ? route('admin.deposits', ['search' => $search])
+                    : route('admin.deposits');
             }
 
             if ($this->relatedTypeIs($type, Withdrawal::class)) {
-                $queue = in_array((string) $this->status, ['completed', 'cancelled'], true)
+                // Ledger withdrawal rows stay "pending" after payout; the
+                // Withdrawal status is what the queue actually filters on.
+                $status = $this->related instanceof Withdrawal
+                    ? (string) $this->related->status
+                    : '';
+                $queue = in_array($status, ['completed', 'cancelled'], true)
                     ? 'history'
                     : 'open';
 

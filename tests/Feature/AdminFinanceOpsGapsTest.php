@@ -323,7 +323,7 @@ class AdminFinanceOpsGapsTest extends TestCase
         $pubWallet = Wallet::create([
             'user_id' => $publisher->id,
             'role_id' => $pubRole->id,
-            'balance' => 15,
+            'balance' => 23,
             'reserved_balance' => 0,
             'currency' => 'EUR',
         ]);
@@ -336,7 +336,7 @@ class AdminFinanceOpsGapsTest extends TestCase
             'status' => 'completed',
             'approved_at' => now(),
         ]);
-        $withdrawal = Withdrawal::create([
+        $open = Withdrawal::create([
             'user_id' => $publisher->id,
             'amount' => 15,
             'fee' => 0,
@@ -345,16 +345,35 @@ class AdminFinanceOpsGapsTest extends TestCase
             'payment_details' => ['email' => 'p@example.test'],
             'status' => 'pending',
         ]);
+        $paid = Withdrawal::create([
+            'user_id' => $publisher->id,
+            'amount' => 8,
+            'fee' => 0,
+            'net_amount' => 8,
+            'payment_method' => 'paypal',
+            'payment_details' => ['email' => 'p@example.test'],
+            'status' => 'completed',
+        ]);
 
         app(WalletLedgerService::class)->recordDeposit($advWallet, 40, $deposit, 'bank', 'DEP-LEDGER-LINK');
-        app(WalletLedgerService::class)->recordWithdrawal($pubWallet, 15, $withdrawal, 'pending', 'WD-'.$withdrawal->id);
+        app(WalletLedgerService::class)->recordWithdrawal($pubWallet, 15, $open, 'pending', 'WD-'.$open->id);
+        app(WalletLedgerService::class)->recordWithdrawal($pubWallet, 8, $paid, 'pending', 'WD-'.$paid->id);
 
         $this->actingAs($admin)
             ->get(route('admin.finance.ledger'))
             ->assertOk()
-            ->assertSee(route('admin.deposits.show', $deposit->id), false)
+            ->assertSee(e(route('admin.deposits', ['search' => 'DEP-LEDGER-LINK'])), false)
+            ->assertDontSee(route('admin.deposits.show', $deposit->id), false)
             ->assertSee(e(route('admin.withdrawals', [
-                'search' => (string) $withdrawal->id,
+                'search' => (string) $open->id,
+                'queue' => 'open',
+            ])), false)
+            ->assertSee(e(route('admin.withdrawals', [
+                'search' => (string) $paid->id,
+                'queue' => 'history',
+            ])), false)
+            ->assertDontSee(e(route('admin.withdrawals', [
+                'search' => (string) $paid->id,
                 'queue' => 'open',
             ])), false);
     }
