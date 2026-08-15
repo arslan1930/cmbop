@@ -94,7 +94,7 @@ class WalletTransaction extends Model
         return $status === '' ? '—' : ucfirst(str_replace('_', ' ', $status));
     }
 
-    public function paymentMethodLabel(): string
+    public function paymentMethodKey(): string
     {
         $key = strtolower(trim((string) ($this->payment_method ?? '')));
         if ($key === '' && $this->relatedClassExists()) {
@@ -103,6 +103,13 @@ class WalletTransaction extends Model
                 $key = strtolower(trim((string) $related->payment_method));
             }
         }
+
+        return $key;
+    }
+
+    public function paymentMethodLabel(): string
+    {
+        $key = $this->paymentMethodKey();
 
         return match ($key) {
             'bank', 'bank_transfer' => 'Bank Transfer',
@@ -132,7 +139,11 @@ class WalletTransaction extends Model
         }
 
         try {
-            if ($this->relatedTypeIs($type, DepositRequest::class)) {
+            if (! $this->relatedClassExists()) {
+                return null;
+            }
+
+            if ($this->relatedTypeIs(DepositRequest::class)) {
                 $search = $this->related instanceof DepositRequest
                     ? trim((string) ($this->related->reference_code ?: ''))
                     : '';
@@ -145,7 +156,7 @@ class WalletTransaction extends Model
                     : route('admin.deposits');
             }
 
-            if ($this->relatedTypeIs($type, Withdrawal::class)) {
+            if ($this->relatedTypeIs(Withdrawal::class)) {
                 // Ledger withdrawal rows stay "pending" after payout; the
                 // Withdrawal status is what the queue actually filters on.
                 $status = $this->related instanceof Withdrawal
@@ -161,11 +172,11 @@ class WalletTransaction extends Model
                 ]);
             }
 
-            if ($this->relatedTypeIs($type, Order::class)) {
+            if ($this->relatedTypeIs(Order::class)) {
                 return route('admin.orders.show', $id);
             }
 
-            if ($this->relatedTypeIs($type, OrderItem::class)) {
+            if ($this->relatedTypeIs(OrderItem::class)) {
                 $orderId = (int) ($this->related?->order_id ?? ($this->meta['order_id'] ?? 0));
 
                 return $orderId > 0 ? route('admin.orders.show', $orderId) : null;
@@ -177,19 +188,47 @@ class WalletTransaction extends Model
         return null;
     }
 
-    public function relatedClassExists(): bool
+    /**
+     * @param  iterable<int, mixed>  $rows
+     */
+    public static function eagerLoadKnownRelated(iterable $rows): void
     {
-        $type = trim((string) ($this->related_type ?? ''));
-        if ($type === '') {
-            return false;
+        $known = collect($rows)->filter(
+            fn ($tx) => $tx instanceof self && $tx->relatedClassExists()
+        );
+        if ($known->isEmpty()) {
+            return;
         }
 
-        return class_exists(Model::getActualClassNameForMorph($type));
+        (new \Illuminate\Database\Eloquent\Collection($known->values()->all()))->load('related');
     }
 
-    private function relatedTypeIs(string $stored, string $class): bool
+    public function relatedClassExists(): bool
     {
-        return $stored === $class || str_ends_with($stored, '\\'.class_basename($class));
+        return $this->relatedClass() !== null;
+    }
+
+    private function relatedClass(): ?string
+    {
+        $type = ltrim(trim((string) ($this->related_type ?? '')), '\\');
+        if ($type === '') {
+            return null;
+        }
+
+        $class = ltrim((string) Model::getActualClassNameForMorph($type), '\\');
+        if ($class === '' || ! class_exists($class) || ! is_subclass_of($class, Model::class)) {
+            return null;
+        }
+
+        return $class;
+    }
+
+    private function relatedTypeIs(string $class): bool
+    {
+        $actual = $this->relatedClass();
+        $class = ltrim($class, '\\');
+
+        return $actual !== null && ($actual === $class || str_ends_with($actual, '\\'.class_basename($class)));
     }
 
     public static function typeLabelFor(?string $type): string

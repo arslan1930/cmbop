@@ -629,6 +629,15 @@ class AdminFinanceOpsGapsTest extends TestCase
             ->assertSee('WD-PAYPAL-METHOD')
             ->assertSee('PayPal')
             ->assertDontSee('WD-WISE-METHOD');
+
+        $csv = $this->actingAs($admin)
+            ->get(route('admin.finance.ledger.export', ['payment_method' => 'paypal']))
+            ->assertOk()
+            ->streamedContent();
+
+        $this->assertStringContainsString('WD-PAYPAL-METHOD', $csv);
+        $this->assertStringContainsString('paypal', $csv);
+        $this->assertStringNotContainsString('WD-WISE-METHOD', $csv);
     }
 
     public function test_ledger_wallet_id_filter_hides_other_wallets(): void
@@ -923,6 +932,16 @@ class AdminFinanceOpsGapsTest extends TestCase
             ->assertOk()
             ->assertSee('Unknown morph row')
             ->assertSee('LEDGER-BAD-MORPH');
+
+        $tx->forceFill([
+            'related_type' => 'Fake\\DepositRequest',
+            'related_id' => 1,
+        ])->save();
+
+        $this->actingAs($admin)
+            ->get(route('admin.finance.ledger'))
+            ->assertOk()
+            ->assertSee('Unknown morph row');
     }
 
     public function test_ledger_text_search_matches_user_email_and_reference(): void

@@ -134,9 +134,7 @@ class FinanceController extends Controller
             ->orderByDesc('id')
             ->paginate(40)
             ->appends($exportQuery);
-        $transactions->getCollection()
-            ->filter(fn (WalletTransaction $tx) => $tx->relatedClassExists())
-            ->load('related');
+        WalletTransaction::eagerLoadKnownRelated($transactions->getCollection());
 
         $types = $this->ledgerTypes();
         $typeLabels = [];
@@ -208,6 +206,7 @@ class FinanceController extends Controller
 
             $exported = 0;
             $query->chunkByIdDesc(500, function ($rows) use ($out, &$exported, $limit) {
+                WalletTransaction::eagerLoadKnownRelated($rows);
                 foreach ($rows as $tx) {
                     if ($exported >= $limit) {
                         return false;
@@ -223,7 +222,7 @@ class FinanceController extends Controller
                         $this->csvCell($tx->type),
                         $this->csvCell($tx->direction),
                         $this->csvCell($tx->status),
-                        $this->csvCell($tx->payment_method),
+                        $this->csvCell($tx->paymentMethodKey()),
                         $tx->amount,
                         $tx->bonus_amount,
                         $tx->balance_after,
