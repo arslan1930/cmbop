@@ -109,7 +109,8 @@ class FinanceController extends Controller
 
         $transactions = $this->ledgerQuery($request)
             ->with(['user:id,name,email', 'wallet:id,role_id'])
-            ->latest()
+            ->orderByDesc('created_at')
+            ->orderByDesc('id')
             ->paginate(40)
             ->appends($exportQuery);
 
@@ -303,8 +304,9 @@ class FinanceController extends Controller
                         $sub->where('name', 'like', $like)
                             ->orWhere('email', 'like', $like);
                     });
-                if (ctype_digit($search)) {
-                    $q->orWhere('id', (int) $search);
+                $searchId = $this->intQueryId($search);
+                if ($searchId > 0) {
+                    $q->orWhere('id', $searchId);
                 }
             });
         }

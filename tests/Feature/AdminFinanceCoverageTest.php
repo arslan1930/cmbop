@@ -711,10 +711,13 @@ class AdminFinanceCoverageTest extends TestCase
         $order = $this->completedPaidOrder($advertiser, $publisher, 115, 15, now());
         $order->forceFill(['payment_status' => 'refunded'])->save();
 
-        $dossier = app(FinanceOverviewService::class)->userDossier($publisher);
+        $publisherDossier = app(FinanceOverviewService::class)->userDossier($publisher);
+        $advertiserDossier = app(FinanceOverviewService::class)->userDossier($advertiser);
 
-        $this->assertEquals(100.0, $dossier['totals']['earnings_as_publisher']);
-        $this->assertEquals(15.0, $dossier['totals']['platform_fees_on_their_sites']);
+        $this->assertEquals(100.0, $publisherDossier['totals']['earnings_as_publisher']);
+        $this->assertEquals(15.0, $publisherDossier['totals']['platform_fees_on_their_sites']);
+        $this->assertEquals(115.0, $advertiserDossier['totals']['gmv_as_advertiser']);
+        $this->assertEquals(1, $advertiserDossier['totals']['paid_orders_count']);
     }
 
     public function test_bonus_debit_does_not_inflate_issued_bonuses(): void
@@ -766,5 +769,69 @@ class AdminFinanceCoverageTest extends TestCase
             e(route('admin.finance.export', ['period' => 'week'])),
             $html
         );
+    }
+
+    public function test_ledger_search_leading_zero_does_not_match_transaction_id(): void
+    {
+        $admin = $this->makeUser('admin');
+        $publisher = $this->makeUser('publisher');
+        $pubRole = Role::firstOrCreate(['name' => 'publisher']);
+        $wallet = Wallet::create([
+            'user_id' => $publisher->id,
+            'role_id' => $pubRole->id,
+            'balance' => 9,
+            'reserved_balance' => 0,
+            'currency' => 'EUR',
+        ]);
+        $tx = app(WalletLedgerService::class)->recordTransferIn(
+            $wallet,
+            9,
+            null,
+            'LEDGER-ID-ROW',
+            'Unique ledger id row'
+        );
+
+        $this->actingAs($admin)
+            ->get(route('admin.finance.ledger', ['search' => '0'.$tx->id]))
+            ->assertOk()
+            ->assertDontSee('Unique ledger id row');
+
+        $this->actingAs($admin)
+            ->get(route('admin.finance.ledger', ['search' => (string) $tx->id]))
+            ->assertOk()
+            ->assertSee('Unique ledger id row');
+    }
+
+    public function test_legacy_order_payment_methods_count_as_card_or_manual_cash(): void
+    {
+        $advertiser = $this->makeUser('advertiser');
+        $publisher = $this->makeUser('publisher');
+
+        $stripe = $this->completedPaidOrder($advertiser, $publisher, 100, 15, now());
+        $stripe->forceFill(['payment_method' => 'stripe'])->save();
+
+        $bank = $this->completedPaidOrder($advertiser, $publisher, 40, 5, now());
+        $bank->forceFill(['payment_method' => 'bank_transfer'])->save();
+
+        DepositRequest::create([
+            'user_id' => $advertiser->id,
+            'reference_code' => 'DEP-BANK-TRANSFER',
+            'amount' => 25,
+            'payment_method' => 'bank_transfer',
+            'stripe_session_id' => 'cs_test_bank_transfer',
+            'status' => 'completed',
+            'approved_at' => now(),
+        ]);
+
+        $overview = app(FinanceOverviewService::class)->overview(
+            app(FinanceOverviewService::class)->resolvePeriod('all')
+        );
+
+        $this->assertEquals(100.0, $overview['money_in']['orders_paid']['stripe_card']);
+        $this->assertEquals(40.0, $overview['money_in']['orders_paid']['manual']);
+        $this->assertEquals(25.0, $overview['money_in']['deposits_completed']['manual']);
+        $this->assertEquals(0.0, $overview['money_in']['deposits_completed']['stripe']);
+        $this->assertEquals(165.0, $overview['cash_split']['cash_in_bank']);
+        $this->assertEquals(1.5, $overview['platform']['estimated_stripe_fees']);
     }
 }

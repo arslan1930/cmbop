@@ -338,33 +338,33 @@ class FinanceOverviewService
             ->all();
 
         $gmv = (float) (clone $paidOrders)->sum('total_amount');
-        $stripeOrders = (float) (clone $paidOrders)->where('payment_method', 'card')->sum('total_amount');
+        $stripeOrders = (float) (clone $paidOrders)->whereIn('payment_method', $this->cardRailMethods())->sum('total_amount');
         $walletOrders = (float) (clone $paidOrders)->where('payment_method', 'wallet')->sum('total_amount');
         $manualOrders = (float) (clone $paidOrders)
-            ->whereIn('payment_method', ['wise', 'bank', 'crypto'])
+            ->whereIn('payment_method', $this->manualRailMethods())
             ->sum('total_amount');
 
         $refundedCardOrders = Order::query()
             ->where('payment_status', 'refunded')
-            ->where('payment_method', 'card');
+            ->whereIn('payment_method', $this->cardRailMethods());
         $this->applyPaidWindow($refundedCardOrders, $start, $end);
         $stripeRefunded = (float) $refundedCardOrders->sum('total_amount');
 
         $depositsTotal = (float) (clone $depositsCompleted)->sum('amount');
         $stripeDeposits = (float) (clone $depositsCompleted)
             ->where(function ($q) {
-                $q->whereIn('payment_method', ['card', 'stripe'])
+                $q->whereIn('payment_method', $this->cardRailMethods())
                     ->orWhere(function ($q2) {
                         $q2->whereNotNull('stripe_session_id')
                             ->where(function ($q3) {
                                 $q3->whereNull('payment_method')
-                                    ->orWhereNotIn('payment_method', ['wise', 'bank', 'crypto']);
+                                    ->orWhereNotIn('payment_method', $this->manualRailMethods());
                             });
                     });
             })
             ->sum('amount');
         $manualDeposits = (float) (clone $depositsCompleted)
-            ->whereIn('payment_method', ['wise', 'bank', 'crypto'])
+            ->whereIn('payment_method', $this->manualRailMethods())
             ->sum('amount');
 
         $bonuses = WalletTransaction::where('type', WalletTransaction::TYPE_BONUS_CREDIT)
@@ -559,12 +559,10 @@ class FinanceOverviewService
             })
             ->sum(OrderItem::platformFeeSqlExpression());
 
-        $gmvAsAdvertiser = (float) Order::where('user_id', $user->id)
-            ->where('payment_status', 'paid')
-            ->sum('total_amount');
-        $paidOrdersCount = (int) Order::where('user_id', $user->id)
-            ->where('payment_status', 'paid')
-            ->count();
+        $recognizedAsAdvertiser = Order::where('user_id', $user->id);
+        $this->constrainRecognizedCompletedOrders($recognizedAsAdvertiser);
+        $gmvAsAdvertiser = (float) (clone $recognizedAsAdvertiser)->sum('total_amount');
+        $paidOrdersCount = (int) (clone $recognizedAsAdvertiser)->count();
 
         return [
             'user' => $user,
@@ -899,6 +897,26 @@ class FinanceOverviewService
         } else {
             $query->whereRaw($expr.' <= ?', [$end]);
         }
+    }
+
+    /**
+     * Card / Stripe checkout rails. Older rows may say `stripe` instead of `card`.
+     *
+     * @return list<string>
+     */
+    private function cardRailMethods(): array
+    {
+        return ['card', 'stripe'];
+    }
+
+    /**
+     * Manual cash rails. Invoices treat `bank_transfer` as bank.
+     *
+     * @return list<string>
+     */
+    private function manualRailMethods(): array
+    {
+        return ['wise', 'bank', 'bank_transfer', 'crypto'];
     }
 
     public function parseDay(?string $value, bool $endOfDay): ?Carbon
