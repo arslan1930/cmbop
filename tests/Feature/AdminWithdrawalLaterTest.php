@@ -1697,4 +1697,52 @@ class AdminWithdrawalLaterTest extends TestCase
         Mail::assertNothingQueued();
         $this->assertSame('', (string) $statement->fresh()->customer_email);
     }
+
+    public function test_find_replaces_leftover_name_when_owner_profile_is_blank(): void
+    {
+        $publisher = $this->makeUser('publisher');
+        $publisher->forceFill([
+            'name' => '',
+            'email' => '',
+            'payout_business_name' => null,
+            'billing_name' => null,
+        ])->save();
+        $withdrawal = $this->seedWithdrawal($publisher, [
+            'status' => 'completed',
+            'processed_at' => now(),
+            'payment_method' => 'wise',
+            'payment_details' => ['email' => 'wise-dest@example.com'],
+        ]);
+        $statement = Invoice::create([
+            'user_id' => $publisher->id,
+            'customer_name' => 'Former Owner',
+            'customer_email' => 'leftover-other@example.com',
+            'pdf_path' => 'payouts/stale-leftover-name.pdf',
+            'invoice_number' => 'PAY-LEFTOVER-NAME-1',
+            'type' => Invoice::TYPE_WITHDRAWAL_PAYOUT,
+            'status' => Invoice::STATUS_PAID,
+            'subtotal' => 95,
+            'total_amount' => 95,
+            'invoice_date' => now(),
+            'line_items' => [['description' => 'Payout', 'line_total' => 95]],
+            'pdf_disk' => 'local',
+            'reference_code' => 'WD-'.$withdrawal->id,
+            'meta' => ['withdrawal_id' => $withdrawal->id],
+            'billing_snapshot' => [
+                'name' => 'Former Owner',
+                'email' => 'leftover-other@example.com',
+            ],
+        ]);
+
+        $found = app(WithdrawalPayoutStatementService::class)->find($withdrawal);
+        $this->assertNotNull($found);
+        $found = $found->fresh();
+        $this->assertSame($statement->id, $found->id);
+        $this->assertSame($publisher->id, (int) $found->user_id);
+        $this->assertSame('Publisher #'.$publisher->id, $found->customer_name);
+        $this->assertSame('', (string) $found->customer_email);
+        $this->assertSame('Publisher #'.$publisher->id, data_get($found->billing_snapshot, 'name'));
+        $this->assertNull(data_get($found->billing_snapshot, 'email'));
+        $this->assertNull($found->pdf_path);
+    }
 }

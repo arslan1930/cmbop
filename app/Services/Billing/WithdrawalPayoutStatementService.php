@@ -168,8 +168,10 @@ class WithdrawalPayoutStatementService
         $emailMismatch = $email !== ''
             ? strcasecmp($storedEmail, $email) !== 0
             : $storedEmail !== '';
+        $storedName = trim((string) $statement->customer_name);
         $nameMismatch = $payeeName !== ''
-            && trim((string) $statement->customer_name) !== $payeeName;
+            ? $storedName !== $payeeName
+            : $storedName !== '';
         $metaWithdrawalId = (int) data_get($statement->meta, 'withdrawal_id');
         $metaMismatch = $metaWithdrawalId !== (int) $withdrawal->id;
 
@@ -185,7 +187,9 @@ class WithdrawalPayoutStatementService
 
         // Owner change must never keep the previous publisher's name/email,
         // even when the new owner has a blank profile (Wise/PayPal, no holder).
-        $resolvedName = $payeeName !== '' ? $payeeName : ($ownerMismatch ? 'Publisher #'.$ownerId : '');
+        $resolvedName = $payeeName !== ''
+            ? $payeeName
+            : (($ownerMismatch || $nameMismatch) ? 'Publisher #'.$ownerId : '');
 
         $snapshot = is_array($statement->billing_snapshot) ? $statement->billing_snapshot : [];
         if ($resolvedName !== '') {
@@ -202,6 +206,13 @@ class WithdrawalPayoutStatementService
             $snapshot['state'] = $this->scalarText($user->state) ?: null;
             $snapshot['postal_code'] = $this->scalarText($user->postal_code) ?: null;
             $snapshot['country'] = $this->scalarText($user->country) ?: null;
+        } elseif ($ownerMismatch) {
+            $snapshot['company'] = null;
+            $snapshot['address'] = null;
+            $snapshot['city'] = null;
+            $snapshot['state'] = null;
+            $snapshot['postal_code'] = null;
+            $snapshot['country'] = null;
         }
 
         $fromUserId = (int) $statement->user_id;
