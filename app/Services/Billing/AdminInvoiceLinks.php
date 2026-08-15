@@ -106,6 +106,8 @@ class AdminInvoiceLinks
             ->whereIn('reference_code', $refs->all())
             ->orderByDesc('id')
             ->get()
+            // unique() keeps the first row; after orderByDesc that is the newest.
+            ->unique('reference_code')
             ->keyBy('reference_code');
 
         return $withdrawals->mapWithKeys(function (Withdrawal $withdrawal) use ($statements) {

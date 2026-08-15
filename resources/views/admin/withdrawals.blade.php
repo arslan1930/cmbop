@@ -1016,7 +1016,13 @@ async function runBatch(action, title, confirmText, confirmClass, options) {
             });
             return;
         }
-        toast(body.message || 'Batch failed', 'error');
+        const missing = Array.isArray(body.missing_statement_ids) ? body.missing_statement_ids : [];
+        toast(body.message || 'Batch failed', missing.length ? 'warning' : 'error');
+        if (missing.length) {
+            selectedIds.clear();
+            showHistoryForStatementRetry(missing.length === 1 ? missing[0] : 0);
+            return;
+        }
         refreshAll();
     });
 }
