@@ -8,6 +8,7 @@ use App\Models\Wallet;
 use App\Services\ActivityLogger;
 use App\Services\SitePromotionService;
 use App\Services\StripePaymentService;
+use App\Services\WalletStripeDepositService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -119,6 +120,15 @@ class SitePromotionController extends Controller
                     'price' => (string) $price,
                     'days' => (string) $days,
                 ],
+                'payment_intent_data' => [
+                    'metadata' => [
+                        'type' => 'site_feature',
+                        'site_id' => (string) $site->id,
+                        'user_id' => (string) $user->id,
+                        'price' => (string) $price,
+                        'days' => (string) $days,
+                    ],
+                ],
             ]);
 
             return response()->json([
@@ -155,9 +165,18 @@ class SitePromotionController extends Controller
                     ->with('error', 'Payment was not completed.');
             }
 
-            if ((string) ($session->metadata->user_id ?? '') !== (string) auth()->id()
-                || (string) ($session->metadata->site_id ?? '') !== (string) $site->id
-                || ($session->metadata->type ?? '') !== 'site_feature') {
+            $meta = (array) json_decode(json_encode($session->metadata ?? []), true);
+            if (trim((string) ($meta['type'] ?? '')) === ''
+                || trim((string) ($meta['site_id'] ?? '')) === ''
+                || trim((string) ($meta['user_id'] ?? '')) === '') {
+                $session = app(WalletStripeDepositService::class)
+                    ->withRecoveredPaymentIntentMetadata($session);
+                $meta = (array) json_decode(json_encode($session->metadata ?? []), true);
+            }
+
+            if ((string) ($meta['user_id'] ?? '') !== (string) auth()->id()
+                || (string) ($meta['site_id'] ?? '') !== (string) $site->id
+                || ($meta['type'] ?? '') !== 'site_feature') {
                 return redirect()->route('publisher.websites')
                     ->with('error', 'Payment session does not match this website.');
             }

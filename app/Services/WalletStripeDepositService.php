@@ -205,6 +205,24 @@ class WalletStripeDepositService
             throw new \RuntimeException('wallet_deposit session not paid: '.($paymentStatus ?? 'missing'));
         }
 
+        // Session snapshot can have type without user_id (or the reverse).
+        // Merge the PaymentIntent before refusing — throwing here 500'd the
+        // webhook until Stripe gave up, and Add Funds success told the
+        // advertiser to pay again. Never overlay a wallet PI onto an
+        // order / feature session. Check paid first so overlay cannot
+        // force payment_status=paid on an unpaid snapshot.
+        $session = $this->recoverIncompleteWalletCheckoutSession($session);
+        $metadata = $this->metaArray($session->metadata ?? null);
+        $type = isset($metadata['type']) ? (string) $metadata['type'] : null;
+        $type = $type === '' ? null : $type;
+        $depositId = $metadata['deposit_id'] ?? null;
+        $userId = isset($metadata['user_id']) ? (int) $metadata['user_id'] : null;
+        $referenceCode = $metadata['reference_code'] ?? $referenceCode;
+        $metaAmount = isset($metadata['amount']) ? round((float) $metadata['amount'], 2) : $metaAmount;
+        $sessionReference = trim((string) ($metadata['session_reference'] ?? ''));
+        $sessionId = (string) ($session->id ?? $sessionId);
+        $paymentIntentId = $this->paymentIntentIdFromStripeSession($session) ?: $paymentIntentId;
+
         // Never wallet-credit order / feature Checkout Sessions that land on Add Funds success.
         if (! $this->isWalletDepositType($type, $depositId, $sessionReference)) {
             Log::warning('WalletStripeDepositService: refusing non-wallet Checkout Session', [
@@ -413,6 +431,14 @@ class WalletStripeDepositService
         $amount = $amountFromStripe !== null ? $amountFromStripe : ($metaAmount ?? 0.0);
 
         if ($userId <= 0 || $amount <= 0) {
+            $session = $this->fetchCheckoutSessionForPaymentIntent((string) ($intent->id ?? ''));
+            if (is_object($session)) {
+                // PI can have type while only the Checkout Session has user_id.
+                return $this->creditFromCheckoutSession(
+                    $this->checkoutSessionWithOverlayedMetadata($session, $metadata, (string) $intent->id)
+                );
+            }
+
             throw new \RuntimeException('Invalid wallet_deposit PaymentIntent metadata/amount');
         }
 
@@ -480,6 +506,106 @@ class WalletStripeDepositService
     }
 
     /**
+     * Fill type / user_id from the PaymentIntent when the Checkout Session
+     * snapshot is untyped or a wallet session is missing user_id.
+     * Leaves order / feature sessions alone so a wallet-typed PI cannot
+     * turn an order charge into a wallet credit.
+     */
+    public function recoverIncompleteWalletCheckoutSession(object $session): object
+    {
+        $metadata = $this->metaArray($session->metadata ?? null);
+        $type = isset($metadata['type']) ? (string) $metadata['type'] : null;
+        $type = $type === '' ? null : $type;
+        $userId = isset($metadata['user_id']) ? (int) $metadata['user_id'] : null;
+        if ($userId !== null && $userId <= 0) {
+            $userId = null;
+        }
+
+        if ($type !== null && ! ($this->isExplicitWalletDepositType($type) && ! $userId)) {
+            return $session;
+        }
+
+        $paymentIntentId = $this->paymentIntentIdFromStripeSession($session);
+        if ($paymentIntentId === '') {
+            $sessionId = (string) ($session->id ?? '');
+            if ($sessionId !== '') {
+                $paymentIntentId = $this->lookupPaymentIntentIdForSession($sessionId);
+            }
+        }
+
+        if ($paymentIntentId === '') {
+            return $session;
+        }
+
+        return $this->withRecoveredPaymentIntentMetadata($session, $paymentIntentId);
+    }
+
+    /**
+     * Copy non-empty Checkout Session metadata onto a PaymentIntent when
+     * the PI snapshot omitted type / user_id / session_reference.
+     */
+    public function withRecoveredCheckoutSessionMetadata(object $intent): object
+    {
+        $paymentIntentId = (string) ($intent->id ?? '');
+        if ($paymentIntentId === '') {
+            return $intent;
+        }
+
+        $session = $this->fetchCheckoutSessionForPaymentIntent($paymentIntentId);
+        if (! is_object($session)) {
+            return $intent;
+        }
+
+        $data = json_decode(json_encode($intent), true);
+        if (! is_array($data)) {
+            $data = [];
+        }
+        $overlay = [];
+        foreach ($this->metaArray($session->metadata ?? null) as $key => $value) {
+            if ($value !== null && $value !== '') {
+                $overlay[$key] = $value;
+            }
+        }
+        $data['metadata'] = array_merge($this->metaArray($intent->metadata ?? null), $overlay);
+        if ($paymentIntentId !== '') {
+            $data['id'] = $data['id'] ?? $paymentIntentId;
+        }
+
+        return json_decode(json_encode($data));
+    }
+
+    /**
+     * Copy non-empty PaymentIntent metadata onto a Checkout Session when
+     * the session snapshot omitted type / user_id / session_reference.
+     */
+    public function withRecoveredPaymentIntentMetadata(object $session, string $paymentIntentId = ''): object
+    {
+        $paymentIntentId = $paymentIntentId !== ''
+            ? $paymentIntentId
+            : $this->paymentIntentIdFromStripeSession($session);
+        if ($paymentIntentId === '') {
+            $sessionId = (string) ($session->id ?? '');
+            if ($sessionId !== '') {
+                $paymentIntentId = $this->lookupPaymentIntentIdForSession($sessionId);
+            }
+        }
+        if ($paymentIntentId === '') {
+            return $session;
+        }
+
+        $intent = $this->fetchPaymentIntent($paymentIntentId);
+        if (! is_object($intent)) {
+            return $session;
+        }
+
+        return $this->checkoutSessionWithOverlayedMetadata(
+            $session,
+            $this->metaArray($intent->metadata ?? null),
+            $paymentIntentId
+        );
+    }
+
+    /**
      * Overlay PaymentIntent metadata onto a Checkout Session so feature /
      * wallet handlers can read type after the session snapshot dropped it.
      *
@@ -491,7 +617,13 @@ class WalletStripeDepositService
         if (! is_array($data)) {
             $data = [];
         }
-        $data['metadata'] = array_merge($this->metaArray($session->metadata ?? null), $metadata);
+        $overlay = [];
+        foreach ($metadata as $key => $value) {
+            if ($value !== null && $value !== '') {
+                $overlay[$key] = $value;
+            }
+        }
+        $data['metadata'] = array_merge($this->metaArray($session->metadata ?? null), $overlay);
         if ($paymentIntentId !== '') {
             $data['payment_intent'] = $paymentIntentId;
             $data['payment_status'] = 'paid';

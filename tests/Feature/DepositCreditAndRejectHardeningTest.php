@@ -6,6 +6,7 @@ use App\Models\DepositRequest;
 use App\Models\Role;
 use App\Models\User;
 use App\Models\Wallet;
+use App\Services\StripeCustomerService;
 use App\Services\Wallet\WalletLedgerService;
 use App\Services\WalletStripeDepositService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -79,6 +80,38 @@ class DepositCreditAndRejectHardeningTest extends TestCase
             protected function lookupCheckoutSessionIdForPaymentIntent(string $paymentIntentId): string
             {
                 return $this->sessionForPi;
+            }
+        };
+    }
+
+    private function depositServiceWithPaymentIntent(object $intent): WalletStripeDepositService
+    {
+        return new class(app(WalletLedgerService::class), $intent) extends WalletStripeDepositService
+        {
+            public function __construct(WalletLedgerService $ledger, private object $intent)
+            {
+                parent::__construct($ledger);
+            }
+
+            public function fetchPaymentIntent(string $paymentIntentId): ?object
+            {
+                return $this->intent;
+            }
+        };
+    }
+
+    private function depositServiceWithCheckoutSession(object $session): WalletStripeDepositService
+    {
+        return new class(app(WalletLedgerService::class), $session) extends WalletStripeDepositService
+        {
+            public function __construct(WalletLedgerService $ledger, private object $session)
+            {
+                parent::__construct($ledger);
+            }
+
+            public function fetchCheckoutSessionForPaymentIntent(string $paymentIntentId): ?object
+            {
+                return $this->session;
             }
         };
     }
@@ -2412,5 +2445,201 @@ class DepositCreditAndRejectHardeningTest extends TestCase
         $this->assertSame(25.0, (float) $wallet->fresh()->balance);
         $this->assertSame($pi, $card->fresh()->stripe_payment_intent_id);
         $this->assertSame(1, DepositRequest::query()->where('user_id', $advertiser->id)->count());
+    }
+
+    public function test_wallet_session_without_user_id_credits_from_payment_intent_metadata(): void
+    {
+        $advertiser = $this->advertiser();
+        $wallet = $this->walletFor($advertiser);
+        $pi = 'pi_wallet_user_from_pi_'.uniqid();
+        $service = $this->depositServiceWithPaymentIntent((object) [
+            'id' => $pi,
+            'status' => 'succeeded',
+            'amount' => 4000,
+            'amount_received' => 4000,
+            'metadata' => (object) [
+                'type' => 'wallet_deposit',
+                'user_id' => (string) $advertiser->id,
+                'amount' => '40.00',
+            ],
+        ]);
+
+        $credited = $service->creditFromCheckoutSession((object) [
+            'id' => 'cs_wallet_no_user_recover_'.uniqid(),
+            'payment_status' => 'paid',
+            'amount_total' => 4000,
+            'payment_intent' => $pi,
+            'metadata' => (object) [
+                'type' => 'wallet_deposit',
+                'amount' => '40.00',
+            ],
+        ]);
+
+        $this->assertSame(40.0, $credited);
+        $this->assertSame(40.0, (float) $wallet->fresh()->balance);
+        $this->assertSame(1, DepositRequest::query()->where('user_id', $advertiser->id)->count());
+    }
+
+    public function test_untyped_session_credits_when_payment_intent_has_wallet_type_and_user(): void
+    {
+        $advertiser = $this->advertiser();
+        $wallet = $this->walletFor($advertiser);
+        $pi = 'pi_untyped_cs_wallet_pi_'.uniqid();
+        $service = $this->depositServiceWithPaymentIntent((object) [
+            'id' => $pi,
+            'status' => 'succeeded',
+            'amount' => 4000,
+            'amount_received' => 4000,
+            'metadata' => (object) [
+                'type' => 'wallet_deposit',
+                'user_id' => (string) $advertiser->id,
+                'amount' => '40.00',
+            ],
+        ]);
+
+        $credited = $service->creditFromCheckoutSession((object) [
+            'id' => 'cs_untyped_recover_pi_'.uniqid(),
+            'payment_status' => 'paid',
+            'amount_total' => 4000,
+            'payment_intent' => $pi,
+            'metadata' => (object) [],
+        ]);
+
+        $this->assertSame(40.0, $credited);
+        $this->assertSame(40.0, (float) $wallet->fresh()->balance);
+    }
+
+    public function test_order_session_without_user_id_does_not_take_wallet_user_from_payment_intent(): void
+    {
+        $advertiser = $this->advertiser();
+        $wallet = $this->walletFor($advertiser);
+        $pi = 'pi_order_cs_wallet_pi_'.uniqid();
+        $service = $this->depositServiceWithPaymentIntent((object) [
+            'id' => $pi,
+            'status' => 'succeeded',
+            'amount' => 11500,
+            'amount_received' => 11500,
+            'metadata' => (object) [
+                'type' => 'wallet_deposit',
+                'user_id' => (string) $advertiser->id,
+                'amount' => '115.00',
+            ],
+        ]);
+
+        $credited = $service->creditFromCheckoutSession((object) [
+            'id' => 'cs_order_no_user_'.uniqid(),
+            'payment_status' => 'paid',
+            'amount_total' => 11500,
+            'payment_intent' => $pi,
+            'metadata' => (object) [
+                'type' => 'order_payment',
+                'reference_code' => 'ORD-NO-USER',
+            ],
+        ]);
+
+        $this->assertSame(0.0, $credited);
+        $this->assertSame(0.0, (float) $wallet->fresh()->balance);
+        $this->assertDatabaseCount('deposit_requests', 0);
+    }
+
+    public function test_empty_payment_intent_user_id_does_not_wipe_session_user_id(): void
+    {
+        $advertiser = $this->advertiser();
+        $wallet = $this->walletFor($advertiser);
+        $pi = 'pi_empty_user_overlay_'.uniqid();
+        $service = $this->depositServiceWithPaymentIntent((object) [
+            'id' => $pi,
+            'status' => 'succeeded',
+            'amount' => 4000,
+            'amount_received' => 4000,
+            'metadata' => (object) [
+                'type' => 'wallet_deposit',
+                'user_id' => '',
+                'amount' => '40.00',
+            ],
+        ]);
+
+        $credited = $service->creditFromCheckoutSession((object) [
+            'id' => 'cs_keep_session_user_'.uniqid(),
+            'payment_status' => 'paid',
+            'amount_total' => 4000,
+            'payment_intent' => $pi,
+            'metadata' => (object) [
+                'user_id' => (string) $advertiser->id,
+                'amount' => '40.00',
+                'session_reference' => 'deposit_keep_session_user_40',
+            ],
+        ]);
+
+        $this->assertSame(40.0, $credited);
+        $this->assertSame(40.0, (float) $wallet->fresh()->balance);
+    }
+
+    public function test_payment_intent_without_user_id_recovers_user_from_checkout_session(): void
+    {
+        $advertiser = $this->advertiser();
+        $session = (object) [
+            'id' => 'cs_pi_user_from_cs_'.uniqid(),
+            'payment_status' => 'paid',
+            'amount_total' => 4000,
+            'metadata' => (object) [
+                'type' => 'wallet_deposit',
+                'user_id' => (string) $advertiser->id,
+                'amount' => '40.00',
+            ],
+        ];
+        $service = $this->depositServiceWithCheckoutSession($session);
+
+        $recovered = $service->withRecoveredCheckoutSessionMetadata((object) [
+            'id' => 'pi_missing_user_'.uniqid(),
+            'status' => 'succeeded',
+            'metadata' => (object) [
+                'type' => 'wallet_deposit',
+                'user_id' => '',
+            ],
+        ]);
+
+        $meta = (array) json_decode(json_encode($recovered->metadata ?? []), true);
+        $this->assertSame((string) $advertiser->id, (string) ($meta['user_id'] ?? ''));
+        $this->assertSame('wallet_deposit', $meta['type'] ?? null);
+    }
+
+    public function test_saved_card_wallet_charge_copies_add_funds_session_reference(): void
+    {
+        $advertiser = $this->advertiser();
+        $this->walletFor($advertiser);
+        $captured = [];
+
+        $this->mock(StripeCustomerService::class, function ($mock) use (&$captured) {
+            $mock->shouldReceive('configured')->andReturn(true);
+            $mock->shouldReceive('payWithSavedCard')
+                ->once()
+                ->andReturnUsing(function ($user, $paymentMethodId, $amountCents, $metadata) use (&$captured) {
+                    $captured = $metadata;
+
+                    return [
+                        'status' => 'succeeded',
+                        'payment_intent_id' => 'pi_saved_wallet_'.uniqid(),
+                        'client_secret' => 'pi_saved_wallet_secret',
+                        'amount_received' => $amountCents,
+                    ];
+                });
+        });
+
+        $this->actingAs($advertiser)
+            ->postJson(route('advertiser.add-funds.pay-saved-card'), [
+                'amount' => 40,
+                'payment_method_id' => 'pm_test_visa',
+                'reference_code' => 'DEP-SAVED-40',
+            ])
+            ->assertOk()
+            ->assertJsonPath('success', true);
+
+        $this->assertTrue(WalletStripeDepositService::isAddFundsSessionReference(
+            $captured['session_reference'] ?? ''
+        ));
+        $this->assertSame('wallet_deposit', $captured['type'] ?? null);
+        $this->assertSame((string) $advertiser->id, (string) ($captured['user_id'] ?? ''));
+        $this->assertSame(40.0, (float) Wallet::query()->where('user_id', $advertiser->id)->value('balance'));
     }
 }

@@ -157,6 +157,10 @@ class StripeWebhookController extends Controller
                 $this->handleOrderPaymentIntent($intent, $metadata);
                 break;
 
+            case 'site_feature':
+                $this->handleSiteFeaturePaymentIntent($intent);
+                break;
+
             default:
                 // Add Funds copies session_reference (deposit_{uniqid}) onto the
                 // PaymentIntent. If Stripe omitted type but kept that key,
@@ -223,6 +227,14 @@ class StripeWebhookController extends Controller
         $deposits = app(WalletStripeDepositService::class);
         $paymentIntentId = $deposits->paymentIntentIdFromStripeObject($session);
         if ($paymentIntentId === '') {
+            // A paid session should get a PaymentIntent. Marking processed
+            // here swallowed the charge when the later PI webhook was also
+            // untyped. Tests without a Stripe secret still ignore.
+            if (($session->payment_status ?? null) === 'paid'
+                && trim((string) config('services.stripe.secret', '')) !== '') {
+                throw new \RuntimeException('Untyped paid Checkout Session has no PaymentIntent yet');
+            }
+
             Log::warning('Unable to determine payment type', [
                 'session_id' => $session->id ?? null,
             ]);
@@ -240,9 +252,15 @@ class StripeWebhookController extends Controller
             return;
         }
 
-        $metadata = $this->metaArray($intent->metadata ?? null);
+        $piMetadata = $this->metaArray($intent->metadata ?? null);
+        $sessionMetadata = $this->metaArray($session->metadata ?? null);
+        $metadata = array_merge($sessionMetadata, array_filter(
+            $piMetadata,
+            static fn ($value) => $value !== null && $value !== ''
+        ));
         $paymentType = isset($metadata['type']) ? (string) $metadata['type'] : null;
         $paymentType = $paymentType === '' ? null : $paymentType;
+        $overlayed = $deposits->checkoutSessionWithOverlayedMetadata($session, $piMetadata, $paymentIntentId);
 
         Log::info('Recovered untyped Checkout Session from PaymentIntent', [
             'session_id' => $session->id ?? null,
@@ -253,7 +271,7 @@ class StripeWebhookController extends Controller
         switch ($paymentType) {
             case 'wallet_deposit':
             case 'deposit':
-                $deposits->creditFromPaymentIntentObject($intent);
+                $deposits->creditFromCheckoutSession($overlayed);
 
                 return;
 
@@ -264,15 +282,13 @@ class StripeWebhookController extends Controller
                 return;
 
             case 'site_feature':
-                $this->handleSiteFeatureSession(
-                    $deposits->checkoutSessionWithOverlayedMetadata($session, $metadata, $paymentIntentId)
-                );
+                $this->handleSiteFeatureSession($overlayed);
 
                 return;
 
             default:
                 if (WalletStripeDepositService::isAddFundsSessionReference($metadata['session_reference'] ?? '')) {
-                    $deposits->creditFromPaymentIntentObject($intent);
+                    $deposits->creditFromCheckoutSession($overlayed);
 
                     return;
                 }
@@ -386,8 +402,19 @@ class StripeWebhookController extends Controller
 
     private function handleOrderPaymentSession(object $session): void
     {
+        $paymentStatus = $session->payment_status ?? null;
+        if ($paymentStatus !== 'paid') {
+            throw new \RuntimeException('order_payment session not paid: '.($paymentStatus ?? 'missing'));
+        }
+
         $metadata = $this->metaArray($session->metadata ?? null);
         $referenceCode = $metadata['reference_code'] ?? null;
+        if (! $referenceCode) {
+            $session = app(WalletStripeDepositService::class)
+                ->withRecoveredPaymentIntentMetadata($session);
+            $metadata = $this->metaArray($session->metadata ?? null);
+            $referenceCode = $metadata['reference_code'] ?? null;
+        }
 
         Log::info('Processing order payment webhook', [
             'reference_code' => $referenceCode,
@@ -396,11 +423,6 @@ class StripeWebhookController extends Controller
 
         if (! $referenceCode) {
             throw new \RuntimeException('No reference_code found for order payment session');
-        }
-
-        $paymentStatus = $session->payment_status ?? null;
-        if ($paymentStatus !== 'paid') {
-            throw new \RuntimeException('order_payment session not paid: '.($paymentStatus ?? 'missing'));
         }
 
         $paymentService = app(OrderPaymentService::class);
@@ -454,14 +476,27 @@ class StripeWebhookController extends Controller
      */
     private function handleOrderPaymentIntent(object $intent, array $metadata): void
     {
-        $referenceCode = $metadata['reference_code'] ?? null;
-        if (! $referenceCode) {
-            throw new \RuntimeException('No reference_code on order_payment PaymentIntent');
-        }
-
         $intentStatus = $intent->status ?? null;
         if ($intentStatus !== 'succeeded') {
             throw new \RuntimeException('order_payment PaymentIntent not succeeded: '.($intentStatus ?? 'missing'));
+        }
+
+        $referenceCode = $metadata['reference_code'] ?? null;
+        if (! $referenceCode) {
+            $session = app(WalletStripeDepositService::class)
+                ->fetchCheckoutSessionForPaymentIntent((string) ($intent->id ?? ''));
+            if (is_object($session)) {
+                $sessionMeta = $this->metaArray($session->metadata ?? null);
+                $metadata = array_merge($metadata, array_filter(
+                    $sessionMeta,
+                    static fn ($value) => $value !== null && $value !== ''
+                ));
+                $intent = $this->mergeStripeMetadata($intent, $sessionMeta);
+                $referenceCode = $metadata['reference_code'] ?? null;
+            }
+        }
+        if (! $referenceCode) {
+            throw new \RuntimeException('No reference_code on order_payment PaymentIntent');
         }
 
         $paymentService = app(OrderPaymentService::class);
@@ -506,8 +541,45 @@ class StripeWebhookController extends Controller
         ]);
     }
 
+    private function handleSiteFeaturePaymentIntent(object $intent): void
+    {
+        $intentStatus = $intent->status ?? null;
+        if ($intentStatus !== 'succeeded') {
+            throw new \RuntimeException('site_feature PaymentIntent not succeeded: '.($intentStatus ?? 'missing'));
+        }
+
+        $deposits = app(WalletStripeDepositService::class);
+        $paymentIntentId = (string) ($intent->id ?? '');
+        $session = $deposits->fetchCheckoutSessionForPaymentIntent($paymentIntentId);
+        if (! is_object($session)) {
+            if (trim((string) config('services.stripe.secret', '')) !== '') {
+                throw new \RuntimeException('site_feature PaymentIntent has no Checkout Session yet');
+            }
+
+            Log::info('Ignoring site_feature PaymentIntent without Checkout Session', [
+                'payment_intent_id' => $paymentIntentId,
+            ]);
+
+            return;
+        }
+
+        $this->handleSiteFeatureSession(
+            $deposits->checkoutSessionWithOverlayedMetadata(
+                $session,
+                $this->metaArray($intent->metadata ?? null),
+                $paymentIntentId
+            )
+        );
+    }
+
     private function handleSiteFeatureSession(object $session): void
     {
+        $paymentStatus = $session->payment_status ?? null;
+        if ($paymentStatus !== 'paid') {
+            throw new \RuntimeException('site_feature session not paid: '.($paymentStatus ?? 'missing'));
+        }
+
+        $session = $this->recoverIncompleteSiteFeatureSession($session);
         $metadata = $this->metaArray($session->metadata ?? null);
         $siteId = isset($metadata['site_id']) ? (int) $metadata['site_id'] : 0;
         $userId = isset($metadata['user_id']) ? (int) $metadata['user_id'] : 0;
@@ -515,11 +587,6 @@ class StripeWebhookController extends Controller
 
         if ($siteId <= 0 || $userId <= 0 || $sessionId === '') {
             throw new \RuntimeException('Invalid site_feature session metadata');
-        }
-
-        $paymentStatus = $session->payment_status ?? null;
-        if ($paymentStatus !== 'paid') {
-            throw new \RuntimeException('site_feature session not paid: '.($paymentStatus ?? 'missing'));
         }
 
         $site = Site::find($siteId);
@@ -566,6 +633,51 @@ class StripeWebhookController extends Controller
             'site_id' => $siteId,
             'session_id' => $sessionId,
         ]);
+    }
+
+    private function recoverIncompleteSiteFeatureSession(object $session): object
+    {
+        $metadata = $this->metaArray($session->metadata ?? null);
+        $siteId = isset($metadata['site_id']) ? (int) $metadata['site_id'] : 0;
+        $userId = isset($metadata['user_id']) ? (int) $metadata['user_id'] : 0;
+        if ($siteId > 0 && $userId > 0) {
+            return $session;
+        }
+
+        $deposits = app(WalletStripeDepositService::class);
+        $sessionId = (string) ($session->id ?? '');
+        $fresh = $deposits->refreshCheckoutSession($sessionId);
+        if (is_object($fresh)) {
+            $session = $fresh;
+            $metadata = $this->metaArray($session->metadata ?? null);
+            $siteId = isset($metadata['site_id']) ? (int) $metadata['site_id'] : 0;
+            $userId = isset($metadata['user_id']) ? (int) $metadata['user_id'] : 0;
+            if ($siteId > 0 && $userId > 0) {
+                return $session;
+            }
+        }
+
+        return $deposits->withRecoveredPaymentIntentMetadata($session);
+    }
+
+    /**
+     * @param  array<string, mixed>  $overlay
+     */
+    private function mergeStripeMetadata(object $object, array $overlay): object
+    {
+        $data = json_decode(json_encode($object), true);
+        if (! is_array($data)) {
+            $data = [];
+        }
+        $filtered = [];
+        foreach ($overlay as $key => $value) {
+            if ($value !== null && $value !== '') {
+                $filtered[$key] = $value;
+            }
+        }
+        $data['metadata'] = array_merge($this->metaArray($object->metadata ?? null), $filtered);
+
+        return json_decode(json_encode($data));
     }
 
     /**
