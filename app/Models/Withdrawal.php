@@ -206,15 +206,13 @@ class Withdrawal extends Model
      */
     public function getDestinationSnippetAttribute(): string
     {
-        $details = is_array($this->payment_details)
-            ? $this->payment_details
-            : (json_decode((string) $this->payment_details, true) ?: []);
+        $details = self::detailsArray($this->payment_details);
 
         return match ($this->payment_method) {
             'bank' => $this->bankSnippet($details),
-            'paypal' => 'PayPal · '.$this->maskEmail((string) ($details['email'] ?? '')),
-            'wise' => 'Wise · '.$this->maskEmail((string) ($details['email'] ?? '')),
-            'crypto' => trim(($details['crypto_type'] ?? 'Crypto').' · '.$this->maskWallet((string) ($details['wallet_address'] ?? ''))),
+            'paypal' => 'PayPal · '.$this->maskEmail(self::detailText($details, 'email')),
+            'wise' => 'Wise · '.$this->maskEmail(self::detailText($details, 'email')),
+            'crypto' => trim((self::detailText($details, 'crypto_type') ?: 'Crypto').' · '.$this->maskWallet(self::detailText($details, 'wallet_address'))),
             default => ucfirst((string) $this->payment_method),
         };
     }
@@ -224,9 +222,7 @@ class Withdrawal extends Model
      */
     public function getDestinationCopyTextAttribute(): string
     {
-        $details = is_array($this->payment_details)
-            ? $this->payment_details
-            : (json_decode((string) $this->payment_details, true) ?: []);
+        $details = self::detailsArray($this->payment_details);
 
         $ref = 'WD-'.$this->id;
         $net = number_format((float) $this->net_amount, 2, '.', '');
@@ -235,26 +231,26 @@ class Withdrawal extends Model
             'bank' => implode("\n", array_filter([
                 'Amount: €'.$net,
                 'Reference: '.$ref,
-                'Bank: '.($details['bank_name'] ?? ''),
-                'Account holder: '.($details['account_holder'] ?? ''),
-                'IBAN / Account: '.($details['account_number'] ?? ''),
-                ! empty($details['swift_code']) ? 'SWIFT: '.$details['swift_code'] : null,
+                'Bank: '.self::detailText($details, 'bank_name'),
+                'Account holder: '.self::detailText($details, 'account_holder'),
+                'IBAN / Account: '.self::detailText($details, 'account_number'),
+                self::detailText($details, 'swift_code') !== '' ? 'SWIFT: '.self::detailText($details, 'swift_code') : null,
             ])),
             'paypal' => implode("\n", [
                 'Amount: €'.$net,
                 'Reference: '.$ref,
-                'PayPal: '.($details['email'] ?? ''),
+                'PayPal: '.self::detailText($details, 'email'),
             ]),
             'wise' => implode("\n", [
                 'Amount: €'.$net,
                 'Reference: '.$ref,
-                'Wise: '.($details['email'] ?? ''),
+                'Wise: '.self::detailText($details, 'email'),
             ]),
             'crypto' => implode("\n", [
                 'Amount: €'.$net,
                 'Reference: '.$ref,
-                'Coin: '.($details['crypto_type'] ?? ''),
-                'Wallet: '.($details['wallet_address'] ?? ''),
+                'Coin: '.self::detailText($details, 'crypto_type'),
+                'Wallet: '.self::detailText($details, 'wallet_address'),
             ]),
             default => 'Amount: €'.$net."\nReference: ".$ref,
         };
@@ -283,9 +279,43 @@ class Withdrawal extends Model
         };
     }
 
+    /**
+     * payment_details as an array. JSON scalars / invalid payloads become [].
+     *
+     * @return array<string, mixed>
+     */
+    public static function detailsArray(mixed $value): array
+    {
+        if (is_array($value)) {
+            return $value;
+        }
+
+        if (is_string($value) && $value !== '') {
+            $decoded = json_decode($value, true);
+            if (is_array($decoded)) {
+                return $decoded;
+            }
+        }
+
+        return [];
+    }
+
+    /**
+     * Scalar payout-detail field, or empty when the value is nested/invalid.
+     */
+    public static function detailText(array $details, string $key): string
+    {
+        $value = $details[$key] ?? null;
+        if (is_string($value) || is_int($value) || is_float($value)) {
+            return (string) $value;
+        }
+
+        return '';
+    }
+
     private function bankSnippet(array $details): string
     {
-        $account = preg_replace('/\s+/', '', (string) ($details['account_number'] ?? ''));
+        $account = preg_replace('/\s+/', '', self::detailText($details, 'account_number')) ?? '';
         $last4 = $account !== '' ? substr($account, -4) : '????';
         $prefix = strlen($account) >= 2 ? strtoupper(substr($account, 0, 2)) : 'Bank';
 

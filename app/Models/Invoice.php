@@ -170,8 +170,8 @@ class Invoice extends Model
      */
     public function relatedAdminUrl(): ?string
     {
-        if ($this->order_id) {
-            return route('admin.orders.show', $this->order_id);
+        if ($this->isWithdrawalPayout() && $this->withdrawalId()) {
+            return route('admin.withdrawals.show', $this->withdrawalId());
         }
 
         if ($this->isDepositReceipt()) {
@@ -184,8 +184,8 @@ class Invoice extends Model
             }
         }
 
-        if ($this->isWithdrawalPayout() && $this->withdrawalId()) {
-            return route('admin.withdrawals.show', $this->withdrawalId());
+        if ($this->order_id) {
+            return route('admin.orders.show', $this->order_id);
         }
 
         return null;

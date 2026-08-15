@@ -124,5 +124,10 @@ class MissingRoutesFixesTest extends TestCase
             Request::create('/admin/withdrawals/statistics', 'GET')
         );
         $this->assertSame('admin.withdrawals.statistics', $matched->getName());
+
+        $ids = app('router')->getRoutes()->match(
+            Request::create('/admin/withdrawals/ids', 'GET')
+        );
+        $this->assertSame('admin.withdrawals.ids', $ids->getName());
     }
 }

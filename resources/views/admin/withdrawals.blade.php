@@ -12,7 +12,7 @@
             <p class="text-muted mb-0 small">Pay publishers outside the app, then mark them paid here. Oldest requests first.</p>
         </div>
         <div class="d-flex flex-wrap gap-2">
-            <a href="{{ route('admin.finance') }}" class="btn btn-sm btn-outline-secondary">
+            <a href="{{ route('admin.finance', [], false) }}" class="btn btn-sm btn-outline-secondary">
                 <i class="fa fa-chart-pie me-1"></i> Finance overview
             </a>
             <button type="button" id="exportCsvBtn" class="btn btn-sm btn-outline-primary">
@@ -256,22 +256,28 @@ let currentPage = 1;
 let selectedIds = new Set();
 let lastDetailsCopyText = '';
 let statsScope = 'all';
+let appliedFilters = {};
+let withdrawalsRequestId = 0;
+let statsRequestId = 0;
+let detailsRequestId = 0;
+let matchingRequestId = 0;
 const withdrawalFlags = new Map();
 const duplicateLookbackDays = {{ max(1, (int) config('billing.withdrawal_mark_paid_duplicate_lookback_days', 30)) }};
+const SELECTION_LIMIT = 100;
 
 const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content
     || '{{ csrf_token() }}';
 
-const WD_DATA = @json(route('admin.withdrawals.data'));
-const WD_STATS = @json(route('admin.withdrawals.statistics'));
-const WD_IDS = @json(route('admin.withdrawals.ids'));
-const WD_EXPORT = @json(route('admin.withdrawals.export'));
-const WD_SHOW = @json(route('admin.withdrawals.show', ['id' => '__ID__']));
-const WD_PAID = @json(route('admin.withdrawals.paid', ['id' => '__ID__']));
-const WD_PROCESSING = @json(route('admin.withdrawals.processing', ['id' => '__ID__']));
-const WD_REJECT = @json(route('admin.withdrawals.reject', ['id' => '__ID__']));
-const WD_BATCH = @json(route('admin.withdrawals.batch'));
-const FINANCE_USER = @json(route('admin.finance.user', ['user' => '__ID__']));
+const WD_DATA = @json(route('admin.withdrawals.data', [], false));
+const WD_STATS = @json(route('admin.withdrawals.statistics', [], false));
+const WD_IDS = @json(route('admin.withdrawals.ids', [], false));
+const WD_EXPORT = @json(route('admin.withdrawals.export', [], false));
+const WD_SHOW = @json(route('admin.withdrawals.show', ['id' => '__ID__'], false));
+const WD_PAID = @json(route('admin.withdrawals.paid', ['id' => '__ID__'], false));
+const WD_PROCESSING = @json(route('admin.withdrawals.processing', ['id' => '__ID__'], false));
+const WD_REJECT = @json(route('admin.withdrawals.reject', ['id' => '__ID__'], false));
+const WD_BATCH = @json(route('admin.withdrawals.batch', [], false));
+const FINANCE_USER = @json(route('admin.finance.user', ['user' => '__ID__'], false));
 
 function withdrawalUrl(template, id) {
     return String(template).replace('__ID__', encodeURIComponent(id));
@@ -297,9 +303,26 @@ function resetSelection() {
     updateBatchBar();
 }
 
+function addSelectedId(id) {
+    const n = Number(id);
+    if (!Number.isInteger(n) || n <= 0) return false;
+    if (selectedIds.has(n)) return true;
+    if (selectedIds.size >= SELECTION_LIMIT) return false;
+    selectedIds.add(n);
+    return true;
+}
+
+function snapshotFilters() {
+    appliedFilters = Object.assign({}, filterParams());
+}
+
+function viewFilterParams() {
+    return Object.keys(appliedFilters).length ? Object.assign({}, appliedFilters) : filterParams();
+}
+
 function syncFiltersToUrl() {
     const params = new URLSearchParams();
-    const data = filterParams();
+    const data = viewFilterParams();
     Object.keys(data).forEach(function (key) {
         if (key === 'page') return;
         const value = data[key];
@@ -328,13 +351,50 @@ function escapeHtml(str) {
         .replace(/'/g, '&#39;');
 }
 
+function detailText(details, key) {
+    const value = details && details[key];
+    if (typeof value === 'string' || typeof value === 'number') return String(value);
+    return '';
+}
+
+function isAdminPath(pathname) {
+    return pathname === '/admin' || (typeof pathname === 'string' && pathname.indexOf('/admin/') === 0);
+}
+
+function safeAdminHref(url) {
+    if (!url || typeof url !== 'string') return '';
+    try {
+        const parsed = new URL(url, window.location.origin);
+        if (!isAdminPath(parsed.pathname)) return '';
+        // Path only: APP_URL host/scheme can differ from the tab, and
+        // //evil.example/admin/... must not leave this origin.
+        return parsed.pathname + parsed.search + parsed.hash;
+    } catch (e) {
+        return '';
+    }
+}
+
+function getJson(url, params, success) {
+    return $.ajax({
+        url: url,
+        method: 'GET',
+        data: params || {},
+        dataType: 'json',
+        cache: false,
+        headers: { 'Accept': 'application/json' },
+        success: success,
+    });
+}
+
 function capitalize(str) {
     if (!str) return '';
     return str.charAt(0).toUpperCase() + str.slice(1);
 }
 
 function formatDate(dateString) {
+    if (!dateString) return '—';
     const date = new Date(dateString);
+    if (Number.isNaN(date.getTime())) return '—';
     return date.toLocaleDateString('en-US', {
         year: 'numeric',
         month: 'short',
@@ -371,11 +431,18 @@ function adminStatusLabel(status) {
 }
 
 function waitingLabel(days) {
-    if (days == null) return '<span class="text-muted">—</span>';
+    if (days == null || days === '') return '<span class="text-muted">—</span>';
     const n = parseInt(days, 10);
+    if (!Number.isFinite(n)) return '<span class="text-muted">—</span>';
     if (n <= 0) return '<span class="text-muted">Today</span>';
     const cls = n >= 3 ? 'waiting-urgent' : 'text-muted';
     return `<span class="${cls}">${n}d</span>`;
+}
+
+function formatMoney(value) {
+    const n = Number(value);
+    if (!Number.isFinite(n)) return '—';
+    return n.toFixed(2);
 }
 
 function filterParams() {
@@ -412,8 +479,9 @@ function applyStatsLabels() {
 }
 
 function isHistoryExport() {
-    const status = $('#statusFilter').val();
-    const queue = $('#queueFilter').val();
+    const applied = viewFilterParams();
+    const status = applied.status || '';
+    const queue = applied.queue || 'open';
     return status === 'completed' || status === 'cancelled' || (!status && queue === 'history');
 }
 
@@ -422,11 +490,16 @@ function updateExportButtonLabel() {
 }
 
 function loadStatistics() {
-    const params = statsScope === 'view' ? Object.assign({ scope: 'view' }, filterParams()) : {};
+    const params = statsScope === 'view' ? Object.assign({ scope: 'view' }, viewFilterParams()) : {};
     delete params.page;
     applyStatsLabels();
-    $.getJSON(WD_STATS, params, function(response) {
-        if (!response.success) return;
+    const requestId = ++statsRequestId;
+    getJson(WD_STATS, params, function(response) {
+        if (requestId !== statsRequestId) return;
+        if (!response.success || !response.data) {
+            clearStatsDisplay('Could not load stats');
+            return;
+        }
         const s = response.data;
         $('#statPending').text(s.pending);
         $('#statPendingAmount').text('€' + Number(s.pending_amount || 0).toFixed(2));
@@ -440,44 +513,66 @@ function loadStatistics() {
         const labels = { bank: 'Bank', paypal: 'PayPal', wise: 'Wise', crypto: 'Crypto' };
         const parts = Object.keys(by).map(function(method) {
             const row = by[method];
-            return `<span class="d-inline-block me-2 mb-1"><strong>${row.count}</strong> ${labels[method] || method} · €${Number(row.net_total).toFixed(0)}</span>`;
-        });
+            if (!row || typeof row !== 'object') return '';
+            const label = labels[method] || method;
+            const net = Number(row.net_total);
+            const netLabel = Number.isFinite(net) ? net.toFixed(0) : '—';
+            return `<span class="d-inline-block me-2 mb-1"><strong>${escapeHtml(String(row.count))}</strong> ${escapeHtml(label)} · €${netLabel}</span>`;
+        }).filter(Boolean);
         $('#statByMethod').html(parts.length ? parts.join('') : '<span class="text-muted">No open payouts</span>');
+    }).fail(function() {
+        if (requestId !== statsRequestId) return;
+        clearStatsDisplay('Could not load stats');
     });
+}
+
+function clearStatsDisplay(byMethodText) {
+    $('#statPending').text('—');
+    $('#statPendingAmount').text('€—');
+    $('#statProcessing').text('—');
+    $('#statProcessingAmount').text('€—');
+    $('#statToPay').text('€—');
+    $('#statWeek').text('—');
+    $('#statWeekAmount').text('€—');
+    $('#statByMethod').text(byMethodText || 'Could not load stats');
 }
 
 function loadWithdrawals(page = 1) {
     currentPage = page;
-    const params = filterParams();
-    params.page = page;
+    if (!Object.keys(appliedFilters).length) {
+        snapshotFilters();
+    }
+    const params = Object.assign({}, viewFilterParams(), { page: page });
+    appliedFilters.page = page;
 
     syncFiltersToUrl();
     updateExportButtonLabel();
 
-    $.ajax({
-        url: WD_DATA,
-        method: 'GET',
-        data: params,
-        success: function(response) {
-            if (response.success) {
-                renderWithdrawals(response.data);
-                renderAdminPagination(response.pagination, {
-                    links: '#paginationLinks',
-                    info: '#paginationInfo',
-                    label: 'withdrawals',
-                    onNavigate: loadWithdrawals,
-                });
-            } else {
-                $('#withdrawalsTable').html('<tr><td colspan="10" class="text-center text-danger py-5">' + escapeHtml(response.message || 'Failed to load') + '</td></tr>');
-                $('#paginationInfo').text('');
-                $('#paginationLinks').empty();
+    const requestId = ++withdrawalsRequestId;
+    getJson(WD_DATA, params, function(response) {
+        if (requestId !== withdrawalsRequestId) return;
+        if (response.success) {
+            if (response.pagination && response.pagination.current_page) {
+                currentPage = response.pagination.current_page;
+                appliedFilters.page = currentPage;
             }
-        },
-        error: function() {
-            $('#withdrawalsTable').html('<tr><td colspan="10" class="text-center text-danger py-5">Error loading withdrawals</td></tr>');
+            renderWithdrawals(Array.isArray(response.data) ? response.data : []);
+            renderAdminPagination(response.pagination, {
+                links: '#paginationLinks',
+                info: '#paginationInfo',
+                label: 'withdrawals',
+                onNavigate: loadWithdrawals,
+            });
+        } else {
+            $('#withdrawalsTable').html('<tr><td colspan="10" class="text-center text-danger py-5">' + escapeHtml(response.message || 'Failed to load') + '</td></tr>');
             $('#paginationInfo').text('');
             $('#paginationLinks').empty();
         }
+    }).fail(function() {
+        if (requestId !== withdrawalsRequestId) return;
+        $('#withdrawalsTable').html('<tr><td colspan="10" class="text-center text-danger py-5">Error loading withdrawals</td></tr>');
+        $('#paginationInfo').text('');
+        $('#paginationLinks').empty();
     });
 }
 
@@ -492,8 +587,16 @@ function renderWithdrawals(withdrawals) {
     withdrawals.forEach(function(w) {
         const actionable = w.status === 'pending' || w.status === 'processing';
         const checked = selectedIds.has(Number(w.id)) ? 'checked' : '';
-        const copyEncoded = encodeURIComponent(w.destination_copy_text || '');
+        let copyEncoded = '';
+        try {
+            copyEncoded = encodeURIComponent(w.destination_copy_text || '');
+        } catch (e) {
+            copyEncoded = '';
+        }
         const matchIds = Array.isArray(w.duplicate_match_ids) ? w.duplicate_match_ids : [];
+        const invoiceHref = safeAdminHref(w.invoice_url);
+        const showHref = safeAdminHref(withdrawalUrl(WD_SHOW, w.id));
+        const publisherHref = w.user?.id ? safeAdminHref(withdrawalUrl(FINANCE_USER, w.user.id)) : '';
         withdrawalFlags.set(Number(w.id), {
             possible_duplicate: !!w.possible_duplicate,
             duplicate_match_ids: matchIds,
@@ -510,16 +613,16 @@ function renderWithdrawals(withdrawals) {
                 <td class="text-muted small">WD-${w.id}</td>
                 <td>
                     <div class="d-flex flex-column">
-                        ${w.user?.id
-                            ? `<a href="${escapeHtml(withdrawalUrl(FINANCE_USER, w.user.id))}" class="fw-semibold">${escapeHtml(w.user?.name || 'N/A')}</a>`
+                        ${publisherHref
+                            ? `<a href="${escapeHtml(publisherHref)}" class="fw-semibold">${escapeHtml(w.user?.name || 'N/A')}</a>`
                             : `<span class="fw-semibold">${escapeHtml(w.user?.name || 'N/A')}</span>`}
                         <small class="text-muted">${escapeHtml(w.user?.email || '')}</small>
                     </div>
                 </td>
                 <td>${waitingLabel(w.waiting_days)}</td>
                 <td>
-                    <div class="fw-bold text-success">€${parseFloat(w.net_amount).toFixed(2)}</div>
-                    <small class="text-muted">gross €${parseFloat(w.amount).toFixed(2)}</small>
+                    <div class="fw-bold text-success">€${formatMoney(w.net_amount)}</div>
+                    <small class="text-muted">gross €${formatMoney(w.amount)}</small>
                 </td>
                 <td>${getPaymentMethodBadge(w.payment_method)}</td>
                 <td class="dest-cell">
@@ -528,32 +631,32 @@ function renderWithdrawals(withdrawals) {
                         <i class="fa fa-copy me-1"></i>Copy
                     </button>
                 </td>
-                <td><span class="status-badge ${getStatusClass(w.status)}">${adminStatusLabel(w.status)}</span></td>
+                <td><span class="status-badge ${getStatusClass(w.status)}">${escapeHtml(adminStatusLabel(w.status))}</span></td>
                 <td class="small">${formatDate(w.created_at)}</td>
                 <td>
                     <div class="dropdown admin-manage-dropdown">
                         <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">Manage</button>
                         <ul class="dropdown-menu dropdown-menu-end">
                             <li><button type="button" class="dropdown-item view-details" data-id="${w.id}"><i class="fa fa-eye me-2"></i>View</button></li>
-                            <li><a class="dropdown-item" href="${escapeHtml(withdrawalUrl(WD_SHOW, w.id))}"><i class="fa fa-external-link-alt me-2"></i>Open page</a></li>
-                            ${w.invoice_url ? `<li><a class="dropdown-item" href="${escapeHtml(w.invoice_url)}"><i class="fa fa-file-invoice-dollar me-2"></i>Open invoice</a></li>` : ''}
+                            ${showHref ? `<li><a class="dropdown-item" href="${escapeHtml(showHref)}"><i class="fa fa-external-link-alt me-2"></i>Open page</a></li>` : ''}
+                            ${invoiceHref ? `<li><a class="dropdown-item" href="${escapeHtml(invoiceHref)}"><i class="fa fa-file-invoice-dollar me-2"></i>Open invoice</a></li>` : ''}
                             ${w.status === 'pending' ? `
                             <li><button type="button" class="dropdown-item act-processing" data-id="${w.id}"
                                 data-name="${escapeHtml(w.user?.name || '')}"
-                                data-net="${parseFloat(w.net_amount).toFixed(2)}"
+                                data-net="${formatMoney(w.net_amount)}"
                                 data-method="${escapeHtml(w.payment_method)}"><i class="fa fa-play me-2"></i>Start</button></li>` : ''}
                             ${actionable ? `
                             <li><hr class="dropdown-divider"></li>
                             <li><button type="button" class="dropdown-item act-paid" data-id="${w.id}"
                                 data-name="${escapeHtml(w.user?.name || '')}"
-                                data-net="${parseFloat(w.net_amount).toFixed(2)}"
+                                data-net="${formatMoney(w.net_amount)}"
                                 data-method="${escapeHtml(w.payment_method)}"
                                 data-status="${escapeHtml(w.status)}"
                                 data-duplicate="${w.possible_duplicate ? '1' : '0'}"
                                 data-duplicate-ids="${escapeHtml(matchIds.map(function (id) { return 'WD-' + id; }).join(', '))}"><i class="fa fa-check me-2"></i>Mark paid</button></li>
                             <li><button type="button" class="dropdown-item text-danger act-reject" data-id="${w.id}"
                                 data-name="${escapeHtml(w.user?.name || '')}"
-                                data-amount="${parseFloat(w.amount).toFixed(2)}"><i class="fa fa-times me-2"></i>Reject</button></li>` : ''}
+                                data-amount="${formatMoney(w.amount)}"><i class="fa fa-times me-2"></i>Reject</button></li>` : ''}
                         </ul>
                     </div>
                 </td>
@@ -642,7 +745,7 @@ $(document).on('click', '.act-processing', async function() {
     postAction(withdrawalUrl(WD_PROCESSING, id), { notes })
         .done(function(res) {
             toast(res.message || 'Updated');
-            selectedIds.delete(id);
+            selectedIds.delete(Number(id));
             refreshAll();
         })
         .fail(function(xhr) {
@@ -694,7 +797,7 @@ $(document).on('click', '.act-paid', async function() {
     postAction(withdrawalUrl(WD_PAID, id), { notes })
         .done(function(res) {
             toast(res.message || 'Marked paid');
-            selectedIds.delete(id);
+            selectedIds.delete(Number(id));
             refreshAll();
         })
         .fail(function(xhr) {
@@ -716,7 +819,7 @@ $(document).on('click', '.act-reject', async function() {
     postAction(withdrawalUrl(WD_REJECT, id), { notes })
         .done(function(res) {
             toast(res.message || 'Rejected');
-            selectedIds.delete(id);
+            selectedIds.delete(Number(id));
             refreshAll();
         })
         .fail(function(xhr) {
@@ -735,19 +838,35 @@ $(document).on('click', '.copy-dest', function() {
 
 $(document).on('change', '.row-select', function() {
     const id = parseInt($(this).val(), 10);
-    if ($(this).is(':checked')) selectedIds.add(id);
-    else selectedIds.delete(id);
+    if ($(this).is(':checked')) {
+        if (!addSelectedId(id)) {
+            $(this).prop('checked', false);
+            toast('Selection is limited to ' + SELECTION_LIMIT, 'info');
+        }
+    } else {
+        selectedIds.delete(id);
+    }
     updateBatchBar();
 });
 
 $('#selectAll').on('change', function() {
     const checked = $(this).is(':checked');
+    let capped = false;
     $('.row-select').each(function() {
         const id = parseInt($(this).val(), 10);
-        $(this).prop('checked', checked);
-        if (checked) selectedIds.add(id);
-        else selectedIds.delete(id);
+        if (!checked) {
+            $(this).prop('checked', false);
+            selectedIds.delete(id);
+            return;
+        }
+        if (!addSelectedId(id)) {
+            $(this).prop('checked', false);
+            capped = true;
+            return;
+        }
+        $(this).prop('checked', true);
     });
+    if (capped) toast('Selection is limited to ' + SELECTION_LIMIT, 'info');
     updateBatchBar();
 });
 
@@ -757,20 +876,54 @@ $('#clearSelectionBtn').on('click', function() {
     updateBatchBar();
 });
 
-function selectedDuplicateRefs() {
+function uniqueWdRefs(ids) {
     const refs = [];
-    selectedIds.forEach(function (id) {
-        const flag = withdrawalFlags.get(Number(id));
-        if (flag && flag.possible_duplicate) {
-            refs.push('WD-' + id);
-        }
+    const seen = new Set();
+    (Array.isArray(ids) ? ids : []).forEach(function (id) {
+        const n = Number(id);
+        if (!Number.isInteger(n) || n <= 0) return;
+        const ref = 'WD-' + n;
+        if (seen.has(ref)) return;
+        seen.add(ref);
+        refs.push(ref);
     });
     return refs;
 }
 
+function paidMatchIdsFromMap(map) {
+    const ids = [];
+    if (!map || typeof map !== 'object' || Array.isArray(map)) return ids;
+    Object.keys(map).forEach(function (key) {
+        const row = map[key];
+        if (!Array.isArray(row)) return;
+        row.forEach(function (id) { ids.push(id); });
+    });
+    return ids;
+}
+
+function selectedDuplicateRefs() {
+    const ids = [];
+    selectedIds.forEach(function (id) {
+        const flag = withdrawalFlags.get(Number(id));
+        if (!flag || !flag.possible_duplicate) return;
+        const matchIds = Array.isArray(flag.duplicate_match_ids) ? flag.duplicate_match_ids : [];
+        if (matchIds.length) {
+            matchIds.forEach(function (matchId) { ids.push(matchId); });
+            return;
+        }
+        ids.push(id);
+    });
+    return uniqueWdRefs(ids);
+}
+
 async function runBatch(action, title, confirmText, confirmClass, options) {
-    if (selectedIds.size === 0) return;
     options = options || {};
+    const ids = (Array.isArray(options.ids) ? options.ids : Array.from(selectedIds))
+        .map(Number)
+        .filter(function (id) { return Number.isInteger(id) && id > 0; })
+        .filter(function (id, index, all) { return all.indexOf(id) === index; })
+        .slice(0, SELECTION_LIMIT);
+    if (ids.length === 0) return;
     const confirmDuplicates = !!options.confirmDuplicates;
     const dupRefs = action === 'completed'
         ? (options.duplicateRefs && options.duplicateRefs.length ? options.duplicateRefs : selectedDuplicateRefs())
@@ -778,17 +931,30 @@ async function runBatch(action, title, confirmText, confirmClass, options) {
     const warn = (action === 'completed' && (confirmDuplicates || dupRefs.length))
         ? duplicateWarningHtml(dupRefs.join(', ') || 'selected rows')
         : '';
-    const notes = await confirmNotes(
-        title,
-        `Apply to <strong>${selectedIds.size}</strong> selected withdrawal(s).${warn}`,
-        confirmText,
-        confirmClass
-    );
-    if (notes === null) return;
-    if (action === 'completed' && !options.skipPendingConfirm && !await confirmPendingPayIfNeeded(Array.from(selectedIds))) return;
-
+    let notes;
+    if (Object.prototype.hasOwnProperty.call(options, 'notes')) {
+        notes = options.notes;
+        const result = await Swal.fire({
+            title,
+            html: `Apply to <strong>${ids.length}</strong> selected withdrawal(s).${warn}`,
+            showCancelButton: true,
+            confirmButtonText: confirmText,
+            cancelButtonText: 'Cancel',
+            customClass: { confirmButton: confirmClass || '' },
+        });
+        if (!result.isConfirmed) return;
+    } else {
+        notes = await confirmNotes(
+            title,
+            `Apply to <strong>${ids.length}</strong> selected withdrawal(s).${warn}`,
+            confirmText,
+            confirmClass
+        );
+        if (notes === null) return;
+    }
+    if (action === 'completed' && !options.skipPendingConfirm && !await confirmPendingPayIfNeeded(ids)) return;
     const payload = {
-        ids: Array.from(selectedIds),
+        ids: ids,
         action,
         notes,
     };
@@ -803,10 +969,13 @@ async function runBatch(action, title, confirmText, confirmClass, options) {
     }).fail(function(xhr) {
         const body = xhr.responseJSON || {};
         if (action === 'completed' && xhr.status === 422 && body.needs_duplicate_confirm && !confirmDuplicates) {
+            const paidIds = paidMatchIdsFromMap(body.duplicate_match_ids);
             runBatch(action, 'Possible duplicate payout', confirmText, confirmClass, {
                 confirmDuplicates: true,
                 skipPendingConfirm: true,
-                duplicateRefs: (body.duplicate_ids || []).map(function (id) { return 'WD-' + id; }),
+                notes: notes,
+                ids: ids,
+                duplicateRefs: uniqueWdRefs(paidIds.length ? paidIds : (Array.isArray(body.duplicate_ids) ? body.duplicate_ids : [])),
             });
             return;
         }
@@ -821,7 +990,7 @@ $('#batchRejectBtn').on('click', () => runBatch('cancelled', 'Reject selected & 
 
 function buildExportUrl(extra = {}) {
     const params = new URLSearchParams();
-    const filters = filterParams();
+    const filters = viewFilterParams();
     Object.keys(filters).forEach(function (key) {
         if (key === 'page') return;
         const value = filters[key];
@@ -855,31 +1024,50 @@ $('#exportCsvBtn').on('click', async function() {
 });
 
 $('#selectMatchingBtn').on('click', function() {
-    const params = filterParams();
+    const params = viewFilterParams();
     delete params.page;
-    $.getJSON(WD_IDS, params, function(res) {
+    const requestId = ++matchingRequestId;
+    getJson(WD_IDS, params, function(res) {
+        if (requestId !== matchingRequestId) return;
         if (!res.success) {
             toast(res.message || 'Could not load matching ids', 'error');
             return;
         }
-        const pendingSet = new Set((res.pending_ids || []).map(Number));
-        (res.ids || []).forEach(function (id) {
-            selectedIds.add(Number(id));
-            const existing = withdrawalFlags.get(Number(id)) || {};
-            existing.status = pendingSet.has(Number(id)) ? 'pending' : (existing.status || 'processing');
-            withdrawalFlags.set(Number(id), existing);
+        selectedIds.clear();
+        const pendingSet = new Set((Array.isArray(res.pending_ids) ? res.pending_ids : []).map(Number));
+        const dupSet = new Set((Array.isArray(res.duplicate_ids) ? res.duplicate_ids : []).map(Number));
+        const matchMap = (res.duplicate_match_ids && typeof res.duplicate_match_ids === 'object' && !Array.isArray(res.duplicate_match_ids))
+            ? res.duplicate_match_ids
+            : {};
+        (Array.isArray(res.ids) ? res.ids : []).forEach(function (id) {
+            if (!addSelectedId(id)) return;
+            const n = Number(id);
+            const existing = withdrawalFlags.get(n) || {};
+            existing.status = pendingSet.has(n) ? 'pending' : 'processing';
+            existing.possible_duplicate = dupSet.has(n);
+            const matchIds = matchMap[n] || matchMap[String(n)];
+            if (Array.isArray(matchIds)) {
+                existing.duplicate_match_ids = matchIds.map(Number).filter(function (matchId) {
+                    return Number.isInteger(matchId) && matchId > 0;
+                });
+            }
+            withdrawalFlags.set(n, existing);
         });
         $('.row-select').each(function() {
             const id = parseInt($(this).val(), 10);
             $(this).prop('checked', selectedIds.has(id));
         });
         updateBatchBar();
-        if (res.capped) {
-            toast('Selected first ' + res.limit + ' of ' + res.total + ' matching (cap ' + res.limit + ')', 'info');
+        const selectedCount = selectedIds.size;
+        const returned = Array.isArray(res.ids) ? res.ids.length : 0;
+        const total = Number(res.total);
+        if (res.capped || selectedCount < returned || (Number.isFinite(total) && selectedCount < total)) {
+            toast('Selected first ' + selectedCount + ' of ' + (Number.isFinite(total) ? total : returned) + ' matching (cap ' + SELECTION_LIMIT + ')', 'info');
         } else {
-            toast((res.ids || []).length + ' matching selected');
+            toast(selectedCount + ' matching selected');
         }
     }).fail(function() {
+        if (requestId !== matchingRequestId) return;
         toast('Could not load matching ids', 'error');
     });
 });
@@ -899,39 +1087,47 @@ $('#batchExportBtn').on('click', function() {
 // Details modal
 $(document).on('click', '.view-details', function() {
     const id = $(this).data('id');
-    $.getJSON(withdrawalUrl(WD_SHOW, id), function(response) {
-        if (!response.success) {
+    const requestId = ++detailsRequestId;
+    getJson(withdrawalUrl(WD_SHOW, id), {}, function(response) {
+        if (requestId !== detailsRequestId) return;
+        if (!response.success || !response.data) {
             toast('Failed to load details', 'error');
             return;
         }
         renderDetails(response.data);
         $('#detailsModal').modal('show');
     }).fail(function() {
+        if (requestId !== detailsRequestId) return;
         toast('Failed to load details', 'error');
     });
 });
 
 function renderDetails(withdrawal) {
-    const paymentDetails = withdrawal.payment_details || {};
+    const paymentDetails = withdrawal.payment_details && typeof withdrawal.payment_details === 'object' && !Array.isArray(withdrawal.payment_details)
+        ? withdrawal.payment_details
+        : {};
+    const detailOrNa = function (key) {
+        return detailText(paymentDetails, key) || 'N/A';
+    };
     let paymentDetailsHtml = '';
 
     switch (withdrawal.payment_method) {
         case 'bank':
             paymentDetailsHtml = `
-                <p class="mb-1"><strong>Bank Name:</strong> ${escapeHtml(paymentDetails.bank_name || 'N/A')}</p>
-                <p class="mb-1"><strong>Account Holder:</strong> ${escapeHtml(paymentDetails.account_holder || 'N/A')}</p>
-                <p class="mb-1"><strong>Account Number:</strong> ${escapeHtml(paymentDetails.account_number || 'N/A')}</p>
-                <p class="mb-1"><strong>SWIFT Code:</strong> ${escapeHtml(paymentDetails.swift_code || 'N/A')}</p>
+                <p class="mb-1"><strong>Bank Name:</strong> ${escapeHtml(detailOrNa('bank_name'))}</p>
+                <p class="mb-1"><strong>Account Holder:</strong> ${escapeHtml(detailOrNa('account_holder'))}</p>
+                <p class="mb-1"><strong>Account Number:</strong> ${escapeHtml(detailOrNa('account_number'))}</p>
+                <p class="mb-1"><strong>SWIFT Code:</strong> ${escapeHtml(detailOrNa('swift_code'))}</p>
             `;
             break;
         case 'paypal':
         case 'wise':
-            paymentDetailsHtml = `<p class="mb-1"><strong>Email:</strong> ${escapeHtml(paymentDetails.email || 'N/A')}</p>`;
+            paymentDetailsHtml = `<p class="mb-1"><strong>Email:</strong> ${escapeHtml(detailOrNa('email'))}</p>`;
             break;
         case 'crypto':
             paymentDetailsHtml = `
-                <p class="mb-1"><strong>Cryptocurrency:</strong> ${escapeHtml(paymentDetails.crypto_type || 'N/A')}</p>
-                <p class="mb-1"><strong>Wallet Address:</strong> ${escapeHtml(paymentDetails.wallet_address || 'N/A')}</p>
+                <p class="mb-1"><strong>Cryptocurrency:</strong> ${escapeHtml(detailOrNa('crypto_type'))}</p>
+                <p class="mb-1"><strong>Wallet Address:</strong> ${escapeHtml(detailOrNa('wallet_address'))}</p>
             `;
             break;
     }
@@ -945,23 +1141,25 @@ function renderDetails(withdrawal) {
         : '';
 
     const userId = withdrawal.user?.id;
-    if (userId) {
+    const publisherHref = userId ? safeAdminHref(withdrawalUrl(FINANCE_USER, userId)) : '';
+    if (publisherHref) {
         $('#openPublisherLink')
             .removeClass('d-none')
-            .attr('href', withdrawalUrl(FINANCE_USER, userId));
+            .attr('href', publisherHref);
     } else {
-        $('#openPublisherLink').addClass('d-none');
+        $('#openPublisherLink').addClass('d-none').attr('href', '#');
     }
 
-    if (withdrawal.invoice_url) {
+    const invoiceHref = safeAdminHref(withdrawal.invoice_url);
+    if (invoiceHref) {
         $('#openInvoiceLink')
             .removeClass('d-none')
-            .attr('href', withdrawal.invoice_url);
+            .attr('href', invoiceHref);
     } else {
         $('#openInvoiceLink').addClass('d-none').attr('href', '#');
     }
 
-    $('#openShowPageLink').attr('href', withdrawalUrl(WD_SHOW, withdrawal.id));
+    $('#openShowPageLink').attr('href', safeAdminHref(withdrawalUrl(WD_SHOW, withdrawal.id)) || '#');
 
     $('#detailsContent').html(`
         ${duplicateAlert}
@@ -978,7 +1176,7 @@ function renderDetails(withdrawal) {
                     <h6 class="mb-3">Request</h6>
                     <p class="mb-1"><strong>Reference:</strong> WD-${withdrawal.id}</p>
                     <p class="mb-1"><strong>Date:</strong> ${formatDate(withdrawal.created_at)}</p>
-                    <p class="mb-1"><strong>Status:</strong> <span class="status-badge ${getStatusClass(withdrawal.status)}">${adminStatusLabel(withdrawal.status)}</span></p>
+                    <p class="mb-1"><strong>Status:</strong> <span class="status-badge ${getStatusClass(withdrawal.status)}">${escapeHtml(adminStatusLabel(withdrawal.status))}</span></p>
                     ${withdrawal.waiting_days != null ? `<p class="mb-1"><strong>Waiting:</strong> ${withdrawal.waiting_days}d</p>` : ''}
                 </div>
             </div>
@@ -987,9 +1185,9 @@ function renderDetails(withdrawal) {
             <div class="col-md-6">
                 <div class="bg-light p-3 rounded">
                     <h6 class="mb-3">Amounts</h6>
-                    <p class="mb-1"><strong>Gross:</strong> €${parseFloat(withdrawal.amount).toFixed(2)}</p>
-                    <p class="mb-1"><strong>Fee:</strong> €${parseFloat(withdrawal.fee).toFixed(2)}</p>
-                    <p class="mb-1"><strong>Net to pay:</strong> <span class="text-success fw-bold">€${parseFloat(withdrawal.net_amount).toFixed(2)}</span></p>
+                    <p class="mb-1"><strong>Gross:</strong> €${formatMoney(withdrawal.amount)}</p>
+                    <p class="mb-1"><strong>Fee:</strong> €${formatMoney(withdrawal.fee)}</p>
+                    <p class="mb-1"><strong>Net to pay:</strong> <span class="text-success fw-bold">€${formatMoney(withdrawal.net_amount)}</span></p>
                 </div>
             </div>
             <div class="col-md-6">
@@ -1007,9 +1205,16 @@ $('#copyDetailsBtn').on('click', function() {
     if (lastDetailsCopyText) copyText(lastDetailsCopyText);
 });
 
+function reloadFilteredView() {
+    currentPage = 1;
+    snapshotFilters();
+    loadStatistics();
+    loadWithdrawals(1);
+}
+
 $('#filterBtn').on('click', function () {
     resetSelection();
-    loadWithdrawals(1);
+    reloadFilteredView();
 });
 $('#resetFiltersBtn').on('click', function() {
     $('#queueFilter').val('open');
@@ -1020,13 +1225,13 @@ $('#resetFiltersBtn').on('click', function() {
     $('#searchInput').val('');
     withdrawalFlags.clear();
     resetSelection();
-    loadWithdrawals(1);
+    reloadFilteredView();
 });
 
 $('#queueFilter').on('change', function() {
     if ($(this).val() === 'open') $('#statusFilter').val('');
     resetSelection();
-    loadWithdrawals(1);
+    reloadFilteredView();
 });
 
 document.addEventListener('DOMContentLoaded', function () {
@@ -1035,12 +1240,12 @@ document.addEventListener('DOMContentLoaded', function () {
             mode: 'event',
             statusEl: document.getElementById('adminWithdrawalsSearchStatus'),
             clearBtn: document.getElementById('adminWithdrawalsSearchClear'),
-            onSearch: function () { resetSelection(); loadWithdrawals(1); },
+            onSearch: function () { resetSelection(); reloadFilteredView(); },
         });
         return;
     }
     $('#searchInput').on('keypress', function(e) {
-        if (e.which === 13) { resetSelection(); loadWithdrawals(1); }
+        if (e.which === 13) { resetSelection(); reloadFilteredView(); }
     });
 });
 
@@ -1055,6 +1260,7 @@ document.addEventListener('DOMContentLoaded', function () {
     applyDateIfValid('#dateTo', q.get('date_to'));
 })();
 
+snapshotFilters();
 loadStatistics();
 loadWithdrawals(1);
 </script>

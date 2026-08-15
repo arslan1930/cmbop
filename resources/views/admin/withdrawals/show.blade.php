@@ -2,9 +2,9 @@
 
 @section('content')
 @php
-    $details = is_array($withdrawal->payment_details)
-        ? $withdrawal->payment_details
-        : (json_decode((string) $withdrawal->payment_details, true) ?: []);
+    $rawDetails = \App\Models\Withdrawal::detailsArray($withdrawal->payment_details);
+    $detail = fn (string $key) => \App\Models\Withdrawal::detailText($rawDetails, $key);
+    $detailOrNa = fn (string $key) => ($value = $detail($key)) !== '' ? $value : 'N/A';
     $adminStatus = match ($withdrawal->status) {
         'pending' => 'Pending',
         'processing' => 'Processing',
@@ -25,7 +25,7 @@
 @endphp
 <div class="container-fluid py-3">
     <div class="mb-3">
-        <a href="{{ route('admin.withdrawals', ['search' => (string) $withdrawal->id, 'queue' => $queue]) }}"
+        <a href="{{ route('admin.withdrawals', ['search' => (string) $withdrawal->id, 'queue' => $queue], false) }}"
            class="small text-muted text-decoration-none">
             <i class="fa fa-arrow-left me-1"></i> Back to payout queue
         </a>
@@ -43,12 +43,12 @@
         </div>
         <div class="d-flex flex-wrap gap-2">
             @if($withdrawal->user_id)
-                <a href="{{ route('admin.finance.user', $withdrawal->user_id) }}" class="btn btn-sm btn-outline-secondary">
+                <a href="{{ route('admin.finance.user', $withdrawal->user_id, false) }}" class="btn btn-sm btn-outline-secondary">
                     <i class="fa fa-user me-1"></i> Open publisher / edit payout
                 </a>
             @endif
-            @if($withdrawal->invoice_url)
-                <a href="{{ $withdrawal->invoice_url }}" class="btn btn-sm btn-outline-secondary">
+            @if(!empty($invoiceUrl))
+                <a href="{{ $invoiceUrl }}" class="btn btn-sm btn-outline-secondary">
                     <i class="fa fa-file-invoice-dollar me-1"></i> Open invoice
                 </a>
             @endif
@@ -88,15 +88,15 @@
                 <div class="card-body">
                     <h6 class="mb-3">Payout destination ({{ \App\Models\Invoice::paymentMethodLabel($withdrawal->payment_method) }})</h6>
                     @if($withdrawal->payment_method === 'bank')
-                        <p class="mb-1"><strong>Bank Name:</strong> {{ $details['bank_name'] ?? 'N/A' }}</p>
-                        <p class="mb-1"><strong>Account Holder:</strong> {{ $details['account_holder'] ?? 'N/A' }}</p>
-                        <p class="mb-1"><strong>Account Number:</strong> {{ $details['account_number'] ?? 'N/A' }}</p>
-                        <p class="mb-0"><strong>SWIFT Code:</strong> {{ $details['swift_code'] ?? 'N/A' }}</p>
+                        <p class="mb-1"><strong>Bank Name:</strong> {{ $detailOrNa('bank_name') }}</p>
+                        <p class="mb-1"><strong>Account Holder:</strong> {{ $detailOrNa('account_holder') }}</p>
+                        <p class="mb-1"><strong>Account Number:</strong> {{ $detailOrNa('account_number') }}</p>
+                        <p class="mb-0"><strong>SWIFT Code:</strong> {{ $detailOrNa('swift_code') }}</p>
                     @elseif(in_array($withdrawal->payment_method, ['paypal', 'wise'], true))
-                        <p class="mb-0"><strong>Email:</strong> {{ $details['email'] ?? 'N/A' }}</p>
+                        <p class="mb-0"><strong>Email:</strong> {{ $detailOrNa('email') }}</p>
                     @elseif($withdrawal->payment_method === 'crypto')
-                        <p class="mb-1"><strong>Cryptocurrency:</strong> {{ $details['crypto_type'] ?? 'N/A' }}</p>
-                        <p class="mb-0"><strong>Wallet Address:</strong> {{ $details['wallet_address'] ?? 'N/A' }}</p>
+                        <p class="mb-1"><strong>Cryptocurrency:</strong> {{ $detailOrNa('crypto_type') }}</p>
+                        <p class="mb-0"><strong>Wallet Address:</strong> {{ $detailOrNa('wallet_address') }}</p>
                     @else
                         <p class="mb-0 text-muted">{{ $withdrawal->destination_snippet ?: '—' }}</p>
                     @endif
