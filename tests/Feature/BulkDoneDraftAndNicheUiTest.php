@@ -856,6 +856,9 @@ class BulkDoneDraftAndNicheUiTest extends TestCase
         $this->assertStringContainsString("fresh(['publisher']) ?? \$bulkRequest", $controller);
         $this->assertStringNotContainsString('$bulkRequest->refresh();', $controller);
         $this->assertStringContainsString('$reloaded = $bulkRequest->fresh([', $controller);
+        $this->assertStringContainsString('findOccupyingPendingDomain', $controller);
+        $this->assertStringContainsString('$otherPending', $controller);
+        $this->assertStringContainsString('Already in an open bulk request:', $controller);
 
         $publisherController = file_get_contents(app_path('Http/Controllers/Publisher/BulkSiteRequestController.php'));
         $this->assertStringContainsString('whereKey($site->id)->lockForUpdate()', $publisherController);

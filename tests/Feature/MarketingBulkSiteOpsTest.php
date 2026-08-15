@@ -157,6 +157,57 @@ class MarketingBulkSiteOpsTest extends TestCase
         $this->assertStringContainsString('Done — add sites', $html);
     }
 
+    public function test_legacy_seed_does_not_steal_another_open_bulk_pending_domain(): void
+    {
+        $otherRole = Role::where('name', 'publisher')->firstOrFail();
+        $other = User::factory()->create([
+            'email_verified_at' => now(),
+            'active_role_id' => $otherRole->id,
+        ]);
+        $other->roles()->attach($otherRole->id);
+
+        $theirs = BulkSiteRequest::create([
+            'publisher_id' => $other->id,
+            'status' => BulkSiteRequest::STATUS_REQUESTED,
+            'estimated_count' => 2,
+        ]);
+        BulkSiteRequestItem::create([
+            'bulk_site_request_id' => $theirs->id,
+            'site_url' => 'https://legacy-steal.example',
+            'domain' => 'legacy-steal.example',
+            'price' => 40,
+        ]);
+        BulkSiteRequestItem::create([
+            'bulk_site_request_id' => $theirs->id,
+            'site_url' => 'https://legacy-steal-b.example',
+            'domain' => 'legacy-steal-b.example',
+            'price' => 45,
+        ]);
+
+        [$country, $language] = $this->marketplaceCodes();
+        $legacy = $this->makeBulkRequest();
+        $rows = "https://legacy-steal.example,99,40,45,12000,{$country},{$language},Steal";
+
+        $this->actingAs($this->marketer)
+            ->from(route('marketing.bulk-site-requests.show', $legacy))
+            ->post(route('marketing.bulk-site-requests.seed', $legacy), ['rows' => $rows])
+            ->assertRedirect()
+            ->assertSessionHas('error')
+            ->assertSessionHas('seed_failures', function ($failures) {
+                return is_array($failures)
+                    && collect($failures)->contains(function ($row) {
+                        return collect($row['errors'] ?? [])->contains(
+                            fn ($error) => str_contains((string) $error, 'Already in an open bulk request: legacy-steal.example')
+                        );
+                    });
+            });
+
+        $this->assertDatabaseMissing('sites', ['domain' => 'legacy-steal.example']);
+        $this->assertNull(
+            BulkSiteRequestItem::query()->where('domain', 'legacy-steal.example')->value('site_id')
+        );
+    }
+
     public function test_marketer_seed_rejects_price_that_would_overflow_decimal(): void
     {
         [$country, $language] = $this->marketplaceCodes();

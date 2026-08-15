@@ -8,6 +8,7 @@ use App\Mail\BulkSiteRequestCancelled;
 use App\Mail\BulkSitesSeededNotification;
 use App\Models\ActivityLog;
 use App\Models\BulkSiteRequest;
+use App\Models\BulkSiteRequestItem;
 use App\Models\Category;
 use App\Models\Country;
 use App\Models\Language;
@@ -704,6 +705,17 @@ class BulkSiteRequestController extends Controller
                         'errors' => [$existing->isArchived()
                             ? $existing->occupyingDomainMessage()
                             : 'Domain already registered: '.$domain],
+                    ];
+
+                    continue;
+                }
+
+                $otherPending = BulkSiteRequestItem::findOccupyingPendingDomain($domain, lock: true);
+                if ($otherPending && (int) $otherPending->bulk_site_request_id !== (int) $locked->id) {
+                    $failures[] = [
+                        'line' => $row['line'] ?? 0,
+                        'url' => $row['site_url'] ?? $domain,
+                        'errors' => ['Already in an open bulk request: '.$domain],
                     ];
 
                     continue;
