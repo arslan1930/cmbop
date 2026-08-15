@@ -583,6 +583,61 @@ class WelcomeBonusServiceTest extends TestCase
         $this->assertFalse((bool) WelcomeBonusSetting::query()->value('value')['enabled']);
     }
 
+    public function test_toggle_does_not_resurrect_a_stale_higher_amount_on_duplicate_rows(): void
+    {
+        Schema::table('welcome_bonus_settings', function ($table) {
+            $table->dropUnique(['key']);
+        });
+
+        WelcomeBonusSetting::query()->delete();
+        DB::table('welcome_bonus_settings')->insert([
+            [
+                'key' => 'config',
+                'value' => json_encode(['enabled' => true, 'amount' => 500]),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+            [
+                'key' => 'config',
+                'value' => json_encode(['enabled' => true, 'amount' => 0]),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+        ]);
+
+        $this->assertSame(0.0, $this->service->amount());
+        $this->assertSame(0.0, $this->service->amountFor($this->request('10.7.0.1'), 'advertiser'));
+
+        $this->service->setEnabled(false);
+        $this->service->setEnabled(true);
+
+        $this->assertTrue(WelcomeBonusSetting::isEnabled());
+        $this->assertSame(0.0, $this->service->amount());
+        $this->assertSame(1, WelcomeBonusSetting::query()->where('key', 'config')->count());
+        $this->assertSame(0.0, (float) WelcomeBonusSetting::query()->value('value')['amount']);
+        $this->assertSame(0.0, $this->service->amountFor($this->request('10.7.0.1'), 'advertiser'));
+        $this->assertFalse($this->service->recordClaim(
+            User::factory()->create(),
+            $this->request('10.7.0.1'),
+            20.0,
+            'registration'
+        ));
+    }
+
+    public function test_non_numeric_stored_amount_does_not_fall_back_to_the_default(): void
+    {
+        WelcomeBonusSetting::setValue('config', ['enabled' => true, 'amount' => 'unlimited']);
+
+        $this->assertSame(0.0, $this->service->amount());
+        $this->assertSame(0.0, $this->service->amountFor($this->request('10.7.0.2'), 'advertiser'));
+        $this->assertFalse($this->service->recordClaim(
+            User::factory()->create(),
+            $this->request('10.7.0.2'),
+            20.0,
+            'registration'
+        ));
+    }
+
     public function test_set_amount_does_not_reenable_when_duplicate_rows_include_disable(): void
     {
         Schema::table('welcome_bonus_settings', function ($table) {

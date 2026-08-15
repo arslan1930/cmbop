@@ -181,4 +181,25 @@ class AdminWelcomeBonusToggleTest extends TestCase
 
         $this->assertSame(20.0, app(WelcomeBonusService::class)->amount());
     }
+
+    public function test_disable_and_enable_keep_a_zero_amount(): void
+    {
+        $service = app(WelcomeBonusService::class);
+        $service->setAmount(0);
+
+        $this->actingAs($this->admin)
+            ->from(route('admin.promotions.index'))
+            ->post(route('admin.promotions.welcome-bonus.toggle'), ['enabled' => 0])
+            ->assertRedirect(route('admin.promotions.index'))
+            ->assertSessionHas('success');
+
+        $this->actingAs($this->admin)
+            ->from(route('admin.promotions.index'))
+            ->post(route('admin.promotions.welcome-bonus.toggle'), ['enabled' => 1])
+            ->assertRedirect(route('admin.promotions.index'))
+            ->assertSessionHas('success');
+
+        $this->assertTrue($service->isEnabled());
+        $this->assertSame(0.0, $service->amount());
+    }
 }
