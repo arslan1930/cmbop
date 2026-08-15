@@ -1614,4 +1614,87 @@ class AdminWithdrawalLaterTest extends TestCase
             return $mail->hasTo($owner->email) && ! $mail->hasTo($other->email);
         });
     }
+
+    public function test_find_clears_leftover_email_when_owner_has_none(): void
+    {
+        $publisher = $this->makeUser('publisher');
+        $publisher->forceFill([
+            'name' => 'Current Owner',
+            'email' => '',
+            'payout_business_name' => null,
+        ])->save();
+        $withdrawal = $this->seedWithdrawal($publisher, [
+            'status' => 'completed',
+            'processed_at' => now(),
+        ]);
+        $statement = Invoice::create([
+            'user_id' => $publisher->id,
+            'customer_name' => 'Current Owner',
+            'customer_email' => 'leftover-other@example.com',
+            'pdf_path' => 'payouts/stale-leftover-email.pdf',
+            'invoice_number' => 'PAY-LEFTOVER-EMAIL-1',
+            'type' => Invoice::TYPE_WITHDRAWAL_PAYOUT,
+            'status' => Invoice::STATUS_PAID,
+            'subtotal' => 95,
+            'total_amount' => 95,
+            'invoice_date' => now(),
+            'line_items' => [['description' => 'Payout', 'line_total' => 95]],
+            'pdf_disk' => 'local',
+            'reference_code' => 'WD-'.$withdrawal->id,
+            'meta' => ['withdrawal_id' => $withdrawal->id],
+            'billing_snapshot' => [
+                'name' => 'Current Owner',
+                'email' => 'leftover-other@example.com',
+            ],
+        ]);
+
+        $found = app(WithdrawalPayoutStatementService::class)->find($withdrawal);
+        $this->assertNotNull($found);
+        $found = $found->fresh();
+        $this->assertSame($statement->id, $found->id);
+        $this->assertSame($publisher->id, (int) $found->user_id);
+        $this->assertSame('', (string) $found->customer_email);
+        $this->assertNull(data_get($found->billing_snapshot, 'email'));
+        $this->assertNull($found->pdf_path);
+    }
+
+    public function test_resend_does_not_email_leftover_customer_address(): void
+    {
+        Mail::fake();
+
+        $admin = $this->makeUser('admin');
+        $publisher = $this->makeUser('publisher');
+        $publisher->forceFill([
+            'name' => 'Current Owner',
+            'email' => '',
+        ])->save();
+        $withdrawal = $this->seedWithdrawal($publisher, [
+            'status' => 'completed',
+            'processed_at' => now(),
+        ]);
+        $statement = Invoice::create([
+            'user_id' => $publisher->id,
+            'customer_name' => $publisher->name,
+            'customer_email' => 'leftover-resend@example.com',
+            'invoice_number' => 'PAY-LEFTOVER-RESEND-1',
+            'type' => Invoice::TYPE_WITHDRAWAL_PAYOUT,
+            'status' => Invoice::STATUS_PAID,
+            'subtotal' => 95,
+            'total_amount' => 95,
+            'invoice_date' => now(),
+            'line_items' => [['description' => 'Payout', 'line_total' => 95]],
+            'pdf_disk' => 'local',
+            'reference_code' => 'WD-'.$withdrawal->id,
+            'meta' => ['withdrawal_id' => $withdrawal->id],
+        ]);
+
+        $this->actingAs($admin)
+            ->from(route('admin.invoices.show', $statement))
+            ->post(route('admin.invoices.resend', $statement))
+            ->assertRedirect(route('admin.invoices.show', $statement))
+            ->assertSessionHas('error', 'This document has no customer email.');
+
+        Mail::assertNothingQueued();
+        $this->assertSame('', (string) $statement->fresh()->customer_email);
+    }
 }

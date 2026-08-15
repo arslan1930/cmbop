@@ -297,7 +297,9 @@ class BillingDocumentService
             ];
         }
 
-        $email = $invoice->user?->email ?: $invoice->customer_email;
+        $email = $invoice->isWithdrawalPayout()
+            ? $invoice->user?->email
+            : ($invoice->user?->email ?: $invoice->customer_email);
         if (! filled($email)) {
             return [
                 'ok' => false,
@@ -718,7 +720,7 @@ class BillingDocumentService
         $statement->unsetRelation('user');
 
         $recipient = $withdrawal->user;
-        $email = $recipient?->email ?: $statement->customer_email;
+        $email = $recipient?->email;
         if (! filled($email)) {
             return 'This document has no customer email.';
         }

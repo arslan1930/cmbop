@@ -164,8 +164,10 @@ class WithdrawalPayoutStatementService
         $email = $user ? $this->scalarText($user->email) : '';
 
         $ownerMismatch = (int) $statement->user_id !== $ownerId;
+        $storedEmail = trim((string) $statement->customer_email);
         $emailMismatch = $email !== ''
-            && strcasecmp(trim((string) $statement->customer_email), $email) !== 0;
+            ? strcasecmp($storedEmail, $email) !== 0
+            : $storedEmail !== '';
         $nameMismatch = $payeeName !== ''
             && trim((string) $statement->customer_name) !== $payeeName;
         $metaWithdrawalId = (int) data_get($statement->meta, 'withdrawal_id');
@@ -189,7 +191,7 @@ class WithdrawalPayoutStatementService
         if ($resolvedName !== '') {
             $snapshot['name'] = $resolvedName;
         }
-        if ($ownerMismatch || $email !== '') {
+        if ($ownerMismatch || $emailMismatch || $email !== '') {
             $snapshot['email'] = $email !== '' ? $email : null;
         }
         $snapshot['payment_details'] = $details;
@@ -209,7 +211,7 @@ class WithdrawalPayoutStatementService
             if ($resolvedName !== '') {
                 $statement->customer_name = $resolvedName;
             }
-            if ($ownerMismatch || $email !== '') {
+            if ($ownerMismatch || $emailMismatch || $email !== '') {
                 $statement->customer_email = $email;
             }
             $statement->billing_snapshot = $snapshot;
