@@ -129,6 +129,10 @@ class AdminWithdrawalLaterTest extends TestCase
         $this->assertStringNotContainsString('missingStatements > 0 && failedCount === 0', $html);
         $this->assertStringContainsString('body.missing_statement_ids', $html);
         $this->assertStringContainsString('showHistoryForStatementRetry(missing.length === 1 ? missing[0] : 0)', $html);
+        $this->assertStringContainsString(
+            "$('#detailsModal').modal('hide');\n            if (res.has_statement === false) {\n                showHistoryForStatementRetry(id);",
+            $html
+        );
     }
 
     public function test_html_show_warns_when_paid_statement_is_missing(): void
@@ -1426,5 +1430,319 @@ class AdminWithdrawalLaterTest extends TestCase
         $statement = $statement->fresh();
         $this->assertSame($publisher->id, (int) $statement->user_id);
         $this->assertSame('payout-owner@example.com', $statement->customer_email);
+    }
+
+    public function test_find_replaces_stale_payee_when_new_owner_has_blank_profile(): void
+    {
+        $publisher = $this->makeUser('publisher');
+        $publisher->forceFill([
+            'name' => '',
+            'email' => '',
+            'payout_business_name' => null,
+            'billing_name' => null,
+        ])->save();
+        $other = $this->makeUser('publisher');
+        $other->forceFill([
+            'name' => 'Wrong Publisher',
+            'email' => 'wrong-pub@example.com',
+        ])->save();
+        $withdrawal = $this->seedWithdrawal($publisher, [
+            'status' => 'completed',
+            'processed_at' => now(),
+            'payment_method' => 'wise',
+            'payment_details' => ['email' => 'wise-dest@example.com'],
+        ]);
+        $statement = Invoice::create([
+            'user_id' => $other->id,
+            'customer_name' => $other->name,
+            'customer_email' => $other->email,
+            'pdf_path' => 'payouts/stale-blank-owner.pdf',
+            'invoice_number' => 'PAY-BLANK-OWNER-1',
+            'type' => Invoice::TYPE_WITHDRAWAL_PAYOUT,
+            'status' => Invoice::STATUS_PAID,
+            'subtotal' => 95,
+            'total_amount' => 95,
+            'invoice_date' => now(),
+            'line_items' => [['description' => 'Payout', 'line_total' => 95]],
+            'pdf_disk' => 'local',
+            'reference_code' => 'WD-'.$withdrawal->id,
+            'meta' => ['withdrawal_id' => $withdrawal->id],
+            'billing_snapshot' => [
+                'name' => 'Wrong Publisher',
+                'email' => 'wrong-pub@example.com',
+                'payment_details' => ['email' => 'old-dest@example.com'],
+            ],
+        ]);
+
+        $found = app(WithdrawalPayoutStatementService::class)->find($withdrawal);
+        $this->assertNotNull($found);
+        $found = $found->fresh();
+        $this->assertSame($statement->id, $found->id);
+        $this->assertSame($publisher->id, (int) $found->user_id);
+        $this->assertSame('Publisher #'.$publisher->id, $found->customer_name);
+        $this->assertSame('', (string) $found->customer_email);
+        $this->assertNull($found->pdf_path);
+        $this->assertSame('Publisher #'.$publisher->id, data_get($found->billing_snapshot, 'name'));
+        $this->assertNull(data_get($found->billing_snapshot, 'email'));
+        $this->assertSame('wise-dest@example.com', data_get($found->billing_snapshot, 'payment_details.email'));
+    }
+
+    public function test_status_email_renders_when_publisher_user_is_missing(): void
+    {
+        $publisher = $this->makeUser('publisher');
+        $publisher->forceFill(['name' => 'Pat Publisher'])->save();
+        $withdrawal = $this->seedWithdrawal($publisher, [
+            'status' => 'completed',
+            'processed_at' => now(),
+        ]);
+        $withdrawal->setRelation('user', null);
+
+        $html = (new WithdrawalStatusUpdated($withdrawal, 'pending', 'completed', null))->render();
+
+        $this->assertStringContainsString('Dear Publisher', $html);
+        $this->assertStringNotContainsString('Pat Publisher', $html);
+    }
+
+    public function test_withdrawal_id_prefers_wd_reference_over_stale_meta(): void
+    {
+        $owner = $this->makeUser('publisher');
+        $owner->forceFill([
+            'name' => 'Ref Owner',
+            'email' => 'ref-owner@example.com',
+        ])->save();
+        $other = $this->makeUser('publisher');
+        $other->forceFill([
+            'name' => 'Meta Owner',
+            'email' => 'meta-owner@example.com',
+        ])->save();
+        $owned = $this->seedWithdrawal($owner, [
+            'status' => 'completed',
+            'processed_at' => now(),
+        ]);
+        $otherWd = $this->seedWithdrawal($other, [
+            'status' => 'completed',
+            'processed_at' => now(),
+        ]);
+        $statement = Invoice::create([
+            'user_id' => $other->id,
+            'customer_name' => $other->name,
+            'customer_email' => $other->email,
+            'invoice_number' => 'PAY-META-MISMATCH-1',
+            'type' => Invoice::TYPE_WITHDRAWAL_PAYOUT,
+            'status' => Invoice::STATUS_PAID,
+            'subtotal' => 95,
+            'total_amount' => 95,
+            'invoice_date' => now(),
+            'line_items' => [['description' => 'Payout', 'line_total' => 95]],
+            'pdf_disk' => 'local',
+            'reference_code' => 'WD-'.$owned->id,
+            'meta' => ['withdrawal_id' => $otherWd->id],
+        ]);
+
+        $this->assertSame($owned->id, $statement->withdrawalId());
+        $this->assertSame(
+            route('admin.withdrawals.show', $owned->id, false),
+            $statement->relatedAdminUrl()
+        );
+
+        $repaired = app(WithdrawalPayoutStatementService::class)->reconcileInvoice($statement);
+        $repaired = $repaired->fresh();
+        $this->assertSame($owner->id, (int) $repaired->user_id);
+        $this->assertSame('Ref Owner', $repaired->customer_name);
+        $this->assertSame('ref-owner@example.com', $repaired->customer_email);
+        $this->assertSame($owned->id, (int) data_get($repaired->meta, 'withdrawal_id'));
+
+        $this->actingAs($owner)
+            ->get(route('publisher.billing.show', $statement))
+            ->assertOk()
+            ->assertSee('PAY-META-MISMATCH-1', false)
+            ->assertSee('Ref Owner', false)
+            ->assertDontSee('Meta Owner', false);
+
+        $this->actingAs($other)
+            ->get(route('publisher.billing.show', $statement))
+            ->assertForbidden();
+    }
+
+    public function test_resend_follows_wd_reference_not_stale_meta(): void
+    {
+        Mail::fake();
+
+        $admin = $this->makeUser('admin');
+        $owner = $this->makeUser('publisher');
+        $owner->forceFill([
+            'name' => 'Ref Owner',
+            'email' => 'ref-resend@example.com',
+        ])->save();
+        $other = $this->makeUser('publisher');
+        $other->forceFill([
+            'name' => 'Meta Owner',
+            'email' => 'meta-resend@example.com',
+        ])->save();
+        $owned = $this->seedWithdrawal($owner, [
+            'status' => 'completed',
+            'processed_at' => now(),
+        ]);
+        $otherWd = $this->seedWithdrawal($other, [
+            'status' => 'completed',
+            'processed_at' => now(),
+        ]);
+        $statement = Invoice::create([
+            'user_id' => $other->id,
+            'customer_name' => $other->name,
+            'customer_email' => $other->email,
+            'invoice_number' => 'PAY-META-RESEND-1',
+            'type' => Invoice::TYPE_WITHDRAWAL_PAYOUT,
+            'status' => Invoice::STATUS_PAID,
+            'subtotal' => 95,
+            'total_amount' => 95,
+            'invoice_date' => now(),
+            'line_items' => [['description' => 'Payout', 'line_total' => 95]],
+            'pdf_disk' => 'local',
+            'reference_code' => 'WD-'.$owned->id,
+            'meta' => ['withdrawal_id' => $otherWd->id],
+        ]);
+
+        $this->actingAs($admin)
+            ->from(route('admin.invoices.show', $statement))
+            ->post(route('admin.invoices.resend', $statement))
+            ->assertRedirect(route('admin.invoices.show', $statement))
+            ->assertSessionHas('success');
+
+        Mail::assertQueued(WithdrawalStatusUpdated::class, 1);
+        Mail::assertQueued(WithdrawalStatusUpdated::class, function ($mail) use ($owner, $other) {
+            return $mail->hasTo($owner->email) && ! $mail->hasTo($other->email);
+        });
+    }
+
+    public function test_find_clears_leftover_email_when_owner_has_none(): void
+    {
+        $publisher = $this->makeUser('publisher');
+        $publisher->forceFill([
+            'name' => 'Current Owner',
+            'email' => '',
+            'payout_business_name' => null,
+        ])->save();
+        $withdrawal = $this->seedWithdrawal($publisher, [
+            'status' => 'completed',
+            'processed_at' => now(),
+        ]);
+        $statement = Invoice::create([
+            'user_id' => $publisher->id,
+            'customer_name' => 'Current Owner',
+            'customer_email' => 'leftover-other@example.com',
+            'pdf_path' => 'payouts/stale-leftover-email.pdf',
+            'invoice_number' => 'PAY-LEFTOVER-EMAIL-1',
+            'type' => Invoice::TYPE_WITHDRAWAL_PAYOUT,
+            'status' => Invoice::STATUS_PAID,
+            'subtotal' => 95,
+            'total_amount' => 95,
+            'invoice_date' => now(),
+            'line_items' => [['description' => 'Payout', 'line_total' => 95]],
+            'pdf_disk' => 'local',
+            'reference_code' => 'WD-'.$withdrawal->id,
+            'meta' => ['withdrawal_id' => $withdrawal->id],
+            'billing_snapshot' => [
+                'name' => 'Current Owner',
+                'email' => 'leftover-other@example.com',
+            ],
+        ]);
+
+        $found = app(WithdrawalPayoutStatementService::class)->find($withdrawal);
+        $this->assertNotNull($found);
+        $found = $found->fresh();
+        $this->assertSame($statement->id, $found->id);
+        $this->assertSame($publisher->id, (int) $found->user_id);
+        $this->assertSame('', (string) $found->customer_email);
+        $this->assertNull(data_get($found->billing_snapshot, 'email'));
+        $this->assertNull($found->pdf_path);
+    }
+
+    public function test_resend_does_not_email_leftover_customer_address(): void
+    {
+        Mail::fake();
+
+        $admin = $this->makeUser('admin');
+        $publisher = $this->makeUser('publisher');
+        $publisher->forceFill([
+            'name' => 'Current Owner',
+            'email' => '',
+        ])->save();
+        $withdrawal = $this->seedWithdrawal($publisher, [
+            'status' => 'completed',
+            'processed_at' => now(),
+        ]);
+        $statement = Invoice::create([
+            'user_id' => $publisher->id,
+            'customer_name' => $publisher->name,
+            'customer_email' => 'leftover-resend@example.com',
+            'invoice_number' => 'PAY-LEFTOVER-RESEND-1',
+            'type' => Invoice::TYPE_WITHDRAWAL_PAYOUT,
+            'status' => Invoice::STATUS_PAID,
+            'subtotal' => 95,
+            'total_amount' => 95,
+            'invoice_date' => now(),
+            'line_items' => [['description' => 'Payout', 'line_total' => 95]],
+            'pdf_disk' => 'local',
+            'reference_code' => 'WD-'.$withdrawal->id,
+            'meta' => ['withdrawal_id' => $withdrawal->id],
+        ]);
+
+        $this->actingAs($admin)
+            ->from(route('admin.invoices.show', $statement))
+            ->post(route('admin.invoices.resend', $statement))
+            ->assertRedirect(route('admin.invoices.show', $statement))
+            ->assertSessionHas('error', 'This document has no customer email.');
+
+        Mail::assertNothingQueued();
+        $this->assertSame('', (string) $statement->fresh()->customer_email);
+    }
+
+    public function test_find_replaces_leftover_name_when_owner_profile_is_blank(): void
+    {
+        $publisher = $this->makeUser('publisher');
+        $publisher->forceFill([
+            'name' => '',
+            'email' => '',
+            'payout_business_name' => null,
+            'billing_name' => null,
+        ])->save();
+        $withdrawal = $this->seedWithdrawal($publisher, [
+            'status' => 'completed',
+            'processed_at' => now(),
+            'payment_method' => 'wise',
+            'payment_details' => ['email' => 'wise-dest@example.com'],
+        ]);
+        $statement = Invoice::create([
+            'user_id' => $publisher->id,
+            'customer_name' => 'Former Owner',
+            'customer_email' => 'leftover-other@example.com',
+            'pdf_path' => 'payouts/stale-leftover-name.pdf',
+            'invoice_number' => 'PAY-LEFTOVER-NAME-1',
+            'type' => Invoice::TYPE_WITHDRAWAL_PAYOUT,
+            'status' => Invoice::STATUS_PAID,
+            'subtotal' => 95,
+            'total_amount' => 95,
+            'invoice_date' => now(),
+            'line_items' => [['description' => 'Payout', 'line_total' => 95]],
+            'pdf_disk' => 'local',
+            'reference_code' => 'WD-'.$withdrawal->id,
+            'meta' => ['withdrawal_id' => $withdrawal->id],
+            'billing_snapshot' => [
+                'name' => 'Former Owner',
+                'email' => 'leftover-other@example.com',
+            ],
+        ]);
+
+        $found = app(WithdrawalPayoutStatementService::class)->find($withdrawal);
+        $this->assertNotNull($found);
+        $found = $found->fresh();
+        $this->assertSame($statement->id, $found->id);
+        $this->assertSame($publisher->id, (int) $found->user_id);
+        $this->assertSame('Publisher #'.$publisher->id, $found->customer_name);
+        $this->assertSame('', (string) $found->customer_email);
+        $this->assertSame('Publisher #'.$publisher->id, data_get($found->billing_snapshot, 'name'));
+        $this->assertNull(data_get($found->billing_snapshot, 'email'));
+        $this->assertNull($found->pdf_path);
     }
 }

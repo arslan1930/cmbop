@@ -164,24 +164,41 @@ class WithdrawalPayoutStatementService
         $email = $user ? $this->scalarText($user->email) : '';
 
         $ownerMismatch = (int) $statement->user_id !== $ownerId;
+        $storedEmail = trim((string) $statement->customer_email);
         $emailMismatch = $email !== ''
-            && strcasecmp(trim((string) $statement->customer_email), $email) !== 0;
+            ? strcasecmp($storedEmail, $email) !== 0
+            : $storedEmail !== '';
+        $storedName = trim((string) $statement->customer_name);
         $nameMismatch = $payeeName !== ''
-            && trim((string) $statement->customer_name) !== $payeeName;
+            ? $storedName !== $payeeName
+            : $storedName !== '';
+        $metaWithdrawalId = (int) data_get($statement->meta, 'withdrawal_id');
+        $metaMismatch = $metaWithdrawalId !== (int) $withdrawal->id;
 
         // user_id may already have been corrected (earlier find()) while the
         // payee line and stored PDF still name the other publisher.
         if (! $ownerMismatch && ! $emailMismatch && ! $nameMismatch) {
+            if ($metaMismatch) {
+                $this->rewriteWithdrawalMeta($statement, $withdrawal);
+            }
+
             return $statement;
         }
 
+        // Owner change must never keep the previous publisher's name/email,
+        // even when the new owner has a blank profile (Wise/PayPal, no holder).
+        $resolvedName = $payeeName !== ''
+            ? $payeeName
+            : (($ownerMismatch || $nameMismatch) ? 'Publisher #'.$ownerId : '');
+
         $snapshot = is_array($statement->billing_snapshot) ? $statement->billing_snapshot : [];
-        if ($payeeName !== '') {
-            $snapshot['name'] = $payeeName;
+        if ($resolvedName !== '') {
+            $snapshot['name'] = $resolvedName;
         }
-        if ($email !== '') {
-            $snapshot['email'] = $email;
+        if ($ownerMismatch || $emailMismatch || $email !== '') {
+            $snapshot['email'] = $email !== '' ? $email : null;
         }
+        $snapshot['payment_details'] = $details;
         if ($user) {
             $snapshot['company'] = $this->scalarText($user->payout_business_name) ?: $this->scalarText($user->company_name) ?: null;
             $snapshot['address'] = $this->scalarText($user->address) ?: null;
@@ -189,17 +206,29 @@ class WithdrawalPayoutStatementService
             $snapshot['state'] = $this->scalarText($user->state) ?: null;
             $snapshot['postal_code'] = $this->scalarText($user->postal_code) ?: null;
             $snapshot['country'] = $this->scalarText($user->country) ?: null;
+        } elseif ($ownerMismatch) {
+            $snapshot['company'] = null;
+            $snapshot['address'] = null;
+            $snapshot['city'] = null;
+            $snapshot['state'] = null;
+            $snapshot['postal_code'] = null;
+            $snapshot['country'] = null;
         }
+
+        $fromUserId = (int) $statement->user_id;
 
         try {
             $statement->user_id = $ownerId;
-            if ($payeeName !== '') {
-                $statement->customer_name = $payeeName;
+            if ($resolvedName !== '') {
+                $statement->customer_name = $resolvedName;
             }
-            if ($email !== '') {
+            if ($ownerMismatch || $emailMismatch || $email !== '') {
                 $statement->customer_email = $email;
             }
             $statement->billing_snapshot = $snapshot;
+            $meta = is_array($statement->meta) ? $statement->meta : [];
+            $meta['withdrawal_id'] = (int) $withdrawal->id;
+            $statement->meta = $meta;
             // Drop the stored PDF so download/view cannot keep serving the
             // other publisher's name and address.
             $statement->pdf_path = null;
@@ -209,10 +238,11 @@ class WithdrawalPayoutStatementService
             Log::warning('Failed to reassign payout statement to withdrawal owner', [
                 'invoice_id' => $statement->id,
                 'withdrawal_id' => $withdrawal->id,
-                'from_user_id' => $statement->user_id,
+                'from_user_id' => $fromUserId,
                 'to_user_id' => $ownerId,
                 'error' => $e->getMessage(),
             ]);
+            $statement->refresh();
         }
 
         return $statement;
@@ -371,6 +401,7 @@ class WithdrawalPayoutStatementService
 
         foreach ($docs as $doc) {
             try {
+                $doc = $this->reconcileInvoice($doc);
                 $doc = $this->normalizeLegacyFeeLineItems($doc);
                 $this->pdfs->generateAndStore($doc);
                 $regenerated++;
@@ -431,6 +462,26 @@ class WithdrawalPayoutStatementService
         ]);
 
         return $statement->fresh() ?? $statement;
+    }
+
+    private function rewriteWithdrawalMeta(Invoice $statement, Withdrawal $withdrawal): void
+    {
+        $fromUserId = (int) $statement->user_id;
+        $meta = is_array($statement->meta) ? $statement->meta : [];
+        $meta['withdrawal_id'] = (int) $withdrawal->id;
+
+        try {
+            $statement->meta = $meta;
+            $statement->save();
+        } catch (\Throwable $e) {
+            Log::warning('Failed to rewrite payout statement withdrawal meta', [
+                'invoice_id' => $statement->id,
+                'withdrawal_id' => $withdrawal->id,
+                'from_user_id' => $fromUserId,
+                'error' => $e->getMessage(),
+            ]);
+            $statement->refresh();
+        }
     }
 
     private function scalarText(mixed $value): string

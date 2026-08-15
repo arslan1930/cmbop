@@ -311,10 +311,36 @@ class ManualWithdrawalMarkPaidConfirmLinkTest extends TestCase
 
         $this->actingAs($admin)
             ->post($url)
-            ->assertRedirect(route('admin.withdrawals'))
+            ->assertRedirect(route('admin.withdrawals', [
+                'search' => (string) $withdrawal->id,
+                'queue' => 'history',
+            ]))
             ->assertSessionHas('success', 'Payout statement is ready');
 
         $this->assertNotNull(app(WithdrawalPayoutStatementService::class)->find($withdrawal->fresh()));
         $this->assertSame('completed', $withdrawal->fresh()->status);
+    }
+
+    public function test_confirm_view_renders_unknown_when_publisher_user_is_missing(): void
+    {
+        $publisher = $this->makeUser('publisher');
+        $withdrawal = $this->pendingWithdrawal($publisher);
+        $withdrawal->setRelation('user', null);
+        $this->withViewErrors([]);
+
+        $html = view('admin.withdrawals.mark-paid-confirm', [
+            'withdrawal' => $withdrawal,
+            'canMarkPaid' => true,
+            'missingStatement' => false,
+            'confirmAction' => '/admin/withdrawals/'.$withdrawal->id.'/mark-paid-confirm',
+            'currentBalance' => 12.5,
+            'priorPaid' => collect(),
+            'possibleDuplicate' => false,
+            'duplicateMatches' => collect(),
+        ])->render();
+
+        $this->assertStringContainsString('Unknown', $html);
+        $this->assertStringContainsString('WD-'.$withdrawal->id, $html);
+        $this->assertStringNotContainsString($publisher->name, $html);
     }
 }

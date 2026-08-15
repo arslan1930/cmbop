@@ -297,7 +297,9 @@ class BillingDocumentService
             ];
         }
 
-        $email = $invoice->user?->email ?: $invoice->customer_email;
+        $email = $invoice->isWithdrawalPayout()
+            ? $invoice->user?->email
+            : ($invoice->user?->email ?: $invoice->customer_email);
         if (! filled($email)) {
             return [
                 'ok' => false,
@@ -418,6 +420,12 @@ class BillingDocumentService
      */
     public function regeneratePdf(Invoice $invoice): Invoice
     {
+        if ($invoice->isWithdrawalPayout()) {
+            $statements = app(WithdrawalPayoutStatementService::class);
+            $invoice = $statements->reconcileInvoice($invoice);
+            $invoice = $statements->normalizeLegacyFeeLineItems($invoice);
+        }
+
         $this->pdfs->generateAndStore($invoice);
         $this->events->log('invoice_pdf_regenerated', $invoice->fresh());
 
@@ -712,7 +720,7 @@ class BillingDocumentService
         $statement->unsetRelation('user');
 
         $recipient = $withdrawal->user;
-        $email = $recipient?->email ?: $statement->customer_email;
+        $email = $recipient?->email;
         if (! filled($email)) {
             return 'This document has no customer email.';
         }
@@ -738,19 +746,11 @@ class BillingDocumentService
 
     protected function findWithdrawalForStatement(Invoice $statement): ?Withdrawal
     {
-        $id = (int) data_get($statement->meta, 'withdrawal_id');
-        if ($id > 0) {
-            $withdrawal = Withdrawal::query()->with('user')->find($id);
-            if ($withdrawal) {
-                return $withdrawal;
-            }
+        $id = (int) $statement->withdrawalId();
+        if ($id <= 0) {
+            return null;
         }
 
-        $ref = (string) $statement->reference_code;
-        if (preg_match('/^WD-(\d+)$/', $ref, $matches)) {
-            return Withdrawal::query()->with('user')->find((int) $matches[1]);
-        }
-
-        return null;
+        return Withdrawal::query()->with('user')->find($id);
     }
 }

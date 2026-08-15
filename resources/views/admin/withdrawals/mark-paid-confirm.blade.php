@@ -37,7 +37,7 @@
 
                             <dt class="col-sm-4 text-muted">Publisher</dt>
                             <dd class="col-sm-8">
-                                {{ $withdrawal->user->name ?? 'Unknown' }}
+                                {{ $withdrawal->user?->name ?: 'Unknown' }}
                                 @if($withdrawal->user?->email)
                                     <br><span class="text-muted small">{{ $withdrawal->user->email }}</span>
                                 @endif

@@ -1,13 +1,13 @@
 @component('mail::message')
 # Withdrawal Request {{ ucfirst($newStatus) }}
 
-Dear {{ $withdrawal->user->name }},
+Dear {{ $withdrawal->user?->name ?: 'Publisher' }},
 
 Your withdrawal request has been **{{ ucfirst($newStatus) }}**.
 
 ## Request Details:
 
-- **Request Date:** {{ $withdrawal->created_at->format('F j, Y') }}
+- **Request Date:** {{ optional($withdrawal->created_at)->format('F j, Y') ?: '—' }}
 - **Requested Amount:** €{{ number_format((float) $withdrawal->amount, 2) }}
 @if((float) ($withdrawal->fee ?? 0) > 0)
 - **Platform Fee:** -€{{ number_format((float) $withdrawal->fee, 2) }}

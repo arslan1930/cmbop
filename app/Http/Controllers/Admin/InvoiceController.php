@@ -114,6 +114,7 @@ class InvoiceController extends Controller
     public function viewPdf(Invoice $invoice, InvoicePdfGenerator $pdfs, BillingDocumentService $billing, WithdrawalPayoutStatementService $statements)
     {
         $invoice = $statements->reconcileInvoice($invoice);
+        $invoice = $statements->normalizeLegacyFeeLineItems($invoice);
         try {
             if (! $invoice->hasPdf() || ! $invoice->pdfExists()) {
                 $pdfs->generateAndStore($invoice);
@@ -131,6 +132,7 @@ class InvoiceController extends Controller
     public function download(Invoice $invoice, InvoicePdfGenerator $pdfs, BillingDocumentService $billing, WithdrawalPayoutStatementService $statements)
     {
         $invoice = $statements->reconcileInvoice($invoice);
+        $invoice = $statements->normalizeLegacyFeeLineItems($invoice);
         try {
             if (! $invoice->hasPdf() || ! $invoice->pdfExists()) {
                 $pdfs->generateAndStore($invoice);

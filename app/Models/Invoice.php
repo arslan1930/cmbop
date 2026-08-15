@@ -152,16 +152,18 @@ class Invoice extends Model
 
     public function withdrawalId(): ?int
     {
-        $id = (int) data_get($this->meta, 'withdrawal_id');
-        if ($id > 0) {
-            return $id;
-        }
-
+        // WD-{id} is the statement key. Stale meta.withdrawal_id must not
+        // retarget access, PDF reconcile, or admin links to another WD.
         if (preg_match('/^WD-(\d+)$/', (string) $this->reference_code, $matches)) {
-            return (int) $matches[1];
+            $id = (int) $matches[1];
+            if ($id > 0) {
+                return $id;
+            }
         }
 
-        return null;
+        $id = (int) data_get($this->meta, 'withdrawal_id');
+
+        return $id > 0 ? $id : null;
     }
 
     /**
