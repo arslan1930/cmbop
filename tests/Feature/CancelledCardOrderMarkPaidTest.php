@@ -41,13 +41,13 @@ class CancelledCardOrderMarkPaidTest extends TestCase
         return $user->fresh();
     }
 
-    private function makeSite(User $publisher): Site
+    private function makeSite(User $publisher, string $domain = 'cancelled-card.example'): Site
     {
         return Site::create([
             'publisher_id' => $publisher->id,
             'site_name' => 'Cancelled Card Site',
-            'site_url' => 'https://cancelled-card.example',
-            'domain' => 'cancelled-card.example',
+            'site_url' => 'https://'.$domain,
+            'domain' => $domain,
             'da' => 40,
             'dr' => 40,
             'traffic' => 1000,
@@ -949,5 +949,299 @@ class CancelledCardOrderMarkPaidTest extends TestCase
             ->where('payment_status', 'paid')
             ->count());
         $this->assertEqualsWithDelta(80.0, $payments->unfulfilledCardCreditAmount('REF-FAILED-NO-PACKAGE'), 0.01);
+    }
+
+    public function test_late_stripe_webhook_after_partial_replace_does_not_pay_sibling_leftover(): void
+    {
+        config(['content_moderation.enabled' => false]);
+
+        $advertiser = $this->makeUser('advertiser');
+        $publisher = $this->makeUser('publisher');
+        $siteA = $this->makeSite($publisher, 'partial-replace-a.example');
+        $siteB = $this->makeSite($publisher, 'partial-replace-b.example');
+        Wallet::create([
+            'user_id' => $advertiser->id,
+            'role_id' => Wallet::advertiserRoleId(),
+            'balance' => 200,
+            'reserved_balance' => 0,
+            'bonus_balance' => 0,
+            'bonus_reserved' => 0,
+            'currency' => 'EUR',
+        ]);
+
+        $articleA = $this->createApprovedSubmission(
+            $advertiser,
+            $siteA->id,
+            0,
+            'partial replace article a',
+            'https://example.com/target-a'
+        );
+        $articleB = $this->createApprovedSubmission(
+            $advertiser,
+            $siteB->id,
+            1,
+            'partial replace article b',
+            'https://example.com/target-b'
+        );
+
+        $orderA = Order::create([
+            'user_id' => $advertiser->id,
+            'order_number' => (string) random_int(100000, 999999),
+            'reference_code' => 'REF-PARTIAL-REPLACE',
+            'subtotal' => 80,
+            'tax' => 0,
+            'total_amount' => 80,
+            'payment_method' => 'card',
+            'payment_status' => 'failed',
+            'status' => 'pending',
+        ]);
+        $itemA = OrderItem::create([
+            'order_id' => $orderA->id,
+            'site_id' => $siteA->id,
+            'site_name' => $siteA->site_name,
+            'site_url' => $siteA->site_url,
+            'content_link' => 'https://example.com/article-a',
+            'content_submission_id' => $articleA->id,
+            'price' => 80,
+        ]);
+        $articleA->update([
+            'order_id' => $orderA->id,
+            'order_item_id' => $itemA->id,
+        ]);
+
+        $orderB = Order::create([
+            'user_id' => $advertiser->id,
+            'order_number' => (string) random_int(100000, 999999),
+            'reference_code' => 'REF-PARTIAL-REPLACE',
+            'subtotal' => 80,
+            'tax' => 0,
+            'total_amount' => 80,
+            'payment_method' => 'card',
+            'payment_status' => 'failed',
+            'status' => 'pending',
+        ]);
+        $itemB = OrderItem::create([
+            'order_id' => $orderB->id,
+            'site_id' => $siteB->id,
+            'site_name' => $siteB->site_name,
+            'site_url' => $siteB->site_url,
+            'content_link' => 'https://example.com/article-b',
+            'content_submission_id' => $articleB->id,
+            'price' => 80,
+        ]);
+        $articleB->update([
+            'order_id' => $orderB->id,
+            'order_item_id' => $itemB->id,
+        ]);
+
+        $payments = app(OrderPaymentService::class);
+        $payments->storePendingCheckout('REF-PARTIAL-REPLACE', [
+            'user_id' => $advertiser->id,
+            'order_total' => 160,
+            'amount_due' => 160,
+            'bonus_applied' => 0,
+            'schedule' => ['mode' => 'immediate', 'timezone' => 'UTC'],
+            'lines' => [
+                [
+                    'site_id' => $siteA->id,
+                    'site_name' => $siteA->site_name,
+                    'site_url' => $siteA->site_url,
+                    'price' => 80,
+                    'content_submission_id' => $articleA->id,
+                    'content_link' => 'https://example.com/article-a',
+                ],
+                [
+                    'site_id' => $siteB->id,
+                    'site_name' => $siteB->site_name,
+                    'site_url' => $siteB->site_url,
+                    'price' => 80,
+                    'content_submission_id' => $articleB->id,
+                    'content_link' => 'https://example.com/article-b',
+                ],
+            ],
+        ]);
+
+        $this->actingAs($advertiser)
+            ->withSession([
+                'cart' => [
+                    ['id' => $siteA->id, 'name' => $siteA->site_name, 'quantity' => 1],
+                ],
+            ])
+            ->postJson(route('advertiser.checkout.process'), [
+                'payment_method' => 'wallet',
+                'reference_code' => 'REF-WALLET-PARTIAL-A',
+                'publication_mode' => 'immediate',
+                'content_submissions' => [
+                    $siteA->id => [$articleA->id],
+                ],
+            ])
+            ->assertOk()
+            ->assertJsonPath('success', true);
+
+        $this->assertSame('cancelled', $orderA->fresh()->status);
+        $this->assertSame('pending', $orderB->fresh()->status);
+        $this->assertSame('failed', $orderB->fresh()->payment_status);
+        $this->assertNull($payments->getPendingCheckout('REF-PARTIAL-REPLACE'));
+        $this->assertSame($orderB->id, (int) $articleB->fresh()->order_id);
+
+        $wallet = Wallet::where('user_id', $advertiser->id)
+            ->where('role_id', Wallet::advertiserRoleId())
+            ->first();
+        $balanceAfterReplace = (float) $wallet->balance;
+
+        $session = (object) [
+            'id' => 'cs_late_partial_replace',
+            'object' => 'checkout.session',
+            'amount_total' => 16000,
+            'payment_intent' => 'pi_late_partial_replace',
+            'metadata' => (object) [
+                'type' => 'order_payment',
+                'reference_code' => 'REF-PARTIAL-REPLACE',
+                'expected_amount' => '160',
+                'user_id' => (string) $advertiser->id,
+            ],
+        ];
+
+        $created = $payments->finalizeStripeFirstCheckout('REF-PARTIAL-REPLACE', $session);
+
+        $this->assertTrue($created->isEmpty());
+        $this->assertSame('cancelled', $orderA->fresh()->status);
+        $this->assertSame('pending', $orderB->fresh()->status);
+        $this->assertSame('failed', $orderB->fresh()->payment_status);
+        $this->assertSame(0, Order::query()
+            ->where('reference_code', 'REF-PARTIAL-REPLACE')
+            ->where('payment_status', 'paid')
+            ->count());
+
+        $wallet->refresh();
+        $this->assertEqualsWithDelta($balanceAfterReplace + 160.0, (float) $wallet->balance, 0.01);
+        $this->assertEqualsWithDelta(160.0, $payments->unfulfilledCardCreditAmount('REF-PARTIAL-REPLACE'), 0.01);
+    }
+
+    public function test_pay_again_after_partial_replace_still_marks_the_sibling_paid(): void
+    {
+        config(['content_moderation.enabled' => false]);
+
+        $advertiser = $this->makeUser('advertiser');
+        $publisher = $this->makeUser('publisher');
+        $siteA = $this->makeSite($publisher, 'pay-again-partial-a.example');
+        $siteB = $this->makeSite($publisher, 'pay-again-partial-b.example');
+        Wallet::create([
+            'user_id' => $advertiser->id,
+            'role_id' => Wallet::advertiserRoleId(),
+            'balance' => 200,
+            'reserved_balance' => 0,
+            'bonus_balance' => 0,
+            'bonus_reserved' => 0,
+            'currency' => 'EUR',
+        ]);
+
+        $articleA = $this->createApprovedSubmission(
+            $advertiser,
+            $siteA->id,
+            0,
+            'pay again partial a',
+            'https://example.com/target-a'
+        );
+        $articleB = $this->createApprovedSubmission(
+            $advertiser,
+            $siteB->id,
+            1,
+            'pay again partial b',
+            'https://example.com/target-b'
+        );
+
+        $orderA = Order::create([
+            'user_id' => $advertiser->id,
+            'order_number' => (string) random_int(100000, 999999),
+            'reference_code' => 'REF-PARTIAL-PAY-AGAIN',
+            'subtotal' => 80,
+            'tax' => 0,
+            'total_amount' => 80,
+            'payment_method' => 'card',
+            'payment_status' => 'failed',
+            'status' => 'pending',
+        ]);
+        $itemA = OrderItem::create([
+            'order_id' => $orderA->id,
+            'site_id' => $siteA->id,
+            'site_name' => $siteA->site_name,
+            'site_url' => $siteA->site_url,
+            'content_link' => 'https://example.com/article-a',
+            'content_submission_id' => $articleA->id,
+            'price' => 80,
+        ]);
+        $articleA->update([
+            'order_id' => $orderA->id,
+            'order_item_id' => $itemA->id,
+        ]);
+
+        $orderB = Order::create([
+            'user_id' => $advertiser->id,
+            'order_number' => (string) random_int(100000, 999999),
+            'reference_code' => 'REF-PARTIAL-PAY-AGAIN',
+            'subtotal' => 80,
+            'tax' => 0,
+            'total_amount' => 80,
+            'payment_method' => 'card',
+            'payment_status' => 'failed',
+            'status' => 'pending',
+        ]);
+        $itemB = OrderItem::create([
+            'order_id' => $orderB->id,
+            'site_id' => $siteB->id,
+            'site_name' => $siteB->site_name,
+            'site_url' => $siteB->site_url,
+            'content_link' => 'https://example.com/article-b',
+            'content_submission_id' => $articleB->id,
+            'price' => 80,
+        ]);
+        $articleB->update([
+            'order_id' => $orderB->id,
+            'order_item_id' => $itemB->id,
+        ]);
+
+        $this->actingAs($advertiser)
+            ->withSession([
+                'cart' => [
+                    ['id' => $siteA->id, 'name' => $siteA->site_name, 'quantity' => 1],
+                ],
+            ])
+            ->postJson(route('advertiser.checkout.process'), [
+                'payment_method' => 'wallet',
+                'reference_code' => 'REF-WALLET-PARTIAL-PAY-AGAIN',
+                'publication_mode' => 'immediate',
+                'content_submissions' => [
+                    $siteA->id => [$articleA->id],
+                ],
+            ])
+            ->assertOk()
+            ->assertJsonPath('success', true);
+
+        $this->assertSame('cancelled', $orderA->fresh()->status);
+        $this->assertSame('failed', $orderB->fresh()->payment_status);
+
+        $payments = app(OrderPaymentService::class);
+        $session = (object) [
+            'id' => 'cs_pay_again_after_partial',
+            'object' => 'checkout.session',
+            'amount_total' => 8000,
+            'payment_intent' => 'pi_pay_again_after_partial',
+            'metadata' => (object) [
+                'type' => 'order_payment',
+                'reference_code' => 'REF-PARTIAL-PAY-AGAIN',
+                'expected_amount' => '80',
+                'user_id' => (string) $advertiser->id,
+                'bonus_applied' => '0',
+            ],
+        ];
+
+        $created = $payments->finalizeStripeFirstCheckout('REF-PARTIAL-PAY-AGAIN', $session);
+
+        $this->assertCount(1, $created);
+        $this->assertSame('paid', $orderB->fresh()->payment_status);
+        $this->assertSame('pending', $orderB->fresh()->status);
+        $this->assertSame('cancelled', $orderA->fresh()->status);
+        $this->assertEqualsWithDelta(0.0, $payments->unfulfilledCardCreditAmount('REF-PARTIAL-PAY-AGAIN'), 0.01);
     }
 }

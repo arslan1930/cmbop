@@ -397,7 +397,8 @@ class OrderPaymentService
      * Drop this advertiser's unpaid or failed leftovers for these articles so a
      * new checkout can claim them. Pay again on the same leftover still works
      * until they start that checkout. Already-failed card leftovers are
-     * cancelled here because markOrdersFailedFromReference only updates pending.
+     * cancelled here because pending-only fail updates skip them. Sibling
+     * leftovers that share the Stripe reference stay open for Pay again.
      *
      * @param  array<int, int|string>  $submissionIds
      */
@@ -455,25 +456,19 @@ class OrderPaymentService
             ->pluck('reference_code')
             ->unique()
             ->filter();
-        foreach ($cardRefs as $referenceCode) {
-            $this->markOrdersFailedFromReference(
-                (string) $referenceCode,
-                'Replaced by a new checkout',
-                $userId
-            );
-        }
 
         $refunds = app(OrderRefundService::class);
         foreach ($orders as $order) {
+            $refunds->releaseReservedCheckoutBonus($order);
             if ((string) $order->payment_method !== 'card') {
-                $refunds->releaseReservedCheckoutBonus($order);
                 $order->update([
                     'payment_status' => 'failed',
                     'status' => 'cancelled',
                 ]);
-            } elseif ((string) $order->payment_status === 'failed') {
-                // markOrdersFailedFromReference only updates pending card rows.
-                $refunds->releaseReservedCheckoutBonus($order);
+            } elseif ((string) $order->payment_status === 'pending') {
+                $order->update([
+                    'payment_status' => 'failed',
+                ]);
             }
 
             ContentSubmission::releaseAllForOrder((int) $order->id);
@@ -483,10 +478,21 @@ class OrderPaymentService
             }
         }
 
-        // Already-failed leftovers skip markOrdersFailedFromReference, so the
-        // Stripe-first package can survive. Drop it so a late webhook credits
-        // the wallet instead of minting a second paid order.
+        // Multi-site card checkouts share one reference_code. Fail only the
+        // replaced rows. Sibling leftovers stay pending so Pay again still
+        // works; a late webhook must not treat the cancelled line as still owed.
+        $replacedIds = $orders->pluck('id')->all();
         foreach ($cardRefs as $referenceCode) {
+            Order::query()
+                ->where('reference_code', $referenceCode)
+                ->where('user_id', $userId)
+                ->where('payment_method', 'card')
+                ->where('payment_status', 'pending')
+                ->where('status', 'pending')
+                ->whereNotIn('id', $replacedIds)
+                ->update(['payment_status' => 'failed']);
+
+            $this->refundBonusReservedForReference($userId, (string) $referenceCode);
             $this->forgetPendingCheckoutKeepLeftoverHold((string) $referenceCode, $userId);
         }
     }
@@ -1467,12 +1473,18 @@ class OrderPaymentService
      * expected_amount — a stale cheaper Checkout session baked its own figure
      * and must not mark the current totals paid.
      *
+     * Cancelled leftovers (replaced by a later checkout) are not owed. A
+     * multi-site Stripe session that still totals the original package must
+     * not match and mark the leftover sibling paid.
+     *
      * @param  Collection<int, Order>  $orders
      * @param  array<string, mixed>  $meta
      */
     private function expectedStripeEurosForOrders(Collection $orders, array $meta): float
     {
-        $total = round((float) $orders->sum(fn (Order $order) => (float) $order->total_amount), 2);
+        $total = round((float) $orders
+            ->filter(fn (Order $order) => ! in_array((string) $order->status, ['cancelled', 'completed'], true))
+            ->sum(fn (Order $order) => (float) $order->total_amount), 2);
         $bonus = round((float) ($meta['bonus_applied'] ?? 0), 2);
 
         return round(max(0, $total - $bonus), 2);
