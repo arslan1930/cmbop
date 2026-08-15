@@ -184,12 +184,25 @@
   margin: 0 auto;
 }
 
-/* content_top often carries a 320×50 "Mobile Offer" placeholder — fine on
-   phones, but on desktop it reads as a broken leftover above the catalog. */
+/* Portal shells hid leftover mobile placeholders above the catalog.
+   Public marketing pages may use content_top on desktop. */
 @media (min-width: 768px) {
-  .ad-banner-slot--content_top .ad-banner {
+  .role-shell-advertiser .ad-banner-slot--content_top .ad-banner,
+  .role-shell-publisher .ad-banner-slot--content_top .ad-banner {
     display: none;
   }
+}
+
+.ad-banner-slot--sidebar {
+  margin: 0.75rem 0.5rem 1rem;
+  max-width: 100%;
+}
+
+.ad-banner-slot--sidebar .ad-banner__img {
+  max-width: 100%;
+  width: auto;
+  max-height: 250px;
+  object-fit: contain;
 }
 
 .ad-banner__caption {

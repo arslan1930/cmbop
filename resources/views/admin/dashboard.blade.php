@@ -418,7 +418,7 @@
                             <div class="text-muted small mb-1"><i class="fa fa-bullhorn me-1 text-primary"></i>Promotions Center</div>
                             <h5 class="mb-1">Announcements &amp; Ad Banners</h5>
                             <p class="text-muted mb-0 small">
-                                Control discounts, platform changes, and sized website banners from one place.
+                                Control site notices, platform changes, and sized website banners from one place.
                             </p>
                         </div>
                         <div class="d-flex flex-wrap gap-2">

@@ -134,6 +134,7 @@
     <div class="container-fluid px-3 px-md-4">
         @include('components.site-announcements', ['audience' => 'public'])
         @include('components.ad-banners', ['placement' => 'header', 'audience' => 'public'])
+        @include('components.ad-banners', ['placement' => 'content_top', 'audience' => 'public'])
     </div>
 
     <div class="container">

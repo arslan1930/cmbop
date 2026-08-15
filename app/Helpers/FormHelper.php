@@ -148,6 +148,28 @@ if (! function_exists('old_text')) {
     }
 }
 
+if (! function_exists('old_checked')) {
+    /**
+     * Checkbox state that stays unchecked after a validation redirect.
+     *
+     * Unchecked boxes are omitted from the POST, so they never land in the
+     * old-input bag. Falling back to the model default would re-check them.
+     */
+    function old_checked(string $key, bool $default = false): bool
+    {
+        $old = session()->get('_old_input');
+        if (is_array($old)) {
+            if (! array_key_exists($key, $old)) {
+                return false;
+            }
+
+            return filter_var($old[$key], FILTER_VALIDATE_BOOLEAN);
+        }
+
+        return $default;
+    }
+}
+
 if (! function_exists('blade_e')) {
     /**
      * Blade {{ }} echo that never hands an array to htmlspecialchars().

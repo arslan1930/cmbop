@@ -374,7 +374,7 @@
                             </div>
                             @else
                             <div class="d-inline-flex flex-wrap gap-1 justify-content-end">
-                                @if($submission->isReadyForCheckout())
+                                @if($submission->isReadyForCheckout() || $submission->canReplaceUnpaidLeftover())
                                     <a class="btn btn-sm btn-primary"
                                        href="{{ route('advertiser.content-library.order', $submission, false) }}">
                                         Order
@@ -394,13 +394,8 @@
                                             Resubmit
                                         </a>
                                     @endif
-                                @elseif($availability === 'in_progress')
-                                    @if($submission->canReplaceUnpaidLeftover())
-                                        <a class="btn btn-sm btn-primary"
-                                           href="{{ route('advertiser.content-library.order', $submission, false) }}">
-                                            Order
-                                        </a>
-                                    @endif
+                                @endif
+                                @if($availability === 'in_progress' || ($submission->canReplaceUnpaidLeftover() && ! $submission->isReadyForCheckout()))
                                     <a class="btn btn-sm btn-outline-secondary" href="{{ route('advertiser.orders', absolute: false) }}">View order</a>
                                 @endif
 

@@ -317,7 +317,7 @@ class CancelledCardOrderMarkPaidTest extends TestCase
         $this->assertTrue($submission->fresh()->isReadyForCheckout());
     }
 
-    public function test_failed_card_leftover_is_kept_for_pay_again(): void
+    public function test_new_checkout_replaces_failed_card_leftover(): void
     {
         config(['content_moderation.enabled' => false]);
 
@@ -335,7 +335,13 @@ class CancelledCardOrderMarkPaidTest extends TestCase
             'currency' => 'EUR',
         ]);
 
-        $submission = $this->createApprovedSubmission($advertiser);
+        $submission = $this->createApprovedSubmission(
+            $advertiser,
+            $site->id,
+            0,
+            'failed card leftover anchor',
+            'https://example.com/target'
+        );
         $leftover = Order::create([
             'user_id' => $advertiser->id,
             'order_number' => (string) random_int(100000, 999999),
@@ -361,6 +367,9 @@ class CancelledCardOrderMarkPaidTest extends TestCase
             'order_item_id' => $item->id,
         ]);
 
+        $this->assertFalse($submission->fresh()->isReadyForCheckout());
+        $this->assertTrue($submission->fresh()->load('order')->canReplaceUnpaidLeftover());
+
         $this->actingAs($advertiser)
             ->withSession([
                 'cart' => [
@@ -369,19 +378,29 @@ class CancelledCardOrderMarkPaidTest extends TestCase
             ])
             ->postJson(route('advertiser.checkout.process'), [
                 'payment_method' => 'wallet',
-                'reference_code' => 'REF-SHOULD-NOT-REPLACE',
+                'reference_code' => 'REF-NEW-WALLET-FAILED-CARD',
                 'publication_mode' => 'immediate',
                 'content_submissions' => [
                     $site->id => [$submission->id],
                 ],
             ])
-            ->assertStatus(422);
+            ->assertOk()
+            ->assertJsonPath('success', true);
 
         $leftover->refresh();
-        $this->assertSame('pending', $leftover->status);
+        $this->assertSame('cancelled', $leftover->status);
         $this->assertSame('failed', $leftover->payment_status);
-        $this->assertSame($leftover->id, (int) $submission->fresh()->order_id);
-        $this->assertNull(Order::query()->where('reference_code', 'REF-SHOULD-NOT-REPLACE')->first());
+
+        $paid = Order::query()->where('reference_code', 'REF-NEW-WALLET-FAILED-CARD')->first();
+        $this->assertNotNull($paid);
+        $this->assertSame($paid->id, (int) $submission->fresh()->order_id);
+
+        ContentSubmission::releaseAllForOrder((int) $leftover->id);
+        $this->assertSame($paid->id, (int) $submission->fresh()->order_id);
+        $this->assertSame(
+            (int) OrderItem::query()->where('order_id', $paid->id)->value('id'),
+            (int) $submission->fresh()->order_item_id
+        );
     }
 
     public function test_library_shows_order_for_abandoned_wise_leftover(): void
@@ -527,7 +546,7 @@ class CancelledCardOrderMarkPaidTest extends TestCase
         $this->assertSame('pending', $stale->fresh()->status);
     }
 
-    public function test_cart_picker_hides_failed_card_leftover(): void
+    public function test_cart_picker_keeps_failed_card_leftover_assignment(): void
     {
         $advertiser = $this->makeUser('advertiser');
         $publisher = $this->makeUser('publisher');
@@ -561,7 +580,10 @@ class CancelledCardOrderMarkPaidTest extends TestCase
             'order_item_id' => $item->id,
         ]);
 
-        $this->assertFalse($submission->fresh()->load('order')->isAvailableForPicker());
+        $this->assertTrue($submission->fresh()->load('order')->isAvailableForPicker());
+        $this->assertTrue(
+            ContentSubmission::query()->whereKey($submission->id)->availableForPicker()->exists()
+        );
 
         $payload = $this->actingAs($advertiser)
             ->withSession([
@@ -579,10 +601,97 @@ class CancelledCardOrderMarkPaidTest extends TestCase
 
         $articleIds = collect($payload['approved_articles'] ?? [])->pluck('id')->all();
         $this->assertContains($ready->id, $articleIds);
-        $this->assertNotContains($submission->id, $articleIds);
-        $this->assertSame(0, (int) ($payload['cart'][0]['content_submission_id'] ?? 0));
+        $this->assertContains($submission->id, $articleIds);
+        $this->assertSame($submission->id, (int) ($payload['cart'][0]['content_submission_id'] ?? 0));
         $this->assertSame('pending', $leftover->fresh()->status);
         $this->assertSame('failed', $leftover->fresh()->payment_status);
+    }
+
+    public function test_library_shows_order_for_failed_card_leftover(): void
+    {
+        $advertiser = $this->makeUser('advertiser');
+        $publisher = $this->makeUser('publisher');
+        $site = $this->makeSite($publisher);
+        $submission = $this->createApprovedSubmission($advertiser);
+        $submission->update(['title' => 'Stuck Failed Card Piece']);
+        $leftover = Order::create([
+            'user_id' => $advertiser->id,
+            'order_number' => (string) random_int(100000, 999999),
+            'reference_code' => 'REF-FAILED-CARD-UI',
+            'subtotal' => 80,
+            'tax' => 0,
+            'total_amount' => 80,
+            'payment_method' => 'card',
+            'payment_status' => 'failed',
+            'status' => 'pending',
+        ]);
+        $item = OrderItem::create([
+            'order_id' => $leftover->id,
+            'site_id' => $site->id,
+            'site_name' => $site->site_name,
+            'site_url' => $site->site_url,
+            'content_link' => 'https://example.com/article',
+            'content_submission_id' => $submission->id,
+            'price' => 80,
+        ]);
+        $submission->update([
+            'order_id' => $leftover->id,
+            'order_item_id' => $item->id,
+        ]);
+
+        $this->assertTrue($submission->fresh()->load('order')->canReplaceUnpaidLeftover());
+        $this->assertSame('in_progress', $submission->fresh()->libraryAvailability());
+
+        $this->actingAs($advertiser)
+            ->get(route('advertiser.content-library', ['availability' => 'in_progress']))
+            ->assertOk()
+            ->assertSee('Stuck Failed Card Piece')
+            ->assertSee(route('advertiser.content-library.order', $submission, false), false)
+            ->assertSee('View order');
+    }
+
+    public function test_order_from_library_releases_failed_card_leftover(): void
+    {
+        $advertiser = $this->makeUser('advertiser');
+        $publisher = $this->makeUser('publisher');
+        $site = $this->makeSite($publisher);
+        $submission = $this->createApprovedSubmission($advertiser);
+        $leftover = Order::create([
+            'user_id' => $advertiser->id,
+            'order_number' => (string) random_int(100000, 999999),
+            'reference_code' => 'REF-FAILED-CARD-LIB',
+            'subtotal' => 80,
+            'tax' => 0,
+            'total_amount' => 80,
+            'payment_method' => 'card',
+            'payment_status' => 'failed',
+            'status' => 'pending',
+        ]);
+        $item = OrderItem::create([
+            'order_id' => $leftover->id,
+            'site_id' => $site->id,
+            'site_name' => $site->site_name,
+            'site_url' => $site->site_url,
+            'content_link' => 'https://example.com/article',
+            'content_submission_id' => $submission->id,
+            'price' => 80,
+        ]);
+        $submission->update([
+            'order_id' => $leftover->id,
+            'order_item_id' => $item->id,
+        ]);
+
+        $this->actingAs($advertiser)
+            ->get(route('advertiser.content-library.order', $submission))
+            ->assertRedirect(route('advertiser.catalog', [
+                'content_submission_id' => $submission->id,
+            ]));
+
+        $leftover->refresh();
+        $this->assertSame('cancelled', $leftover->status);
+        $this->assertSame('failed', $leftover->payment_status);
+        $this->assertNull($submission->fresh()->order_id);
+        $this->assertTrue($submission->fresh()->isReadyForCheckout());
     }
 
     public function test_catalog_query_releases_abandoned_wise_leftover(): void

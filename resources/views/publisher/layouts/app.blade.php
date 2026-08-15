@@ -110,7 +110,7 @@
         <a href="{{ route('publisher.reports') }}" class="{{ request()->routeIs('publisher.reports*') ? 'active' : '' }}">
             <i class="fa fa-chart-bar" aria-hidden="true"></i> <span class="nav-label">Reports</span>
         </a>
-        
+        @include('components.ad-banners', ['placement' => 'sidebar', 'audience' => 'publisher'])
     </div>
 </div>
 

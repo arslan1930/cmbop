@@ -40,6 +40,7 @@ class AdminPromotionsSchemaDriftResilienceTest extends TestCase
         $this->actingAs($this->admin)
             ->get(route('admin.promotions.index'))
             ->assertOk()
+            ->assertSee('Promotions storage is incomplete', false)
             ->assertDontSee('Something went wrong');
     }
 
@@ -75,6 +76,7 @@ class AdminPromotionsSchemaDriftResilienceTest extends TestCase
             ->get(route('admin.promotions.index'))
             ->assertOk()
             ->assertSee('€20 welcome credit', false)
+            ->assertSee('Unknown', false)
             ->assertDontSee('Something went wrong');
     }
 }

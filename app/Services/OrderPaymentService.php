@@ -394,8 +394,10 @@ class OrderPaymentService
     }
 
     /**
-     * Drop this advertiser's unpaid pending leftovers for these articles so a
-     * new checkout can claim them. Failed card leftovers stay for Pay again.
+     * Drop this advertiser's unpaid or failed leftovers for these articles so a
+     * new checkout can claim them. Pay again on the same leftover still works
+     * until they start that checkout. Already-failed card leftovers are
+     * cancelled here because markOrdersFailedFromReference only updates pending.
      *
      * @param  array<int, int|string>  $submissionIds
      */
@@ -419,7 +421,7 @@ class OrderPaymentService
                     ->where('status', 'pending')
                     ->where(function ($payment) {
                         $payment->whereNull('payment_status')
-                            ->orWhereNotIn('payment_status', ['paid', 'refunded', 'failed']);
+                            ->orWhereNotIn('payment_status', ['paid', 'refunded']);
                     });
             })
             ->pluck('order_id');
@@ -441,7 +443,7 @@ class OrderPaymentService
             ->where('status', 'pending')
             ->where(function ($payment) {
                 $payment->whereNull('payment_status')
-                    ->orWhereNotIn('payment_status', ['paid', 'refunded', 'failed']);
+                    ->orWhereNotIn('payment_status', ['paid', 'refunded']);
             })
             ->get();
 
@@ -469,6 +471,9 @@ class OrderPaymentService
                     'payment_status' => 'failed',
                     'status' => 'cancelled',
                 ]);
+            } elseif ((string) $order->payment_status === 'failed') {
+                // markOrdersFailedFromReference only updates pending card rows.
+                $refunds->releaseReservedCheckoutBonus($order);
             }
 
             ContentSubmission::releaseAllForOrder((int) $order->id);

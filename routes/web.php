@@ -49,6 +49,7 @@ use App\Http\Controllers\Advertiser\SiteUrlConcealController;
 use App\Http\Controllers\Advertiser\SiteUrlRevealController;
 use App\Http\Controllers\Advertiser\SiteVisitController;
 use App\Http\Controllers\Advertiser\WebsiteSuggestionController;
+use App\Http\Controllers\AnnouncementClickController;
 use App\Http\Controllers\Auth\ForgotPasswordController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Auth\RegisterController;
@@ -67,6 +68,7 @@ use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\NotificationPreferenceController;
 // BlogController for public blog pages
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\PromotionTrackController;
 use App\Http\Controllers\PublicMediaController;
 use App\Http\Controllers\Publisher\BalanceController;
 use App\Http\Controllers\Publisher\BillingController as PublisherBillingController;
@@ -229,10 +231,16 @@ Route::get('/css/{path}', function (string $path) {
     abort(404);
 })->where('path', '.*')->name('legacy.css');
 
-// Ad banner click tracking (public)
+// Ad banner / announcement click tracking (public)
 Route::get('/banners/{banner}/click', BannerClickController::class)
     ->middleware('throttle:60,1')
     ->name('banners.click');
+Route::get('/announcements/{announcement}/click', AnnouncementClickController::class)
+    ->middleware('throttle:60,1')
+    ->name('announcements.click');
+Route::post('/promotions/track', PromotionTrackController::class)
+    ->middleware('throttle:60,1')
+    ->name('promotions.track');
 
 // External cron fallback for hosts without a real scheduler. This completes orders
 // and releases publisher payouts, so it stays closed unless a strong secret is set
@@ -449,6 +457,27 @@ $registerStaffOpsRoutes = function () {
     // Activate/deactivate: admin and marketing (shared Sites Management).
     Route::post('/sites/{id}/active', [AdminSiteController::class, 'toggleActive'])
         ->name('sites.active');
+
+    Route::get('/promotions', [AdminPromotionController::class, 'index'])->name('promotions.index');
+    Route::prefix('promotions')->name('promotions.')->group(function () {
+        Route::get('preview', [AdminPromotionController::class, 'preview'])->name('preview');
+
+        Route::resource('announcements', AdminAnnouncementController::class)->except(['show']);
+        Route::post('announcements/{announcement}/toggle', [AdminAnnouncementController::class, 'toggle'])
+            ->name('announcements.toggle');
+        Route::post('announcements/{announcement}/duplicate', [AdminAnnouncementController::class, 'duplicate'])
+            ->name('announcements.duplicate');
+        Route::post('announcements/{id}/restore', [AdminAnnouncementController::class, 'restore'])
+            ->name('announcements.restore');
+
+        Route::resource('banners', AdminAdBannerController::class)->except(['show']);
+        Route::post('banners/{banner}/toggle', [AdminAdBannerController::class, 'toggle'])
+            ->name('banners.toggle');
+        Route::post('banners/{banner}/duplicate', [AdminAdBannerController::class, 'duplicate'])
+            ->name('banners.duplicate');
+        Route::post('banners/{id}/restore', [AdminAdBannerController::class, 'restore'])
+            ->name('banners.restore');
+    });
 };
 
 // ✅ Marketing panel — dedicated /marketing workspace + personal task history
@@ -613,19 +642,10 @@ Route::middleware(['auth', 'verified', RedirectMarketingFromAdmin::class, RoleMi
         Route::post('/emails/retry', [AdminEmailCenterController::class, 'retryFailed'])->name('emails.retry');
         Route::post('/emails/settings', [AdminEmailCenterController::class, 'updateSettings'])->name('emails.settings');
 
-        Route::get('/promotions', [AdminPromotionController::class, 'index'])->name('promotions.index');
-        Route::prefix('promotions')->name('promotions.')->group(function () {
-            Route::resource('announcements', AdminAnnouncementController::class)->except(['show']);
-            Route::post('announcements/{announcement}/toggle', [AdminAnnouncementController::class, 'toggle'])
-                ->name('announcements.toggle');
-
-            Route::resource('banners', AdminAdBannerController::class)->except(['show']);
-            Route::post('banners/{banner}/toggle', [AdminAdBannerController::class, 'toggle'])
-                ->name('banners.toggle');
-
-            Route::post('welcome-bonus', [AdminWelcomeBonusSettingController::class, 'toggle'])
-                ->name('welcome-bonus.toggle');
-        });
+        Route::post('/promotions/welcome-bonus', [AdminWelcomeBonusSettingController::class, 'toggle'])
+            ->name('promotions.welcome-bonus.toggle');
+        Route::post('/promotions/welcome-bonus/amount', [AdminWelcomeBonusSettingController::class, 'updateAmount'])
+            ->name('promotions.welcome-bonus.amount');
 
         Route::get('/audiences', [AdminAudienceController::class, 'index'])->name('audiences.index');
         Route::get('/audiences/export', [AdminAudienceController::class, 'export'])

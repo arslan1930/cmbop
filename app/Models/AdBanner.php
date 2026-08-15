@@ -2,12 +2,17 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasPromotionSchedule;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class AdBanner extends Model
 {
+    use HasPromotionSchedule;
+    use SoftDeletes;
+
     protected $fillable = [
         'name',
         'title',
@@ -75,7 +80,6 @@ class AdBanner extends Model
     public function imageSrc(): ?string
     {
         if (filled($this->image_path)) {
-            // Root-relative path so admin/public previews work on any host:port
             return '/storage/'.ltrim($this->image_path, '/');
         }
 
@@ -96,23 +100,6 @@ class AdBanner extends Model
         $placement = scalar_text($this->placement);
 
         return scalar_text(config("promotions.banner_placements.{$placement}", $placement));
-    }
-
-    public function isCurrentlyLive(): bool
-    {
-        if (! $this->is_active) {
-            return false;
-        }
-
-        $now = now();
-        if ($this->starts_at && $this->starts_at->gt($now)) {
-            return false;
-        }
-        if ($this->ends_at && $this->ends_at->lt($now)) {
-            return false;
-        }
-
-        return true;
     }
 
     public function recordImpression(): void

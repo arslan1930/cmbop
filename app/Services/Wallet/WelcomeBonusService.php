@@ -30,7 +30,17 @@ class WelcomeBonusService
 
     public function amount(): float
     {
+        $stored = WelcomeBonusSetting::config();
+        if (is_array($stored) && isset($stored['amount']) && is_numeric($stored['amount'])) {
+            return round(max(0, (float) $stored['amount']), 2);
+        }
+
         return round(max(0, (float) config('welcome_bonus.amount', 20)), 2);
+    }
+
+    public function setAmount(float $amount, ?int $updatedBy = null): void
+    {
+        WelcomeBonusSetting::setAmount($amount, $updatedBy);
     }
 
     public function canGrant(): bool

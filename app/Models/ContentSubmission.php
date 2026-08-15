@@ -43,7 +43,7 @@ class ContentSubmission extends Model
 
     public const CHECKOUT_LINK_MESSAGE = 'Add anchor text and a valid HTTPS target URL, or clear both link fields.';
 
-    public const ACTIVE_ORDER_CLAIM_MESSAGE = 'This article is still attached to an unpaid or failed order. Use Pay again on that order, or cancel it, before ordering again.';
+    public const ACTIVE_ORDER_CLAIM_MESSAGE = 'This article is still attached to an unpaid or failed order. Pay again on that order, or start a new checkout to replace it.';
 
     /** Leftover / in-flight placements that still own the article. */
     public const ACTIVE_ORDER_CLAIM_PAYMENT_STATUSES = ['paid', 'pending', 'failed'];
@@ -324,8 +324,8 @@ class ContentSubmission extends Model
 
     /**
      * Catalog / wizard / cart pickers: free checkout-ready rows, plus this
-     * advertiser's replaceable unpaid leftovers. Failed card leftovers stay
-     * hidden so Pay again is the only path.
+     * advertiser's replaceable leftovers (unpaid pending, or failed card
+     * kept for Pay again until they start a new checkout).
      *
      * @param  Builder<static>  $query
      * @return Builder<static>
@@ -882,8 +882,8 @@ class ContentSubmission extends Model
     }
 
     /**
-     * Own unpaid leftover (Wise/bank/crypto/legacy card) that Order / a new
-     * checkout may replace. Failed card leftovers stay for Pay again.
+     * Own leftover (Wise/bank/crypto/legacy card, including failed card
+     * kept for Pay again) that Order / a new checkout may replace.
      */
     public function canReplaceUnpaidLeftover(): bool
     {
@@ -946,14 +946,14 @@ class ContentSubmission extends Model
         $orderQuery->where('status', 'pending')
             ->where(function ($payment) {
                 $payment->whereNull('payment_status')
-                    ->orWhereNotIn('payment_status', ['paid', 'refunded', 'failed']);
+                    ->orWhereNotIn('payment_status', ['paid', 'refunded']);
             });
     }
 
     protected function orderLooksLikeReplaceableLeftover(Order $order): bool
     {
         return $order->status === 'pending'
-            && ! in_array((string) $order->payment_status, ['paid', 'refunded', 'failed'], true);
+            && ! in_array((string) $order->payment_status, ['paid', 'refunded'], true);
     }
 
     /**

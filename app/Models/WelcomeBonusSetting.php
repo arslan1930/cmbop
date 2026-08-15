@@ -142,6 +142,51 @@ class WelcomeBonusSetting extends Model
         }
     }
 
+    public static function setAmount(float $amount, ?int $updatedBy = null): void
+    {
+        if (! Schema::hasTable((new static)->getTable())) {
+            return;
+        }
+
+        $amount = round(max(0, $amount), 2);
+
+        $write = function () use ($amount, $updatedBy): void {
+            DB::transaction(function () use ($amount, $updatedBy) {
+                $rows = static::configRows(true);
+                $keep = $rows->first();
+                try {
+                    $current = is_array($keep?->value) ? $keep->value : [];
+                } catch (\Throwable) {
+                    $current = [];
+                }
+
+                if (! array_key_exists('enabled', $current)) {
+                    $current['enabled'] = static::parseEnabledFlag(config('welcome_bonus.enabled_default', true), true);
+                }
+                $current['amount'] = $amount;
+                $current['updated_at'] = now()->toIso8601String();
+                if ($updatedBy !== null) {
+                    $current['updated_by'] = $updatedBy;
+                }
+
+                if ($keep === null) {
+                    static::query()->create(['key' => 'config', 'value' => $current]);
+                } else {
+                    $keep->value = $current;
+                    $keep->save();
+                    static::query()->where('key', 'config')->where('id', '!=', $keep->id)->delete();
+                }
+                Cache::forget('welcome_bonus_setting:config');
+            });
+        };
+
+        try {
+            $write();
+        } catch (UniqueConstraintViolationException) {
+            $write();
+        }
+    }
+
     public static function clearCache(): void
     {
         Cache::forget('welcome_bonus_setting:config');

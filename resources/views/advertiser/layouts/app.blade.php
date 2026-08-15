@@ -148,6 +148,7 @@
         <a href="{{ route('advertiser.reports') }}" class="{{ request()->routeIs('advertiser.reports') ? 'active' : '' }}">
             <i class="fa fa-chart-line" aria-hidden="true"></i> <span class="nav-label">Reports</span>
         </a>
+        @include('components.ad-banners', ['placement' => 'sidebar', 'audience' => 'advertiser'])
     </div>
 </nav>
 

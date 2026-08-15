@@ -79,6 +79,9 @@ class RedirectMarketingFromAdmin
         if (str_starts_with($rest, 'site-enrichment')) {
             return true;
         }
+        if (str_starts_with($rest, 'promotions')) {
+            return ! str_contains($rest, 'welcome-bonus');
+        }
         // AJAX: /admin/users/{id}/sites (not the Users admin page)
         if (preg_match('#^users/\d+/sites$#', $rest) === 1) {
             return true;

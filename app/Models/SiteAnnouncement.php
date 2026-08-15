@@ -2,12 +2,17 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasPromotionSchedule;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class SiteAnnouncement extends Model
 {
+    use HasPromotionSchedule;
+    use SoftDeletes;
+
     protected $fillable = [
         'title',
         'message',
@@ -19,6 +24,8 @@ class SiteAnnouncement extends Model
         'is_active',
         'is_dismissible',
         'priority',
+        'version',
+        'clicks',
         'starts_at',
         'ends_at',
         'created_by',
@@ -28,6 +35,8 @@ class SiteAnnouncement extends Model
         'is_active' => 'boolean',
         'is_dismissible' => 'boolean',
         'priority' => 'integer',
+        'version' => 'integer',
+        'clicks' => 'integer',
         'starts_at' => 'datetime',
         'ends_at' => 'datetime',
     ];
@@ -71,20 +80,8 @@ class SiteAnnouncement extends Model
         return scalar_text(config("promotions.announcement_types.{$type}.icon", 'fa-bullhorn'));
     }
 
-    public function isCurrentlyLive(): bool
+    public function recordClick(): void
     {
-        if (! $this->is_active) {
-            return false;
-        }
-
-        $now = now();
-        if ($this->starts_at && $this->starts_at->gt($now)) {
-            return false;
-        }
-        if ($this->ends_at && $this->ends_at->lt($now)) {
-            return false;
-        }
-
-        return true;
+        $this->increment('clicks');
     }
 }

@@ -1,5 +1,6 @@
 @php
     $announcements = collect();
+    $trackPromos = $track ?? true;
     try {
         $announcements = app(\App\Services\PromotionService::class)->activeAnnouncements($audience ?? null);
     } catch (\Throwable $e) {
@@ -13,6 +14,7 @@
     @foreach($announcements as $item)
         <div class="site-announcement site-announcement--{{ scalar_text($item->style) }} site-announcement-type--{{ scalar_text($item->type) }}"
              data-announcement-id="{{ $item->id }}"
+             data-announcement-version="{{ (int) ($item->version ?: 1) }}"
              data-type="{{ scalar_text($item->type) }}"
              role="status">
             <div class="site-announcement__inner">
@@ -27,11 +29,14 @@
                         <span class="site-announcement__ends">Ends {{ $item->ends_at->format('M j') }}</span>
                     @endif
                     @if($item->cta_url && $item->cta_label)
-                        <a class="site-announcement__cta" href="{{ scalar_text($item->cta_url) }}">{{ scalar_text($item->cta_label) }}</a>
+                        <a class="site-announcement__cta"
+                           href="{{ route('announcements.click', $item) }}"
+                           @if(!\Illuminate\Support\Str::startsWith((string) $item->cta_url, '/')) rel="noopener noreferrer" @endif
+                        >{{ scalar_text($item->cta_label) }}</a>
                     @endif
                 </div>
                 @if($item->is_dismissible)
-                    <button type="button" class="site-announcement__dismiss" aria-label="Dismiss announcement" data-dismiss-announcement="{{ $item->id }}">
+                    <button type="button" class="site-announcement__dismiss" aria-label="Dismiss announcement" data-dismiss-announcement="{{ $item->id }}" data-dismiss-version="{{ (int) ($item->version ?: 1) }}">
                         <i class="fa fa-times"></i>
                     </button>
                 @endif
@@ -46,17 +51,21 @@
     try { dismissed = JSON.parse(localStorage.getItem(key) || '[]'); } catch (e) { dismissed = []; }
     document.querySelectorAll('[data-announcement-id]').forEach(function (el) {
         const id = parseInt(el.getAttribute('data-announcement-id'), 10);
-        if (dismissed.indexOf(id) !== -1) {
+        const version = parseInt(el.getAttribute('data-announcement-version') || '1', 10);
+        const token = id + ':' + version;
+        if (dismissed.indexOf(token) !== -1) {
             el.remove();
         }
     });
     document.querySelectorAll('[data-dismiss-announcement]').forEach(function (btn) {
         btn.addEventListener('click', function () {
             const id = parseInt(btn.getAttribute('data-dismiss-announcement'), 10);
+            const version = parseInt(btn.getAttribute('data-dismiss-version') || '1', 10);
             const wrap = btn.closest('[data-announcement-id]');
             if (wrap) wrap.remove();
-            if (dismissed.indexOf(id) === -1) {
-                dismissed.push(id);
+            const token = id + ':' + version;
+            if (dismissed.indexOf(token) === -1) {
+                dismissed.push(token);
                 try { localStorage.setItem(key, JSON.stringify(dismissed)); } catch (e) {}
             }
         });

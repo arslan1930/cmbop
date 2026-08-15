@@ -13,7 +13,7 @@ return [
             'label' => 'Limited-Time Offer',
             'emoji' => '🎉',
             'icon' => 'fa-percent',
-            'description' => 'Flash sales and timed discounts, e.g. “20% OFF this week”.',
+            'description' => 'Site notice for a flash sale. This does not change catalog prices — e.g. “20% OFF this week”.',
             'default_style' => 'promo',
             'default_title' => '20% OFF this week',
             'default_message' => 'Limited-time offer — save 20% on guest posts until Sunday. Inventory is limited.',
@@ -101,5 +101,30 @@ return [
         'footer' => 'Above footer',
         'marketplace' => 'Marketplace / catalog',
         'dashboard' => 'User dashboard',
+    ],
+
+    'max_live_announcements' => 2,
+    'banners_per_placement' => 1,
+    'banner_mimes' => ['jpeg', 'png', 'jpg', 'gif', 'webp'],
+    'banner_dimension_tolerance' => 0.10,
+
+    'wired_placements' => [
+        'header' => ['public'],
+        'content_top' => ['public', 'advertiser', 'publisher'],
+        'content_bottom' => ['public', 'advertiser', 'publisher'],
+        'footer' => ['public'],
+        'marketplace' => ['advertiser'],
+        'dashboard' => ['advertiser', 'publisher'],
+        'sidebar' => ['advertiser', 'publisher'],
+    ],
+
+    'placement_preview_urls' => [
+        'header' => '/',
+        'content_top' => '/',
+        'content_bottom' => '/',
+        'footer' => '/',
+        'marketplace' => '/advertiser/catalog',
+        'dashboard' => '/advertiser/dashboard',
+        'sidebar' => '/advertiser/dashboard',
     ],
 ];

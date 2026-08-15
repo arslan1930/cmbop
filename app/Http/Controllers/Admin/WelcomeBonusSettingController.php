@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Services\ActivityLogger;
 use App\Services\Wallet\WelcomeBonusService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -34,11 +35,57 @@ class WelcomeBonusSettingController extends Controller
             return back()->with('error', 'Could not update the welcome bonus. Please try again.');
         }
 
+        try {
+            ActivityLogger::log(
+                'welcome_bonus.toggled',
+                ($request->user()?->name ?? 'Admin').' '.($enabled ? 'enabled' : 'disabled').' the welcome bonus',
+                null,
+                ['enabled' => $enabled]
+            );
+        } catch (\Throwable) {
+        }
+
         return back()->with(
             'success',
             $enabled
                 ? 'Welcome bonus enabled. New advertisers can receive the credit once per place.'
                 : 'Welcome bonus disabled. New advertisers will not receive the credit. Existing bonuses stay.'
         );
+    }
+
+    public function updateAmount(Request $request, WelcomeBonusService $welcomeBonus): RedirectResponse
+    {
+        if (! Schema::hasTable('welcome_bonus_settings')) {
+            return back()->with('error', 'Welcome bonus settings are not available yet. Run migrations.');
+        }
+
+        $data = $request->validate([
+            'amount' => ['required', 'numeric', 'min:0', 'max:500'],
+        ]);
+        $amount = round((float) $data['amount'], 2);
+
+        try {
+            $welcomeBonus->setAmount($amount, $request->user()?->id);
+        } catch (\Throwable $e) {
+            Log::warning('Failed to update welcome bonus amount: '.$e->getMessage());
+
+            return back()->with('error', 'Could not update the welcome bonus amount. Please try again.');
+        }
+
+        if (abs($welcomeBonus->amount() - $amount) > 0.001) {
+            return back()->with('error', 'Could not update the welcome bonus amount. Please try again.');
+        }
+
+        try {
+            ActivityLogger::log(
+                'welcome_bonus.amount_changed',
+                ($request->user()?->name ?? 'Admin').' set the welcome bonus to €'.number_format($amount, 2),
+                null,
+                ['amount' => $amount]
+            );
+        } catch (\Throwable) {
+        }
+
+        return back()->with('success', 'Welcome bonus amount set to €'.number_format($amount, 2).'. New advertisers receive this amount. Existing bonuses stay.');
     }
 }

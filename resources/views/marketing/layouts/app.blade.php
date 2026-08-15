@@ -78,6 +78,9 @@
         <a href="{{ route('marketing.staff-handbook') }}" class="{{ request()->routeIs('marketing.staff-handbook') ? 'active' : '' }}">
             <i class="fa fa-book"></i> <span class="nav-label">Staff handbook</span>
         </a>
+        <a href="{{ route('marketing.promotions.index') }}" class="{{ request()->routeIs('marketing.promotions.*') ? 'active' : '' }}">
+            <i class="fa fa-bullhorn"></i> <span class="nav-label">Promotions</span>
+        </a>
     </div>
 </div>
 

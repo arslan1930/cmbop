@@ -872,6 +872,7 @@ class ContentLibraryImprovementsTest extends TestCase
         $this->assertFalse($fresh->isReadyForCheckout());
         $this->assertTrue($fresh->isReadyToFulfill((int) $leftover->id));
         $this->assertFalse($fresh->isJustApproved());
+        $this->assertTrue($fresh->canReplaceUnpaidLeftover());
         $this->assertSame('needs_fix', $fresh->libraryAvailability());
         $this->assertSame(ContentSubmission::ACTIVE_ORDER_CLAIM_MESSAGE, $fresh->libraryFixSummary());
         $this->assertSame(ContentSubmission::ACTIVE_ORDER_CLAIM_MESSAGE, $fresh->editorNotice());
@@ -884,6 +885,12 @@ class ContentLibraryImprovementsTest extends TestCase
         $this->assertTrue(
             ContentSubmission::query()->whereKey($submission->id)->needsLibraryFix()->exists()
         );
+
+        $this->actingAs($advertiser)
+            ->get(route('advertiser.content-library', ['availability' => 'needs_fix']))
+            ->assertOk()
+            ->assertSee(route('advertiser.content-library.order', $submission, false), false)
+            ->assertSee('View order');
 
         $this->actingAs($advertiser)
             ->withSession([
@@ -899,16 +906,11 @@ class ContentLibraryImprovementsTest extends TestCase
                 'id' => $site->id,
                 'content_submission_id' => $submission->id,
             ])
-            ->assertStatus(422)
-            ->assertJsonPath('success', false);
+            ->assertOk()
+            ->assertJsonPath('success', true);
 
-        $this->actingAs($advertiser)
-            ->from(route('advertiser.content-library'))
-            ->get(route('advertiser.content-library.order', $submission))
-            ->assertRedirect(route('advertiser.content-library'))
-            ->assertSessionHas('error', ContentSubmission::ACTIVE_ORDER_CLAIM_MESSAGE);
-
-        $leftover->update(['status' => 'cancelled']);
+        $leftover->refresh();
+        $this->assertSame('cancelled', $leftover->status);
         $released = $submission->fresh();
         $this->assertFalse($released->isClaimedByAnotherOrder());
         $this->assertTrue($released->isReadyForCheckout());

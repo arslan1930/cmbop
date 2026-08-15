@@ -143,4 +143,16 @@ class AdminWelcomeBonusToggleTest extends TestCase
 
         $this->assertTrue(app(WelcomeBonusService::class)->isEnabled());
     }
+
+    public function test_admin_can_update_welcome_bonus_amount(): void
+    {
+        $this->actingAs($this->admin)
+            ->from(route('admin.promotions.index'))
+            ->post(route('admin.promotions.welcome-bonus.amount'), ['amount' => 35.5])
+            ->assertRedirect(route('admin.promotions.index'))
+            ->assertSessionHas('success');
+
+        $this->assertSame(35.5, app(WelcomeBonusService::class)->amount());
+        $this->assertTrue(app(WelcomeBonusService::class)->isEnabled());
+    }
 }
