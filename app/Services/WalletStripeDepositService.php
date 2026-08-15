@@ -178,8 +178,34 @@ class WalletStripeDepositService
     }
 
     /**
-     * Credit wallet from a paid Checkout Session (webhook / success URL create-after-pay path).
+     * True when a completed card deposit already carries this Checkout /
+     * PaymentIntent id (this payer or leftover-PI on another user).
      */
+    public function completedCardExistsForStripeCharge(object $session): bool
+    {
+        $sessionId = (string) ($session->id ?? '');
+        if (str_starts_with($sessionId, 'pi_')) {
+            $sessionId = '';
+        }
+        $paymentIntentId = $this->paymentIntentIdFromStripeSession($session);
+        if ($sessionId === '' && $paymentIntentId === '') {
+            return false;
+        }
+
+        return DepositRequest::query()
+            ->where('status', 'completed')
+            ->whereIn('payment_method', DepositRequest::CARD_METHODS)
+            ->where(function ($query) use ($sessionId, $paymentIntentId) {
+                if ($sessionId !== '') {
+                    $query->orWhere('stripe_session_id', $sessionId);
+                }
+                if ($paymentIntentId !== '') {
+                    $query->orWhere('stripe_payment_intent_id', $paymentIntentId);
+                }
+            })
+            ->exists();
+    }
+
     public function creditFromCheckoutSession(object $session): float
     {
         $metadata = $this->metaArray($session->metadata ?? null);

@@ -317,7 +317,21 @@ class StripeWebhookController extends Controller
 
     private function handleWalletDepositSession(object $session): void
     {
-        app(WalletStripeDepositService::class)->creditFromCheckoutSession($session);
+        $deposits = app(WalletStripeDepositService::class);
+        $credited = $deposits->creditFromCheckoutSession($session);
+        if ($credited > 0 || $deposits->completedCardExistsForStripeCharge($session)) {
+            return;
+        }
+
+        $metadata = $this->metaArray($session->metadata ?? null);
+        $type = isset($metadata['type']) ? (string) $metadata['type'] : '';
+        if (! in_array($type, ['wallet_deposit', 'deposit'], true)) {
+            return;
+        }
+
+        throw new \RuntimeException(
+            'wallet_deposit session did not credit a card row for '.($session->id ?? 'unknown')
+        );
     }
 
     /**

@@ -49,6 +49,18 @@ class OrderPaymentService
                 return collect();
             }
 
+            $this->cancelUnpaidCardOrdersAlreadyFulfilledElsewhere($orders);
+            $orders = $orders
+                ->filter(function (Order $order) {
+                    $order->refresh();
+
+                    return $this->canMarkCardOrderPaid($order);
+                })
+                ->values();
+            if ($orders->isEmpty()) {
+                return collect();
+            }
+
             $meta = $this->sessionMetadataArray($session);
             if (! $this->existingCardOrdersMatchStripeCharge($orders, $session, $meta)) {
                 if ($this->pendingPackageBelongsToPayer($referenceCode, $meta)) {
@@ -115,6 +127,7 @@ class OrderPaymentService
             $referenceCode,
             (float) ($sessionMeta['bonus_applied'] ?? 0)
         );
+        $this->cancelUnpaidCardOrdersForPaidCheckout($newlyPaid);
 
         return $newlyPaid;
     }
@@ -137,6 +150,18 @@ class OrderPaymentService
         $newlyPaid = DB::transaction(function () use ($referenceCode, $intent, $meta) {
             $orders = $this->lockCardOrdersForPayer($referenceCode, $meta);
 
+            if ($orders->isEmpty()) {
+                return collect();
+            }
+
+            $this->cancelUnpaidCardOrdersAlreadyFulfilledElsewhere($orders);
+            $orders = $orders
+                ->filter(function (Order $order) {
+                    $order->refresh();
+
+                    return $this->canMarkCardOrderPaid($order);
+                })
+                ->values();
             if ($orders->isEmpty()) {
                 return collect();
             }
@@ -202,6 +227,7 @@ class OrderPaymentService
             $referenceCode,
             (float) ($meta['bonus_applied'] ?? 0)
         );
+        $this->cancelUnpaidCardOrdersForPaidCheckout($newlyPaid);
 
         return $newlyPaid;
     }
@@ -640,6 +666,133 @@ class OrderPaymentService
             ->where('payment_method', 'card')
             ->where('payment_status', 'pending')
             ->whereNotIn('status', ['completed', 'cancelled'])
+            ->exists();
+    }
+
+    /**
+     * After a paid checkout, leftover Pay-again rows for the same sites
+     * must not stay retryable — a later card capture would fulfill twice.
+     *
+     * @param  Collection<int, Order>  $paidOrders
+     */
+    public function cancelUnpaidCardOrdersForPaidCheckout(Collection $paidOrders): void
+    {
+        if ($paidOrders->isEmpty()) {
+            return;
+        }
+
+        $userId = (int) ($paidOrders->first()->user_id ?? 0);
+        $siteIds = $paidOrders
+            ->flatMap(function (Order $order) {
+                $order->loadMissing('items');
+
+                return $order->items->pluck('site_id');
+            })
+            ->all();
+
+        $this->cancelUnpaidCardOrdersForPaidSites(
+            $userId,
+            $siteIds,
+            $paidOrders->pluck('id')->all()
+        );
+        $this->abandonOverlappingPendingCardPackages($paidOrders);
+    }
+
+    /**
+     * @param  list<int|string|null>  $siteIds
+     * @param  list<int|string|null>  $exceptOrderIds
+     */
+    public function cancelUnpaidCardOrdersForPaidSites(int $userId, array $siteIds, array $exceptOrderIds = []): void
+    {
+        $siteIds = array_values(array_unique(array_filter(
+            array_map('intval', $siteIds),
+            static fn (int $id) => $id > 0
+        )));
+        $exceptOrderIds = array_values(array_unique(array_filter(
+            array_map('intval', $exceptOrderIds),
+            static fn (int $id) => $id > 0
+        )));
+        if ($userId <= 0 || $siteIds === []) {
+            return;
+        }
+
+        $rows = Order::query()
+            ->where('user_id', $userId)
+            ->where('payment_method', 'card')
+            ->whereIn('payment_status', ['pending', 'failed'])
+            ->whereNotIn('status', ['cancelled', 'completed'])
+            ->when($exceptOrderIds !== [], fn ($query) => $query->whereNotIn('id', $exceptOrderIds))
+            ->whereHas('items', fn ($query) => $query->whereIn('site_id', $siteIds))
+            ->lockForUpdate()
+            ->get();
+
+        foreach ($rows as $order) {
+            ContentSubmission::releaseAllForOrder((int) $order->id);
+            $order->update([
+                'status' => 'cancelled',
+                'payment_status' => $order->payment_status === 'paid' ? $order->payment_status : 'failed',
+            ]);
+        }
+    }
+
+    /**
+     * Pay again must not charge a leftover row after a later wallet/card
+     * checkout already fulfilled the same listing + article.
+     */
+    public function cardOrderAlreadyFulfilledByPaidCheckout(Order $order): bool
+    {
+        $order->loadMissing('items');
+        $userId = (int) ($order->user_id ?? 0);
+        if ($userId <= 0) {
+            return false;
+        }
+
+        foreach ($order->items as $item) {
+            if ($this->userAlreadyPaidForListing(
+                $userId,
+                (int) ($item->site_id ?? 0),
+                (int) ($item->content_submission_id ?? 0),
+                [(int) $order->id]
+            )) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * True when this advertiser already has a paid, non-cancelled placement
+     * for the listing (and article, when the line has one).
+     *
+     * @param  list<int|string|null>  $exceptOrderIds
+     */
+    public function userAlreadyPaidForListing(
+        int $userId,
+        int $siteId,
+        int $submissionId = 0,
+        array $exceptOrderIds = []
+    ): bool {
+        if ($userId <= 0 || $siteId <= 0) {
+            return false;
+        }
+
+        $exceptOrderIds = array_values(array_unique(array_filter(
+            array_map('intval', $exceptOrderIds),
+            static fn (int $id) => $id > 0
+        )));
+
+        return Order::query()
+            ->where('user_id', $userId)
+            ->where('payment_status', 'paid')
+            ->whereNotIn('status', ['cancelled'])
+            ->when($exceptOrderIds !== [], fn ($query) => $query->whereNotIn('id', $exceptOrderIds))
+            ->whereHas('items', function ($query) use ($siteId, $submissionId) {
+                $query->where('site_id', $siteId);
+                if ($submissionId > 0) {
+                    $query->where('content_submission_id', $submissionId);
+                }
+            })
             ->exists();
     }
 
@@ -1225,6 +1378,18 @@ class OrderPaymentService
                     continue;
                 }
 
+                $submissionId = (int) ($line['content_submission_id'] ?? 0);
+                if ($userId > 0 && $this->userAlreadyPaidForListing($userId, $siteId, $submissionId)) {
+                    Log::warning('Skipping Stripe-first line; listing already fulfilled on another checkout', [
+                        'reference_code' => $referenceCode,
+                        'site_id' => $siteId,
+                        'content_submission_id' => $submissionId > 0 ? $submissionId : null,
+                        'session_id' => $session->id ?? null,
+                    ]);
+
+                    continue;
+                }
+
                 $lineKey = $this->checkoutLineKey(
                     $referenceCode,
                     $siteId,
@@ -1233,7 +1398,6 @@ class OrderPaymentService
                     (string) ($stripeSessionId ?: $stripePaymentIntentId ?: '')
                 );
 
-                $submissionId = (int) ($line['content_submission_id'] ?? 0);
                 $submission = $submissionId > 0
                     ? ContentSubmission::query()->whereKey($submissionId)->lockForUpdate()->first()
                     : null;
@@ -1332,6 +1496,8 @@ class OrderPaymentService
 
                 $orders->push($order->fresh('items'));
             }
+
+            $this->cancelUnpaidCardOrdersForPaidCheckout($orders);
 
             return $orders;
         });
@@ -1449,6 +1615,15 @@ class OrderPaymentService
             return false;
         }
 
+        if ($this->cardOrderAlreadyFulfilledByPaidCheckout($order)) {
+            Log::warning('Skipping Stripe mark-paid; listing already fulfilled on another checkout', [
+                'order_id' => $order->id,
+                'reference_code' => $order->reference_code,
+            ]);
+
+            return false;
+        }
+
         return true;
     }
 
@@ -1533,6 +1708,95 @@ class OrderPaymentService
         $payerId = isset($meta['user_id']) ? (int) $meta['user_id'] : 0;
 
         return $packageUserId <= 0 || $payerId <= 0 || $packageUserId === $payerId;
+    }
+
+    /**
+     * Leftover Pay-again rows for a listing already paid on another REF
+     * must not be marked paid by a late Stripe webhook.
+     *
+     * @param  Collection<int, Order>  $orders
+     */
+    private function cancelUnpaidCardOrdersAlreadyFulfilledElsewhere(Collection $orders): void
+    {
+        foreach ($orders as $order) {
+            if (! in_array($order->payment_status, ['pending', 'failed'], true)) {
+                continue;
+            }
+            if (in_array((string) $order->status, ['cancelled', 'completed'], true)) {
+                continue;
+            }
+            if (! $this->cardOrderAlreadyFulfilledByPaidCheckout($order)) {
+                continue;
+            }
+
+            ContentSubmission::releaseAllForOrder((int) $order->id);
+            $order->update([
+                'status' => 'cancelled',
+                'payment_status' => $order->payment_status === 'paid' ? $order->payment_status : 'failed',
+            ]);
+        }
+    }
+
+    /**
+     * A later wallet/card checkout on a new REF must not leave this user's
+     * other Stripe-first packages live — finalize would create a second
+     * paid placement for the same listing.
+     *
+     * @param  Collection<int, Order>  $paidOrders
+     */
+    private function abandonOverlappingPendingCardPackages(Collection $paidOrders): void
+    {
+        $userId = (int) ($paidOrders->first()->user_id ?? 0);
+        if ($userId <= 0) {
+            return;
+        }
+
+        $siteIds = $paidOrders
+            ->flatMap(function (Order $order) {
+                $order->loadMissing('items');
+
+                return $order->items->pluck('site_id');
+            })
+            ->map(static fn ($id) => (int) $id)
+            ->filter(static fn (int $id) => $id > 0)
+            ->unique()
+            ->values()
+            ->all();
+        if ($siteIds === []) {
+            return;
+        }
+
+        $exceptRefs = $paidOrders
+            ->pluck('reference_code')
+            ->filter(static fn ($ref) => is_string($ref) && $ref !== '')
+            ->unique()
+            ->all();
+
+        foreach (app(CheckoutIntentService::class)->livePackagesForUser($userId) as $referenceCode => $package) {
+            if (in_array($referenceCode, $exceptRefs, true)) {
+                continue;
+            }
+            if ($this->hasOpenPaidCheckoutSiblings($userId, $referenceCode)) {
+                continue;
+            }
+
+            $packageSites = [];
+            foreach (is_array($package['lines'] ?? null) ? $package['lines'] : [] as $line) {
+                if (! is_array($line)) {
+                    continue;
+                }
+                $siteId = (int) ($line['site_id'] ?? 0);
+                if ($siteId > 0) {
+                    $packageSites[] = $siteId;
+                }
+            }
+            if (array_intersect($packageSites, $siteIds) === []) {
+                continue;
+            }
+
+            $this->releaseRecordedCheckoutBonus($userId, $referenceCode);
+            $this->forgetPendingCheckout($referenceCode, $userId);
+        }
     }
 
     private function cancelUnpaidCardOrdersForNewCheckout(string $referenceCode, int $userId): void

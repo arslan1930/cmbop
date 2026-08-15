@@ -733,6 +733,126 @@ class StripeFirstCheckoutInvariantsTest extends TestCase
         $this->assertEqualsWithDelta(0.0, (float) $wallet->balance, 0.01);
     }
 
+    public function test_finalize_cancels_leftover_failed_card_rows_for_the_same_sites(): void
+    {
+        $advertiser = $this->makeUser('advertiser');
+        $publisher = $this->makeUser('publisher');
+        $site = $this->makeSite($publisher, 'finalize-kills-retry.example', 80);
+        $ref = 'FINALIZE-KILL-RETRY-1';
+        $failed = $this->pendingCardOrder($advertiser, $site, 'OLD-FAIL-REF-1', 80);
+        $failed->update(['payment_status' => 'failed']);
+
+        $payments = app(OrderPaymentService::class);
+        $payments->storePendingCheckout($ref, $this->package($advertiser, [
+            $this->lineFor($site, 80),
+        ], 80));
+
+        $created = $payments->finalizeStripeFirstCheckout($ref, $this->paidSession($ref, 80, 'cs_kill_retry', $advertiser->id));
+
+        $this->assertCount(1, $created);
+        $this->assertSame('paid', $created->first()->payment_status);
+        $failed->refresh();
+        $this->assertSame('cancelled', $failed->status);
+        $this->assertSame('failed', $failed->payment_status);
+        $this->assertTrue($payments->cardOrderAlreadyFulfilledByPaidCheckout($failed));
+    }
+
+    public function test_finalize_credits_when_same_listing_already_paid_on_another_reference(): void
+    {
+        $advertiser = $this->makeUser('advertiser');
+        $publisher = $this->makeUser('publisher');
+        $site = $this->makeSite($publisher, 'already-paid-other-ref.example', 80);
+        $wallet = $this->advertiserWallet($advertiser, 0);
+
+        $paid = Order::create([
+            'user_id' => $advertiser->id,
+            'order_number' => (string) random_int(100000, 999999),
+            'reference_code' => 'WALLET-FIRST-1',
+            'subtotal' => 80,
+            'tax' => 0,
+            'total_amount' => 80,
+            'payment_method' => 'wallet',
+            'payment_status' => 'paid',
+            'status' => 'pending',
+            'paid_at' => now(),
+        ]);
+        OrderItem::create([
+            'order_id' => $paid->id,
+            'site_id' => $site->id,
+            'site_name' => $site->site_name,
+            'site_url' => $site->site_url,
+            'content_link' => 'https://example.com/a',
+            'price' => 80,
+        ]);
+
+        $cardRef = 'CARD-SECOND-1';
+        $payments = app(OrderPaymentService::class);
+        $payments->storePendingCheckout($cardRef, $this->package($advertiser, [
+            $this->lineFor($site, 80),
+        ], 80));
+
+        $created = $payments->finalizeStripeFirstCheckout(
+            $cardRef,
+            $this->paidSession($cardRef, 80, 'cs_already_paid_other', $advertiser->id)
+        );
+
+        $this->assertCount(0, $created);
+        $this->assertSame(1, Order::query()->where('payment_status', 'paid')->count());
+        $this->assertSame(0, Order::query()->where('reference_code', $cardRef)->count());
+        $wallet->refresh();
+        $this->assertEqualsWithDelta(80.0, (float) $wallet->balance, 0.01);
+        $this->assertNull($payments->getPendingCheckout($cardRef));
+    }
+
+    public function test_mark_paid_cancels_leftover_rows_already_fulfilled_elsewhere(): void
+    {
+        $advertiser = $this->makeUser('advertiser');
+        $publisher = $this->makeUser('publisher');
+        $site = $this->makeSite($publisher, 'mark-paid-already-done.example', 80);
+        $wallet = $this->advertiserWallet($advertiser, 0);
+
+        $paid = Order::create([
+            'user_id' => $advertiser->id,
+            'order_number' => (string) random_int(100000, 999999),
+            'reference_code' => 'WALLET-DONE-1',
+            'subtotal' => 80,
+            'tax' => 0,
+            'total_amount' => 80,
+            'payment_method' => 'wallet',
+            'payment_status' => 'paid',
+            'status' => 'pending',
+            'paid_at' => now(),
+        ]);
+        OrderItem::create([
+            'order_id' => $paid->id,
+            'site_id' => $site->id,
+            'site_name' => $site->site_name,
+            'site_url' => $site->site_url,
+            'content_link' => 'https://example.com/a',
+            'price' => 80,
+        ]);
+
+        $leftoverRef = 'CARD-LEFTOVER-1';
+        $failed = $this->pendingCardOrder($advertiser, $site, $leftoverRef, 80);
+        $failed->update(['payment_status' => 'failed']);
+
+        $payments = app(OrderPaymentService::class);
+        $session = $this->paidSession($leftoverRef, 80, 'cs_leftover_already_done', $advertiser->id);
+        $marked = $payments->markOrdersPaidFromStripeSession($leftoverRef, $session);
+
+        $this->assertCount(0, $marked);
+        $failed->refresh();
+        $this->assertSame('cancelled', $failed->status);
+        $this->assertSame('failed', $failed->payment_status);
+        $this->assertEqualsWithDelta(
+            80.0,
+            $payments->creditCapturedCardWhenUnfulfillable($advertiser->id, $leftoverRef, $session),
+            0.01
+        );
+        $wallet->refresh();
+        $this->assertEqualsWithDelta(80.0, (float) $wallet->balance, 0.01);
+    }
+
     public function test_taken_content_library_line_is_refunded_once_not_double_credited(): void
     {
         $advertiser = $this->makeUser('advertiser');

@@ -9,6 +9,7 @@ use App\Models\Role;
 use App\Models\Site;
 use App\Models\User;
 use App\Models\Wallet;
+use App\Services\OrderPaymentService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Mail;
@@ -545,5 +546,215 @@ class CheckoutSystemFixTest extends TestCase
         $wallet->refresh();
         $this->assertEqualsWithDelta(500.0, (float) $wallet->balance, 0.01);
         $this->assertEqualsWithDelta(0.0, (float) $wallet->reserved_balance, 0.01);
+    }
+
+    public function test_wallet_checkout_cancels_leftover_failed_card_rows_for_the_same_sites(): void
+    {
+        config(['content_moderation.enabled' => false]);
+        Mail::fake();
+
+        $advertiser = $this->advertiser();
+        $publisher = $this->publisher();
+        $site = $this->activeSite($publisher, 'wallet-kills-retry', 40);
+        $sub = $this->createApprovedSubmission($advertiser, $site->id);
+        $advRole = Role::where('name', 'advertiser')->first();
+        Wallet::create([
+            'user_id' => $advertiser->id,
+            'role_id' => $advRole->id,
+            'balance' => 500,
+            'reserved_balance' => 0,
+            'bonus_balance' => 0,
+            'bonus_reserved' => 0,
+            'currency' => 'EUR',
+        ]);
+
+        $failed = Order::create([
+            'user_id' => $advertiser->id,
+            'order_number' => (string) random_int(100000, 999999),
+            'reference_code' => 'FAIL-RETRY-1',
+            'subtotal' => 40,
+            'tax' => 0,
+            'total_amount' => 40,
+            'payment_method' => 'card',
+            'payment_status' => 'failed',
+            'status' => 'pending',
+        ]);
+        OrderItem::create([
+            'order_id' => $failed->id,
+            'site_id' => $site->id,
+            'site_name' => $site->site_name,
+            'site_url' => $site->site_url,
+            'content_link' => 'https://example.com/a',
+            'content_submission_id' => $sub->id,
+            'price' => 40,
+        ]);
+
+        $this->actingAs($advertiser)
+            ->withSession([
+                'cart' => [[
+                    'id' => $site->id,
+                    'name' => $site->site_name,
+                    'quantity' => 1,
+                    'content_submission_id' => $sub->id,
+                ]],
+                'checkout_content_submission_id' => $sub->id,
+            ])
+            ->postJson(route('advertiser.checkout.process'), [
+                'payment_method' => 'wallet',
+                'reference_code' => 'WALLET2',
+                'publication_mode' => 'immediate',
+            ])
+            ->assertOk()
+            ->assertJson(['success' => true]);
+
+        $failed->refresh();
+        $this->assertSame('cancelled', $failed->status);
+        $this->assertSame('failed', $failed->payment_status);
+        $this->assertSame(1, Order::query()->where('reference_code', 'WALLET2')->where('payment_status', 'paid')->count());
+
+        $this->actingAs($advertiser)
+            ->postJson(route('advertiser.orders.retry-payment', $failed->id))
+            ->assertStatus(422)
+            ->assertJson(['success' => false]);
+    }
+
+    public function test_retry_payment_refuses_when_a_later_checkout_already_paid_the_listing(): void
+    {
+        config(['content_moderation.enabled' => false]);
+        Mail::fake();
+
+        $advertiser = $this->advertiser();
+        $publisher = $this->publisher();
+        $site = $this->activeSite($publisher, 'retry-already-paid', 40);
+        $sub = $this->createApprovedSubmission($advertiser, $site->id);
+
+        $paid = Order::create([
+            'user_id' => $advertiser->id,
+            'order_number' => (string) random_int(100000, 999999),
+            'reference_code' => 'PAID-LATER-1',
+            'subtotal' => 40,
+            'tax' => 0,
+            'total_amount' => 40,
+            'payment_method' => 'wallet',
+            'payment_status' => 'paid',
+            'status' => 'pending',
+        ]);
+        OrderItem::create([
+            'order_id' => $paid->id,
+            'site_id' => $site->id,
+            'site_name' => $site->site_name,
+            'site_url' => $site->site_url,
+            'content_link' => 'https://example.com/a',
+            'content_submission_id' => $sub->id,
+            'price' => 40,
+        ]);
+
+        $failed = Order::create([
+            'user_id' => $advertiser->id,
+            'order_number' => (string) random_int(100000, 999999),
+            'reference_code' => 'FAIL-STILL-1',
+            'subtotal' => 40,
+            'tax' => 0,
+            'total_amount' => 40,
+            'payment_method' => 'card',
+            'payment_status' => 'failed',
+            'status' => 'pending',
+        ]);
+        OrderItem::create([
+            'order_id' => $failed->id,
+            'site_id' => $site->id,
+            'site_name' => $site->site_name,
+            'site_url' => $site->site_url,
+            'content_link' => 'https://example.com/a',
+            'content_submission_id' => $sub->id,
+            'price' => 40,
+        ]);
+
+        $this->actingAs($advertiser)
+            ->postJson(route('advertiser.orders.retry-payment', $failed->id))
+            ->assertStatus(422)
+            ->assertJson(['success' => false]);
+        $this->assertSame('failed', $failed->fresh()->payment_status);
+        $this->assertSame('pending', $failed->fresh()->status);
+    }
+
+    public function test_wallet_checkout_abandons_overlapping_card_package(): void
+    {
+        config(['content_moderation.enabled' => false]);
+        Mail::fake();
+
+        $advertiser = $this->advertiser();
+        $publisher = $this->publisher();
+        $site = $this->activeSite($publisher, 'wallet-kills-package', 40);
+        $sub = $this->createApprovedSubmission($advertiser, $site->id);
+        $advRole = Role::where('name', 'advertiser')->first();
+        $wallet = Wallet::create([
+            'user_id' => $advertiser->id,
+            'role_id' => $advRole->id,
+            'balance' => 500,
+            'reserved_balance' => 0,
+            'bonus_balance' => 0,
+            'bonus_reserved' => 0,
+            'currency' => 'EUR',
+        ]);
+
+        $payments = app(OrderPaymentService::class);
+        $payments->storePendingCheckout('CARD-PKG-1', [
+            'user_id' => $advertiser->id,
+            'reference_code' => 'CARD-PKG-1',
+            'order_total' => 40,
+            'amount_due' => 40,
+            'bonus_applied' => 0,
+            'schedule' => ['mode' => 'immediate', 'timezone' => 'UTC'],
+            'lines' => [[
+                'site_id' => $site->id,
+                'site_name' => $site->site_name,
+                'site_url' => $site->site_url,
+                'price' => 40,
+                'content_submission_id' => $sub->id,
+                'content_link' => 'https://example.com/a',
+            ]],
+            'stripe_session_id' => 'cs_open_card_pkg',
+        ]);
+
+        $this->actingAs($advertiser)
+            ->withSession([
+                'cart' => [[
+                    'id' => $site->id,
+                    'name' => $site->site_name,
+                    'quantity' => 1,
+                    'content_submission_id' => $sub->id,
+                ]],
+                'checkout_content_submission_id' => $sub->id,
+            ])
+            ->postJson(route('advertiser.checkout.process'), [
+                'payment_method' => 'wallet',
+                'reference_code' => 'WALLET-PKG-2',
+                'publication_mode' => 'immediate',
+            ])
+            ->assertOk()
+            ->assertJson(['success' => true]);
+
+        $this->assertNull($payments->getPendingCheckout('CARD-PKG-1'));
+        $this->assertSame(1, Order::query()->where('payment_status', 'paid')->count());
+
+        $created = $payments->finalizeStripeFirstCheckout('CARD-PKG-1', (object) [
+            'id' => 'cs_open_card_pkg',
+            'object' => 'checkout.session',
+            'amount_total' => 4000,
+            'payment_intent' => 'pi_open_card_pkg',
+            'metadata' => (object) [
+                'type' => 'order_payment',
+                'reference_code' => 'CARD-PKG-1',
+                'user_id' => (string) $advertiser->id,
+                'expected_amount' => '40',
+            ],
+        ]);
+
+        $this->assertCount(0, $created);
+        $this->assertSame(1, Order::query()->where('payment_status', 'paid')->count());
+        $wallet->refresh();
+        $this->assertEqualsWithDelta(500.0, (float) $wallet->balance, 0.01);
+        $this->assertEqualsWithDelta(40.0, (float) $wallet->reserved_balance, 0.01);
     }
 }

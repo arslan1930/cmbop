@@ -2249,6 +2249,18 @@ class CatalogController extends Controller
                     $this->attachSubmissionToOrder($submission, $order, $item);
                     $created->push($order);
                 }
+                if ($created->isEmpty()) {
+                    DB::rollBack();
+                    if ($bonusApplied > 0) {
+                        $paymentService->releaseReservedBonusAmount((int) $userId, $bonusApplied);
+                    }
+
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'No websites could be ordered. Please review your cart.',
+                    ], 422);
+                }
+                $paymentService->cancelUnpaidCardOrdersForPaidCheckout($created);
                 $paymentService->persistPaidCheckoutBonus((int) $userId, (string) $referenceCode, $bonusApplied);
                 DB::commit();
                 $committed = true;
@@ -2836,6 +2848,17 @@ class CatalogController extends Controller
 
                 $createdOrders[] = $order;
             }
+
+            if ($createdOrders === []) {
+                DB::rollBack();
+
+                return response()->json([
+                    'success' => false,
+                    'message' => 'No websites could be ordered. Please review your cart.',
+                ], 422);
+            }
+
+            $paymentService->cancelUnpaidCardOrdersForPaidCheckout(collect($createdOrders));
 
             // Link the purchase ledger row to the first order so wallet activity
             // can resolve the INV tax invoice by order_id / reference.
@@ -3767,6 +3790,14 @@ class CatalogController extends Controller
                 ->where('status', 'pending')
                 ->get();
 
+            $payments = app(OrderPaymentService::class);
+            if ($package->contains(fn (Order $row) => $payments->cardOrderAlreadyFulfilledByPaidCheckout($row))) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'This listing was already paid on another checkout. Open checkout if you still want to order other sites.',
+                ], 422);
+            }
+
             $packageTotal = round((float) $package->sum('total_amount'), 2);
             $referenceCode = (string) $order->reference_code;
 
@@ -3866,7 +3897,8 @@ class CatalogController extends Controller
             && $order->payment_status === 'failed'
             && $order->status === 'pending'
             && $order->items->isNotEmpty()
-            && $order->hasCatalogVisibleFulfillment();
+            && $order->hasCatalogVisibleFulfillment()
+            && ! app(OrderPaymentService::class)->cardOrderAlreadyFulfilledByPaidCheckout($order);
     }
 
     /**
@@ -5179,6 +5211,8 @@ class CatalogController extends Controller
      */
     private function alreadyPlacedCheckoutResponse($orders): JsonResponse
     {
+        app(OrderPaymentService::class)->cancelUnpaidCardOrdersForPaidCheckout(collect($orders));
+
         $orderNumbers = $orders->pluck('order_number')->filter()->implode(', ');
 
         return response()->json([
