@@ -448,6 +448,41 @@ class StripeWebhookCompletenessTest extends TestCase
         $this->assertFalse((bool) StripeWebhookLog::where('event_id', $eventId)->value('processed'));
     }
 
+    public function test_untyped_payment_intent_is_retried_when_checkout_session_is_not_visible_yet(): void
+    {
+        config(['services.stripe.secret' => 'sk_test_retry_empty_session']);
+        $this->app->instance(
+            WalletStripeDepositService::class,
+            new class(app(WalletLedgerService::class)) extends WalletStripeDepositService
+            {
+                public function fetchCheckoutSessionForPaymentIntent(string $paymentIntentId): ?object
+                {
+                    return null;
+                }
+            }
+        );
+
+        $eventId = 'evt_pi_session_not_visible_'.uniqid();
+        $this->signedWebhook([
+            'id' => $eventId,
+            'object' => 'event',
+            'type' => 'payment_intent.succeeded',
+            'data' => [
+                'object' => [
+                    'id' => 'pi_session_not_visible_'.uniqid(),
+                    'object' => 'payment_intent',
+                    'status' => 'succeeded',
+                    'amount' => 4000,
+                    'amount_received' => 4000,
+                    'currency' => 'eur',
+                    'metadata' => [],
+                ],
+            ],
+        ])->assertStatus(500);
+
+        $this->assertFalse((bool) StripeWebhookLog::where('event_id', $eventId)->value('processed'));
+    }
+
     public function test_untyped_session_with_add_funds_session_reference_credits_wallet(): void
     {
         $advertiser = $this->makeUser('advertiser');

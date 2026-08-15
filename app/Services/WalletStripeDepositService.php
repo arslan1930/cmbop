@@ -149,11 +149,14 @@ class WalletStripeDepositService
                 }
             }
 
+            // Persist the looked-up session id on a PI-first card so a later
+            // checkout.session.completed with an empty payment_intent finds
+            // this row instead of minting a second credit.
             $deposit = $this->createCompletedCardRow(
                 $userId,
                 $amountEuros,
                 $referenceCode,
-                '',
+                $checkoutSessionId,
                 $paymentIntentId,
                 $this->encodeStripeObject($session),
                 $session,
@@ -250,6 +253,13 @@ class WalletStripeDepositService
                 }
 
                 if (! $userId || $sessionId === '') {
+                    // A paid Add Funds session must not be marked processed
+                    // with no credit — Stripe should retry. Untyped leftover
+                    // deposit_id hints still return 0 so orders are not guessed.
+                    if ($this->mayCreateFallbackCardRow($type, $sessionReference)) {
+                        throw new \RuntimeException('Explicit wallet Checkout Session missing user_id or session id');
+                    }
+
                     Log::warning('WalletStripeDepositService: missing user_id or session id', [
                         'session_id' => $sessionId,
                         'user_id' => $userId,
@@ -704,7 +714,42 @@ class WalletStripeDepositService
                 }
 
                 // Leftover ids were detached from a manual / unpaid row — retry.
-                $lockedDeposit->update($settle);
+                try {
+                    $lockedDeposit->update($settle);
+                } catch (QueryException $retryError) {
+                    if (! $this->isUniqueConstraintFailure($retryError)) {
+                        throw $retryError;
+                    }
+
+                    $retryConflict = $this->findOtherRowWithStripeIds(
+                        (int) $lockedDeposit->id,
+                        $sessionId,
+                        $paymentIntentId
+                    );
+                    $retryResolved = $retryConflict
+                        ? $this->creditIfAlreadySettledByStripeRow(
+                            $retryConflict,
+                            $sessionId,
+                            $paymentIntentId
+                        )
+                        : null;
+                    if ($retryResolved !== null) {
+                        $ownerId = $expectedUserId ?? $sessionUserId;
+                        if ($ownerId && $retryConflict && (int) $retryConflict->user_id !== (int) $ownerId) {
+                            $credited = 0.0;
+
+                            return;
+                        }
+                        if ($retryResolved > 0 && $retryConflict) {
+                            $this->attachMissingStripeIds($retryConflict, $sessionId, $paymentIntentId);
+                        }
+                        $credited = $retryResolved;
+
+                        return;
+                    }
+
+                    throw $retryError;
+                }
             }
 
             $this->creditAdvertiserWallet(
@@ -1087,8 +1132,15 @@ class WalletStripeDepositService
 
         $incomingReference = $this->sessionReferenceFromStripeObject($session);
         $storedReference = $this->sessionReferenceFromDeposit($deposit);
-        if ($incomingReference !== '' && $storedReference !== ''
-            && ! hash_equals($incomingReference, $storedReference)) {
+        // Leftover deposit_id of a session-only card is the same charge
+        // only when both sides carry the same session_reference — or both
+        // are empty (legacy rows from before Add Funds wrote that key).
+        // A stored sref with no incoming sref is a later top-up.
+        if ($storedReference !== '') {
+            if ($incomingReference === '' || ! hash_equals($incomingReference, $storedReference)) {
+                return false;
+            }
+        } elseif ($incomingReference !== '') {
             return false;
         }
 
@@ -1259,8 +1311,8 @@ class WalletStripeDepositService
 
     /**
      * When checkout.session.completed has no PaymentIntent id yet, retrieve
-     * the session from Stripe. Fail closed (empty) so tests and API errors
-     * fall through to session_reference matching.
+     * the session from Stripe. API errors must throw so the webhook 500s
+     * instead of minting a second card beside a PI-first row.
      */
     protected function lookupPaymentIntentIdForSession(string $sessionId): string
     {
@@ -1269,37 +1321,20 @@ class WalletStripeDepositService
             return '';
         }
 
-        try {
-            Stripe::setApiKey($secret);
-            $fresh = Session::retrieve($sessionId);
+        Stripe::setApiKey($secret);
+        $fresh = Session::retrieve($sessionId);
 
-            return $this->paymentIntentIdFromStripeSession($fresh);
-        } catch (\Throwable $e) {
-            Log::warning('WalletStripeDepositService: could not refresh PaymentIntent from session', [
-                'session_id' => $sessionId,
-                'error' => $e->getMessage(),
-            ]);
-
-            return '';
-        }
+        return $this->paymentIntentIdFromStripeSession($fresh);
     }
 
     /**
      * When a PaymentIntent has no session_reference, find the Checkout
      * Session that created it so a session-only card can be reused.
+     * API errors throw — swallowing them minted a second credit.
      */
     protected function lookupCheckoutSessionIdForPaymentIntent(string $paymentIntentId): string
     {
-        try {
-            $session = $this->fetchCheckoutSessionForPaymentIntent($paymentIntentId);
-        } catch (\Throwable $e) {
-            Log::warning('WalletStripeDepositService: could not find Checkout Session for PaymentIntent', [
-                'payment_intent_id' => $paymentIntentId,
-                'error' => $e->getMessage(),
-            ]);
-
-            return '';
-        }
+        $session = $this->fetchCheckoutSessionForPaymentIntent($paymentIntentId);
 
         return is_object($session) ? (string) ($session->id ?? '') : '';
     }

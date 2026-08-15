@@ -213,6 +213,13 @@ class StripeWebhookController extends Controller
         $deposits = app(WalletStripeDepositService::class);
         $session = $deposits->fetchCheckoutSessionForPaymentIntent($paymentIntentId);
         if (! $session) {
+            // Session::all can be empty for a moment after PaymentIntent
+            // succeeds. Marking processed here swallowed the paid top-up.
+            // Without a Stripe secret (tests) there is nothing to retry.
+            if (trim((string) config('services.stripe.secret', '')) !== '') {
+                throw new \RuntimeException('Untyped PaymentIntent has no Checkout Session yet');
+            }
+
             Log::info('Ignoring payment_intent.succeeded without known type', [
                 'payment_intent_id' => $paymentIntentId,
             ]);

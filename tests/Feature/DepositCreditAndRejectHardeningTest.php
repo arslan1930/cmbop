@@ -1750,6 +1750,50 @@ class DepositCreditAndRejectHardeningTest extends TestCase
             ->value('stripe_payment_intent_id'));
     }
 
+    public function test_late_payment_intent_without_session_reference_does_not_attach_to_a_card_that_has_one(): void
+    {
+        $advertiser = $this->advertiser();
+        $wallet = $this->walletFor($advertiser);
+        $sessionId = 'cs_late_pi_missing_sref_'.uniqid();
+        $pi = 'pi_second_checkout_no_sref_'.uniqid();
+
+        $card = DepositRequest::create([
+            'user_id' => $advertiser->id,
+            'reference_code' => 'DEP-SESSION-ONLY-HAS-SREF',
+            'amount' => 40,
+            'payment_method' => 'card',
+            'status' => 'completed',
+            'stripe_session_id' => $sessionId,
+            'stripe_response' => json_encode([
+                'metadata' => ['session_reference' => 'deposit_first_checkout'],
+            ]),
+            'approved_at' => now()->subMinute(),
+            'paid_at' => now()->subMinute(),
+        ]);
+        $wallet->update(['balance' => 40]);
+
+        $credited = app(WalletStripeDepositService::class)->creditFromPaymentIntentObject((object) [
+            'id' => $pi,
+            'status' => 'succeeded',
+            'amount' => 4000,
+            'amount_received' => 4000,
+            'metadata' => (object) [
+                'type' => 'wallet_deposit',
+                'user_id' => (string) $advertiser->id,
+                'deposit_id' => (string) $card->id,
+                'amount' => '40.00',
+            ],
+        ]);
+
+        $this->assertSame(40.0, $credited);
+        $this->assertNull($card->fresh()->stripe_payment_intent_id);
+        $this->assertSame(80.0, (float) $wallet->fresh()->balance);
+        $this->assertSame(2, DepositRequest::query()
+            ->where('user_id', $advertiser->id)
+            ->where('status', 'completed')
+            ->count());
+    }
+
     public function test_late_payment_intent_with_matching_session_reference_still_attaches_via_deposit_id(): void
     {
         $advertiser = $this->advertiser();
@@ -1873,6 +1917,127 @@ class DepositCreditAndRejectHardeningTest extends TestCase
         $this->assertSame($pi, DepositRequest::query()
             ->where('stripe_session_id', $sessionId)
             ->value('stripe_payment_intent_id'));
+    }
+
+    public function test_empty_pi_wallet_session_throws_when_stripe_lookup_fails_instead_of_minting_a_second_card(): void
+    {
+        $advertiser = $this->advertiser();
+        $wallet = $this->walletFor($advertiser);
+        $sessionId = 'cs_lookup_fail_'.uniqid();
+        $pi = 'pi_already_on_row_'.uniqid();
+
+        DepositRequest::create([
+            'user_id' => $advertiser->id,
+            'reference_code' => 'DEP-LOOKUP-FAIL',
+            'amount' => 40,
+            'payment_method' => 'card',
+            'status' => 'completed',
+            'stripe_payment_intent_id' => $pi,
+            'stripe_session_id' => null,
+            'session_reference' => 'deposit_lookup_fail_40',
+        ]);
+        $wallet->increment('balance', 40);
+
+        $service = new class(app(WalletLedgerService::class)) extends WalletStripeDepositService
+        {
+            protected function lookupPaymentIntentIdForSession(string $sessionId): string
+            {
+                throw new \RuntimeException('Stripe session retrieve failed');
+            }
+        };
+
+        try {
+            $service->creditFromCheckoutSession((object) [
+                'id' => $sessionId,
+                'payment_status' => 'paid',
+                'amount_total' => 4000,
+                'metadata' => (object) [
+                    'type' => 'wallet_deposit',
+                    'user_id' => (string) $advertiser->id,
+                    'amount' => '40.00',
+                    'session_reference' => 'deposit_lookup_fail_40',
+                ],
+            ]);
+            $this->fail('Expected Stripe lookup failure to abort credit');
+        } catch (\RuntimeException $e) {
+            $this->assertSame('Stripe session retrieve failed', $e->getMessage());
+        }
+
+        $this->assertSame(40.0, (float) $wallet->fresh()->balance);
+        $this->assertSame(1, DepositRequest::query()
+            ->where('user_id', $advertiser->id)
+            ->where('status', 'completed')
+            ->count());
+    }
+
+    public function test_payment_intent_persists_looked_up_session_id_so_empty_pi_session_does_not_double_credit(): void
+    {
+        $advertiser = $this->advertiser();
+        $wallet = $this->walletFor($advertiser);
+        $sessionId = 'cs_looked_up_'.uniqid();
+        $pi = 'pi_looked_up_cs_'.uniqid();
+
+        $service = new class(app(WalletLedgerService::class), $sessionId) extends WalletStripeDepositService
+        {
+            public function __construct(WalletLedgerService $ledger, private string $knownSessionId)
+            {
+                parent::__construct($ledger);
+            }
+
+            protected function lookupCheckoutSessionIdForPaymentIntent(string $paymentIntentId): string
+            {
+                return $this->knownSessionId;
+            }
+        };
+
+        $fromPi = $service->creditFromPaymentIntentObject((object) [
+            'id' => $pi,
+            'status' => 'succeeded',
+            'amount' => 4000,
+            'amount_received' => 4000,
+            'metadata' => (object) [
+                'type' => 'wallet_deposit',
+                'user_id' => (string) $advertiser->id,
+                'amount' => '40.00',
+            ],
+        ]);
+
+        $fromSession = $service->creditFromCheckoutSession((object) [
+            'id' => $sessionId,
+            'payment_status' => 'paid',
+            'amount_total' => 4000,
+            'metadata' => (object) [
+                'type' => 'wallet_deposit',
+                'user_id' => (string) $advertiser->id,
+                'amount' => '40.00',
+                'session_reference' => 'deposit_after_lookup_40',
+            ],
+        ]);
+
+        $this->assertSame(40.0, $fromPi);
+        $this->assertSame(40.0, $fromSession);
+        $this->assertSame(40.0, (float) $wallet->fresh()->balance);
+        $this->assertSame(1, DepositRequest::query()->where('user_id', $advertiser->id)->count());
+        $this->assertSame($sessionId, DepositRequest::query()
+            ->where('stripe_payment_intent_id', $pi)
+            ->value('stripe_session_id'));
+    }
+
+    public function test_explicit_wallet_session_without_user_id_throws_instead_of_being_marked_processed(): void
+    {
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('Explicit wallet Checkout Session missing user_id or session id');
+
+        app(WalletStripeDepositService::class)->creditFromCheckoutSession((object) [
+            'id' => 'cs_wallet_no_user_'.uniqid(),
+            'payment_status' => 'paid',
+            'amount_total' => 4000,
+            'payment_intent' => 'pi_wallet_no_user_'.uniqid(),
+            'metadata' => (object) [
+                'type' => 'wallet_deposit',
+                'amount' => '40.00',
+            ],
+        ]);
     }
 
     public function test_payment_intent_then_session_without_payment_intent_does_not_double_credit(): void
