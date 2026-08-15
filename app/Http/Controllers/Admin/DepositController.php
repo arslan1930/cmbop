@@ -10,8 +10,10 @@ use App\Models\DepositRequest;
 use App\Services\ActivityLogger;
 use App\Services\Billing\AdminInvoiceLinks;
 use App\Services\InAppNotificationService;
+use App\Services\Wallet\DepositApproveContext;
 use App\Services\Wallet\ManualDepositAlreadyProcessedException;
 use App\Services\Wallet\ManualDepositApprovalService;
+use App\Services\Wallet\ManualDepositNotManualException;
 use App\Support\UserFacingError;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -22,27 +24,13 @@ class DepositController extends Controller
 {
     public function index(Request $request)
     {
+        $filters = $this->depositFilters($request);
         $query = DepositRequest::with('user');
-
-        if ($request->filled('status')) {
-            $query->where('status', $request->status);
-        }
-
-        $search = search_text($request->input('search'));
-        if ($search !== '') {
-            $query->where(function ($q) use ($search) {
-                $q->where('reference_code', 'like', "%{$search}%")
-                    ->orWhereHas('user', function ($sub) use ($search) {
-                        $sub->where('name', 'like', "%{$search}%")
-                            ->orWhere('email', 'like', "%{$search}%");
-                    });
-            });
-        }
+        $this->applyDepositFilters($query, $filters);
 
         $stats = [
             'pending' => DepositRequest::where('status', 'pending')->count(),
             'user_reported_paid' => DepositRequest::where('status', 'pending')->whereNotNull('user_marked_paid_at')->count(),
-            'approved' => DepositRequest::where('status', 'approved')->count(),
             'completed' => DepositRequest::where('status', 'completed')->count(),
             'rejected' => DepositRequest::where('status', 'rejected')->count(),
             'total_amount' => DepositRequest::where('status', 'completed')->sum('amount'),
@@ -52,11 +40,12 @@ class DepositController extends Controller
         $deposits = $query
             ->orderByRaw('CASE WHEN status = ? AND user_marked_paid_at IS NOT NULL THEN 0 WHEN status = ? THEN 1 ELSE 2 END', ['pending', 'pending'])
             ->latest()
-            ->paginate(20);
+            ->paginate(20)
+            ->withQueryString();
 
         $invoiceLinks = app(AdminInvoiceLinks::class)->forDeposits($deposits->getCollection());
 
-        return view('admin.deposits', compact('deposits', 'stats', 'invoiceLinks'));
+        return view('admin.deposits', array_merge($filters, compact('deposits', 'stats', 'invoiceLinks')));
     }
 
     public function show($id)
@@ -71,11 +60,13 @@ class DepositController extends Controller
         }
 
         $invoice = app(AdminInvoiceLinks::class)->forDeposits(collect([$deposit]))->get((int) $deposit->id);
+        $wallet = app(DepositApproveContext::class)->forJson($deposit);
 
         return response()->json([
             'success' => true,
-            'deposit' => $deposit,
+            'deposit' => $this->serializeDeposit($deposit),
             'invoice' => $invoice,
+            'wallet' => $wallet,
         ]);
     }
 
@@ -103,6 +94,11 @@ class DepositController extends Controller
                 'success' => true,
                 'message' => $result['message'],
                 'email_sent' => $result['email_sent'],
+            ]);
+        } catch (ManualDepositNotManualException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => UserFacingError::message($e, 'Card deposits settle through Stripe.'),
             ]);
         } catch (ManualDepositAlreadyProcessedException $e) {
             return response()->json([
@@ -196,21 +192,107 @@ class DepositController extends Controller
             $message .= ' Email could not be sent.';
         }
 
-        app(InAppNotificationService::class)->notifyDepositRejected($deposit->fresh());
+        try {
+            app(InAppNotificationService::class)->notifyDepositRejected($deposit->fresh());
+        } catch (\Throwable $e) {
+            Log::error('Failed to notify deposit rejection: '.$e->getMessage(), [
+                'deposit_id' => $deposit->id,
+            ]);
+        }
 
-        ActivityLogger::log(
-            'deposit.rejected',
-            auth()->user()->name.' rejected deposit #'.$deposit->id.' (€'.number_format($deposit->amount, 2).')',
-            $deposit,
-            ['amount' => $deposit->amount, 'user_id' => $deposit->user_id],
-            'Deposit #'.$deposit->id
-        );
+        try {
+            $actorName = $request->user()?->name ?: 'Admin';
+            ActivityLogger::log(
+                'deposit.rejected',
+                $actorName.' rejected deposit #'.$deposit->id.' (€'.number_format((float) $deposit->amount, 2).')',
+                $deposit,
+                ['amount' => $deposit->amount, 'user_id' => $deposit->user_id],
+                'Deposit #'.$deposit->id
+            );
+        } catch (\Throwable $e) {
+            Log::error('Failed to log deposit rejection: '.$e->getMessage(), [
+                'deposit_id' => $deposit->id,
+            ]);
+        }
 
         return response()->json([
             'success' => true,
             'message' => $message,
             'email_sent' => $emailSent,
         ]);
+    }
+
+    /**
+     * @return array{status: string, reported_paid: bool, search: string}
+     */
+    private function depositFilters(Request $request): array
+    {
+        $status = search_text($request->input('status'));
+        $reportedFlag = search_text($request->input('reported_paid'));
+        $reportedPaid = in_array($reportedFlag, ['1', 'true', 'on', 'yes'], true)
+            || $status === 'reported_paid';
+
+        if ($reportedPaid) {
+            $status = 'reported_paid';
+        } elseif (! in_array($status, ['pending', 'approved', 'completed', 'rejected'], true)) {
+            $status = '';
+        }
+
+        return [
+            'status' => $status,
+            'reported_paid' => $reportedPaid,
+            'search' => search_text($request->input('search')),
+        ];
+    }
+
+    /**
+     * @param  array{status: string, reported_paid: bool, search: string}  $filters
+     */
+    private function applyDepositFilters($query, array $filters): void
+    {
+        if ($filters['reported_paid']) {
+            $query->where('status', 'pending')->whereNotNull('user_marked_paid_at');
+        } elseif ($filters['status'] !== '') {
+            $query->where('status', $filters['status']);
+        }
+
+        if ($filters['search'] !== '') {
+            $search = $filters['search'];
+            $query->where(function ($q) use ($search) {
+                $q->where('reference_code', 'like', "%{$search}%")
+                    ->orWhereHas('user', function ($sub) use ($search) {
+                        $sub->where('name', 'like', "%{$search}%")
+                            ->orWhere('email', 'like', "%{$search}%");
+                    });
+            });
+        }
+    }
+
+    /**
+     * Slim modal payload — never dump Stripe objects or advertiser payout rails.
+     *
+     * @return array<string, mixed>
+     */
+    private function serializeDeposit(DepositRequest $deposit): array
+    {
+        $user = $deposit->user;
+
+        return [
+            'id' => (int) $deposit->id,
+            'reference_code' => $deposit->reference_code,
+            'amount' => (float) $deposit->amount,
+            'payment_method' => $deposit->payment_method,
+            'status' => $deposit->status,
+            'admin_notes' => $deposit->admin_notes,
+            'user_marked_paid_at' => $deposit->user_marked_paid_at?->toIso8601String(),
+            'user_payment_note' => $deposit->user_payment_note,
+            'created_at' => $deposit->created_at?->toIso8601String(),
+            'user' => $user ? [
+                'id' => (int) $user->id,
+                'name' => $user->name,
+                'email' => $user->email,
+            ] : null,
+        ];
     }
 
     private function validatedAdminNotes(Request $request): ?string

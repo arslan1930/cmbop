@@ -351,6 +351,20 @@ class WalletStripeDepositService
                 return;
             }
 
+            // Bank / Wise / crypto invoices are credited by admin, not by a
+            // Stripe deposit_id. Attaching a PaymentIntent here would un-reject
+            // or settle a manual row the advertiser never paid by card.
+            if ($lockedDeposit->isManualPayment() && ! $lockedDeposit->hasStripeSettlement()) {
+                Log::warning('WalletStripeDepositService: refusing to complete a manual deposit from Stripe', [
+                    'deposit_id' => $lockedDeposit->id,
+                    'status' => $lockedDeposit->status,
+                    'payment_method' => $lockedDeposit->payment_method,
+                    'session_id' => $sessionId,
+                ]);
+
+                return;
+            }
+
             if ($paymentIntentId !== '') {
                 $already = DepositRequest::query()
                     ->where('stripe_payment_intent_id', $paymentIntentId)

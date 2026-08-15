@@ -8,7 +8,44 @@
         <div class="col-md-7 col-lg-6">
             <div class="card shadow">
                 <div class="card-body p-4 p-md-5">
-                    @if($canApprove)
+                    @if(!empty($isCard) && $deposit->isPending())
+                        <div class="text-center mb-4">
+                            <i class="fa-solid fa-credit-card fa-3x text-secondary mb-3" aria-hidden="true"></i>
+                            <h1 class="h3 mb-2">Stripe deposit — do not credit here</h1>
+                            <p class="text-muted mb-0">
+                                This deposit settles through Stripe when the payment succeeds.
+                                Approving it here would credit the wallet twice.
+                            </p>
+                        </div>
+
+                        <dl class="row mb-4">
+                            <dt class="col-sm-4 text-muted">Amount</dt>
+                            <dd class="col-sm-8 fw-semibold">€{{ number_format((float) $incomingAmount, 2) }}</dd>
+
+                            <dt class="col-sm-4 text-muted">Reference</dt>
+                            <dd class="col-sm-8"><code>REF{{ $deposit->reference_code }}</code></dd>
+
+                            <dt class="col-sm-4 text-muted">Advertiser</dt>
+                            <dd class="col-sm-8">
+                                {{ $deposit->user->name ?? 'Unknown' }}
+                                @if($deposit->user?->email)
+                                    <br><span class="text-muted small">{{ $deposit->user->email }}</span>
+                                @endif
+                            </dd>
+                        </dl>
+
+                        <div class="border rounded p-3 mb-4 bg-light">
+                            <h2 class="h6 text-uppercase text-muted mb-3">Wallet snapshot</h2>
+                            <dl class="row mb-0">
+                                <dt class="col-sm-5 text-muted">Current balance</dt>
+                                <dd class="col-sm-7 fw-semibold">€{{ number_format((float) $currentBalance, 2) }}</dd>
+                            </dl>
+                        </div>
+
+                        <a href="{{ route('admin.deposits') }}" class="btn btn-primary w-100">
+                            Open deposits
+                        </a>
+                    @elseif($canApprove)
                         <div class="text-center mb-4">
                             <i class="fa-solid fa-wallet fa-3x text-primary mb-3" aria-hidden="true"></i>
                             <h1 class="h3 mb-2">Confirm deposit approval</h1>

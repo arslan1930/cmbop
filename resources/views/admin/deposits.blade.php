@@ -9,74 +9,87 @@
         </div>
     </div>
 
+    @php
+        $status = $status ?? '';
+        $reportedPaid = $reported_paid ?? false;
+        $search = $search ?? search_text(request('search'));
+    @endphp
     <!-- Stats Cards -->
     <div class="row mb-4">
         <div class="col-md-3 col-lg">
-            <div class="card border-0 shadow-sm">
-                <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div>
-                            <h6 class="text-muted mb-1">Pending</h6>
-                            <h2 class="mb-0 text-warning">{{ $stats['pending'] }}</h2>
-                        </div>
-                        <div class="bg-warning bg-opacity-10 p-3 rounded">
-                            <i class="fa fa-clock fa-2x text-warning"></i>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-3 col-lg">
-            <div class="card border-0 shadow-sm">
-                <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div>
-                            <h6 class="text-muted mb-1">User reported paid</h6>
-                            <h2 class="mb-0 text-success">{{ $stats['user_reported_paid'] ?? 0 }}</h2>
-                        </div>
-                        <div class="bg-success bg-opacity-10 p-3 rounded">
-                            <i class="fa fa-user-check fa-2x text-success"></i>
+            <a href="{{ route('admin.deposits', ['status' => 'pending']) }}" class="text-decoration-none text-reset">
+                <div class="card border-0 shadow-sm h-100">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="text-muted mb-1">Pending</h6>
+                                <h2 class="mb-0 text-warning">{{ $stats['pending'] }}</h2>
+                            </div>
+                            <div class="bg-warning bg-opacity-10 p-3 rounded">
+                                <i class="fa fa-clock fa-2x text-warning"></i>
+                            </div>
                         </div>
                     </div>
                 </div>
-            </div>
+            </a>
         </div>
         <div class="col-md-3 col-lg">
-            <div class="card border-0 shadow-sm">
-                <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div>
-                            <h6 class="text-muted mb-1">Approved</h6>
-                            <h2 class="mb-0 text-info">{{ $stats['approved'] }}</h2>
-                        </div>
-                        <div class="bg-info bg-opacity-10 p-3 rounded">
-                            <i class="fa fa-check-circle fa-2x text-info"></i>
+            <a href="{{ route('admin.deposits', ['reported_paid' => 1]) }}" class="text-decoration-none text-reset">
+                <div class="card border-0 shadow-sm h-100">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="text-muted mb-1">User reported paid</h6>
+                                <h2 class="mb-0 text-success">{{ $stats['user_reported_paid'] ?? 0 }}</h2>
+                            </div>
+                            <div class="bg-success bg-opacity-10 p-3 rounded">
+                                <i class="fa fa-user-check fa-2x text-success"></i>
+                            </div>
                         </div>
                     </div>
                 </div>
-            </div>
+            </a>
         </div>
         <div class="col-md-3 col-lg">
-            <div class="card border-0 shadow-sm">
-                <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div>
-                            <h6 class="text-muted mb-1">Completed</h6>
-                            <h2 class="mb-0 text-success">{{ $stats['completed'] }}</h2>
-                        </div>
-                        <div class="bg-success bg-opacity-10 p-3 rounded">
-                            <i class="fa fa-check-double fa-2x text-success"></i>
+            <a href="{{ route('admin.deposits', ['status' => 'completed']) }}" class="text-decoration-none text-reset">
+                <div class="card border-0 shadow-sm h-100">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="text-muted mb-1">Completed</h6>
+                                <h2 class="mb-0 text-success">{{ $stats['completed'] }}</h2>
+                            </div>
+                            <div class="bg-success bg-opacity-10 p-3 rounded">
+                                <i class="fa fa-check-double fa-2x text-success"></i>
+                            </div>
                         </div>
                     </div>
                 </div>
-            </div>
+            </a>
         </div>
         <div class="col-md-3 col-lg">
-            <div class="card border-0 shadow-sm">
+            <a href="{{ route('admin.deposits', ['status' => 'rejected']) }}" class="text-decoration-none text-reset">
+                <div class="card border-0 shadow-sm h-100">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="text-muted mb-1">Rejected</h6>
+                                <h2 class="mb-0 text-danger">{{ $stats['rejected'] }}</h2>
+                            </div>
+                            <div class="bg-danger bg-opacity-10 p-3 rounded">
+                                <i class="fa fa-times-circle fa-2x text-danger"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </a>
+        </div>
+        <div class="col-md-3 col-lg">
+            <div class="card border-0 shadow-sm h-100">
                 <div class="card-body">
                     <div class="d-flex justify-content-between align-items-center">
                         <div>
-                            <h6 class="text-muted mb-1">Total Amount</h6>
+                            <h6 class="text-muted mb-1">Total completed</h6>
                             <h2 class="mb-0 text-primary">€{{ number_format($stats['total_amount'], 2) }}</h2>
                         </div>
                         <div class="bg-primary bg-opacity-10 p-3 rounded">
@@ -96,14 +109,15 @@
                     <label class="form-label fw-semibold">Status</label>
                     <select name="status" class="form-select">
                         <option value="">All</option>
-                        <option value="pending" {{ request('status') == 'pending' ? 'selected' : '' }}>Pending</option>
-                        <option value="approved" {{ request('status') == 'approved' ? 'selected' : '' }}>Approved</option>
-                        <option value="completed" {{ request('status') == 'completed' ? 'selected' : '' }}>Completed</option>
-                        <option value="rejected" {{ request('status') == 'rejected' ? 'selected' : '' }}>Rejected</option>
+                        <option value="pending" @selected($status === 'pending')>Pending</option>
+                        <option value="reported_paid" @selected($reportedPaid)>Pending (reported paid)</option>
+                        <option value="completed" @selected($status === 'completed')>Completed</option>
+                        <option value="rejected" @selected($status === 'rejected')>Rejected</option>
+                        <option value="approved" @selected($status === 'approved')>Approved</option>
                     </select>
                 </div>
                 <div class="col-md-4">
-                    <x-slb-search-field name="search" id="adminDepositsSearch" :value="request('search')" placeholder="Reference, Name, Email" input-class="form-control" label-class="form-label fw-semibold" />
+                    <x-slb-search-field name="search" id="adminDepositsSearch" :value="$search" placeholder="Reference, Name, Email" input-class="form-control" label-class="form-label fw-semibold" />
                 </div>
                 <div class="col-md-2">
                     <label class="form-label fw-semibold">&nbsp;</label>
@@ -181,7 +195,7 @@
                                     <span class="badge bg-danger">Rejected</span>
                                 @endif
                             </td>
-                            <td>{{ $deposit->created_at->format('M d, Y') }}</td>
+                            <td>{{ optional($deposit->created_at)->format('M d, Y') }}</td>
                             <td>
                                 <div class="d-flex flex-wrap gap-1">
                                     <button class="btn btn-sm btn-outline-primary view-deposit"
@@ -218,7 +232,7 @@
 
 <!-- Deposit Details Modal -->
 <div class="modal fade" id="depositModal" tabindex="-1">
-    <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title">Deposit Request Details</h5>
@@ -293,7 +307,7 @@ document.addEventListener('DOMContentLoaded', function() {
             .then(readJsonResponse)
             .then(data => {
                 if (data.success) {
-                    renderDepositModal(data.deposit, data.invoice);
+                    renderDepositModal(data.deposit, data.invoice, data.wallet);
                     const modal = new bootstrap.Modal(document.getElementById('depositModal'));
                     modal.show();
                 } else {
@@ -307,7 +321,81 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
     
-    function renderDepositModal(deposit, invoice) {
+    function euroLabel(value) {
+        const amount = Number(value);
+        return '€' + (Number.isFinite(amount) ? amount.toFixed(2) : '0.00');
+    }
+
+    function renderWalletContext(wallet) {
+        wallet = wallet || {};
+        let html = '';
+
+        if (wallet.possible_duplicate && (wallet.duplicate_matches || []).length) {
+            html += `
+                <div class="alert alert-warning text-start mb-3" role="alert">
+                    <p class="mb-2">
+                        <strong>Possible duplicate:</strong>
+                        this advertiser already received the same amount recently.
+                        Confirm this is a separate transfer before crediting again.
+                    </p>
+                    <ul class="mb-0 small ps-3">
+            `;
+            (wallet.duplicate_matches || []).forEach(function (match) {
+                html += `<li>${euroLabel(match.amount)} on ${escapeHtml(match.date_label || '')} (<code>REF${escapeHtml(match.reference_code || '')}</code>)${match.payment_method ? ' · ' + escapeHtml(String(match.payment_method)) : ''}</li>`;
+            });
+            html += '</ul></div>';
+        }
+
+        html += `
+            <div class="border rounded p-3 mb-3 bg-light">
+                <h6 class="text-uppercase text-muted mb-3">Wallet snapshot</h6>
+                <dl class="row mb-0">
+                    <dt class="col-sm-5 text-muted">Current balance</dt>
+                    <dd class="col-sm-7 fw-semibold">${euroLabel(wallet.current_balance)}</dd>
+        `;
+        if (Number(wallet.bonus_balance) > 0) {
+            html += `
+                    <dt class="col-sm-5 text-muted">Of which bonus</dt>
+                    <dd class="col-sm-7">${euroLabel(wallet.bonus_balance)}</dd>
+            `;
+        }
+        if (wallet.can_approve && wallet.projected_balance != null) {
+            html += `
+                    <dt class="col-sm-5 text-muted">After this approval</dt>
+                    <dd class="col-sm-7 fw-semibold text-success">${euroLabel(wallet.current_balance)} → ${euroLabel(wallet.projected_balance)}</dd>
+            `;
+        }
+        html += `
+                </dl>
+            </div>
+            <div class="mb-3">
+                <h6 class="text-uppercase text-muted mb-2">Recent completed deposits</h6>
+        `;
+        if (!(wallet.prior_deposits || []).length) {
+            html += '<p class="text-muted small mb-0">No completed deposits yet for this advertiser.</p>';
+        } else {
+            html += '<ul class="list-unstyled mb-0 small">';
+            (wallet.prior_deposits || []).forEach(function (prior) {
+                html += `
+                    <li class="d-flex justify-content-between gap-2 py-1 border-bottom border-light">
+                        <span>
+                            <strong>${euroLabel(prior.amount)}</strong>
+                            · ${escapeHtml(String(prior.payment_method || ''))}
+                            · <code class="small">REF${escapeHtml(prior.reference_code || '')}</code>
+                        </span>
+                        <span class="text-muted text-nowrap">${escapeHtml(prior.date_label || '')}</span>
+                    </li>
+                `;
+            });
+            html += '</ul>';
+        }
+        html += '</div>';
+
+        return html;
+    }
+
+    function renderDepositModal(deposit, invoice, wallet) {
+        wallet = wallet || {};
         let statusBadge = '';
         if (deposit.status === 'pending') {
             statusBadge = '<span class="badge bg-warning">Pending</span>';
@@ -380,6 +468,8 @@ document.addEventListener('DOMContentLoaded', function() {
             </div>
         `;
 
+        html += renderWalletContext(wallet);
+
         if (invoice && invoice.url) {
             html += `
                 <div class="mb-3">
@@ -404,16 +494,27 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         
         if (deposit.status === 'pending') {
+            const canApprove = !!(wallet && wallet.can_approve);
+            const isCard = !!(wallet && wallet.is_card);
+
+            html += '<hr>';
+            if (isCard) {
+                html += `
+                    <div class="alert alert-info text-start mb-3" role="alert">
+                        This deposit settles through Stripe when the payment succeeds.
+                        Approving it here would credit the wallet twice.
+                    </div>
+                `;
+            }
             html += `
-                <hr>
                 <div class="mb-3">
                     <label class="fw-semibold text-muted small">Admin Notes (Optional)</label>
                     <textarea id="adminNotes" class="form-control" rows="3" placeholder="Add notes about this deposit..."></textarea>
                 </div>
                 <div class="d-flex gap-2">
-                    <button class="btn btn-success approve-deposit" data-id="${deposit.id}">
+                    ${canApprove ? `<button class="btn btn-success approve-deposit" data-id="${deposit.id}">
                         <i class="fa fa-check"></i> Approve & Add Funds
-                    </button>
+                    </button>` : ''}
                     <button class="btn btn-danger reject-deposit" data-id="${deposit.id}">
                         <i class="fa fa-times"></i> Reject
                     </button>
