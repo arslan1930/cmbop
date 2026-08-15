@@ -5,7 +5,6 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Models\Order;
 use App\Models\Site;
 use App\Models\StripeWebhookLog;
 use App\Models\User;
@@ -130,6 +129,10 @@ class StripeWebhookController extends Controller
                     break;
                 }
 
+                if ($this->trySettleUntypedPaidOrderFromPackage($session, $metadata)) {
+                    break;
+                }
+
                 $this->recoverUntypedCheckoutSessionFromPaymentIntent($session);
                 break;
         }
@@ -207,6 +210,10 @@ class StripeWebhookController extends Controller
             return;
         }
 
+        if ($this->trySettleUntypedPaidOrderFromPackage($session, $metadata)) {
+            return;
+        }
+
         $this->recoverUntypedCheckoutSessionFromPaymentIntent($session);
     }
 
@@ -244,6 +251,10 @@ class StripeWebhookController extends Controller
 
         $intent = $deposits->fetchPaymentIntent($paymentIntentId);
         if (! $intent) {
+            if (trim((string) config('services.stripe.secret', '')) !== '') {
+                throw new \RuntimeException('Untyped Checkout Session PaymentIntent not available');
+            }
+
             Log::warning('Ignoring untyped checkout session; PaymentIntent not available', [
                 'session_id' => $session->id ?? null,
                 'payment_intent_id' => $paymentIntentId,
@@ -290,6 +301,10 @@ class StripeWebhookController extends Controller
                 if (WalletStripeDepositService::isAddFundsSessionReference($metadata['session_reference'] ?? '')) {
                     $deposits->creditFromCheckoutSession($overlayed);
 
+                    return;
+                }
+
+                if ($this->trySettleUntypedPaidOrderFromPackage($overlayed, $metadata)) {
                     return;
                 }
 
@@ -380,8 +395,28 @@ class StripeWebhookController extends Controller
 
         // Same rule as completed-session routing: wallet deposits also carry
         // reference_code. An untyped expiry must not fail colliding card
-        // checkouts or refund their reserved bonus.
+        // checkouts. A matching Stripe-first package for this payer is safe
+        // to release (bonus + package) without touching another user's rows.
         if (! in_array($paymentType, ['order_payment', 'order'], true)) {
+            $payerId = isset($metadata['user_id']) ? (int) $metadata['user_id'] : 0;
+            $package = $payerId > 0
+                ? app(OrderPaymentService::class)->getPendingCheckout((string) $referenceCode)
+                : null;
+            if (is_array($package) && (int) ($package['user_id'] ?? 0) === $payerId) {
+                $bonusFallback = isset($metadata['bonus_applied'])
+                    ? round((float) $metadata['bonus_applied'], 2)
+                    : null;
+                app(OrderPaymentService::class)->markOrdersFailedFromReference(
+                    (string) $referenceCode,
+                    $reason,
+                    $payerId,
+                    $bonusFallback,
+                    isset($session->id) ? (string) $session->id : null
+                );
+
+                return;
+            }
+
             Log::warning('Ignoring checkout.session.expired without explicit order type', [
                 'session_id' => $session->id ?? null,
                 'type' => $paymentType,
@@ -396,7 +431,8 @@ class StripeWebhookController extends Controller
             $referenceCode,
             $reason,
             $userId && $userId > 0 ? $userId : null,
-            $bonusFallback
+            $bonusFallback,
+            isset($session->id) ? (string) $session->id : null
         );
     }
 
@@ -429,15 +465,19 @@ class StripeWebhookController extends Controller
         $newlyPaid = $paymentService->markOrdersPaidFromStripeSession($referenceCode, $session);
 
         if ($newlyPaid->isEmpty()) {
-            $existingPaid = Order::where('reference_code', $referenceCode)
-                ->where('payment_method', 'card')
-                ->where('payment_status', 'paid')
-                ->count();
+            $payerId = isset($metadata['user_id']) ? (int) $metadata['user_id'] : 0;
+            $existingPaid = $paymentService->paidCardOrderCountForStripeCharge(
+                $referenceCode,
+                $session,
+                $payerId
+            );
 
-            if ($existingPaid > 0) {
+            if ($payerId > 0 && $existingPaid > 0) {
                 Log::info('Order payment already finalized (idempotent webhook)', [
                     'reference_code' => $referenceCode,
                     'paid_count' => $existingPaid,
+                    'user_id' => $payerId,
+                    'session_id' => $session->id ?? null,
                 ]);
 
                 return;
@@ -448,7 +488,16 @@ class StripeWebhookController extends Controller
             $newlyPaid = $paymentService->finalizeStripeFirstCheckout($referenceCode, $session);
 
             if ($newlyPaid->isEmpty()) {
-                $credited = $paymentService->walletCreditForUnfulfillableCardCheckout($referenceCode);
+                $credited = $payerId > 0
+                    ? $paymentService->creditCapturedCardWhenUnfulfillable($payerId, $referenceCode, $session)
+                    : 0.0;
+                if ($credited <= 0) {
+                    $credited = $paymentService->walletCreditForThisCardCharge(
+                        $referenceCode,
+                        $session,
+                        $payerId > 0 ? $payerId : null
+                    );
+                }
                 if ($credited > 0) {
                     Log::warning('Stripe webhook settled without catalog-visible lines', [
                         'reference_code' => $referenceCode,
@@ -503,14 +552,18 @@ class StripeWebhookController extends Controller
         $newlyPaid = $paymentService->markOrdersPaidFromPaymentIntent($referenceCode, $intent);
 
         if ($newlyPaid->isEmpty()) {
-            $existingPaid = Order::where('reference_code', $referenceCode)
-                ->where('payment_method', 'card')
-                ->where('payment_status', 'paid')
-                ->count();
+            $payerId = isset($metadata['user_id']) ? (int) $metadata['user_id'] : 0;
+            $existingPaid = $paymentService->paidCardOrderCountForStripeCharge(
+                $referenceCode,
+                $intent,
+                $payerId
+            );
 
-            if ($existingPaid > 0) {
+            if ($payerId > 0 && $existingPaid > 0) {
                 Log::info('Order PI payment already finalized (idempotent webhook)', [
                     'reference_code' => $referenceCode,
+                    'user_id' => $payerId,
+                    'payment_intent_id' => $intent->id ?? null,
                 ]);
 
                 return;
@@ -519,7 +572,16 @@ class StripeWebhookController extends Controller
             $newlyPaid = $paymentService->finalizeStripeFirstCheckout($referenceCode, $intent);
 
             if ($newlyPaid->isEmpty()) {
-                $credited = $paymentService->walletCreditForUnfulfillableCardCheckout($referenceCode);
+                $credited = $payerId > 0
+                    ? $paymentService->creditCapturedCardWhenUnfulfillable($payerId, $referenceCode, $intent)
+                    : 0.0;
+                if ($credited <= 0) {
+                    $credited = $paymentService->walletCreditForThisCardCharge(
+                        $referenceCode,
+                        $intent,
+                        $payerId > 0 ? $payerId : null
+                    );
+                }
                 if ($credited > 0) {
                     Log::warning('PaymentIntent webhook settled without catalog-visible lines', [
                         'reference_code' => $referenceCode,
@@ -596,7 +658,30 @@ class StripeWebhookController extends Controller
         }
 
         $promotions = app(SitePromotionService::class);
-        $promotions->assertStripeChargeMatchesFeaturePrice($session);
+        try {
+            $promotions->assertStripeChargeMatchesFeaturePrice($session);
+        } catch (\RuntimeException $e) {
+            $charged = $promotions->stripeChargedEuros($session);
+            $result = $promotions->creditPayerWhenFeatureCannotApply(
+                $site,
+                $user,
+                $sessionId,
+                'the charged amount did not match featured placement',
+                $charged
+            );
+            if (! ($result['success'] ?? false)) {
+                throw new \RuntimeException($result['message'] ?? $e->getMessage());
+            }
+
+            Log::warning('site_feature amount mismatch; credited payer wallet', [
+                'site_id' => $siteId,
+                'session_id' => $sessionId,
+                'charged' => $charged,
+                'already' => $result['already'] ?? false,
+            ]);
+
+            return;
+        }
 
         if ((int) $site->publisher_id !== (int) $user->id) {
             $result = $promotions->creditPayerWhenFeatureCannotApply($site, $user, $sessionId);
@@ -658,6 +743,44 @@ class StripeWebhookController extends Controller
         }
 
         return $deposits->withRecoveredPaymentIntentMetadata($session);
+    }
+
+    /**
+     * Untyped paid events must not 200-ack a Stripe-first charge. A package
+     * owned by metadata.user_id is enough to settle without guessing wallet
+     * deposits (those use deposit_* session_reference, not a cart package).
+     *
+     * @param  array<string, mixed>  $metadata
+     */
+    private function trySettleUntypedPaidOrderFromPackage(object $stripeObject, array $metadata): bool
+    {
+        $referenceCode = $metadata['reference_code'] ?? null;
+        $userId = isset($metadata['user_id']) ? (int) $metadata['user_id'] : 0;
+        if (! is_string($referenceCode) || $referenceCode === '' || $userId <= 0) {
+            return false;
+        }
+
+        $package = app(OrderPaymentService::class)->getPendingCheckout($referenceCode);
+        if (! is_array($package) || (int) ($package['user_id'] ?? 0) !== $userId) {
+            return false;
+        }
+
+        $objectType = $stripeObject->object ?? null;
+        $objectId = (string) ($stripeObject->id ?? '');
+        if ($objectType === 'payment_intent' || str_starts_with($objectId, 'pi_')) {
+            $this->handleOrderPaymentIntent(
+                $stripeObject,
+                array_merge($metadata, ['type' => 'order_payment'])
+            );
+
+            return true;
+        }
+
+        $this->handleOrderPaymentSession(
+            $this->mergeStripeMetadata($stripeObject, ['type' => 'order_payment'])
+        );
+
+        return true;
     }
 
     /**

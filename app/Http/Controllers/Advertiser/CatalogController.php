@@ -2078,8 +2078,12 @@ class CatalogController extends Controller
             // Keep not-ready sites in the cart after this payment.
             session()->put('checkout_deferred_cart', array_values($deferredCart));
 
-            // Generate reference code
-            $referenceCode = $userReferenceCode ?? str_pad(mt_rand(1, 999999), 6, '0', STR_PAD_LEFT);
+            // Generate reference code. 6-digit client REFs can collide —
+            // never overwrite another advertiser's Stripe-first package.
+            $referenceCode = $this->allocateCheckoutReferenceCode(
+                (int) $userId,
+                is_string($userReferenceCode) ? $userReferenceCode : null
+            );
             $useBonus = $request->boolean('use_bonus');
 
             // Bank / Wise / crypto fund the wallet via invoice — not order checkout.
@@ -2155,18 +2159,17 @@ class CatalogController extends Controller
         $bonusApplied = 0.0;
         $amountDue = $totalAmount;
         $paymentService = app(OrderPaymentService::class);
+        $alreadyPaid = $paymentService->paidCheckoutOrdersForReference((int) $userId, (string) $referenceCode);
+        if ($alreadyPaid->isNotEmpty()) {
+            return $this->alreadyPlacedCheckoutResponse($alreadyPaid);
+        }
+
+        $paymentService->releaseRecordedCheckoutBonus((int) $userId, (string) $referenceCode);
 
         try {
             if ($useBonus) {
-                $advertiserRoleId = Wallet::advertiserRoleId();
-                if ($advertiserRoleId) {
-                    $wallet = Wallet::lockOrCreateForRole((int) $userId, (int) $advertiserRoleId);
-                    $wallet->repairOrphanedWelcomeBonus();
-                    $wallet->reconcileInflatedBonusBalance();
-                    $wallet->refresh();
-                    $bonusApplied = $wallet->reserveBonusOnly(min($wallet->lockedBonusBalance(), $totalAmount));
-                    $amountDue = round(max(0, $totalAmount - $bonusApplied), 2);
-                }
+                $bonusApplied = $paymentService->reserveCheckoutBonus((int) $userId, $totalAmount);
+                $amountDue = round(max(0, $totalAmount - $bonusApplied), 2);
             }
         } catch (\Throwable $e) {
             Log::error('Bonus reserve failed before Stripe checkout', [
@@ -2180,17 +2183,44 @@ class CatalogController extends Controller
             ]);
         }
 
+        $alreadyPaid = $paymentService->existingPaidCheckoutAfterReserve(
+            (int) $userId,
+            (string) $referenceCode,
+            $bonusApplied
+        );
+        if ($alreadyPaid->isNotEmpty()) {
+            return $this->alreadyPlacedCheckoutResponse($alreadyPaid);
+        }
+
         // Fully covered by bonus — create paid wallet orders without Stripe.
         // Keep the bonus reserved until approve/reject (same as processWalletPayment).
         // Consuming here made approveOrder() consumeReserved() again (negative reserved)
         // and reject refundReserved() mint withdrawable cash from a zero reserved bucket.
         if ($amountDue <= 0 && $bonusApplied > 0) {
-            $this->rememberCheckoutBonus((int) $userId, (string) $referenceCode, $bonusApplied);
+            $committed = false;
             try {
                 app(CheckoutSchemaService::class)->ensureCheckoutTables();
                 $schema = app(CheckoutSchemaService::class);
                 $created = collect();
                 DB::beginTransaction();
+                $advertiserRoleId = Wallet::advertiserRoleId();
+                if ($advertiserRoleId) {
+                    Wallet::lockOrCreateForRole((int) $userId, (int) $advertiserRoleId);
+                }
+                $alreadyPaid = Order::query()
+                    ->where('user_id', $userId)
+                    ->where('reference_code', $referenceCode)
+                    ->where('payment_status', 'paid')
+                    ->lockForUpdate()
+                    ->get();
+                if ($alreadyPaid->isNotEmpty()) {
+                    DB::rollBack();
+                    if ($bonusApplied > 0) {
+                        $paymentService->releaseReservedBonusAmount((int) $userId, $bonusApplied);
+                    }
+
+                    return $this->alreadyPlacedCheckoutResponse($alreadyPaid);
+                }
                 foreach ($checkoutContent['lines'] as $line) {
                     $orderItem = $line['orderItem'];
                     $submission = $line['submission'];
@@ -2219,8 +2249,9 @@ class CatalogController extends Controller
                     $this->attachSubmissionToOrder($submission, $order, $item);
                     $created->push($order);
                 }
+                $paymentService->persistPaidCheckoutBonus((int) $userId, (string) $referenceCode, $bonusApplied);
                 DB::commit();
-                $this->forgetCheckoutBonus((int) $userId, (string) $referenceCode);
+                $committed = true;
                 $this->restoreDeferredCartAfterPayment();
                 $advertiserRoleId = Wallet::advertiserRoleId();
                 if ($advertiserRoleId) {
@@ -2251,7 +2282,28 @@ class CatalogController extends Controller
                     'message' => count($created).' order(s) placed using your bonus balance. Reference: '.$referenceCode,
                 ]);
             } catch (\Throwable $e) {
+                if ($committed) {
+                    Log::warning('Bonus-only checkout succeeded but post-commit work failed', [
+                        'reference_code' => $referenceCode,
+                        'user_id' => $userId,
+                        'error' => $e->getMessage(),
+                    ]);
+
+                    return response()->json([
+                        'success' => true,
+                        'message' => 'Order(s) placed using your bonus balance. Reference: '.$referenceCode,
+                    ]);
+                }
+
                 DB::rollBack();
+                $alreadyPaid = $paymentService->paidCheckoutOrdersForReference((int) $userId, (string) $referenceCode);
+                if ($alreadyPaid->isNotEmpty()) {
+                    if ($bonusApplied > 0) {
+                        $paymentService->releaseReservedBonusAmount((int) $userId, $bonusApplied);
+                    }
+
+                    return $this->alreadyPlacedCheckoutResponse($alreadyPaid);
+                }
                 $this->refundCheckoutBonus((int) $userId, (string) $referenceCode);
 
                 return response()->json([
@@ -2308,15 +2360,41 @@ class CatalogController extends Controller
             ];
         }
 
-        $paymentService->storePendingCheckout($referenceCode, [
-            'user_id' => (int) $userId,
-            'reference_code' => (string) $referenceCode,
-            'order_total' => $totalAmount,
-            'amount_due' => $amountDue,
-            'bonus_applied' => $bonusApplied,
-            'schedule' => $schedule,
-            'lines' => $packageLines,
-        ]);
+        $alreadyPaid = $paymentService->existingPaidCheckoutAfterReserve(
+            (int) $userId,
+            (string) $referenceCode,
+            $bonusApplied
+        );
+        if ($alreadyPaid->isNotEmpty()) {
+            return $this->alreadyPlacedCheckoutResponse($alreadyPaid);
+        }
+
+        try {
+            $paymentService->storePendingCheckout($referenceCode, [
+                'user_id' => (int) $userId,
+                'reference_code' => (string) $referenceCode,
+                'order_total' => $totalAmount,
+                'amount_due' => $amountDue,
+                'bonus_applied' => $bonusApplied,
+                'schedule' => $schedule,
+                'lines' => $packageLines,
+                'stripe_session_id' => 'pending',
+            ]);
+        } catch (\Throwable $e) {
+            if ($bonusApplied > 0) {
+                $this->refundCheckoutBonus((int) $userId, (string) $referenceCode);
+            }
+
+            Log::error('Stripe-first checkout package store failed: '.$e->getMessage(), [
+                'reference_code' => $referenceCode,
+                'user_id' => $userId,
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => UserFacingError::message($e, 'We could not start card checkout. Please try again.'),
+            ]);
+        }
 
         if ($bonusApplied > 0) {
             $this->rememberCheckoutBonus((int) $userId, (string) $referenceCode, $bonusApplied);
@@ -2382,6 +2460,7 @@ class CatalogController extends Controller
             $checkoutSession = app(StripeCustomerService::class)
                 ->createCheckoutSession($sessionPayload, $user, true);
 
+            $paymentService->attachCheckoutSessionId((string) $referenceCode, (string) $checkoutSession->id);
             session()->put('pending_card_reference', $referenceCode);
 
             Log::info('Stripe-first card checkout session ready (Add Funds style)', [
@@ -2405,7 +2484,7 @@ class CatalogController extends Controller
             ]);
         } catch (\Exception $e) {
             $this->refundCheckoutBonus((int) $userId, (string) $referenceCode);
-            $paymentService->forgetPendingCheckout((string) $referenceCode);
+            $paymentService->forgetPendingCheckout((string) $referenceCode, (int) $userId);
 
             Log::error('Stripe checkout error: '.$e->getMessage(), [
                 'reference_code' => $referenceCode,
@@ -2435,10 +2514,11 @@ class CatalogController extends Controller
     ): JsonResponse {
         $paymentService = app(OrderPaymentService::class);
         $returnUrl = route('advertiser.checkout.process').'?ref='.urlencode($referenceCode);
+        $payResult = [];
 
         if (! $user) {
             $this->refundCheckoutBonus($userId, $referenceCode);
-            $paymentService->forgetPendingCheckout($referenceCode);
+            $paymentService->forgetPendingCheckout($referenceCode, $userId);
 
             return response()->json([
                 'success' => false,
@@ -2482,17 +2562,26 @@ class CatalogController extends Controller
 
                 $created = $paymentService->finalizeStripeFirstCheckout($referenceCode, $intent);
                 if ($created->isEmpty()) {
-                    $created = Order::query()
-                        ->where('reference_code', $referenceCode)
-                        ->where('payment_method', 'card')
-                        ->where('user_id', $userId)
-                        ->where('payment_status', 'paid')
-                        ->where('status', '!=', 'cancelled')
-                        ->get();
+                    $created = $paymentService->paidCardOrdersForStripeCharge(
+                        $referenceCode,
+                        $intent,
+                        (int) $userId
+                    );
                 }
 
                 if ($created->isEmpty()) {
-                    $credited = $paymentService->walletCreditForUnfulfillableCardCheckout($referenceCode);
+                    $credited = $paymentService->creditCapturedCardWhenUnfulfillable(
+                        (int) $userId,
+                        $referenceCode,
+                        $intent
+                    );
+                    if ($credited <= 0) {
+                        $credited = $paymentService->walletCreditForThisCardCharge(
+                            $referenceCode,
+                            $intent,
+                            (int) $userId
+                        );
+                    }
                     if ($credited > 0) {
                         return response()->json([
                             'success' => true,
@@ -2540,20 +2629,69 @@ class CatalogController extends Controller
             }
 
             $this->refundCheckoutBonus($userId, $referenceCode);
-            $paymentService->forgetPendingCheckout($referenceCode);
+            $paymentService->forgetPendingCheckout($referenceCode, $userId);
 
             return response()->json([
                 'success' => false,
                 'message' => 'Could not charge this card. Try another card or pay with a new card.',
             ], 422);
         } catch (\Throwable $e) {
-            $this->refundCheckoutBonus($userId, $referenceCode);
-            $paymentService->forgetPendingCheckout($referenceCode);
-
             Log::error('Saved card order checkout failed: '.$e->getMessage(), [
                 'reference_code' => $referenceCode,
                 'user_id' => $userId,
             ]);
+
+            if (($payResult['status'] ?? '') === 'succeeded' && ! empty($payResult['payment_intent_id'])) {
+                $intent = (object) [
+                    'id' => $payResult['payment_intent_id'],
+                    'object' => 'payment_intent',
+                    'amount' => StripePaymentService::toCents($amountDue),
+                    'amount_received' => (int) ($payResult['amount_received'] ?? StripePaymentService::toCents($amountDue)),
+                    'metadata' => [
+                        'type' => 'order_payment',
+                        'reference_code' => $referenceCode,
+                        'user_id' => (string) $userId,
+                        'expected_amount' => (string) $amountDue,
+                        'order_total' => (string) $totalAmount,
+                        'bonus_applied' => (string) $bonusApplied,
+                    ],
+                ];
+                $created = $paymentService->paidCardOrdersForStripeCharge(
+                    $referenceCode,
+                    $intent,
+                    (int) $userId
+                );
+                if ($created->isNotEmpty()) {
+                    return response()->json([
+                        'success' => true,
+                        'message' => $created->count().' order(s) paid with your saved card. Order numbers: '
+                            .$created->pluck('order_number')->filter()->implode(', '),
+                        'reference_code' => $referenceCode,
+                    ]);
+                }
+
+                $this->refundCheckoutBonus($userId, $referenceCode);
+                $paymentService->forgetPendingCheckout($referenceCode, $userId);
+
+                $credited = $paymentService->creditCapturedCardWhenUnfulfillable(
+                    (int) $userId,
+                    $referenceCode,
+                    $intent
+                );
+                if ($credited > 0) {
+                    return response()->json([
+                        'success' => true,
+                        'message' => 'Payment received. The listing(s) were no longer available, so €'
+                            .number_format($credited, 2)
+                            .' was credited to your advertiser wallet.',
+                        'reference_code' => $referenceCode,
+                        'wallet_credit' => $credited,
+                    ]);
+                }
+            } else {
+                $this->refundCheckoutBonus($userId, $referenceCode);
+                $paymentService->forgetPendingCheckout($referenceCode, $userId);
+            }
 
             return response()->json([
                 'success' => false,
@@ -2582,12 +2720,38 @@ class CatalogController extends Controller
                 ]);
             }
 
+            $paymentService = app(OrderPaymentService::class);
+
             DB::beginTransaction();
 
             // Lock wallet row inside the transaction to prevent concurrent overspend
             $advertiserWallet = Wallet::lockOrCreateForRole((int) $userId, (int) $advertiserRoleId);
             $advertiserWallet->repairOrphanedWelcomeBonus();
             $advertiserWallet->reconcileInflatedBonusBalance();
+            $advertiserWallet->refresh();
+
+            $existingPaid = Order::query()
+                ->where('user_id', $userId)
+                ->where('reference_code', $referenceCode)
+                ->where('payment_status', 'paid')
+                ->lockForUpdate()
+                ->get();
+            if ($existingPaid->isNotEmpty()) {
+                DB::rollBack();
+
+                return $this->alreadyPlacedCheckoutResponse($existingPaid);
+            }
+
+            if ($paymentService->hasInFlightCardCheckout((int) $userId, (string) $referenceCode)) {
+                DB::rollBack();
+
+                return response()->json([
+                    'success' => false,
+                    'message' => 'A card checkout is already in progress for this order. Cancel it or finish paying by card, then pay from your wallet.',
+                ], 422);
+            }
+            $paymentService->releaseRecordedCheckoutBonus((int) $userId, (string) $referenceCode);
+            $paymentService->forgetPendingCheckout((string) $referenceCode, (int) $userId);
             $advertiserWallet->refresh();
 
             $spendable = round((float) $advertiserWallet->balance, 2);
@@ -2613,6 +2777,9 @@ class CatalogController extends Controller
 
             // Reserve funds; bonus is only used when the checkout checkbox is enabled
             $bonusUsed = $advertiserWallet->reserveForOrder($totalAmount, $useBonus);
+            if ($bonusUsed > 0) {
+                $paymentService->persistPaidCheckoutBonus((int) $userId, (string) $referenceCode, $bonusUsed);
+            }
 
             app(WalletLedgerService::class)->recordPurchase(
                 $advertiserWallet,
@@ -2771,18 +2938,23 @@ class CatalogController extends Controller
             $totalAmount = round(array_sum(array_column($expandedOrders, 'price')), 2);
             $bonusApplied = 0.0;
             $amountDue = $totalAmount;
+            $paymentService = app(OrderPaymentService::class);
+            if ($paymentService->hasInFlightCardCheckout((int) $userId, (string) $referenceCode)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'A card checkout is already in progress for this order. Cancel it or finish paying by card, then pay from your wallet.',
+                ], 422);
+            }
+            $paymentService->releaseRecordedCheckoutBonus((int) $userId, (string) $referenceCode);
+            $paymentService->forgetPendingCheckout((string) $referenceCode, (int) $userId);
 
             DB::beginTransaction();
 
             if ($useBonus) {
-                $advertiserRoleId = Wallet::advertiserRoleId();
-                if ($advertiserRoleId) {
-                    $wallet = Wallet::lockOrCreateForRole((int) $userId, (int) $advertiserRoleId);
-                    $wallet->repairOrphanedWelcomeBonus();
-                    $wallet->reconcileInflatedBonusBalance();
-                    $wallet->refresh();
-                    $bonusApplied = $wallet->reserveBonusOnly(min($wallet->lockedBonusBalance(), $totalAmount));
-                    $amountDue = round(max(0, $totalAmount - $bonusApplied), 2);
+                $bonusApplied = $paymentService->reserveCheckoutBonus((int) $userId, $totalAmount);
+                $amountDue = round(max(0, $totalAmount - $bonusApplied), 2);
+                if ($bonusApplied > 0) {
+                    $paymentService->persistPaidCheckoutBonus((int) $userId, (string) $referenceCode, $bonusApplied);
                 }
             }
 
@@ -2892,6 +3064,7 @@ class CatalogController extends Controller
             Stripe::setApiKey(config('services.stripe.secret'));
             $paymentService = app(OrderPaymentService::class);
             $newlyPaid = collect();
+            $stripeObject = null;
 
             // Saved-card / PaymentIntent return (3DS) path
             if ($paymentIntentId && $paymentIntentId !== '{PAYMENT_INTENT_ID}') {
@@ -2937,6 +3110,7 @@ class CatalogController extends Controller
                         ->with('error', 'Card payment was not completed.');
                 }
 
+                $stripeObject = $intent;
                 $newlyPaid = $paymentService->finalizeStripeFirstCheckout($referenceCode, $intent);
             } else {
                 if (! $sessionId || $sessionId === '{CHECKOUT_SESSION_ID}') {
@@ -2992,17 +3166,36 @@ class CatalogController extends Controller
                         ->with('error', 'This payment is not an order checkout.');
                 }
 
+                $stripeObject = $stripeSession;
                 $newlyPaid = $paymentService->finalizeStripeFirstCheckout($referenceCode, $stripeSession);
             }
 
-            $orders = Order::with('items')
-                ->where('reference_code', $referenceCode)
-                ->where('payment_method', 'card')
-                ->where('user_id', auth()->id())
-                ->get();
+            $paidOrders = $newlyPaid->isNotEmpty()
+                ? $newlyPaid
+                : ($stripeObject
+                    ? $paymentService->paidCardOrdersForStripeCharge(
+                        $referenceCode,
+                        $stripeObject,
+                        (int) auth()->id()
+                    )
+                    : collect());
 
-            if ($orders->isEmpty()) {
-                $credited = $paymentService->walletCreditForUnfulfillableCardCheckout($referenceCode);
+            if ($paidOrders->isEmpty()) {
+                $credited = 0.0;
+                if ($stripeObject) {
+                    $credited = $paymentService->creditCapturedCardWhenUnfulfillable(
+                        (int) auth()->id(),
+                        $referenceCode,
+                        $stripeObject
+                    );
+                }
+                if ($credited <= 0 && $stripeObject) {
+                    $credited = $paymentService->walletCreditForThisCardCharge(
+                        $referenceCode,
+                        $stripeObject,
+                        (int) auth()->id()
+                    );
+                }
                 if ($credited > 0) {
                     return redirect()->route('advertiser.checkout')
                         ->with(
@@ -3021,23 +3214,6 @@ class CatalogController extends Controller
 
                 return redirect()->route('advertiser.checkout')
                     ->with('error', 'Order not found. Please contact support with your payment reference.');
-            }
-
-            $paidOrders = $orders->filter(fn (Order $order) => $order->payment_status === 'paid');
-            if ($paidOrders->isEmpty()) {
-                $credited = $paymentService->walletCreditForUnfulfillableCardCheckout($referenceCode);
-                if ($credited > 0) {
-                    return redirect()->route('advertiser.checkout')
-                        ->with(
-                            'success',
-                            'Payment received. The listing(s) were no longer available, so €'
-                            .number_format($credited, 2)
-                            .' was credited to your advertiser wallet.'
-                        );
-                }
-
-                return redirect()->route('advertiser.checkout')
-                    ->with('error', 'Payment was received but the listing(s) are no longer available. Contact support with your payment reference.');
             }
 
             if ($newlyPaid->isNotEmpty()) {
@@ -3085,6 +3261,41 @@ class CatalogController extends Controller
         } catch (\Exception $e) {
             Log::error('Stripe success handling failed: '.$e->getMessage());
             Log::error('Stack trace: '.$e->getTraceAsString());
+
+            $ref = isset($referenceCode) ? (string) $referenceCode : (string) $request->query('ref');
+            if (isset($stripeObject) && is_object($stripeObject) && $ref !== '') {
+                $paymentService = app(OrderPaymentService::class);
+                $paid = $paymentService->paidCardOrdersForStripeCharge(
+                    $ref,
+                    $stripeObject,
+                    (int) auth()->id()
+                );
+                if ($paid->isNotEmpty()) {
+                    $this->removePaidOrdersFromCart($paid);
+
+                    return redirect()->route('advertiser.orders')
+                        ->with(
+                            'success',
+                            $paid->count().' order(s) paid successfully! Order numbers: '
+                            .$paid->pluck('order_number')->implode(', ')
+                        );
+                }
+
+                $credited = $paymentService->creditCapturedCardWhenUnfulfillable(
+                    (int) auth()->id(),
+                    $ref,
+                    $stripeObject
+                );
+                if ($credited > 0) {
+                    return redirect()->route('advertiser.checkout')
+                        ->with(
+                            'success',
+                            'Payment received. The listing(s) were no longer available, so €'
+                            .number_format($credited, 2)
+                            .' was credited to your advertiser wallet.'
+                        );
+                }
+            }
 
             return redirect()->route('advertiser.checkout')
                 ->with('error', UserFacingError::message($e, 'Payment verification failed. Please try again.'));
@@ -4956,6 +5167,65 @@ class CatalogController extends Controller
         }
     }
 
+    /**
+     * @param  Collection<int, Order>|\Illuminate\Database\Eloquent\Collection<int, Order>  $orders
+     */
+    private function alreadyPlacedCheckoutResponse($orders): JsonResponse
+    {
+        $orderNumbers = $orders->pluck('order_number')->filter()->implode(', ');
+
+        return response()->json([
+            'success' => true,
+            'message' => $orders->count().' order(s) already placed for this checkout.'
+                .($orderNumbers !== '' ? ' Order numbers: '.$orderNumbers : ''),
+        ]);
+    }
+
+    private function allocateCheckoutReferenceCode(int $userId, ?string $requested): string
+    {
+        $candidate = is_string($requested) && trim($requested) !== ''
+            ? trim($requested)
+            : str_pad((string) random_int(1, 999999), 6, '0', STR_PAD_LEFT);
+
+        for ($attempt = 0; $attempt < 8; $attempt++) {
+            if (! $this->checkoutReferenceUnavailable($userId, $candidate)) {
+                return $candidate;
+            }
+            $candidate = str_pad((string) random_int(1, 999999), 6, '0', STR_PAD_LEFT);
+        }
+
+        throw new \RuntimeException('Could not allocate a unique checkout reference.');
+    }
+
+    /**
+     * 6-digit client REFs are reused from session after a successful pay.
+     * Never reuse a reference that already settled (this advertiser, any
+     * method) or that another advertiser used on a card charge — a second
+     * capture would look idempotent, and a later checkout would release
+     * the paid promo hold. Failed/pending rows stay reusable for Pay again.
+     */
+    private function checkoutReferenceUnavailable(int $userId, string $referenceCode): bool
+    {
+        $package = app(OrderPaymentService::class)->getPendingCheckout($referenceCode);
+        $ownerId = (int) ($package['user_id'] ?? 0);
+        if ($ownerId > 0 && $ownerId !== $userId) {
+            return true;
+        }
+
+        return Order::query()
+            ->where('reference_code', $referenceCode)
+            ->where(function ($query) use ($userId) {
+                $query->where(function ($foreignCard) use ($userId) {
+                    $foreignCard->where('user_id', '!=', $userId)
+                        ->where('payment_method', 'card');
+                })->orWhere(function ($ownSettled) use ($userId) {
+                    $ownSettled->where('user_id', $userId)
+                        ->whereIn('payment_status', ['paid', 'refunded']);
+                });
+            })
+            ->exists();
+    }
+
     private function cancelUnpaidCardOrdersAndRestoreCart(string $referenceCode): void
     {
         $paymentService = app(OrderPaymentService::class);
@@ -4971,7 +5241,7 @@ class CatalogController extends Controller
         // Stripe-first (Add Funds style): no order rows yet — clear package + refund bonus.
         if ($canceled->isEmpty()) {
             $this->refundCheckoutBonus((int) auth()->id(), $referenceCode);
-            $paymentService->forgetPendingCheckout($referenceCode);
+            $paymentService->forgetPendingCheckout($referenceCode, auth()->id());
             session()->forget(['pending_card_reference', 'checkout_deferred_cart']);
 
             Log::info('Cancelled Stripe-first card checkout (no order rows yet)', [
@@ -4999,7 +5269,7 @@ class CatalogController extends Controller
             $this->refundCheckoutBonus((int) auth()->id(), $referenceCode);
         }
 
-        $paymentService->forgetPendingCheckout($referenceCode);
+        $paymentService->forgetPendingCheckout($referenceCode, auth()->id());
 
         $restoredCart = session('cart', []);
         $submissionId = session('checkout_content_submission_id');

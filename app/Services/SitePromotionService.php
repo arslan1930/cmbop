@@ -28,10 +28,30 @@ class SitePromotionService
 
     /**
      * Refuse to apply a featured placement when Stripe charged a different amount.
+     * Prefer the price quoted on the Checkout Session so a later config change
+     * cannot leave a paid session unfulfilled (webhook 500 until Stripe gives up).
      */
     public function assertStripeChargeMatchesFeaturePrice(object $session): void
     {
-        $expected = $this->featurePrice();
+        $expected = $this->quotedFeaturePrice($session) ?? $this->featurePrice();
+        $charged = $this->stripeChargedEuros($session);
+        if ($charged <= 0) {
+            throw new \RuntimeException('Stripe site-feature session is missing the charged amount.');
+        }
+
+        if (abs($charged - $expected) > 0.01) {
+            throw new \RuntimeException(
+                'Stripe charged €'.number_format($charged, 2)
+                .' but featured placement costs €'.number_format($expected, 2).'.'
+            );
+        }
+    }
+
+    /**
+     * Amount Stripe actually captured for this feature Checkout / PaymentIntent.
+     */
+    public function stripeChargedEuros(object $session): float
+    {
         $stripeCents = null;
         if (isset($session->amount_total)) {
             $stripeCents = (int) $session->amount_total;
@@ -39,17 +59,29 @@ class SitePromotionService
             $stripeCents = (int) ($session->amount_received ?: $session->amount);
         }
 
-        if ($stripeCents === null) {
-            throw new \RuntimeException('Stripe site-feature session is missing the charged amount.');
+        return $stripeCents !== null ? StripePaymentService::fromCents($stripeCents) : 0.0;
+    }
+
+    /**
+     * Price the publisher was quoted when the Checkout Session was created.
+     */
+    private function quotedFeaturePrice(object $session): ?float
+    {
+        $metadata = $session->metadata ?? null;
+        if ($metadata === null) {
+            return null;
         }
 
-        $charged = StripePaymentService::fromCents($stripeCents);
-        if (abs($charged - $expected) > 0.01) {
-            throw new \RuntimeException(
-                'Stripe charged €'.number_format($charged, 2)
-                .' but featured placement costs €'.number_format($expected, 2).'.'
-            );
+        $meta = is_array($metadata)
+            ? $metadata
+            : (array) json_decode(json_encode($metadata), true);
+        if (! isset($meta['price']) || $meta['price'] === '' || $meta['price'] === null) {
+            return null;
         }
+
+        $quoted = round((float) $meta['price'], 2);
+
+        return $quoted > 0 ? $quoted : null;
     }
 
     /**
@@ -84,8 +116,6 @@ class SitePromotionService
                     ];
                 }
 
-                $wallet->deductWithdrawable($price);
-
                 $lockedSite = Site::query()->whereKey($site->id)->lockForUpdate()->firstOrFail();
                 if (! $lockedSite->isCatalogVisible()) {
                     return [
@@ -93,6 +123,8 @@ class SitePromotionService
                         'message' => 'This listing is not in the catalog and cannot be promoted.',
                     ];
                 }
+
+                $wallet->deductWithdrawable($price);
                 $site = $this->applyFeaturePeriod($lockedSite, $publisher, $price, $days, 'wallet');
 
                 // Promo feature spends are intentionally excluded from INV tax
@@ -134,15 +166,19 @@ class SitePromotionService
         Site $site,
         User $payer,
         string $stripeSessionId,
-        ?string $reason = null
+        ?string $reason = null,
+        ?float $amount = null
     ): array {
-        $price = $this->featurePrice();
+        $price = $amount !== null ? round($amount, 2) : $this->featurePrice();
         $roleId = Wallet::publisherRoleId();
         if (! $roleId) {
             return ['success' => false, 'message' => 'Publisher wallet is not available.'];
         }
         if ($stripeSessionId === '') {
             return ['success' => false, 'message' => 'Missing Stripe session.'];
+        }
+        if ($price <= 0) {
+            return ['success' => false, 'message' => 'Invalid feature credit amount.'];
         }
 
         try {
@@ -232,7 +268,7 @@ class SitePromotionService
                 // Lock the site first so webhook + success URL cannot both
                 // pass an unlocked exists() check and stack two 7-day periods.
                 $locked = Site::query()->whereKey($site->id)->lockForUpdate()->firstOrFail();
-                if ($locked->isFromCancelledBulk()) {
+                if (! $locked->isCatalogVisible()) {
                     if (is_string($stripeSessionId) && $stripeSessionId !== '') {
                         return $this->creditPayerWhenFeatureCannotApply(
                             $locked,

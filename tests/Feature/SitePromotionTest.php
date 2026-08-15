@@ -114,6 +114,20 @@ class SitePromotionTest extends TestCase
         $this->assertFalse($site->fresh()->isFeatured());
     }
 
+    public function test_wallet_feature_does_not_debit_when_listing_left_the_catalog(): void
+    {
+        $publisher = $this->publisherWithWallet(50);
+        $site = $this->site($publisher);
+        $site->update(['verified' => false, 'active' => false]);
+
+        $result = app(SitePromotionService::class)->featureWithWallet($site, $publisher);
+
+        $this->assertFalse($result['success']);
+        $this->assertFalse($site->fresh()->isFeatured());
+        $this->assertEqualsWithDelta(50.0, (float) Wallet::where('user_id', $publisher->id)->value('balance'), 0.01);
+        $this->assertSame(0, SiteFeaturePurchase::query()->where('site_id', $site->id)->count());
+    }
+
     public function test_bulk_discount_applies_for_three_to_five_articles(): void
     {
         $publisher = $this->publisherWithWallet();
@@ -292,12 +306,19 @@ class SitePromotionTest extends TestCase
         $this->assertSame(50.0, (float) Wallet::where('user_id', $publisher->id)->value('balance'));
     }
 
-    public function test_feature_stripe_amount_must_match_configured_price(): void
+    public function test_feature_stripe_amount_must_match_quoted_or_configured_price(): void
     {
         config(['site_promotions.feature.price' => 10]);
         $promotions = app(SitePromotionService::class);
 
         $promotions->assertStripeChargeMatchesFeaturePrice((object) ['amount_total' => 1000]);
+
+        // Checkout quoted €10; live config later raised to €15 — still fulfill.
+        config(['site_promotions.feature.price' => 15]);
+        $promotions->assertStripeChargeMatchesFeaturePrice((object) [
+            'amount_total' => 1000,
+            'metadata' => ['price' => '10'],
+        ]);
 
         $this->expectException(\RuntimeException::class);
         $this->expectExceptionMessage('featured placement costs');
@@ -335,6 +356,30 @@ class SitePromotionTest extends TestCase
         $this->assertStringContainsString('changed owner', $first['message']);
     }
 
+    public function test_feature_mismatch_can_credit_the_charged_amount(): void
+    {
+        config(['site_promotions.feature.price' => 25]);
+        $payer = $this->publisherWithWallet(5);
+        $site = $this->site($payer);
+
+        $result = app(SitePromotionService::class)->creditPayerWhenFeatureCannotApply(
+            $site,
+            $payer,
+            'cs_feature_wrong_amount',
+            'the charged amount did not match featured placement',
+            1.0
+        );
+
+        $this->assertTrue($result['success']);
+        $this->assertTrue($result['credited']);
+        $this->assertEqualsWithDelta(6.0, (float) Wallet::where('user_id', $payer->id)->value('balance'), 0.01);
+        $this->assertDatabaseHas('site_feature_purchases', [
+            'stripe_session_id' => 'cs_feature_wrong_amount',
+            'payment_method' => 'stripe_credit',
+            'amount' => 1,
+        ]);
+    }
+
     public function test_feature_from_stripe_credits_cancelled_bulk_leftover(): void
     {
         config(['site_promotions.feature.price' => 10]);
@@ -364,5 +409,26 @@ class SitePromotionTest extends TestCase
             'payment_method' => 'stripe_credit',
             'user_id' => $publisher->id,
         ]);
+    }
+
+    public function test_feature_from_stripe_credits_when_listing_left_the_catalog(): void
+    {
+        config(['site_promotions.feature.price' => 10]);
+        $publisher = $this->publisherWithWallet(5);
+        $site = $this->site($publisher);
+        $site->update(['verified' => false, 'active' => false]);
+
+        $promotions = app(SitePromotionService::class);
+        $first = $promotions->featureFromStripePayment($site, $publisher, 'cs_feature_delisted');
+        $second = $promotions->featureFromStripePayment($site->fresh(), $publisher, 'cs_feature_delisted');
+
+        $this->assertTrue($first['success']);
+        $this->assertTrue($first['credited']);
+        $this->assertFalse($first['already']);
+        $this->assertTrue($second['already']);
+        $this->assertStringContainsString('no longer in the catalog', $first['message']);
+        $this->assertNull($site->fresh()->featured_until);
+        $this->assertEqualsWithDelta(15.0, (float) Wallet::where('user_id', $publisher->id)->value('balance'), 0.01);
+        $this->assertSame(1, SiteFeaturePurchase::where('stripe_session_id', 'cs_feature_delisted')->count());
     }
 }

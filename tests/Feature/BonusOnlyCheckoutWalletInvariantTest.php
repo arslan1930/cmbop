@@ -10,6 +10,7 @@ use App\Models\User;
 use App\Models\Wallet;
 use App\Models\WalletTransaction;
 use App\Services\CartPricingService;
+use App\Services\CheckoutIntentService;
 use App\Services\LiveUrlHealthChecker;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Mail;
@@ -188,6 +189,22 @@ class BonusOnlyCheckoutWalletInvariantTest extends TestCase
         $this->assertEqualsWithDelta($total, (float) $wallet->bonus_reserved, 0.01);
         $this->assertSame(0.0, $wallet->withdrawableBalance());
         $this->assertGreaterThanOrEqual(0.0, (float) $wallet->reserved_balance);
+        $this->assertEqualsWithDelta(
+            $total,
+            app(CheckoutIntentService::class)->recordedBonus($advertiser->id, 'BONUS1'),
+            0.01
+        );
+
+        $this->actingAs($advertiser)
+            ->get(route('advertiser.checkout', ['canceled' => 1, 'ref' => 'BONUS1']));
+
+        $this->assertEqualsWithDelta(
+            $total,
+            app(CheckoutIntentService::class)->recordedBonus($advertiser->id, 'BONUS1'),
+            0.01
+        );
+        $wallet->refresh();
+        $this->assertEqualsWithDelta($total, (float) $wallet->bonus_reserved, 0.01);
     }
 
     public function test_approving_bonus_only_order_spends_promo_and_never_goes_negative(): void

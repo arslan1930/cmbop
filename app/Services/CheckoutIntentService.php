@@ -28,6 +28,13 @@ class CheckoutIntentService
      */
     public function storePackage(string $referenceCode, array $package, int $hours = 48): void
     {
+        $newUserId = isset($package['user_id']) ? (int) $package['user_id'] : 0;
+        $this->forgetExpiredForeignIntent($referenceCode, $newUserId);
+        $existingUserId = $this->ownerIdForReference($referenceCode);
+        if ($existingUserId > 0 && $newUserId > 0 && $existingUserId !== $newUserId) {
+            throw new \RuntimeException('Checkout package already belongs to another user for ref '.$referenceCode);
+        }
+
         Cache::put(self::pendingCheckoutCacheKey($referenceCode), $package, now()->addHours($hours));
 
         $bonus = round((float) ($package['bonus_applied'] ?? 0), 2);
@@ -95,18 +102,107 @@ class CheckoutIntentService
     public function takeBonus(int $userId, string $referenceCode, ?float $fallback = null): float
     {
         $fromCache = round((float) Cache::pull(self::bonusCacheKey($userId, $referenceCode), 0), 2);
-        $intent = $this->findIntent($referenceCode);
+        $intent = $this->intentOwnedBy($referenceCode, $userId);
         $fromRow = $intent ? round((float) $intent->bonus_applied, 2) : 0.0;
         $fromPackage = is_array($intent?->package)
             ? round((float) ($intent->package['bonus_applied'] ?? 0), 2)
             : 0.0;
-        $bonus = max($fromCache, $fromRow, $fromPackage, round((float) ($fallback ?? 0), 2));
+        $cachedPackage = Cache::get(self::pendingCheckoutCacheKey($referenceCode));
+        $fromCachedPackage = $this->cachedPackageBonusForUser($cachedPackage, $userId);
+        $bonus = max($fromCache, $fromRow, $fromPackage, $fromCachedPackage, round((float) ($fallback ?? 0), 2));
 
-        if ($intent && $fromRow > 0) {
-            $intent->update(['bonus_applied' => 0]);
+        if ($intent && ($fromRow > 0 || $fromPackage > 0)) {
+            $updates = ['bonus_applied' => 0];
+            if ($fromPackage > 0) {
+                $package = is_array($intent->package) ? $intent->package : [];
+                $package['bonus_applied'] = 0;
+                $updates['package'] = $package;
+            }
+            $intent->update($updates);
+        }
+        if (is_array($cachedPackage) && $fromCachedPackage > 0) {
+            $cachedPackage['bonus_applied'] = 0;
+            Cache::put(self::pendingCheckoutCacheKey($referenceCode), $cachedPackage, now()->addHours(48));
         }
 
         return $bonus > 0 ? $bonus : 0.0;
+    }
+
+    /**
+     * Bonus still recorded for this reference (cache, row, or package JSON).
+     */
+    public function recordedBonus(int $userId, string $referenceCode, ?float $fallback = null): float
+    {
+        $fromCache = round((float) Cache::get(self::bonusCacheKey($userId, $referenceCode), 0), 2);
+        $intent = $this->intentOwnedBy($referenceCode, $userId);
+        $fromRow = $intent ? round((float) $intent->bonus_applied, 2) : 0.0;
+        $fromPackage = is_array($intent?->package)
+            ? round((float) ($intent->package['bonus_applied'] ?? 0), 2)
+            : 0.0;
+        $cachedPackage = Cache::get(self::pendingCheckoutCacheKey($referenceCode));
+        $fromCachedPackage = $this->cachedPackageBonusForUser($cachedPackage, $userId);
+
+        return max($fromCache, $fromRow, $fromPackage, $fromCachedPackage, round((float) ($fallback ?? 0), 2));
+    }
+
+    /**
+     * Promo still held for this user's other checkout references.
+     */
+    public function otherRecordedBonus(int $userId, string $exceptReference): float
+    {
+        if ($userId <= 0 || ! $this->tableReady()) {
+            return 0.0;
+        }
+
+        $total = 0.0;
+        $intents = CheckoutIntent::query()
+            ->where('user_id', $userId)
+            ->where('reference_code', '!=', $exceptReference)
+            ->get();
+
+        foreach ($intents as $intent) {
+            if ($intent->expires_at && $intent->expires_at->isPast()) {
+                continue;
+            }
+
+            $fromRow = round((float) $intent->bonus_applied, 2);
+            $fromPackage = is_array($intent->package)
+                ? round((float) ($intent->package['bonus_applied'] ?? 0), 2)
+                : 0.0;
+            $fromCache = round((float) Cache::get(self::bonusCacheKey($userId, (string) $intent->reference_code), 0), 2);
+            $held = max($fromRow, $fromPackage, $fromCache);
+            if ($held <= 0) {
+                continue;
+            }
+            $total += $held;
+        }
+
+        return round($total, 2);
+    }
+
+    /**
+     * Promo this reference may refund or consume. Live holds on other REFs
+     * are subtracted so an expired ghost row cannot drain their reserve.
+     */
+    public function releasableBonus(int $userId, string $referenceCode, float $reserved, ?float $fallback = null): float
+    {
+        $reserved = max(0, round($reserved, 2));
+        if ($userId <= 0 || $reserved <= 0) {
+            return 0.0;
+        }
+
+        $recorded = $referenceCode !== ''
+            ? $this->recordedBonus($userId, $referenceCode, $fallback)
+            : 0.0;
+        $other = $referenceCode !== ''
+            ? $this->otherRecordedBonus($userId, $referenceCode)
+            : 0.0;
+        $available = max(0, round($reserved - $other, 2));
+        if ($recorded > 0) {
+            return min($available, $recorded);
+        }
+
+        return $available;
     }
 
     /**
@@ -119,14 +215,22 @@ class CheckoutIntentService
             return;
         }
 
-        $intent = $this->findIntent($referenceCode);
+        $intent = $this->intentOwnedBy($referenceCode, $userId);
         $fromRow = $intent ? round((float) $intent->bonus_applied, 2) : 0.0;
         $fromCache = round((float) Cache::get(self::bonusCacheKey($userId, $referenceCode), 0), 2);
-        $current = max($fromRow, $fromCache);
+        $fromPackage = is_array($intent?->package)
+            ? round((float) ($intent->package['bonus_applied'] ?? 0), 2)
+            : 0.0;
+        $current = max($fromRow, $fromCache, $fromPackage);
         $left = max(0, round($current - $amount, 2));
 
         if ($intent) {
-            $intent->update(['bonus_applied' => $left]);
+            $package = is_array($intent->package) ? $intent->package : [];
+            $package['bonus_applied'] = $left;
+            $intent->update([
+                'bonus_applied' => $left,
+                'package' => $package,
+            ]);
         }
 
         $key = self::bonusCacheKey($userId, $referenceCode);
@@ -140,14 +244,25 @@ class CheckoutIntentService
     public function forgetBonus(int $userId, string $referenceCode): void
     {
         Cache::forget(self::bonusCacheKey($userId, $referenceCode));
-        $intent = $this->findIntent($referenceCode);
-        if ($intent && (float) $intent->bonus_applied > 0) {
-            $intent->update(['bonus_applied' => 0]);
+        $intent = $this->intentOwnedBy($referenceCode, $userId);
+        if ($intent && ((float) $intent->bonus_applied > 0
+            || (float) ($intent->package['bonus_applied'] ?? 0) > 0)) {
+            $package = is_array($intent->package) ? $intent->package : [];
+            $package['bonus_applied'] = 0;
+            $intent->update([
+                'bonus_applied' => 0,
+                'package' => $package,
+            ]);
         }
     }
 
     public function forget(string $referenceCode, ?int $userId = null): void
     {
+        $ownerId = $this->ownerIdForReference($referenceCode);
+        if ($userId && $userId > 0 && $ownerId > 0 && $ownerId !== $userId) {
+            return;
+        }
+
         Cache::forget(self::pendingCheckoutCacheKey($referenceCode));
         if ($userId) {
             Cache::forget(self::bonusCacheKey($userId, $referenceCode));
@@ -160,6 +275,88 @@ class CheckoutIntentService
             }
             $intent->delete();
         }
+    }
+
+    /**
+     * Drop the pending package but keep a paid persist hold.
+     */
+    public function forgetPackage(string $referenceCode, ?int $userId = null): void
+    {
+        $ownerId = $this->ownerIdForReference($referenceCode);
+        if ($userId && $userId > 0 && $ownerId > 0 && $ownerId !== $userId) {
+            return;
+        }
+
+        Cache::forget(self::pendingCheckoutCacheKey($referenceCode));
+
+        $intent = $this->findIntent($referenceCode);
+        if ($intent && is_array($intent->package)) {
+            $intent->update(['package' => null]);
+        }
+    }
+
+    /**
+     * @param  mixed  $cachedPackage
+     */
+    private function cachedPackageBonusForUser($cachedPackage, int $userId): float
+    {
+        if (! is_array($cachedPackage)) {
+            return 0.0;
+        }
+
+        $ownerId = (int) ($cachedPackage['user_id'] ?? 0);
+        if ($ownerId > 0 && $userId > 0 && $ownerId !== $userId) {
+            return 0.0;
+        }
+
+        return round((float) ($cachedPackage['bonus_applied'] ?? 0), 2);
+    }
+
+    private function ownerIdForReference(string $referenceCode): int
+    {
+        $cached = Cache::get(self::pendingCheckoutCacheKey($referenceCode));
+        if (is_array($cached) && isset($cached['user_id'])) {
+            return (int) $cached['user_id'];
+        }
+
+        $intent = $this->findFreshIntent($referenceCode);
+
+        return (int) ($intent?->user_id ?? 0);
+    }
+
+    /**
+     * Expired durable rows must not block a later advertiser from the same
+     * 6-digit REF. Allocator already treats them as free via getPackage().
+     */
+    private function forgetExpiredForeignIntent(string $referenceCode, int $newUserId): void
+    {
+        $intent = $this->findIntent($referenceCode);
+        if (! $intent || ! $intent->expires_at || ! $intent->expires_at->isPast()) {
+            return;
+        }
+
+        $ownerId = (int) ($intent->user_id ?? 0);
+        if ($ownerId <= 0 || $newUserId <= 0 || $ownerId === $newUserId) {
+            return;
+        }
+
+        Cache::forget(self::bonusCacheKey($ownerId, $referenceCode));
+        $intent->delete();
+    }
+
+    private function intentOwnedBy(string $referenceCode, int $userId): ?CheckoutIntent
+    {
+        $intent = $this->findIntent($referenceCode);
+        if (! $intent) {
+            return null;
+        }
+
+        $ownerId = (int) ($intent->user_id ?? 0);
+        if ($ownerId > 0 && $userId > 0 && $ownerId !== $userId) {
+            return null;
+        }
+
+        return $intent;
     }
 
     /**

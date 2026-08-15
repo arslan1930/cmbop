@@ -1117,7 +1117,7 @@ class StripeWebhookCompletenessTest extends TestCase
         $this->assertSame(1, SiteFeaturePurchase::where('stripe_session_id', $sessionId)->count());
     }
 
-    public function test_site_feature_session_with_wrong_amount_is_rejected(): void
+    public function test_site_feature_session_with_wrong_amount_credits_charged_amount(): void
     {
         config([
             'site_promotions.feature.price' => 25,
@@ -1149,9 +1149,19 @@ class StripeWebhookCompletenessTest extends TestCase
             ],
         ];
 
-        $this->signedWebhook($event)->assertStatus(500);
+        $this->signedWebhook($event)->assertOk();
         $this->assertNull($site->fresh()->featured_until);
-        $this->assertSame(0, SiteFeaturePurchase::where('site_id', $site->id)->count());
+        $this->assertDatabaseHas('site_feature_purchases', [
+            'site_id' => $site->id,
+            'user_id' => $publisher->id,
+            'stripe_session_id' => 'cs_feature_cheap',
+            'payment_method' => 'stripe_credit',
+        ]);
+        $this->assertEqualsWithDelta(
+            1.0,
+            (float) Wallet::query()->where('user_id', $publisher->id)->value('balance'),
+            0.01
+        );
     }
 
     public function test_site_feature_unpaid_or_missing_status_is_rejected(): void

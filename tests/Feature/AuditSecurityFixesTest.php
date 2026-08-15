@@ -162,12 +162,22 @@ class AuditSecurityFixesTest extends TestCase
         $this->assertSame('paid', $order->fresh()->payment_status);
     }
 
-    public function test_stripe_amount_mismatch_refuses_finalize(): void
+    public function test_stripe_amount_mismatch_credits_capture_and_leaves_package(): void
     {
+        $advertiser = $this->makeUser('advertiser');
+        $wallet = Wallet::create([
+            'user_id' => $advertiser->id,
+            'role_id' => Wallet::advertiserRoleId(),
+            'balance' => 0,
+            'reserved_balance' => 0,
+            'bonus_balance' => 0,
+            'bonus_reserved' => 0,
+            'currency' => 'EUR',
+        ]);
         $payments = app(OrderPaymentService::class);
         $ref = 'MISMATCH-1';
         $payments->storePendingCheckout($ref, [
-            'user_id' => 1,
+            'user_id' => $advertiser->id,
             'order_total' => 50,
             'amount_due' => 50,
             'bonus_applied' => 0,
@@ -184,12 +194,17 @@ class AuditSecurityFixesTest extends TestCase
                 'expected_amount' => '50',
                 'type' => 'order_payment',
                 'reference_code' => $ref,
+                'user_id' => (string) $advertiser->id,
             ],
         ];
 
-        $this->expectException(\RuntimeException::class);
-        $this->expectExceptionMessage('does not match');
-        $payments->finalizeStripeFirstCheckout($ref, $session);
+        $created = $payments->finalizeStripeFirstCheckout($ref, $session);
+
+        $this->assertCount(0, $created);
+        $this->assertSame(0, Order::query()->where('reference_code', $ref)->count());
+        $this->assertSame(50.0, (float) ($payments->getPendingCheckout($ref)['amount_due'] ?? 0));
+        $wallet->refresh();
+        $this->assertEqualsWithDelta(9999.0, (float) $wallet->balance, 0.01);
     }
 
     public function test_webhook_materializes_stripe_first_checkout_package(): void
@@ -286,12 +301,25 @@ class AuditSecurityFixesTest extends TestCase
         $this->assertSame(0.0, (float) Wallet::where('user_id', $publisher->id)->first()->balance);
     }
 
-    public function test_finalize_rejects_package_user_mismatch(): void
+    public function test_finalize_credits_payer_when_package_belongs_to_someone_else(): void
     {
+        $owner = User::factory()->create(['email_verified_at' => now()]);
+        $payer = User::factory()->create(['email_verified_at' => now()]);
+        $roleId = Wallet::advertiserRoleId();
+        Wallet::create([
+            'user_id' => $payer->id,
+            'role_id' => $roleId,
+            'balance' => 0,
+            'reserved_balance' => 0,
+            'bonus_balance' => 0,
+            'bonus_reserved' => 0,
+            'currency' => 'EUR',
+        ]);
+
         $payments = app(OrderPaymentService::class);
         $ref = 'USER-MISMATCH-1';
         $payments->storePendingCheckout($ref, [
-            'user_id' => 11,
+            'user_id' => $owner->id,
             'order_total' => 50,
             'amount_due' => 50,
             'bonus_applied' => 0,
@@ -306,15 +334,18 @@ class AuditSecurityFixesTest extends TestCase
             'payment_intent' => 'pi_user_mismatch',
             'metadata' => (object) [
                 'expected_amount' => '50',
-                'user_id' => '22',
+                'user_id' => (string) $payer->id,
                 'type' => 'order_payment',
                 'reference_code' => $ref,
             ],
         ];
 
-        $this->expectException(\RuntimeException::class);
-        $this->expectExceptionMessage('does not belong');
-        $payments->finalizeStripeFirstCheckout($ref, $session);
+        $created = $payments->finalizeStripeFirstCheckout($ref, $session);
+
+        $this->assertTrue($created->isEmpty());
+        $this->assertSame(50.0, (float) Wallet::query()->where('user_id', $payer->id)->value('balance'));
+        $this->assertSame($owner->id, (int) ($payments->getPendingCheckout($ref)['user_id'] ?? 0));
+        $this->assertSame(0, Order::query()->where('reference_code', $ref)->count());
     }
 
     public function test_marketing_cannot_approve_site_claim(): void

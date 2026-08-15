@@ -244,6 +244,7 @@ class AddFundsController extends Controller
 
         // 3DS return from saved-card PaymentIntent
         if ($paymentIntentId && ! $sessionId) {
+            $intent = null;
             try {
                 Stripe::setApiKey(config('services.stripe.secret'));
                 $intent = PaymentIntent::retrieve($paymentIntentId);
@@ -251,46 +252,12 @@ class AddFundsController extends Controller
                     return redirect()->route('advertiser.add-funds')
                         ->with('error', 'Card payment was not completed.');
                 }
-                $deposits = app(WalletStripeDepositService::class);
-                $meta = (array) json_decode(json_encode($intent->metadata ?? []), true);
-                if (trim((string) ($meta['user_id'] ?? '')) === ''
-                    || trim((string) ($meta['type'] ?? '')) === '') {
-                    $intent = $deposits->withRecoveredCheckoutSessionMetadata($intent);
-                    $meta = (array) json_decode(json_encode($intent->metadata ?? []), true);
-                }
-                $intentUserId = trim((string) ($meta['user_id'] ?? ''));
-                // Missing user_id must not be filled with whoever is logged in.
-                if ($intentUserId === '') {
+                $classified = $this->classifyAddFundsPaymentIntent($intent);
+                if (($classified['error'] ?? '') !== '') {
                     return redirect()->route('advertiser.add-funds')
-                        ->with('error', 'Payment verification failed. Please contact support.');
+                        ->with('error', $classified['error']);
                 }
-                if ($intentUserId !== (string) auth()->id()) {
-                    return redirect()->route('advertiser.add-funds')
-                        ->with('error', 'Payment does not belong to this account.');
-                }
-                $intentType = trim((string) ($meta['type'] ?? ''));
-                $sessionReference = trim((string) ($meta['session_reference'] ?? ''));
-                $isWalletIntent = in_array($intentType, ['wallet_deposit', 'deposit'], true)
-                    || ($intentType === '' && WalletStripeDepositService::isAddFundsSessionReference($sessionReference));
-                if (! $isWalletIntent) {
-                    return redirect()->route('advertiser.add-funds')
-                        ->with('error', 'This payment is not a wallet top-up.');
-                }
-                // Always credit Stripe's charged amount — never trust client ?amount=
-                $amountEuros = StripePaymentService::fromCents(
-                    (int) ($intent->amount_received ?: $intent->amount)
-                );
-                $ref = $referenceCode ?: (string) ($meta['reference_code'] ?? str_pad((string) mt_rand(1, 999999), 6, '0', STR_PAD_LEFT));
-                $credited = app(WalletStripeDepositService::class)
-                    ->creditFromPaymentIntent(
-                        auth()->id(),
-                        $paymentIntentId,
-                        $amountEuros,
-                        $ref,
-                        null,
-                        true,
-                        $sessionReference
-                    );
+                $credited = $this->creditVerifiedAddFundsPaymentIntent($intent, $referenceCode);
 
                 if ($credited <= 0) {
                     return redirect()->route('advertiser.add-funds')
@@ -302,8 +269,20 @@ class AddFundsController extends Controller
             } catch (\Throwable $e) {
                 Log::error('Saved-card deposit success error: '.$e->getMessage());
 
+                if (is_object($intent) && ($intent->status ?? null) === 'succeeded') {
+                    try {
+                        $credited = $this->creditVerifiedAddFundsPaymentIntent($intent, $referenceCode);
+                        if ($credited > 0) {
+                            return redirect()->route('advertiser.add-funds')
+                                ->with('success', 'Payment successful! €'.number_format($credited, 2).' added to your wallet.');
+                        }
+                    } catch (\Throwable $retryError) {
+                        Log::error('Saved-card deposit success retry failed: '.$retryError->getMessage());
+                    }
+                }
+
                 return redirect()->route('advertiser.add-funds')
-                    ->with('error', 'Failed to verify payment. Please contact support.');
+                    ->with('error', 'Your card was charged. Do not pay again — contact support if the balance does not update.');
             }
         }
 
@@ -312,6 +291,7 @@ class AddFundsController extends Controller
                 ->with('error', 'Invalid payment session.');
         }
 
+        $session = null;
         try {
             Stripe::setApiKey(config('services.stripe.secret'));
 
@@ -319,50 +299,12 @@ class AddFundsController extends Controller
             $session = Session::retrieve($sessionId);
 
             if ($session->payment_status === 'paid') {
-                $deposits = app(WalletStripeDepositService::class);
-                // Classify after overlay — an untyped paid session can still
-                // be a wallet top-up whose type lives only on the PaymentIntent.
-                $session = $deposits->recoverIncompleteWalletCheckoutSession($session);
-                $meta = (array) json_decode(json_encode($session->metadata ?? []), true);
-                $sessionType = isset($meta['type']) ? (string) $meta['type'] : null;
-                $hasDepositId = ! empty($meta['deposit_id']);
-                $hasAddFundsSref = WalletStripeDepositService::isAddFundsSessionReference($meta['session_reference'] ?? '');
-                $isExplicitWallet = in_array((string) $sessionType, ['wallet_deposit', 'deposit'], true);
-                // deposit_id / Add Funds session_reference are wallet hints
-                // only when Stripe did not tag the session as something else.
-                $isWalletSession = $isExplicitWallet
-                    || (($sessionType === null || $sessionType === '') && ($hasDepositId || $hasAddFundsSref));
-
-                if (! $isWalletSession) {
-                    Log::warning('Add Funds checkoutSuccess refused non-wallet session', [
-                        'session_id' => $sessionId,
-                        'type' => $sessionType,
-                        'user_id' => auth()->id(),
-                    ]);
-
+                $classified = $this->classifyAddFundsCheckoutSession($session);
+                if (($classified['error'] ?? '') !== '') {
                     return redirect()->route('advertiser.add-funds')
-                        ->with('error', 'This payment is not a wallet top-up. Order payments are confirmed on the order page.');
+                        ->with('error', $classified['error']);
                 }
-
-                $sessionUserId = (string) ($meta['user_id'] ?? '');
-                if ($sessionUserId !== '' && $sessionUserId !== (string) auth()->id()) {
-                    return redirect()->route('advertiser.add-funds')
-                        ->with('error', 'Payment does not belong to this account.');
-                }
-
-                $creditedAmount = $deposits->creditFromCheckoutSession($session);
-
-                // Missing metadata.user_id must not be filled with whoever is
-                // logged in — that credited a leaked success URL to the visitor.
-                if ($creditedAmount <= 0 && $sessionUserId === '') {
-                    Log::warning('Add Funds checkoutSuccess refused wallet session without user_id', [
-                        'session_id' => $sessionId,
-                        'user_id' => auth()->id(),
-                    ]);
-
-                    return redirect()->route('advertiser.add-funds')
-                        ->with('error', 'Payment verification failed. Please contact support.');
-                }
+                $creditedAmount = $this->creditVerifiedAddFundsCheckoutSession($session);
 
                 if ($creditedAmount <= 0) {
                     return redirect()->route('advertiser.add-funds')
@@ -378,6 +320,21 @@ class AddFundsController extends Controller
 
         } catch (\Exception $e) {
             Log::error('Checkout success error: '.$e->getMessage());
+
+            if (is_object($session) && ($session->payment_status ?? null) === 'paid') {
+                try {
+                    $creditedAmount = $this->creditVerifiedAddFundsCheckoutSession($session);
+                    if ($creditedAmount > 0) {
+                        return redirect()->route('advertiser.add-funds')
+                            ->with('success', 'Payment successful! €'.number_format($creditedAmount, 2).' added to your wallet.');
+                    }
+                } catch (\Throwable $retryError) {
+                    Log::error('Checkout success credit retry failed: '.$retryError->getMessage());
+                }
+
+                return redirect()->route('advertiser.add-funds')
+                    ->with('error', 'Your card was charged. Do not pay again — contact support if the balance does not update.');
+            }
 
             return redirect()->route('advertiser.add-funds')
                 ->with('error', 'Failed to verify payment. Please contact support.');
@@ -406,6 +363,7 @@ class AddFundsController extends Controller
         $amountEuros = round((float) $request->amount, 2);
         $referenceCode = (string) $request->reference_code;
         $sessionReference = WalletStripeDepositService::newAddFundsSessionReference();
+        $payResult = [];
 
         try {
             $payResult = app(StripeCustomerService::class)->payWithSavedCard(
@@ -424,23 +382,18 @@ class AddFundsController extends Controller
             );
 
             if ($payResult['status'] === 'succeeded') {
-                $chargedEuros = ! empty($payResult['amount_received'])
-                    ? StripePaymentService::fromCents((int) $payResult['amount_received'])
-                    : $amountEuros;
-                $credited = app(WalletStripeDepositService::class)->creditFromPaymentIntent(
-                    $user->id,
-                    $payResult['payment_intent_id'],
-                    $chargedEuros,
+                $credited = $this->creditCapturedSavedCardDeposit(
+                    $user,
+                    $payResult,
                     $referenceCode,
-                    null,
-                    true,
+                    $amountEuros,
                     $sessionReference
                 );
 
                 if ($credited <= 0) {
                     return response()->json([
                         'success' => false,
-                        'message' => 'Payment verification failed. Please contact support.',
+                        'message' => 'Your card was charged. Do not pay again — contact support if the balance does not update.',
                     ], 422);
                 }
 
@@ -476,11 +429,191 @@ class AddFundsController extends Controller
         } catch (\Throwable $e) {
             Log::error('Saved card wallet deposit failed: '.$e->getMessage());
 
+            if (($payResult['status'] ?? '') === 'succeeded' && ! empty($payResult['payment_intent_id'])) {
+                try {
+                    $credited = $this->creditCapturedSavedCardDeposit(
+                        $user,
+                        $payResult,
+                        $referenceCode,
+                        $amountEuros,
+                        $sessionReference
+                    );
+                    if ($credited > 0) {
+                        return response()->json([
+                            'success' => true,
+                            'message' => '€'.number_format($credited, 2).' added to your wallet with your saved card.',
+                            'redirect_url' => route('advertiser.add-funds'),
+                        ]);
+                    }
+                } catch (\Throwable $retryError) {
+                    Log::error('Saved card wallet deposit credit retry failed: '.$retryError->getMessage());
+                }
+
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Your card was charged. Do not pay again — contact support if the balance does not update.',
+                ], 422);
+            }
+
             return response()->json([
                 'success' => false,
                 'message' => 'Saved card payment failed. Please try again or use a new card.',
             ], 422);
         }
+    }
+
+    /**
+     * Idempotent wallet credit for a saved-card PaymentIntent this advertiser just paid.
+     *
+     * @param  array{payment_intent_id?: string, amount_received?: int}  $payResult
+     */
+    private function creditCapturedSavedCardDeposit(
+        User $user,
+        array $payResult,
+        string $referenceCode,
+        float $requestedEuros,
+        string $sessionReference
+    ): float {
+        $paymentIntentId = (string) ($payResult['payment_intent_id'] ?? '');
+        if ($paymentIntentId === '') {
+            return 0.0;
+        }
+
+        $chargedEuros = ! empty($payResult['amount_received'])
+            ? StripePaymentService::fromCents((int) $payResult['amount_received'])
+            : $requestedEuros;
+
+        return app(WalletStripeDepositService::class)->creditFromPaymentIntent(
+            (int) $user->id,
+            $paymentIntentId,
+            $chargedEuros,
+            $referenceCode,
+            null,
+            true,
+            $sessionReference
+        );
+    }
+
+    /**
+     * @return array{error: string, intent: object, meta: array<string, mixed>}|array{error: string}
+     */
+    private function classifyAddFundsPaymentIntent(object $intent): array
+    {
+        $deposits = app(WalletStripeDepositService::class);
+        $meta = (array) json_decode(json_encode($intent->metadata ?? []), true);
+        if (trim((string) ($meta['user_id'] ?? '')) === ''
+            || trim((string) ($meta['type'] ?? '')) === '') {
+            $intent = $deposits->withRecoveredCheckoutSessionMetadata($intent);
+            $meta = (array) json_decode(json_encode($intent->metadata ?? []), true);
+        }
+        $intentUserId = trim((string) ($meta['user_id'] ?? ''));
+        if ($intentUserId === '') {
+            return ['error' => 'Payment verification failed. Please contact support.'];
+        }
+        if ($intentUserId !== (string) auth()->id()) {
+            return ['error' => 'Payment does not belong to this account.'];
+        }
+        $intentType = trim((string) ($meta['type'] ?? ''));
+        $sessionReference = trim((string) ($meta['session_reference'] ?? ''));
+        $isWalletIntent = in_array($intentType, ['wallet_deposit', 'deposit'], true)
+            || ($intentType === '' && WalletStripeDepositService::isAddFundsSessionReference($sessionReference));
+        if (! $isWalletIntent) {
+            return ['error' => 'This payment is not a wallet top-up.'];
+        }
+
+        return ['error' => '', 'intent' => $intent, 'meta' => $meta];
+    }
+
+    /**
+     * Credit a succeeded Add Funds PaymentIntent only when metadata names this user.
+     */
+    private function creditVerifiedAddFundsPaymentIntent(object $intent, ?string $referenceCode): float
+    {
+        $classified = $this->classifyAddFundsPaymentIntent($intent);
+        if (($classified['error'] ?? '') !== '') {
+            return 0.0;
+        }
+        $intent = $classified['intent'];
+        $meta = $classified['meta'];
+        $sessionReference = trim((string) ($meta['session_reference'] ?? ''));
+
+        $amountEuros = StripePaymentService::fromCents(
+            (int) ($intent->amount_received ?: $intent->amount)
+        );
+        $ref = $referenceCode ?: (string) ($meta['reference_code'] ?? str_pad((string) mt_rand(1, 999999), 6, '0', STR_PAD_LEFT));
+
+        return app(WalletStripeDepositService::class)->creditFromPaymentIntent(
+            (int) auth()->id(),
+            (string) ($intent->id ?? ''),
+            $amountEuros,
+            $ref,
+            null,
+            true,
+            $sessionReference
+        );
+    }
+
+    /**
+     * @return array{error: string, session: object}|array{error: string}
+     */
+    private function classifyAddFundsCheckoutSession(object $session): array
+    {
+        $deposits = app(WalletStripeDepositService::class);
+        // Classify after overlay — an untyped paid session can still
+        // be a wallet top-up whose type lives only on the PaymentIntent.
+        $session = $deposits->recoverIncompleteWalletCheckoutSession($session);
+        $meta = (array) json_decode(json_encode($session->metadata ?? []), true);
+        $sessionType = isset($meta['type']) ? (string) $meta['type'] : null;
+        $hasDepositId = ! empty($meta['deposit_id']);
+        $hasAddFundsSref = WalletStripeDepositService::isAddFundsSessionReference($meta['session_reference'] ?? '');
+        $isExplicitWallet = in_array((string) $sessionType, ['wallet_deposit', 'deposit'], true);
+        // deposit_id / Add Funds session_reference are wallet hints
+        // only when Stripe did not tag the session as something else.
+        $isWalletSession = $isExplicitWallet
+            || (($sessionType === null || $sessionType === '') && ($hasDepositId || $hasAddFundsSref));
+
+        if (! $isWalletSession) {
+            Log::warning('Add Funds checkoutSuccess refused non-wallet session', [
+                'session_id' => $session->id ?? null,
+                'type' => $sessionType,
+                'user_id' => auth()->id(),
+            ]);
+
+            return ['error' => 'This payment is not a wallet top-up. Order payments are confirmed on the order page.'];
+        }
+
+        $sessionUserId = (string) ($meta['user_id'] ?? '');
+        if ($sessionUserId !== '' && $sessionUserId !== (string) auth()->id()) {
+            return ['error' => 'Payment does not belong to this account.'];
+        }
+
+        // Missing metadata.user_id must not be filled with whoever is
+        // logged in — that credited a leaked success URL to the visitor.
+        if ($sessionUserId === '') {
+            Log::warning('Add Funds checkoutSuccess refused wallet session without user_id', [
+                'session_id' => $session->id ?? null,
+                'user_id' => auth()->id(),
+            ]);
+
+            return ['error' => 'Payment verification failed. Please contact support.'];
+        }
+
+        return ['error' => '', 'session' => $session];
+    }
+
+    /**
+     * Credit a paid Add Funds Checkout Session only when it is a wallet top-up
+     * for the logged-in advertiser. Never fill a missing user_id from the visitor.
+     */
+    private function creditVerifiedAddFundsCheckoutSession(object $session): float
+    {
+        $classified = $this->classifyAddFundsCheckoutSession($session);
+        if (($classified['error'] ?? '') !== '') {
+            return 0.0;
+        }
+
+        return app(WalletStripeDepositService::class)
+            ->creditFromCheckoutSession($classified['session']);
     }
 
     public function store(Request $request)

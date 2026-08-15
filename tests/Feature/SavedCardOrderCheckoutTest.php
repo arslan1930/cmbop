@@ -7,6 +7,7 @@ use App\Models\Order;
 use App\Models\Role;
 use App\Models\Site;
 use App\Models\User;
+use App\Services\CheckoutIntentService;
 use App\Services\StripeCustomerService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
@@ -106,6 +107,49 @@ class SavedCardOrderCheckoutTest extends TestCase
 
         $this->assertSame(0, Order::where('reference_code', 'SAVED3DS')->count());
         $this->assertNotNull(Cache::get('pending_card_checkout:SAVED3DS'));
+    }
+
+    public function test_saved_card_still_succeeds_when_post_finalize_cleanup_throws(): void
+    {
+        [$advertiser, $site, $submission] = $this->readyCheckout();
+
+        $this->partialMock(CheckoutIntentService::class, function ($mock) {
+            $mock->shouldReceive('forget')->andThrow(new \RuntimeException('intent store down'));
+        });
+
+        $this->mock(StripeCustomerService::class, function ($mock) {
+            $mock->shouldReceive('payWithSavedCard')
+                ->once()
+                ->andReturnUsing(function ($user, $paymentMethodId, $amountCents) {
+                    return [
+                        'status' => 'succeeded',
+                        'payment_intent_id' => 'pi_saved_cleanup_throw',
+                        'client_secret' => 'pi_saved_cleanup_throw_secret',
+                        'amount_received' => $amountCents,
+                    ];
+                });
+            $mock->shouldReceive('createCheckoutSession')->never();
+        });
+
+        $this->actingAs($advertiser)
+            ->withSession($this->cartSession($site))
+            ->postJson(route('advertiser.checkout.process'), [
+                'payment_method' => 'card',
+                'payment_method_id' => 'pm_test_visa',
+                'reference_code' => 'SAVEDCLEAN',
+                'publication_mode' => 'immediate',
+                'content_submissions' => [
+                    $site->id => [$submission->id],
+                ],
+            ])
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('reference_code', 'SAVEDCLEAN');
+
+        $this->assertSame(1, Order::query()
+            ->where('reference_code', 'SAVEDCLEAN')
+            ->where('payment_status', 'paid')
+            ->count());
     }
 
     public function test_saved_card_failure_releases_pending_checkout(): void

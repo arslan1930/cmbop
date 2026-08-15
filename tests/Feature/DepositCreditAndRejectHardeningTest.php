@@ -2642,4 +2642,111 @@ class DepositCreditAndRejectHardeningTest extends TestCase
         $this->assertSame((string) $advertiser->id, (string) ($captured['user_id'] ?? ''));
         $this->assertSame(40.0, (float) Wallet::query()->where('user_id', $advertiser->id)->value('balance'));
     }
+
+    public function test_saved_card_wallet_charge_recovers_when_first_credit_throws(): void
+    {
+        $advertiser = $this->advertiser();
+        $this->walletFor($advertiser);
+
+        $this->mock(StripeCustomerService::class, function ($mock) {
+            $mock->shouldReceive('configured')->andReturn(true);
+            $mock->shouldReceive('payWithSavedCard')
+                ->once()
+                ->andReturn([
+                    'status' => 'succeeded',
+                    'payment_intent_id' => 'pi_saved_wallet_retry',
+                    'client_secret' => 'pi_saved_wallet_retry_secret',
+                    'amount_received' => 4000,
+                ]);
+        });
+
+        $this->mock(WalletStripeDepositService::class, function ($mock) {
+            $mock->shouldReceive('creditFromPaymentIntent')
+                ->twice()
+                ->andReturnUsing(function () {
+                    static $attempts = 0;
+                    $attempts++;
+                    if ($attempts === 1) {
+                        throw new \RuntimeException('wallet lock timeout');
+                    }
+
+                    return 40.0;
+                });
+        });
+
+        $this->actingAs($advertiser)
+            ->postJson(route('advertiser.add-funds.pay-saved-card'), [
+                'amount' => 40,
+                'payment_method_id' => 'pm_test_visa',
+                'reference_code' => 'DEP-SAVED-RETRY',
+            ])
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('message', '€40.00 added to your wallet with your saved card.');
+    }
+
+    public function test_saved_card_wallet_charge_does_not_ask_to_pay_again_after_capture(): void
+    {
+        $advertiser = $this->advertiser();
+        $this->walletFor($advertiser);
+
+        $this->mock(StripeCustomerService::class, function ($mock) {
+            $mock->shouldReceive('configured')->andReturn(true);
+            $mock->shouldReceive('payWithSavedCard')
+                ->once()
+                ->andReturn([
+                    'status' => 'succeeded',
+                    'payment_intent_id' => 'pi_saved_wallet_swallowed',
+                    'client_secret' => 'pi_saved_wallet_swallowed_secret',
+                    'amount_received' => 4000,
+                ]);
+        });
+
+        $this->mock(WalletStripeDepositService::class, function ($mock) {
+            $mock->shouldReceive('creditFromPaymentIntent')
+                ->twice()
+                ->andThrow(new \RuntimeException('wallet lock timeout'));
+        });
+
+        $this->actingAs($advertiser)
+            ->postJson(route('advertiser.add-funds.pay-saved-card'), [
+                'amount' => 40,
+                'payment_method_id' => 'pm_test_visa',
+                'reference_code' => 'DEP-SAVED-SWALLOW',
+            ])
+            ->assertStatus(422)
+            ->assertJsonPath('success', false)
+            ->assertJsonPath(
+                'message',
+                'Your card was charged. Do not pay again — contact support if the balance does not update.'
+            );
+
+        $this->assertSame(0.0, (float) Wallet::query()->where('user_id', $advertiser->id)->value('balance'));
+    }
+
+    public function test_saved_card_wallet_charge_can_retry_when_stripe_never_captured(): void
+    {
+        $advertiser = $this->advertiser();
+        $this->walletFor($advertiser);
+
+        $this->mock(StripeCustomerService::class, function ($mock) {
+            $mock->shouldReceive('configured')->andReturn(true);
+            $mock->shouldReceive('payWithSavedCard')
+                ->once()
+                ->andThrow(new \RuntimeException('This card does not belong to your account.'));
+        });
+
+        $this->actingAs($advertiser)
+            ->postJson(route('advertiser.add-funds.pay-saved-card'), [
+                'amount' => 40,
+                'payment_method_id' => 'pm_test_visa',
+                'reference_code' => 'DEP-SAVED-NOCHARGE',
+            ])
+            ->assertStatus(422)
+            ->assertJsonPath('success', false)
+            ->assertJsonPath(
+                'message',
+                'Saved card payment failed. Please try again or use a new card.'
+            );
+    }
 }
