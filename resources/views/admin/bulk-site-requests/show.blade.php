@@ -763,15 +763,9 @@ document.getElementById('bulkCopySeedStarter')?.addEventListener('click', functi
         const draft = readDraft();
         if (!draft) return;
 
-        (draft.rejected || []).forEach(function (id) {
-            const row = form.querySelector('[data-bulk-done-row][data-item-id="' + String(id) + '"]');
-            if (row && row.getAttribute('data-bulk-rejected') !== '1') {
-                applyRejectedState(row);
-            }
-        });
-        if (noteEl && Object.prototype.hasOwnProperty.call(draft, 'rejection_note')) {
-            noteEl.value = String(draft.rejection_note || '');
-        }
+        // Do not restore Delete marks from sessionStorage. Server old() already
+        // restores them after a failed POST. Replaying a stale draft on a later
+        // visit can silently remove sites and email the publisher.
 
         Object.keys(draft.items || {}).forEach(function (itemId) {
             const data = draft.items[itemId] || {};

@@ -196,6 +196,7 @@ class BulkSiteRequestController extends Controller
                 ->where(function ($q) {
                     $q->where('active', 0)->orWhereNull('active');
                 })
+                ->lockForUpdate()
                 ->get();
 
             foreach ($drafts as $site) {
@@ -206,7 +207,7 @@ class BulkSiteRequestController extends Controller
                 $removedDrafts++;
             }
 
-            $survivors = $locked->sites()->notArchived()->get();
+            $survivors = $locked->sites()->notArchived()->lockForUpdate()->get();
             foreach ($survivors as $site) {
                 if ($site->archiveByStaff($reason)) {
                     $archivedLive++;
@@ -548,7 +549,9 @@ class BulkSiteRequestController extends Controller
         }
 
         $validator = Validator::make($request->all(), [
-            'rows' => 'required|string|min:3',
+            'rows' => 'required|string|min:3|max:200000',
+        ], [
+            'rows.max' => 'Paste is too large. Seed at most 200 sites, or split into smaller batches.',
         ]);
 
         if ($validator->fails()) {
@@ -689,10 +692,7 @@ class BulkSiteRequestController extends Controller
                     continue;
                 }
 
-                $siteUrl = $this->normalizeHttpUrl((string) ($row['site_url'] ?? ''));
-                if ($siteUrl === '') {
-                    $siteUrl = $this->normalizeHttpUrl('https://'.$domain);
-                }
+                $siteUrl = $this->listingUrlForDomain($domain, (string) ($row['site_url'] ?? ''));
                 if ($siteUrl === '') {
                     $failures[] = [
                         'line' => $row['line'] ?? 0,
@@ -765,12 +765,14 @@ class BulkSiteRequestController extends Controller
                         ->take(1)
                         ->all();
                 }
+                $attached = 0;
                 if ($itemIds !== []) {
-                    $bulkRequest->items()
+                    $attached = $bulkRequest->items()
                         ->whereNull('site_id')
                         ->whereIn('id', $itemIds)
                         ->update(['site_id' => $site->id]);
-                } elseif ($action === 'bulk_request.done' || $pending->isNotEmpty()) {
+                }
+                if ($attached < 1 && ($action === 'bulk_request.done' || $pending->isNotEmpty())) {
                     $site->delete();
                     $failures[] = [
                         'line' => $row['line'] ?? 0,
@@ -825,7 +827,9 @@ class BulkSiteRequestController extends Controller
         });
 
         if ($abortedCancelled) {
-            return back()->with('error', 'Cannot complete a cancelled request.');
+            return back()->with('error', $action === 'bulk_request.seeded'
+                ? 'Cannot seed a cancelled request.'
+                : 'Cannot complete a cancelled request.');
         }
 
         $fresh = $bulkRequest->fresh(['publisher']);
@@ -1147,6 +1151,25 @@ class BulkSiteRequestController extends Controller
         }
 
         return compact('rows', 'failures');
+    }
+
+    /**
+     * Listing URL must be http(s) and belong to the marketplace domain.
+     * Stored javascript:/host-mismatch rows are rewritten to https://{domain}.
+     */
+    private function listingUrlForDomain(string $domain, string $url): string
+    {
+        $siteUrl = $this->normalizeHttpUrl($url);
+        $host = parse_url($siteUrl, PHP_URL_HOST);
+        $urlDomain = is_string($host) && $host !== ''
+            ? Site::normalizeMarketplaceDomain($host)
+            : '';
+
+        if ($siteUrl !== '' && $urlDomain === $domain) {
+            return $siteUrl;
+        }
+
+        return $this->normalizeHttpUrl('https://'.$domain);
     }
 
     private function normalizeHttpUrl(string $url): string

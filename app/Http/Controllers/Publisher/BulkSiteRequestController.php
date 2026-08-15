@@ -23,23 +23,9 @@ class BulkSiteRequestController extends Controller
 {
     public function store(Request $request)
     {
-        $open = BulkSiteRequest::query()
-            ->where('publisher_id', auth()->id())
-            ->blockingPublisher()
-            ->latest('id')
-            ->first();
-
+        $open = $this->openBlockingBulkRequest((int) auth()->id());
         if ($open) {
-            $publisherOwesWork = $open->status === BulkSiteRequest::STATUS_AWAITING_PUBLISHER
-                || $open->pendingPublisherCount() > 0;
-
-            $message = $publisherOwesWork
-                ? 'Finish your pending sites under Complete details before submitting another bulk request.'
-                : 'You already have an open bulk request. Wait for our team to finish it, or message support.';
-
-            return redirect()
-                ->route('publisher.websites')
-                ->with('error', $message);
+            return $this->redirectBecauseBulkAlreadyOpen($open);
         }
 
         $maxSites = BulkSiteRequest::MAX_SITES_PER_REQUEST;
@@ -127,7 +113,17 @@ class BulkSiteRequestController extends Controller
                 ->with('open_bulk_request_modal', true);
         }
 
-        $bulk = DB::transaction(function () use ($request, $parsedRows) {
+        $raceOpen = null;
+        $bulk = DB::transaction(function () use ($request, $parsedRows, &$raceOpen) {
+            User::query()->whereKey((int) auth()->id())->lockForUpdate()->firstOrFail();
+
+            $open = $this->openBlockingBulkRequest((int) auth()->id());
+            if ($open) {
+                $raceOpen = $open;
+
+                return null;
+            }
+
             $bulk = BulkSiteRequest::create([
                 'publisher_id' => auth()->id(),
                 'status' => BulkSiteRequest::STATUS_REQUESTED,
@@ -146,6 +142,12 @@ class BulkSiteRequestController extends Controller
 
             return $bulk;
         });
+
+        if ($raceOpen || ! $bulk) {
+            return $this->redirectBecauseBulkAlreadyOpen(
+                $raceOpen ?? $this->openBlockingBulkRequest((int) auth()->id())
+            );
+        }
 
         ActivityLogger::log(
             'bulk_request.created',
@@ -513,6 +515,32 @@ class BulkSiteRequestController extends Controller
             ->with('success', $submitted === 1
                 ? '1 site submitted for admin review — it stays in Pending until approved.'
                 : $submitted.' sites submitted for admin review — they stay in Pending until approved.');
+    }
+
+    private function openBlockingBulkRequest(int $publisherId): ?BulkSiteRequest
+    {
+        return BulkSiteRequest::query()
+            ->where('publisher_id', $publisherId)
+            ->blockingPublisher()
+            ->latest('id')
+            ->first();
+    }
+
+    private function redirectBecauseBulkAlreadyOpen(?BulkSiteRequest $open)
+    {
+        $publisherOwesWork = $open
+            && (
+                $open->status === BulkSiteRequest::STATUS_AWAITING_PUBLISHER
+                || $open->pendingPublisherCount() > 0
+            );
+
+        $message = $publisherOwesWork
+            ? 'Finish your pending sites under Complete details before submitting another bulk request.'
+            : 'You already have an open bulk request. Wait for our team to finish it, or message support.';
+
+        return redirect()
+            ->route('publisher.websites')
+            ->with('error', $message);
     }
 
     private function normalizeHttpUrl(mixed $url): string

@@ -94,7 +94,9 @@ class BulkDoneDraftAndNicheUiTest extends TestCase
         $this->assertStringContainsString('function refreshBulkDoneQuality', $html);
         $this->assertStringContainsString('function focusFirstInvalidDoneField', $html);
         $this->assertStringContainsString('Keep the session draft until the next successful render', $html);
+        $this->assertStringContainsString('Do not restore Delete marks from sessionStorage', $html);
         $this->assertStringNotContainsString('pruneDraftForItemIds(submittedIds)', $html);
+        $this->assertStringNotContainsString('(draft.rejected || []).forEach', $html);
         $this->assertStringContainsString('row.open = true', $html);
         $this->assertStringContainsString('[data-bulk-clear-row]', $html);
         $this->assertStringContainsString('[data-bulk-copy-above]', $html);
@@ -591,6 +593,11 @@ class BulkDoneDraftAndNicheUiTest extends TestCase
         $controller = file_get_contents(app_path('Http/Controllers/Admin/BulkSiteRequestController.php'));
         $this->assertStringContainsString('lockForUpdate()', $controller);
         $this->assertStringContainsString('$abortedCancelled', $controller);
+        $this->assertStringContainsString('notArchived()->lockForUpdate()', $controller);
+        $this->assertStringContainsString('listingUrlForDomain', $controller);
+        $this->assertStringContainsString("->update(['site_id' => \$site->id])", $controller);
+        $this->assertStringContainsString('$attached < 1', $controller);
+        $this->assertStringContainsString("'rows' => 'required|string|min:3|max:200000'", $controller);
     }
 
     public function test_marketing_layout_sidebar_collapse_uses_shell_tokens(): void
@@ -740,6 +747,68 @@ class BulkDoneDraftAndNicheUiTest extends TestCase
         $controller = file_get_contents(app_path('Http/Controllers/Admin/BulkSiteRequestController.php'));
         $this->assertStringNotContainsString('GOOD_MIN_DA', $controller);
         $this->assertStringNotContainsString('hasGoodMetrics', $controller);
+    }
+
+    public function test_done_rewrites_mismatched_host_url_to_https_domain(): void
+    {
+        $bulk = BulkSiteRequest::create([
+            'publisher_id' => $this->publisher->id,
+            'status' => BulkSiteRequest::STATUS_REQUESTED,
+            'estimated_count' => 1,
+        ]);
+        $item = BulkSiteRequestItem::create([
+            'bulk_site_request_id' => $bulk->id,
+            'site_url' => 'https://evil-host.example/click?to=safe-host.example',
+            'domain' => 'safe-host.example',
+            'price' => 40,
+        ]);
+
+        [$country, $language] = $this->marketplaceCodes();
+        $category = Category::query()->firstOrFail();
+
+        $this->actingAs($this->marketer)
+            ->from(route('marketing.bulk-site-requests.show', $bulk))
+            ->post(route('marketing.bulk-site-requests.done', $bulk), [
+                'items' => [
+                    $item->id => [
+                        'language' => $language,
+                        'country' => $country,
+                        'da' => 40,
+                        'dr' => 45,
+                        'traffic' => 12000,
+                        'categories' => $category->name,
+                    ],
+                ],
+            ])
+            ->assertRedirect()
+            ->assertSessionHas('success');
+
+        $site = Site::query()->where('bulk_site_request_id', $bulk->id)->first();
+        $this->assertNotNull($site);
+        $this->assertSame('safe-host.example', $site->domain);
+        $this->assertSame('https://safe-host.example', $site->site_url);
+        $this->assertSame('https://safe-host.example', $site->example_url);
+        $this->assertSame($site->id, $item->fresh()->site_id);
+    }
+
+    public function test_seed_rejects_oversized_paste(): void
+    {
+        $bulk = BulkSiteRequest::create([
+            'publisher_id' => $this->publisher->id,
+            'status' => BulkSiteRequest::STATUS_SHEET_SENT,
+            'estimated_count' => 3,
+            'sheet_sent_at' => now(),
+        ]);
+
+        $this->actingAs($this->marketer)
+            ->from(route('marketing.bulk-site-requests.show', $bulk))
+            ->post(route('marketing.bulk-site-requests.seed', $bulk), [
+                'rows' => str_repeat('a', 200001),
+            ])
+            ->assertRedirect()
+            ->assertSessionHasErrors('rows');
+
+        $this->assertSame(0, Site::query()->where('bulk_site_request_id', $bulk->id)->count());
     }
 
     private function marketplaceCodes(): array

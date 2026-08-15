@@ -130,6 +130,10 @@ class BulkSiteGuidedWorkflowTest extends TestCase
             ->assertSessionHas('error');
 
         $this->assertSame(1, BulkSiteRequest::where('publisher_id', $this->publisher->id)->count());
+
+        $publisherController = file_get_contents(app_path('Http/Controllers/Publisher/BulkSiteRequestController.php'));
+        $this->assertStringContainsString('lockForUpdate()->firstOrFail()', $publisherController);
+        $this->assertStringContainsString('openBlockingBulkRequest', $publisherController);
     }
 
     public function test_websites_page_shows_url_price_bulk_columns(): void
