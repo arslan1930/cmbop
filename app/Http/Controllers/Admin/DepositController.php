@@ -13,6 +13,7 @@ use App\Services\InAppNotificationService;
 use App\Services\Wallet\ManualDepositAlreadyProcessedException;
 use App\Services\Wallet\ManualDepositApprovalService;
 use App\Support\UserFacingError;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -61,10 +62,10 @@ class DepositController extends Controller
 
     public function show($id)
     {
-        $deposit = DepositRequest::with('user')->find($id);
+        $deposit = DepositRequest::with(['user:id,name,email'])->find($id);
 
         if (! $deposit) {
-            return response()->json([
+            return $this->noStoreJson([
                 'success' => false,
                 'message' => 'Deposit request not found',
             ]);
@@ -72,7 +73,7 @@ class DepositController extends Controller
 
         $invoice = app(AdminInvoiceLinks::class)->forDeposits(collect([$deposit]))->get((int) $deposit->id);
 
-        return response()->json([
+        return $this->noStoreJson([
             'success' => true,
             'deposit' => $deposit,
             'invoice' => $invoice,
@@ -86,7 +87,7 @@ class DepositController extends Controller
         $deposit = DepositRequest::find($id);
 
         if (! $deposit) {
-            return response()->json([
+            return $this->noStoreJson([
                 'success' => false,
                 'message' => 'Deposit request not found',
             ]);
@@ -99,20 +100,20 @@ class DepositController extends Controller
                 $notes
             );
 
-            return response()->json([
+            return $this->noStoreJson([
                 'success' => true,
                 'message' => $result['message'],
                 'email_sent' => $result['email_sent'],
             ]);
         } catch (ManualDepositAlreadyProcessedException $e) {
-            return response()->json([
+            return $this->noStoreJson([
                 'success' => false,
                 'message' => UserFacingError::message($e, 'This deposit was already processed.'),
             ]);
         } catch (\Exception $e) {
             Log::error('Failed to approve deposit: '.$e->getMessage());
 
-            return response()->json([
+            return $this->noStoreJson([
                 'success' => false,
                 'message' => UserFacingError::message($e, 'Failed to approve deposit. Please try again.'),
             ]);
@@ -126,14 +127,14 @@ class DepositController extends Controller
         $deposit = DepositRequest::find($id);
 
         if (! $deposit) {
-            return response()->json([
+            return $this->noStoreJson([
                 'success' => false,
                 'message' => 'Deposit request not found',
             ]);
         }
 
         if ($deposit->status !== 'pending') {
-            return response()->json([
+            return $this->noStoreJson([
                 'success' => false,
                 'message' => 'This deposit request has already been processed.',
             ]);
@@ -147,7 +148,7 @@ class DepositController extends Controller
             if ($deposit->status !== 'pending') {
                 DB::rollBack();
 
-                return response()->json([
+                return $this->noStoreJson([
                     'success' => false,
                     'message' => 'This deposit request has already been processed.',
                 ]);
@@ -164,7 +165,7 @@ class DepositController extends Controller
             DB::rollBack();
             Log::error('Failed to reject deposit: '.$e->getMessage());
 
-            return response()->json([
+            return $this->noStoreJson([
                 'success' => false,
                 'message' => UserFacingError::message($e, 'Failed to reject deposit. Please try again.'),
             ]);
@@ -206,7 +207,7 @@ class DepositController extends Controller
             'Deposit #'.$deposit->id
         );
 
-        return response()->json([
+        return $this->noStoreJson([
             'success' => true,
             'message' => $message,
             'email_sent' => $emailSent,
@@ -222,5 +223,11 @@ class DepositController extends Controller
         $notes = $data['admin_notes'] ?? null;
 
         return is_string($notes) ? $notes : null;
+    }
+
+    private function noStoreJson(array $payload, int $status = 200): JsonResponse
+    {
+        return response()->json($payload, $status)
+            ->header('Cache-Control', 'no-store');
     }
 }

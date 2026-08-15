@@ -38,14 +38,16 @@ class WithdrawalController extends Controller
     {
         $user = auth()->user();
 
-        return view('publisher.withdraw', [
-            'platformChargePercent' => $this->platformChargePercent(),
-            'minWithdrawalAmount' => $this->minWithdrawalAmount(),
-            'payoutProfile' => $user->payoutProfile(),
-            'payoutLocked' => $user->payoutProfileLocked(),
-            'availableMethods' => $this->payoutProfiles->availableMethods($user),
-            'supportEmail' => config('email_notifications.brand.support_email', config('mail.from.address')),
-        ]);
+        return response()
+            ->view('publisher.withdraw', [
+                'platformChargePercent' => $this->platformChargePercent(),
+                'minWithdrawalAmount' => $this->minWithdrawalAmount(),
+                'payoutProfile' => $user->payoutProfile(),
+                'payoutLocked' => $user->payoutProfileLocked(),
+                'availableMethods' => $this->payoutProfiles->availableMethods($user),
+                'supportEmail' => config('email_notifications.brand.support_email', config('mail.from.address')),
+            ])
+            ->header('Cache-Control', 'no-store');
     }
 
     public function requestWithdrawal(Request $request)

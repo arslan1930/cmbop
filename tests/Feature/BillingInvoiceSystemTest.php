@@ -440,5 +440,17 @@ class BillingInvoiceSystemTest extends TestCase
 
         $src = (string) file_get_contents(app_path('Mail/DepositApproved.php'));
         $this->assertStringContainsString("publicRoute('advertiser.billing.download'", $src);
+
+        $src = (string) file_get_contents(app_path('Mail/DepositRejected.php'));
+        $this->assertStringContainsString("publicRoute('advertiser.add-funds')", $src);
+
+        $src = (string) file_get_contents(app_path('Mail/SpendBudgetAlertMail.php'));
+        $this->assertStringContainsString("publicRoute('advertiser.add-funds')", $src);
+
+        $src = (string) file_get_contents(app_path('Mail/DisputeRefundAdvertiser.php'));
+        $this->assertStringContainsString("publicRoute('advertiser.balance')", $src);
+
+        $src = (string) file_get_contents(app_path('Mail/DisputeClawbackPublisher.php'));
+        $this->assertStringContainsString("publicRoute('publisher.balance')", $src);
     }
 }

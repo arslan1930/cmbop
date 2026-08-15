@@ -122,11 +122,34 @@ class AdminDepositsCrashHardeningTest extends TestCase
             ->assertOk()
             ->getContent();
 
-        $this->assertStringContainsString(route('admin.deposits.show', $deposit->id), $html);
-        $this->assertStringContainsString('data-show-url', $html);
+        $showPath = route('admin.deposits.show', $deposit->id, false);
+        $this->assertStringContainsString('data-show-url="'.$showPath.'"', $html);
+        $this->assertStringNotContainsString('data-show-url="'.route('admin.deposits.show', $deposit->id).'"', $html);
         $this->assertStringContainsString('readJsonResponse', $html);
         $this->assertStringNotContainsString("fetch('/admin/deposits/'", $html);
         $this->assertStringNotContainsString('fetch(`/admin/deposits/${id}/approve`', $html);
         $this->assertStringNotContainsString('fetch(`/admin/deposits/${id}/reject`', $html);
+
+        $approveJson = json_encode(route('admin.deposits.approve', ['id' => '__ID__'], false), JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT);
+        $rejectJson = json_encode(route('admin.deposits.reject', ['id' => '__ID__'], false), JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT);
+        $this->assertStringContainsString($approveJson, $html);
+        $this->assertStringContainsString($rejectJson, $html);
+
+        $advertiser->forceFill([
+            'payout_paypal_email' => 'hidden-pay@example.com',
+            'payout_bank_account' => 'DE89370400440532013000',
+        ])->save();
+
+        $show = $this->actingAs($admin)
+            ->getJson(route('admin.deposits.show', $deposit->id))
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('deposit.user.email', $advertiser->email);
+
+        $this->assertStringContainsString('no-store', (string) $show->headers->get('Cache-Control'));
+        $this->assertArrayNotHasKey('payout_paypal_email', $show->json('deposit.user') ?? []);
+        $this->assertArrayNotHasKey('payout_bank_account', $show->json('deposit.user') ?? []);
+        $this->assertStringNotContainsString('hidden-pay@example.com', $show->getContent());
+        $this->assertStringNotContainsString('DE89370400440532013000', $show->getContent());
     }
 }

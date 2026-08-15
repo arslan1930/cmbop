@@ -186,7 +186,7 @@
                                 <div class="d-flex flex-wrap gap-1">
                                     <button class="btn btn-sm btn-outline-primary view-deposit"
                                             data-id="{{ $deposit->id }}"
-                                            data-show-url="{{ route('admin.deposits.show', $deposit->id) }}">
+                                            data-show-url="{{ route('admin.deposits.show', $deposit->id, false) }}">
                                         <i class="fa fa-eye"></i> View
                                     </button>
                                     @if(!empty($invoiceLinks[$deposit->id]))
@@ -242,8 +242,8 @@
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const csrfToken = @json(csrf_token());
-    const approveUrlTemplate = @json(route('admin.deposits.approve', ['id' => '__ID__']));
-    const rejectUrlTemplate = @json(route('admin.deposits.reject', ['id' => '__ID__']));
+    const approveUrlTemplate = @json(route('admin.deposits.approve', ['id' => '__ID__'], false));
+    const rejectUrlTemplate = @json(route('admin.deposits.reject', ['id' => '__ID__'], false));
 
     function depositActionUrl(template, id) {
         return String(template).replace('__ID__', encodeURIComponent(id));

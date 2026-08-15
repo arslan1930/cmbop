@@ -11,7 +11,7 @@ Your link-removed dispute for order **#{{ $dispute->order->order_number ?? $disp
 **Notes:** {{ $dispute->admin_notes }}
 @endif
 
-@component('mail::button', ['url' => route('advertiser.balance')])
+@component('mail::button', ['url' => $balanceUrl])
 View balance
 @endcomponent
 

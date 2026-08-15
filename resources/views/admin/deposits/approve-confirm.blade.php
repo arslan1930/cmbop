@@ -132,7 +132,7 @@
                             </button>
                         </form>
 
-                        <a href="{{ route('admin.deposits') }}" class="btn btn-link w-100 text-muted">
+                        <a href="{{ route('admin.deposits', [], false) }}" class="btn btn-link w-100 text-muted">
                             Cancel — back to deposits
                         </a>
                     @else
@@ -171,7 +171,7 @@
                             </div>
                         @endif
 
-                        <a href="{{ route('admin.deposits') }}" class="btn btn-primary w-100">
+                        <a href="{{ route('admin.deposits', [], false) }}" class="btn btn-primary w-100">
                             Open deposits
                         </a>
                     @endif

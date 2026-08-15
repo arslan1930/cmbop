@@ -123,7 +123,7 @@ class InvoiceController extends Controller
             'deposit' => $deposit,
             'canMarkPaid' => $deposit->canUserMarkPaid(),
             'userMarkedPaid' => $deposit->userHasMarkedPaid(),
-            'markPaidUrl' => route('advertiser.add-funds.mark-paid', $deposit),
+            'markPaidUrl' => route('advertiser.add-funds.mark-paid', $deposit, false),
         ];
     }
 

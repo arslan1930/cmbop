@@ -18,7 +18,7 @@ A link-removed dispute was **upheld** for order **#{{ $dispute->order->order_num
 
 Please keep completed placements live. If you believe this was a mistake, contact support.
 
-@component('mail::button', ['url' => route('publisher.balance')])
+@component('mail::button', ['url' => $balanceUrl])
 View balance
 @endcomponent
 
