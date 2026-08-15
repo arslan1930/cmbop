@@ -7,6 +7,7 @@ use App\Models\Role;
 use App\Models\User;
 use App\Models\Withdrawal;
 use App\Services\Admin\FinanceOverviewService;
+use App\Services\Billing\AdminInvoiceLinks;
 use App\Services\Wallet\ManualWithdrawalSettlementService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Request;
@@ -70,6 +71,10 @@ class AdminWithdrawalLaterTest extends TestCase
         $this->assertStringContainsString('escapeHtml(adminStatusLabel(w.status))', $html);
         $this->assertStringContainsString("pendingSet.has(Number(id)) ? 'pending' : 'processing'", $html);
         $this->assertStringContainsString('appliedFilters.page = currentPage', $html);
+        $this->assertStringContainsString('notes: notes', $html);
+        $this->assertStringContainsString('hasOwnProperty.call(options, \'notes\')', $html);
+        $this->assertStringContainsString('if (!dateString) return', $html);
+        $this->assertStringContainsString('encodeURIComponent(w.destination_copy_text || \'\')', $html);
     }
 
     public function test_browser_show_is_html_and_json_accept_stays_json(): void
@@ -538,5 +543,40 @@ class AdminWithdrawalLaterTest extends TestCase
             ->assertStatus(500)
             ->assertJsonPath('success', false)
             ->assertJsonPath('message', 'Failed to update status. Please try again.');
+    }
+
+    public function test_json_show_returns_json_500_when_enrichment_throws(): void
+    {
+        $admin = $this->makeUser('admin');
+        $publisher = $this->makeUser('publisher');
+        $withdrawal = $this->seedWithdrawal($publisher);
+
+        $this->mock(AdminInvoiceLinks::class, function ($mock) {
+            $mock->shouldReceive('forWithdrawals')->andThrow(new \TypeError('simulated show error'));
+        });
+
+        $this->actingAs($admin)
+            ->getJson(route('admin.withdrawals.show', $withdrawal->id))
+            ->assertStatus(500)
+            ->assertJsonPath('success', false)
+            ->assertJsonPath('message', 'Failed to load withdrawal.');
+    }
+
+    public function test_export_tolerates_nested_payment_detail_arrays(): void
+    {
+        $admin = $this->makeUser('admin');
+        $publisher = $this->makeUser('publisher');
+        $withdrawal = $this->seedWithdrawal($publisher, [
+            'payment_method' => 'paypal',
+            'payment_details' => ['email' => ['not-a-string']],
+        ]);
+
+        $csv = $this->actingAs($admin)
+            ->get(route('admin.withdrawals.export'))
+            ->assertOk()
+            ->streamedContent();
+
+        $this->assertStringContainsString('WD-'.$withdrawal->id, $csv);
+        $this->assertStringNotContainsString('Array', $csv);
     }
 }

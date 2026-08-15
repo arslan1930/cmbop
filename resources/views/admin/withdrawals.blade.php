@@ -343,7 +343,9 @@ function capitalize(str) {
 }
 
 function formatDate(dateString) {
+    if (!dateString) return '—';
     const date = new Date(dateString);
+    if (Number.isNaN(date.getTime())) return '—';
     return date.toLocaleDateString('en-US', {
         year: 'numeric',
         month: 'short',
@@ -512,7 +514,12 @@ function renderWithdrawals(withdrawals) {
     withdrawals.forEach(function(w) {
         const actionable = w.status === 'pending' || w.status === 'processing';
         const checked = selectedIds.has(Number(w.id)) ? 'checked' : '';
-        const copyEncoded = encodeURIComponent(w.destination_copy_text || '');
+        let copyEncoded = '';
+        try {
+            copyEncoded = encodeURIComponent(w.destination_copy_text || '');
+        } catch (e) {
+            copyEncoded = '';
+        }
         const matchIds = Array.isArray(w.duplicate_match_ids) ? w.duplicate_match_ids : [];
         withdrawalFlags.set(Number(w.id), {
             possible_duplicate: !!w.possible_duplicate,
@@ -798,13 +805,27 @@ async function runBatch(action, title, confirmText, confirmClass, options) {
     const warn = (action === 'completed' && (confirmDuplicates || dupRefs.length))
         ? duplicateWarningHtml(dupRefs.join(', ') || 'selected rows')
         : '';
-    const notes = await confirmNotes(
-        title,
-        `Apply to <strong>${selectedIds.size}</strong> selected withdrawal(s).${warn}`,
-        confirmText,
-        confirmClass
-    );
-    if (notes === null) return;
+    let notes;
+    if (Object.prototype.hasOwnProperty.call(options, 'notes')) {
+        notes = options.notes;
+        const result = await Swal.fire({
+            title,
+            html: `Apply to <strong>${selectedIds.size}</strong> selected withdrawal(s).${warn}`,
+            showCancelButton: true,
+            confirmButtonText: confirmText,
+            cancelButtonText: 'Cancel',
+            customClass: { confirmButton: confirmClass || '' },
+        });
+        if (!result.isConfirmed) return;
+    } else {
+        notes = await confirmNotes(
+            title,
+            `Apply to <strong>${selectedIds.size}</strong> selected withdrawal(s).${warn}`,
+            confirmText,
+            confirmClass
+        );
+        if (notes === null) return;
+    }
     if (action === 'completed' && !options.skipPendingConfirm && !await confirmPendingPayIfNeeded(Array.from(selectedIds))) return;
 
     const payload = {
@@ -826,6 +847,7 @@ async function runBatch(action, title, confirmText, confirmClass, options) {
             runBatch(action, 'Possible duplicate payout', confirmText, confirmClass, {
                 confirmDuplicates: true,
                 skipPendingConfirm: true,
+                notes: notes,
                 duplicateRefs: (body.duplicate_ids || []).map(function (id) { return 'WD-' + id; }),
             });
             return;

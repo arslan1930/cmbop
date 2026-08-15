@@ -90,38 +90,52 @@ class AdminWithdrawalController extends Controller
     public function show(Request $request, $id)
     {
         $wantsJson = $request->wantsJson();
-        $withdrawal = Withdrawal::with('user:id,name,email')->find($id);
 
-        if (! $withdrawal) {
+        try {
+            $withdrawal = Withdrawal::with('user:id,name,email')->find($id);
+
+            if (! $withdrawal) {
+                if ($wantsJson) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Withdrawal not found',
+                    ], 404);
+                }
+
+                abort(404);
+            }
+
+            if (is_string($withdrawal->payment_details)) {
+                $withdrawal->payment_details = json_decode($withdrawal->payment_details, true);
+            }
+
+            $invoice = app(AdminInvoiceLinks::class)->forWithdrawals(collect([$withdrawal]))->get((int) $withdrawal->id);
+            $withdrawal->setAttribute('invoice', $invoice);
+            $withdrawal->setAttribute('invoice_url', data_get($invoice, 'url'));
+            $this->attachDuplicateWarnings(collect([$withdrawal]));
+
+            if ($wantsJson) {
+                return response()->json([
+                    'success' => true,
+                    'data' => $withdrawal,
+                ]);
+            }
+
+            return view('admin.withdrawals.show', [
+                'withdrawal' => $withdrawal,
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('Error fetching withdrawal: '.$e->getMessage());
+
             if ($wantsJson) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Withdrawal not found',
-                ], 404);
+                    'message' => UserFacingError::message($e, 'Failed to load withdrawal.'),
+                ], 500);
             }
 
-            abort(404);
+            throw $e;
         }
-
-        if (is_string($withdrawal->payment_details)) {
-            $withdrawal->payment_details = json_decode($withdrawal->payment_details, true);
-        }
-
-        $invoice = app(AdminInvoiceLinks::class)->forWithdrawals(collect([$withdrawal]))->get((int) $withdrawal->id);
-        $withdrawal->setAttribute('invoice', $invoice);
-        $withdrawal->setAttribute('invoice_url', data_get($invoice, 'url'));
-        $this->attachDuplicateWarnings(collect([$withdrawal]));
-
-        if ($wantsJson) {
-            return response()->json([
-                'success' => true,
-                'data' => $withdrawal,
-            ]);
-        }
-
-        return view('admin.withdrawals.show', [
-            'withdrawal' => $withdrawal,
-        ]);
     }
 
     /**
@@ -257,19 +271,25 @@ class AdminWithdrawalController extends Controller
         $runId = 'PAYOUT-'.now()->format('Ymd-His').'-'.$ok;
 
         if ($ok > 0) {
-            ActivityLogger::log(
-                'withdrawal.batch_'.$action,
-                auth()->user()->name.' batch '.$action.' on '.$ok.' withdrawal(s) ['.$runId.']',
-                null,
-                [
-                    'action' => $action,
-                    'succeeded' => $ok,
-                    'failed' => count($failed),
-                    'ids' => $ids,
+            try {
+                ActivityLogger::log(
+                    'withdrawal.batch_'.$action,
+                    (auth()->user()->name ?? 'Admin').' batch '.$action.' on '.$ok.' withdrawal(s) ['.$runId.']',
+                    null,
+                    [
+                        'action' => $action,
+                        'succeeded' => $ok,
+                        'failed' => count($failed),
+                        'ids' => $ids,
+                        'payout_run_id' => $runId,
+                    ],
+                    $runId
+                );
+            } catch (\Throwable $e) {
+                Log::error('Failed to log payout batch: '.$e->getMessage(), [
                     'payout_run_id' => $runId,
-                ],
-                $runId
-            );
+                ]);
+            }
         }
 
         return response()->json([
@@ -286,28 +306,43 @@ class AdminWithdrawalController extends Controller
      */
     public function exportCsv(Request $request): StreamedResponse|RedirectResponse|JsonResponse
     {
-        $query = Withdrawal::with('user:id,name,email');
-        $this->applyWithdrawalFilters($query, $request);
+        try {
+            $query = Withdrawal::with('user:id,name,email');
+            $this->applyWithdrawalFilters($query, $request);
 
-        $maxRows = max(1, (int) config('billing.withdrawal_export_max_rows', 2000));
-        $total = (clone $query)->count();
-        if ($total > $maxRows) {
-            $message = 'Export is limited to '.$maxRows.' rows. This view has '.$total.'. Narrow the filters and try again.';
+            $maxRows = max(1, (int) config('billing.withdrawal_export_max_rows', 2000));
+            $total = (clone $query)->count();
+            if ($total > $maxRows) {
+                $message = 'Export is limited to '.$maxRows.' rows. This view has '.$total.'. Narrow the filters and try again.';
+                if ($request->wantsJson()) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => $message,
+                        'total' => $total,
+                        'limit' => $maxRows,
+                    ], 422);
+                }
+
+                return redirect()
+                    ->route('admin.withdrawals', $this->withdrawalIndexQuery($request))
+                    ->with('error', $message);
+            }
+
+            $rows = $query->orderBy('payment_method')->orderBy('created_at')->orderBy('id')->get();
+        } catch (\Throwable $e) {
+            Log::error('Error exporting withdrawals: '.$e->getMessage());
+            $message = UserFacingError::message($e, 'Failed to export withdrawals. Please try again.');
             if ($request->wantsJson()) {
                 return response()->json([
                     'success' => false,
                     'message' => $message,
-                    'total' => $total,
-                    'limit' => $maxRows,
-                ], 422);
+                ], 500);
             }
 
             return redirect()
                 ->route('admin.withdrawals', $this->withdrawalIndexQuery($request))
                 ->with('error', $message);
         }
-
-        $rows = $query->orderBy('payment_method')->orderBy('created_at')->orderBy('id')->get();
 
         $filename = 'withdrawals-export-'.now()->format('Y-m-d-His').'.csv';
 
@@ -343,22 +378,22 @@ class AdminWithdrawalController extends Controller
                 fputcsv($out, [
                     'WD-'.$w->id,
                     $w->id,
-                    $w->user?->name,
-                    $w->user?->email,
+                    $this->csvCell($w->user?->name),
+                    $this->csvCell($w->user?->email),
                     number_format((float) $w->amount, 2, '.', ''),
                     number_format((float) $w->fee, 2, '.', ''),
                     number_format((float) $w->net_amount, 2, '.', ''),
                     'EUR',
-                    $w->payment_method,
-                    $w->status,
-                    $w->waiting_days,
-                    $details['bank_name'] ?? '',
-                    $details['account_holder'] ?? '',
-                    $details['account_number'] ?? '',
-                    $details['swift_code'] ?? '',
-                    $details['email'] ?? '',
-                    $details['crypto_type'] ?? '',
-                    $details['wallet_address'] ?? '',
+                    $this->csvCell($w->payment_method),
+                    $this->csvCell($w->status),
+                    $this->csvCell($w->waiting_days),
+                    $this->csvCell($details['bank_name'] ?? ''),
+                    $this->csvCell($details['account_holder'] ?? ''),
+                    $this->csvCell($details['account_number'] ?? ''),
+                    $this->csvCell($details['swift_code'] ?? ''),
+                    $this->csvCell($details['email'] ?? ''),
+                    $this->csvCell($details['crypto_type'] ?? ''),
+                    $this->csvCell($details['wallet_address'] ?? ''),
                     optional($w->created_at)->toDateTimeString(),
                 ]);
             }
@@ -665,6 +700,15 @@ class AdminWithdrawalController extends Controller
         $max = max(1, (int) config('billing.withdrawal_export_max_rows', 2000));
 
         return array_slice($normalized, 0, $max);
+    }
+
+    private function csvCell(mixed $value): string
+    {
+        if (is_string($value) || is_int($value) || is_float($value)) {
+            return (string) $value;
+        }
+
+        return '';
     }
 
     /**
