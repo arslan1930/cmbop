@@ -14,10 +14,12 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Testing\TestResponse;
+use Tests\Support\CreatesContentSubmissions;
 use Tests\TestCase;
 
 class StripeFirstCheckoutInvariantsTest extends TestCase
 {
+    use CreatesContentSubmissions;
     use RefreshDatabase;
 
     private string $webhookSecret = 'whsec_test_stripe_first_invariants';
@@ -431,5 +433,48 @@ class StripeFirstCheckoutInvariantsTest extends TestCase
         $this->assertEqualsWithDelta(20.0, (float) $wallet->bonus_balance, 0.01);
         $this->assertEqualsWithDelta(0.0, (float) $wallet->reserved_balance, 0.01);
         $this->assertEqualsWithDelta(0.0, (float) $wallet->bonus_reserved, 0.01);
+    }
+
+    public function test_finalize_does_not_steal_an_article_already_linked_to_another_order(): void
+    {
+        $advertiser = $this->makeUser('advertiser');
+        $publisher = $this->makeUser('publisher');
+        $site = $this->makeSite($publisher, 'already-claimed.example', 40);
+        $submission = $this->createApprovedSubmission($advertiser);
+
+        $walletOrder = Order::create([
+            'user_id' => $advertiser->id,
+            'order_number' => (string) random_int(100000, 999999),
+            'reference_code' => 'WALLET-FIRST',
+            'subtotal' => 40,
+            'tax' => 0,
+            'total_amount' => 40,
+            'payment_method' => 'wallet',
+            'payment_status' => 'paid',
+            'status' => 'pending',
+        ]);
+        $submission->update([
+            'order_id' => $walletOrder->id,
+        ]);
+
+        $ref = 'CARD-SECOND';
+        $line = $this->lineFor($site, 40);
+        $line['content_submission_id'] = $submission->id;
+        $line['content_path'] = $submission->path;
+        $line['content_disk'] = $submission->disk;
+        app(OrderPaymentService::class)->storePendingCheckout($ref, $this->package($advertiser, [$line], 40));
+
+        $created = app(OrderPaymentService::class)->finalizeStripeFirstCheckout(
+            $ref,
+            $this->paidSession($ref, 40, 'cs_already_claimed')
+        );
+
+        $this->assertCount(1, $created);
+        $cardOrder = Order::where('reference_code', $ref)->first();
+        $this->assertNotNull($cardOrder);
+        $this->assertSame('paid', $cardOrder->payment_status);
+        $this->assertSame($walletOrder->id, (int) $submission->fresh()->order_id);
+        $this->assertNull($cardOrder->items()->first()?->content_submission_id);
+        $this->assertSame($submission->path, $cardOrder->items()->first()?->content_path);
     }
 }

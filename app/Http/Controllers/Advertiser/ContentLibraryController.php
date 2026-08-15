@@ -567,6 +567,12 @@ class ContentLibraryController extends Controller
                 ->with('error', $message);
         }
 
+        if (! $submission->isReadyForCheckout()) {
+            return redirect()
+                ->route('advertiser.content-library')
+                ->with('error', 'Add anchor text and a valid HTTPS target URL, or confirm continuing without a link.');
+        }
+
         // Keep existing cart sites and any publication date already chosen at checkout.
         session()->put('checkout_content_submission_id', $submission->id);
         session()->put('ordering_from_library', true);

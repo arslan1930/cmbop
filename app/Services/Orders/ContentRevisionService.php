@@ -214,6 +214,12 @@ class ContentRevisionService
                     ]);
                 }
 
+                if ($existing->hasImages() && ! $existing->imageRightsCoverContent()) {
+                    throw ValidationException::withMessages([
+                        'confirm_existing' => 'Confirm image rights on the attached article before sending it back.',
+                    ]);
+                }
+
                 $update = array_merge($update, $this->submissionFieldsForItem($existing), $this->liveUrlClearPayload());
                 $chatExtra = ' Confirmed the existing Content Library article was updated.';
             } elseif ($submissionId) {

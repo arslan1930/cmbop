@@ -472,6 +472,47 @@ class ContentLibraryImprovementsTest extends TestCase
             ->assertJsonPath('success', false);
     }
 
+    public function test_cart_assign_rejects_an_article_with_an_incomplete_link(): void
+    {
+        $advertiser = $this->advertiser();
+        $publisher = $this->publisher();
+        $site = $this->activeSite($publisher, 'assign-link');
+        $submission = $this->createApprovedSubmission($advertiser);
+        $submission->update(['target_url' => null]);
+
+        $this->actingAs($advertiser)
+            ->withSession([
+                'cart' => [[
+                    'id' => $site->id,
+                    'name' => $site->site_name,
+                    'quantity' => 1,
+                    'content_submission_id' => null,
+                    'language' => 'en',
+                ]],
+            ])
+            ->postJson(route('advertiser.cart.assign-article'), [
+                'id' => $site->id,
+                'content_submission_id' => $submission->id,
+            ])
+            ->assertStatus(422)
+            ->assertJsonPath('success', false);
+    }
+
+    public function test_library_order_rejects_an_article_with_an_incomplete_link(): void
+    {
+        $advertiser = $this->advertiser();
+        $submission = $this->createApprovedSubmission($advertiser);
+        $submission->update(['anchor_text' => 'only the label', 'target_url' => null]);
+
+        $this->actingAs($advertiser)
+            ->from(route('advertiser.content-library'))
+            ->get(route('advertiser.content-library.order', $submission))
+            ->assertRedirect(route('advertiser.content-library'))
+            ->assertSessionHas('error');
+
+        $this->assertTrue(session()->missing('checkout_content_submission_id'));
+    }
+
     public function test_library_order_button_links_to_catalog_flow(): void
     {
         $advertiser = $this->advertiser();

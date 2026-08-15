@@ -483,7 +483,17 @@ class OrderPaymentService
                 }
 
                 $submissionId = (int) ($line['content_submission_id'] ?? 0);
-                $submission = $submissionId > 0 ? ContentSubmission::query()->find($submissionId) : null;
+                $submission = $submissionId > 0
+                    ? ContentSubmission::query()->lockForUpdate()->find($submissionId)
+                    : null;
+                if ($submission && $submission->order_id) {
+                    Log::warning('Stripe finalize: article already claimed; fulfilling from checkout snapshot', [
+                        'reference_code' => $referenceCode,
+                        'submission_id' => $submission->id,
+                        'existing_order_id' => $submission->order_id,
+                    ]);
+                    $submission = null;
+                }
 
                 $siteId = isset($line['site_id']) ? (int) $line['site_id'] : 0;
                 $site = $siteId > 0 ? Site::query()->find($siteId) : null;
@@ -518,18 +528,18 @@ class OrderPaymentService
                 $item = OrderItem::create($schema->filterExistingColumns('order_items', $itemPayload));
 
                 if ($submission) {
-                    $subPayload = [
+                    $claimed = $submission->claimForOrder($order, $item, [
                         'publication_mode' => $order->publication_mode,
                         'scheduled_publish_at' => $order->scheduled_publish_at,
                         'timezone' => $order->schedule_timezone ?: $submission->timezone,
-                    ];
-                    if (! $submission->order_id) {
-                        $subPayload['order_id'] = $order->id;
-                        $subPayload['order_item_id'] = $item->id;
-                    }
-                    $filteredSub = $schema->filterExistingColumns($submission->getTable(), $subPayload);
-                    if ($filteredSub !== []) {
-                        $submission->update($filteredSub);
+                    ]);
+                    if (! $claimed) {
+                        Log::warning('Stripe finalize: article claimed during materialize; keeping paid order snapshot', [
+                            'reference_code' => $referenceCode,
+                            'submission_id' => $submission->id,
+                            'order_id' => $order->id,
+                        ]);
+                        $item->forceFill(['content_submission_id' => null])->save();
                     }
                 }
 

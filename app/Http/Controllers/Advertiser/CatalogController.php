@@ -1468,6 +1468,13 @@ class CatalogController extends Controller
             ], 422);
         }
 
+        if (! $submission->isReadyForCheckout()) {
+            return response()->json([
+                'success' => false,
+                'error' => 'Add anchor text and a valid HTTPS target URL, or confirm continuing without a link.',
+            ], 422);
+        }
+
         if ($this->cartUsesSubmissionId($cart, $submissionId, $lineKey, $copyIndex)) {
             return response()->json([
                 'success' => false,
@@ -2183,6 +2190,14 @@ class CatalogController extends Controller
                 $schema = app(CheckoutSchemaService::class);
                 $created = collect();
                 DB::beginTransaction();
+                $lockedContent = $this->lockCheckoutSubmissionsForPayment($checkoutContent, (int) $userId);
+                if ($lockedContent instanceof JsonResponse) {
+                    DB::rollBack();
+                    $this->refundCheckoutBonus((int) $userId, (string) $referenceCode);
+
+                    return $lockedContent;
+                }
+                $checkoutContent = $lockedContent;
                 foreach ($checkoutContent['lines'] as $line) {
                     $orderItem = $line['orderItem'];
                     $submission = $line['submission'];
@@ -2300,15 +2315,26 @@ class CatalogController extends Controller
             ];
         }
 
-        $paymentService->storePendingCheckout($referenceCode, [
-            'user_id' => (int) $userId,
-            'reference_code' => (string) $referenceCode,
-            'order_total' => $totalAmount,
-            'amount_due' => $amountDue,
-            'bonus_applied' => $bonusApplied,
-            'schedule' => $schedule,
-            'lines' => $packageLines,
-        ]);
+        try {
+            $paymentService->storePendingCheckout($referenceCode, [
+                'user_id' => (int) $userId,
+                'reference_code' => (string) $referenceCode,
+                'order_total' => $totalAmount,
+                'amount_due' => $amountDue,
+                'bonus_applied' => $bonusApplied,
+                'schedule' => $schedule,
+                'lines' => $packageLines,
+            ]);
+        } catch (\RuntimeException $e) {
+            if ($bonusApplied > 0) {
+                $this->refundCheckoutBonus((int) $userId, (string) $referenceCode);
+            }
+
+            return response()->json([
+                'success' => false,
+                'message' => 'This article is reserved for a card checkout in progress. Finish or cancel that payment first.',
+            ], 422);
+        }
 
         if ($bonusApplied > 0) {
             $this->rememberCheckoutBonus((int) $userId, (string) $referenceCode, $bonusApplied);
@@ -2562,6 +2588,14 @@ class CatalogController extends Controller
 
             DB::beginTransaction();
 
+            $lockedContent = $this->lockCheckoutSubmissionsForPayment($checkoutContent, (int) $userId);
+            if ($lockedContent instanceof JsonResponse) {
+                DB::rollBack();
+
+                return $lockedContent;
+            }
+            $checkoutContent = $lockedContent;
+
             // Lock wallet row inside the transaction to prevent concurrent overspend
             $advertiserWallet = Wallet::lockOrCreateForRole((int) $userId, (int) $advertiserRoleId);
             $advertiserWallet->repairOrphanedWelcomeBonus();
@@ -2725,7 +2759,9 @@ class CatalogController extends Controller
 
             $message = $e->getMessage() === 'Insufficient balance to reserve'
                 ? 'Insufficient wallet balance for this order.'
-                : 'Unable to process wallet payment. Please try again.';
+                : (str_contains($e->getMessage(), 'already ordered')
+                    ? 'That article was just ordered. Each article can only be published on one site.'
+                    : 'Unable to process wallet payment. Please try again.');
 
             return response()->json([
                 'success' => false,
@@ -4240,6 +4276,13 @@ class CatalogController extends Controller
                 ], 422);
             }
 
+            if (app(CheckoutIntentService::class)->submissionIsHeld((int) $submission->id)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'This article is reserved for a card checkout in progress. Finish or cancel that payment first.',
+                ], 422);
+            }
+
             if (! $submission->isReadyForCheckout()) {
                 return response()->json([
                     'success' => false,
@@ -4493,25 +4536,79 @@ class CatalogController extends Controller
 
     private function attachSubmissionToOrder(ContentSubmission $submission, Order $order, OrderItem $item): void
     {
-        // Each article is published on one site only. Keep the first order/item linkage on the
-        // submission row; every OrderItem still stores its own content_submission_id.
-        $payload = [
+        // Each article is published on one site only. Claim fails if another
+        // checkout already linked the row — caller must roll back before charge.
+        $claimed = $submission->claimForOrder($order, $item, [
             'publication_mode' => $order->publication_mode,
             'scheduled_publish_at' => $order->scheduled_publish_at,
             'timezone' => $order->schedule_timezone ?: $submission->timezone,
-        ];
+        ]);
 
-        if (! $submission->order_id) {
-            $payload['order_id'] = $order->id;
-            $payload['order_item_id'] = $item->id;
+        if (! $claimed) {
+            throw new \RuntimeException('Article already ordered');
+        }
+    }
+
+    /**
+     * Re-check and lock library rows inside the payment transaction so two
+     * checkouts cannot reserve funds for the same article.
+     *
+     * @param  array{lines: array<int, array{orderItem: array, submission: ContentSubmission}>, schedule: array}  $checkoutContent
+     * @return array{lines: array<int, array{orderItem: array, submission: ContentSubmission}>, schedule: array}|JsonResponse
+     */
+    private function lockCheckoutSubmissionsForPayment(array $checkoutContent, int $userId): array|JsonResponse
+    {
+        $ids = [];
+        foreach ($checkoutContent['lines'] as $line) {
+            $submission = $line['submission'] ?? null;
+            if ($submission instanceof ContentSubmission) {
+                $ids[] = (int) $submission->id;
+            }
+        }
+        $ids = array_values(array_unique(array_filter($ids)));
+        if ($ids === []) {
+            return $checkoutContent;
         }
 
-        $filtered = app(CheckoutSchemaService::class)
-            ->filterExistingColumns($submission->getTable(), $payload);
+        $locked = ContentSubmission::query()
+            ->where('user_id', $userId)
+            ->whereIn('id', $ids)
+            ->lockForUpdate()
+            ->get()
+            ->keyBy('id');
 
-        if ($filtered !== []) {
-            $submission->update($filtered);
+        $intents = app(CheckoutIntentService::class);
+        $lines = [];
+        foreach ($checkoutContent['lines'] as $line) {
+            $submission = $line['submission'] ?? null;
+            if (! $submission instanceof ContentSubmission) {
+                $lines[] = $line;
+
+                continue;
+            }
+
+            $fresh = $locked->get($submission->id);
+            if (! $fresh || ! $fresh->canBeOrdered() || ! $fresh->isReadyForCheckout()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'That article was just ordered or is no longer available. Each article can only be published on one site.',
+                ], 422);
+            }
+
+            if ($intents->submissionIsHeld((int) $fresh->id)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'This article is reserved for a card checkout in progress. Finish or cancel that payment first.',
+                ], 422);
+            }
+
+            $line['submission'] = $fresh;
+            $lines[] = $line;
         }
+
+        $checkoutContent['lines'] = $lines;
+
+        return $checkoutContent;
     }
 
     /**

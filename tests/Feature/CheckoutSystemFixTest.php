@@ -384,4 +384,124 @@ class CheckoutSystemFixTest extends TestCase
     {
         $this->assertSame('immediate', ContentSubmission::MODE_IMMEDIATE);
     }
+
+    public function test_wallet_checkout_is_blocked_while_a_card_checkout_holds_the_article(): void
+    {
+        config(['content_moderation.enabled' => false]);
+        Mail::fake();
+        Role::firstOrCreate(['name' => 'admin']);
+
+        $advertiser = $this->advertiser();
+        $this->fundAdvertiserWallet($advertiser);
+        $publisher = $this->publisher();
+        $site = $this->activeSite($publisher, 'hold', 40);
+        $sub = $this->createApprovedSubmission($advertiser, null);
+        $this->fakeStripeCheckoutSession('cs_test_hold');
+
+        $session = [
+            'cart' => [[
+                'id' => $site->id,
+                'name' => $site->site_name,
+                'quantity' => 1,
+                'content_submission_id' => $sub->id,
+            ]],
+            'checkout_content_submission_id' => $sub->id,
+            'checkout_schedule' => ['mode' => 'immediate', 'timezone' => 'UTC'],
+        ];
+
+        $this->actingAs($advertiser)
+            ->withSession($session)
+            ->postJson(route('advertiser.checkout.process'), [
+                'payment_method' => 'card',
+                'reference_code' => 'HOLD1',
+                'publication_mode' => 'immediate',
+            ])
+            ->assertOk()
+            ->assertJsonPath('success', true);
+
+        $this->assertTrue($sub->fresh()->canBeOrdered());
+        $this->assertNotNull(Cache::get('pending_card_checkout:HOLD1'));
+
+        $this->actingAs($advertiser)
+            ->withSession($session)
+            ->postJson(route('advertiser.checkout.process'), [
+                'payment_method' => 'wallet',
+                'reference_code' => 'HOLDW1',
+                'publication_mode' => 'immediate',
+            ])
+            ->assertStatus(422)
+            ->assertJsonPath('success', false);
+
+        $this->assertSame(0, Order::where('reference_code', 'HOLDW1')->count());
+        $this->assertNull($sub->fresh()->order_id);
+
+        $this->actingAs($advertiser)
+            ->get(route('advertiser.checkout', ['canceled' => 1, 'ref' => 'HOLD1']))
+            ->assertOk();
+
+        $this->actingAs($advertiser)
+            ->withSession($session)
+            ->postJson(route('advertiser.checkout.process'), [
+                'payment_method' => 'wallet',
+                'reference_code' => 'HOLDW2',
+                'publication_mode' => 'immediate',
+            ])
+            ->assertOk()
+            ->assertJsonPath('success', true);
+
+        $this->assertNotNull($sub->fresh()->order_id);
+        $this->assertSame(1, Order::where('reference_code', 'HOLDW2')->count());
+    }
+
+    public function test_second_claim_for_the_same_article_fails(): void
+    {
+        $advertiser = $this->advertiser();
+        $publisher = $this->publisher();
+        $site = $this->activeSite($publisher, 'claim', 40);
+        $sub = $this->createApprovedSubmission($advertiser, null);
+
+        $first = Order::create([
+            'user_id' => $advertiser->id,
+            'order_number' => (string) random_int(100000, 999999),
+            'reference_code' => 'CLAIM1',
+            'subtotal' => 40,
+            'tax' => 0,
+            'total_amount' => 40,
+            'payment_method' => 'wallet',
+            'payment_status' => 'paid',
+            'status' => 'pending',
+        ]);
+        $firstItem = OrderItem::create([
+            'order_id' => $first->id,
+            'site_id' => $site->id,
+            'site_name' => $site->site_name,
+            'site_url' => $site->site_url,
+            'price' => 40,
+        ]);
+
+        $this->assertTrue($sub->claimForOrder($first, $firstItem));
+        $this->assertSame($first->id, (int) $sub->fresh()->order_id);
+
+        $second = Order::create([
+            'user_id' => $advertiser->id,
+            'order_number' => (string) random_int(100000, 999999),
+            'reference_code' => 'CLAIM2',
+            'subtotal' => 40,
+            'tax' => 0,
+            'total_amount' => 40,
+            'payment_method' => 'wallet',
+            'payment_status' => 'paid',
+            'status' => 'pending',
+        ]);
+        $secondItem = OrderItem::create([
+            'order_id' => $second->id,
+            'site_id' => $site->id,
+            'site_name' => $site->site_name,
+            'site_url' => $site->site_url,
+            'price' => 40,
+        ]);
+
+        $this->assertFalse($sub->fresh()->claimForOrder($second, $secondItem));
+        $this->assertSame($first->id, (int) $sub->fresh()->order_id);
+    }
 }

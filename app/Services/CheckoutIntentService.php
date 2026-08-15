@@ -23,11 +23,49 @@ class CheckoutIntentService
         return 'checkout_bonus:'.$userId.':'.$referenceCode;
     }
 
+    public static function submissionHoldCacheKey(int $submissionId): string
+    {
+        return 'content_checkout_hold:'.$submissionId;
+    }
+
+    /**
+     * @param  array<string, mixed>  $package
+     * @return array<int, int>
+     */
+    public static function submissionIdsFromPackage(array $package): array
+    {
+        $ids = [];
+        foreach (is_array($package['lines'] ?? null) ? $package['lines'] : [] as $line) {
+            if (! is_array($line)) {
+                continue;
+            }
+            $id = (int) ($line['content_submission_id'] ?? 0);
+            if ($id > 0) {
+                $ids[] = $id;
+            }
+        }
+
+        return array_values(array_unique($ids));
+    }
+
     /**
      * @param  array<string, mixed>  $package
      */
     public function storePackage(string $referenceCode, array $package, int $hours = 48): void
     {
+        $existing = $this->getPackage($referenceCode);
+        $this->holdSubmissionsFromPackage($referenceCode, $package, $hours);
+        if (is_array($existing)) {
+            $newIds = self::submissionIdsFromPackage($package);
+            $stale = ['lines' => []];
+            foreach (self::submissionIdsFromPackage($existing) as $id) {
+                if (! in_array($id, $newIds, true)) {
+                    $stale['lines'][] = ['content_submission_id' => $id];
+                }
+            }
+            $this->releaseSubmissionHolds($referenceCode, $stale);
+        }
+
         Cache::put(self::pendingCheckoutCacheKey($referenceCode), $package, now()->addHours($hours));
 
         $bonus = round((float) ($package['bonus_applied'] ?? 0), 2);
@@ -120,6 +158,11 @@ class CheckoutIntentService
 
     public function forget(string $referenceCode, ?int $userId = null): void
     {
+        $package = $this->getPackage($referenceCode);
+        if (is_array($package)) {
+            $this->releaseSubmissionHolds($referenceCode, $package);
+        }
+
         Cache::forget(self::pendingCheckoutCacheKey($referenceCode));
         if ($userId) {
             Cache::forget(self::bonusCacheKey($userId, $referenceCode));
@@ -132,6 +175,117 @@ class CheckoutIntentService
             }
             $intent->delete();
         }
+    }
+
+    public function submissionHoldReference(int $submissionId): ?string
+    {
+        if ($submissionId < 1) {
+            return null;
+        }
+
+        $cached = Cache::get(self::submissionHoldCacheKey($submissionId));
+        if (is_string($cached) && $cached !== '') {
+            return $cached;
+        }
+
+        return $this->durableHoldReference($submissionId);
+    }
+
+    public function submissionIsHeld(int $submissionId, ?string $exceptReference = null): bool
+    {
+        $ref = $this->submissionHoldReference($submissionId);
+        if ($ref === null) {
+            return false;
+        }
+
+        return $exceptReference === null || $ref !== $exceptReference;
+    }
+
+    /**
+     * @param  array<string, mixed>  $package
+     */
+    public function holdSubmissionsFromPackage(string $referenceCode, array $package, int $hours = 48): void
+    {
+        $held = [];
+        foreach (self::submissionIdsFromPackage($package) as $submissionId) {
+            if (! $this->holdSubmission($submissionId, $referenceCode, $hours)) {
+                $this->releaseSubmissionHolds($referenceCode, ['lines' => array_map(
+                    fn (int $id) => ['content_submission_id' => $id],
+                    $held
+                )]);
+
+                throw new \RuntimeException('Article reserved for another checkout');
+            }
+            $held[] = $submissionId;
+        }
+    }
+
+    /**
+     * @param  array<string, mixed>  $package
+     */
+    public function releaseSubmissionHolds(string $referenceCode, array $package): void
+    {
+        foreach (self::submissionIdsFromPackage($package) as $submissionId) {
+            $key = self::submissionHoldCacheKey($submissionId);
+            if (Cache::get($key) === $referenceCode) {
+                Cache::forget($key);
+            }
+        }
+    }
+
+    public function holdSubmission(int $submissionId, string $referenceCode, int $hours = 48): bool
+    {
+        if ($submissionId < 1 || $referenceCode === '') {
+            return false;
+        }
+
+        $key = self::submissionHoldCacheKey($submissionId);
+        $existing = Cache::get($key);
+        if ($existing === $referenceCode) {
+            Cache::put($key, $referenceCode, now()->addHours($hours));
+
+            return true;
+        }
+
+        if (is_string($existing) && $existing !== '') {
+            return false;
+        }
+
+        $durable = $this->durableHoldReference($submissionId);
+        if ($durable !== null && $durable !== $referenceCode) {
+            return false;
+        }
+
+        return Cache::add($key, $referenceCode, now()->addHours($hours));
+    }
+
+    private function durableHoldReference(int $submissionId): ?string
+    {
+        if (! $this->tableReady()) {
+            return null;
+        }
+
+        try {
+            $intents = CheckoutIntent::query()
+                ->whereNotNull('package')
+                ->where(function ($q) {
+                    $q->whereNull('expires_at')->orWhere('expires_at', '>', now());
+                })
+                ->orderByDesc('id')
+                ->limit(50)
+                ->get(['reference_code', 'package']);
+
+            foreach ($intents as $intent) {
+                $package = is_array($intent->package) ? $intent->package : [];
+                if (in_array($submissionId, self::submissionIdsFromPackage($package), true)) {
+                    return (string) $intent->reference_code;
+                }
+            }
+        } catch (\Throwable) {
+            return null;
+        }
+
+        return null;
     }
 
     /**

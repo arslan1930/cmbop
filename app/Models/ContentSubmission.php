@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\CheckoutSchemaService;
 use App\Services\ContentUpload\ArticleDetectedLinks;
 use App\Services\ContentUpload\ArticleHtmlSanitizer;
 use App\Services\ContentUpload\ArticlePreviewHtml;
@@ -887,6 +888,39 @@ class ContentSubmission extends Model
             'order_id' => null,
             'order_item_id' => null,
         ])->save();
+    }
+
+    /**
+     * Attach this article to an order only if no other order has claimed it.
+     *
+     * @param  array<string, mixed>  $extra
+     */
+    public function claimForOrder(Order $order, ?OrderItem $item = null, array $extra = []): bool
+    {
+        $payload = array_merge($extra, [
+            'order_id' => $order->id,
+            'order_item_id' => $item?->id,
+        ]);
+
+        $filtered = app(CheckoutSchemaService::class)
+            ->filterExistingColumns($this->getTable(), $payload);
+
+        if ($filtered === []) {
+            return false;
+        }
+
+        $updated = static::query()
+            ->whereKey($this->id)
+            ->whereNull('order_id')
+            ->update($filtered);
+
+        if ($updated === 1) {
+            $this->refresh();
+
+            return true;
+        }
+
+        return false;
     }
 
     public function hasLink(): bool
