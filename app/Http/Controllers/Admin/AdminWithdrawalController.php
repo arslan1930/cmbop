@@ -13,6 +13,7 @@ use App\Services\Wallet\WithdrawalDuplicatePayoutWarning;
 use App\Support\UserFacingError;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
@@ -80,33 +81,71 @@ class AdminWithdrawalController extends Controller
 
     /**
      * Get single withdrawal details.
+     * Browser GET renders a shareable HTML page; XHR / JSON Accept stays JSON for the modal.
      */
-    public function show($id)
+    public function show(Request $request, $id)
     {
-        try {
-            $withdrawal = Withdrawal::with('user:id,name,email')->findOrFail($id);
+        $wantsJson = $request->expectsJson() || $request->ajax();
+        $withdrawal = Withdrawal::with('user:id,name,email')->find($id);
 
-            if (is_string($withdrawal->payment_details)) {
-                $withdrawal->payment_details = json_decode($withdrawal->payment_details, true);
+        if (! $withdrawal) {
+            if ($wantsJson) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Withdrawal not found',
+                ], 404);
             }
 
-            $invoice = app(AdminInvoiceLinks::class)->forWithdrawals(collect([$withdrawal]))->get((int) $withdrawal->id);
-            $withdrawal->setAttribute('invoice', $invoice);
-            $withdrawal->setAttribute('invoice_url', data_get($invoice, 'url'));
-            $this->attachDuplicateWarnings(collect([$withdrawal]));
+            abort(404);
+        }
 
+        if (is_string($withdrawal->payment_details)) {
+            $withdrawal->payment_details = json_decode($withdrawal->payment_details, true);
+        }
+
+        $invoice = app(AdminInvoiceLinks::class)->forWithdrawals(collect([$withdrawal]))->get((int) $withdrawal->id);
+        $withdrawal->setAttribute('invoice', $invoice);
+        $withdrawal->setAttribute('invoice_url', data_get($invoice, 'url'));
+        $this->attachDuplicateWarnings(collect([$withdrawal]));
+
+        if ($wantsJson) {
             return response()->json([
                 'success' => true,
                 'data' => $withdrawal,
             ]);
-        } catch (\Exception $e) {
-            Log::error('Error fetching withdrawal: '.$e->getMessage());
-
-            return response()->json([
-                'success' => false,
-                'message' => 'Withdrawal not found',
-            ], 404);
         }
+
+        return view('admin.withdrawals.show', [
+            'withdrawal' => $withdrawal,
+        ]);
+    }
+
+    /**
+     * Actionable (pending + processing) ids for the current filters. Cap 100.
+     * Ignores ids[] so a selection cannot shrink the matching set.
+     */
+    public function matchingIds(Request $request): JsonResponse
+    {
+        $limit = max(1, (int) config('billing.withdrawal_select_matching_limit', 100));
+
+        $query = Withdrawal::query();
+        $filters = $this->applyWithdrawalFilters($query, $request, applyIds: false);
+        $query->whereIn('status', ['pending', 'processing']);
+        $this->applyWithdrawalOrder($query, $filters['queue'], $filters['status']);
+
+        $total = (clone $query)->count();
+        $rows = $query->limit($limit)->get();
+        $ids = $rows->pluck('id')->map(fn ($id) => (int) $id)->values()->all();
+        $pendingIds = $rows->where('status', 'pending')->pluck('id')->map(fn ($id) => (int) $id)->values()->all();
+
+        return response()->json([
+            'success' => true,
+            'ids' => $ids,
+            'pending_ids' => $pendingIds,
+            'total' => $total,
+            'capped' => $total > $limit,
+            'limit' => $limit,
+        ]);
     }
 
     /**
@@ -232,10 +271,29 @@ class AdminWithdrawalController extends Controller
     /**
      * CSV export of open (or filtered) withdrawals for bank / Wise upload.
      */
-    public function exportCsv(Request $request): StreamedResponse
+    public function exportCsv(Request $request): StreamedResponse|RedirectResponse|JsonResponse
     {
         $query = Withdrawal::with('user:id,name,email');
         $this->applyWithdrawalFilters($query, $request);
+
+        $maxRows = max(1, (int) config('billing.withdrawal_export_max_rows', 2000));
+        $total = (clone $query)->count();
+        if ($total > $maxRows) {
+            $message = 'Export is limited to '.$maxRows.' rows. This view has '.$total.'. Narrow the filters and try again.';
+            if ($request->expectsJson() || $request->ajax()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => $message,
+                    'total' => $total,
+                    'limit' => $maxRows,
+                ], 422);
+            }
+
+            return redirect()
+                ->route('admin.withdrawals')
+                ->with('error', $message);
+        }
+
         $rows = $query->orderBy('payment_method')->orderBy('created_at')->get();
 
         $filename = 'withdrawals-export-'.now()->format('Y-m-d-His').'.csv';
@@ -300,15 +358,27 @@ class AdminWithdrawalController extends Controller
 
     /**
      * Withdrawal statistics for the payout queue strip.
+     * Default scope is all open. scope=view applies the current list filters
+     * to pending / processing / to-pay / by-method. Paid-this-week stays global.
      */
-    public function getStatistics()
+    public function getStatistics(Request $request)
     {
         try {
-            $pendingQuery = Withdrawal::where('status', 'pending');
-            $processingQuery = Withdrawal::where('status', 'processing');
-            $openQuery = Withdrawal::whereIn('status', ['pending', 'processing']);
+            $scope = search_text($request->input('scope')) === 'view' ? 'view' : 'all';
 
-            $byMethod = Withdrawal::whereIn('status', ['pending', 'processing'])
+            $pendingQuery = Withdrawal::query()->where('status', 'pending');
+            $processingQuery = Withdrawal::query()->where('status', 'processing');
+            $openQuery = Withdrawal::query()->whereIn('status', ['pending', 'processing']);
+            $byMethodQuery = Withdrawal::query()->whereIn('status', ['pending', 'processing']);
+
+            if ($scope === 'view') {
+                $this->applyWithdrawalFilters($pendingQuery, $request, applyIds: false);
+                $this->applyWithdrawalFilters($processingQuery, $request, applyIds: false);
+                $this->applyWithdrawalFilters($openQuery, $request, applyIds: false);
+                $this->applyWithdrawalFilters($byMethodQuery, $request, applyIds: false);
+            }
+
+            $byMethod = $byMethodQuery
                 ->selectRaw('payment_method, COUNT(*) as count, SUM(net_amount) as net_total')
                 ->groupBy('payment_method')
                 ->get()
@@ -320,6 +390,7 @@ class AdminWithdrawalController extends Controller
                 ]);
 
             $stats = [
+                'scope' => $scope,
                 'total_withdrawals' => Withdrawal::count(),
                 'pending' => (clone $pendingQuery)->count(),
                 'processing' => (clone $processingQuery)->count(),
@@ -407,7 +478,7 @@ class AdminWithdrawalController extends Controller
      * @param  Builder<Withdrawal>  $query
      * @return array{queue: string, status: string}
      */
-    private function applyWithdrawalFilters(Builder $query, Request $request): array
+    private function applyWithdrawalFilters(Builder $query, Request $request, bool $applyIds = true): array
     {
         $status = search_text($request->input('status'));
         $allowedStatuses = ['pending', 'processing', 'completed', 'cancelled'];
@@ -453,9 +524,11 @@ class AdminWithdrawalController extends Controller
             $query->whereDate('created_at', '<=', $dates['date_to']);
         }
 
-        $ids = $this->withdrawalExportIds($request->input('ids'));
-        if ($ids !== []) {
-            $query->whereIn('id', $ids);
+        if ($applyIds) {
+            $ids = $this->withdrawalExportIds($request->input('ids'));
+            if ($ids !== []) {
+                $query->whereIn('id', $ids);
+            }
         }
 
         return [

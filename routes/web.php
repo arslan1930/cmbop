@@ -570,7 +570,10 @@ Route::middleware(['auth', 'verified', RedirectMarketingFromAdmin::class, RoleMi
         Route::get('/withdrawals', [AdminWithdrawalController::class, 'index'])->name('withdrawals');
         Route::get('/withdrawals/data', [AdminWithdrawalController::class, 'getWithdrawalsData'])->name('withdrawals.data');
         Route::get('/withdrawals/statistics', [AdminWithdrawalController::class, 'getStatistics'])->name('withdrawals.statistics');
-        Route::get('/withdrawals/export', [AdminWithdrawalController::class, 'exportCsv'])->name('withdrawals.export');
+        Route::get('/withdrawals/ids', [AdminWithdrawalController::class, 'matchingIds'])->name('withdrawals.ids');
+        Route::get('/withdrawals/export', [AdminWithdrawalController::class, 'exportCsv'])
+            ->middleware('throttle:20,1')
+            ->name('withdrawals.export');
         Route::post('/withdrawals/batch', [AdminWithdrawalController::class, 'batchUpdate'])->name('withdrawals.batch');
         Route::get('/withdrawals/{withdrawal}/mark-paid-confirm', [WithdrawalMarkPaidConfirmController::class, 'show'])
             ->middleware('throttle:30,1')
