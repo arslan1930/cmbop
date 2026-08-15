@@ -92,8 +92,8 @@ class AdminPayoutQueueTest extends TestCase
         $this->assertStringContainsString('aria-label="Requested to date"', $html);
         $this->assertStringNotContainsString("url: '/admin/withdrawals/data'", $html);
         $this->assertStringNotContainsString('`/admin/finance/users/${userId}`', $html);
-        $this->assertStringContainsString('/admin/finance/users/__ID__', $html);
-        $this->assertStringContainsString('/admin/withdrawals/__ID__', $html);
+        $this->assertStringContainsString('users\\/__ID__', $html);
+        $this->assertStringContainsString('withdrawals\\/__ID__', $html);
     }
 
     public function test_data_endpoint_defaults_to_open_queue_oldest_first(): void
