@@ -61,7 +61,9 @@ or marketing, even if that staff account also has a marketplace role.
    recover reclaims them to `pending` and dispatches a send job. A
    queued row with a pending Email Center log is held — that is a
    just-retried mailable, and reclaiming it would dispatch a second send
-   if the jobs-table scan missed the retried job. A
+   if the jobs-table scan missed the retried job. A matching
+   `failed_jobs` AudienceCampaignMail is also held — that row is still
+   retryable from Email Center. A
    Redis/SQS **mail** queue, a missing `payload` column on the **mail**
    table, or a mailable whose user id cannot be parsed is fail-closed: the
    row stays queued so an in-flight send is not doubled. An unused redis

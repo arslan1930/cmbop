@@ -873,8 +873,7 @@ class EmailCampaign extends Model
     protected static function healQueuedRecipientsWithTerminalLog(): array
     {
         try {
-            if (! Schema::hasTable((new EmailCampaignRecipient)->getTable())
-                || ! Schema::hasTable((new EmailLog)->getTable())) {
+            if (! Schema::hasTable((new EmailCampaignRecipient)->getTable())) {
                 return [];
             }
         } catch (\Throwable) {
@@ -890,14 +889,18 @@ class EmailCampaign extends Model
             return [];
         }
 
-        $logs = EmailLog::query()
-            ->whereIn('id', $rows->pluck('email_log_id')->filter()->unique()->all())
-            ->whereIn('status', [
-                EmailLog::STATUS_DELIVERED,
-                EmailLog::STATUS_FAILED,
-            ])
-            ->get(['id', 'status'])
-            ->keyBy('id');
+        try {
+            $logs = EmailLog::query()
+                ->whereIn('id', $rows->pluck('email_log_id')->filter()->unique()->all())
+                ->whereIn('status', [
+                    EmailLog::STATUS_DELIVERED,
+                    EmailLog::STATUS_FAILED,
+                ])
+                ->get(['id', 'status'])
+                ->keyBy('id');
+        } catch (\Throwable) {
+            return [];
+        }
 
         if ($logs->isEmpty()) {
             return [];
