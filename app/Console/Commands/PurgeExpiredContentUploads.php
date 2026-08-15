@@ -15,9 +15,7 @@ class PurgeExpiredContentUploads extends Command
     {
         // Never strip articles still linked to orders / order items — only unused expired files.
         $query = ContentSubmission::query()
-            ->whereNotNull('expires_at')
-            ->where('expires_at', '<=', now())
-            ->whereNull('order_id')
+            ->expiredUnused()
             ->where('path', '!=', '')
             ->whereNotNull('path')
             ->whereDoesntHave('orderItem')

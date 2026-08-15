@@ -455,6 +455,51 @@ class ContentSubmission extends Model
     }
 
     /**
+     * Unused expired rows. A cancelled leftover's stale order_id is not a lock.
+     *
+     * @param  Builder<static>  $query
+     * @return Builder<static>
+     */
+    public function scopeExpiredUnused($query)
+    {
+        return $query->withoutOpenOwnerOrder()
+            ->whereNotNull('expires_at')
+            ->where('expires_at', '<=', now());
+    }
+
+    /**
+     * Mid-evaluation uploads that are not on an open owner order.
+     *
+     * @param  Builder<static>  $query
+     * @return Builder<static>
+     */
+    public function scopeEvaluatingInLibrary($query)
+    {
+        return $query->whereIn('moderation_status', [
+            self::STATUS_PENDING,
+            self::STATUS_PROCESSING,
+        ])->withoutOpenOwnerOrder()
+            ->where(function ($exp) {
+                $exp->whereNull('expires_at')->orWhere('expires_at', '>', now());
+            });
+    }
+
+    /**
+     * Approved unused articles approaching content:purge-expired.
+     *
+     * @param  Builder<static>  $query
+     * @return Builder<static>
+     */
+    public function scopeNearExpiryInLibrary($query, int $withinDays = 7)
+    {
+        return $query->where('moderation_status', self::STATUS_APPROVED)
+            ->withoutOpenOwnerOrder()
+            ->whereNotNull('expires_at')
+            ->where('expires_at', '>', now())
+            ->where('expires_at', '<=', now()->addDays(max(1, $withinDays)));
+    }
+
+    /**
      * SQL mirror of imageRightsCoverContent() — no images, or a covering claim.
      *
      * @param  Builder<static>  $query
@@ -560,7 +605,7 @@ class ContentSubmission extends Model
                     self::STATUS_ERROR,
                 ])->orWhere(function ($rights) {
                     $rights->where('moderation_status', self::STATUS_APPROVED)
-                        ->whereNull('order_id')
+                        ->withoutOpenOwnerOrder()
                         ->withoutImageRightsCover();
                 })->orWhere(function ($links) {
                     $links->orderable()->withoutCheckoutReadyLinks();
@@ -1338,7 +1383,7 @@ class ContentSubmission extends Model
         return in_array($this->moderation_status, [
             self::STATUS_PENDING,
             self::STATUS_PROCESSING,
-        ], true) && $this->order_id === null && ! $this->isArchived();
+        ], true) && ! $this->isInUse() && ! $this->isArchived();
     }
 
     /**

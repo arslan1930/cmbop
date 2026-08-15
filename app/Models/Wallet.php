@@ -121,7 +121,7 @@ class Wallet extends Model
             return 0.0;
         }
 
-        $max = round(max(0, (float) config('welcome_bonus.amount', 20)), 2);
+        $max = WelcomeBonusSetting::configuredAmount();
         $bonus = min($bonus, $max);
         if ($bonus <= 0 || ! Schema::hasTable('welcome_bonus_claims')) {
             return 0.0;

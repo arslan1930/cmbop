@@ -6,6 +6,7 @@ use App\Models\Role;
 use App\Models\User;
 use App\Models\Wallet;
 use App\Models\WelcomeBonusClaim;
+use App\Models\WelcomeBonusSetting;
 use App\Services\Wallet\WelcomeBonusService;
 use Database\Seeders\RolesTableSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -393,6 +394,39 @@ class WelcomeBonusGrantTest extends TestCase
 
         $this->assertSame(20.0, $credited);
         $this->assertAdvertiserBonus($user, 20.0);
+    }
+
+    public function test_registration_pair_credits_the_admin_set_amount_up_to_the_hard_max(): void
+    {
+        app(WelcomeBonusService::class)->setAmount(100);
+        $user = User::factory()->create();
+        WelcomeBonusClaim::query()->create([
+            'user_id' => $user->id,
+            'ip_address' => '203.0.113.94',
+            'source' => 'registration',
+            'amount' => 100,
+        ]);
+        $advertiserRoleId = (int) Role::where('name', 'advertiser')->value('id');
+        $publisherRoleId = (int) Role::where('name', 'publisher')->value('id');
+
+        $credited = Wallet::insertRegistrationPair($user->id, $advertiserRoleId, $publisherRoleId, 100.0);
+
+        $this->assertSame(100.0, $credited);
+        $this->assertAdvertiserBonus($user, 100.0);
+
+        WelcomeBonusSetting::setValue('config', ['enabled' => true, 'amount' => 99999]);
+        $cappedUser = User::factory()->create();
+        WelcomeBonusClaim::query()->create([
+            'user_id' => $cappedUser->id,
+            'ip_address' => '203.0.113.95',
+            'source' => 'registration',
+            'amount' => 99999,
+        ]);
+
+        $capped = Wallet::insertRegistrationPair($cappedUser->id, $advertiserRoleId, $publisherRoleId, 99999.0);
+
+        $this->assertSame(500.0, $capped);
+        $this->assertAdvertiserBonus($cappedUser, 500.0);
     }
 
     public function test_register_page_hides_bonus_copy_when_disabled(): void

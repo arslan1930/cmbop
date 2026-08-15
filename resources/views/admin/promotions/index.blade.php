@@ -86,7 +86,7 @@
                         <form method="POST" action="{{ route('admin.promotions.welcome-bonus.amount') }}" class="d-flex gap-2">
                             @csrf
                             <input type="number" name="amount" class="form-control form-control-sm" style="width:7rem"
-                                   min="0" max="500" step="0.01" value="{{ number_format($welcomeBonusAmount, 2, '.', '') }}"
+                                   min="0" max="{{ (float) config('welcome_bonus.max_amount', 500) }}" step="0.01" value="{{ number_format($welcomeBonusAmount, 2, '.', '') }}"
                                    aria-label="Welcome bonus amount">
                             <button type="submit" class="btn btn-sm btn-outline-secondary">Set amount</button>
                         </form>

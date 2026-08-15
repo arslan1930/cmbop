@@ -155,4 +155,30 @@ class AdminWelcomeBonusToggleTest extends TestCase
         $this->assertSame(35.5, app(WelcomeBonusService::class)->amount());
         $this->assertTrue(app(WelcomeBonusService::class)->isEnabled());
     }
+
+    public function test_set_amount_does_not_reenable_a_disabled_bonus(): void
+    {
+        $service = app(WelcomeBonusService::class);
+        $service->setEnabled(false);
+
+        $this->actingAs($this->admin)
+            ->from(route('admin.promotions.index'))
+            ->post(route('admin.promotions.welcome-bonus.amount'), ['amount' => 40])
+            ->assertRedirect(route('admin.promotions.index'))
+            ->assertSessionHas('success');
+
+        $this->assertSame(40.0, $service->amount());
+        $this->assertFalse($service->isEnabled());
+    }
+
+    public function test_amount_above_the_hard_max_is_rejected(): void
+    {
+        $this->actingAs($this->admin)
+            ->from(route('admin.promotions.index'))
+            ->post(route('admin.promotions.welcome-bonus.amount'), ['amount' => 501])
+            ->assertRedirect(route('admin.promotions.index'))
+            ->assertSessionHasErrors('amount');
+
+        $this->assertSame(20.0, app(WelcomeBonusService::class)->amount());
+    }
 }

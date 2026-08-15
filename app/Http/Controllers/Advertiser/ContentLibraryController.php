@@ -128,19 +128,11 @@ class ContentLibraryController extends Controller
             if ($availability === 'available') {
                 $query->checkoutReady();
             } elseif ($availability === 'evaluating') {
-                $query->whereIn('moderation_status', [
-                    ContentSubmission::STATUS_PENDING,
-                    ContentSubmission::STATUS_PROCESSING,
-                ])->whereNull('order_id')
-                    ->where(function ($exp) {
-                        $exp->whereNull('expires_at')->orWhere('expires_at', '>', now());
-                    });
+                $query->evaluatingInLibrary();
             } elseif ($availability === 'in_progress') {
                 $query->inProgressInLibrary();
             } elseif ($availability === 'expired') {
-                $query->whereNull('order_id')
-                    ->whereNotNull('expires_at')
-                    ->where('expires_at', '<=', now());
+                $query->expiredUnused();
             } elseif ($availability === 'needs_fix') {
                 $query->needsLibraryFix();
             } elseif ($availability === 'published') {
@@ -207,14 +199,7 @@ class ContentLibraryController extends Controller
             'all' => (int) (clone $countScope)->count(),
             'available' => (int) (clone $countScope)->checkoutReady()->count(),
             'evaluating' => (int) (clone $countScope)
-                ->whereIn('moderation_status', [
-                    ContentSubmission::STATUS_PENDING,
-                    ContentSubmission::STATUS_PROCESSING,
-                ])
-                ->whereNull('order_id')
-                ->where(function ($exp) {
-                    $exp->whereNull('expires_at')->orWhere('expires_at', '>', now());
-                })
+                ->evaluatingInLibrary()
                 ->count(),
             'in_progress' => (int) (clone $countScope)
                 ->inProgressInLibrary()
@@ -223,9 +208,7 @@ class ContentLibraryController extends Controller
                 ->withCurrentLivePlacement()
                 ->count(),
             'expired' => (int) (clone $countScope)
-                ->whereNull('order_id')
-                ->whereNotNull('expires_at')
-                ->where('expires_at', '<=', now())
+                ->expiredUnused()
                 ->count(),
             'needs_fix' => (int) (clone $countScope)->needsLibraryFix()->count(),
         ];
@@ -249,11 +232,7 @@ class ContentLibraryController extends Controller
 
         $nearExpiryDays = 7;
         $nearExpiryCount = (int) (clone $countScope)
-            ->where('moderation_status', ContentSubmission::STATUS_APPROVED)
-            ->whereNull('order_id')
-            ->whereNotNull('expires_at')
-            ->where('expires_at', '>', now())
-            ->where('expires_at', '<=', now()->addDays($nearExpiryDays))
+            ->nearExpiryInLibrary($nearExpiryDays)
             ->count();
 
         $countries = Country::marketplace()->orderBy('name')->get(['code', 'name']);

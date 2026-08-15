@@ -624,7 +624,7 @@ class ContentSubmissionController extends Controller
         $query = ContentSubmission::query()
             ->forLibraryList()
             ->where('user_id', auth()->id())
-            ->whereNull('order_id')
+            ->withoutOpenOwnerOrder()
             ->latest('id');
 
         if ($cartKey !== '') {

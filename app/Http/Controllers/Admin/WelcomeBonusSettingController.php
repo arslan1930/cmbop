@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\WelcomeBonusSetting;
 use App\Services\ActivityLogger;
 use App\Services\Wallet\WelcomeBonusService;
 use Illuminate\Http\RedirectResponse;
@@ -60,7 +61,7 @@ class WelcomeBonusSettingController extends Controller
         }
 
         $data = $request->validate([
-            'amount' => ['required', 'numeric', 'min:0', 'max:500'],
+            'amount' => ['required', 'numeric', 'min:0', 'max:'.WelcomeBonusSetting::maxAmount()],
         ]);
         $amount = round((float) $data['amount'], 2);
 

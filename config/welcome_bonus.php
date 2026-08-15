@@ -8,6 +8,12 @@ return [
     */
     'amount' => 20.00,
 
+    /*
+    | Hard ceiling for admin-set and stored amounts. Grants and wallet
+    | credits never exceed this even if the settings row is corrupt.
+    */
+    'max_amount' => 500.00,
+
     'enabled_default' => true,
 
     'cookie_name' => 'slb_welcome_claimed',

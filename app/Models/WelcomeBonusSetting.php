@@ -142,13 +142,41 @@ class WelcomeBonusSetting extends Model
         }
     }
 
+    public static function maxAmount(): float
+    {
+        return round(max(0, (float) config('welcome_bonus.max_amount', 500)), 2);
+    }
+
+    public static function normalizeAmount(mixed $amount): float
+    {
+        if (! is_numeric($amount)) {
+            return 0.0;
+        }
+
+        return round(max(0, min((float) $amount, static::maxAmount())), 2);
+    }
+
+    /**
+     * Live grant ceiling: stored admin amount when present, else config default.
+     * Always clamped to max_amount so a corrupt settings row cannot mint more.
+     */
+    public static function configuredAmount(): float
+    {
+        $stored = static::config();
+        if (is_array($stored) && isset($stored['amount']) && is_numeric($stored['amount'])) {
+            return static::normalizeAmount($stored['amount']);
+        }
+
+        return static::normalizeAmount(config('welcome_bonus.amount', 20));
+    }
+
     public static function setAmount(float $amount, ?int $updatedBy = null): void
     {
         if (! Schema::hasTable((new static)->getTable())) {
             return;
         }
 
-        $amount = round(max(0, $amount), 2);
+        $amount = static::normalizeAmount($amount);
 
         $write = function () use ($amount, $updatedBy): void {
             DB::transaction(function () use ($amount, $updatedBy) {
@@ -160,9 +188,9 @@ class WelcomeBonusSetting extends Model
                     $current = [];
                 }
 
-                if (! array_key_exists('enabled', $current)) {
-                    $current['enabled'] = static::parseEnabledFlag(config('welcome_bonus.enabled_default', true), true);
-                }
+                // Do not default a missing enabled flag to on — that would
+                // undo Disable (or fail-closed) when collapsing duplicates.
+                $current['enabled'] = static::enabledAfterAmountWrite($rows, $keep);
                 $current['amount'] = $amount;
                 $current['updated_at'] = now()->toIso8601String();
                 if ($updatedBy !== null) {
@@ -294,5 +322,25 @@ class WelcomeBonusSetting extends Model
         }
 
         return $latestOn;
+    }
+
+    /**
+     * Set amount must not turn the bonus back on. Duplicate rows: any
+     * explicit off or unreadable enabled flag wins. Never configured: default on.
+     *
+     * @param  Collection<int, static>  $rows
+     */
+    private static function enabledAfterAmountWrite($rows, ?self $keep): bool
+    {
+        if ($keep === null || $rows->isEmpty()) {
+            return static::parseEnabledFlag(config('welcome_bonus.enabled_default', true), true);
+        }
+
+        $authoritative = static::authoritativeConfigValue($rows);
+        if (! is_array($authoritative) || ! array_key_exists('enabled', $authoritative)) {
+            return false;
+        }
+
+        return static::parseEnabledFlag($authoritative['enabled'], false);
     }
 }

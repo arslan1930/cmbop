@@ -32,9 +32,7 @@ class ContentLibraryController extends Controller
             $query->whereNotNull('archived_at');
         } elseif ($status === 'expired') {
             $query->whereNull('archived_at')
-                ->whereNull('order_id')
-                ->whereNotNull('expires_at')
-                ->where('expires_at', '<=', now());
+                ->expiredUnused();
         } else {
             $query->whereNull('archived_at');
             if ($status !== 'all') {
@@ -85,9 +83,7 @@ class ContentLibraryController extends Controller
             'archivedCount' => ContentSubmission::query()->whereNotNull('archived_at')->count(),
             'expiredCount' => ContentSubmission::query()
                 ->whereNull('archived_at')
-                ->whereNull('order_id')
-                ->whereNotNull('expires_at')
-                ->where('expires_at', '<=', now())
+                ->expiredUnused()
                 ->count(),
         ]);
     }

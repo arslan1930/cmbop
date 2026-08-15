@@ -13,8 +13,17 @@ Great news! The advertiser has **approved** the order for your site.
 
 ## Content Details:
 
-- **Content Link:** <a href="{{ $orderItem->content_link }}">View Content</a>
+@php
+    $publisherContentLink = $orderItem instanceof \App\Models\OrderItem
+        ? $orderItem->publisherContentLink()
+        : null;
+@endphp
+@if($publisherContentLink)
+- **Content Link:** <a href="{{ $publisherContentLink }}">View Content</a>
+@endif
+@if(filled($orderItem->live_url ?? null))
 - **Live URL:** <a href="{{ $orderItem->live_url }}">{{ $orderItem->live_url }}</a>
+@endif
 
 ## Payment Details:
 

@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Mail\DisputeClawbackPublisher;
 use App\Mail\DisputeRefundAdvertiser;
+use App\Mail\OrderApprovedByAdvertiser;
 use App\Models\ContentSubmission;
 use App\Models\Order;
 use App\Models\OrderItem;
@@ -994,5 +995,36 @@ class OrderDisputeClawbackTest extends TestCase
 
         $this->assertSame($reuse->id, (int) $article->fresh()->order_id);
         $this->assertSame($reuseItem->id, (int) $article->fresh()->order_item_id);
+    }
+
+    public function test_publisher_completion_email_hides_content_link_after_clawback(): void
+    {
+        $advertiser = $this->makeUser('advertiser');
+        $publisher = $this->makeUser('publisher');
+        $site = $this->makeSite($publisher);
+        $order = $this->makeCompletedOrder($advertiser, $site);
+        $item = $order->items->first();
+
+        $html = (new OrderApprovedByAdvertiser($order, $item, $site))->render();
+        $this->assertStringContainsString('https://example.com/article', $html);
+        $this->assertStringContainsString('View Content', $html);
+
+        OrderItemDispute::create([
+            'order_id' => $order->id,
+            'order_item_id' => $item->id,
+            'opened_by' => $advertiser->id,
+            'status' => OrderItemDispute::STATUS_UPHELD,
+            'reason' => 'The live link was removed after publication.',
+            'admin_notes' => 'Upheld after the publisher pulled the placement.',
+            'resolved_at' => now(),
+        ]);
+
+        $this->assertNull($item->publisherContentLink());
+        $this->assertSame('https://example.com/article', $item->content_link);
+
+        $retried = (new OrderApprovedByAdvertiser($order, $item, $site))->render();
+        $this->assertStringNotContainsString('https://example.com/article', $retried);
+        $this->assertStringNotContainsString('View Content', $retried);
+        $this->assertStringContainsString('https://clawback-blog.example/live-post', $retried);
     }
 }

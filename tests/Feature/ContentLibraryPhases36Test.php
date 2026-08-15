@@ -201,6 +201,41 @@ class ContentLibraryPhases36Test extends TestCase
             ->assertOk();
     }
 
+    public function test_expired_filter_and_purge_ignore_cancelled_owner_order_id(): void
+    {
+        $advertiser = $this->advertiser();
+        $submission = $this->createApprovedSubmission($advertiser);
+        $submission->update([
+            'title' => 'Ghost Expired Piece',
+            'expires_at' => now()->subDay(),
+        ]);
+        $cancelled = $this->makeOrder($advertiser);
+        $cancelled->update(['status' => 'cancelled', 'payment_status' => 'failed']);
+        $submission->update(['order_id' => $cancelled->id]);
+
+        $fresh = $submission->fresh();
+        $this->assertFalse($fresh->isInUse());
+        $this->assertSame('expired', $fresh->libraryAvailability());
+        $this->assertTrue(
+            ContentSubmission::query()->whereKey($submission->id)->expiredUnused()->exists()
+        );
+
+        $this->actingAs($advertiser)
+            ->get(route('advertiser.content-library', ['availability' => 'expired']))
+            ->assertOk()
+            ->assertSee('Ghost Expired Piece');
+
+        $path = $fresh->path;
+        $disk = $fresh->disk ?: 'local';
+        $this->assertTrue(Storage::disk($disk)->exists($path));
+
+        $this->assertSame(0, Artisan::call('content:purge-expired'));
+        $stripped = $submission->fresh();
+        $this->assertSame('', (string) $stripped->path);
+        $this->assertFalse($stripped->hasStoredFile());
+        $this->assertFalse(Storage::disk($disk)->exists($path));
+    }
+
     public function test_dual_role_publisher_cannot_download_unpaid_article_via_advertiser_route(): void
     {
         $advertiser = $this->advertiser();
