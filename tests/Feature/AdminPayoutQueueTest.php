@@ -585,7 +585,7 @@ class AdminPayoutQueueTest extends TestCase
         $admin = $this->makeUser('admin');
         $publisher = $this->makeUser('publisher');
 
-        $this->seedWithdrawal($publisher, [
+        $paid = $this->seedWithdrawal($publisher, [
             'status' => 'completed',
             'processed_at' => now()->subDay(),
             'amount' => 90,
@@ -598,7 +598,7 @@ class AdminPayoutQueueTest extends TestCase
             'net_amount' => 90,
         ]);
 
-        $this->actingAs($admin)
+        $blocked = $this->actingAs($admin)
             ->postJson(route('admin.withdrawals.batch'), [
                 'ids' => [$open->id],
                 'action' => 'completed',
@@ -606,7 +606,10 @@ class AdminPayoutQueueTest extends TestCase
             ->assertStatus(422)
             ->assertJsonPath('success', false)
             ->assertJsonPath('needs_duplicate_confirm', true)
-            ->assertJsonPath('duplicate_ids.0', $open->id);
+            ->assertJsonPath('duplicate_ids.0', $open->id)
+            ->assertJsonPath('duplicate_match_ids.'.$open->id.'.0', $paid->id);
+        $this->assertMatchesRegularExpression('/WD-'.$paid->id.'(?!\d)/', (string) $blocked->json('message'));
+        $this->assertDoesNotMatchRegularExpression('/WD-'.$open->id.'(?!\d)/', (string) $blocked->json('message'));
 
         $this->assertSame('pending', $open->fresh()->status);
 

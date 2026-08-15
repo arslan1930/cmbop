@@ -876,15 +876,44 @@ $('#clearSelectionBtn').on('click', function() {
     updateBatchBar();
 });
 
-function selectedDuplicateRefs() {
+function uniqueWdRefs(ids) {
     const refs = [];
-    selectedIds.forEach(function (id) {
-        const flag = withdrawalFlags.get(Number(id));
-        if (flag && flag.possible_duplicate) {
-            refs.push('WD-' + id);
-        }
+    const seen = new Set();
+    (Array.isArray(ids) ? ids : []).forEach(function (id) {
+        const n = Number(id);
+        if (!Number.isInteger(n) || n <= 0) return;
+        const ref = 'WD-' + n;
+        if (seen.has(ref)) return;
+        seen.add(ref);
+        refs.push(ref);
     });
     return refs;
+}
+
+function paidMatchIdsFromMap(map) {
+    const ids = [];
+    if (!map || typeof map !== 'object' || Array.isArray(map)) return ids;
+    Object.keys(map).forEach(function (key) {
+        const row = map[key];
+        if (!Array.isArray(row)) return;
+        row.forEach(function (id) { ids.push(id); });
+    });
+    return ids;
+}
+
+function selectedDuplicateRefs() {
+    const ids = [];
+    selectedIds.forEach(function (id) {
+        const flag = withdrawalFlags.get(Number(id));
+        if (!flag || !flag.possible_duplicate) return;
+        const matchIds = Array.isArray(flag.duplicate_match_ids) ? flag.duplicate_match_ids : [];
+        if (matchIds.length) {
+            matchIds.forEach(function (matchId) { ids.push(matchId); });
+            return;
+        }
+        ids.push(id);
+    });
+    return uniqueWdRefs(ids);
 }
 
 async function runBatch(action, title, confirmText, confirmClass, options) {
@@ -940,12 +969,13 @@ async function runBatch(action, title, confirmText, confirmClass, options) {
     }).fail(function(xhr) {
         const body = xhr.responseJSON || {};
         if (action === 'completed' && xhr.status === 422 && body.needs_duplicate_confirm && !confirmDuplicates) {
+            const paidIds = paidMatchIdsFromMap(body.duplicate_match_ids);
             runBatch(action, 'Possible duplicate payout', confirmText, confirmClass, {
                 confirmDuplicates: true,
                 skipPendingConfirm: true,
                 notes: notes,
                 ids: ids,
-                duplicateRefs: (Array.isArray(body.duplicate_ids) ? body.duplicate_ids : []).map(function (id) { return 'WD-' + id; }),
+                duplicateRefs: uniqueWdRefs(paidIds.length ? paidIds : (Array.isArray(body.duplicate_ids) ? body.duplicate_ids : [])),
             });
             return;
         }
@@ -1006,12 +1036,21 @@ $('#selectMatchingBtn').on('click', function() {
         selectedIds.clear();
         const pendingSet = new Set((Array.isArray(res.pending_ids) ? res.pending_ids : []).map(Number));
         const dupSet = new Set((Array.isArray(res.duplicate_ids) ? res.duplicate_ids : []).map(Number));
+        const matchMap = (res.duplicate_match_ids && typeof res.duplicate_match_ids === 'object' && !Array.isArray(res.duplicate_match_ids))
+            ? res.duplicate_match_ids
+            : {};
         (Array.isArray(res.ids) ? res.ids : []).forEach(function (id) {
             if (!addSelectedId(id)) return;
             const n = Number(id);
             const existing = withdrawalFlags.get(n) || {};
             existing.status = pendingSet.has(n) ? 'pending' : 'processing';
             existing.possible_duplicate = dupSet.has(n);
+            const matchIds = matchMap[n] || matchMap[String(n)];
+            if (Array.isArray(matchIds)) {
+                existing.duplicate_match_ids = matchIds.map(Number).filter(function (matchId) {
+                    return Number.isInteger(matchId) && matchId > 0;
+                });
+            }
             withdrawalFlags.set(n, existing);
         });
         $('.row-select').each(function() {

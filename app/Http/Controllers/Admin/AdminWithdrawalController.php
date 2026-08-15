@@ -118,10 +118,12 @@ class AdminWithdrawalController extends Controller
                 ]);
             }
 
-            return view('admin.withdrawals.show', [
-                'withdrawal' => $withdrawal,
-                'invoiceUrl' => $this->safeAdminUrl(data_get($invoice, 'url')),
-            ]);
+            return response()
+                ->view('admin.withdrawals.show', [
+                    'withdrawal' => $withdrawal,
+                    'invoiceUrl' => $this->safeAdminUrl(data_get($invoice, 'url')),
+                ])
+                ->header('Cache-Control', 'no-store');
         } catch (HttpExceptionInterface $e) {
             throw $e;
         } catch (\Throwable $e) {
@@ -162,12 +164,20 @@ class AdminWithdrawalController extends Controller
                 ->map(fn ($id) => (int) $id)
                 ->values()
                 ->all();
+            $duplicateMatchIds = [];
+            foreach ($rows as $row) {
+                $matchIds = $row->duplicate_match_ids ?? [];
+                if (is_array($matchIds) && $matchIds !== []) {
+                    $duplicateMatchIds[(int) $row->id] = array_values(array_map('intval', $matchIds));
+                }
+            }
 
             return $this->noStoreJson([
                 'success' => true,
                 'ids' => $ids,
                 'pending_ids' => $pendingIds,
                 'duplicate_ids' => $duplicateIds,
+                'duplicate_match_ids' => (object) $duplicateMatchIds,
                 'total' => $total,
                 'capped' => $total > $limit,
                 'limit' => $limit,
@@ -506,10 +516,13 @@ class AdminWithdrawalController extends Controller
             return null;
         }
 
-        $refs = array_map(fn (int $id) => 'WD-'.$id, $duplicateIds);
         $matchIds = [];
         foreach ($duplicateIds as $withdrawalId) {
             $matchIds[$withdrawalId] = $map[$withdrawalId] ?? [];
+        }
+        $refs = $this->paidDuplicateRefs($matchIds);
+        if ($refs === []) {
+            $refs = array_map(fn (int $id) => 'WD-'.$id, $duplicateIds);
         }
 
         return response()->json([
@@ -631,6 +644,31 @@ class AdminWithdrawalController extends Controller
         $query->orderByRaw("CASE status WHEN 'pending' THEN 0 WHEN 'processing' THEN 1 ELSE 2 END")
             ->orderBy('created_at', 'asc')
             ->orderBy('id', 'asc');
+    }
+
+    /**
+     * Paid WD- refs from open-id => paid-id map. The warning cites the
+     * prior payout, not the open row being paid now.
+     *
+     * @param  array<int|string, list<int>>  $matchIds
+     * @return list<string>
+     */
+    private function paidDuplicateRefs(array $matchIds): array
+    {
+        $refs = [];
+        foreach ($matchIds as $paidIds) {
+            if (! is_array($paidIds)) {
+                continue;
+            }
+            foreach ($paidIds as $paidId) {
+                $n = (int) $paidId;
+                if ($n > 0) {
+                    $refs[$n] = 'WD-'.$n;
+                }
+            }
+        }
+
+        return array_values($refs);
     }
 
     /**

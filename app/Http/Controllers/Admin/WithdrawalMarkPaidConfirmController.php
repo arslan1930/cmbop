@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Models\Wallet;
 use App\Models\Withdrawal;
 use App\Services\Wallet\ManualWithdrawalInvalidTransitionException;
 use App\Services\Wallet\ManualWithdrawalSettlementService;
@@ -86,7 +85,7 @@ class WithdrawalMarkPaidConfirmController extends Controller
      */
     protected function payoutContext(Withdrawal $withdrawal, bool $canMarkPaid): array
     {
-        $wallet = $this->payoutWallet((int) $withdrawal->user_id);
+        $wallet = $withdrawal->resolveDebitedWallet();
         $currentBalance = round((float) ($wallet?->balance ?? 0), 2);
 
         $priorPaid = Withdrawal::query()
@@ -108,34 +107,6 @@ class WithdrawalMarkPaidConfirmController extends Controller
             'possibleDuplicate' => $duplicateMatches->isNotEmpty(),
             'duplicateMatches' => $duplicateMatches,
         ];
-    }
-
-    protected function payoutWallet(int $userId): ?Wallet
-    {
-        if ($userId <= 0) {
-            return null;
-        }
-
-        $publisherRoleId = Wallet::publisherRoleId();
-        if ($publisherRoleId) {
-            $wallet = Wallet::query()
-                ->where('user_id', $userId)
-                ->where('role_id', $publisherRoleId)
-                ->first();
-            if ($wallet) {
-                return $wallet;
-            }
-        }
-
-        $advertiserRoleId = Wallet::advertiserRoleId();
-        if ($advertiserRoleId) {
-            return Wallet::query()
-                ->where('user_id', $userId)
-                ->where('role_id', $advertiserRoleId)
-                ->first();
-        }
-
-        return null;
     }
 
     protected function hasValidSignature(Request $request): bool

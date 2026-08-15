@@ -128,6 +128,44 @@ class ManualWithdrawalMarkPaidConfirmLinkTest extends TestCase
             ->assertSee('Confirm marked paid —', false);
     }
 
+    public function test_confirm_ui_shows_debited_wallet_balance_not_publisher_preference(): void
+    {
+        $admin = $this->makeUser('admin');
+        $publisher = $this->makeUser('publisher');
+        $advertiserRole = Role::firstOrCreate(['name' => 'advertiser']);
+        $publisher->roles()->syncWithoutDetaching([$advertiserRole->id]);
+
+        Wallet::create([
+            'user_id' => $publisher->id,
+            'role_id' => Wallet::publisherRoleId(),
+            'balance' => 10,
+            'reserved_balance' => 0,
+            'bonus_balance' => 0,
+            'bonus_reserved' => 0,
+            'currency' => 'EUR',
+        ]);
+        $advertiserWallet = Wallet::create([
+            'user_id' => $publisher->id,
+            'role_id' => Wallet::advertiserRoleId(),
+            'balance' => 77,
+            'reserved_balance' => 0,
+            'bonus_balance' => 0,
+            'bonus_reserved' => 0,
+            'currency' => 'EUR',
+        ]);
+
+        $withdrawal = $this->pendingWithdrawal($publisher, 90);
+        $withdrawal->forceFill(['wallet_id' => $advertiserWallet->id])->save();
+
+        $url = $this->relativeSignedUrl(ManualWithdrawalMarkPaidLink::url($withdrawal));
+
+        $this->actingAs($admin)
+            ->get($url)
+            ->assertOk()
+            ->assertSee('€77.00', false)
+            ->assertDontSee('€10.00', false);
+    }
+
     public function test_confirm_ui_skips_duplicate_warning_for_different_net(): void
     {
         $admin = $this->makeUser('admin');

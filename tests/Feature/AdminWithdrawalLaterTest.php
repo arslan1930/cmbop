@@ -96,6 +96,10 @@ class AdminWithdrawalLaterTest extends TestCase
         $this->assertStringContainsString('existing.possible_duplicate = dupSet.has(n)', $html);
         $this->assertStringContainsString('Apply to <strong>${ids.length}</strong>', $html);
         $this->assertStringContainsString('Array.isArray(body.duplicate_ids)', $html);
+        $this->assertStringContainsString('function uniqueWdRefs', $html);
+        $this->assertStringContainsString('function paidMatchIdsFromMap', $html);
+        $this->assertStringContainsString('flag.duplicate_match_ids', $html);
+        $this->assertStringContainsString('res.duplicate_match_ids', $html);
         $this->assertStringContainsString('href="'.route('admin.finance', [], false).'"', $html);
         $this->assertStringContainsString('Array.isArray(options.ids) ? options.ids', $html);
         $this->assertStringContainsString('ids: ids', $html);
@@ -129,9 +133,10 @@ class AdminWithdrawalLaterTest extends TestCase
             $html
         );
 
-        $this->assertStringContainsString('text/html', (string) $this->actingAs($admin)
-            ->get(route('admin.withdrawals.show', $withdrawal->id))
-            ->headers->get('content-type'));
+        $htmlShow = $this->actingAs($admin)
+            ->get(route('admin.withdrawals.show', $withdrawal->id));
+        $this->assertStringContainsString('text/html', (string) $htmlShow->headers->get('content-type'));
+        $this->assertStringContainsString('no-store', (string) $htmlShow->headers->get('Cache-Control'));
         $this->assertStringNotContainsString(route('admin.withdrawals.paid', $withdrawal->id), $html);
         $this->assertStringNotContainsString(route('admin.withdrawals.reject', $withdrawal->id), $html);
         $this->assertStringNotContainsString('Yes, mark paid', $html);
@@ -334,7 +339,7 @@ class AdminWithdrawalLaterTest extends TestCase
     {
         $admin = $this->makeUser('admin');
         $publisher = $this->makeUser('publisher');
-        $this->seedWithdrawal($publisher, [
+        $paid = $this->seedWithdrawal($publisher, [
             'status' => 'completed',
             'processed_at' => now()->subDay(),
             'net_amount' => 95,
@@ -352,7 +357,8 @@ class AdminWithdrawalLaterTest extends TestCase
             ->getJson(route('admin.withdrawals.ids'))
             ->assertOk()
             ->assertJsonPath('success', true)
-            ->assertJsonPath('duplicate_ids', [$open->id]);
+            ->assertJsonPath('duplicate_ids', [$open->id])
+            ->assertJsonPath('duplicate_match_ids.'.$open->id, [$paid->id]);
 
         $ids = $this->actingAs($admin)
             ->getJson(route('admin.withdrawals.ids'))
