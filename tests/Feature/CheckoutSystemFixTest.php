@@ -588,6 +588,9 @@ class CheckoutSystemFixTest extends TestCase
             'content_submission_id' => $sub->id,
             'price' => 40,
         ]);
+        $sub->forceFill([
+            'order_id' => $failed->id,
+        ])->save();
 
         $this->actingAs($advertiser)
             ->withSession([
@@ -610,7 +613,9 @@ class CheckoutSystemFixTest extends TestCase
         $failed->refresh();
         $this->assertSame('cancelled', $failed->status);
         $this->assertSame('failed', $failed->payment_status);
-        $this->assertSame(1, Order::query()->where('reference_code', 'WALLET2')->where('payment_status', 'paid')->count());
+        $paid = Order::query()->where('reference_code', 'WALLET2')->where('payment_status', 'paid')->first();
+        $this->assertNotNull($paid);
+        $this->assertSame($paid->id, (int) $sub->fresh()->order_id);
 
         $this->actingAs($advertiser)
             ->postJson(route('advertiser.orders.retry-payment', $failed->id))

@@ -5377,8 +5377,8 @@ class CatalogController extends Controller
             ->whereHas('order', function ($q) use ($userId) {
                 $q->where('user_id', $userId)
                     ->where('payment_method', 'card')
-                    ->where('payment_status', 'pending')
-                    ->where('status', 'pending');
+                    ->whereIn('payment_status', ['pending', 'failed'])
+                    ->whereNotIn('status', ['cancelled', 'completed']);
             })
             ->pluck('order_id')
             ->unique()

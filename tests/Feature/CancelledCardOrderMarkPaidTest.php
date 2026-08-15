@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\ContentSubmission;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Role;
@@ -185,5 +186,73 @@ class CancelledCardOrderMarkPaidTest extends TestCase
             ->first();
         $this->assertEqualsWithDelta(0.0, (float) $wallet->bonus_reserved, 0.01);
         $this->assertEqualsWithDelta(20.0, (float) $wallet->bonus_balance, 0.01);
+    }
+
+    public function test_releasing_a_leftover_card_row_does_not_unlock_a_later_paid_article(): void
+    {
+        $advertiser = $this->makeUser('advertiser');
+        $publisher = $this->makeUser('publisher');
+        $site = $this->makeSite($publisher);
+        $submission = $this->createApprovedSubmission(
+            $advertiser,
+            $site->id,
+            0,
+            'kept paid article',
+            'https://example.com/kept'
+        );
+
+        $leftover = Order::create([
+            'user_id' => $advertiser->id,
+            'order_number' => (string) random_int(100000, 999999),
+            'reference_code' => 'REF-LEFTOVER-UNLOCK',
+            'subtotal' => 80,
+            'tax' => 0,
+            'total_amount' => 80,
+            'payment_method' => 'card',
+            'payment_status' => 'failed',
+            'status' => 'pending',
+        ]);
+        OrderItem::create([
+            'order_id' => $leftover->id,
+            'site_id' => $site->id,
+            'site_name' => $site->site_name,
+            'site_url' => $site->site_url,
+            'content_link' => 'https://example.com/article',
+            'content_submission_id' => $submission->id,
+            'price' => 80,
+        ]);
+
+        $paid = Order::create([
+            'user_id' => $advertiser->id,
+            'order_number' => (string) random_int(100000, 999999),
+            'reference_code' => 'REF-PAID-KEEP-ARTICLE',
+            'subtotal' => 80,
+            'tax' => 0,
+            'total_amount' => 80,
+            'payment_method' => 'wallet',
+            'payment_status' => 'paid',
+            'status' => 'pending',
+            'paid_at' => now(),
+        ]);
+        $paidItem = OrderItem::create([
+            'order_id' => $paid->id,
+            'site_id' => $site->id,
+            'site_name' => $site->site_name,
+            'site_url' => $site->site_url,
+            'content_link' => 'https://example.com/article',
+            'content_submission_id' => $submission->id,
+            'price' => 80,
+        ]);
+        $submission->forceFill([
+            'order_id' => $paid->id,
+            'order_item_id' => $paidItem->id,
+        ])->save();
+
+        ContentSubmission::releaseAllForOrder((int) $leftover->id);
+
+        $submission->refresh();
+        $this->assertSame($paid->id, (int) $submission->order_id);
+        $this->assertSame($paidItem->id, (int) $submission->order_item_id);
+        $this->assertTrue($submission->isClaimedByAnotherOrder((int) $leftover->id));
     }
 }

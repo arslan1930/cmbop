@@ -946,9 +946,12 @@ class ContentSubmission extends Model
             return;
         }
 
+        // Only this order's claim. Leftover Pay-again items can still
+        // point at an article a later paid checkout already owns — clearing
+        // that would unlock the listing for a second purchase.
         static::query()
             ->whereIn('id', $linkedIds)
-            ->whereNotNull('order_id')
+            ->where('order_id', $orderId)
             ->get()
             ->each(fn (self $submission) => $submission->releaseFromOrder());
     }
@@ -972,9 +975,9 @@ class ContentSubmission extends Model
             return;
         }
 
-        $linkedId = OrderItem::query()
-            ->whereKey($orderItemId)
-            ->value('content_submission_id');
+        $item = OrderItem::query()->whereKey($orderItemId)->first();
+        $linkedId = $item?->content_submission_id;
+        $ownerOrderId = (int) ($item->order_id ?? 0);
 
         if (! $linkedId) {
             return;
@@ -982,7 +985,12 @@ class ContentSubmission extends Model
 
         static::query()
             ->whereKey((int) $linkedId)
-            ->whereNotNull('order_id')
+            ->where(function ($query) use ($orderItemId, $ownerOrderId) {
+                $query->where('order_item_id', $orderItemId);
+                if ($ownerOrderId > 0) {
+                    $query->orWhere('order_id', $ownerOrderId);
+                }
+            })
             ->get()
             ->each(fn (self $submission) => $submission->releaseFromOrder());
     }
