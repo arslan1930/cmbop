@@ -10,7 +10,6 @@ use Illuminate\Http\Request;
 use Illuminate\Queue\WorkerOptions;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Schema;
 
 /**
  * Delivers queued mail using ordinary web traffic as the clock.
@@ -72,18 +71,7 @@ class DrainQueuedMail
             return false;
         }
 
-        $connection = $this->connection();
-
-        if ($connection === 'sync') {
-            return false;
-        }
-
-        return $this->backendReady($connection);
-    }
-
-    private function connection(): string
-    {
-        return (string) config('email_notifications.queue_connection', 'sync');
+        return EmailCampaign::drainableQueueConnections() !== [];
     }
 
     /**
@@ -96,19 +84,6 @@ class DrainQueuedMail
             ->unique()
             ->values()
             ->all();
-    }
-
-    private function backendReady(string $connection): bool
-    {
-        if (config("queue.connections.{$connection}.driver") !== 'database') {
-            return true;
-        }
-
-        try {
-            return Schema::hasTable((string) config("queue.connections.{$connection}.table", 'jobs'));
-        } catch (\Throwable) {
-            return false;
-        }
     }
 
     private function lock(): mixed
@@ -134,7 +109,6 @@ class DrainQueuedMail
             Log::warning('Campaign stall recovery failed', ['error' => $e->getMessage()]);
         }
 
-        $connection = $this->connection();
         $queues = $this->queues();
 
         $worker = app('queue.worker');
@@ -143,13 +117,16 @@ class DrainQueuedMail
         $options = new WorkerOptions(maxTries: 3, timeout: 30, sleep: 0);
 
         $deadline = microtime(true) + self::MAX_SECONDS;
+        $handled = 0;
 
-        for ($handled = 0; $handled < self::MAX_JOBS; $handled++) {
-            if (microtime(true) >= $deadline || ! $this->hasPending($connection, $queues)) {
-                return;
+        foreach (EmailCampaign::drainableQueueConnections() as $connection) {
+            for (; $handled < self::MAX_JOBS; $handled++) {
+                if (microtime(true) >= $deadline || ! $this->hasPending($connection, $queues)) {
+                    break;
+                }
+
+                $worker->runNextJob($connection, implode(',', $queues), $options);
             }
-
-            $worker->runNextJob($connection, implode(',', $queues), $options);
         }
     }
 

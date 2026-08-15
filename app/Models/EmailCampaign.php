@@ -385,6 +385,38 @@ class EmailCampaign extends Model
     }
 
     /**
+     * Connections that can actually store campaign / mail jobs. Sync mail
+     * with a database app queue still has SendEmailCampaignJob rows to drain.
+     *
+     * @return list<string>
+     */
+    public static function drainableQueueConnections(): array
+    {
+        $ready = [];
+
+        foreach (self::sendJobQueueConnections() as $connection) {
+            if ($connection === '' || $connection === 'sync') {
+                continue;
+            }
+
+            if (config("queue.connections.{$connection}.driver") === 'database') {
+                try {
+                    $table = (string) config("queue.connections.{$connection}.table", 'jobs');
+                    if (! Schema::hasTable($table)) {
+                        continue;
+                    }
+                } catch (\Throwable) {
+                    continue;
+                }
+            }
+
+            $ready[] = $connection;
+        }
+
+        return array_values(array_unique($ready));
+    }
+
+    /**
      * LogSentEmail can persist a delivered/failed row and still miss the
      * recipient FK. Re-attach those before expire treats them as stale.
      */

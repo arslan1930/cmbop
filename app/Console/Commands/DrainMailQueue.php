@@ -29,16 +29,9 @@ class DrainMailQueue extends Command
             return self::SUCCESS;
         }
 
-        $connection = (string) config('email_notifications.queue_connection', 'sync');
-
-        if ($connection === 'sync') {
+        $connections = EmailCampaign::drainableQueueConnections();
+        if ($connections === []) {
             $this->info('Mail is sent synchronously; there is no queue to drain.');
-
-            return self::SUCCESS;
-        }
-
-        if (! $this->backendReady($connection)) {
-            $this->warn("Queue connection [{$connection}] is not ready; skipping drain.");
 
             return self::SUCCESS;
         }
@@ -48,13 +41,25 @@ class DrainMailQueue extends Command
             ->unique()
             ->implode(',');
 
-        return $this->call('queue:work', [
-            'connection' => $connection,
-            '--queue' => $queues,
-            '--stop-when-empty' => true,
-            '--max-time' => (int) $this->option('max-time'),
-            '--tries' => (int) $this->option('tries'),
-        ]);
+        $exit = self::SUCCESS;
+        foreach ($connections as $connection) {
+            if (! $this->backendReady($connection)) {
+                $this->warn("Queue connection [{$connection}] is not ready; skipping drain.");
+
+                continue;
+            }
+
+            $code = $this->call('queue:work', [
+                'connection' => $connection,
+                '--queue' => $queues,
+                '--stop-when-empty' => true,
+                '--max-time' => (int) $this->option('max-time'),
+                '--tries' => (int) $this->option('tries'),
+            ]);
+            $exit = max($exit, $code);
+        }
+
+        return $exit;
     }
 
     /**
@@ -64,11 +69,9 @@ class DrainMailQueue extends Command
      */
     private function recoverStalledCampaigns(): void
     {
-        $connection = (string) config('email_notifications.queue_connection', 'sync');
-        if ($connection === 'sync' || ! $this->backendReady($connection)) {
-            return;
-        }
-
+        // Always — SendEmailCampaignJob rides queue.default, not
+        // MAIL_QUEUE_CONNECTION. A sync mail connection used to skip this
+        // and leave stalled campaigns on the database app queue.
         try {
             $n = EmailCampaign::recoverStalled();
             if ($n > 0) {

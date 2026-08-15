@@ -3,7 +3,13 @@
 namespace Tests\Feature;
 
 use App\Http\Middleware\DrainQueuedMail;
+use App\Jobs\SendEmailCampaignJob;
 use App\Mail\PlatformMailable;
+use App\Models\EmailCampaign;
+use App\Models\EmailCampaignRecipient;
+use App\Models\Role;
+use App\Models\User;
+use Database\Seeders\RolesTableSeeder;
 use Illuminate\Contracts\Http\Kernel;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -81,6 +87,51 @@ class WebMailDrainTest extends TestCase
         $this->get('/')->assertSuccessful();
 
         $this->assertSame(0, DB::table('jobs')->count());
+    }
+
+    public function test_web_drain_runs_campaign_jobs_when_mail_is_sync_but_app_queue_is_database(): void
+    {
+        Mail::fake();
+        $this->seed(RolesTableSeeder::class);
+        config([
+            'queue.default' => 'database',
+            'email_notifications.queue_connection' => 'sync',
+            'email_notifications.queue' => 'emails',
+            'email_notifications.auto_drain' => true,
+            'queue.connections.database.driver' => 'database',
+            'queue.connections.database.table' => 'jobs',
+        ]);
+
+        $role = Role::where('name', 'advertiser')->firstOrFail();
+        $advertiser = User::factory()->create([
+            'email_verified_at' => now(),
+            'active_role_id' => $role->id,
+        ]);
+        $advertiser->roles()->attach($role->id);
+
+        $campaign = EmailCampaign::create([
+            'name' => 'Sync mail drain',
+            'subject' => 'Sync mail drain',
+            'body_html' => '<p>Hi</p>',
+            'audience' => 'advertisers',
+            'recipients_count' => 1,
+            'status' => EmailCampaign::STATUS_QUEUED,
+            'respect_preferences' => false,
+        ]);
+        EmailCampaignRecipient::create([
+            'email_campaign_id' => $campaign->id,
+            'user_id' => $advertiser->id,
+            'email' => $advertiser->email,
+            'status' => EmailCampaignRecipient::STATUS_PENDING,
+        ]);
+
+        SendEmailCampaignJob::dispatch($campaign->id);
+        $this->assertSame(1, DB::table('jobs')->count());
+
+        $this->get('/')->assertSuccessful();
+
+        $this->assertSame(0, DB::table('jobs')->count());
+        $this->assertSame(EmailCampaign::STATUS_SENDING, $campaign->fresh()->status);
     }
 
     public function test_the_drain_can_be_turned_off_for_hosts_with_a_worker(): void

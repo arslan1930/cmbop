@@ -1471,6 +1471,45 @@ class AdminCampaignsTest extends TestCase
         Queue::assertPushed(SendEmailCampaignJob::class, fn (SendEmailCampaignJob $job) => $job->campaignId === $campaign->id);
     }
 
+    public function test_drain_command_recovers_stalled_campaigns_when_mail_is_sync(): void
+    {
+        Queue::fake();
+        config([
+            'queue.default' => 'database',
+            'email_notifications.auto_drain' => false,
+            'email_notifications.queue_connection' => 'sync',
+            'queue.connections.database.driver' => 'database',
+            'queue.connections.database.table' => 'jobs',
+        ]);
+
+        $admin = $this->makeUser('admin');
+        $advertiser = $this->makeUser('advertiser');
+
+        $campaign = EmailCampaign::create([
+            'name' => 'Sync mail recover',
+            'subject' => 'Sync mail recover',
+            'body_html' => '<p>Hi</p>',
+            'audience' => 'advertisers',
+            'recipients_count' => 1,
+            'status' => EmailCampaign::STATUS_QUEUED,
+            'respect_preferences' => false,
+            'created_by' => $admin->id,
+        ]);
+        EmailCampaignRecipient::create([
+            'email_campaign_id' => $campaign->id,
+            'user_id' => $advertiser->id,
+            'email' => $advertiser->email,
+            'status' => EmailCampaignRecipient::STATUS_PENDING,
+        ]);
+        $campaign->forceFill(['updated_at' => now()->subMinutes(5)])->save();
+
+        $this->artisan('mail:drain-queue')
+            ->expectsOutputToContain('auto-drain is disabled')
+            ->assertSuccessful();
+
+        Queue::assertPushed(SendEmailCampaignJob::class, fn (SendEmailCampaignJob $job) => $job->campaignId === $campaign->id);
+    }
+
     public function test_stall_recovery_gives_up_when_fail_streak_is_exhausted(): void
     {
         Queue::fake();

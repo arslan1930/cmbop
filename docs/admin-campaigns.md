@@ -40,7 +40,10 @@ or marketing, even if that staff account also has a marketplace role.
    `campaignId";i:N;` misses the queued job and floods another dispatch
    every stale window. It also looks at `queue.default`, not only
    `MAIL_QUEUE_CONNECTION`, because the send job does not call
-   `onConnection`.    A `sending` campaign that still
+   `onConnection`. `mail:drain-queue` and web drain recover even when
+   mail is `sync`, and they drain `queue.default` when that connection
+   is a database queue — `MAIL_QUEUE_CONNECTION=sync` used to skip both
+   and leave campaign jobs sitting.    A `sending` campaign that still
    has `queued` recipients is left sending — leftover queued rows are not
    treated as a successful send. A timeout after the last `pending` →
    `queued` claim must **not** finalize as sent (`failed()` used to, because
