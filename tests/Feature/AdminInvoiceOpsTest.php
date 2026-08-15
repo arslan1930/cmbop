@@ -13,6 +13,7 @@ use App\Models\Site;
 use App\Models\User;
 use App\Models\Withdrawal;
 use App\Services\Billing\BillingDocumentService;
+use App\Services\Billing\WithdrawalPayoutStatementService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
@@ -408,5 +409,117 @@ class AdminInvoiceOpsTest extends TestCase
         $this->expectExceptionMessage('Cannot generate an invoice: the order has no customer account.');
 
         app(BillingDocumentService::class)->generateManually($order);
+    }
+
+    public function test_regenerate_pdf_repairs_stale_payout_payee_before_writing(): void
+    {
+        Mail::fake();
+        Storage::fake('local');
+
+        $publisher = $this->publisher();
+        $publisher->forceFill([
+            'name' => 'Current Owner',
+            'email' => 'current-owner@example.com',
+            'payout_business_name' => null,
+        ])->save();
+        $withdrawal = Withdrawal::create([
+            'user_id' => $publisher->id,
+            'amount' => 100,
+            'fee' => 5,
+            'net_amount' => 95,
+            'payment_method' => 'wise',
+            'payment_details' => ['email' => 'wise@example.com'],
+            'status' => 'completed',
+            'processed_at' => now(),
+        ]);
+        $statement = Invoice::create([
+            'user_id' => $publisher->id,
+            'customer_name' => 'Former Owner',
+            'customer_email' => 'former-owner@example.com',
+            'pdf_path' => 'payouts/stale-identity.pdf',
+            'invoice_number' => 'PAY-REGEN-IDENTITY-1',
+            'type' => Invoice::TYPE_WITHDRAWAL_PAYOUT,
+            'status' => Invoice::STATUS_PAID,
+            'subtotal' => 100,
+            'discount_amount' => 5,
+            'total_amount' => 95,
+            'invoice_date' => now(),
+            'line_items' => [
+                ['description' => 'Publisher withdrawal payout', 'line_total' => 100],
+                ['description' => 'Withdrawal fee', 'line_total' => -5],
+            ],
+            'pdf_disk' => 'local',
+            'reference_code' => 'WD-'.$withdrawal->id,
+            'meta' => ['withdrawal_id' => $withdrawal->id],
+            'billing_snapshot' => [
+                'name' => 'Former Owner',
+                'email' => 'former-owner@example.com',
+            ],
+        ]);
+        Storage::disk('local')->put('payouts/stale-identity.pdf', '%PDF-stale-identity');
+
+        $fresh = app(BillingDocumentService::class)->regeneratePdf($statement);
+
+        $this->assertSame($statement->id, $fresh->id);
+        $this->assertSame('Current Owner', $fresh->customer_name);
+        $this->assertSame('current-owner@example.com', $fresh->customer_email);
+        $this->assertNotSame('payouts/stale-identity.pdf', $fresh->pdf_path);
+        $this->assertTrue($fresh->pdfExists());
+        $this->assertCount(1, $fresh->line_items);
+        $this->assertSame('Current Owner', data_get($fresh->billing_snapshot, 'name'));
+    }
+
+    public function test_regenerate_existing_payout_pdfs_repairs_stale_payee(): void
+    {
+        Mail::fake();
+        Storage::fake('local');
+
+        $publisher = $this->publisher();
+        $publisher->forceFill([
+            'name' => 'Current Owner',
+            'email' => 'current-owner@example.com',
+            'payout_business_name' => null,
+        ])->save();
+        $withdrawal = Withdrawal::create([
+            'user_id' => $publisher->id,
+            'amount' => 100,
+            'fee' => 5,
+            'net_amount' => 95,
+            'payment_method' => 'wise',
+            'payment_details' => ['email' => 'wise@example.com'],
+            'status' => 'completed',
+            'processed_at' => now(),
+        ]);
+        $statement = Invoice::create([
+            'user_id' => $publisher->id,
+            'customer_name' => 'Former Owner',
+            'customer_email' => 'former-owner@example.com',
+            'pdf_path' => 'payouts/stale-backfill.pdf',
+            'invoice_number' => 'PAY-BACKFILL-IDENTITY-1',
+            'type' => Invoice::TYPE_WITHDRAWAL_PAYOUT,
+            'status' => Invoice::STATUS_PAID,
+            'subtotal' => 95,
+            'total_amount' => 95,
+            'invoice_date' => now(),
+            'line_items' => [['description' => 'Payout', 'line_total' => 95]],
+            'pdf_disk' => 'local',
+            'reference_code' => 'WD-'.$withdrawal->id,
+            'meta' => ['withdrawal_id' => $withdrawal->id],
+            'billing_snapshot' => [
+                'name' => 'Former Owner',
+                'email' => 'former-owner@example.com',
+            ],
+        ]);
+        Storage::disk('local')->put('payouts/stale-backfill.pdf', '%PDF-stale-backfill');
+
+        $result = app(WithdrawalPayoutStatementService::class)->regenerateExistingPdfs(50);
+
+        $this->assertSame(1, $result['regenerated']);
+        $this->assertSame(0, $result['failed']);
+        $fresh = $statement->fresh();
+        $this->assertSame('Current Owner', $fresh->customer_name);
+        $this->assertSame('current-owner@example.com', $fresh->customer_email);
+        $this->assertNotSame('payouts/stale-backfill.pdf', $fresh->pdf_path);
+        $this->assertTrue($fresh->pdfExists());
     }
 }

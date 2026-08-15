@@ -129,6 +129,10 @@ class AdminWithdrawalLaterTest extends TestCase
         $this->assertStringNotContainsString('missingStatements > 0 && failedCount === 0', $html);
         $this->assertStringContainsString('body.missing_statement_ids', $html);
         $this->assertStringContainsString('showHistoryForStatementRetry(missing.length === 1 ? missing[0] : 0)', $html);
+        $this->assertStringContainsString(
+            "$('#detailsModal').modal('hide');\n            if (res.has_statement === false) {\n                showHistoryForStatementRetry(id);",
+            $html
+        );
     }
 
     public function test_html_show_warns_when_paid_statement_is_missing(): void

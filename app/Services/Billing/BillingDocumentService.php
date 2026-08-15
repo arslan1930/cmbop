@@ -418,6 +418,12 @@ class BillingDocumentService
      */
     public function regeneratePdf(Invoice $invoice): Invoice
     {
+        if ($invoice->isWithdrawalPayout()) {
+            $statements = app(WithdrawalPayoutStatementService::class);
+            $invoice = $statements->reconcileInvoice($invoice);
+            $invoice = $statements->normalizeLegacyFeeLineItems($invoice);
+        }
+
         $this->pdfs->generateAndStore($invoice);
         $this->events->log('invoice_pdf_regenerated', $invoice->fresh());
 

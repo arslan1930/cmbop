@@ -822,6 +822,10 @@ $(document).on('click', '.act-statement', function() {
         .done(function(res) {
             toast(res.message || 'Payout statement is ready', res.has_statement === false ? 'warning' : 'success');
             $('#detailsModal').modal('hide');
+            if (res.has_statement === false) {
+                showHistoryForStatementRetry(id);
+                return;
+            }
             refreshAll();
         })
         .fail(function(xhr) {

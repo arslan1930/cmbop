@@ -371,6 +371,7 @@ class WithdrawalPayoutStatementService
 
         foreach ($docs as $doc) {
             try {
+                $doc = $this->reconcileInvoice($doc);
                 $doc = $this->normalizeLegacyFeeLineItems($doc);
                 $this->pdfs->generateAndStore($doc);
                 $regenerated++;
