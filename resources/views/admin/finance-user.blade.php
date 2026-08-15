@@ -229,7 +229,7 @@
                             @forelse($dossier['ledger'] as $tx)
                                 <tr>
                                     <td class="small text-muted">{{ $tx->created_at?->format('M d H:i') }}</td>
-                                    <td class="small text-capitalize">{{ str_replace('_', ' ', $tx->type) }}</td>
+                                    <td class="small">{{ $tx->typeLabel() }}</td>
                                     <td class="small {{ $tx->direction === 'credit' ? 'text-success' : 'text-danger' }}">
                                         {{ $tx->direction === 'credit' ? '+' : '-' }}{{ $euro($tx->amount) }}
                                     </td>

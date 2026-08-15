@@ -87,6 +87,8 @@ class FinanceController extends Controller
         $direction = is_string($request->input('direction')) && in_array($request->input('direction'), ['credit', 'debit'], true)
             ? $request->input('direction')
             : '';
+        $walletRole = $this->ledgerWalletRole($request);
+        $paymentMethod = $this->ledgerPaymentMethod($request);
         $dateFrom = $this->finance->parseDay(
             is_string($request->input('date_from')) ? $request->input('date_from') : null,
             false
@@ -101,13 +103,19 @@ class FinanceController extends Controller
             'user_id' => $ledgerUser?->id,
             'type' => $type !== '' ? $type : null,
             'direction' => $direction !== '' ? $direction : null,
+            'wallet_role' => $walletRole !== '' ? $walletRole : null,
+            'payment_method' => $paymentMethod !== '' ? $paymentMethod : null,
             'date_from' => $dateFrom !== '' ? $dateFrom : null,
             'date_to' => $dateTo !== '' ? $dateTo : null,
         ], fn ($value) => $value !== null && $value !== '');
         $clearUserQuery = $exportQuery;
         unset($clearUserQuery['user_id']);
+        $hasLedgerFilters = collect($exportQuery)->except(['user_id'])->isNotEmpty();
+        $clearFiltersQuery = $ledgerUser ? ['user_id' => $ledgerUser->id] : [];
 
-        $transactions = $this->ledgerQuery($request)
+        $filtered = $this->ledgerQuery($request);
+        $totals = $this->ledgerTotals($filtered);
+        $transactions = (clone $filtered)
             ->with(['user:id,name,email', 'wallet:id,role_id', 'wallet.role:id,name', 'related'])
             ->orderByDesc('created_at')
             ->orderByDesc('id')
@@ -115,16 +123,23 @@ class FinanceController extends Controller
             ->appends($exportQuery);
 
         $types = $this->ledgerTypes();
+        $paymentMethods = $this->ledgerPaymentMethodOptions();
 
         return view('admin.finance-ledger', compact(
             'transactions',
             'types',
+            'paymentMethods',
             'search',
             'ledgerUser',
             'type',
             'direction',
+            'walletRole',
+            'paymentMethod',
             'dateFrom',
             'dateTo',
+            'totals',
+            'hasLedgerFilters',
+            'clearFiltersQuery',
             'exportQuery',
             'clearUserQuery'
         ));
@@ -156,6 +171,7 @@ class FinanceController extends Controller
                 'type',
                 'direction',
                 'status',
+                'payment_method',
                 'amount',
                 'bonus_amount',
                 'balance_after',
@@ -180,6 +196,7 @@ class FinanceController extends Controller
                         $tx->type,
                         $tx->direction,
                         $tx->status,
+                        $tx->payment_method,
                         $tx->amount,
                         $tx->bonus_amount,
                         $tx->balance_after,
@@ -309,6 +326,18 @@ class FinanceController extends Controller
             $query->where('direction', $direction);
         }
 
+        $walletRole = $this->ledgerWalletRole($request);
+        if ($walletRole !== '') {
+            $query->whereHas('wallet.role', function ($roleQuery) use ($walletRole) {
+                $roleQuery->where('name', $walletRole);
+            });
+        }
+
+        $paymentMethod = $this->ledgerPaymentMethod($request);
+        if ($paymentMethod !== '') {
+            $query->whereIn('payment_method', $this->ledgerPaymentMethodAliases($paymentMethod));
+        }
+
         $search = is_string($request->input('search')) ? trim($request->input('search')) : '';
         if ($search !== '') {
             $like = '%'.addcslashes($search, '%_\\').'%';
@@ -351,6 +380,69 @@ class FinanceController extends Controller
         }
 
         return $query;
+    }
+
+    /**
+     * @return array{count: int, credits: float, debits: float, net: float}
+     */
+    private function ledgerTotals(Builder $query): array
+    {
+        $row = (clone $query)->toBase()->selectRaw(
+            'COUNT(*) as row_count, '.
+            "COALESCE(SUM(CASE WHEN direction = 'credit' THEN amount ELSE 0 END), 0) as credits, ".
+            "COALESCE(SUM(CASE WHEN direction = 'debit' THEN amount ELSE 0 END), 0) as debits"
+        )->first();
+
+        $credits = round((float) ($row->credits ?? 0), 2);
+        $debits = round((float) ($row->debits ?? 0), 2);
+
+        return [
+            'count' => (int) ($row->row_count ?? 0),
+            'credits' => $credits,
+            'debits' => $debits,
+            'net' => round($credits - $debits, 2),
+        ];
+    }
+
+    private function ledgerWalletRole(Request $request): string
+    {
+        $role = is_string($request->input('wallet_role')) ? strtolower(trim($request->input('wallet_role'))) : '';
+
+        return in_array($role, ['advertiser', 'publisher'], true) ? $role : '';
+    }
+
+    private function ledgerPaymentMethod(Request $request): string
+    {
+        $method = is_string($request->input('payment_method')) ? strtolower(trim($request->input('payment_method'))) : '';
+
+        return array_key_exists($method, $this->ledgerPaymentMethodOptions()) ? $method : '';
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private function ledgerPaymentMethodOptions(): array
+    {
+        return [
+            'card' => 'Card',
+            'bank' => 'Bank Transfer',
+            'paypal' => 'PayPal',
+            'wise' => 'Wise',
+            'crypto' => 'Cryptocurrency',
+            'wallet' => 'Wallet',
+        ];
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function ledgerPaymentMethodAliases(string $method): array
+    {
+        return match ($method) {
+            'card' => ['card', 'stripe'],
+            'bank' => ['bank', 'bank_transfer'],
+            default => [$method],
+        };
     }
 
     private function ledgerExportLimit(): int

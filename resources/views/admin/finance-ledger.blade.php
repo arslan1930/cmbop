@@ -66,8 +66,40 @@
                     <button class="btn btn-sm btn-primary w-100">Filter</button>
                 </div>
             </div>
+            <div class="row g-2 align-items-end mt-1">
+                <div class="col-md-2">
+                    <label class="form-label small text-muted">Wallet</label>
+                    <select name="wallet_role" class="form-select form-select-sm">
+                        <option value="">Any wallet</option>
+                        <option value="advertiser" @selected($walletRole === 'advertiser')>Advertiser</option>
+                        <option value="publisher" @selected($walletRole === 'publisher')>Publisher</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small text-muted">Method</label>
+                    <select name="payment_method" class="form-select form-select-sm">
+                        <option value="">Any method</option>
+                        @foreach($paymentMethods as $methodValue => $methodLabel)
+                            <option value="{{ $methodValue }}" @selected($paymentMethod === $methodValue)>{{ $methodLabel }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                @if($hasLedgerFilters)
+                    <div class="col-auto">
+                        <a href="{{ route('admin.finance.ledger', $clearFiltersQuery ?? []) }}" class="btn btn-sm btn-outline-secondary">Clear filters</a>
+                    </div>
+                @endif
+            </div>
         </div>
     </form>
+
+    <div class="alert alert-light border small d-flex flex-wrap gap-3 align-items-center py-2 mb-3">
+        <span><strong>{{ number_format($totals['count']) }}</strong> rows</span>
+        <span>Credits <span class="text-success fw-semibold">+€{{ number_format($totals['credits'], 2) }}</span></span>
+        <span>Debits <span class="text-danger fw-semibold">-€{{ number_format($totals['debits'], 2) }}</span></span>
+        <span>Net <strong class="{{ $totals['net'] >= 0 ? 'text-success' : 'text-danger' }}">{{ $totals['net'] >= 0 ? '+' : '-' }}€{{ number_format(abs($totals['net']), 2) }}</strong></span>
+        <span class="text-muted">across these filters, not this page</span>
+    </div>
 
     <div class="card border-0 shadow-sm">
         <div class="table-responsive">
@@ -78,6 +110,7 @@
                         <th>User</th>
                         <th>Wallet</th>
                         <th>Type</th>
+                        <th>Method</th>
                         <th>Dir</th>
                         <th>Status</th>
                         <th>Amount</th>
@@ -97,6 +130,7 @@
                             </td>
                             <td class="small">{{ $tx->walletRoleLabel() }}</td>
                             <td><span class="badge bg-light text-dark border">{{ $tx->typeLabel() }}</span></td>
+                            <td class="small text-muted">{{ $tx->paymentMethodLabel() }}</td>
                             <td>
                                 @if($tx->direction === 'credit')
                                     <span class="text-success small fw-semibold">credit</span>
@@ -134,7 +168,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="11" class="text-center text-muted py-5">No ledger rows match these filters</td>
+                            <td colspan="12" class="text-center text-muted py-5">No ledger rows match these filters</td>
                         </tr>
                     @endforelse
                 </tbody>
