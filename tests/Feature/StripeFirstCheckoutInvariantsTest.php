@@ -1975,6 +1975,133 @@ class StripeFirstCheckoutInvariantsTest extends TestCase
         $this->assertEqualsWithDelta(80.0, $wallet->withdrawableBalance(), 0.01);
     }
 
+    public function test_late_matching_expiry_keeps_paid_bonus_persist_hold(): void
+    {
+        $advertiser = $this->makeUser('advertiser');
+        $publisher = $this->makeUser('publisher');
+        $site = $this->makeSite($publisher, 'late-expire-persist.example', 100);
+        $wallet = $this->advertiserWallet($advertiser, 20);
+        $wallet->reserveBonusOnly(20);
+        $ref = 'LATE-EXPIRE-PERSIST';
+        $payments = app(OrderPaymentService::class);
+
+        $payments->persistPaidCheckoutBonus($advertiser->id, $ref, 20);
+        $order = $this->pendingCardOrder($advertiser, $site, $ref, 100);
+        $order->update([
+            'payment_status' => 'paid',
+            'paid_at' => now(),
+            'stripe_session_id' => 'cs_late_paid',
+        ]);
+
+        $this->signedWebhook([
+            'id' => 'evt_late_expire_persist_'.uniqid(),
+            'object' => 'event',
+            'type' => 'checkout.session.expired',
+            'data' => [
+                'object' => [
+                    'id' => 'cs_late_paid',
+                    'object' => 'checkout.session',
+                    'payment_status' => 'unpaid',
+                    'metadata' => [
+                        'type' => 'order_payment',
+                        'reference_code' => $ref,
+                        'user_id' => (string) $advertiser->id,
+                        'bonus_applied' => '20',
+                    ],
+                ],
+            ],
+        ])->assertOk();
+
+        $this->assertEqualsWithDelta(
+            20.0,
+            app(CheckoutIntentService::class)->recordedBonus($advertiser->id, $ref),
+            0.01
+        );
+        $wallet->refresh();
+        $this->assertEqualsWithDelta(20.0, (float) $wallet->bonus_reserved, 0.01);
+        $this->assertEqualsWithDelta(0.0, (float) $wallet->bonus_balance, 0.01);
+
+        app(OrderRefundService::class)->cancelAndRefund($order->fresh(), 'publisher rejected');
+
+        $wallet->refresh();
+        $this->assertEqualsWithDelta(20.0, (float) $wallet->bonus_balance, 0.01);
+        $this->assertEqualsWithDelta(0.0, (float) $wallet->bonus_reserved, 0.01);
+        $this->assertEqualsWithDelta(100.0, (float) $wallet->balance, 0.01);
+        $this->assertEqualsWithDelta(80.0, $wallet->withdrawableBalance(), 0.01);
+    }
+
+    public function test_late_expiry_on_two_paid_bonus_refs_does_not_mint_reject_cash(): void
+    {
+        $advertiser = $this->makeUser('advertiser');
+        $publisher = $this->makeUser('publisher');
+        $firstSite = $this->makeSite($publisher, 'late-expire-a.example', 100);
+        $secondSite = $this->makeSite($publisher, 'late-expire-b.example', 100);
+        $wallet = $this->advertiserWallet($advertiser, 20);
+        $wallet->reserveBonusOnly(10);
+        $wallet->reserveBonusOnly(10);
+        $payments = app(OrderPaymentService::class);
+
+        $payments->persistPaidCheckoutBonus($advertiser->id, 'LATE-A', 10);
+        $payments->persistPaidCheckoutBonus($advertiser->id, 'LATE-B', 10);
+        $first = $this->pendingCardOrder($advertiser, $firstSite, 'LATE-A', 100);
+        $first->update([
+            'payment_status' => 'paid',
+            'paid_at' => now(),
+            'stripe_session_id' => 'cs_late_a',
+        ]);
+        $second = $this->pendingCardOrder($advertiser, $secondSite, 'LATE-B', 100);
+        $second->update([
+            'payment_status' => 'paid',
+            'paid_at' => now(),
+            'stripe_session_id' => 'cs_late_b',
+        ]);
+
+        foreach (['LATE-A' => 'cs_late_a', 'LATE-B' => 'cs_late_b'] as $ref => $sessionId) {
+            $this->signedWebhook([
+                'id' => 'evt_late_two_'.$sessionId.'_'.uniqid(),
+                'object' => 'event',
+                'type' => 'checkout.session.expired',
+                'data' => [
+                    'object' => [
+                        'id' => $sessionId,
+                        'object' => 'checkout.session',
+                        'payment_status' => 'unpaid',
+                        'metadata' => [
+                            'type' => 'order_payment',
+                            'reference_code' => $ref,
+                            'user_id' => (string) $advertiser->id,
+                            'bonus_applied' => '10',
+                        ],
+                    ],
+                ],
+            ])->assertOk();
+        }
+
+        $this->assertEqualsWithDelta(
+            10.0,
+            app(CheckoutIntentService::class)->recordedBonus($advertiser->id, 'LATE-A'),
+            0.01
+        );
+        $this->assertEqualsWithDelta(
+            10.0,
+            app(CheckoutIntentService::class)->recordedBonus($advertiser->id, 'LATE-B'),
+            0.01
+        );
+
+        app(OrderRefundService::class)->consumeReservedForSettledOrder($first->fresh(), $wallet->fresh());
+        $wallet->refresh();
+        $this->assertEqualsWithDelta(10.0, (float) $wallet->bonus_reserved, 0.01);
+        $this->assertEqualsWithDelta(0.0, (float) $wallet->bonus_balance, 0.01);
+
+        app(OrderRefundService::class)->cancelAndRefund($second->fresh(), 'publisher rejected');
+
+        $wallet->refresh();
+        $this->assertEqualsWithDelta(10.0, (float) $wallet->bonus_balance, 0.01);
+        $this->assertEqualsWithDelta(0.0, (float) $wallet->bonus_reserved, 0.01);
+        $this->assertEqualsWithDelta(100.0, (float) $wallet->balance, 0.01);
+        $this->assertEqualsWithDelta(90.0, $wallet->withdrawableBalance(), 0.01);
+    }
+
     public function test_allocator_remints_ref_after_wallet_paid_order(): void
     {
         $advertiser = $this->makeUser('advertiser');

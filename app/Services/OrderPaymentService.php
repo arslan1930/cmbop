@@ -348,7 +348,10 @@ class OrderPaymentService
             }
             $packageUserId = (int) ($package['user_id'] ?? 0);
             if ($packageUserId <= 0 || $resolvedUserId <= 0 || $packageUserId === $resolvedUserId) {
-                $this->forgetPendingCheckout($referenceCode);
+                $this->forgetPendingCheckout(
+                    $referenceCode,
+                    $resolvedUserId > 0 ? $resolvedUserId : null
+                );
             }
 
             if ($marked->isNotEmpty()) {
@@ -486,6 +489,60 @@ class OrderPaymentService
         }
 
         app(CheckoutIntentService::class)->rememberBonus($userId, $referenceCode, $bonus);
+    }
+
+    /**
+     * Return promo this attempt just reserved. Used when a concurrent
+     * checkout already placed paid rows on the same REF — do not call
+     * releaseRecordedCheckoutBonus, which no-ops while those siblings exist.
+     */
+    public function releaseReservedBonusAmount(int $userId, float $amount): float
+    {
+        $amount = round($amount, 2);
+        if ($userId <= 0 || $amount <= 0) {
+            return 0.0;
+        }
+
+        $roleId = Wallet::advertiserRoleId();
+        if (! $roleId) {
+            return 0.0;
+        }
+
+        return (float) DB::transaction(function () use ($userId, $roleId, $amount) {
+            $wallet = Wallet::query()
+                ->where('user_id', $userId)
+                ->where('role_id', $roleId)
+                ->lockForUpdate()
+                ->first();
+            if (! $wallet) {
+                return 0.0;
+            }
+
+            $share = min($amount, max(0, round((float) $wallet->bonus_reserved, 2)));
+            if ($share <= 0) {
+                return 0.0;
+            }
+
+            $wallet->refundReserved($share, $share);
+
+            return $share;
+        });
+    }
+
+    /**
+     * @return Collection<int, Order>
+     */
+    public function paidCheckoutOrdersForReference(int $userId, string $referenceCode): Collection
+    {
+        if ($userId <= 0 || $referenceCode === '') {
+            return collect();
+        }
+
+        return Order::query()
+            ->where('user_id', $userId)
+            ->where('reference_code', $referenceCode)
+            ->where('payment_status', 'paid')
+            ->get();
     }
 
     /**
