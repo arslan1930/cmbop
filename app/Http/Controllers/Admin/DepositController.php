@@ -22,27 +22,13 @@ class DepositController extends Controller
 {
     public function index(Request $request)
     {
+        $filters = $this->depositFilters($request);
         $query = DepositRequest::with('user');
-
-        if ($request->filled('status')) {
-            $query->where('status', $request->status);
-        }
-
-        $search = search_text($request->input('search'));
-        if ($search !== '') {
-            $query->where(function ($q) use ($search) {
-                $q->where('reference_code', 'like', "%{$search}%")
-                    ->orWhereHas('user', function ($sub) use ($search) {
-                        $sub->where('name', 'like', "%{$search}%")
-                            ->orWhere('email', 'like', "%{$search}%");
-                    });
-            });
-        }
+        $this->applyDepositFilters($query, $filters);
 
         $stats = [
             'pending' => DepositRequest::where('status', 'pending')->count(),
             'user_reported_paid' => DepositRequest::where('status', 'pending')->whereNotNull('user_marked_paid_at')->count(),
-            'approved' => DepositRequest::where('status', 'approved')->count(),
             'completed' => DepositRequest::where('status', 'completed')->count(),
             'rejected' => DepositRequest::where('status', 'rejected')->count(),
             'total_amount' => DepositRequest::where('status', 'completed')->sum('amount'),
@@ -52,11 +38,12 @@ class DepositController extends Controller
         $deposits = $query
             ->orderByRaw('CASE WHEN status = ? AND user_marked_paid_at IS NOT NULL THEN 0 WHEN status = ? THEN 1 ELSE 2 END', ['pending', 'pending'])
             ->latest()
-            ->paginate(20);
+            ->paginate(20)
+            ->withQueryString();
 
         $invoiceLinks = app(AdminInvoiceLinks::class)->forDeposits($deposits->getCollection());
 
-        return view('admin.deposits', compact('deposits', 'stats', 'invoiceLinks'));
+        return view('admin.deposits', array_merge($filters, compact('deposits', 'stats', 'invoiceLinks')));
     }
 
     public function show($id)
@@ -211,6 +198,50 @@ class DepositController extends Controller
             'message' => $message,
             'email_sent' => $emailSent,
         ]);
+    }
+
+    /**
+     * @return array{status: string, reported_paid: bool, search: string}
+     */
+    private function depositFilters(Request $request): array
+    {
+        $status = search_text($request->input('status'));
+        $reportedPaid = $request->boolean('reported_paid') || $status === 'reported_paid';
+
+        if ($reportedPaid) {
+            $status = 'reported_paid';
+        } elseif (! in_array($status, ['pending', 'approved', 'completed', 'rejected'], true)) {
+            $status = '';
+        }
+
+        return [
+            'status' => $status,
+            'reported_paid' => $reportedPaid,
+            'search' => search_text($request->input('search')),
+        ];
+    }
+
+    /**
+     * @param  array{status: string, reported_paid: bool, search: string}  $filters
+     */
+    private function applyDepositFilters($query, array $filters): void
+    {
+        if ($filters['reported_paid']) {
+            $query->where('status', 'pending')->whereNotNull('user_marked_paid_at');
+        } elseif ($filters['status'] !== '') {
+            $query->where('status', $filters['status']);
+        }
+
+        if ($filters['search'] !== '') {
+            $search = $filters['search'];
+            $query->where(function ($q) use ($search) {
+                $q->where('reference_code', 'like', "%{$search}%")
+                    ->orWhereHas('user', function ($sub) use ($search) {
+                        $sub->where('name', 'like', "%{$search}%")
+                            ->orWhere('email', 'like', "%{$search}%");
+                    });
+            });
+        }
     }
 
     private function validatedAdminNotes(Request $request): ?string

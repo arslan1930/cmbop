@@ -9,74 +9,87 @@
         </div>
     </div>
 
+    @php
+        $status = $status ?? '';
+        $reportedPaid = $reported_paid ?? false;
+        $search = $search ?? search_text(request('search'));
+    @endphp
     <!-- Stats Cards -->
     <div class="row mb-4">
         <div class="col-md-3 col-lg">
-            <div class="card border-0 shadow-sm">
-                <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div>
-                            <h6 class="text-muted mb-1">Pending</h6>
-                            <h2 class="mb-0 text-warning">{{ $stats['pending'] }}</h2>
-                        </div>
-                        <div class="bg-warning bg-opacity-10 p-3 rounded">
-                            <i class="fa fa-clock fa-2x text-warning"></i>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-3 col-lg">
-            <div class="card border-0 shadow-sm">
-                <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div>
-                            <h6 class="text-muted mb-1">User reported paid</h6>
-                            <h2 class="mb-0 text-success">{{ $stats['user_reported_paid'] ?? 0 }}</h2>
-                        </div>
-                        <div class="bg-success bg-opacity-10 p-3 rounded">
-                            <i class="fa fa-user-check fa-2x text-success"></i>
+            <a href="{{ route('admin.deposits', ['status' => 'pending']) }}" class="text-decoration-none text-reset">
+                <div class="card border-0 shadow-sm h-100">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="text-muted mb-1">Pending</h6>
+                                <h2 class="mb-0 text-warning">{{ $stats['pending'] }}</h2>
+                            </div>
+                            <div class="bg-warning bg-opacity-10 p-3 rounded">
+                                <i class="fa fa-clock fa-2x text-warning"></i>
+                            </div>
                         </div>
                     </div>
                 </div>
-            </div>
+            </a>
         </div>
         <div class="col-md-3 col-lg">
-            <div class="card border-0 shadow-sm">
-                <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div>
-                            <h6 class="text-muted mb-1">Approved</h6>
-                            <h2 class="mb-0 text-info">{{ $stats['approved'] }}</h2>
-                        </div>
-                        <div class="bg-info bg-opacity-10 p-3 rounded">
-                            <i class="fa fa-check-circle fa-2x text-info"></i>
+            <a href="{{ route('admin.deposits', ['reported_paid' => 1]) }}" class="text-decoration-none text-reset">
+                <div class="card border-0 shadow-sm h-100">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="text-muted mb-1">User reported paid</h6>
+                                <h2 class="mb-0 text-success">{{ $stats['user_reported_paid'] ?? 0 }}</h2>
+                            </div>
+                            <div class="bg-success bg-opacity-10 p-3 rounded">
+                                <i class="fa fa-user-check fa-2x text-success"></i>
+                            </div>
                         </div>
                     </div>
                 </div>
-            </div>
+            </a>
         </div>
         <div class="col-md-3 col-lg">
-            <div class="card border-0 shadow-sm">
-                <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div>
-                            <h6 class="text-muted mb-1">Completed</h6>
-                            <h2 class="mb-0 text-success">{{ $stats['completed'] }}</h2>
-                        </div>
-                        <div class="bg-success bg-opacity-10 p-3 rounded">
-                            <i class="fa fa-check-double fa-2x text-success"></i>
+            <a href="{{ route('admin.deposits', ['status' => 'completed']) }}" class="text-decoration-none text-reset">
+                <div class="card border-0 shadow-sm h-100">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="text-muted mb-1">Completed</h6>
+                                <h2 class="mb-0 text-success">{{ $stats['completed'] }}</h2>
+                            </div>
+                            <div class="bg-success bg-opacity-10 p-3 rounded">
+                                <i class="fa fa-check-double fa-2x text-success"></i>
+                            </div>
                         </div>
                     </div>
                 </div>
-            </div>
+            </a>
         </div>
         <div class="col-md-3 col-lg">
-            <div class="card border-0 shadow-sm">
+            <a href="{{ route('admin.deposits', ['status' => 'rejected']) }}" class="text-decoration-none text-reset">
+                <div class="card border-0 shadow-sm h-100">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="text-muted mb-1">Rejected</h6>
+                                <h2 class="mb-0 text-danger">{{ $stats['rejected'] }}</h2>
+                            </div>
+                            <div class="bg-danger bg-opacity-10 p-3 rounded">
+                                <i class="fa fa-times-circle fa-2x text-danger"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </a>
+        </div>
+        <div class="col-md-3 col-lg">
+            <div class="card border-0 shadow-sm h-100">
                 <div class="card-body">
                     <div class="d-flex justify-content-between align-items-center">
                         <div>
-                            <h6 class="text-muted mb-1">Total Amount</h6>
+                            <h6 class="text-muted mb-1">Total completed</h6>
                             <h2 class="mb-0 text-primary">€{{ number_format($stats['total_amount'], 2) }}</h2>
                         </div>
                         <div class="bg-primary bg-opacity-10 p-3 rounded">
@@ -96,14 +109,15 @@
                     <label class="form-label fw-semibold">Status</label>
                     <select name="status" class="form-select">
                         <option value="">All</option>
-                        <option value="pending" {{ request('status') == 'pending' ? 'selected' : '' }}>Pending</option>
-                        <option value="approved" {{ request('status') == 'approved' ? 'selected' : '' }}>Approved</option>
-                        <option value="completed" {{ request('status') == 'completed' ? 'selected' : '' }}>Completed</option>
-                        <option value="rejected" {{ request('status') == 'rejected' ? 'selected' : '' }}>Rejected</option>
+                        <option value="pending" @selected($status === 'pending')>Pending</option>
+                        <option value="reported_paid" @selected($reportedPaid)>Pending (reported paid)</option>
+                        <option value="completed" @selected($status === 'completed')>Completed</option>
+                        <option value="rejected" @selected($status === 'rejected')>Rejected</option>
+                        <option value="approved" @selected($status === 'approved')>Approved</option>
                     </select>
                 </div>
                 <div class="col-md-4">
-                    <x-slb-search-field name="search" id="adminDepositsSearch" :value="request('search')" placeholder="Reference, Name, Email" input-class="form-control" label-class="form-label fw-semibold" />
+                    <x-slb-search-field name="search" id="adminDepositsSearch" :value="$search" placeholder="Reference, Name, Email" input-class="form-control" label-class="form-label fw-semibold" />
                 </div>
                 <div class="col-md-2">
                     <label class="form-label fw-semibold">&nbsp;</label>

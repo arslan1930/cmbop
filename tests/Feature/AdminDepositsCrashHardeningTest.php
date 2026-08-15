@@ -57,11 +57,13 @@ class AdminDepositsCrashHardeningTest extends TestCase
             'stats' => [
                 'pending' => 1,
                 'user_reported_paid' => 0,
-                'approved' => 0,
                 'completed' => 0,
                 'rejected' => 0,
                 'total_amount' => 0,
             ],
+            'status' => '',
+            'reported_paid' => false,
+            'search' => '',
             'invoiceLinks' => collect(),
         ])->render();
 
