@@ -157,6 +157,7 @@ class ManualWithdrawalSettlementServiceTest extends TestCase
         $result = app(ManualWithdrawalSettlementService::class)->markPaid($withdrawal, $admin);
 
         $this->assertTrue($result['unchanged']);
+        $this->assertTrue($result['has_statement']);
         $this->assertSame('Payout statement is ready', $result['message']);
         $this->assertNotNull(app(WithdrawalPayoutStatementService::class)->find($withdrawal->fresh()));
         Mail::assertNothingOutgoing();

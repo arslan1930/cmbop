@@ -273,6 +273,7 @@ class AdminWithdrawalController extends Controller
         $failed = [];
         $succeededIds = [];
         $unchangedIds = [];
+        $missingStatementIds = [];
 
         foreach ($ids as $id) {
             $response = $this->transitionWithdrawal((int) $id, $action, $notes, quiet: true);
@@ -283,6 +284,9 @@ class AdminWithdrawalController extends Controller
                 } else {
                     $ok++;
                     $succeededIds[] = (int) $id;
+                }
+                if ($action === 'completed' && array_key_exists('has_statement', $payload) && $payload['has_statement'] === false) {
+                    $missingStatementIds[] = (int) $id;
                 }
             } else {
                 $failed[] = [
@@ -324,6 +328,10 @@ class AdminWithdrawalController extends Controller
         if ($failed !== []) {
             $parts[] = count($failed).' failed';
         }
+        if ($missingStatementIds !== []) {
+            $parts[] = count($missingStatementIds).' missing payout statement'
+                .(count($missingStatementIds) === 1 ? '' : 's');
+        }
 
         return response()->json([
             'success' => $ok > 0,
@@ -331,6 +339,7 @@ class AdminWithdrawalController extends Controller
             'succeeded' => $ok,
             'unchanged' => $unchangedIds,
             'failed' => $failed,
+            'missing_statement_ids' => $missingStatementIds,
             'payout_run_id' => $runId,
         ], $ok > 0 ? 200 : 422);
     }
@@ -832,12 +841,17 @@ class AdminWithdrawalController extends Controller
                 $quiet
             );
 
-            return response()->json([
+            $payload = [
                 'success' => true,
                 'unchanged' => ! empty($result['unchanged']),
                 'message' => $result['message'],
                 'data' => $result['withdrawal'],
-            ]);
+            ];
+            if (array_key_exists('has_statement', $result)) {
+                $payload['has_statement'] = (bool) $result['has_statement'];
+            }
+
+            return response()->json($payload);
         } catch (ManualWithdrawalInvalidTransitionException $e) {
             return response()->json([
                 'success' => false,

@@ -797,7 +797,7 @@ $(document).on('click', '.act-paid', async function() {
     if (!await confirmPendingPayIfNeeded([id])) return;
     postAction(withdrawalUrl(WD_PAID, id), { notes })
         .done(function(res) {
-            toast(res.message || 'Marked paid');
+            toast(res.message || 'Marked paid', res.has_statement === false ? 'warning' : 'success');
             selectedIds.delete(Number(id));
             refreshAll();
         })
@@ -810,7 +810,8 @@ $(document).on('click', '.act-statement', function() {
     const id = $(this).data('id');
     postAction(withdrawalUrl(WD_PAID, id), { notes: '' })
         .done(function(res) {
-            toast(res.message || 'Payout statement is ready');
+            toast(res.message || 'Payout statement is ready', res.has_statement === false ? 'warning' : 'success');
+            $('#detailsModal').modal('hide');
             refreshAll();
         })
         .fail(function(xhr) {
@@ -978,9 +979,10 @@ async function runBatch(action, title, confirmText, confirmClass, options) {
     postAction(WD_BATCH, payload).done(function(res) {
         const failed = Array.isArray(res.failed) ? res.failed : [];
         const failedCount = failed.length;
+        const missingStatements = Array.isArray(res.missing_statement_ids) ? res.missing_statement_ids.length : 0;
         toast(
             res.message + (res.payout_run_id ? ' · ' + res.payout_run_id : ''),
-            failedCount > 0 ? 'warning' : 'success'
+            (failedCount > 0 || missingStatements > 0) ? 'warning' : 'success'
         );
         selectedIds.clear();
         failed.forEach(function (row) {
@@ -1180,10 +1182,15 @@ function renderDetails(withdrawal) {
         $('#openInvoiceLink').addClass('d-none').attr('href', '#');
     }
 
+    const missingStatementAlert = (withdrawal.status === 'completed' && !invoiceHref)
+        ? `<div class="alert alert-warning" role="alert">Payout statement is missing. <button type="button" class="btn btn-sm btn-warning act-statement" data-id="${withdrawal.id}">Create statement</button></div>`
+        : '';
+
     $('#openShowPageLink').attr('href', safeAdminHref(withdrawalUrl(WD_SHOW, withdrawal.id)) || '#');
 
     $('#detailsContent').html(`
         ${duplicateAlert}
+        ${missingStatementAlert}
         <div class="row mb-3">
             <div class="col-md-6">
                 <div class="bg-light p-3 rounded">

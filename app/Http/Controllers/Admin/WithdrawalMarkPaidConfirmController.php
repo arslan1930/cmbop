@@ -56,7 +56,7 @@ class WithdrawalMarkPaidConfirmController extends Controller
                 $request->input('notes')
             );
 
-            $message = $result['unchanged']
+            $message = ($result['unchanged'] || empty($result['has_statement']))
                 ? $result['message']
                 : 'Marked paid. Net €'.number_format((float) $result['withdrawal']->net_amount, 2).' confirmed for WD-'.$result['withdrawal']->id.'.';
 

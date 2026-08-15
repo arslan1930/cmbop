@@ -27,7 +27,8 @@ class ManualWithdrawalSettlementService
      *     old_status: string,
      *     new_status: string,
      *     unchanged: bool,
-     *     message: string
+     *     message: string,
+     *     has_statement?: bool
      * }
      *
      * @throws ManualWithdrawalInvalidTransitionException
@@ -135,15 +136,16 @@ class ManualWithdrawalSettlementService
 
         // Retry even when status is already completed: the first issue() can
         // fail after the wallet row is paid, and issue() is idempotent.
-        $statement = null;
         if ($result['new_status'] === 'completed') {
             $statement = $this->issuePayoutStatement($result['withdrawal']);
-        }
-
-        if ($result['unchanged'] && $result['new_status'] === 'completed') {
-            $result['message'] = $statement
-                ? 'Payout statement is ready'
-                : 'Status unchanged — payout statement is still missing';
+            $result['has_statement'] = $statement !== null;
+            if ($statement === null) {
+                $result['message'] = $result['unchanged']
+                    ? 'Status unchanged — payout statement is still missing'
+                    : 'Marked paid, but the payout statement could not be created. Open history and choose Create statement.';
+            } elseif ($result['unchanged']) {
+                $result['message'] = 'Payout statement is ready';
+            }
         }
 
         if (! $result['unchanged']) {

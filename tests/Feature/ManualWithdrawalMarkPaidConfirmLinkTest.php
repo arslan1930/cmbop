@@ -212,6 +212,28 @@ class ManualWithdrawalMarkPaidConfirmLinkTest extends TestCase
         $this->assertSame('Sent on Wise', $withdrawal->fresh()->admin_notes);
     }
 
+    public function test_signed_post_warns_when_statement_issue_fails(): void
+    {
+        $this->mock(WithdrawalPayoutStatementService::class, function ($mock) {
+            $mock->shouldReceive('issue')->once()->andReturn(null);
+        });
+
+        $admin = $this->makeUser('admin');
+        $publisher = $this->makeUser('publisher');
+        $withdrawal = $this->pendingWithdrawal($publisher, 90);
+        $url = $this->relativeSignedUrl(ManualWithdrawalMarkPaidLink::url($withdrawal));
+
+        $this->actingAs($admin)
+            ->post($url, ['notes' => 'Sent'])
+            ->assertRedirect(route('admin.withdrawals'))
+            ->assertSessionHas(
+                'success',
+                'Marked paid, but the payout statement could not be created. Open history and choose Create statement.'
+            );
+
+        $this->assertSame('completed', $withdrawal->fresh()->status);
+    }
+
     public function test_guest_and_unsigned_are_blocked(): void
     {
         $publisher = $this->makeUser('publisher');

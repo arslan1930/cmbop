@@ -9,6 +9,7 @@ use App\Models\User;
 use App\Models\Withdrawal;
 use App\Services\Admin\FinanceOverviewService;
 use App\Services\Billing\AdminInvoiceLinks;
+use App\Services\Billing\WithdrawalPayoutStatementService;
 use App\Services\Wallet\ManualWithdrawalSettlementService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Request;
@@ -110,6 +111,9 @@ class AdminWithdrawalLaterTest extends TestCase
         $this->assertStringContainsString('addSelectedId(row && row.id)', $html);
         $this->assertStringContainsString('act-statement', $html);
         $this->assertStringContainsString('Create statement', $html);
+        $this->assertStringContainsString('res.has_statement === false', $html);
+        $this->assertStringContainsString('res.missing_statement_ids', $html);
+        $this->assertStringContainsString('missingStatementAlert', $html);
     }
 
     public function test_html_show_warns_when_paid_statement_is_missing(): void
@@ -121,12 +125,68 @@ class AdminWithdrawalLaterTest extends TestCase
             'processed_at' => now(),
         ]);
 
-        $this->actingAs($admin)
+        $queueUrl = route('admin.withdrawals', [
+            'search' => (string) $withdrawal->id,
+            'queue' => 'history',
+        ], false);
+
+        $html = $this->actingAs($admin)
             ->get(route('admin.withdrawals.show', $withdrawal->id))
             ->assertOk()
             ->assertSee('Payout statement is missing', false)
             ->assertSee('Create statement', false)
-            ->assertDontSee('Yes, mark paid', false);
+            ->assertSee('Open this withdrawal in the payout queue', false)
+            ->assertDontSee('Yes, mark paid', false)
+            ->getContent();
+
+        $this->assertStringContainsString('href="'.$queueUrl.'"', $html);
+    }
+
+    public function test_mark_paid_warns_when_statement_issue_fails(): void
+    {
+        $this->mock(WithdrawalPayoutStatementService::class, function ($mock) {
+            $mock->shouldReceive('issue')->once()->andReturn(null);
+        });
+
+        $admin = $this->makeUser('admin');
+        $publisher = $this->makeUser('publisher');
+        $withdrawal = $this->seedWithdrawal($publisher);
+
+        $this->actingAs($admin)
+            ->postJson(route('admin.withdrawals.paid', $withdrawal->id), ['notes' => 'Paid'])
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('unchanged', false)
+            ->assertJsonPath('has_statement', false)
+            ->assertJsonPath(
+                'message',
+                'Marked paid, but the payout statement could not be created. Open history and choose Create statement.'
+            );
+
+        $this->assertSame('completed', $withdrawal->fresh()->status);
+    }
+
+    public function test_batch_reports_missing_payout_statements(): void
+    {
+        $this->mock(WithdrawalPayoutStatementService::class, function ($mock) {
+            $mock->shouldReceive('issue')->once()->andReturn(null);
+        });
+
+        $admin = $this->makeUser('admin');
+        $publisher = $this->makeUser('publisher');
+        $withdrawal = $this->seedWithdrawal($publisher);
+
+        $this->actingAs($admin)
+            ->postJson(route('admin.withdrawals.batch'), [
+                'ids' => [$withdrawal->id],
+                'action' => 'completed',
+            ])
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('succeeded', 1)
+            ->assertJsonPath('missing_statement_ids', [$withdrawal->id]);
+
+        $this->assertSame('completed', $withdrawal->fresh()->status);
     }
 
     public function test_http_mark_paid_on_completed_creates_missing_statement(): void
@@ -143,6 +203,7 @@ class AdminWithdrawalLaterTest extends TestCase
             ->assertOk()
             ->assertJsonPath('success', true)
             ->assertJsonPath('unchanged', true)
+            ->assertJsonPath('has_statement', true)
             ->assertJsonPath('message', 'Payout statement is ready');
 
         $this->assertNotNull(
