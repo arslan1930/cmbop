@@ -593,9 +593,9 @@ class AdminFinanceOpsGapsTest extends TestCase
         $this->actingAs($admin)
             ->get(route('admin.finance.user', $publisher))
             ->assertOk()
-            ->assertSee('Dossier label row')
             ->assertSee('Earnings Moved for Spending')
-            ->assertDontSee('role_move_in');
+            ->assertDontSee('role_move_in')
+            ->assertDontSee('Role Move In');
     }
 
     public function test_ledger_ignores_array_search_and_invalid_dates(): void
