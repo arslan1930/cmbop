@@ -1752,4 +1752,93 @@ class AdminWithdrawalLaterTest extends TestCase
         $this->assertNull(data_get($found->billing_snapshot, 'email'));
         $this->assertNull($found->pdf_path);
     }
+
+    public function test_publisher_billing_keeps_pdf_actions_on_this_host(): void
+    {
+        $publisher = $this->makeUser('publisher');
+        $withdrawal = $this->seedWithdrawal($publisher, [
+            'status' => 'completed',
+            'processed_at' => now(),
+        ]);
+        $statement = Invoice::create([
+            'user_id' => $publisher->id,
+            'customer_name' => $publisher->name,
+            'customer_email' => $publisher->email,
+            'invoice_number' => 'PAY-PUB-HOST-1',
+            'type' => Invoice::TYPE_WITHDRAWAL_PAYOUT,
+            'status' => Invoice::STATUS_PAID,
+            'subtotal' => 95,
+            'total_amount' => 95,
+            'invoice_date' => now(),
+            'line_items' => [['description' => 'Payout', 'line_total' => 95]],
+            'pdf_disk' => 'local',
+            'reference_code' => 'WD-'.$withdrawal->id,
+            'meta' => ['withdrawal_id' => $withdrawal->id],
+        ]);
+
+        $index = $this->actingAs($publisher)
+            ->get(route('publisher.billing.index'))
+            ->assertOk()
+            ->getContent();
+        $downloadPath = route('publisher.billing.download', $statement, false);
+        $this->assertStringContainsString('href="'.$downloadPath.'"', $index);
+        $this->assertStringNotContainsString('href="'.route('publisher.billing.download', $statement).'"', $index);
+
+        $show = $this->actingAs($publisher)
+            ->get(route('publisher.billing.show', $statement))
+            ->assertOk()
+            ->getContent();
+        $this->assertStringContainsString('href="'.$downloadPath.'"', $show);
+        $this->assertStringNotContainsString('href="'.route('publisher.billing.download', $statement).'"', $show);
+    }
+
+    public function test_failed_identity_repair_does_not_restore_leftover_pdf_path(): void
+    {
+        $publisher = $this->makeUser('publisher');
+        $publisher->forceFill([
+            'name' => 'Current Owner',
+            'email' => 'current-owner@example.com',
+            'payout_business_name' => null,
+        ])->save();
+        $withdrawal = $this->seedWithdrawal($publisher, [
+            'status' => 'completed',
+            'processed_at' => now(),
+        ]);
+        $statement = Invoice::create([
+            'user_id' => $publisher->id,
+            'customer_name' => 'Former Owner',
+            'customer_email' => 'former-owner@example.com',
+            'pdf_path' => 'payouts/stale-failed-save.pdf',
+            'invoice_number' => 'PAY-FAIL-SAVE-1',
+            'type' => Invoice::TYPE_WITHDRAWAL_PAYOUT,
+            'status' => Invoice::STATUS_PAID,
+            'subtotal' => 95,
+            'total_amount' => 95,
+            'invoice_date' => now(),
+            'line_items' => [['description' => 'Payout', 'line_total' => 95]],
+            'pdf_disk' => 'local',
+            'reference_code' => 'WD-'.$withdrawal->id,
+            'meta' => ['withdrawal_id' => $withdrawal->id],
+        ]);
+
+        Invoice::saving(function (Invoice $invoice) use ($statement) {
+            if ((int) $invoice->id === (int) $statement->id && $invoice->isDirty('customer_name')) {
+                throw new \RuntimeException('db down');
+            }
+        });
+
+        try {
+            $found = app(WithdrawalPayoutStatementService::class)->find($withdrawal);
+        } finally {
+            Invoice::flushEventListeners();
+        }
+
+        $this->assertNotNull($found);
+        $this->assertSame($statement->id, $found->id);
+        $this->assertSame('Current Owner', $found->customer_name);
+        $this->assertSame('current-owner@example.com', $found->customer_email);
+        $this->assertNull($found->pdf_path);
+        $this->assertSame('Former Owner', $statement->fresh()->customer_name);
+        $this->assertSame('payouts/stale-failed-save.pdf', $statement->fresh()->pdf_path);
+    }
 }

@@ -242,7 +242,11 @@ class WithdrawalPayoutStatementService
                 'to_user_id' => $ownerId,
                 'error' => $e->getMessage(),
             ]);
-            $statement->refresh();
+            // Keep the repaired identity in memory and drop the stored PDF
+            // path. refresh() would restore the leftover payee and the old
+            // file, and this request would stream the previous publisher.
+            $statement->pdf_path = null;
+            $statement->unsetRelation('user');
         }
 
         return $statement;

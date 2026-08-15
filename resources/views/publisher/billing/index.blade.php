@@ -8,13 +8,13 @@
             <p class="text-muted mb-0">Download payout statements for completed withdrawals. These are not tax invoices.</p>
         </div>
         <div class="col-md-4 text-md-end">
-            <a href="{{ route('publisher.withdraw') }}" class="btn btn-sm btn-outline-secondary">Withdrawals</a>
+            <a href="{{ route('publisher.withdraw', [], false) }}" class="btn btn-sm btn-outline-secondary">Withdrawals</a>
         </div>
     </div>
 
     <div class="card border-0 shadow-sm mb-4">
         <div class="card-body">
-            <form method="GET" action="{{ route('publisher.billing.index') }}" class="row g-3 align-items-end">
+            <form method="GET" action="{{ route('publisher.billing.index', [], false) }}" class="row g-3 align-items-end">
                 <div class="col-md-4">
                     <x-slb-search-field name="search" id="publisherBillingSearch" :value="request('search')" placeholder="Statement #, WD reference…" />
                 </div>
@@ -28,7 +28,7 @@
                 </div>
                 <div class="col-12 d-flex gap-2">
                     <button type="submit" class="btn btn-sm btn-primary">Filter</button>
-                    <a href="{{ route('publisher.billing.index') }}" class="btn btn-sm btn-outline-secondary">Reset</a>
+                    <a href="{{ route('publisher.billing.index', [], false) }}" class="btn btn-sm btn-outline-secondary">Reset</a>
                 </div>
             </form>
         </div>
@@ -58,9 +58,9 @@
                                 <td class="small">{{ \App\Models\Invoice::paymentMethodLabel($doc->payment_method) }}</td>
                                 <td class="text-end">
                                     <div class="d-inline-flex flex-wrap gap-1 justify-content-end">
-                                        <a href="{{ route('publisher.billing.show', $doc) }}" class="btn btn-sm btn-outline-secondary">View</a>
-                                        <a href="{{ route('publisher.billing.view', $doc) }}" class="btn btn-sm btn-outline-secondary" target="_blank" rel="noopener">View PDF</a>
-                                        <a href="{{ route('publisher.billing.download', $doc) }}" class="btn btn-sm btn-primary">Download PDF</a>
+                                        <a href="{{ route('publisher.billing.show', $doc, false) }}" class="btn btn-sm btn-outline-secondary">View</a>
+                                        <a href="{{ route('publisher.billing.view', $doc, false) }}" class="btn btn-sm btn-outline-secondary" target="_blank" rel="noopener">View PDF</a>
+                                        <a href="{{ route('publisher.billing.download', $doc, false) }}" class="btn btn-sm btn-primary">Download PDF</a>
                                     </div>
                                 </td>
                             </tr>

@@ -534,11 +534,15 @@ class BillingPhases46Test extends TestCase
         $publisher = $this->makeUser('publisher');
         $this->publisherWallet($publisher);
 
-        $this->actingAs($publisher)
+        $html = $this->actingAs($publisher)
             ->get(route('publisher.withdraw'))
             ->assertOk()
-            ->assertSee(route('publisher.billing.index'), false)
-            ->assertSee('Payout documents', false);
+            ->assertSee('Payout documents', false)
+            ->getContent();
+
+        $path = route('publisher.billing.index', [], false);
+        $this->assertStringContainsString('href="'.$path.'"', $html);
+        $this->assertStringNotContainsString('href="'.route('publisher.billing.index').'"', $html);
     }
 
     public function test_line_refund_amount_uses_order_total_for_single_item(): void
