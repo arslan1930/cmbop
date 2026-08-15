@@ -102,7 +102,7 @@ class WalletStripeDepositService
                 return;
             }
 
-            $orphaned = $this->findCompletedCardMissingPaymentIntent($userId, $amountEuros);
+            $orphaned = $this->findCompletedCardForLatePaymentIntent($userId, $amountEuros, $referenceCode);
             if ($orphaned) {
                 $this->attachMissingStripeIds($orphaned, '', $paymentIntentId);
                 $credited = (float) $orphaned->amount;
@@ -686,10 +686,6 @@ class WalletStripeDepositService
     }
 
     /**
-     * Leftover Checkout / PaymentIntent ids on a bank / Wise / crypto invoice
-     * must not block a real card charge from creating its own row.
-     */
-    /**
      * Persist a PaymentIntent / session id onto a completed card that was
      * recorded before that id was known, so a later webhook cannot mint a
      * second row for the same charge.
@@ -733,27 +729,34 @@ class WalletStripeDepositService
 
     /**
      * A Checkout Session can credit a card row before Stripe has attached the
-     * PaymentIntent. If exactly one such row exists for this payer and amount,
-     * the later PI webhook must attach to it instead of crediting again.
+     * PaymentIntent. Only reuse that row when the PaymentIntent metadata
+     * reference matches — same amount alone would swallow a second top-up.
      */
-    private function findCompletedCardMissingPaymentIntent(int $userId, float $amountEuros): ?DepositRequest
-    {
-        $matches = DepositRequest::query()
-            ->where('user_id', $userId)
-            ->where('status', 'completed')
-            ->where('payment_method', 'card')
-            ->whereNotNull('stripe_session_id')
-            ->where('stripe_session_id', '!=', '')
-            ->where(function ($q) {
-                $q->whereNull('stripe_payment_intent_id')
-                    ->orWhere('stripe_payment_intent_id', '');
-            })
-            ->where('amount', $amountEuros)
-            ->where('created_at', '>=', now()->subMinutes(30))
-            ->lockForUpdate()
-            ->get();
+    private function findCompletedCardForLatePaymentIntent(
+        int $userId,
+        float $amountEuros,
+        string $referenceCode
+    ): ?DepositRequest {
+        if ($referenceCode === '') {
+            return null;
+        }
 
-        return $matches->count() === 1 ? $matches->first() : null;
+        $row = DepositRequest::query()
+            ->where('reference_code', $referenceCode)
+            ->lockForUpdate()
+            ->first();
+
+        if (! $row
+            || (int) $row->user_id !== $userId
+            || $row->status !== 'completed'
+            || $row->isManualPayment()
+            || ! filled($row->stripe_session_id)
+            || filled($row->stripe_payment_intent_id)
+            || abs((float) $row->amount - $amountEuros) > 0.01) {
+            return null;
+        }
+
+        return $row;
     }
 
     private function detachLeftoverStripeIds(
