@@ -687,7 +687,6 @@ class EmailCampaign extends Model
         }
 
         $cutoff = now()->subMinutes(max(1, $staleMinutes));
-        $attachedIds = self::healQueuedRecipientsWithTerminalLog();
         $rows = EmailCampaignRecipient::query()
             ->whereNull('email_log_id')
             ->where('updated_at', '<=', $cutoff)
@@ -701,10 +700,6 @@ class EmailCampaign extends Model
             ->get(['id', 'email_campaign_id', 'user_id', 'status', 'updated_at']);
 
         if ($rows->isEmpty()) {
-            foreach ($attachedIds as $id) {
-                static::query()->find($id)?->recountRecipientTotals();
-            }
-
             return;
         }
 
@@ -724,7 +719,7 @@ class EmailCampaign extends Model
             ->get()
             ->groupBy('dedupe_key');
 
-        $campaignIds = array_fill_keys($attachedIds, true);
+        $campaignIds = [];
 
         if ($logs->isEmpty()) {
             foreach (array_keys($campaignIds) as $id) {
@@ -805,33 +800,48 @@ class EmailCampaign extends Model
     }
 
     /**
-     * Queued + a terminal log FK is not in-flight. Expire used to skip
-     * those rows forever, so a failed campaign could keep a queued leftover.
+     * A queued row that already has a delivered/failed log FK is finished.
+     * Expire and reclaim both require a null FK, so these sat queued forever
+     * on a failed campaign.
      *
-     * @return list<int>
+     * #849 renamed this to healQueuedRecipientsWithTerminalLog but left the
+     * recoverStalled() call on the old name, so every Campaigns page view
+     * and mail drain fataled and never redispatched.
      */
-    protected static function healQueuedRecipientsWithTerminalLog(): array
+    protected static function syncQueuedRecipientsWithAttachedLogs(): void
     {
+        try {
+            if (! Schema::hasTable((new EmailCampaignRecipient)->getTable())) {
+                return;
+            }
+        } catch (\Throwable) {
+            return;
+        }
+
         $rows = EmailCampaignRecipient::query()
             ->where('status', EmailCampaignRecipient::STATUS_QUEUED)
             ->whereNotNull('email_log_id')
             ->get(['id', 'email_campaign_id', 'email_log_id']);
 
         if ($rows->isEmpty()) {
-            return [];
+            return;
         }
 
-        $logs = EmailLog::query()
-            ->whereIn('id', $rows->pluck('email_log_id')->filter()->unique()->all())
-            ->whereIn('status', [
-                EmailLog::STATUS_DELIVERED,
-                EmailLog::STATUS_FAILED,
-            ])
-            ->get(['id', 'status'])
-            ->keyBy('id');
+        try {
+            $logs = EmailLog::query()
+                ->whereIn('id', $rows->pluck('email_log_id')->filter()->unique()->all())
+                ->whereIn('status', [
+                    EmailLog::STATUS_DELIVERED,
+                    EmailLog::STATUS_FAILED,
+                ])
+                ->get(['id', 'status'])
+                ->keyBy('id');
+        } catch (\Throwable) {
+            return;
+        }
 
         if ($logs->isEmpty()) {
-            return [];
+            return;
         }
 
         $campaignIds = [];
@@ -843,7 +853,7 @@ class EmailCampaign extends Model
             }
 
             $delivered = $log->status === EmailLog::STATUS_DELIVERED;
-            EmailCampaignRecipient::query()
+            $updated = EmailCampaignRecipient::query()
                 ->whereKey($row->id)
                 ->where('status', EmailCampaignRecipient::STATUS_QUEUED)
                 ->where('email_log_id', (int) $log->id)
@@ -854,10 +864,14 @@ class EmailCampaign extends Model
                     'skip_reason' => $delivered ? null : EmailCampaignRecipient::SKIP_ERROR,
                 ]);
 
-            $campaignIds[(int) $row->email_campaign_id] = true;
+            if ($updated) {
+                $campaignIds[(int) $row->email_campaign_id] = true;
+            }
         }
 
-        return array_keys($campaignIds);
+        foreach (array_keys($campaignIds) as $id) {
+            static::query()->find($id)?->recountRecipientTotals();
+        }
     }
 
     /**
