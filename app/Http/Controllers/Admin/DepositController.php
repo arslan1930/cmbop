@@ -10,8 +10,10 @@ use App\Models\DepositRequest;
 use App\Services\ActivityLogger;
 use App\Services\Billing\AdminInvoiceLinks;
 use App\Services\InAppNotificationService;
+use App\Services\Wallet\DepositApproveContext;
 use App\Services\Wallet\ManualDepositAlreadyProcessedException;
 use App\Services\Wallet\ManualDepositApprovalService;
+use App\Services\Wallet\ManualDepositNotManualException;
 use App\Support\UserFacingError;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -58,11 +60,13 @@ class DepositController extends Controller
         }
 
         $invoice = app(AdminInvoiceLinks::class)->forDeposits(collect([$deposit]))->get((int) $deposit->id);
+        $wallet = app(DepositApproveContext::class)->forJson($deposit);
 
         return response()->json([
             'success' => true,
             'deposit' => $deposit,
             'invoice' => $invoice,
+            'wallet' => $wallet,
         ]);
     }
 
@@ -90,6 +94,11 @@ class DepositController extends Controller
                 'success' => true,
                 'message' => $result['message'],
                 'email_sent' => $result['email_sent'],
+            ]);
+        } catch (ManualDepositNotManualException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => UserFacingError::message($e, 'Card deposits settle through Stripe.'),
             ]);
         } catch (ManualDepositAlreadyProcessedException $e) {
             return response()->json([

@@ -57,6 +57,10 @@ class ManualDepositApprovalService
                 throw ManualDepositAlreadyProcessedException::forDeposit((int) $locked->id);
             }
 
+            if (! $locked->isManualPayment()) {
+                throw ManualDepositNotManualException::forDeposit();
+            }
+
             $locked->update([
                 'status' => 'approved',
                 'admin_notes' => $adminNotes,

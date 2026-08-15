@@ -6,6 +6,10 @@ use Illuminate\Database\Eloquent\Model;
 
 class DepositRequest extends Model
 {
+    public const MANUAL_METHODS = ['wise', 'bank', 'crypto'];
+
+    public const CARD_METHODS = ['card', 'stripe'];
+
     protected $fillable = [
         'user_id',
         'reference_code',
@@ -70,6 +74,25 @@ class DepositRequest extends Model
     {
         return $this->isPending()
             && ! $this->userHasMarkedPaid()
-            && in_array($this->payment_method, ['wise', 'bank', 'crypto'], true);
+            && $this->isManualPayment();
+    }
+
+    public function isManualPayment(): bool
+    {
+        return in_array($this->payment_method, self::MANUAL_METHODS, true);
+    }
+
+    public function isCardPayment(): bool
+    {
+        return in_array(strtolower((string) $this->payment_method), self::CARD_METHODS, true);
+    }
+
+    /**
+     * Admin / email confirm may credit only pending bank / Wise / crypto rows.
+     * Card deposits settle through Stripe and must not be one-click approved.
+     */
+    public function canManuallyApprove(): bool
+    {
+        return $this->isPending() && $this->isManualPayment();
     }
 }

@@ -10,6 +10,7 @@ use App\Models\Wallet;
 use App\Models\WalletTransaction;
 use App\Services\Wallet\ManualDepositAlreadyProcessedException;
 use App\Services\Wallet\ManualDepositApprovalService;
+use App\Services\Wallet\ManualDepositNotManualException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Mail;
 use Tests\TestCase;
@@ -151,5 +152,24 @@ class ManualDepositApprovalServiceTest extends TestCase
 
         $this->assertSame(55.0, (float) $wallet->fresh()->balance);
         Mail::assertQueued(DepositApproved::class, 1);
+    }
+
+    public function test_approve_refuses_card_deposits(): void
+    {
+        $admin = $this->admin();
+        $advertiser = $this->advertiser();
+        $wallet = $this->walletFor($advertiser);
+        $deposit = $this->pendingDeposit($advertiser, 40, 'card');
+
+        try {
+            app(ManualDepositApprovalService::class)->approve($deposit, $admin);
+            $this->fail('Expected ManualDepositNotManualException');
+        } catch (ManualDepositNotManualException $e) {
+            $this->assertStringContainsString('Stripe', $e->getMessage());
+        }
+
+        $this->assertSame('pending', $deposit->fresh()->status);
+        $this->assertSame(0.0, (float) $wallet->fresh()->balance);
+        Mail::assertNothingQueued();
     }
 }
