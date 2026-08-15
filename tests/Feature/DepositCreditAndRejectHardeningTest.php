@@ -416,8 +416,13 @@ class DepositCreditAndRejectHardeningTest extends TestCase
         $this->assertSame(60.0, $fromPi);
         $this->assertSame(60.0, $fromPending);
         $this->assertSame(60.0, (float) $wallet->fresh()->balance);
-        $this->assertSame('completed', $pending->fresh()->status);
+        $this->assertSame('pending', $pending->fresh()->status);
+        $this->assertNull($pending->fresh()->stripe_payment_intent_id);
         $this->assertSame(1, DepositRequest::where('stripe_payment_intent_id', $pi)->count());
+        $this->assertSame(1, DepositRequest::query()
+            ->where('user_id', $advertiser->id)
+            ->where('status', 'completed')
+            ->count());
     }
 
     public function test_existing_deposit_is_completed_at_stripe_amount_not_request_amount(): void
