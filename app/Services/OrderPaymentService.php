@@ -502,6 +502,52 @@ class OrderPaymentService
     }
 
     /**
+     * Idempotency is per Stripe charge, not per 6-digit REF. A later checkout
+     * that reused the session REF must not look "already paid".
+     */
+    public function paidCardOrderCountForStripeCharge(string $referenceCode, object $session, int $payerId = 0): int
+    {
+        [$sessionId, $paymentIntentId] = $this->stripeChargeIds($session);
+        if ($sessionId === '' && $paymentIntentId === '') {
+            return 0;
+        }
+
+        return (int) Order::query()
+            ->where('reference_code', $referenceCode)
+            ->where('payment_method', 'card')
+            ->where('payment_status', 'paid')
+            ->when($payerId > 0, fn ($query) => $query->where('user_id', $payerId))
+            ->where(function ($query) use ($sessionId, $paymentIntentId) {
+                if ($sessionId !== '') {
+                    $query->orWhere('stripe_session_id', $sessionId);
+                }
+                if ($paymentIntentId !== '') {
+                    $query->orWhere('stripe_payment_intent_id', $paymentIntentId);
+                }
+            })
+            ->count();
+    }
+
+    /**
+     * @return array{0: string, 1: string}
+     */
+    private function stripeChargeIds(object $session): array
+    {
+        $id = (string) ($session->id ?? '');
+        $object = (string) ($session->object ?? '');
+        if ($object === 'payment_intent' || str_starts_with($id, 'pi_')) {
+            return ['', $id];
+        }
+
+        $paymentIntent = $session->payment_intent ?? '';
+        if (is_object($paymentIntent)) {
+            $paymentIntent = $paymentIntent->id ?? '';
+        }
+
+        return [$id, (string) $paymentIntent];
+    }
+
+    /**
      * Cache key for Stripe-first card checkout packages (Add Funds style).
      */
     public static function pendingCheckoutCacheKey(string $referenceCode): string
@@ -556,17 +602,19 @@ class OrderPaymentService
         $this->assertStripeObjectIsOrderPayment($session);
 
         $meta = $this->sessionMetadataArray($session);
-        $existingCount = Order::query()
+        $payerId = isset($meta['user_id']) ? (int) $meta['user_id'] : 0;
+        $existing = Order::query()
             ->where('reference_code', $referenceCode)
             ->where('payment_method', 'card')
-            ->when(
-                isset($meta['user_id']) && (int) $meta['user_id'] > 0,
-                fn ($query) => $query->where('user_id', (int) $meta['user_id'])
-            )
-            ->count();
+            ->when($payerId > 0, fn ($query) => $query->where('user_id', $payerId))
+            ->get();
 
-        if ($existingCount > 0) {
+        if ($existing->contains(fn (Order $order) => $this->canMarkCardOrderPaid($order))) {
             return $this->markOrdersPaidFromStripeSession($referenceCode, $session);
+        }
+
+        if ($this->paidCardOrderCountForStripeCharge($referenceCode, $session, $payerId) > 0) {
+            return $existing->filter(fn (Order $order) => $order->payment_status === 'paid')->values();
         }
 
         $package = $this->getPendingCheckout($referenceCode);
@@ -612,8 +660,16 @@ class OrderPaymentService
                 $this->sessionMetadataArray($session)
             );
 
-            if ($already->isNotEmpty()) {
+            if ($already->contains(fn (Order $order) => $this->canMarkCardOrderPaid($order))) {
                 return $this->markOrdersPaidFromStripeSession($referenceCode, $session);
+            }
+
+            if ($this->paidCardOrderCountForStripeCharge(
+                $referenceCode,
+                $session,
+                (int) ($package['user_id'] ?? 0)
+            ) > 0) {
+                return $already->filter(fn (Order $order) => $order->payment_status === 'paid')->values();
             }
 
             $userId = (int) ($package['user_id'] ?? 0);
@@ -651,7 +707,13 @@ class OrderPaymentService
                     continue;
                 }
 
-                $lineKey = $this->checkoutLineKey($referenceCode, $siteId, (int) $index, $userId);
+                $lineKey = $this->checkoutLineKey(
+                    $referenceCode,
+                    $siteId,
+                    (int) $index,
+                    $userId,
+                    (string) ($stripeSessionId ?: $stripePaymentIntentId ?: '')
+                );
 
                 $submissionId = (int) ($line['content_submission_id'] ?? 0);
                 $submission = $submissionId > 0
@@ -957,6 +1019,14 @@ class OrderPaymentService
                 }
 
                 if ((int) $existing->user_id === $userId) {
+                    $chargeToken = (string) ($attrs['stripe_session_id'] ?? $attrs['stripe_payment_intent_id'] ?? '');
+                    if ($existing->payment_status === 'paid' && $chargeToken !== '' && ! str_contains($lineKey, $chargeToken)) {
+                        $lineKey = $this->payerScopedKeyFromLegacy($lineKey, $userId).':'.substr($chargeToken, 0, 40);
+                        $attrs['checkout_line_key'] = $lineKey;
+
+                        continue;
+                    }
+
                     return null;
                 }
 
@@ -979,7 +1049,7 @@ class OrderPaymentService
         return str_pad((string) random_int(1, 999999), 6, '0', STR_PAD_LEFT);
     }
 
-    private function checkoutLineKey(string $referenceCode, int $siteId, int $index, int $userId = 0): string
+    private function checkoutLineKey(string $referenceCode, int $siteId, int $index, int $userId = 0, string $chargeToken = ''): string
     {
         // Qty>1 on one site is a real cart (two articles, two placements).
         // Deduping by site_id dropped the extra copies after Stripe charged them.
@@ -991,12 +1061,22 @@ class OrderPaymentService
             return $legacy;
         }
 
-        $existingOwner = Order::query()
+        $existing = Order::query()
             ->where('checkout_line_key', $legacy)
-            ->value('user_id');
+            ->first();
 
-        if ($existingOwner !== null && (int) $existingOwner !== $userId) {
+        if ($existing === null) {
+            return $legacy;
+        }
+
+        if ((int) $existing->user_id !== $userId) {
             return $this->payerScopedCheckoutLineKey($referenceCode, $siteId, $index, $userId);
+        }
+
+        if ($existing->payment_status === 'paid' && $chargeToken !== '') {
+            $token = substr($chargeToken, 0, 40);
+
+            return $this->payerScopedCheckoutLineKey($referenceCode, $siteId, $index, $userId).':'.$token;
         }
 
         return $legacy;

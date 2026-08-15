@@ -5,7 +5,6 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Models\Order;
 use App\Models\Site;
 use App\Models\StripeWebhookLog;
 use App\Models\User;
@@ -461,17 +460,18 @@ class StripeWebhookController extends Controller
 
         if ($newlyPaid->isEmpty()) {
             $payerId = isset($metadata['user_id']) ? (int) $metadata['user_id'] : 0;
-            $existingPaid = Order::where('reference_code', $referenceCode)
-                ->where('payment_method', 'card')
-                ->where('payment_status', 'paid')
-                ->when($payerId > 0, fn ($query) => $query->where('user_id', $payerId))
-                ->count();
+            $existingPaid = $paymentService->paidCardOrderCountForStripeCharge(
+                $referenceCode,
+                $session,
+                $payerId
+            );
 
             if ($payerId > 0 && $existingPaid > 0) {
                 Log::info('Order payment already finalized (idempotent webhook)', [
                     'reference_code' => $referenceCode,
                     'paid_count' => $existingPaid,
                     'user_id' => $payerId,
+                    'session_id' => $session->id ?? null,
                 ]);
 
                 return;
@@ -541,16 +541,17 @@ class StripeWebhookController extends Controller
 
         if ($newlyPaid->isEmpty()) {
             $payerId = isset($metadata['user_id']) ? (int) $metadata['user_id'] : 0;
-            $existingPaid = Order::where('reference_code', $referenceCode)
-                ->where('payment_method', 'card')
-                ->where('payment_status', 'paid')
-                ->when($payerId > 0, fn ($query) => $query->where('user_id', $payerId))
-                ->count();
+            $existingPaid = $paymentService->paidCardOrderCountForStripeCharge(
+                $referenceCode,
+                $intent,
+                $payerId
+            );
 
             if ($payerId > 0 && $existingPaid > 0) {
                 Log::info('Order PI payment already finalized (idempotent webhook)', [
                     'reference_code' => $referenceCode,
                     'user_id' => $payerId,
+                    'payment_intent_id' => $intent->id ?? null,
                 ]);
 
                 return;

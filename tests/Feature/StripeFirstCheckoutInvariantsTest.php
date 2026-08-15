@@ -990,6 +990,51 @@ class StripeFirstCheckoutInvariantsTest extends TestCase
         $this->assertEqualsWithDelta(0.0, $payments->unfulfilledCardCreditAmount($ref, $second->id), 0.01);
     }
 
+    public function test_second_card_charge_on_same_ref_creates_another_order(): void
+    {
+        $advertiser = $this->makeUser('advertiser');
+        $publisher = $this->makeUser('publisher');
+        $firstSite = $this->makeSite($publisher, 'second-charge-a.example', 80);
+        $secondSite = $this->makeSite($publisher, 'second-charge-b.example', 40);
+        $ref = 'REUSE-REF-1';
+        $payments = app(OrderPaymentService::class);
+
+        $payments->storePendingCheckout($ref, $this->package($advertiser, [$this->lineFor($firstSite, 80)], 80));
+        $first = $payments->finalizeStripeFirstCheckout($ref, $this->paidSession($ref, 80, 'cs_reuse_first'));
+        $this->assertCount(1, $first);
+
+        $payments->storePendingCheckout($ref, $this->package($advertiser, [$this->lineFor($secondSite, 40)], 40));
+
+        $this->signedWebhook([
+            'id' => 'evt_reuse_second_'.uniqid(),
+            'object' => 'event',
+            'type' => 'checkout.session.completed',
+            'data' => [
+                'object' => [
+                    'id' => 'cs_reuse_second',
+                    'object' => 'checkout.session',
+                    'payment_status' => 'paid',
+                    'amount_total' => 4000,
+                    'payment_intent' => 'pi_reuse_second',
+                    'metadata' => [
+                        'type' => 'order_payment',
+                        'reference_code' => $ref,
+                        'user_id' => (string) $advertiser->id,
+                        'expected_amount' => '40',
+                    ],
+                ],
+            ],
+        ])->assertOk();
+
+        $this->assertSame(2, Order::query()
+            ->where('user_id', $advertiser->id)
+            ->where('reference_code', $ref)
+            ->where('payment_status', 'paid')
+            ->count());
+        $this->assertSame(1, Order::query()->where('stripe_session_id', 'cs_reuse_second')->count());
+        $this->assertEqualsWithDelta(0.0, $payments->unfulfilledCardCreditAmount($ref, $advertiser->id), 0.01);
+    }
+
     public function test_store_package_refuses_to_overwrite_another_users_checkout(): void
     {
         $owner = $this->makeUser('advertiser');

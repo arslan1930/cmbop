@@ -4983,7 +4983,7 @@ class CatalogController extends Controller
             : str_pad((string) random_int(1, 999999), 6, '0', STR_PAD_LEFT);
 
         for ($attempt = 0; $attempt < 8; $attempt++) {
-            if (! $this->checkoutReferenceTakenByAnotherUser($userId, $candidate)) {
+            if (! $this->checkoutReferenceUnavailable($userId, $candidate)) {
                 return $candidate;
             }
             $candidate = str_pad((string) random_int(1, 999999), 6, '0', STR_PAD_LEFT);
@@ -4993,10 +4993,12 @@ class CatalogController extends Controller
     }
 
     /**
-     * 6-digit client REFs collide. Never reuse a reference that already has
-     * another advertiser's Stripe-first package or card orders.
+     * 6-digit client REFs are reused from session after a successful pay.
+     * Never reuse a reference that already settled a card charge (this
+     * advertiser or another) — a second capture would look idempotent.
+     * Failed/pending rows stay reusable for Pay again.
      */
-    private function checkoutReferenceTakenByAnotherUser(int $userId, string $referenceCode): bool
+    private function checkoutReferenceUnavailable(int $userId, string $referenceCode): bool
     {
         $package = app(OrderPaymentService::class)->getPendingCheckout($referenceCode);
         $ownerId = (int) ($package['user_id'] ?? 0);
@@ -5007,7 +5009,13 @@ class CatalogController extends Controller
         return Order::query()
             ->where('reference_code', $referenceCode)
             ->where('payment_method', 'card')
-            ->where('user_id', '!=', $userId)
+            ->where(function ($query) use ($userId) {
+                $query->where('user_id', '!=', $userId)
+                    ->orWhere(function ($own) use ($userId) {
+                        $own->where('user_id', $userId)
+                            ->whereIn('payment_status', ['paid', 'refunded']);
+                    });
+            })
             ->exists();
     }
 
