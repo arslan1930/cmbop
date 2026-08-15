@@ -14,7 +14,7 @@
             </p>
         </div>
         <div class="d-flex flex-wrap gap-2 align-items-start">
-            <form method="GET" action="{{ route('admin.finance') }}" class="d-flex flex-wrap gap-2 align-items-end">
+            <form method="GET" action="{{ route('admin.finance', [], false) }}" class="d-flex flex-wrap gap-2 align-items-end">
                 <div style="min-width:220px">
                     <x-slb-search-field
                         name="q"
@@ -26,10 +26,10 @@
                 </div>
                 <button class="btn btn-sm btn-outline-primary mb-3">Open</button>
             </form>
-            <a href="{{ route('admin.finance.ledger') }}" class="btn btn-sm btn-outline-secondary">
+            <a href="{{ route('admin.finance.ledger', [], false) }}" class="btn btn-sm btn-outline-secondary">
                 <i class="fa fa-book me-1"></i> Wallet ledger
             </a>
-            <a href="{{ route('admin.finance.export', request()->query()) }}" class="btn btn-sm btn-outline-primary">
+            <a href="{{ route('admin.finance.export', request()->query(), false) }}" class="btn btn-sm btn-outline-primary">
                 <i class="fa fa-file-csv me-1"></i> Export period CSV
             </a>
         </div>
@@ -41,7 +41,7 @@
                 <div class="col-auto">
                     <div class="btn-group btn-group-sm" role="group">
                         @foreach(['week' => 'This week', 'month' => 'This month', 'all' => 'All time'] as $key => $label)
-                            <a href="{{ route('admin.finance', ['period' => $key]) }}"
+                            <a href="{{ route('admin.finance', ['period' => $key], false) }}"
                                class="btn {{ $periodKey === $key && !$dateFrom && !$dateTo ? 'btn-primary' : 'btn-outline-secondary' }}">
                                 {{ $label }}
                             </a>
@@ -81,11 +81,11 @@
                                 @foreach($userMatches as $match)
                                     <tr>
                                         <td class="small">
-                                            <a href="{{ route('admin.finance.user', $match) }}">{{ $match->name }}</a>
+                                            <a href="{{ route('admin.finance.user', $match, false) }}">{{ $match->name }}</a>
                                             <div class="text-muted">{{ $match->email }}</div>
                                         </td>
                                         <td class="text-end">
-                                            <a href="{{ route('admin.finance.user', $match) }}" class="btn btn-sm btn-outline-secondary">Dossier</a>
+                                            <a href="{{ route('admin.finance.user', $match, false) }}" class="btn btn-sm btn-outline-secondary">Dossier</a>
                                         </td>
                                     </tr>
                                 @endforeach
@@ -159,7 +159,7 @@
                                                 <a href="{{ $row['url'] }}">WD-{{ $row['id'] }}</a>
                                             </td>
                                             <td class="small">
-                                                <a href="{{ route('admin.finance.user', $row['user_id']) }}">{{ $row['name'] }}</a>
+                                                <a href="{{ route('admin.finance.user', $row['user_id'], false) }}">{{ $row['name'] }}</a>
                                                 <div class="text-muted">{{ $row['email'] }}</div>
                                             </td>
                                             <td class="fw-semibold">{{ $euro($row['net_amount']) }}</td>
@@ -449,7 +449,7 @@
         <div class="col-md-3"><a href="{{ route('admin.payments') }}" class="btn btn-outline-secondary w-100 btn-sm"><i class="fa fa-money-bill me-1"></i> Order payments</a></div>
         <div class="col-md-3"><a href="{{ route('admin.deposits') }}" class="btn btn-outline-secondary w-100 btn-sm"><i class="fa fa-wallet me-1"></i> Deposits</a></div>
         <div class="col-md-3"><a href="{{ route('admin.withdrawals', [], false) }}" class="btn btn-outline-secondary w-100 btn-sm"><i class="fa fa-money-bill-wave me-1"></i> Withdrawals</a></div>
-        <div class="col-md-3"><a href="{{ route('admin.invoices.index') }}" class="btn btn-outline-secondary w-100 btn-sm"><i class="fa fa-file-invoice-dollar me-1"></i> Invoices</a></div>
+        <div class="col-md-3"><a href="{{ route('admin.invoices.index', [], false) }}" class="btn btn-outline-secondary w-100 btn-sm"><i class="fa fa-file-invoice-dollar me-1"></i> Invoices</a></div>
     </div>
 </div>
 @endsection

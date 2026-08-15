@@ -459,6 +459,34 @@ class EmailCatalog
 
         $class = $meta['mailable'];
 
+        // Billing previews must not query orders/sites. A missing orders
+        // table (or a failed sampleOrder) would 500 Email Center. Samples
+        // are in-memory (id 0) so preview/test-send cannot mint a live
+        // signed settle/approve CTA or reconcile a real PAY row.
+        if (in_array($key, ['withdrawal_request', 'withdrawal_requested_confirmation', 'withdrawal_status'], true)) {
+            $user = self::sampleUser();
+
+            return match ($key) {
+                'withdrawal_request' => new WithdrawalRequestNotification(self::sampleWithdrawal(), $user),
+                'withdrawal_requested_confirmation' => new WithdrawalRequestedConfirmation(self::sampleWithdrawal()),
+                default => new WithdrawalStatusUpdated(
+                    self::sampleWithdrawal(),
+                    'pending',
+                    'completed',
+                    'Sample approval notes for preview.'
+                ),
+            };
+        }
+
+        if (in_array($key, ['deposit_submitted', 'deposit_marked_paid', 'deposit_approved', 'deposit_rejected'], true)) {
+            return match ($key) {
+                'deposit_submitted' => new DepositRequestSubmitted(self::sampleDeposit()),
+                'deposit_marked_paid' => new DepositMarkedPaid(self::sampleDeposit()),
+                'deposit_approved' => new DepositApproved(self::sampleDeposit()),
+                default => new DepositRejected(self::sampleDeposit()),
+            };
+        }
+
         $order = self::sampleOrder();
         $item = self::sampleOrderItem();
         $site = self::sampleSite();
@@ -496,18 +524,6 @@ class EmailCatalog
                 [$order],
                 'bank_transfer',
                 (float) $order->total_amount
-            ),
-            'deposit_submitted' => new DepositRequestSubmitted(self::sampleDeposit()),
-            'deposit_marked_paid' => new DepositMarkedPaid(self::sampleDeposit()),
-            'deposit_approved' => new DepositApproved(self::sampleDeposit()),
-            'deposit_rejected' => new DepositRejected(self::sampleDeposit()),
-            'withdrawal_request' => new WithdrawalRequestNotification(self::sampleWithdrawal(), $user),
-            'withdrawal_requested_confirmation' => new WithdrawalRequestedConfirmation(self::sampleWithdrawal()),
-            'withdrawal_status' => new WithdrawalStatusUpdated(
-                self::sampleWithdrawal(),
-                'pending',
-                'approved',
-                'Sample approval notes for preview.'
             ),
             'new_site' => new NewSiteNotification($site, 'create'),
             'site_status' => new SiteStatusNotification(
@@ -708,18 +724,13 @@ class EmailCatalog
 
     protected static function sampleDeposit(): DepositRequest
     {
-        $deposit = DepositRequest::query()->with('user')->latest('id')->first();
-        if ($deposit) {
-            return $deposit;
-        }
-
         $deposit = new DepositRequest([
             'amount' => 100,
             'status' => 'pending',
             'payment_method' => 'bank_transfer',
             'reference_code' => 'DEP-PREVIEW',
         ]);
-        $deposit->id = 1;
+        $deposit->id = 0;
         $deposit->created_at = now();
         $deposit->updated_at = now();
         $deposit->approved_at = now();
@@ -830,19 +841,15 @@ class EmailCatalog
 
     protected static function sampleWithdrawal(): Withdrawal
     {
-        $withdrawal = Withdrawal::query()->with('user')->latest('id')->first();
-        if ($withdrawal) {
-            return $withdrawal;
-        }
-
         $withdrawal = new Withdrawal([
             'amount' => 50,
             'fee' => 0,
             'net_amount' => 50,
             'status' => 'pending',
             'payment_method' => 'paypal',
+            'payment_details' => ['email' => 'publisher@example.com'],
         ]);
-        $withdrawal->id = 1;
+        $withdrawal->id = 0;
         $withdrawal->created_at = now();
         $withdrawal->updated_at = now();
         $withdrawal->processed_at = now();

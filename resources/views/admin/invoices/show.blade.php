@@ -89,6 +89,22 @@
                             <span class="text-muted d-block">Method</span>
                             <strong>{{ \App\Models\Invoice::paymentMethodLabel($invoice->payment_method) }}</strong>
                         </div>
+                        @if($invoice->isWithdrawalPayout())
+                            @php
+                                $snapDetails = \App\Models\Withdrawal::detailsArray($snapshot['payment_details'] ?? null);
+                                $destLines = array_values(array_filter([
+                                    \App\Models\Withdrawal::destinationText($snapDetails, 'email'),
+                                    \App\Models\Withdrawal::destinationText($snapDetails, 'account_holder'),
+                                    \App\Models\Withdrawal::destinationText($snapDetails, 'account_number'),
+                                    \App\Models\Withdrawal::destinationText($snapDetails, 'bank_name'),
+                                    \App\Models\Withdrawal::destinationText($snapDetails, 'wallet_address'),
+                                ]));
+                            @endphp
+                            <div class="col-md-4">
+                                <span class="text-muted d-block">Sent to</span>
+                                <strong class="text-break">{{ $destLines !== [] ? implode(' · ', $destLines) : '—' }}</strong>
+                            </div>
+                        @endif
                         <div class="col-md-4">
                             <span class="text-muted d-block">Transaction</span>
                             <strong class="text-break">{{ $invoice->transaction_id ?: '—' }}</strong>

@@ -86,10 +86,14 @@ class DepositEmailApproveCtaWiringTest extends TestCase
             strtolower((string) ($catalog['deposit_submitted']['description'] ?? ''))
         );
 
+        $live = $this->pendingDeposit($this->advertiser());
+
         $preview = EmailCatalog::makeMailable('deposit_marked_paid');
         $this->assertInstanceOf(DepositMarkedPaid::class, $preview);
         $html = $preview->render();
         $this->assertStringContainsString('approve-confirm', $html);
         $this->assertStringContainsString('signature=', $html);
+        $this->assertStringNotContainsString('/admin/deposits/'.$live->id.'/approve-confirm', $html);
+        $this->assertStringContainsString('/admin/deposits/0/approve-confirm', $html);
     }
 }

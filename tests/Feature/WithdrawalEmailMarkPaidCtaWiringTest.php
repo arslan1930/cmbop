@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Mail\WithdrawalRequestNotification;
+use App\Models\Invoice;
 use App\Models\Role;
 use App\Models\User;
 use App\Models\Withdrawal;
@@ -70,5 +71,76 @@ class WithdrawalEmailMarkPaidCtaWiringTest extends TestCase
         $html = $preview->render();
         $this->assertStringContainsString('mark-paid-confirm', $html);
         $this->assertStringContainsString('signature=', $html);
+
+        $status = EmailCatalog::makeMailable('withdrawal_status');
+        $this->assertNotNull($status);
+        $statusHtml = $status->render();
+        $this->assertStringContainsString('payout documents', strtolower(strip_tags($statusHtml)));
+        $this->assertStringNotContainsString('TypeError', $statusHtml);
+    }
+
+    public function test_email_catalog_withdrawal_preview_does_not_use_live_withdrawal(): void
+    {
+        $publisher = $this->publisher();
+        $live = Withdrawal::create([
+            'user_id' => $publisher->id,
+            'amount' => 88,
+            'fee' => 0,
+            'net_amount' => 88,
+            'payment_method' => 'paypal',
+            'payment_details' => ['email' => 'live-pub@example.com'],
+            'status' => 'pending',
+        ]);
+
+        $preview = EmailCatalog::makeMailable('withdrawal_request');
+        $this->assertInstanceOf(WithdrawalRequestNotification::class, $preview);
+        $html = $preview->render();
+
+        $this->assertStringNotContainsString('/admin/withdrawals/'.$live->id.'/mark-paid-confirm', $html);
+        $this->assertStringContainsString('/admin/withdrawals/0/mark-paid-confirm', $html);
+        $this->assertStringNotContainsString('live-pub@example.com', $html);
+    }
+
+    public function test_email_catalog_status_preview_does_not_reconcile_live_statement(): void
+    {
+        $publisher = $this->publisher();
+        $other = User::factory()->create([
+            'name' => 'Leftover Payee',
+            'email' => 'leftover-payee@example.com',
+            'email_verified_at' => now(),
+        ]);
+        $withdrawal = Withdrawal::create([
+            'user_id' => $publisher->id,
+            'amount' => 75,
+            'fee' => 0,
+            'net_amount' => 75,
+            'payment_method' => 'paypal',
+            'payment_details' => ['email' => 'owner@example.com'],
+            'status' => 'completed',
+            'processed_at' => now(),
+        ]);
+        $statement = Invoice::create([
+            'user_id' => $other->id,
+            'customer_name' => $other->name,
+            'customer_email' => $other->email,
+            'invoice_number' => 'PAY-PREVIEW-SIDE-EFFECT',
+            'type' => Invoice::TYPE_WITHDRAWAL_PAYOUT,
+            'status' => Invoice::STATUS_PAID,
+            'subtotal' => 75,
+            'total_amount' => 75,
+            'invoice_date' => now(),
+            'line_items' => [['description' => 'Payout', 'line_total' => 75]],
+            'reference_code' => 'WD-'.$withdrawal->id,
+            'meta' => ['withdrawal_id' => $withdrawal->id],
+        ]);
+
+        $status = EmailCatalog::makeMailable('withdrawal_status');
+        $this->assertNotNull($status);
+        $status->render();
+
+        $statement->refresh();
+        $this->assertSame($other->id, (int) $statement->user_id);
+        $this->assertSame('Leftover Payee', $statement->customer_name);
+        $this->assertSame('leftover-payee@example.com', $statement->customer_email);
     }
 }
