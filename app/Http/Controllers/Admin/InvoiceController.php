@@ -95,6 +95,7 @@ class InvoiceController extends Controller
     public function show(Invoice $invoice, WithdrawalPayoutStatementService $statements)
     {
         $invoice = $statements->reconcileInvoice($invoice);
+        $invoice = $statements->normalizeLegacyFeeLineItems($invoice);
         $invoice->load([
             'user:id,name,email',
             'order:id,order_number',

@@ -8,7 +8,7 @@
 @endphp
 <div class="container-fluid">
     <div class="mb-3">
-        <a href="{{ route('admin.invoices.index') }}" class="small text-muted text-decoration-none">
+        <a href="{{ route('admin.invoices.index', [], false) }}" class="small text-muted text-decoration-none">
             <i class="fa fa-arrow-left me-1"></i> All invoices
         </a>
     </div>
@@ -26,14 +26,14 @@
             </p>
         </div>
         <div class="col-md-6 d-flex flex-wrap gap-2 justify-content-md-end">
-            <a href="{{ route('admin.invoices.view', $invoice) }}" class="btn btn-sm btn-outline-secondary" target="_blank">View PDF</a>
-            <a href="{{ route('admin.invoices.download', $invoice) }}" class="btn btn-sm btn-primary">Download PDF</a>
-            <form method="POST" action="{{ route('admin.invoices.regenerate-pdf', $invoice) }}">
+            <a href="{{ route('admin.invoices.view', $invoice, false) }}" class="btn btn-sm btn-outline-secondary" target="_blank">View PDF</a>
+            <a href="{{ route('admin.invoices.download', $invoice, false) }}" class="btn btn-sm btn-primary">Download PDF</a>
+            <form method="POST" action="{{ route('admin.invoices.regenerate-pdf', $invoice, false) }}">
                 @csrf
                 <button class="btn btn-sm btn-outline-secondary">Regenerate PDF</button>
             </form>
             @if(! $invoice->isCancelled())
-                <form method="POST" action="{{ route('admin.invoices.resend', $invoice) }}"
+                <form method="POST" action="{{ route('admin.invoices.resend', $invoice, false) }}"
                       data-slb-confirm="Resend this document email to {{ $invoice->customer_email }}?"
                       data-slb-confirm-title="Resend email?"
                       data-slb-confirm-text="Resend">
@@ -110,6 +110,7 @@
                         </thead>
                         <tbody>
                             @forelse($lineItems as $line)
+                                @continue(! is_array($line))
                                 <tr>
                                     <td>{{ $line['description'] ?? '—' }}</td>
                                     <td>{{ $line['publisher_website'] ?? $line['reference'] ?? '—' }}</td>
@@ -127,7 +128,7 @@
                 <div class="card border-0 shadow-sm">
                     <div class="card-header bg-white fw-semibold">Cancel invoice</div>
                     <div class="card-body">
-                        <form method="POST" action="{{ route('admin.invoices.cancel', $invoice) }}"
+                        <form method="POST" action="{{ route('admin.invoices.cancel', $invoice, false) }}"
                               data-slb-confirm="Cancel this invoice? The PDF will be retained."
                               data-slb-confirm-title="Cancel invoice?"
                               data-slb-confirm-text="Cancel invoice"

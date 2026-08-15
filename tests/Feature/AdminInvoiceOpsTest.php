@@ -580,4 +580,106 @@ class AdminInvoiceOpsTest extends TestCase
         $this->assertSame('Current Owner', $fresh->customer_name);
         $this->assertNull($fresh->pdf_path);
     }
+
+    public function test_admin_payout_show_keeps_pdf_actions_on_this_host(): void
+    {
+        $admin = $this->admin();
+        $publisher = $this->publisher();
+        $withdrawal = Withdrawal::create([
+            'user_id' => $publisher->id,
+            'amount' => 100,
+            'fee' => 5,
+            'net_amount' => 95,
+            'payment_method' => 'wise',
+            'payment_details' => ['email' => 'wise@example.com'],
+            'status' => 'completed',
+            'processed_at' => now(),
+        ]);
+        $statement = Invoice::create([
+            'user_id' => $publisher->id,
+            'customer_name' => $publisher->name,
+            'customer_email' => $publisher->email,
+            'invoice_number' => 'PAY-SHOW-HOST-1',
+            'type' => Invoice::TYPE_WITHDRAWAL_PAYOUT,
+            'status' => Invoice::STATUS_PAID,
+            'subtotal' => 95,
+            'total_amount' => 95,
+            'invoice_date' => now(),
+            'line_items' => [['description' => 'Payout', 'line_total' => 95]],
+            'pdf_disk' => 'local',
+            'reference_code' => 'WD-'.$withdrawal->id,
+            'meta' => ['withdrawal_id' => $withdrawal->id],
+        ]);
+
+        $html = $this->actingAs($admin)
+            ->get(route('admin.invoices.show', $statement))
+            ->assertOk()
+            ->getContent();
+
+        $viewPath = parse_url(route('admin.invoices.view', $statement), PHP_URL_PATH);
+        $downloadPath = parse_url(route('admin.invoices.download', $statement), PHP_URL_PATH);
+        $regenPath = parse_url(route('admin.invoices.regenerate-pdf', $statement), PHP_URL_PATH);
+        $resendPath = parse_url(route('admin.invoices.resend', $statement), PHP_URL_PATH);
+
+        $this->assertIsString($viewPath);
+        $this->assertIsString($downloadPath);
+        $this->assertIsString($regenPath);
+        $this->assertIsString($resendPath);
+        $this->assertStringContainsString('href="'.$viewPath.'"', $html);
+        $this->assertStringContainsString('href="'.$downloadPath.'"', $html);
+        $this->assertStringContainsString('action="'.$regenPath.'"', $html);
+        $this->assertStringContainsString('action="'.$resendPath.'"', $html);
+        $this->assertStringNotContainsString('href="'.route('admin.invoices.view', $statement).'"', $html);
+        $this->assertStringNotContainsString('href="'.route('admin.invoices.download', $statement).'"', $html);
+        $this->assertStringNotContainsString('action="'.route('admin.invoices.regenerate-pdf', $statement).'"', $html);
+        $this->assertStringNotContainsString('action="'.route('admin.invoices.resend', $statement).'"', $html);
+    }
+
+    public function test_admin_payout_show_strips_legacy_fee_lines_and_ignores_scalar_items(): void
+    {
+        $admin = $this->admin();
+        $publisher = $this->publisher();
+        $withdrawal = Withdrawal::create([
+            'user_id' => $publisher->id,
+            'amount' => 100,
+            'fee' => 5,
+            'net_amount' => 95,
+            'payment_method' => 'wise',
+            'payment_details' => ['email' => 'wise@example.com'],
+            'status' => 'completed',
+            'processed_at' => now(),
+        ]);
+        $statement = Invoice::create([
+            'user_id' => $publisher->id,
+            'customer_name' => $publisher->name,
+            'customer_email' => $publisher->email,
+            'invoice_number' => 'PAY-SHOW-LINES-1',
+            'type' => Invoice::TYPE_WITHDRAWAL_PAYOUT,
+            'status' => Invoice::STATUS_PAID,
+            'subtotal' => 100,
+            'discount_amount' => 5,
+            'total_amount' => 95,
+            'invoice_date' => now(),
+            'line_items' => [
+                ['description' => 'Publisher withdrawal payout', 'line_total' => 100],
+                ['description' => 'Withdrawal fee', 'line_total' => -5],
+                'not-an-array',
+            ],
+            'pdf_disk' => 'local',
+            'reference_code' => 'WD-'.$withdrawal->id,
+            'meta' => ['withdrawal_id' => $withdrawal->id],
+        ]);
+
+        $this->actingAs($admin)
+            ->get(route('admin.invoices.show', $statement))
+            ->assertOk()
+            ->assertSee('Publisher withdrawal payout', false)
+            ->assertDontSee('Withdrawal fee', false)
+            ->assertDontSee('not-an-array', false);
+
+        $fresh = $statement->fresh();
+        $this->assertCount(1, $fresh->line_items);
+        $this->assertSame('Publisher withdrawal payout', $fresh->line_items[0]['description'] ?? null);
+        $this->assertNull($fresh->pdf_path);
+    }
 }
