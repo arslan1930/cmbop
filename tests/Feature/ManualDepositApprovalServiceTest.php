@@ -10,6 +10,7 @@ use App\Models\Wallet;
 use App\Models\WalletTransaction;
 use App\Services\Wallet\ManualDepositAlreadyProcessedException;
 use App\Services\Wallet\ManualDepositApprovalService;
+use App\Services\Wallet\ManualDepositNotManualException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Mail;
 use Tests\TestCase;
@@ -151,5 +152,63 @@ class ManualDepositApprovalServiceTest extends TestCase
 
         $this->assertSame(55.0, (float) $wallet->fresh()->balance);
         Mail::assertQueued(DepositApproved::class, 1);
+    }
+
+    public function test_approve_refuses_card_deposits(): void
+    {
+        $admin = $this->admin();
+        $advertiser = $this->advertiser();
+        $wallet = $this->walletFor($advertiser);
+        $deposit = $this->pendingDeposit($advertiser, 40, 'card');
+
+        try {
+            app(ManualDepositApprovalService::class)->approve($deposit, $admin);
+            $this->fail('Expected ManualDepositNotManualException');
+        } catch (ManualDepositNotManualException $e) {
+            $this->assertStringContainsString('Stripe', $e->getMessage());
+        }
+
+        $this->assertSame('pending', $deposit->fresh()->status);
+        $this->assertSame(0.0, (float) $wallet->fresh()->balance);
+        Mail::assertNothingQueued();
+    }
+
+    public function test_approve_refuses_manual_method_tied_to_stripe(): void
+    {
+        $admin = $this->admin();
+        $advertiser = $this->advertiser();
+        $wallet = $this->walletFor($advertiser);
+        $deposit = $this->pendingDeposit($advertiser, 40, 'bank');
+        $deposit->update(['stripe_payment_intent_id' => 'pi_mixed_svc']);
+
+        try {
+            app(ManualDepositApprovalService::class)->approve($deposit->fresh(), $admin);
+            $this->fail('Expected ManualDepositNotManualException');
+        } catch (ManualDepositNotManualException $e) {
+            $this->assertStringContainsString('Stripe', $e->getMessage());
+        }
+
+        $this->assertSame('pending', $deposit->fresh()->status);
+        $this->assertSame(0.0, (float) $wallet->fresh()->balance);
+        Mail::assertNothingQueued();
+    }
+
+    public function test_approve_refuses_zero_amount(): void
+    {
+        $admin = $this->admin();
+        $advertiser = $this->advertiser();
+        $wallet = $this->walletFor($advertiser);
+        $deposit = $this->pendingDeposit($advertiser, 0, 'bank');
+
+        try {
+            app(ManualDepositApprovalService::class)->approve($deposit, $admin);
+            $this->fail('Expected RuntimeException');
+        } catch (\RuntimeException $e) {
+            $this->assertStringContainsString('greater than zero', $e->getMessage());
+        }
+
+        $this->assertSame('pending', $deposit->fresh()->status);
+        $this->assertSame(0.0, (float) $wallet->fresh()->balance);
+        Mail::assertNothingQueued();
     }
 }

@@ -14,7 +14,6 @@ use App\Services\ActivityLogger;
 use App\Services\Advertiser\SpendBudgetService;
 use App\Services\Billing\AdminInvoiceLinks;
 use App\Services\Billing\BillingDocumentService;
-use App\Services\CheckoutIntentService;
 use App\Services\CheckoutSchemaService;
 use App\Services\InAppNotificationService;
 use App\Services\OrderPaymentService;
@@ -643,6 +642,8 @@ class PaymentController extends Controller
                 'email' => $order->user->email,
             ] : null,
             'allowed_statuses' => $this->allowedPaymentStatuses($order),
+            'invoice_url' => $order->invoice_url,
+            'invoice_documents' => $order->invoice_documents ?? [],
         ];
     }
 

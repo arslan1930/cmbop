@@ -195,7 +195,7 @@
                                     <span class="badge bg-danger">Rejected</span>
                                 @endif
                             </td>
-                            <td>{{ $deposit->created_at->format('M d, Y') }}</td>
+                            <td>{{ optional($deposit->created_at)->format('M d, Y') }}</td>
                             <td>
                                 <div class="d-flex flex-wrap gap-1">
                                     <button class="btn btn-sm btn-outline-primary view-deposit"
@@ -232,7 +232,7 @@
 
 <!-- Deposit Details Modal -->
 <div class="modal fade" id="depositModal" tabindex="-1">
-    <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title">Deposit Request Details</h5>
@@ -307,7 +307,7 @@ document.addEventListener('DOMContentLoaded', function() {
             .then(readJsonResponse)
             .then(data => {
                 if (data.success) {
-                    renderDepositModal(data.deposit, data.invoice);
+                    renderDepositModal(data.deposit, data.invoice, data.wallet);
                     const modal = new bootstrap.Modal(document.getElementById('depositModal'));
                     modal.show();
                 } else {
@@ -321,7 +321,81 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
     
-    function renderDepositModal(deposit, invoice) {
+    function euroLabel(value) {
+        const amount = Number(value);
+        return '€' + (Number.isFinite(amount) ? amount.toFixed(2) : '0.00');
+    }
+
+    function renderWalletContext(wallet) {
+        wallet = wallet || {};
+        let html = '';
+
+        if (wallet.possible_duplicate && (wallet.duplicate_matches || []).length) {
+            html += `
+                <div class="alert alert-warning text-start mb-3" role="alert">
+                    <p class="mb-2">
+                        <strong>Possible duplicate:</strong>
+                        this advertiser already received the same amount recently.
+                        Confirm this is a separate transfer before crediting again.
+                    </p>
+                    <ul class="mb-0 small ps-3">
+            `;
+            (wallet.duplicate_matches || []).forEach(function (match) {
+                html += `<li>${euroLabel(match.amount)} on ${escapeHtml(match.date_label || '')} (<code>REF${escapeHtml(match.reference_code || '')}</code>)${match.payment_method ? ' · ' + escapeHtml(String(match.payment_method)) : ''}</li>`;
+            });
+            html += '</ul></div>';
+        }
+
+        html += `
+            <div class="border rounded p-3 mb-3 bg-light">
+                <h6 class="text-uppercase text-muted mb-3">Wallet snapshot</h6>
+                <dl class="row mb-0">
+                    <dt class="col-sm-5 text-muted">Current balance</dt>
+                    <dd class="col-sm-7 fw-semibold">${euroLabel(wallet.current_balance)}</dd>
+        `;
+        if (Number(wallet.bonus_balance) > 0) {
+            html += `
+                    <dt class="col-sm-5 text-muted">Of which bonus</dt>
+                    <dd class="col-sm-7">${euroLabel(wallet.bonus_balance)}</dd>
+            `;
+        }
+        if (wallet.can_approve && wallet.projected_balance != null) {
+            html += `
+                    <dt class="col-sm-5 text-muted">After this approval</dt>
+                    <dd class="col-sm-7 fw-semibold text-success">${euroLabel(wallet.current_balance)} → ${euroLabel(wallet.projected_balance)}</dd>
+            `;
+        }
+        html += `
+                </dl>
+            </div>
+            <div class="mb-3">
+                <h6 class="text-uppercase text-muted mb-2">Recent completed deposits</h6>
+        `;
+        if (!(wallet.prior_deposits || []).length) {
+            html += '<p class="text-muted small mb-0">No completed deposits yet for this advertiser.</p>';
+        } else {
+            html += '<ul class="list-unstyled mb-0 small">';
+            (wallet.prior_deposits || []).forEach(function (prior) {
+                html += `
+                    <li class="d-flex justify-content-between gap-2 py-1 border-bottom border-light">
+                        <span>
+                            <strong>${euroLabel(prior.amount)}</strong>
+                            · ${escapeHtml(String(prior.payment_method || ''))}
+                            · <code class="small">REF${escapeHtml(prior.reference_code || '')}</code>
+                        </span>
+                        <span class="text-muted text-nowrap">${escapeHtml(prior.date_label || '')}</span>
+                    </li>
+                `;
+            });
+            html += '</ul>';
+        }
+        html += '</div>';
+
+        return html;
+    }
+
+    function renderDepositModal(deposit, invoice, wallet) {
+        wallet = wallet || {};
         let statusBadge = '';
         if (deposit.status === 'pending') {
             statusBadge = '<span class="badge bg-warning">Pending</span>';
@@ -394,6 +468,8 @@ document.addEventListener('DOMContentLoaded', function() {
             </div>
         `;
 
+        html += renderWalletContext(wallet);
+
         if (invoice && invoice.url) {
             html += `
                 <div class="mb-3">
@@ -418,16 +494,27 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         
         if (deposit.status === 'pending') {
+            const canApprove = !!(wallet && wallet.can_approve);
+            const isCard = !!(wallet && wallet.is_card);
+
+            html += '<hr>';
+            if (isCard) {
+                html += `
+                    <div class="alert alert-info text-start mb-3" role="alert">
+                        This deposit settles through Stripe when the payment succeeds.
+                        Approving it here would credit the wallet twice.
+                    </div>
+                `;
+            }
             html += `
-                <hr>
                 <div class="mb-3">
                     <label class="fw-semibold text-muted small">Admin Notes (Optional)</label>
                     <textarea id="adminNotes" class="form-control" rows="3" placeholder="Add notes about this deposit..."></textarea>
                 </div>
                 <div class="d-flex gap-2">
-                    <button class="btn btn-success approve-deposit" data-id="${deposit.id}">
+                    ${canApprove ? `<button class="btn btn-success approve-deposit" data-id="${deposit.id}">
                         <i class="fa fa-check"></i> Approve & Add Funds
-                    </button>
+                    </button>` : ''}
                     <button class="btn btn-danger reject-deposit" data-id="${deposit.id}">
                         <i class="fa fa-times"></i> Reject
                     </button>
