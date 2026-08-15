@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Publisher;
 
 use App\Http\Controllers\Controller;
 use App\Models\Invoice;
+use App\Models\Withdrawal;
 use App\Services\Billing\BillingDocumentService;
 use App\Services\Billing\InvoicePdfGenerator;
 use App\Services\Billing\WithdrawalPayoutStatementService;
@@ -14,10 +15,29 @@ class BillingController extends Controller
 {
     public function index(Request $request)
     {
+        $userId = (int) auth()->id();
+        $ownedRefs = Withdrawal::query()
+            ->where('user_id', $userId)
+            ->pluck('id')
+            ->map(fn ($id) => 'WD-'.$id)
+            ->all();
+
         $query = Invoice::query()
-            ->where('user_id', auth()->id())
             ->where('type', Invoice::TYPE_WITHDRAWAL_PAYOUT)
-            ->where('status', '!=', Invoice::STATUS_CANCELLED);
+            ->where('status', '!=', Invoice::STATUS_CANCELLED)
+            ->where(function ($q) use ($userId, $ownedRefs) {
+                if ($ownedRefs !== []) {
+                    $q->whereIn('reference_code', $ownedRefs);
+                }
+                $q->orWhere(function ($legacy) use ($userId) {
+                    $legacy->where('user_id', $userId)
+                        ->where(function ($ref) {
+                            $ref->whereNull('reference_code')
+                                ->orWhere('reference_code', '')
+                                ->orWhere('reference_code', 'not like', 'WD-%');
+                        });
+                });
+            });
 
         $search = search_text($request->input('search'));
         if ($search !== '') {
@@ -118,9 +138,29 @@ class BillingController extends Controller
 
     private function authorizeOwner(Invoice $invoice): void
     {
-        if ((int) $invoice->user_id !== (int) auth()->id() && ! auth()->user()?->isAdmin()) {
-            abort(403);
+        $user = auth()->user();
+        if ($user?->isAdmin()) {
+            return;
         }
+
+        $userId = (int) auth()->id();
+        if ($invoice->isWithdrawalPayout()) {
+            $withdrawalId = $invoice->withdrawalId();
+            if ($withdrawalId > 0) {
+                if (Withdrawal::query()->whereKey($withdrawalId)->where('user_id', $userId)->exists()) {
+                    return;
+                }
+                if (Withdrawal::query()->whereKey($withdrawalId)->exists()) {
+                    abort(403);
+                }
+            }
+        }
+
+        if ($userId > 0 && (int) $invoice->user_id === $userId) {
+            return;
+        }
+
+        abort(403);
     }
 
     private function parseDate(mixed $value): ?Carbon

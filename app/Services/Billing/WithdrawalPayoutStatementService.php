@@ -114,12 +114,41 @@ class WithdrawalPayoutStatementService
     {
         $reference = 'WD-'.$withdrawal->id;
 
-        return Invoice::query()
+        $statement = Invoice::query()
             ->where('type', Invoice::TYPE_WITHDRAWAL_PAYOUT)
             ->where('status', '!=', Invoice::STATUS_CANCELLED)
             ->where('reference_code', $reference)
             ->orderByDesc('id')
             ->first();
+
+        return $statement ? $this->reconcileOwner($statement, $withdrawal) : null;
+    }
+
+    /**
+     * WD-{id} is the owner. A stale invoices.user_id would hide the PAY doc
+     * from the publisher and leave it on the wrong billing list.
+     */
+    public function reconcileOwner(Invoice $statement, Withdrawal $withdrawal): Invoice
+    {
+        $ownerId = (int) $withdrawal->user_id;
+        if ($ownerId <= 0 || (int) $statement->user_id === $ownerId) {
+            return $statement;
+        }
+
+        try {
+            $statement->user_id = $ownerId;
+            $statement->save();
+        } catch (\Throwable $e) {
+            Log::warning('Failed to reassign payout statement to withdrawal owner', [
+                'invoice_id' => $statement->id,
+                'withdrawal_id' => $withdrawal->id,
+                'from_user_id' => $statement->user_id,
+                'to_user_id' => $ownerId,
+                'error' => $e->getMessage(),
+            ]);
+        }
+
+        return $statement;
     }
 
     /**

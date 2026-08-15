@@ -121,6 +121,8 @@ class AdminWithdrawalLaterTest extends TestCase
         $this->assertStringContainsString('minChars: 1', $html);
         $this->assertStringContainsString('if (missingStatements > 0)', $html);
         $this->assertStringNotContainsString('missingStatements > 0 && failedCount === 0', $html);
+        $this->assertStringContainsString('body.missing_statement_ids', $html);
+        $this->assertStringContainsString('showHistoryForStatementRetry(missing.length === 1 ? missing[0] : 0)', $html);
     }
 
     public function test_html_show_warns_when_paid_statement_is_missing(): void
@@ -1173,6 +1175,7 @@ class AdminWithdrawalLaterTest extends TestCase
         $found = app(WithdrawalPayoutStatementService::class)->find($withdrawal);
         $this->assertNotNull($found);
         $this->assertSame($statement->id, $found->id);
+        $this->assertSame($publisher->id, (int) $found->fresh()->user_id);
 
         $issued = app(WithdrawalPayoutStatementService::class)->issue($withdrawal);
         $this->assertNotNull($issued);
@@ -1204,5 +1207,96 @@ class AdminWithdrawalLaterTest extends TestCase
         $path = parse_url(route('admin.invoices.show', $statement), PHP_URL_PATH);
         $this->assertIsString($path);
         $this->assertStringContainsString('href="'.$path.'"', $html);
+    }
+
+    public function test_queue_attaches_newest_statement_when_duplicate_wd_refs_exist(): void
+    {
+        $admin = $this->makeUser('admin');
+        $publisher = $this->makeUser('publisher');
+        $withdrawal = $this->seedWithdrawal($publisher, [
+            'status' => 'completed',
+            'processed_at' => now(),
+        ]);
+
+        Invoice::create([
+            'user_id' => $publisher->id,
+            'customer_name' => $publisher->name,
+            'customer_email' => $publisher->email,
+            'invoice_number' => 'PAY-DUP-OLD',
+            'type' => Invoice::TYPE_WITHDRAWAL_PAYOUT,
+            'status' => Invoice::STATUS_PAID,
+            'subtotal' => 95,
+            'total_amount' => 95,
+            'invoice_date' => now()->subDay(),
+            'line_items' => [['description' => 'Payout', 'line_total' => 95]],
+            'pdf_disk' => 'local',
+            'reference_code' => 'WD-'.$withdrawal->id,
+            'meta' => ['withdrawal_id' => $withdrawal->id],
+        ]);
+        $newest = Invoice::create([
+            'user_id' => $publisher->id,
+            'customer_name' => $publisher->name,
+            'customer_email' => $publisher->email,
+            'invoice_number' => 'PAY-DUP-NEW',
+            'type' => Invoice::TYPE_WITHDRAWAL_PAYOUT,
+            'status' => Invoice::STATUS_PAID,
+            'subtotal' => 95,
+            'total_amount' => 95,
+            'invoice_date' => now(),
+            'line_items' => [['description' => 'Payout', 'line_total' => 95]],
+            'pdf_disk' => 'local',
+            'reference_code' => 'WD-'.$withdrawal->id,
+            'meta' => ['withdrawal_id' => $withdrawal->id],
+        ]);
+
+        $this->actingAs($admin)
+            ->getJson(route('admin.withdrawals.data', ['queue' => 'history', 'search' => (string) $withdrawal->id]))
+            ->assertOk()
+            ->assertJsonPath('data.0.invoice.id', $newest->id)
+            ->assertJsonPath('data.0.invoice.invoice_number', 'PAY-DUP-NEW');
+    }
+
+    public function test_publisher_can_open_statement_for_their_withdrawal_when_invoice_user_id_differs(): void
+    {
+        $publisher = $this->makeUser('publisher');
+        $other = $this->makeUser('publisher');
+        $withdrawal = $this->seedWithdrawal($publisher, [
+            'status' => 'completed',
+            'processed_at' => now(),
+        ]);
+        $statement = Invoice::create([
+            'user_id' => $other->id,
+            'customer_name' => $other->name,
+            'customer_email' => $other->email,
+            'invoice_number' => 'PAY-OWNER-ACCESS-1',
+            'type' => Invoice::TYPE_WITHDRAWAL_PAYOUT,
+            'status' => Invoice::STATUS_PAID,
+            'subtotal' => 95,
+            'total_amount' => 95,
+            'invoice_date' => now(),
+            'line_items' => [['description' => 'Payout', 'line_total' => 95]],
+            'pdf_disk' => 'local',
+            'reference_code' => 'WD-'.$withdrawal->id,
+            'meta' => ['withdrawal_id' => $withdrawal->id],
+        ]);
+
+        $this->actingAs($publisher)
+            ->get(route('publisher.billing.index'))
+            ->assertOk()
+            ->assertSee('PAY-OWNER-ACCESS-1', false);
+
+        $this->actingAs($publisher)
+            ->get(route('publisher.billing.show', $statement))
+            ->assertOk()
+            ->assertSee('PAY-OWNER-ACCESS-1', false);
+
+        $this->actingAs($other)
+            ->get(route('publisher.billing.index'))
+            ->assertOk()
+            ->assertDontSee('PAY-OWNER-ACCESS-1', false);
+
+        $this->actingAs($other)
+            ->get(route('publisher.billing.show', $statement))
+            ->assertForbidden();
     }
 }
