@@ -129,11 +129,14 @@ class FinanceController extends Controller
         $filtered = $this->ledgerQuery($request);
         $totals = $this->ledgerTotals($filtered);
         $transactions = (clone $filtered)
-            ->with(['user:id,name,email', 'wallet:id,role_id', 'wallet.role:id,name', 'related'])
+            ->with(['user:id,name,email', 'wallet:id,role_id', 'wallet.role:id,name'])
             ->orderByDesc('created_at')
             ->orderByDesc('id')
             ->paginate(40)
             ->appends($exportQuery);
+        $transactions->getCollection()
+            ->filter(fn (WalletTransaction $tx) => $tx->relatedClassExists())
+            ->load('related');
 
         $types = $this->ledgerTypes();
         $typeLabels = [];
@@ -184,7 +187,7 @@ class FinanceController extends Controller
 
         return response()->streamDownload(function () use ($query, $request, $limit) {
             $out = fopen('php://output', 'w');
-            fputcsv($out, [
+            $this->writeCsvRow($out, [
                 'id',
                 'created_at',
                 'user_id',
@@ -209,7 +212,7 @@ class FinanceController extends Controller
                     if ($exported >= $limit) {
                         return false;
                     }
-                    fputcsv($out, [
+                    $this->writeCsvRow($out, [
                         $tx->id,
                         $this->csvCell(optional($tx->created_at)?->toDateTimeString()),
                         $tx->user_id,
@@ -234,7 +237,7 @@ class FinanceController extends Controller
             });
 
             if ($exported >= $limit && $this->ledgerQuery($request)->count() > $limit) {
-                fputcsv($out, ['truncated', 'limit', $limit]);
+                $this->writeCsvRow($out, ['truncated', 'limit', $limit]);
             }
 
             fclose($out);
@@ -302,9 +305,9 @@ class FinanceController extends Controller
 
         return response()->streamDownload(function () use ($rows, $period) {
             $out = fopen('php://output', 'w');
-            fputcsv($out, ['period', 'section', 'metric', 'value']);
+            $this->writeCsvRow($out, ['period', 'section', 'metric', 'value']);
             foreach ($rows as $row) {
-                fputcsv($out, [
+                $this->writeCsvRow($out, [
                     $period['label'],
                     $row['section'],
                     $row['metric'],
@@ -515,6 +518,17 @@ class FinanceController extends Controller
         };
     }
 
+    /**
+     * @param  resource  $out
+     * @param  list<mixed>  $fields
+     */
+    private function writeCsvRow($out, array $fields): void
+    {
+        // Empty escape is RFC 4180. PHP's default "\" merges the next
+        // columns when a cell ends with a backslash.
+        fputcsv($out, $fields, ',', '"', '');
+    }
+
     private function csvCell(mixed $value): mixed
     {
         if (! is_string($value) || $value === '') {
@@ -547,8 +561,11 @@ class FinanceController extends Controller
             return $value;
         }
 
-        if (is_string($value) && preg_match('/^[1-9]\d*$/', $value)) {
-            return (int) $value;
+        if (is_string($value)) {
+            $value = trim($value);
+            if (preg_match('/^[1-9]\d*$/', $value)) {
+                return (int) $value;
+            }
         }
 
         return 0;

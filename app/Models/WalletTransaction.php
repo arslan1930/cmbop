@@ -97,8 +97,11 @@ class WalletTransaction extends Model
     public function paymentMethodLabel(): string
     {
         $key = strtolower(trim((string) ($this->payment_method ?? '')));
-        if ($key === '' && is_object($this->related) && isset($this->related->payment_method)) {
-            $key = strtolower(trim((string) $this->related->payment_method));
+        if ($key === '' && $this->relatedClassExists()) {
+            $related = $this->related;
+            if (is_object($related) && isset($related->payment_method)) {
+                $key = strtolower(trim((string) $related->payment_method));
+            }
         }
 
         return match ($key) {
@@ -172,6 +175,16 @@ class WalletTransaction extends Model
         }
 
         return null;
+    }
+
+    public function relatedClassExists(): bool
+    {
+        $type = trim((string) ($this->related_type ?? ''));
+        if ($type === '') {
+            return false;
+        }
+
+        return class_exists(Model::getActualClassNameForMorph($type));
     }
 
     private function relatedTypeIs(string $stored, string $class): bool

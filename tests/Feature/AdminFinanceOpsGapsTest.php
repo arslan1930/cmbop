@@ -678,6 +678,13 @@ class AdminFinanceOpsGapsTest extends TestCase
         $this->assertStringNotContainsString('LEDGER-WALLET-MISS', $csv);
 
         $this->actingAs($admin)
+            ->get(route('admin.finance.ledger', ['wallet_id' => ' '.$wallet->id.' ']))
+            ->assertOk()
+            ->assertSee('Showing wallet')
+            ->assertSee('Wallet id hit row')
+            ->assertDontSee('Wallet id miss row');
+
+        $this->actingAs($admin)
             ->get(route('admin.finance.ledger', ['wallet_id' => '0'.$wallet->id]))
             ->assertOk()
             ->assertDontSee('Showing wallet')
@@ -846,6 +853,76 @@ class AdminFinanceOpsGapsTest extends TestCase
         $this->assertStringContainsString("'=1+2", $csv);
         $this->assertStringContainsString("'\t=HYPERLINK", $csv);
         $this->assertStringContainsString("' =cmd|calc", $csv);
+    }
+
+    public function test_ledger_export_keeps_columns_when_a_cell_ends_with_backslash(): void
+    {
+        $admin = $this->makeUser('admin');
+        $publisher = $this->makeUser('publisher');
+        $publisher->forceFill([
+            'name' => 'slash-end\\',
+            'email' => 'slash-end@example.test',
+        ])->save();
+        $pubRole = Role::firstOrCreate(['name' => 'publisher']);
+        $wallet = Wallet::create([
+            'user_id' => $publisher->id,
+            'role_id' => $pubRole->id,
+            'balance' => 3,
+            'reserved_balance' => 0,
+            'currency' => 'EUR',
+        ]);
+
+        app(WalletLedgerService::class)->recordTransferIn($wallet, 3, null, 'LEDGER-SLASH-END', 'Slash end row');
+
+        $csv = $this->actingAs($admin)
+            ->get(route('admin.finance.ledger.export'))
+            ->assertOk()
+            ->streamedContent();
+
+        $row = null;
+        foreach (preg_split('/\r\n|\n|\r/', trim($csv)) as $line) {
+            if (str_contains($line, 'LEDGER-SLASH-END')) {
+                $row = str_getcsv($line, ',', '"', '');
+                break;
+            }
+        }
+
+        $this->assertIsArray($row);
+        $this->assertContains('slash-end@example.test', $row);
+        $this->assertContains('LEDGER-SLASH-END', $row);
+        $this->assertGreaterThanOrEqual(16, count($row));
+    }
+
+    public function test_ledger_survives_unknown_related_type(): void
+    {
+        $admin = $this->makeUser('admin');
+        $publisher = $this->makeUser('publisher');
+        $pubRole = Role::firstOrCreate(['name' => 'publisher']);
+        $wallet = Wallet::create([
+            'user_id' => $publisher->id,
+            'role_id' => $pubRole->id,
+            'balance' => 5,
+            'reserved_balance' => 0,
+            'currency' => 'EUR',
+        ]);
+
+        $tx = app(WalletLedgerService::class)->recordTransferIn(
+            $wallet,
+            5,
+            null,
+            'LEDGER-BAD-MORPH',
+            'Unknown morph row'
+        );
+        $tx->forceFill([
+            'related_type' => 'App\\Models\\DoesNotExistLedgerRelated',
+            'related_id' => 1,
+        ])->save();
+
+        $this->actingAs($admin)
+            ->get(route('admin.finance.ledger'))
+            ->assertOk()
+            ->assertSee('Unknown morph row')
+            ->assertSee('LEDGER-BAD-MORPH');
     }
 
     public function test_ledger_text_search_matches_user_email_and_reference(): void
