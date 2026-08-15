@@ -440,7 +440,12 @@ class OrderPaymentService
                 return 0.0;
             }
 
-            $share = min($recorded, max(0, round((float) $wallet->bonus_reserved, 2)));
+            $share = $intents->releasableBonus(
+                $userId,
+                $referenceCode,
+                (float) $wallet->bonus_reserved
+            );
+            $share = min($share, $recorded);
             if ($share <= 0) {
                 $intents->takeBonus($userId, $referenceCode);
 
@@ -463,7 +468,7 @@ class OrderPaymentService
      * approve). Pending/failed unpaid card rows do not count — Pay again
      * must still be able to return an abandoned Use-bonus reserve.
      */
-    private function hasOpenPaidCheckoutSiblings(int $userId, string $referenceCode): bool
+    public function hasOpenPaidCheckoutSiblings(int $userId, string $referenceCode): bool
     {
         return Order::query()
             ->where('user_id', $userId)
@@ -907,6 +912,12 @@ class OrderPaymentService
 
     public function forgetPendingCheckout(string $referenceCode, ?int $userId = null): void
     {
+        if ($userId && $userId > 0 && $this->hasOpenPaidCheckoutSiblings($userId, $referenceCode)) {
+            app(CheckoutIntentService::class)->forgetPackage($referenceCode, $userId);
+
+            return;
+        }
+
         app(CheckoutIntentService::class)->forget($referenceCode, $userId);
     }
 

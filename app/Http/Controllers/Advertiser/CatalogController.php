@@ -2451,6 +2451,7 @@ class CatalogController extends Controller
     ): JsonResponse {
         $paymentService = app(OrderPaymentService::class);
         $returnUrl = route('advertiser.checkout.process').'?ref='.urlencode($referenceCode);
+        $payResult = [];
 
         if (! $user) {
             $this->refundCheckoutBonus($userId, $referenceCode);
@@ -2579,6 +2580,38 @@ class CatalogController extends Controller
                 'reference_code' => $referenceCode,
                 'user_id' => $userId,
             ]);
+
+            if (($payResult['status'] ?? '') === 'succeeded' && ! empty($payResult['payment_intent_id'])) {
+                $intent = (object) [
+                    'id' => $payResult['payment_intent_id'],
+                    'object' => 'payment_intent',
+                    'amount' => StripePaymentService::toCents($amountDue),
+                    'amount_received' => (int) ($payResult['amount_received'] ?? StripePaymentService::toCents($amountDue)),
+                    'metadata' => [
+                        'type' => 'order_payment',
+                        'reference_code' => $referenceCode,
+                        'user_id' => (string) $userId,
+                        'expected_amount' => (string) $amountDue,
+                        'order_total' => (string) $totalAmount,
+                        'bonus_applied' => (string) $bonusApplied,
+                    ],
+                ];
+                $credited = $paymentService->creditCapturedCardWhenUnfulfillable(
+                    (int) $userId,
+                    $referenceCode,
+                    $intent
+                );
+                if ($credited > 0) {
+                    return response()->json([
+                        'success' => true,
+                        'message' => 'Payment received. The listing(s) were no longer available, so €'
+                            .number_format($credited, 2)
+                            .' was credited to your advertiser wallet.',
+                        'reference_code' => $referenceCode,
+                        'wallet_credit' => $credited,
+                    ]);
+                }
+            }
 
             return response()->json([
                 'success' => false,
@@ -3154,6 +3187,24 @@ class CatalogController extends Controller
         } catch (\Exception $e) {
             Log::error('Stripe success handling failed: '.$e->getMessage());
             Log::error('Stack trace: '.$e->getTraceAsString());
+
+            $ref = isset($referenceCode) ? (string) $referenceCode : (string) $request->query('ref');
+            if (isset($stripeObject) && is_object($stripeObject) && $ref !== '') {
+                $credited = app(OrderPaymentService::class)->creditCapturedCardWhenUnfulfillable(
+                    (int) auth()->id(),
+                    $ref,
+                    $stripeObject
+                );
+                if ($credited > 0) {
+                    return redirect()->route('advertiser.checkout')
+                        ->with(
+                            'success',
+                            'Payment received. The listing(s) were no longer available, so €'
+                            .number_format($credited, 2)
+                            .' was credited to your advertiser wallet.'
+                        );
+                }
+            }
 
             return redirect()->route('advertiser.checkout')
                 ->with('error', UserFacingError::message($e, 'Payment verification failed. Please try again.'));

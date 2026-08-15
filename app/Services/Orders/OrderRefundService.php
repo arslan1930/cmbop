@@ -328,19 +328,12 @@ class OrderRefundService
             return 0.0;
         }
 
-        $intents = app(CheckoutIntentService::class);
-        $recorded = $referenceCode !== ''
-            ? $intents->recordedBonus($userId, $referenceCode, $fallbackBonus)
-            : 0.0;
-        if ($recorded > 0) {
-            return min($reserved, $recorded);
-        }
-
-        $other = $referenceCode !== ''
-            ? $intents->otherRecordedBonus($userId, $referenceCode)
-            : 0.0;
-
-        return max(0, round($reserved - $other, 2));
+        return app(CheckoutIntentService::class)->releasableBonus(
+            $userId,
+            $referenceCode,
+            $reserved,
+            $fallbackBonus
+        );
     }
 
     private function decrementRecordedCheckoutBonus(Order $order, float $amount): void

@@ -181,6 +181,31 @@ class CheckoutIntentService
     }
 
     /**
+     * Promo this reference may refund or consume. Live holds on other REFs
+     * are subtracted so an expired ghost row cannot drain their reserve.
+     */
+    public function releasableBonus(int $userId, string $referenceCode, float $reserved, ?float $fallback = null): float
+    {
+        $reserved = max(0, round($reserved, 2));
+        if ($userId <= 0 || $reserved <= 0) {
+            return 0.0;
+        }
+
+        $recorded = $referenceCode !== ''
+            ? $this->recordedBonus($userId, $referenceCode, $fallback)
+            : 0.0;
+        $other = $referenceCode !== ''
+            ? $this->otherRecordedBonus($userId, $referenceCode)
+            : 0.0;
+        $available = max(0, round($reserved - $other, 2));
+        if ($recorded > 0) {
+            return min($available, $recorded);
+        }
+
+        return $available;
+    }
+
+    /**
      * Reduce leftover checkout bonus without clearing the rest of the reference.
      */
     public function decrementBonus(int $userId, string $referenceCode, float $amount): void
@@ -249,6 +274,24 @@ class CheckoutIntentService
                 Cache::forget(self::bonusCacheKey((int) $intent->user_id, $referenceCode));
             }
             $intent->delete();
+        }
+    }
+
+    /**
+     * Drop the pending package but keep a paid persist hold.
+     */
+    public function forgetPackage(string $referenceCode, ?int $userId = null): void
+    {
+        $ownerId = $this->ownerIdForReference($referenceCode);
+        if ($userId && $userId > 0 && $ownerId > 0 && $ownerId !== $userId) {
+            return;
+        }
+
+        Cache::forget(self::pendingCheckoutCacheKey($referenceCode));
+
+        $intent = $this->findIntent($referenceCode);
+        if ($intent && is_array($intent->package)) {
+            $intent->update(['package' => null]);
         }
     }
 
