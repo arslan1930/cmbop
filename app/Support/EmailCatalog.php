@@ -614,37 +614,16 @@ class EmailCatalog
 
     protected static function sampleOrder(): Order
     {
-        $order = Order::query()->with(['user', 'items.site'])->latest('id')->first();
-        if ($order) {
-            return $order;
-        }
-
-        $user = self::sampleUser();
-        $order = new Order([
-            'order_number' => 'ORD-PREVIEW',
-            'total_amount' => 99.00,
-            'subtotal' => 99.00,
-            'tax' => 0,
-            'payment_status' => 'paid',
-            'status' => 'completed',
-            'payment_method' => 'wallet',
-        ]);
-        $order->id = 0;
-        $order->user_id = $user->id ?? 0;
-        $order->setRelation('user', $user);
-        $order->setRelation('items', collect());
-        $order->created_at = now();
+        $order = self::samplePreviewOrder();
+        $item = self::sampleOrderItem();
+        $item->setRelation('order', $order);
+        $order->setRelation('items', collect([$item]));
 
         return $order;
     }
 
     protected static function sampleOrderItem(): OrderItem
     {
-        $item = OrderItem::query()->with('site')->latest('id')->first();
-        if ($item) {
-            return $item;
-        }
-
         $item = new OrderItem([
             'site_name' => 'Sample Publisher Site',
             'site_url' => 'https://example.com',
@@ -655,6 +634,7 @@ class EmailCatalog
             'social_channels' => ['facebook', 'x'],
             'content_link' => 'https://example.com/content.docx',
         ]);
+        $item->id = 0;
         $item->setRelation('site', self::sampleSite());
 
         return $item;
@@ -683,15 +663,11 @@ class EmailCatalog
 
     protected static function sampleSite(): Site
     {
-        $site = Site::query()->with('publisher')->latest('id')->first();
-        if ($site) {
-            return $site;
-        }
-
         $user = self::sampleUser();
         $site = new Site([
             'site_name' => 'Sample Site',
             'site_url' => 'https://example.com',
+            'domain' => 'example.com',
             'publisher_id' => $user->id ?? 0,
             'verified' => true,
             'active' => true,
@@ -704,11 +680,6 @@ class EmailCatalog
 
     protected static function sampleSiteClaim(string $status = 'pending'): SiteClaim
     {
-        $claim = SiteClaim::query()->with(['site', 'claimer'])->latest('id')->first();
-        if ($claim) {
-            return $claim;
-        }
-
         $site = self::sampleSite();
         $user = self::sampleUser();
         $claim = new SiteClaim([

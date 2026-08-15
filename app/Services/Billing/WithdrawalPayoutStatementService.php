@@ -116,14 +116,7 @@ class WithdrawalPayoutStatementService
      */
     public function find(Withdrawal $withdrawal): ?Invoice
     {
-        $reference = 'WD-'.$withdrawal->id;
-
-        $statement = Invoice::query()
-            ->where('type', Invoice::TYPE_WITHDRAWAL_PAYOUT)
-            ->where('status', '!=', Invoice::STATUS_CANCELLED)
-            ->where('reference_code', $reference)
-            ->orderByDesc('id')
-            ->first();
+        $statement = $this->findExisting($withdrawal);
 
         return $statement ? $this->reconcileOwner($statement, $withdrawal) : null;
     }
@@ -139,11 +132,26 @@ class WithdrawalPayoutStatementService
             return false;
         }
 
+        return $this->findExisting($withdrawal) !== null;
+    }
+
+    /**
+     * Read-only newest PAY row for WD-{id}. Mail/bell must not call find()
+     * — that reconciles leftover payee identity and can null pdf_path.
+     */
+    public function findExisting(Withdrawal $withdrawal): ?Invoice
+    {
+        $id = (int) $withdrawal->id;
+        if ($id <= 0) {
+            return null;
+        }
+
         return Invoice::query()
             ->where('type', Invoice::TYPE_WITHDRAWAL_PAYOUT)
             ->where('status', '!=', Invoice::STATUS_CANCELLED)
             ->where('reference_code', 'WD-'.$id)
-            ->exists();
+            ->orderByDesc('id')
+            ->first();
     }
 
     /**

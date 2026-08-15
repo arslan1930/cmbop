@@ -121,10 +121,16 @@ class EmailCenterController extends Controller
             ]));
         }
 
-        $mailable = EmailCatalog::makeMailable($key);
-        abort_unless($mailable, 404);
+        try {
+            $mailable = EmailCatalog::makeMailable($key);
+            abort_unless($mailable, 404);
 
-        return response($mailable->render());
+            return response($mailable->render());
+        } catch (\Throwable $e) {
+            report($e);
+
+            abort(500, 'This email preview could not be rendered.');
+        }
     }
 
     public function sendTest(Request $request)
