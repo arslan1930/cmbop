@@ -2078,8 +2078,12 @@ class CatalogController extends Controller
             // Keep not-ready sites in the cart after this payment.
             session()->put('checkout_deferred_cart', array_values($deferredCart));
 
-            // Generate reference code
-            $referenceCode = $userReferenceCode ?? str_pad(mt_rand(1, 999999), 6, '0', STR_PAD_LEFT);
+            // Generate reference code. 6-digit client REFs can collide —
+            // never overwrite another advertiser's Stripe-first package.
+            $referenceCode = $this->allocateCheckoutReferenceCode(
+                (int) $userId,
+                is_string($userReferenceCode) ? $userReferenceCode : null
+            );
             $useBonus = $request->boolean('use_bonus');
 
             // Bank / Wise / crypto fund the wallet via invoice — not order checkout.
@@ -2405,7 +2409,7 @@ class CatalogController extends Controller
             ]);
         } catch (\Exception $e) {
             $this->refundCheckoutBonus((int) $userId, (string) $referenceCode);
-            $paymentService->forgetPendingCheckout((string) $referenceCode);
+            $paymentService->forgetPendingCheckout((string) $referenceCode, (int) $userId);
 
             Log::error('Stripe checkout error: '.$e->getMessage(), [
                 'reference_code' => $referenceCode,
@@ -2438,7 +2442,7 @@ class CatalogController extends Controller
 
         if (! $user) {
             $this->refundCheckoutBonus($userId, $referenceCode);
-            $paymentService->forgetPendingCheckout($referenceCode);
+            $paymentService->forgetPendingCheckout($referenceCode, $userId);
 
             return response()->json([
                 'success' => false,
@@ -2540,7 +2544,7 @@ class CatalogController extends Controller
             }
 
             $this->refundCheckoutBonus($userId, $referenceCode);
-            $paymentService->forgetPendingCheckout($referenceCode);
+            $paymentService->forgetPendingCheckout($referenceCode, $userId);
 
             return response()->json([
                 'success' => false,
@@ -2548,7 +2552,7 @@ class CatalogController extends Controller
             ], 422);
         } catch (\Throwable $e) {
             $this->refundCheckoutBonus($userId, $referenceCode);
-            $paymentService->forgetPendingCheckout($referenceCode);
+            $paymentService->forgetPendingCheckout($referenceCode, $userId);
 
             Log::error('Saved card order checkout failed: '.$e->getMessage(), [
                 'reference_code' => $referenceCode,
@@ -4956,6 +4960,25 @@ class CatalogController extends Controller
         }
     }
 
+    private function allocateCheckoutReferenceCode(int $userId, ?string $requested): string
+    {
+        $candidate = is_string($requested) && trim($requested) !== ''
+            ? trim($requested)
+            : str_pad((string) random_int(1, 999999), 6, '0', STR_PAD_LEFT);
+        $payments = app(OrderPaymentService::class);
+
+        for ($attempt = 0; $attempt < 8; $attempt++) {
+            $package = $payments->getPendingCheckout($candidate);
+            $ownerId = (int) ($package['user_id'] ?? 0);
+            if ($ownerId <= 0 || $ownerId === $userId) {
+                return $candidate;
+            }
+            $candidate = str_pad((string) random_int(1, 999999), 6, '0', STR_PAD_LEFT);
+        }
+
+        throw new \RuntimeException('Could not allocate a unique checkout reference.');
+    }
+
     private function cancelUnpaidCardOrdersAndRestoreCart(string $referenceCode): void
     {
         $paymentService = app(OrderPaymentService::class);
@@ -4971,7 +4994,7 @@ class CatalogController extends Controller
         // Stripe-first (Add Funds style): no order rows yet — clear package + refund bonus.
         if ($canceled->isEmpty()) {
             $this->refundCheckoutBonus((int) auth()->id(), $referenceCode);
-            $paymentService->forgetPendingCheckout($referenceCode);
+            $paymentService->forgetPendingCheckout($referenceCode, auth()->id());
             session()->forget(['pending_card_reference', 'checkout_deferred_cart']);
 
             Log::info('Cancelled Stripe-first card checkout (no order rows yet)', [
@@ -4999,7 +5022,7 @@ class CatalogController extends Controller
             $this->refundCheckoutBonus((int) auth()->id(), $referenceCode);
         }
 
-        $paymentService->forgetPendingCheckout($referenceCode);
+        $paymentService->forgetPendingCheckout($referenceCode, auth()->id());
 
         $restoredCart = session('cart', []);
         $submissionId = session('checkout_content_submission_id');

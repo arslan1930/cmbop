@@ -28,6 +28,12 @@ class CheckoutIntentService
      */
     public function storePackage(string $referenceCode, array $package, int $hours = 48): void
     {
+        $newUserId = isset($package['user_id']) ? (int) $package['user_id'] : 0;
+        $existingUserId = $this->ownerIdForReference($referenceCode);
+        if ($existingUserId > 0 && $newUserId > 0 && $existingUserId !== $newUserId) {
+            throw new \RuntimeException('Checkout package already belongs to another user for ref '.$referenceCode);
+        }
+
         Cache::put(self::pendingCheckoutCacheKey($referenceCode), $package, now()->addHours($hours));
 
         $bonus = round((float) ($package['bonus_applied'] ?? 0), 2);
@@ -148,6 +154,11 @@ class CheckoutIntentService
 
     public function forget(string $referenceCode, ?int $userId = null): void
     {
+        $ownerId = $this->ownerIdForReference($referenceCode);
+        if ($userId && $userId > 0 && $ownerId > 0 && $ownerId !== $userId) {
+            return;
+        }
+
         Cache::forget(self::pendingCheckoutCacheKey($referenceCode));
         if ($userId) {
             Cache::forget(self::bonusCacheKey($userId, $referenceCode));
@@ -160,6 +171,18 @@ class CheckoutIntentService
             }
             $intent->delete();
         }
+    }
+
+    private function ownerIdForReference(string $referenceCode): int
+    {
+        $cached = Cache::get(self::pendingCheckoutCacheKey($referenceCode));
+        if (is_array($cached) && isset($cached['user_id'])) {
+            return (int) $cached['user_id'];
+        }
+
+        $intent = $this->findIntent($referenceCode);
+
+        return (int) ($intent?->user_id ?? 0);
     }
 
     /**

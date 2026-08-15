@@ -286,12 +286,25 @@ class AuditSecurityFixesTest extends TestCase
         $this->assertSame(0.0, (float) Wallet::where('user_id', $publisher->id)->first()->balance);
     }
 
-    public function test_finalize_rejects_package_user_mismatch(): void
+    public function test_finalize_credits_payer_when_package_belongs_to_someone_else(): void
     {
+        $owner = User::factory()->create(['email_verified_at' => now()]);
+        $payer = User::factory()->create(['email_verified_at' => now()]);
+        $roleId = Wallet::advertiserRoleId();
+        Wallet::create([
+            'user_id' => $payer->id,
+            'role_id' => $roleId,
+            'balance' => 0,
+            'reserved_balance' => 0,
+            'bonus_balance' => 0,
+            'bonus_reserved' => 0,
+            'currency' => 'EUR',
+        ]);
+
         $payments = app(OrderPaymentService::class);
         $ref = 'USER-MISMATCH-1';
         $payments->storePendingCheckout($ref, [
-            'user_id' => 11,
+            'user_id' => $owner->id,
             'order_total' => 50,
             'amount_due' => 50,
             'bonus_applied' => 0,
@@ -306,15 +319,18 @@ class AuditSecurityFixesTest extends TestCase
             'payment_intent' => 'pi_user_mismatch',
             'metadata' => (object) [
                 'expected_amount' => '50',
-                'user_id' => '22',
+                'user_id' => (string) $payer->id,
                 'type' => 'order_payment',
                 'reference_code' => $ref,
             ],
         ];
 
-        $this->expectException(\RuntimeException::class);
-        $this->expectExceptionMessage('does not belong');
-        $payments->finalizeStripeFirstCheckout($ref, $session);
+        $created = $payments->finalizeStripeFirstCheckout($ref, $session);
+
+        $this->assertTrue($created->isEmpty());
+        $this->assertSame(50.0, (float) Wallet::query()->where('user_id', $payer->id)->value('balance'));
+        $this->assertSame($owner->id, (int) ($payments->getPendingCheckout($ref)['user_id'] ?? 0));
+        $this->assertSame(0, Order::query()->where('reference_code', $ref)->count());
     }
 
     public function test_marketing_cannot_approve_site_claim(): void

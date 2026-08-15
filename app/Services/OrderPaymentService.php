@@ -449,16 +449,28 @@ class OrderPaymentService
         }
     }
 
-    public function unfulfilledCardCreditAmount(string $referenceCode): float
+    public function unfulfilledCardCreditAmount(string $referenceCode, ?int $userId = null): float
     {
         if (! Schema::hasTable((new WalletTransaction)->getTable())) {
             return 0.0;
         }
 
-        $row = WalletTransaction::query()
+        $query = WalletTransaction::query()
             ->where('reference', self::unfulfilledCardCreditReference($referenceCode))
-            ->where('direction', 'credit')
-            ->first();
+            ->where('direction', 'credit');
+
+        if ($userId && $userId > 0) {
+            $roleId = Wallet::advertiserRoleId();
+            $walletId = $roleId
+                ? Wallet::query()->where('user_id', $userId)->where('role_id', $roleId)->value('id')
+                : null;
+            if (! $walletId) {
+                return 0.0;
+            }
+            $query->where('wallet_id', $walletId);
+        }
+
+        $row = $query->first();
 
         return $row ? round((float) $row->amount, 2) : 0.0;
     }
@@ -466,12 +478,13 @@ class OrderPaymentService
     /**
      * Card cash already returned via cancelAndRefund (e.g. a taken Content Library line).
      */
-    public function refundedCardOrderAmount(string $referenceCode): float
+    public function refundedCardOrderAmount(string $referenceCode, ?int $userId = null): float
     {
         return round((float) Order::query()
             ->where('reference_code', $referenceCode)
             ->where('payment_method', 'card')
             ->where('payment_status', 'refunded')
+            ->when($userId && $userId > 0, fn ($query) => $query->where('user_id', $userId))
             ->sum('total_amount'), 2);
     }
 
@@ -479,11 +492,11 @@ class OrderPaymentService
      * Wallet cash already given back when a paid card checkout could not be fulfilled.
      * Unfulfilled-card credits and cancelAndRefund rows do not overlap.
      */
-    public function walletCreditForUnfulfillableCardCheckout(string $referenceCode): float
+    public function walletCreditForUnfulfillableCardCheckout(string $referenceCode, ?int $userId = null): float
     {
         return round(
-            $this->unfulfilledCardCreditAmount($referenceCode)
-            + $this->refundedCardOrderAmount($referenceCode),
+            $this->unfulfilledCardCreditAmount($referenceCode, $userId)
+            + $this->refundedCardOrderAmount($referenceCode, $userId),
             2
         );
     }
@@ -506,9 +519,9 @@ class OrderPaymentService
         app(CheckoutIntentService::class)->storePackage($referenceCode, $package);
     }
 
-    public function forgetPendingCheckout(string $referenceCode): void
+    public function forgetPendingCheckout(string $referenceCode, ?int $userId = null): void
     {
-        app(CheckoutIntentService::class)->forget($referenceCode);
+        app(CheckoutIntentService::class)->forget($referenceCode, $userId);
     }
 
     /**
@@ -575,7 +588,12 @@ class OrderPaymentService
                 'metadata_user_id' => $metaUserId,
             ]);
 
-            throw new \RuntimeException('Checkout package does not belong to the paying user for ref '.$referenceCode);
+            $charged = $this->stripeEurosFromObject($session);
+            if ($charged > 0) {
+                $this->creditUnfulfilledCardCapture($metaUserId, $referenceCode, $charged);
+            }
+
+            return collect();
         }
 
         $expected = round((float) ($package['amount_due'] ?? $package['order_total'] ?? 0), 2);
@@ -894,6 +912,18 @@ class OrderPaymentService
         }
 
         return $orders->values();
+    }
+
+    private function stripeEurosFromObject(object $session): float
+    {
+        $stripeCents = null;
+        if (isset($session->amount_total)) {
+            $stripeCents = (int) $session->amount_total;
+        } elseif (isset($session->amount_received) || isset($session->amount)) {
+            $stripeCents = (int) ($session->amount_received ?: $session->amount);
+        }
+
+        return $stripeCents !== null ? StripePaymentService::fromCents($stripeCents) : 0.0;
     }
 
     /**

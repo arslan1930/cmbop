@@ -859,6 +859,101 @@ class StripeFirstCheckoutInvariantsTest extends TestCase
         ]);
     }
 
+    public function test_webhook_does_not_skip_finalize_because_another_user_already_paid_the_ref(): void
+    {
+        $payer = $this->makeUser('advertiser');
+        $other = $this->makeUser('advertiser');
+        $publisher = $this->makeUser('publisher');
+        $payerSite = $this->makeSite($publisher, 'payer-wh-collide.example', 80);
+        $otherSite = $this->makeSite($publisher, 'other-wh-collide.example', 80);
+        $ref = '222222';
+
+        $this->pendingCardOrder($other, $otherSite, $ref, 80);
+        app(OrderPaymentService::class)->markOrdersPaidFromStripeSession($ref, (object) [
+            'id' => 'cs_other_already_paid',
+            'object' => 'checkout.session',
+            'payment_status' => 'paid',
+            'amount_total' => 8000,
+            'payment_intent' => 'pi_other_already_paid',
+            'metadata' => (object) [
+                'type' => 'order_payment',
+                'reference_code' => $ref,
+                'user_id' => (string) $other->id,
+                'expected_amount' => '80',
+            ],
+        ]);
+        $this->assertSame('paid', Order::query()->where('user_id', $other->id)->where('reference_code', $ref)->value('payment_status'));
+
+        $line = [
+            'site_id' => $payerSite->id,
+            'price' => 80,
+            'content_submission_id' => 0,
+        ];
+        app(OrderPaymentService::class)->storePendingCheckout($ref, $this->package($payer, [$line], 80));
+
+        $this->signedWebhook([
+            'id' => 'evt_payer_after_other_'.uniqid(),
+            'object' => 'event',
+            'type' => 'checkout.session.completed',
+            'data' => [
+                'object' => [
+                    'id' => 'cs_payer_after_other',
+                    'object' => 'checkout.session',
+                    'payment_status' => 'paid',
+                    'amount_total' => 8000,
+                    'payment_intent' => 'pi_payer_after_other',
+                    'metadata' => [
+                        'type' => 'order_payment',
+                        'reference_code' => $ref,
+                        'user_id' => (string) $payer->id,
+                        'expected_amount' => '80',
+                    ],
+                ],
+            ],
+        ])->assertOk();
+
+        $this->assertSame(1, Order::query()->where('user_id', $payer->id)->where('reference_code', $ref)->where('payment_status', 'paid')->count());
+        $this->assertSame(1, Order::query()->where('user_id', $other->id)->where('reference_code', $ref)->where('payment_status', 'paid')->count());
+    }
+
+    public function test_store_package_refuses_to_overwrite_another_users_checkout(): void
+    {
+        $owner = $this->makeUser('advertiser');
+        $intruder = $this->makeUser('advertiser');
+        $ref = '333333';
+        $payments = app(OrderPaymentService::class);
+        $payments->storePendingCheckout($ref, $this->package($owner, [], 40));
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('already belongs to another user');
+        $payments->storePendingCheckout($ref, $this->package($intruder, [], 80));
+    }
+
+    public function test_cancel_does_not_delete_another_users_pending_package(): void
+    {
+        $owner = $this->makeUser('advertiser');
+        $intruder = $this->makeUser('advertiser');
+        $publisher = $this->makeUser('publisher');
+        $site = $this->makeSite($publisher, 'cancel-steal.example', 40);
+        $ref = '444444';
+
+        app(OrderPaymentService::class)->storePendingCheckout($ref, $this->package($owner, [
+            ['site_id' => $site->id, 'price' => 40, 'content_submission_id' => 0],
+        ], 40));
+
+        $this->actingAs($intruder)
+            ->withSession(['cart' => [[
+                'id' => $site->id,
+                'name' => $site->site_name,
+                'quantity' => 1,
+            ]]])
+            ->get(route('advertiser.checkout', ['canceled' => 1, 'ref' => $ref]));
+
+        $package = app(OrderPaymentService::class)->getPendingCheckout($ref);
+        $this->assertNotNull($package);
+        $this->assertSame($owner->id, (int) ($package['user_id'] ?? 0));
+    }
+
     private function pendingCardOrder(User $advertiser, Site $site, string $ref, float $amount): Order
     {
         $order = Order::create([

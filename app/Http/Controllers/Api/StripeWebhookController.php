@@ -429,15 +429,18 @@ class StripeWebhookController extends Controller
         $newlyPaid = $paymentService->markOrdersPaidFromStripeSession($referenceCode, $session);
 
         if ($newlyPaid->isEmpty()) {
+            $payerId = isset($metadata['user_id']) ? (int) $metadata['user_id'] : 0;
             $existingPaid = Order::where('reference_code', $referenceCode)
                 ->where('payment_method', 'card')
                 ->where('payment_status', 'paid')
+                ->when($payerId > 0, fn ($query) => $query->where('user_id', $payerId))
                 ->count();
 
-            if ($existingPaid > 0) {
+            if ($payerId > 0 && $existingPaid > 0) {
                 Log::info('Order payment already finalized (idempotent webhook)', [
                     'reference_code' => $referenceCode,
                     'paid_count' => $existingPaid,
+                    'user_id' => $payerId,
                 ]);
 
                 return;
@@ -448,7 +451,10 @@ class StripeWebhookController extends Controller
             $newlyPaid = $paymentService->finalizeStripeFirstCheckout($referenceCode, $session);
 
             if ($newlyPaid->isEmpty()) {
-                $credited = $paymentService->walletCreditForUnfulfillableCardCheckout($referenceCode);
+                $credited = $paymentService->walletCreditForUnfulfillableCardCheckout(
+                    $referenceCode,
+                    $payerId > 0 ? $payerId : null
+                );
                 if ($credited > 0) {
                     Log::warning('Stripe webhook settled without catalog-visible lines', [
                         'reference_code' => $referenceCode,
@@ -503,14 +509,17 @@ class StripeWebhookController extends Controller
         $newlyPaid = $paymentService->markOrdersPaidFromPaymentIntent($referenceCode, $intent);
 
         if ($newlyPaid->isEmpty()) {
+            $payerId = isset($metadata['user_id']) ? (int) $metadata['user_id'] : 0;
             $existingPaid = Order::where('reference_code', $referenceCode)
                 ->where('payment_method', 'card')
                 ->where('payment_status', 'paid')
+                ->when($payerId > 0, fn ($query) => $query->where('user_id', $payerId))
                 ->count();
 
-            if ($existingPaid > 0) {
+            if ($payerId > 0 && $existingPaid > 0) {
                 Log::info('Order PI payment already finalized (idempotent webhook)', [
                     'reference_code' => $referenceCode,
+                    'user_id' => $payerId,
                 ]);
 
                 return;
@@ -519,7 +528,10 @@ class StripeWebhookController extends Controller
             $newlyPaid = $paymentService->finalizeStripeFirstCheckout($referenceCode, $intent);
 
             if ($newlyPaid->isEmpty()) {
-                $credited = $paymentService->walletCreditForUnfulfillableCardCheckout($referenceCode);
+                $credited = $paymentService->walletCreditForUnfulfillableCardCheckout(
+                    $referenceCode,
+                    $payerId > 0 ? $payerId : null
+                );
                 if ($credited > 0) {
                     Log::warning('PaymentIntent webhook settled without catalog-visible lines', [
                         'reference_code' => $referenceCode,
