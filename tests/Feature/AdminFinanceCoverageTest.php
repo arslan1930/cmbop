@@ -202,46 +202,22 @@ class AdminFinanceCoverageTest extends TestCase
         $covered = $this->completedPaidOrder($advertiser, $publisher, 40, 5);
         $cancelledOnly = $this->completedPaidOrder($advertiser, $publisher, 25, 3);
 
-        Invoice::create([
-            'user_id' => $advertiser->id,
-            'order_id' => $covered->id,
-            'invoice_number' => 'INV-COV-OK',
-            'type' => Invoice::TYPE_TAX_INVOICE,
-            'status' => Invoice::STATUS_PAID,
-            'invoice_date' => now(),
-            'customer_name' => $advertiser->name,
-            'customer_email' => $advertiser->email,
-            'currency' => 'EUR',
-            'subtotal' => 40,
-            'tax_amount' => 0,
-            'discount_amount' => 0,
-            'total_amount' => 40,
-            'payment_method' => 'card',
-            'payment_status' => 'paid',
-            'order_number' => $covered->order_number,
-            'line_items' => [],
-            'billing_snapshot' => [],
-        ]);
-        Invoice::create([
-            'user_id' => $advertiser->id,
-            'order_id' => $cancelledOnly->id,
-            'invoice_number' => 'INV-COV-CANCEL',
-            'type' => Invoice::TYPE_TAX_INVOICE,
-            'status' => Invoice::STATUS_CANCELLED,
-            'invoice_date' => now(),
-            'customer_name' => $advertiser->name,
-            'customer_email' => $advertiser->email,
-            'currency' => 'EUR',
-            'subtotal' => 25,
-            'tax_amount' => 0,
-            'discount_amount' => 0,
-            'total_amount' => 25,
-            'payment_method' => 'card',
-            'payment_status' => 'paid',
-            'order_number' => $cancelledOnly->order_number,
-            'line_items' => [],
-            'billing_snapshot' => [],
-        ]);
+        Invoice::query()
+            ->where('order_id', $missing->id)
+            ->where('type', Invoice::TYPE_TAX_INVOICE)
+            ->delete();
+        Invoice::query()
+            ->where('order_id', $cancelledOnly->id)
+            ->where('type', Invoice::TYPE_TAX_INVOICE)
+            ->update(['status' => Invoice::STATUS_CANCELLED]);
+
+        $this->assertTrue(
+            Invoice::query()
+                ->where('order_id', $covered->id)
+                ->where('type', Invoice::TYPE_TAX_INVOICE)
+                ->where('status', '!=', Invoice::STATUS_CANCELLED)
+                ->exists()
+        );
 
         $overview = app(FinanceOverviewService::class)->overview(
             app(FinanceOverviewService::class)->resolvePeriod('all')
