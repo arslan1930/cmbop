@@ -2612,6 +2612,10 @@ class CatalogController extends Controller
                 ]);
             }
 
+            $paymentService = app(OrderPaymentService::class);
+            $paymentService->releaseRecordedCheckoutBonus((int) $userId, (string) $referenceCode);
+            $paymentService->forgetPendingCheckout((string) $referenceCode, (int) $userId);
+
             DB::beginTransaction();
 
             // Lock wallet row inside the transaction to prevent concurrent overspend
@@ -2643,6 +2647,9 @@ class CatalogController extends Controller
 
             // Reserve funds; bonus is only used when the checkout checkbox is enabled
             $bonusUsed = $advertiserWallet->reserveForOrder($totalAmount, $useBonus);
+            if ($bonusUsed > 0) {
+                $paymentService->persistPaidCheckoutBonus((int) $userId, (string) $referenceCode, $bonusUsed);
+            }
 
             app(WalletLedgerService::class)->recordPurchase(
                 $advertiserWallet,
@@ -2801,6 +2808,9 @@ class CatalogController extends Controller
             $totalAmount = round(array_sum(array_column($expandedOrders, 'price')), 2);
             $bonusApplied = 0.0;
             $amountDue = $totalAmount;
+            $paymentService = app(OrderPaymentService::class);
+            $paymentService->releaseRecordedCheckoutBonus((int) $userId, (string) $referenceCode);
+            $paymentService->forgetPendingCheckout((string) $referenceCode, (int) $userId);
 
             DB::beginTransaction();
 
@@ -2813,6 +2823,9 @@ class CatalogController extends Controller
                     $wallet->refresh();
                     $bonusApplied = $wallet->reserveBonusOnly(min($wallet->lockedBonusBalance(), $totalAmount));
                     $amountDue = round(max(0, $totalAmount - $bonusApplied), 2);
+                    if ($bonusApplied > 0) {
+                        $paymentService->persistPaidCheckoutBonus((int) $userId, (string) $referenceCode, $bonusApplied);
+                    }
                 }
             }
 

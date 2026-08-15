@@ -178,12 +178,14 @@ class OrderRefundService
 
         if ($order->payment_method === 'wallet') {
             $wallet->consumeReserved($total, $bonusShare);
+            $this->decrementRecordedCheckoutBonus($order, $bonusShare);
 
             return;
         }
 
         if ($bonusShare > 0) {
             $wallet->consumeReserved($bonusShare, $bonusShare);
+            $this->decrementRecordedCheckoutBonus($order, $bonusShare);
         }
     }
 
@@ -201,6 +203,14 @@ class OrderRefundService
         }
 
         $reference = (string) ($order->reference_code ?? '');
+        $reserved = $this->promoReserveForReference(
+            $wallet,
+            (int) ($order->user_id ?? 0),
+            $reference
+        );
+        if ($reserved <= 0) {
+            return 0.0;
+        }
         $siblingTotal = 0.0;
         if ($reference !== '') {
             // Completed siblings already spent their share. Counting them
@@ -286,6 +296,7 @@ class OrderRefundService
             $share = min($reserved, max(0, round($reserved * ($failedTotal / $pool), 2)));
         }
 
+        $share = min($share, $this->promoReserveForReference($wallet, $userId, $referenceCode, $fallbackBonus));
         if ($share <= 0) {
             return 0.0;
         }
@@ -300,6 +311,48 @@ class OrderRefundService
         }
 
         return $share;
+    }
+
+    /**
+     * Promo this reference may spend or refund. Recorded holds win; otherwise
+     * leftover wallet promo minus other REFs' recorded holds (legacy rows).
+     */
+    private function promoReserveForReference(
+        Wallet $wallet,
+        int $userId,
+        string $referenceCode,
+        ?float $fallbackBonus = null
+    ): float {
+        $reserved = max(0, round((float) $wallet->bonus_reserved, 2));
+        if ($reserved <= 0) {
+            return 0.0;
+        }
+
+        $intents = app(CheckoutIntentService::class);
+        $recorded = $referenceCode !== ''
+            ? $intents->recordedBonus($userId, $referenceCode, $fallbackBonus)
+            : 0.0;
+        if ($recorded > 0) {
+            return min($reserved, $recorded);
+        }
+
+        $other = $referenceCode !== ''
+            ? $intents->otherRecordedBonus($userId, $referenceCode)
+            : 0.0;
+
+        return max(0, round($reserved - $other, 2));
+    }
+
+    private function decrementRecordedCheckoutBonus(Order $order, float $amount): void
+    {
+        $amount = round($amount, 2);
+        $reference = (string) ($order->reference_code ?? '');
+        $userId = (int) ($order->user_id ?? 0);
+        if ($amount <= 0 || $userId <= 0 || $reference === '') {
+            return;
+        }
+
+        app(CheckoutIntentService::class)->decrementBonus($userId, $reference, $amount);
     }
 
     /**

@@ -108,6 +108,11 @@ class OrderPaymentService
         );
         $this->evaluateSpendBudgetAfterPaidOrders($newlyPaid);
         $this->creditHiddenCardOrdersAfterMarkPaid($referenceCode, $sessionMeta, $session);
+        $this->persistPaidCheckoutBonus(
+            (int) ($sessionMeta['user_id'] ?? ($newlyPaid->first()->user_id ?? 0)),
+            $referenceCode,
+            (float) ($sessionMeta['bonus_applied'] ?? 0)
+        );
 
         return $newlyPaid;
     }
@@ -188,6 +193,11 @@ class OrderPaymentService
         );
         $this->evaluateSpendBudgetAfterPaidOrders($newlyPaid);
         $this->creditHiddenCardOrdersAfterMarkPaid($referenceCode, $meta, $intent);
+        $this->persistPaidCheckoutBonus(
+            (int) ($meta['user_id'] ?? ($newlyPaid->first()->user_id ?? 0)),
+            $referenceCode,
+            (float) ($meta['bonus_applied'] ?? 0)
+        );
 
         return $newlyPaid;
     }
@@ -384,17 +394,7 @@ class OrderPaymentService
             return 0.0;
         }
 
-        $package = $this->getPendingCheckout($referenceCode);
-        $packageUserId = (int) ($package['user_id'] ?? 0);
-        $packageBonus = ($package !== null && ($packageUserId === 0 || $packageUserId === $userId))
-            ? round((float) ($package['bonus_applied'] ?? 0), 2)
-            : 0.0;
-
-        $recorded = app(CheckoutIntentService::class)->takeBonus(
-            $userId,
-            $referenceCode,
-            $packageBonus > 0 ? $packageBonus : null
-        );
+        $recorded = app(CheckoutIntentService::class)->takeBonus($userId, $referenceCode);
         if ($recorded <= 0) {
             return 0.0;
         }
@@ -423,6 +423,16 @@ class OrderPaymentService
 
             return $share;
         });
+    }
+
+    public function persistPaidCheckoutBonus(int $userId, string $referenceCode, float $bonus): void
+    {
+        $bonus = round($bonus, 2);
+        if ($userId <= 0 || $referenceCode === '' || $bonus <= 0) {
+            return;
+        }
+
+        app(CheckoutIntentService::class)->rememberBonus($userId, $referenceCode, $bonus);
     }
 
     public static function unfulfilledCardCreditReference(string $referenceCode, string $chargeToken = ''): string
@@ -1102,6 +1112,11 @@ class OrderPaymentService
         }
 
         $this->forgetPendingCheckout($referenceCode, $userId > 0 ? $userId : null);
+        $this->persistPaidCheckoutBonus(
+            $userId,
+            $referenceCode,
+            (float) ($package['bonus_applied'] ?? $meta['bonus_applied'] ?? 0)
+        );
 
         Log::info('Materialized Stripe-first card orders after payment', [
             'reference_code' => $referenceCode,

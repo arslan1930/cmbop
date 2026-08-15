@@ -1367,6 +1367,82 @@ class StripeFirstCheckoutInvariantsTest extends TestCase
         $this->assertEqualsWithDelta(20.0, (float) ($payments->getPendingCheckout('BONUS-REF-B')['bonus_applied'] ?? 0), 0.01);
     }
 
+    public function test_second_release_of_same_ref_does_not_steal_sibling_bonus(): void
+    {
+        $advertiser = $this->makeUser('advertiser');
+        $publisher = $this->makeUser('publisher');
+        $site = $this->makeSite($publisher, 'bonus-steal.example', 40);
+        $wallet = $this->advertiserWallet($advertiser, 20);
+        $payments = app(OrderPaymentService::class);
+
+        $wallet->reserveBonusOnly(20);
+        $payments->storePendingCheckout('BONUS-STEAL-A', $this->package($advertiser, [$this->lineFor($site, 40)], 20, 20));
+        $this->assertEqualsWithDelta(20.0, $payments->releaseRecordedCheckoutBonus($advertiser->id, 'BONUS-STEAL-A'), 0.01);
+
+        $wallet->refresh();
+        $wallet->reserveBonusOnly(20);
+        $payments->storePendingCheckout('BONUS-STEAL-B', $this->package($advertiser, [$this->lineFor($site, 40)], 20, 20));
+
+        $this->assertEqualsWithDelta(0.0, $payments->releaseRecordedCheckoutBonus($advertiser->id, 'BONUS-STEAL-A'), 0.01);
+        $wallet->refresh();
+        $this->assertEqualsWithDelta(20.0, (float) $wallet->bonus_reserved, 0.01);
+        $this->assertEqualsWithDelta(0.0, (float) $wallet->bonus_balance, 0.01);
+    }
+
+    public function test_approving_full_card_order_does_not_burn_other_refs_bonus(): void
+    {
+        $advertiser = $this->makeUser('advertiser');
+        $publisher = $this->makeUser('publisher');
+        $bonusSite = $this->makeSite($publisher, 'bonus-hold.example', 40);
+        $cardSite = $this->makeSite($publisher, 'full-card.example', 80);
+        $wallet = $this->advertiserWallet($advertiser, 20);
+        $payments = app(OrderPaymentService::class);
+
+        $wallet->reserveBonusOnly(20);
+        $payments->storePendingCheckout('HOLD-BONUS-A', $this->package($advertiser, [$this->lineFor($bonusSite, 40)], 20, 20));
+        $bonusOrders = $payments->finalizeStripeFirstCheckout(
+            'HOLD-BONUS-A',
+            $this->paidSession('HOLD-BONUS-A', 20, 'cs_hold_bonus_a', $advertiser->id)
+        );
+        $this->assertCount(1, $bonusOrders);
+        $this->assertEqualsWithDelta(20.0, (float) $wallet->fresh()->bonus_reserved, 0.01);
+
+        $payments->storePendingCheckout('FULL-CARD-B', $this->package($advertiser, [$this->lineFor($cardSite, 80)], 80, 0));
+        $cardOrders = $payments->finalizeStripeFirstCheckout(
+            'FULL-CARD-B',
+            $this->paidSession('FULL-CARD-B', 80, 'cs_full_card_b', $advertiser->id)
+        );
+        $this->assertCount(1, $cardOrders);
+
+        app(OrderRefundService::class)->consumeReservedForSettledOrder($cardOrders->first(), $wallet->fresh());
+
+        $wallet->refresh();
+        $this->assertEqualsWithDelta(20.0, (float) $wallet->bonus_reserved, 0.01);
+        $this->assertEqualsWithDelta(0.0, (float) $wallet->bonus_balance, 0.01);
+
+        app(OrderRefundService::class)->consumeReservedForSettledOrder($bonusOrders->first(), $wallet->fresh());
+        $wallet->refresh();
+        $this->assertEqualsWithDelta(0.0, (float) $wallet->bonus_reserved, 0.01);
+        $this->assertEqualsWithDelta(0.0, (float) $wallet->bonus_balance, 0.01);
+    }
+
+    public function test_releasing_bonus_for_one_ref_does_not_refund_another_refs_hold(): void
+    {
+        $advertiser = $this->makeUser('advertiser');
+        $publisher = $this->makeUser('publisher');
+        $site = $this->makeSite($publisher, 'bonus-expiry-cap.example', 40);
+        $wallet = $this->advertiserWallet($advertiser, 20);
+        $payments = app(OrderPaymentService::class);
+
+        $wallet->reserveBonusOnly(20);
+        $payments->storePendingCheckout('HOLD-EXPIRE-A', $this->package($advertiser, [$this->lineFor($site, 40)], 20, 20));
+
+        $payments->refundBonusReservedForReference($advertiser->id, 'OTHER-EXPIRE-B', 0, collect());
+        $wallet->refresh();
+        $this->assertEqualsWithDelta(20.0, (float) $wallet->bonus_reserved, 0.01);
+        $this->assertEqualsWithDelta(0.0, (float) $wallet->bonus_balance, 0.01);
+    }
+
     public function test_store_package_refuses_to_overwrite_another_users_checkout(): void
     {
         $owner = $this->makeUser('advertiser');
