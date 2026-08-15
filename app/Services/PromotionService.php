@@ -186,6 +186,7 @@ class PromotionService
 
         try {
             return Site::query()
+                ->catalogVisible()
                 ->whereNotNull('featured_until')
                 ->where('featured_until', '>', now())
                 ->orderByDesc('featured_until')
@@ -208,7 +209,7 @@ class PromotionService
         }
 
         try {
-            return Site::query()->onDiscount()->orderByDesc('custom_discount_ends_at')->limit($limit)->get();
+            return Site::query()->catalogVisible()->onDiscount()->orderByDesc('custom_discount_ends_at')->limit($limit)->get();
         } catch (\Throwable $e) {
             Log::warning('Failed to load custom-discount sites', ['error' => $e->getMessage()]);
 
@@ -227,6 +228,7 @@ class PromotionService
 
         try {
             return Site::query()
+                ->catalogVisible()
                 ->where('bulk_discount_enabled', true)
                 ->whereNotNull('bulk_discount_percent')
                 ->where('bulk_discount_percent', '>', 0)
@@ -278,6 +280,7 @@ class PromotionService
 
         try {
             return (int) Site::query()
+                ->catalogVisible()
                 ->whereNotNull('featured_until')
                 ->where('featured_until', '>', now())
                 ->count();
@@ -293,7 +296,7 @@ class PromotionService
         }
 
         try {
-            return (int) Site::query()->onDiscount()->count();
+            return (int) Site::query()->catalogVisible()->onDiscount()->count();
         } catch (\Throwable) {
             return 0;
         }
@@ -307,6 +310,7 @@ class PromotionService
 
         try {
             return (int) Site::query()
+                ->catalogVisible()
                 ->where('bulk_discount_enabled', true)
                 ->whereNotNull('bulk_discount_percent')
                 ->where('bulk_discount_percent', '>', 0)

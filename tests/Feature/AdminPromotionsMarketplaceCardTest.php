@@ -53,6 +53,36 @@ class AdminPromotionsMarketplaceCardTest extends TestCase
             ->assertSee('On Sale Promo Site', false);
     }
 
+    public function test_hub_hides_featured_sites_that_are_not_in_the_catalog(): void
+    {
+        $this->seed(RolesTableSeeder::class);
+        $adminRole = Role::where('name', 'admin')->firstOrFail();
+        $admin = User::factory()->create([
+            'email_verified_at' => now(),
+            'active_role_id' => $adminRole->id,
+        ]);
+        $admin->roles()->attach($adminRole->id);
+
+        $publisherRole = Role::where('name', 'publisher')->firstOrFail();
+        $publisher = User::factory()->create([
+            'email_verified_at' => now(),
+            'active_role_id' => $publisherRole->id,
+        ]);
+        $publisher->roles()->attach($publisherRole->id);
+
+        $hidden = $this->makeSite($publisher, 'Inactive Featured Site');
+        $payload = ['active' => false];
+        if (Schema::hasColumn('sites', 'featured_until')) {
+            $payload['featured_until'] = now()->addDays(3);
+        }
+        $hidden->update($payload);
+
+        $this->actingAs($admin)
+            ->get(route('admin.promotions.index'))
+            ->assertOk()
+            ->assertDontSee('Inactive Featured Site', false);
+    }
+
     public function test_hub_ok_when_promo_columns_missing(): void
     {
         $this->seed(RolesTableSeeder::class);

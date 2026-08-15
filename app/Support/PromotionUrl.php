@@ -16,7 +16,7 @@ class PromotionUrl
                 return false;
             }
 
-            if (str_contains($url, '\\') || str_contains($url, "\0")) {
+            if (str_contains($url, '\\') || str_contains($url, "\0") || str_contains($url, '..')) {
                 return false;
             }
 
@@ -43,10 +43,8 @@ class PromotionUrl
             return null;
         }
 
-        if (str_starts_with($url, '/')) {
-            return url($url);
-        }
-
+        // Keep site paths relative so click redirects are not rebuilt from the
+        // request host (trustProxies=* would honor X-Forwarded-Host).
         return $url;
     }
 

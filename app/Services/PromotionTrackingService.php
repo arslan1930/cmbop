@@ -76,10 +76,12 @@ class PromotionTrackingService
                     'created_at' => now(),
                 ]);
 
-                if ($event === self::EVENT_IMPRESSION && $subject instanceof AdBanner) {
+                if ($event === self::EVENT_IMPRESSION && $subject instanceof AdBanner
+                    && $this->hasColumn($subject->getTable(), 'impressions')) {
                     $subject->recordImpression();
                 }
-                if ($event === self::EVENT_CLICK && method_exists($subject, 'recordClick')) {
+                if ($event === self::EVENT_CLICK && method_exists($subject, 'recordClick')
+                    && $this->hasColumn($subject->getTable(), 'clicks')) {
                     $subject->recordClick();
                 }
 
@@ -174,7 +176,12 @@ class PromotionTrackingService
         }
 
         $dest = strtolower((string) $request->headers->get('Sec-Fetch-Dest', ''));
-        if (in_array($dest, ['image', 'video', 'audio', 'font', 'style', 'script', 'embed', 'object', 'iframe'], true)) {
+        if (in_array($dest, ['image', 'video', 'audio', 'font', 'style', 'script', 'embed', 'object', 'iframe', 'empty'], true)) {
+            return false;
+        }
+
+        $mode = strtolower((string) $request->headers->get('Sec-Fetch-Mode', ''));
+        if ($mode !== '' && $mode !== 'navigate') {
             return false;
         }
 
@@ -189,6 +196,15 @@ class PromotionTrackingService
         }
 
         return true;
+    }
+
+    private function hasColumn(string $table, string $column): bool
+    {
+        try {
+            return Schema::hasColumn($table, $column);
+        } catch (\Throwable) {
+            return false;
+        }
     }
 
     public function looksLikeBot(Request $request): bool

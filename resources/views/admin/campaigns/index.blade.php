@@ -217,8 +217,8 @@
                                 <label class="form-label">CTA URL (optional)</label>
                                 @php
                                     $prefillCta = old_text('cta_url', request('cta_url'));
-                                    if ($prefillCta !== '' && str_starts_with($prefillCta, '/')) {
-                                        $prefillCta = url($prefillCta);
+                                    if ($prefillCta !== '' && str_starts_with($prefillCta, '/') && ! str_starts_with($prefillCta, '//')) {
+                                        $prefillCta = rtrim((string) config('app.url'), '/').$prefillCta;
                                     }
                                 @endphp
                                 <input type="url" name="cta_url" class="form-control" value="{{ $prefillCta }}" maxlength="500" placeholder="https://">

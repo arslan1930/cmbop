@@ -31,11 +31,12 @@ class PromotionUrlTest extends TestCase
         $this->assertNull(PromotionUrl::normalizeForStorage('https://user:pass@phish.test'));
     }
 
-    public function test_href_resolves_relative_against_app_url(): void
+    public function test_href_keeps_relative_paths_relative(): void
     {
-        $href = PromotionUrl::href('/advertiser/catalog');
-        $this->assertStringEndsWith('/advertiser/catalog', (string) $href);
-        $this->assertStringStartsWith('http', (string) $href);
+        $this->assertSame('/advertiser/catalog', PromotionUrl::href('/advertiser/catalog'));
+        $this->assertSame('https://example.com/x', PromotionUrl::href('https://example.com/x'));
+        $this->assertFalse(PromotionUrl::isSafe('/../.env'));
+        $this->assertNull(PromotionUrl::href('/../admin'));
     }
 
     public function test_normalize_returns_null_for_unsafe(): void
