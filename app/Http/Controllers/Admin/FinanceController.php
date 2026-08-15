@@ -107,7 +107,7 @@ class FinanceController extends Controller
 
         $exportQuery = array_filter([
             'search' => $search !== '' ? $search : null,
-            'user_id' => $ledgerUser?->id,
+            'user_id' => $userId > 0 ? $userId : null,
             'type' => $type !== '' ? $type : null,
             'direction' => $direction !== '' ? $direction : null,
             'wallet_role' => $walletRole !== '' ? $walletRole : null,
@@ -123,7 +123,7 @@ class FinanceController extends Controller
         unset($clearWalletQuery['wallet_id']);
         $hasLedgerFilters = collect($exportQuery)->except(['user_id'])->isNotEmpty();
         $clearFiltersQuery = array_filter([
-            'user_id' => $ledgerUser?->id,
+            'user_id' => $userId > 0 ? $userId : null,
         ]);
 
         $filtered = $this->ledgerQuery($request);
@@ -152,6 +152,7 @@ class FinanceController extends Controller
             'statuses',
             'search',
             'ledgerUser',
+            'userId',
             'ledgerWallet',
             'walletId',
             'type',

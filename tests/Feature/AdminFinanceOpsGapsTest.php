@@ -208,6 +208,39 @@ class AdminFinanceOpsGapsTest extends TestCase
         $this->assertStringNotContainsString($other->email, $csv);
     }
 
+    public function test_ledger_unknown_user_id_keeps_scope_and_does_not_export_everyone(): void
+    {
+        $admin = $this->makeUser('admin');
+        $publisher = $this->makeUser('publisher');
+        $pubRole = Role::firstOrCreate(['name' => 'publisher']);
+        $wallet = Wallet::create([
+            'user_id' => $publisher->id,
+            'role_id' => $pubRole->id,
+            'balance' => 6,
+            'reserved_balance' => 0,
+            'currency' => 'EUR',
+        ]);
+        app(WalletLedgerService::class)->recordTransferIn($wallet, 6, null, 'LEDGER-OTHER-USER', 'Other user row');
+
+        $this->actingAs($admin)
+            ->get(route('admin.finance.ledger', ['user_id' => 99991]))
+            ->assertOk()
+            ->assertSee('Showing ledger for')
+            ->assertSee('#99991')
+            ->assertSee('not found')
+            ->assertSee('No ledger rows for this user')
+            ->assertDontSee('Other user row')
+            ->assertSee(route('admin.finance.ledger.export', ['user_id' => 99991]), false);
+
+        $csv = $this->actingAs($admin)
+            ->get(route('admin.finance.ledger.export', ['user_id' => 99991]))
+            ->assertOk()
+            ->streamedContent();
+
+        $this->assertStringNotContainsString('LEDGER-OTHER-USER', $csv);
+        $this->assertStringNotContainsString('Other user row', $csv);
+    }
+
     public function test_ledger_row_shows_signed_amount_wallet_role_and_status(): void
     {
         $admin = $this->makeUser('admin');
