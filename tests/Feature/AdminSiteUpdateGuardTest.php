@@ -3,6 +3,8 @@
 namespace Tests\Feature;
 
 use App\Mail\SiteStatusNotification;
+use App\Models\BulkSiteRequest;
+use App\Models\BulkSiteRequestItem;
 use App\Models\Role;
 use App\Models\Site;
 use App\Models\User;
@@ -135,6 +137,63 @@ class AdminSiteUpdateGuardTest extends TestCase
             ->assertJsonValidationErrors(['site_url']);
 
         $this->assertSame('other-guard.example', $other->fresh()->domain);
+    }
+
+    public function test_update_rejects_retarget_onto_pending_bulk_domain(): void
+    {
+        $site = $this->site();
+        $bulk = BulkSiteRequest::create([
+            'publisher_id' => $this->publisher->id,
+            'status' => BulkSiteRequest::STATUS_REQUESTED,
+            'estimated_count' => 1,
+        ]);
+        BulkSiteRequestItem::create([
+            'bulk_site_request_id' => $bulk->id,
+            'site_url' => 'https://pending-bulk.example',
+            'domain' => 'pending-bulk.example',
+            'price' => 40,
+        ]);
+
+        $this->actingAs($this->admin)
+            ->putJson(route('admin.sites.update', $site->id), [
+                'site_url' => 'https://www.pending-bulk.example/path',
+            ])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['site_url']);
+
+        $this->assertSame('guard-site.example', $site->fresh()->domain);
+    }
+
+    public function test_update_allows_metrics_when_site_already_matches_leftover_pending_domain(): void
+    {
+        $site = $this->site([
+            'site_name' => 'Leftover Domain',
+            'site_url' => 'https://leftover-pending.example',
+            'domain' => 'leftover-pending.example',
+        ]);
+        $bulk = BulkSiteRequest::create([
+            'publisher_id' => $this->publisher->id,
+            'status' => BulkSiteRequest::STATUS_REQUESTED,
+            'estimated_count' => 1,
+        ]);
+        BulkSiteRequestItem::create([
+            'bulk_site_request_id' => $bulk->id,
+            'site_url' => 'https://leftover-pending.example',
+            'domain' => 'leftover-pending.example',
+            'price' => 40,
+        ]);
+
+        $this->actingAs($this->admin)
+            ->putJson(route('admin.sites.update', $site->id), [
+                'site_url' => 'https://www.leftover-pending.example',
+                'da' => 55,
+            ])
+            ->assertOk()
+            ->assertJsonPath('success', true);
+
+        $site->refresh();
+        $this->assertSame('leftover-pending.example', $site->domain);
+        $this->assertSame(55, (int) $site->da);
     }
 
     public function test_update_rejects_trailing_dot_duplicate_domain(): void

@@ -1637,6 +1637,10 @@ class SiteController extends Controller
                     if ($existing) {
                         $validator->errors()->add('site_url', $this->domainAlreadyRegisteredMessage($existing));
                     }
+                    $pending = $this->pendingBulkDomainConflictMessage($domain, $site);
+                    if ($pending !== null) {
+                        $validator->errors()->add('site_url', $pending);
+                    }
                 }
             }
 
@@ -1954,6 +1958,10 @@ class SiteController extends Controller
                     if ($existing) {
                         $validator->errors()->add('site_url', $this->domainAlreadyRegisteredMessage($existing));
                     }
+                    $pending = $this->pendingBulkDomainConflictMessage($domain, $site);
+                    if ($pending !== null) {
+                        $validator->errors()->add('site_url', $pending);
+                    }
                 }
             }
 
@@ -2087,6 +2095,20 @@ class SiteController extends Controller
     private function domainAlreadyRegisteredMessage(Site $existing): string
     {
         return $existing->occupyingDomainMessage();
+    }
+
+    /**
+     * Block retargeting a listing onto a domain still reserved by an open bulk.
+     * Same-domain metric/geo edits stay allowed even if a leftover pending row exists.
+     */
+    private function pendingBulkDomainConflictMessage(string $domain, Site $site): ?string
+    {
+        $current = Site::normalizeMarketplaceDomain((string) $site->domain);
+        if ($domain === '' || $domain === $current) {
+            return null;
+        }
+
+        return BulkSiteRequestItem::occupyingPendingDomainMessage($domain);
     }
 
     /**

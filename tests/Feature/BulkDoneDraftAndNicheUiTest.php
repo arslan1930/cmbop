@@ -889,6 +889,10 @@ class BulkDoneDraftAndNicheUiTest extends TestCase
         $this->assertStringContainsString("find((int) \$deleted['bulk_id'])?->refreshProgressStatus()", $publisherSiteController);
         $this->assertStringContainsString('occupyingPendingDomainMessage', $publisherSiteController);
 
+        $adminSiteController = file_get_contents(app_path('Http/Controllers/Admin/SiteController.php'));
+        $this->assertStringContainsString('pendingBulkDomainConflictMessage', $adminSiteController);
+        $this->assertStringContainsString('occupyingPendingDomainMessage', $adminSiteController);
+
         $bulk = BulkSiteRequest::create([
             'publisher_id' => $this->publisher->id,
             'status' => BulkSiteRequest::STATUS_REQUESTED,

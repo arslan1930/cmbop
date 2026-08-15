@@ -3,6 +3,8 @@
 namespace Tests\Feature;
 
 use App\Mail\AdminAssignedSiteNotification;
+use App\Models\BulkSiteRequest;
+use App\Models\BulkSiteRequestItem;
 use App\Models\Category;
 use App\Models\Country;
 use App\Models\InAppNotification;
@@ -731,6 +733,67 @@ class MarketingAssignSiteForPublisherTest extends TestCase
             (string) session('errors')->first('site_url')
         );
         $this->assertSame('pending-collision.example', $pending->fresh()->domain);
+    }
+
+    public function test_marketing_update_rejects_retarget_onto_pending_bulk_domain(): void
+    {
+        $bulk = BulkSiteRequest::create([
+            'publisher_id' => $this->publisher->id,
+            'status' => BulkSiteRequest::STATUS_REQUESTED,
+            'estimated_count' => 1,
+        ]);
+        BulkSiteRequestItem::create([
+            'bulk_site_request_id' => $bulk->id,
+            'site_url' => 'https://pending-bulk.example',
+            'domain' => 'pending-bulk.example',
+            'price' => 40,
+        ]);
+
+        $pending = Site::create([
+            'publisher_id' => $this->publisher->id,
+            'publisher_accepted_at' => now(),
+            'site_name' => 'Pending Bulk Clash',
+            'site_url' => 'https://pending-bulk-clash.example',
+            'domain' => 'pending-bulk-clash.example',
+            'example_url' => 'https://pending-bulk-clash.example/sample',
+            'da' => 40,
+            'dr' => 40,
+            'traffic' => 12000,
+            'country' => 'de',
+            'language' => 'de',
+            'category' => 'News',
+            'categories' => ['News'],
+            'price' => 50,
+            'turnaround_time' => '3days',
+            'publication_time' => 'permanent',
+            'link_type' => 'dofollow',
+            'description' => str_repeat('Pending bulk clash description text. ', 3),
+            'verified' => false,
+            'active' => false,
+        ]);
+
+        $this->actingAs($this->marketer)
+            ->from(route('marketing.sites.edit', $pending->id))
+            ->put(route('marketing.sites.update', $pending->id), [
+                'site_name' => 'Pending Bulk Clash',
+                'site_url' => 'https://www.pending-bulk.example/path',
+                'example_url' => 'https://pending-bulk.example/sample',
+                'price' => 50,
+                'da' => 40,
+                'dr' => 40,
+                'traffic' => 12000,
+                'country' => 'de',
+                'language' => 'de',
+                'categories' => 'News',
+            ])
+            ->assertRedirect()
+            ->assertSessionHasErrors('site_url');
+
+        $this->assertStringContainsString(
+            'Already in an open bulk request:',
+            (string) session('errors')->first('site_url')
+        );
+        $this->assertSame('pending-bulk-clash.example', $pending->fresh()->domain);
     }
 
     public function test_array_shaped_site_url_does_not_save_array_domain(): void
