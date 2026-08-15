@@ -2781,6 +2781,7 @@ class SiteController extends Controller
                 $site->verify_method = null;
                 Site::ensureStatusReasonColumns();
                 $this->applyStatusReason($site, $reason);
+                $this->restoreBulkOnboardingAfterStaffUndo($site);
             }
 
             try {
@@ -2982,6 +2983,7 @@ class SiteController extends Controller
             } else {
                 Site::ensureStatusReasonColumns();
                 $this->applyStatusReason($site, $reason);
+                $this->restoreBulkOnboardingAfterStaffUndo($site);
             }
             $site->save();
             $this->syncLinkedBulkProgress($site->bulk_site_request_id);
@@ -3301,6 +3303,29 @@ class SiteController extends Controller
         }
 
         $bulk->refreshProgressStatus();
+    }
+
+    /**
+     * Staff verify/activate clears onboarding. Undo must put a bulk draft
+     * back in Complete details or the publisher is stuck with an empty queue.
+     */
+    private function restoreBulkOnboardingAfterStaffUndo(Site $site): void
+    {
+        if (! $site->bulk_site_request_id || $site->isArchived()) {
+            return;
+        }
+
+        if ((bool) $site->verified || (bool) $site->active) {
+            return;
+        }
+
+        if (! Site::hasSitesColumn('onboarding_status') || $site->onboarding_status !== null) {
+            return;
+        }
+
+        $site->onboarding_status = $site->hasCompletedPublisherDetails()
+            ? Site::ONBOARDING_DETAILS_COMPLETE
+            : Site::ONBOARDING_AWAITING_DETAILS;
     }
 
     private function bulkItemWasRepended(?int $bulkRequestId, ?string $domain): bool

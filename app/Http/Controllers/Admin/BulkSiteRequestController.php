@@ -16,6 +16,7 @@ use App\Models\Site;
 use App\Services\ActivityLogger;
 use App\Services\InAppNotificationService;
 use App\Services\Marketplace\CountryLanguagePairs;
+use App\Services\SiteClaimTransferService;
 use App\Support\CommunityInbox;
 use App\Support\MarketingOpsQueues;
 use Illuminate\Http\Request;
@@ -65,8 +66,9 @@ class BulkSiteRequestController extends Controller
         ])->findOrFail($id);
 
         // Heal stuck batches: completed-with-pending-rows, drafts deleted so
-        // only URL+price rows remain, or staff verified/activated every draft
-        // while status still says waiting on publisher (blocks a new bulk).
+        // only URL+price rows remain, staff verified/activated every draft
+        // while status still says waiting on publisher (blocks a new bulk),
+        // or unverify restored publisher work while status still says completed.
         if ($bulkRequest->needsProgressHeal()) {
             $bulkRequest->refreshProgressStatus();
             $reloaded = $bulkRequest->fresh([
@@ -185,11 +187,32 @@ class BulkSiteRequestController extends Controller
         $archivedLive = 0;
 
         $alreadyCancelled = false;
+        $blockedByOpenOrders = null;
 
-        DB::transaction(function () use ($bulkRequest, $reason, &$removedDrafts, &$archivedLive, &$alreadyCancelled) {
+        DB::transaction(function () use ($bulkRequest, $reason, &$removedDrafts, &$archivedLive, &$alreadyCancelled, &$blockedByOpenOrders) {
             $locked = BulkSiteRequest::query()->lockForUpdate()->find($bulkRequest->id);
             if (! $locked || $locked->isCancelled()) {
                 $alreadyCancelled = true;
+
+                return;
+            }
+
+            $orderGuard = app(SiteClaimTransferService::class);
+            $openOn = [];
+            foreach ($locked->sites()->notArchived()->lockForUpdate()->get() as $site) {
+                $open = $orderGuard->openOrderItemsCount($site);
+                if ($open > 0) {
+                    $label = Site::normalizeMarketplaceDomain((string) $site->domain);
+                    if ($label === '') {
+                        $label = (string) $site->site_name;
+                    }
+                    $openOn[] = $label.' ('.$open.')';
+                }
+            }
+            if ($openOn !== []) {
+                $blockedByOpenOrders = 'Cannot cancel while these listings have open orders: '
+                    .implode(', ', $openOn)
+                    .'. Finish, cancel, or resolve those orders first.';
 
                 return;
             }
@@ -231,6 +254,10 @@ class BulkSiteRequestController extends Controller
             return redirect()
                 ->to(staff_route('bulk-site-requests.index'))
                 ->with('error', 'This request is already cancelled.');
+        }
+
+        if (is_string($blockedByOpenOrders)) {
+            return back()->with('error', $blockedByOpenOrders);
         }
 
         ActivityLogger::log(

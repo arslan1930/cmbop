@@ -317,6 +317,63 @@ class BulkDoneDraftAndNicheUiTest extends TestCase
         $this->assertDatabaseHas('bulk_site_request_items', ['domain' => 'heal-new-a.example']);
     }
 
+    public function test_completed_batch_with_awaiting_details_blocks_and_heals(): void
+    {
+        $bulk = BulkSiteRequest::create([
+            'publisher_id' => $this->publisher->id,
+            'status' => BulkSiteRequest::STATUS_COMPLETED,
+            'estimated_count' => 1,
+            'completed_at' => now(),
+        ]);
+        Site::create([
+            'publisher_id' => $this->publisher->id,
+            'bulk_site_request_id' => $bulk->id,
+            'site_name' => 'Undo Left Awaiting',
+            'site_url' => 'https://undo-left-awaiting.example',
+            'domain' => 'undo-left-awaiting.example',
+            'da' => 40,
+            'dr' => 40,
+            'traffic' => 12000,
+            'country' => 'de',
+            'language' => 'de',
+            'category' => 'Pending',
+            'price' => 50,
+            'publication_time' => 'permanent',
+            'link_type' => 'dofollow',
+            'description' => str_repeat('Unverify leftover still needs publisher details. ', 3),
+            'verified' => false,
+            'active' => false,
+            'onboarding_status' => Site::ONBOARDING_AWAITING_DETAILS,
+        ]);
+
+        $this->assertTrue($bulk->needsProgressHeal());
+        $this->assertTrue(
+            BulkSiteRequest::query()->whereKey($bulk->id)->blockingPublisher()->exists()
+        );
+
+        $this->actingAs($this->publisher)
+            ->from(route('publisher.websites'))
+            ->post(route('publisher.bulk-sites.request'), [
+                'sites' => [
+                    ['url' => 'https://should-not-open.example', 'price' => 40],
+                    ['url' => 'https://should-not-open-b.example', 'price' => 50],
+                ],
+            ])
+            ->assertRedirect(route('publisher.websites'))
+            ->assertSessionHas(
+                'error',
+                'Finish your pending sites under Complete details before submitting another bulk request.'
+            );
+
+        $this->actingAs($this->marketer)
+            ->get(route('marketing.bulk-site-requests.show', $bulk))
+            ->assertOk()
+            ->assertSee('Waiting on publisher', false);
+
+        $this->assertSame(BulkSiteRequest::STATUS_AWAITING_PUBLISHER, $bulk->fresh()->status);
+        $this->assertDatabaseMissing('bulk_site_request_items', ['domain' => 'should-not-open.example']);
+    }
+
     public function test_bulk_notes_reject_non_string_payload(): void
     {
         $bulk = BulkSiteRequest::create([
@@ -995,6 +1052,8 @@ class BulkDoneDraftAndNicheUiTest extends TestCase
         $this->assertStringContainsString('stale in-memory status', $model);
         $this->assertStringContainsString('needsProgressHeal', $model);
         $this->assertStringContainsString('healProgressStatusIfStale', $model);
+        $this->assertStringContainsString('$pendingPublisher > 0', $model);
+        $this->assertStringContainsString('completedStillOpen', $model);
 
         $controller = file_get_contents(app_path('Http/Controllers/Admin/BulkSiteRequestController.php'));
         $this->assertStringContainsString('lockForUpdate()->findOrFail($id)', $controller);
@@ -1061,6 +1120,9 @@ class BulkDoneDraftAndNicheUiTest extends TestCase
         $this->assertStringContainsString('occupyingPendingDomainMessage', $adminSiteController);
         $this->assertStringContainsString('bulkAttachedDomainChangeMessage', $adminSiteController);
         $this->assertStringContainsString('syncLinkedBulkProgress', $adminSiteController);
+        $this->assertStringContainsString('restoreBulkOnboardingAfterStaffUndo', $adminSiteController);
+        $this->assertStringContainsString('openOrderItemsCount', $controller);
+        $this->assertStringContainsString('$blockedByOpenOrders', $controller);
 
         $bulk = BulkSiteRequest::create([
             'publisher_id' => $this->publisher->id,

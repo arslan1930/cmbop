@@ -15,6 +15,8 @@ use App\Models\EmailLog;
 use App\Models\EmailNotificationPreference;
 use App\Models\InAppNotification;
 use App\Models\Language;
+use App\Models\Order;
+use App\Models\OrderItem;
 use App\Models\Role;
 use App\Models\Site;
 use App\Models\User;
@@ -1240,6 +1242,65 @@ class BulkDoneRejectRowsTest extends TestCase
             BulkSiteRequest::query()->whereKey($bulk->id)->blockingPublisher()->exists()
         );
         Mail::assertQueued(BulkSiteRequestCancelled::class, 1);
+    }
+
+    public function test_cancel_refuses_when_a_live_listing_has_open_orders(): void
+    {
+        Mail::fake();
+        [$bulk, $items] = $this->makeBulkWithItems(1, 'cancel-open');
+
+        $this->actingAs($this->marketer)
+            ->post(route('marketing.bulk-site-requests.done', $bulk), [
+                'items' => $this->completeRow($items[0]),
+            ])
+            ->assertRedirect();
+
+        $live = Site::query()->where('domain', $items[0]->domain)->firstOrFail();
+        $live->forceFill([
+            'verified' => true,
+            'verified_at' => now(),
+            'active' => true,
+            'onboarding_status' => null,
+        ])->save();
+
+        $order = Order::create([
+            'user_id' => $this->advertiser->id,
+            'order_number' => 'ORD-BULK-OPEN-1',
+            'subtotal' => 80,
+            'tax' => 0,
+            'total_amount' => 80,
+            'payment_method' => 'wallet',
+            'payment_status' => 'paid',
+            'status' => 'processing',
+        ]);
+        OrderItem::create([
+            'order_id' => $order->id,
+            'site_id' => $live->id,
+            'site_name' => $live->site_name,
+            'site_url' => $live->site_url,
+            'price' => 80,
+            'content_link' => 'https://example.com/draft-article',
+            'anchor_text' => 'best seo tools',
+            'target_url' => 'https://advertiser.example',
+            'publisher_status' => 'pending',
+        ]);
+
+        $this->actingAs($this->marketer)
+            ->from(route('marketing.bulk-site-requests.show', $bulk))
+            ->post(route('marketing.bulk-site-requests.cancel', $bulk), [
+                'reason' => 'Publisher asked to stop this batch after one listing went live.',
+            ])
+            ->assertRedirect(route('marketing.bulk-site-requests.show', $bulk))
+            ->assertSessionHas('error', function ($message) use ($live) {
+                return is_string($message)
+                    && str_contains($message, 'Cannot cancel while these listings have open orders')
+                    && str_contains($message, (string) $live->domain);
+            });
+
+        $this->assertFalse($live->fresh()->isArchived());
+        $this->assertTrue((bool) $live->fresh()->active);
+        $this->assertNotSame(BulkSiteRequest::STATUS_CANCELLED, $bulk->fresh()->status);
+        Mail::assertNotQueued(BulkSiteRequestCancelled::class);
     }
 
     public function test_publisher_can_relist_domain_after_cancelled_bulk_leftover(): void

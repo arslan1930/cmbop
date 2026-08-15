@@ -94,9 +94,10 @@ class BulkSiteRequest extends Model
     }
 
     /**
-     * Status drifted from sites/items (staff verify, claim transfer, leftover
-     * deletes). Show and publisher submit share this so a stale
-     * awaiting_publisher row cannot block a new bulk forever.
+     * Status drifted from sites/items (staff verify/unverify, claim transfer,
+     * leftover deletes). Show and publisher submit share this so a stale
+     * awaiting_publisher row cannot block a new bulk forever, and a stale
+     * completed row cannot hide publisher work that is still owed.
      */
     public function needsProgressHeal(): bool
     {
@@ -106,6 +107,12 @@ class BulkSiteRequest extends Model
 
         $hasPendingItems = $this->hasPendingItems();
         $hasSites = $this->sites()->notArchived()->exists();
+        $pendingPublisher = $this->pendingPublisherCount();
+
+        // Unverify/deactivate restore onboarding; status may still say completed.
+        if ($pendingPublisher > 0 && $this->status !== self::STATUS_AWAITING_PUBLISHER) {
+            return true;
+        }
 
         if ($hasPendingItems && ($this->status === self::STATUS_COMPLETED || ! $hasSites)) {
             return true;
@@ -121,7 +128,7 @@ class BulkSiteRequest extends Model
         return in_array($this->status, [
             self::STATUS_AWAITING_PUBLISHER,
             self::STATUS_SEEDED,
-        ], true) && $this->pendingPublisherCount() === 0;
+        ], true) && $pendingPublisher === 0;
     }
 
     public function healProgressStatusIfStale(): bool
@@ -301,9 +308,16 @@ class BulkSiteRequest extends Model
                                     ->whereDoesntHave('sites', fn ($sites) => $sites->notArchived());
                             });
                     });
-            })->orWhere(function ($completedPending) {
-                $completedPending->where('status', self::STATUS_COMPLETED)
-                    ->whereHas('items', fn ($items) => $items->whereNull('site_id'));
+            })->orWhere(function ($completedStillOpen) {
+                $completedStillOpen->where('status', self::STATUS_COMPLETED)
+                    ->where(function ($q) {
+                        $q->whereHas('items', fn ($items) => $items->whereNull('site_id'))
+                            ->orWhereHas('sites', fn ($sites) => $sites->notArchived()
+                                ->whereIn('onboarding_status', [
+                                    Site::ONBOARDING_AWAITING_DETAILS,
+                                    Site::ONBOARDING_DETAILS_COMPLETE,
+                                ]));
+                    });
             });
         });
     }

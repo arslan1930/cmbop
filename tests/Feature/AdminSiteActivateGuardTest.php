@@ -157,6 +157,56 @@ class AdminSiteActivateGuardTest extends TestCase
         );
     }
 
+    public function test_unverify_restores_bulk_draft_to_complete_details(): void
+    {
+        $bulk = BulkSiteRequest::create([
+            'publisher_id' => $this->publisher->id,
+            'status' => BulkSiteRequest::STATUS_AWAITING_PUBLISHER,
+            'estimated_count' => 1,
+        ]);
+        $site = $this->site([
+            'site_name' => 'Undo Verify',
+            'site_url' => 'https://undo-verify.example',
+            'domain' => 'undo-verify.example',
+            'verified' => false,
+            'active' => false,
+            'onboarding_status' => Site::ONBOARDING_AWAITING_DETAILS,
+            'bulk_site_request_id' => $bulk->id,
+            'category' => 'Pending',
+            'categories' => null,
+        ]);
+        BulkSiteRequestItem::create([
+            'bulk_site_request_id' => $bulk->id,
+            'site_url' => $site->site_url,
+            'domain' => $site->domain,
+            'price' => 40,
+            'site_id' => $site->id,
+        ]);
+
+        $this->actingAs($this->admin)
+            ->postJson(route('admin.sites.verify', $site->id), ['verified' => 1])
+            ->assertOk();
+
+        $this->assertTrue((bool) $site->fresh()->verified);
+        $this->assertNull($site->fresh()->onboarding_status);
+
+        $this->actingAs($this->admin)
+            ->postJson(route('admin.sites.verify', $site->id), [
+                'verified' => 0,
+                'reason' => 'Sent back so the publisher can finish niches.',
+            ])
+            ->assertOk()
+            ->assertJsonPath('success', true);
+
+        $fresh = $site->fresh();
+        $this->assertFalse((bool) $fresh->verified);
+        $this->assertSame(Site::ONBOARDING_AWAITING_DETAILS, $fresh->onboarding_status);
+        $this->assertSame(BulkSiteRequest::STATUS_AWAITING_PUBLISHER, $bulk->fresh()->status);
+        $this->assertTrue(
+            BulkSiteRequest::query()->whereKey($bulk->id)->blockingPublisher()->exists()
+        );
+    }
+
     public function test_marketer_activate_completes_bulk_when_publisher_no_longer_owes_work(): void
     {
         $bulk = BulkSiteRequest::create([
