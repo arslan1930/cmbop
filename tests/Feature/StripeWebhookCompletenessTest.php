@@ -87,6 +87,25 @@ class StripeWebhookCompletenessTest extends TestCase
         );
     }
 
+    private function bindDepositServiceRecoveringPaymentIntent(object $intent): void
+    {
+        $this->app->instance(
+            WalletStripeDepositService::class,
+            new class(app(WalletLedgerService::class), $intent) extends WalletStripeDepositService
+            {
+                public function __construct(WalletLedgerService $ledger, private object $recoveredIntent)
+                {
+                    parent::__construct($ledger);
+                }
+
+                public function fetchPaymentIntent(string $paymentIntentId): ?object
+                {
+                    return $this->recoveredIntent;
+                }
+            }
+        );
+    }
+
     private function signedWebhook(array $event): TestResponse
     {
         $payload = json_encode($event);
@@ -1500,5 +1519,128 @@ class StripeWebhookCompletenessTest extends TestCase
 
         $this->signedWebhook($event)->assertStatus(500);
         $this->assertSame('pending', $order->fresh()->payment_status);
+    }
+
+    public function test_order_payment_intent_without_reference_code_settles_from_checkout_session(): void
+    {
+        $advertiser = $this->makeUser('advertiser');
+        $publisher = $this->makeUser('publisher');
+        $site = $this->makeSite($publisher);
+        $ref = 'ORD-PI-NO-REF-'.uniqid();
+
+        $order = Order::create([
+            'user_id' => $advertiser->id,
+            'order_number' => (string) random_int(100000, 999999),
+            'reference_code' => $ref,
+            'subtotal' => 80,
+            'tax' => 0,
+            'total_amount' => 80,
+            'payment_method' => 'card',
+            'payment_status' => 'pending',
+            'status' => 'pending',
+        ]);
+        OrderItem::create([
+            'order_id' => $order->id,
+            'site_id' => $site->id,
+            'site_name' => $site->site_name,
+            'site_url' => $site->site_url,
+            'content_link' => 'https://example.com/a',
+            'price' => 80,
+        ]);
+
+        $this->bindDepositServiceRecoveringSession((object) [
+            'id' => 'cs_order_ref_from_cs_'.uniqid(),
+            'payment_status' => 'paid',
+            'amount_total' => 8000,
+            'metadata' => (object) [
+                'type' => 'order_payment',
+                'reference_code' => $ref,
+                'user_id' => (string) $advertiser->id,
+            ],
+        ]);
+
+        $this->signedWebhook([
+            'id' => 'evt_order_pi_no_ref_'.uniqid(),
+            'object' => 'event',
+            'type' => 'payment_intent.succeeded',
+            'data' => [
+                'object' => [
+                    'id' => 'pi_order_no_ref_'.uniqid(),
+                    'object' => 'payment_intent',
+                    'status' => 'succeeded',
+                    'amount' => 8000,
+                    'amount_received' => 8000,
+                    'currency' => 'eur',
+                    'metadata' => [
+                        'type' => 'order_payment',
+                        'user_id' => (string) $advertiser->id,
+                    ],
+                ],
+            ],
+        ])->assertOk();
+
+        $this->assertSame('paid', $order->fresh()->payment_status);
+    }
+
+    public function test_order_payment_session_without_reference_code_settles_from_payment_intent(): void
+    {
+        $advertiser = $this->makeUser('advertiser');
+        $publisher = $this->makeUser('publisher');
+        $site = $this->makeSite($publisher);
+        $ref = 'ORD-CS-NO-REF-'.uniqid();
+
+        $order = Order::create([
+            'user_id' => $advertiser->id,
+            'order_number' => (string) random_int(100000, 999999),
+            'reference_code' => $ref,
+            'subtotal' => 80,
+            'tax' => 0,
+            'total_amount' => 80,
+            'payment_method' => 'card',
+            'payment_status' => 'pending',
+            'status' => 'pending',
+        ]);
+        OrderItem::create([
+            'order_id' => $order->id,
+            'site_id' => $site->id,
+            'site_name' => $site->site_name,
+            'site_url' => $site->site_url,
+            'content_link' => 'https://example.com/a',
+            'price' => 80,
+        ]);
+
+        $piId = 'pi_order_ref_from_pi_'.uniqid();
+        $this->bindDepositServiceRecoveringPaymentIntent((object) [
+            'id' => $piId,
+            'status' => 'succeeded',
+            'amount' => 8000,
+            'amount_received' => 8000,
+            'metadata' => (object) [
+                'type' => 'order_payment',
+                'reference_code' => $ref,
+                'user_id' => (string) $advertiser->id,
+            ],
+        ]);
+
+        $this->signedWebhook([
+            'id' => 'evt_order_cs_no_ref_'.uniqid(),
+            'object' => 'event',
+            'type' => 'checkout.session.completed',
+            'data' => [
+                'object' => [
+                    'id' => 'cs_order_no_ref_'.uniqid(),
+                    'object' => 'checkout.session',
+                    'payment_status' => 'paid',
+                    'payment_intent' => $piId,
+                    'amount_total' => 8000,
+                    'metadata' => [
+                        'type' => 'order_payment',
+                        'user_id' => (string) $advertiser->id,
+                    ],
+                ],
+            ],
+        ])->assertOk();
+
+        $this->assertSame('paid', $order->fresh()->payment_status);
     }
 }

@@ -398,8 +398,19 @@ class StripeWebhookController extends Controller
 
     private function handleOrderPaymentSession(object $session): void
     {
+        $paymentStatus = $session->payment_status ?? null;
+        if ($paymentStatus !== 'paid') {
+            throw new \RuntimeException('order_payment session not paid: '.($paymentStatus ?? 'missing'));
+        }
+
         $metadata = $this->metaArray($session->metadata ?? null);
         $referenceCode = $metadata['reference_code'] ?? null;
+        if (! $referenceCode) {
+            $session = app(WalletStripeDepositService::class)
+                ->withRecoveredPaymentIntentMetadata($session);
+            $metadata = $this->metaArray($session->metadata ?? null);
+            $referenceCode = $metadata['reference_code'] ?? null;
+        }
 
         Log::info('Processing order payment webhook', [
             'reference_code' => $referenceCode,
@@ -408,11 +419,6 @@ class StripeWebhookController extends Controller
 
         if (! $referenceCode) {
             throw new \RuntimeException('No reference_code found for order payment session');
-        }
-
-        $paymentStatus = $session->payment_status ?? null;
-        if ($paymentStatus !== 'paid') {
-            throw new \RuntimeException('order_payment session not paid: '.($paymentStatus ?? 'missing'));
         }
 
         $paymentService = app(OrderPaymentService::class);
@@ -466,14 +472,27 @@ class StripeWebhookController extends Controller
      */
     private function handleOrderPaymentIntent(object $intent, array $metadata): void
     {
-        $referenceCode = $metadata['reference_code'] ?? null;
-        if (! $referenceCode) {
-            throw new \RuntimeException('No reference_code on order_payment PaymentIntent');
-        }
-
         $intentStatus = $intent->status ?? null;
         if ($intentStatus !== 'succeeded') {
             throw new \RuntimeException('order_payment PaymentIntent not succeeded: '.($intentStatus ?? 'missing'));
+        }
+
+        $referenceCode = $metadata['reference_code'] ?? null;
+        if (! $referenceCode) {
+            $session = app(WalletStripeDepositService::class)
+                ->fetchCheckoutSessionForPaymentIntent((string) ($intent->id ?? ''));
+            if (is_object($session)) {
+                $sessionMeta = $this->metaArray($session->metadata ?? null);
+                $metadata = array_merge($metadata, array_filter(
+                    $sessionMeta,
+                    static fn ($value) => $value !== null && $value !== ''
+                ));
+                $intent = $this->mergeStripeMetadata($intent, $sessionMeta);
+                $referenceCode = $metadata['reference_code'] ?? null;
+            }
+        }
+        if (! $referenceCode) {
+            throw new \RuntimeException('No reference_code on order_payment PaymentIntent');
         }
 
         $paymentService = app(OrderPaymentService::class);
@@ -578,6 +597,26 @@ class StripeWebhookController extends Controller
             'site_id' => $siteId,
             'session_id' => $sessionId,
         ]);
+    }
+
+    /**
+     * @param  array<string, mixed>  $overlay
+     */
+    private function mergeStripeMetadata(object $object, array $overlay): object
+    {
+        $data = json_decode(json_encode($object), true);
+        if (! is_array($data)) {
+            $data = [];
+        }
+        $filtered = [];
+        foreach ($overlay as $key => $value) {
+            if ($value !== null && $value !== '') {
+                $filtered[$key] = $value;
+            }
+        }
+        $data['metadata'] = array_merge($this->metaArray($object->metadata ?? null), $filtered);
+
+        return json_decode(json_encode($data));
     }
 
     /**

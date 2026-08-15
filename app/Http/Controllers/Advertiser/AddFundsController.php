@@ -251,12 +251,25 @@ class AddFundsController extends Controller
                     return redirect()->route('advertiser.add-funds')
                         ->with('error', 'Card payment was not completed.');
                 }
-                if ((string) ($intent->metadata->user_id ?? '') !== (string) auth()->id()) {
+                $deposits = app(WalletStripeDepositService::class);
+                $meta = (array) json_decode(json_encode($intent->metadata ?? []), true);
+                if (trim((string) ($meta['user_id'] ?? '')) === ''
+                    || trim((string) ($meta['type'] ?? '')) === '') {
+                    $intent = $deposits->withRecoveredCheckoutSessionMetadata($intent);
+                    $meta = (array) json_decode(json_encode($intent->metadata ?? []), true);
+                }
+                $intentUserId = trim((string) ($meta['user_id'] ?? ''));
+                // Missing user_id must not be filled with whoever is logged in.
+                if ($intentUserId === '') {
+                    return redirect()->route('advertiser.add-funds')
+                        ->with('error', 'Payment verification failed. Please contact support.');
+                }
+                if ($intentUserId !== (string) auth()->id()) {
                     return redirect()->route('advertiser.add-funds')
                         ->with('error', 'Payment does not belong to this account.');
                 }
-                $intentType = trim((string) ($intent->metadata->type ?? ''));
-                $sessionReference = trim((string) ($intent->metadata->session_reference ?? ''));
+                $intentType = trim((string) ($meta['type'] ?? ''));
+                $sessionReference = trim((string) ($meta['session_reference'] ?? ''));
                 $isWalletIntent = in_array($intentType, ['wallet_deposit', 'deposit'], true)
                     || ($intentType === '' && WalletStripeDepositService::isAddFundsSessionReference($sessionReference));
                 if (! $isWalletIntent) {
@@ -267,7 +280,7 @@ class AddFundsController extends Controller
                 $amountEuros = StripePaymentService::fromCents(
                     (int) ($intent->amount_received ?: $intent->amount)
                 );
-                $ref = $referenceCode ?: (string) ($intent->metadata->reference_code ?? str_pad((string) mt_rand(1, 999999), 6, '0', STR_PAD_LEFT));
+                $ref = $referenceCode ?: (string) ($meta['reference_code'] ?? str_pad((string) mt_rand(1, 999999), 6, '0', STR_PAD_LEFT));
                 $credited = app(WalletStripeDepositService::class)
                     ->creditFromPaymentIntent(
                         auth()->id(),
@@ -306,6 +319,10 @@ class AddFundsController extends Controller
             $session = Session::retrieve($sessionId);
 
             if ($session->payment_status === 'paid') {
+                $deposits = app(WalletStripeDepositService::class);
+                // Classify after overlay — an untyped paid session can still
+                // be a wallet top-up whose type lives only on the PaymentIntent.
+                $session = $deposits->recoverIncompleteWalletCheckoutSession($session);
                 $meta = (array) json_decode(json_encode($session->metadata ?? []), true);
                 $sessionType = isset($meta['type']) ? (string) $meta['type'] : null;
                 $hasDepositId = ! empty($meta['deposit_id']);
@@ -333,7 +350,7 @@ class AddFundsController extends Controller
                         ->with('error', 'Payment does not belong to this account.');
                 }
 
-                $creditedAmount = app(WalletStripeDepositService::class)->creditFromCheckoutSession($session);
+                $creditedAmount = $deposits->creditFromCheckoutSession($session);
 
                 // Missing metadata.user_id must not be filled with whoever is
                 // logged in — that credited a leaked success URL to the visitor.
