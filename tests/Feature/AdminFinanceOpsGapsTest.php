@@ -834,8 +834,8 @@ class AdminFinanceOpsGapsTest extends TestCase
             $wallet,
             10,
             null,
-            '=HYPERLINK("http://evil.test")',
-            '+cmd|calc'
+            "\t=HYPERLINK(\"http://evil.test\")",
+            ' =cmd|calc'
         );
 
         $csv = $this->actingAs($admin)
@@ -844,8 +844,50 @@ class AdminFinanceOpsGapsTest extends TestCase
             ->streamedContent();
 
         $this->assertStringContainsString("'=1+2", $csv);
-        $this->assertStringContainsString("'=HYPERLINK", $csv);
-        $this->assertStringContainsString("'+cmd|calc", $csv);
+        $this->assertStringContainsString("'\t=HYPERLINK", $csv);
+        $this->assertStringContainsString("' =cmd|calc", $csv);
+    }
+
+    public function test_ledger_text_search_matches_user_email_and_reference(): void
+    {
+        $admin = $this->makeUser('admin');
+        $pubRole = Role::firstOrCreate(['name' => 'publisher']);
+        $advRole = Role::firstOrCreate(['name' => 'advertiser']);
+
+        $hitUser = $this->makeUser('publisher');
+        $hitUser->forceFill(['email' => 'unique-ledger-hit@example.test'])->save();
+        $missUser = $this->makeUser('advertiser');
+        $missUser->forceFill(['email' => 'unique-ledger-miss@example.test'])->save();
+
+        $wallet = Wallet::create([
+            'user_id' => $hitUser->id,
+            'role_id' => $pubRole->id,
+            'balance' => 8,
+            'reserved_balance' => 0,
+            'currency' => 'EUR',
+        ]);
+        $otherWallet = Wallet::create([
+            'user_id' => $missUser->id,
+            'role_id' => $advRole->id,
+            'balance' => 4,
+            'reserved_balance' => 0,
+            'currency' => 'EUR',
+        ]);
+
+        app(WalletLedgerService::class)->recordTransferIn($wallet, 8, null, 'LEDGER-TEXT-HIT', 'Text search hit row');
+        app(WalletLedgerService::class)->recordTransferIn($otherWallet, 4, null, 'LEDGER-TEXT-MISS', 'Text search miss row');
+
+        $this->actingAs($admin)
+            ->get(route('admin.finance.ledger', ['search' => 'unique-ledger-hit']))
+            ->assertOk()
+            ->assertSee('Text search hit row')
+            ->assertDontSee('Text search miss row');
+
+        $this->actingAs($admin)
+            ->get(route('admin.finance.ledger', ['search' => 'LEDGER-TEXT-HIT']))
+            ->assertOk()
+            ->assertSee('Text search hit row')
+            ->assertDontSee('Text search miss row');
     }
 
     public function test_ledger_type_filter_does_not_instantiate_model_in_markup(): void

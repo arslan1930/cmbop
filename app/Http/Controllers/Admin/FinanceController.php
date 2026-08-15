@@ -521,7 +521,14 @@ class FinanceController extends Controller
             return $value;
         }
 
-        return preg_match('/^[=+\-@\t\r]/', $value) ? "'".$value : $value;
+        // Excel/LibreOffice still treat whitespace- or newline-prefixed
+        // = + - @ as formulas. Probe the first visible character.
+        $probe = ltrim($value, " \t\r\n\x0B\x00");
+        if ($probe !== '' && preg_match('/^[=+\-@]/', $probe)) {
+            return "'".$value;
+        }
+
+        return $value;
     }
 
     private function ledgerExportLimit(): int
