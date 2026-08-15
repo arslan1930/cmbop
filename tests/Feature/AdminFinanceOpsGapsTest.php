@@ -207,6 +207,58 @@ class AdminFinanceOpsGapsTest extends TestCase
         $this->assertStringNotContainsString($other->email, $csv);
     }
 
+    public function test_ledger_row_shows_signed_amount_wallet_role_and_status(): void
+    {
+        $admin = $this->makeUser('admin');
+        $advertiser = $this->makeUser('advertiser');
+        $publisher = $this->makeUser('publisher');
+        $advRole = Role::firstOrCreate(['name' => 'advertiser']);
+        $pubRole = Role::firstOrCreate(['name' => 'publisher']);
+
+        $advWallet = Wallet::create([
+            'user_id' => $advertiser->id,
+            'role_id' => $advRole->id,
+            'balance' => 40,
+            'reserved_balance' => 0,
+            'currency' => 'EUR',
+        ]);
+        $pubWallet = Wallet::create([
+            'user_id' => $publisher->id,
+            'role_id' => $pubRole->id,
+            'balance' => 25,
+            'reserved_balance' => 0,
+            'currency' => 'EUR',
+        ]);
+
+        app(WalletLedgerService::class)->recordDeposit($advWallet, 40, null, 'bank', 'LEDGER-CREDIT-ROW');
+        app(WalletLedgerService::class)->recordWithdrawal($pubWallet, 25, null, 'pending', 'LEDGER-DEBIT-ROW');
+
+        $html = $this->actingAs($admin)
+            ->get(route('admin.finance.ledger'))
+            ->assertOk()
+            ->assertSee('Advertiser')
+            ->assertSee('Publisher')
+            ->assertSee('Pending')
+            ->assertSee('Completed')
+            ->assertSee('+€40.00', false)
+            ->assertSee('-€25.00', false)
+            ->getContent();
+
+        $this->assertStringContainsString('>Wallet<', $html);
+        $this->assertStringContainsString('>Status<', $html);
+
+        $csv = $this->actingAs($admin)
+            ->get(route('admin.finance.ledger.export'))
+            ->assertOk()
+            ->streamedContent();
+
+        $this->assertStringContainsString('wallet_role', $csv);
+        $this->assertStringContainsString('status', $csv);
+        $this->assertStringContainsString('Advertiser', $csv);
+        $this->assertStringContainsString('Publisher', $csv);
+        $this->assertStringContainsString('pending', $csv);
+    }
+
     public function test_ledger_ignores_array_search_and_invalid_dates(): void
     {
         $admin = $this->makeUser('admin');

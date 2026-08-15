@@ -108,7 +108,7 @@ class FinanceController extends Controller
         unset($clearUserQuery['user_id']);
 
         $transactions = $this->ledgerQuery($request)
-            ->with(['user:id,name,email', 'wallet:id,role_id'])
+            ->with(['user:id,name,email', 'wallet:id,role_id', 'wallet.role:id,name'])
             ->orderByDesc('created_at')
             ->orderByDesc('id')
             ->paginate(40)
@@ -135,7 +135,11 @@ class FinanceController extends Controller
      */
     public function ledgerExport(Request $request): StreamedResponse
     {
-        $query = $this->ledgerQuery($request)->with(['user:id,name,email']);
+        $query = $this->ledgerQuery($request)->with([
+            'user:id,name,email',
+            'wallet:id,role_id',
+            'wallet.role:id,name',
+        ]);
         $filename = 'wallet-ledger-'.now()->format('Y-m-d-His').'.csv';
 
         return response()->streamDownload(function () use ($query) {
@@ -146,8 +150,11 @@ class FinanceController extends Controller
                 'user_id',
                 'user_name',
                 'user_email',
+                'wallet_id',
+                'wallet_role',
                 'type',
                 'direction',
+                'status',
                 'amount',
                 'bonus_amount',
                 'balance_after',
@@ -167,8 +174,11 @@ class FinanceController extends Controller
                         $tx->user_id,
                         $tx->user?->name,
                         $tx->user?->email,
+                        $tx->wallet_id,
+                        $tx->walletRoleLabel(),
                         $tx->type,
                         $tx->direction,
+                        $tx->status,
                         $tx->amount,
                         $tx->bonus_amount,
                         $tx->balance_after,
