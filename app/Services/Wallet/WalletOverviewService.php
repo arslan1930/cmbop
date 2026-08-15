@@ -332,7 +332,7 @@ class WalletOverviewService
                             'can_mark_paid' => $deposit->canUserMarkPaid(),
                             'user_marked_paid' => $deposit->userHasMarkedPaid(),
                             'user_marked_paid_at' => $deposit->user_marked_paid_at?->toIso8601String(),
-                            'mark_paid_url' => route('advertiser.add-funds.mark-paid', $deposit),
+                            'mark_paid_url' => route('advertiser.add-funds.mark-paid', $deposit, false),
                             'is_live_pending' => $deposit->status === 'pending',
                         ];
                     }
@@ -447,7 +447,7 @@ class WalletOverviewService
                 'user_marked_paid' => $d->userHasMarkedPaid(),
                 'user_marked_paid_at' => $d->user_marked_paid_at?->toIso8601String(),
                 'mark_paid_url' => $d->canUserMarkPaid() || $d->userHasMarkedPaid()
-                    ? route('advertiser.add-funds.mark-paid', $d)
+                    ? route('advertiser.add-funds.mark-paid', $d, false)
                     : null,
                 'is_live_pending' => $status === 'pending',
                 'order_reference' => null,

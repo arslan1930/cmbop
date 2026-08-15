@@ -78,32 +78,34 @@ class AddFundsController extends Controller
             : null;
         $publisher = $publisherWallet?->roleSnapshot() ?? Wallet::emptyRoleSnapshot();
 
-        return view('advertiser.add-funds', [
-            'pendingRequests' => $pendingRequests,
-            'wallet' => $wallet,
-            'summary' => $summary,
-            'analytics' => $analytics,
-            'advertiserBalance' => (float) $wallet->balance,
-            'advertiserBonusBalance' => $wallet->lockedBonusBalance(),
-            'advertiserWithdrawableBalance' => $wallet->withdrawableBalance(),
-            'publisher' => $publisher,
-            'publisherBalance' => $publisher['withdrawable'],
-            'showPublisherWallet' => $publisherWallet !== null,
-            'promotionalBonusMessage' => Wallet::PROMOTIONAL_BONUS_MESSAGE,
-            'payoutProfile' => $user->payoutProfile(),
-            'payoutLocked' => $user->payoutProfileLocked(),
-            'availableMethods' => $this->payoutProfiles->availableMethods($user),
-            'prefillAmount' => $prefillAmount >= 10 ? $prefillAmount : null,
-            'prefillMethod' => $prefillMethod,
-            'savedCards' => app(StripeCustomerService::class)->listCards($user),
-            'stripeConfigured' => app(StripeCustomerService::class)->configured(),
-            'cardsTab' => $request->query('tab') === 'cards',
-            'depositPayment' => DepositPaymentConfig::depositPayment(),
-            'wisePayUrl' => DepositPaymentConfig::wisePayUrl(),
-            'cryptoEnabled' => DepositPaymentConfig::cryptoEnabled(),
-            'cryptoNetworks' => DepositPaymentConfig::cryptoNetworks(),
-            'cryptoNote' => DepositPaymentConfig::cryptoNote(),
-        ]);
+        return response()
+            ->view('advertiser.add-funds', [
+                'pendingRequests' => $pendingRequests,
+                'wallet' => $wallet,
+                'summary' => $summary,
+                'analytics' => $analytics,
+                'advertiserBalance' => (float) $wallet->balance,
+                'advertiserBonusBalance' => $wallet->lockedBonusBalance(),
+                'advertiserWithdrawableBalance' => $wallet->withdrawableBalance(),
+                'publisher' => $publisher,
+                'publisherBalance' => $publisher['withdrawable'],
+                'showPublisherWallet' => $publisherWallet !== null,
+                'promotionalBonusMessage' => Wallet::PROMOTIONAL_BONUS_MESSAGE,
+                'payoutProfile' => $user->payoutProfile(),
+                'payoutLocked' => $user->payoutProfileLocked(),
+                'availableMethods' => $this->payoutProfiles->availableMethods($user),
+                'prefillAmount' => $prefillAmount >= 10 ? $prefillAmount : null,
+                'prefillMethod' => $prefillMethod,
+                'savedCards' => app(StripeCustomerService::class)->listCards($user),
+                'stripeConfigured' => app(StripeCustomerService::class)->configured(),
+                'cardsTab' => $request->query('tab') === 'cards',
+                'depositPayment' => DepositPaymentConfig::depositPayment(),
+                'wisePayUrl' => DepositPaymentConfig::wisePayUrl(),
+                'cryptoEnabled' => DepositPaymentConfig::cryptoEnabled(),
+                'cryptoNetworks' => DepositPaymentConfig::cryptoNetworks(),
+                'cryptoNote' => DepositPaymentConfig::cryptoNote(),
+            ])
+            ->header('Cache-Control', 'no-store');
     }
 
     /**
@@ -504,7 +506,7 @@ class AddFundsController extends Controller
                 'reference_code' => $referenceCode,
                 'deposit_id' => $depositRequest->id,
                 'invoice_url' => route('advertiser.invoice', $referenceCode),
-                'mark_paid_url' => route('advertiser.add-funds.mark-paid', $depositRequest),
+                'mark_paid_url' => route('advertiser.add-funds.mark-paid', $depositRequest, false),
             ]);
 
         } catch (\Exception $e) {
@@ -765,7 +767,7 @@ class AddFundsController extends Controller
                     'deposit' => $deposit,
                     'canMarkPaid' => $deposit->canUserMarkPaid(),
                     'userMarkedPaid' => $deposit->userHasMarkedPaid(),
-                    'markPaidUrl' => route('advertiser.add-funds.mark-paid', $deposit),
+                    'markPaidUrl' => route('advertiser.add-funds.mark-paid', $deposit, false),
                 ]);
             }
 

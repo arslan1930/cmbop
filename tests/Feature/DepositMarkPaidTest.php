@@ -98,7 +98,7 @@ class DepositMarkPaidTest extends TestCase
         $user = $this->advertiser();
         $deposit = $this->pendingDeposit($user, 'wise');
 
-        $this->actingAs($user)
+        $page = $this->actingAs($user)
             ->get(route('advertiser.add-funds'))
             ->assertOk()
             ->assertSee('Recent activity', false)
@@ -106,6 +106,13 @@ class DepositMarkPaidTest extends TestCase
             ->assertDontSee('Pending invoice deposits', false)
             ->assertSee('id="walletHistory"', false)
             ->assertSee('id="activityFeed"', false);
+
+        $html = $page->getContent();
+        $this->assertStringContainsString('no-store', (string) $page->headers->get('Cache-Control'));
+        $withdrawJson = json_encode(route('advertiser.balance.withdraw', [], false), JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT);
+        $this->assertStringContainsString($withdrawJson, $html);
+        $this->assertStringContainsString('data-mark-url="'.route('advertiser.add-funds.mark-paid', $deposit, false).'"', $html);
+        $this->assertStringNotContainsString('data-mark-url="'.route('advertiser.add-funds.mark-paid', $deposit).'"', $html);
     }
 
     public function test_pending_deposit_appears_in_activity_feed_with_download(): void
@@ -113,7 +120,7 @@ class DepositMarkPaidTest extends TestCase
         $user = $this->advertiser();
         $deposit = $this->pendingDeposit($user, 'wise');
 
-        $this->actingAs($user)
+        $feed = $this->actingAs($user)
             ->getJson(route('advertiser.balance.transactions'))
             ->assertOk()
             ->assertJsonPath('success', true)
@@ -122,6 +129,12 @@ class DepositMarkPaidTest extends TestCase
                 'status' => 'pending',
                 'is_live_pending' => true,
             ]);
+
+        $row = collect($feed->json('transactions'))->firstWhere('reference', $deposit->reference_code);
+        $this->assertSame(
+            route('advertiser.add-funds.mark-paid', $deposit, false),
+            $row['mark_paid_url'] ?? null
+        );
 
         $this->actingAs($user)
             ->get(route('advertiser.invoice', ['referenceCode' => $deposit->reference_code, 'download' => 1]))

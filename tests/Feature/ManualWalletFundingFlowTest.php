@@ -147,6 +147,12 @@ class ManualWalletFundingFlowTest extends TestCase
             ->assertJsonPath('success', true)
             ->assertJsonPath('reference_code', 'DEP123');
         $this->assertStringContainsString('/advertiser/invoice/DEP123', (string) $response->json('invoice_url'));
+        $deposit = DepositRequest::where('reference_code', 'DEP123')->first();
+        $this->assertNotNull($deposit);
+        $this->assertSame(
+            route('advertiser.add-funds.mark-paid', $deposit, false),
+            $response->json('mark_paid_url')
+        );
 
         $this->assertDatabaseHas('deposit_requests', [
             'user_id' => $advertiser->id,

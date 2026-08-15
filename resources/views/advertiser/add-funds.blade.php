@@ -122,7 +122,7 @@
                             </a>
                             @if($deposit->canUserMarkPaid())
                                 <button type="button" class="btn btn-sm btn-outline-primary mark-deposit-paid-btn"
-                                        data-mark-url="{{ route('advertiser.add-funds.mark-paid', $deposit) }}"
+                                        data-mark-url="{{ route('advertiser.add-funds.mark-paid', $deposit, false) }}"
                                         data-ref="{{ $pendingRef }}"
                                         data-amount="{{ number_format((float) $deposit->amount, 2, '.', '') }}">
                                     <i class="fa fa-check me-1"></i> Mark paid
@@ -759,7 +759,7 @@
         transactionShow: @json(url('/advertiser/balance/transactions')),
         analytics: @json(route('advertiser.balance.analytics')),
         export: @json(route('advertiser.balance.export')),
-        withdraw: @json(route('advertiser.balance.withdraw')),
+        withdraw: @json(route('advertiser.balance.withdraw', [], false)),
         addFunds: @json(route('advertiser.add-funds')),
         catalog: @json(route('advertiser.catalog')),
     };
