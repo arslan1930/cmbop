@@ -608,7 +608,7 @@ class StripeFirstCheckoutInvariantsTest extends TestCase
         );
     }
 
-    public function test_finalize_taken_line_does_not_revive_a_bonus_hold_on_the_remaining_order(): void
+    public function test_finalize_taken_line_keeps_promo_hold_for_the_remaining_order(): void
     {
         $advertiser = $this->makeUser('advertiser');
         $publisher = $this->makeUser('publisher');
@@ -660,15 +660,23 @@ class StripeFirstCheckoutInvariantsTest extends TestCase
         $this->assertCount(1, $created);
         $this->assertSame($liveSite->id, (int) $created->first()->items()->first()?->site_id);
         $this->assertEqualsWithDelta(
-            0.0,
+            10.0,
             app(CheckoutIntentService::class)->recordedBonus($advertiser->id, $ref),
             0.01
         );
 
         $wallet->refresh();
+        $this->assertEqualsWithDelta(10.0, (float) $wallet->bonus_balance, 0.01);
+        $this->assertEqualsWithDelta(10.0, (float) $wallet->bonus_reserved, 0.01);
+        $this->assertEqualsWithDelta(40.0, $wallet->withdrawableBalance(), 0.01);
+
+        app(OrderRefundService::class)->cancelAndRefund($created->first()->fresh(), 'publisher rejected');
+
+        $wallet->refresh();
         $this->assertEqualsWithDelta(20.0, (float) $wallet->bonus_balance, 0.01);
         $this->assertEqualsWithDelta(0.0, (float) $wallet->bonus_reserved, 0.01);
-        $this->assertEqualsWithDelta(30.0, $wallet->withdrawableBalance(), 0.01);
+        $this->assertEqualsWithDelta(100.0, (float) $wallet->balance, 0.01);
+        $this->assertEqualsWithDelta(80.0, $wallet->withdrawableBalance(), 0.01);
 
         $wallet->reserveBonusOnly(20);
         $payments->persistPaidCheckoutBonus($advertiser->id, 'LATER-AFTER-TAKEN', 20);
@@ -683,8 +691,8 @@ class StripeFirstCheckoutInvariantsTest extends TestCase
         $wallet->refresh();
         $this->assertEqualsWithDelta(20.0, (float) $wallet->bonus_balance, 0.01);
         $this->assertEqualsWithDelta(0.0, (float) $wallet->bonus_reserved, 0.01);
-        $this->assertEqualsWithDelta(130.0, (float) $wallet->balance, 0.01);
-        $this->assertEqualsWithDelta(110.0, $wallet->withdrawableBalance(), 0.01);
+        $this->assertEqualsWithDelta(180.0, (float) $wallet->balance, 0.01);
+        $this->assertEqualsWithDelta(160.0, $wallet->withdrawableBalance(), 0.01);
     }
 
     public function test_mark_paid_credits_hidden_sibling_on_leftover_retry_rows(): void

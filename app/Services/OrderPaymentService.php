@@ -1392,6 +1392,7 @@ class OrderPaymentService
             $schedule = is_array($package['schedule'] ?? null) ? $package['schedule'] : ['mode' => 'immediate', 'timezone' => 'UTC'];
             $lines = is_array($package['lines'] ?? null) ? $package['lines'] : [];
             $orders = collect();
+            $deferredTaken = [];
 
             $sessionId = (string) ($session->id ?? '');
             $isPaymentIntent = ($session->object ?? null) === 'payment_intent'
@@ -1446,7 +1447,19 @@ class OrderPaymentService
                     ? ContentSubmission::query()->whereKey($submissionId)->lockForUpdate()->first()
                     : null;
                 $articleTaken = $submission && $submission->isClaimedByAnotherOrder();
-                $attachSubmission = $submission && ! $articleTaken;
+                if ($articleTaken) {
+                    // Refund after surviving lines exist so checkoutBonusShare
+                    // pro-rates leftover promo instead of releasing the whole hold.
+                    $deferredTaken[] = [
+                        'index' => (int) $index,
+                        'line' => $line,
+                        'site' => $site,
+                        'siteId' => $siteId,
+                        'submission' => $submission,
+                    ];
+
+                    continue;
+                }
 
                 $order = $this->createPaidCardOrderRow($schema, [
                     'user_id' => $userId,
@@ -1482,15 +1495,15 @@ class OrderPaymentService
                     'site_url' => $line['site_url'] ?? $site?->site_url,
                     'price' => $line['price'] ?? 0,
                     'content_link' => $line['content_link'] ?? null,
-                    'content_submission_id' => $attachSubmission ? $submission->id : null,
-                    'content_disk' => $attachSubmission ? $submission->disk : ($line['content_disk'] ?? null),
-                    'content_path' => $attachSubmission ? $submission->path : ($line['content_path'] ?? null),
-                    'content_original_name' => $attachSubmission ? $submission->original_filename : ($line['content_original_name'] ?? null),
-                    'content_mime' => $attachSubmission ? $submission->mime : ($line['content_mime'] ?? null),
-                    'anchor_text' => $attachSubmission ? $submission->anchor_text : ($line['anchor_text'] ?? null),
-                    'target_url' => $attachSubmission ? $submission->target_url : ($line['target_url'] ?? null),
-                    'feature_image_url' => $attachSubmission ? $submission->feature_image_url : ($line['feature_image_url'] ?? null),
-                    'moderation_status' => $attachSubmission ? $submission->moderation_status : ($line['moderation_status'] ?? null),
+                    'content_submission_id' => $submission?->id,
+                    'content_disk' => $submission?->disk ?? ($line['content_disk'] ?? null),
+                    'content_path' => $submission?->path ?? ($line['content_path'] ?? null),
+                    'content_original_name' => $submission?->original_filename ?? ($line['content_original_name'] ?? null),
+                    'content_mime' => $submission?->mime ?? ($line['content_mime'] ?? null),
+                    'anchor_text' => $submission?->anchor_text ?? ($line['anchor_text'] ?? null),
+                    'target_url' => $submission?->target_url ?? ($line['target_url'] ?? null),
+                    'feature_image_url' => $submission?->feature_image_url ?? ($line['feature_image_url'] ?? null),
+                    'moderation_status' => $submission?->moderation_status ?? ($line['moderation_status'] ?? null),
                     'sensitive_type' => $line['sensitive_type'] ?? null,
                     'additional_price' => $line['additional_price'] ?? 0,
                     'homepage_days' => $line['homepage_days'] ?? null,
@@ -1503,24 +1516,6 @@ class OrderPaymentService
                 ];
 
                 $item = OrderItem::create($schema->filterExistingColumns('order_items', $itemPayload));
-
-                if ($articleTaken) {
-                    app(OrderRefundService::class)->cancelAndRefund(
-                        $order,
-                        'Content Library article was already purchased on another checkout'
-                    );
-                    $refundedInFinalize = round(
-                        $refundedInFinalize + (float) $order->total_amount,
-                        2
-                    );
-                    Log::warning('Refunded duplicate Content Library Stripe checkout', [
-                        'reference_code' => $referenceCode,
-                        'order_id' => $order->id,
-                        'content_submission_id' => $submission?->id,
-                    ]);
-
-                    continue;
-                }
 
                 if ($submission) {
                     $subPayload = [
@@ -1539,6 +1534,74 @@ class OrderPaymentService
                 }
 
                 $orders->push($order->fresh('items'));
+            }
+
+            foreach ($deferredTaken as $deferred) {
+                $line = $deferred['line'];
+                $site = $deferred['site'];
+                $siteId = (int) $deferred['siteId'];
+                $submission = $deferred['submission'];
+                $lineKey = $this->checkoutLineKey(
+                    $referenceCode,
+                    $siteId,
+                    (int) $deferred['index'],
+                    $userId,
+                    (string) ($stripeSessionId ?: $stripePaymentIntentId ?: '')
+                );
+                $order = $this->createPaidCardOrderRow($schema, [
+                    'user_id' => $userId,
+                    'reference_code' => $referenceCode,
+                    'checkout_line_key' => $lineKey,
+                    'subtotal' => $line['price'] ?? 0,
+                    'tax' => 0,
+                    'total_amount' => $line['price'] ?? 0,
+                    'payment_method' => 'card',
+                    'payment_status' => 'paid',
+                    'status' => 'pending',
+                    'sensitive_type' => $line['sensitive_type'] ?? null,
+                    'additional_price' => $line['additional_price'] ?? 0,
+                    'publication_mode' => $schedule['mode'] ?? 'immediate',
+                    'scheduled_publish_at' => $schedule['at'] ?? null,
+                    'schedule_timezone' => $schedule['timezone'] ?? 'UTC',
+                    'stripe_session_id' => $stripeSessionId,
+                    'stripe_payment_intent_id' => $stripePaymentIntentId,
+                    'stripe_response' => method_exists($session, 'toArray')
+                        ? json_encode($session->toArray())
+                        : json_encode($session),
+                    'paid_at' => now(),
+                ]);
+                if ($order === null) {
+                    continue;
+                }
+
+                OrderItem::create($schema->filterExistingColumns('order_items', [
+                    'order_id' => $order->id,
+                    'site_id' => $siteId ?: null,
+                    'site_name' => $line['site_name'] ?? $site?->site_name,
+                    'site_url' => $line['site_url'] ?? $site?->site_url,
+                    'price' => $line['price'] ?? 0,
+                    'content_link' => $line['content_link'] ?? null,
+                    'content_submission_id' => null,
+                    'sensitive_type' => $line['sensitive_type'] ?? null,
+                    'additional_price' => $line['additional_price'] ?? 0,
+                    'publisher_price' => $line['publisher_price'] ?? null,
+                    'platform_fee_percent' => $line['platform_fee_percent'] ?? null,
+                    'platform_fee_amount' => $line['platform_fee_amount'] ?? null,
+                ]));
+
+                app(OrderRefundService::class)->cancelAndRefund(
+                    $order,
+                    'Content Library article was already purchased on another checkout'
+                );
+                $refundedInFinalize = round(
+                    $refundedInFinalize + (float) $order->total_amount,
+                    2
+                );
+                Log::warning('Refunded duplicate Content Library Stripe checkout', [
+                    'reference_code' => $referenceCode,
+                    'order_id' => $order->id,
+                    'content_submission_id' => $submission?->id,
+                ]);
             }
 
             $this->cancelUnpaidCardOrdersForPaidCheckout($orders);
@@ -1597,11 +1660,15 @@ class OrderPaymentService
         }
 
         $this->forgetPendingCheckout($referenceCode, $userId > 0 ? $userId : null);
+        $packageBonus = (float) ($package['bonus_applied'] ?? $meta['bonus_applied'] ?? 0);
         $this->persistPaidCheckoutBonus(
             $userId,
             $referenceCode,
-            (float) ($package['bonus_applied'] ?? $meta['bonus_applied'] ?? 0)
+            $packageBonus
         );
+        $recordedHold = $userId > 0
+            ? app(CheckoutIntentService::class)->recordedBonus($userId, $referenceCode)
+            : 0.0;
 
         Log::info('Materialized Stripe-first card orders after payment', [
             'reference_code' => $referenceCode,
@@ -1612,7 +1679,7 @@ class OrderPaymentService
         $this->recordAdvertiserPurchaseForPaidCheckout(
             $referenceCode,
             $created,
-            (float) ($package['bonus_applied'] ?? $meta['bonus_applied'] ?? 0),
+            $recordedHold > 0 ? $recordedHold : $packageBonus,
             (float) ($package['order_total'] ?? $meta['order_total'] ?? 0)
         );
         $this->evaluateSpendBudgetAfterPaidOrders($created);

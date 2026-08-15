@@ -12,6 +12,7 @@ use App\Models\SiteFeaturePurchase;
 use App\Models\StripeWebhookLog;
 use App\Models\User;
 use App\Models\Wallet;
+use App\Services\OrderPaymentService;
 use App\Services\Wallet\WalletLedgerService;
 use App\Services\WalletStripeDepositService;
 use Database\Seeders\RolesTableSeeder;
@@ -725,6 +726,118 @@ class StripeWebhookCompletenessTest extends TestCase
 
             $this->assertEquals(40.0, (float) $wallet->fresh()->balance);
             $this->assertSame('pending', $order->fresh()->payment_status);
+            $this->assertTrue((bool) StripeWebhookLog::where('event_id', $eventId)->value('processed'));
+        } finally {
+            config(['services.stripe.secret' => $previousSecret]);
+        }
+    }
+
+    public function test_untyped_wallet_session_does_not_settle_a_colliding_order_package(): void
+    {
+        $previousSecret = config('services.stripe.secret');
+        config(['services.stripe.secret' => 'sk_test_wallet_vs_package']);
+
+        $advertiser = $this->makeUser('advertiser');
+        $roleId = Wallet::advertiserRoleId();
+        $wallet = Wallet::create([
+            'user_id' => $advertiser->id,
+            'role_id' => $roleId,
+            'balance' => 0,
+            'reserved_balance' => 0,
+            'bonus_balance' => 0,
+            'bonus_reserved' => 0,
+            'currency' => 'EUR',
+        ]);
+        $publisher = $this->makeUser('publisher');
+        $site = $this->makeSite($publisher);
+        $ref = 'WALLET-PKG-COLLIDE';
+
+        app(OrderPaymentService::class)->storePendingCheckout($ref, [
+            'user_id' => $advertiser->id,
+            'order_total' => 40,
+            'amount_due' => 40,
+            'bonus_applied' => 0,
+            'schedule' => ['mode' => 'immediate', 'timezone' => 'UTC'],
+            'lines' => [[
+                'site_id' => $site->id,
+                'site_name' => $site->site_name,
+                'site_url' => $site->site_url,
+                'price' => 40,
+                'content_submission_id' => null,
+                'content_link' => 'https://example.com/article',
+            ]],
+        ]);
+
+        $piId = 'pi_wallet_pkg_collide_'.uniqid();
+        $intent = (object) [
+            'id' => $piId,
+            'object' => 'payment_intent',
+            'status' => 'succeeded',
+            'amount' => 4000,
+            'amount_received' => 4000,
+            'metadata' => (object) [
+                'type' => 'wallet_deposit',
+                'user_id' => (string) $advertiser->id,
+                'amount' => '40.00',
+                'reference_code' => $ref,
+                'session_reference' => 'deposit_'.str_repeat('ab', 16),
+            ],
+        ];
+
+        $this->app->instance(
+            WalletStripeDepositService::class,
+            new class(app(WalletLedgerService::class), $intent) extends WalletStripeDepositService
+            {
+                public function __construct(WalletLedgerService $ledger, private object $recoveredIntent)
+                {
+                    parent::__construct($ledger);
+                }
+
+                public function refreshCheckoutSession(string $sessionId): ?object
+                {
+                    return null;
+                }
+
+                public function fetchPaymentIntent(string $paymentIntentId): ?object
+                {
+                    return $this->recoveredIntent;
+                }
+
+                public function fetchCheckoutSessionForPaymentIntent(string $paymentIntentId): ?object
+                {
+                    return null;
+                }
+            }
+        );
+
+        $eventId = 'evt_wallet_pkg_collide_'.uniqid();
+        try {
+            $this->signedWebhook([
+                'id' => $eventId,
+                'object' => 'event',
+                'type' => 'checkout.session.completed',
+                'data' => [
+                    'object' => [
+                        'id' => 'cs_wallet_pkg_collide',
+                        'object' => 'checkout.session',
+                        'payment_status' => 'paid',
+                        'payment_intent' => $piId,
+                        'amount_total' => 4000,
+                        'metadata' => [
+                            'reference_code' => $ref,
+                            'user_id' => (string) $advertiser->id,
+                        ],
+                    ],
+                ],
+            ])->assertOk();
+
+            $this->assertEquals(40.0, (float) $wallet->fresh()->balance);
+            $this->assertSame(0, Order::query()
+                ->where('user_id', $advertiser->id)
+                ->where('reference_code', $ref)
+                ->where('payment_status', 'paid')
+                ->count());
+            $this->assertNotNull(app(OrderPaymentService::class)->getPendingCheckout($ref));
             $this->assertTrue((bool) StripeWebhookLog::where('event_id', $eventId)->value('processed'));
         } finally {
             config(['services.stripe.secret' => $previousSecret]);
