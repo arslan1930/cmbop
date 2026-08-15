@@ -106,6 +106,8 @@ class AdminWithdrawalLaterTest extends TestCase
         $this->assertStringContainsString('ids: ids', $html);
         $this->assertStringContainsString('!Array.isArray(withdrawal.payment_details)', $html);
         $this->assertStringContainsString("failedCount > 0 ? 'warning' : 'success'", $html);
+        $this->assertStringContainsString('failed.forEach(function (row)', $html);
+        $this->assertStringContainsString('addSelectedId(row && row.id)', $html);
     }
 
     public function test_browser_show_is_html_and_json_accept_stays_json(): void
@@ -751,6 +753,101 @@ class AdminWithdrawalLaterTest extends TestCase
             ->streamedContent();
         $this->assertStringContainsString('WD-'.$withdrawal->id, $csv);
         $this->assertStringNotContainsString('Array', $csv);
+    }
+
+    public function test_unchanged_mark_paid_retries_missing_payout_statement(): void
+    {
+        $admin = $this->makeUser('admin');
+        $publisher = $this->makeUser('publisher');
+        $withdrawal = $this->seedWithdrawal($publisher, [
+            'status' => 'completed',
+            'processed_at' => now(),
+        ]);
+
+        $this->assertNull(
+            Invoice::query()
+                ->where('type', Invoice::TYPE_WITHDRAWAL_PAYOUT)
+                ->where('reference_code', 'WD-'.$withdrawal->id)
+                ->where('status', '!=', Invoice::STATUS_CANCELLED)
+                ->first()
+        );
+
+        $result = app(ManualWithdrawalSettlementService::class)->markPaid($withdrawal, $admin);
+        $this->assertTrue($result['unchanged']);
+
+        $statement = Invoice::query()
+            ->where('type', Invoice::TYPE_WITHDRAWAL_PAYOUT)
+            ->where('reference_code', 'WD-'.$withdrawal->id)
+            ->where('status', '!=', Invoice::STATUS_CANCELLED)
+            ->first();
+        $this->assertNotNull($statement);
+
+        $again = app(ManualWithdrawalSettlementService::class)->markPaid($withdrawal->fresh(), $admin);
+        $this->assertTrue($again['unchanged']);
+        $this->assertSame(1, Invoice::query()
+            ->where('type', Invoice::TYPE_WITHDRAWAL_PAYOUT)
+            ->where('reference_code', 'WD-'.$withdrawal->id)
+            ->where('status', '!=', Invoice::STATUS_CANCELLED)
+            ->count());
+    }
+
+    public function test_masked_payout_destination_ignores_nested_detail_arrays(): void
+    {
+        $this->assertNull(Invoice::maskedPayoutDestination([
+            'account_number' => ['not-a-string'],
+        ], 'bank'));
+        $this->assertSame('···3000', Invoice::maskedPayoutDestination([
+            'account_number' => 'DE89370400440532013000',
+        ], 'bank'));
+
+        $this->assertNull(Invoice::maskedPayoutDestination([
+            'email' => ['not-a-string'],
+        ], 'paypal'));
+        $this->assertSame('p***@example.com', Invoice::maskedPayoutDestination([
+            'email' => 'pub@example.com',
+        ], 'paypal'));
+
+        $this->assertSame('Crypto', Invoice::maskedPayoutDestination([
+            'wallet_address' => ['not-a-string'],
+            'crypto_type' => ['not-a-string'],
+        ], 'crypto'));
+        $this->assertSame('TRX · ···wxyz', Invoice::maskedPayoutDestination([
+            'crypto_type' => 'TRX',
+            'wallet_address' => 'TAbcdefghijklmnopqrstuvwxyz',
+        ], 'crypto'));
+
+        $publisher = $this->makeUser('publisher');
+        $statement = Invoice::create([
+            'user_id' => $publisher->id,
+            'customer_name' => $publisher->name,
+            'customer_email' => $publisher->email,
+            'invoice_number' => 'PAY-NEST-MASK-1',
+            'type' => Invoice::TYPE_WITHDRAWAL_PAYOUT,
+            'status' => Invoice::STATUS_PAID,
+            'payment_method' => 'bank',
+            'subtotal' => 95,
+            'total_amount' => 95,
+            'invoice_date' => now(),
+            'line_items' => [['description' => 'Payout', 'line_total' => 95]],
+            'pdf_disk' => 'local',
+            'reference_code' => 'WD-9001',
+            'billing_snapshot' => [
+                'payment_details' => [
+                    'account_number' => ['not-a-string'],
+                ],
+            ],
+            'meta' => ['withdrawal_id' => 9001],
+        ]);
+
+        $html = view('billing.pdf.invoice', [
+            'invoice' => $statement,
+            'company' => config('billing.company'),
+            'colors' => config('billing.colors'),
+            'currencySymbol' => '€',
+        ])->render();
+
+        $this->assertStringNotContainsString('Array', $html);
+        $this->assertStringNotContainsString('···rray', $html);
     }
 
     public function test_mark_paid_issues_statement_when_payment_details_are_nested(): void

@@ -132,11 +132,13 @@ class ManualWithdrawalSettlementService
             ];
         });
 
-        if (! $result['unchanged']) {
-            if ($result['new_status'] === 'completed') {
-                $this->issuePayoutStatement($result['withdrawal']);
-            }
+        // Retry even when status is already completed: the first issue() can
+        // fail after the wallet row is paid, and issue() is idempotent.
+        if ($result['new_status'] === 'completed') {
+            $this->issuePayoutStatement($result['withdrawal']);
+        }
 
+        if (! $result['unchanged']) {
             $this->notifyStatusChange(
                 $result['withdrawal'],
                 $result['old_status'],

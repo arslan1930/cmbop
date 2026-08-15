@@ -252,14 +252,15 @@ class Invoice extends Model
 
     public static function maskedPayoutDestination(mixed $details, ?string $method): ?string
     {
-        if (! is_array($details) || $details === []) {
+        $details = Withdrawal::detailsArray($details);
+        if ($details === []) {
             return null;
         }
 
         $key = strtolower(trim((string) $method));
 
         if (in_array($key, ['paypal', 'wise'], true)) {
-            $email = (string) ($details['email'] ?? $details['paypal_email'] ?? $details['wise_email'] ?? '');
+            $email = Withdrawal::firstDetailText($details, 'email', 'paypal_email', 'wise_email');
             if ($email === '' || ! str_contains($email, '@')) {
                 return null;
             }
@@ -269,7 +270,7 @@ class Invoice extends Model
         }
 
         if ($key === 'bank' || $key === 'bank_transfer') {
-            $account = preg_replace('/\s+/', '', (string) ($details['account_number'] ?? $details['iban'] ?? $details['bank_account'] ?? ''));
+            $account = preg_replace('/\s+/', '', Withdrawal::firstDetailText($details, 'account_number', 'iban', 'bank_account')) ?? '';
             if ($account === '') {
                 return null;
             }
@@ -278,8 +279,8 @@ class Invoice extends Model
         }
 
         if ($key === 'crypto') {
-            $wallet = (string) ($details['wallet_address'] ?? $details['crypto_wallet'] ?? '');
-            $coin = (string) ($details['crypto_type'] ?? 'Crypto');
+            $wallet = Withdrawal::firstDetailText($details, 'wallet_address', 'crypto_wallet');
+            $coin = Withdrawal::firstDetailText($details, 'crypto_type') ?: 'Crypto';
             if ($wallet === '') {
                 return $coin !== '' ? $coin : null;
             }

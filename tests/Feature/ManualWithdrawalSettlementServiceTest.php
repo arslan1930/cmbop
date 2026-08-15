@@ -3,11 +3,13 @@
 namespace Tests\Feature;
 
 use App\Mail\WithdrawalStatusUpdated;
+use App\Models\Invoice;
 use App\Models\Role;
 use App\Models\User;
 use App\Models\Wallet;
 use App\Models\WalletTransaction;
 use App\Models\Withdrawal;
+use App\Services\Billing\WithdrawalPayoutStatementService;
 use App\Services\Wallet\ManualWithdrawalInvalidTransitionException;
 use App\Services\Wallet\ManualWithdrawalSettlementService;
 use App\Services\Wallet\ManualWithdrawalUnknownWalletException;
@@ -132,6 +134,31 @@ class ManualWithdrawalSettlementServiceTest extends TestCase
         $this->assertTrue($second['unchanged']);
         $this->assertSame('completed', $withdrawal->fresh()->status);
         Mail::assertQueued(WithdrawalStatusUpdated::class, 1);
+        $this->assertSame(1, Invoice::query()
+            ->where('type', Invoice::TYPE_WITHDRAWAL_PAYOUT)
+            ->where('reference_code', 'WD-'.$withdrawal->id)
+            ->where('status', '!=', Invoice::STATUS_CANCELLED)
+            ->count());
+    }
+
+    public function test_unchanged_mark_paid_retries_missing_payout_statement_without_renotify(): void
+    {
+        $admin = $this->makeUser('admin');
+        $publisher = $this->makeUser('publisher');
+        $this->publisherWallet($publisher);
+        $withdrawal = $this->pendingWithdrawal($publisher, 50);
+        $withdrawal->forceFill([
+            'status' => 'completed',
+            'processed_at' => now(),
+        ])->save();
+
+        $this->assertNull(app(WithdrawalPayoutStatementService::class)->find($withdrawal));
+
+        $result = app(ManualWithdrawalSettlementService::class)->markPaid($withdrawal, $admin);
+
+        $this->assertTrue($result['unchanged']);
+        $this->assertNotNull(app(WithdrawalPayoutStatementService::class)->find($withdrawal->fresh()));
+        Mail::assertNothingOutgoing();
     }
 
     public function test_cannot_reject_completed_withdrawal(): void

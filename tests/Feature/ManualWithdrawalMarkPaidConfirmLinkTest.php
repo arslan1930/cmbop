@@ -78,7 +78,7 @@ class ManualWithdrawalMarkPaidConfirmLinkTest extends TestCase
         $withdrawal = $this->pendingWithdrawal($publisher, 90);
         $url = $this->relativeSignedUrl(ManualWithdrawalMarkPaidLink::url($withdrawal));
 
-        $this->actingAs($admin)
+        $confirm = $this->actingAs($admin)
             ->get($url)
             ->assertOk()
             ->assertSee('Confirm marked paid', false)
@@ -89,6 +89,7 @@ class ManualWithdrawalMarkPaidConfirmLinkTest extends TestCase
             ->assertSee('No completed payouts yet', false)
             ->assertSee('href="'.route('admin.withdrawals', [], false).'"', false);
 
+        $this->assertStringContainsString('no-store', (string) $confirm->headers->get('Cache-Control'));
         $this->assertSame('pending', $withdrawal->fresh()->status);
     }
 

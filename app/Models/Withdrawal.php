@@ -313,6 +313,21 @@ class Withdrawal extends Model
         return '';
     }
 
+    /**
+     * First non-empty scalar among the given payout-detail keys.
+     */
+    public static function firstDetailText(array $details, string ...$keys): string
+    {
+        foreach ($keys as $key) {
+            $text = self::detailText($details, $key);
+            if ($text !== '') {
+                return $text;
+            }
+        }
+
+        return '';
+    }
+
     private function bankSnippet(array $details): string
     {
         $account = preg_replace('/\s+/', '', self::detailText($details, 'account_number')) ?? '';

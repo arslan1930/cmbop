@@ -28,11 +28,13 @@ class WithdrawalMarkPaidConfirmController extends Controller
         $canMarkPaid = $withdrawal->isActionable();
         $context = $this->payoutContext($withdrawal, $canMarkPaid);
 
-        return view('admin.withdrawals.mark-paid-confirm', array_merge($context, [
-            'withdrawal' => $withdrawal,
-            'canMarkPaid' => $canMarkPaid,
-            'confirmAction' => $request->fullUrl(),
-        ]));
+        return response()
+            ->view('admin.withdrawals.mark-paid-confirm', array_merge($context, [
+                'withdrawal' => $withdrawal,
+                'canMarkPaid' => $canMarkPaid,
+                'confirmAction' => $request->fullUrl(),
+            ]))
+            ->header('Cache-Control', 'no-store');
     }
 
     public function confirm(Request $request, Withdrawal $withdrawal, ManualWithdrawalSettlementService $settlement)

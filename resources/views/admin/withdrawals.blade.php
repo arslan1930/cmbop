@@ -963,12 +963,16 @@ async function runBatch(action, title, confirmText, confirmClass, options) {
     }
 
     postAction(WD_BATCH, payload).done(function(res) {
-        const failedCount = Array.isArray(res.failed) ? res.failed.length : 0;
+        const failed = Array.isArray(res.failed) ? res.failed : [];
+        const failedCount = failed.length;
         toast(
             res.message + (res.payout_run_id ? ' · ' + res.payout_run_id : ''),
             failedCount > 0 ? 'warning' : 'success'
         );
         selectedIds.clear();
+        failed.forEach(function (row) {
+            addSelectedId(row && row.id);
+        });
         refreshAll();
     }).fail(function(xhr) {
         const body = xhr.responseJSON || {};
