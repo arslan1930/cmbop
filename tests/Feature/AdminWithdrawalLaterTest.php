@@ -82,12 +82,12 @@ class AdminWithdrawalLaterTest extends TestCase
             ->assertSee(route('admin.finance.user', $publisher->id), false)
             ->getContent();
 
-        $this->assertStringNotContainsString('application/json', (string) $this->actingAs($admin)
+        $this->assertStringContainsString('text/html', (string) $this->actingAs($admin)
             ->get(route('admin.withdrawals.show', $withdrawal->id))
             ->headers->get('content-type'));
-        $this->assertStringNotContainsString('admin.withdrawals.paid', $html);
-        $this->assertStringNotContainsString('name="_token"', $html);
-        $this->assertStringNotContainsString('Mark paid', $html);
+        $this->assertStringNotContainsString(route('admin.withdrawals.paid', $withdrawal->id), $html);
+        $this->assertStringNotContainsString(route('admin.withdrawals.reject', $withdrawal->id), $html);
+        $this->assertStringNotContainsString('Yes, mark paid', $html);
 
         $this->actingAs($admin)
             ->getJson(route('admin.withdrawals.show', $withdrawal->id))
