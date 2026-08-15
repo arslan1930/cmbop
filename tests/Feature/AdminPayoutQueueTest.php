@@ -74,6 +74,26 @@ class AdminPayoutQueueTest extends TestCase
         $this->assertStringContainsString('function duplicateWarningHtml', $html);
         $this->assertStringContainsString('confirm_duplicates', $html);
         $this->assertStringContainsString('withdrawal.possible_duplicate', $html);
+        $this->assertStringContainsString('const WD_DATA', $html);
+        $this->assertStringContainsString('const FINANCE_USER', $html);
+        $this->assertStringContainsString('function withdrawalUrl', $html);
+        $this->assertStringContainsString('function syncFiltersToUrl', $html);
+        $this->assertStringContainsString("q.get('date_from')", $html);
+        $this->assertStringContainsString("q.get('date_to')", $html);
+        $this->assertStringContainsString('info: \'#paginationInfo\'', $html);
+        $this->assertStringContainsString('Select all on this page', $html);
+        $this->assertStringContainsString('including other pages', $html);
+        $this->assertStringContainsString('All open · Pending', $html);
+        $this->assertStringContainsString('All open net', $html);
+        foreach (['queueFilter', 'statusFilter', 'paymentMethodFilter', 'dateFrom', 'searchInput'] as $id) {
+            $this->assertStringContainsString('for="'.$id.'"', $html);
+        }
+        $this->assertStringContainsString('aria-label="Requested from date"', $html);
+        $this->assertStringContainsString('aria-label="Requested to date"', $html);
+        $this->assertStringNotContainsString("url: '/admin/withdrawals/data'", $html);
+        $this->assertStringNotContainsString('`/admin/finance/users/${userId}`', $html);
+        $this->assertStringContainsString('/admin/finance/users/__ID__', $html);
+        $this->assertStringContainsString('/admin/withdrawals/__ID__', $html);
     }
 
     public function test_data_endpoint_defaults_to_open_queue_oldest_first(): void
