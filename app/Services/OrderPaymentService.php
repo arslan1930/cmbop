@@ -13,6 +13,7 @@ use App\Models\WalletTransaction;
 use App\Services\Advertiser\SpendBudgetService;
 use App\Services\Orders\OrderRefundService;
 use App\Services\Wallet\WalletLedgerService;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
@@ -45,6 +46,18 @@ class OrderPaymentService
                     'session_id' => $session->id ?? null,
                 ]);
 
+                return collect();
+            }
+
+            $this->cancelUnpaidCardOrdersAlreadyFulfilledElsewhere($orders);
+            $orders = $orders
+                ->filter(function (Order $order) {
+                    $order->refresh();
+
+                    return $this->canMarkCardOrderPaid($order);
+                })
+                ->values();
+            if ($orders->isEmpty()) {
                 return collect();
             }
 
@@ -83,16 +96,14 @@ class OrderPaymentService
                 }
 
                 // Keep publisher-visible pending status (scheduled date is in publication_mode).
-                $order->update([
-                    'stripe_session_id' => $session->id ?? $order->stripe_session_id,
-                    'stripe_payment_intent_id' => $session->payment_intent ?? $order->stripe_payment_intent_id,
+                $order->update($this->paidCardStripeIdUpdates($session, [
                     'stripe_response' => method_exists($session, 'toArray')
                         ? json_encode($session->toArray())
                         : json_encode($session),
                     'paid_at' => now(),
                     'payment_status' => 'paid',
                     'status' => 'pending',
-                ]);
+                ]));
 
                 $newlyPaid->push($order->fresh('items'));
             }
@@ -111,11 +122,14 @@ class OrderPaymentService
         );
         $this->evaluateSpendBudgetAfterPaidOrders($newlyPaid);
         $this->creditHiddenCardOrdersAfterMarkPaid($referenceCode, $sessionMeta, $session);
-        $this->persistPaidCheckoutBonus(
-            (int) ($sessionMeta['user_id'] ?? ($newlyPaid->first()->user_id ?? 0)),
-            $referenceCode,
-            (float) ($sessionMeta['bonus_applied'] ?? 0)
-        );
+        if ($newlyPaid->isNotEmpty()) {
+            $this->persistPaidCheckoutBonus(
+                (int) ($sessionMeta['user_id'] ?? ($newlyPaid->first()->user_id ?? 0)),
+                $referenceCode,
+                (float) ($sessionMeta['bonus_applied'] ?? 0)
+            );
+        }
+        $this->cancelUnpaidCardOrdersForPaidCheckout($newlyPaid);
 
         return $newlyPaid;
     }
@@ -138,6 +152,18 @@ class OrderPaymentService
         $newlyPaid = DB::transaction(function () use ($referenceCode, $intent, $meta) {
             $orders = $this->lockCardOrdersForPayer($referenceCode, $meta);
 
+            if ($orders->isEmpty()) {
+                return collect();
+            }
+
+            $this->cancelUnpaidCardOrdersAlreadyFulfilledElsewhere($orders);
+            $orders = $orders
+                ->filter(function (Order $order) {
+                    $order->refresh();
+
+                    return $this->canMarkCardOrderPaid($order);
+                })
+                ->values();
             if ($orders->isEmpty()) {
                 return collect();
             }
@@ -174,15 +200,14 @@ class OrderPaymentService
                     continue;
                 }
 
-                $order->update([
-                    'stripe_payment_intent_id' => $intent->id ?? $order->stripe_payment_intent_id,
+                $order->update($this->paidCardStripeIdUpdates($intent, [
                     'stripe_response' => method_exists($intent, 'toArray')
                         ? json_encode($intent->toArray())
                         : json_encode($intent),
                     'paid_at' => now(),
                     'payment_status' => 'paid',
                     'status' => 'pending',
-                ]);
+                ]));
                 $newlyPaid->push($order->fresh('items'));
             }
 
@@ -199,11 +224,14 @@ class OrderPaymentService
         );
         $this->evaluateSpendBudgetAfterPaidOrders($newlyPaid);
         $this->creditHiddenCardOrdersAfterMarkPaid($referenceCode, $meta, $intent);
-        $this->persistPaidCheckoutBonus(
-            (int) ($meta['user_id'] ?? ($newlyPaid->first()->user_id ?? 0)),
-            $referenceCode,
-            (float) ($meta['bonus_applied'] ?? 0)
-        );
+        if ($newlyPaid->isNotEmpty()) {
+            $this->persistPaidCheckoutBonus(
+                (int) ($meta['user_id'] ?? ($newlyPaid->first()->user_id ?? 0)),
+                $referenceCode,
+                (float) ($meta['bonus_applied'] ?? 0)
+            );
+        }
+        $this->cancelUnpaidCardOrdersForPaidCheckout($newlyPaid);
 
         return $newlyPaid;
     }
@@ -494,7 +522,47 @@ class OrderPaymentService
             return;
         }
 
-        app(CheckoutIntentService::class)->rememberBonus($userId, $referenceCode, $bonus);
+        $intents = app(CheckoutIntentService::class);
+        $current = $intents->recordedBonus($userId, $referenceCode);
+        if ($current > 0) {
+            // Catalog-left / taken-article refunds already reduced this hold.
+            // Re-writing the original checkout bonus made a later REF treat
+            // the leftover as still fully reserved and mint promo as cash.
+            $bonus = min($bonus, $current);
+        } else {
+            $remaining = $this->remainingPromoReserveForReference($userId, $referenceCode);
+            if ($remaining <= 0) {
+                return;
+            }
+            $bonus = min($bonus, $remaining);
+        }
+
+        $intents->rememberBonus($userId, $referenceCode, $bonus);
+    }
+
+    /**
+     * Promo still reserved for this REF after other live holds are subtracted.
+     */
+    private function remainingPromoReserveForReference(int $userId, string $referenceCode): float
+    {
+        $roleId = Wallet::advertiserRoleId();
+        if (! $roleId) {
+            return 0.0;
+        }
+
+        $wallet = Wallet::query()
+            ->where('user_id', $userId)
+            ->where('role_id', $roleId)
+            ->first();
+        if (! $wallet) {
+            return 0.0;
+        }
+
+        return app(CheckoutIntentService::class)->releasableBonus(
+            $userId,
+            $referenceCode,
+            (float) $wallet->bonus_reserved
+        );
     }
 
     /**
@@ -645,6 +713,133 @@ class OrderPaymentService
             ->exists();
     }
 
+    /**
+     * After a paid checkout, leftover Pay-again rows for the same sites
+     * must not stay retryable — a later card capture would fulfill twice.
+     *
+     * @param  Collection<int, Order>  $paidOrders
+     */
+    public function cancelUnpaidCardOrdersForPaidCheckout(Collection $paidOrders): void
+    {
+        if ($paidOrders->isEmpty()) {
+            return;
+        }
+
+        $userId = (int) ($paidOrders->first()->user_id ?? 0);
+        $siteIds = $paidOrders
+            ->flatMap(function (Order $order) {
+                $order->loadMissing('items');
+
+                return $order->items->pluck('site_id');
+            })
+            ->all();
+
+        $this->cancelUnpaidCardOrdersForPaidSites(
+            $userId,
+            $siteIds,
+            $paidOrders->pluck('id')->all()
+        );
+        $this->abandonOverlappingPendingCardPackages($paidOrders);
+    }
+
+    /**
+     * @param  list<int|string|null>  $siteIds
+     * @param  list<int|string|null>  $exceptOrderIds
+     */
+    public function cancelUnpaidCardOrdersForPaidSites(int $userId, array $siteIds, array $exceptOrderIds = []): void
+    {
+        $siteIds = array_values(array_unique(array_filter(
+            array_map('intval', $siteIds),
+            static fn (int $id) => $id > 0
+        )));
+        $exceptOrderIds = array_values(array_unique(array_filter(
+            array_map('intval', $exceptOrderIds),
+            static fn (int $id) => $id > 0
+        )));
+        if ($userId <= 0 || $siteIds === []) {
+            return;
+        }
+
+        $rows = Order::query()
+            ->where('user_id', $userId)
+            ->where('payment_method', 'card')
+            ->whereIn('payment_status', ['pending', 'failed'])
+            ->whereNotIn('status', ['cancelled', 'completed'])
+            ->when($exceptOrderIds !== [], fn ($query) => $query->whereNotIn('id', $exceptOrderIds))
+            ->whereHas('items', fn ($query) => $query->whereIn('site_id', $siteIds))
+            ->lockForUpdate()
+            ->get();
+
+        foreach ($rows as $order) {
+            ContentSubmission::releaseAllForOrder((int) $order->id);
+            $order->update([
+                'status' => 'cancelled',
+                'payment_status' => $order->payment_status === 'paid' ? $order->payment_status : 'failed',
+            ]);
+        }
+    }
+
+    /**
+     * Pay again must not charge a leftover row after a later wallet/card
+     * checkout already fulfilled the same listing + article.
+     */
+    public function cardOrderAlreadyFulfilledByPaidCheckout(Order $order): bool
+    {
+        $order->loadMissing('items');
+        $userId = (int) ($order->user_id ?? 0);
+        if ($userId <= 0) {
+            return false;
+        }
+
+        foreach ($order->items as $item) {
+            if ($this->userAlreadyPaidForListing(
+                $userId,
+                (int) ($item->site_id ?? 0),
+                (int) ($item->content_submission_id ?? 0),
+                [(int) $order->id]
+            )) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * True when this advertiser already has a paid, non-cancelled placement
+     * for the listing (and article, when the line has one).
+     *
+     * @param  list<int|string|null>  $exceptOrderIds
+     */
+    public function userAlreadyPaidForListing(
+        int $userId,
+        int $siteId,
+        int $submissionId = 0,
+        array $exceptOrderIds = []
+    ): bool {
+        if ($userId <= 0 || $siteId <= 0) {
+            return false;
+        }
+
+        $exceptOrderIds = array_values(array_unique(array_filter(
+            array_map('intval', $exceptOrderIds),
+            static fn (int $id) => $id > 0
+        )));
+
+        return Order::query()
+            ->where('user_id', $userId)
+            ->where('payment_status', 'paid')
+            ->whereNotIn('status', ['cancelled'])
+            ->when($exceptOrderIds !== [], fn ($query) => $query->whereNotIn('id', $exceptOrderIds))
+            ->whereHas('items', function ($query) use ($siteId, $submissionId) {
+                $query->where('site_id', $siteId);
+                if ($submissionId > 0) {
+                    $query->where('content_submission_id', $submissionId);
+                }
+            })
+            ->exists();
+    }
+
     public static function unfulfilledCardCreditReference(string $referenceCode, string $chargeToken = ''): string
     {
         $base = 'UNFULFILLED-CARD-'.$referenceCode;
@@ -658,9 +853,20 @@ class OrderPaymentService
     /**
      * Credit captured card cash when Stripe-first lines cannot be fulfilled.
      * Idempotent per checkout reference, or per Stripe charge when $chargeToken is set.
+     *
+     * Checkout Session and PaymentIntent webhooks for the same capture use
+     * different tokens (cs_… vs pi_…). Pass the sibling id in $alsoTokens so
+     * the second delivery does not mint a second wallet credit.
+     *
+     * @param  list<string>  $alsoTokens
      */
-    public function creditUnfulfilledCardCapture(int $userId, string $referenceCode, float $amount, string $chargeToken = ''): float
-    {
+    public function creditUnfulfilledCardCapture(
+        int $userId,
+        string $referenceCode,
+        float $amount,
+        string $chargeToken = '',
+        array $alsoTokens = []
+    ): float {
         $amount = round($amount, 2);
         if ($userId <= 0 || $amount <= 0) {
             return 0.0;
@@ -671,19 +877,18 @@ class OrderPaymentService
             return 0.0;
         }
 
+        $tokens = $this->uniqueStripeChargeTokens([$chargeToken, ...$alsoTokens]);
         $reference = self::unfulfilledCardCreditReference($referenceCode, $chargeToken);
 
-        return (float) DB::transaction(function () use ($userId, $roleId, $amount, $reference, $referenceCode, $chargeToken) {
+        return (float) DB::transaction(function () use ($userId, $roleId, $amount, $reference, $referenceCode, $chargeToken, $tokens) {
             $wallet = Wallet::lockOrCreateForRole($userId, $roleId);
-            if (Schema::hasTable((new WalletTransaction)->getTable())
-                && WalletTransaction::query()
-                    ->where('wallet_id', $wallet->id)
-                    ->where('reference', $reference)
-                    ->exists()) {
+            if ($this->unfulfilledCardCreditAmountForTokens($referenceCode, $tokens, $wallet->id) > 0.009) {
                 return 0.0;
             }
 
             $wallet->credit($amount);
+            $sessionId = $this->stripeIdWithPrefix($tokens, 'cs_');
+            $paymentIntentId = $this->stripeIdWithPrefix($tokens, 'pi_');
             app(WalletLedgerService::class)->recordAdjustment(
                 $wallet,
                 $amount,
@@ -694,6 +899,8 @@ class OrderPaymentService
                 array_filter([
                     'reference_code' => $referenceCode,
                     'charge_token' => $chargeToken !== '' ? $chargeToken : null,
+                    'stripe_session_id' => $sessionId,
+                    'payment_intent_id' => $paymentIntentId,
                 ])
             );
 
@@ -746,12 +953,16 @@ class OrderPaymentService
         $expected = $this->expectedStripeEurosForOrders($orders, $meta);
         $unfulfilled = round(max(0, $expected - $paidTotal), 2);
         if ($userId > 0 && $unfulfilled > 0.009) {
-            $this->creditUnfulfilledCardCapture(
-                $userId,
-                $referenceCode,
-                $unfulfilled,
-                $session ? $this->stripeChargeToken($session) : ''
-            );
+            if ($session) {
+                $this->creditUnfulfilledCardCaptureFromStripe(
+                    $userId,
+                    $referenceCode,
+                    $unfulfilled,
+                    $session
+                );
+            } else {
+                $this->creditUnfulfilledCardCapture($userId, $referenceCode, $unfulfilled);
+            }
         }
 
         foreach ($hiddenPending as $order) {
@@ -811,11 +1022,36 @@ class OrderPaymentService
         );
         $amount = round(max(0, $amount - $alreadySettled), 2);
 
+        return $this->creditUnfulfilledCardCaptureFromStripe(
+            $userId,
+            $referenceCode,
+            $amount,
+            $session
+        );
+    }
+
+    /**
+     * Credit an unfulfillable capture using both Checkout Session and
+     * PaymentIntent ids so the sibling webhook cannot stack a second row.
+     */
+    public function creditUnfulfilledCardCaptureFromStripe(
+        int $userId,
+        string $referenceCode,
+        float $amount,
+        object $session
+    ): float {
+        [$sessionId, $paymentIntentId] = $this->stripeChargeIds($session);
+        $primary = $sessionId !== '' ? $sessionId : $paymentIntentId;
+        $also = array_values(array_filter([
+            $primary !== '' && $primary === $sessionId ? $paymentIntentId : $sessionId,
+        ]));
+
         return $this->creditUnfulfilledCardCapture(
             $userId,
             $referenceCode,
             $amount,
-            $this->stripeChargeToken($session)
+            $primary,
+            $also
         );
     }
 
@@ -838,12 +1074,7 @@ class OrderPaymentService
             ->where('payment_status', 'paid')
             ->when($payerId > 0, fn ($query) => $query->where('user_id', $payerId))
             ->where(function ($query) use ($sessionId, $paymentIntentId) {
-                if ($sessionId !== '') {
-                    $query->orWhere('stripe_session_id', $sessionId);
-                }
-                if ($paymentIntentId !== '') {
-                    $query->orWhere('stripe_payment_intent_id', $paymentIntentId);
-                }
+                $this->constrainOrdersToStripeCharge($query, $sessionId, $paymentIntentId);
             })
             ->get();
     }
@@ -874,12 +1105,7 @@ class OrderPaymentService
             ->where('payment_status', 'refunded')
             ->when($payerId > 0, fn ($query) => $query->where('user_id', $payerId))
             ->where(function ($query) use ($sessionId, $paymentIntentId) {
-                if ($sessionId !== '') {
-                    $query->orWhere('stripe_session_id', $sessionId);
-                }
-                if ($paymentIntentId !== '') {
-                    $query->orWhere('stripe_payment_intent_id', $paymentIntentId);
-                }
+                $this->constrainOrdersToStripeCharge($query, $sessionId, $paymentIntentId);
             })
             ->sum('total_amount'), 2);
     }
@@ -918,16 +1144,13 @@ class OrderPaymentService
             return 0.0;
         }
 
-        $token = $this->stripeChargeToken($session);
-        if ($token === '') {
+        [$sessionId, $paymentIntentId] = $this->stripeChargeIds($session);
+        $tokens = $this->uniqueStripeChargeTokens([$sessionId, $paymentIntentId]);
+        if ($tokens === []) {
             return 0.0;
         }
 
-        $reference = self::unfulfilledCardCreditReference($referenceCode, $token);
-        $query = WalletTransaction::query()
-            ->where('direction', 'credit')
-            ->where('reference', $reference);
-
+        $walletId = null;
         if ($userId && $userId > 0) {
             $roleId = Wallet::advertiserRoleId();
             $walletId = $roleId
@@ -936,10 +1159,13 @@ class OrderPaymentService
             if (! $walletId) {
                 return 0.0;
             }
-            $query->where('wallet_id', $walletId);
         }
 
-        return round((float) $query->sum('amount'), 2);
+        return $this->unfulfilledCardCreditAmountForTokens(
+            $referenceCode,
+            $tokens,
+            $walletId
+        );
     }
 
     /**
@@ -949,6 +1175,24 @@ class OrderPaymentService
     public function paidCardOrderCountForStripeCharge(string $referenceCode, object $session, int $payerId = 0): int
     {
         return $this->paidCardOrdersForStripeCharge($referenceCode, $session, $payerId)->count();
+    }
+
+    /**
+     * Leftover Pay-again rows must use the PaymentIntent mark-paid path.
+     * markOrdersPaidFromStripeSession used to store pi_… on stripe_session_id,
+     * so the later Checkout Session webhook could not see the paid rows and
+     * credited the capture a second time.
+     *
+     * @return Collection<int, Order>
+     */
+    private function markExistingCardOrdersPaid(string $referenceCode, object $session): Collection
+    {
+        [$sessionId, $paymentIntentId] = $this->stripeChargeIds($session);
+        if ($sessionId === '' && $paymentIntentId !== '') {
+            return $this->markOrdersPaidFromPaymentIntent($referenceCode, $session);
+        }
+
+        return $this->markOrdersPaidFromStripeSession($referenceCode, $session);
     }
 
     /**
@@ -970,11 +1214,132 @@ class OrderPaymentService
         return [$id, (string) $paymentIntent];
     }
 
+    /**
+     * @param  array<string, mixed>  $updates
+     * @return array<string, mixed>
+     */
+    private function paidCardStripeIdUpdates(object $session, array $updates): array
+    {
+        [$sessionId, $paymentIntentId] = $this->stripeChargeIds($session);
+        if ($sessionId !== '') {
+            $updates['stripe_session_id'] = $sessionId;
+        }
+        if ($paymentIntentId !== '') {
+            $updates['stripe_payment_intent_id'] = $paymentIntentId;
+        }
+
+        return $updates;
+    }
+
+    /**
+     * @param  Builder<Order>|\Illuminate\Database\Query\Builder  $query
+     */
+    private function constrainOrdersToStripeCharge($query, string $sessionId, string $paymentIntentId): void
+    {
+        if ($sessionId !== '') {
+            $query->orWhere('stripe_session_id', $sessionId);
+        }
+        if ($paymentIntentId !== '') {
+            $query->orWhere('stripe_payment_intent_id', $paymentIntentId);
+            // Older leftover mark-paid wrote the PaymentIntent id onto
+            // stripe_session_id. Keep finding those rows so a later
+            // checkout.session.completed cannot wallet-credit them again.
+            $query->orWhere('stripe_session_id', $paymentIntentId);
+        }
+    }
+
     private function stripeChargeToken(object $session): string
     {
         [$sessionId, $paymentIntentId] = $this->stripeChargeIds($session);
 
         return $sessionId !== '' ? $sessionId : $paymentIntentId;
+    }
+
+    /**
+     * @param  list<string|null>  $tokens
+     * @return list<string>
+     */
+    private function uniqueStripeChargeTokens(array $tokens): array
+    {
+        $unique = [];
+        foreach ($tokens as $token) {
+            $token = trim((string) $token);
+            if ($token === '' || in_array($token, $unique, true)) {
+                continue;
+            }
+            $unique[] = $token;
+        }
+
+        return $unique;
+    }
+
+    /**
+     * @param  list<string>  $tokens
+     */
+    private function stripeIdWithPrefix(array $tokens, string $prefix): ?string
+    {
+        foreach ($tokens as $token) {
+            if (str_starts_with($token, $prefix)) {
+                return $token;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Sum leftover-card credits that belong to this Stripe charge. Session and
+     * PaymentIntent ids are the same capture; an unkeyed REF-wide row is only
+     * treated as a match when no charge token was supplied.
+     *
+     * @param  list<string>  $tokens
+     */
+    private function unfulfilledCardCreditAmountForTokens(
+        string $referenceCode,
+        array $tokens,
+        ?int $walletId = null
+    ): float {
+        if (! Schema::hasTable((new WalletTransaction)->getTable())) {
+            return 0.0;
+        }
+
+        $base = self::unfulfilledCardCreditReference($referenceCode);
+        $references = $tokens === []
+            ? [$base]
+            : array_map(
+                fn (string $token) => self::unfulfilledCardCreditReference($referenceCode, $token),
+                $tokens
+            );
+
+        $rows = WalletTransaction::query()
+            ->where('direction', 'credit')
+            ->where(function ($query) use ($base, $references) {
+                $query->whereIn('reference', $references)
+                    ->orWhere('reference', $base)
+                    ->orWhere('reference', 'like', $base.'-cs_%')
+                    ->orWhere('reference', 'like', $base.'-pi_%');
+            })
+            ->when($walletId, fn ($query) => $query->where('wallet_id', $walletId))
+            ->get();
+
+        $matched = $rows->filter(function (WalletTransaction $row) use ($references, $tokens) {
+            if (in_array($row->reference, $references, true)) {
+                return true;
+            }
+            if ($tokens === []) {
+                return true;
+            }
+            $meta = is_array($row->meta) ? $row->meta : [];
+            $recorded = $this->uniqueStripeChargeTokens([
+                $meta['charge_token'] ?? null,
+                $meta['stripe_session_id'] ?? null,
+                $meta['payment_intent_id'] ?? null,
+            ]);
+
+            return array_intersect($tokens, $recorded) !== [];
+        });
+
+        return round((float) $matched->sum('amount'), 2);
     }
 
     /**
@@ -1070,7 +1435,7 @@ class OrderPaymentService
             ->get();
 
         if ($existing->contains(fn (Order $order) => $this->canMarkCardOrderPaid($order))) {
-            $marked = $this->markOrdersPaidFromStripeSession($referenceCode, $session);
+            $marked = $this->markExistingCardOrdersPaid($referenceCode, $session);
             if ($marked->isNotEmpty()) {
                 return $marked;
             }
@@ -1139,7 +1504,7 @@ class OrderPaymentService
             );
 
             if ($already->contains(fn (Order $order) => $this->canMarkCardOrderPaid($order))) {
-                return $this->markOrdersPaidFromStripeSession($referenceCode, $session);
+                return $this->markExistingCardOrdersPaid($referenceCode, $session);
             }
 
             if ($this->paidCardOrderCountForStripeCharge(
@@ -1155,6 +1520,7 @@ class OrderPaymentService
             $schedule = is_array($package['schedule'] ?? null) ? $package['schedule'] : ['mode' => 'immediate', 'timezone' => 'UTC'];
             $lines = is_array($package['lines'] ?? null) ? $package['lines'] : [];
             $orders = collect();
+            $deferredTaken = [];
 
             $sessionId = (string) ($session->id ?? '');
             $isPaymentIntent = ($session->object ?? null) === 'payment_intent'
@@ -1185,6 +1551,18 @@ class OrderPaymentService
                     continue;
                 }
 
+                $submissionId = (int) ($line['content_submission_id'] ?? 0);
+                if ($userId > 0 && $this->userAlreadyPaidForListing($userId, $siteId, $submissionId)) {
+                    Log::warning('Skipping Stripe-first line; listing already fulfilled on another checkout', [
+                        'reference_code' => $referenceCode,
+                        'site_id' => $siteId,
+                        'content_submission_id' => $submissionId > 0 ? $submissionId : null,
+                        'session_id' => $session->id ?? null,
+                    ]);
+
+                    continue;
+                }
+
                 $lineKey = $this->checkoutLineKey(
                     $referenceCode,
                     $siteId,
@@ -1193,12 +1571,23 @@ class OrderPaymentService
                     (string) ($stripeSessionId ?: $stripePaymentIntentId ?: '')
                 );
 
-                $submissionId = (int) ($line['content_submission_id'] ?? 0);
                 $submission = $submissionId > 0
                     ? ContentSubmission::query()->whereKey($submissionId)->lockForUpdate()->first()
                     : null;
                 $articleTaken = $submission && $submission->isClaimedByAnotherOrder();
-                $attachSubmission = $submission && ! $articleTaken;
+                if ($articleTaken) {
+                    // Refund after surviving lines exist so checkoutBonusShare
+                    // pro-rates leftover promo instead of releasing the whole hold.
+                    $deferredTaken[] = [
+                        'index' => (int) $index,
+                        'line' => $line,
+                        'site' => $site,
+                        'siteId' => $siteId,
+                        'submission' => $submission,
+                    ];
+
+                    continue;
+                }
 
                 $order = $this->createPaidCardOrderRow($schema, [
                     'user_id' => $userId,
@@ -1234,15 +1623,15 @@ class OrderPaymentService
                     'site_url' => $line['site_url'] ?? $site?->site_url,
                     'price' => $line['price'] ?? 0,
                     'content_link' => $line['content_link'] ?? null,
-                    'content_submission_id' => $attachSubmission ? $submission->id : null,
-                    'content_disk' => $attachSubmission ? $submission->disk : ($line['content_disk'] ?? null),
-                    'content_path' => $attachSubmission ? $submission->path : ($line['content_path'] ?? null),
-                    'content_original_name' => $attachSubmission ? $submission->original_filename : ($line['content_original_name'] ?? null),
-                    'content_mime' => $attachSubmission ? $submission->mime : ($line['content_mime'] ?? null),
-                    'anchor_text' => $attachSubmission ? $submission->anchor_text : ($line['anchor_text'] ?? null),
-                    'target_url' => $attachSubmission ? $submission->target_url : ($line['target_url'] ?? null),
-                    'feature_image_url' => $attachSubmission ? $submission->feature_image_url : ($line['feature_image_url'] ?? null),
-                    'moderation_status' => $attachSubmission ? $submission->moderation_status : ($line['moderation_status'] ?? null),
+                    'content_submission_id' => $submission?->id,
+                    'content_disk' => $submission?->disk ?? ($line['content_disk'] ?? null),
+                    'content_path' => $submission?->path ?? ($line['content_path'] ?? null),
+                    'content_original_name' => $submission?->original_filename ?? ($line['content_original_name'] ?? null),
+                    'content_mime' => $submission?->mime ?? ($line['content_mime'] ?? null),
+                    'anchor_text' => $submission?->anchor_text ?? ($line['anchor_text'] ?? null),
+                    'target_url' => $submission?->target_url ?? ($line['target_url'] ?? null),
+                    'feature_image_url' => $submission?->feature_image_url ?? ($line['feature_image_url'] ?? null),
+                    'moderation_status' => $submission?->moderation_status ?? ($line['moderation_status'] ?? null),
                     'sensitive_type' => $line['sensitive_type'] ?? null,
                     'additional_price' => $line['additional_price'] ?? 0,
                     'homepage_days' => $line['homepage_days'] ?? null,
@@ -1255,24 +1644,6 @@ class OrderPaymentService
                 ];
 
                 $item = OrderItem::create($schema->filterExistingColumns('order_items', $itemPayload));
-
-                if ($articleTaken) {
-                    app(OrderRefundService::class)->cancelAndRefund(
-                        $order,
-                        'Content Library article was already purchased on another checkout'
-                    );
-                    $refundedInFinalize = round(
-                        $refundedInFinalize + (float) $order->total_amount,
-                        2
-                    );
-                    Log::warning('Refunded duplicate Content Library Stripe checkout', [
-                        'reference_code' => $referenceCode,
-                        'order_id' => $order->id,
-                        'content_submission_id' => $submission?->id,
-                    ]);
-
-                    continue;
-                }
 
                 if ($submission) {
                     $subPayload = [
@@ -1293,6 +1664,76 @@ class OrderPaymentService
                 $orders->push($order->fresh('items'));
             }
 
+            foreach ($deferredTaken as $deferred) {
+                $line = $deferred['line'];
+                $site = $deferred['site'];
+                $siteId = (int) $deferred['siteId'];
+                $submission = $deferred['submission'];
+                $lineKey = $this->checkoutLineKey(
+                    $referenceCode,
+                    $siteId,
+                    (int) $deferred['index'],
+                    $userId,
+                    (string) ($stripeSessionId ?: $stripePaymentIntentId ?: '')
+                );
+                $order = $this->createPaidCardOrderRow($schema, [
+                    'user_id' => $userId,
+                    'reference_code' => $referenceCode,
+                    'checkout_line_key' => $lineKey,
+                    'subtotal' => $line['price'] ?? 0,
+                    'tax' => 0,
+                    'total_amount' => $line['price'] ?? 0,
+                    'payment_method' => 'card',
+                    'payment_status' => 'paid',
+                    'status' => 'pending',
+                    'sensitive_type' => $line['sensitive_type'] ?? null,
+                    'additional_price' => $line['additional_price'] ?? 0,
+                    'publication_mode' => $schedule['mode'] ?? 'immediate',
+                    'scheduled_publish_at' => $schedule['at'] ?? null,
+                    'schedule_timezone' => $schedule['timezone'] ?? 'UTC',
+                    'stripe_session_id' => $stripeSessionId,
+                    'stripe_payment_intent_id' => $stripePaymentIntentId,
+                    'stripe_response' => method_exists($session, 'toArray')
+                        ? json_encode($session->toArray())
+                        : json_encode($session),
+                    'paid_at' => now(),
+                ]);
+                if ($order === null) {
+                    continue;
+                }
+
+                OrderItem::create($schema->filterExistingColumns('order_items', [
+                    'order_id' => $order->id,
+                    'site_id' => $siteId ?: null,
+                    'site_name' => $line['site_name'] ?? $site?->site_name,
+                    'site_url' => $line['site_url'] ?? $site?->site_url,
+                    'price' => $line['price'] ?? 0,
+                    'content_link' => $line['content_link'] ?? null,
+                    'content_submission_id' => null,
+                    'sensitive_type' => $line['sensitive_type'] ?? null,
+                    'additional_price' => $line['additional_price'] ?? 0,
+                    'publisher_price' => $line['publisher_price'] ?? null,
+                    'platform_fee_percent' => $line['platform_fee_percent'] ?? null,
+                    'platform_fee_amount' => $line['platform_fee_amount'] ?? null,
+                ]));
+
+                app(OrderRefundService::class)->cancelAndRefund(
+                    $order,
+                    'Content Library article was already purchased on another checkout'
+                );
+                $refundedInFinalize = round(
+                    $refundedInFinalize + (float) $order->total_amount,
+                    2
+                );
+                Log::warning('Refunded duplicate Content Library Stripe checkout', [
+                    'reference_code' => $referenceCode,
+                    'order_id' => $order->id,
+                    'content_submission_id' => $submission?->id,
+                ]);
+            }
+
+            $this->cancelUnpaidCardOrdersForPaidCheckout($orders);
+
             return $orders;
         });
 
@@ -1306,7 +1747,7 @@ class OrderPaymentService
                 $this->sessionMetadataArray($session)
             );
             if ($existing->isNotEmpty()) {
-                return $this->markOrdersPaidFromStripeSession($referenceCode, $session);
+                return $this->markExistingCardOrdersPaid($referenceCode, $session);
             }
 
             $userId = (int) ($package['user_id'] ?? 0);
@@ -1317,11 +1758,11 @@ class OrderPaymentService
                     round((float) ($package['bonus_applied'] ?? 0), 2)
                 );
                 $unfulfilled = round(max(0, $expected - $refundedInFinalize), 2);
-                $this->creditUnfulfilledCardCapture(
+                $this->creditUnfulfilledCardCaptureFromStripe(
                     $userId,
                     $referenceCode,
                     $unfulfilled,
-                    $this->stripeChargeToken($session)
+                    $session
                 );
             }
             $this->forgetPendingCheckout($referenceCode, $userId > 0 ? $userId : null);
@@ -1338,20 +1779,24 @@ class OrderPaymentService
         $fulfilled = round((float) $created->sum(fn (Order $order) => (float) $order->total_amount), 2);
         $unfulfilled = round(max(0, $expected - $fulfilled - $refundedInFinalize), 2);
         if ($userId > 0 && $unfulfilled > 0.009) {
-            $this->creditUnfulfilledCardCapture(
+            $this->creditUnfulfilledCardCaptureFromStripe(
                 $userId,
                 $referenceCode,
                 $unfulfilled,
-                $this->stripeChargeToken($session)
+                $session
             );
         }
 
         $this->forgetPendingCheckout($referenceCode, $userId > 0 ? $userId : null);
+        $packageBonus = (float) ($package['bonus_applied'] ?? $meta['bonus_applied'] ?? 0);
         $this->persistPaidCheckoutBonus(
             $userId,
             $referenceCode,
-            (float) ($package['bonus_applied'] ?? $meta['bonus_applied'] ?? 0)
+            $packageBonus
         );
+        $recordedHold = $userId > 0
+            ? app(CheckoutIntentService::class)->recordedBonus($userId, $referenceCode)
+            : 0.0;
 
         Log::info('Materialized Stripe-first card orders after payment', [
             'reference_code' => $referenceCode,
@@ -1362,7 +1807,7 @@ class OrderPaymentService
         $this->recordAdvertiserPurchaseForPaidCheckout(
             $referenceCode,
             $created,
-            (float) ($package['bonus_applied'] ?? $meta['bonus_applied'] ?? 0),
+            $recordedHold > 0 ? $recordedHold : $packageBonus,
             (float) ($package['order_total'] ?? $meta['order_total'] ?? 0)
         );
         $this->evaluateSpendBudgetAfterPaidOrders($created);
@@ -1404,6 +1849,15 @@ class OrderPaymentService
                 'order_id' => $order->id,
                 'reference_code' => $order->reference_code,
                 'payment_status' => $order->payment_status,
+            ]);
+
+            return false;
+        }
+
+        if ($this->cardOrderAlreadyFulfilledByPaidCheckout($order)) {
+            Log::warning('Skipping Stripe mark-paid; listing already fulfilled on another checkout', [
+                'order_id' => $order->id,
+                'reference_code' => $order->reference_code,
             ]);
 
             return false;
@@ -1493,6 +1947,95 @@ class OrderPaymentService
         $payerId = isset($meta['user_id']) ? (int) $meta['user_id'] : 0;
 
         return $packageUserId <= 0 || $payerId <= 0 || $packageUserId === $payerId;
+    }
+
+    /**
+     * Leftover Pay-again rows for a listing already paid on another REF
+     * must not be marked paid by a late Stripe webhook.
+     *
+     * @param  Collection<int, Order>  $orders
+     */
+    private function cancelUnpaidCardOrdersAlreadyFulfilledElsewhere(Collection $orders): void
+    {
+        foreach ($orders as $order) {
+            if (! in_array($order->payment_status, ['pending', 'failed'], true)) {
+                continue;
+            }
+            if (in_array((string) $order->status, ['cancelled', 'completed'], true)) {
+                continue;
+            }
+            if (! $this->cardOrderAlreadyFulfilledByPaidCheckout($order)) {
+                continue;
+            }
+
+            ContentSubmission::releaseAllForOrder((int) $order->id);
+            $order->update([
+                'status' => 'cancelled',
+                'payment_status' => $order->payment_status === 'paid' ? $order->payment_status : 'failed',
+            ]);
+        }
+    }
+
+    /**
+     * A later wallet/card checkout on a new REF must not leave this user's
+     * other Stripe-first packages live — finalize would create a second
+     * paid placement for the same listing.
+     *
+     * @param  Collection<int, Order>  $paidOrders
+     */
+    private function abandonOverlappingPendingCardPackages(Collection $paidOrders): void
+    {
+        $userId = (int) ($paidOrders->first()->user_id ?? 0);
+        if ($userId <= 0) {
+            return;
+        }
+
+        $siteIds = $paidOrders
+            ->flatMap(function (Order $order) {
+                $order->loadMissing('items');
+
+                return $order->items->pluck('site_id');
+            })
+            ->map(static fn ($id) => (int) $id)
+            ->filter(static fn (int $id) => $id > 0)
+            ->unique()
+            ->values()
+            ->all();
+        if ($siteIds === []) {
+            return;
+        }
+
+        $exceptRefs = $paidOrders
+            ->pluck('reference_code')
+            ->filter(static fn ($ref) => is_string($ref) && $ref !== '')
+            ->unique()
+            ->all();
+
+        foreach (app(CheckoutIntentService::class)->livePackagesForUser($userId) as $referenceCode => $package) {
+            if (in_array($referenceCode, $exceptRefs, true)) {
+                continue;
+            }
+            if ($this->hasOpenPaidCheckoutSiblings($userId, $referenceCode)) {
+                continue;
+            }
+
+            $packageSites = [];
+            foreach (is_array($package['lines'] ?? null) ? $package['lines'] : [] as $line) {
+                if (! is_array($line)) {
+                    continue;
+                }
+                $siteId = (int) ($line['site_id'] ?? 0);
+                if ($siteId > 0) {
+                    $packageSites[] = $siteId;
+                }
+            }
+            if (array_intersect($packageSites, $siteIds) === []) {
+                continue;
+            }
+
+            $this->releaseRecordedCheckoutBonus($userId, $referenceCode);
+            $this->forgetPendingCheckout($referenceCode, $userId);
+        }
     }
 
     private function cancelUnpaidCardOrdersForNewCheckout(string $referenceCode, int $userId): void

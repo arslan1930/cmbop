@@ -1880,6 +1880,11 @@ class CatalogController extends Controller
             return redirect()->route('advertiser.catalog')->with('error', 'Your cart is empty or contains sites you can’t order.');
         }
 
+        $this->cancelConflictingUnpaidCardOrders(
+            (int) auth()->id(),
+            $this->collectSubmissionIdsFromRequest($cart, $request)
+        );
+
         $partition = $this->partitionCartByCheckoutReadiness($cart);
         $payableCart = $partition['payable'];
         $deferredCart = $partition['deferred'];
@@ -2027,6 +2032,14 @@ class CatalogController extends Controller
             $paymentMethod = $request->payment_method;
             $userReferenceCode = $request->reference_code;
 
+            // Unlock articles still held by leftover Pay-again rows before
+            // readiness — otherwise canBeOrdered() hides the site and checkout
+            // 422s “not ready” instead of replacing the failed attempt.
+            $this->cancelConflictingUnpaidCardOrders(
+                (int) $userId,
+                $this->collectSubmissionIdsFromRequest($cart, $request)
+            );
+
             // Only charge sites that are ready for checkout (approved article) and need payment.
             $partition = $this->partitionCartByCheckoutReadiness(
                 $cart,
@@ -2042,12 +2055,6 @@ class CatalogController extends Controller
                     'message' => 'No websites are ready for checkout yet. Assign an approved article to at least one site, then pay.',
                 ], 422);
             }
-
-            // If a previous Stripe attempt linked the article, unlock it before re-resolving content.
-            $this->cancelConflictingUnpaidCardOrders(
-                (int) $userId,
-                $this->collectSubmissionIdsFromRequest($payableCart, $request)
-            );
 
             // Resolve approved library articles + schedule (session fallback from Content Library)
             $sessionSchedule = session('checkout_schedule', []);
@@ -2249,6 +2256,18 @@ class CatalogController extends Controller
                     $this->attachSubmissionToOrder($submission, $order, $item);
                     $created->push($order);
                 }
+                if ($created->isEmpty()) {
+                    DB::rollBack();
+                    if ($bonusApplied > 0) {
+                        $paymentService->releaseReservedBonusAmount((int) $userId, $bonusApplied);
+                    }
+
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'No websites could be ordered. Please review your cart.',
+                    ], 422);
+                }
+                $paymentService->cancelUnpaidCardOrdersForPaidCheckout($created);
                 $paymentService->persistPaidCheckoutBonus((int) $userId, (string) $referenceCode, $bonusApplied);
                 DB::commit();
                 $committed = true;
@@ -2695,7 +2714,9 @@ class CatalogController extends Controller
 
             return response()->json([
                 'success' => false,
-                'message' => UserFacingError::message($e, 'Saved card payment failed. Please try again or use a new card.'),
+                'message' => ($payResult['status'] ?? '') === 'succeeded'
+                    ? 'Your card was charged. Do not pay again — contact support if the order does not appear.'
+                    : UserFacingError::message($e, 'Saved card payment failed. Please try again or use a new card.'),
             ], 422);
         }
     }
@@ -2775,11 +2796,12 @@ class CatalogController extends Controller
                 ]);
             }
 
-            // Reserve funds; bonus is only used when the checkout checkbox is enabled
+            // Reserve funds; bonus is only used when the checkout checkbox is enabled.
+            // Persist the hold only after orders exist — rememberBonus writes cache
+            // outside the DB transaction, and a later attach/create rollback would
+            // leave a live ghost that otherRecordedBonus subtracts from a real hold
+            // (publisher reject then mints that promo as cash).
             $bonusUsed = $advertiserWallet->reserveForOrder($totalAmount, $useBonus);
-            if ($bonusUsed > 0) {
-                $paymentService->persistPaidCheckoutBonus((int) $userId, (string) $referenceCode, $bonusUsed);
-            }
 
             app(WalletLedgerService::class)->recordPurchase(
                 $advertiserWallet,
@@ -2833,6 +2855,21 @@ class CatalogController extends Controller
                 $this->attachSubmissionToOrder($submission, $order, $item);
 
                 $createdOrders[] = $order;
+            }
+
+            if ($createdOrders === []) {
+                DB::rollBack();
+
+                return response()->json([
+                    'success' => false,
+                    'message' => 'No websites could be ordered. Please review your cart.',
+                ], 422);
+            }
+
+            $paymentService->cancelUnpaidCardOrdersForPaidCheckout(collect($createdOrders));
+
+            if ($bonusUsed > 0) {
+                $paymentService->persistPaidCheckoutBonus((int) $userId, (string) $referenceCode, $bonusUsed);
             }
 
             // Link the purchase ledger row to the first order so wallet activity
@@ -2907,6 +2944,9 @@ class CatalogController extends Controller
             ]);
         } catch (\Exception $e) {
             DB::rollBack();
+            if (! empty($userId) && is_string($referenceCode) && $referenceCode !== '') {
+                app(CheckoutIntentService::class)->forgetBonus((int) $userId, (string) $referenceCode);
+            }
             Log::error('Wallet payment failed: '.$e->getMessage(), [
                 'user_id' => $userId,
                 'reference_code' => $referenceCode,
@@ -3213,7 +3253,7 @@ class CatalogController extends Controller
                 ]);
 
                 return redirect()->route('advertiser.checkout')
-                    ->with('error', 'Order not found. Please contact support with your payment reference.');
+                    ->with('error', 'Your card was charged. Do not pay again — contact support if the order does not appear.');
             }
 
             if ($newlyPaid->isNotEmpty()) {
@@ -3298,7 +3338,12 @@ class CatalogController extends Controller
             }
 
             return redirect()->route('advertiser.checkout')
-                ->with('error', UserFacingError::message($e, 'Payment verification failed. Please try again.'));
+                ->with(
+                    'error',
+                    isset($stripeObject) && is_object($stripeObject)
+                        ? 'Your card was charged. Do not pay again — contact support if the order does not appear.'
+                        : UserFacingError::message($e, 'Payment verification failed. Please try again.')
+                );
         }
     }
 
@@ -3760,6 +3805,14 @@ class CatalogController extends Controller
                 ->where('status', 'pending')
                 ->get();
 
+            $payments = app(OrderPaymentService::class);
+            if ($package->contains(fn (Order $row) => $payments->cardOrderAlreadyFulfilledByPaidCheckout($row))) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'This listing was already paid on another checkout. Open checkout if you still want to order other sites.',
+                ], 422);
+            }
+
             $packageTotal = round((float) $package->sum('total_amount'), 2);
             $referenceCode = (string) $order->reference_code;
 
@@ -3859,7 +3912,8 @@ class CatalogController extends Controller
             && $order->payment_status === 'failed'
             && $order->status === 'pending'
             && $order->items->isNotEmpty()
-            && $order->hasCatalogVisibleFulfillment();
+            && $order->hasCatalogVisibleFulfillment()
+            && ! app(OrderPaymentService::class)->cardOrderAlreadyFulfilledByPaidCheckout($order);
     }
 
     /**
@@ -5172,6 +5226,8 @@ class CatalogController extends Controller
      */
     private function alreadyPlacedCheckoutResponse($orders): JsonResponse
     {
+        app(OrderPaymentService::class)->cancelUnpaidCardOrdersForPaidCheckout(collect($orders));
+
         $orderNumbers = $orders->pluck('order_number')->filter()->implode(', ');
 
         return response()->json([
@@ -5336,8 +5392,8 @@ class CatalogController extends Controller
             ->whereHas('order', function ($q) use ($userId) {
                 $q->where('user_id', $userId)
                     ->where('payment_method', 'card')
-                    ->where('payment_status', 'pending')
-                    ->where('status', 'pending');
+                    ->whereIn('payment_status', ['pending', 'failed'])
+                    ->whereNotIn('status', ['cancelled', 'completed']);
             })
             ->pluck('order_id')
             ->unique()

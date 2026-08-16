@@ -431,4 +431,57 @@ class SitePromotionTest extends TestCase
         $this->assertEqualsWithDelta(15.0, (float) Wallet::where('user_id', $publisher->id)->value('balance'), 0.01);
         $this->assertSame(1, SiteFeaturePurchase::where('stripe_session_id', 'cs_feature_delisted')->count());
     }
+
+    public function test_feature_fallback_credit_uses_the_charged_amount_not_live_config(): void
+    {
+        config(['site_promotions.feature.price' => 15]);
+        $publisher = $this->publisherWithWallet(5);
+        $site = $this->site($publisher);
+        $site->update(['verified' => false, 'active' => false]);
+
+        $result = app(SitePromotionService::class)->featureFromStripePayment(
+            $site,
+            $publisher,
+            'cs_feature_quoted_price',
+            10.0
+        );
+
+        $this->assertTrue($result['success']);
+        $this->assertTrue($result['credited']);
+        $this->assertEqualsWithDelta(15.0, (float) Wallet::where('user_id', $publisher->id)->value('balance'), 0.01);
+        $this->assertDatabaseHas('site_feature_purchases', [
+            'stripe_session_id' => 'cs_feature_quoted_price',
+            'payment_method' => 'stripe_credit',
+            'amount' => 10,
+        ]);
+    }
+
+    public function test_feature_credit_without_a_site_row_is_idempotent(): void
+    {
+        config(['site_promotions.feature.price' => 10]);
+        $payer = $this->publisherWithWallet(5);
+
+        $promotions = app(SitePromotionService::class);
+        $first = $promotions->creditPayerWhenFeatureCannotApply(
+            null,
+            $payer,
+            'cs_feature_site_gone',
+            'the listing was removed',
+            10.0
+        );
+        $second = $promotions->creditPayerWhenFeatureCannotApply(
+            null,
+            $payer,
+            'cs_feature_site_gone',
+            'the listing was removed',
+            10.0
+        );
+
+        $this->assertTrue($first['success']);
+        $this->assertTrue($first['credited']);
+        $this->assertFalse($first['already']);
+        $this->assertTrue($second['already']);
+        $this->assertEqualsWithDelta(15.0, (float) Wallet::where('user_id', $payer->id)->value('balance'), 0.01);
+        $this->assertSame(0, SiteFeaturePurchase::where('stripe_session_id', 'cs_feature_site_gone')->count());
+    }
 }

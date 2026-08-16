@@ -129,11 +129,15 @@ class StripeWebhookController extends Controller
                     break;
                 }
 
-                if ($this->trySettleUntypedPaidOrderFromPackage($session, $metadata)) {
+                // Recover PI metadata before treating a live cart package as
+                // the payment type. Add Funds also sends a 6-digit
+                // reference_code; an untyped wallet snapshot must not
+                // materialize that package and then credit the wallet again.
+                if ($this->recoverUntypedCheckoutSessionFromPaymentIntent($session)) {
                     break;
                 }
 
-                $this->recoverUntypedCheckoutSessionFromPaymentIntent($session);
+                $this->trySettleUntypedPaidOrderFromPackage($session, $metadata);
                 break;
         }
     }
@@ -210,11 +214,11 @@ class StripeWebhookController extends Controller
             return;
         }
 
-        if ($this->trySettleUntypedPaidOrderFromPackage($session, $metadata)) {
+        if ($this->recoverUntypedCheckoutSessionFromPaymentIntent($session)) {
             return;
         }
 
-        $this->recoverUntypedCheckoutSessionFromPaymentIntent($session);
+        $this->trySettleUntypedPaidOrderFromPackage($session, $metadata);
     }
 
     private function refreshUntypedCheckoutSession(object $session): object
@@ -228,8 +232,10 @@ class StripeWebhookController extends Controller
     /**
      * Session metadata can be empty while payment_intent_data still has type.
      * A Stripe retrieve failure must 500 so the event is retried.
+     *
+     * @return bool True when this event was handled from recovered PI metadata.
      */
-    private function recoverUntypedCheckoutSessionFromPaymentIntent(object $session): void
+    private function recoverUntypedCheckoutSessionFromPaymentIntent(object $session): bool
     {
         $deposits = app(WalletStripeDepositService::class);
         $paymentIntentId = $deposits->paymentIntentIdFromStripeObject($session);
@@ -246,7 +252,7 @@ class StripeWebhookController extends Controller
                 'session_id' => $session->id ?? null,
             ]);
 
-            return;
+            return false;
         }
 
         $intent = $deposits->fetchPaymentIntent($paymentIntentId);
@@ -260,7 +266,7 @@ class StripeWebhookController extends Controller
                 'payment_intent_id' => $paymentIntentId,
             ]);
 
-            return;
+            return false;
         }
 
         $piMetadata = $this->metaArray($intent->metadata ?? null);
@@ -284,40 +290,56 @@ class StripeWebhookController extends Controller
             case 'deposit':
                 $deposits->creditFromCheckoutSession($overlayed);
 
-                return;
+                return true;
 
             case 'order_payment':
             case 'order':
                 $this->handleOrderPaymentIntent($intent, $metadata);
 
-                return;
+                return true;
 
             case 'site_feature':
                 $this->handleSiteFeatureSession($overlayed);
 
-                return;
+                return true;
 
             default:
                 if (WalletStripeDepositService::isAddFundsSessionReference($metadata['session_reference'] ?? '')) {
                     $deposits->creditFromCheckoutSession($overlayed);
 
-                    return;
+                    return true;
                 }
 
                 if ($this->trySettleUntypedPaidOrderFromPackage($overlayed, $metadata)) {
-                    return;
+                    return true;
                 }
 
                 Log::warning('Ignoring untyped checkout session after PaymentIntent recover', [
                     'session_id' => $session->id ?? null,
                     'payment_intent_id' => $paymentIntentId,
                 ]);
+
+                return true;
         }
     }
 
     private function handleWalletDepositSession(object $session): void
     {
-        app(WalletStripeDepositService::class)->creditFromCheckoutSession($session);
+        $deposits = app(WalletStripeDepositService::class);
+        $credited = $deposits->creditFromCheckoutSession($session);
+        if ($credited > 0 || $deposits->completedCardExistsForStripeCharge($session)) {
+            return;
+        }
+
+        $metadata = $this->metaArray($session->metadata ?? null);
+        $type = isset($metadata['type']) ? (string) $metadata['type'] : '';
+        if (! in_array($type, ['wallet_deposit', 'deposit'], true)) {
+            return;
+        }
+
+        throw new \RuntimeException(
+            'wallet_deposit session did not credit a card row for '.($session->id ?? 'unknown')
+        );
     }
 
     /**
@@ -647,17 +669,47 @@ class StripeWebhookController extends Controller
         $userId = isset($metadata['user_id']) ? (int) $metadata['user_id'] : 0;
         $sessionId = (string) ($session->id ?? '');
 
-        if ($siteId <= 0 || $userId <= 0 || $sessionId === '') {
+        if ($userId <= 0 || $sessionId === '') {
             throw new \RuntimeException('Invalid site_feature session metadata');
         }
 
-        $site = Site::find($siteId);
         $user = User::find($userId);
-        if (! $site || ! $user) {
-            throw new \RuntimeException('site_feature site/user not found');
+        if (! $user) {
+            Log::warning('site_feature payer no longer exists; cannot credit captured charge', [
+                'site_id' => $siteId,
+                'user_id' => $userId,
+                'session_id' => $sessionId,
+            ]);
+
+            return;
         }
 
         $promotions = app(SitePromotionService::class);
+        $site = $siteId > 0 ? Site::find($siteId) : null;
+        if (! $site) {
+            $charged = $promotions->stripeChargedEuros($session);
+            $result = $promotions->creditPayerWhenFeatureCannotApply(
+                null,
+                $user,
+                $sessionId,
+                'the listing was removed',
+                $charged > 0 ? $charged : null
+            );
+            if (! ($result['success'] ?? false)) {
+                throw new \RuntimeException($result['message'] ?? 'site_feature site not found');
+            }
+
+            Log::warning('site_feature listing missing; credited payer wallet', [
+                'site_id' => $siteId,
+                'user_id' => $userId,
+                'session_id' => $sessionId,
+                'charged' => $charged,
+                'already' => $result['already'] ?? false,
+            ]);
+
+            return;
+        }
+
         try {
             $promotions->assertStripeChargeMatchesFeaturePrice($session);
         } catch (\RuntimeException $e) {
@@ -683,8 +735,16 @@ class StripeWebhookController extends Controller
             return;
         }
 
+        $charged = $promotions->stripeChargedEuros($session);
+
         if ((int) $site->publisher_id !== (int) $user->id) {
-            $result = $promotions->creditPayerWhenFeatureCannotApply($site, $user, $sessionId);
+            $result = $promotions->creditPayerWhenFeatureCannotApply(
+                $site,
+                $user,
+                $sessionId,
+                null,
+                $charged > 0 ? $charged : null
+            );
             if (! ($result['success'] ?? false)) {
                 throw new \RuntimeException($result['message'] ?? 'site_feature publisher mismatch');
             }
@@ -700,7 +760,12 @@ class StripeWebhookController extends Controller
             return;
         }
 
-        $result = $promotions->featureFromStripePayment($site, $user, $sessionId);
+        $result = $promotions->featureFromStripePayment(
+            $site,
+            $user,
+            $sessionId,
+            $charged > 0 ? $charged : null
+        );
         if (! ($result['success'] ?? false)) {
             throw new \RuntimeException($result['message'] ?? 'Failed to apply site feature from webhook');
         }
@@ -754,6 +819,12 @@ class StripeWebhookController extends Controller
      */
     private function trySettleUntypedPaidOrderFromPackage(object $stripeObject, array $metadata): bool
     {
+        $hintType = isset($metadata['type']) ? (string) $metadata['type'] : '';
+        if (in_array($hintType, ['wallet_deposit', 'deposit'], true)
+            || WalletStripeDepositService::isAddFundsSessionReference($metadata['session_reference'] ?? '')) {
+            return false;
+        }
+
         $referenceCode = $metadata['reference_code'] ?? null;
         $userId = isset($metadata['user_id']) ? (int) $metadata['user_id'] : 0;
         if (! is_string($referenceCode) || $referenceCode === '' || $userId <= 0) {

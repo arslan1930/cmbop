@@ -7,12 +7,14 @@ use App\Models\Site;
 use App\Models\SiteFeaturePurchase;
 use App\Models\User;
 use App\Models\Wallet;
+use App\Models\WalletTransaction;
 use App\Services\Wallet\WalletLedgerService;
 use Illuminate\Database\QueryException;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Schema;
 
 class SitePromotionService
 {
@@ -156,14 +158,15 @@ class SitePromotionService
     }
 
     /**
-     * When a paid feature session can no longer be applied (site changed owner),
-     * credit the payer's publisher wallet once and record the session so retries
-     * do not feature the new owner's listing or double-credit.
+     * When a paid feature session can no longer be applied (site changed owner
+     * or the listing was deleted), credit the payer's publisher wallet once
+     * and record the session so retries do not feature another listing or
+     * double-credit.
      *
      * @return array{success:bool, credited?:bool, already?:bool, message:string}
      */
     public function creditPayerWhenFeatureCannotApply(
-        Site $site,
+        ?Site $site,
         User $payer,
         string $stripeSessionId,
         ?string $reason = null,
@@ -212,25 +215,45 @@ class SitePromotionService
                 }
 
                 $wallet = Wallet::lockOrCreateForRole($payer->id, $roleId);
+                $creditReference = 'PROMO-FEATURE-CREDIT-'.$stripeSessionId;
+                // Site delete cascades feature-purchase rows. The ledger
+                // reference is what stops a retry from crediting twice.
+                if (Schema::hasTable((new WalletTransaction)->getTable())
+                    && WalletTransaction::query()
+                        ->where('wallet_id', $wallet->id)
+                        ->where('direction', 'credit')
+                        ->where('reference', $creditReference)
+                        ->lockForUpdate()
+                        ->exists()) {
+                    return [
+                        'success' => true,
+                        'credited' => true,
+                        'already' => true,
+                        'message' => 'This payment was already credited to your wallet.',
+                    ];
+                }
+
                 $wallet->credit($price);
                 app(WalletLedgerService::class)->recordRefund(
                     $wallet,
                     $price,
                     0,
                     $site,
-                    'PROMO-FEATURE-CREDIT-'.$stripeSessionId
+                    $creditReference
                 );
 
-                SiteFeaturePurchase::create([
-                    'site_id' => $site->id,
-                    'user_id' => $payer->id,
-                    'amount' => $price,
-                    'days' => 0,
-                    'payment_method' => 'stripe_credit',
-                    'stripe_session_id' => $stripeSessionId,
-                    'starts_at' => now(),
-                    'ends_at' => now(),
-                ]);
+                if ($site) {
+                    SiteFeaturePurchase::create([
+                        'site_id' => $site->id,
+                        'user_id' => $payer->id,
+                        'amount' => $price,
+                        'days' => 0,
+                        'payment_method' => 'stripe_credit',
+                        'stripe_session_id' => $stripeSessionId,
+                        'starts_at' => now(),
+                        'ends_at' => now(),
+                    ]);
+                }
 
                 return [
                     'success' => true,
@@ -258,13 +281,13 @@ class SitePromotionService
     /**
      * Apply featured placement after a successful Stripe card payment (no wallet debit).
      */
-    public function featureFromStripePayment(Site $site, User $publisher, ?string $stripeSessionId = null): array
+    public function featureFromStripePayment(Site $site, User $publisher, ?string $stripeSessionId = null, ?float $chargedEuros = null): array
     {
         $price = $this->featurePrice();
         $days = $this->featureDays();
 
         try {
-            return DB::transaction(function () use ($site, $publisher, $price, $days, $stripeSessionId) {
+            return DB::transaction(function () use ($site, $publisher, $price, $days, $stripeSessionId, $chargedEuros) {
                 // Lock the site first so webhook + success URL cannot both
                 // pass an unlocked exists() check and stack two 7-day periods.
                 $locked = Site::query()->whereKey($site->id)->lockForUpdate()->firstOrFail();
@@ -274,7 +297,8 @@ class SitePromotionService
                             $locked,
                             $publisher,
                             $stripeSessionId,
-                            'the listing is no longer in the catalog'
+                            'the listing is no longer in the catalog',
+                            $chargedEuros
                         );
                     }
 

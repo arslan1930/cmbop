@@ -278,6 +278,39 @@ class CheckoutIntentService
     }
 
     /**
+     * Live Stripe-first packages for this advertiser, keyed by reference.
+     *
+     * @return array<string, array<string, mixed>>
+     */
+    public function livePackagesForUser(int $userId): array
+    {
+        if ($userId <= 0 || ! $this->tableReady()) {
+            return [];
+        }
+
+        $packages = [];
+        $intents = CheckoutIntent::query()
+            ->where('user_id', $userId)
+            ->whereNotNull('package')
+            ->get();
+
+        foreach ($intents as $intent) {
+            if ($intent->expires_at && $intent->expires_at->isPast()) {
+                continue;
+            }
+
+            $package = is_array($intent->package) ? $intent->package : null;
+            if ($package === null || $package === []) {
+                continue;
+            }
+
+            $packages[(string) $intent->reference_code] = $package;
+        }
+
+        return $packages;
+    }
+
+    /**
      * Drop the pending package but keep a paid persist hold.
      */
     public function forgetPackage(string $referenceCode, ?int $userId = null): void

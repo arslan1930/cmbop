@@ -8,7 +8,9 @@ use App\Models\Role;
 use App\Models\Site;
 use App\Models\User;
 use App\Models\Wallet;
+use App\Services\CheckoutIntentService;
 use App\Services\OrderPaymentService;
+use App\Services\Orders\OrderRefundService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Mail;
 use Tests\TestCase;
@@ -44,6 +46,47 @@ class CardBonusRefundInvariantTest extends TestCase
         $this->assertEqualsWithDelta(0.0, (float) $wallet->reserved_balance, 0.01);
         $this->assertEqualsWithDelta(0.0, (float) $wallet->bonus_reserved, 0.01);
         $this->assertEqualsWithDelta(60.0, $wallet->withdrawableBalance(), 0.01);
+    }
+
+    public function test_reject_clears_recorded_bonus_so_a_later_ref_cannot_mint_cash(): void
+    {
+        [$advertiser, $publisher, $wallet, $item] = $this->paidCardOrderWithReservedBonus(100, 20);
+        $firstRef = (string) $item->order->reference_code;
+        app(OrderPaymentService::class)->persistPaidCheckoutBonus($advertiser->id, $firstRef, 20);
+
+        $this->actingAs($publisher)
+            ->postJson(route('publisher.orders.reject', $item->id), [
+                'reason' => 'The topic does not fit our editorial guidelines.',
+            ])
+            ->assertOk()
+            ->assertJsonPath('success', true);
+
+        $this->assertEqualsWithDelta(
+            0.0,
+            app(CheckoutIntentService::class)->recordedBonus($advertiser->id, $firstRef),
+            0.01
+        );
+
+        $wallet->refresh();
+        $this->assertEqualsWithDelta(20.0, (float) $wallet->bonus_balance, 0.01);
+        $this->assertEqualsWithDelta(0.0, (float) $wallet->bonus_reserved, 0.01);
+
+        $wallet->reserveBonusOnly(20);
+        app(OrderPaymentService::class)->persistPaidCheckoutBonus($advertiser->id, 'REF-CARD-BONUS-2', 20);
+        $later = $this->cardOrder($advertiser, Site::query()->findOrFail($item->site_id), 100, 'REF-CARD-BONUS-2');
+
+        app(OrderRefundService::class)->cancelAndRefund($later->order->fresh(), 'publisher rejected');
+
+        $wallet->refresh();
+        $this->assertEqualsWithDelta(20.0, (float) $wallet->bonus_balance, 0.01);
+        $this->assertEqualsWithDelta(0.0, (float) $wallet->bonus_reserved, 0.01);
+        $this->assertEqualsWithDelta(180.0, (float) $wallet->balance, 0.01);
+        $this->assertEqualsWithDelta(160.0, $wallet->withdrawableBalance(), 0.01);
+        $this->assertEqualsWithDelta(
+            0.0,
+            app(CheckoutIntentService::class)->recordedBonus($advertiser->id, 'REF-CARD-BONUS-2'),
+            0.01
+        );
     }
 
     public function test_approving_card_plus_bonus_spends_the_reserved_promo(): void

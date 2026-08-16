@@ -11,6 +11,9 @@ use App\Services\Wallet\WalletLedgerService;
 use App\Services\WalletStripeDepositService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Mail;
+use Mockery;
+use Stripe\ApiRequestor;
+use Stripe\HttpClient\ClientInterface;
 use Tests\TestCase;
 
 class DepositCreditAndRejectHardeningTest extends TestCase
@@ -2748,5 +2751,66 @@ class DepositCreditAndRejectHardeningTest extends TestCase
                 'message',
                 'Saved card payment failed. Please try again or use a new card.'
             );
+    }
+
+    public function test_add_funds_success_url_does_not_ask_to_pay_again_when_leftover_pi_blocks_credit(): void
+    {
+        $owner = $this->advertiser();
+        $payer = $this->advertiser();
+        $this->walletFor($owner)->update(['balance' => 40]);
+        $payerWallet = $this->walletFor($payer);
+        $pi = 'pi_leftover_success_'.uniqid();
+        $sessionId = 'cs_leftover_success_'.uniqid();
+
+        DepositRequest::create([
+            'user_id' => $owner->id,
+            'reference_code' => 'DEP-OWNER-LEFTOVER',
+            'amount' => 40,
+            'payment_method' => 'card',
+            'status' => 'completed',
+            'stripe_session_id' => $sessionId,
+            'stripe_payment_intent_id' => $pi,
+            'approved_at' => now()->subMinute(),
+            'paid_at' => now()->subMinute(),
+        ]);
+
+        config([
+            'services.stripe.secret' => 'sk_test_fake_key_for_unit_tests',
+            'services.stripe.key' => 'pk_test_fake_key_for_unit_tests',
+        ]);
+
+        $sessionBody = json_encode([
+            'id' => $sessionId,
+            'object' => 'checkout.session',
+            'payment_status' => 'paid',
+            'amount_total' => 4000,
+            'payment_intent' => $pi,
+            'metadata' => [
+                'type' => 'wallet_deposit',
+                'user_id' => (string) $payer->id,
+                'amount' => '40.00',
+                'session_reference' => 'deposit_'.str_repeat('ab', 16),
+            ],
+        ], JSON_THROW_ON_ERROR);
+
+        $client = Mockery::mock(ClientInterface::class);
+        $client->shouldReceive('request')
+            ->andReturn([$sessionBody, 200, []]);
+        ApiRequestor::setHttpClient($client);
+
+        try {
+            $this->actingAs($payer)
+                ->get(route('advertiser.checkout.success', ['session_id' => $sessionId]))
+                ->assertRedirect(route('advertiser.add-funds'))
+                ->assertSessionHas(
+                    'error',
+                    'Your card was charged. Do not pay again — contact support if the balance does not update.'
+                );
+        } finally {
+            ApiRequestor::setHttpClient(null);
+        }
+
+        $this->assertSame(0.0, (float) $payerWallet->fresh()->balance);
+        $this->assertSame(1, DepositRequest::query()->where('stripe_payment_intent_id', $pi)->count());
     }
 }

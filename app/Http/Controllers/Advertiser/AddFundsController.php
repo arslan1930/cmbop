@@ -261,7 +261,7 @@ class AddFundsController extends Controller
 
                 if ($credited <= 0) {
                     return redirect()->route('advertiser.add-funds')
-                        ->with('error', 'Payment verification failed. Please contact support.');
+                        ->with('error', 'Your card was charged. Do not pay again — contact support if the balance does not update.');
                 }
 
                 return redirect()->route('advertiser.add-funds')
@@ -308,7 +308,7 @@ class AddFundsController extends Controller
 
                 if ($creditedAmount <= 0) {
                     return redirect()->route('advertiser.add-funds')
-                        ->with('error', 'Payment verification failed. Please contact support.');
+                        ->with('error', 'Your card was charged. Do not pay again — contact support if the balance does not update.');
                 }
 
                 return redirect()->route('advertiser.add-funds')
