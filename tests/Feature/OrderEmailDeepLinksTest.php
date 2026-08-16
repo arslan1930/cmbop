@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Mail\AdminManualPaymentNotification;
+use App\Mail\AdminStalledOrderAlert;
 use App\Mail\AdvertiserOrderStalledNotice;
 use App\Mail\AdvertiserReviewNudge;
 use App\Mail\AutoApproveReminderMail;
@@ -152,6 +153,22 @@ class OrderEmailDeepLinksTest extends TestCase
         $this->assertStringNotContainsString(
             "route('admin.payments'",
             (string) file_get_contents(resource_path('views/emails/admin-manual-payment-notification.blade.php'))
+        );
+
+        $stalled = (new AdminStalledOrderAlert(
+            $this->order,
+            $this->item,
+            $this->site,
+            $this->publisher,
+            3,
+            96,
+            'accept'
+        ))->render();
+        $this->assertStringContainsString('/admin/orders/'.$this->order->id, $stalled);
+        $this->assertStringContainsString('refund the advertiser', $stalled);
+        $this->assertStringNotContainsString(
+            "route('admin.orders.show'",
+            (string) file_get_contents(app_path('Mail/AdminStalledOrderAlert.php'))
         );
     }
 
