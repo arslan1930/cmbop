@@ -206,11 +206,12 @@ class AdminOrderPaymentsOpsTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.0.allowed_statuses', []);
 
-        $this->actingAs($admin)
+        $show = $this->actingAs($admin)
             ->getJson(route('admin.payments.show', $order->id))
             ->assertOk()
             ->assertJsonPath('data.allowed_statuses', [])
             ->assertJsonMissingPath('data.stripe_response');
+        $this->assertStringContainsString('no-store', (string) $show->headers->get('Cache-Control'));
     }
 
     public function test_export_csv_uses_current_filters(): void

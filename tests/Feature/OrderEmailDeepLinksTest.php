@@ -194,6 +194,11 @@ class OrderEmailDeepLinksTest extends TestCase
         foreach ($cases as $html) {
             $this->assertPublisherTasksDeepLink($html);
         }
+
+        $this->assertStringNotContainsString(
+            "route('publisher.tasks'",
+            (string) file_get_contents(resource_path('views/emails/advertiser/order_approved_publisher.blade.php'))
+        );
     }
 
     public function test_billing_emails_deep_link_when_order_is_present(): void
