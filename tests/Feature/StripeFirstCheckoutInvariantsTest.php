@@ -1175,6 +1175,184 @@ class StripeFirstCheckoutInvariantsTest extends TestCase
         $this->assertEqualsWithDelta(80.0, $wallet->withdrawableBalance(), 0.01);
     }
 
+    public function test_session_then_payment_intent_does_not_double_credit_unfulfillable_capture(): void
+    {
+        $advertiser = $this->makeUser('advertiser');
+        $publisher = $this->makeUser('publisher');
+        $hidden = $this->makeSite($publisher, 'cs-then-pi-hidden.example', 80);
+        $wallet = $this->advertiserWallet($advertiser, 0);
+        $ref = 'CS-THEN-PI-UNFULFILLED-1';
+        $payments = app(OrderPaymentService::class);
+        $payments->storePendingCheckout($ref, $this->package($advertiser, [
+            $this->lineFor($hidden, 80),
+        ], 80));
+        $hidden->update(['verified' => false, 'active' => false]);
+
+        $session = $this->paidSession($ref, 80, 'cs_sibling_unfulfilled', $advertiser->id);
+        $session->payment_intent = 'pi_sibling_unfulfilled';
+
+        $this->assertCount(0, $payments->finalizeStripeFirstCheckout($ref, $session));
+        $this->assertEqualsWithDelta(80.0, (float) $wallet->fresh()->balance, 0.01);
+
+        $intent = (object) [
+            'id' => 'pi_sibling_unfulfilled',
+            'object' => 'payment_intent',
+            'status' => 'succeeded',
+            'amount' => 8000,
+            'amount_received' => 8000,
+            'metadata' => [
+                'type' => 'order_payment',
+                'reference_code' => $ref,
+                'user_id' => (string) $advertiser->id,
+                'expected_amount' => '80',
+            ],
+        ];
+
+        $this->assertEqualsWithDelta(
+            0.0,
+            $payments->creditCapturedCardWhenUnfulfillable($advertiser->id, $ref, $intent),
+            0.01
+        );
+        $this->assertGreaterThan(
+            0.009,
+            $payments->walletCreditForThisCardCharge($ref, $intent, $advertiser->id)
+        );
+        $this->assertEqualsWithDelta(80.0, (float) $wallet->fresh()->balance, 0.01);
+        $this->assertEqualsWithDelta(80.0, $payments->unfulfilledCardCreditAmount($ref, $advertiser->id), 0.01);
+    }
+
+    public function test_payment_intent_then_session_does_not_double_credit_unfulfillable_capture(): void
+    {
+        $advertiser = $this->makeUser('advertiser');
+        $publisher = $this->makeUser('publisher');
+        $hidden = $this->makeSite($publisher, 'pi-then-cs-hidden.example', 80);
+        $wallet = $this->advertiserWallet($advertiser, 0);
+        $ref = 'PI-THEN-CS-UNFULFILLED-1';
+        $payments = app(OrderPaymentService::class);
+        $payments->storePendingCheckout($ref, $this->package($advertiser, [
+            $this->lineFor($hidden, 80),
+        ], 80));
+        $hidden->update(['verified' => false, 'active' => false]);
+
+        $intent = (object) [
+            'id' => 'pi_first_unfulfilled',
+            'object' => 'payment_intent',
+            'status' => 'succeeded',
+            'amount' => 8000,
+            'amount_received' => 8000,
+            'metadata' => [
+                'type' => 'order_payment',
+                'reference_code' => $ref,
+                'user_id' => (string) $advertiser->id,
+                'expected_amount' => '80',
+            ],
+        ];
+
+        $this->assertCount(0, $payments->finalizeStripeFirstCheckout($ref, $intent));
+        $this->assertEqualsWithDelta(80.0, (float) $wallet->fresh()->balance, 0.01);
+
+        $session = $this->paidSession($ref, 80, 'cs_second_unfulfilled', $advertiser->id);
+        $session->payment_intent = 'pi_first_unfulfilled';
+
+        $this->assertEqualsWithDelta(
+            0.0,
+            $payments->creditCapturedCardWhenUnfulfillable($advertiser->id, $ref, $session),
+            0.01
+        );
+        $this->assertGreaterThan(
+            0.009,
+            $payments->walletCreditForThisCardCharge($ref, $session, $advertiser->id)
+        );
+        $this->assertEqualsWithDelta(80.0, (float) $wallet->fresh()->balance, 0.01);
+        $this->assertEqualsWithDelta(80.0, $payments->unfulfilledCardCreditAmount($ref, $advertiser->id), 0.01);
+    }
+
+    public function test_unkeyed_unfulfilled_credit_does_not_stack_on_session_keyed_row(): void
+    {
+        $advertiser = $this->makeUser('advertiser');
+        $publisher = $this->makeUser('publisher');
+        $hidden = $this->makeSite($publisher, 'unkeyed-after-keyed.example', 80);
+        $wallet = $this->advertiserWallet($advertiser, 0);
+        $ref = 'UNKEYED-AFTER-KEYED-1';
+        $payments = app(OrderPaymentService::class);
+        $payments->storePendingCheckout($ref, $this->package($advertiser, [
+            $this->lineFor($hidden, 80),
+        ], 80));
+        $hidden->update(['verified' => false, 'active' => false]);
+
+        $session = $this->paidSession($ref, 80, 'cs_keyed_then_unkeyed', $advertiser->id);
+        $this->assertCount(0, $payments->finalizeStripeFirstCheckout($ref, $session));
+        $this->assertEqualsWithDelta(80.0, (float) $wallet->fresh()->balance, 0.01);
+
+        $this->assertEqualsWithDelta(
+            0.0,
+            $payments->creditUnfulfilledCardCapture($advertiser->id, $ref, 80),
+            0.01
+        );
+        $this->assertEqualsWithDelta(80.0, (float) $wallet->fresh()->balance, 0.01);
+    }
+
+    public function test_webhook_payment_intent_does_not_stack_after_catalog_left_session(): void
+    {
+        $advertiser = $this->makeUser('advertiser');
+        $publisher = $this->makeUser('publisher');
+        $hidden = $this->makeSite($publisher, 'wh-cs-then-pi-hidden.example', 80);
+        $wallet = $this->advertiserWallet($advertiser, 0);
+        $ref = 'WH-CS-THEN-PI-1';
+        app(OrderPaymentService::class)->storePendingCheckout($ref, $this->package($advertiser, [
+            $this->lineFor($hidden, 80),
+        ], 80));
+        $hidden->update(['verified' => false, 'active' => false]);
+
+        $this->signedWebhook([
+            'id' => 'evt_cs_then_pi_left_'.uniqid(),
+            'object' => 'event',
+            'type' => 'checkout.session.completed',
+            'data' => [
+                'object' => [
+                    'id' => 'cs_wh_cs_then_pi',
+                    'object' => 'checkout.session',
+                    'payment_status' => 'paid',
+                    'amount_total' => 8000,
+                    'payment_intent' => 'pi_wh_cs_then_pi',
+                    'metadata' => [
+                        'type' => 'order_payment',
+                        'reference_code' => $ref,
+                        'user_id' => (string) $advertiser->id,
+                        'expected_amount' => '80',
+                    ],
+                ],
+            ],
+        ])->assertOk();
+
+        $this->signedWebhook([
+            'id' => 'evt_pi_after_cs_left_'.uniqid(),
+            'object' => 'event',
+            'type' => 'payment_intent.succeeded',
+            'data' => [
+                'object' => [
+                    'id' => 'pi_wh_cs_then_pi',
+                    'object' => 'payment_intent',
+                    'status' => 'succeeded',
+                    'amount' => 8000,
+                    'amount_received' => 8000,
+                    'currency' => 'eur',
+                    'metadata' => [
+                        'type' => 'order_payment',
+                        'reference_code' => $ref,
+                        'user_id' => (string) $advertiser->id,
+                        'expected_amount' => '80',
+                    ],
+                ],
+            ],
+        ])->assertOk();
+
+        $this->assertSame(0, Order::query()->where('reference_code', $ref)->count());
+        $wallet->refresh();
+        $this->assertEqualsWithDelta(80.0, (float) $wallet->balance, 0.01);
+        $this->assertEqualsWithDelta(80.0, $wallet->withdrawableBalance(), 0.01);
+    }
+
     public function test_webhook_settles_when_content_library_line_was_already_taken(): void
     {
         $advertiser = $this->makeUser('advertiser');

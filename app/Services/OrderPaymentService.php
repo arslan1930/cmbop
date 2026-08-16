@@ -853,9 +853,20 @@ class OrderPaymentService
     /**
      * Credit captured card cash when Stripe-first lines cannot be fulfilled.
      * Idempotent per checkout reference, or per Stripe charge when $chargeToken is set.
+     *
+     * Checkout Session and PaymentIntent webhooks for the same capture use
+     * different tokens (cs_… vs pi_…). Pass the sibling id in $alsoTokens so
+     * the second delivery does not mint a second wallet credit.
+     *
+     * @param  list<string>  $alsoTokens
      */
-    public function creditUnfulfilledCardCapture(int $userId, string $referenceCode, float $amount, string $chargeToken = ''): float
-    {
+    public function creditUnfulfilledCardCapture(
+        int $userId,
+        string $referenceCode,
+        float $amount,
+        string $chargeToken = '',
+        array $alsoTokens = []
+    ): float {
         $amount = round($amount, 2);
         if ($userId <= 0 || $amount <= 0) {
             return 0.0;
@@ -866,19 +877,18 @@ class OrderPaymentService
             return 0.0;
         }
 
+        $tokens = $this->uniqueStripeChargeTokens([$chargeToken, ...$alsoTokens]);
         $reference = self::unfulfilledCardCreditReference($referenceCode, $chargeToken);
 
-        return (float) DB::transaction(function () use ($userId, $roleId, $amount, $reference, $referenceCode, $chargeToken) {
+        return (float) DB::transaction(function () use ($userId, $roleId, $amount, $reference, $referenceCode, $chargeToken, $tokens) {
             $wallet = Wallet::lockOrCreateForRole($userId, $roleId);
-            if (Schema::hasTable((new WalletTransaction)->getTable())
-                && WalletTransaction::query()
-                    ->where('wallet_id', $wallet->id)
-                    ->where('reference', $reference)
-                    ->exists()) {
+            if ($this->unfulfilledCardCreditAmountForTokens($referenceCode, $tokens, $wallet->id) > 0.009) {
                 return 0.0;
             }
 
             $wallet->credit($amount);
+            $sessionId = $this->stripeIdWithPrefix($tokens, 'cs_');
+            $paymentIntentId = $this->stripeIdWithPrefix($tokens, 'pi_');
             app(WalletLedgerService::class)->recordAdjustment(
                 $wallet,
                 $amount,
@@ -889,6 +899,8 @@ class OrderPaymentService
                 array_filter([
                     'reference_code' => $referenceCode,
                     'charge_token' => $chargeToken !== '' ? $chargeToken : null,
+                    'stripe_session_id' => $sessionId,
+                    'payment_intent_id' => $paymentIntentId,
                 ])
             );
 
@@ -941,12 +953,16 @@ class OrderPaymentService
         $expected = $this->expectedStripeEurosForOrders($orders, $meta);
         $unfulfilled = round(max(0, $expected - $paidTotal), 2);
         if ($userId > 0 && $unfulfilled > 0.009) {
-            $this->creditUnfulfilledCardCapture(
-                $userId,
-                $referenceCode,
-                $unfulfilled,
-                $session ? $this->stripeChargeToken($session) : ''
-            );
+            if ($session) {
+                $this->creditUnfulfilledCardCaptureFromStripe(
+                    $userId,
+                    $referenceCode,
+                    $unfulfilled,
+                    $session
+                );
+            } else {
+                $this->creditUnfulfilledCardCapture($userId, $referenceCode, $unfulfilled);
+            }
         }
 
         foreach ($hiddenPending as $order) {
@@ -1006,11 +1022,36 @@ class OrderPaymentService
         );
         $amount = round(max(0, $amount - $alreadySettled), 2);
 
+        return $this->creditUnfulfilledCardCaptureFromStripe(
+            $userId,
+            $referenceCode,
+            $amount,
+            $session
+        );
+    }
+
+    /**
+     * Credit an unfulfillable capture using both Checkout Session and
+     * PaymentIntent ids so the sibling webhook cannot stack a second row.
+     */
+    public function creditUnfulfilledCardCaptureFromStripe(
+        int $userId,
+        string $referenceCode,
+        float $amount,
+        object $session
+    ): float {
+        [$sessionId, $paymentIntentId] = $this->stripeChargeIds($session);
+        $primary = $sessionId !== '' ? $sessionId : $paymentIntentId;
+        $also = array_values(array_filter([
+            $primary !== '' && $primary === $sessionId ? $paymentIntentId : $sessionId,
+        ]));
+
         return $this->creditUnfulfilledCardCapture(
             $userId,
             $referenceCode,
             $amount,
-            $this->stripeChargeToken($session)
+            $primary,
+            $also
         );
     }
 
@@ -1103,16 +1144,13 @@ class OrderPaymentService
             return 0.0;
         }
 
-        $token = $this->stripeChargeToken($session);
-        if ($token === '') {
+        [$sessionId, $paymentIntentId] = $this->stripeChargeIds($session);
+        $tokens = $this->uniqueStripeChargeTokens([$sessionId, $paymentIntentId]);
+        if ($tokens === []) {
             return 0.0;
         }
 
-        $reference = self::unfulfilledCardCreditReference($referenceCode, $token);
-        $query = WalletTransaction::query()
-            ->where('direction', 'credit')
-            ->where('reference', $reference);
-
+        $walletId = null;
         if ($userId && $userId > 0) {
             $roleId = Wallet::advertiserRoleId();
             $walletId = $roleId
@@ -1121,10 +1159,13 @@ class OrderPaymentService
             if (! $walletId) {
                 return 0.0;
             }
-            $query->where('wallet_id', $walletId);
         }
 
-        return round((float) $query->sum('amount'), 2);
+        return $this->unfulfilledCardCreditAmountForTokens(
+            $referenceCode,
+            $tokens,
+            $walletId
+        );
     }
 
     /**
@@ -1212,6 +1253,93 @@ class OrderPaymentService
         [$sessionId, $paymentIntentId] = $this->stripeChargeIds($session);
 
         return $sessionId !== '' ? $sessionId : $paymentIntentId;
+    }
+
+    /**
+     * @param  list<string|null>  $tokens
+     * @return list<string>
+     */
+    private function uniqueStripeChargeTokens(array $tokens): array
+    {
+        $unique = [];
+        foreach ($tokens as $token) {
+            $token = trim((string) $token);
+            if ($token === '' || in_array($token, $unique, true)) {
+                continue;
+            }
+            $unique[] = $token;
+        }
+
+        return $unique;
+    }
+
+    /**
+     * @param  list<string>  $tokens
+     */
+    private function stripeIdWithPrefix(array $tokens, string $prefix): ?string
+    {
+        foreach ($tokens as $token) {
+            if (str_starts_with($token, $prefix)) {
+                return $token;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Sum leftover-card credits that belong to this Stripe charge. Session and
+     * PaymentIntent ids are the same capture; an unkeyed REF-wide row is only
+     * treated as a match when no charge token was supplied.
+     *
+     * @param  list<string>  $tokens
+     */
+    private function unfulfilledCardCreditAmountForTokens(
+        string $referenceCode,
+        array $tokens,
+        ?int $walletId = null
+    ): float {
+        if (! Schema::hasTable((new WalletTransaction)->getTable())) {
+            return 0.0;
+        }
+
+        $base = self::unfulfilledCardCreditReference($referenceCode);
+        $references = $tokens === []
+            ? [$base]
+            : array_map(
+                fn (string $token) => self::unfulfilledCardCreditReference($referenceCode, $token),
+                $tokens
+            );
+
+        $rows = WalletTransaction::query()
+            ->where('direction', 'credit')
+            ->where(function ($query) use ($base, $references) {
+                $query->whereIn('reference', $references)
+                    ->orWhere('reference', $base)
+                    ->orWhere('reference', 'like', $base.'-cs_%')
+                    ->orWhere('reference', 'like', $base.'-pi_%');
+            })
+            ->when($walletId, fn ($query) => $query->where('wallet_id', $walletId))
+            ->get();
+
+        $matched = $rows->filter(function (WalletTransaction $row) use ($references, $tokens) {
+            if (in_array($row->reference, $references, true)) {
+                return true;
+            }
+            if ($tokens === []) {
+                return true;
+            }
+            $meta = is_array($row->meta) ? $row->meta : [];
+            $recorded = $this->uniqueStripeChargeTokens([
+                $meta['charge_token'] ?? null,
+                $meta['stripe_session_id'] ?? null,
+                $meta['payment_intent_id'] ?? null,
+            ]);
+
+            return array_intersect($tokens, $recorded) !== [];
+        });
+
+        return round((float) $matched->sum('amount'), 2);
     }
 
     /**
@@ -1630,11 +1758,11 @@ class OrderPaymentService
                     round((float) ($package['bonus_applied'] ?? 0), 2)
                 );
                 $unfulfilled = round(max(0, $expected - $refundedInFinalize), 2);
-                $this->creditUnfulfilledCardCapture(
+                $this->creditUnfulfilledCardCaptureFromStripe(
                     $userId,
                     $referenceCode,
                     $unfulfilled,
-                    $this->stripeChargeToken($session)
+                    $session
                 );
             }
             $this->forgetPendingCheckout($referenceCode, $userId > 0 ? $userId : null);
@@ -1651,11 +1779,11 @@ class OrderPaymentService
         $fulfilled = round((float) $created->sum(fn (Order $order) => (float) $order->total_amount), 2);
         $unfulfilled = round(max(0, $expected - $fulfilled - $refundedInFinalize), 2);
         if ($userId > 0 && $unfulfilled > 0.009) {
-            $this->creditUnfulfilledCardCapture(
+            $this->creditUnfulfilledCardCaptureFromStripe(
                 $userId,
                 $referenceCode,
                 $unfulfilled,
-                $this->stripeChargeToken($session)
+                $session
             );
         }
 
