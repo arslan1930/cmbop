@@ -583,6 +583,9 @@ class AdminFinanceHubTest extends TestCase
         $this->assertEquals(15.0, $all['platform']['order_fees']);
         $this->assertEquals(15.0, $all['platform']['refunded_order_fees']);
         $this->assertEquals(0.0, $all['platform']['margin']);
+        $this->assertEquals(100.0, $july['money_out']['earnings_credited']['amount']);
+        $this->assertEquals(-100.0, $august['money_out']['earnings_credited']['amount']);
+        $this->assertEquals(0.0, $all['money_out']['earnings_credited']['amount']);
         $this->assertEquals(115.0, $all['cash_split']['cash_in_bank']);
         $this->assertEquals(0.0, $all['money_in']['orders_paid']['stripe_card']);
         $this->assertEquals(115.0, $all['money_in']['stripe_card_collected']);
@@ -795,6 +798,88 @@ class AdminFinanceHubTest extends TestCase
         $this->assertEquals(115.0, $august['platform']['refunds']);
         $this->assertEquals(1, $august['platform']['refund_orders_count']);
         $this->assertEquals(-15.0, $august['platform']['margin']);
+    }
+
+    public function test_full_clawback_does_not_double_count_refunds_or_fees(): void
+    {
+        $admin = $this->makeUser('admin');
+        $advertiser = $this->makeUser('advertiser');
+        $publisher = $this->makeUser('publisher');
+        $order = $this->seedCompletedPaidOrder($advertiser, $publisher);
+        $order->update(['subtotal' => 230, 'total_amount' => 230]);
+        $first = $order->items()->first();
+        $second = $this->addPricedLine($order, $publisher);
+
+        $this->seedUpheldDispute($admin, $order, $first);
+        $this->seedUpheldDispute($admin, $order, $second);
+        $order->update(['payment_status' => 'refunded']);
+
+        $overview = app(FinanceOverviewService::class)->overview(
+            app(FinanceOverviewService::class)->resolvePeriod('all')
+        );
+
+        $this->assertEquals(230.0, $overview['platform']['gmv_completed']);
+        $this->assertEquals(230.0, $overview['platform']['refunds']);
+        $this->assertEquals(1, $overview['platform']['refund_orders_count']);
+        $this->assertEquals(30.0, $overview['platform']['order_fees']);
+        $this->assertEquals(30.0, $overview['platform']['refunded_order_fees']);
+        $this->assertEquals(0.0, $overview['platform']['margin']);
+        $this->assertEquals(0.0, $overview['money_out']['earnings_credited']['amount']);
+        $this->assertEquals(230.0, $overview['cash_split']['cash_in_bank']);
+    }
+
+    public function test_staggered_full_clawback_keeps_each_line_on_its_resolution_date(): void
+    {
+        $admin = $this->makeUser('admin');
+        $advertiser = $this->makeUser('advertiser');
+        $publisher = $this->makeUser('publisher');
+        $order = $this->seedCompletedPaidOrder($advertiser, $publisher, [
+            'paid_at' => Carbon::parse('2026-07-15 12:00:00'),
+            'completed_at' => Carbon::parse('2026-07-20 12:00:00'),
+        ]);
+        $order->update(['subtotal' => 230, 'total_amount' => 230]);
+        $first = $order->items()->first();
+        $second = $this->addPricedLine($order, $publisher);
+
+        $this->seedUpheldDispute($admin, $order, $first, [
+            'resolved_at' => Carbon::parse('2026-07-28 12:00:00'),
+        ]);
+        $this->seedUpheldDispute($admin, $order, $second, [
+            'resolved_at' => Carbon::parse('2026-08-12 12:00:00'),
+        ]);
+        $order->forceFill([
+            'payment_status' => 'refunded',
+            'updated_at' => Carbon::parse('2026-08-12 12:00:00'),
+        ])->save();
+
+        $july = app(FinanceOverviewService::class)->overview(
+            app(FinanceOverviewService::class)->resolvePeriod(null, '2026-07-01', '2026-07-31')
+        );
+        $august = app(FinanceOverviewService::class)->overview(
+            app(FinanceOverviewService::class)->resolvePeriod(null, '2026-08-01', '2026-08-31')
+        );
+        $all = app(FinanceOverviewService::class)->overview(
+            app(FinanceOverviewService::class)->resolvePeriod('all')
+        );
+
+        $this->assertEquals(115.0, $july['platform']['refunds']);
+        $this->assertEquals(15.0, $july['platform']['refunded_order_fees']);
+        $this->assertEquals(30.0, $july['platform']['order_fees']);
+        $this->assertEquals(15.0, $july['platform']['margin']);
+        $this->assertEquals(100.0, $july['money_out']['earnings_credited']['amount']);
+        $this->assertEquals(1, $july['platform']['refund_orders_count']);
+
+        $this->assertEquals(115.0, $august['platform']['refunds']);
+        $this->assertEquals(15.0, $august['platform']['refunded_order_fees']);
+        $this->assertEquals(0.0, $august['platform']['order_fees']);
+        $this->assertEquals(-15.0, $august['platform']['margin']);
+        $this->assertEquals(-100.0, $august['money_out']['earnings_credited']['amount']);
+        $this->assertEquals(1, $august['platform']['refund_orders_count']);
+
+        $this->assertEquals(230.0, $all['platform']['refunds']);
+        $this->assertEquals(30.0, $all['platform']['refunded_order_fees']);
+        $this->assertEquals(0.0, $all['platform']['margin']);
+        $this->assertEquals(0.0, $all['money_out']['earnings_credited']['amount']);
     }
 
     public function test_failed_after_paid_card_capture_still_counts_as_cash_in(): void
@@ -1126,5 +1211,57 @@ class AdminFinanceHubTest extends TestCase
         ]);
 
         return $order->fresh();
+    }
+
+    private function addPricedLine(Order $order, User $publisher): OrderItem
+    {
+        $site = Site::create([
+            'publisher_id' => $publisher->id,
+            'site_name' => 'Second Fee Site',
+            'site_url' => 'https://second-fee-site.test',
+            'domain' => 'second-fee-'.uniqid().'.test',
+            'da' => 10,
+            'dr' => 10,
+            'traffic' => 100,
+            'country' => 'de',
+            'language' => 'de',
+            'category' => 'Technology',
+            'price' => 100,
+            'publication_time' => 'permanent',
+            'link_type' => 'dofollow',
+            'description' => 'Second line for finance clawback tests.',
+            'verified' => true,
+            'active' => true,
+        ]);
+
+        return OrderItem::create([
+            'order_id' => $order->id,
+            'site_id' => $site->id,
+            'site_name' => $site->site_name,
+            'site_url' => $site->site_url,
+            'content_link' => 'https://example.com/article-2',
+            'price' => 115,
+            'additional_price' => 0,
+            'publisher_price' => 100,
+            'platform_fee_percent' => 15,
+            'platform_fee_amount' => 15,
+        ]);
+    }
+
+    /**
+     * @param  array<string, mixed>  $overrides
+     */
+    private function seedUpheldDispute(User $admin, Order $order, OrderItem $item, array $overrides = []): OrderItemDispute
+    {
+        return OrderItemDispute::create(array_merge([
+            'order_id' => $order->id,
+            'order_item_id' => $item->id,
+            'opened_by' => $admin->id,
+            'status' => OrderItemDispute::STATUS_UPHELD,
+            'reason' => 'Live URL was removed after the report window started.',
+            'resolved_at' => now(),
+            'advertiser_credited' => 115,
+            'publisher_debited' => 100,
+        ], $overrides));
     }
 }

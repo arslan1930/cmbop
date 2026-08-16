@@ -427,7 +427,7 @@
                             <span class="text-muted small">Earnings credited</span>
                             <strong>{{ $euro($d['money_out']['earnings_credited']['amount']) }}</strong>
                         </div>
-                        <div class="small text-muted">{{ $d['money_out']['earnings_credited']['count'] }} line items · ledger transfer-in {{ $euro($d['money_out']['earnings_credited']['ledger_transfer_in']) }} · Dated by completed date</div>
+                        <div class="small text-muted">{{ $d['money_out']['earnings_credited']['count'] }} line items · ledger transfer-in {{ $euro($d['money_out']['earnings_credited']['ledger_transfer_in']) }} · Dated by completed date, clawbacks / refunds by refund date</div>
                     </div>
                     <div class="mb-3">
                         <div class="d-flex justify-content-between">

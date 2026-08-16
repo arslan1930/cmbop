@@ -153,18 +153,27 @@ class OrderItem extends Model
     }
 
     /**
-     * Clawed lines on a sale that is still paid (partial dispute).
+     * Lines with an upheld dispute, whether the order is still paid or later
+     * flipped to refunded after every line was clawed.
      */
-    public function scopeClawedBackOnPaidSale($query)
+    public function scopeClawedBack($query)
     {
         if (! OrderItemDispute::tableAvailable()) {
             return $query->whereRaw('0 = 1');
         }
 
-        return $query->whereHas('order', fn ($order) => $order->where('payment_status', 'paid'))
-            ->whereHas('disputes', function ($disputes) {
-                $disputes->where('status', OrderItemDispute::STATUS_UPHELD);
-            });
+        return $query->whereHas('disputes', function ($disputes) {
+            $disputes->where('status', OrderItemDispute::STATUS_UPHELD);
+        });
+    }
+
+    /**
+     * Clawed lines on a sale that is still paid (partial dispute).
+     */
+    public function scopeClawedBackOnPaidSale($query)
+    {
+        return $query->clawedBack()
+            ->whereHas('order', fn ($order) => $order->where('payment_status', 'paid'));
     }
 
     public function isClawedBack(): bool
