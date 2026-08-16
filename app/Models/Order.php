@@ -36,6 +36,12 @@ class Order extends Model
         'additional_price',
     ];
 
+    protected $hidden = [
+        'stripe_session_id',
+        'stripe_payment_intent_id',
+        'stripe_response',
+    ];
+
     protected $casts = [
         'stripe_response' => 'array',
         'paid_at' => 'datetime',

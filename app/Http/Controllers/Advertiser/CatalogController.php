@@ -3805,7 +3805,7 @@ class CatalogController extends Controller
                     'from' => $orders->firstItem(),
                     'to' => $orders->lastItem(),
                 ],
-            ]);
+            ])->header('Cache-Control', 'no-store');
         } catch (\Exception $e) {
             Log::error('Stack trace: '.$e->getTraceAsString());
 
@@ -3856,7 +3856,7 @@ class CatalogController extends Controller
             return response()->json([
                 'success' => true,
                 'order' => $order,
-            ]);
+            ])->header('Cache-Control', 'no-store');
         } catch (\Exception $e) {
             Log::error('Stack trace: '.$e->getTraceAsString());
 

@@ -378,6 +378,51 @@ class AdvertiserOrdersUxAbcTest extends TestCase
         $this->assertCount(2, $detail['items']);
     }
 
+    public function test_order_list_and_show_omit_stripe_payload_and_are_not_cached(): void
+    {
+        $advertiser = $this->advertiser();
+        $order = $this->makeOrder($advertiser, $this->siteFor($this->publisher()), [
+            'payment_method' => 'card',
+            'stripe_session_id' => 'cs_test_orders_secret_session',
+            'stripe_payment_intent_id' => 'pi_test_orders_secret_intent',
+            'stripe_response' => [
+                'id' => 'cs_test_orders_secret_session',
+                'client_secret' => 'orders_secret_xyz',
+            ],
+        ]);
+
+        $list = $this->actingAs($advertiser)
+            ->getJson(route('advertiser.orders.list'))
+            ->assertOk()
+            ->assertJsonPath('success', true);
+
+        $this->assertStringContainsString('no-store', (string) $list->headers->get('Cache-Control'));
+        $row = collect($list->json('orders'))->firstWhere('id', $order->id);
+        $this->assertIsArray($row);
+        $this->assertArrayNotHasKey('stripe_session_id', $row);
+        $this->assertArrayNotHasKey('stripe_payment_intent_id', $row);
+        $this->assertArrayNotHasKey('stripe_response', $row);
+        $this->assertStringNotContainsString('cs_test_orders_secret_session', $list->getContent());
+        $this->assertStringNotContainsString('pi_test_orders_secret_intent', $list->getContent());
+        $this->assertStringNotContainsString('orders_secret_xyz', $list->getContent());
+
+        $show = $this->actingAs($advertiser)
+            ->getJson(route('advertiser.orders.get', $order->id))
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('order.id', $order->id);
+
+        $this->assertStringContainsString('no-store', (string) $show->headers->get('Cache-Control'));
+        $payload = $show->json('order');
+        $this->assertIsArray($payload);
+        $this->assertArrayNotHasKey('stripe_session_id', $payload);
+        $this->assertArrayNotHasKey('stripe_payment_intent_id', $payload);
+        $this->assertArrayNotHasKey('stripe_response', $payload);
+        $this->assertStringNotContainsString('cs_test_orders_secret_session', $show->getContent());
+        $this->assertStringNotContainsString('pi_test_orders_secret_intent', $show->getContent());
+        $this->assertStringNotContainsString('orders_secret_xyz', $show->getContent());
+    }
+
     public function test_pagination_payload_includes_from_to_for_results_count(): void
     {
         $advertiser = $this->advertiser();
