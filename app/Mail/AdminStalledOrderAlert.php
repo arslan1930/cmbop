@@ -46,7 +46,7 @@ class AdminStalledOrderAlert extends PlatformMailable
                 'stage' => $this->stage,
                 'days' => $days,
                 'track' => $this->track,
-                'adminUrl' => route('admin.orders.show', $this->order->id),
+                'adminUrl' => $this->publicRoute('admin.orders.show', $this->order->id),
                 'brand' => $this->brand(),
             ]);
     }

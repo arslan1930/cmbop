@@ -631,8 +631,15 @@ class AddFundsController extends Controller
             'success' => true,
             'status' => $depositRequest->status,
             'user_marked_paid_at' => optional($depositRequest->user_marked_paid_at)?->toIso8601String(),
-            'deposit' => $depositRequest,
-        ]);
+            'deposit' => [
+                'id' => $depositRequest->id,
+                'reference_code' => $depositRequest->reference_code,
+                'amount' => $depositRequest->amount,
+                'payment_method' => $depositRequest->payment_method,
+                'status' => $depositRequest->status,
+                'user_marked_paid_at' => optional($depositRequest->user_marked_paid_at)?->toIso8601String(),
+            ],
+        ])->header('Cache-Control', 'no-store');
     }
 
     /**

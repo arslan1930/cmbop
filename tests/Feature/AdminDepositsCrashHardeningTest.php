@@ -140,16 +140,36 @@ class AdminDepositsCrashHardeningTest extends TestCase
             'payout_bank_account' => 'DE89370400440532013000',
         ])->save();
 
+        $deposit->update([
+            'stripe_session_id' => 'cs_test_admin_secret_session',
+            'stripe_payment_intent_id' => 'pi_test_admin_secret_intent',
+            'stripe_response' => [
+                'id' => 'cs_test_admin_secret_session',
+                'client_secret' => 'admin_secret_xyz',
+            ],
+        ]);
+
         $show = $this->actingAs($admin)
             ->getJson(route('admin.deposits.show', $deposit->id))
             ->assertOk()
             ->assertJsonPath('success', true)
-            ->assertJsonPath('deposit.user.email', $advertiser->email);
+            ->assertJsonPath('deposit.user.email', $advertiser->email)
+            ->assertJsonPath('deposit.reference_code', $deposit->reference_code)
+            ->assertJsonPath('deposit.status', 'pending');
 
         $this->assertStringContainsString('no-store', (string) $show->headers->get('Cache-Control'));
+        $payload = $show->json('deposit');
+        $this->assertIsArray($payload);
+        $this->assertArrayNotHasKey('stripe_session_id', $payload);
+        $this->assertArrayNotHasKey('stripe_payment_intent_id', $payload);
+        $this->assertArrayNotHasKey('stripe_response', $payload);
         $this->assertArrayNotHasKey('payout_paypal_email', $show->json('deposit.user') ?? []);
         $this->assertArrayNotHasKey('payout_bank_account', $show->json('deposit.user') ?? []);
-        $this->assertStringNotContainsString('hidden-pay@example.com', $show->getContent());
-        $this->assertStringNotContainsString('DE89370400440532013000', $show->getContent());
+        $body = $show->getContent();
+        $this->assertStringNotContainsString('hidden-pay@example.com', $body);
+        $this->assertStringNotContainsString('DE89370400440532013000', $body);
+        $this->assertStringNotContainsString('cs_test_admin_secret_session', $body);
+        $this->assertStringNotContainsString('pi_test_admin_secret_intent', $body);
+        $this->assertStringNotContainsString('admin_secret_xyz', $body);
     }
 }

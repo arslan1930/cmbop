@@ -18,7 +18,7 @@ We regret to inform you that your order **#{{ $order->order_number }}** has been
 
 You can browse other publishers and place a new order.
 
-@component('mail::button', ['url' => route('advertiser.catalog')])
+@component('mail::button', ['url' => $catalogUrl])
 Browse Publishers
 @endcomponent
 

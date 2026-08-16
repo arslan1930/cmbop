@@ -1974,24 +1974,26 @@ class CatalogController extends Controller
             session(['checkout_reference_code' => $checkoutReferenceCode]);
         }
 
-        return view('advertiser.checkout', array_merge(compact(
-            'cartItems',
-            'deferredItems',
-            'payableReady',
-            'payableCount',
-            'deferredCount',
-            'total',
-            'savings',
-            'librarySubmission',
-            'checkoutWallet',
-            'checkoutBonusBalance',
-            'checkoutCashBalance',
-            'checkoutSpendableBalance',
-            'checkoutArticles',
-            'savedCards',
-            'stripeConfigured',
-            'checkoutReferenceCode',
-        ), $scheduleContext));
+        return response()
+            ->view('advertiser.checkout', array_merge(compact(
+                'cartItems',
+                'deferredItems',
+                'payableReady',
+                'payableCount',
+                'deferredCount',
+                'total',
+                'savings',
+                'librarySubmission',
+                'checkoutWallet',
+                'checkoutBonusBalance',
+                'checkoutCashBalance',
+                'checkoutSpendableBalance',
+                'checkoutArticles',
+                'savedCards',
+                'stripeConfigured',
+                'checkoutReferenceCode',
+            ), $scheduleContext))
+            ->header('Cache-Control', 'no-store');
     }
 
     /**
@@ -3803,7 +3805,7 @@ class CatalogController extends Controller
                     'from' => $orders->firstItem(),
                     'to' => $orders->lastItem(),
                 ],
-            ]);
+            ])->header('Cache-Control', 'no-store');
         } catch (\Exception $e) {
             Log::error('Stack trace: '.$e->getTraceAsString());
 
@@ -3854,7 +3856,7 @@ class CatalogController extends Controller
             return response()->json([
                 'success' => true,
                 'order' => $order,
-            ]);
+            ])->header('Cache-Control', 'no-store');
         } catch (\Exception $e) {
             Log::error('Stack trace: '.$e->getTraceAsString());
 

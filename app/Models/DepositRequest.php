@@ -23,6 +23,12 @@ class DepositRequest extends Model
         'user_payment_note',
     ];
 
+    protected $hidden = [
+        'stripe_session_id',
+        'stripe_payment_intent_id',
+        'stripe_response',
+    ];
+
     protected $casts = [
         'stripe_response' => 'array',
         'approved_at' => 'datetime',

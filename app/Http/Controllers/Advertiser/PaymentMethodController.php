@@ -20,7 +20,7 @@ class PaymentMethodController extends Controller
             'success' => true,
             'configured' => $this->stripe->configured(),
             'cards' => $this->stripe->listCards($user),
-        ]);
+        ])->header('Cache-Control', 'no-store');
     }
 
     public function createSetupSession(Request $request)
@@ -79,7 +79,7 @@ class PaymentMethodController extends Controller
                 'success' => true,
                 'message' => 'Card removed.',
                 'cards' => $this->stripe->listCards(auth()->user()->fresh()),
-            ]);
+            ])->header('Cache-Control', 'no-store');
         } catch (\Throwable $e) {
             Log::warning('Failed to remove card: '.$e->getMessage());
 
@@ -99,7 +99,7 @@ class PaymentMethodController extends Controller
                 'success' => true,
                 'message' => 'Default card updated.',
                 'cards' => $this->stripe->listCards(auth()->user()->fresh()),
-            ]);
+            ])->header('Cache-Control', 'no-store');
         } catch (\Throwable $e) {
             return response()->json([
                 'success' => false,

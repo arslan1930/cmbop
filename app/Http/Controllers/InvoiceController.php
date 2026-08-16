@@ -36,7 +36,8 @@ class InvoiceController extends Controller
                     ));
                 }
 
-                $response = response()->view('advertiser.invoice', $this->depositInvoiceData($deposit, $user));
+                $response = response()->view('advertiser.invoice', $this->depositInvoiceData($deposit, $user))
+                    ->header('Cache-Control', 'no-store');
                 if ($request->boolean('download')) {
                     $response->header(
                         'Content-Disposition',
@@ -75,7 +76,8 @@ class InvoiceController extends Controller
                     ));
                 }
 
-                $response = response()->view('advertiser.invoice', $this->orderInvoiceData($order, $user));
+                $response = response()->view('advertiser.invoice', $this->orderInvoiceData($order, $user))
+                    ->header('Cache-Control', 'no-store');
                 if ($request->boolean('download')) {
                     $response->header(
                         'Content-Disposition',

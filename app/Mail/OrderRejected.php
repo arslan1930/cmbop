@@ -28,6 +28,8 @@ class OrderRejected extends PlatformMailable
     public function build()
     {
         return $this->subject('Order Rejected - #'.$this->order->order_number)
-            ->markdown('emails.publisher.order_rejected');
+            ->markdown('emails.publisher.order_rejected', [
+                'catalogUrl' => $this->publicRoute('advertiser.catalog'),
+            ]);
     }
 }

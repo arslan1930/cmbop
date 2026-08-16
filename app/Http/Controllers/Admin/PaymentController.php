@@ -146,12 +146,12 @@ class PaymentController extends Controller
             return response()->json([
                 'success' => true,
                 'data' => $this->serializePaymentRow($order),
-            ]);
+            ])->header('Cache-Control', 'no-store');
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Payment not found',
-            ], 404);
+            ], 404)->header('Cache-Control', 'no-store');
         }
     }
 

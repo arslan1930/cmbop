@@ -147,13 +147,14 @@ class DepositMarkPaidTest extends TestCase
         $user = $this->advertiser();
         $deposit = $this->pendingDeposit($user, 'wise');
 
-        $html = $this->actingAs($user)
+        $page = $this->actingAs($user)
             ->get(route('advertiser.invoice', $deposit->reference_code))
             ->assertOk()
             ->assertSee('OK, I have made the payment')
             ->assertSee('stays')
-            ->assertSee('Pending')
-            ->getContent();
+            ->assertSee('Pending');
+        $this->assertStringContainsString('no-store', (string) $page->headers->get('Cache-Control'));
+        $html = $page->getContent();
 
         $markPaidJson = json_encode(
             route('advertiser.add-funds.mark-paid', $deposit, false),
@@ -161,5 +162,49 @@ class DepositMarkPaidTest extends TestCase
         );
         $this->assertStringContainsString($markPaidJson, $html);
         $this->assertStringNotContainsString(route('advertiser.add-funds.mark-paid', $deposit), $html);
+    }
+
+    public function test_deposit_status_json_omits_stripe_payload_and_is_not_cached(): void
+    {
+        $user = $this->advertiser();
+        $deposit = $this->pendingDeposit($user, 'card');
+        $deposit->update([
+            'stripe_session_id' => 'cs_test_secret_session',
+            'stripe_payment_intent_id' => 'pi_test_secret_intent',
+            'stripe_response' => [
+                'id' => 'cs_test_secret_session',
+                'client_secret' => 'secret_xyz',
+            ],
+        ]);
+
+        $response = $this->actingAs($user)
+            ->getJson(route('advertiser.add-funds.status', $deposit->id))
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('status', 'pending')
+            ->assertJsonPath('deposit.id', $deposit->id)
+            ->assertJsonPath('deposit.reference_code', $deposit->reference_code)
+            ->assertJsonPath('deposit.payment_method', 'card')
+            ->assertJsonPath('deposit.status', 'pending');
+
+        $this->assertSame('50.00', (string) $response->json('deposit.amount'));
+        $this->assertStringContainsString('no-store', (string) $response->headers->get('Cache-Control'));
+
+        $payload = $response->json('deposit');
+        $this->assertIsArray($payload);
+        $this->assertArrayNotHasKey('stripe_session_id', $payload);
+        $this->assertArrayNotHasKey('stripe_payment_intent_id', $payload);
+        $this->assertArrayNotHasKey('stripe_response', $payload);
+        $this->assertArrayNotHasKey('admin_notes', $payload);
+
+        $body = $response->getContent();
+        $this->assertStringNotContainsString('cs_test_secret_session', $body);
+        $this->assertStringNotContainsString('pi_test_secret_intent', $body);
+        $this->assertStringNotContainsString('secret_xyz', $body);
+
+        $other = $this->advertiser();
+        $this->actingAs($other)
+            ->getJson(route('advertiser.add-funds.status', $deposit->id))
+            ->assertNotFound();
     }
 }

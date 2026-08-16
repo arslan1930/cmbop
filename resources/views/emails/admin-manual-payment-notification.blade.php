@@ -8,7 +8,7 @@ A customer has placed an order with manual payment.
 
 Please review and confirm payment.
 
-@component('mail::button', ['url' => route('admin.payments')])
+@component('mail::button', ['url' => $paymentsUrl])
 View Payments
 @endcomponent
 

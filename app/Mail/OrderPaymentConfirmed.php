@@ -45,6 +45,7 @@ class OrderPaymentConfirmed extends PlatformMailable
                 'orderItems' => $this->orderItems,
                 'orderDate' => $this->order->created_at->format('F j, Y \a\t g:i A'),
                 'paidDate' => now()->format('F j, Y \a\t g:i A'),
+                'ordersUrl' => $this->advertiserOrdersUrl((int) $this->order->id),
             ]);
     }
 }

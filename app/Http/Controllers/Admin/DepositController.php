@@ -75,7 +75,25 @@ class DepositController extends Controller
 
         return $this->noStoreJson([
             'success' => true,
-            'deposit' => $deposit,
+            'deposit' => [
+                'id' => $deposit->id,
+                'reference_code' => $deposit->reference_code,
+                'amount' => $deposit->amount,
+                'payment_method' => $deposit->payment_method,
+                'status' => $deposit->status,
+                'user_marked_paid_at' => optional($deposit->user_marked_paid_at)?->toIso8601String(),
+                'user_payment_note' => $deposit->user_payment_note,
+                'admin_notes' => $deposit->admin_notes,
+                'created_at' => optional($deposit->created_at)?->toIso8601String(),
+                'approved_at' => optional($deposit->approved_at)?->toIso8601String(),
+                'rejected_at' => optional($deposit->rejected_at)?->toIso8601String(),
+                'paid_at' => optional($deposit->paid_at)?->toIso8601String(),
+                'user' => $deposit->user ? [
+                    'id' => $deposit->user->id,
+                    'name' => $deposit->user->name,
+                    'email' => $deposit->user->email,
+                ] : null,
+            ],
             'invoice' => $invoice,
         ]);
     }

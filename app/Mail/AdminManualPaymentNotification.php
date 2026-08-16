@@ -52,6 +52,7 @@ class AdminManualPaymentNotification extends PlatformMailable
                 'orderNumbers' => implode(', ', $orderNumbers),
                 'orderCount' => count($this->orders),
                 'referenceCode' => $this->orders[0]->reference_code,
+                'paymentsUrl' => $this->publicRoute('admin.payments'),
             ]);
     }
 }

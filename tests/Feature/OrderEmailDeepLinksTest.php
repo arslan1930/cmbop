@@ -2,6 +2,8 @@
 
 namespace Tests\Feature;
 
+use App\Mail\AdminManualPaymentNotification;
+use App\Mail\AdminStalledOrderAlert;
 use App\Mail\AdvertiserOrderStalledNotice;
 use App\Mail\AdvertiserReviewNudge;
 use App\Mail\AutoApproveReminderMail;
@@ -10,6 +12,7 @@ use App\Mail\ModificationRequested;
 use App\Mail\OrderAccepted;
 use App\Mail\OrderApprovedByAdvertiser;
 use App\Mail\OrderPaymentConfirmed;
+use App\Mail\OrderRejected;
 use App\Mail\PaymentFailedMail;
 use App\Mail\PaymentPendingMail;
 use App\Mail\PaymentSuccessfulInvoiceMail;
@@ -137,6 +140,46 @@ class OrderEmailDeepLinksTest extends TestCase
         }
     }
 
+    public function test_payment_confirmation_emails_use_public_host_ctas(): void
+    {
+        $confirmed = (new OrderPaymentConfirmed($this->order->load(['user', 'items'])))->render();
+        $this->assertAdvertiserOrderDeepLink($confirmed);
+        $this->assertStringNotContainsString(
+            "route('advertiser.orders'",
+            (string) file_get_contents(resource_path('views/emails/order-payment-confirmed.blade.php'))
+        );
+
+        $admin = (new AdminManualPaymentNotification($this->advertiser, [$this->order], 'bank', 40))->render();
+        $this->assertStringContainsString('/admin/payments', $admin);
+        $this->assertStringNotContainsString(
+            "route('admin.payments'",
+            (string) file_get_contents(resource_path('views/emails/admin-manual-payment-notification.blade.php'))
+        );
+
+        $stalled = (new AdminStalledOrderAlert(
+            $this->order,
+            $this->item,
+            $this->site,
+            $this->publisher,
+            3,
+            96,
+            'accept'
+        ))->render();
+        $this->assertStringContainsString('/admin/orders/'.$this->order->id, $stalled);
+        $this->assertStringContainsString('refund the advertiser', $stalled);
+        $this->assertStringNotContainsString(
+            "route('admin.orders.show'",
+            (string) file_get_contents(app_path('Mail/AdminStalledOrderAlert.php'))
+        );
+
+        $rejected = (new OrderRejected($this->order, $this->item, $this->site, 'Publisher declined the brief.'))->render();
+        $this->assertStringContainsString('/advertiser/catalog', $rejected);
+        $this->assertStringNotContainsString(
+            "route('advertiser.catalog'",
+            (string) file_get_contents(resource_path('views/emails/publisher/order_rejected.blade.php'))
+        );
+    }
+
     public function test_publisher_order_emails_deep_link_to_tasks_order(): void
     {
         $cases = [
@@ -159,6 +202,11 @@ class OrderEmailDeepLinksTest extends TestCase
         foreach ($cases as $html) {
             $this->assertPublisherTasksDeepLink($html);
         }
+
+        $this->assertStringNotContainsString(
+            "route('publisher.tasks'",
+            (string) file_get_contents(resource_path('views/emails/advertiser/order_approved_publisher.blade.php'))
+        );
     }
 
     public function test_billing_emails_deep_link_when_order_is_present(): void
