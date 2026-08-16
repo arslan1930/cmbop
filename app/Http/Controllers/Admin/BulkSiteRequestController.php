@@ -190,7 +190,10 @@ class BulkSiteRequestController extends Controller
             $orderGuard = app(SiteClaimTransferService::class);
             $openOn = [];
             $disputeOn = [];
-            foreach ($locked->sites()->notArchived()->lockForUpdate()->get() as $site) {
+            // Include archived rows. A publisher can hide a live listing
+            // while orders are still open; skipping those would let cancel
+            // stamp cancelled-bulk leftovers onto in-flight work.
+            foreach ($locked->sites()->lockForUpdate()->get() as $site) {
                 $label = Site::normalizeMarketplaceDomain((string) $site->domain);
                 if ($label === '') {
                     $label = (string) $site->site_name;

@@ -1508,6 +1508,133 @@ class BulkDoneRejectRowsTest extends TestCase
         Mail::assertNotQueued(BulkSiteRequestCancelled::class);
     }
 
+    public function test_cancel_refuses_when_an_archived_listing_has_open_orders(): void
+    {
+        Mail::fake();
+        [$bulk, $items] = $this->makeBulkWithItems(1, 'cancel-arch-ord');
+
+        $this->actingAs($this->marketer)
+            ->post(route('marketing.bulk-site-requests.done', $bulk), [
+                'items' => $this->completeRow($items[0]),
+            ])
+            ->assertRedirect();
+
+        $live = Site::query()->where('domain', $items[0]->domain)->firstOrFail();
+        $live->forceFill([
+            'verified' => true,
+            'verified_at' => now(),
+            'active' => true,
+            'onboarding_status' => null,
+            'archived_at' => now(),
+        ])->save();
+
+        $order = Order::create([
+            'user_id' => $this->advertiser->id,
+            'order_number' => 'ORD-BULK-ARCH-OPEN-1',
+            'subtotal' => 80,
+            'tax' => 0,
+            'total_amount' => 80,
+            'payment_method' => 'wallet',
+            'payment_status' => 'paid',
+            'status' => 'processing',
+        ]);
+        OrderItem::create([
+            'order_id' => $order->id,
+            'site_id' => $live->id,
+            'site_name' => $live->site_name,
+            'site_url' => $live->site_url,
+            'price' => 80,
+            'content_link' => 'https://example.com/draft-article',
+            'anchor_text' => 'best seo tools',
+            'target_url' => 'https://advertiser.example',
+            'publisher_status' => 'pending',
+        ]);
+
+        $this->actingAs($this->marketer)
+            ->from(route('marketing.bulk-site-requests.show', $bulk))
+            ->post(route('marketing.bulk-site-requests.cancel', $bulk), [
+                'reason' => 'Publisher archived the live listing first, then asked to cancel.',
+            ])
+            ->assertRedirect(route('marketing.bulk-site-requests.show', $bulk))
+            ->assertSessionHas('error', function ($message) use ($live) {
+                return is_string($message)
+                    && str_contains($message, 'Cannot cancel while these listings have open orders')
+                    && str_contains($message, (string) $live->domain);
+            });
+
+        $this->assertTrue($live->fresh()->isArchived());
+        $this->assertNotSame(BulkSiteRequest::STATUS_CANCELLED, $bulk->fresh()->status);
+        Mail::assertNotQueued(BulkSiteRequestCancelled::class);
+    }
+
+    public function test_cancel_refuses_when_an_archived_listing_has_open_disputes(): void
+    {
+        Mail::fake();
+        [$bulk, $items] = $this->makeBulkWithItems(1, 'cancel-arch-disp');
+
+        $this->actingAs($this->marketer)
+            ->post(route('marketing.bulk-site-requests.done', $bulk), [
+                'items' => $this->completeRow($items[0]),
+            ])
+            ->assertRedirect();
+
+        $live = Site::query()->where('domain', $items[0]->domain)->firstOrFail();
+        $live->forceFill([
+            'verified' => true,
+            'verified_at' => now(),
+            'active' => true,
+            'onboarding_status' => null,
+            'archived_at' => now(),
+        ])->save();
+
+        $order = Order::create([
+            'user_id' => $this->advertiser->id,
+            'order_number' => 'ORD-BULK-ARCH-DISPUTE-1',
+            'subtotal' => 80,
+            'tax' => 0,
+            'total_amount' => 80,
+            'payment_method' => 'wallet',
+            'payment_status' => 'paid',
+            'status' => 'completed',
+        ]);
+        $item = OrderItem::create([
+            'order_id' => $order->id,
+            'site_id' => $live->id,
+            'site_name' => $live->site_name,
+            'site_url' => $live->site_url,
+            'price' => 80,
+            'content_link' => 'https://example.com/live-article',
+            'anchor_text' => 'best seo tools',
+            'target_url' => 'https://advertiser.example',
+            'publisher_status' => 'completed',
+        ]);
+
+        OrderItemDispute::ensureTable();
+        OrderItemDispute::create([
+            'order_id' => $order->id,
+            'order_item_id' => $item->id,
+            'opened_by' => $this->advertiser->id,
+            'status' => OrderItemDispute::STATUS_OPEN,
+            'reason' => 'Live link was removed after the publisher archived the listing.',
+        ]);
+
+        $this->actingAs($this->marketer)
+            ->from(route('marketing.bulk-site-requests.show', $bulk))
+            ->post(route('marketing.bulk-site-requests.cancel', $bulk), [
+                'reason' => 'Publisher archived the live listing first, then asked to cancel.',
+            ])
+            ->assertRedirect(route('marketing.bulk-site-requests.show', $bulk))
+            ->assertSessionHas('error', function ($message) use ($live) {
+                return is_string($message)
+                    && str_contains($message, 'Cannot cancel while these listings have open disputes')
+                    && str_contains($message, (string) $live->domain);
+            });
+
+        $this->assertTrue($live->fresh()->isArchived());
+        $this->assertNotSame(BulkSiteRequest::STATUS_CANCELLED, $bulk->fresh()->status);
+        Mail::assertNotQueued(BulkSiteRequestCancelled::class);
+    }
+
     public function test_publisher_can_relist_domain_after_cancelled_bulk_leftover(): void
     {
         Mail::fake();
