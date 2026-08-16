@@ -12,6 +12,7 @@ use App\Mail\ModificationRequested;
 use App\Mail\OrderAccepted;
 use App\Mail\OrderApprovedByAdvertiser;
 use App\Mail\OrderPaymentConfirmed;
+use App\Mail\OrderRejected;
 use App\Mail\PaymentFailedMail;
 use App\Mail\PaymentPendingMail;
 use App\Mail\PaymentSuccessfulInvoiceMail;
@@ -169,6 +170,13 @@ class OrderEmailDeepLinksTest extends TestCase
         $this->assertStringNotContainsString(
             "route('admin.orders.show'",
             (string) file_get_contents(app_path('Mail/AdminStalledOrderAlert.php'))
+        );
+
+        $rejected = (new OrderRejected($this->order, $this->item, $this->site, 'Publisher declined the brief.'))->render();
+        $this->assertStringContainsString('/advertiser/catalog', $rejected);
+        $this->assertStringNotContainsString(
+            "route('advertiser.catalog'",
+            (string) file_get_contents(resource_path('views/emails/publisher/order_rejected.blade.php'))
         );
     }
 

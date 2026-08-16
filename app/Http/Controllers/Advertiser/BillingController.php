@@ -61,7 +61,9 @@ class BillingController extends Controller
         $this->authorizeOwner($invoice);
         $invoice->load(['order.items', 'parentInvoice']);
 
-        return view('advertiser.billing.show', compact('invoice'));
+        return response()
+            ->view('advertiser.billing.show', compact('invoice'))
+            ->header('Cache-Control', 'no-store');
     }
 
     public function download(Invoice $invoice, InvoicePdfGenerator $pdfs, BillingDocumentService $billing)

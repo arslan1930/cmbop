@@ -235,10 +235,11 @@ class BillingInvoiceSystemTest extends TestCase
         $this->assertStringNotContainsString('href="'.route('advertiser.billing.show', $invoice).'"', $index);
         $this->assertStringNotContainsString('href="'.route('advertiser.billing.download', $invoice).'"', $index);
 
-        $show = $this->actingAs($advertiser)
+        $showResponse = $this->actingAs($advertiser)
             ->get(route('advertiser.billing.show', $invoice))
-            ->assertOk()
-            ->getContent();
+            ->assertOk();
+        $this->assertStringContainsString('no-store', (string) $showResponse->headers->get('Cache-Control'));
+        $show = $showResponse->getContent();
         $this->assertStringContainsString('href="'.route('advertiser.billing.view', $invoice, false).'"', $show);
         $this->assertStringContainsString('href="'.$downloadPath.'"', $show);
         $this->assertStringNotContainsString('href="'.route('advertiser.billing.download', $invoice).'"', $show);
