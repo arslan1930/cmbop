@@ -128,6 +128,7 @@ class ManualWalletFundingFlowTest extends TestCase
             ->assertSee('Add funds &amp; get invoice', false)
             ->assertDontSee('data-method="wise"', false)
             ->assertDontSee('data-method="bank"', false);
+        $this->assertStringContainsString('no-store', (string) $page->headers->get('Cache-Control'));
 
         $html = $page->getContent();
         $jsonFlags = JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT;

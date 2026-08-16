@@ -1974,24 +1974,26 @@ class CatalogController extends Controller
             session(['checkout_reference_code' => $checkoutReferenceCode]);
         }
 
-        return view('advertiser.checkout', array_merge(compact(
-            'cartItems',
-            'deferredItems',
-            'payableReady',
-            'payableCount',
-            'deferredCount',
-            'total',
-            'savings',
-            'librarySubmission',
-            'checkoutWallet',
-            'checkoutBonusBalance',
-            'checkoutCashBalance',
-            'checkoutSpendableBalance',
-            'checkoutArticles',
-            'savedCards',
-            'stripeConfigured',
-            'checkoutReferenceCode',
-        ), $scheduleContext));
+        return response()
+            ->view('advertiser.checkout', array_merge(compact(
+                'cartItems',
+                'deferredItems',
+                'payableReady',
+                'payableCount',
+                'deferredCount',
+                'total',
+                'savings',
+                'librarySubmission',
+                'checkoutWallet',
+                'checkoutBonusBalance',
+                'checkoutCashBalance',
+                'checkoutSpendableBalance',
+                'checkoutArticles',
+                'savedCards',
+                'stripeConfigured',
+                'checkoutReferenceCode',
+            ), $scheduleContext))
+            ->header('Cache-Control', 'no-store');
     }
 
     /**

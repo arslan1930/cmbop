@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Mail\AdminManualPaymentNotification;
 use App\Mail\AdvertiserOrderStalledNotice;
 use App\Mail\AdvertiserReviewNudge;
 use App\Mail\AutoApproveReminderMail;
@@ -135,6 +136,23 @@ class OrderEmailDeepLinksTest extends TestCase
         foreach ($cases as $html) {
             $this->assertAdvertiserOrderDeepLink($html);
         }
+    }
+
+    public function test_payment_confirmation_emails_use_public_host_ctas(): void
+    {
+        $confirmed = (new OrderPaymentConfirmed($this->order->load(['user', 'items'])))->render();
+        $this->assertAdvertiserOrderDeepLink($confirmed);
+        $this->assertStringNotContainsString(
+            "route('advertiser.orders'",
+            (string) file_get_contents(resource_path('views/emails/order-payment-confirmed.blade.php'))
+        );
+
+        $admin = (new AdminManualPaymentNotification($this->advertiser, [$this->order], 'bank', 40))->render();
+        $this->assertStringContainsString('/admin/payments', $admin);
+        $this->assertStringNotContainsString(
+            "route('admin.payments'",
+            (string) file_get_contents(resource_path('views/emails/admin-manual-payment-notification.blade.php'))
+        );
     }
 
     public function test_publisher_order_emails_deep_link_to_tasks_order(): void

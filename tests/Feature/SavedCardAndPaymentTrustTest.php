@@ -93,11 +93,12 @@ class SavedCardAndPaymentTrustTest extends TestCase
             ]);
         });
 
-        $this->actingAs($user)
+        $cards = $this->actingAs($user)
             ->getJson(route('advertiser.payment-methods.index'))
             ->assertOk()
             ->assertJsonPath('success', true)
             ->assertJsonPath('cards.0.last4', '4444');
+        $this->assertStringContainsString('no-store', (string) $cards->headers->get('Cache-Control'));
     }
 
     public function test_remove_card_calls_stripe_service(): void

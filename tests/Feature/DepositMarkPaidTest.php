@@ -147,13 +147,14 @@ class DepositMarkPaidTest extends TestCase
         $user = $this->advertiser();
         $deposit = $this->pendingDeposit($user, 'wise');
 
-        $html = $this->actingAs($user)
+        $page = $this->actingAs($user)
             ->get(route('advertiser.invoice', $deposit->reference_code))
             ->assertOk()
             ->assertSee('OK, I have made the payment')
             ->assertSee('stays')
-            ->assertSee('Pending')
-            ->getContent();
+            ->assertSee('Pending');
+        $this->assertStringContainsString('no-store', (string) $page->headers->get('Cache-Control'));
+        $html = $page->getContent();
 
         $markPaidJson = json_encode(
             route('advertiser.add-funds.mark-paid', $deposit, false),
