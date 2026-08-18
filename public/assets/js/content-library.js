@@ -1856,6 +1856,47 @@ function toggleLibraryTitleEdit(id, open) {
     }
 }
 
+function libraryFilenameAsTitle(title, filename) {
+    const t = String(title || '').trim();
+    const f = String(filename || '').trim();
+    if (!t) return true;
+    if (!f) return false;
+    const normalize = function (value) {
+        let next = value.toLowerCase();
+        if (next.endsWith('.docx')) next = next.slice(0, -5);
+        return next;
+    };
+    return normalize(t) === normalize(f);
+}
+
+function paintLibraryTitleCell(id, submission, fallbackTitle) {
+    const display = document.querySelector('[data-title-display="' + id + '"]');
+    const title = (submission && submission.title) || fallbackTitle || '';
+    const filename = (submission && submission.original_filename) || '';
+    const leftover = libraryFilenameAsTitle(title, filename);
+    const shown = leftover ? 'Untitled' : (title || filename || 'Untitled');
+    const tooltip = leftover ? (filename || 'Untitled') : shown;
+    if (display) {
+        display.textContent = shown;
+        display.title = tooltip;
+    }
+    const row = document.getElementById('library-row-' + id);
+    if (!row) return;
+    const hint = row.querySelector('.library-filename-hint');
+    const rename = row.querySelector('.library-rename-link');
+    if (leftover) {
+        if (hint && filename) {
+            hint.textContent = filename;
+            hint.setAttribute('title', filename);
+            hint.classList.remove('d-none');
+        }
+        if (rename) rename.classList.remove('d-none');
+        return;
+    }
+    if (hint) hint.remove();
+    if (rename) rename.remove();
+}
+
 async function copyLibraryLiveUrl(btn) {
     const url = (btn?.getAttribute('data-copy-url') || '').trim();
     if (!url) return;
@@ -1915,14 +1956,13 @@ async function saveLibraryTitle(id) {
             showLibraryFlash(data.message || 'Could not rename article.', false);
             return;
         }
-        const display = document.querySelector('[data-title-display="' + id + '"]');
-        const nextTitle = (data.submission && data.submission.title) || title || (data.submission && data.submission.original_filename) || 'Article';
-        if (display) {
-            display.textContent = nextTitle;
-            display.title = nextTitle;
-        }
+        paintLibraryTitleCell(id, data.submission || {}, title);
         toggleLibraryTitleEdit(id, false);
         showLibraryFlash('Article renamed.', true);
+        fetchLibraryResults(librarySearchParamsFromForm(), {
+            historyMode: 'replace',
+            keepFocus: false,
+        });
     } catch (e) {
         showLibraryFlash('Network error while renaming.', false);
     }

@@ -279,5 +279,12 @@ class ContentLibraryLiveSearchTest extends TestCase
         $this->assertStringContainsString("detail.reason === 'enter'", $js);
         $this->assertStringContainsString("detail.reason === 'clear'", $js);
         $this->assertStringContainsString("'completed', 'evaluating'", $js);
+        $this->assertStringContainsString('function libraryFilenameAsTitle', $js);
+        $this->assertStringContainsString('function paintLibraryTitleCell', $js);
+        $this->assertStringContainsString('paintLibraryTitleCell(id, data.submission || {}, title);', $js);
+        $this->assertStringContainsString('display.textContent = shown;', $js);
+        $this->assertStringContainsString("leftover ? 'Untitled'", $js);
+        $this->assertStringContainsString('fetchLibraryResults(librarySearchParamsFromForm()', $js);
+        $this->assertStringNotContainsString("|| 'Article';", $js);
     }
 }

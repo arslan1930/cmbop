@@ -120,6 +120,32 @@
             ? $submissionRows->items()
             : $submissionRows
         )->contains(fn ($row) => filled($row->expires_at ?? null));
+    $libraryCountryNames = collect($countries ?? [])->mapWithKeys(function ($row) {
+        $code = strtolower(trim((string) data_get($row, 'code')));
+        $name = trim((string) data_get($row, 'name'));
+
+        return ($code !== '' && $name !== '') ? [$code => $name] : [];
+    });
+    $libraryLanguageNames = collect($languages ?? [])->mapWithKeys(function ($row) {
+        $code = strtolower(trim((string) data_get($row, 'code')));
+        $name = trim((string) data_get($row, 'name'));
+
+        return ($code !== '' && $name !== '') ? [$code => $name] : [];
+    });
+    $libraryMarketLabel = function (?string $country, ?string $language) use ($libraryCountryNames, $libraryLanguageNames): array {
+        $countryCode = strtolower(trim((string) $country));
+        $languageCode = strtolower(trim((string) $language));
+        $codes = ($countryCode === '' && $languageCode === '')
+            ? '—'
+            : strtoupper($countryCode).'/'.strtoupper($languageCode);
+        $countryName = $countryCode !== '' ? $libraryCountryNames->get($countryCode) : null;
+        $languageName = $languageCode !== '' ? $libraryLanguageNames->get($languageCode) : null;
+        if (filled($countryName) && filled($languageName)) {
+            return ['label' => $countryName.' · '.$languageName, 'codes' => $codes];
+        }
+
+        return ['label' => $codes, 'codes' => $codes];
+    };
 @endphp
 
     <nav class="library-status-row" aria-label="Library status filter">
@@ -343,8 +369,11 @@
                             @endif
                         </td>
                         <td>
-                            <span class="library-market">
-                                {{ strtoupper((string) $submission->country) }}/{{ strtoupper((string) $submission->language) }}
+                            @php
+                                $market = $libraryMarketLabel($submission->country, $submission->language);
+                            @endphp
+                            <span class="library-market"@if(($market['label'] ?? '') !== ($market['codes'] ?? '')) title="{{ $market['codes'] }}"@endif>
+                                {{ $market['label'] }}
                             </span>
                         </td>
                         <td>
