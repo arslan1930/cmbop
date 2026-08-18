@@ -744,13 +744,17 @@
                             @endif
                         </div>
 
-                        <p class="mb-1"><strong>Tags</strong></p>
-                        <div class="d-flex flex-wrap gap-1 mb-3">
-                            @if($site->tagValue())
-                                @include('advertiser.partials.catalog-tag-chip', ['site' => $site])
-                            @else
-                                <span class="text-muted small">{{ \App\Support\SiteTag::NONE_LABEL }}</span>
-                            @endif
+                        <p class="mb-1">
+                            <strong>
+                                <abbr class="metric-abbr text-decoration-none" title="{{ \App\Support\SiteTag::FILTER_TOOLTIP }}">{{ \App\Support\SiteTag::DETAILS_HEADING }}</abbr>
+                            </strong>
+                        </p>
+                        <div class="mb-3">
+                            @include('advertiser.partials.catalog-tag-chip', [
+                                'site' => $site,
+                                'showNone' => true,
+                                'showDefinition' => true,
+                            ])
                         </div>
 
                         <p class="mb-1"><strong>Homepage promotions</strong> <span class="text-muted fw-normal">(optional)</span></p>
@@ -1383,13 +1387,15 @@
                     <dd>{{ $site->linkTypeLabel('Not specified') }}</dd>
                 </div>
                 <div class="catalog-card-details__row">
-                    <dt>Tags</dt>
-                    <dd class="d-flex flex-wrap gap-1">
-                        @if($site->tagValue())
-                            @include('advertiser.partials.catalog-tag-chip', ['site' => $site])
-                        @else
-                            <span class="text-muted small">{{ \App\Support\SiteTag::NONE_LABEL }}</span>
-                        @endif
+                    <dt>
+                        <abbr class="metric-abbr text-decoration-none" title="{{ \App\Support\SiteTag::FILTER_TOOLTIP }}">{{ \App\Support\SiteTag::DETAILS_HEADING }}</abbr>
+                    </dt>
+                    <dd>
+                        @include('advertiser.partials.catalog-tag-chip', [
+                            'site' => $site,
+                            'showNone' => true,
+                            'showDefinition' => true,
+                        ])
                     </dd>
                 </div>
                 <div class="catalog-card-details__row">

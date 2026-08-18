@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\Role;
 use App\Models\Site;
 use App\Models\User;
+use App\Support\SiteTag;
 use Database\Seeders\RolesTableSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -103,9 +104,9 @@ class CatalogExpandCorrectnessTest extends TestCase
             ->assertOk()
             ->getContent();
 
-        // Desktop expand: link attribute under its own heading, not under Tags.
+        // Desktop expand: link attribute under its own heading, not under Listing tag.
         $this->assertMatchesRegularExpression(
-            '/catalog-expand-meta[\s\S]*?<strong>Link type<\/strong>[\s\S]*?NoFollow[\s\S]*?<strong>Tags<\/strong>[\s\S]*?Sponsored/u',
+            '/catalog-expand-meta[\s\S]*?<strong>Link type<\/strong>[\s\S]*?NoFollow[\s\S]*?Listing tag[\s\S]*?Sponsored/u',
             $html
         );
         $this->assertGreaterThanOrEqual(2, substr_count($html, 'Link type'));
@@ -114,6 +115,35 @@ class CatalogExpandCorrectnessTest extends TestCase
         $this->assertStringContainsString('Partner article', $html);
         $this->assertStringContainsString('site-chip--sponsored', $html);
         $this->assertStringContainsString('site-chip--partner', $html);
+        $this->assertStringContainsString(SiteTag::DETAILS_HEADING, $html);
+        $this->assertStringContainsString(SiteTag::FILTER_TOOLTIP, $html);
+        $this->assertStringContainsString('catalog-tag-definition', $html);
+        $this->assertStringContainsString(
+            'Paid placement disclosed as sponsored — not the DoFollow / NoFollow link attribute',
+            $html
+        );
+        $this->assertStringNotContainsString('<strong>Tags</strong>', $html);
+        $this->assertStringNotContainsString('<dt>Tags</dt>', $html);
+    }
+
+    public function test_expand_paints_no_tags_chip_and_closed_row_stays_empty(): void
+    {
+        $this->makeSite([
+            'site_name' => 'Untagged Expand Blog',
+            'site_url' => 'https://expand-untagged.example',
+            'domain' => 'expand-untagged.example',
+        ]);
+
+        $html = $this->actingAs($this->advertiser)
+            ->get(route('advertiser.catalog'))
+            ->assertOk()
+            ->getContent();
+
+        // Desktop expand + mobile Details only — closed row / card badges stay empty.
+        $this->assertSame(2, substr_count($html, 'site-chip--none'));
+        $this->assertStringContainsString(SiteTag::NONE_LABEL, $html);
+        $this->assertStringContainsString(SiteTag::NONE_CHIP_TITLE, $html);
+        $this->assertStringContainsString('catalog-tag-definition', $html);
     }
 
     public function test_expand_layout_separates_pricing_and_empty_states(): void

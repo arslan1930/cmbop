@@ -30,9 +30,13 @@ class SiteTag
 
     public const NONE_LABEL = 'No tags';
 
+    public const DETAILS_HEADING = 'Listing tag';
+
     public const FILTER_NONE = 'none';
 
     public const FILTER_TOOLTIP = 'Listing disclosure tag — not the DoFollow / NoFollow link attribute.';
+
+    public const NONE_CHIP_TITLE = 'No listing disclosure tag.';
 
     public const CONFLICT_MESSAGE = 'Choose only one tag column (sponsored, partner_material, or as_you_prefer).';
 

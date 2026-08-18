@@ -1609,6 +1609,12 @@ body:has(.catalog-page) {
     border: 1px solid #bfdbfe;
 }
 
+.site-chip--none {
+    background: #f8fafc;
+    color: #64748b;
+    border: 1px solid #e2e8f0;
+}
+
 .catalog-homepage-hint {
     max-width: 11rem;
     margin-left: auto;

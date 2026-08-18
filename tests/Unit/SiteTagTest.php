@@ -37,6 +37,8 @@ class SiteTagTest extends TestCase
         $this->assertSame('As you prefer', SiteTag::label('as_you_prefer'));
         $this->assertNull(SiteTag::label(null));
         $this->assertSame('No tags', SiteTag::NONE_LABEL);
+        $this->assertSame('Listing tag', SiteTag::DETAILS_HEADING);
+        $this->assertSame('No listing disclosure tag.', SiteTag::NONE_CHIP_TITLE);
 
         $publisher = SiteTag::publisherFormOptions();
         $this->assertSame('No tags', $publisher['']);
