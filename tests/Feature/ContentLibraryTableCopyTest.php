@@ -3,14 +3,17 @@
 namespace Tests\Feature;
 
 use App\Models\ContentSubmission;
+use App\Models\Country;
+use App\Models\Language;
 use App\Models\Role;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Schema;
 use Tests\Support\CreatesContentSubmissions;
 use Tests\TestCase;
 
 /**
- * Approved-table leftover copy: one expiry policy line, labeled scores.
+ * Approved-table leftover copy: expiry note, labeled scores, clock, untitled, market names.
  */
 class ContentLibraryTableCopyTest extends TestCase
 {
@@ -231,6 +234,104 @@ class ContentLibraryTableCopyTest extends TestCase
             ->assertOk()
             ->assertSee('Untitled')
             ->assertSee('summer-guide.docx');
+    }
+
+    public function test_seeded_market_shows_country_and_language_names(): void
+    {
+        $this->seedMarketplaceName('de', 'Germany', 'de', 'German');
+        $advertiser = $this->advertiser();
+        $article = $this->createApprovedSubmission($advertiser, null, 0, 'best software tools', 'https://example.com/tools', 'de', 'de');
+        $article->update(['title' => 'Germany Named Piece']);
+
+        $html = $this->actingAs($advertiser)
+            ->get(route('advertiser.content-library'))
+            ->assertOk()
+            ->assertSee('Germany Named Piece')
+            ->assertSee('Germany · German')
+            ->getContent();
+
+        $row = $this->libraryRowHtml($html, $article->id);
+        $this->assertStringContainsString('Germany · German', $row);
+        $this->assertStringContainsString('title="DE/DE"', $row);
+        $this->assertStringNotContainsString('>DE/DE<', $row);
+    }
+
+    public function test_unknown_market_codes_and_gb_vs_uk_fail_closed(): void
+    {
+        $this->seedMarketplaceName('uk', 'United Kingdom', 'en', 'English');
+        $advertiser = $this->advertiser();
+        $unknown = $this->createApprovedSubmission($advertiser, null, 0, 'best software tools', 'https://example.com/tools', 'xx', 'zz');
+        $unknown->update(['title' => 'Unknown Market Piece']);
+        $gb = $this->createApprovedSubmission($advertiser, null, 0, 'anchor c', 'https://example.com/c', 'gb', 'en');
+        $gb->update(['title' => 'GB Leftover Piece']);
+
+        $html = $this->actingAs($advertiser)
+            ->get(route('advertiser.content-library'))
+            ->assertOk()
+            ->assertSee('Unknown Market Piece')
+            ->assertSee('GB Leftover Piece')
+            ->getContent();
+
+        $unknownRow = $this->libraryRowHtml($html, $unknown->id);
+        $this->assertStringContainsString('XX/ZZ', $unknownRow);
+        $this->assertStringNotContainsString('title="XX/ZZ"', $unknownRow);
+
+        $gbRow = $this->libraryRowHtml($html, $gb->id);
+        $this->assertStringContainsString('GB/EN', $gbRow);
+        $this->assertStringNotContainsString('United Kingdom', $gbRow);
+    }
+
+    public function test_library_list_survives_missing_countries_table(): void
+    {
+        $this->seedMarketplaceName('de', 'Germany', 'de', 'German');
+        $advertiser = $this->advertiser();
+        $article = $this->createApprovedSubmission($advertiser, null, 0, 'best software tools', 'https://example.com/tools', 'de', 'de');
+        $article->update(['title' => 'No Countries Table Piece']);
+
+        if (Schema::hasTable('country_language')) {
+            Schema::drop('country_language');
+        }
+        Schema::drop('countries');
+
+        $html = $this->actingAs($advertiser)
+            ->get(route('advertiser.content-library'))
+            ->assertOk()
+            ->assertSee('No Countries Table Piece')
+            ->getContent();
+
+        $row = $this->libraryRowHtml($html, $article->id);
+        $this->assertStringContainsString('DE/DE', $row);
+        $this->assertStringNotContainsString('Germany · German', $row);
+    }
+
+    public function test_live_search_fragment_uses_market_names(): void
+    {
+        $this->seedMarketplaceName('it', 'Italy', 'it', 'Italian');
+        $advertiser = $this->advertiser();
+        $article = $this->createApprovedSubmission($advertiser, null, 0, 'best software tools', 'https://example.com/tools', 'it', 'it');
+        $article->update(['title' => 'Italy Live Market']);
+
+        $html = $this->actingAs($advertiser)
+            ->get(route('advertiser.content-library.results', ['q' => 'Italy Live']))
+            ->assertOk()
+            ->assertSee('Italy Live Market')
+            ->assertDontSee('<html', false)
+            ->getContent();
+
+        $this->assertStringContainsString('Italy · Italian', $html);
+        $this->assertStringContainsString('title="IT/IT"', $html);
+    }
+
+    private function seedMarketplaceName(string $country, string $countryName, string $language, string $languageName): void
+    {
+        Country::query()->firstOrCreate(
+            ['code' => $country],
+            ['name' => $countryName, 'region' => 'Europe']
+        );
+        Language::query()->firstOrCreate(
+            ['code' => $language],
+            ['name' => $languageName, 'native_name' => $languageName]
+        );
     }
 
     private function libraryRowHtml(string $html, int $id): string
