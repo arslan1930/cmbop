@@ -304,6 +304,29 @@ class ContentLibraryTableCopyTest extends TestCase
         $this->assertStringNotContainsString('Germany · German', $row);
     }
 
+    public function test_library_list_survives_missing_languages_table(): void
+    {
+        $this->seedMarketplaceName('de', 'Germany', 'de', 'German');
+        $advertiser = $this->advertiser();
+        $article = $this->createApprovedSubmission($advertiser, null, 0, 'best software tools', 'https://example.com/tools', 'de', 'de');
+        $article->update(['title' => 'No Languages Table Piece']);
+
+        if (Schema::hasTable('country_language')) {
+            Schema::drop('country_language');
+        }
+        Schema::drop('languages');
+
+        $html = $this->actingAs($advertiser)
+            ->get(route('advertiser.content-library'))
+            ->assertOk()
+            ->assertSee('No Languages Table Piece')
+            ->getContent();
+
+        $row = $this->libraryRowHtml($html, $article->id);
+        $this->assertStringContainsString('DE/DE', $row);
+        $this->assertStringNotContainsString('Germany · German', $row);
+    }
+
     public function test_live_search_fragment_uses_market_names(): void
     {
         $this->seedMarketplaceName('it', 'Italy', 'it', 'Italian');
