@@ -4361,9 +4361,10 @@ document.addEventListener('DOMContentLoaded', function() {
         const url = button.dataset.url;
         try {
             await navigator.clipboard.writeText(url);
-            // Same strike path as selecting the rooted URL — this button
-            // copies the listing domain and used to bypass copy-track.
-            if (window.CatalogCopyTrack && typeof window.CatalogCopyTrack.report === 'function') {
+            // First-party /go/{id} is not a publisher domain. Reporting it
+            // records APP_URL (or, on localhost, falls back to the listing host).
+            const isVisitCopy = /\/go\/\d+/.test(String(url || ''));
+            if (!isVisitCopy && window.CatalogCopyTrack && typeof window.CatalogCopyTrack.report === 'function') {
                 const siteId = parseInt(button.getAttribute('data-site-id') || '', 10);
                 window.CatalogCopyTrack.report(url, Number.isFinite(siteId) && siteId > 0 ? siteId : null);
             }

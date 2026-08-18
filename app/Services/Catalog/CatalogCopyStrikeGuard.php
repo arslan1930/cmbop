@@ -65,6 +65,13 @@ class CatalogCopyStrikeGuard
             return $this->payload($user, self::STATUS_IGNORED, 0, null);
         }
 
+        // Copy URL now writes /advertiser/go/{id}?sample=1. That is not a
+        // publisher domain. On localhost APP_URL, extractHosts() is empty and
+        // the site_id fallback would record the listing host — a harvest strike.
+        if ($this->looksLikeFirstPartyVisit($text)) {
+            return $this->payload($user, self::STATUS_IGNORED, 0, 'Not a domain or URL.');
+        }
+
         $hosts = $this->extractHosts($text);
 
         if ($siteId !== null) {
@@ -196,6 +203,34 @@ class CatalogCopyStrikeGuard
     public function looksLikeDomainOrUrl(string $text): bool
     {
         return $this->extractHosts($text) !== [];
+    }
+
+    /**
+     * First-party catalog visit URLs (/advertiser/go/{id}) are not listings.
+     * Publisher URLs that merely contain /go/{id} still count.
+     */
+    public function looksLikeFirstPartyVisit(string $text): bool
+    {
+        $raw = trim($text);
+        if ($raw === '' || preg_match('#/go/\d+#', $raw) !== 1) {
+            return false;
+        }
+
+        if (preg_match('#^https?://#i', $raw) !== 1) {
+            return true;
+        }
+
+        $host = strtolower((string) (parse_url($raw, PHP_URL_HOST) ?? ''));
+        $host = Str::of($host)->replaceMatches('/^www\./', '')->toString();
+
+        if ($host === '' || $host === 'localhost' || $host === '127.0.0.1') {
+            return true;
+        }
+
+        $appHost = strtolower((string) (parse_url((string) config('app.url'), PHP_URL_HOST) ?? ''));
+        $appHost = Str::of($appHost)->replaceMatches('/^www\./', '')->toString();
+
+        return $appHost !== '' && $host === $appHost;
     }
 
     /**

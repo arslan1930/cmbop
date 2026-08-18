@@ -96,6 +96,43 @@ class CatalogCopyStrikeTest extends TestCase
         $this->assertSame(0, CatalogCopyEvent::count());
     }
 
+    public function test_ignores_first_party_visit_copy_instead_of_listing_fallback(): void
+    {
+        $user = $this->advertiser();
+        $site = $this->site('visit-copy.example');
+        $guard = app(CatalogCopyStrikeGuard::class);
+
+        config(['app.url' => 'http://localhost']);
+
+        $relative = $guard->record($user, $site->id, '/advertiser/go/'.$site->id.'?sample=1');
+        $this->assertSame(CatalogCopyStrikeGuard::STATUS_IGNORED, $relative['status']);
+
+        $absolute = $guard->record($user->fresh(), $site->id, 'http://localhost/advertiser/go/'.$site->id.'?sample=1');
+        $this->assertSame(CatalogCopyStrikeGuard::STATUS_IGNORED, $absolute['status']);
+
+        config(['app.url' => 'https://seolinkbuildings.com']);
+        $prod = $guard->record(
+            $user->fresh(),
+            $site->id,
+            'https://seolinkbuildings.com/advertiser/go/'.$site->id.'?sample=1'
+        );
+        $this->assertSame(CatalogCopyStrikeGuard::STATUS_IGNORED, $prod['status']);
+
+        $this->assertSame(0, CatalogCopyEvent::count());
+    }
+
+    public function test_publisher_url_containing_go_path_still_records(): void
+    {
+        $user = $this->advertiser();
+        $site = $this->site('publisher-go.example');
+        $guard = app(CatalogCopyStrikeGuard::class);
+
+        $result = $guard->record($user, $site->id, 'https://publisher-go.example/go/99');
+
+        $this->assertSame(CatalogCopyStrikeGuard::STATUS_RECORDED, $result['status']);
+        $this->assertSame(1, CatalogCopyEvent::count());
+    }
+
     public function test_records_distinct_domain_copies_without_strike_below_threshold(): void
     {
         $user = $this->advertiser();

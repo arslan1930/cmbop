@@ -299,6 +299,65 @@ class CatalogExpandCorrectnessTest extends TestCase
         $this->assertStringNotContainsString('Homepage placement available in Details.', $html);
     }
 
+    public function test_expand_flags_placeholder_listing_and_preview_caption(): void
+    {
+        $this->makeSite([
+            'site_name' => 'Lorem Demo Expand',
+            'site_url' => 'https://demo86.com',
+            'domain' => 'demo86.com',
+            'example_url' => 'https://demo86.com/example',
+            'description' => 'Lorem Ipsum is simply dummy text for testing purposes.',
+            'screenshot_path' => 'site-screenshots/demo-preview.webp',
+            'screenshot_fetched_at' => '2026-03-15 10:00:00',
+        ]);
+
+        $html = $this->actingAs($this->advertiser)
+            ->get(route('advertiser.catalog', ['search' => 'Lorem Demo']))
+            ->assertOk()
+            ->getContent();
+
+        $this->assertStringContainsString('catalog-placeholder-listing', $html);
+        $this->assertStringContainsString('Placeholder listing — sample copy, not a live publisher brief.', $html);
+        $this->assertStringContainsString('catalog-preview-caption', $html);
+        $this->assertStringContainsString('Homepage capture', $html);
+        $this->assertStringContainsString('15 Mar 2026', $html);
+    }
+
+    public function test_real_listing_has_no_placeholder_badge(): void
+    {
+        $this->makeSite([
+            'description' => 'Guest posts on a German finance magazine for founders.',
+        ]);
+
+        $html = $this->actingAs($this->advertiser)
+            ->get(route('advertiser.catalog'))
+            ->assertOk()
+            ->getContent();
+
+        $this->assertStringNotContainsString('catalog-placeholder-listing', $html);
+        $this->assertStringNotContainsString('catalog-preview-caption', $html);
+    }
+
+    public function test_host_only_placeholder_shows_mobile_about_badge(): void
+    {
+        $this->makeSite([
+            'site_name' => 'Host Only Demo',
+            'site_url' => 'https://demo86.com',
+            'domain' => 'demo86.com',
+            'example_url' => null,
+            'description' => '',
+        ]);
+
+        $html = $this->actingAs($this->advertiser)
+            ->get(route('advertiser.catalog', ['search' => 'Host Only Demo']))
+            ->assertOk()
+            ->getContent();
+
+        $this->assertStringContainsString('catalog-placeholder-listing', $html);
+        $this->assertStringContainsString('About this site', $html);
+        $this->assertStringContainsString('Placeholder listing — sample copy, not a live publisher brief.', $html);
+    }
+
     public function test_mobile_card_details_cover_desktop_decision_fields(): void
     {
         $this->makeSite([

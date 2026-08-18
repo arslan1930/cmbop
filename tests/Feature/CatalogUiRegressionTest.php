@@ -134,9 +134,10 @@ class CatalogUiRegressionTest extends TestCase
         $this->assertStringContainsString('hideToastShown = false', $js);
         $this->assertStringContainsString('window.CatalogCopyTrack', $js);
         $this->assertMatchesRegularExpression(
-            '/copy-example-url[\s\S]*?CatalogCopyTrack\.report\(/',
+            '/copy-example-url[\s\S]*?isVisitCopy[\s\S]*?CatalogCopyTrack\.report\(/',
             $js
         );
+        $this->assertStringContainsString('const isVisitCopy = /\\/go\\/\\d+/.test(String(url || \'\'));', $js);
         // Details expand is a sibling <tr>, not .site-row — still count copies.
         $this->assertStringContainsString('.catalog-site-details', $js);
         // Table-cell copies often include a trailing newline; multi-select dumps

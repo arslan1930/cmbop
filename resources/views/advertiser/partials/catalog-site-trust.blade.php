@@ -5,9 +5,10 @@
     $count = (int) ($site->rating_count ?? 0);
     $hasRatings = $count >= 1;
     $completionRate = $site->completionRatePercent();
-    // Stars only after terminal history — leftover rating_count without
-    // completions must not look like a proven 5.0.
-    $showStars = $hasRatings && $completionRate !== null;
+    $completedCount = (int) ($site->completionOutcomeCounts()['completed'] ?? 0);
+    // Stars only after completed placements — leftover rating_count, or
+    // cancelled-only history, must not look like a proven 5.0.
+    $showStars = $hasRatings && $completedCount > 0;
     $ariaParts = [];
     if ($showStars) {
         $ariaParts[] = number_format($avg, 1).' out of 5 from '.$count.' '.($count === 1 ? 'rating' : 'ratings');

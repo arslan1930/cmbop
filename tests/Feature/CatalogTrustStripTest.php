@@ -109,6 +109,48 @@ class CatalogTrustStripTest extends TestCase
         $this->assertStringNotContainsString('1 rating', $html);
     }
 
+    public function test_leftover_rating_with_cancelled_only_history_hides_stars(): void
+    {
+        $site = $this->makeSite([
+            'site_name' => 'Cancelled Only Rating',
+            'site_url' => 'https://cancelled-only-rating.example',
+            'domain' => 'cancelled-only-rating.example',
+            'rating_avg' => 5.0,
+            'rating_count' => 1,
+            'completed_orders_count' => 0,
+        ]);
+
+        $cancelled = Order::create([
+            'user_id' => $this->advertiser->id,
+            'order_number' => 'ORD-'.uniqid(),
+            'reference_code' => 'REF-'.uniqid(),
+            'subtotal' => 100,
+            'tax' => 0,
+            'total_amount' => 100,
+            'payment_method' => 'wallet',
+            'payment_status' => 'refunded',
+            'status' => 'cancelled',
+        ]);
+        OrderItem::create([
+            'order_id' => $cancelled->id,
+            'site_id' => $site->id,
+            'site_name' => $site->site_name,
+            'site_url' => $site->site_url,
+            'price' => 100,
+            'content_link' => 'https://example.com/article.docx',
+        ]);
+
+        $html = $this->actingAs($this->advertiser)
+            ->get(route('advertiser.catalog', ['search' => 'Cancelled Only']))
+            ->assertOk()
+            ->getContent();
+
+        $this->assertStringContainsString('New · No ratings yet', $html);
+        $this->assertStringContainsString('0% completed', $html);
+        $this->assertStringNotContainsString('site-trust-compact__stars', $html);
+        $this->assertStringNotContainsString('5.0', $html);
+    }
+
     public function test_rated_site_shows_score_count_and_completion_rate(): void
     {
         $site = $this->makeSite([
