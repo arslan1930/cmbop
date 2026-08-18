@@ -196,6 +196,22 @@
         line-height: 1.3;
         margin-top: .15rem;
     }
+    .library-filename-hint {
+        font-size: .72rem;
+        color: var(--brand-ink-muted, #75787B);
+        line-height: 1.3;
+        margin-top: .15rem;
+        max-width: 280px;
+    }
+    .library-rename-link {
+        font-size: .72rem;
+        line-height: 1.2;
+        color: var(--brand-primary, #1a585e);
+        text-decoration: none;
+    }
+    .library-rename-link:hover {
+        text-decoration: underline;
+    }
     .library-status-hint {
         font-size: .7rem;
         color: var(--brand-ink-muted, #75787B);

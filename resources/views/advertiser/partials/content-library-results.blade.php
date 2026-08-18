@@ -212,14 +212,26 @@
                                      loading="lazy"
                                      onerror="this.style.display='none'; this.insertAdjacentHTML('afterend','<span class=\'text-muted small\'>Image unavailable</span>');">
                             @endif
-                            <div class="library-title text-truncate" data-title-display="{{ $submission->id }}" title="{{ $submission->title ?: $submission->original_filename }}">
-                                {{ $submission->title ?: $submission->original_filename }}
+                            @php
+                                $filenameAsTitle = $submission->usesFilenameAsTitle();
+                                $titleDisplay = $filenameAsTitle
+                                    ? 'Untitled'
+                                    : (string) ($submission->title ?: $submission->original_filename);
+                                $titleTooltip = $filenameAsTitle
+                                    ? (string) ($submission->original_filename ?: 'Untitled')
+                                    : $titleDisplay;
+                            @endphp
+                            <div class="library-title text-truncate" data-title-display="{{ $submission->id }}" title="{{ $titleTooltip }}">
+                                {{ $titleDisplay }}
                             </div>
-                            @if($justApprovedHint = $submission->justApprovedLabel())
-                                @if($submission->showJustApprovedBadge())
-                                    <span class="library-just-approved">Just approved</span>
-                                @endif
-                                <div class="library-just-approved-hint">{{ $justApprovedHint }}</div>
+                            @if($filenameAsTitle && filled($submission->original_filename))
+                                <div class="library-filename-hint text-truncate" title="{{ $submission->original_filename }}">{{ $submission->original_filename }}</div>
+                            @endif
+                            @if($filenameAsTitle && $submission->canEditArticle())
+                                <button type="button" class="btn btn-link btn-sm p-0 library-rename-link" onclick="toggleLibraryTitleEdit({{ $submission->id }}, true)">Rename</button>
+                            @endif
+                            @if($submission->showJustApprovedBadge())
+                                <span class="library-just-approved">Just approved</span>
                             @endif
                             @if($availability === 'published')
                                 <div class="library-live-link">
@@ -345,6 +357,10 @@
                                 </span>
                                 @if($statusCategory === 'completed' && $publishedDateLabel)
                                     <span class="library-status-time">Published {{ $publishedDateLabel }}</span>
+                                @elseif($statusCategory === 'approved')
+                                    @if($approvedAgo = $submission->justApprovedLabel())
+                                        <span class="library-status-time">{{ $approvedAgo }}</span>
+                                    @endif
                                 @elseif($uploadedAgo = $submission->uploadedAgoLabel())
                                     <span class="library-status-time">Uploaded {{ $uploadedAgo }}</span>
                                 @endif

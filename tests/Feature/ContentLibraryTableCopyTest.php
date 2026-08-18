@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\ContentSubmission;
 use App\Models\Role;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -115,5 +116,130 @@ class ContentLibraryTableCopyTest extends TestCase
 
         $this->assertStringNotContainsString('library-table-note', $html);
         $this->assertStringNotContainsString('Unused originals are removed after expiry; preview stays.', $html);
+    }
+
+    public function test_uses_filename_as_title_treats_blank_and_docx_matches(): void
+    {
+        $advertiser = $this->advertiser();
+        $article = $this->createApprovedSubmission($advertiser);
+
+        $article->update(['title' => '', 'original_filename' => 'MtKTDFjD7N2Zgfx3lv3I (1).docx']);
+        $this->assertTrue($article->fresh()->usesFilenameAsTitle());
+
+        $article->update(['title' => 'MtKTDFjD7N2Zgfx3lv3I (1).docx']);
+        $this->assertTrue($article->fresh()->usesFilenameAsTitle());
+
+        $article->update(['title' => 'MtKTDFjD7N2Zgfx3lv3I (1)']);
+        $this->assertTrue($article->fresh()->usesFilenameAsTitle());
+
+        $article->update(['title' => 'Germany article']);
+        $this->assertFalse($article->fresh()->usesFilenameAsTitle());
+    }
+
+    public function test_filename_leftover_title_shows_untitled_and_rename(): void
+    {
+        $advertiser = $this->advertiser();
+        $leftover = $this->createApprovedSubmission($advertiser);
+        $leftover->update([
+            'title' => 'MtKTDFjD7N2Zgfx3lv3I (1).docx',
+            'original_filename' => 'MtKTDFjD7N2Zgfx3lv3I (1).docx',
+        ]);
+        $named = $this->createApprovedSubmission($advertiser);
+        $named->update(['title' => 'Germany article']);
+
+        $html = $this->actingAs($advertiser)
+            ->get(route('advertiser.content-library'))
+            ->assertOk()
+            ->assertSee('Untitled')
+            ->assertSee('MtKTDFjD7N2Zgfx3lv3I (1).docx')
+            ->assertSee('Germany article')
+            ->assertSee('Rename')
+            ->getContent();
+
+        $leftoverStart = strpos($html, 'library-row-'.$leftover->id);
+        $leftoverEnd = strpos($html, '</tr>', $leftoverStart);
+        $leftoverRow = substr($html, $leftoverStart, $leftoverEnd - $leftoverStart);
+        $this->assertStringContainsString('Untitled', $leftoverRow);
+        $this->assertStringContainsString('library-filename-hint', $leftoverRow);
+        $this->assertStringContainsString('library-rename-link', $leftoverRow);
+        $this->assertStringContainsString('toggleLibraryTitleEdit('.$leftover->id, $leftoverRow);
+
+        $namedStart = strpos($html, 'library-row-'.$named->id);
+        $namedEnd = strpos($html, '</tr>', $namedStart);
+        $namedRow = substr($html, $namedStart, $namedEnd - $namedStart);
+        $this->assertStringContainsString('Germany article', $namedRow);
+        $this->assertStringNotContainsString('Untitled', $namedRow);
+        $this->assertStringNotContainsString('library-filename-hint', $namedRow);
+        $this->assertStringNotContainsString('library-rename-link', $namedRow);
+    }
+
+    public function test_approved_chip_uses_approved_clock_not_uploaded(): void
+    {
+        $this->freezeTime();
+        $advertiser = $this->advertiser();
+        $fresh = $this->createApprovedSubmission($advertiser);
+        $fresh->update(['title' => 'Clock Fresh Piece']);
+        $yesterday = $this->createApprovedSubmission($advertiser);
+        $yesterday->update([
+            'title' => 'Clock Yesterday Piece',
+            'evaluated_at' => now()->subDay(),
+        ]);
+        $stale = $this->createApprovedSubmission($advertiser);
+        $stale->update([
+            'title' => 'Clock Stale Piece',
+            'evaluated_at' => now()->subDays(ContentSubmission::JUST_APPROVED_DAYS + 1)->startOfDay(),
+        ]);
+
+        $html = $this->actingAs($advertiser)
+            ->get(route('advertiser.content-library'))
+            ->assertOk()
+            ->assertSee('Clock Fresh Piece')
+            ->assertSee('Clock Yesterday Piece')
+            ->assertSee('Clock Stale Piece')
+            ->getContent();
+
+        $freshRow = $this->libraryRowHtml($html, $fresh->id);
+        $this->assertStringContainsString('Just approved', $freshRow);
+        $this->assertStringContainsString('Approved today', $freshRow);
+        $this->assertStringContainsString('library-status-time', $freshRow);
+        $this->assertStringNotContainsString('library-just-approved-hint', $freshRow);
+        $this->assertStringNotContainsString('Uploaded', $freshRow);
+
+        $yesterdayRow = $this->libraryRowHtml($html, $yesterday->id);
+        $this->assertStringContainsString('Approved yesterday', $yesterdayRow);
+        $this->assertStringNotContainsString('Just approved', $yesterdayRow);
+        $this->assertStringNotContainsString('Uploaded', $yesterdayRow);
+
+        $staleRow = $this->libraryRowHtml($html, $stale->id);
+        $this->assertStringNotContainsString('Just approved', $staleRow);
+        $this->assertStringNotContainsString('Approved today', $staleRow);
+        $this->assertStringNotContainsString('Approved yesterday', $staleRow);
+        $this->assertStringNotContainsString('Uploaded', $staleRow);
+    }
+
+    public function test_search_still_matches_filename_leftover_title(): void
+    {
+        $advertiser = $this->advertiser();
+        $article = $this->createApprovedSubmission($advertiser);
+        $article->update([
+            'title' => '',
+            'original_filename' => 'summer-guide.docx',
+        ]);
+
+        $this->actingAs($advertiser)
+            ->get(route('advertiser.content-library.results', ['q' => 'summer-guide']))
+            ->assertOk()
+            ->assertSee('Untitled')
+            ->assertSee('summer-guide.docx');
+    }
+
+    private function libraryRowHtml(string $html, int $id): string
+    {
+        $start = strpos($html, 'library-row-'.$id);
+        $this->assertNotFalse($start);
+        $end = strpos($html, '</tr>', $start);
+        $this->assertNotFalse($end);
+
+        return substr($html, $start, $end - $start);
     }
 }
