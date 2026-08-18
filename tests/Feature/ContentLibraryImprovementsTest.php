@@ -1849,7 +1849,7 @@ class ContentLibraryImprovementsTest extends TestCase
             ->getContent();
 
         $this->assertStringContainsString('class="library-just-approved"', $html);
-        $this->assertStringContainsString('class="library-just-approved-hint"', $html);
+        $this->assertStringNotContainsString('class="library-just-approved-hint"', $html);
         $this->assertStringNotContainsString('site-badge-new', $html);
 
         $staleStart = strpos($html, 'Stale Approved Piece');
@@ -1867,6 +1867,9 @@ class ContentLibraryImprovementsTest extends TestCase
         $freshRow = substr($html, $freshStart, $freshEnd - $freshStart);
         $this->assertStringContainsString('Just approved', $freshRow);
         $this->assertStringContainsString('Approved today', $freshRow);
+        $this->assertStringContainsString('library-status-time', $freshRow);
+        $this->assertStringNotContainsString('library-just-approved-hint', $freshRow);
+        $this->assertStringNotContainsString('Uploaded', $freshRow);
 
         $yesterdayStart = strpos($html, 'Yesterday Approved Piece');
         $this->assertNotFalse($yesterdayStart);
@@ -1874,7 +1877,9 @@ class ContentLibraryImprovementsTest extends TestCase
         $this->assertNotFalse($yesterdayEnd);
         $yesterdayRow = substr($html, $yesterdayStart, $yesterdayEnd - $yesterdayStart);
         $this->assertStringContainsString('Approved yesterday', $yesterdayRow);
+        $this->assertStringContainsString('library-status-time', $yesterdayRow);
         $this->assertStringNotContainsString('Just approved', $yesterdayRow);
+        $this->assertStringNotContainsString('Uploaded', $yesterdayRow);
 
         $css = (string) file_get_contents(public_path('assets/css/content-library.css'));
         $this->assertMatchesRegularExpression(

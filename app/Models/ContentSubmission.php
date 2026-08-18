@@ -249,6 +249,34 @@ class ContentSubmission extends Model
     }
 
     /**
+     * True when the visible title is the leftover Word filename (or blank).
+     * Rename is offered in the table for these rows; real titles stay as-is.
+     */
+    public function usesFilenameAsTitle(): bool
+    {
+        $title = trim((string) ($this->title ?? ''));
+        $filename = trim((string) ($this->original_filename ?? ''));
+        if ($title === '') {
+            return true;
+        }
+        if ($filename === '') {
+            return false;
+        }
+
+        return $this->normalizedLibraryTitle($title) === $this->normalizedLibraryTitle($filename);
+    }
+
+    private function normalizedLibraryTitle(string $value): string
+    {
+        $normalized = mb_strtolower(trim($value));
+        if (str_ends_with($normalized, '.docx')) {
+            $normalized = substr($normalized, 0, -5);
+        }
+
+        return $normalized;
+    }
+
+    /**
      * Relative "Uploaded …" clock. Leftover created_at fails closed.
      */
     public function uploadedAgoLabel(): string
