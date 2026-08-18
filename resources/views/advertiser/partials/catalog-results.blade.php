@@ -857,7 +857,7 @@
                                     </div>
                                     <button type="button"
                                             class="btn btn-sm btn-outline-secondary copy-example-url"
-                                            data-url="{{ $site->example_url }}"
+                                            data-url="{{ $sampleVisit }}"
                                             data-site-id="{{ $site->id }}"
                                             aria-label="Copy the sample article URL for {{ $identityLabel }}"
                                             style="width: fit-content;">

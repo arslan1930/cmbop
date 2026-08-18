@@ -86,6 +86,29 @@ class CatalogTrustStripTest extends TestCase
         $this->assertStringContainsString('<dt>Trust</dt>', $html);
     }
 
+    public function test_leftover_rating_without_completions_hides_stars(): void
+    {
+        $this->makeSite([
+            'site_name' => 'Orphan Rating Site',
+            'site_url' => 'https://orphan-rating.example',
+            'domain' => 'orphan-rating.example',
+            'rating_avg' => 5.0,
+            'rating_count' => 1,
+            'completed_orders_count' => 0,
+        ]);
+
+        $html = $this->actingAs($this->advertiser)
+            ->get(route('advertiser.catalog', ['search' => 'Orphan Rating']))
+            ->assertOk()
+            ->getContent();
+
+        $this->assertStringContainsString('New · No ratings yet', $html);
+        $this->assertStringContainsString('No completion history yet', $html);
+        $this->assertStringNotContainsString('site-trust-compact__stars', $html);
+        $this->assertStringNotContainsString('5.0', $html);
+        $this->assertStringNotContainsString('1 rating', $html);
+    }
+
     public function test_rated_site_shows_score_count_and_completion_rate(): void
     {
         $site = $this->makeSite([

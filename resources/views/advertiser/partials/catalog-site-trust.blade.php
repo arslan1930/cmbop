@@ -5,8 +5,11 @@
     $count = (int) ($site->rating_count ?? 0);
     $hasRatings = $count >= 1;
     $completionRate = $site->completionRatePercent();
+    // Stars only after terminal history — leftover rating_count without
+    // completions must not look like a proven 5.0.
+    $showStars = $hasRatings && $completionRate !== null;
     $ariaParts = [];
-    if ($hasRatings) {
+    if ($showStars) {
         $ariaParts[] = number_format($avg, 1).' out of 5 from '.$count.' '.($count === 1 ? 'rating' : 'ratings');
     } else {
         $ariaParts[] = 'No ratings yet';
@@ -25,7 +28,7 @@
      data-glass-tip-placement="top"
      role="group"
      aria-label="{{ implode('. ', $ariaParts) }}">
-    @if($hasRatings)
+    @if($showStars)
         <span class="site-trust-compact__stars" aria-hidden="true">
             @for($i = 1; $i <= 5; $i++)
                 @php

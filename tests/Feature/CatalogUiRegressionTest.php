@@ -181,6 +181,14 @@ class CatalogUiRegressionTest extends TestCase
             '/class="[^"]*copy-example-url[^"]*"[^>]*data-site-id="\d+"/',
             $normalHtml
         );
+        $this->assertMatchesRegularExpression(
+            '/copy-example-url[^>]*data-url="[^"]*\/advertiser\/go\/\d+\?sample=1/',
+            html_entity_decode($normalHtml)
+        );
+        $this->assertDoesNotMatchRegularExpression(
+            '/copy-example-url[^>]*data-url="https:\/\/catalog-ui-1\.example/',
+            html_entity_decode($normalHtml)
+        );
 
         $hideHtml = $this->actingAs($this->advertiserInHideMode())
             ->get(route('advertiser.catalog'))
