@@ -157,6 +157,29 @@ class ContentSubmission extends Model
     /** Orderable approved articles stay marked “Just approved” for this many days. */
     public const JUST_APPROVED_DAYS = 7;
 
+    /**
+     * Schema-safe column probe for leftover Hostinger databases.
+     */
+    public static function submissionsHasColumn(string $column): bool
+    {
+        try {
+            $table = (new static)->getTable();
+
+            return Schema::hasTable($table) && Schema::hasColumn($table, $column);
+        } catch (\Throwable) {
+            return false;
+        }
+    }
+
+    /**
+     * Image-rights columns arrived after the first library deploy.
+     */
+    public static function hasImageRightsColumns(): bool
+    {
+        return self::submissionsHasColumn('image_rights')
+            && self::submissionsHasColumn('image_rights_source');
+    }
+
     public function isApproved(): bool
     {
         return $this->moderation_status === self::STATUS_APPROVED;
@@ -167,13 +190,17 @@ class ContentSubmission extends Model
      */
     public function isJustApproved(): bool
     {
-        if (! $this->isReadyForCheckout() || $this->evaluated_at === null) {
+        try {
+            if (! $this->isReadyForCheckout() || $this->evaluated_at === null) {
+                return false;
+            }
+
+            $cutoff = now()->copy()->subDays(self::JUST_APPROVED_DAYS)->startOfDay();
+
+            return $this->evaluated_at->copy()->startOfDay()->gte($cutoff);
+        } catch (\Throwable) {
             return false;
         }
-
-        $cutoff = now()->copy()->subDays(self::JUST_APPROVED_DAYS)->startOfDay();
-
-        return $this->evaluated_at->copy()->startOfDay()->gte($cutoff);
     }
 
     /**
@@ -182,34 +209,58 @@ class ContentSubmission extends Model
      */
     public function showJustApprovedBadge(): bool
     {
-        return $this->isJustApproved()
-            && $this->evaluated_at !== null
-            && $this->evaluated_at->isSameDay(now());
+        try {
+            return $this->isJustApproved()
+                && $this->evaluated_at !== null
+                && $this->evaluated_at->isSameDay(now());
+        } catch (\Throwable) {
+            return false;
+        }
     }
 
     public function justApprovedLabel(): ?string
     {
-        if (! $this->isJustApproved() || $this->evaluated_at === null) {
+        try {
+            if (! $this->isJustApproved() || $this->evaluated_at === null) {
+                return null;
+            }
+
+            if ($this->evaluated_at->isSameDay(now())) {
+                return 'Approved today';
+            }
+
+            if ($this->evaluated_at->isSameDay(now()->subDay())) {
+                return 'Approved yesterday';
+            }
+
+            $days = (int) abs($this->evaluated_at->copy()->startOfDay()->diffInDays(now()->copy()->startOfDay()));
+            if ($days <= 0) {
+                return 'Approved today';
+            }
+            if ($days === 1) {
+                return 'Approved yesterday';
+            }
+
+            return 'Approved '.$days.' days ago';
+        } catch (\Throwable) {
             return null;
         }
+    }
 
-        if ($this->evaluated_at->isSameDay(now())) {
-            return 'Approved today';
+    /**
+     * Relative "Uploaded …" clock. Leftover created_at fails closed.
+     */
+    public function uploadedAgoLabel(): string
+    {
+        if (! $this->created_at) {
+            return '';
         }
 
-        if ($this->evaluated_at->isSameDay(now()->subDay())) {
-            return 'Approved yesterday';
+        try {
+            return $this->created_at->diffForHumans();
+        } catch (\Throwable) {
+            return '';
         }
-
-        $days = (int) abs($this->evaluated_at->copy()->startOfDay()->diffInDays(now()->copy()->startOfDay()));
-        if ($days <= 0) {
-            return 'Approved today';
-        }
-        if ($days === 1) {
-            return 'Approved yesterday';
-        }
-
-        return 'Approved '.$days.' days ago';
     }
 
     public function needsCorrection(): bool
@@ -229,7 +280,7 @@ class ContentSubmission extends Model
             && $this->path
             && ! $this->ownerOrderBlocksOrdering()
             && ! $this->isArchived()
-            && ($this->expires_at === null || $this->expires_at->isFuture())
+            && ! $this->isExpired()
             && filled($this->country)
             && filled($this->language)
             && $this->imageRightsCoverContent();
@@ -379,11 +430,8 @@ class ContentSubmission extends Model
                     ->where('moderation_status', self::STATUS_APPROVED)
                     ->hasCheckoutReadyLinks()
                     ->withImageRightsCover()
-                    ->whereNotNull('path')
-                    ->where('path', '!=', '')
+                    ->tap(fn ($ready) => self::constrainRequiredMarketFields($ready))
                     ->notArchived()
-                    ->whereNotNull('country')->where('country', '!=', '')
-                    ->whereNotNull('language')->where('language', '!=', '')
                     ->whereNotExpired();
             });
         });
@@ -400,23 +448,11 @@ class ContentSubmission extends Model
         $query
             ->where('moderation_status', self::STATUS_APPROVED)
             ->withoutOpenOwnerOrder()
-            ->whereNotNull('path')
-            ->where('path', '!=', '')
             ->notArchived()
-            ->whereNotNull('country')->where('country', '!=', '')
-            ->whereNotNull('language')->where('language', '!=', '')
-            ->whereNotExpired()
-            ->where(function ($q) {
-                $q->where(function ($noImages) {
-                    $noImages->whereNull('preview_html')
-                        ->orWhere('preview_html', 'not like', '%<img%');
-                })->orWhere('image_rights', self::IMAGE_RIGHTS_OWN)
-                    ->orWhere(function ($licensed) {
-                        $licensed->where('image_rights', self::IMAGE_RIGHTS_LICENSED)
-                            ->whereNotNull('image_rights_source')
-                            ->where('image_rights_source', '!=', '');
-                    });
-            });
+            ->whereNotExpired();
+
+        self::constrainRequiredMarketFields($query);
+        self::constrainImageRightsCover($query);
 
         return $query->withoutActiveOrderClaim();
     }
@@ -577,17 +613,7 @@ class ContentSubmission extends Model
      */
     public function scopeWithImageRightsCover($query)
     {
-        return $query->where(function ($q) {
-            $q->where(function ($noImages) {
-                $noImages->whereNull('preview_html')
-                    ->orWhere('preview_html', 'not like', '%<img%');
-            })->orWhere('image_rights', self::IMAGE_RIGHTS_OWN)
-                ->orWhere(function ($licensed) {
-                    $licensed->where('image_rights', self::IMAGE_RIGHTS_LICENSED)
-                        ->whereNotNull('image_rights_source')
-                        ->where('image_rights_source', '!=', '');
-                });
-        });
+        return self::constrainImageRightsCover($query);
     }
 
     /**
@@ -598,6 +624,10 @@ class ContentSubmission extends Model
      */
     public function scopeWithoutImageRightsCover($query)
     {
+        if (! self::hasImageRightsColumns()) {
+            return $query->whereRaw('0 = 1');
+        }
+
         return $query->where(function ($img) {
             $img->where('preview_html', 'like', '%<img%')
                 ->orWhere('preview_html', 'like', '%<IMG%');
@@ -618,6 +648,50 @@ class ContentSubmission extends Model
     }
 
     /**
+     * Skip leftover image-rights columns so Available does not 500.
+     *
+     * @param  Builder<static>  $query
+     * @return Builder<static>
+     */
+    public static function constrainImageRightsCover($query)
+    {
+        if (! self::hasImageRightsColumns()) {
+            return $query;
+        }
+
+        return $query->where(function ($q) {
+            $q->where(function ($noImages) {
+                $noImages->whereNull('preview_html')
+                    ->orWhere('preview_html', 'not like', '%<img%');
+            })->orWhere('image_rights', self::IMAGE_RIGHTS_OWN)
+                ->orWhere(function ($licensed) {
+                    $licensed->where('image_rights', self::IMAGE_RIGHTS_LICENSED)
+                        ->whereNotNull('image_rights_source')
+                        ->where('image_rights_source', '!=', '');
+                });
+        });
+    }
+
+    /**
+     * Path / country / language arrived as required later on some hosts.
+     *
+     * @param  Builder<static>  $query
+     * @return Builder<static>
+     */
+    public static function constrainRequiredMarketFields($query)
+    {
+        foreach (['path', 'country', 'language'] as $column) {
+            if (! self::submissionsHasColumn($column)) {
+                continue;
+            }
+
+            $query->whereNotNull($column)->where($column, '!=', '');
+        }
+
+        return $query;
+    }
+
+    /**
      * SQL mirror of libraryAvailability() === 'in_progress'.
      *
      * @param  Builder<static>  $query
@@ -626,9 +700,7 @@ class ContentSubmission extends Model
     public function scopeInProgressInLibrary($query)
     {
         return $query->where('moderation_status', self::STATUS_APPROVED)
-            ->whereNotNull('path')->where('path', '!=', '')
-            ->whereNotNull('country')->where('country', '!=', '')
-            ->whereNotNull('language')->where('language', '!=', '')
+            ->tap(fn ($ready) => self::constrainRequiredMarketFields($ready))
             ->notArchived()
             ->hasCheckoutReadyLinks()
             ->withImageRightsCover()
@@ -786,25 +858,33 @@ class ContentSubmission extends Model
     public function scopeForArticlePicker($query)
     {
         $table = $query->getModel()->getTable();
+        $wanted = [
+            'id',
+            'user_id',
+            'title',
+            'original_filename',
+            'language',
+            'country',
+            'word_count',
+            'moderation_status',
+            'path',
+            'order_id',
+            'archived_at',
+            'expires_at',
+            'anchor_text',
+            'target_url',
+            'image_rights',
+            'image_rights_source',
+        ];
+        $prefixed = [];
+        foreach ($wanted as $column) {
+            if (! self::submissionsHasColumn($column)) {
+                continue;
+            }
+            $prefixed[] = $table.'.'.$column;
+        }
 
-        return $query->select([
-            $table.'.id',
-            $table.'.user_id',
-            $table.'.title',
-            $table.'.original_filename',
-            $table.'.language',
-            $table.'.country',
-            $table.'.word_count',
-            $table.'.moderation_status',
-            $table.'.path',
-            $table.'.order_id',
-            $table.'.archived_at',
-            $table.'.expires_at',
-            $table.'.anchor_text',
-            $table.'.target_url',
-            $table.'.image_rights',
-            $table.'.image_rights_source',
-        ])->selectRaw(
+        return $query->select($prefixed)->selectRaw(
             'CASE WHEN '.$table.'.preview_html LIKE \'%<img%\' OR '.$table.'.preview_html LIKE \'%<IMG%\' THEN 1 ELSE 0 END as has_images'
         );
     }
@@ -920,6 +1000,10 @@ class ContentSubmission extends Model
      */
     public function imageRightsCoverContent(): bool
     {
+        if (! self::hasImageRightsColumns()) {
+            return true;
+        }
+
         if (! $this->hasImages()) {
             return true;
         }
@@ -1269,7 +1353,7 @@ class ContentSubmission extends Model
     public function isContentReadyForOrder(): bool
     {
         return $this->hasFulfillableContent()
-            && ($this->expires_at === null || $this->expires_at->isFuture());
+            && ! $this->isExpired();
     }
 
     /**
@@ -1355,7 +1439,11 @@ class ContentSubmission extends Model
             return false;
         }
 
-        return $this->expires_at->lessThanOrEqualTo(now()->addDays(max(1, $withinDays)));
+        try {
+            return $this->expires_at->lessThanOrEqualTo(now()->addDays(max(1, $withinDays)));
+        } catch (\Throwable) {
+            return false;
+        }
     }
 
     /**
@@ -1371,7 +1459,11 @@ class ContentSubmission extends Model
             return 0;
         }
 
-        return (int) now()->startOfDay()->diffInDays($this->expires_at->copy()->startOfDay());
+        try {
+            return (int) now()->startOfDay()->diffInDays($this->expires_at->copy()->startOfDay());
+        } catch (\Throwable) {
+            return null;
+        }
     }
 
     /**

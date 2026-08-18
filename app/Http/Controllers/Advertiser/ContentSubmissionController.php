@@ -668,7 +668,7 @@ class ContentSubmissionController extends Controller
             'ready' => $submission->isReadyForCheckout(),
             'availability' => $submission->libraryAvailability(),
             'anchor_text' => $submission->anchor_text,
-            'target_url' => $submission->target_url,
+            'target_url' => self::safeHrefUrl($submission->target_url),
             'feature_image_url' => $submission->feature_image_url
                 ? ArticlePreviewHtml::normalizeSrc((string) $submission->feature_image_url)
                 : null,
@@ -813,7 +813,7 @@ class ContentSubmissionController extends Controller
             'moderation_status' => $s->moderation_status,
             'scan_token' => $s->scan_token,
             'anchor_text' => $s->anchor_text,
-            'target_url' => $s->target_url,
+            'target_url' => self::safeHrefUrl($s->target_url),
             'detected_links' => $s->detectedLinks(),
             'feature_image_url' => $s->feature_image_url
                 ? ArticlePreviewHtml::normalizeSrc((string) $s->feature_image_url)
@@ -832,7 +832,7 @@ class ContentSubmissionController extends Controller
             'editor_notice_ok' => false,
             'archived' => $s->isArchived(),
             'availability' => $s->libraryAvailability(),
-            'live_url' => $s->liveUrl(),
+            'live_url' => self::safeHrefUrl($s->liveUrl()),
             'can_order' => $s->canBeOrdered(),
             'editable' => $s->canEditArticle(),
             'has_file' => $s->hasStoredFile(),
@@ -844,5 +844,12 @@ class ContentSubmissionController extends Controller
             'evaluated_at' => optional($s->evaluated_at)?->toIso8601String(),
             'updated_at' => optional($s->updated_at)?->toIso8601String(),
         ];
+    }
+
+    protected static function safeHrefUrl(?string $url): ?string
+    {
+        $safe = safe_external_url($url, '');
+
+        return $safe !== '' ? $safe : null;
     }
 }

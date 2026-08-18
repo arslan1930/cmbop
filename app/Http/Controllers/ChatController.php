@@ -489,7 +489,7 @@ class ChatController extends Controller
             'social_channels' => $item ? $item->enabledSocialChannels() : [],
             'social_post_urls' => $item ? $item->socialPostUrls() : [],
             'content_link' => $item?->publisherContentLink(),
-            'live_url' => $item?->live_url,
+            'live_url' => (($safeLive = safe_external_url($item?->live_url, '')) !== '') ? $safeLive : null,
             'live_url_check_ok' => $item?->live_url_check_ok,
             'live_url_http_status' => $item?->live_url_http_status,
             'completion_notes' => $item?->completion_notes,

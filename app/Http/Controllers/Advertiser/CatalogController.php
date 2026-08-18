@@ -4396,6 +4396,7 @@ class CatalogController extends Controller
     public function getOrder($id)
     {
         try {
+            app(CheckoutSchemaService::class)->ensureCheckoutTables();
             $userId = auth()->id();
 
             $order = Order::where('user_id', $userId)

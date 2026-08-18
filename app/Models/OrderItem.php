@@ -927,7 +927,11 @@ class OrderItem extends Model
             return false;
         }
 
-        $hoursPassed = $this->live_url_submitted_at->diffInHours(Carbon::now(), true);
+        try {
+            $hoursPassed = $this->live_url_submitted_at->diffInHours(Carbon::now(), true);
+        } catch (\Throwable) {
+            return false;
+        }
 
         return $hoursPassed >= self::autoApproveHours();
     }

@@ -336,8 +336,8 @@
                                 </span>
                                 @if($statusCategory === 'completed' && $publishedDateLabel)
                                     <span class="library-status-time">Published {{ $publishedDateLabel }}</span>
-                                @elseif($submission->created_at)
-                                    <span class="library-status-time">Uploaded {{ $submission->created_at->diffForHumans() }}</span>
+                                @elseif($uploadedAgo = $submission->uploadedAgoLabel())
+                                    <span class="library-status-time">Uploaded {{ $uploadedAgo }}</span>
                                 @endif
                             </div>
                         </td>

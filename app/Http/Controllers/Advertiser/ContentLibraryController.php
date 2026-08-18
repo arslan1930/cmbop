@@ -653,7 +653,7 @@ class ContentLibraryController extends Controller
             'evaluation_status' => $s->evaluation_status,
             'evaluation_report' => $s->evaluation_report,
             'anchor_text' => $s->anchor_text,
-            'target_url' => $s->target_url,
+            'target_url' => self::safeLiveUrl($s->target_url),
             'detected_links' => $s->detectedLinks(),
             'has_link' => $s->hasLink(),
             'ready' => $s->isReadyForCheckout(),
