@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Models\Concerns\ToleratesUnparseableDates;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
@@ -71,6 +72,27 @@ class WalletTransaction extends Model
     public function related(): MorphTo
     {
         return $this->morphTo();
+    }
+
+    /**
+     * Ledger rows for the publisher wallet. Publisher-only leftover rows
+     * with a null wallet_id stay visible; dual-role accounts exclude null
+     * so advertiser deposits cannot land on Balance.
+     */
+    public static function queryForPublisherUser(User $user): Builder
+    {
+        $query = static::query()->where('user_id', $user->id);
+        $wallet = Wallet::forPublisher((int) $user->id);
+        if (! $wallet) {
+            return $query->whereRaw('0 = 1');
+        }
+
+        return $query->where(function ($inner) use ($user, $wallet) {
+            $inner->where('wallet_id', $wallet->id);
+            if (! $user->hasRole('advertiser')) {
+                $inner->orWhereNull('wallet_id');
+            }
+        });
     }
 
     public function isCredit(): bool

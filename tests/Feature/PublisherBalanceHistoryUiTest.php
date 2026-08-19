@@ -8,6 +8,7 @@ use App\Models\Wallet;
 use App\Models\WalletTransaction;
 use App\Models\Withdrawal;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 class PublisherBalanceHistoryUiTest extends TestCase
@@ -452,5 +453,78 @@ class PublisherBalanceHistoryUiTest extends TestCase
             ->getJson(route('publisher.balance.history'))
             ->assertStatus(410)
             ->assertJsonPath('success', false);
+    }
+
+    public function test_publisher_only_leftover_null_wallet_activity_is_listed(): void
+    {
+        $user = $this->publisherWithWallets([], false);
+
+        WalletTransaction::create([
+            'user_id' => $user->id,
+            'wallet_id' => null,
+            'type' => WalletTransaction::TYPE_TRANSFER_IN,
+            'direction' => 'credit',
+            'amount' => 18.5,
+            'description' => 'Publisher earnings for order #99',
+            'reference' => 'PO-99',
+        ]);
+
+        $html = $this->actingAs($user)
+            ->get(route('publisher.balance'))
+            ->assertOk()
+            ->getContent();
+
+        $this->assertStringContainsString('Publisher earnings for order #99', $html);
+        $this->assertStringContainsString('PO-99', $html);
+        $this->assertStringContainsString('+€18.50', $html);
+    }
+
+    public function test_dual_role_leftover_null_wallet_activity_is_hidden(): void
+    {
+        $user = $this->publisherWithWallets();
+
+        WalletTransaction::create([
+            'user_id' => $user->id,
+            'wallet_id' => null,
+            'type' => WalletTransaction::TYPE_DEPOSIT,
+            'direction' => 'credit',
+            'amount' => 50,
+            'description' => 'Advertiser leftover deposit',
+            'reference' => 'DEP-NULL',
+        ]);
+
+        $html = $this->actingAs($user)
+            ->get(route('publisher.balance'))
+            ->assertOk()
+            ->getContent();
+
+        $this->assertStringContainsString('No wallet activity yet. Completed tasks pay out here.', $html);
+        $this->assertStringNotContainsString('Advertiser leftover deposit', $html);
+        $this->assertStringNotContainsString('DEP-NULL', $html);
+    }
+
+    public function test_balance_activity_tolerates_unparseable_created_at(): void
+    {
+        $user = $this->publisherWithWallets(['publisher_balance' => 25]);
+        $wallet = Wallet::forPublisher((int) $user->id);
+
+        $row = WalletTransaction::create([
+            'user_id' => $user->id,
+            'wallet_id' => $wallet->id,
+            'type' => WalletTransaction::TYPE_TRANSFER_IN,
+            'direction' => 'credit',
+            'amount' => 12,
+            'description' => 'Publisher earnings for order #7',
+            'reference' => 'PO-7',
+        ]);
+        DB::table('wallet_transactions')->where('id', $row->id)->update([
+            'created_at' => 'not-a-date',
+        ]);
+
+        $this->actingAs($user)
+            ->get(route('publisher.balance'))
+            ->assertOk()
+            ->assertSee('Publisher earnings for order #7', false)
+            ->assertSee('PO-7', false);
     }
 }

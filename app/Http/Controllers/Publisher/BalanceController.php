@@ -48,9 +48,8 @@ class BalanceController extends Controller
         ), 2);
 
         $activity = collect();
-        if ($publisherWallet && Schema::hasTable('wallet_transactions')) {
-            $activity = WalletTransaction::query()
-                ->where('wallet_id', $publisherWallet->id)
+        if (Schema::hasTable('wallet_transactions')) {
+            $activity = WalletTransaction::queryForPublisherUser($user)
                 ->orderByDesc('id')
                 ->limit(10)
                 ->get();
