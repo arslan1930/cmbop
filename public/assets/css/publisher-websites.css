@@ -152,6 +152,37 @@
         transition: border-color var(--motion-hover, 160ms ease), box-shadow var(--motion-hover, 160ms ease), background-color var(--motion-hover, 160ms ease), color var(--motion-hover, 160ms ease);
     }
 
+    /* Scoped to add/bulk/claim cards only — never clip the AJAX sites table. */
+    #formCard table,
+    #bulkCard table,
+    #claimCard table {
+        width: 100%;
+        border-collapse: collapse;
+        background-color: #fff;
+        border-radius: 8px;
+        overflow: hidden;
+        box-shadow: 0 2px 6px rgba(50, 50, 93, 0.05);
+    }
+
+    #formCard th,
+    #formCard td,
+    #bulkCard th,
+    #bulkCard td,
+    #claimCard th,
+    #claimCard td {
+        padding: 12px 15px;
+        border-bottom: 1px solid #e6ebf1;
+        text-align: left;
+    }
+
+    #formCard th,
+    #bulkCard th,
+    #claimCard th {
+        background-color: #f6f9fc;
+        font-weight: 600;
+        color: #525f7f;
+    }
+
     .site-wizard-steps {
         display: flex;
         gap: 8px;

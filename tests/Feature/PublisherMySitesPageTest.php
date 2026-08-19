@@ -661,6 +661,9 @@ class PublisherMySitesPageTest extends TestCase
         $css = file_get_contents(public_path('assets/css/publisher-websites.css'));
         $this->assertStringContainsString('.site-status-filter.is-active', $css);
         $this->assertStringContainsString('background: #0f766e', $css);
+        $this->assertStringContainsString('#formCard table', $css);
+        $this->assertStringContainsString('#bulkCard table', $css);
+        $this->assertStringContainsString('#claimCard table', $css);
 
         $gateEnd = strpos($js, '})(); // publisherWebsitesExternalBoot');
         $alwaysOn = strpos($js, 'publisherWebsitesAlwaysOnActions');
