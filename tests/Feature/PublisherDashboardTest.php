@@ -489,7 +489,7 @@ class PublisherDashboardTest extends TestCase
             ->getContent();
 
         $this->assertStringContainsString(
-            'href="'.route('publisher.tasks', ['focus' => 'order', 'order' => $item->order_id], false).'"',
+            'href="'.e(route('publisher.tasks', ['focus' => 'order', 'order' => $item->order_id], false)).'"',
             $html
         );
 
