@@ -180,4 +180,20 @@ class PublisherTasksDetailsTest extends TestCase
             $blade
         );
     }
+
+    public function test_details_masks_timeline_actors_for_publishers_only(): void
+    {
+        $blade = file_get_contents(resource_path('views/publisher/tasks.blade.php'));
+        $this->assertStringContainsString('function publisherTimelineActorLabel', $blade);
+        $this->assertStringContainsString('function renderPublisherOrderActivityTimeline', $blade);
+        $this->assertStringContainsString("role === 'advertiser') return 'Advertiser'", $blade);
+        $this->assertStringContainsString("role === 'publisher') return 'You'", $blade);
+        $this->assertStringContainsString("role === 'admin' || role === 'marketing') return 'Support'", $blade);
+        $this->assertStringContainsString('copy.actor_name = publisherTimelineActorLabel(a)', $blade);
+
+        $shared = file_get_contents(public_path('js/notification-center.js'));
+        $this->assertStringContainsString('window.renderOrderActivityTimeline', $shared);
+        $this->assertStringContainsString('a.actor_name', $shared);
+        $this->assertStringNotContainsString('publisherTimelineActorLabel', $shared);
+    }
 }
