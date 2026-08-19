@@ -165,4 +165,19 @@ class PublisherTasksDetailsTest extends TestCase
         $this->assertStringContainsString('detailsPlacementIndex', $blade);
         $this->assertStringNotContainsString('>Order Items<', $blade);
     }
+
+    public function test_details_puts_live_url_in_status_and_completed_actions(): void
+    {
+        $blade = file_get_contents(resource_path('views/publisher/tasks.blade.php'));
+        $this->assertStringContainsString('id="detailsLiveUrl"', $blade);
+        $this->assertStringContainsString('id="detailsCopyLiveUrl"', $blade);
+        $this->assertStringContainsString('id="detailsModalExtraActions"', $blade);
+        $this->assertStringContainsString('function renderDetailsModalExtraActions', $blade);
+        $this->assertStringContainsString('open-task-chat', $blade);
+        $this->assertStringNotContainsString('onclick="openChat(', $blade);
+        $this->assertMatchesRegularExpression(
+            "/id=\"detailsNextStep\">' \\+ nextStepHtml \\+ '<\\/p>' \\+[\\s\\S]*?liveUrlTop/",
+            $blade
+        );
+    }
 }

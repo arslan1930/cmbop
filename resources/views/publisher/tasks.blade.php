@@ -362,6 +362,7 @@
             </div>
             <div class="modal-body" id="detailsContent"></div>
             <div class="modal-footer">
+                <div id="detailsModalExtraActions" class="me-auto d-flex flex-wrap gap-2"></div>
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
             </div>
         </div>
@@ -1532,8 +1533,16 @@ $(document).ready(function() {
             autoApproveInfo = '<div class="ui-callout ui-callout--info mt-3"><span class="ui-callout__icon" aria-hidden="true"><i class="fa-solid fa-circle-info"></i></span><div class="ui-callout__body"><strong>Live URL saved:</strong> Advertiser review starts after the revised article is sent for the other placement on this order.</div></div>';
         }
         
-        var liveUrlHtml = item.live_url 
-            ? '<p class="mb-1"><strong>Live URL:</strong></p><p class="mb-2"><a href="' + escapeHtml(item.live_url) + '" target="_blank" class="live-url">' + escapeHtml(item.live_url) + ' <i class="fa fa-external-link fa-xs"></i></a></p>'
+        var liveUrlTop = hasLiveUrl
+            ? '<p class="mb-1 mt-2"><strong>Live URL:</strong></p>'
+                + '<p class="mb-0 d-flex flex-wrap align-items-center gap-2" id="detailsLiveUrl">'
+                + '<a href="' + escapeHtml(item.live_url) + '" target="_blank" rel="noopener" class="live-url" id="detailsLiveUrlLink">'
+                + escapeHtml(item.live_url) + ' <i class="fa fa-external-link fa-xs"></i></a>'
+                + '<button type="button" class="btn btn-sm btn-outline-secondary" id="detailsCopyLiveUrl">Copy</button>'
+                + '</p>'
+            : '';
+        var liveUrlHtml = hasLiveUrl
+            ? ''
             : '<p class="mb-2 text-muted">Live URL not submitted yet</p>';
         
         if (contentRevisionRequested) {
@@ -1581,6 +1590,7 @@ $(document).ready(function() {
                     '<h6 class="mb-3">Order Status</h6>' +
                     '<p class="mb-1"><strong>Status:</strong> <span class="status-badge ' + statusClass + '">' + statusText + '</span></p>' +
                     '<p class="mb-1 text-muted small" id="detailsNextStep">' + nextStepHtml + '</p>' +
+                    liveUrlTop +
                 '</div>' +
             '</div>' +
         '</div>' +
@@ -1623,6 +1633,37 @@ $(document).ready(function() {
         
         $('#detailsContent').html(html);
         bindPublisherArticlePreviewTools(item);
+        bindDetailsLiveUrlCopy(item.live_url);
+        renderDetailsModalExtraActions(order, orderStatus);
+    }
+
+    function bindDetailsLiveUrlCopy(liveUrl) {
+        var btn = document.getElementById('detailsCopyLiveUrl');
+        if (!btn || !liveUrl) return;
+        btn.addEventListener('click', function () {
+            var done = function () {
+                btn.textContent = 'Copied';
+                setTimeout(function () { btn.textContent = 'Copy'; }, 1500);
+            };
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(liveUrl).then(done).catch(function () {});
+                return;
+            }
+            done();
+        });
+    }
+
+    function renderDetailsModalExtraActions(order, orderStatus) {
+        var extra = document.getElementById('detailsModalExtraActions');
+        if (!extra) return;
+        extra.innerHTML = '';
+        if (orderStatus !== 'completed' || !order) return;
+        extra.innerHTML =
+            '<button type="button" class="btn btn-outline-primary btn-sm open-task-chat" data-order-id="'
+            + escapeHtml(String(order.id || ''))
+            + '" data-order-number="' + escapeHtml(order.order_number || '')
+            + '">Chat</button>'
+            + '<a class="btn btn-outline-secondary btn-sm" href="' + escapeHtml(publisherBalanceUrl) + '">View balance</a>';
     }
 
     function buildPublisherArticlePreview(item) {
