@@ -2,6 +2,24 @@
 
 @section('title', 'Reports')
 
+@php
+    $reportsTab = request('tab') === 'withdrawals' ? 'withdrawals' : 'orders';
+    $ordersStatus = (string) request('o_status', 'completed');
+    $ordersFrom = (string) request('o_from', '');
+    $ordersTo = (string) request('o_to', '');
+    $withdrawalsStatus = (string) request('w_status', 'completed');
+    $withdrawalsFrom = (string) request('w_from', '');
+    $withdrawalsTo = (string) request('w_to', '');
+    $orderStatuses = ['completed', 'pending', 'processing', 'review', 'scheduled', 'cancelled', 'all'];
+    $withdrawalStatuses = ['completed', 'pending', 'processing', 'cancelled', 'all'];
+    if (! in_array($ordersStatus, $orderStatuses, true)) {
+        $ordersStatus = 'completed';
+    }
+    if (! in_array($withdrawalsStatus, $withdrawalStatuses, true)) {
+        $withdrawalsStatus = 'completed';
+    }
+@endphp
+
 @section('content')
 <link rel="stylesheet" href="{{ asset('assets/css/publisher-reports.css') }}?v={{ @filemtime(public_path('assets/css/publisher-reports.css')) ?: '1' }}">
 <div class="publisher-reports-container"
@@ -98,12 +116,12 @@
         <div class="card-body p-0">
             <ul class="nav nav-tabs publisher-reports-tabs" id="reportTabs" role="tablist">
                 <li class="nav-item" role="presentation">
-                    <button class="nav-link active" id="orders-tab" data-bs-toggle="tab" data-bs-target="#orders" type="button" role="tab">
+                    <button class="nav-link {{ $reportsTab === 'orders' ? 'active' : '' }}" id="orders-tab" data-bs-toggle="tab" data-bs-target="#orders" type="button" role="tab">
                         <i class="fa fa-shopping-cart me-2"></i>Orders
                     </button>
                 </li>
                 <li class="nav-item" role="presentation">
-                    <button class="nav-link" id="withdrawals-tab" data-bs-toggle="tab" data-bs-target="#withdrawals" type="button" role="tab">
+                    <button class="nav-link {{ $reportsTab === 'withdrawals' ? 'active' : '' }}" id="withdrawals-tab" data-bs-toggle="tab" data-bs-target="#withdrawals" type="button" role="tab">
                         <i class="fa fa-download me-2"></i>Withdrawals
                     </button>
                 </li>
@@ -112,7 +130,7 @@
     </div>
 
     <div class="tab-content">
-        <div class="tab-pane fade show active" id="orders" role="tabpanel">
+        <div class="tab-pane fade {{ $reportsTab === 'orders' ? 'show active' : '' }}" id="orders" role="tabpanel">
             <div class="card border-0 shadow-sm">
                 <div class="card-header bg-white">
                     <div class="d-flex flex-wrap justify-content-between align-items-end gap-2">
@@ -123,22 +141,22 @@
                         <form id="ordersFilters" class="row g-2 align-items-end">
                             <div class="col-auto">
                                 <label class="form-label small mb-0" for="ordersDateFrom">From</label>
-                                <input type="date" class="form-control form-control-sm" id="ordersDateFrom" name="date_from">
+                                <input type="date" class="form-control form-control-sm" id="ordersDateFrom" name="date_from" value="{{ $ordersFrom }}">
                             </div>
                             <div class="col-auto">
                                 <label class="form-label small mb-0" for="ordersDateTo">To</label>
-                                <input type="date" class="form-control form-control-sm" id="ordersDateTo" name="date_to">
+                                <input type="date" class="form-control form-control-sm" id="ordersDateTo" name="date_to" value="{{ $ordersTo }}">
                             </div>
                             <div class="col-auto">
                                 <label class="form-label small mb-0" for="ordersStatus">Status</label>
                                 <select class="form-select form-select-sm" id="ordersStatus" name="status">
-                                    <option value="completed" selected>Completed</option>
-                                    <option value="pending">Pending</option>
-                                    <option value="processing">Processing</option>
-                                    <option value="review">In Review</option>
-                                    <option value="scheduled">Scheduled</option>
-                                    <option value="cancelled">Cancelled</option>
-                                    <option value="all">All</option>
+                                    <option value="completed" @selected($ordersStatus === 'completed')>Completed</option>
+                                    <option value="pending" @selected($ordersStatus === 'pending')>Pending</option>
+                                    <option value="processing" @selected($ordersStatus === 'processing')>Processing</option>
+                                    <option value="review" @selected($ordersStatus === 'review')>In Review</option>
+                                    <option value="scheduled" @selected($ordersStatus === 'scheduled')>Scheduled</option>
+                                    <option value="cancelled" @selected($ordersStatus === 'cancelled')>Cancelled</option>
+                                    <option value="all" @selected($ordersStatus === 'all')>All</option>
                                 </select>
                             </div>
                             <div class="col-auto">
@@ -153,12 +171,12 @@
                             <thead class="table-light">
                                 <tr>
                                     <th>Order #</th>
-                                    <th id="ordersDateHeading">Completed</th>
+                                    <th id="ordersDateHeading">{{ $ordersStatus === 'completed' ? 'Completed' : 'Date' }}</th>
                                     <th>Site</th>
                                     <th>Base Price</th>
                                     <th>Sensitive Price</th>
                                     <th>Homepage</th>
-                                    <th id="ordersPayoutHeading">You earned</th>
+                                    <th id="ordersPayoutHeading">{{ $ordersStatus === 'completed' ? 'You earned' : (($ordersStatus === 'cancelled' || $ordersStatus === 'all') ? 'Payout' : 'You earn') }}</th>
                                     <th>Order Status</th>
                                     <th>Action</th>
                                 </tr>
@@ -181,7 +199,7 @@
             </div>
         </div>
 
-        <div class="tab-pane fade" id="withdrawals" role="tabpanel">
+        <div class="tab-pane fade {{ $reportsTab === 'withdrawals' ? 'show active' : '' }}" id="withdrawals" role="tabpanel">
             <div class="card border-0 shadow-sm">
                 <div class="card-header bg-white">
                     <div class="d-flex flex-wrap justify-content-between align-items-end gap-2">
@@ -192,20 +210,20 @@
                         <form id="withdrawalsFilters" class="row g-2 align-items-end">
                             <div class="col-auto">
                                 <label class="form-label small mb-0" for="withdrawalsDateFrom">From</label>
-                                <input type="date" class="form-control form-control-sm" id="withdrawalsDateFrom" name="date_from">
+                                <input type="date" class="form-control form-control-sm" id="withdrawalsDateFrom" name="date_from" value="{{ $withdrawalsFrom }}">
                             </div>
                             <div class="col-auto">
                                 <label class="form-label small mb-0" for="withdrawalsDateTo">To</label>
-                                <input type="date" class="form-control form-control-sm" id="withdrawalsDateTo" name="date_to">
+                                <input type="date" class="form-control form-control-sm" id="withdrawalsDateTo" name="date_to" value="{{ $withdrawalsTo }}">
                             </div>
                             <div class="col-auto">
                                 <label class="form-label small mb-0" for="withdrawalsStatus">Status</label>
                                 <select class="form-select form-select-sm" id="withdrawalsStatus" name="status">
-                                    <option value="completed" selected>Paid</option>
-                                    <option value="pending">Requested</option>
-                                    <option value="processing">Processing</option>
-                                    <option value="cancelled">Cancelled / Rejected</option>
-                                    <option value="all">All</option>
+                                    <option value="completed" @selected($withdrawalsStatus === 'completed')>Paid</option>
+                                    <option value="pending" @selected($withdrawalsStatus === 'pending')>Requested</option>
+                                    <option value="processing" @selected($withdrawalsStatus === 'processing')>Processing</option>
+                                    <option value="cancelled" @selected($withdrawalsStatus === 'cancelled')>Cancelled / Rejected</option>
+                                    <option value="all" @selected($withdrawalsStatus === 'all')>All</option>
                                 </select>
                             </div>
                             <div class="col-auto">
