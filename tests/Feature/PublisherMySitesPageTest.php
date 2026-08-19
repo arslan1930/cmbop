@@ -658,7 +658,8 @@ class PublisherMySitesPageTest extends TestCase
         $this->assertStringContainsString('syncSitesStatusUrl', $html);
         $this->assertStringContainsString('history.replaceState', $html);
         $this->assertStringContainsString('.site-status-filter.is-active', $html);
-        $this->assertStringContainsString('background: #0f766e', $html);
+        $css = file_get_contents(public_path('assets/css/publisher-websites.css'));
+        $this->assertStringContainsString('background: #0f766e', $css);
 
         $gateEnd = strpos($js, '})(); // publisherWebsitesExternalBoot');
         $alwaysOn = strpos($js, 'publisherWebsitesAlwaysOnActions');
@@ -1007,6 +1008,38 @@ class PublisherMySitesPageTest extends TestCase
         $this->assertStringContainsString('I want to add many sites', $html);
         $this->assertStringContainsString('Bulk Import (Agency)', $html);
         $this->assertStringContainsString('Send this site for re-review?', $html);
+        $this->assertSame(
+            1,
+            preg_match_all('/\blet\s+delayTimer\b/', $html),
+            'Rendered My Sites page must declare delayTimer only once.'
+        );
+    }
+
+    public function test_my_sites_does_not_reload_jquery_or_sweetalert(): void
+    {
+        $blade = file_get_contents(resource_path('views/publisher/websites.blade.php'));
+        $this->assertStringNotContainsString('cdnjs.cloudflare.com/ajax/libs/jquery', $blade);
+        $this->assertStringNotContainsString('sweetalert2@11', $blade);
+        $this->assertStringContainsString("@push('scripts')", $blade);
+        $this->assertStringContainsString('window.__publisherWebsitesInlineLoaded = true', $blade);
+        $this->assertStringNotContainsString('transition: all 0.2s ease', $blade);
+
+        $html = $this->actingAs($this->publisher)
+            ->get(route('publisher.websites'))
+            ->assertOk()
+            ->getContent();
+
+        $this->assertSame(
+            1,
+            substr_count($html, 'sweetalert2@11'),
+            'My Sites should use the layout SweetAlert2, not a second copy.'
+        );
+        $this->assertSame(
+            0,
+            substr_count($html, 'cdnjs.cloudflare.com/ajax/libs/jquery'),
+            'My Sites should use the layout jQuery, not a CDN reload.'
+        );
+        $this->assertStringContainsString('window.__publisherWebsitesInlineLoaded = true', $html);
         $this->assertSame(
             1,
             preg_match_all('/\blet\s+delayTimer\b/', $html),

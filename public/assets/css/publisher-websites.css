@@ -713,10 +713,32 @@
         gap: 6px;
         line-height: 1.2;
         padding: 0.4rem 0.9rem !important;
+        background: #fff;
+        border: 1px solid #c5d4d6;
+        color: #334155;
+        box-shadow: none;
+    }
+    .site-status-filter:hover {
+        background: #f1f7f7;
+        border-color: #9ec5c8;
+        color: #123f42;
     }
     .site-status-filter.is-active,
     .site-status-filter.btn-primary {
+        background: #0f766e;
+        border-color: #0f766e;
+        color: #fff;
+        font-weight: 600;
         box-shadow: none;
+    }
+    .site-status-filter.is-active:hover {
+        background: #0d9488;
+        border-color: #0d9488;
+        color: #fff;
+    }
+    .site-status-filter.is-active .badge {
+        background: rgba(255, 255, 255, 0.22) !important;
+        color: #fff !important;
     }
     .site-status-filter .filter-main {
         display: inline-flex;
