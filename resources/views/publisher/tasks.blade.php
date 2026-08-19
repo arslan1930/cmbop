@@ -383,6 +383,7 @@ let refreshInterval = null;
 
 // Get the base URL dynamically
 const baseUrl = window.location.origin;
+const publisherBalanceUrl = @json(route('publisher.balance'));
 
 /** Bootstrap 5 modal helpers (jQuery .modal() is unavailable without the BS4 plugin). */
 function showTasksModal(id) {
@@ -395,6 +396,14 @@ function hideTasksModal(id) {
     if (!el || !window.bootstrap || !bootstrap.Modal) return;
     var inst = bootstrap.Modal.getInstance(el) || bootstrap.Modal.getOrCreateInstance(el);
     inst.hide();
+}
+
+function formatPublisherTaskDate(iso) {
+    if (iso == null || iso === '') return 'N/A';
+    var match = String(iso).match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (!match) return 'N/A';
+    var months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    return parseInt(match[3], 10) + ' ' + months[parseInt(match[2], 10) - 1] + ' ' + match[1];
 }
 
 /** Skip silent table refresh while a task modal or chat is open. */
@@ -1539,7 +1548,13 @@ $(document).ready(function() {
 
         var timelineHtml = buildPublisherTimeline(orderStatus, hasLiveUrl, modificationRequested, orderHeldForContentRevision);
         
-        var createdAt = item.created_at ? new Date(item.created_at).toLocaleDateString() : 'N/A';
+        var dateSource = (order && (order.paid_at || order.created_at)) || item.created_at;
+        var createdAt = formatPublisherTaskDate(dateSource);
+        var nextStepHtml = statusMeta.nextStep;
+        if (orderStatus === 'completed') {
+            nextStepHtml = '€' + totalPrice.toFixed(2) + ' released to your wallet. '
+                + '<a href="' + escapeHtml(publisherBalanceUrl) + '">View balance</a>';
+        }
         
         var html = '<div class="row mb-4">' +
             '<div class="col-md-6">' +
@@ -1555,7 +1570,7 @@ $(document).ready(function() {
                 '<div class="bg-light p-3 rounded">' +
                     '<h6 class="mb-3">Order Status</h6>' +
                     '<p class="mb-1"><strong>Status:</strong> <span class="status-badge ' + statusClass + '">' + statusText + '</span></p>' +
-                    '<p class="mb-1 text-muted small">' + statusMeta.nextStep + '</p>' +
+                    '<p class="mb-1 text-muted small" id="detailsNextStep">' + nextStepHtml + '</p>' +
                 '</div>' +
             '</div>' +
         '</div>' +
