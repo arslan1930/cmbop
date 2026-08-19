@@ -1,5 +1,7 @@
 @extends('publisher.layouts.app')
 
+@section('title', 'My Sites')
+
 @section('content')
 <style>
     body {
@@ -653,7 +655,12 @@
 </style>
 
 <div class="container-fluid">
-    <h3 class="mb-4"><span id="formHeader">Add New Website</span></h3>
+    <h1 class="h3 mb-1"><span id="formHeader">My Sites</span></h1>
+    <p class="small text-muted mb-3" id="sitesAddDoorsHint">
+        <strong>Add New Website</strong> — one site, you fill every field.
+        <strong>I want to add many sites</strong> — send URL + price; we add metrics, you finish details.
+        <strong>Bulk Import (Agency)</strong> — upload a full CSV when you already have DA, niches, and descriptions.
+    </p>
 
     @if($errors->any())
         <div class="alert alert-danger alert-dismissible fade show">
@@ -853,7 +860,7 @@
                         </div>
                         <div class="small text-danger mt-2 d-none" id="bulkUrlPriceError" role="alert"></div>
                     </div>
-                    <div class="form-text mb-3">Minimum 2 sites. One open bulk request at a time. For a single site, use <strong>Add New Website</strong>. Agencies with full CSV data can use <strong>Bulk Import (Agency)</strong>.</div>
+                    <div class="form-text mb-3">Minimum 2 sites. One open bulk request at a time. For a single site, use <strong>Add New Website</strong> (you fill every field). Agencies that already have DA, niches, and descriptions can use <strong>Bulk Import (Agency)</strong>.</div>
 
                     <div class="mb-0">
                         <label class="form-label">Note for our team (optional)</label>
@@ -1580,6 +1587,28 @@ const formCard = $('#formCard');
 const submitBtn = $('#submitBtn');
 const closeBtn = $('#closeBtn');
 const formHeaderSpan = $('#formHeader');
+let editingLiveMarket = null;
+
+function snapshotMarketFromForm() {
+    const cats = (categoryMultiSelect && typeof categoryMultiSelect.getSelectedItems === 'function')
+        ? categoryMultiSelect.getSelectedItems().map(function (c) {
+            return String(c).toLowerCase().trim();
+        }).filter(Boolean).sort()
+        : [];
+    return {
+        country: String((countrySingleSelect && countrySingleSelect.getSelectedValue()) || '').toLowerCase(),
+        language: String((languageSingleSelect && languageSingleSelect.getSelectedValue()) || '').toLowerCase(),
+        categories: cats.join('|'),
+    };
+}
+
+function marketChangedFromSnapshot() {
+    if (!editingLiveMarket) return false;
+    const now = snapshotMarketFromForm();
+    return now.country !== editingLiveMarket.country
+        || now.language !== editingLiveMarket.language
+        || now.categories !== editingLiveMarket.categories;
+}
 
 // Quill editor (guarded so a CDN/CSP failure cannot break the sites table loader)
 var quill = null;
@@ -2393,6 +2422,8 @@ addBtn.on('click', function() {
         $('#siteUrl').prop('disabled', false);
         $('.readonly-note').remove();
         $('#wizardDraftHint').text('');
+        editingLiveMarket = null;
+        window.siteRereviewConfirmed = false;
 
         const restored = loadSiteDraft();
         if (!restored) {
@@ -2411,13 +2442,13 @@ bulkBtn.on('click', function() {
     claimBtn.removeClass('d-none');
     bulkCard.toggleClass('d-none');
     bulkBtn.toggleClass('d-none', !bulkCard.hasClass('d-none'));
-    formHeaderSpan.text(bulkCard.hasClass('d-none') ? 'Add New Website' : 'Bulk Import');
+    formHeaderSpan.text(bulkCard.hasClass('d-none') ? 'My Sites' : 'Bulk Import');
 });
 
 closeBulkBtn.on('click', function() {
     bulkCard.addClass('d-none');
     bulkBtn.removeClass('d-none');
-    formHeaderSpan.text('Add New Website');
+    formHeaderSpan.text('My Sites');
 });
 
 // Form validation + listing preview gate (modal handlers live in always-on JS)
@@ -2452,6 +2483,26 @@ $('#addSiteForm').submit(function(e){
         if (typeof window.showSiteListingPreview === 'function') {
             window.showSiteListingPreview();
         }
+    } else if (
+        $('#methodField').val() === 'PUT'
+        && editingLiveMarket
+        && marketChangedFromSnapshot()
+        && !window.siteRereviewConfirmed
+    ) {
+        e.preventDefault();
+        Swal.fire({
+            title: 'Send this site for re-review?',
+            html: 'Changing <strong>country, language, or categories</strong> takes this site offline until an admin approves it again. Price and description changes stay as you set them.',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: 'Update and send for review',
+            cancelButtonText: 'Go back',
+        }).then(function (result) {
+            if (!result.isConfirmed) return;
+            window.siteRereviewConfirmed = true;
+            window.sitePreviewConfirmed = true;
+            $('#addSiteForm').trigger('submit');
+        });
     } else {
         if ($('#methodField').val() !== 'PUT') {
             clearSiteDraft();
@@ -3035,6 +3086,11 @@ function prefillSiteForm(site) {
 
     if (site.is_live) {
         $('#wizardDraftHint').text('Changing country, language, or categories will send this site for re-review and take it offline.');
+        editingLiveMarket = snapshotMarketFromForm();
+        window.siteRereviewConfirmed = false;
+    } else {
+        editingLiveMarket = null;
+        window.siteRereviewConfirmed = false;
     }
 
     $('#submitBtn').prop('disabled', false).text('Review & update');
@@ -3082,6 +3138,11 @@ $(document).ready(function(){
                         window.sitePreviewConfirmed = false;
                         if (data.site.is_live) {
                             $('#wizardDraftHint').text('Changing country, language, or categories will send this site for re-review and take it offline.');
+                            editingLiveMarket = snapshotMarketFromForm();
+                            window.siteRereviewConfirmed = false;
+                        } else {
+                            editingLiveMarket = null;
+                            window.siteRereviewConfirmed = false;
                         }
                     }
                 } catch (e) {
@@ -3178,7 +3239,7 @@ closeBtn.on('click', function(){
     bulkBtn.removeClass('d-none');
     bulkRequestBtn.removeClass('d-none');
     claimBtn.removeClass('d-none');
-    formHeaderSpan.text('Add New Website');
+    formHeaderSpan.text('My Sites');
     $('#addSiteForm')[0].reset();
     if (quill) quill.root.innerHTML = '';
     $('.tag-checkbox').prop('checked', false);
@@ -3200,6 +3261,8 @@ closeBtn.on('click', function(){
     $('#addSiteForm').append('<input type="hidden" name="_method" id="methodField" value="POST">');
     $('#submitBtn').text('Review & submit');
     window.sitePreviewConfirmed = false;
+    window.siteRereviewConfirmed = false;
+    editingLiveMarket = null;
 });
 
 // Edit via lean JSON endpoint
@@ -3239,11 +3302,11 @@ $('#showClaimBtn').on('click', function () {
     bulkCard.addClass('d-none');
     bulkBtn.removeClass('d-none');
     claimCard.toggleClass('d-none');
-    formHeaderSpan.text(claimCard.hasClass('d-none') ? 'Add New Website' : 'Claim a website');
+    formHeaderSpan.text(claimCard.hasClass('d-none') ? 'My Sites' : 'Claim a website');
 });
 $('#closeClaimCard').on('click', function () {
     claimCard.addClass('d-none');
-    formHeaderSpan.text('Add New Website');
+    formHeaderSpan.text('My Sites');
 });
 $('#claimWebsiteForm').on('submit', async function (e) {
     e.preventDefault();
