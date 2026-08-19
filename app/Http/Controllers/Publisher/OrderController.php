@@ -341,9 +341,21 @@ class OrderController extends Controller
                 ], 404);
             }
 
+            $publisherSiteIds = Site::where('publisher_id', $userId)->pluck('id');
+            $siblingIds = OrderItem::query()
+                ->where('order_id', $order->id)
+                ->whereIn('site_id', $publisherSiteIds)
+                ->orderBy('id')
+                ->pluck('id');
+            $orderItemsCount = $siblingIds->count();
+            $foundIndex = $siblingIds->search($orderItem->id);
+            $orderItemIndex = $foundIndex === false ? 1 : ((int) $foundIndex + 1);
+
             $data = [
                 'id' => $orderItem->id,
                 'order_id' => $orderItem->order_id,
+                'order_items_count' => $orderItemsCount,
+                'order_item_index' => $orderItemIndex,
                 'site_id' => $orderItem->site_id,
                 'site_name' => $orderItem->site_name,
                 'site_url' => $orderItem->site_url,
