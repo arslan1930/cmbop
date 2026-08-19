@@ -1078,14 +1078,14 @@ class InAppNotificationService
                 'priority' => InAppNotification::PRIORITY_HIGH,
                 'related' => $order,
                 'audience' => InAppNotification::AUDIENCE_PUBLISHER,
-                    'action_label' => 'Open tasks',
-                    'action_url' => $this->publisherTaskFocusUrl((int) $order->id, $item->id),
-                    'meta' => [
-                        'order_number' => $order->order_number,
-                        'order_item_id' => $item->id,
-                        'stage' => $stage,
-                        'track' => 'accept',
-                    ],
+                'action_label' => 'Open tasks',
+                'action_url' => $this->publisherTaskFocusUrl((int) $order->id, $item->id),
+                'meta' => [
+                    'order_number' => $order->order_number,
+                    'order_item_id' => $item->id,
+                    'stage' => $stage,
+                    'track' => 'accept',
+                ],
             ]
         );
     }
@@ -1118,15 +1118,15 @@ class InAppNotificationService
                 'priority' => $stage >= 2 ? InAppNotification::PRIORITY_HIGH : InAppNotification::PRIORITY_NORMAL,
                 'related' => $order,
                 'audience' => InAppNotification::AUDIENCE_PUBLISHER,
-                    'action_label' => 'Submit live URL',
-                    'action_url' => $this->publisherTaskFocusUrl((int) $order->id, $item->id),
-                    'meta' => [
-                        'order_number' => $order->order_number,
-                        'order_item_id' => $item->id,
-                        'stage' => $stage,
-                        'hours_overdue' => $hoursOverdue,
-                        'track' => 'publish',
-                    ],
+                'action_label' => 'Submit live URL',
+                'action_url' => $this->publisherTaskFocusUrl((int) $order->id, $item->id),
+                'meta' => [
+                    'order_number' => $order->order_number,
+                    'order_item_id' => $item->id,
+                    'stage' => $stage,
+                    'hours_overdue' => $hoursOverdue,
+                    'track' => 'publish',
+                ],
             ]
         );
     }
