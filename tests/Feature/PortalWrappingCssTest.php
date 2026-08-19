@@ -17,6 +17,9 @@ class PortalWrappingCssTest extends TestCase
         $this->assertStringContainsString('.top-navbar .mobile-left', $css);
         $this->assertStringContainsString('min-width: 0', $css);
         $this->assertStringContainsString('overflow-x: clip', $css);
+        $htaccess = file_get_contents(public_path('.htaccess'));
+        $this->assertIsString($htaccess);
+        $this->assertStringContainsString('AddCharset UTF-8 .css .js', $htaccess);
         // Viewport wrap lives on body/html — not on #content, where one-axis
         // clip shears page titles (Payout documents, Withdraw, Invoices).
         $this->assertMatchesRegularExpression(

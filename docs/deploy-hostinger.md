@@ -10,6 +10,12 @@ Use this on **every** code update. Full media background:
   `APP_URL` are written automatically by `--repair` / the first production page view.
 - Do not “replace all” in a way that deletes `public/storage` without recreating it
 
+## Split layout (`public_html` + `laravel_app`)
+
+If the domain root is `public_html` and Laravel lives in `../laravel_app`, **every** deploy must overwrite `public_html/assets/` and `public_html/js/` from the repo `public/` folder. Skipping those folders leaves new Blade HTML with 12-day-old CSS (half-styled dashboard). Keep the custom `index.php` (`usePublicPath`); do not replace it with repo `public/index.php`.
+
+Details: [`hostinger-public-html.md`](hostinger-public-html.md). Template: `public/index.hostinger.php`.
+
 ## After upload / sync
 
 This agent cannot SSH to live Hostinger. `HOSTINGER_WEB_HEAL` (default on) plus

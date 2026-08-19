@@ -1,3 +1,7 @@
+<IfModule mod_mime.c>
+    AddCharset UTF-8 .css .js
+</IfModule>
+
 <IfModule mod_headers.c>
     Header always set X-Frame-Options "SAMEORIGIN"
     Header always set X-Content-Type-Options "nosniff"

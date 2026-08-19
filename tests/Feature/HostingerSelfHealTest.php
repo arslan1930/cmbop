@@ -173,6 +173,12 @@ class HostingerSelfHealTest extends TestCase
         $deploy = (string) file_get_contents(base_path('docs/deploy-hostinger.md'));
         $this->assertStringContainsString('HOSTINGER_WEB_HEAL', $deploy);
         $this->assertStringContainsString('ops:production-ready --repair', $deploy);
+        $this->assertStringContainsString('public_html/assets/', $deploy);
+
+        $splitIndex = (string) file_get_contents(public_path('index.hostinger.php'));
+        $this->assertStringContainsString('usePublicPath(__DIR__)', $splitIndex);
+        $this->assertStringContainsString('/../laravel_app', $splitIndex);
+        $this->assertStringContainsString('@property --shell-rail', (string) file_get_contents(public_path('assets/css/app-shell.css')));
 
         $agents = (string) file_get_contents(base_path('AGENTS.md'));
         $this->assertStringContainsString('HOSTINGER_WEB_HEAL', $agents);
