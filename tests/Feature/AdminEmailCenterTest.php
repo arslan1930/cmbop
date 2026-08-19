@@ -541,6 +541,8 @@ class AdminEmailCenterTest extends TestCase
             'PayPal deposit refunded — €25.00' => 'deposit_refunded',
             'PayPal payment was not completed' => 'paypal_payment_not_completed',
             'PayPal payment is under review' => 'paypal_payment_not_completed',
+            'PayPal refunded a completed order #ORD-1' => 'paypal_external_payment_notice',
+            'Partial PayPal refund on #ORD-1' => 'paypal_external_payment_notice',
             'New Deposit Request - €100.00' => 'deposit_submitted',
             'Your site discount has ended — Sample Site' => 'site_discount_ended',
             'Your payout details were updated' => 'payout_profile_updated',

@@ -372,6 +372,94 @@ class InAppNotificationService
         );
     }
 
+    public function notifyPaypalExternalPayment(
+        User $user,
+        string $audience,
+        string $kind,
+        Order $order,
+        float $amount = 0.0
+    ): void {
+        if (! $user->id) {
+            return;
+        }
+
+        $orderLabel = $order->order_number ? '#'.$order->order_number : 'a PayPal order';
+        $title = match ($kind) {
+            'partial_refund' => 'Partial PayPal refund on '.$orderLabel,
+            'reversed' => 'PayPal reversed '.$orderLabel,
+            'dispute_created' => 'PayPal buyer dispute on '.$orderLabel,
+            'dispute_resolved' => 'PayPal dispute update on '.$orderLabel,
+            default => 'PayPal refunded completed order '.$orderLabel,
+        };
+        $message = $audience === InAppNotification::AUDIENCE_PUBLISHER
+            ? 'PayPal changed a payment on this completed placement. Earnings were not clawed back automatically.'
+            : 'PayPal changed this payment. Your marketplace wallet was not adjusted automatically.';
+
+        $this->notify(
+            (int) $user->id,
+            self::TYPE_PAYMENT_FAILED,
+            $title,
+            $message,
+            [
+                'category' => self::CATEGORY_PAYMENTS,
+                'icon' => 'alert-triangle',
+                'priority' => InAppNotification::PRIORITY_HIGH,
+                'related' => $order,
+                'audience' => $audience === 'publisher'
+                    ? InAppNotification::AUDIENCE_PUBLISHER
+                    : InAppNotification::AUDIENCE_ADVERTISER,
+                'action_label' => 'View order',
+                'action_url' => $audience === 'publisher'
+                    ? route('publisher.tasks', [], false)
+                    : route('advertiser.orders', [
+                        'focus' => 'order',
+                        'order' => $order->id,
+                    ], false),
+                'meta' => [
+                    'order_id' => $order->id,
+                    'reference_code' => $order->reference_code,
+                    'kind' => $kind,
+                    'amount' => $amount,
+                    'payment_method' => 'paypal',
+                ],
+            ]
+        );
+    }
+
+    public function notifyAdminsPaypalExternalPayment(Order $order, string $kind, float $amount = 0.0): void
+    {
+        $orderLabel = $order->order_number ? '#'.$order->order_number : ('order '.$order->id);
+        $amountLabel = $amount >= 0.01 ? '€'.number_format($amount, 2).' ' : '';
+        $title = match ($kind) {
+            'partial_refund' => 'Partial PayPal refund '.$amountLabel.$orderLabel,
+            'reversed' => 'PayPal reversed '.$orderLabel,
+            'dispute_created' => 'PayPal dispute opened on '.$orderLabel,
+            'dispute_resolved' => 'PayPal dispute update on '.$orderLabel,
+            default => 'PayPal refunded completed order '.$orderLabel,
+        };
+
+        $this->notifyAdmins(
+            self::TYPE_PAYMENT_FAILED,
+            $title,
+            'Notice only — wallet and order status were not changed automatically.',
+            [
+                'roles' => ['admin'],
+                'category' => self::CATEGORY_PAYMENTS,
+                'icon' => 'alert-triangle',
+                'priority' => InAppNotification::PRIORITY_HIGH,
+                'related' => $order,
+                'action_label' => 'Review order',
+                'action_url' => route('admin.orders.show', $order->id, false),
+                'meta' => [
+                    'order_id' => $order->id,
+                    'reference_code' => $order->reference_code,
+                    'kind' => $kind,
+                    'amount' => $amount,
+                ],
+            ]
+        );
+    }
+
     public function notifyPaymentFailed(iterable $orders, ?string $reason = null): void
     {
         $orders = Collection::make($orders)->filter();

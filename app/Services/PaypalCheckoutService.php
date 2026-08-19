@@ -388,7 +388,11 @@ class PaypalCheckoutService
     public function refundFromWebhookEvent(array $event): ?array
     {
         $type = strtoupper((string) ($event['event_type'] ?? ''));
-        if ($type !== 'PAYMENT.CAPTURE.REFUNDED') {
+        if (! in_array($type, [
+            'PAYMENT.CAPTURE.REFUNDED',
+            'PAYMENT.CAPTURE.REVERSED',
+            'CHECKOUT.PAYMENT-APPROVAL.REVERSED',
+        ], true)) {
             return null;
         }
 
