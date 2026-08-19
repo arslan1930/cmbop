@@ -81,7 +81,7 @@
             <div class="card border-0 shadow-sm">
                 <div class="card-body d-flex justify-content-between">
                     <div>
-                        <span class="text-muted small">Can Withdraw</span>
+                        <span class="text-muted small">Withdrawable</span>
                         <h3 class="mb-1 fw-bold" style="color: var(--brand-primary, #1a585e);">€{{ number_format($availableBalance, 2) }}</h3>
                         <p class="text-muted small mb-0">Money you can cash out</p>
                     </div>
@@ -91,34 +91,52 @@
                 </div>
             </div>
         </div>
-        <div class="col-md-4">
-            <div class="card border-0 shadow-sm">
-                <div class="card-body d-flex justify-content-between">
-                    <div>
-                        <span class="text-muted small">Free Credit</span>
-                        <h3 class="mb-1 fw-bold">€{{ number_format($bonusBalance, 2) }}</h3>
-                        <p class="text-muted small mb-0">For orders only — not cash</p>
-                    </div>
-                    <div class="rounded-3 d-flex align-items-center justify-content-center" style="width:44px;height:44px;background:#f1f5f9;color: var(--brand-ink-muted, #75787B);border:1px solid #e2e8f0;">
-                        <i class="fa fa-gift"></i>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-4">
-            <div class="card border-0 shadow-sm">
-                <div class="card-body d-flex justify-content-between">
-                    <div>
-                        <span class="text-muted small">On Hold</span>
-                        <h3 class="mb-1 fw-bold">€{{ number_format($reservedBalance, 2) }}</h3>
-                        <p class="text-muted small mb-0">Locked for open orders</p>
-                    </div>
-                    <div class="rounded-3 d-flex align-items-center justify-content-center" style="width:44px;height:44px;background:#fff;color:#1e293b;border:1px solid #e2e8f0;">
-                        <i class="fa fa-lock"></i>
+        @if($bonusBalance > 0)
+            <div class="col-md-4">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-body d-flex justify-content-between">
+                        <div>
+                            <div class="d-flex align-items-center gap-1">
+                                <span class="text-muted small">Bonus</span>
+                                <x-glass-tip
+                                    title="Bonus"
+                                    body="{{ $promotionalBonusMessage }}"
+                                    label="About bonus credit"
+                                    placement="top" />
+                            </div>
+                            <h3 class="mb-1 fw-bold">€{{ number_format($bonusBalance, 2) }}</h3>
+                            <p class="text-muted small mb-0">Purchases only — cannot withdraw</p>
+                        </div>
+                        <div class="rounded-3 d-flex align-items-center justify-content-center" style="width:44px;height:44px;background:#f1f5f9;color: var(--brand-ink-muted, #75787B);border:1px solid #e2e8f0;">
+                            <i class="fa fa-gift"></i>
+                        </div>
                     </div>
                 </div>
             </div>
-        </div>
+        @endif
+        @if($reservedBalance > 0)
+            <div class="col-md-4">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-body d-flex justify-content-between">
+                        <div>
+                            <div class="d-flex align-items-center gap-1">
+                                <span class="text-muted small">On hold</span>
+                                <x-glass-tip
+                                    title="On hold"
+                                    body="Amounts on hold have already left this total. They are not withdrawable cash."
+                                    label="About amounts on hold"
+                                    placement="top" />
+                            </div>
+                            <h3 class="mb-1 fw-bold">€{{ number_format($reservedBalance, 2) }}</h3>
+                            <p class="text-muted small mb-0">Already left withdrawable</p>
+                        </div>
+                        <div class="rounded-3 d-flex align-items-center justify-content-center" style="width:44px;height:44px;background:#fff;color:#1e293b;border:1px solid #e2e8f0;">
+                            <i class="fa fa-lock"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        @endif
     </div>
 
     @if($platformChargePercent > 0)
