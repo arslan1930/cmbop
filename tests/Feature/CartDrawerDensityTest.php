@@ -88,6 +88,9 @@ class CartDrawerDensityTest extends TestCase
         $this->assertStringContainsString('.cart-totals__held', $css);
         $this->assertStringContainsString('.cart-schedule-hint', $css);
         $this->assertStringContainsString('width: min(420px, 94vw)', $css);
+        $this->assertStringContainsString('max-height: 100vh', $css);
+        $this->assertStringContainsString('flex: 1 1 auto', $css);
+        $this->assertDoesNotMatchRegularExpression('/^\s*height:\s*100vh;/m', $css);
 
         $this->assertStringNotContainsString('.cart-checklist', $stepper);
         $this->assertStringNotContainsString('#checkoutFromCart:disabled', $stepper);
