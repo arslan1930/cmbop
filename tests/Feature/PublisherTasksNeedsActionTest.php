@@ -129,6 +129,58 @@ class PublisherTasksNeedsActionTest extends TestCase
             ->assertJsonPath('order_item_id', $item->id);
     }
 
+    public function test_locate_uses_order_item_id_for_sibling_cart_rows(): void
+    {
+        $advertiserRole = Role::firstOrCreate(['name' => 'advertiser']);
+        $advertiser = User::factory()->create([
+            'email_verified_at' => now(),
+            'active_role_id' => $advertiserRole->id,
+        ]);
+        $advertiser->roles()->attach($advertiserRole->id);
+
+        $order = Order::create([
+            'user_id' => $advertiser->id,
+            'order_number' => 'SIB-'.uniqid(),
+            'subtotal' => 100,
+            'total_amount' => 100,
+            'payment_method' => 'card',
+            'payment_status' => 'paid',
+            'status' => 'pending',
+            'paid_at' => now(),
+        ]);
+
+        $first = OrderItem::create([
+            'order_id' => $order->id,
+            'site_id' => $this->site->id,
+            'site_name' => $this->site->site_name,
+            'site_url' => $this->site->site_url,
+            'content_link' => 'https://docs.example/first',
+            'price' => 50,
+        ]);
+        $second = OrderItem::create([
+            'order_id' => $order->id,
+            'site_id' => $this->site->id,
+            'site_name' => $this->site->site_name,
+            'site_url' => $this->site->site_url,
+            'content_link' => 'https://docs.example/second',
+            'price' => 50,
+        ]);
+        $this->assertGreaterThan($first->id, $second->id);
+
+        $this->actingAs($this->publisher)
+            ->getJson(route('publisher.orders.locate', ['order_id' => $order->id]))
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('order_item_id', $first->id);
+
+        $this->actingAs($this->publisher)
+            ->getJson(route('publisher.orders.locate', ['order_item_id' => $second->id]))
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('order_item_id', $second->id)
+            ->assertJsonPath('order_id', $order->id);
+    }
+
     public function test_tasks_page_uses_safe_chat_buttons_and_colspan_eight(): void
     {
         $blade = file_get_contents(resource_path('views/publisher/tasks.blade.php'));
@@ -138,6 +190,15 @@ class PublisherTasksNeedsActionTest extends TestCase
         $this->assertStringNotContainsString('colspan="9"', $blade);
         $this->assertStringContainsString("Showing ' + from", $blade);
         $this->assertStringContainsString('do not enable macros', $blade);
+        $this->assertStringContainsString('function publisherTasksOverlayOpen', $blade);
+        $this->assertStringContainsString("classList.contains('show')", $blade);
+        $this->assertStringContainsString('if (publisherTasksOverlayOpen())', $blade);
+        $this->assertStringContainsString('function openTaskDetailsForOrder(orderId, payload)', $blade);
+        $this->assertStringContainsString('payload.order_item_id', $blade);
+        $this->assertStringContainsString('locateQuery.order_item_id', $blade);
+        $this->assertStringContainsString('chatModal', $blade);
+        $this->assertStringContainsString('publisherOrderChat', $blade);
+        $this->assertStringContainsString('!window._publisherTasksByOrderId[String(item.order_id)]', $blade);
     }
 
     public function test_tasks_empty_states_distinguish_filters_and_needs_you(): void
@@ -149,8 +210,10 @@ class PublisherTasksNeedsActionTest extends TestCase
         $this->assertStringContainsString('caught up', $blade);
         $this->assertStringContainsString('emptyResetFilters', $blade);
         $this->assertStringContainsString('emptyShowAllTasks', $blade);
-        $this->assertStringContainsString('needsYouEmpty', $blade);
+        $this->assertStringContainsString('needsYouOnly', $blade);
         $this->assertStringContainsString('filteredEmpty', $blade);
+        $this->assertStringContainsString('function tasksSearchOrDateFiltersAreActive', $blade);
+        $this->assertStringContainsString('needsActionOn && !extraFiltersOn', $blade);
         $caughtAt = strpos($blade, 'caught up');
         $yetAt = strpos($blade, 'No tasks yet');
         $this->assertNotFalse($caughtAt);

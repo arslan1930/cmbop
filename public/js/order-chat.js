@@ -389,9 +389,10 @@
     var orderId = params.get('order');
 
     if (focus === 'order' && orderId) {
+      var itemId = params.get('order_item_id');
       this.clearFocusParams();
       if (typeof this.config.onFocusOrder === 'function') {
-        this.config.onFocusOrder(orderId);
+        this.config.onFocusOrder(orderId, itemId ? { order_item_id: itemId } : undefined);
       }
       return;
     }
