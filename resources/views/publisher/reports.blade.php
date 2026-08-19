@@ -28,7 +28,9 @@
      data-order-details-template="{{ route('publisher.reports.order.details', ['orderItemId' => '__ID__'], absolute: false) }}"
      data-withdrawals-url="{{ route('publisher.reports.withdrawals', absolute: false) }}"
      data-withdraw-url="{{ route('publisher.withdraw', absolute: false) }}"
-     data-tasks-url="{{ route('publisher.tasks', absolute: false) }}">
+     data-tasks-url="{{ route('publisher.tasks', absolute: false) }}"
+     data-orders-export-url="{{ route('publisher.reports.orders.export', absolute: false) }}"
+     data-withdrawals-export-url="{{ route('publisher.reports.withdrawals.export', absolute: false) }}">
 
     <div class="row mb-4">
         <div class="col-md-12">
@@ -137,6 +139,7 @@
                         <div>
                             <div class="fw-semibold"><i class="fa fa-shopping-cart me-2"></i><span id="ordersTabTitle">Orders</span></div>
                             <small class="text-muted" id="ordersResultsCount"></small>
+                            <div class="text-muted small">CSV export is capped at 2,000 rows.</div>
                         </div>
                         <form id="ordersFilters" class="row g-2 align-items-end">
                             <div class="col-auto">
@@ -161,6 +164,9 @@
                             </div>
                             <div class="col-auto">
                                 <button type="submit" class="btn btn-sm btn-primary">Apply</button>
+                            </div>
+                            <div class="col-auto">
+                                <a href="#" id="ordersExportCsv" class="btn btn-sm btn-outline-secondary">Download CSV</a>
                             </div>
                         </form>
                     </div>
@@ -206,6 +212,7 @@
                         <div>
                             <div class="fw-semibold"><i class="fa fa-download me-2"></i><span id="withdrawalsTabTitle">Withdrawals</span></div>
                             <small class="text-muted" id="withdrawalsResultsCount"></small>
+                            <div class="text-muted small">CSV export is capped at 2,000 rows.</div>
                         </div>
                         <form id="withdrawalsFilters" class="row g-2 align-items-end">
                             <div class="col-auto">
@@ -228,6 +235,9 @@
                             </div>
                             <div class="col-auto">
                                 <button type="submit" class="btn btn-sm btn-primary">Apply</button>
+                            </div>
+                            <div class="col-auto">
+                                <a href="#" id="withdrawalsExportCsv" class="btn btn-sm btn-outline-secondary">Download CSV</a>
                             </div>
                         </form>
                     </div>

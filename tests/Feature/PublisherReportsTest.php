@@ -13,6 +13,7 @@ use App\Models\Wallet;
 use App\Models\Withdrawal;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Route;
 use Tests\TestCase;
 
 class PublisherReportsTest extends TestCase
@@ -126,6 +127,9 @@ class PublisherReportsTest extends TestCase
             ->assertSee(route('publisher.tasks', absolute: false), false)
             ->assertSee('Available to Withdraw', false)
             ->assertSee('Lifetime', false)
+            ->assertSee('Download CSV', false)
+            ->assertSee(route('publisher.reports.orders.export', absolute: false), false)
+            ->assertSee(route('publisher.reports.withdrawals.export', absolute: false), false)
             ->assertSee('Pending payout', false)
             ->assertSee('id="pendingPayout"', false)
             ->assertSee('id="availableNote"', false)
@@ -162,6 +166,101 @@ class PublisherReportsTest extends TestCase
         $this->assertMatchesRegularExpression('/class="nav-link active"[^>]*id="withdrawals-tab"/', $html);
         $this->assertDoesNotMatchRegularExpression('/class="nav-link active"[^>]*id="orders-tab"/', $html);
         $this->assertMatchesRegularExpression('/id="withdrawalsStatus"[\s\S]*<option value="pending"[^>]*selected/', $html);
+    }
+
+    public function test_orders_csv_matches_completed_list_scope(): void
+    {
+        $publisher = $this->publisher();
+        $advertiser = $this->advertiser();
+        $site = $this->site($publisher);
+
+        $kept = $this->createOrderItem($advertiser, $site, ['status' => 'completed'], [
+            'price' => 115,
+            'additional_price' => 0,
+        ]);
+        $clawed = $this->createOrderItem($advertiser, $site, ['status' => 'completed']);
+        $this->upholdClawback($clawed);
+        $this->createOrderItem($advertiser, $site, [
+            'status' => 'completed',
+            'payment_status' => 'pending',
+            'paid_at' => null,
+        ]);
+
+        $csv = $this->actingAs($publisher)
+            ->get(route('publisher.reports.orders.export', ['status' => 'completed']))
+            ->assertOk()
+            ->streamedContent();
+
+        $this->assertStringContainsString('Completed,Site,Base,Sensitive,Homepage,Payout,Status', $csv);
+        $this->assertStringContainsString((string) $kept->order->order_number, $csv);
+        $this->assertStringContainsString('100.00', $csv);
+        $this->assertStringNotContainsString((string) $clawed->order->order_number, $csv);
+    }
+
+    public function test_withdrawals_csv_includes_completed_publisher_row(): void
+    {
+        $publisher = $this->publisher();
+        $wallet = Wallet::forPublisher((int) $publisher->id);
+        $withdrawal = Withdrawal::create(array_merge([
+            'user_id' => $publisher->id,
+            'amount' => 25,
+            'fee' => 1.25,
+            'net_amount' => 23.75,
+            'payment_method' => 'paypal',
+            'payment_details' => ['paypal_email' => 'pay@example.com'],
+            'status' => 'completed',
+            'processed_at' => now(),
+        ], Withdrawal::walletIdAttributes($wallet)));
+        $statement = Invoice::create([
+            'invoice_number' => 'PAY-2026-000301',
+            'type' => Invoice::TYPE_WITHDRAWAL_PAYOUT,
+            'status' => Invoice::STATUS_PAID,
+            'user_id' => $publisher->id,
+            'reference_code' => 'WD-'.$withdrawal->id,
+            'transaction_id' => 'WD-'.$withdrawal->id,
+            'currency' => 'EUR',
+            'subtotal' => 25,
+            'tax_amount' => 0,
+            'discount_amount' => 1.25,
+            'total_amount' => 23.75,
+            'payment_method' => 'paypal',
+            'invoice_date' => now(),
+            'customer_name' => $publisher->name,
+            'customer_email' => $publisher->email,
+            'line_items' => [],
+            'pdf_disk' => 'local',
+            'meta' => ['withdrawal_id' => $withdrawal->id],
+        ]);
+
+        $csv = $this->actingAs($publisher)
+            ->get(route('publisher.reports.withdrawals.export', ['status' => 'completed']))
+            ->assertOk()
+            ->streamedContent();
+
+        $this->assertStringContainsString('Date,Reference,Gross,Fee,Net,Method,Status,Statement', $csv);
+        $this->assertStringContainsString('WD-'.$withdrawal->id, $csv);
+        $this->assertStringContainsString('PayPal', $csv);
+        $this->assertStringContainsString(route('publisher.billing.show', $statement, false), $csv);
+        $this->assertStringNotContainsString('paypal', strtolower(str_replace('PayPal', '', $csv)));
+    }
+
+    public function test_reports_export_is_throttled_and_guests_are_redirected(): void
+    {
+        $orders = Route::getRoutes()->getByName('publisher.reports.orders.export');
+        $withdrawals = Route::getRoutes()->getByName('publisher.reports.withdrawals.export');
+        $this->assertNotNull($orders);
+        $this->assertNotNull($withdrawals);
+        $this->assertTrue(collect($orders->gatherMiddleware())->contains(
+            fn ($middleware) => is_string($middleware) && str_contains($middleware, 'throttle')
+        ));
+        $this->assertTrue(collect($withdrawals->gatherMiddleware())->contains(
+            fn ($middleware) => is_string($middleware) && str_contains($middleware, 'throttle')
+        ));
+
+        $this->get(route('publisher.reports.orders.export'))
+            ->assertRedirect();
+        $this->get(route('publisher.reports.withdrawals.export'))
+            ->assertRedirect();
     }
 
     public function test_statistics_use_publisher_payout_and_net_withdrawn(): void
@@ -910,6 +1009,8 @@ class PublisherReportsTest extends TestCase
         $this->assertStringContainsString('o_status', $js);
         $this->assertStringContainsString('w_status', $js);
         $this->assertStringContainsString('normalizeDatePair', $js);
+        $this->assertStringContainsString('ordersExport', $js);
+        $this->assertStringContainsString('Download CSV', file_get_contents(resource_path('views/publisher/reports.blade.php')));
         $this->assertStringContainsString('item.completed_at', $js);
         $this->assertStringContainsString('item.homepage_price', $js);
         $this->assertStringContainsString('item.price - additionalPrice - homepagePrice', $js);

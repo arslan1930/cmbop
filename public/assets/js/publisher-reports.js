@@ -13,6 +13,8 @@
         orderDetailsTemplate: root.dataset.orderDetailsTemplate,
         withdrawals: root.dataset.withdrawalsUrl,
         withdraw: root.dataset.withdrawUrl,
+        ordersExport: root.dataset.ordersExportUrl,
+        withdrawalsExport: root.dataset.withdrawalsExportUrl,
     };
 
     function orderDetailsUrl(id) {
@@ -207,6 +209,14 @@
         if (window.history && window.history.replaceState) {
             window.history.replaceState({}, '', next);
         }
+    }
+
+    function exportUrl(base, params) {
+        const qs = new URLSearchParams();
+        if (params.status) qs.set('status', params.status);
+        if (params.date_from) qs.set('date_from', params.date_from);
+        if (params.date_to) qs.set('date_to', params.date_to);
+        return String(base || '') + (qs.toString() ? '?' + qs.toString() : '');
     }
 
     function applyQueryToControls() {
@@ -547,6 +557,17 @@
         $(document).on('click', '.btn-view-order', function () {
             const id = $(this).data('id');
             if (id) viewOrderDetails(id);
+        });
+
+        $('#ordersExportCsv').on('click', function (e) {
+            e.preventDefault();
+            normalizeDatePair($('#ordersDateFrom'), $('#ordersDateTo'));
+            window.location.href = exportUrl(urls.ordersExport, ordersFilterParams(1));
+        });
+        $('#withdrawalsExportCsv').on('click', function (e) {
+            e.preventDefault();
+            normalizeDatePair($('#withdrawalsDateFrom'), $('#withdrawalsDateTo'));
+            window.location.href = exportUrl(urls.withdrawalsExport, withdrawalsFilterParams(1));
         });
     });
 })();
