@@ -547,6 +547,9 @@ class PublisherWithdrawHardeningTest extends TestCase
             ->getContent();
 
         $this->assertStringContainsString('Withdrawable', $html);
+        $this->assertStringContainsString('Pending payout', $html);
+        $this->assertStringContainsString('Paid out', $html);
+        $this->assertStringNotContainsString('is already reserved for open requests', $html);
         $this->assertStringNotContainsString('Locked for open orders', $html);
         $this->assertStringNotContainsString('Free Credit', $html);
         $this->assertStringNotContainsString('>On hold<', $html);
@@ -584,5 +587,61 @@ class PublisherWithdrawHardeningTest extends TestCase
         $this->assertStringContainsString(Wallet::PROMOTIONAL_BONUS_MESSAGE, $html);
         $this->assertStringNotContainsString('Free Credit', $html);
         $this->assertStringNotContainsString('On hold', $html);
+    }
+
+    public function test_withdraw_page_shows_pending_payout_and_lifetime_paid(): void
+    {
+        $publisher = $this->publisher(100);
+        $wallet = Wallet::forPublisher((int) $publisher->id);
+
+        $this->actingAs($publisher)
+            ->postJson(route('publisher.withdraw.request'), [
+                'amount' => 40,
+                'payment_method' => 'paypal',
+                'paypal_email' => 'pay@example.com',
+                'paypal_email_confirm' => 'pay@example.com',
+                'details_confirmed' => '1',
+            ])
+            ->assertOk()
+            ->assertJsonPath('success', true);
+
+        Withdrawal::create(array_merge([
+            'user_id' => $publisher->id,
+            'amount' => 50,
+            'fee' => 5,
+            'net_amount' => 45,
+            'payment_method' => 'paypal',
+            'payment_details' => ['email' => 'paid@example.com'],
+            'status' => 'completed',
+        ], Withdrawal::walletIdAttributes($wallet)));
+
+        $html = $this->actingAs($publisher)
+            ->get(route('publisher.withdraw'))
+            ->assertOk()
+            ->getContent();
+
+        $this->assertMatchesRegularExpression(
+            '/Withdrawable<\/span>\s*<h3[^>]*>€60\.00<\/h3>/',
+            $html
+        );
+        $this->assertMatchesRegularExpression(
+            '/Pending payout<\/span>\s*<h3[^>]*>€40\.00<\/h3>/',
+            $html
+        );
+        $this->assertMatchesRegularExpression(
+            '/Paid out<\/span>\s*<h3[^>]*>€45\.00<\/h3>/',
+            $html
+        );
+        $this->assertStringContainsString(
+            '€40.00 is already reserved for open requests',
+            $html
+        );
+
+        $this->actingAs($publisher)
+            ->getJson(route('publisher.withdrawals.statistics'))
+            ->assertOk()
+            ->assertJsonPath('data.pending_withdrawals', 40)
+            ->assertJsonPath('data.total_withdrawn', 45)
+            ->assertJsonPath('data.withdrawal_count', 2);
     }
 }

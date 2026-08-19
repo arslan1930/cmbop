@@ -33,9 +33,29 @@ class WithdrawalController extends Controller
         return max(0.01, round((float) config('billing.withdrawal_min_amount', 20), 2));
     }
 
+    /**
+     * Publisher-wallet withdrawal totals. Pending uses gross (already deducted);
+     * lifetime paid uses net, same as Reports.
+     *
+     * @return array{pending_out: float, lifetime_withdrawn: float, withdrawal_count: int}
+     */
+    private function publisherWithdrawalStats($user): array
+    {
+        $query = Withdrawal::queryForPublisherUser($user);
+
+        return [
+            'pending_out' => round((float) (clone $query)->whereIn('status', ['pending', 'processing'])->sum('amount'), 2),
+            'lifetime_withdrawn' => round((float) (clone $query)->where('status', 'completed')->sum(
+                DB::raw('COALESCE(net_amount, amount)')
+            ), 2),
+            'withdrawal_count' => (int) (clone $query)->count(),
+        ];
+    }
+
     public function index()
     {
         $user = auth()->user();
+        $stats = $this->publisherWithdrawalStats($user);
 
         return view('publisher.withdraw', [
             'wallet' => Wallet::forPublisher((int) $user->id),
@@ -43,6 +63,8 @@ class WithdrawalController extends Controller
                 ->orderBy('created_at', 'desc')
                 ->limit(10)
                 ->get(),
+            'pendingOut' => $stats['pending_out'],
+            'lifetimeWithdrawn' => $stats['lifetime_withdrawn'],
             'platformChargePercent' => $this->platformChargePercent(),
             'minWithdrawalAmount' => $this->minWithdrawalAmount(),
             'payoutProfile' => $user->payoutProfile(),
@@ -318,24 +340,14 @@ class WithdrawalController extends Controller
         try {
             $user = auth()->user();
 
-            $publisherWithdrawals = Withdrawal::queryForPublisherUser($user);
-
-            $totalWithdrawn = (clone $publisherWithdrawals)
-                ->where('status', 'completed')
-                ->sum('net_amount');
-
-            $pendingWithdrawals = (clone $publisherWithdrawals)
-                ->whereIn('status', ['pending', 'processing'])
-                ->sum('amount');
-
-            $withdrawalCount = (clone $publisherWithdrawals)->count();
+            $stats = $this->publisherWithdrawalStats($user);
 
             return response()->json([
                 'success' => true,
                 'data' => [
-                    'total_withdrawn' => $totalWithdrawn,
-                    'pending_withdrawals' => $pendingWithdrawals,
-                    'withdrawal_count' => $withdrawalCount,
+                    'total_withdrawn' => $stats['lifetime_withdrawn'],
+                    'pending_withdrawals' => $stats['pending_out'],
+                    'withdrawal_count' => $stats['withdrawal_count'],
                 ],
             ]);
         } catch (\Exception $e) {

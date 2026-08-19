@@ -15,6 +15,8 @@
     $supportEmail = $supportEmail ?? config('email_notifications.brand.support_email', config('mail.from.address'));
     $platformChargePercent = (float) ($platformChargePercent ?? 0);
     $minWithdrawalAmount = (float) ($minWithdrawalAmount ?? 20);
+    $pendingOut = (float) ($pendingOut ?? 0);
+    $lifetimeWithdrawn = (float) ($lifetimeWithdrawn ?? 0);
     $formBlocked = $hasDebt || $availableBalance < $minWithdrawalAmount;
     $preferredMethod = $payoutProfile['preferred_method'] ?? null;
     $availableMethods = $availableMethods ?? app(\App\Services\Wallet\PayoutProfileService::class)->availableMethods(auth()->user());
@@ -91,6 +93,34 @@
                 </div>
             </div>
         </div>
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body d-flex justify-content-between">
+                    <div>
+                        <span class="text-muted small">Pending payout</span>
+                        <h3 class="mb-1 fw-bold">€{{ number_format($pendingOut, 2) }}</h3>
+                        <p class="text-muted small mb-0">Requested, not paid yet</p>
+                    </div>
+                    <div class="rounded-3 d-flex align-items-center justify-content-center" style="width:44px;height:44px;background:#fff;color:#1e293b;border:1px solid #e2e8f0;">
+                        <i class="fa fa-clock"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body d-flex justify-content-between">
+                    <div>
+                        <span class="text-muted small">Paid out</span>
+                        <h3 class="mb-1 fw-bold">€{{ number_format($lifetimeWithdrawn, 2) }}</h3>
+                        <p class="text-muted small mb-0">Completed withdrawals, after fees</p>
+                    </div>
+                    <div class="rounded-3 d-flex align-items-center justify-content-center" style="width:44px;height:44px;background:#fff;color:#1e293b;border:1px solid #e2e8f0;">
+                        <i class="fa fa-check"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
         @if($bonusBalance > 0)
             <div class="col-md-4">
                 <div class="card border-0 shadow-sm">
@@ -138,6 +168,15 @@
             </div>
         @endif
     </div>
+
+    @if($pendingOut > 0)
+        <div class="ui-callout ui-callout--info mb-4">
+            <span class="ui-callout__icon" aria-hidden="true"><i class="fa-solid fa-circle-info"></i></span>
+            <div class="ui-callout__body">
+                €{{ number_format($pendingOut, 2) }} is already reserved for open requests. Cancel a pending row to return it.
+            </div>
+        </div>
+    @endif
 
     @if($platformChargePercent > 0)
         <div class="ui-callout ui-callout--info mb-4">
