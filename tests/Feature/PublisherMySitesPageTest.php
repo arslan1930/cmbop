@@ -657,8 +657,9 @@ class PublisherMySitesPageTest extends TestCase
         $this->assertStringContainsString('window.setSitesStatusFilter', $html);
         $this->assertStringContainsString('syncSitesStatusUrl', $html);
         $this->assertStringContainsString('history.replaceState', $html);
-        $this->assertStringContainsString('.site-status-filter.is-active', $html);
+        $this->assertStringContainsString('site-status-filter is-active', $html);
         $css = file_get_contents(public_path('assets/css/publisher-websites.css'));
+        $this->assertStringContainsString('.site-status-filter.is-active', $css);
         $this->assertStringContainsString('background: #0f766e', $css);
 
         $gateEnd = strpos($js, '})(); // publisherWebsitesExternalBoot');
