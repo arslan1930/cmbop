@@ -338,6 +338,44 @@ class Invoice extends Model
     }
 
     /**
+     * Latest non-cancelled publisher PAY statement for each WD id.
+     * Advertiser-wallet cash-outs are excluded by queryPayoutsForPublisherUser.
+     *
+     * @param  list<int>  $withdrawalIds
+     * @return array<int, self>
+     */
+    public static function payoutStatementsByWithdrawalId(User $user, array $withdrawalIds): array
+    {
+        $withdrawalIds = array_values(array_unique(array_filter(
+            array_map(static fn ($id): int => (int) $id, $withdrawalIds),
+            static fn (int $id): bool => $id > 0
+        )));
+        if ($withdrawalIds === []) {
+            return [];
+        }
+
+        $refs = array_map(static fn (int $id): string => 'WD-'.$id, $withdrawalIds);
+
+        $rows = static::queryPayoutsForPublisherUser($user)
+            ->where(function (Builder $inner) use ($refs) {
+                $inner->whereIn('reference_code', $refs)
+                    ->orWhereIn('transaction_id', $refs);
+            })
+            ->orderByDesc('id')
+            ->get();
+
+        $map = [];
+        foreach ($rows as $invoice) {
+            $id = $invoice->withdrawalId();
+            if ($id && ! isset($map[$id])) {
+                $map[$id] = $invoice;
+            }
+        }
+
+        return $map;
+    }
+
+    /**
      * @return list<int>
      */
     public static function publisherPayoutWithdrawalIds(User $user): array

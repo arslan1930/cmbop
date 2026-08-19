@@ -107,7 +107,8 @@ class PublisherBillingWalletScopeTest extends TestCase
             ->getContent();
 
         $this->assertStringContainsString($publisherDoc->invoice_number, $html);
-        $this->assertStringContainsString('WD-'.$publisherPaid->id, $html);
+        $this->assertStringContainsString('>WD-'.$publisherPaid->id.'</a>', $html);
+        $this->assertStringContainsString(route('publisher.withdraw', absolute: false), $html);
         $this->assertStringNotContainsString($advertiserDoc->invoice_number, $html);
         $this->assertStringNotContainsString('WD-'.$advertiserPaid->id, $html);
     }
@@ -123,7 +124,10 @@ class PublisherBillingWalletScopeTest extends TestCase
         $this->actingAs($user)
             ->get(route('publisher.billing.show', $publisherDoc))
             ->assertOk()
-            ->assertSee($publisherDoc->invoice_number, false);
+            ->assertSee($publisherDoc->invoice_number, false)
+            ->assertSee(route('publisher.withdraw', absolute: false), false)
+            ->assertSee('WD-'.$publisherPaid->id, false)
+            ->assertSee('Open withdrawals', false);
 
         $this->actingAs($user)
             ->get(route('publisher.billing.show', $advertiserDoc))
@@ -169,7 +173,8 @@ class PublisherBillingWalletScopeTest extends TestCase
             ->getContent();
 
         $this->assertStringNotContainsString($doc->invoice_number, $html);
-        $this->assertStringContainsString('No payout statements yet', $html);
+        $this->assertStringContainsString('Statements appear after a payout is marked paid', $html);
+        $this->assertStringContainsString('In-flight requests are on', $html);
 
         $this->actingAs($user)
             ->get(route('publisher.billing.show', $doc))

@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\Invoice;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\OrderItemDispute;
@@ -384,7 +385,176 @@ class PublisherReportsTest extends TestCase
             ->assertJsonPath('data.0.amount', 25)
             ->assertJsonPath('data.0.fee', 1.25)
             ->assertJsonPath('data.0.net_amount', 23.75)
-            ->assertJsonPath('data.0.status_label', 'Paid');
+            ->assertJsonPath('data.0.status_label', 'Paid')
+            ->assertJsonPath('data.0.statement_url', null)
+            ->assertJsonPath('data.0.statement_pdf_url', null);
+    }
+
+    public function test_completed_publisher_withdrawal_links_payout_statement(): void
+    {
+        $publisher = $this->publisher();
+        $wallet = Wallet::forPublisher((int) $publisher->id);
+        $withdrawal = Withdrawal::create(array_merge([
+            'user_id' => $publisher->id,
+            'amount' => 25,
+            'fee' => 1.25,
+            'net_amount' => 23.75,
+            'payment_method' => 'paypal',
+            'payment_details' => ['paypal_email' => 'pay@example.com'],
+            'status' => 'completed',
+            'processed_at' => now(),
+        ], Withdrawal::walletIdAttributes($wallet)));
+
+        $statement = Invoice::create([
+            'invoice_number' => 'PAY-2026-000101',
+            'type' => Invoice::TYPE_WITHDRAWAL_PAYOUT,
+            'status' => Invoice::STATUS_PAID,
+            'user_id' => $publisher->id,
+            'reference_code' => 'WD-'.$withdrawal->id,
+            'transaction_id' => 'WD-'.$withdrawal->id,
+            'currency' => 'EUR',
+            'subtotal' => 25,
+            'tax_amount' => 0,
+            'discount_amount' => 1.25,
+            'total_amount' => 23.75,
+            'payment_method' => 'paypal',
+            'invoice_date' => now(),
+            'customer_name' => $publisher->name,
+            'customer_email' => $publisher->email,
+            'line_items' => [],
+            'pdf_disk' => 'local',
+            'meta' => ['withdrawal_id' => $withdrawal->id],
+        ]);
+
+        $this->actingAs($publisher)
+            ->getJson(route('publisher.reports.withdrawals', ['status' => 'completed']))
+            ->assertOk()
+            ->assertJsonPath('data.0.id', $withdrawal->id)
+            ->assertJsonPath('data.0.statement_url', route('publisher.billing.show', $statement, false))
+            ->assertJsonPath('data.0.statement_pdf_url', route('publisher.billing.view', $statement, false));
+    }
+
+    public function test_pending_withdrawal_has_no_statement_link(): void
+    {
+        $publisher = $this->publisher();
+        Withdrawal::create([
+            'user_id' => $publisher->id,
+            'amount' => 25,
+            'fee' => 1.25,
+            'net_amount' => 23.75,
+            'payment_method' => 'paypal',
+            'payment_details' => ['paypal_email' => 'pay@example.com'],
+            'status' => 'pending',
+        ]);
+
+        $this->actingAs($publisher)
+            ->getJson(route('publisher.reports.withdrawals', ['status' => 'pending']))
+            ->assertOk()
+            ->assertJsonPath('data.0.statement_url', null)
+            ->assertJsonPath('data.0.statement_pdf_url', null);
+    }
+
+    public function test_advertiser_wallet_statement_is_not_linked_on_reports(): void
+    {
+        $publisherRole = Role::firstOrCreate(['name' => 'publisher']);
+        $advertiserRole = Role::firstOrCreate(['name' => 'advertiser']);
+        $user = User::factory()->create([
+            'email_verified_at' => now(),
+            'active_role_id' => $publisherRole->id,
+        ]);
+        $user->roles()->attach([$publisherRole->id, $advertiserRole->id]);
+
+        $publisherWallet = Wallet::create([
+            'user_id' => $user->id,
+            'role_id' => $publisherRole->id,
+            'balance' => 80,
+            'bonus_balance' => 0,
+            'reserved_balance' => 0,
+            'currency' => 'EUR',
+        ]);
+        $advertiserWallet = Wallet::create([
+            'user_id' => $user->id,
+            'role_id' => $advertiserRole->id,
+            'balance' => 50,
+            'bonus_balance' => 0,
+            'reserved_balance' => 0,
+            'currency' => 'EUR',
+        ]);
+
+        $publisherPaid = Withdrawal::create(array_merge([
+            'user_id' => $user->id,
+            'amount' => 25,
+            'fee' => 0,
+            'net_amount' => 25,
+            'payment_method' => 'paypal',
+            'payment_details' => ['email' => 'pay@example.com'],
+            'status' => 'completed',
+            'processed_at' => now(),
+        ], Withdrawal::walletIdAttributes($publisherWallet)));
+        $advertiserPaid = Withdrawal::create(array_merge([
+            'user_id' => $user->id,
+            'amount' => 100,
+            'fee' => 0,
+            'net_amount' => 100,
+            'payment_method' => 'paypal',
+            'payment_details' => ['email' => 'adv@example.com'],
+            'status' => 'completed',
+            'processed_at' => now(),
+        ], Withdrawal::walletIdAttributes($advertiserWallet)));
+
+        $publisherDoc = Invoice::create([
+            'invoice_number' => 'PAY-2026-000201',
+            'type' => Invoice::TYPE_WITHDRAWAL_PAYOUT,
+            'status' => Invoice::STATUS_PAID,
+            'user_id' => $user->id,
+            'reference_code' => 'WD-'.$publisherPaid->id,
+            'transaction_id' => 'WD-'.$publisherPaid->id,
+            'currency' => 'EUR',
+            'subtotal' => 25,
+            'tax_amount' => 0,
+            'discount_amount' => 0,
+            'total_amount' => 25,
+            'payment_method' => 'paypal',
+            'invoice_date' => now(),
+            'customer_name' => $user->name,
+            'customer_email' => $user->email,
+            'line_items' => [],
+            'pdf_disk' => 'local',
+            'meta' => ['withdrawal_id' => $publisherPaid->id],
+        ]);
+        Invoice::create([
+            'invoice_number' => 'PAY-2026-000202',
+            'type' => Invoice::TYPE_WITHDRAWAL_PAYOUT,
+            'status' => Invoice::STATUS_PAID,
+            'user_id' => $user->id,
+            'reference_code' => 'WD-'.$advertiserPaid->id,
+            'transaction_id' => 'WD-'.$advertiserPaid->id,
+            'currency' => 'EUR',
+            'subtotal' => 100,
+            'tax_amount' => 0,
+            'discount_amount' => 0,
+            'total_amount' => 100,
+            'payment_method' => 'paypal',
+            'invoice_date' => now(),
+            'customer_name' => $user->name,
+            'customer_email' => $user->email,
+            'line_items' => [],
+            'pdf_disk' => 'local',
+            'meta' => ['withdrawal_id' => $advertiserPaid->id],
+        ]);
+
+        $rows = $this->actingAs($user->fresh())
+            ->getJson(route('publisher.reports.withdrawals', ['status' => 'completed']))
+            ->assertOk()
+            ->json('data');
+
+        $byId = collect($rows)->keyBy('id');
+        $this->assertSame(
+            route('publisher.billing.show', $publisherDoc, false),
+            $byId[$publisherPaid->id]['statement_url']
+        );
+        $this->assertNull($byId[$advertiserPaid->id]['statement_url']);
+        $this->assertNull($byId[$advertiserPaid->id]['statement_pdf_url']);
     }
 
     public function test_withdrawals_ok_when_processed_at_is_unparseable(): void
