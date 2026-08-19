@@ -59,6 +59,11 @@
                         <h6 class="text-muted mb-1">Total Withdrawn</h6>
                         <h3 class="mb-0" id="totalWithdrawn" style="color: #ef4444;">€0.00</h3>
                         <div class="text-muted small mt-1" id="withdrawnFeesHint"></div>
+                        <div class="text-muted small mt-1">
+                            Pending payout: <span id="pendingPayout">€0.00</span>
+                            ·
+                            <a href="{{ route('publisher.withdraw') }}">Withdraw</a>
+                        </div>
                     </div>
                     <div class="bg-danger bg-opacity-10 p-3 rounded-circle">
                         <i class="fa fa-download fa-2x text-danger"></i>
@@ -72,7 +77,9 @@
                     <div>
                         <h6 class="text-muted mb-1">Available to Withdraw</h6>
                         <h3 class="mb-0" id="availableToWithdraw">€0.00</h3>
-                        <a href="{{ route('publisher.withdraw') }}" class="small">Go to Withdraw</a>
+                        <div class="small mt-1" id="availableNote">
+                            <a href="{{ route('publisher.withdraw') }}">Go to Withdraw</a>
+                        </div>
                     </div>
                     <div class="bg-info bg-opacity-10 p-3 rounded-circle">
                         <i class="fa fa-wallet fa-2x text-info"></i>
@@ -324,6 +331,7 @@
         orders: root.dataset.ordersUrl,
         orderDetailsTemplate: root.dataset.orderDetailsTemplate,
         withdrawals: root.dataset.withdrawalsUrl,
+        withdraw: root.dataset.withdrawUrl,
     };
 
     function orderDetailsUrl(id) {
@@ -432,8 +440,26 @@
                 $('#openOrders').text(d.open_orders != null ? d.open_orders : (d.pending_orders || 0));
                 $('#totalWithdrawn').html('<span style="color:#ef4444;">- €' + money(d.total_withdrawn) + '</span>');
                 $('#availableToWithdraw').text('€' + money(d.available_to_withdraw));
+                $('#pendingPayout').text('€' + money(d.pending_payout));
                 const fees = parseFloat(d.total_withdrawal_fees || 0);
                 $('#withdrawnFeesHint').text(fees > 0 ? ('Fees paid: €' + money(fees) + ' · net received') : 'Net received');
+                const withdrawHref = urls.withdraw || '#';
+                const debt = parseFloat(d.debt_balance || 0);
+                const minWithdrawal = parseFloat(d.min_withdrawal_amount || 20);
+                const available = parseFloat(d.available_to_withdraw || 0);
+                if (debt > 0) {
+                    $('#availableNote').html(
+                        'Outstanding clawback debt €' + money(debt)
+                        + ' — withdrawals are blocked. <a href="' + withdrawHref + '">Withdraw</a>'
+                    );
+                } else if (available < minWithdrawal) {
+                    $('#availableNote').html(
+                        'Minimum payout €' + money(minWithdrawal)
+                        + '. <a href="' + withdrawHref + '">Withdraw</a>'
+                    );
+                } else {
+                    $('#availableNote').html('<a href="' + withdrawHref + '">Go to Withdraw</a>');
+                }
             },
             error: function (xhr) {
                 if (typeof slbHandleHttpError === 'function') {

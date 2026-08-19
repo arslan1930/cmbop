@@ -14,7 +14,6 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Validator;
 
 class PublisherReportsController extends Controller
@@ -80,10 +79,17 @@ class PublisherReportsController extends Controller
             $totalWithdrawnGross = (float) (clone $completedWithdrawals)->sum('amount');
             $totalWithdrawalFees = round(max(0, $totalWithdrawnGross - $totalWithdrawnNet), 2);
 
-            $availableToWithdraw = 0.0;
-            $wallet = $this->publisherWallet($user);
-            if ($wallet) {
-                $availableToWithdraw = round($wallet->withdrawableBalance(), 2);
+            $wallet = Wallet::forPublisher((int) $user->id);
+            $availableToWithdraw = $wallet ? round($wallet->withdrawableBalance(), 2) : 0.0;
+            $debtBalance = $wallet ? $wallet->debtBalance() : 0.0;
+            $minWithdrawalAmount = max(0.01, round((float) config('billing.withdrawal_min_amount', 20), 2));
+
+            $pendingPayout = 0.0;
+            $payoutIds = Invoice::publisherPayoutWithdrawalIds($user);
+            if ($payoutIds !== []) {
+                $pendingPayout = (float) Withdrawal::whereIn('id', $payoutIds)
+                    ->whereIn('status', ['pending', 'processing'])
+                    ->sum('amount');
             }
 
             return response()->json([
@@ -96,6 +102,9 @@ class PublisherReportsController extends Controller
                     'total_withdrawn' => round($totalWithdrawnNet, 2),
                     'total_withdrawn_gross' => round($totalWithdrawnGross, 2),
                     'total_withdrawal_fees' => $totalWithdrawalFees,
+                    'pending_payout' => round($pendingPayout, 2),
+                    'debt_balance' => round($debtBalance, 2),
+                    'min_withdrawal_amount' => $minWithdrawalAmount,
                     'available_to_withdraw' => $availableToWithdraw,
                 ],
             ]);
@@ -264,27 +273,6 @@ class PublisherReportsController extends Controller
                 'message' => UserFacingError::message($e, 'Failed to fetch withdrawals. Please try again.'),
             ], 500);
         }
-    }
-
-    private function publisherWallet($user): ?Wallet
-    {
-        if (! $user) {
-            return null;
-        }
-
-        if (method_exists($user, 'activeWallet')) {
-            $wallet = $user->activeWallet();
-            if ($wallet) {
-                return $wallet;
-            }
-        }
-
-        $query = Wallet::where('user_id', $user->id);
-        if (Schema::hasColumn('wallets', 'role_id') && $user->active_role_id) {
-            $query->where('role_id', $user->active_role_id);
-        }
-
-        return $query->first();
     }
 
     /**

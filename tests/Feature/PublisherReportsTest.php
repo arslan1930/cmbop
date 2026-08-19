@@ -123,6 +123,9 @@ class PublisherReportsTest extends TestCase
             ->assertSee(route('publisher.reports.statistics', absolute: false), false)
             ->assertSee(route('publisher.tasks', absolute: false), false)
             ->assertSee('Available to Withdraw', false)
+            ->assertSee('Pending payout', false)
+            ->assertSee('id="pendingPayout"', false)
+            ->assertSee('id="availableNote"', false)
             ->assertSee('id="ordersPayoutHeading"', false)
             ->assertSee('You earned', false)
             ->assertSee('Homepage', false)
@@ -186,10 +189,95 @@ class PublisherReportsTest extends TestCase
             ->assertJsonPath('data.completed_orders', 1)
             ->assertJsonPath('data.pending_orders', 1)
             ->assertJsonPath('data.open_orders', 1)
+            ->assertJsonPath('data.pending_payout', 0)
+            ->assertJsonPath('data.debt_balance', 0)
+            ->assertJsonPath('data.min_withdrawal_amount', 20)
             ->assertJsonPath('data.total_withdrawn', 38)
             ->assertJsonPath('data.total_withdrawn_gross', 40)
             ->assertJsonPath('data.total_withdrawal_fees', 2)
             ->assertJsonPath('data.available_to_withdraw', 50);
+    }
+
+    public function test_statistics_pending_payout_is_publisher_wallet_gross(): void
+    {
+        $publisherRole = Role::firstOrCreate(['name' => 'publisher']);
+        $advertiserRole = Role::firstOrCreate(['name' => 'advertiser']);
+        $user = User::factory()->create([
+            'email_verified_at' => now(),
+            'active_role_id' => $publisherRole->id,
+        ]);
+        $user->roles()->attach([$publisherRole->id, $advertiserRole->id]);
+
+        $publisherWallet = Wallet::create([
+            'user_id' => $user->id,
+            'role_id' => $publisherRole->id,
+            'balance' => 80,
+            'bonus_balance' => 0,
+            'reserved_balance' => 0,
+            'currency' => 'EUR',
+        ]);
+        $advertiserWallet = Wallet::create([
+            'user_id' => $user->id,
+            'role_id' => $advertiserRole->id,
+            'balance' => 50,
+            'bonus_balance' => 0,
+            'reserved_balance' => 0,
+            'currency' => 'EUR',
+        ]);
+
+        Withdrawal::create(array_merge([
+            'user_id' => $user->id,
+            'amount' => 30,
+            'fee' => 0,
+            'net_amount' => 30,
+            'payment_method' => 'paypal',
+            'payment_details' => ['email' => 'pay@example.com'],
+            'status' => 'pending',
+        ], Withdrawal::walletIdAttributes($publisherWallet)));
+        Withdrawal::create(array_merge([
+            'user_id' => $user->id,
+            'amount' => 12,
+            'fee' => 0,
+            'net_amount' => 12,
+            'payment_method' => 'paypal',
+            'payment_details' => ['email' => 'pay@example.com'],
+            'status' => 'processing',
+        ], Withdrawal::walletIdAttributes($publisherWallet)));
+        Withdrawal::create(array_merge([
+            'user_id' => $user->id,
+            'amount' => 100,
+            'fee' => 0,
+            'net_amount' => 100,
+            'payment_method' => 'paypal',
+            'payment_details' => ['email' => 'adv@example.com'],
+            'status' => 'pending',
+        ], Withdrawal::walletIdAttributes($advertiserWallet)));
+
+        $this->actingAs($user->fresh())
+            ->getJson(route('publisher.reports.statistics'))
+            ->assertOk()
+            ->assertJsonPath('data.pending_payout', 42)
+            ->assertJsonPath('data.available_to_withdraw', 80);
+    }
+
+    public function test_statistics_available_stays_withdrawable_when_in_debt(): void
+    {
+        $publisher = $this->publisher(50);
+        $wallet = Wallet::forPublisher((int) $publisher->id);
+        $this->assertNotNull($wallet);
+        $wallet->debt_balance = 12;
+        $wallet->save();
+
+        $this->actingAs($publisher)
+            ->getJson(route('publisher.reports.statistics'))
+            ->assertOk()
+            ->assertJsonPath('data.available_to_withdraw', 50)
+            ->assertJsonPath('data.debt_balance', 12);
+
+        $js = file_get_contents(resource_path('views/publisher/reports.blade.php'));
+        $this->assertStringContainsString('Outstanding clawback debt', $js);
+        $this->assertStringContainsString('Minimum payout', $js);
+        $this->assertStringContainsString('d.pending_payout', $js);
     }
 
     public function test_orders_list_exposes_payout_and_filters_status(): void
