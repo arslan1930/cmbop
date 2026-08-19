@@ -52,7 +52,13 @@
                         @forelse($documents as $doc)
                             <tr>
                                 <td class="fw-semibold">{{ $doc->invoice_number }}</td>
-                                <td class="small">{{ $doc->reference_code }}</td>
+                                <td class="small">
+                                    @if($doc->reference_code)
+                                        <a href="{{ route('publisher.withdraw') }}">{{ $doc->reference_code }}</a>
+                                    @else
+                                        —
+                                    @endif
+                                </td>
                                 <td class="small">{{ optional($doc->invoice_date)->format('M j, Y') }}</td>
                                 <td class="fw-semibold">€{{ number_format((float) $doc->total_amount, 2) }}</td>
                                 <td class="small">{{ \App\Models\Invoice::paymentMethodLabel($doc->payment_method) }}</td>
@@ -67,7 +73,8 @@
                         @empty
                             <tr>
                                 <td colspan="6" class="py-5 text-center text-muted">
-                                    No payout statements yet. They appear here after a withdrawal is marked paid.
+                                    Statements appear after a payout is marked paid. In-flight requests are on
+                                    <a href="{{ route('publisher.withdraw') }}">Withdraw</a>.
                                 </td>
                             </tr>
                         @endforelse

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Publisher;
 
 use App\Http\Controllers\Controller;
+use App\Models\Invoice;
 use App\Models\OrderItem;
 use App\Models\Site;
 use App\Models\Wallet;
@@ -221,8 +222,15 @@ class PublisherReportsController extends Controller
 
             $perPage = max(1, min(100, (int) $request->get('per_page', 20)));
             $withdrawals = $query->paginate($perPage);
+            $user = auth()->user();
+            $statements = Invoice::payoutStatementsByWithdrawalId(
+                $user,
+                collect($withdrawals->items())->pluck('id')->all()
+            );
 
-            $items = collect($withdrawals->items())->map(function (Withdrawal $w) {
+            $items = collect($withdrawals->items())->map(function (Withdrawal $w) use ($statements) {
+                $statement = $statements[$w->id] ?? null;
+
                 return [
                     'id' => $w->id,
                     'reference' => 'WD-'.$w->id,
@@ -234,6 +242,12 @@ class PublisherReportsController extends Controller
                     'status_label' => $w->publisher_status_label,
                     'created_at' => $w->created_at,
                     'processed_at' => $w->processed_at,
+                    'statement_url' => $statement
+                        ? route('publisher.billing.show', $statement, false)
+                        : null,
+                    'statement_pdf_url' => $statement
+                        ? route('publisher.billing.view', $statement, false)
+                        : null,
                 ];
             })->values();
 

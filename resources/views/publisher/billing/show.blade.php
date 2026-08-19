@@ -21,7 +21,13 @@
 
             <dl class="row mb-0">
                 <dt class="col-sm-4 text-muted">Reference</dt>
-                <dd class="col-sm-8">{{ $invoice->reference_code }}</dd>
+                <dd class="col-sm-8">
+                    @if($invoice->reference_code)
+                        <a href="{{ route('publisher.withdraw') }}">{{ $invoice->reference_code }}</a>
+                    @else
+                        —
+                    @endif
+                </dd>
                 <dt class="col-sm-4 text-muted">Gross</dt>
                 <dd class="col-sm-8">€{{ number_format((float) $invoice->subtotal, 2) }}</dd>
                 @if((float) $invoice->discount_amount > 0)

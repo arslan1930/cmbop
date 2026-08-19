@@ -214,11 +214,12 @@
                                     <th>Payment Method</th>
                                     <th>Status</th>
                                     <th>Reference</th>
+                                    <th>Statement</th>
                                 </tr>
                             </thead>
                             <tbody id="withdrawalsTableBody">
                                 <tr>
-                                    <td colspan="7" class="text-center py-5">
+                                    <td colspan="8" class="text-center py-5">
                                         <div class="text-muted">Loading withdrawals...</div>
                                     </td>
                                 </tr>
@@ -640,7 +641,7 @@
         $('#withdrawalsTabTitle').text(params.status === 'all' ? 'Withdrawals' : statusLabel);
 
         $('#withdrawalsTableBody').html(
-            '<tr><td colspan="7" class="text-center py-5"><div class="spinner-border text-primary" role="status"></div><p class="mt-2 text-muted mb-0">Loading withdrawals...</p></td></tr>'
+            '<tr><td colspan="8" class="text-center py-5"><div class="spinner-border text-primary" role="status"></div><p class="mt-2 text-muted mb-0">Loading withdrawals...</p></td></tr>'
         );
 
         $.ajax({
@@ -650,7 +651,7 @@
             dataType: 'json',
             success: function (response) {
                 if (!response.success) {
-                    $('#withdrawalsTableBody').html('<tr><td colspan="7" class="text-center text-danger py-5">' + escapeHtml(response.message || 'Failed to load withdrawals') + '</td></tr>');
+                    $('#withdrawalsTableBody').html('<tr><td colspan="8" class="text-center text-danger py-5">' + escapeHtml(response.message || 'Failed to load withdrawals') + '</td></tr>');
                     return;
                 }
                 renderWithdrawalsTable(response.data);
@@ -658,7 +659,7 @@
                 $('#withdrawalsResultsCount').text(resultsCountLabel(response.pagination));
             },
             error: function (xhr) {
-                $('#withdrawalsTableBody').html('<tr><td colspan="7" class="text-center text-danger py-5">Error loading withdrawals. Please refresh the page.</td></tr>');
+                $('#withdrawalsTableBody').html('<tr><td colspan="8" class="text-center text-danger py-5">Error loading withdrawals. Please refresh the page.</td></tr>');
                 if (typeof slbHandleHttpError === 'function') {
                     slbHandleHttpError(xhr, { fallback: 'Could not load withdrawals' });
                 }
@@ -677,10 +678,21 @@
         }
     }
 
+    function statementLinks(withdrawal) {
+        if (!withdrawal.statement_url) {
+            return '<span class="text-muted">—</span>';
+        }
+        let html = '<a href="' + escapeHtml(withdrawal.statement_url) + '">View</a>';
+        if (withdrawal.statement_pdf_url) {
+            html += ' · <a href="' + escapeHtml(withdrawal.statement_pdf_url) + '" target="_blank" rel="noopener">PDF</a>';
+        }
+        return html;
+    }
+
     function renderWithdrawalsTable(withdrawals) {
         if (!withdrawals || withdrawals.length === 0) {
             $('#withdrawalsTableBody').html(
-                '<tr><td colspan="7" class="text-center py-5"><i class="fa fa-inbox fa-3x text-muted"></i><p class="mt-2 mb-0">No withdrawals match this filter</p><p class="text-muted small mb-0">Try another status or date range.</p></td></tr>'
+                '<tr><td colspan="8" class="text-center py-5"><i class="fa fa-inbox fa-3x text-muted"></i><p class="mt-2 mb-0">No withdrawals match this filter</p><p class="text-muted small mb-0">Try another status or date range.</p></td></tr>'
             );
             return;
         }
@@ -696,6 +708,7 @@
                 '<td><span class="badge bg-secondary">' + escapeHtml(w.payment_method || 'Bank Transfer') + '</span></td>' +
                 '<td>' + withdrawalStatusBadge(w) + '</td>' +
                 '<td><span class="text-muted small">' + escapeHtml(w.reference || ('WD-' + w.id)) + '</span></td>' +
+                '<td>' + statementLinks(w) + '</td>' +
                 '</tr>';
         }
         $('#withdrawalsTableBody').html(html);
