@@ -54,6 +54,11 @@ class CartDrawerDensityTest extends TestCase
         $this->assertStringNotContainsString('Before Pay', $layout);
         $this->assertStringNotContainsString('Order document', $layout);
         $this->assertStringContainsString('Upload article', $layout);
+        $this->assertStringContainsString('Upload another', $layout);
+        $this->assertStringContainsString('titleLooksLikeId', $layout);
+        $this->assertMatchesRegularExpression('/cart-item-remove[^>]*>\s*Remove\s*</', $layout);
+        $this->assertStringNotContainsString('Articles attached — proceed to pay', $layout);
+        $this->assertStringNotContainsString("selectedId ? 'Attached'", $layout);
         $this->assertStringContainsString('Decrease placements', $layout);
         $this->assertStringContainsString('Placements — each needs its own article', $layout);
         $this->assertStringContainsString('cart-item-meta', $layout);
