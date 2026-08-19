@@ -1103,7 +1103,7 @@ $('#addSiteForm').submit(function(e){
 let sitesStatusFilter = (function () {
     try {
         const raw = (new URLSearchParams(window.location.search).get('status') || 'active').toLowerCase();
-        return (raw === 'pending' || raw === 'active' || raw === 'invites') ? raw : 'active';
+        return (raw === 'pending' || raw === 'active' || raw === 'invites' || raw === 'archived') ? raw : 'active';
     } catch (e) {
         return 'active';
     }

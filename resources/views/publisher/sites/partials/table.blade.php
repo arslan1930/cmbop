@@ -4,11 +4,13 @@
     $hasOpenBulkRequest = ! empty($openBulkRequest);
     $hasTableRows = $sites->count() > 0 || $bulkWaitingItems->isNotEmpty();
     $inviteCount = (int) ($inviteCount ?? 0);
+    $archivedCount = (int) ($archivedCount ?? 0);
 @endphp
 <div id="sitesStatusMeta"
      data-pending="{{ (int) ($pendingCount ?? 0) }}"
      data-active="{{ (int) ($activeCount ?? 0) }}"
      data-invites="{{ $inviteCount }}"
+     data-archived="{{ $archivedCount }}"
      data-active-ids="{{ implode(',', $activeIds ?? []) }}"
      data-status="{{ $status ?? 'active' }}"
      data-bulk-waiting="{{ $waitingItemsCount }}"
@@ -871,6 +873,7 @@
             $categoryLabel = is_array($site->categories) && count($site->categories)
                 ? implode(', ', array_slice($site->categories, 0, 2))
                 : (string) $site->category;
+            $isArchived = $site->isArchived();
         @endphp
         <tr class="main-row" data-id="{{ $site->id }}">
             <td data-label="Preview" class="text-center">
@@ -956,7 +959,6 @@
             </td>
 
             <td data-label="Status" class="text-center">
-                @php $isArchived = $site->isArchived(); @endphp
                 @if($isArchived)
                     <span class="badge bg-dark status-badge" title="Archived — hidden from catalog">
                         <i class="fa fa-box-archive me-1"></i>Archived
@@ -1167,7 +1169,7 @@
                     Edit
                 </button>
 
-                @if(!$site->verified && !$site->awaitsPublisherDetails())
+                @if(!$isArchived && !$site->verified && !$site->awaitsPublisherDetails())
                 <button type="button" class="btn btn-sm btn-outline-secondary btn-verify-site"
                         data-id="{{ $site->id }}"
                         data-name="{{ $site->site_name }}"
@@ -1193,9 +1195,32 @@
                     </button>
                 </form>
                 @endif
+
+                @if($isArchived)
+                <button type="button" class="btn btn-sm btn-outline-secondary btn-unarchive-site"
+                        data-id="{{ $site->id }}"
+                        data-name="{{ $site->site_name }}"
+                        aria-label="Restore"
+                        data-glass-tip
+                        data-glass-tip-body="Restore this site to Active"
+                        data-glass-tip-placement="top">
+                    Restore
+                </button>
+                @elseif($site->active || $site->verified)
+                <button type="button" class="btn btn-sm btn-outline-secondary btn-archive-site"
+                        data-id="{{ $site->id }}"
+                        data-name="{{ $site->site_name }}"
+                        aria-label="Archive"
+                        data-glass-tip
+                        data-glass-tip-title="Archive"
+                        data-glass-tip-body="Hide this site from the catalog. You can restore it later."
+                        data-glass-tip-placement="top">
+                    Archive
+                </button>
+                @endif
                 </div>
 
-                @if($site->active || $site->verified)
+                @if(!$isArchived && ($site->active || $site->verified))
                 <div class="site-row-actions__offers">
                     <span class="site-row-actions__offers-label">Offers</span>
                     <div class="site-offer-chips">
@@ -1368,8 +1393,9 @@
         @php
             $emptyPendingCount = (int) ($pendingCount ?? 0);
             $emptyInviteCount = (int) ($inviteCount ?? 0);
+            $emptyArchivedCount = (int) ($archivedCount ?? 0);
         @endphp
-        @if($emptyPendingCount > 0 || $emptyInviteCount > 0)
+        @if($emptyPendingCount > 0 || $emptyInviteCount > 0 || $emptyArchivedCount > 0)
             <i class="fa fa-circle-check me-2 text-success"></i>
             <strong>No live sites yet.</strong>
             @if($emptyPendingCount > 0)
@@ -1378,12 +1404,18 @@
             @if($emptyInviteCount > 0)
                 <span>{{ $emptyInviteCount }} are in Invites.</span>
             @endif
+            @if($emptyArchivedCount > 0)
+                <span>{{ $emptyArchivedCount }} are archived.</span>
+            @endif
             <div class="mt-3 d-flex flex-wrap justify-content-center gap-2">
                 @if($emptyPendingCount > 0)
                     <button type="button" class="btn btn-sm btn-primary" data-switch-status="pending">Open Pending</button>
                 @endif
                 @if($emptyInviteCount > 0)
                     <button type="button" class="btn btn-sm btn-outline-primary" data-switch-status="invites">Open Invites</button>
+                @endif
+                @if($emptyArchivedCount > 0)
+                    <button type="button" class="btn btn-sm btn-outline-secondary" data-switch-status="archived">Open Archive</button>
                 @endif
             </div>
         @else
@@ -1397,6 +1429,9 @@
     @elseif(($status ?? '') === 'invites')
         <i class="fa fa-inbox me-2 text-muted"></i>
         No site invites waiting. When our team adds a website for you, Accept / Decline appear here.
+    @elseif(($status ?? '') === 'archived')
+        <i class="fa fa-box-archive me-2 text-muted"></i>
+        No archived sites. Live listings you archive are hidden from the catalog and show here.
     @elseif($hasOpenBulkRequest)
         <div class="py-2 px-1" style="max-width:480px;margin:0 auto;">
             <i class="fa fa-layer-group me-2" style="color:var(--brand-primary,#1a585e)"></i>
