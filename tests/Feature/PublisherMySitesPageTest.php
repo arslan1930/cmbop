@@ -984,6 +984,36 @@ class PublisherMySitesPageTest extends TestCase
         );
     }
 
+    public function test_my_sites_title_doors_and_rereview_confirm(): void
+    {
+        $blade = file_get_contents(resource_path('views/publisher/websites.blade.php'));
+        $this->assertStringContainsString("@section('title', 'My Sites')", $blade);
+        $this->assertStringContainsString('id="sitesAddDoorsHint"', $blade);
+        $this->assertStringContainsString('one site, you fill every field', $blade);
+        $this->assertStringContainsString('send URL + price', $blade);
+        $this->assertStringContainsString('Send this site for re-review?', $blade);
+        $this->assertStringContainsString('function marketChangedFromSnapshot', $blade);
+        $this->assertStringContainsString('window.siteRereviewConfirmed', $blade);
+
+        $html = $this->actingAs($this->publisher)
+            ->get(route('publisher.websites'))
+            ->assertOk()
+            ->getContent();
+
+        $this->assertStringContainsString('My Sites — SEOLinkBuildings', $html);
+        $this->assertStringContainsString('id="formHeader">My Sites</span>', $html);
+        $this->assertStringContainsString('id="sitesAddDoorsHint"', $html);
+        $this->assertStringContainsString('Add New Website', $html);
+        $this->assertStringContainsString('I want to add many sites', $html);
+        $this->assertStringContainsString('Bulk Import (Agency)', $html);
+        $this->assertStringContainsString('Send this site for re-review?', $html);
+        $this->assertSame(
+            1,
+            preg_match_all('/\blet\s+delayTimer\b/', $html),
+            'Rendered My Sites page must declare delayTimer only once.'
+        );
+    }
+
     public function test_dual_role_advertiser_active_can_load_pending_sites_ajax(): void
     {
         // Typical marketplace account: Advertiser + Publisher, still active as Advertiser.
