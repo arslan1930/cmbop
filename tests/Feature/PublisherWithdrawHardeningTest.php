@@ -18,7 +18,7 @@ class PublisherWithdrawHardeningTest extends TestCase
 {
     use RefreshDatabase;
 
-    private function publisher(float $balance = 100): User
+    private function publisher(float $balance = 100, float $reserved = 0, float $bonus = 0): User
     {
         $role = Role::firstOrCreate(['name' => 'publisher']);
         $user = User::factory()->create([
@@ -31,8 +31,8 @@ class PublisherWithdrawHardeningTest extends TestCase
             'user_id' => $user->id,
             'role_id' => $role->id,
             'balance' => $balance,
-            'bonus_balance' => 0,
-            'reserved_balance' => 0,
+            'bonus_balance' => $bonus,
+            'reserved_balance' => $reserved,
             'currency' => 'EUR',
         ]);
 
@@ -428,11 +428,11 @@ class PublisherWithdrawHardeningTest extends TestCase
             ->getContent();
 
         $this->assertMatchesRegularExpression(
-            '/Can Withdraw<\/span>\s*<h3[^>]*>€80\.00<\/h3>/',
+            '/Withdrawable<\/span>\s*<h3[^>]*>€80\.00<\/h3>/',
             $html
         );
         $this->assertDoesNotMatchRegularExpression(
-            '/Can Withdraw<\/span>\s*<h3[^>]*>€50\.00<\/h3>/',
+            '/Withdrawable<\/span>\s*<h3[^>]*>€50\.00<\/h3>/',
             $html
         );
         $this->assertStringContainsString('Available: <strong>€80.00</strong>', $html);
@@ -535,5 +535,54 @@ class PublisherWithdrawHardeningTest extends TestCase
 
         $this->assertStringContainsString('WD-'.$publisherPending->id, $html);
         $this->assertStringNotContainsString('WD-'.$advertiserPending->id, $html);
+    }
+
+    public function test_withdraw_page_hides_empty_bonus_and_on_hold_tiles(): void
+    {
+        $publisher = $this->publisher();
+
+        $html = $this->actingAs($publisher)
+            ->get(route('publisher.withdraw'))
+            ->assertOk()
+            ->getContent();
+
+        $this->assertStringContainsString('Withdrawable', $html);
+        $this->assertStringNotContainsString('Locked for open orders', $html);
+        $this->assertStringNotContainsString('Free Credit', $html);
+        $this->assertStringNotContainsString('>On hold<', $html);
+        $this->assertStringNotContainsString('>Bonus<', $html);
+    }
+
+    public function test_withdraw_page_shows_on_hold_without_open_orders_copy(): void
+    {
+        $publisher = $this->publisher(100, 12.5);
+
+        $html = $this->actingAs($publisher)
+            ->get(route('publisher.withdraw'))
+            ->assertOk()
+            ->getContent();
+
+        $this->assertStringContainsString('On hold', $html);
+        $this->assertStringContainsString('€12.50', $html);
+        $this->assertStringContainsString('Already left withdrawable', $html);
+        $this->assertStringNotContainsString('Locked for open orders', $html);
+        $this->assertStringNotContainsString('Free Credit', $html);
+    }
+
+    public function test_withdraw_page_shows_bonus_only_when_present(): void
+    {
+        $publisher = $this->publisher(40, 0, 20);
+
+        $html = $this->actingAs($publisher)
+            ->get(route('publisher.withdraw'))
+            ->assertOk()
+            ->getContent();
+
+        $this->assertStringContainsString('Bonus', $html);
+        $this->assertStringContainsString('€20.00', $html);
+        $this->assertStringContainsString('Purchases only — cannot withdraw', $html);
+        $this->assertStringContainsString(Wallet::PROMOTIONAL_BONUS_MESSAGE, $html);
+        $this->assertStringNotContainsString('Free Credit', $html);
+        $this->assertStringNotContainsString('On hold', $html);
     }
 }
