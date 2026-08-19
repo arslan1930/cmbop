@@ -328,4 +328,67 @@ class PublisherReportsTest extends TestCase
             ->assertJsonPath('data.0.processed_at', null)
             ->assertJsonPath('data.0.status_label', 'Paid');
     }
+
+    public function test_withdrawals_and_totals_exclude_advertiser_wallet_rows(): void
+    {
+        $advertiserRole = Role::firstOrCreate(['name' => 'advertiser']);
+        $publisherRole = Role::firstOrCreate(['name' => 'publisher']);
+        $user = User::factory()->create([
+            'email_verified_at' => now(),
+            'active_role_id' => $publisherRole->id,
+        ]);
+        $user->roles()->attach([$advertiserRole->id, $publisherRole->id]);
+
+        $advertiserWallet = Wallet::create([
+            'user_id' => $user->id,
+            'role_id' => $advertiserRole->id,
+            'balance' => 50,
+            'bonus_balance' => 0,
+            'reserved_balance' => 0,
+            'currency' => 'EUR',
+        ]);
+        $publisherWallet = Wallet::create([
+            'user_id' => $user->id,
+            'role_id' => $publisherRole->id,
+            'balance' => 80,
+            'bonus_balance' => 0,
+            'reserved_balance' => 0,
+            'currency' => 'EUR',
+        ]);
+
+        $publisherPaid = Withdrawal::create(array_merge([
+            'user_id' => $user->id,
+            'amount' => 25,
+            'fee' => 0,
+            'net_amount' => 25,
+            'payment_method' => 'paypal',
+            'payment_details' => ['email' => 'pub@example.com'],
+            'status' => 'completed',
+            'processed_at' => now(),
+        ], Withdrawal::walletIdAttributes($publisherWallet)));
+
+        Withdrawal::create(array_merge([
+            'user_id' => $user->id,
+            'amount' => 100,
+            'fee' => 5,
+            'net_amount' => 95,
+            'payment_method' => 'paypal',
+            'payment_details' => ['email' => 'adv@example.com'],
+            'status' => 'completed',
+            'processed_at' => now(),
+        ], Withdrawal::walletIdAttributes($advertiserWallet)));
+
+        $this->actingAs($user->fresh())
+            ->getJson(route('publisher.reports.statistics'))
+            ->assertOk()
+            ->assertJsonPath('data.total_withdrawn', 25)
+            ->assertJsonPath('data.total_withdrawn_gross', 25)
+            ->assertJsonPath('data.available_to_withdraw', 80);
+
+        $this->actingAs($user->fresh())
+            ->getJson(route('publisher.reports.withdrawals', ['status' => 'completed']))
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $publisherPaid->id);
+    }
 }

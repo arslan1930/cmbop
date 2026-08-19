@@ -13,7 +13,6 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Validator;
 
 class PublisherReportsController extends Controller
@@ -62,7 +61,7 @@ class PublisherReportsController extends Controller
                     ->count();
             }
 
-            $completedWithdrawals = Withdrawal::where('user_id', $userId)
+            $completedWithdrawals = Withdrawal::queryForPublisherUser($user)
                 ->where('status', 'completed');
 
             // Older rows may lack net_amount; fall back to gross amount.
@@ -73,7 +72,7 @@ class PublisherReportsController extends Controller
             $totalWithdrawalFees = round(max(0, $totalWithdrawnGross - $totalWithdrawnNet), 2);
 
             $availableToWithdraw = 0.0;
-            $wallet = $this->publisherWallet($user);
+            $wallet = Wallet::forPublisher((int) $userId);
             if ($wallet) {
                 $availableToWithdraw = round($wallet->withdrawableBalance(), 2);
             }
@@ -240,9 +239,8 @@ class PublisherReportsController extends Controller
     public function getWithdrawals(Request $request)
     {
         try {
-            $userId = auth()->id();
-
-            $query = Withdrawal::where('user_id', $userId)
+            $user = auth()->user();
+            $query = Withdrawal::queryForPublisherUser($user)
                 ->orderBy('created_at', 'desc');
 
             $this->applyDateFilters($query, $request);
@@ -286,27 +284,6 @@ class PublisherReportsController extends Controller
                 'message' => UserFacingError::message($e, 'Failed to fetch withdrawals. Please try again.'),
             ], 500);
         }
-    }
-
-    private function publisherWallet($user): ?Wallet
-    {
-        if (! $user) {
-            return null;
-        }
-
-        if (method_exists($user, 'activeWallet')) {
-            $wallet = $user->activeWallet();
-            if ($wallet) {
-                return $wallet;
-            }
-        }
-
-        $query = Wallet::where('user_id', $user->id);
-        if (Schema::hasColumn('wallets', 'role_id') && $user->active_role_id) {
-            $query->where('role_id', $user->active_role_id);
-        }
-
-        return $query->first();
     }
 
     /**
