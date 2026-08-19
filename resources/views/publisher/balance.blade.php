@@ -24,6 +24,7 @@
         || (float) $publisher['bonus'] > 0
         || (float) $publisher['debt'] > 0
         || $pendingOut > 0;
+    $activity = $activity ?? collect();
 @endphp
 <link rel="stylesheet" href="{{ asset('assets/css/publisher-balance.css') }}?v={{ @filemtime(public_path('assets/css/publisher-balance.css')) ?: '1' }}">
 
@@ -213,6 +214,38 @@
             <a href="{{ route('publisher.reports') }}">Reports</a>
         </div>
     @endif
+
+    <section class="pb-activity" aria-labelledby="publisherActivityHeading">
+        <h2 class="pb-activity__title" id="publisherActivityHeading">Recent activity</h2>
+        @if($activity->isEmpty())
+            <p class="pb-activity__empty">No wallet activity yet. Completed tasks pay out here.</p>
+        @else
+            <div class="table-responsive">
+                <table class="table table-sm mb-0 pb-activity__table">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Type</th>
+                            <th>Amount</th>
+                            <th>Ref</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach($activity as $row)
+                            <tr>
+                                <td class="small text-muted">{{ $row->created_at?->format('d M Y') ?? '—' }}</td>
+                                <td>{{ $row->publisherFacingLabel() }}</td>
+                                <td class="fw-semibold">
+                                    {{ $row->isCredit() ? '+' : '−' }}€{{ number_format((float) $row->amount, 2) }}
+                                </td>
+                                <td class="small text-muted">{{ $row->reference ?: '—' }}</td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
+        @endif
+    </section>
 
     <nav class="pb-money-links" aria-label="Publisher money pages">
         <a href="{{ route('publisher.withdraw') }}">Withdraw</a>

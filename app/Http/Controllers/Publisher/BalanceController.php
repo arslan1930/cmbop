@@ -3,8 +3,8 @@
 namespace App\Http\Controllers\Publisher;
 
 use App\Http\Controllers\Controller;
-use App\Models\BalanceTransfer;
 use App\Models\Wallet;
+use App\Models\WalletTransaction;
 use App\Models\Withdrawal;
 use App\Services\Wallet\WalletRoleMoveException;
 use App\Services\Wallet\WalletRoleMoveService;
@@ -12,6 +12,7 @@ use App\Support\UserFacingError;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 
 class BalanceController extends Controller
 {
@@ -46,6 +47,15 @@ class BalanceController extends Controller
             DB::raw('COALESCE(net_amount, amount)')
         ), 2);
 
+        $activity = collect();
+        if ($publisherWallet && Schema::hasTable('wallet_transactions')) {
+            $activity = WalletTransaction::query()
+                ->where('wallet_id', $publisherWallet->id)
+                ->orderByDesc('id')
+                ->limit(10)
+                ->get();
+        }
+
         return view('publisher.balance', [
             'publisher' => $publisher,
             'advertiser' => $advertiser,
@@ -59,6 +69,7 @@ class BalanceController extends Controller
             'showAdvertiserWallet' => $showAdvertiserWallet,
             'pendingOut' => $pendingOut,
             'lifetimeWithdrawn' => $lifetimeWithdrawn,
+            'activity' => $activity,
         ]);
     }
 
@@ -110,38 +121,13 @@ class BalanceController extends Controller
     }
 
     /**
-     * Get transfer history — leftover endpoint; the Balance page no longer lists transfers.
+     * Leftover transfer-history endpoint. Activity now lives on the Balance page.
      */
-    public function getTransferHistory(Request $request)
+    public function getTransferHistory()
     {
-        try {
-            $userId = auth()->id();
-
-            $transfers = BalanceTransfer::where('user_id', $userId)
-                ->where('from_role', 'publisher')
-                ->orderBy('created_at', 'desc')
-                ->paginate(20);
-
-            return response()->json([
-                'success' => true,
-                'transfers' => $transfers->items(),
-                'pagination' => [
-                    'current_page' => $transfers->currentPage(),
-                    'last_page' => $transfers->lastPage(),
-                    'per_page' => $transfers->perPage(),
-                    'total' => $transfers->total(),
-                    'from' => $transfers->firstItem(),
-                    'to' => $transfers->lastItem(),
-                ],
-            ]);
-
-        } catch (\Exception $e) {
-            Log::error('Error fetching transfer history: '.$e->getMessage());
-
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to fetch transfer history',
-            ]);
-        }
+        return response()->json([
+            'success' => false,
+            'message' => 'Transfer history is no longer listed here.',
+        ], 410);
     }
 }

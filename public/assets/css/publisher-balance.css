@@ -80,6 +80,33 @@
   border-color: #fed7aa;
 }
 
+.pb-activity {
+  margin: 0 0 1.25rem;
+  padding: 16px 18px;
+  border: 1px solid var(--border-subtle, #e2e8f0);
+  border-radius: var(--radius-lg, 12px);
+  background: var(--surface-1, #fff);
+}
+
+.pb-activity__title {
+  margin: 0 0 0.75rem;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.pb-activity__empty {
+  margin: 0;
+  color: var(--brand-ink-muted, #75787B);
+  font-size: 0.9rem;
+}
+
+.pb-activity__table th {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--brand-ink-muted, #75787B);
+}
+
 .pb-money-links {
   display: flex;
   flex-wrap: wrap;

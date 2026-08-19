@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\Role;
 use App\Models\User;
 use App\Models\Wallet;
+use App\Models\WalletTransaction;
 use App\Models\Withdrawal;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -374,5 +375,82 @@ class PublisherBalanceHistoryUiTest extends TestCase
         $this->assertStringContainsString('Pending payout', $html);
         $this->assertStringContainsString('€25.00', $html);
         $this->assertStringContainsString('id="pendingPayoutChip"', $html);
+    }
+
+    public function test_balance_activity_lists_role_move_and_hides_advertiser_deposit(): void
+    {
+        $user = $this->publisherWithWallets(['publisher_balance' => 25]);
+        $advertiserWallet = Wallet::query()
+            ->where('user_id', $user->id)
+            ->where('role_id', Wallet::advertiserRoleId())
+            ->firstOrFail();
+
+        $this->actingAs($user)
+            ->postJson(route('publisher.balance.transfer'), ['amount' => 5])
+            ->assertOk()
+            ->assertJsonPath('success', true);
+
+        WalletTransaction::create([
+            'user_id' => $user->id,
+            'wallet_id' => $advertiserWallet->id,
+            'type' => WalletTransaction::TYPE_DEPOSIT,
+            'direction' => 'credit',
+            'amount' => 50,
+            'description' => 'Advertiser card deposit',
+            'reference' => 'DEP-ADV',
+        ]);
+
+        $html = $this->actingAs($user->fresh())
+            ->get(route('publisher.balance'))
+            ->assertOk()
+            ->getContent();
+
+        $this->assertStringContainsString('Recent activity', $html);
+        $this->assertStringContainsString('Moved to advertiser wallet for spending', $html);
+        $this->assertStringNotContainsString('Advertiser card deposit', $html);
+        $this->assertStringNotContainsString('DEP-ADV', $html);
+    }
+
+    public function test_balance_activity_lists_pending_withdrawal(): void
+    {
+        $user = $this->publisherWithWallets(['publisher_balance' => 40]);
+
+        $this->actingAs($user)
+            ->postJson(route('publisher.withdraw.request'), [
+                'amount' => 20,
+                'payment_method' => 'paypal',
+                'paypal_email' => 'pay@example.com',
+                'paypal_email_confirm' => 'pay@example.com',
+                'details_confirmed' => '1',
+            ])
+            ->assertOk();
+
+        $html = $this->actingAs($user->fresh())
+            ->get(route('publisher.balance'))
+            ->assertOk()
+            ->getContent();
+
+        $this->assertStringContainsString('Withdrawal request', $html);
+        $this->assertMatchesRegularExpression('/WD-\d+/', $html);
+    }
+
+    public function test_publisher_only_balance_shows_empty_activity(): void
+    {
+        $user = $this->publisherWithWallets([], false);
+
+        $this->actingAs($user)
+            ->get(route('publisher.balance'))
+            ->assertOk()
+            ->assertSee('No wallet activity yet. Completed tasks pay out here.', false);
+    }
+
+    public function test_legacy_transfer_history_endpoint_is_gone(): void
+    {
+        $user = $this->publisherWithWallets();
+
+        $this->actingAs($user)
+            ->getJson(route('publisher.balance.history'))
+            ->assertStatus(410)
+            ->assertJsonPath('success', false);
     }
 }

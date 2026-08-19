@@ -94,4 +94,14 @@ class WalletTransaction extends Model
             default => ucfirst(str_replace('_', ' ', (string) $this->type)),
         };
     }
+
+    public function publisherFacingLabel(): string
+    {
+        $description = trim((string) $this->description);
+        if ($description !== '') {
+            return $description;
+        }
+
+        return $this->typeLabel();
+    }
 }
