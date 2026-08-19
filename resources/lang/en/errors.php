@@ -48,9 +48,10 @@ return [
         'webhook_failed' => 'Payment could not be recorded. Please try again later.',
         'leftover_credit_failed' => 'The leftover card credit could not be applied. Try again or contact support.',
         'leftover_credit_applied' => 'This leftover was paid using the card credit already in your wallet.',
-        'paypal_auth' => 'PayPal rejected these credentials. Use sandbox keys with sandbox mode, or live keys with live mode.',
+        'paypal_auth' => 'PayPal rejected these keys. Wrap PAYPAL_SECRET in single quotes in .env, use the Sandbox REST Secret (not the WH- webhook ID), then php artisan config:clear.',
         'paypal_auth_live_keys' => 'These PayPal keys are live keys, but PAYPAL_MODE is sandbox. Set PAYPAL_MODE=live, then php artisan config:clear.',
         'paypal_auth_sandbox_keys' => 'These PayPal keys are sandbox keys, but PAYPAL_MODE is live. Set PAYPAL_MODE=sandbox, then php artisan config:clear.',
+        'paypal_auth_webhook_secret' => 'PAYPAL_SECRET looks like a webhook ID. Paste the REST app Secret from the Sandbox tab, not the WH-… webhook ID.',
         'paypal_unavailable' => 'PayPal is temporarily unavailable. Please try again or use another payment method.',
     ],
 

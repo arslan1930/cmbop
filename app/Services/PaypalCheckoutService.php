@@ -50,7 +50,7 @@ class PaypalCheckoutService
     /**
      * Operator snapshot for `paypal:status`. Never includes the secret.
      *
-     * @return array{mode: string, host: string, configured: bool, client_id_set: bool, secret_set: bool, webhook_id_set: bool, client_id_hint: string, secret_length: int}
+     * @return array{mode: string, host: string, configured: bool, client_id_set: bool, secret_set: bool, webhook_id_set: bool, client_id_hint: string, secret_length: int, secret_looks_like_webhook: bool, credentials_look_truncated: bool}
      */
     public function connectionSnapshot(): array
     {
@@ -67,6 +67,8 @@ class PaypalCheckoutService
             'webhook_id_set' => $webhook !== '',
             'client_id_hint' => $id === '' ? '' : substr($id, 0, 6).'… ('.strlen($id).' chars)',
             'secret_length' => strlen($secret),
+            'secret_looks_like_webhook' => str_starts_with(strtoupper($secret), 'WH-'),
+            'credentials_look_truncated' => strlen($id) < 50 || strlen($secret) < 50,
         ];
     }
 
@@ -722,6 +724,11 @@ class PaypalCheckoutService
     {
         if ($status !== 401) {
             return UserMessages::get('payment.paypal_unavailable');
+        }
+
+        if (str_starts_with(strtoupper($this->secret()), 'WH-')
+            || str_starts_with(strtoupper($this->clientId()), 'WH-')) {
+            return UserMessages::get('payment.paypal_auth_webhook_secret');
         }
 
         $otherHost = $this->counterpartHost();

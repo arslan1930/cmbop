@@ -32,6 +32,12 @@ class PaypalStatusCommand extends Command
             '  Secret      %s',
             $snap['secret_set'] ? 'set ('.$snap['secret_length'].' chars)' : 'missing'
         ));
+        if ($snap['secret_looks_like_webhook']) {
+            $this->warn('  PAYPAL_SECRET starts with WH- — that is the webhook ID, not the REST Secret.');
+        }
+        if ($snap['credentials_look_truncated']) {
+            $this->warn('  Client ID/Secret is shorter than a typical PayPal REST key (~80 chars). Wrap values in single quotes in .env.');
+        }
         $this->line(sprintf(
             '  Webhook ID  %s',
             $snap['webhook_id_set'] ? 'set' : 'missing (webhooks will 503)'
@@ -59,10 +65,12 @@ class PaypalStatusCommand extends Command
                 $this->line('  Set PAYPAL_MODE=live in .env (Live tab keys on developer.paypal.com).');
             } elseif ($e->getMessage() === UserMessages::get('payment.paypal_auth_sandbox_keys')) {
                 $this->line('  Set PAYPAL_MODE=sandbox in .env (Sandbox tab keys on developer.paypal.com).');
+            } elseif ($e->getMessage() === UserMessages::get('payment.paypal_auth_webhook_secret')) {
+                $this->line('  Developer Dashboard → App → Sandbox → Secret (Show), not Webhooks → ID.');
             } elseif ($e->getMessage() === UserMessages::get('payment.paypal_auth')) {
-                $this->line('  Sandbox keys only work with PAYPAL_MODE=sandbox (developer.paypal.com Sandbox tab).');
-                $this->line('  Live keys only work with PAYPAL_MODE=live (Live tab).');
-                $this->line('  Copy Client ID + Secret from the same app; do not paste the webhook ID as the secret.');
+                $this->line('  Developer Dashboard → Apps, Sandbox toggle ON, open the app, Show Secret.');
+                $this->line('  In .env wrap the secret in single quotes: PAYPAL_SECRET=\'...\'');
+                $this->line('  Then: php artisan config:clear');
             }
 
             return self::FAILURE;

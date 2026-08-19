@@ -446,6 +446,23 @@ class PaypalCheckoutServiceTest extends TestCase
         }
     }
 
+    public function test_oauth_401_when_secret_is_a_webhook_id(): void
+    {
+        $this->enablePaypal(['secret' => 'WH-2W4268X8A1ABC1234-12345678901234567']);
+        Http::fake([
+            'https://api-m.sandbox.paypal.com/v1/oauth2/token' => Http::response([
+                'error' => 'invalid_client',
+            ], 401),
+        ]);
+
+        try {
+            (new PaypalCheckoutService)->accessToken();
+            $this->fail('Expected a PayPal OAuth exception.');
+        } catch (RuntimeException $e) {
+            $this->assertSame(UserMessages::get('payment.paypal_auth_webhook_secret'), $e->getMessage());
+        }
+    }
+
     public function test_oauth_401_when_keys_work_on_live_tells_you_to_switch_mode(): void
     {
         Http::fake([
@@ -507,6 +524,8 @@ class PaypalCheckoutServiceTest extends TestCase
         $this->assertSame(strlen('paypal-secret-test'), $snap['secret_length']);
         $this->assertStringStartsWith('paypal', $snap['client_id_hint']);
         $this->assertStringNotContainsString('paypal-secret-test', json_encode($snap));
+        $this->assertFalse($snap['secret_looks_like_webhook']);
+        $this->assertTrue($snap['credentials_look_truncated']);
     }
 
     public function test_oauth_cache_does_not_reuse_token_after_secret_rotation(): void

@@ -55,7 +55,7 @@ class PaypalStatusCommandTest extends TestCase
         $this->assertSame(1, Artisan::call('paypal:status'));
         $output = Artisan::output();
         $this->assertStringContainsString(UserMessages::get('payment.paypal_auth'), $output);
-        $this->assertStringContainsString('Sandbox keys only work with PAYPAL_MODE=sandbox', $output);
+        $this->assertStringContainsString('wrap the secret in single quotes', $output);
         $this->assertStringNotContainsString('paypal-secret-test', $output);
     }
 
