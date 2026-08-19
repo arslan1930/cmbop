@@ -56,6 +56,14 @@ class PortalWrappingCssTest extends TestCase
             $css
         );
         $this->assertMatchesRegularExpression(
+            '/#content,\s*#main-content,\s*footer\.app-shell-footer,\s*body > footer\s*\{[^}]*width:\s*calc\(\s*100%\s*-\s*var\(--shell-sidebar-width\)/s',
+            $css
+        );
+        $this->assertMatchesRegularExpression(
+            '/\.app-shell-footer__grid \.payment-trust__secure\s*\{[^}]*flex:\s*0 1 0/s',
+            $css
+        );
+        $this->assertMatchesRegularExpression(
             '/body\.role-shell-advertiser,[\s\S]*body\.role-shell-marketing\s*\{[^}]*min-height:\s*100dvh/s',
             $css
         );
