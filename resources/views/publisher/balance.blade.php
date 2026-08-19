@@ -18,6 +18,12 @@
     $moveDisabledReason = $publisherDebt > 0
         ? 'Moves are blocked while you have outstanding clawback debt of €'.number_format($publisherDebt, 2).'. Contact support to resolve this before moving earnings.'
         : 'No withdrawable earnings to move. Bonus credit cannot be moved.';
+    $pendingOut = (float) ($pendingOut ?? 0);
+    $lifetimeWithdrawn = (float) ($lifetimeWithdrawn ?? 0);
+    $showPublisherChips = (float) $publisher['reserved'] > 0
+        || (float) $publisher['bonus'] > 0
+        || (float) $publisher['debt'] > 0
+        || $pendingOut > 0;
 @endphp
 <link rel="stylesheet" href="{{ asset('assets/css/publisher-balance.css') }}?v={{ @filemtime(public_path('assets/css/publisher-balance.css')) ?: '1' }}">
 
@@ -55,8 +61,14 @@
             <div class="pb-wallet-card__value" id="publisherBalance">€{{ number_format((float) $publisher['withdrawable'], 2) }}</div>
             <p class="pb-wallet-card__sub">Withdrawable</p>
 
-            @if((float) $publisher['reserved'] > 0 || (float) $publisher['bonus'] > 0 || (float) $publisher['debt'] > 0)
+            @if($showPublisherChips)
                 <div class="pb-wallet-card__chips">
+                    @if($pendingOut > 0)
+                        <a href="{{ route('publisher.withdraw') }}" class="pb-wallet-card__chip pb-wallet-card__chip--pending text-decoration-none" id="pendingPayoutChip">
+                            <span class="pb-wallet-card__chip-label">Pending payout</span>
+                            <span class="pb-wallet-card__chip-value">€{{ number_format($pendingOut, 2) }}</span>
+                        </a>
+                    @endif
                     @if((float) $publisher['reserved'] > 0)
                         <div class="pb-wallet-card__chip">
                             <span class="pb-wallet-card__chip-label">On hold</span>
@@ -194,10 +206,19 @@
     </div>
 
     @if(! $showAdvertiserWallet)
-        <div class="alert alert-light border mb-0" role="status">
+        <div class="alert alert-light border mb-3" role="status">
             Withdraw for payouts. Catalog spend uses an advertiser wallet.
+            <a href="{{ route('publisher.withdraw') }}">Withdraw</a>
+            ·
+            <a href="{{ route('publisher.reports') }}">Reports</a>
         </div>
     @endif
+
+    <nav class="pb-money-links" aria-label="Publisher money pages">
+        <a href="{{ route('publisher.withdraw') }}">Withdraw</a>
+        <a href="{{ route('publisher.billing.index') }}">Payout documents</a>
+        <a href="{{ route('publisher.reports') }}">Reports</a>
+    </nav>
 </div>
 @endsection
 

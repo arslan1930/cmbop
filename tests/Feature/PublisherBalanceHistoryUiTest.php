@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\Role;
 use App\Models\User;
 use App\Models\Wallet;
+use App\Models\Withdrawal;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -314,5 +315,46 @@ class PublisherBalanceHistoryUiTest extends TestCase
         $this->assertFileExists(public_path('favicon.svg'));
         $this->assertFileExists(public_path('favicon.ico'));
         $this->assertFileExists(public_path('apple-touch-icon.png'));
+    }
+
+    public function test_balance_page_links_withdraw_billing_and_reports(): void
+    {
+        $user = $this->publisherWithWallets();
+
+        $html = $this->actingAs($user)
+            ->get(route('publisher.balance'))
+            ->assertOk()
+            ->getContent();
+
+        $this->assertStringContainsString(route('publisher.withdraw'), $html);
+        $this->assertStringContainsString(route('publisher.billing.index'), $html);
+        $this->assertStringContainsString(route('publisher.reports'), $html);
+        $this->assertStringContainsString('Payout documents', $html);
+        $this->assertStringNotContainsString('Pending payout', $html);
+    }
+
+    public function test_balance_shows_pending_payout_chip_for_publisher_wallet(): void
+    {
+        $user = $this->publisherWithWallets(['publisher_balance' => 40]);
+        $wallet = Wallet::forPublisher((int) $user->id);
+
+        Withdrawal::create(array_merge([
+            'user_id' => $user->id,
+            'amount' => 25,
+            'fee' => 0,
+            'net_amount' => 25,
+            'payment_method' => 'paypal',
+            'payment_details' => ['email' => 'pay@example.com'],
+            'status' => 'pending',
+        ], Withdrawal::walletIdAttributes($wallet)));
+
+        $html = $this->actingAs($user)
+            ->get(route('publisher.balance'))
+            ->assertOk()
+            ->getContent();
+
+        $this->assertStringContainsString('Pending payout', $html);
+        $this->assertStringContainsString('€25.00', $html);
+        $this->assertStringContainsString('id="pendingPayoutChip"', $html);
     }
 }

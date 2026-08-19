@@ -5,10 +5,12 @@ namespace App\Http\Controllers\Publisher;
 use App\Http\Controllers\Controller;
 use App\Models\BalanceTransfer;
 use App\Models\Wallet;
+use App\Models\Withdrawal;
 use App\Services\Wallet\WalletRoleMoveException;
 use App\Services\Wallet\WalletRoleMoveService;
 use App\Support\UserFacingError;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 class BalanceController extends Controller
@@ -23,9 +25,7 @@ class BalanceController extends Controller
     public function index()
     {
         $user = auth()->user();
-        $publisherWallet = Wallet::where('user_id', $user->id)
-            ->where('role_id', Wallet::publisherRoleId())
-            ->first();
+        $publisherWallet = Wallet::forPublisher((int) $user->id);
         $advertiserWallet = Wallet::where('user_id', $user->id)
             ->where('role_id', Wallet::advertiserRoleId())
             ->first();
@@ -40,6 +40,12 @@ class BalanceController extends Controller
             && $publisher['debt'] <= 0
             && $publisher['withdrawable'] >= $roleMoveMinAmount;
 
+        $withdrawalQuery = Withdrawal::queryForPublisherUser($user);
+        $pendingOut = round((float) (clone $withdrawalQuery)->whereIn('status', ['pending', 'processing'])->sum('amount'), 2);
+        $lifetimeWithdrawn = round((float) (clone $withdrawalQuery)->where('status', 'completed')->sum(
+            DB::raw('COALESCE(net_amount, amount)')
+        ), 2);
+
         return view('publisher.balance', [
             'publisher' => $publisher,
             'advertiser' => $advertiser,
@@ -51,6 +57,8 @@ class BalanceController extends Controller
             'canWithdraw' => $canWithdraw,
             'canMove' => $canMove,
             'showAdvertiserWallet' => $showAdvertiserWallet,
+            'pendingOut' => $pendingOut,
+            'lifetimeWithdrawn' => $lifetimeWithdrawn,
         ]);
     }
 
