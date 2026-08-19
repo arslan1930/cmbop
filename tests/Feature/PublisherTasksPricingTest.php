@@ -114,8 +114,11 @@ class PublisherTasksPricingTest extends TestCase
         $this->assertStringContainsString('>You earn<', $blade);
         $this->assertStringContainsString('item.publisher_base', $blade);
         $this->assertStringContainsString('item.you_earn', $blade);
+        $this->assertStringContainsString('You earn: €', $blade);
         $this->assertStringContainsString('Homepage', $blade);
         $this->assertStringNotContainsString('var basePrice = parseFloat(item.price) - additionalPrice;', $blade);
         $this->assertStringNotContainsString('>Total Price<', $blade);
+        $this->assertStringNotContainsString('Total Amount:', $blade);
+        $this->assertStringNotContainsString('Total: €', $blade);
     }
 }
