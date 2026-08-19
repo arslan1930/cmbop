@@ -1556,6 +1556,16 @@ $(document).ready(function() {
                 + '<a href="' + escapeHtml(publisherBalanceUrl) + '">View balance</a>';
         }
         
+        var itemsCount = parseInt((item.order_items_count != null ? item.order_items_count : 1), 10) || 1;
+        var itemIndex = parseInt((item.order_item_index != null ? item.order_item_index : 1), 10) || 1;
+        var placementSub = '';
+        if (itemsCount > 1) {
+            placementSub = '<p class="small text-muted mb-3" id="detailsPlacementIndex">'
+                + itemIndex + ' of ' + itemsCount + ' sites on order #'
+                + escapeHtml(order && order.order_number ? order.order_number : '')
+                + '</p>';
+        }
+
         var html = '<div class="row mb-4">' +
             '<div class="col-md-6">' +
                 '<div class="bg-light p-3 rounded">' +
@@ -1576,7 +1586,8 @@ $(document).ready(function() {
         '</div>' +
         timelineHtml +
         autoApproveInfo +
-        '<h6 class="mb-3">Order Items</h6>' +
+        '<h6 class="mb-3">This placement</h6>' +
+        placementSub +
         '<div class="border rounded p-3">' +
             '<div class="row">' +
                 '<div class="col-md-6">' +

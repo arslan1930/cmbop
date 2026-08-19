@@ -107,4 +107,62 @@ class PublisherTasksDetailsTest extends TestCase
         $this->assertStringContainsString('publisherBalanceUrl', $blade);
         $this->assertStringNotContainsString('toLocaleDateString()', $blade);
     }
+
+    public function test_details_reports_placement_index_for_sibling_cart_rows(): void
+    {
+        $advertiserRole = Role::firstOrCreate(['name' => 'advertiser']);
+        $advertiser = User::factory()->create([
+            'email_verified_at' => now(),
+            'active_role_id' => $advertiserRole->id,
+        ]);
+        $advertiser->roles()->attach($advertiserRole->id);
+
+        $order = Order::create([
+            'user_id' => $advertiser->id,
+            'order_number' => 'PACK-DET-'.uniqid(),
+            'subtotal' => 60,
+            'total_amount' => 60,
+            'payment_method' => 'card',
+            'payment_status' => 'paid',
+            'status' => 'pending',
+            'paid_at' => now(),
+        ]);
+
+        $first = OrderItem::create([
+            'order_id' => $order->id,
+            'site_id' => $this->site->id,
+            'site_name' => $this->site->site_name,
+            'site_url' => $this->site->site_url,
+            'content_link' => 'https://docs.example/a',
+            'price' => 30,
+            'publisher_price' => 30,
+        ]);
+        $second = OrderItem::create([
+            'order_id' => $order->id,
+            'site_id' => $this->site->id,
+            'site_name' => $this->site->site_name,
+            'site_url' => $this->site->site_url,
+            'content_link' => 'https://docs.example/b',
+            'price' => 30,
+            'publisher_price' => 30,
+        ]);
+
+        $this->actingAs($this->publisher)
+            ->getJson(route('publisher.orders.details', $second->id))
+            ->assertOk()
+            ->assertJsonPath('data.order_items_count', 2)
+            ->assertJsonPath('data.order_item_index', 2);
+
+        $this->actingAs($this->publisher)
+            ->getJson(route('publisher.orders.details', $first->id))
+            ->assertOk()
+            ->assertJsonPath('data.order_items_count', 2)
+            ->assertJsonPath('data.order_item_index', 1);
+
+        $blade = file_get_contents(resource_path('views/publisher/tasks.blade.php'));
+        $this->assertStringContainsString('This placement', $blade);
+        $this->assertStringContainsString(' of ', $blade);
+        $this->assertStringContainsString('detailsPlacementIndex', $blade);
+        $this->assertStringNotContainsString('>Order Items<', $blade);
+    }
 }
