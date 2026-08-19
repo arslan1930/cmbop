@@ -1004,8 +1004,12 @@ class CatalogController extends Controller
         $line['discount_percent'] = $pricing['discount_percent'];
         $line['name'] = $line['name'] ?? $site->site_name;
         $line['url'] = $line['url'] ?? $site->site_url;
-        $line['language'] = $line['language'] ?? $site->language;
-        $line['country'] = $line['country'] ?? $site->country;
+        // Always refresh market codes from the live listing so the drawer
+        // matches ContentSubmission::languageFitsSiteLanguages() (not only primary).
+        $line['language'] = $site->language;
+        $line['languages'] = $site->languageCodes();
+        $line['country'] = $site->country;
+        $line['countries'] = $site->countryCodes();
         $line['link_type'] = $line['link_type'] ?? $site->link_type;
         $line['da'] = self::cartMetricInt($site->da);
         $line['dr'] = self::cartMetricInt($site->dr);
@@ -1573,9 +1577,10 @@ class CatalogController extends Controller
         $submission = $submission->fresh() ?? $submission;
 
         $ids[$copyIndex] = $submission->id;
-        $cart[$lineKey] = $this->applyCartLineContentIds($cart[$lineKey], $ids);
-        $cart[$lineKey]['language'] = $site->language;
-        $cart[$lineKey]['country'] = $site->country;
+        $cart[$lineKey] = $this->normalizeCartLineForSite(
+            $site,
+            $this->applyCartLineContentIds($cart[$lineKey], $ids)
+        );
         $mismatchNote = ContentSubmission::languageMismatchLabel(
             (string) $submission->language,
             $site->languageCodes()

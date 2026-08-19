@@ -86,6 +86,7 @@ class AnyLanguageCartMatchTest extends TestCase
 
         $this->assertSame($nlArticle->id, (int) (session('cart')[0]['content_submission_id'] ?? 0));
         $this->assertStringContainsString('Site DE', (string) (session('cart')[0]['language_note'] ?? ''));
+        $this->assertEqualsCanonicalizing(['de'], session('cart')[0]['languages'] ?? []);
     }
 
     public function test_hard_same_language_blocks_mismatch_assign(): void
