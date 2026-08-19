@@ -1,0 +1,35 @@
+.ui-callout {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.65rem;
+    padding: 0.75rem 0.9rem;
+    background: transparent;
+    border: 1px solid var(--border-subtle, #e2e8f0);
+    border-radius: var(--radius-md, 10px);
+    color: var(--brand-ink, #1e293b);
+    font-size: 0.9rem;
+    line-height: 1.45;
+}
+
+.ui-callout__icon {
+    flex: 0 0 auto;
+    margin-top: 0.1rem;
+    color: var(--brand-danger, #dc2626);
+}
+
+.ui-callout--info .ui-callout__icon {
+    color: var(--brand-ink-muted, #697078);
+}
+
+.ui-callout--attention .ui-callout__icon {
+    color: var(--brand-danger, #dc2626);
+}
+
+.ui-callout__body {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.table td {
+    vertical-align: middle;
+}

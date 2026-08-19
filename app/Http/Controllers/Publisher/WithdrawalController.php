@@ -57,12 +57,14 @@ class WithdrawalController extends Controller
         $user = auth()->user();
         $stats = $this->publisherWithdrawalStats($user);
 
+        $recentWithdrawals = Withdrawal::queryForPublisherUser($user)
+            ->orderBy('created_at', 'desc')
+            ->paginate(10);
+
         return view('publisher.withdraw', [
             'wallet' => Wallet::forPublisher((int) $user->id),
-            'recentWithdrawals' => Withdrawal::queryForPublisherUser($user)
-                ->orderBy('created_at', 'desc')
-                ->limit(10)
-                ->get(),
+            'recentWithdrawals' => $recentWithdrawals,
+            'historyLastPage' => $recentWithdrawals->lastPage(),
             'pendingOut' => $stats['pending_out'],
             'lifetimeWithdrawn' => $stats['lifetime_withdrawn'],
             'platformChargePercent' => $this->platformChargePercent(),
@@ -84,7 +86,7 @@ class WithdrawalController extends Controller
                 return response()->json([
                     'success' => false,
                     'message' => 'No wallet found. Please contact support.',
-                ]);
+                ], 422);
             }
 
             // Debt blocks all withdrawals — check before amount/min validation so
@@ -250,7 +252,7 @@ class WithdrawalController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => UserFacingError::message($e, 'We could not process your withdrawal request. Please try again later.'),
-            ]);
+            ], 500);
         }
     }
 
@@ -331,7 +333,7 @@ class WithdrawalController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to fetch withdrawal history',
-            ]);
+            ], 500);
         }
     }
 
@@ -356,7 +358,7 @@ class WithdrawalController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to fetch statistics',
-            ]);
+            ], 500);
         }
     }
 
