@@ -6,9 +6,12 @@
   top: 0;
   right: -420px;
   width: min(420px, 94vw);
-  /* Hug one-item carts; scroll the body when the list is taller than the viewport. */
+  /* Hug one-item carts; scroll the body when the list is taller than the viewport.
+     100vh first so older engines ignore 100dvh; dvh avoids mobile browser-chrome clip. */
   height: auto;
   max-height: 100vh;
+  max-height: 100dvh;
+  overflow: hidden;
   background-color: var(--surface-1, #fff);
   box-shadow: -8px 0 24px rgba(15, 23, 42, 0.08);
   border-left: 1px solid var(--border-subtle, #e2e8f0);
@@ -27,6 +30,7 @@
   justify-content: space-between;
   align-items: center;
   background: var(--surface-2, #f7fafb);
+  flex-shrink: 0;
 }
 
 .cart-header h5 {
@@ -47,6 +51,7 @@
   padding: 12px 16px;
   border-top: 1px solid var(--border-subtle, #e2e8f0);
   background: #fff;
+  flex-shrink: 0;
 }
 
 .cart-item {
