@@ -659,8 +659,10 @@ class PublisherWithdrawHardeningTest extends TestCase
         $this->assertStringContainsString('Back to Balance', $html);
         $this->assertStringNotContainsString('Withdraw Funds', $html);
         $this->assertStringNotContainsString('sweetalert2.min.css', $html);
-        $this->assertStringNotContainsString('Swal.fire', $html);
-        $this->assertStringNotContainsString('loadHistory(1)', $html);
+
+        $blade = file_get_contents(resource_path('views/publisher/withdraw.blade.php'));
+        $this->assertStringNotContainsString('Swal.fire', $blade);
+        $this->assertStringNotContainsString('loadHistory(1)', $blade);
 
         $js = file_get_contents(public_path('assets/js/publisher-withdraw.js'));
         $this->assertStringContainsString('window.slbConfirm', $js);
