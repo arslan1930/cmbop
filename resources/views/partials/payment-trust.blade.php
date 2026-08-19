@@ -1,5 +1,6 @@
 @php
     $compact = $compact ?? false;
+    $brief = $brief ?? false;
     $showMethods = $showMethods ?? true;
     $asset = fn (string $file) => asset('assets/img/payments/'.$file);
     $paypalConfigured = app(\App\Services\PaypalCheckoutService::class)->configured();
@@ -11,7 +12,9 @@
     <div class="payment-trust__secure">
         <i class="fas fa-lock" aria-hidden="true"></i>
         <span>
-            Payments secured by <strong>Stripe</strong>. Card details never touch our servers.
+            Payments secured by <strong>Stripe</strong>.@unless($brief)
+                Card details never touch our servers.
+            @endunless
             <a href="{{ $refundUrl }}" class="payment-trust__refund-link">See refund policy</a>
         </span>
     </div>

@@ -228,15 +228,17 @@
 
 <footer>
     <div class="app-shell-footer__grid">
-        <div class="app-shell-footer__legal">
-            <span>© {{ date('Y') }} SEOLinkBuildings</span>
-            <span class="mx-1">·</span>
-            <button type="button" class="btn btn-link btn-sm p-0 align-baseline" onclick="document.getElementById('helpFeedbackToggle')?.click()">Report a problem</button>
-            <span class="mx-1">·</span>
-            <button type="button" class="btn btn-link btn-sm p-0 align-baseline" onclick="document.getElementById('helpFeedbackToggle')?.click()">Suggestion box</button>
+        <div class="app-shell-footer__left">
+            <div class="app-shell-footer__legal">
+                <span>© {{ date('Y') }} SEOLinkBuildings</span>
+                <span class="mx-1">·</span>
+                <button type="button" class="btn btn-link btn-sm p-0 align-baseline" onclick="document.getElementById('helpFeedbackToggle')?.click()">Report a problem</button>
+                <span class="mx-1">·</span>
+                <button type="button" class="btn btn-link btn-sm p-0 align-baseline" onclick="document.getElementById('helpFeedbackToggle')?.click()">Suggestion box</button>
+            </div>
+            @include('partials.trustpilot-trust', ['compact' => true])
         </div>
-        @include('partials.payment-trust', ['compact' => true, 'showMethods' => true])
-        @include('partials.trustpilot-trust', ['compact' => true])
+        @include('partials.payment-trust', ['compact' => true, 'showMethods' => true, 'brief' => true])
     </div>
 </footer>
 @include('components.help-feedback-widget')

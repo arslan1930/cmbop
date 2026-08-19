@@ -47,7 +47,10 @@ class AdvertiserUiAndTrustFooterTest extends TestCase
 
         $this->assertStringContainsString('trustpilot-trust', $html);
         $this->assertStringContainsString('app-shell-footer__grid', $html);
+        $this->assertStringContainsString('app-shell-footer__left', $html);
         $this->assertStringContainsString('app-shell-footer__legal', $html);
+        $this->assertStringContainsString('Payments secured by', $html);
+        $this->assertStringNotContainsString('Card details never touch our servers.', $html);
         $this->assertStringContainsString(config('services.trustpilot.review_url'), $html);
         $this->assertStringContainsString('helpFeedbackHide', $html);
         $this->assertStringContainsString('helpFeedbackShow', $html);
@@ -58,11 +61,11 @@ class AdvertiserUiAndTrustFooterTest extends TestCase
         );
         $shell = (string) file_get_contents(public_path('assets/css/app-shell.css'));
         $this->assertStringContainsString('.app-shell-footer__grid', $shell);
+        $this->assertStringContainsString('.app-shell-footer__left', $shell);
         $this->assertStringContainsString('flex-wrap: nowrap', $shell);
-        $this->assertStringContainsString('order: 1', $shell);
-        $this->assertStringContainsString('order: 2', $shell);
+        $this->assertStringContainsString('text-overflow: ellipsis', $shell);
+        $this->assertStringContainsString('overflow-wrap: normal', $shell);
         $this->assertStringNotContainsString('"legal secure"', $shell);
-        $this->assertStringNotContainsString('"reviews methods"', $shell);
     }
 
     public function test_the_trust_badge_claims_no_rating_we_cannot_prove(): void

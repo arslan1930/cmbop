@@ -489,27 +489,34 @@ body > footer {
   border-top: 1px solid var(--shell-border);
 }
 
-/* One row: legal + Trustpilot on the left, Stripe copy + marks on the right. */
+/* One row: legal + Trustpilot stay together; Stripe copy cannot paint over them. */
 .app-shell-footer__grid {
   display: flex;
   flex-wrap: nowrap;
   align-items: center;
   justify-content: space-between;
-  gap: 10px 16px;
+  gap: 16px 20px;
   width: 100%;
+  min-width: 0;
   text-align: left;
   padding-right: 56px;
+}
+.app-shell-footer__left {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 12px;
+  flex: 0 0 auto;
+  min-width: 0;
 }
 .app-shell-footer__legal {
   display: flex;
   flex-wrap: nowrap;
   align-items: center;
   gap: 0 4px;
-  flex: 0 1 auto;
-  min-width: 0;
+  flex: 0 0 auto;
 }
-.app-shell-footer__grid > .trustpilot-trust {
-  order: 1;
+.app-shell-footer__left > .trustpilot-trust {
   flex: 0 0 auto;
 }
 .app-shell-footer__grid > .payment-trust {
@@ -520,12 +527,22 @@ body > footer {
   gap: 12px;
   flex: 1 1 auto;
   min-width: 0;
-  order: 2;
+  overflow: hidden;
 }
-.app-shell-footer__grid .payment-trust__secure,
-.app-shell-footer__grid .payment-trust__methods {
-  flex-wrap: nowrap;
+.app-shell-footer__grid .payment-trust__secure {
+  min-width: 0;
+  flex: 0 1 auto;
+}
+.app-shell-footer__grid .payment-trust__secure span {
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
+  overflow-wrap: normal;
+  word-break: normal;
+}
+.app-shell-footer__grid .payment-trust__methods {
+  flex: 0 0 auto;
+  flex-wrap: nowrap;
 }
 
 /* Last dashboard block (Recent orders / Recent tasks): extra mist gap
