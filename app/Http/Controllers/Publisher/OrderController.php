@@ -381,6 +381,7 @@ class OrderController extends Controller
                     'reference_code' => $orderItem->order->reference_code,
                     'total_amount' => (float) $orderItem->order->total_amount,
                     'created_at' => $orderItem->order->created_at,
+                    'paid_at' => optional($orderItem->order->paid_at)?->toIso8601String(),
                     'has_open_content_revision' => OrderItem::orderHasOpenContentRevision((int) $orderItem->order_id),
                     'publication_mode' => $orderItem->order->publication_mode,
                     'scheduled_publish_at' => optional($orderItem->order->scheduled_publish_at)?->toIso8601String(),
