@@ -104,6 +104,7 @@ class PublisherBillingWalletScopeTest extends TestCase
         $html = $this->actingAs($user)
             ->get(route('publisher.billing.index'))
             ->assertOk()
+            ->assertSee('<title>Payout documents — SEOLinkBuildings</title>', false)
             ->getContent();
 
         $this->assertStringContainsString($publisherDoc->invoice_number, $html);
@@ -124,6 +125,7 @@ class PublisherBillingWalletScopeTest extends TestCase
         $this->actingAs($user)
             ->get(route('publisher.billing.show', $publisherDoc))
             ->assertOk()
+            ->assertSee('<title>Payout documents — SEOLinkBuildings</title>', false)
             ->assertSee($publisherDoc->invoice_number, false)
             ->assertSee(route('publisher.withdraw', absolute: false), false)
             ->assertSee('WD-'.$publisherPaid->id, false)

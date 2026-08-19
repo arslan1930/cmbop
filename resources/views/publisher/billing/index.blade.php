@@ -1,5 +1,7 @@
 @extends('publisher.layouts.app')
 
+@section('title', 'Payout documents')
+
 @section('content')
 <div class="container-fluid">
     <div class="row mb-4 align-items-end g-3">

@@ -1,0 +1,57 @@
+.publisher-reports-container .table td,
+.publisher-reports-container .table th {
+    padding: 12px 15px;
+    vertical-align: middle;
+}
+.publisher-reports-container .card-header {
+    border-bottom: 1px solid #eee;
+}
+.publisher-reports-container .status-badge {
+    padding: 4px 10px;
+    border-radius: 5px;
+    font-size: 11px;
+    font-weight: 600;
+    display: inline-block;
+}
+.publisher-reports-container .status-pending { background-color: #fff7ed; color: #9a3412; }
+.publisher-reports-container .status-processing { background-color: #eff6ff; color: #1e40af; }
+.publisher-reports-container .status-completed { background-color: #ecfdf5; color: #0f766e; }
+.publisher-reports-container .status-cancelled { background-color: #fef2f2; color: #dc2626; }
+.publisher-reports-container .status-clawed { background-color: #f8fafc; color: #475569; }
+.publisher-reports-container .sensitive-badge {
+    background-color: #fef3c7;
+    color: #d97706;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: 600;
+    display: inline-block;
+}
+.publisher-reports-container .earned-amount {
+    color: #10b981;
+    font-weight: 600;
+    font-size: 15px;
+}
+.publisher-reports-container .withdrawn-amount {
+    color: #ef4444;
+    font-weight: 600;
+    font-size: 15px;
+}
+.publisher-reports-container .publisher-reports-tabs {
+    border-bottom: 1px solid #e5e7eb;
+    padding: 0 20px;
+    background: white;
+    border-radius: 8px 8px 0 0;
+}
+.publisher-reports-container .publisher-reports-tabs .nav-link {
+    border: none;
+    padding: 12px 20px;
+    color: #6b7280;
+    font-weight: 500;
+}
+.publisher-reports-container .publisher-reports-tabs .nav-link:hover { color: #1a585e; }
+.publisher-reports-container .publisher-reports-tabs .nav-link.active {
+    color: #1a585e;
+    border-bottom: 2px solid #1a585e;
+    background: transparent;
+}

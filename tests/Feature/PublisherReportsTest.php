@@ -121,8 +121,11 @@ class PublisherReportsTest extends TestCase
             ->assertOk()
             ->assertSee('Financial Reports', false)
             ->assertSee(route('publisher.reports.statistics', absolute: false), false)
+            ->assertSee(asset('assets/js/publisher-reports.js'), false)
+            ->assertSee(asset('assets/css/publisher-reports.css'), false)
             ->assertSee(route('publisher.tasks', absolute: false), false)
             ->assertSee('Available to Withdraw', false)
+            ->assertSee('Lifetime', false)
             ->assertSee('Pending payout', false)
             ->assertSee('id="pendingPayout"', false)
             ->assertSee('id="availableNote"', false)
@@ -274,7 +277,7 @@ class PublisherReportsTest extends TestCase
             ->assertJsonPath('data.available_to_withdraw', 50)
             ->assertJsonPath('data.debt_balance', 12);
 
-        $js = file_get_contents(resource_path('views/publisher/reports.blade.php'));
+        $js = file_get_contents(public_path('assets/js/publisher-reports.js'));
         $this->assertStringContainsString('Outstanding clawback debt', $js);
         $this->assertStringContainsString('Minimum payout', $js);
         $this->assertStringContainsString('d.pending_payout', $js);
@@ -474,6 +477,8 @@ class PublisherReportsTest extends TestCase
             ->assertJsonPath('data.0.fee', 1.25)
             ->assertJsonPath('data.0.net_amount', 23.75)
             ->assertJsonPath('data.0.status_label', 'Paid')
+            ->assertJsonPath('data.0.payment_method', 'paypal')
+            ->assertJsonPath('data.0.payment_method_label', 'PayPal')
             ->assertJsonPath('data.0.statement_url', null)
             ->assertJsonPath('data.0.statement_pdf_url', null);
     }
@@ -757,17 +762,28 @@ class PublisherReportsTest extends TestCase
 
     public function test_reports_row_script_does_not_prefix_plus_euro(): void
     {
-        $js = file_get_contents(resource_path('views/publisher/reports.blade.php'));
+        $blade = file_get_contents(resource_path('views/publisher/reports.blade.php'));
+        $this->assertStringContainsString('assets/js/publisher-reports.js', $blade);
+        $this->assertStringContainsString('assets/css/publisher-reports.css', $blade);
+        $this->assertStringNotContainsString('function loadOrders', $blade);
+        $this->assertStringNotContainsString('Swal.fire', $blade);
+
+        $js = file_get_contents(public_path('assets/js/publisher-reports.js'));
 
         $this->assertStringContainsString('function payoutCell', $js);
         $this->assertStringContainsString('function homepageCell', $js);
+        $this->assertStringContainsString('function loadOrders', $js);
         $this->assertStringContainsString('item.homepage_price', $js);
         $this->assertStringContainsString('item.price - additionalPrice - homepagePrice', $js);
         $this->assertStringContainsString('d.open_orders', $js);
+        $this->assertStringContainsString('payment_method_label', $js);
+        $this->assertStringContainsString('slbAlert', $js);
+        $this->assertStringNotContainsString('Swal.fire', $js);
         $this->assertStringNotContainsString("'+ €' + money(totalPrice)", $js);
         $this->assertStringNotContainsString('Total Earned:</strong>', $js);
         $this->assertStringNotContainsString('item.price - additionalPrice)', $js);
         $this->assertStringNotContainsString('Pending:', $js);
+        $this->assertStringNotContainsString("w.payment_method || 'Bank Transfer'", $js);
     }
 
     private function upholdClawback(OrderItem $item): void
