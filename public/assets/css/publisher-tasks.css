@@ -55,7 +55,24 @@
     font-size: 11px;
     color: #6b7280;
     margin-top: 4px;
-    max-width: 160px;
+    max-width: 14rem;
+}
+
+.publisher-task-stats > [class*="col"] {
+    display: flex;
+}
+.publisher-task-stats .card {
+    width: 100%;
+}
+
+.publisher-task-filters__status {
+    min-width: 12.5rem;
+}
+.publisher-task-filters__dates {
+    min-width: 16rem;
+}
+.publisher-task-filters__actions {
+    flex-wrap: wrap;
 }
 
 .sensitive-badge {
@@ -71,7 +88,7 @@
 .btn-action-sm {
     padding: 4px 8px;
     font-size: 11px;
-    min-width: 65px;
+    min-width: 0;
 }
 
 .link-cell {
@@ -87,8 +104,15 @@
 
 .action-buttons {
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
+    flex-wrap: wrap;
     gap: 4px;
+    justify-content: flex-end;
+}
+
+.publisher-task-actions-col {
+    width: 1%;
+    white-space: nowrap;
 }
 
 .total-price {

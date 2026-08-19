@@ -35,6 +35,14 @@ class PortalWrappingCssTest extends TestCase
             '/#content,\s*#main-content\s*\{[^}]*min-height:\s*calc\(\s*100vh/s',
             $css
         );
+        $this->assertMatchesRegularExpression(
+            '/#content \.row > \[class\*="col"\],[\s\S]*#main-content \.row > \[class\*="col"\]\s*\{[^}]*min-width:\s*0/s',
+            $css
+        );
+        $this->assertMatchesRegularExpression(
+            '/\.app-shell-footer__grid\s*\{[^}]*flex-wrap:\s*wrap/s',
+            $css
+        );
         // Role switch dropdown lives in .mobile-left — must not be clipped.
         $this->assertMatchesRegularExpression(
             '/\.top-navbar\s+\.mobile-left\s*\{[^}]*overflow:\s*visible/s',

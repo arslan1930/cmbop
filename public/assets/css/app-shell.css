@@ -473,9 +473,12 @@ footer,
 }
 
 /* Filter rows: prevent date inputs / selects from blowing past the content column */
-#main-content .row > [class*="col-"] {
+#content .row > [class*="col"],
+#main-content .row > [class*="col"] {
   min-width: 0;
 }
+#content .d-flex > .form-control,
+#content .d-flex > .form-select,
 #main-content .d-flex > .form-control,
 #main-content .d-flex > .form-select {
   min-width: 0;
@@ -493,60 +496,61 @@ body > footer {
   border-top: 1px solid var(--shell-border);
 }
 
-/* One row: legal + Trustpilot stay together; Stripe copy cannot paint over them. */
+/* Legal + Trustpilot stay a group; payment logos wrap instead of merging. */
 .app-shell-footer__grid {
   display: flex;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 16px 20px;
+  gap: 12px 20px;
   width: 100%;
   min-width: 0;
   text-align: left;
-  padding-right: 56px;
+  padding-right: 72px;
 }
 .app-shell-footer__left {
   display: flex;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
   align-items: center;
   gap: 12px;
-  flex: 0 0 auto;
+  flex: 1 1 auto;
   min-width: 0;
 }
 .app-shell-footer__legal {
   display: flex;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
   align-items: center;
   gap: 0 4px;
-  flex: 0 0 auto;
+  flex: 0 1 auto;
 }
 .app-shell-footer__left > .trustpilot-trust {
   flex: 0 0 auto;
 }
 .app-shell-footer__grid > .payment-trust {
   display: flex;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: flex-end;
-  gap: 12px;
-  flex: 1 1 auto;
+  gap: 10px 12px;
+  flex: 1 1 16rem;
   min-width: 0;
-  overflow: hidden;
+  overflow: visible;
 }
 .app-shell-footer__grid .payment-trust__secure {
   min-width: 0;
-  flex: 0 1 auto;
+  flex: 1 1 12rem;
 }
 .app-shell-footer__grid .payment-trust__secure span {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  overflow-wrap: normal;
+  overflow: visible;
+  text-overflow: unset;
+  white-space: normal;
+  overflow-wrap: anywhere;
   word-break: normal;
 }
 .app-shell-footer__grid .payment-trust__methods {
-  flex: 0 0 auto;
-  flex-wrap: nowrap;
+  flex: 1 1 auto;
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 /* Last dashboard block (Recent orders / Recent tasks): extra mist gap

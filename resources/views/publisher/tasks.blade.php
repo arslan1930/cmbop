@@ -29,8 +29,8 @@
     </div>
 
     <!-- Statistics Cards -->
-    <div class="row mb-4 g-3">
-        <div class="col-6 col-lg">
+    <div class="row row-cols-2 row-cols-md-3 row-cols-xl-5 g-3 mb-4 publisher-task-stats">
+        <div class="col">
             <div class="card border-0 shadow-sm h-100">
                 <div class="card-body py-3">
                     <h6 class="text-muted mb-1 small">Total</h6>
@@ -38,7 +38,7 @@
                 </div>
             </div>
         </div>
-        <div class="col-6 col-lg">
+        <div class="col">
             <div class="card border-0 shadow-sm h-100">
                 <div class="card-body py-3">
                     <h6 class="text-muted mb-1 small">Pending</h6>
@@ -46,7 +46,7 @@
                 </div>
             </div>
         </div>
-        <div class="col-6 col-lg">
+        <div class="col">
             <div class="card border-0 shadow-sm h-100">
                 <div class="card-body py-3">
                     <h6 class="text-muted mb-1 small">In progress</h6>
@@ -54,7 +54,7 @@
                 </div>
             </div>
         </div>
-        <div class="col-6 col-lg">
+        <div class="col">
             <div class="card border-0 shadow-sm h-100">
                 <div class="card-body py-3">
                     <h6 class="text-muted mb-1 small">In review</h6>
@@ -62,7 +62,7 @@
                 </div>
             </div>
         </div>
-        <div class="col-12 col-lg">
+        <div class="col">
             <div class="card border-0 shadow-sm h-100">
                 <div class="card-body py-3">
                     <h6 class="text-muted mb-1 small">Earnings</h6>
@@ -76,9 +76,9 @@
     <div class="card border-0 shadow-sm mb-4">
         <div class="card-body">
             <form id="filterForm">
-                <div class="row g-3 align-items-end">
+                <div class="row g-3 align-items-end publisher-task-filters">
                     <!-- Search -->
-                    <div class="col-md-3">
+                    <div class="col-12 col-lg">
                         <label class="form-label fw-semibold small text-muted mb-1" for="searchInput">Search</label>
                         <div class="slb-search-wrap">
                             <input type="search"
@@ -97,7 +97,7 @@
                     </div>
 
                     <!-- Order Status Filter -->
-                    <div class="col-md-2">
+                    <div class="col-12 col-sm-6 col-lg-auto publisher-task-filters__status">
                         <label class="form-label fw-semibold small text-muted mb-1">Order Status</label>
                         <input type="hidden" id="needsActionFilter" value="">
                         <select id="statusFilter" class="form-select form-select-sm">
@@ -112,17 +112,17 @@
                     </div>
 
                     <!-- Date Range -->
-                    <div class="col-md-3">
+                    <div class="col-12 col-sm-6 col-lg-auto">
                         <label class="form-label fw-semibold small text-muted mb-1">Date Range</label>
-                        <div class="d-flex gap-2">
+                        <div class="d-flex gap-2 publisher-task-filters__dates">
                             <input type="date" id="dateFrom" class="form-control form-control-sm" placeholder="From">
                             <input type="date" id="dateTo" class="form-control form-control-sm" placeholder="To">
                         </div>
                     </div>
 
                     <!-- Action Buttons -->
-                    <div class="col-md-4">
-                        <div class="d-flex gap-2">
+                    <div class="col-12 col-lg-auto">
+                        <div class="d-flex gap-2 publisher-task-filters__actions">
                             <button type="submit" class="btn btn-sm btn-primary px-3">
                                 <i class="fa-solid fa-magnifying-glass me-1"></i> Filter
                             </button>
@@ -153,12 +153,12 @@
                         <tr>
                             <th>Order ID</th>
                             <th>Site Details</th>
-                            <th>Base</th>
-                            <th>Sensitive</th>
-                            <th>You earn</th>
+                            <th class="text-nowrap">Base</th>
+                            <th class="text-nowrap">Sensitive</th>
+                            <th class="text-nowrap">You earn</th>
                             <th>Order Status</th>
                             <th>Content Link</th>
-                            <th width="120">Action</th>
+                            <th class="publisher-task-actions-col">Action</th>
                         </tr>
                     </thead>
                     <tbody id="tasksTableBody">
@@ -1322,9 +1322,9 @@ $(document).ready(function() {
             html += '<tr class="tasks-row">' +
                 '<td data-label="Order ID"><strong>#' + escapeHtml(orderNumber) + '</strong></td>' +
                 '<td data-label="Site"><div class="fw-semibold">' + escapeHtml(item.site_name) + '</div><div class="text-muted small"><a href="' + escapeHtml(item.site_url) + '" target="_blank" rel="noopener noreferrer">' + escapeHtml(item.site_url) + '</a></div></td>' +
-                '<td data-label="Base" class="text-primary">€' + basePrice.toFixed(2) + '</td>' +
+                '<td data-label="Base" class="text-primary text-nowrap">€' + basePrice.toFixed(2) + '</td>' +
                 '<td data-label="Sensitive">' + (additionalPrice > 0 ? '<span class="sensitive-badge"><i class="fa fa-plus-circle"></i> ' + escapeHtml(sensitiveType || 'Extra') + ' (+€' + additionalPrice.toFixed(2) + ')</span>' : '<span class="text-muted">—</span>') + '</td>' +
-                '<td data-label="You earn" class="fw-semibold total-price" style="color: #10b981;">€' + totalPrice.toFixed(2) + homepageLine + '</td>' +
+                '<td data-label="You earn" class="fw-semibold total-price text-nowrap" style="color: #10b981;">€' + totalPrice.toFixed(2) + homepageLine + '</td>' +
                 '<td data-label="Status"><span class="status-badge ' + statusMeta.statusClass + '">' + statusMeta.statusText + '</span><div class="next-step-hint">' + statusMeta.nextStep + '</div></td>' +
                 '<td class="link-cell" data-label="Content">' + ((item.content_download_url || item.content_link) ? '<a href="' + escapeHtml(item.content_download_url || item.content_link) + '" class="btn btn-sm btn-outline-primary" rel="noopener noreferrer"><i class="fa fa-download me-1"></i> ' + (item.content_original_name ? 'Document' : 'View') + '</a>' : '<span class="text-muted">Not submitted</span>') + '</td>' +
                 '<td data-label="Action">' + actions + '</td>' +

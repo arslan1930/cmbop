@@ -62,9 +62,16 @@ class AdvertiserUiAndTrustFooterTest extends TestCase
         $shell = (string) file_get_contents(public_path('assets/css/app-shell.css'));
         $this->assertStringContainsString('.app-shell-footer__grid', $shell);
         $this->assertStringContainsString('.app-shell-footer__left', $shell);
+        $this->assertMatchesRegularExpression(
+            '/\.app-shell-footer__grid\s*\{[^}]*flex-wrap:\s*wrap/s',
+            $shell
+        );
+        $this->assertMatchesRegularExpression(
+            '/\.app-shell-footer__grid\s*>\s*\.payment-trust\s*\{[^}]*flex-wrap:\s*wrap/s',
+            $shell
+        );
         $this->assertStringContainsString('flex-wrap: nowrap', $shell);
         $this->assertStringContainsString('text-overflow: ellipsis', $shell);
-        $this->assertStringContainsString('overflow-wrap: normal', $shell);
         $this->assertStringNotContainsString('"legal secure"', $shell);
     }
 

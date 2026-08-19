@@ -162,9 +162,21 @@ class PublisherTasksNeedsActionTest extends TestCase
         } else {
             $this->fail('Scheduled pending task actions branch is missing.');
         }
+        $this->assertStringContainsString('publisher-task-stats', $blade);
+        $this->assertStringContainsString('row-cols-xl-5', $blade);
+        $this->assertStringContainsString('publisher-task-filters', $blade);
+        $this->assertStringContainsString('publisher-task-actions-col', $blade);
         $this->assertFileExists(public_path('assets/css/publisher-tasks.css'));
         $css = file_get_contents(public_path('assets/css/publisher-tasks.css'));
         $this->assertStringContainsString('@media (max-width: 768px)', $css);
+        $this->assertMatchesRegularExpression(
+            '/\.action-buttons\s*\{[^}]*flex-direction:\s*row/s',
+            $css
+        );
+        $this->assertDoesNotMatchRegularExpression(
+            '/\.action-buttons\s*\{[^}]*flex-direction:\s*column/s',
+            $css
+        );
     }
 
     public function test_upcoming_scheduled_orders_are_not_needs_action(): void
