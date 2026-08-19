@@ -153,6 +153,9 @@ class AddFundsPaypalTest extends TestCase
             'https://api-m.sandbox.paypal.com/v1/oauth2/token' => Http::response([
                 'error' => 'invalid_client',
             ], 401),
+            'https://api-m.paypal.com/v1/oauth2/token' => Http::response([
+                'error' => 'invalid_client',
+            ], 401),
         ]);
 
         $this->actingAs($this->advertiser())

@@ -55,7 +55,11 @@ class PaypalStatusCommand extends Command
         } catch (RuntimeException $e) {
             $this->newLine();
             $this->error($e->getMessage());
-            if ($e->getMessage() === UserMessages::get('payment.paypal_auth')) {
+            if ($e->getMessage() === UserMessages::get('payment.paypal_auth_live_keys')) {
+                $this->line('  Set PAYPAL_MODE=live in .env (Live tab keys on developer.paypal.com).');
+            } elseif ($e->getMessage() === UserMessages::get('payment.paypal_auth_sandbox_keys')) {
+                $this->line('  Set PAYPAL_MODE=sandbox in .env (Sandbox tab keys on developer.paypal.com).');
+            } elseif ($e->getMessage() === UserMessages::get('payment.paypal_auth')) {
                 $this->line('  Sandbox keys only work with PAYPAL_MODE=sandbox (developer.paypal.com Sandbox tab).');
                 $this->line('  Live keys only work with PAYPAL_MODE=live (Live tab).');
                 $this->line('  Copy Client ID + Secret from the same app; do not paste the webhook ID as the secret.');

@@ -450,26 +450,17 @@ class PaypalCheckoutService
             return $cached;
         }
 
-        $response = Http::asForm()
-            ->acceptJson()
-            ->timeout(15)
-            ->withBasicAuth($this->clientId(), $this->secret())
-            ->post($this->baseUrl().'/v1/oauth2/token', [
-                'grant_type' => 'client_credentials',
-            ]);
+        $response = $this->requestAccessToken($this->baseUrl());
 
         if (! $response->successful()) {
             $paypalError = $this->safePaypalErrorCode($response);
             Log::error('PayPal OAuth failed', array_filter([
                 'status' => $response->status(),
                 'mode' => $this->mode(),
+                'host' => $this->baseUrl(),
                 'error' => $paypalError,
             ], fn ($value) => $value !== null && $value !== ''));
-            throw new RuntimeException(UserMessages::get(
-                (int) $response->status() === 401
-                    ? 'payment.paypal_auth'
-                    : 'payment.paypal_unavailable'
-            ));
+            throw new RuntimeException($this->oauthFailureMessage((int) $response->status()));
         }
 
         $token = trim((string) $response->json('access_token'));
@@ -683,23 +674,80 @@ class PaypalCheckoutService
     }
 
     /**
-     * Dashboard copy-paste often wraps keys in quotes or includes a BOM.
-     * Those characters survive trim() and make PayPal return HTTP 401.
+     * Dashboard copy-paste often wraps keys in quotes or includes a BOM /
+     * non-breaking space. Those characters survive trim() and make PayPal
+     * return HTTP 401.
      */
     private function normalizedCredential(string $value): string
     {
-        $value = preg_replace('/^\xEF\xBB\xBF/u', '', $value) ?? $value;
-        $value = str_replace(["\r", "\n", "\0", "\u{200B}", "\u{200C}", "\u{200D}", "\u{FEFF}"], '', $value);
-        $value = trim($value);
+        $value = preg_replace('/^\xEF\xBB\xBF/', '', $value) ?? $value;
+        $value = str_replace(["\r", "\n", "\t", "\0", "\u{00A0}", "\u{200B}", "\u{200C}", "\u{200D}", "\u{FEFF}"], '', $value);
+        $value = preg_replace('/\s+/', '', $value) ?? $value;
         if (strlen($value) >= 2) {
             $first = $value[0];
             $last = $value[strlen($value) - 1];
             if (($first === '"' && $last === '"') || ($first === "'" && $last === "'")) {
                 $value = substr($value, 1, -1);
+                $value = preg_replace('/\s+/', '', $value) ?? $value;
             }
         }
 
-        return trim($value);
+        return $value;
+    }
+
+    private function requestAccessToken(string $host): Response
+    {
+        return Http::asForm()
+            ->acceptJson()
+            ->withHeaders(['Accept-Language' => 'en_US'])
+            ->timeout(15)
+            ->withBasicAuth($this->clientId(), $this->secret())
+            ->post(rtrim($host, '/').'/v1/oauth2/token', [
+                'grant_type' => 'client_credentials',
+            ]);
+    }
+
+    private function counterpartHost(): ?string
+    {
+        if (rtrim(trim((string) config('services.paypal.base_url', '')), '/') !== '') {
+            return null;
+        }
+
+        return $this->mode() === 'live'
+            ? 'https://api-m.sandbox.paypal.com'
+            : 'https://api-m.paypal.com';
+    }
+
+    private function oauthFailureMessage(int $status): string
+    {
+        if ($status !== 401) {
+            return UserMessages::get('payment.paypal_unavailable');
+        }
+
+        $otherHost = $this->counterpartHost();
+        if ($otherHost !== null) {
+            try {
+                $other = $this->requestAccessToken($otherHost);
+                $token = trim((string) $other->json('access_token'));
+                if ($other->successful() && $token !== '') {
+                    $workingMode = $this->mode() === 'live' ? 'sandbox' : 'live';
+                    Log::error('PayPal OAuth keys match the other environment', [
+                        'mode' => $this->mode(),
+                        'working_mode' => $workingMode,
+                    ]);
+
+                    return UserMessages::get(
+                        $workingMode === 'live'
+                            ? 'payment.paypal_auth_live_keys'
+                            : 'payment.paypal_auth_sandbox_keys'
+                    );
+                }
+            } catch (\Throwable) {
+                // Keep the generic 401 copy if the counterpart host is unreachable.
+            }
+        }
+
+        return UserMessages::get('payment.paypal_auth');
     }
 
     private function safePaypalErrorCode(Response $response): string

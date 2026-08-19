@@ -433,6 +433,9 @@ class PaypalCheckoutServiceTest extends TestCase
                 'error' => 'invalid_client',
                 'error_description' => 'Client Authentication failed',
             ], 401),
+            'https://api-m.paypal.com/v1/oauth2/token' => Http::response([
+                'error' => 'invalid_client',
+            ], 401),
         ]);
 
         try {
@@ -441,6 +444,55 @@ class PaypalCheckoutServiceTest extends TestCase
         } catch (RuntimeException $e) {
             $this->assertSame(UserMessages::get('payment.paypal_auth'), $e->getMessage());
         }
+    }
+
+    public function test_oauth_401_when_keys_work_on_live_tells_you_to_switch_mode(): void
+    {
+        Http::fake([
+            'https://api-m.sandbox.paypal.com/v1/oauth2/token' => Http::response([
+                'error' => 'invalid_client',
+            ], 401),
+            'https://api-m.paypal.com/v1/oauth2/token' => Http::response([
+                'access_token' => 'tok_live',
+                'expires_in' => 300,
+                'token_type' => 'Bearer',
+            ], 200),
+        ]);
+
+        try {
+            (new PaypalCheckoutService)->accessToken();
+            $this->fail('Expected a PayPal OAuth exception.');
+        } catch (RuntimeException $e) {
+            $this->assertSame(UserMessages::get('payment.paypal_auth_live_keys'), $e->getMessage());
+        }
+    }
+
+    public function test_oauth_strips_interior_whitespace_from_credentials(): void
+    {
+        $this->enablePaypal([
+            'client_id' => "paypal-\u{00A0}client-test",
+            'secret' => 'paypal secret test',
+        ]);
+        Cache::flush();
+        Http::fake([
+            'https://api-m.sandbox.paypal.com/v1/oauth2/token' => Http::response([
+                'access_token' => 'tok_test',
+                'expires_in' => 300,
+                'token_type' => 'Bearer',
+            ], 200),
+        ]);
+
+        (new PaypalCheckoutService)->accessToken();
+
+        Http::assertSent(function ($request) {
+            if (! str_contains($request->url(), '/v1/oauth2/token')) {
+                return false;
+            }
+            $auth = (string) $request->header('Authorization')[0];
+            $expected = 'Basic '.base64_encode('paypal-client-test:paypalsecrettest');
+
+            return $auth === $expected;
+        });
     }
 
     public function test_connection_snapshot_does_not_include_the_secret(): void

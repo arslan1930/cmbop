@@ -47,12 +47,36 @@ class PaypalStatusCommandTest extends TestCase
             'https://api-m.sandbox.paypal.com/v1/oauth2/token' => Http::response([
                 'error' => 'invalid_client',
             ], 401),
+            'https://api-m.paypal.com/v1/oauth2/token' => Http::response([
+                'error' => 'invalid_client',
+            ], 401),
         ]);
 
         $this->assertSame(1, Artisan::call('paypal:status'));
         $output = Artisan::output();
         $this->assertStringContainsString(UserMessages::get('payment.paypal_auth'), $output);
         $this->assertStringContainsString('Sandbox keys only work with PAYPAL_MODE=sandbox', $output);
+        $this->assertStringNotContainsString('paypal-secret-test', $output);
+    }
+
+    public function test_status_tells_you_when_keys_are_live_but_mode_is_sandbox(): void
+    {
+        $this->enablePaypal();
+        Http::fake([
+            'https://api-m.sandbox.paypal.com/v1/oauth2/token' => Http::response([
+                'error' => 'invalid_client',
+            ], 401),
+            'https://api-m.paypal.com/v1/oauth2/token' => Http::response([
+                'access_token' => 'tok_live',
+                'expires_in' => 300,
+                'token_type' => 'Bearer',
+            ], 200),
+        ]);
+
+        $this->assertSame(1, Artisan::call('paypal:status'));
+        $output = Artisan::output();
+        $this->assertStringContainsString(UserMessages::get('payment.paypal_auth_live_keys'), $output);
+        $this->assertStringContainsString('PAYPAL_MODE=live', $output);
         $this->assertStringNotContainsString('paypal-secret-test', $output);
     }
 

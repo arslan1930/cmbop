@@ -49,6 +49,8 @@ return [
         'leftover_credit_failed' => 'The leftover card credit could not be applied. Try again or contact support.',
         'leftover_credit_applied' => 'This leftover was paid using the card credit already in your wallet.',
         'paypal_auth' => 'PayPal rejected these credentials. Use sandbox keys with sandbox mode, or live keys with live mode.',
+        'paypal_auth_live_keys' => 'These PayPal keys are live keys, but PAYPAL_MODE is sandbox. Set PAYPAL_MODE=live, then php artisan config:clear.',
+        'paypal_auth_sandbox_keys' => 'These PayPal keys are sandbox keys, but PAYPAL_MODE is live. Set PAYPAL_MODE=sandbox, then php artisan config:clear.',
         'paypal_unavailable' => 'PayPal is temporarily unavailable. Please try again or use another payment method.',
     ],
 
