@@ -342,10 +342,7 @@ class CheckoutPaypalProcessTest extends TestCase
             return Http::response(['name' => 'RESOURCE_NOT_FOUND'], 404);
         });
 
-        $this->postPaypalCheckout('PP-LIVE', [
-            'HTTP_HOST' => 'checkout.example',
-            'HTTPS' => 'on',
-        ])
+        $this->postPaypalCheckout('PP-LIVE', [], 'https://checkout.example')
             ->assertOk()
             ->assertJsonPath('success', true)
             ->assertJsonPath('paypal_order_id', 'PO-LIVE-FALLBACK')
@@ -366,13 +363,25 @@ class CheckoutPaypalProcessTest extends TestCase
      * @param  array<string, string>  $server
      * @return TestResponse
      */
-    private function postPaypalCheckout(string $reference, array $server = [])
+    private function postPaypalCheckout(string $reference, array $server = [], ?string $origin = null)
     {
         $advertiser = $this->advertiser();
         $site = $this->activeSite($this->publisher(), 'paypal-'.$reference.'.example');
         $sub = $this->createApprovedSubmission($advertiser, $site->id);
 
         $pending = $this->actingAs($advertiser);
+        $processUrl = route('advertiser.checkout.process');
+        if (is_string($origin) && $origin !== '') {
+            $host = (string) parse_url($origin, PHP_URL_HOST);
+            $https = parse_url($origin, PHP_URL_SCHEME) === 'https';
+            $server = array_merge([
+                'HTTP_HOST' => $host,
+                'SERVER_NAME' => $host,
+                'HTTPS' => $https ? 'on' : 'off',
+                'SERVER_PORT' => $https ? '443' : '80',
+            ], $server);
+            $processUrl = rtrim($origin, '/').route('advertiser.checkout.process', [], false);
+        }
         if ($server !== []) {
             $pending = $pending->withServerVariables($server);
         }
@@ -387,7 +396,7 @@ class CheckoutPaypalProcessTest extends TestCase
                     'price' => 100,
                 ]],
             ])
-            ->postJson(route('advertiser.checkout.process'), [
+            ->postJson($processUrl, [
                 'payment_method' => 'paypal',
                 'reference_code' => $reference,
                 'publication_mode' => 'immediate',
