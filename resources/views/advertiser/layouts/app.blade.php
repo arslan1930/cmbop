@@ -486,6 +486,28 @@
         return parseInt(value, 10) || 0;
     }
 
+    function articleLocale(article) {
+        const lang = String(article?.language || '').toUpperCase();
+        const country = article?.country ? '/' + String(article.country).toUpperCase() : '';
+        return lang ? (lang + country) : String(article?.country || '').toUpperCase();
+    }
+
+    function articleTitleLooksLikeId(title) {
+        const raw = String(title || '').trim();
+        if (raw === '' || /^\d+$/.test(raw)) return true;
+        // Storage hashes / leftover filenames, not a human title.
+        return /^[A-Za-z0-9_-]{12,}$/.test(raw);
+    }
+
+    function articlePickerLabel(article, fits) {
+        const locale = articleLocale(article);
+        const raw = String(article?.title || '').trim();
+        const base = articleTitleLooksLikeId(raw)
+            ? ('Article' + (locale ? ' · ' + locale : ''))
+            : (raw + (locale ? ' (' + locale + ')' : ''));
+        return base + (fits ? '' : ' · different language');
+    }
+
     function lineContentIds(item) {
         const qty = Math.max(1, parseInt(item.quantity, 10) || 1);
         const raw = Array.isArray(item.content_submission_ids) ? item.content_submission_ids : [];
@@ -837,20 +859,11 @@
                         let opts = `<option value="">— Choose ${placementIds.length > 1 ? 'article ' + (copyIndex + 1) + ' of ' + placementIds.length : 'article'} —</option>`;
                         options.forEach((article) => {
                             const fits = articleFitsSiteLanguages(article, siteLanguageCodes(item));
-                            const lang = String(article.language || '').toUpperCase();
-                            const country = article.country ? '/' + String(article.country).toUpperCase() : '';
-                            const locale = lang ? (lang + country) : String(article.country || '').toUpperCase();
-                            const rawTitle = String(article.title || '').trim();
-                            const titleLooksLikeId = rawTitle === '' || /^\d+$/.test(rawTitle);
-                            const baseLabel = titleLooksLikeId
-                                ? ('Article' + (locale ? ' · ' + locale : ''))
-                                : (rawTitle + (locale ? ' (' + locale + ')' : ''));
-                            const optionLabel = baseLabel + (fits ? '' : ' · different language');
                             const optionId = articleId(article.id);
-                            opts += `<option value="${optionId}" ${optionId === Number(selectedId) ? 'selected' : ''}>${escapeHtml(optionLabel)}</option>`;
+                            opts += `<option value="${optionId}" ${optionId === Number(selectedId) ? 'selected' : ''}>${escapeHtml(articlePickerLabel(article, fits))}</option>`;
                         });
                         if (selectedId && !options.some((a) => articleId(a.id) === Number(selectedId))) {
-                            opts += `<option value="${selectedId}" selected>Assigned document #${selectedId}</option>`;
+                            opts += `<option value="${selectedId}" selected>Assigned article</option>`;
                         }
                         const emptyHint = options.length === 0 && !selectedId
                             ? `<div class="cart-item-article-empty mt-1">Need another article? <a class="cart-item-upload-link cart-item-upload-link--primary" href="${contentLibraryUploadUrl}">Upload article</a></div>`

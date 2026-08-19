@@ -110,5 +110,9 @@ class CartArticlePickerTest extends TestCase
         $this->assertStringContainsString('function siteLanguageCodes', $layout);
         $this->assertStringContainsString('item?.languages', $layout);
         $this->assertStringContainsString('function articleFitsSiteLanguages', $layout);
+        $this->assertStringContainsString('function articlePickerLabel', $layout);
+        $this->assertStringContainsString('function articleTitleLooksLikeId', $layout);
+        $this->assertStringContainsString('Assigned article', $layout);
+        $this->assertStringNotContainsString('Assigned document #', $layout);
     }
 }

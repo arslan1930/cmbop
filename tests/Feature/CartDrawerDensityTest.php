@@ -55,8 +55,10 @@ class CartDrawerDensityTest extends TestCase
         $this->assertStringNotContainsString('Order document', $layout);
         $this->assertStringContainsString('Upload article', $layout);
         $this->assertStringContainsString('Upload another', $layout);
-        $this->assertStringContainsString('titleLooksLikeId', $layout);
+        $this->assertStringContainsString('function articleTitleLooksLikeId', $layout);
+        $this->assertStringContainsString('function articlePickerLabel', $layout);
         $this->assertStringContainsString('function articleId', $layout);
+        $this->assertStringNotContainsString('Assigned document #', $layout);
         $this->assertStringContainsString('optionId === Number(selectedId)', $layout);
         $this->assertStringNotContainsString('article.id === selectedId', $layout);
         $this->assertMatchesRegularExpression('/cart-item-remove[^>]*>\s*Remove\s*</', $layout);
