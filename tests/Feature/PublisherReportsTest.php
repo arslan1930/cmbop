@@ -121,6 +121,8 @@ class PublisherReportsTest extends TestCase
             ->assertOk()
             ->assertSee('Financial Reports', false)
             ->assertSee(route('publisher.reports.statistics', absolute: false), false)
+            ->assertSee(asset('assets/js/publisher-reports.js'), false)
+            ->assertSee(asset('assets/css/publisher-reports.css'), false)
             ->assertSee(route('publisher.tasks', absolute: false), false)
             ->assertSee('Available to Withdraw', false)
             ->assertSee('Lifetime', false)
@@ -275,7 +277,7 @@ class PublisherReportsTest extends TestCase
             ->assertJsonPath('data.available_to_withdraw', 50)
             ->assertJsonPath('data.debt_balance', 12);
 
-        $js = file_get_contents(resource_path('views/publisher/reports.blade.php'));
+        $js = file_get_contents(public_path('assets/js/publisher-reports.js'));
         $this->assertStringContainsString('Outstanding clawback debt', $js);
         $this->assertStringContainsString('Minimum payout', $js);
         $this->assertStringContainsString('d.pending_payout', $js);
@@ -760,10 +762,17 @@ class PublisherReportsTest extends TestCase
 
     public function test_reports_row_script_does_not_prefix_plus_euro(): void
     {
-        $js = file_get_contents(resource_path('views/publisher/reports.blade.php'));
+        $blade = file_get_contents(resource_path('views/publisher/reports.blade.php'));
+        $this->assertStringContainsString('assets/js/publisher-reports.js', $blade);
+        $this->assertStringContainsString('assets/css/publisher-reports.css', $blade);
+        $this->assertStringNotContainsString('function loadOrders', $blade);
+        $this->assertStringNotContainsString('Swal.fire', $blade);
+
+        $js = file_get_contents(public_path('assets/js/publisher-reports.js'));
 
         $this->assertStringContainsString('function payoutCell', $js);
         $this->assertStringContainsString('function homepageCell', $js);
+        $this->assertStringContainsString('function loadOrders', $js);
         $this->assertStringContainsString('item.homepage_price', $js);
         $this->assertStringContainsString('item.price - additionalPrice - homepagePrice', $js);
         $this->assertStringContainsString('d.open_orders', $js);
