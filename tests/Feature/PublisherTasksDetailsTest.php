@@ -175,10 +175,9 @@ class PublisherTasksDetailsTest extends TestCase
         $this->assertStringContainsString('function renderDetailsModalExtraActions', $blade);
         $this->assertStringContainsString('open-task-chat', $blade);
         $this->assertStringNotContainsString('onclick="openChat(', $blade);
-        $statusCardAt = strpos($blade, 'id="detailsNextStep"');
-        $liveAt = strpos($blade, 'id="detailsLiveUrl"');
-        $this->assertNotFalse($statusCardAt);
-        $this->assertNotFalse($liveAt);
-        $this->assertGreaterThan($statusCardAt, $liveAt, 'Live URL must render under the status card, not only below the fold.');
+        $this->assertMatchesRegularExpression(
+            "/id=\"detailsNextStep\">' \\+ nextStepHtml \\+ '<\\/p>' \\+[\\s\\S]*?liveUrlTop/",
+            $blade
+        );
     }
 }
