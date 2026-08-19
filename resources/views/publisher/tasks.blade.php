@@ -1864,6 +1864,30 @@ $(document).ready(function() {
         return html;
     }
 
+    function publisherTimelineActorLabel(activity) {
+        var role = String((activity && activity.actor_role) || '').toLowerCase();
+        if (role === 'publisher') return 'You';
+        if (role === 'advertiser') return 'Advertiser';
+        if (role === 'admin' || role === 'marketing') return 'Support';
+        return '';
+    }
+
+    function renderPublisherOrderActivityTimeline(container, activities) {
+        var masked = (activities || []).map(function (a) {
+            var copy = {};
+            Object.keys(a || {}).forEach(function (k) { copy[k] = a[k]; });
+            copy.actor_name = publisherTimelineActorLabel(a);
+            return copy;
+        });
+        if (window.renderOrderActivityTimeline) {
+            window.renderOrderActivityTimeline(container, masked);
+            return;
+        }
+        if (container) {
+            container.innerHTML = '<div class="text-muted small">No activity recorded yet.</div>';
+        }
+    }
+
     function loadOrderActivityTimeline(orderId) {
         var container = document.getElementById('orderActivityTimeline');
         if (!container || !orderId) return;
@@ -1877,7 +1901,9 @@ $(document).ready(function() {
                 container.innerHTML = '<div class="text-muted small">Unable to load activity.</div>';
                 return;
             }
-            if (window.renderOrderActivityTimeline) {
+            if (typeof renderPublisherOrderActivityTimeline === 'function') {
+                renderPublisherOrderActivityTimeline(container, data.activities || []);
+            } else if (window.renderOrderActivityTimeline) {
                 window.renderOrderActivityTimeline(container, data.activities || []);
             } else {
                 container.innerHTML = '<div class="text-muted small">No activity recorded yet.</div>';
