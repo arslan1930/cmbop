@@ -397,6 +397,29 @@ function hideTasksModal(id) {
     inst.hide();
 }
 
+/** Skip silent table refresh while a task modal or chat is open. */
+function publisherTasksOverlayOpen() {
+    var ids = [
+        'acceptModal',
+        'rejectModal',
+        'completeModal',
+        'socialPostsModal',
+        'contentRevisionModal',
+        'detailsModal',
+        'chatModal'
+    ];
+    for (var i = 0; i < ids.length; i++) {
+        var el = document.getElementById(ids[i]);
+        if (el && el.classList.contains('show')) {
+            return true;
+        }
+    }
+    if (window.publisherOrderChat && window.publisherOrderChat.currentOrderId) {
+        return true;
+    }
+    return false;
+}
+
 const AUTO_APPROVE_HOURS = {{ (int) \App\Models\OrderItem::autoApproveHours() }};
 const AUTO_APPROVE_DAYS = {{ (int) max(1, (int) ceil(\App\Models\OrderItem::autoApproveHours() / 24)) }};
 
@@ -422,8 +445,11 @@ $(document).ready(function() {
         $('html, body').animate({ scrollTop: $('#tasksTableBody').offset().top - 120 }, 'fast');
     });
     
-    // Auto-refresh every 30 seconds
+    // Auto-refresh every 30 seconds unless a modal or chat is open
     refreshInterval = setInterval(function() {
+        if (publisherTasksOverlayOpen()) {
+            return;
+        }
         loadTasks(currentPage, true); // silent refresh
         loadStatistics();
     }, 30000);
@@ -805,9 +831,16 @@ $(document).ready(function() {
         el.classList.remove('d-none');
     }
 
-    function openTaskDetailsForOrder(orderId) {
+    function openTaskDetailsForOrder(orderId, payload) {
+        payload = payload || {};
+        var fromUrl = new URLSearchParams(window.location.search).get('order_item_id');
+        var orderItemId = payload.order_item_id || payload.orderItemId || fromUrl;
         var attempts = 0;
         function tryOpen() {
+            if (orderItemId) {
+                viewOrderDetails(orderItemId);
+                return;
+            }
             var itemId = window._publisherTasksByOrderId && window._publisherTasksByOrderId[String(orderId)];
             if (itemId) {
                 viewOrderDetails(itemId);
@@ -818,7 +851,11 @@ $(document).ready(function() {
                 return;
             }
             // Off-page deep link: resolve item id via locate endpoint.
-            $.getJSON(baseUrl + '/publisher/orders/locate', { order_id: orderId })
+            var locateQuery = { order_id: orderId };
+            if (orderItemId) {
+                locateQuery.order_item_id = orderItemId;
+            }
+            $.getJSON(baseUrl + '/publisher/orders/locate', locateQuery)
                 .done(function (res) {
                     if (res && res.success && res.order_item_id) {
                         if (!window._publisherTasksByOrderId) window._publisherTasksByOrderId = {};
@@ -845,6 +882,7 @@ $(document).ready(function() {
         },
     });
     orderChat.init();
+    window.publisherOrderChat = orderChat;
 
     window.openChat = function(orderId, orderNumber) {
         currentChatOrderId = orderId;

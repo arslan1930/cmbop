@@ -77,6 +77,22 @@ class InAppNotificationService
     public const CATEGORY_ACCOUNT = 'account';
 
     /**
+     * Publisher Tasks deep link. Include order_item_id so a sibling cart line opens the right row.
+     */
+    private function publisherTaskFocusUrl(int $orderId, ?int $orderItemId = null, string $focus = 'order'): string
+    {
+        $params = [
+            'focus' => $focus,
+            'order' => $orderId,
+        ];
+        if ($orderItemId) {
+            $params['order_item_id'] = $orderItemId;
+        }
+
+        return route('publisher.tasks', $params, false);
+    }
+
+    /**
      * Create a persistent in-app notification for a user.
      */
     public function notify(
@@ -193,7 +209,7 @@ class InAppNotificationService
                     'related' => $order,
                     'audience' => InAppNotification::AUDIENCE_PUBLISHER,
                     'action_label' => 'View task',
-                    'action_url' => route('publisher.tasks', ['focus' => 'order', 'order' => $order->id], false),
+                    'action_url' => $this->publisherTaskFocusUrl((int) $order->id, $item?->id),
                     'meta' => ['order_number' => $order->order_number, 'site_name' => $siteName],
                 ]
             );
@@ -1062,17 +1078,14 @@ class InAppNotificationService
                 'priority' => InAppNotification::PRIORITY_HIGH,
                 'related' => $order,
                 'audience' => InAppNotification::AUDIENCE_PUBLISHER,
-                'action_label' => 'Open tasks',
-                'action_url' => route('publisher.tasks', [
-                    'focus' => 'order',
-                    'order' => $order->id,
-                ], false),
-                'meta' => [
-                    'order_number' => $order->order_number,
-                    'order_item_id' => $item->id,
-                    'stage' => $stage,
-                    'track' => 'accept',
-                ],
+                    'action_label' => 'Open tasks',
+                    'action_url' => $this->publisherTaskFocusUrl((int) $order->id, $item->id),
+                    'meta' => [
+                        'order_number' => $order->order_number,
+                        'order_item_id' => $item->id,
+                        'stage' => $stage,
+                        'track' => 'accept',
+                    ],
             ]
         );
     }
@@ -1105,18 +1118,15 @@ class InAppNotificationService
                 'priority' => $stage >= 2 ? InAppNotification::PRIORITY_HIGH : InAppNotification::PRIORITY_NORMAL,
                 'related' => $order,
                 'audience' => InAppNotification::AUDIENCE_PUBLISHER,
-                'action_label' => 'Submit live URL',
-                'action_url' => route('publisher.tasks', [
-                    'focus' => 'order',
-                    'order' => $order->id,
-                ], false),
-                'meta' => [
-                    'order_number' => $order->order_number,
-                    'order_item_id' => $item->id,
-                    'stage' => $stage,
-                    'hours_overdue' => $hoursOverdue,
-                    'track' => 'publish',
-                ],
+                    'action_label' => 'Submit live URL',
+                    'action_url' => $this->publisherTaskFocusUrl((int) $order->id, $item->id),
+                    'meta' => [
+                        'order_number' => $order->order_number,
+                        'order_item_id' => $item->id,
+                        'stage' => $stage,
+                        'hours_overdue' => $hoursOverdue,
+                        'track' => 'publish',
+                    ],
             ]
         );
     }
@@ -1221,7 +1231,7 @@ class InAppNotificationService
                     'related' => $order,
                     'audience' => InAppNotification::AUDIENCE_PUBLISHER,
                     'action_label' => 'Open task',
-                    'action_url' => route('publisher.tasks', ['focus' => 'order', 'order' => $order->id], false),
+                    'action_url' => $this->publisherTaskFocusUrl((int) $order->id, $item->id),
                 ]
             );
         }
@@ -1293,7 +1303,7 @@ class InAppNotificationService
                 'related' => $order,
                 'audience' => InAppNotification::AUDIENCE_PUBLISHER,
                 'action_label' => 'Open task',
-                'action_url' => route('publisher.tasks', ['focus' => 'order', 'order' => $order->id], false),
+                'action_url' => $this->publisherTaskFocusUrl((int) $order->id, $item->id),
             ]
         );
     }

@@ -268,29 +268,36 @@ class OrderController extends Controller
 
     /**
      * Resolve a publisher-owned order item id for deep links (bell / email focus).
+     * Prefer an explicit owned paid order_item_id so sibling cart rows do not collapse to the first line.
      */
     public function locateOrderItem(Request $request)
     {
+        $itemId = (int) $request->query('order_item_id', 0);
         $orderId = (int) $request->query('order_id', 0);
-        if ($orderId < 1) {
+        if ($itemId < 1 && $orderId < 1) {
             return response()->json([
                 'success' => false,
-                'message' => 'order_id is required',
+                'message' => 'order_id or order_item_id is required',
             ], 422);
         }
 
         $userId = auth()->id();
         $siteIds = Site::where('publisher_id', $userId)->pluck('id');
 
-        $item = OrderItem::query()
+        $query = OrderItem::query()
             ->with('order:id,order_number')
-            ->where('order_id', $orderId)
             ->whereIn('site_id', $siteIds)
             ->whereHas('order', function ($q) {
                 $q->where('payment_status', 'paid');
-            })
-            ->orderBy('id')
-            ->first();
+            });
+
+        if ($itemId > 0) {
+            $item = $query->where('id', $itemId)->first();
+        } else {
+            $item = $query->where('order_id', $orderId)
+                ->orderBy('id')
+                ->first();
+        }
 
         if (! $item) {
             return response()->json([
