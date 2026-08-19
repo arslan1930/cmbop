@@ -1355,6 +1355,8 @@ class OrderController extends Controller
                         'completed_orders' => 0,
                         'rejected_orders' => 0,
                         'review_orders' => 0,
+                        'scheduled_orders' => 0,
+                        'needs_you' => 0,
                         'total_earnings' => 0,
                     ],
                 ]);
@@ -1376,6 +1378,8 @@ class OrderController extends Controller
                     ->count(),
                 'accepted_orders' => Order::whereIn('id', $orderIds)->where('status', 'processing')->count(),
                 'review_orders' => Order::whereIn('id', $orderIds)->where('status', 'review')->count(),
+                'scheduled_orders' => Order::whereIn('id', $orderIds)->awaitingScheduledRelease()->count(),
+                'needs_you' => PublisherNeedsAction::needsYouCount((int) $userId),
                 'completed_orders' => Order::whereIn('id', $orderIds)->where('status', 'completed')->count(),
                 'rejected_orders' => Order::whereIn('id', $orderIds)->where('status', 'cancelled')->count(),
                 'total_earnings' => round((float) OrderItem::whereIn('site_id', $siteIds)

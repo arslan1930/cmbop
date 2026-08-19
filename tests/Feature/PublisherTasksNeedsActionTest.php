@@ -164,6 +164,10 @@ class PublisherTasksNeedsActionTest extends TestCase
         $this->assertStringContainsString('publisher-tasks.css', $blade);
         $this->assertStringContainsString('id="statProcessingOrders"', $blade);
         $this->assertStringContainsString('id="statReviewOrders"', $blade);
+        $this->assertStringContainsString('id="statScheduledOrders"', $blade);
+        $this->assertStringContainsString('id="statNeedsYou"', $blade);
+        $this->assertStringContainsString('>Orders<', $blade);
+        $this->assertStringContainsString('>Needs you<', $blade);
         $this->assertStringContainsString('value="scheduled"', $blade);
         $this->assertStringContainsString('awaitingSchedule', $blade);
         $this->assertStringContainsString('is_awaiting_scheduled_release', $blade);
@@ -226,7 +230,60 @@ class PublisherTasksNeedsActionTest extends TestCase
         $this->actingAs($this->publisher)
             ->getJson(route('publisher.orders.statistics'))
             ->assertOk()
-            ->assertJsonPath('data.pending_orders', 1);
+            ->assertJsonPath('data.pending_orders', 1)
+            ->assertJsonPath('data.scheduled_orders', 1)
+            ->assertJsonPath('data.needs_you', 1);
+    }
+
+    public function test_statistics_count_orders_not_line_items(): void
+    {
+        $advertiserRole = Role::firstOrCreate(['name' => 'advertiser']);
+        $advertiser = User::factory()->create([
+            'email_verified_at' => now(),
+            'active_role_id' => $advertiserRole->id,
+        ]);
+        $advertiser->roles()->attach($advertiserRole->id);
+
+        $order = Order::create([
+            'user_id' => $advertiser->id,
+            'order_number' => 'PACK-'.uniqid(),
+            'subtotal' => 100,
+            'total_amount' => 100,
+            'payment_method' => 'card',
+            'payment_status' => 'paid',
+            'status' => 'pending',
+            'paid_at' => now(),
+        ]);
+
+        OrderItem::create([
+            'order_id' => $order->id,
+            'site_id' => $this->site->id,
+            'site_name' => $this->site->site_name,
+            'site_url' => $this->site->site_url,
+            'content_link' => 'https://docs.example/a',
+            'price' => 50,
+        ]);
+        OrderItem::create([
+            'order_id' => $order->id,
+            'site_id' => $this->site->id,
+            'site_name' => $this->site->site_name,
+            'site_url' => $this->site->site_url,
+            'content_link' => 'https://docs.example/b',
+            'price' => 50,
+        ]);
+
+        $rows = $this->actingAs($this->publisher)
+            ->getJson(route('publisher.orders.data'))
+            ->assertOk()
+            ->json('data');
+        $this->assertCount(2, $rows);
+
+        $this->actingAs($this->publisher)
+            ->getJson(route('publisher.orders.statistics'))
+            ->assertOk()
+            ->assertJsonPath('data.total_orders', 1)
+            ->assertJsonPath('data.pending_orders', 1)
+            ->assertJsonPath('data.needs_you', 2);
     }
 
     public function test_helper_badge_and_tasks_filter_share_the_same_needs_you_count(): void
