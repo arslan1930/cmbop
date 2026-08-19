@@ -140,12 +140,11 @@ class PublisherReportsController extends Controller
                 })
                 ->orderBy('created_at', 'desc');
 
-            $this->applyDateFilters($query, $request);
-
             $status = search_text($request->input('status'));
             if ($status === '') {
                 $status = 'completed';
             }
+            $this->applyOrderDateFilters($query, $request, $status);
             if ($status !== '' && $status !== 'all' && in_array($status, self::ORDER_STATUSES, true)) {
                 $query->whereHas('order', function ($q) use ($status) {
                     if ($status === 'scheduled') {
@@ -300,6 +299,9 @@ class PublisherReportsController extends Controller
             'price' => $payout,
             'publisher_base_price' => $item->publisherBasePrice(),
             'created_at' => $item->created_at,
+            'completed_at' => $item->completed_at
+                ?? $item->order?->completed_at
+                ?? $item->order?->paid_at,
             'is_clawed_back' => $clawed,
             'payout_state' => $state,
             'payout_label' => match ($state) {
@@ -340,21 +342,88 @@ class PublisherReportsController extends Controller
     /**
      * Ignore invalid date filters so bad query strings do not 500 the page.
      *
-     * @param  Builder<Model>  $query
+     * @return array{0: ?string, 1: ?string}
      */
-    private function applyDateFilters($query, Request $request): void
+    private function parsedDateRange(Request $request): array
     {
         $validated = Validator::make($request->only(['date_from', 'date_to']), [
             'date_from' => ['nullable', 'date'],
             'date_to' => ['nullable', 'date'],
         ])->valid();
 
-        if (! empty($validated['date_from'])) {
-            $query->whereDate('created_at', '>=', $validated['date_from']);
+        $from = ! empty($validated['date_from']) ? $validated['date_from'] : null;
+        $to = ! empty($validated['date_to']) ? $validated['date_to'] : null;
+
+        return [$from, $to];
+    }
+
+    /**
+     * Withdrawals stay on request created_at.
+     *
+     * @param  Builder<Model>  $query
+     */
+    private function applyDateFilters($query, Request $request): void
+    {
+        [$from, $to] = $this->parsedDateRange($request);
+
+        if ($from) {
+            $query->whereDate('created_at', '>=', $from);
         }
-        if (! empty($validated['date_to'])) {
-            $query->whereDate('created_at', '<=', $validated['date_to']);
+        if ($to) {
+            $query->whereDate('created_at', '<=', $to);
         }
+    }
+
+    /**
+     * Completed / All: filter by when the placement completed
+     * (item.completed_at, then order.completed_at, then order.paid_at).
+     * Open statuses ignore the date range so checkout dates do not hide work.
+     *
+     * @param  Builder<Model>  $query
+     */
+    private function applyOrderDateFilters($query, Request $request, string $status): void
+    {
+        [$from, $to] = $this->parsedDateRange($request);
+        if (! $from && ! $to) {
+            return;
+        }
+
+        if (! in_array($status, ['completed', 'all'], true)) {
+            return;
+        }
+
+        $query->where(function ($outer) use ($from, $to) {
+            $outer->where(function ($item) use ($from, $to) {
+                $item->whereNotNull('completed_at');
+                if ($from) {
+                    $item->whereDate('completed_at', '>=', $from);
+                }
+                if ($to) {
+                    $item->whereDate('completed_at', '<=', $to);
+                }
+            })->orWhere(function ($item) use ($from, $to) {
+                $item->whereNull('completed_at')
+                    ->whereHas('order', function ($order) use ($from, $to) {
+                        $order->where(function ($o) use ($from, $to) {
+                            $o->whereNotNull('completed_at');
+                            if ($from) {
+                                $o->whereDate('completed_at', '>=', $from);
+                            }
+                            if ($to) {
+                                $o->whereDate('completed_at', '<=', $to);
+                            }
+                        })->orWhere(function ($o) use ($from, $to) {
+                            $o->whereNull('completed_at');
+                            if ($from) {
+                                $o->whereDate('paid_at', '>=', $from);
+                            }
+                            if ($to) {
+                                $o->whereDate('paid_at', '<=', $to);
+                            }
+                        });
+                    });
+            });
+        });
     }
 
     /**

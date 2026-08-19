@@ -153,7 +153,7 @@
                             <thead class="table-light">
                                 <tr>
                                     <th>Order #</th>
-                                    <th>Date</th>
+                                    <th id="ordersDateHeading">Completed</th>
                                     <th>Site</th>
                                     <th>Base Price</th>
                                     <th>Sensitive Price</th>
