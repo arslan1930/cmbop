@@ -74,10 +74,22 @@ class SitePromotionService
                 // closure commits the transaction — a post-debit visibility
                 // check used to keep the charge and skip the feature.
                 $lockedSite = Site::query()->whereKey($site->id)->lockForUpdate()->firstOrFail();
-                if (! $lockedSite->isCatalogVisible()) {
+                if ($lockedSite->isArchived()) {
+                    return [
+                        'success' => false,
+                        'message' => 'Archived sites cannot be promoted. Restore the site first.',
+                    ];
+                }
+                if ($lockedSite->isFromCancelledBulk()) {
                     return [
                         'success' => false,
                         'message' => 'This listing is not in the catalog and cannot be promoted.',
+                    ];
+                }
+                if (! $lockedSite->active && ! $lockedSite->verified) {
+                    return [
+                        'success' => false,
+                        'message' => 'Only verified or active sites can use promotions.',
                     ];
                 }
 

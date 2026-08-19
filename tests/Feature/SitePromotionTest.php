@@ -416,11 +416,11 @@ class SitePromotionTest extends TestCase
         ]);
     }
 
-    public function test_wallet_feature_does_not_debit_when_listing_left_catalog(): void
+    public function test_wallet_feature_does_not_debit_pending_site(): void
     {
         $publisher = $this->publisherWithWallet(50);
         $site = $this->site($publisher);
-        $site->update(['active' => false]);
+        $site->update(['active' => false, 'verified' => false]);
 
         $result = app(SitePromotionService::class)->featureWithWallet($site, $publisher);
 
@@ -525,19 +525,18 @@ class SitePromotionTest extends TestCase
         $this->assertFalse($site->fresh()->hasActiveCustomDiscount());
     }
 
-    public function test_feature_rejects_active_unverified_site(): void
+    public function test_active_unverified_site_can_feature_with_wallet(): void
     {
         $publisher = $this->publisherWithWallet(50);
         $site = $this->site($publisher);
         $site->update(['verified' => false, 'active' => true]);
 
         $this->actingAs($publisher)->postJson(route('publisher.sites.feature', $site->id))
-            ->assertStatus(422)
-            ->assertJsonPath('success', false)
-            ->assertJsonPath('message', 'Verify this site first so advertisers can see it in the catalog.');
+            ->assertOk()
+            ->assertJsonPath('success', true);
 
-        $this->assertFalse($site->fresh()->isFeatured());
-        $this->assertSame(50.0, (float) Wallet::where('user_id', $publisher->id)->value('balance'));
+        $this->assertTrue($site->fresh()->isFeatured());
+        $this->assertSame(40.0, (float) Wallet::where('user_id', $publisher->id)->value('balance'));
     }
 
     public function test_wallet_feature_does_not_debit_cancelled_bulk_leftover(): void

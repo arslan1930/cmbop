@@ -19,12 +19,12 @@ class SitePromotionController extends Controller
     public function __construct(private readonly SitePromotionService $promotions) {}
 
     /**
-     * @param  bool  $requireCatalog  Paid Feature must already be advertiser-visible.
-     *                                Timed sale / bulk pricing may be set on any live
-     *                                Active row (active or verified) so publishers are
-     *                                not blocked by "Get Verified" still being open.
+     * Feature, timed sale, and bulk may be set on any live Active-tab row
+     * (active or verified). Verification is a trust badge, not a promo lock —
+     * the Feature dialog already says featuring still works while Get Verified
+     * is open. Cancelled-bulk leftovers stay blocked.
      */
-    private function ownedPromotableSite(int $id, bool $requireCatalog = true): Site|JsonResponse
+    private function ownedPromotableSite(int $id): Site|JsonResponse
     {
         $site = Site::where('publisher_id', auth()->id())->findOrFail($id);
 
@@ -39,17 +39,6 @@ class SitePromotionController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'This listing is not in the catalog and cannot be promoted.',
-            ], 422);
-        }
-
-        if ($requireCatalog && ! $site->isCatalogVisible()) {
-            $message = ($site->active && ! $site->verified)
-                ? 'Verify this site first so advertisers can see it in the catalog.'
-                : 'This listing is not in the catalog and cannot be promoted.';
-
-            return response()->json([
-                'success' => false,
-                'message' => $message,
             ], 422);
         }
 
@@ -247,7 +236,7 @@ class SitePromotionController extends Controller
 
     public function joinBulk(Request $request, int $id)
     {
-        $site = $this->ownedPromotableSite($id, requireCatalog: false);
+        $site = $this->ownedPromotableSite($id);
         if ($site instanceof JsonResponse) {
             return $site;
         }
@@ -312,7 +301,7 @@ class SitePromotionController extends Controller
 
     public function setDiscount(Request $request, int $id)
     {
-        $site = $this->ownedPromotableSite($id, requireCatalog: false);
+        $site = $this->ownedPromotableSite($id);
         if ($site instanceof JsonResponse) {
             return $site;
         }
