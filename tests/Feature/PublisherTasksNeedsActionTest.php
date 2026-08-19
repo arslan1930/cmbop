@@ -140,6 +140,24 @@ class PublisherTasksNeedsActionTest extends TestCase
         $this->assertStringContainsString('do not enable macros', $blade);
     }
 
+    public function test_tasks_empty_states_distinguish_filters_and_needs_you(): void
+    {
+        $blade = file_get_contents(resource_path('views/publisher/tasks.blade.php'));
+        $this->assertStringContainsString('function tasksFiltersAreActive', $blade);
+        $this->assertStringContainsString('No tasks yet', $blade);
+        $this->assertStringContainsString('No tasks match these filters', $blade);
+        $this->assertStringContainsString('caught up', $blade);
+        $this->assertStringContainsString('emptyResetFilters', $blade);
+        $this->assertStringContainsString('emptyShowAllTasks', $blade);
+        $this->assertStringContainsString('needsYouEmpty', $blade);
+        $this->assertStringContainsString('filteredEmpty', $blade);
+        $caughtAt = strpos($blade, 'caught up');
+        $yetAt = strpos($blade, 'No tasks yet');
+        $this->assertNotFalse($caughtAt);
+        $this->assertNotFalse($yetAt);
+        $this->assertGreaterThan($yetAt, $caughtAt, 'Caught-up copy must live in the needs-you empty branch.');
+    }
+
     public function test_tasks_page_exposes_extended_stats_and_extracted_css(): void
     {
         $blade = file_get_contents(resource_path('views/publisher/tasks.blade.php'));
