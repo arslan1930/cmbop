@@ -100,8 +100,8 @@ class SensitivePriceCartTest extends TestCase
         $this->assertCount(1, $cart);
         $this->assertSame('crypto', $cart[0]['sensitive_type']);
         $this->assertSame($site->domain, $cart[0]['domain']);
-        $this->assertEquals((int) $site->da, (int) $cart[0]['da']);
-        $this->assertEquals((int) $site->dr, (int) $cart[0]['dr']);
+        $this->assertSame(40, $cart[0]['da']);
+        $this->assertSame(45, $cart[0]['dr']);
         $this->assertEquals(25.0, (float) $cart[0]['additional_price']);
         $this->assertEquals($expected['total'], (float) $cart[0]['price']);
         $this->assertEquals($expected['total'], (float) $response->json('cart_total'));
@@ -154,10 +154,27 @@ class SensitivePriceCartTest extends TestCase
 
         $this->assertSame('crypto', $payload['cart'][0]['sensitive_type']);
         $this->assertSame($site->domain, $payload['cart'][0]['domain']);
-        $this->assertEquals((int) $site->da, (int) $payload['cart'][0]['da']);
-        $this->assertEquals((int) $site->dr, (int) $payload['cart'][0]['dr']);
+        $this->assertSame(40, $payload['cart'][0]['da']);
+        $this->assertSame(45, $payload['cart'][0]['dr']);
         $this->assertEquals(25.0, (float) $payload['cart'][0]['additional_price']);
         $this->assertEquals($expected['total'], (float) $payload['cart'][0]['price']);
+    }
+
+    public function test_cart_keeps_missing_da_dr_null_instead_of_zero(): void
+    {
+        $site = $this->makeSiteWithSensitive();
+        $site->forceFill(['da' => 0, 'dr' => 0])->save();
+
+        $payload = $this->actingAs($this->advertiser)
+            ->postJson(route('advertiser.cart.add'), [
+                'id' => $site->id,
+            ])
+            ->assertOk()
+            ->json();
+
+        $this->assertNull($payload['cart'][0]['da']);
+        $this->assertNull($payload['cart'][0]['dr']);
+        $this->assertSame('sensitive-topic.example', $payload['cart'][0]['domain']);
     }
 
     public function test_catalog_js_reads_sensitive_selection_from_dom_on_buy(): void

@@ -482,15 +482,19 @@
         return siteLangs.includes(articleLang);
     }
 
+    function articleId(value) {
+        return parseInt(value, 10) || 0;
+    }
+
     function lineContentIds(item) {
         const qty = Math.max(1, parseInt(item.quantity, 10) || 1);
         const raw = Array.isArray(item.content_submission_ids) ? item.content_submission_ids : [];
         const ids = [];
         for (let i = 0; i < qty; i++) {
-            ids[i] = parseInt(raw[i] || 0, 10) || 0;
+            ids[i] = articleId(raw[i]);
         }
         if (!ids[0] && item.content_submission_id) {
-            ids[0] = parseInt(item.content_submission_id, 10) || 0;
+            ids[0] = articleId(item.content_submission_id);
         }
         return ids;
     }
@@ -517,7 +521,8 @@
         const usedElsewhere = usedSubmissionIds(getCartItemKey(item), copyIndex);
         const siteLangs = siteLanguageCodes(item);
         const options = approvedArticles.filter((article) => {
-            if (usedElsewhere.has(article.id) && article.id !== selectedId) return false;
+            const id = articleId(article.id);
+            if (usedElsewhere.has(id) && id !== selectedId) return false;
             if (requireSameLanguage && !articleFitsSiteLanguages(article, siteLangs)) return false;
             return true;
         });
@@ -841,9 +846,10 @@
                                 ? ('Article' + (locale ? ' · ' + locale : ''))
                                 : (rawTitle + (locale ? ' (' + locale + ')' : ''));
                             const optionLabel = baseLabel + (fits ? '' : ' · different language');
-                            opts += `<option value="${article.id}" ${article.id === selectedId ? 'selected' : ''}>${escapeHtml(optionLabel)}</option>`;
+                            const optionId = articleId(article.id);
+                            opts += `<option value="${optionId}" ${optionId === Number(selectedId) ? 'selected' : ''}>${escapeHtml(optionLabel)}</option>`;
                         });
-                        if (selectedId && !options.some((a) => a.id === selectedId)) {
+                        if (selectedId && !options.some((a) => articleId(a.id) === Number(selectedId))) {
                             opts += `<option value="${selectedId}" selected>Assigned document #${selectedId}</option>`;
                         }
                         const emptyHint = options.length === 0 && !selectedId
@@ -1169,11 +1175,11 @@
         }
 
         const item = cart.find((row) =>
-            row.id === id
+            articleId(row.id) === id
             && (row.sensitive_type || null) === sensitiveType
             && cartHomepageParam(row) === String(homepageDays)
         );
-        const article = approvedArticles.find((row) => row.id === submissionId);
+        const article = approvedArticles.find((row) => articleId(row.id) === submissionId);
         const siteLangs = siteLanguageCodes(item);
         const articleLang = String(article?.language || '').toLowerCase();
         const fits = articleFitsSiteLanguages(article, siteLangs);

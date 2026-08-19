@@ -56,6 +56,9 @@ class CartDrawerDensityTest extends TestCase
         $this->assertStringContainsString('Upload article', $layout);
         $this->assertStringContainsString('Upload another', $layout);
         $this->assertStringContainsString('titleLooksLikeId', $layout);
+        $this->assertStringContainsString('function articleId', $layout);
+        $this->assertStringContainsString('optionId === Number(selectedId)', $layout);
+        $this->assertStringNotContainsString('article.id === selectedId', $layout);
         $this->assertMatchesRegularExpression('/cart-item-remove[^>]*>\s*Remove\s*</', $layout);
         $this->assertStringNotContainsString('Articles attached — proceed to pay', $layout);
         $this->assertStringNotContainsString("selectedId ? 'Attached'", $layout);
@@ -88,6 +91,11 @@ class CartDrawerDensityTest extends TestCase
         $this->assertStringContainsString('.cart-totals__held', $css);
         $this->assertStringContainsString('.cart-schedule-hint', $css);
         $this->assertStringContainsString('width: min(420px, 94vw)', $css);
+        $this->assertStringContainsString('max-height: 100vh', $css);
+        $this->assertStringContainsString('max-height: 100dvh', $css);
+        $this->assertStringContainsString('flex: 1 1 auto', $css);
+        $this->assertStringContainsString('flex-shrink: 0', $css);
+        $this->assertDoesNotMatchRegularExpression('/^\s*height:\s*100vh;/m', $css);
 
         $this->assertStringNotContainsString('.cart-checklist', $stepper);
         $this->assertStringNotContainsString('#checkoutFromCart:disabled', $stepper);

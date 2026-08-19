@@ -1007,11 +1007,24 @@ class CatalogController extends Controller
         $line['language'] = $line['language'] ?? $site->language;
         $line['country'] = $line['country'] ?? $site->country;
         $line['link_type'] = $line['link_type'] ?? $site->link_type;
-        $line['da'] = $site->da;
-        $line['dr'] = $site->dr;
+        $line['da'] = self::cartMetricInt($site->da);
+        $line['dr'] = self::cartMetricInt($site->dr);
         $line['domain'] = trim((string) ($site->domain ?: ''));
 
         return $this->applyCartLineContentIds($line, $this->cartLineContentIds($line));
+    }
+
+    /**
+     * Store DA/DR as int or null so a MySQL string "40" does not rewrite the session on every getCart.
+     * Zero is the column default and is not a real metric — keep it null so the drawer does not show "DA 0".
+     */
+    private static function cartMetricInt(mixed $value): ?int
+    {
+        if (! is_numeric($value) || (int) $value === 0) {
+            return null;
+        }
+
+        return (int) $value;
     }
 
     private function cartUsesSubmissionId(
