@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Order;
+use App\Models\OrderActivity;
 use App\Models\OrderItem;
 use App\Models\Role;
 use App\Models\Site;
@@ -187,7 +188,8 @@ class PublisherTasksDetailsTest extends TestCase
         $this->assertStringContainsString('function publisherTimelineActorLabel', $blade);
         $this->assertStringContainsString('function renderPublisherOrderActivityTimeline', $blade);
         $this->assertStringContainsString("role === 'advertiser') return 'Advertiser'", $blade);
-        $this->assertStringContainsString("role === 'publisher') return 'You'", $blade);
+        $this->assertStringContainsString("role === 'publisher') return 'Publisher'", $blade);
+        $this->assertStringContainsString('actorId === publisherUserId', $blade);
         $this->assertStringContainsString("role === 'admin' || role === 'marketing') return 'Support'", $blade);
         $this->assertStringContainsString('copy.actor_name = publisherTimelineActorLabel(a)', $blade);
 
@@ -195,5 +197,93 @@ class PublisherTasksDetailsTest extends TestCase
         $this->assertStringContainsString('window.renderOrderActivityTimeline', $shared);
         $this->assertStringContainsString('a.actor_name', $shared);
         $this->assertStringNotContainsString('publisherTimelineActorLabel', $shared);
+    }
+
+    public function test_publisher_timeline_labels_sibling_publisher_not_you(): void
+    {
+        $publisherRole = Role::firstOrCreate(['name' => 'publisher']);
+        $other = User::factory()->create([
+            'email_verified_at' => now(),
+            'active_role_id' => $publisherRole->id,
+            'name' => 'Other Publisher',
+        ]);
+        $other->roles()->attach($publisherRole->id);
+
+        $otherSite = Site::create([
+            'publisher_id' => $other->id,
+            'site_name' => 'Other Details Site',
+            'site_url' => 'https://other-details.example',
+            'domain' => 'other-details.example',
+            'example_url' => 'https://other-details.example/post',
+            'da' => 30,
+            'dr' => 30,
+            'traffic' => 800,
+            'country' => 'de',
+            'language' => 'de',
+            'category' => 'Tech',
+            'categories' => ['Tech'],
+            'price' => 40,
+            'publication_time' => 'permanent',
+            'link_type' => 'dofollow',
+            'turnaround_time' => '3days',
+            'description' => str_repeat('Other details site description text. ', 4),
+            'verified' => true,
+            'active' => true,
+        ]);
+
+        $item = $this->makePaidItem('processing');
+        OrderItem::create([
+            'order_id' => $item->order_id,
+            'site_id' => $otherSite->id,
+            'site_name' => $otherSite->site_name,
+            'site_url' => $otherSite->site_url,
+            'content_link' => 'https://docs.example/other',
+            'price' => 40,
+            'publisher_price' => 40,
+        ]);
+
+        $advertiser = $item->order->user;
+        OrderActivity::create([
+            'order_id' => $item->order_id,
+            'actor_id' => $advertiser->id,
+            'actor_name' => $advertiser->name,
+            'actor_role' => 'advertiser',
+            'event' => 'order.created',
+            'title' => 'Order created',
+        ]);
+        OrderActivity::create([
+            'order_id' => $item->order_id,
+            'actor_id' => $this->publisher->id,
+            'actor_name' => $this->publisher->name,
+            'actor_role' => 'publisher',
+            'event' => 'order.accepted',
+            'title' => 'Publisher accepted',
+        ]);
+        OrderActivity::create([
+            'order_id' => $item->order_id,
+            'actor_id' => $other->id,
+            'actor_name' => $other->name,
+            'actor_role' => 'publisher',
+            'event' => 'order.published',
+            'title' => 'Guest post published',
+        ]);
+
+        $mine = $this->actingAs($this->publisher)
+            ->getJson(route('notifications.order-timeline', $item->order_id))
+            ->assertOk()
+            ->json('activities');
+        $names = collect($mine)->pluck('actor_name', 'event')->all();
+        $this->assertSame('Advertiser', $names['order.created']);
+        $this->assertSame('You', $names['order.accepted']);
+        $this->assertSame('Publisher', $names['order.published']);
+        $this->assertNotContains('Other Publisher', $names);
+
+        $theirs = $this->actingAs($other)
+            ->getJson(route('notifications.order-timeline', $item->order_id))
+            ->assertOk()
+            ->json('activities');
+        $otherNames = collect($theirs)->pluck('actor_name', 'event')->all();
+        $this->assertSame('You', $otherNames['order.published']);
+        $this->assertSame('Publisher', $otherNames['order.accepted']);
     }
 }
