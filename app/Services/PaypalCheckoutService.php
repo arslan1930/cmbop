@@ -47,6 +47,29 @@ class PaypalCheckoutService
         return $mode === 'live' ? 'live' : 'sandbox';
     }
 
+    /**
+     * Operator snapshot for `paypal:status`. Never includes the secret.
+     *
+     * @return array{mode: string, host: string, configured: bool, client_id_set: bool, secret_set: bool, webhook_id_set: bool, client_id_hint: string, secret_length: int}
+     */
+    public function connectionSnapshot(): array
+    {
+        $id = $this->clientId();
+        $secret = $this->secret();
+        $webhook = $this->normalizedCredential((string) config('services.paypal.webhook_id', ''));
+
+        return [
+            'mode' => $this->mode(),
+            'host' => $this->baseUrl(),
+            'configured' => $this->configured(),
+            'client_id_set' => $id !== '',
+            'secret_set' => $secret !== '',
+            'webhook_id_set' => $webhook !== '',
+            'client_id_hint' => $id === '' ? '' : substr($id, 0, 6).'… ('.strlen($id).' chars)',
+            'secret_length' => strlen($secret),
+        ];
+    }
+
     public function baseUrl(): string
     {
         $override = rtrim(trim((string) config('services.paypal.base_url', '')), '/');

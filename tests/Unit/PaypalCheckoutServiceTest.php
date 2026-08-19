@@ -443,6 +443,20 @@ class PaypalCheckoutServiceTest extends TestCase
         }
     }
 
+    public function test_connection_snapshot_does_not_include_the_secret(): void
+    {
+        $snap = (new PaypalCheckoutService)->connectionSnapshot();
+
+        $this->assertSame('sandbox', $snap['mode']);
+        $this->assertSame('https://api-m.sandbox.paypal.com', $snap['host']);
+        $this->assertTrue($snap['configured']);
+        $this->assertTrue($snap['client_id_set']);
+        $this->assertTrue($snap['secret_set']);
+        $this->assertSame(strlen('paypal-secret-test'), $snap['secret_length']);
+        $this->assertStringStartsWith('paypal', $snap['client_id_hint']);
+        $this->assertStringNotContainsString('paypal-secret-test', json_encode($snap));
+    }
+
     public function test_oauth_cache_does_not_reuse_token_after_secret_rotation(): void
     {
         Http::fake([

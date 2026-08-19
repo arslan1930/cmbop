@@ -33,7 +33,9 @@ This agent cannot SSH to live Hostinger. `HOSTINGER_WEB_HEAL` (default on) plus
    `PAYPAL_WEBHOOK_ID` on Hostinger (Developer Dashboard app + webhook to
    `https://YOUR-DOMAIN/api/paypal/webhook`). `PAYPAL_MODE=live` on production.
    Omit `PAYPAL_ENABLED` or set it true — credentials turn the rail on. Set
-   `PAYPAL_ENABLED=false` only to hide PayPal. Then `php artisan config:clear`.
+   `PAYPAL_ENABLED=false` only to hide PayPal. Then `php artisan config:clear`
+   and `php artisan paypal:status` (must print `OAuth: ok`; 401 means sandbox
+   keys on live or the reverse).
 6. Open 2 known image URLs (`/storage/sites/...`, `/storage/site-screenshots/...`)
 7. Confirm a new upload lands under `persistent/media`, not a wiped folder
 8. Article .docx uploads are fixed at 10 MB (admin cannot raise this). In hPanel →
