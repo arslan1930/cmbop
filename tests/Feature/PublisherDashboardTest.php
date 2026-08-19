@@ -389,7 +389,7 @@ class PublisherDashboardTest extends TestCase
             ->assertSee('€42.00')
             ->assertSee('Pending earnings')
             ->assertSee('€100.00')
-            ->assertSee('Open tasks')
+            ->assertSee('Needs you')
             ->assertSee('id="openTasks"', false)
             ->assertSee('Awaiting verification')
             ->assertSee('id="unverifiedSites"', false)
@@ -455,6 +455,7 @@ class PublisherDashboardTest extends TestCase
         $this->actingAs($publisher)
             ->get(route('publisher.dashboard'))
             ->assertOk()
+            ->assertSee('Needs you', false)
             ->assertSee('id="openTasks">1', false)
             ->assertSee('status-scheduled', false)
             ->assertSee('Scheduled', false);
@@ -466,5 +467,61 @@ class PublisherDashboardTest extends TestCase
         $statuses = collect($recent)->pluck('status')->all();
         $this->assertContains('pending', $statuses);
         $this->assertContains('scheduled', $statuses);
+    }
+
+    public function test_needs_you_tile_matches_nav_badge_and_tasks_filter(): void
+    {
+        $publisher = $this->publisherWithWallet();
+        $advertiser = $this->advertiser();
+        $site = $this->site($publisher);
+
+        $pending = $this->createOrderItem($advertiser, $site, ['status' => 'pending']);
+        $this->createOrderItem($advertiser, $site, ['status' => 'processing'], [
+            'live_url' => 'https://live.example/done',
+        ]);
+
+        $this->actingAs($publisher)
+            ->get(route('publisher.dashboard'))
+            ->assertOk()
+            ->assertSee('id="openTasks">1', false)
+            ->assertSee('needs_action=1', false);
+
+        $this->actingAs($publisher)
+            ->getJson('/chat/unread-summary')
+            ->assertOk()
+            ->assertJsonPath('needs_action', 1);
+
+        $needs = $this->actingAs($publisher)
+            ->getJson(route('publisher.orders.data', ['needs_action' => 1]))
+            ->assertOk()
+            ->json('data');
+        $this->assertCount(1, $needs);
+        $this->assertSame($pending->id, $needs[0]['id']);
+    }
+
+    public function test_processing_with_live_url_is_not_needs_you_on_dashboard(): void
+    {
+        $publisher = $this->publisherWithWallet();
+        $advertiser = $this->advertiser();
+        $site = $this->site($publisher);
+        $this->createOrderItem($advertiser, $site, ['status' => 'processing'], [
+            'live_url' => 'https://live.example/done',
+        ]);
+
+        $this->actingAs($publisher)
+            ->get(route('publisher.dashboard'))
+            ->assertOk()
+            ->assertSee('id="openTasks">0', false);
+
+        $this->actingAs($publisher)
+            ->getJson('/chat/unread-summary')
+            ->assertOk()
+            ->assertJsonPath('needs_action', 0);
+
+        $needs = $this->actingAs($publisher)
+            ->getJson(route('publisher.orders.data', ['needs_action' => 1]))
+            ->assertOk()
+            ->json('data');
+        $this->assertCount(0, $needs);
     }
 }

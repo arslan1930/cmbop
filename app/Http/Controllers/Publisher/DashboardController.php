@@ -8,6 +8,7 @@ use App\Models\OrderItem;
 use App\Models\OrderItemDispute;
 use App\Models\Site;
 use App\Models\WalletTransaction;
+use App\Support\PublisherNeedsAction;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -207,13 +208,7 @@ class DashboardController extends Controller
             return 0;
         }
 
-        return OrderItem::whereIn('site_id', $siteIds)
-            ->whereHas('order', function ($q) {
-                $q->where('payment_status', 'paid')
-                    ->whereIn('status', ['pending', 'processing', 'review'])
-                    ->notAwaitingScheduledRelease();
-            })
-            ->count();
+        return PublisherNeedsAction::needsYouCount((int) auth()->id());
     }
 
     /**
