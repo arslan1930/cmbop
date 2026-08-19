@@ -198,6 +198,7 @@ class PublisherTasksNeedsActionTest extends TestCase
         $this->assertStringContainsString('locateQuery.order_item_id', $blade);
         $this->assertStringContainsString('chatModal', $blade);
         $this->assertStringContainsString('publisherOrderChat', $blade);
+        $this->assertStringContainsString('!window._publisherTasksByOrderId[String(item.order_id)]', $blade);
     }
 
     public function test_tasks_empty_states_distinguish_filters_and_needs_you(): void
@@ -209,8 +210,10 @@ class PublisherTasksNeedsActionTest extends TestCase
         $this->assertStringContainsString('caught up', $blade);
         $this->assertStringContainsString('emptyResetFilters', $blade);
         $this->assertStringContainsString('emptyShowAllTasks', $blade);
-        $this->assertStringContainsString('needsYouEmpty', $blade);
+        $this->assertStringContainsString('needsYouOnly', $blade);
         $this->assertStringContainsString('filteredEmpty', $blade);
+        $this->assertStringContainsString('function tasksSearchOrDateFiltersAreActive', $blade);
+        $this->assertStringContainsString('needsActionOn && !extraFiltersOn', $blade);
         $caughtAt = strpos($blade, 'caught up');
         $yetAt = strpos($blade, 'No tasks yet');
         $this->assertNotFalse($caughtAt);

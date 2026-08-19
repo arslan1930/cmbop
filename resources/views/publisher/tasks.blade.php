@@ -1257,15 +1257,26 @@ $(document).ready(function() {
         );
     }
 
+    function tasksSearchOrDateFiltersAreActive() {
+        return !!(
+            ($('#searchInput').val() || '').trim() ||
+            $('#dateFrom').val() ||
+            $('#dateTo').val()
+        );
+    }
+
     function renderTasksTable(orderItems) {
         window._publisherTaskItems = Array.isArray(orderItems) ? orderItems : [];
         if (!orderItems || orderItems.length === 0) {
-            var needsYouEmpty = $('#needsActionFilter').val() === '1';
-            var filteredEmpty = tasksFiltersAreActive();
+            var needsActionOn = $('#needsActionFilter').val() === '1';
+            var extraFiltersOn = tasksSearchOrDateFiltersAreActive()
+                || (!needsActionOn && !!($('#statusFilter').val() || ''));
+            var needsYouOnly = needsActionOn && !extraFiltersOn;
+            var filteredEmpty = extraFiltersOn;
             var emptyTitle = 'No tasks yet';
             var emptyBody = 'When advertisers order your sites, new tasks will show up here.';
             var emptyCta = '<a href="{{ route("publisher.websites") }}" class="btn btn-primary btn-sm">Manage my sites</a>';
-            if (needsYouEmpty) {
+            if (needsYouOnly) {
                 emptyTitle = 'You\'re caught up';
                 emptyBody = 'Nothing needs you right now. Scheduled work and advertiser review stay on All tasks.';
                 emptyCta = '<button type="button" class="btn btn-primary btn-sm" id="emptyShowAllTasks">Show all tasks</button>';
@@ -1290,7 +1301,7 @@ $(document).ready(function() {
         var html = '';
         window._publisherTasksByOrderId = {};
         orderItems.forEach(function(item) {
-            if (item.order_id) {
+            if (item.order_id && !window._publisherTasksByOrderId[String(item.order_id)]) {
                 window._publisherTasksByOrderId[String(item.order_id)] = item.id;
             }
             var orderStatus = item.order ? item.order.status : 'pending';
