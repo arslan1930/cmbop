@@ -7,12 +7,15 @@ use App\Mail\PaypalExternalPaymentNotice;
 use App\Mail\PaypalPaymentNotCompleted;
 use App\Models\DepositRequest;
 use App\Models\InAppNotification;
+use App\Models\Invoice;
 use App\Models\Order;
+use App\Models\OrderItem;
 use App\Models\PaypalWebhookLog;
 use App\Models\Role;
 use App\Models\Site;
 use App\Models\User;
 use App\Models\Wallet;
+use App\Models\WalletTransaction;
 use App\Services\CheckoutIntentService;
 use App\Services\InAppNotificationService;
 use App\Services\OrderPaymentService;
@@ -21,6 +24,7 @@ use App\Support\UserMessages;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Testing\TestResponse;
 use Tests\Support\CreatesContentSubmissions;
 use Tests\TestCase;
@@ -88,6 +92,121 @@ class PaypalWebhookTest extends TestCase
             'verified' => true,
             'active' => true,
         ]);
+    }
+
+    /**
+     * @return array{
+     *     order: Order,
+     *     item: OrderItem,
+     *     advertiser: User,
+     *     publisher: User,
+     *     advertiserWallet: Wallet,
+     *     publisherWallet: Wallet
+     * }
+     */
+    private function paidPaypalPlacement(
+        string $status,
+        string $orderNumber,
+        string $reference,
+        string $paypalOrderId,
+        string $captureId,
+        float $publisherBalance = 40.0,
+        float $advertiserBalance = 5.0,
+        float $publisherPrice = 40.0,
+        float $advertiserPrice = 50.0,
+    ): array {
+        $advertiser = $this->advertiser();
+        $publisher = $this->publisher();
+        $site = $this->activeSite($publisher);
+        $advertiserWallet = Wallet::create([
+            'user_id' => $advertiser->id,
+            'role_id' => Wallet::advertiserRoleId(),
+            'balance' => $advertiserBalance,
+            'reserved_balance' => 0,
+            'bonus_balance' => 0,
+            'bonus_reserved' => 0,
+            'debt_balance' => 0,
+            'currency' => 'EUR',
+        ]);
+        $publisherWallet = Wallet::create([
+            'user_id' => $publisher->id,
+            'role_id' => Wallet::publisherRoleId(),
+            'balance' => $publisherBalance,
+            'reserved_balance' => 0,
+            'bonus_balance' => 0,
+            'bonus_reserved' => 0,
+            'debt_balance' => 0,
+            'currency' => 'EUR',
+        ]);
+        $order = Order::create([
+            'user_id' => $advertiser->id,
+            'order_number' => $orderNumber,
+            'reference_code' => $reference,
+            'subtotal' => $advertiserPrice,
+            'tax' => 0,
+            'total_amount' => $advertiserPrice,
+            'payment_method' => 'paypal',
+            'payment_status' => 'paid',
+            'status' => $status,
+            'paypal_order_id' => $paypalOrderId,
+            'paypal_capture_id' => $captureId,
+            'paid_at' => now()->subDays(2),
+            'completed_at' => $status === 'completed' ? now()->subDay() : null,
+        ]);
+        $item = OrderItem::create([
+            'order_id' => $order->id,
+            'site_id' => $site->id,
+            'site_name' => $site->site_name,
+            'site_url' => $site->site_url,
+            'price' => $advertiserPrice,
+            'publisher_price' => $publisherPrice,
+            'platform_fee_amount' => round($advertiserPrice - $publisherPrice, 2),
+            'additional_price' => 0,
+            'content_link' => 'https://example.com/article.docx',
+        ]);
+
+        return [
+            'order' => $order,
+            'item' => $item,
+            'advertiser' => $advertiser,
+            'publisher' => $publisher,
+            'advertiserWallet' => $advertiserWallet,
+            'publisherWallet' => $publisherWallet,
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function captureRefundedEvent(
+        string $eventId,
+        string $refundId,
+        string $captureId,
+        string $paypalOrderId,
+        User $advertiser,
+        string $reference,
+        string $amount = '50.00',
+        string $eventType = 'PAYMENT.CAPTURE.REFUNDED',
+    ): array {
+        return [
+            'id' => $eventId,
+            'event_type' => $eventType,
+            'resource' => [
+                'id' => $refundId,
+                'amount' => ['currency_code' => 'EUR', 'value' => $amount],
+                'custom_id' => PaypalCheckoutService::customId(
+                    PaypalCheckoutService::TYPE_ORDER_CHECKOUT,
+                    $advertiser->id,
+                    $reference
+                ),
+                'supplementary_data' => [
+                    'related_ids' => [
+                        'capture_id' => $captureId,
+                        'order_id' => $paypalOrderId,
+                    ],
+                ],
+            ],
+        ];
     }
 
     private function enablePaypal(): void
@@ -599,6 +718,19 @@ class PaypalWebhookTest extends TestCase
         ]);
         app(CheckoutIntentService::class)->rememberBonus($advertiser->id, 'PP-RF', 20);
 
+        $publisher = $this->publisher();
+        $site = $this->activeSite($publisher);
+        $publisherWallet = Wallet::create([
+            'user_id' => $publisher->id,
+            'role_id' => Wallet::publisherRoleId(),
+            'balance' => 40,
+            'reserved_balance' => 0,
+            'bonus_balance' => 0,
+            'bonus_reserved' => 0,
+            'debt_balance' => 0,
+            'currency' => 'EUR',
+        ]);
+
         $order = Order::create([
             'user_id' => $advertiser->id,
             'order_number' => '880001',
@@ -612,6 +744,17 @@ class PaypalWebhookTest extends TestCase
             'paypal_order_id' => 'PO-RF',
             'paypal_capture_id' => 'CAP-PO-RF',
             'paid_at' => now(),
+        ]);
+        OrderItem::create([
+            'order_id' => $order->id,
+            'site_id' => $site->id,
+            'site_name' => $site->site_name,
+            'site_url' => $site->site_url,
+            'price' => 50,
+            'publisher_price' => 40,
+            'platform_fee_amount' => 10,
+            'additional_price' => 0,
+            'content_link' => 'https://example.com/article.docx',
         ]);
 
         $this->postWebhook([
@@ -642,6 +785,16 @@ class PaypalWebhookTest extends TestCase
         $this->assertEqualsWithDelta(25.0, (float) $wallet->balance, 0.01);
         $this->assertEqualsWithDelta(20.0, (float) $wallet->bonus_balance, 0.01);
         $this->assertEqualsWithDelta(0.0, (float) $wallet->bonus_reserved, 0.01);
+        $publisherWallet->refresh();
+        $this->assertEqualsWithDelta(40.0, (float) $publisherWallet->balance, 0.01);
+        $this->assertEqualsWithDelta(0.0, (float) $publisherWallet->debt_balance, 0.01);
+        $this->assertSame(0, WalletTransaction::query()
+            ->where('wallet_id', $publisherWallet->id)
+            ->whereIn('type', [
+                WalletTransaction::TYPE_TRANSFER_OUT,
+                WalletTransaction::TYPE_ADJUSTMENT,
+            ])
+            ->count());
     }
 
     public function test_refunded_deposit_webhook_reverses_wallet_credit(): void
@@ -788,61 +941,115 @@ class PaypalWebhookTest extends TestCase
         $this->assertStringContainsString('outstanding wallet debt', $html);
     }
 
-    public function test_refunded_webhook_does_not_cancel_a_completed_order(): void
+    public function test_refunded_webhook_claws_back_completed_order_without_advertiser_credit(): void
     {
         $this->enablePaypal();
         $this->fakePaypal('PO-DONE');
         Mail::fake();
+        Storage::fake('local');
 
         $this->admin();
-        $advertiser = $this->advertiser();
-        $order = Order::create([
-            'user_id' => $advertiser->id,
-            'order_number' => '880002',
-            'reference_code' => 'PP-DONE',
-            'subtotal' => 50,
-            'tax' => 0,
-            'total_amount' => 50,
-            'payment_method' => 'paypal',
-            'payment_status' => 'paid',
-            'status' => 'completed',
-            'paypal_order_id' => 'PO-DONE',
-            'paypal_capture_id' => 'CAP-PO-DONE',
-            'paid_at' => now()->subDays(2),
-            'completed_at' => now()->subDay(),
-        ]);
+        $placement = $this->paidPaypalPlacement(
+            'completed',
+            '880002',
+            'PP-DONE',
+            'PO-DONE',
+            'CAP-PO-DONE',
+        );
+        $order = $placement['order'];
+        $item = $placement['item'];
+        $advertiser = $placement['advertiser'];
+        $publisher = $placement['publisher'];
+        $advertiserWallet = $placement['advertiserWallet'];
+        $publisherWallet = $placement['publisherWallet'];
 
-        $this->postWebhook([
-            'id' => 'WH-DONE-1',
-            'event_type' => 'PAYMENT.CAPTURE.REFUNDED',
-            'resource' => [
-                'id' => 'RF-PO-DONE',
-                'custom_id' => PaypalCheckoutService::customId(
-                    PaypalCheckoutService::TYPE_ORDER_CHECKOUT,
-                    $advertiser->id,
-                    'PP-DONE'
-                ),
-                'supplementary_data' => [
-                    'related_ids' => [
-                        'capture_id' => 'CAP-PO-DONE',
-                        'order_id' => 'PO-DONE',
-                    ],
-                ],
-            ],
-        ])->assertOk()->assertJsonPath('status', 'success');
+        $payload = $this->captureRefundedEvent(
+            'WH-DONE-1',
+            'RF-PO-DONE',
+            'CAP-PO-DONE',
+            'PO-DONE',
+            $advertiser,
+            'PP-DONE',
+        );
+        $this->postWebhook($payload)->assertOk()->assertJsonPath('status', 'success');
 
         $fresh = $order->fresh();
-        $this->assertSame('paid', $fresh->payment_status);
+        $this->assertSame('refunded', $fresh->payment_status);
         $this->assertSame('completed', $fresh->status);
         $this->assertSame('RF-PO-DONE', $fresh->paypal_refund_id);
+        $this->assertEqualsWithDelta(5.0, (float) $advertiserWallet->fresh()->balance, 0.01);
+        $this->assertEqualsWithDelta(0.0, (float) $publisherWallet->fresh()->balance, 0.01);
+        $this->assertEqualsWithDelta(0.0, (float) $publisherWallet->fresh()->debt_balance, 0.01);
+        $this->assertTrue(WalletTransaction::query()
+            ->where('wallet_id', $publisherWallet->id)
+            ->where('type', WalletTransaction::TYPE_TRANSFER_OUT)
+            ->where('reference', 'CLAWBACK-PAYPAL-ITEM-'.$item->id)
+            ->exists());
+        $this->assertTrue(Invoice::query()
+            ->where('order_id', $order->id)
+            ->where('type', Invoice::TYPE_REFUND_RECEIPT)
+            ->exists());
         Mail::assertQueued(PaypalExternalPaymentNotice::class, function (PaypalExternalPaymentNotice $mail) use ($advertiser) {
             return (int) $mail->user->id === (int) $advertiser->id
                 && $mail->kind === PaypalExternalPaymentNotice::KIND_COMPLETED_REFUND
                 && $mail->audience === PaypalExternalPaymentNotice::AUDIENCE_ADVERTISER;
         });
+        Mail::assertQueued(PaypalExternalPaymentNotice::class, function (PaypalExternalPaymentNotice $mail) use ($publisher) {
+            return (int) $mail->user->id === (int) $publisher->id
+                && $mail->kind === PaypalExternalPaymentNotice::KIND_COMPLETED_REFUND
+                && $mail->audience === PaypalExternalPaymentNotice::AUDIENCE_PUBLISHER;
+        });
+        Mail::assertQueued(PaypalExternalPaymentNotice::class, 2);
         $this->assertTrue(InAppNotification::query()
             ->where('audience', InAppNotification::AUDIENCE_ADMIN)
             ->where('title', 'PayPal refunded completed order #880002')
+            ->exists());
+
+        $this->postWebhook(array_replace($payload, ['id' => 'WH-DONE-2']))
+            ->assertOk()
+            ->assertJsonPath('status', 'success');
+        $this->assertEqualsWithDelta(0.0, (float) $publisherWallet->fresh()->balance, 0.01);
+        $this->assertEqualsWithDelta(5.0, (float) $advertiserWallet->fresh()->balance, 0.01);
+        $this->assertSame(1, WalletTransaction::query()
+            ->where('reference', 'CLAWBACK-PAYPAL-ITEM-'.$item->id)
+            ->count());
+        Mail::assertQueued(PaypalExternalPaymentNotice::class, 2);
+    }
+
+    public function test_completed_paypal_refund_records_publisher_debt_when_spent(): void
+    {
+        $this->enablePaypal();
+        $this->fakePaypal('PO-DEBT');
+        Mail::fake();
+        Storage::fake('local');
+
+        $placement = $this->paidPaypalPlacement(
+            'completed',
+            '880003',
+            'PP-DEBT',
+            'PO-DEBT',
+            'CAP-PO-DEBT',
+            publisherBalance: 0.0,
+        );
+        $publisherWallet = $placement['publisherWallet'];
+        $advertiserWallet = $placement['advertiserWallet'];
+
+        $this->postWebhook($this->captureRefundedEvent(
+            'WH-DEBT-1',
+            'RF-PO-DEBT',
+            'CAP-PO-DEBT',
+            'PO-DEBT',
+            $placement['advertiser'],
+            'PP-DEBT',
+        ))->assertOk()->assertJsonPath('status', 'success');
+
+        $this->assertSame('refunded', $placement['order']->fresh()->payment_status);
+        $this->assertSame('completed', $placement['order']->fresh()->status);
+        $this->assertEqualsWithDelta(0.0, (float) $publisherWallet->fresh()->balance, 0.01);
+        $this->assertEqualsWithDelta(40.0, (float) $publisherWallet->fresh()->debt_balance, 0.01);
+        $this->assertEqualsWithDelta(5.0, (float) $advertiserWallet->fresh()->balance, 0.01);
+        $this->assertTrue(WalletTransaction::query()
+            ->where('reference', 'CLAWBACK-PAYPAL-ITEM-'.$placement['item']->id)
             ->exists());
     }
 
@@ -1016,50 +1223,39 @@ class PaypalWebhookTest extends TestCase
         });
     }
 
-    public function test_reversed_webhook_notifies_without_changing_completed_order(): void
+    public function test_reversed_webhook_claws_back_completed_order(): void
     {
         $this->enablePaypal();
         $this->fakePaypal('PO-REV');
         Mail::fake();
+        Storage::fake('local');
 
-        $advertiser = $this->advertiser();
-        $order = Order::create([
-            'user_id' => $advertiser->id,
-            'order_number' => '880012',
-            'reference_code' => 'PP-REV',
-            'subtotal' => 50,
-            'tax' => 0,
-            'total_amount' => 50,
-            'payment_method' => 'paypal',
-            'payment_status' => 'paid',
-            'status' => 'completed',
-            'paypal_order_id' => 'PO-REV',
-            'paypal_capture_id' => 'CAP-PO-REV',
-            'paid_at' => now()->subDay(),
-            'completed_at' => now(),
-        ]);
+        $placement = $this->paidPaypalPlacement(
+            'completed',
+            '880012',
+            'PP-REV',
+            'PO-REV',
+            'CAP-PO-REV',
+        );
+        $advertiser = $placement['advertiser'];
+        $publisherWallet = $placement['publisherWallet'];
+        $advertiserWallet = $placement['advertiserWallet'];
 
-        $this->postWebhook([
-            'id' => 'WH-REV-1',
-            'event_type' => 'PAYMENT.CAPTURE.REVERSED',
-            'resource' => [
-                'id' => 'RV-PO-REV',
-                'custom_id' => PaypalCheckoutService::customId(
-                    PaypalCheckoutService::TYPE_ORDER_CHECKOUT,
-                    $advertiser->id,
-                    'PP-REV'
-                ),
-                'supplementary_data' => [
-                    'related_ids' => [
-                        'capture_id' => 'CAP-PO-REV',
-                        'order_id' => 'PO-REV',
-                    ],
-                ],
-            ],
-        ])->assertOk()->assertJsonPath('status', 'success');
+        $this->postWebhook($this->captureRefundedEvent(
+            'WH-REV-1',
+            'RV-PO-REV',
+            'CAP-PO-REV',
+            'PO-REV',
+            $advertiser,
+            'PP-REV',
+            eventType: 'PAYMENT.CAPTURE.REVERSED',
+        ))->assertOk()->assertJsonPath('status', 'success');
 
-        $this->assertSame('paid', $order->fresh()->payment_status);
-        $this->assertSame('completed', $order->fresh()->status);
+        $fresh = $placement['order']->fresh();
+        $this->assertSame('refunded', $fresh->payment_status);
+        $this->assertSame('completed', $fresh->status);
+        $this->assertEqualsWithDelta(0.0, (float) $publisherWallet->fresh()->balance, 0.01);
+        $this->assertEqualsWithDelta(5.0, (float) $advertiserWallet->fresh()->balance, 0.01);
         Mail::assertQueued(PaypalExternalPaymentNotice::class, function (PaypalExternalPaymentNotice $mail) use ($advertiser) {
             return (int) $mail->user->id === (int) $advertiser->id
                 && $mail->kind === PaypalExternalPaymentNotice::KIND_REVERSED;

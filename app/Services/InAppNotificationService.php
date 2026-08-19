@@ -391,9 +391,16 @@ class InAppNotificationService
             'dispute_resolved' => 'PayPal dispute update on '.$orderLabel,
             default => 'PayPal refunded completed order '.$orderLabel,
         };
-        $message = $audience === InAppNotification::AUDIENCE_PUBLISHER
-            ? 'PayPal changed a payment on this completed placement. Earnings were not clawed back automatically.'
-            : 'PayPal changed this payment. Your marketplace wallet was not adjusted automatically.';
+        $noticeOnly = in_array($kind, ['partial_refund', 'dispute_created', 'dispute_resolved'], true);
+        if ($noticeOnly) {
+            $message = $audience === InAppNotification::AUDIENCE_PUBLISHER
+                ? 'PayPal changed a payment on this completed placement. Earnings were not clawed back automatically.'
+                : 'PayPal changed this payment. Your marketplace wallet was not adjusted automatically.';
+        } elseif ($audience === InAppNotification::AUDIENCE_PUBLISHER) {
+            $message = 'PayPal refunded this completed placement. Your publisher payout was clawed back (or recorded as wallet debt).';
+        } else {
+            $message = 'PayPal refunded this completed order. A credit note was issued; your advertiser wallet was not credited because PayPal already returned the money.';
+        }
 
         $this->notify(
             (int) $user->id,
@@ -441,7 +448,9 @@ class InAppNotificationService
         $this->notifyAdmins(
             self::TYPE_PAYMENT_FAILED,
             $title,
-            'Notice only — wallet and order status were not changed automatically.',
+            in_array($kind, ['partial_refund', 'dispute_created', 'dispute_resolved'], true)
+                ? 'Notice only — wallet and order status were not changed automatically.'
+                : 'Completed PayPal takeback: publisher clawed back (or debt), payment marked refunded, credit note issued. Advertiser wallet was not credited.',
             [
                 'roles' => ['admin'],
                 'category' => self::CATEGORY_PAYMENTS,
