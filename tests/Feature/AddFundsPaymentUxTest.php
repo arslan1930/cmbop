@@ -141,6 +141,8 @@ class AddFundsPaymentUxTest extends TestCase
     public function test_paypal_shows_new_badge_while_configured_window_is_open(): void
     {
         config([
+            'services.paypal.client_id' => 'paypal-client-test',
+            'services.paypal.secret' => 'paypal-secret-test',
             'feature_badges.add_funds.paypal' => [
                 'label' => 'New',
                 'until' => now()->addWeek()->toDateString(),
@@ -154,5 +156,42 @@ class AddFundsPaymentUxTest extends TestCase
             ->assertOk()
             ->assertSee('feature-new-badge', false)
             ->assertSee('>New</span>', false);
+    }
+
+    public function test_paypal_new_badge_is_hidden_when_paypal_is_offline(): void
+    {
+        config([
+            'services.paypal.client_id' => '',
+            'services.paypal.secret' => '',
+            'feature_badges.add_funds.paypal' => [
+                'label' => 'New',
+                'until' => now()->addWeek()->toDateString(),
+            ],
+        ]);
+
+        $this->actingAs($this->advertiser())
+            ->get(route('advertiser.add-funds'))
+            ->assertOk()
+            ->assertDontSee('>New</span>', false)
+            ->assertSee('Temporarily unavailable', false);
+    }
+
+    public function test_paypal_new_badge_is_hidden_after_until(): void
+    {
+        config([
+            'services.paypal.client_id' => 'paypal-client-test',
+            'services.paypal.secret' => 'paypal-secret-test',
+            'feature_badges.add_funds.paypal' => [
+                'label' => 'New',
+                'until' => now()->subDay()->toDateString(),
+            ],
+        ]);
+
+        $this->assertFalse(FeatureBadge::active('add_funds.paypal'));
+
+        $this->actingAs($this->advertiser())
+            ->get(route('advertiser.add-funds'))
+            ->assertOk()
+            ->assertDontSee('>New</span>', false);
     }
 }

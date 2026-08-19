@@ -278,8 +278,8 @@
                                          @if($methodReady) style="cursor: pointer;" role="button" tabindex="0" @else aria-disabled="true" style="cursor: not-allowed; opacity: 0.6;" @endif
                                          aria-label="{{ $meta['aria'] }}">
                                         <div class="payment-option-card">
-                                            @if(! empty($meta['new_key']))
-                                                <x-feature-new :key="$meta['new_key']" class="payment-option-new" />
+                                            @if($methodReady && ! empty($meta['new_key']))
+                                                <x-feature-new :badge-key="$meta['new_key']" class="payment-option-new" />
                                             @endif
                                             <div class="payment-option-icon" style="background: {{ $meta['icon_bg'] }};">
                                                 @if($methodKey === 'card')

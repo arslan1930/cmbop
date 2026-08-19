@@ -70,6 +70,9 @@ class AddFundsUiGuardTest extends TestCase
         $this->assertStringContainsString('payment-card-brands', $view);
         $this->assertStringContainsString('Recently used', $view);
         $this->assertStringContainsString('add_funds.paypal', $view);
+        $this->assertStringContainsString('$methodReady && ! empty($meta[\'new_key\'])', $view);
+        $this->assertStringContainsString(':badge-key=', $view);
+        $this->assertStringNotContainsString(':key="$meta[\'new_key\']"', $view);
         $this->assertStringContainsString('lastUsedMethod', $view);
         $this->assertStringNotContainsString('fab fa-stripe', $view);
         $this->assertStringNotContainsString('PayPal coming soon', $view);

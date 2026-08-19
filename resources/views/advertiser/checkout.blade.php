@@ -378,7 +378,9 @@
                                     <div class="flex-grow-1">
                                         <span style="display:inline-flex;align-items:center;gap:8px;flex-wrap:wrap;">
                                             <span style="font-weight: 700; font-size: 14px; color: #1f2937;">PayPal</span>
-                                            <x-feature-new key="checkout.paypal" />
+                                            @if(! empty($paypalConfigured))
+                                                <x-feature-new badge-key="checkout.paypal" />
+                                            @endif
                                         </span>
                                         <span style="font-size: 12px; color: #6b7280; display: block; margin-top: 2px;">
                                             @if(! $paypalNeedsAmount)

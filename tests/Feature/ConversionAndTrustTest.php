@@ -118,6 +118,73 @@ class ConversionAndTrustTest extends TestCase
             ->assertSee('alt="PayPal"', false);
     }
 
+    public function test_checkout_paypal_new_badge_shows_only_when_paypal_is_online(): void
+    {
+        config([
+            'content_moderation.enabled' => false,
+            'services.paypal.client_id' => 'paypal-client-test',
+            'services.paypal.secret' => 'paypal-secret-test',
+            'feature_badges.checkout.paypal' => [
+                'label' => 'New',
+                'until' => now()->addWeek()->toDateString(),
+            ],
+        ]);
+
+        $advertiser = $this->advertiser();
+        $publisher = $this->publisher();
+        $site = $this->activeSite($publisher, 'badge-on', 40);
+        $sub = $this->createApprovedSubmission($advertiser, null);
+
+        $this->actingAs($advertiser)
+            ->withSession([
+                'cart' => [[
+                    'id' => $site->id,
+                    'name' => $site->site_name,
+                    'quantity' => 1,
+                    'content_submission_id' => $sub->id,
+                    'price' => 46,
+                    'language' => 'en',
+                ]],
+            ])
+            ->get(route('advertiser.checkout'))
+            ->assertOk()
+            ->assertSee('>New</span>', false);
+    }
+
+    public function test_checkout_paypal_new_badge_is_hidden_when_paypal_is_offline(): void
+    {
+        config([
+            'content_moderation.enabled' => false,
+            'services.paypal.client_id' => '',
+            'services.paypal.secret' => '',
+            'feature_badges.checkout.paypal' => [
+                'label' => 'New',
+                'until' => now()->addWeek()->toDateString(),
+            ],
+        ]);
+
+        $advertiser = $this->advertiser();
+        $publisher = $this->publisher();
+        $site = $this->activeSite($publisher, 'badge-off', 40);
+        $sub = $this->createApprovedSubmission($advertiser, null);
+
+        $this->actingAs($advertiser)
+            ->withSession([
+                'cart' => [[
+                    'id' => $site->id,
+                    'name' => $site->site_name,
+                    'quantity' => 1,
+                    'content_submission_id' => $sub->id,
+                    'price' => 46,
+                    'language' => 'en',
+                ]],
+            ])
+            ->get(route('advertiser.checkout'))
+            ->assertOk()
+            ->assertSee('data-method="paypal"', false)
+            ->assertDontSee('>New</span>', false);
+    }
+
     public function test_trust_strip_shows_paypal_when_configured(): void
     {
         config([
