@@ -58,9 +58,11 @@ class AdvertiserUiAndTrustFooterTest extends TestCase
         );
         $shell = (string) file_get_contents(public_path('assets/css/app-shell.css'));
         $this->assertStringContainsString('.app-shell-footer__grid', $shell);
-        $this->assertStringContainsString('"legal secure"', $shell);
-        $this->assertStringContainsString('"reviews methods"', $shell);
-        $this->assertStringContainsString('display: contents', $shell);
+        $this->assertStringContainsString('flex-wrap: nowrap', $shell);
+        $this->assertStringContainsString('order: 1', $shell);
+        $this->assertStringContainsString('order: 2', $shell);
+        $this->assertStringNotContainsString('"legal secure"', $shell);
+        $this->assertStringNotContainsString('"reviews methods"', $shell);
     }
 
     public function test_the_trust_badge_claims_no_rating_we_cannot_prove(): void
