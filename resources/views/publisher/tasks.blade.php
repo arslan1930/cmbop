@@ -438,6 +438,18 @@ $(document).ready(function() {
         loadTasks(1);
     });
 
+    $(document).on('click', '#emptyResetFilters', function() {
+        $('#resetFiltersBtn').trigger('click');
+    });
+
+    $(document).on('click', '#emptyShowAllTasks', function() {
+        $('#needsActionFilter').val('');
+        $('#statusFilter').val('');
+        currentPage = 1;
+        syncTasksFiltersToUrl(1);
+        loadTasks(1);
+    });
+
     $('#statusFilter').on('change', function() {
         // Manual status pick clears the needs-action mode.
         $('#needsActionFilter').val('');
@@ -1179,16 +1191,40 @@ $(document).ready(function() {
         });
     }
 
+    function tasksFiltersAreActive() {
+        return !!(
+            ($('#searchInput').val() || '').trim() ||
+            ($('#statusFilter').val() || '') ||
+            $('#needsActionFilter').val() === '1' ||
+            $('#dateFrom').val() ||
+            $('#dateTo').val()
+        );
+    }
+
     function renderTasksTable(orderItems) {
         window._publisherTaskItems = Array.isArray(orderItems) ? orderItems : [];
         if (!orderItems || orderItems.length === 0) {
+            var needsYouEmpty = $('#needsActionFilter').val() === '1';
+            var filteredEmpty = tasksFiltersAreActive();
+            var emptyTitle = 'No tasks yet';
+            var emptyBody = 'When advertisers order your sites, new tasks will show up here.';
+            var emptyCta = '<a href="{{ route("publisher.websites") }}" class="btn btn-primary btn-sm">Manage my sites</a>';
+            if (needsYouEmpty) {
+                emptyTitle = 'You\'re caught up';
+                emptyBody = 'Nothing needs you right now. Scheduled work and advertiser review stay on All tasks.';
+                emptyCta = '<button type="button" class="btn btn-primary btn-sm" id="emptyShowAllTasks">Show all tasks</button>';
+            } else if (filteredEmpty) {
+                emptyTitle = 'No tasks match these filters';
+                emptyBody = 'Try clearing search, status, or dates.';
+                emptyCta = '<button type="button" class="btn btn-primary btn-sm" id="emptyResetFilters">Reset filters</button>';
+            }
             $('#tasksTableBody').html(
                 '<tr><td colspan="8" class="text-center py-5">' +
                 '<div class="mx-auto" style="max-width:420px">' +
                 '<div class="mx-auto mb-3 d-flex align-items-center justify-content-center" style="width:52px;height:52px;border-radius:50%;background:var(--brand-primary-bg,#e6f5f5);color:var(--brand-primary,#1a585e)" aria-hidden="true"><i class="fa-solid fa-inbox"></i></div>' +
-                '<h5 class="mb-2">No tasks yet</h5>' +
-                '<p class="text-muted mb-3">When advertisers order your sites, new tasks will show up here.</p>' +
-                '<a href="{{ route("publisher.websites") }}" class="btn btn-primary btn-sm">Manage my sites</a>' +
+                '<h5 class="mb-2">' + emptyTitle + '</h5>' +
+                '<p class="text-muted mb-3">' + emptyBody + '</p>' +
+                emptyCta +
                 '</div></td></tr>'
             );
             $('#resultsCount').html('');
