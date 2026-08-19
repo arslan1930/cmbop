@@ -57,7 +57,7 @@
                             <h4 class="mb-1">You have {{ $pendingTasks }} task{{ $pendingTasks === 1 ? '' : 's' }} waiting</h4>
                             <p class="text-muted mb-0">Accept, publish, or reply so advertisers keep moving.</p>
                         </div>
-                        <a href="{{ route('publisher.tasks') }}" class="btn btn-lg btn-primary px-4">
+                        <a href="{{ route('publisher.tasks', ['needs_action' => 1]) }}" class="btn btn-lg btn-primary px-4">
                             Open tasks <i class="fa fa-arrow-right ms-1"></i>
                         </a>
                     </div>
@@ -108,8 +108,8 @@
                         <span class="secondary-icon"><i class="fa fa-tasks"></i></span>
                         <h6 class="mb-0">Tasks</h6>
                     </div>
-                    <p class="small text-muted mb-3">{{ $pendingTasks }} pending</p>
-                    <a href="{{ route('publisher.tasks') }}" class="btn btn-sm btn-outline-secondary w-100">View tasks</a>
+                    <p class="small text-muted mb-3">{{ $pendingTasks }} need{{ $pendingTasks === 1 ? 's' : '' }} you</p>
+                    <a href="{{ route('publisher.tasks', ['needs_action' => 1]) }}" class="btn btn-sm btn-outline-secondary w-100">View tasks</a>
                 </div>
             </div>
             <div class="col-6 col-lg-2 flex-lg-grow-1">
@@ -158,12 +158,12 @@
             </a>
         </div>
         <div class="col">
-            <a href="{{ route('publisher.tasks') }}" class="kpi-tile">
+            <a href="{{ route('publisher.tasks', ['needs_action' => 1]) }}" class="kpi-tile">
                 <div class="kpi-icon" style="background:#64748b;"><i class="fa fa-tasks"></i></div>
                 <div>
-                    <span class="kpi-label">Open tasks</span>
+                    <span class="kpi-label">Needs you</span>
                     <div class="kpi-value" id="openTasks">{{ $pendingTasks }}</div>
-                    <div class="kpi-sub">{{ (int) $stats['total_orders'] }} order{{ (int) $stats['total_orders'] === 1 ? '' : 's' }} total</div>
+                    <div class="kpi-sub">Accept, publish, or fix</div>
                 </div>
             </a>
         </div>
