@@ -405,6 +405,30 @@ class PublisherWithdrawHardeningTest extends TestCase
             ->assertJsonPath('data.data.0.status_label', 'Paid');
     }
 
+    public function test_withdraw_page_ok_when_created_at_is_unparseable(): void
+    {
+        $publisher = $this->publisher();
+        $withdrawal = Withdrawal::create([
+            'user_id' => $publisher->id,
+            'amount' => 40,
+            'fee' => 0,
+            'net_amount' => 40,
+            'payment_method' => 'paypal',
+            'payment_details' => ['email' => 'pay@example.com'],
+            'status' => 'pending',
+        ]);
+        DB::table('withdrawals')->where('id', $withdrawal->id)->update([
+            'created_at' => 'not-a-date',
+        ]);
+
+        $this->assertNull($withdrawal->fresh()->created_at);
+
+        $this->actingAs($publisher)
+            ->get(route('publisher.withdraw'))
+            ->assertOk()
+            ->assertSee('WD-'.$withdrawal->id, false);
+    }
+
     public function test_withdraw_page_shows_minimum_and_disables_when_below_min(): void
     {
         $publisher = $this->publisher(15);

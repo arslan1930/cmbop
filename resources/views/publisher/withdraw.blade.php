@@ -438,7 +438,7 @@
                                     @endphp
                                     <tr>
                                         <td class="small fw-semibold">WD-{{ $w->id }}</td>
-                                        <td class="small">{{ $w->created_at->format('M d, Y') }}</td>
+                                        <td class="small">{{ $w->created_at?->format('M d, Y') ?? '—' }}</td>
                                         <td class="fw-semibold">
                                             €{{ number_format($w->amount, 2) }}
                                             @if((float) $w->fee > 0)
