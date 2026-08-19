@@ -159,8 +159,8 @@ class PublisherReportsTest extends TestCase
             ->assertOk()
             ->getContent();
 
-        $this->assertMatchesRegularExpression('/id="withdrawals-tab"[^>]*\bactive\b/', $html);
-        $this->assertDoesNotMatchRegularExpression('/id="orders-tab"[^>]*\bactive\b/', $html);
+        $this->assertMatchesRegularExpression('/class="nav-link active"[^>]*id="withdrawals-tab"/', $html);
+        $this->assertDoesNotMatchRegularExpression('/class="nav-link active"[^>]*id="orders-tab"/', $html);
         $this->assertMatchesRegularExpression('/id="withdrawalsStatus"[\s\S]*<option value="pending"[^>]*selected/', $html);
     }
 
