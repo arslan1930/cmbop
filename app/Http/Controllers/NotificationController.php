@@ -204,11 +204,24 @@ class NotificationController extends Controller
             return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
         }
 
+        $maskForPublisher = $isPublisher && ! $isAdvertiser && ! $isStaff;
+        $viewerId = (int) $user->id;
         $activities = OrderActivity::where('order_id', $order->id)
             ->orderBy('created_at')
             ->orderBy('id')
             ->get()
-            ->map(fn (OrderActivity $a) => $a->toApiArray())
+            ->map(function (OrderActivity $a) use ($maskForPublisher, $viewerId) {
+                $row = $a->toApiArray();
+                if ($maskForPublisher) {
+                    $row['actor_name'] = OrderActivity::publisherFacingActorLabel(
+                        $a->actor_role,
+                        $a->actor_id ? (int) $a->actor_id : null,
+                        $viewerId
+                    );
+                }
+
+                return $row;
+            })
             ->values();
 
         return response()->json([

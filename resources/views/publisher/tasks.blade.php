@@ -385,6 +385,7 @@ let refreshInterval = null;
 // Get the base URL dynamically
 const baseUrl = window.location.origin;
 const publisherBalanceUrl = @json(route('publisher.balance'));
+const publisherUserId = {{ (int) auth()->id() }};
 
 /** Bootstrap 5 modal helpers (jQuery .modal() is unavailable without the BS4 plugin). */
 function showTasksModal(id) {
@@ -1865,8 +1866,12 @@ $(document).ready(function() {
     }
 
     function publisherTimelineActorLabel(activity) {
+        var actorId = parseInt(activity && activity.actor_id, 10) || 0;
+        if (actorId && actorId === publisherUserId) {
+            return 'You';
+        }
         var role = String((activity && activity.actor_role) || '').toLowerCase();
-        if (role === 'publisher') return 'You';
+        if (role === 'publisher') return 'Publisher';
         if (role === 'advertiser') return 'Advertiser';
         if (role === 'admin' || role === 'marketing') return 'Support';
         return '';

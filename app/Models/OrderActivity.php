@@ -47,6 +47,7 @@ class OrderActivity extends Model
             'description' => $this->description,
             'icon' => $this->icon,
             'badge_color' => $this->badge_color,
+            'actor_id' => $this->actor_id ? (int) $this->actor_id : null,
             'actor_name' => $this->actor_name,
             'actor_role' => $this->actor_role,
             'meta' => $this->meta ?? [],
@@ -54,5 +55,23 @@ class OrderActivity extends Model
             'relative_time' => optional($this->created_at)?->diffForHumans(),
             'exact_time' => optional($this->created_at)?->format('M j, Y g:i A'),
         ];
+    }
+
+    /**
+     * Publisher-facing badge. Never show another person's first name.
+     * Only the viewer is "You"; a sibling publisher on the same cart is "Publisher".
+     */
+    public static function publisherFacingActorLabel(?string $role, ?int $actorId, int $viewerId): string
+    {
+        if ($actorId && $actorId === $viewerId) {
+            return 'You';
+        }
+
+        return match (strtolower((string) $role)) {
+            'publisher' => 'Publisher',
+            'advertiser' => 'Advertiser',
+            'admin', 'marketing' => 'Support',
+            default => '',
+        };
     }
 }
