@@ -214,6 +214,24 @@ class PublisherBalanceHistoryUiTest extends TestCase
         );
     }
 
+    public function test_publisher_header_chip_uses_withdrawable_when_bonus_is_present(): void
+    {
+        $user = $this->publisherWithWallets([
+            'publisher_balance' => 20,
+            'publisher_bonus' => 12,
+        ]);
+
+        $html = $this->actingAs($user)
+            ->get(route('publisher.balance'))
+            ->assertOk()
+            ->getContent();
+
+        $this->assertMatchesRegularExpression('/class="balance-amount">€8\.00/', $html);
+        $this->assertDoesNotMatchRegularExpression('/class="balance-amount">€20\.00/', $html);
+        $this->assertStringContainsString('Earnings €8.00', $html);
+        $this->assertStringContainsString('Withdrawable €8.00', $html);
+    }
+
     public function test_on_hold_chip_renders_when_publisher_has_reserved_funds(): void
     {
         $user = $this->publisherWithWallets([
