@@ -80,6 +80,10 @@
         return 'You earn';
     }
 
+    function dateColumnHeading(status) {
+        return status === 'completed' ? 'Completed' : 'Date';
+    }
+
     function payoutCell(item) {
         const state = item.payout_state || '';
         const label = item.payout_label || '';
@@ -175,6 +179,7 @@
         const statusLabel = $('#ordersStatus option:selected').text();
         $('#ordersTabTitle').text(params.status === 'all' ? 'Orders' : (statusLabel + ' Orders'));
         $('#ordersPayoutHeading').text(payoutColumnHeading(params.status));
+        $('#ordersDateHeading').text(dateColumnHeading(params.status));
 
         $('#ordersTableBody').html(
             '<tr><td colspan="9" class="text-center py-5"><div class="spinner-border text-primary" role="status"></div><p class="mt-2 text-muted mb-0">Loading orders...</p></td></tr>'
@@ -190,7 +195,7 @@
                     $('#ordersTableBody').html('<tr><td colspan="9" class="text-center text-danger py-5">' + escapeHtml(response.message || 'Failed to load orders') + '</td></tr>');
                     return;
                 }
-                renderOrdersTable(response.data);
+                renderOrdersTable(response.data, params.status);
                 renderPagination('#ordersPaginationNav', response.pagination, loadOrders);
                 $('#ordersResultsCount').text(resultsCountLabel(response.pagination));
             },
@@ -203,7 +208,7 @@
         });
     }
 
-    function renderOrdersTable(orderItems) {
+    function renderOrdersTable(orderItems, status) {
         if (!orderItems || orderItems.length === 0) {
             $('#ordersTableBody').html(
                 '<tr><td colspan="9" class="text-center py-5"><i class="fa fa-inbox fa-3x text-muted"></i><p class="mt-2 mb-0">No orders match this filter</p><p class="text-muted small mb-0">Try another status or date range.</p></td></tr>'
@@ -215,6 +220,9 @@
         for (let i = 0; i < orderItems.length; i++) {
             const item = orderItems[i];
             const orderNumber = item.order ? item.order.order_number : 'N/A';
+            const rowDate = (status === 'completed' || status === 'all')
+                ? (item.completed_at || item.created_at)
+                : item.created_at;
             const orderStatus = item.order && item.order.is_awaiting_scheduled_release
                 ? 'scheduled'
                 : (item.order ? item.order.status : 'pending');
@@ -231,7 +239,7 @@
 
             html += '<tr>' +
                 '<td class="fw-semibold"><strong>#' + escapeHtml(orderNumber) + '</strong></td>' +
-                '<td>' + formatDate(item.created_at) + '</td>' +
+                '<td>' + formatDate(rowDate) + '</td>' +
                 '<td><div class="fw-semibold">' + escapeHtml(item.site_name) + '</div><div class="text-muted small">' + linkOrDash(item.site_url, item.site_url) + '</div></td>' +
                 '<td class="text-primary">€' + money(basePrice) + '</td>' +
                 '<td>' + (additionalPrice > 0

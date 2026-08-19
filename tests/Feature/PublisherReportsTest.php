@@ -130,6 +130,7 @@ class PublisherReportsTest extends TestCase
             ->assertSee('id="pendingPayout"', false)
             ->assertSee('id="availableNote"', false)
             ->assertSee('id="ordersPayoutHeading"', false)
+            ->assertSee('id="ordersDateHeading"', false)
             ->assertSee('You earned', false)
             ->assertSee('Homepage', false)
             ->assertSee('Open placements:', false)
@@ -412,6 +413,115 @@ class PublisherReportsTest extends TestCase
             ->getJson(route('publisher.reports.statistics'))
             ->assertOk()
             ->assertJsonPath('data.total_earned', 135);
+    }
+
+    public function test_orders_filter_by_completion_date_not_checkout(): void
+    {
+        $publisher = $this->publisher();
+        $advertiser = $this->advertiser();
+        $site = $this->site($publisher);
+
+        $item = $this->createOrderItem($advertiser, $site, [
+            'status' => 'completed',
+            'paid_at' => '2026-02-10 12:00:00',
+            'completed_at' => '2026-03-15 12:00:00',
+        ]);
+        $item->forceFill([
+            'created_at' => '2026-02-10 12:00:00',
+            'completed_at' => '2026-03-15 12:00:00',
+        ])->save();
+        $item->order->forceFill(['created_at' => '2026-02-10 12:00:00'])->save();
+
+        $this->actingAs($publisher)
+            ->getJson(route('publisher.reports.orders', [
+                'status' => 'completed',
+                'date_from' => '2026-03-01',
+                'date_to' => '2026-03-31',
+            ]))
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $item->id);
+
+        $this->actingAs($publisher)
+            ->getJson(route('publisher.reports.orders', [
+                'status' => 'completed',
+                'date_from' => '2026-02-01',
+                'date_to' => '2026-02-28',
+            ]))
+            ->assertOk()
+            ->assertJsonCount(0, 'data');
+    }
+
+    public function test_orders_completion_date_falls_back_to_order_completed_at(): void
+    {
+        $publisher = $this->publisher();
+        $advertiser = $this->advertiser();
+        $site = $this->site($publisher);
+
+        $item = $this->createOrderItem($advertiser, $site, [
+            'status' => 'completed',
+            'paid_at' => '2026-02-10 12:00:00',
+            'completed_at' => '2026-03-20 09:00:00',
+        ]);
+        $item->forceFill([
+            'created_at' => '2026-02-10 12:00:00',
+            'completed_at' => null,
+        ])->save();
+        $item->order->forceFill(['created_at' => '2026-02-10 12:00:00'])->save();
+
+        $this->actingAs($publisher)
+            ->getJson(route('publisher.reports.orders', [
+                'status' => 'completed',
+                'date_from' => '2026-03-01',
+                'date_to' => '2026-03-31',
+            ]))
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $item->id);
+
+        $this->actingAs($publisher)
+            ->getJson(route('publisher.reports.orders', [
+                'status' => 'completed',
+                'date_from' => '2026-02-01',
+                'date_to' => '2026-02-28',
+            ]))
+            ->assertOk()
+            ->assertJsonCount(0, 'data');
+    }
+
+    public function test_withdrawals_date_filter_stays_on_created_at(): void
+    {
+        $publisher = $this->publisher();
+        $withdrawal = Withdrawal::create([
+            'user_id' => $publisher->id,
+            'amount' => 25,
+            'fee' => 1.25,
+            'net_amount' => 23.75,
+            'payment_method' => 'paypal',
+            'payment_details' => ['paypal_email' => 'pay@example.com'],
+            'status' => 'completed',
+            'processed_at' => '2026-03-15 12:00:00',
+        ]);
+        $withdrawal->forceFill(['created_at' => '2026-02-10 12:00:00'])->save();
+
+        $this->actingAs($publisher)
+            ->getJson(route('publisher.reports.withdrawals', [
+                'status' => 'completed',
+                'date_from' => '2026-02-01',
+                'date_to' => '2026-02-28',
+            ]))
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $withdrawal->id);
+
+        $this->actingAs($publisher)
+            ->getJson(route('publisher.reports.withdrawals', [
+                'status' => 'completed',
+                'date_from' => '2026-03-01',
+                'date_to' => '2026-03-31',
+            ]))
+            ->assertOk()
+            ->assertJsonCount(0, 'data');
     }
 
     public function test_order_details_are_scoped_to_owner(): void
@@ -773,6 +883,8 @@ class PublisherReportsTest extends TestCase
         $this->assertStringContainsString('function payoutCell', $js);
         $this->assertStringContainsString('function homepageCell', $js);
         $this->assertStringContainsString('function loadOrders', $js);
+        $this->assertStringContainsString('function dateColumnHeading', $js);
+        $this->assertStringContainsString('item.completed_at', $js);
         $this->assertStringContainsString('item.homepage_price', $js);
         $this->assertStringContainsString('item.price - additionalPrice - homepagePrice', $js);
         $this->assertStringContainsString('d.open_orders', $js);
