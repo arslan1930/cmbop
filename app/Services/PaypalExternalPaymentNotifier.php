@@ -27,22 +27,29 @@ class PaypalExternalPaymentNotifier
         $amount = round((float) ($refunded['amount'] ?? 0), 2);
         $eventKey = trim((string) ($refunded['refund_id'] ?? $refunded['capture_id'] ?? ''));
         $paidRemaining = $orders->filter(fn (Order $order) => ($order->payment_status ?? '') === 'paid');
-        if ($paidRemaining->isEmpty()) {
+        $completedRefunded = $orders->filter(fn (Order $order) => ($order->status ?? '') === 'completed'
+            && ($order->payment_status ?? '') === 'refunded');
+        if ($paidRemaining->isEmpty() && $completedRefunded->isEmpty()) {
             return;
         }
 
-        $completed = $paidRemaining->filter(fn (Order $order) => ($order->status ?? '') === 'completed');
-        $openPaid = $paidRemaining->reject(fn (Order $order) => ($order->status ?? '') === 'completed');
+        $completedPaid = $paidRemaining->filter(fn (Order $order) => ($order->status ?? '') === 'completed');
         $paidTotal = round((float) $paidRemaining->sum(fn (Order $order) => (float) $order->total_amount), 2);
-        $partial = $amount >= 0.01 && ($paidTotal - $amount) > 0.01;
+        $partial = $paidRemaining->isNotEmpty()
+            && $amount >= 0.01
+            && ($paidTotal - $amount) > 0.01;
 
         if ($partial) {
             $kind = PaypalExternalPaymentNotice::KIND_PARTIAL_REFUND;
-        } elseif ($kind === PaypalExternalPaymentNotice::KIND_COMPLETED_REFUND && $completed->isEmpty()) {
+        } elseif ($kind === PaypalExternalPaymentNotice::KIND_COMPLETED_REFUND
+            && $completedPaid->isEmpty()
+            && $completedRefunded->isEmpty()) {
             return;
         }
 
-        $focus = $completed->first() ?: $paidRemaining->first();
+        $focus = $completedRefunded->first()
+            ?: $completedPaid->first()
+            ?: $paidRemaining->first();
         if (! $focus) {
             return;
         }

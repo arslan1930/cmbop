@@ -13,6 +13,7 @@ use App\Models\Wallet;
 use App\Models\WalletTransaction;
 use App\Services\Advertiser\SpendBudgetService;
 use App\Services\ContentModeration\ContentModerationService;
+use App\Services\Orders\OrderClawbackService;
 use App\Services\Orders\OrderRefundService;
 use App\Services\Wallet\WalletLedgerService;
 use Illuminate\Database\QueryException;
@@ -2330,8 +2331,10 @@ class OrderPaymentService
     }
 
     /**
-     * PayPal already returned the money. Stamp refund id and cancel paid rows
-     * without a second wallet credit.
+     * PayPal already returned the money. Stamp refund id and cancel unpaid
+     * pending rows without a second wallet credit. Full refunds of completed
+     * orders mark payment_status refunded (status stays completed) and claw
+     * back publisher earnings.
      *
      * @return Collection<int, Order>
      */
@@ -2373,17 +2376,33 @@ class OrderPaymentService
                 }
                 if (! $partial
                     && $order->payment_status === 'paid'
-                    && ! in_array((string) $order->status, ['cancelled', 'completed'], true)
+                    && (string) $order->status !== 'cancelled'
                 ) {
                     $attrs['payment_status'] = 'refunded';
-                    $attrs['status'] = 'cancelled';
+                    if ((string) $order->status !== 'completed') {
+                        $attrs['status'] = 'cancelled';
+                    }
                 }
                 if ($attrs === []) {
                     continue;
                 }
+                $wasCompleted = (string) $order->status === 'completed';
                 $order->update($attrs);
                 if (($attrs['status'] ?? null) === 'cancelled') {
                     ContentSubmission::releaseAllForOrder((int) $order->id);
+                }
+                if (($attrs['payment_status'] ?? null) === 'refunded' && $wasCompleted) {
+                    try {
+                        ContentSubmission::releaseAllForOrder((int) $order->id);
+                        app(OrderClawbackService::class)->clawbackAfterExternalPaypalRefund(
+                            $order->fresh('items') ?? $order
+                        );
+                    } catch (\Throwable $e) {
+                        Log::error('PayPal completed-order publisher clawback failed', [
+                            'order_id' => $order->id,
+                            'error' => $e->getMessage(),
+                        ]);
+                    }
                 }
             }
 

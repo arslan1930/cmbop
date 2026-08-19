@@ -326,6 +326,75 @@ class OrderClawbackService
         });
     }
 
+    /**
+     * PayPal already returned cash to the advertiser. Claw back publisher
+     * earnings (debit withdrawable, else debt) without crediting the
+     * advertiser wallet. Idempotent per order item.
+     */
+    public function clawbackAfterExternalPaypalRefund(Order $order): void
+    {
+        $run = function () use ($order): void {
+            $order->loadMissing('items');
+            foreach ($order->items as $item) {
+                if ($this->alreadyClawedPaypalItem($item)) {
+                    continue;
+                }
+
+                $targetPayout = round((float) $item->publisherPayoutAmount(), 2);
+                $site = Site::find($item->site_id);
+                $publisherId = $site?->publisher_id;
+                $publisherRoleId = Wallet::publisherRoleId();
+                if (! $publisherId || ! $publisherRoleId || $targetPayout < 0.01) {
+                    continue;
+                }
+
+                $wallet = Wallet::lockOrCreateForRole((int) $publisherId, (int) $publisherRoleId);
+                $debited = round(min($wallet->withdrawableBalance(), $targetPayout), 2);
+                $debt = round(max(0, $targetPayout - $debited), 2);
+                $reference = 'CLAWBACK-PAYPAL-ITEM-'.$item->id;
+                $description = 'PayPal refund clawback for order #'.($order->order_number ?? $order->id);
+                $meta = [
+                    'order_id' => $order->id,
+                    'target_payout' => $targetPayout,
+                    'debt_created' => $debt,
+                    'advertiser_credited' => 0,
+                ];
+
+                if ($debited > 0) {
+                    $wallet->deductWithdrawable($debited);
+                    $this->ledger->recordTransferOut(
+                        $wallet,
+                        $debited,
+                        $item,
+                        $reference,
+                        $description,
+                        $meta
+                    );
+                } elseif ($debt > 0) {
+                    $this->ledger->recordAdjustment(
+                        $wallet,
+                        0,
+                        'debit',
+                        $item,
+                        $reference,
+                        $description,
+                        $meta
+                    );
+                }
+
+                if ($debt > 0) {
+                    $wallet->increaseDebt($debt);
+                }
+
+                if ($site) {
+                    Site::refreshCompletedOrdersCount((int) $site->id);
+                }
+            }
+        };
+
+        DB::transactionLevel() > 0 ? $run() : DB::transaction($run);
+    }
+
     public function clearWalletDebt(Wallet $wallet, User $admin, string $reason): float
     {
         $reason = trim($reason);
@@ -634,5 +703,33 @@ class OrderClawbackService
             ->unique();
 
         return $itemIds->every(fn ($id) => $upheldItemIds->contains($id));
+    }
+
+    private function alreadyClawedPaypalItem(OrderItem $item): bool
+    {
+        if (OrderItemDispute::tableAvailable()) {
+            $upheld = OrderItemDispute::query()
+                ->where('order_item_id', $item->id)
+                ->where('status', OrderItemDispute::STATUS_UPHELD)
+                ->exists();
+            if ($upheld) {
+                return true;
+            }
+        }
+
+        if (! Schema::hasTable((new WalletTransaction)->getTable())) {
+            return false;
+        }
+
+        return WalletTransaction::query()
+            ->whereIn('type', [
+                WalletTransaction::TYPE_TRANSFER_OUT,
+                WalletTransaction::TYPE_ADJUSTMENT,
+            ])
+            ->where(function ($query) use ($item) {
+                $query->where('reference', 'CLAWBACK-PAYPAL-ITEM-'.$item->id)
+                    ->orWhere('reference', 'CLAWBACK-ITEM-'.$item->id);
+            })
+            ->exists();
     }
 }

@@ -203,6 +203,9 @@ class PaypalWebhookController extends Controller
             if (($order->payment_status ?? '') !== 'refunded') {
                 continue;
             }
+            if (($order->status ?? '') === 'completed') {
+                continue;
+            }
 
             try {
                 $bonusRestored += $refunds->restoreCheckoutBonusAfterExternalPaypalRefund($order);
