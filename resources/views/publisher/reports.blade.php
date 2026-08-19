@@ -26,6 +26,7 @@
                 <div class="card-body d-flex justify-content-between align-items-center">
                     <div>
                         <h6 class="text-muted mb-1">Total Earned</h6>
+                        <div class="text-muted small">Lifetime</div>
                         <h3 class="mb-0" id="totalEarned" style="color: #10b981;">€0.00</h3>
                     </div>
                     <div class="bg-success bg-opacity-10 p-3 rounded-circle">
@@ -39,6 +40,7 @@
                 <div class="card-body d-flex justify-content-between align-items-center">
                     <div>
                         <h6 class="text-muted mb-1">Completed Orders</h6>
+                        <div class="text-muted small">Lifetime</div>
                         <h3 class="mb-0" id="completedOrders">0</h3>
                         <div class="text-muted small mt-1">
                             Open placements: <span id="openOrders">0</span>
@@ -57,6 +59,7 @@
                 <div class="card-body d-flex justify-content-between align-items-center">
                     <div>
                         <h6 class="text-muted mb-1">Total Withdrawn</h6>
+                        <div class="text-muted small">Lifetime</div>
                         <h3 class="mb-0" id="totalWithdrawn" style="color: #ef4444;">€0.00</h3>
                         <div class="text-muted small mt-1" id="withdrawnFeesHint"></div>
                         <div class="text-muted small mt-1">
@@ -76,6 +79,7 @@
                 <div class="card-body d-flex justify-content-between align-items-center">
                     <div>
                         <h6 class="text-muted mb-1">Available to Withdraw</h6>
+                        <div class="text-muted small">Lifetime</div>
                         <h3 class="mb-0" id="availableToWithdraw">€0.00</h3>
                         <div class="small mt-1" id="availableNote">
                             <a href="{{ route('publisher.withdraw') }}">Go to Withdraw</a>
@@ -580,20 +584,17 @@
                     const el = document.getElementById('orderDetailsModal');
                     if (window.bootstrap && bootstrap.Modal) {
                         bootstrap.Modal.getOrCreateInstance(el).show();
-                    } else if (typeof Swal !== 'undefined') {
-                        Swal.fire({
-                            title: 'Order Details',
-                            html: document.getElementById('orderDetailsContent').innerHTML,
-                            width: 800,
-                        });
                     }
-                } else if (typeof Swal !== 'undefined') {
-                    Swal.fire('Error', (result.data && result.data.message) || 'Failed to load order details', 'error');
+                } else {
+                    const msg = (result.data && result.data.message) || 'Failed to load order details';
+                    if (typeof slbAlert === 'function') {
+                        slbAlert({ icon: 'error', title: msg });
+                    }
                 }
             })
             .catch(function () {
-                if (typeof Swal !== 'undefined') {
-                    Swal.fire('Error', 'Failed to load order details', 'error');
+                if (typeof slbAlert === 'function') {
+                    slbAlert({ icon: 'error', title: 'Failed to load order details' });
                 }
             });
     }
@@ -731,7 +732,7 @@
                 '<td>€' + money(w.amount) + '</td>' +
                 '<td class="text-muted">€' + money(w.fee) + '</td>' +
                 '<td class="withdrawn-amount"><strong>- €' + money(w.net_amount) + '</strong></td>' +
-                '<td><span class="badge bg-secondary">' + escapeHtml(w.payment_method || 'Bank Transfer') + '</span></td>' +
+                '<td><span class="badge bg-secondary">' + escapeHtml(w.payment_method_label || 'Bank Transfer') + '</span></td>' +
                 '<td>' + withdrawalStatusBadge(w) + '</td>' +
                 '<td><span class="text-muted small">' + escapeHtml(w.reference || ('WD-' + w.id)) + '</span></td>' +
                 '<td>' + statementLinks(w) + '</td>' +

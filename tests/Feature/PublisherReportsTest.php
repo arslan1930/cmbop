@@ -123,6 +123,7 @@ class PublisherReportsTest extends TestCase
             ->assertSee(route('publisher.reports.statistics', absolute: false), false)
             ->assertSee(route('publisher.tasks', absolute: false), false)
             ->assertSee('Available to Withdraw', false)
+            ->assertSee('Lifetime', false)
             ->assertSee('Pending payout', false)
             ->assertSee('id="pendingPayout"', false)
             ->assertSee('id="availableNote"', false)
@@ -474,6 +475,8 @@ class PublisherReportsTest extends TestCase
             ->assertJsonPath('data.0.fee', 1.25)
             ->assertJsonPath('data.0.net_amount', 23.75)
             ->assertJsonPath('data.0.status_label', 'Paid')
+            ->assertJsonPath('data.0.payment_method', 'paypal')
+            ->assertJsonPath('data.0.payment_method_label', 'PayPal')
             ->assertJsonPath('data.0.statement_url', null)
             ->assertJsonPath('data.0.statement_pdf_url', null);
     }
@@ -764,10 +767,14 @@ class PublisherReportsTest extends TestCase
         $this->assertStringContainsString('item.homepage_price', $js);
         $this->assertStringContainsString('item.price - additionalPrice - homepagePrice', $js);
         $this->assertStringContainsString('d.open_orders', $js);
+        $this->assertStringContainsString('payment_method_label', $js);
+        $this->assertStringContainsString('slbAlert', $js);
+        $this->assertStringNotContainsString('Swal.fire', $js);
         $this->assertStringNotContainsString("'+ €' + money(totalPrice)", $js);
         $this->assertStringNotContainsString('Total Earned:</strong>', $js);
         $this->assertStringNotContainsString('item.price - additionalPrice)', $js);
         $this->assertStringNotContainsString('Pending:', $js);
+        $this->assertStringNotContainsString("w.payment_method || 'Bank Transfer'", $js);
     }
 
     private function upholdClawback(OrderItem $item): void

@@ -247,6 +247,7 @@ class PublisherReportsController extends Controller
                     'fee' => (float) ($w->fee ?? 0),
                     'net_amount' => (float) ($w->net_amount ?? $w->amount),
                     'payment_method' => $w->payment_method,
+                    'payment_method_label' => Invoice::paymentMethodLabel($w->payment_method),
                     'status' => $w->status,
                     'status_label' => $w->publisher_status_label,
                     'created_at' => $w->created_at,

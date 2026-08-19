@@ -1,5 +1,7 @@
 @extends('publisher.layouts.app')
 
+@section('title', 'Payout documents')
+
 @section('content')
 <div class="container-fluid" style="max-width:720px;">
     <div class="mb-3">
