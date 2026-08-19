@@ -159,6 +159,68 @@ class PaypalCheckoutServiceTest extends TestCase
         ], 'https://app.test/ok', 'https://app.test/no');
     }
 
+    public function test_create_order_maps_invalid_return_url(): void
+    {
+        Http::fake(function ($request) {
+            if (str_contains($request->url(), '/v1/oauth2/token')) {
+                return Http::response([
+                    'access_token' => 'tok_test',
+                    'expires_in' => 300,
+                    'token_type' => 'Bearer',
+                ], 200);
+            }
+
+            return Http::response([
+                'name' => 'UNPROCESSABLE_ENTITY',
+                'details' => [['issue' => 'INVALID_RETURN_URL']],
+            ], 422);
+        });
+
+        try {
+            $this->paypal->createOrder(10, [
+                'user_id' => 1,
+                'reference_code' => 'REF-URL',
+            ], 'https://app.test/ok', 'https://app.test/no');
+            $this->fail('Expected an invalid return URL exception.');
+        } catch (RuntimeException $e) {
+            $this->assertSame(UserMessages::get('payment.paypal_return_url'), $e->getMessage());
+        }
+    }
+
+    public function test_create_order_rejects_loopback_return_url_on_live_host(): void
+    {
+        $this->enablePaypal(['mode' => 'live']);
+        Http::fake([
+            'https://api-m.paypal.com/v1/oauth2/token' => Http::response([
+                'access_token' => 'tok_live',
+                'expires_in' => 300,
+                'token_type' => 'Bearer',
+            ], 200),
+        ]);
+
+        try {
+            (new PaypalCheckoutService)->createOrder(10, [
+                'user_id' => 1,
+                'reference_code' => 'REF-LIVE',
+            ], 'http://127.0.0.1/paypal/return', 'http://127.0.0.1/paypal/cancel');
+            $this->fail('Expected a live return URL exception.');
+        } catch (RuntimeException $e) {
+            $this->assertSame(UserMessages::get('payment.paypal_return_url'), $e->getMessage());
+        }
+    }
+
+    public function test_browser_callback_url_uses_the_request_origin(): void
+    {
+        $this->get('/');
+        $url = (new PaypalCheckoutService)->browserCallbackUrl('advertiser.checkout.paypal.return', [
+            'ref' => 'PP-ORIGIN',
+        ]);
+
+        $this->assertStringContainsString('/advertiser/checkout/paypal/return', $url);
+        $this->assertStringContainsString('ref=PP-ORIGIN', $url);
+        $this->assertStringStartsWith(rtrim(app_public_url(), '/'), $url);
+    }
+
     public function test_capture_order_reads_amount_from_paypal_not_client(): void
     {
         $this->fakePaypal([

@@ -2355,7 +2355,7 @@ class CatalogController extends Controller
             Log::error('Order processing failed: '.$e->getMessage());
 
             $fallback = $request->input('payment_method') === 'paypal'
-                ? 'Failed to start PayPal checkout. Please try again.'
+                ? UserMessages::get('payment.paypal_unavailable')
                 : 'We could not process your order. Please try again.';
 
             return response()->json([
@@ -2452,7 +2452,7 @@ class CatalogController extends Controller
                 'type' => PaypalCheckoutService::TYPE_ORDER_CHECKOUT,
                 'user_id' => $userId,
                 'reference_code' => (string) $referenceCode,
-            ], route('advertiser.checkout.paypal.return', ['ref' => $referenceCode]), route('advertiser.checkout.paypal.cancel', ['ref' => $referenceCode]));
+            ], $paypal->browserCallbackUrl('advertiser.checkout.paypal.return', ['ref' => $referenceCode]), $paypal->browserCallbackUrl('advertiser.checkout.paypal.cancel', ['ref' => $referenceCode]));
 
             session()->put('pending_paypal_reference', $referenceCode);
 
@@ -2501,7 +2501,7 @@ class CatalogController extends Controller
 
             return response()->json([
                 'success' => false,
-                'message' => UserFacingError::message($e, 'Failed to start PayPal checkout. Please try again.'),
+                'message' => UserFacingError::message($e, UserMessages::get('payment.paypal_unavailable')),
             ]);
         }
     }

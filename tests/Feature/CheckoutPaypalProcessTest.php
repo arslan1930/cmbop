@@ -309,7 +309,8 @@ class CheckoutPaypalProcessTest extends TestCase
             ->assertOk()
             ->assertJsonPath('success', false)
             ->assertJsonPath('message', UserMessages::get('payment.paypal_unavailable'))
-            ->assertJsonMissing(['message' => 'We could not process your order. Please try again.']);
+            ->assertJsonMissing(['message' => 'We could not process your order. Please try again.'])
+            ->assertJsonMissing(['message' => 'Failed to start PayPal checkout. Please try again.']);
     }
 
     public function test_process_order_paypal_uses_live_host_when_sandbox_oauth_is_rejected(): void
@@ -341,28 +342,42 @@ class CheckoutPaypalProcessTest extends TestCase
             return Http::response(['name' => 'RESOURCE_NOT_FOUND'], 404);
         });
 
-        $this->postPaypalCheckout('PP-LIVE')
+        $this->postPaypalCheckout('PP-LIVE', [
+            'HTTP_HOST' => 'checkout.example',
+            'HTTPS' => 'on',
+        ])
             ->assertOk()
             ->assertJsonPath('success', true)
             ->assertJsonPath('paypal_order_id', 'PO-LIVE-FALLBACK')
             ->assertJsonPath('checkout_url', 'https://www.paypal.com/checkoutnow?token=PO-LIVE-FALLBACK');
 
         Http::assertSent(function ($request) {
-            return str_starts_with($request->url(), 'https://api-m.paypal.com/v2/checkout/orders');
+            if (! str_starts_with($request->url(), 'https://api-m.paypal.com/v2/checkout/orders')) {
+                return false;
+            }
+            $body = $request->data();
+
+            return str_starts_with((string) ($body['application_context']['return_url'] ?? ''), 'https://checkout.example/');
         });
         $this->assertSame(0, Order::where('reference_code', 'PP-LIVE')->count());
     }
 
     /**
+     * @param  array<string, string>  $server
      * @return TestResponse
      */
-    private function postPaypalCheckout(string $reference)
+    private function postPaypalCheckout(string $reference, array $server = [])
     {
         $advertiser = $this->advertiser();
         $site = $this->activeSite($this->publisher(), 'paypal-'.$reference.'.example');
         $sub = $this->createApprovedSubmission($advertiser, $site->id);
 
-        return $this->actingAs($advertiser)
+        $pending = $this->actingAs($advertiser);
+        if ($server !== []) {
+            $pending = $pending->withServerVariables($server);
+        }
+
+        return $pending
             ->withSession([
                 'cart' => [[
                     'id' => $site->id,

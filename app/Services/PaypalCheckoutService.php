@@ -91,6 +91,22 @@ class PaypalCheckoutService
     }
 
     /**
+     * Absolute PayPal return/cancel URL from the current public origin
+     * (request host), not a leftover loopback APP_URL. Live PayPal rejects
+     * http://127.0.0.1 return URLs with INVALID_RETURN_URL.
+     *
+     * @param  array<string, mixed>  $parameters
+     */
+    public function browserCallbackUrl(string $routeName, array $parameters = []): string
+    {
+        $relative = route($routeName, $parameters, false);
+        $url = rtrim(app_public_url(), '/').$relative;
+        $this->assertCallbackUrlUsable($url);
+
+        return $url;
+    }
+
+    /**
      * Dashboard webhook IDs start with WH- and are not the REST Secret.
      */
     public function secretLooksLikeWebhookId(): bool
@@ -163,6 +179,10 @@ class PaypalCheckoutService
                 'brand_name' => mb_substr((string) config('app.name', 'SEOLinkBuildings'), 0, 127),
             ],
         ];
+
+        $this->accessToken();
+        $this->assertCallbackUrlUsable($returnUrl);
+        $this->assertCallbackUrlUsable($cancelUrl);
 
         $response = $this->paypalRequest('post', '/v2/checkout/orders', $payload, [
             'PayPal-Request-Id' => 'create-'.$reference,
@@ -529,20 +549,19 @@ class PaypalCheckoutService
                 'get' => $pending->get($url),
                 default => throw new RuntimeException('Unsupported PayPal method.'),
             };
-        } catch (ConnectionException) {
+        } catch (RuntimeException $e) {
+            throw $e;
+        } catch (\Throwable $e) {
             Log::error('PayPal API connection failed', [
                 'path' => $path,
                 'host' => $this->baseUrl(),
+                'exception' => $e::class,
             ]);
             throw new RuntimeException(UserMessages::get('payment.paypal_unavailable'));
         }
 
         if ($throw && ! $response->successful()) {
-            Log::error('PayPal API error', [
-                'path' => $path,
-                'status' => $response->status(),
-            ]);
-            throw new RuntimeException('PayPal request failed.');
+            $this->throwPaypalApiFailure($response, $path);
         }
 
         return $response;
@@ -740,6 +759,76 @@ class PaypalCheckoutService
         return rtrim(trim((string) config('services.paypal.base_url', '')), '/') === '';
     }
 
+    /**
+     * Live PayPal (including a sandbox-mode fallback to the live host) rejects
+     * loopback return URLs. Sandbox accepts localhost.
+     */
+    private function assertCallbackUrlUsable(string $url): void
+    {
+        if (! $this->requiresPublicHttpsCallbacks()) {
+            return;
+        }
+
+        $parts = parse_url($url);
+        $host = strtolower((string) ($parts['host'] ?? ''));
+        $scheme = strtolower((string) ($parts['scheme'] ?? ''));
+        $loopback = $host === ''
+            || in_array($host, ['localhost', '127.0.0.1', '::1'], true)
+            || str_ends_with($host, '.localhost');
+
+        if ($scheme !== 'https' || $loopback) {
+            throw new RuntimeException(UserMessages::get('payment.paypal_return_url'));
+        }
+    }
+
+    private function requiresPublicHttpsCallbacks(): bool
+    {
+        $host = strtolower($this->baseUrl());
+
+        return str_contains($host, 'api-m.paypal.com') && ! str_contains($host, 'sandbox');
+    }
+
+    private function throwPaypalApiFailure(Response $response, string $path): never
+    {
+        $status = (int) $response->status();
+        $issue = $this->safePaypalIssue($response);
+        Log::error('PayPal API error', array_filter([
+            'path' => $path,
+            'status' => $status,
+            'issue' => $issue,
+        ], fn ($value) => $value !== null && $value !== ''));
+
+        if ($status === 401) {
+            throw new RuntimeException(UserMessages::get('payment.paypal_auth'));
+        }
+
+        throw new RuntimeException(match ($issue) {
+            'INVALID_RETURN_URL', 'INVALID_CANCEL_URL' => UserMessages::get('payment.paypal_return_url'),
+            'DUPLICATE_INVOICE_ID' => UserMessages::get('payment.paypal_duplicate'),
+            default => UserMessages::get('payment.paypal_unavailable'),
+        });
+    }
+
+    private function safePaypalIssue(Response $response): string
+    {
+        foreach ($response->json('details') ?? [] as $detail) {
+            if (! is_array($detail)) {
+                continue;
+            }
+            $issue = strtoupper(trim((string) ($detail['issue'] ?? '')));
+            if ($issue !== '' && strlen($issue) <= 64 && preg_match('/^[A-Z0-9_]+$/', $issue)) {
+                return $issue;
+            }
+        }
+
+        $name = strtoupper(trim((string) ($response->json('name') ?? '')));
+        if ($name !== '' && strlen($name) <= 64 && preg_match('/^[A-Z0-9_]+$/', $name)) {
+            return $name;
+        }
+
+        return '';
+    }
+
     private function fetchAccessToken(string $baseUrl): Response
     {
         try {
@@ -754,6 +843,16 @@ class PaypalCheckoutService
             Log::error('PayPal OAuth connection failed', [
                 'host' => $baseUrl,
                 'mode' => $this->mode(),
+            ]);
+            throw new RuntimeException(UserMessages::get('payment.paypal_unavailable'));
+        } catch (\Throwable $e) {
+            if ($e instanceof RuntimeException) {
+                throw $e;
+            }
+            Log::error('PayPal OAuth connection failed', [
+                'host' => $baseUrl,
+                'mode' => $this->mode(),
+                'exception' => $e::class,
             ]);
             throw new RuntimeException(UserMessages::get('payment.paypal_unavailable'));
         }

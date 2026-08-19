@@ -23,6 +23,7 @@ use App\Services\WalletPaypalDepositService;
 use App\Services\WalletStripeDepositService;
 use App\Support\DepositPaymentConfig;
 use App\Support\UserFacingError;
+use App\Support\UserMessages;
 use Endroid\QrCode\Builder\Builder;
 use Endroid\QrCode\Writer\PngWriter;
 use Endroid\QrCode\Writer\SvgWriter;
@@ -311,7 +312,7 @@ class AddFundsController extends Controller
                 'type' => PaypalCheckoutService::TYPE_WALLET_DEPOSIT,
                 'user_id' => $user->id,
                 'reference_code' => $referenceCode,
-            ], route('advertiser.add-funds.paypal.return', ['ref' => $referenceCode]), route('advertiser.add-funds.paypal.cancel', ['ref' => $referenceCode]));
+            ], $paypal->browserCallbackUrl('advertiser.add-funds.paypal.return', ['ref' => $referenceCode]), $paypal->browserCallbackUrl('advertiser.add-funds.paypal.cancel', ['ref' => $referenceCode]));
 
             session()->put('pending_paypal_deposit_reference', $referenceCode);
 
@@ -328,7 +329,7 @@ class AddFundsController extends Controller
 
             return response()->json([
                 'success' => false,
-                'message' => UserFacingError::message($e, 'Failed to start PayPal checkout. Please try again.'),
+                'message' => UserFacingError::message($e, UserMessages::get('payment.paypal_unavailable')),
             ]);
         }
     }
