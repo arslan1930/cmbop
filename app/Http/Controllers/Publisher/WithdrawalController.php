@@ -39,6 +39,10 @@ class WithdrawalController extends Controller
 
         return view('publisher.withdraw', [
             'wallet' => Wallet::forPublisher((int) $user->id),
+            'recentWithdrawals' => Withdrawal::queryForPublisherUser($user)
+                ->orderBy('created_at', 'desc')
+                ->limit(10)
+                ->get(),
             'platformChargePercent' => $this->platformChargePercent(),
             'minWithdrawalAmount' => $this->minWithdrawalAmount(),
             'payoutProfile' => $user->payoutProfile(),
@@ -260,7 +264,7 @@ class WithdrawalController extends Controller
         try {
             $user = auth()->user();
 
-            $query = Withdrawal::where('user_id', $user->id);
+            $query = Withdrawal::queryForPublisherUser($user);
 
             if ($request->has('status') && in_array($request->status, ['pending', 'processing', 'completed', 'cancelled'], true)) {
                 $query->where('status', $request->status);
@@ -314,15 +318,17 @@ class WithdrawalController extends Controller
         try {
             $user = auth()->user();
 
-            $totalWithdrawn = Withdrawal::where('user_id', $user->id)
+            $publisherWithdrawals = Withdrawal::queryForPublisherUser($user);
+
+            $totalWithdrawn = (clone $publisherWithdrawals)
                 ->where('status', 'completed')
                 ->sum('net_amount');
 
-            $pendingWithdrawals = Withdrawal::where('user_id', $user->id)
+            $pendingWithdrawals = (clone $publisherWithdrawals)
                 ->whereIn('status', ['pending', 'processing'])
                 ->sum('amount');
 
-            $withdrawalCount = Withdrawal::where('user_id', $user->id)->count();
+            $withdrawalCount = (clone $publisherWithdrawals)->count();
 
             return response()->json([
                 'success' => true,

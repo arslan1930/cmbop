@@ -111,6 +111,33 @@ class Withdrawal extends Model
     }
 
     /**
+     * Publisher-role withdrawals for a user. Dual-role advertiser payouts are
+     * excluded. Publisher-only leftover rows with a null wallet_id stay visible.
+     *
+     * @return Builder<static>
+     */
+    public static function queryForPublisherUser(User $user): Builder
+    {
+        $query = static::query()->where('user_id', $user->id);
+
+        if (! static::hasTableColumn('wallet_id')) {
+            return $query;
+        }
+
+        $wallet = Wallet::forPublisher((int) $user->id);
+        if (! $wallet) {
+            return $query->whereRaw('0 = 1');
+        }
+
+        return $query->where(function (Builder $inner) use ($user, $wallet) {
+            $inner->where('wallet_id', $wallet->id);
+            if (! $user->hasRole('advertiser')) {
+                $inner->orWhereNull('wallet_id');
+            }
+        });
+    }
+
+    /**
      * Wallet that was actually debited. Never prefers publisher vs advertiser.
      */
     public function resolveDebitedWallet(bool $lockForUpdate = false): ?Wallet

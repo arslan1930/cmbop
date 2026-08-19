@@ -463,4 +463,77 @@ class PublisherWithdrawHardeningTest extends TestCase
         $this->assertSame(60.0, (float) $publisherWallet->fresh()->balance);
         $this->assertSame(50.0, (float) $advertiserWallet->fresh()->balance);
     }
+
+    public function test_history_and_stats_exclude_advertiser_wallet_withdrawals(): void
+    {
+        [$user, $publisherWallet, $advertiserWallet] = $this->dualRoleWithSeparateWallets(80, 50);
+
+        $advertiserPending = Withdrawal::create(array_merge([
+            'user_id' => $user->id,
+            'amount' => 33,
+            'fee' => 0,
+            'net_amount' => 33,
+            'payment_method' => 'paypal',
+            'payment_details' => ['email' => 'adv@example.com'],
+            'status' => 'pending',
+        ], Withdrawal::walletIdAttributes($advertiserWallet)));
+
+        $publisherPending = Withdrawal::create(array_merge([
+            'user_id' => $user->id,
+            'amount' => 40,
+            'fee' => 0,
+            'net_amount' => 40,
+            'payment_method' => 'paypal',
+            'payment_details' => ['email' => 'pub@example.com'],
+            'status' => 'pending',
+        ], Withdrawal::walletIdAttributes($publisherWallet)));
+
+        Withdrawal::create(array_merge([
+            'user_id' => $user->id,
+            'amount' => 100,
+            'fee' => 0,
+            'net_amount' => 100,
+            'payment_method' => 'paypal',
+            'payment_details' => ['email' => 'adv@example.com'],
+            'status' => 'completed',
+        ], Withdrawal::walletIdAttributes($advertiserWallet)));
+
+        Withdrawal::create(array_merge([
+            'user_id' => $user->id,
+            'amount' => 25,
+            'fee' => 0,
+            'net_amount' => 25,
+            'payment_method' => 'paypal',
+            'payment_details' => ['email' => 'pub@example.com'],
+            'status' => 'completed',
+        ], Withdrawal::walletIdAttributes($publisherWallet)));
+
+        $history = $this->actingAs($user)
+            ->getJson(route('publisher.withdrawals.history'))
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->json('data.data');
+
+        $this->assertCount(2, $history);
+        $this->assertSame(
+            [$publisherPending->id],
+            collect($history)->where('status', 'pending')->pluck('id')->all()
+        );
+        $this->assertFalse(collect($history)->contains('id', $advertiserPending->id));
+
+        $this->actingAs($user)
+            ->getJson(route('publisher.withdrawals.statistics'))
+            ->assertOk()
+            ->assertJsonPath('data.pending_withdrawals', 40)
+            ->assertJsonPath('data.total_withdrawn', 25)
+            ->assertJsonPath('data.withdrawal_count', 2);
+
+        $html = $this->actingAs($user)
+            ->get(route('publisher.withdraw'))
+            ->assertOk()
+            ->getContent();
+
+        $this->assertStringContainsString('WD-'.$publisherPending->id, $html);
+        $this->assertStringNotContainsString('WD-'.$advertiserPending->id, $html);
+    }
 }

@@ -43,10 +43,7 @@
             : null,
     ];
 
-    $recentWithdrawals = \App\Models\Withdrawal::where('user_id', auth()->id())
-        ->orderBy('created_at', 'desc')
-        ->limit(10)
-        ->get();
+    $recentWithdrawals = $recentWithdrawals ?? collect();
 @endphp
 
 <link href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css" rel="stylesheet">
