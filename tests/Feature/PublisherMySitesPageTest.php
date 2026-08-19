@@ -317,7 +317,9 @@ class PublisherMySitesPageTest extends TestCase
         $this->assertStringContainsString('sitesFilterPending', $html);
         $this->assertStringContainsString('sitesFilterActive', $html);
         $this->assertStringContainsString('sitesFilterInvites', $html);
+        $this->assertStringContainsString('sitesFilterArchived', $html);
         $this->assertStringContainsString('What Invites means', $html);
+        $this->assertStringContainsString('What Archive means', $html);
         $this->assertStringContainsString('ACTIVE_SITES_SEEN_KEY', $js);
         $this->assertStringContainsString('acknowledgeNewActive', $js);
         $this->assertStringContainsString('syncNewActiveBadges', $js);
@@ -326,6 +328,10 @@ class PublisherMySitesPageTest extends TestCase
         $this->assertTrue(
             strpos($html, 'id="sitesFilterActive"') < strpos($html, 'id="sitesFilterPending"'),
             'Active filter should appear before Pending'
+        );
+        $this->assertTrue(
+            strpos($html, 'id="sitesFilterInvites"') < strpos($html, 'id="sitesFilterArchived"'),
+            'Invites filter should appear before Archive'
         );
         $this->assertStringContainsString('Approved / live', $html);
         $this->assertStringContainsString('Bulk drafts with the marketer', $html);
@@ -634,6 +640,8 @@ class PublisherMySitesPageTest extends TestCase
         $this->assertStringContainsString('Live Pending', $pendingHtml);
         $this->assertStringNotContainsString('Archived Pending', $pendingHtml);
         $this->assertStringContainsString('data-pending="1"', $pendingHtml);
+        $this->assertStringContainsString('data-archived="2"', $activeHtml);
+        $this->assertStringContainsString('data-archived="2"', $pendingHtml);
     }
 
     public function test_accept_decline_verify_handlers_bind_when_inline_owns_page(): void
@@ -865,6 +873,114 @@ class PublisherMySitesPageTest extends TestCase
             1,
             preg_match_all('/\blet\s+delayTimer\b/', $page),
             'Rendered My Sites page must declare delayTimer only once.'
+        );
+    }
+
+    public function test_archive_tab_shows_restore_and_live_rows_show_archive(): void
+    {
+        $live = $this->makeSite([
+            'site_name' => 'Live For Archive',
+            'site_url' => 'https://live-for-archive.example',
+            'domain' => 'live-for-archive.example',
+            'verified' => true,
+            'active' => true,
+        ]);
+        $draft = $this->makeSite([
+            'site_name' => 'Draft No Archive',
+            'site_url' => 'https://draft-no-archive.example',
+            'domain' => 'draft-no-archive.example',
+        ]);
+
+        $activeHtml = $this->actingAs($this->publisher)
+            ->get(route('publisher.sites.ajax', ['status' => 'active']))
+            ->assertOk()
+            ->getContent();
+
+        $this->assertStringContainsString('btn-archive-site', $activeHtml);
+        $this->assertStringContainsString('data-id="'.$live->id.'"', $activeHtml);
+        $this->assertStringNotContainsString('btn-unarchive-site', $activeHtml);
+        $this->assertStringNotContainsString('btn-delete', $activeHtml);
+
+        $pendingHtml = $this->actingAs($this->publisher)
+            ->get(route('publisher.sites.ajax', ['status' => 'pending']))
+            ->assertOk()
+            ->getContent();
+
+        $this->assertStringContainsString('Draft No Archive', $pendingHtml);
+        $this->assertStringContainsString('btn-delete', $pendingHtml);
+        $this->assertStringNotContainsString('btn-archive-site', $pendingHtml);
+        $this->assertStringContainsString((string) $draft->id, $pendingHtml);
+
+        $this->actingAs($this->publisher)
+            ->postJson(route('publisher.sites.archive', $live->id))
+            ->assertOk()
+            ->assertJsonPath('success', true);
+
+        $archivedHtml = $this->actingAs($this->publisher)
+            ->get(route('publisher.sites.ajax', ['status' => 'archived']))
+            ->assertOk()
+            ->getContent();
+
+        $this->assertStringContainsString('Live For Archive', $archivedHtml);
+        $this->assertStringContainsString('btn-unarchive-site', $archivedHtml);
+        $this->assertStringNotContainsString('btn-archive-site', $archivedHtml);
+        $this->assertStringContainsString('data-archived="1"', $archivedHtml);
+        $this->assertStringContainsString('data-status="archived"', $archivedHtml);
+
+        $activeAfter = $this->actingAs($this->publisher)
+            ->get(route('publisher.sites.ajax', ['status' => 'active']))
+            ->assertOk()
+            ->getContent();
+
+        $this->assertStringNotContainsString('Live For Archive', $activeAfter);
+        $this->assertStringContainsString('are archived', $activeAfter);
+        $this->assertStringContainsString('data-switch-status="archived"', $activeAfter);
+    }
+
+    public function test_empty_active_with_only_archived_points_to_archive(): void
+    {
+        $this->makeSite([
+            'site_name' => 'Only Archived',
+            'site_url' => 'https://only-archived.example',
+            'domain' => 'only-archived.example',
+            'verified' => true,
+            'active' => true,
+            'archived_at' => now(),
+        ]);
+
+        $html = $this->actingAs($this->publisher)
+            ->get(route('publisher.sites.ajax', ['status' => 'active']))
+            ->assertOk()
+            ->getContent();
+
+        $this->assertStringContainsString('No live sites yet.', $html);
+        $this->assertStringContainsString('are archived', $html);
+        $this->assertStringContainsString('data-switch-status="archived"', $html);
+        $this->assertStringContainsString('data-archived="1"', $html);
+        $this->assertStringNotContainsString('Only Archived', $html);
+        $this->assertStringNotContainsString('id="emptyAddSiteCta"', $html);
+    }
+
+    public function test_archived_empty_state_and_url_allow_list(): void
+    {
+        $html = $this->actingAs($this->publisher)
+            ->get(route('publisher.sites.ajax', ['status' => 'archived']))
+            ->assertOk()
+            ->getContent();
+
+        $this->assertStringContainsString('No archived sites', $html);
+        $this->assertStringContainsString('data-status="archived"', $html);
+
+        $page = $this->actingAs($this->publisher)
+            ->get(route('publisher.websites', ['status' => 'archived']))
+            ->assertOk()
+            ->getContent();
+
+        $this->assertStringContainsString("status === 'archived'", $page);
+        $this->assertStringContainsString('window.setSitesStatusFilter = function', $page);
+        $this->assertMatchesRegularExpression(
+            "/status === 'pending' \|\| status === 'invites' \|\| status === 'archived'/",
+            $page
         );
     }
 

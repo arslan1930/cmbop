@@ -385,6 +385,7 @@ class SiteController extends Controller
             });
             $activeCount = (clone $activeQuery)->count();
             $activeIds = (clone $activeQuery)->orderBy('id')->pluck('id')->map(fn ($id) => (int) $id)->values()->all();
+            $archivedCount = (clone $acceptedBase)->archived()->count();
 
             $bulkWaitingItems = collect();
             if ($status === 'pending' && $page === 1) {
@@ -439,6 +440,7 @@ class SiteController extends Controller
                 'pendingCount',
                 'activeCount',
                 'inviteCount',
+                'archivedCount',
                 'activeIds',
                 'status',
                 'bulkWaitingItems',

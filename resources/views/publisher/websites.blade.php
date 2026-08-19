@@ -1464,6 +1464,19 @@
                         placement="top"
                     />
                 </div>
+                <div class="site-status-filter-group">
+                    <button type="button" class="btn btn-sm site-status-filter" data-status="archived" id="sitesFilterArchived" aria-pressed="false">
+                        <span class="filter-main">
+                            Archive <span class="badge text-bg-secondary" id="sitesArchivedCount">0</span>
+                        </span>
+                    </button>
+                    <x-glass-tip
+                        title="Archive"
+                        body="Sites you hid from the catalog. Restore one to put it back on Active."
+                        label="What Archive means"
+                        placement="top"
+                    />
+                </div>
             </div>
         </div>
         <p class="small text-muted mb-2" id="sitesFilterHint">Approved and live sites on your panel.</p>
@@ -2458,7 +2471,7 @@ let sitesStatusFilter = (function () {
         const params = new URLSearchParams(window.location.search);
         sitesStatusExplicit = params.has('status');
         const raw = (params.get('status') || 'active').toLowerCase();
-        return (raw === 'pending' || raw === 'active' || raw === 'invites') ? raw : 'active';
+        return (raw === 'pending' || raw === 'active' || raw === 'invites' || raw === 'archived') ? raw : 'active';
     } catch (e) {
         return 'active';
     }
@@ -2477,7 +2490,7 @@ function syncSitesStatusUrl(status) {
 }
 
 window.setSitesStatusFilter = function (status) {
-    const next = (status === 'pending' || status === 'invites') ? status : 'active';
+    const next = (status === 'pending' || status === 'invites' || status === 'archived') ? status : 'active';
     sitesStatusFilter = next;
     syncSitesStatusUrl(next);
     syncSitesFilterUi(
@@ -2485,7 +2498,8 @@ window.setSitesStatusFilter = function (status) {
         parseInt(document.getElementById('sitesActiveCount')?.textContent || '0', 10),
         sitesStatusFilter,
         null,
-        parseInt(document.getElementById('sitesInviteCount')?.textContent || '0', 10)
+        parseInt(document.getElementById('sitesInviteCount')?.textContent || '0', 10),
+        parseInt(document.getElementById('sitesArchivedCount')?.textContent || '0', 10)
     );
 };
 const ACTIVE_SITES_SEEN_KEY = 'slb_publisher_active_sites_seen_v1';
@@ -2564,15 +2578,17 @@ function syncNewActiveBadges(activeIds, markSeen) {
     return newIdSet.size;
 }
 
-function syncSitesFilterUi(pendingCount, activeCount, status, activeIds, inviteCount) {
+function syncSitesFilterUi(pendingCount, activeCount, status, activeIds, inviteCount, archivedCount) {
     const pendingCountEl = document.getElementById('sitesPendingCount');
     const activeCountEl = document.getElementById('sitesActiveCount');
     const inviteCountEl = document.getElementById('sitesInviteCount');
+    const archivedCountEl = document.getElementById('sitesArchivedCount');
     const hint = document.getElementById('sitesFilterHint');
     const meta = document.getElementById('sitesStatusMeta');
     const bulkWaiting = parseInt(meta?.getAttribute('data-bulk-waiting') || '0', 10);
     const openBulk = meta?.getAttribute('data-open-bulk') === '1';
     const invites = inviteCount ?? parseInt(meta?.getAttribute('data-invites') || '0', 10);
+    const archived = archivedCount ?? parseInt(meta?.getAttribute('data-archived') || '0', 10);
 
     if (pendingCountEl) {
         pendingCountEl.textContent = String(pendingCount ?? 0);
@@ -2584,6 +2600,11 @@ function syncSitesFilterUi(pendingCount, activeCount, status, activeIds, inviteC
         inviteCountEl.textContent = String(invites || 0);
         inviteCountEl.classList.toggle('text-bg-secondary', !(invites > 0));
         inviteCountEl.classList.toggle('text-bg-info', invites > 0);
+    }
+    if (archivedCountEl) {
+        archivedCountEl.textContent = String(archived || 0);
+        archivedCountEl.classList.toggle('text-bg-secondary', !(archived > 0));
+        archivedCountEl.classList.toggle('text-bg-dark', archived > 0);
     }
 
     document.querySelectorAll('.site-status-filter').forEach(function (btn) {
@@ -2606,11 +2627,15 @@ function syncSitesFilterUi(pendingCount, activeCount, status, activeIds, inviteC
                     : 'No live sites in this tab. ' + pendingCount + ' are in Pending.';
             } else if ((invites || 0) > 0 && !(activeCount > 0)) {
                 hint.textContent = 'No live sites in this tab. ' + invites + ' are in Invites.';
+            } else if ((archived || 0) > 0 && !(activeCount > 0)) {
+                hint.textContent = 'No live sites in this tab. ' + archived + ' are archived.';
             } else {
                 hint.textContent = 'Approved and live sites on your panel.';
             }
         } else if (status === 'invites') {
             hint.textContent = 'Sites our team added for you — accept to move them into My Sites, or decline to remove them.';
+        } else if (status === 'archived') {
+            hint.textContent = 'Hidden from the catalog. Restore a site to put it back on Active.';
         } else if (bulkWaiting > 0) {
             hint.textContent = bulkWaiting === 1
                 ? '1 site is with our marketer; others below may need your details or admin review.'
@@ -2757,6 +2782,13 @@ function fetchSites(page = 1, query = '', opts = {}) {
                         'No site invites waiting. When our team adds a website for you, Accept / Decline appear here.' +
                         '</div>'
                     );
+                } else if (sitesStatusFilter === 'archived') {
+                    $('#sitesTableWrapper').html(
+                        '<div class="alert alert-light border text-center mb-0">' +
+                        '<i class="fa fa-box-archive me-2 text-muted"></i>' +
+                        'No archived sites. Live listings you archive are hidden from the catalog and show here.' +
+                        '</div>'
+                    );
                 } else {
                     $('#sitesTableWrapper').html(
                         '<div class="ui-empty-state text-center mx-auto py-4" style="max-width:420px">' +
@@ -2780,7 +2812,8 @@ function fetchSites(page = 1, query = '', opts = {}) {
                         activeFromMeta,
                         meta.getAttribute('data-status') || sitesStatusFilter,
                         activeIds,
-                        parseInt(meta.getAttribute('data-invites') || '0', 10)
+                        parseInt(meta.getAttribute('data-invites') || '0', 10),
+                        parseInt(meta.getAttribute('data-archived') || '0', 10)
                     );
                     // Auto-open Pending when Active is empty and the URL did not set ?status=
                     if (!sitesAutoOpenPendingChecked) {
@@ -2835,7 +2868,7 @@ let delayTimer;
 $(document).ready(function(){
     syncSitesFilterUi(0, 0, sitesStatusFilter);
     fetchSites();
-    if (sitesStatusFilter === 'pending' || sitesStatusFilter === 'invites') {
+    if (sitesStatusFilter === 'pending' || sitesStatusFilter === 'invites' || sitesStatusFilter === 'archived') {
         const section = document.getElementById('sitesTableWrapper');
         if (section && typeof section.scrollIntoView === 'function') {
             setTimeout(function () {
@@ -2875,7 +2908,8 @@ $(document).ready(function(){
             parseInt(document.getElementById('sitesActiveCount')?.textContent || '0', 10),
             sitesStatusFilter,
             null,
-            parseInt(document.getElementById('sitesInviteCount')?.textContent || '0', 10)
+            parseInt(document.getElementById('sitesInviteCount')?.textContent || '0', 10),
+            parseInt(document.getElementById('sitesArchivedCount')?.textContent || '0', 10)
         );
         fetchSites(1, $('#siteSearch').val(), { acknowledgeNewActive: acknowledgeNewActive });
     });
