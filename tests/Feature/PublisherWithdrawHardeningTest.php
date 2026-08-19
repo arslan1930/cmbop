@@ -644,4 +644,48 @@ class PublisherWithdrawHardeningTest extends TestCase
             ->assertJsonPath('data.total_withdrawn', 45)
             ->assertJsonPath('data.withdrawal_count', 2);
     }
+
+    public function test_withdraw_page_uses_extracted_script_and_no_history_flicker(): void
+    {
+        $publisher = $this->publisher();
+        $html = $this->actingAs($publisher)
+            ->get(route('publisher.withdraw'))
+            ->assertOk()
+            ->getContent();
+
+        $this->assertStringContainsString('assets/js/publisher-withdraw.js', $html);
+        $this->assertStringContainsString('assets/css/publisher-withdraw.css', $html);
+        $this->assertStringContainsString('id="publisherWithdrawApp"', $html);
+        $this->assertStringContainsString('Back to Balance', $html);
+        $this->assertStringNotContainsString('Withdraw Funds', $html);
+        $this->assertStringNotContainsString('sweetalert2.min.css', $html);
+        $this->assertStringNotContainsString('Swal.fire', $html);
+        $this->assertStringNotContainsString('loadHistory(1)', $html);
+
+        $js = file_get_contents(public_path('assets/js/publisher-withdraw.js'));
+        $this->assertStringContainsString('window.slbConfirm', $js);
+        $this->assertStringContainsString('function loadHistory', $js);
+        $this->assertStringNotContainsString('loadHistory(1)', $js);
+    }
+
+    public function test_withdraw_request_without_wallet_is_unprocessable(): void
+    {
+        $role = Role::firstOrCreate(['name' => 'publisher']);
+        $user = User::factory()->create([
+            'email_verified_at' => now(),
+            'active_role_id' => $role->id,
+        ]);
+        $user->roles()->attach($role->id);
+
+        $this->actingAs($user)
+            ->postJson(route('publisher.withdraw.request'), [
+                'amount' => 25,
+                'payment_method' => 'paypal',
+                'paypal_email' => 'pay@example.com',
+                'paypal_email_confirm' => 'pay@example.com',
+                'details_confirmed' => '1',
+            ])
+            ->assertStatus(422)
+            ->assertJsonPath('success', false);
+    }
 }
