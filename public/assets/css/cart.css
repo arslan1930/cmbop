@@ -409,3 +409,21 @@
     right: -100%;
   }
 }
+
+/* Shared toasts are bottom-right (above the help FAB). That lands on
+   Proceed to Checkout when the drawer is open. Park them at the top,
+   and on desktop just left of the drawer so the CTA stays clickable. */
+body.cart-open .slb-toast-stack {
+  top: 0;
+  bottom: auto;
+  right: min(420px, 94vw);
+  padding-top: max(0.75rem, env(safe-area-inset-top, 0px));
+  padding-bottom: 0.75rem;
+}
+
+@media (max-width: 768px) {
+  body.cart-open .slb-toast-stack {
+    left: 0;
+    right: 0;
+  }
+}

@@ -1010,6 +1010,7 @@
         cartLastFocus = document.activeElement;
         cartSidebar.classList.add('open');
         cartOverlay.classList.add('show');
+        document.body.classList.add('cart-open');
         cartSidebar.setAttribute('aria-hidden', 'false');
         updateCartDisplay();
         (closeCartBtn || getCartFocusable()[0])?.focus();
@@ -1019,6 +1020,7 @@
     function closeCart() {
         cartSidebar.classList.remove('open');
         cartOverlay.classList.remove('show');
+        document.body.classList.remove('cart-open');
         cartSidebar.setAttribute('aria-hidden', 'true');
         const restore = cartLastFocus && document.contains(cartLastFocus)
             ? cartLastFocus
