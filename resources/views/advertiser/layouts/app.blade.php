@@ -722,13 +722,9 @@
                 }
             }
             if (readyNote) {
-                if (readyCount > 0 && missing === 0) {
-                    readyNote.classList.remove('d-none');
-                    readyNote.textContent = 'Articles attached — proceed to pay, or keep browsing.';
-                } else {
-                    readyNote.classList.add('d-none');
-                    readyNote.textContent = '';
-                }
+                // Header already says “N ready to pay”; do not repeat it in the footer.
+                readyNote.classList.add('d-none');
+                readyNote.textContent = '';
             }
             if (proceedBtn) {
                 // Checkout only for sites that are ready and need payment.
@@ -831,17 +827,21 @@
                         const options = articlesForCartPlacement(item, copyIndex);
                         const slotLabel = placementIds.length > 1
                             ? `Article ${copyIndex + 1} of ${placementIds.length}`
-                            : (selectedId ? 'Attached' : 'Add article');
+                            : (selectedId ? 'Article' : 'Add article');
                         const selectId = 'cart-doc-' + itemKey.replace(/[^a-zA-Z0-9_-]/g, '-') + '-' + copyIndex;
                         let opts = `<option value="">— Choose ${placementIds.length > 1 ? 'article ' + (copyIndex + 1) + ' of ' + placementIds.length : 'article'} —</option>`;
                         options.forEach((article) => {
                             const fits = articleFitsSiteLanguages(article, siteLanguageCodes(item));
-                            const label = (article.title || 'Document')
-                                + ' (' + String(article.language || '').toUpperCase()
-                                + (article.country ? '/' + String(article.country).toUpperCase() : '')
-                                + ')'
-                                + (fits ? '' : ' · different language');
-                            opts += `<option value="${article.id}" ${article.id === selectedId ? 'selected' : ''}>${escapeHtml(label)}</option>`;
+                            const lang = String(article.language || '').toUpperCase();
+                            const country = article.country ? '/' + String(article.country).toUpperCase() : '';
+                            const locale = lang ? (lang + country) : String(article.country || '').toUpperCase();
+                            const rawTitle = String(article.title || '').trim();
+                            const titleLooksLikeId = rawTitle === '' || /^\d+$/.test(rawTitle);
+                            const baseLabel = titleLooksLikeId
+                                ? ('Article' + (locale ? ' · ' + locale : ''))
+                                : (rawTitle + (locale ? ' (' + locale + ')' : ''));
+                            const optionLabel = baseLabel + (fits ? '' : ' · different language');
+                            opts += `<option value="${article.id}" ${article.id === selectedId ? 'selected' : ''}>${escapeHtml(optionLabel)}</option>`;
                         });
                         if (selectedId && !options.some((a) => a.id === selectedId)) {
                             opts += `<option value="${selectedId}" selected>Assigned document #${selectedId}</option>`;
@@ -852,7 +852,7 @@
                         const langNote = item.language_note
                             ? `<div class="cart-item-language-note" title="Preferred match is the same language as the site">${escapeHtml(item.language_note)}</div>`
                             : '';
-                        const uploadLink = `<a class="cart-item-upload-link" href="${contentLibraryUploadUrl}">Upload new</a>`;
+                        const uploadLink = `<a class="cart-item-upload-link" href="${contentLibraryUploadUrl}">${selectedId ? 'Upload another' : 'Upload new'}</a>`;
                         return `
                         <div class="cart-item-article ${selectedId ? 'is-assigned' : 'needs-document'}">
                             <div class="cart-item-order-label">
@@ -893,16 +893,16 @@
                                 ${qtyNote}
                             </div>
                             <div class="cart-item-quantity">
-                                <button type="button" class="decrease-qty" data-id="${item.id}" data-sensitive-type="${sensitiveAttr}" data-homepage-days="${cartHomepageParam(item)}" aria-label="Decrease placements" title="Placements — each needs its own article">
+                                ${qty > 1 ? `<button type="button" class="decrease-qty" data-id="${item.id}" data-sensitive-type="${sensitiveAttr}" data-homepage-days="${cartHomepageParam(item)}" aria-label="Decrease placements" title="Placements — each needs its own article">
                                     <i class="fa fa-minus" aria-hidden="true"></i>
-                                </button>
+                                </button>` : ''}
                                 <span class="quantity-number" aria-label="Placements ${item.quantity}">${item.quantity}</span>
                                 <button type="button" class="increase-qty" data-id="${item.id}" data-sensitive-type="${sensitiveAttr}" data-homepage-days="${cartHomepageParam(item)}" aria-label="Increase placements — each needs its own article" title="Placements — each needs its own article">
                                     <i class="fa fa-plus" aria-hidden="true"></i>
                                 </button>
                             </div>
                             <button type="button" class="cart-item-remove" data-id="${item.id}" data-sensitive-type="${sensitiveAttr}" data-homepage-days="${cartHomepageParam(item)}" aria-label="Remove ${escapeHtml(siteName)} from cart">
-                                <i class="fa fa-times" aria-hidden="true"></i>
+                                Remove
                             </button>
                         </div>
                         ${articleBlock}

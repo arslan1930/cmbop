@@ -161,16 +161,18 @@
 .cart-item-remove {
   color: var(--brand-danger, #dc2626);
   cursor: pointer;
-  margin-left: 10px;
-  width: 28px;
-  height: 28px;
+  margin-left: 4px;
+  min-height: 28px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   border-radius: var(--radius-sm, 8px);
   border: 0;
   background: transparent;
-  padding: 0;
+  padding: 0 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1;
   transition: background-color var(--motion-fast, 150ms ease), color var(--motion-fast, 150ms ease);
 }
 
