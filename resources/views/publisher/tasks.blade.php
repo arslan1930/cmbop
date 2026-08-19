@@ -28,12 +28,12 @@
         </div>
     </div>
 
-    <!-- Statistics Cards -->
+    <!-- Statistics Cards: order counts plus item-level Needs you -->
     <div class="row mb-4 g-3">
         <div class="col-6 col-lg">
             <div class="card border-0 shadow-sm h-100">
                 <div class="card-body py-3">
-                    <h6 class="text-muted mb-1 small">Total</h6>
+                    <h6 class="text-muted mb-1 small">Orders</h6>
                     <h3 class="mb-0" id="statTotalOrders">0</h3>
                 </div>
             </div>
@@ -41,7 +41,7 @@
         <div class="col-6 col-lg">
             <div class="card border-0 shadow-sm h-100">
                 <div class="card-body py-3">
-                    <h6 class="text-muted mb-1 small">Pending</h6>
+                    <h6 class="text-muted mb-1 small">New</h6>
                     <h3 class="mb-0" id="statPendingOrders">0</h3>
                 </div>
             </div>
@@ -59,6 +59,22 @@
                 <div class="card-body py-3">
                     <h6 class="text-muted mb-1 small">In review</h6>
                     <h3 class="mb-0" id="statReviewOrders">0</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-lg">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body py-3">
+                    <h6 class="text-muted mb-1 small">Scheduled</h6>
+                    <h3 class="mb-0" id="statScheduledOrders">0</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-lg">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body py-3">
+                    <h6 class="text-muted mb-1 small">Needs you</h6>
+                    <h3 class="mb-0" id="statNeedsYou">0</h3>
                 </div>
             </div>
         </div>
@@ -846,6 +862,8 @@ $(document).ready(function() {
                     $('#statPendingOrders').text(response.data.pending_orders || 0);
                     $('#statProcessingOrders').text(response.data.accepted_orders || 0);
                     $('#statReviewOrders').text(response.data.review_orders || 0);
+                    $('#statScheduledOrders').text(response.data.scheduled_orders || 0);
+                    $('#statNeedsYou').text(response.data.needs_you || 0);
                     $('#statTotalEarnings').html('€' + (response.data.total_earnings || 0).toFixed(2));
                 }
             },
