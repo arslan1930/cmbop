@@ -101,4 +101,60 @@ class PublisherNeedsAction
     {
         return static::waitingOnAdvertiserQuery($publisherId)->count();
     }
+
+    /**
+     * One-line next step for a recent-task row.
+     */
+    public static function nextActionForItem(OrderItem $item): string
+    {
+        $order = $item->order;
+        if (! $order) {
+            return 'done';
+        }
+
+        if (in_array($order->status, ['completed', 'cancelled'], true)) {
+            return 'done';
+        }
+
+        if ($order->isAwaitingScheduledRelease()) {
+            return 'scheduled';
+        }
+
+        if (($item->modification_requested ?? '') === 'yes') {
+            return 'revision';
+        }
+
+        if ($order->status === 'pending') {
+            return 'accept';
+        }
+
+        if ($order->status === 'processing') {
+            if (Schema::hasColumn('order_items', 'content_revision_requested')
+                && ($item->content_revision_requested ?? '') === 'yes') {
+                return 'revision';
+            }
+
+            return trim((string) ($item->live_url ?? '')) === ''
+                ? 'publish'
+                : 'waiting_advertiser';
+        }
+
+        if ($order->status === 'review') {
+            return 'waiting_advertiser';
+        }
+
+        return 'done';
+    }
+
+    public static function nextActionLabel(string $action): string
+    {
+        return match ($action) {
+            'accept' => 'Accept this order',
+            'publish' => 'Submit live URL',
+            'revision' => 'Advertiser requested a change',
+            'waiting_advertiser' => 'Waiting on advertiser',
+            'scheduled' => 'Scheduled — not due yet',
+            default => '',
+        };
+    }
 }

@@ -389,9 +389,9 @@ class PublisherDashboardTest extends TestCase
             ->assertSee('€42.00')
             ->assertSee('Pending earnings')
             ->assertSee('€100.00')
-            ->assertSee('Open tasks')
+            ->assertSee('Needs you')
             ->assertSee('id="openTasks"', false)
-            ->assertSee('Awaiting verification')
+            ->assertSee('Unverified')
             ->assertSee('id="unverifiedSites"', false)
             ->assertSee('Unverified Blog')
             ->assertSee('Your payout')
@@ -466,5 +466,103 @@ class PublisherDashboardTest extends TestCase
         $statuses = collect($recent)->pluck('status')->all();
         $this->assertContains('pending', $statuses);
         $this->assertContains('scheduled', $statuses);
+    }
+
+    public function test_review_only_item_is_not_needs_you_cta(): void
+    {
+        $publisher = $this->publisherWithWallet();
+        $advertiser = $this->advertiser();
+        $site = $this->site($publisher);
+        $item = $this->createOrderItem($advertiser, $site, [
+            'status' => 'review',
+            'payment_status' => 'paid',
+        ]);
+
+        $html = $this->actingAs($publisher)
+            ->get(route('publisher.dashboard'))
+            ->assertOk()
+            ->assertSee('data-primary-action="add_site"', false)
+            ->assertSee('id="openTasks">0', false)
+            ->assertSee('1 waiting on advertiser', false)
+            ->assertSee('Waiting on advertiser', false)
+            ->assertDontSee('You have 1 task waiting', false)
+            ->getContent();
+
+        $this->assertStringContainsString(
+            'href="'.route('publisher.tasks', ['focus' => 'order', 'order' => $item->order_id], false).'"',
+            $html
+        );
+
+        $badge = $this->actingAs($publisher)
+            ->getJson('/chat/unread-summary')
+            ->assertOk()
+            ->json();
+        $this->assertSame(0, (int) ($badge['needs_action'] ?? -1));
+    }
+
+    public function test_pending_item_uses_needs_you_cta_and_accept_copy(): void
+    {
+        $publisher = $this->publisherWithWallet();
+        $advertiser = $this->advertiser();
+        $site = $this->site($publisher);
+        $this->createOrderItem($advertiser, $site, [
+            'status' => 'pending',
+            'payment_status' => 'paid',
+        ]);
+
+        $this->actingAs($publisher)
+            ->get(route('publisher.dashboard'))
+            ->assertOk()
+            ->assertSee('data-primary-action="needs_you"', false)
+            ->assertSee('You have 1 task waiting', false)
+            ->assertSee('Accept this order', false)
+            ->assertSee('id="openTasks">1', false)
+            ->assertSee(route('publisher.tasks', ['needs_action' => 1], false), false);
+
+        $badge = $this->actingAs($publisher)
+            ->getJson('/chat/unread-summary')
+            ->assertOk()
+            ->json();
+        $this->assertSame(1, (int) ($badge['needs_action'] ?? 0));
+    }
+
+    public function test_processing_without_live_url_shows_publish_next_action(): void
+    {
+        $publisher = $this->publisherWithWallet();
+        $advertiser = $this->advertiser();
+        $site = $this->site($publisher);
+        $this->createOrderItem($advertiser, $site, [
+            'status' => 'processing',
+            'payment_status' => 'paid',
+        ]);
+
+        $this->actingAs($publisher)
+            ->get(route('publisher.dashboard'))
+            ->assertOk()
+            ->assertSee('data-primary-action="needs_you"', false)
+            ->assertSee('Submit live URL', false)
+            ->assertSee('data-next-action="publish"', false);
+    }
+
+    public function test_awaiting_details_site_uses_complete_details_cta(): void
+    {
+        $publisher = $this->publisherWithWallet();
+        $this->site($publisher, [
+            'verified' => false,
+            'active' => false,
+            'onboarding_status' => Site::ONBOARDING_AWAITING_DETAILS,
+            'site_name' => 'Draft Details Site',
+            'site_url' => 'https://draft-details.example',
+            'domain' => 'draft-details.example',
+        ]);
+
+        $this->actingAs($publisher)
+            ->get(route('publisher.dashboard'))
+            ->assertOk()
+            ->assertSee('data-primary-action="complete_details"', false)
+            ->assertSee('Finish details on 1 site', false)
+            ->assertSee(route('publisher.bulk-sites.complete', [], false), false)
+            ->assertSee('1 need details from you', false)
+            ->assertDontSee('You have 1 task waiting', false);
     }
 }

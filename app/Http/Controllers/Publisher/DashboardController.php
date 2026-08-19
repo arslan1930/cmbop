@@ -8,8 +8,10 @@ use App\Models\OrderItem;
 use App\Models\OrderItemDispute;
 use App\Models\Site;
 use App\Models\WalletTransaction;
+use App\Support\PublisherNeedsAction;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 
@@ -23,13 +25,18 @@ class DashboardController extends Controller
         $user = auth()->user();
         $userId = $user->id;
 
-        $sites = Site::where('publisher_id', $userId)->get(['id', 'verified']);
+        $sites = Site::where('publisher_id', $userId)->get(['id', 'verified', 'active']);
         $siteIds = $sites->pluck('id')->all();
         $siteCount = count($siteIds);
         $unverifiedSiteCount = $sites->where('verified', false)->count();
 
         $stats = $this->buildStatistics($siteIds);
-        $pendingTasks = $this->countPendingTasks($siteIds);
+        $needsYou = PublisherNeedsAction::needsYouCount($userId);
+        $waitingOnAdvertiser = PublisherNeedsAction::waitingOnAdvertiserCount($userId);
+        $awaitingDetailsCount = $this->onboardingSiteCount($userId, Site::ONBOARDING_AWAITING_DETAILS);
+        $detailsCompleteCount = $this->onboardingSiteCount($userId, Site::ONBOARDING_DETAILS_COMPLETE);
+        $unverifiedAdminCount = $this->unverifiedAdminSiteCount($userId, $sites);
+        $liveSiteCount = $sites->where('verified', true)->where('active', true)->count();
 
         $wallet = $user->activeWallet();
         $availableBalance = $wallet ? (float) $wallet->balance : 0.0;
@@ -37,11 +44,24 @@ class DashboardController extends Controller
 
         $metrics = $this->buildPerformanceMetrics($stats);
 
+        $primaryAction = match (true) {
+            $needsYou > 0 => 'needs_you',
+            $awaitingDetailsCount > 0 => 'complete_details',
+            $detailsCompleteCount > 0 => 'submit_review',
+            default => 'add_site',
+        };
+
         return view('publisher.dashboard', [
             'siteCount' => $siteCount,
+            'liveSiteCount' => $liveSiteCount,
             'unverifiedSiteCount' => $unverifiedSiteCount,
-            'pendingTasks' => $pendingTasks,
-            'primaryAction' => $pendingTasks > 0 ? 'tasks' : 'add_site',
+            'unverifiedAdminCount' => $unverifiedAdminCount,
+            'awaitingDetailsCount' => $awaitingDetailsCount,
+            'detailsCompleteCount' => $detailsCompleteCount,
+            'pendingTasks' => $needsYou,
+            'needsYou' => $needsYou,
+            'waitingOnAdvertiser' => $waitingOnAdvertiser,
+            'primaryAction' => $primaryAction,
             'stats' => $stats,
             'metrics' => $metrics,
             'availableBalance' => $availableBalance,
@@ -198,20 +218,41 @@ class DashboardController extends Controller
             ->all();
     }
 
-    /**
-     * @param  array<int>  $siteIds
-     */
-    private function countPendingTasks(array $siteIds): int
+    private function onboardingSiteCount(int $publisherId, string $status): int
     {
-        if ($siteIds === []) {
+        if (! Schema::hasColumn('sites', 'onboarding_status')) {
             return 0;
         }
 
-        return OrderItem::whereIn('site_id', $siteIds)
-            ->whereHas('order', function ($q) {
-                $q->where('payment_status', 'paid')
-                    ->whereIn('status', ['pending', 'processing', 'review'])
-                    ->notAwaitingScheduledRelease();
+        return Site::query()
+            ->where('publisher_id', $publisherId)
+            ->notFromCancelledBulk()
+            ->where('onboarding_status', $status)
+            ->count();
+    }
+
+    /**
+     * Unverified listings waiting on admin — not publisher onboarding drafts.
+     *
+     * @param  Collection<int, Site>  $sites
+     */
+    private function unverifiedAdminSiteCount(int $publisherId, $sites): int
+    {
+        if (! Schema::hasColumn('sites', 'onboarding_status')) {
+            return $sites->where('verified', false)->count();
+        }
+
+        return Site::query()
+            ->where('publisher_id', $publisherId)
+            ->where(function ($q) {
+                $q->where('verified', false)->orWhereNull('verified');
+            })
+            ->where(function ($q) {
+                $q->whereNull('onboarding_status')
+                    ->orWhereNotIn('onboarding_status', [
+                        Site::ONBOARDING_AWAITING_DETAILS,
+                        Site::ONBOARDING_DETAILS_COMPLETE,
+                    ]);
             })
             ->count();
     }
@@ -332,12 +373,16 @@ class DashboardController extends Controller
                 continue;
             }
 
+            $nextAction = PublisherNeedsAction::nextActionForItem($item);
+
             $orders[] = [
                 'order_id' => $item->order->id,
                 'order_number' => $item->order->order_number,
                 'status' => $item->order->isAwaitingScheduledRelease()
                     ? 'scheduled'
                     : $item->order->status,
+                'next_action' => $nextAction,
+                'next_action_label' => PublisherNeedsAction::nextActionLabel($nextAction),
                 'payout' => $item->publisherPayoutAmount(),
                 'created_at' => optional($item->created_at)?->toIso8601String(),
                 'created_at_human' => optional($item->created_at)?->diffForHumans(),
