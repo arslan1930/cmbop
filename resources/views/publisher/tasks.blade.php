@@ -1473,8 +1473,14 @@ $(document).ready(function() {
         var paymentStatus = order ? order.payment_status : 'pending';
         var additionalPrice = parseFloat(item.additional_price || 0);
         var homepagePrice = parseFloat(item.homepage_price || 0) || 0;
-        var totalPrice = parseFloat(item.price);
-        var basePrice = Math.max(0, totalPrice - additionalPrice - homepagePrice);
+        var homepageDays = item.homepage_days !== null && item.homepage_days !== undefined
+            ? parseInt(item.homepage_days, 10) : null;
+        var basePrice = item.publisher_base !== undefined && item.publisher_base !== null
+            ? parseFloat(item.publisher_base)
+            : Math.max(0, parseFloat(item.price) - additionalPrice - homepagePrice);
+        var totalPrice = item.you_earn !== undefined && item.you_earn !== null
+            ? parseFloat(item.you_earn)
+            : parseFloat(item.price);
         var sensitiveType = item.sensitive_type || null;
         
         var paymentStatusHtml = paymentStatus === 'paid' 
@@ -1550,14 +1556,6 @@ $(document).ready(function() {
                     '<h6 class="mb-3">Order Status</h6>' +
                     '<p class="mb-1"><strong>Status:</strong> <span class="status-badge ' + statusClass + '">' + statusText + '</span></p>' +
                     '<p class="mb-1 text-muted small">' + statusMeta.nextStep + '</p>' +
-                    '<p class="mb-1"><strong>Base Price:</strong> €' + basePrice.toFixed(2) + '</p>' +
-                    (additionalPrice > 0 ? '<p class="mb-1"><strong>Sensitive Price:</strong> <span class="text-warning">+ €' + additionalPrice.toFixed(2) + ' (' + escapeHtml(sensitiveType) + ')</span></p>' : '') +
-                    (homepagePrice > 0 || (item.homepage_days != null && parseInt(item.homepage_days, 10) > 0)
-                        ? '<p class="mb-1"><strong>Homepage:</strong> ' + (parseInt(item.homepage_days, 10) || '') + ' day(s)'
-                            + (homepagePrice > 0 ? ' <span class="text-muted">(+€' + homepagePrice.toFixed(2) + ')</span>' : ' <span class="text-success">(Free)</span>')
-                            + '</p>'
-                        : '') +
-                    '<p class="mb-1"><strong>Total Amount:</strong> <span class="fw-bold text-primary fs-5">€' + totalPrice.toFixed(2) + '</span></p>' +
                 '</div>' +
             '</div>' +
         '</div>' +
@@ -1576,10 +1574,14 @@ $(document).ready(function() {
                 '</div>' +
                 '<div class="col-md-6">' +
                     '<p class="mb-1"><strong>Price Breakdown:</strong></p>' +
-                    '<p class="mb-1"><small>Base Price: €' + basePrice.toFixed(2) + '</small></p>' +
+                    '<p class="mb-1"><small>Base: €' + basePrice.toFixed(2) + '</small></p>' +
                     (additionalPrice > 0 ? '<p class="mb-1"><small class="text-warning">+ ' + escapeHtml(sensitiveType) + ': €' + additionalPrice.toFixed(2) + '</small></p>' : '') +
-                    (homepagePrice > 0 ? '<p class="mb-1"><small>+ Homepage: €' + homepagePrice.toFixed(2) + '</small></p>' : '') +
-                    '<p class="mb-2"><strong class="text-primary">Total: €' + totalPrice.toFixed(2) + '</strong></p>' +
+                    (homepagePrice > 0
+                        ? '<p class="mb-1"><small>+ Homepage'
+                            + (homepageDays ? ' · ' + homepageDays + 'd' : '')
+                            + ': €' + homepagePrice.toFixed(2) + '</small></p>'
+                        : '') +
+                    '<p class="mb-2"><strong class="text-primary">You earn: €' + totalPrice.toFixed(2) + '</strong></p>' +
                     '<p class="mb-1"><strong>Uploaded Document:</strong></p>' +
                     '<p class="mb-2">' + ((item.content_download_url || item.content_link) ? '<a href="' + escapeHtml(item.content_download_url || item.content_link) + '" class="text-primary" download><i class="fa fa-download me-1"></i>' + escapeHtml(item.content_original_name || 'Download article') + '</a><br><small class="text-muted">Download only — do not enable macros. Word files can run code on your computer.</small>' : '—') + '</p>' +
                     '<p class="mb-1"><strong>Anchor Text:</strong></p><p class="mb-2">' + escapeHtml(item.anchor_text || '—') + '</p>' +
