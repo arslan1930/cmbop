@@ -141,6 +141,27 @@ class PublisherReportsTest extends TestCase
             ->getJson(route('publisher.reports.orders', ['date_from' => 'not-a-date', 'status' => 'completed']))
             ->assertOk()
             ->assertJsonPath('success', true);
+
+        $this->actingAs($publisher)
+            ->get(route('publisher.reports', [
+                'tab' => 'withdrawals',
+                'w_status' => 'pending',
+                'o_from' => 'not-a-date',
+            ]))
+            ->assertOk();
+    }
+
+    public function test_reports_query_string_selects_withdrawals_pending(): void
+    {
+        $publisher = $this->publisher();
+        $html = $this->actingAs($publisher)
+            ->get(route('publisher.reports', ['tab' => 'withdrawals', 'w_status' => 'pending']))
+            ->assertOk()
+            ->getContent();
+
+        $this->assertMatchesRegularExpression('/class="nav-link active"[^>]*id="withdrawals-tab"/', $html);
+        $this->assertDoesNotMatchRegularExpression('/class="nav-link active"[^>]*id="orders-tab"/', $html);
+        $this->assertMatchesRegularExpression('/id="withdrawalsStatus"[\s\S]*<option value="pending"[^>]*selected/', $html);
     }
 
     public function test_statistics_use_publisher_payout_and_net_withdrawn(): void
@@ -884,6 +905,11 @@ class PublisherReportsTest extends TestCase
         $this->assertStringContainsString('function homepageCell', $js);
         $this->assertStringContainsString('function loadOrders', $js);
         $this->assertStringContainsString('function dateColumnHeading', $js);
+        $this->assertStringContainsString('function replaceReportsUrl', $js);
+        $this->assertStringContainsString('history.replaceState', $js);
+        $this->assertStringContainsString('o_status', $js);
+        $this->assertStringContainsString('w_status', $js);
+        $this->assertStringContainsString('normalizeDatePair', $js);
         $this->assertStringContainsString('item.completed_at', $js);
         $this->assertStringContainsString('item.homepage_price', $js);
         $this->assertStringContainsString('item.price - additionalPrice - homepagePrice', $js);

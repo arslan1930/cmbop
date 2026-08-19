@@ -172,6 +172,57 @@
         };
     }
 
+    function queryInt(params, key, fallback) {
+        const n = parseInt(params.get(key) || '', 10);
+        return n > 0 ? n : fallback;
+    }
+
+    function normalizeDatePair($from, $to) {
+        const from = $from.val() || '';
+        const to = $to.val() || '';
+        if (from && to && from > to) {
+            $from.val(to);
+            $to.val(from);
+        }
+    }
+
+    function currentReportsTab() {
+        return $('#withdrawals-tab').hasClass('active') ? 'withdrawals' : 'orders';
+    }
+
+    function replaceReportsUrl() {
+        const o = ordersFilterParams(ordersPage);
+        const w = withdrawalsFilterParams(withdrawalsPage);
+        const qs = new URLSearchParams();
+        qs.set('tab', currentReportsTab());
+        if (o.status && o.status !== 'completed') qs.set('o_status', o.status);
+        if (o.date_from) qs.set('o_from', o.date_from);
+        if (o.date_to) qs.set('o_to', o.date_to);
+        if (o.page > 1) qs.set('o_page', String(o.page));
+        if (w.status && w.status !== 'completed') qs.set('w_status', w.status);
+        if (w.date_from) qs.set('w_from', w.date_from);
+        if (w.date_to) qs.set('w_to', w.date_to);
+        if (w.page > 1) qs.set('w_page', String(w.page));
+        const next = window.location.pathname + (qs.toString() ? '?' + qs.toString() : '');
+        if (window.history && window.history.replaceState) {
+            window.history.replaceState({}, '', next);
+        }
+    }
+
+    function applyQueryToControls() {
+        const params = new URLSearchParams(window.location.search);
+        if (params.get('o_status')) $('#ordersStatus').val(params.get('o_status'));
+        if (params.get('o_from')) $('#ordersDateFrom').val(params.get('o_from'));
+        if (params.get('o_to')) $('#ordersDateTo').val(params.get('o_to'));
+        if (params.get('w_status')) $('#withdrawalsStatus').val(params.get('w_status'));
+        if (params.get('w_from')) $('#withdrawalsDateFrom').val(params.get('w_from'));
+        if (params.get('w_to')) $('#withdrawalsDateTo').val(params.get('w_to'));
+        ordersPage = queryInt(params, 'o_page', 1);
+        withdrawalsPage = queryInt(params, 'w_page', 1);
+        normalizeDatePair($('#ordersDateFrom'), $('#ordersDateTo'));
+        normalizeDatePair($('#withdrawalsDateFrom'), $('#withdrawalsDateTo'));
+    }
+
     function loadOrders(page) {
         page = page || 1;
         ordersPage = page;
@@ -198,6 +249,7 @@
                 renderOrdersTable(response.data, params.status);
                 renderPagination('#ordersPaginationNav', response.pagination, loadOrders);
                 $('#ordersResultsCount').text(resultsCountLabel(response.pagination));
+                replaceReportsUrl();
             },
             error: function (xhr) {
                 $('#ordersTableBody').html('<tr><td colspan="9" class="text-center text-danger py-5">Error loading orders. Please refresh the page.</td></tr>');
@@ -369,6 +421,7 @@
                 renderWithdrawalsTable(response.data);
                 renderPagination('#withdrawalsPaginationNav', response.pagination, loadWithdrawals);
                 $('#withdrawalsResultsCount').text(resultsCountLabel(response.pagination));
+                replaceReportsUrl();
             },
             error: function (xhr) {
                 $('#withdrawalsTableBody').html('<tr><td colspan="8" class="text-center text-danger py-5">Error loading withdrawals. Please refresh the page.</td></tr>');
@@ -466,24 +519,29 @@
     }
 
     $(function () {
+        applyQueryToControls();
         loadStatistics();
-        loadOrders(1);
-        loadWithdrawals(1);
+        loadOrders(ordersPage);
+        loadWithdrawals(withdrawalsPage);
 
         $('#ordersFilters').on('submit', function (e) {
             e.preventDefault();
+            normalizeDatePair($('#ordersDateFrom'), $('#ordersDateTo'));
             loadOrders(1);
         });
         $('#withdrawalsFilters').on('submit', function (e) {
             e.preventDefault();
+            normalizeDatePair($('#withdrawalsDateFrom'), $('#withdrawalsDateTo'));
             loadWithdrawals(1);
         });
 
         $('#orders-tab').on('shown.bs.tab', function () {
             loadOrders(ordersPage);
+            replaceReportsUrl();
         });
         $('#withdrawals-tab').on('shown.bs.tab', function () {
             loadWithdrawals(withdrawalsPage);
+            replaceReportsUrl();
         });
 
         $(document).on('click', '.btn-view-order', function () {
