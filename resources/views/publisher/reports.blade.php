@@ -3,13 +3,13 @@
 @section('title', 'Reports')
 
 @php
-    $reportsTab = request('tab') === 'withdrawals' ? 'withdrawals' : 'orders';
-    $ordersStatus = (string) request('o_status', 'completed');
-    $ordersFrom = (string) request('o_from', '');
-    $ordersTo = (string) request('o_to', '');
-    $withdrawalsStatus = (string) request('w_status', 'completed');
-    $withdrawalsFrom = (string) request('w_from', '');
-    $withdrawalsTo = (string) request('w_to', '');
+    $reportsTab = search_text(request('tab')) === 'withdrawals' ? 'withdrawals' : 'orders';
+    $ordersStatus = search_text(request('o_status')) ?: 'completed';
+    $ordersFrom = search_text(request('o_from'));
+    $ordersTo = search_text(request('o_to'));
+    $withdrawalsStatus = search_text(request('w_status')) ?: 'completed';
+    $withdrawalsFrom = search_text(request('w_from'));
+    $withdrawalsTo = search_text(request('w_to'));
     $orderStatuses = ['completed', 'pending', 'processing', 'review', 'scheduled', 'cancelled', 'all'];
     $withdrawalStatuses = ['completed', 'pending', 'processing', 'cancelled', 'all'];
     if (! in_array($ordersStatus, $orderStatuses, true)) {
@@ -17,6 +17,12 @@
     }
     if (! in_array($withdrawalsStatus, $withdrawalStatuses, true)) {
         $withdrawalsStatus = 'completed';
+    }
+    if ($ordersFrom !== '' && $ordersTo !== '' && $ordersFrom > $ordersTo) {
+        [$ordersFrom, $ordersTo] = [$ordersTo, $ordersFrom];
+    }
+    if ($withdrawalsFrom !== '' && $withdrawalsTo !== '' && $withdrawalsFrom > $withdrawalsTo) {
+        [$withdrawalsFrom, $withdrawalsTo] = [$withdrawalsTo, $withdrawalsFrom];
     }
 @endphp
 
@@ -28,7 +34,9 @@
      data-order-details-template="{{ route('publisher.reports.order.details', ['orderItemId' => '__ID__'], absolute: false) }}"
      data-withdrawals-url="{{ route('publisher.reports.withdrawals', absolute: false) }}"
      data-withdraw-url="{{ route('publisher.withdraw', absolute: false) }}"
-     data-tasks-url="{{ route('publisher.tasks', absolute: false) }}">
+     data-tasks-url="{{ route('publisher.tasks', absolute: false) }}"
+     data-orders-export-url="{{ route('publisher.reports.orders.export', absolute: false) }}"
+     data-withdrawals-export-url="{{ route('publisher.reports.withdrawals.export', absolute: false) }}">
 
     <div class="row mb-4">
         <div class="col-md-12">
@@ -137,6 +145,7 @@
                         <div>
                             <div class="fw-semibold"><i class="fa fa-shopping-cart me-2"></i><span id="ordersTabTitle">Orders</span></div>
                             <small class="text-muted" id="ordersResultsCount"></small>
+                            <div class="text-muted small">CSV export is capped at 2,000 rows.</div>
                         </div>
                         <form id="ordersFilters" class="row g-2 align-items-end">
                             <div class="col-auto">
@@ -162,6 +171,9 @@
                             <div class="col-auto">
                                 <button type="submit" class="btn btn-sm btn-primary">Apply</button>
                             </div>
+                            <div class="col-auto">
+                                <a href="#" id="ordersExportCsv" class="btn btn-sm btn-outline-secondary">Download CSV</a>
+                            </div>
                         </form>
                     </div>
                 </div>
@@ -171,7 +183,7 @@
                             <thead class="table-light">
                                 <tr>
                                     <th>Order #</th>
-                                    <th id="ordersDateHeading">{{ $ordersStatus === 'completed' ? 'Completed' : 'Date' }}</th>
+                                    <th id="ordersDateHeading">{{ in_array($ordersStatus, ['completed', 'all'], true) ? 'Completed' : 'Date' }}</th>
                                     <th>Site</th>
                                     <th>Base Price</th>
                                     <th>Sensitive Price</th>
@@ -206,6 +218,7 @@
                         <div>
                             <div class="fw-semibold"><i class="fa fa-download me-2"></i><span id="withdrawalsTabTitle">Withdrawals</span></div>
                             <small class="text-muted" id="withdrawalsResultsCount"></small>
+                            <div class="text-muted small">CSV export is capped at 2,000 rows.</div>
                         </div>
                         <form id="withdrawalsFilters" class="row g-2 align-items-end">
                             <div class="col-auto">
@@ -228,6 +241,9 @@
                             </div>
                             <div class="col-auto">
                                 <button type="submit" class="btn btn-sm btn-primary">Apply</button>
+                            </div>
+                            <div class="col-auto">
+                                <a href="#" id="withdrawalsExportCsv" class="btn btn-sm btn-outline-secondary">Download CSV</a>
                             </div>
                         </form>
                     </div>

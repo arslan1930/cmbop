@@ -12,9 +12,11 @@ use App\Support\UserFacingError;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class PublisherReportsController extends Controller
 {
@@ -23,6 +25,8 @@ class PublisherReportsController extends Controller
     private const WITHDRAWAL_STATUSES = ['pending', 'processing', 'completed', 'cancelled'];
 
     private const OPEN_ORDER_STATUSES = ['pending', 'processing', 'review'];
+
+    private const EXPORT_ROW_CAP = 2000;
 
     public function index()
     {
@@ -132,33 +136,8 @@ class PublisherReportsController extends Controller
                 ]);
             }
 
-            $query = OrderItem::with(['order', 'disputes'])
-                ->whereIn('site_id', $siteIds)
-                ->whereHas('order', function ($q) {
-                    // Financial reports: paid only (exclude abandoned card checkouts).
-                    $q->where('payment_status', 'paid');
-                })
-                ->orderBy('created_at', 'desc');
-
-            $status = search_text($request->input('status'));
-            if ($status === '') {
-                $status = 'completed';
-            }
-            $this->applyOrderDateFilters($query, $request, $status);
-            if ($status !== '' && $status !== 'all' && in_array($status, self::ORDER_STATUSES, true)) {
-                $query->whereHas('order', function ($q) use ($status) {
-                    if ($status === 'scheduled') {
-                        $q->awaitingScheduledRelease();
-                    } elseif ($status === 'pending') {
-                        $q->where('status', 'pending')->notAwaitingScheduledRelease();
-                    } else {
-                        $q->where('status', $status);
-                    }
-                });
-                if ($status === 'completed') {
-                    $query->withoutClawback();
-                }
-            }
+            $status = $this->ordersFilterStatus($request);
+            $query = $this->ordersReportQuery($siteIds, $request, $status);
 
             $perPage = max(1, min(100, (int) $request->get('per_page', 20)));
             $orderItems = $query->paginate($perPage);
@@ -215,18 +194,7 @@ class PublisherReportsController extends Controller
         try {
             $userId = auth()->id();
 
-            $query = Withdrawal::where('user_id', $userId)
-                ->orderBy('created_at', 'desc');
-
-            $this->applyDateFilters($query, $request);
-
-            $status = search_text($request->input('status'));
-            if ($status === '') {
-                $status = 'completed';
-            }
-            if ($status !== '' && $status !== 'all' && in_array($status, self::WITHDRAWAL_STATUSES, true)) {
-                $query->where('status', $status);
-            }
+            $query = $this->withdrawalsReportQuery($userId, $request);
 
             $perPage = max(1, min(100, (int) $request->get('per_page', 20)));
             $withdrawals = $query->paginate($perPage);
@@ -273,6 +241,186 @@ class PublisherReportsController extends Controller
                 'message' => UserFacingError::message($e, 'Failed to fetch withdrawals. Please try again.'),
             ], 500);
         }
+    }
+
+    public function exportOrders(Request $request): StreamedResponse
+    {
+        $userId = auth()->id();
+        $siteIds = Site::where('publisher_id', $userId)->pluck('id')->toArray();
+        $status = $this->ordersFilterStatus($request);
+        $items = $siteIds === []
+            ? collect()
+            : $this->ordersReportQuery($siteIds, $request, $status)
+                ->limit(self::EXPORT_ROW_CAP)
+                ->get();
+
+        $useCompletionDate = in_array($status, ['completed', 'all'], true);
+        $headers = ['Order #', $useCompletionDate ? 'Completed' : 'Date', 'Site', 'Base', 'Sensitive', 'Homepage', 'Payout', 'Status'];
+        $rows = $items->map(function (OrderItem $item) use ($useCompletionDate) {
+            $payload = $this->reportOrderPayload($item);
+            $date = $useCompletionDate
+                ? ($payload['completed_at'] ?? $payload['created_at'])
+                : $payload['created_at'];
+
+            return [
+                $payload['order']['order_number'] ?? '',
+                $this->csvDate($date),
+                $payload['site_name'] ?? '',
+                number_format((float) $payload['publisher_base_price'], 2, '.', ''),
+                number_format((float) $payload['additional_price'], 2, '.', ''),
+                number_format((float) $payload['homepage_price'], 2, '.', ''),
+                $payload['payout_state'] === 'none' ? '' : number_format((float) $payload['price'], 2, '.', ''),
+                $this->reportOrderStatusLabel($item),
+            ];
+        })->all();
+
+        return $this->csvDownload('publisher-orders-'.now()->format('Y-m-d').'.csv', $headers, $rows);
+    }
+
+    public function exportWithdrawals(Request $request): StreamedResponse
+    {
+        $user = auth()->user();
+        $withdrawals = $this->withdrawalsReportQuery($user->id, $request)
+            ->limit(self::EXPORT_ROW_CAP)
+            ->get();
+        $statements = Invoice::payoutStatementsByWithdrawalId($user, $withdrawals->pluck('id')->all());
+
+        $headers = ['Date', 'Reference', 'Gross', 'Fee', 'Net', 'Method', 'Status', 'Statement'];
+        $rows = $withdrawals->map(function (Withdrawal $w) use ($statements) {
+            $statement = $statements[$w->id] ?? null;
+
+            return [
+                $this->csvDate($w->created_at),
+                'WD-'.$w->id,
+                number_format((float) $w->amount, 2, '.', ''),
+                number_format((float) ($w->fee ?? 0), 2, '.', ''),
+                number_format((float) ($w->net_amount ?? $w->amount), 2, '.', ''),
+                Invoice::paymentMethodLabel($w->payment_method),
+                $w->publisher_status_label,
+                $statement ? route('publisher.billing.show', $statement, false) : '',
+            ];
+        })->all();
+
+        return $this->csvDownload('publisher-withdrawals-'.now()->format('Y-m-d').'.csv', $headers, $rows);
+    }
+
+    /**
+     * @param  list<int>  $siteIds
+     */
+    private function ordersReportQuery(array $siteIds, Request $request, string $status)
+    {
+        $query = OrderItem::with(['order', 'disputes'])
+            ->whereIn('site_id', $siteIds)
+            ->whereHas('order', function ($q) {
+                $q->where('payment_status', 'paid');
+            })
+            ->orderBy('created_at', 'desc');
+
+        $this->applyOrderDateFilters($query, $request, $status);
+        if ($status !== '' && $status !== 'all' && in_array($status, self::ORDER_STATUSES, true)) {
+            $query->whereHas('order', function ($q) use ($status) {
+                if ($status === 'scheduled') {
+                    $q->awaitingScheduledRelease();
+                } elseif ($status === 'pending') {
+                    $q->where('status', 'pending')->notAwaitingScheduledRelease();
+                } else {
+                    $q->where('status', $status);
+                }
+            });
+            if ($status === 'completed') {
+                $query->withoutClawback();
+            }
+        }
+
+        return $query;
+    }
+
+    private function ordersFilterStatus(Request $request): string
+    {
+        $status = search_text($request->input('status'));
+        if ($status === '' || ($status !== 'all' && ! in_array($status, self::ORDER_STATUSES, true))) {
+            return 'completed';
+        }
+
+        return $status;
+    }
+
+    private function withdrawalsFilterStatus(Request $request): string
+    {
+        $status = search_text($request->input('status'));
+        if ($status === '' || ($status !== 'all' && ! in_array($status, self::WITHDRAWAL_STATUSES, true))) {
+            return 'completed';
+        }
+
+        return $status;
+    }
+
+    private function withdrawalsReportQuery(int $userId, Request $request)
+    {
+        $query = Withdrawal::where('user_id', $userId)
+            ->orderBy('created_at', 'desc');
+
+        $this->applyDateFilters($query, $request);
+
+        $status = $this->withdrawalsFilterStatus($request);
+        if ($status !== 'all') {
+            $query->where('status', $status);
+        }
+
+        return $query;
+    }
+
+    private function reportOrderStatusLabel(OrderItem $item): string
+    {
+        if ($item->isClawedBack()) {
+            return 'Clawed back';
+        }
+        if ($item->order?->isAwaitingScheduledRelease()) {
+            return 'Scheduled';
+        }
+
+        return match ((string) ($item->order?->status ?? 'pending')) {
+            'review' => 'In Review',
+            'completed' => 'Completed',
+            'cancelled' => 'Cancelled',
+            'processing' => 'Processing',
+            'pending' => 'Pending',
+            default => (string) ($item->order?->status ?? 'Pending'),
+        };
+    }
+
+    private function csvDate(mixed $value): string
+    {
+        if ($value instanceof \DateTimeInterface) {
+            return $value->format('Y-m-d');
+        }
+        if (is_string($value) && $value !== '') {
+            try {
+                return Carbon::parse($value)->format('Y-m-d');
+            } catch (\Throwable) {
+                return $value;
+            }
+        }
+
+        return '';
+    }
+
+    /**
+     * @param  list<string>  $headers
+     * @param  list<list<string>>  $rows
+     */
+    private function csvDownload(string $filename, array $headers, array $rows): StreamedResponse
+    {
+        return response()->streamDownload(function () use ($headers, $rows) {
+            $out = fopen('php://output', 'w');
+            fputcsv($out, $headers);
+            foreach ($rows as $row) {
+                fputcsv($out, $row);
+            }
+            fclose($out);
+        }, $filename, [
+            'Content-Type' => 'text/csv',
+        ]);
     }
 
     /**
@@ -353,6 +501,9 @@ class PublisherReportsController extends Controller
 
         $from = ! empty($validated['date_from']) ? $validated['date_from'] : null;
         $to = ! empty($validated['date_to']) ? $validated['date_to'] : null;
+        if ($from && $to && $from > $to) {
+            [$from, $to] = [$to, $from];
+        }
 
         return [$from, $to];
     }

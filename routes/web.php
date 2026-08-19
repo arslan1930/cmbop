@@ -1192,6 +1192,12 @@ Route::middleware(['auth', 'verified', RoleMiddleware::class.':publisher'])
         Route::get('/reports', [PublisherReportsController::class, 'index'])->name('reports');
         Route::get('/reports/statistics', [PublisherReportsController::class, 'getStatistics'])->name('reports.statistics');
         Route::get('/reports/orders', [PublisherReportsController::class, 'getOrders'])->name('reports.orders');
+        Route::get('/reports/orders/export', [PublisherReportsController::class, 'exportOrders'])
+            ->middleware('throttle:20,1')
+            ->name('reports.orders.export');
         Route::get('/reports/orders/{orderItemId}/details', [PublisherReportsController::class, 'getOrderDetails'])->name('reports.order.details');
         Route::get('/reports/withdrawals', [PublisherReportsController::class, 'getWithdrawals'])->name('reports.withdrawals');
+        Route::get('/reports/withdrawals/export', [PublisherReportsController::class, 'exportWithdrawals'])
+            ->middleware('throttle:20,1')
+            ->name('reports.withdrawals.export');
     });
