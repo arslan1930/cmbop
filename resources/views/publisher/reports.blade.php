@@ -3,13 +3,13 @@
 @section('title', 'Reports')
 
 @php
-    $reportsTab = request('tab') === 'withdrawals' ? 'withdrawals' : 'orders';
-    $ordersStatus = (string) request('o_status', 'completed');
-    $ordersFrom = (string) request('o_from', '');
-    $ordersTo = (string) request('o_to', '');
-    $withdrawalsStatus = (string) request('w_status', 'completed');
-    $withdrawalsFrom = (string) request('w_from', '');
-    $withdrawalsTo = (string) request('w_to', '');
+    $reportsTab = search_text(request('tab')) === 'withdrawals' ? 'withdrawals' : 'orders';
+    $ordersStatus = search_text(request('o_status')) ?: 'completed';
+    $ordersFrom = search_text(request('o_from'));
+    $ordersTo = search_text(request('o_to'));
+    $withdrawalsStatus = search_text(request('w_status')) ?: 'completed';
+    $withdrawalsFrom = search_text(request('w_from'));
+    $withdrawalsTo = search_text(request('w_to'));
     $orderStatuses = ['completed', 'pending', 'processing', 'review', 'scheduled', 'cancelled', 'all'];
     $withdrawalStatuses = ['completed', 'pending', 'processing', 'cancelled', 'all'];
     if (! in_array($ordersStatus, $orderStatuses, true)) {
@@ -17,6 +17,12 @@
     }
     if (! in_array($withdrawalsStatus, $withdrawalStatuses, true)) {
         $withdrawalsStatus = 'completed';
+    }
+    if ($ordersFrom !== '' && $ordersTo !== '' && $ordersFrom > $ordersTo) {
+        [$ordersFrom, $ordersTo] = [$ordersTo, $ordersFrom];
+    }
+    if ($withdrawalsFrom !== '' && $withdrawalsTo !== '' && $withdrawalsFrom > $withdrawalsTo) {
+        [$withdrawalsFrom, $withdrawalsTo] = [$withdrawalsTo, $withdrawalsFrom];
     }
 @endphp
 
@@ -177,7 +183,7 @@
                             <thead class="table-light">
                                 <tr>
                                     <th>Order #</th>
-                                    <th id="ordersDateHeading">{{ $ordersStatus === 'completed' ? 'Completed' : 'Date' }}</th>
+                                    <th id="ordersDateHeading">{{ in_array($ordersStatus, ['completed', 'all'], true) ? 'Completed' : 'Date' }}</th>
                                     <th>Site</th>
                                     <th>Base Price</th>
                                     <th>Sensitive Price</th>

@@ -83,7 +83,7 @@
     }
 
     function dateColumnHeading(status) {
-        return status === 'completed' ? 'Completed' : 'Date';
+        return (status === 'completed' || status === 'all') ? 'Completed' : 'Date';
     }
 
     function payoutCell(item) {

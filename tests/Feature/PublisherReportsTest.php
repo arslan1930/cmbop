@@ -153,6 +153,39 @@ class PublisherReportsTest extends TestCase
                 'o_from' => 'not-a-date',
             ]))
             ->assertOk();
+
+        $this->actingAs($publisher)
+            ->get(route('publisher.reports', [
+                'tab' => ['withdrawals'],
+                'o_status' => ['completed'],
+                'o_from' => ['2026-01-01'],
+                'w_status' => ['pending'],
+            ]))
+            ->assertOk();
+
+        $this->actingAs($publisher)
+            ->getJson(route('publisher.reports.orders', [
+                'status' => ['completed'],
+                'date_from' => ['2026-01-01'],
+                'date_to' => ['2026-12-31'],
+            ]))
+            ->assertOk()
+            ->assertJsonPath('success', true);
+
+        $this->actingAs($publisher)
+            ->getJson(route('publisher.reports.withdrawals', [
+                'status' => ['completed'],
+                'date_from' => ['2026-01-01'],
+            ]))
+            ->assertOk()
+            ->assertJsonPath('success', true);
+
+        $this->actingAs($publisher)
+            ->get(route('publisher.reports.orders.export', ['status' => ['completed']]))
+            ->assertOk();
+        $this->actingAs($publisher)
+            ->get(route('publisher.reports.withdrawals.export', ['status' => ['completed']]))
+            ->assertOk();
     }
 
     public function test_reports_query_string_selects_withdrawals_pending(): void
@@ -195,6 +228,66 @@ class PublisherReportsTest extends TestCase
         $this->assertStringContainsString((string) $kept->order->order_number, $csv);
         $this->assertStringContainsString('100.00', $csv);
         $this->assertStringNotContainsString((string) $clawed->order->order_number, $csv);
+    }
+
+    public function test_pending_orders_csv_uses_date_not_completed_heading(): void
+    {
+        $publisher = $this->publisher();
+
+        $csv = $this->actingAs($publisher)
+            ->get(route('publisher.reports.orders.export', ['status' => 'pending']))
+            ->assertOk()
+            ->streamedContent();
+
+        $this->assertStringContainsString('Date,Site,Base,Sensitive,Homepage,Payout,Status', $csv);
+        $this->assertStringNotContainsString('Completed,Site,Base', $csv);
+    }
+
+    public function test_invalid_report_status_falls_back_to_completed(): void
+    {
+        $publisher = $this->publisher();
+        $advertiser = $this->advertiser();
+        $site = $this->site($publisher);
+
+        $kept = $this->createOrderItem($advertiser, $site, ['status' => 'completed']);
+        $open = $this->createOrderItem($advertiser, $site, ['status' => 'pending']);
+        $clawed = $this->createOrderItem($advertiser, $site, ['status' => 'completed']);
+        $this->upholdClawback($clawed);
+
+        $this->actingAs($publisher)
+            ->getJson(route('publisher.reports.orders', ['status' => 'not-a-status']))
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $kept->id);
+
+        $this->assertNotSame($open->id, $kept->id);
+
+        $wallet = Wallet::forPublisher((int) $publisher->id);
+        $paid = Withdrawal::create(array_merge([
+            'user_id' => $publisher->id,
+            'amount' => 25,
+            'fee' => 1.25,
+            'net_amount' => 23.75,
+            'payment_method' => 'paypal',
+            'payment_details' => ['paypal_email' => 'pay@example.com'],
+            'status' => 'completed',
+            'processed_at' => now(),
+        ], Withdrawal::walletIdAttributes($wallet)));
+        Withdrawal::create(array_merge([
+            'user_id' => $publisher->id,
+            'amount' => 10,
+            'fee' => 0.5,
+            'net_amount' => 9.5,
+            'payment_method' => 'paypal',
+            'payment_details' => ['paypal_email' => 'pay@example.com'],
+            'status' => 'pending',
+        ], Withdrawal::walletIdAttributes($wallet)));
+
+        $this->actingAs($publisher)
+            ->getJson(route('publisher.reports.withdrawals', ['status' => 'nope']))
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $paid->id);
     }
 
     public function test_withdrawals_csv_includes_completed_publisher_row(): void
@@ -570,6 +663,16 @@ class PublisherReportsTest extends TestCase
             ]))
             ->assertOk()
             ->assertJsonCount(0, 'data');
+
+        $this->actingAs($publisher)
+            ->getJson(route('publisher.reports.orders', [
+                'status' => 'completed',
+                'date_from' => '2026-03-31',
+                'date_to' => '2026-03-01',
+            ]))
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $item->id);
     }
 
     public function test_orders_completion_date_falls_back_to_order_completed_at(): void
@@ -1004,6 +1107,7 @@ class PublisherReportsTest extends TestCase
         $this->assertStringContainsString('function homepageCell', $js);
         $this->assertStringContainsString('function loadOrders', $js);
         $this->assertStringContainsString('function dateColumnHeading', $js);
+        $this->assertStringContainsString("status === 'all') ? 'Completed'", $js);
         $this->assertStringContainsString('function replaceReportsUrl', $js);
         $this->assertStringContainsString('history.replaceState', $js);
         $this->assertStringContainsString('o_status', $js);

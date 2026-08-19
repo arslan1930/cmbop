@@ -254,10 +254,11 @@ class PublisherReportsController extends Controller
                 ->limit(self::EXPORT_ROW_CAP)
                 ->get();
 
-        $headers = ['Order #', 'Completed', 'Site', 'Base', 'Sensitive', 'Homepage', 'Payout', 'Status'];
-        $rows = $items->map(function (OrderItem $item) use ($status) {
+        $useCompletionDate = in_array($status, ['completed', 'all'], true);
+        $headers = ['Order #', $useCompletionDate ? 'Completed' : 'Date', 'Site', 'Base', 'Sensitive', 'Homepage', 'Payout', 'Status'];
+        $rows = $items->map(function (OrderItem $item) use ($useCompletionDate) {
             $payload = $this->reportOrderPayload($item);
-            $date = ($status === 'completed' || $status === 'all')
+            $date = $useCompletionDate
                 ? ($payload['completed_at'] ?? $payload['created_at'])
                 : $payload['created_at'];
 
@@ -337,8 +338,21 @@ class PublisherReportsController extends Controller
     private function ordersFilterStatus(Request $request): string
     {
         $status = search_text($request->input('status'));
+        if ($status === '' || ($status !== 'all' && ! in_array($status, self::ORDER_STATUSES, true))) {
+            return 'completed';
+        }
 
-        return $status === '' ? 'completed' : $status;
+        return $status;
+    }
+
+    private function withdrawalsFilterStatus(Request $request): string
+    {
+        $status = search_text($request->input('status'));
+        if ($status === '' || ($status !== 'all' && ! in_array($status, self::WITHDRAWAL_STATUSES, true))) {
+            return 'completed';
+        }
+
+        return $status;
     }
 
     private function withdrawalsReportQuery(int $userId, Request $request)
@@ -348,11 +362,8 @@ class PublisherReportsController extends Controller
 
         $this->applyDateFilters($query, $request);
 
-        $status = search_text($request->input('status'));
-        if ($status === '') {
-            $status = 'completed';
-        }
-        if ($status !== '' && $status !== 'all' && in_array($status, self::WITHDRAWAL_STATUSES, true)) {
+        $status = $this->withdrawalsFilterStatus($request);
+        if ($status !== 'all') {
             $query->where('status', $status);
         }
 
@@ -490,6 +501,9 @@ class PublisherReportsController extends Controller
 
         $from = ! empty($validated['date_from']) ? $validated['date_from'] : null;
         $to = ! empty($validated['date_to']) ? $validated['date_to'] : null;
+        if ($from && $to && $from > $to) {
+            [$from, $to] = [$to, $from];
+        }
 
         return [$from, $to];
     }
