@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Mail\DepositRefunded;
+use App\Mail\PaypalExternalPaymentNotice;
 use App\Mail\PaypalPaymentNotCompleted;
 use App\Models\DepositRequest;
 use App\Models\InAppNotification;
@@ -793,6 +794,7 @@ class PaypalWebhookTest extends TestCase
         $this->fakePaypal('PO-DONE');
         Mail::fake();
 
+        $this->admin();
         $advertiser = $this->advertiser();
         $order = Order::create([
             'user_id' => $advertiser->id,
@@ -833,6 +835,15 @@ class PaypalWebhookTest extends TestCase
         $this->assertSame('paid', $fresh->payment_status);
         $this->assertSame('completed', $fresh->status);
         $this->assertSame('RF-PO-DONE', $fresh->paypal_refund_id);
+        Mail::assertQueued(PaypalExternalPaymentNotice::class, function (PaypalExternalPaymentNotice $mail) use ($advertiser) {
+            return (int) $mail->user->id === (int) $advertiser->id
+                && $mail->kind === PaypalExternalPaymentNotice::KIND_COMPLETED_REFUND
+                && $mail->audience === PaypalExternalPaymentNotice::AUDIENCE_ADVERTISER;
+        });
+        $this->assertTrue(InAppNotification::query()
+            ->where('audience', InAppNotification::AUDIENCE_ADMIN)
+            ->where('title', 'PayPal refunded completed order #880002')
+            ->exists());
     }
 
     public function test_denied_webhook_emails_advertiser_when_checkout_is_unpaid(): void
@@ -937,5 +948,170 @@ class PaypalWebhookTest extends TestCase
                 && $mail->referenceCode === 'PP-PEND';
         });
         Mail::assertQueued(PaypalPaymentNotCompleted::class, 1);
+    }
+
+    public function test_partial_refund_keeps_sibling_orders_paid(): void
+    {
+        $this->enablePaypal();
+        $this->fakePaypal('PO-PART');
+        Mail::fake();
+
+        $advertiser = $this->advertiser();
+        $a = Order::create([
+            'user_id' => $advertiser->id,
+            'order_number' => '880010',
+            'reference_code' => 'PP-PART',
+            'subtotal' => 80,
+            'tax' => 0,
+            'total_amount' => 80,
+            'payment_method' => 'paypal',
+            'payment_status' => 'paid',
+            'status' => 'pending',
+            'paypal_order_id' => 'PO-PART',
+            'paypal_capture_id' => 'CAP-PO-PART',
+            'paid_at' => now(),
+        ]);
+        $b = Order::create([
+            'user_id' => $advertiser->id,
+            'order_number' => '880011',
+            'reference_code' => 'PP-PART',
+            'subtotal' => 80,
+            'tax' => 0,
+            'total_amount' => 80,
+            'payment_method' => 'paypal',
+            'payment_status' => 'paid',
+            'status' => 'pending',
+            'paypal_order_id' => 'PO-PART',
+            'paypal_capture_id' => null,
+            'paid_at' => now(),
+        ]);
+
+        $this->postWebhook([
+            'id' => 'WH-PART-1',
+            'event_type' => 'PAYMENT.CAPTURE.REFUNDED',
+            'resource' => [
+                'id' => 'RF-PO-PART',
+                'amount' => ['currency_code' => 'EUR', 'value' => '40.00'],
+                'custom_id' => PaypalCheckoutService::customId(
+                    PaypalCheckoutService::TYPE_ORDER_CHECKOUT,
+                    $advertiser->id,
+                    'PP-PART'
+                ),
+                'supplementary_data' => [
+                    'related_ids' => [
+                        'capture_id' => 'CAP-PO-PART',
+                        'order_id' => 'PO-PART',
+                    ],
+                ],
+            ],
+        ])->assertOk()->assertJsonPath('status', 'success');
+
+        $this->assertSame('paid', $a->fresh()->payment_status);
+        $this->assertSame('pending', $a->fresh()->status);
+        $this->assertSame('paid', $b->fresh()->payment_status);
+        $this->assertSame('pending', $b->fresh()->status);
+        Mail::assertQueued(PaypalExternalPaymentNotice::class, function (PaypalExternalPaymentNotice $mail) use ($advertiser) {
+            return (int) $mail->user->id === (int) $advertiser->id
+                && $mail->kind === PaypalExternalPaymentNotice::KIND_PARTIAL_REFUND;
+        });
+    }
+
+    public function test_reversed_webhook_notifies_without_changing_completed_order(): void
+    {
+        $this->enablePaypal();
+        $this->fakePaypal('PO-REV');
+        Mail::fake();
+
+        $advertiser = $this->advertiser();
+        $order = Order::create([
+            'user_id' => $advertiser->id,
+            'order_number' => '880012',
+            'reference_code' => 'PP-REV',
+            'subtotal' => 50,
+            'tax' => 0,
+            'total_amount' => 50,
+            'payment_method' => 'paypal',
+            'payment_status' => 'paid',
+            'status' => 'completed',
+            'paypal_order_id' => 'PO-REV',
+            'paypal_capture_id' => 'CAP-PO-REV',
+            'paid_at' => now()->subDay(),
+            'completed_at' => now(),
+        ]);
+
+        $this->postWebhook([
+            'id' => 'WH-REV-1',
+            'event_type' => 'PAYMENT.CAPTURE.REVERSED',
+            'resource' => [
+                'id' => 'RV-PO-REV',
+                'custom_id' => PaypalCheckoutService::customId(
+                    PaypalCheckoutService::TYPE_ORDER_CHECKOUT,
+                    $advertiser->id,
+                    'PP-REV'
+                ),
+                'supplementary_data' => [
+                    'related_ids' => [
+                        'capture_id' => 'CAP-PO-REV',
+                        'order_id' => 'PO-REV',
+                    ],
+                ],
+            ],
+        ])->assertOk()->assertJsonPath('status', 'success');
+
+        $this->assertSame('paid', $order->fresh()->payment_status);
+        $this->assertSame('completed', $order->fresh()->status);
+        Mail::assertQueued(PaypalExternalPaymentNotice::class, function (PaypalExternalPaymentNotice $mail) use ($advertiser) {
+            return (int) $mail->user->id === (int) $advertiser->id
+                && $mail->kind === PaypalExternalPaymentNotice::KIND_REVERSED;
+        });
+    }
+
+    public function test_dispute_created_webhook_notifies_without_changing_order(): void
+    {
+        $this->enablePaypal();
+        $this->fakePaypal('PO-DSP');
+        Mail::fake();
+
+        $advertiser = $this->advertiser();
+        $order = Order::create([
+            'user_id' => $advertiser->id,
+            'order_number' => '880013',
+            'reference_code' => 'PP-DSP',
+            'subtotal' => 50,
+            'tax' => 0,
+            'total_amount' => 50,
+            'payment_method' => 'paypal',
+            'payment_status' => 'paid',
+            'status' => 'completed',
+            'paypal_order_id' => 'PO-DSP',
+            'paypal_capture_id' => 'CAP-PO-DSP',
+            'paid_at' => now()->subDay(),
+            'completed_at' => now(),
+        ]);
+
+        $this->postWebhook([
+            'id' => 'WH-DSP-1',
+            'event_type' => 'CUSTOMER.DISPUTE.CREATED',
+            'resource' => [
+                'dispute_id' => 'PP-D-1',
+                'custom_id' => PaypalCheckoutService::customId(
+                    PaypalCheckoutService::TYPE_ORDER_CHECKOUT,
+                    $advertiser->id,
+                    'PP-DSP'
+                ),
+                'disputed_transactions' => [[
+                    'seller_transaction_id' => 'CAP-PO-DSP',
+                    'invoice_number' => 'PP-DSP',
+                ]],
+            ],
+        ])->assertOk()->assertJsonPath('status', 'success');
+
+        $this->assertSame('paid', $order->fresh()->payment_status);
+        $this->assertSame('completed', $order->fresh()->status);
+        $this->assertNull($order->fresh()->paypal_refund_id);
+        Mail::assertQueued(PaypalExternalPaymentNotice::class, function (PaypalExternalPaymentNotice $mail) use ($advertiser) {
+            return (int) $mail->user->id === (int) $advertiser->id
+                && $mail->kind === PaypalExternalPaymentNotice::KIND_DISPUTE_CREATED;
+        });
     }
 }

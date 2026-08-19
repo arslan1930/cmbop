@@ -2411,16 +2411,17 @@ class OrderPaymentService
      *
      * @return Collection<int, Order>
      */
-    public function markPaypalCaptureRefunded(string $captureId, string $refundId, string $paypalOrderId = ''): Collection
+    public function markPaypalCaptureRefunded(string $captureId, string $refundId, string $paypalOrderId = '', float $amount = 0.0): Collection
     {
         $captureId = trim($captureId);
         $refundId = trim($refundId);
         $paypalOrderId = trim($paypalOrderId);
+        $amount = round($amount, 2);
         if ($captureId === '' && $paypalOrderId === '') {
             return collect();
         }
 
-        return DB::transaction(function () use ($captureId, $refundId, $paypalOrderId) {
+        return DB::transaction(function () use ($captureId, $refundId, $paypalOrderId, $amount) {
             $orders = Order::query()
                 ->where('payment_method', 'paypal')
                 ->where(function ($inner) use ($captureId, $paypalOrderId) {
@@ -2434,6 +2435,11 @@ class OrderPaymentService
                 ->lockForUpdate()
                 ->get();
 
+            $paidTotal = round((float) $orders
+                ->filter(fn (Order $order) => ($order->payment_status ?? '') === 'paid')
+                ->sum(fn (Order $order) => (float) $order->total_amount), 2);
+            $partial = $amount >= 0.01 && ($paidTotal - $amount) > 0.01;
+
             $storedRefund = $orders->contains(fn (Order $order) => filled($order->paypal_refund_id));
             foreach ($orders as $order) {
                 $attrs = [];
@@ -2441,7 +2447,8 @@ class OrderPaymentService
                     $attrs['paypal_refund_id'] = $refundId;
                     $storedRefund = true;
                 }
-                if ($order->payment_status === 'paid'
+                if (! $partial
+                    && $order->payment_status === 'paid'
                     && ! in_array((string) $order->status, ['cancelled', 'completed'], true)
                 ) {
                     $attrs['payment_status'] = 'refunded';
@@ -2458,6 +2465,31 @@ class OrderPaymentService
 
             return $orders->map(fn (Order $order) => $order->fresh('items'))->filter();
         });
+    }
+
+    /**
+     * @return Collection<int, Order>
+     */
+    public function findPaypalOrdersForCapture(string $captureId, string $paypalOrderId = ''): Collection
+    {
+        $captureId = trim($captureId);
+        $paypalOrderId = trim($paypalOrderId);
+        if ($captureId === '' && $paypalOrderId === '') {
+            return collect();
+        }
+
+        return Order::query()
+            ->with(['user', 'items'])
+            ->where('payment_method', 'paypal')
+            ->where(function ($inner) use ($captureId, $paypalOrderId) {
+                if ($captureId !== '') {
+                    $inner->orWhere('paypal_capture_id', $captureId);
+                }
+                if ($paypalOrderId !== '') {
+                    $inner->orWhere('paypal_order_id', $paypalOrderId);
+                }
+            })
+            ->get();
     }
 
     /**

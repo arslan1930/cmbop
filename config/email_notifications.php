@@ -40,6 +40,7 @@ use App\Mail\PaymentFailedMail;
 use App\Mail\PaymentPendingMail;
 use App\Mail\PaymentSuccessfulInvoiceMail;
 use App\Mail\PayoutProfileUpdatedBySupport;
+use App\Mail\PaypalExternalPaymentNotice;
 use App\Mail\PaypalPaymentNotCompleted;
 use App\Mail\PublisherAcceptNudge;
 use App\Mail\PublisherAddSiteReminderMail;
@@ -466,6 +467,13 @@ return [
             'audience' => 'advertiser',
             'preference' => 'payment_emails',
             'mailable' => PaypalPaymentNotCompleted::class,
+            'default_enabled' => true,
+        ],
+        'paypal_external_payment_notice' => [
+            'name' => 'PayPal External Payment Notice',
+            'audience' => 'advertiser',
+            'preference' => 'payment_emails',
+            'mailable' => PaypalExternalPaymentNotice::class,
             'default_enabled' => true,
         ],
         'deposit_rejected' => [

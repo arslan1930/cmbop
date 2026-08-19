@@ -3,11 +3,14 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Mail\PaypalExternalPaymentNotice;
 use App\Mail\PaypalPaymentNotCompleted;
+use App\Models\Order;
 use App\Models\PaypalWebhookLog;
 use App\Services\OrderPaymentService;
 use App\Services\Orders\OrderRefundService;
 use App\Services\PaypalCheckoutService;
+use App\Services\PaypalExternalPaymentNotifier;
 use App\Services\PaypalPaymentNotifier;
 use App\Services\WalletPaypalDepositService;
 use App\Support\UserMessages;
@@ -92,8 +95,21 @@ class PaypalWebhookController extends Controller
             return;
         }
 
-        if ($type === 'PAYMENT.CAPTURE.REFUNDED') {
-            $this->handleCaptureRefunded($event, $paypal);
+        if (in_array($type, [
+            'PAYMENT.CAPTURE.REFUNDED',
+            'PAYMENT.CAPTURE.REVERSED',
+            'CHECKOUT.PAYMENT-APPROVAL.REVERSED',
+        ], true)) {
+            $this->handleCaptureRefunded($event, $paypal, $type);
+
+            return;
+        }
+
+        if (in_array($type, [
+            'CUSTOMER.DISPUTE.CREATED',
+            'CUSTOMER.DISPUTE.RESOLVED',
+        ], true)) {
+            $this->handleCustomerDispute($event, $paypal, $type);
 
             return;
         }
@@ -167,7 +183,7 @@ class PaypalWebhookController extends Controller
     /**
      * @param  array<string, mixed>  $event
      */
-    private function handleCaptureRefunded(array $event, PaypalCheckoutService $paypal): void
+    private function handleCaptureRefunded(array $event, PaypalCheckoutService $paypal, string $eventType = 'PAYMENT.CAPTURE.REFUNDED'): void
     {
         $refunded = $paypal->refundFromWebhookEvent($event);
         if ($refunded === null) {
@@ -177,7 +193,8 @@ class PaypalWebhookController extends Controller
         $updated = app(OrderPaymentService::class)->markPaypalCaptureRefunded(
             $refunded['capture_id'],
             $refunded['refund_id'],
-            $refunded['paypal_order_id']
+            $refunded['paypal_order_id'],
+            (float) ($refunded['amount'] ?? 0)
         );
 
         $bonusRestored = 0.0;
@@ -204,6 +221,13 @@ class PaypalWebhookController extends Controller
             'bonus_restored' => $bonusRestored,
         ]);
 
+        if ($updated->isNotEmpty()) {
+            $kind = str_contains($eventType, 'REVERSED')
+                ? PaypalExternalPaymentNotice::KIND_REVERSED
+                : PaypalExternalPaymentNotice::KIND_COMPLETED_REFUND;
+            app(PaypalExternalPaymentNotifier::class)->notifyAfterCaptureRefund($updated, $refunded, $kind);
+        }
+
         if ($updated->isEmpty()) {
             $debited = app(WalletPaypalDepositService::class)->reverseFromRefund(
                 (string) ($refunded['capture_id'] ?? ''),
@@ -217,5 +241,46 @@ class PaypalWebhookController extends Controller
                 'wallet_debited' => $debited,
             ]);
         }
+    }
+
+    /**
+     * @param  array<string, mixed>  $event
+     */
+    private function handleCustomerDispute(array $event, PaypalCheckoutService $paypal, string $eventType): void
+    {
+        $resource = is_array($event['resource'] ?? null) ? $event['resource'] : [];
+        $related = is_array($resource['disputed_transactions'][0] ?? null)
+            ? $resource['disputed_transactions'][0]
+            : [];
+        $captureId = trim((string) ($related['seller_transaction_id'] ?? $related['capture_id'] ?? $resource['id'] ?? ''));
+        $paypalOrderId = trim((string) ($related['invoice_number'] ?? ''));
+        $custom = $paypal->customFromWebhookEvent($event);
+
+        $orders = app(OrderPaymentService::class)->findPaypalOrdersForCapture($captureId, $paypalOrderId);
+        if ($orders->isEmpty() && ($custom['reference_code'] ?? '') !== '') {
+            $orders = Order::query()
+                ->with(['user', 'items'])
+                ->where('payment_method', 'paypal')
+                ->where('reference_code', $custom['reference_code'])
+                ->get();
+        }
+
+        $order = $orders->first();
+        if (! $order) {
+            Log::info('PayPal dispute webhook had no matching order', [
+                'event_type' => $eventType,
+                'event_id' => $event['id'] ?? null,
+            ]);
+
+            return;
+        }
+
+        $kind = $eventType === 'CUSTOMER.DISPUTE.RESOLVED'
+            ? PaypalExternalPaymentNotice::KIND_DISPUTE_RESOLVED
+            : PaypalExternalPaymentNotice::KIND_DISPUTE_CREATED;
+        $amount = round((float) ($resource['dispute_amount']['value'] ?? $related['gross_amount']['value'] ?? 0), 2);
+        $eventKey = trim((string) ($resource['dispute_id'] ?? $event['id'] ?? $kind));
+
+        app(PaypalExternalPaymentNotifier::class)->notifyDispute($order, $kind, $eventKey, $amount);
     }
 }

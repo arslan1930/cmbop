@@ -42,6 +42,7 @@ use App\Mail\PaymentFailedMail;
 use App\Mail\PaymentPendingMail;
 use App\Mail\PaymentSuccessfulInvoiceMail;
 use App\Mail\PayoutProfileUpdatedBySupport;
+use App\Mail\PaypalExternalPaymentNotice;
 use App\Mail\PaypalPaymentNotCompleted;
 use App\Mail\PublisherAcceptNudge;
 use App\Mail\PublisherAddSiteReminderMail;
@@ -278,6 +279,13 @@ class EmailCatalog
                 'description' => 'Advertiser notified when a PayPal checkout or Add Funds payment is cancelled, declined, denied, or still under review.',
                 'category' => 'Billing',
                 'mailable' => PaypalPaymentNotCompleted::class,
+                'status' => 'active',
+            ],
+            'paypal_external_payment_notice' => [
+                'name' => 'PayPal External Payment Notice',
+                'description' => 'Advertiser or publisher notified when PayPal refunds, reverses, or disputes a capture. Notice only — wallets are not moved automatically.',
+                'category' => 'Billing',
+                'mailable' => PaypalExternalPaymentNotice::class,
                 'status' => 'active',
             ],
             'deposit_rejected' => [
@@ -616,6 +624,11 @@ class EmailCatalog
             'paypal deposit refunded' => 'deposit_refunded',
             'paypal payment was not completed' => 'paypal_payment_not_completed',
             'paypal payment is under review' => 'paypal_payment_not_completed',
+            'paypal refunded a completed order' => 'paypal_external_payment_notice',
+            'partial paypal refund' => 'paypal_external_payment_notice',
+            'paypal reversed' => 'paypal_external_payment_notice',
+            'paypal buyer dispute' => 'paypal_external_payment_notice',
+            'paypal dispute update' => 'paypal_external_payment_notice',
             'deposit request update' => 'deposit_rejected',
             'new deposit request' => 'deposit_submitted',
             'payment reported' => 'deposit_marked_paid',
@@ -758,6 +771,15 @@ class EmailCatalog
                 PaypalPaymentNotCompleted::KIND_CHECKOUT,
                 'PP-PREVIEW',
                 PaypalPaymentNotCompleted::REASON_DECLINED
+            ),
+            'paypal_external_payment_notice' => new PaypalExternalPaymentNotice(
+                $user,
+                PaypalExternalPaymentNotice::AUDIENCE_ADVERTISER,
+                PaypalExternalPaymentNotice::KIND_COMPLETED_REFUND,
+                'PP-PREVIEW',
+                80.0,
+                $order,
+                'RF-PREVIEW'
             ),
             'deposit_rejected' => new DepositRejected(self::sampleDeposit()),
             'withdrawal_request' => new WithdrawalRequestNotification(self::sampleWithdrawal(), $user),
