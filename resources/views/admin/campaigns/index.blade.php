@@ -352,6 +352,7 @@
                                     <th>Subject</th>
                                     <th>Audience</th>
                                     <th>Sent</th>
+                                    <th class="text-end"></th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -374,10 +375,18 @@
                                                 <span class="text-muted">({{ $campaign->skipped_count }} skip)</span>
                                             @endif
                                         </td>
+                                        <td class="text-end text-nowrap">
+                                            @if($campaign->canDuplicate())
+                                                <form method="POST" action="{{ route('admin.campaigns.duplicate', $campaign) }}" class="d-inline">
+                                                    @csrf
+                                                    <button type="submit" class="btn btn-sm btn-outline-secondary">Duplicate</button>
+                                                </form>
+                                            @endif
+                                        </td>
                                     </tr>
                                 @empty
                                     <tr>
-                                        <td colspan="3" class="text-center text-muted py-4">
+                                        <td colspan="4" class="text-center text-muted py-4">
                                             @if(($campaignTab ?? 'compose') === 'sending')
                                                 No campaigns are sending.
                                             @elseif(($campaignTab ?? 'compose') === 'sent')

@@ -89,6 +89,15 @@ class EmailCampaign extends Model
         }
     }
 
+    public function canDuplicate(): bool
+    {
+        if ($this->isEditableDraft()) {
+            return true;
+        }
+
+        return in_array($this->status, [self::STATUS_SENT, self::STATUS_FAILED], true);
+    }
+
     /**
      * @return array{pending: int, queued: int, delivered: int, failed: int, skipped: int}
      */

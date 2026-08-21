@@ -16,6 +16,7 @@ use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 
 class CampaignController extends Controller
@@ -59,6 +60,51 @@ class CampaignController extends Controller
     public function update(Request $request, AudienceInventoryService $inventory, EmailCampaign $campaign)
     {
         return $this->persistDraft($request, $inventory, $this->editableDraftOrAbort($campaign));
+    }
+
+    public function duplicate(EmailCampaign $campaign)
+    {
+        if (! $campaign->canDuplicate()) {
+            abort(404);
+        }
+
+        $base = trim((string) ($campaign->name ?: $campaign->subject));
+        $copyName = ($base === '' ? 'Untitled' : $base).' copy';
+        if (strlen($copyName) > 120) {
+            $copyName = rtrim(Str::limit($base, 115, '')).' copy';
+        }
+
+        $copy = EmailCampaign::create(EmailCampaign::attributesThatExist([
+            'name' => $copyName,
+            'subject' => $campaign->subject,
+            'body_html' => $campaign->body_html,
+            'audience' => $campaign->audience,
+            'selected_user_ids' => $campaign->selected_user_ids,
+            'cta_label' => $campaign->cta_label,
+            'cta_url' => $campaign->cta_url,
+            'respect_preferences' => (bool) $campaign->respect_preferences,
+            'include_unverified' => (bool) $campaign->include_unverified,
+            'status' => EmailCampaign::STATUS_DRAFT,
+            'recipients_count' => 0,
+            'sent_count' => 0,
+            'skipped_count' => 0,
+            'sent_at' => null,
+            'created_by' => auth()->id(),
+        ]));
+
+        ActivityLogger::tryLog(
+            'campaign.duplicated',
+            'Duplicated "'.($campaign->name ?: $campaign->subject).'" as "'.$copy->name.'".',
+            $copy,
+            [
+                'source_campaign_id' => $campaign->id,
+                'audience' => $copy->audience,
+            ]
+        );
+
+        return redirect()
+            ->route('admin.campaigns.drafts.edit', $copy)
+            ->with('success', 'Draft copied.');
     }
 
     public function destroy(EmailCampaign $campaign)

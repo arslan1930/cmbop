@@ -66,6 +66,10 @@
                                         @endforeach
                                         <button type="submit" class="btn btn-sm btn-primary">Send</button>
                                     </form>
+                                    <form method="POST" action="{{ route('admin.campaigns.duplicate', $draft) }}" class="d-inline">
+                                        @csrf
+                                        <button type="submit" class="btn btn-sm btn-outline-secondary">Duplicate</button>
+                                    </form>
                                     <a href="{{ route('admin.campaigns.drafts.edit', $draft) }}" class="btn btn-sm btn-outline-primary">Open</a>
                                     <form method="POST" action="{{ route('admin.campaigns.drafts.destroy', $draft) }}" class="d-inline">
                                         @csrf

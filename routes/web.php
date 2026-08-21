@@ -693,6 +693,10 @@ Route::middleware(['auth', 'verified', RedirectMarketingFromAdmin::class, RoleMi
             ->middleware('throttle:20,1')
             ->whereNumber('campaign')
             ->name('campaigns.drafts.destroy');
+        Route::post('/campaigns/{campaign}/duplicate', [AdminCampaignController::class, 'duplicate'])
+            ->middleware('throttle:20,1')
+            ->whereNumber('campaign')
+            ->name('campaigns.duplicate');
         Route::get('/campaigns/{campaign}', [AdminCampaignController::class, 'show'])
             ->whereNumber('campaign')
             ->name('campaigns.show');
