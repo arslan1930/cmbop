@@ -113,6 +113,7 @@ class AdminCampaignDraftsTest extends TestCase
             ->assertSee(route('admin.campaigns.drafts'), false)
             ->getContent();
         $this->assertStringNotContainsString('Held for later', $html);
+        $this->assertStringContainsString("e.submitter.id === 'campaignSaveDraftBtn'", $html);
 
         $this->actingAs($admin)
             ->get(route('admin.campaigns.drafts'))
