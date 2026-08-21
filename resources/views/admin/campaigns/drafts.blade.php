@@ -17,6 +17,8 @@
         </div>
     </div>
 
+    @include('admin.campaigns.partials.tabs')
+
     <div class="card border-0 shadow-sm">
         <div class="card-body p-0">
             <div class="table-responsive">
