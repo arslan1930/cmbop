@@ -40,7 +40,10 @@ class CampaignController extends Controller
             $drafts = new LengthAwarePaginator([], 0, 20);
         }
 
-        return view('admin.campaigns.drafts', compact('drafts'));
+        $draftCount = $drafts->total();
+        $campaignTab = 'drafts';
+
+        return view('admin.campaigns.drafts', compact('drafts', 'draftCount', 'campaignTab'));
     }
 
     public function store(Request $request, AudienceInventoryService $inventory)
@@ -384,13 +387,28 @@ class CampaignController extends Controller
             $stats = $this->emptyCampaignStats();
         }
 
+        $campaignTab = $editingDraft ? 'compose' : $this->campaignListTab();
+
         try {
             $campaigns = EmailCampaign::tableAvailable()
                 ? EmailCampaign::query()
                     ->with('creator')
                     ->where('status', '!=', EmailCampaign::STATUS_DRAFT)
+                    ->when($campaignTab === 'sending', function ($query) {
+                        $query->whereIn('status', [
+                            EmailCampaign::STATUS_QUEUED,
+                            EmailCampaign::STATUS_SENDING,
+                        ]);
+                    })
+                    ->when($campaignTab === 'sent', function ($query) {
+                        $query->whereIn('status', [
+                            EmailCampaign::STATUS_SENT,
+                            EmailCampaign::STATUS_FAILED,
+                        ]);
+                    })
                     ->latest('id')
                     ->paginate(15)
+                    ->withQueryString()
                 : new LengthAwarePaginator([], 0, 15);
             $draftCount = EmailCampaign::tableAvailable()
                 ? EmailCampaign::query()->where('status', EmailCampaign::STATUS_DRAFT)->count()
@@ -420,8 +438,16 @@ class CampaignController extends Controller
             'publishers',
             'pickerCapped',
             'editingDraft',
-            'draftCount'
+            'draftCount',
+            'campaignTab'
         ));
+    }
+
+    private function campaignListTab(): string
+    {
+        $tab = search_text(request('tab'));
+
+        return in_array($tab, ['sending', 'sent'], true) ? $tab : 'compose';
     }
 
     private function persistDraft(Request $request, AudienceInventoryService $inventory, ?EmailCampaign $existing = null)

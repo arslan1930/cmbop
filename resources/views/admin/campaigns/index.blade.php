@@ -4,6 +4,7 @@
 @php
     $editingDraft = $editingDraft ?? null;
     $draftCount = $draftCount ?? 0;
+    $campaignTab = $campaignTab ?? 'compose';
     $draftAudience = is_string($editingDraft?->audience) ? $editingDraft->audience : 'advertisers';
     $preselect = \App\Services\AudienceInventoryService::canonicalAudienceKey((string) request('audience', $draftAudience))
         ?? 'advertisers';
@@ -43,6 +44,9 @@
         </div>
     @endif
 
+    @include('admin.campaigns.partials.tabs')
+
+    @if($campaignTab === 'compose')
     <div class="row g-3 mb-4">
         <div class="col-md-4 col-xl">
             <div class="card border-0 shadow-sm h-100">
@@ -125,8 +129,10 @@
             </div>
         </div>
     </div>
+    @endif
 
     <div class="row g-4">
+        @if(($campaignTab ?? 'compose') === 'compose')
         <div class="col-xl-7">
             <div class="card border-0 shadow-sm">
                 <div class="card-header bg-white border-0">
@@ -307,8 +313,10 @@
                 </div>
             </div>
         </div>
+        @endif
 
-        <div class="col-xl-5">
+        <div class="{{ ($campaignTab ?? 'compose') === 'compose' ? 'col-xl-5' : 'col-12' }}">
+            @if(($campaignTab ?? 'compose') === 'compose')
             <div class="card border-0 shadow-sm mb-4">
                 <div class="card-header bg-white border-0">
                     <strong><i class="fa fa-eye me-2 text-primary"></i>Preview</strong>
@@ -318,10 +326,20 @@
                     <div class="small text-muted mt-2" id="previewStatus">Click “Preview email” to render the branded message.</div>
                 </div>
             </div>
+            @endif
 
             <div class="card border-0 shadow-sm">
                 <div class="card-header bg-white border-0">
-                    <strong><i class="fa fa-history me-2 text-primary"></i>Recent campaigns</strong>
+                    <strong>
+                        <i class="fa fa-history me-2 text-primary"></i>
+                        @if(($campaignTab ?? 'compose') === 'sending')
+                            Sending
+                        @elseif(($campaignTab ?? 'compose') === 'sent')
+                            Sent
+                        @else
+                            Recent campaigns
+                        @endif
+                    </strong>
                 </div>
                 <div class="card-body p-0">
                     <div class="table-responsive">
@@ -356,7 +374,15 @@
                                     </tr>
                                 @empty
                                     <tr>
-                                        <td colspan="3" class="text-center text-muted py-4">No campaigns sent yet.</td>
+                                        <td colspan="3" class="text-center text-muted py-4">
+                                            @if(($campaignTab ?? 'compose') === 'sending')
+                                                No campaigns are sending.
+                                            @elseif(($campaignTab ?? 'compose') === 'sent')
+                                                No sent campaigns yet.
+                                            @else
+                                                No campaigns sent yet.
+                                            @endif
+                                        </td>
                                     </tr>
                                 @endforelse
                             </tbody>
@@ -374,6 +400,9 @@
 <script>
 (function () {
     const form = document.getElementById('campaignForm');
+    if (!form) {
+        return;
+    }
     const audience = document.getElementById('campaignAudience');
     const wrap = document.getElementById('selectedUsersWrap');
     const countEl = document.getElementById('selectedCount');
