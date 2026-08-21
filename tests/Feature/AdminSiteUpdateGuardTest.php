@@ -474,24 +474,6 @@ class AdminSiteUpdateGuardTest extends TestCase
         $this->assertEmpty($site->languages);
     }
 
-    public function test_update_treats_quill_empty_paragraph_as_cleared_description(): void
-    {
-        $site = $this->site([
-            'description' => str_repeat('Admin update guard listing description. ', 3),
-        ]);
-
-        $this->actingAs($this->admin)
-            ->putJson(route('admin.sites.update', $site->id), [
-                'site_name' => $site->site_name,
-                'site_url' => $site->site_url,
-                'description' => '<p><br></p>',
-            ])
-            ->assertOk()
-            ->assertJsonPath('success', true);
-
-        $this->assertTrue(blank($site->fresh()->description));
-    }
-
     public function test_update_accepts_quill_wrapped_max_length_description(): void
     {
         $site = $this->site();
@@ -523,10 +505,63 @@ class AdminSiteUpdateGuardTest extends TestCase
         $this->assertStringContainsString('<strong>', $saved);
     }
 
-    public function test_update_clears_empty_description_and_example_url(): void
+    public function test_update_keeps_brief_when_quill_posts_empty_html(): void
     {
+        $original = str_repeat('Admin update guard listing description. ', 3);
         $site = $this->site([
-            'description' => str_repeat('Admin update guard listing description. ', 3),
+            'description' => $original,
+        ]);
+
+        $this->actingAs($this->admin)
+            ->putJson(route('admin.sites.update', $site->id), [
+                'site_name' => $site->site_name,
+                'site_url' => $site->site_url,
+                'description' => '<p><br></p>',
+            ])
+            ->assertOk()
+            ->assertJsonPath('success', true);
+
+        $this->assertSame($original, $site->fresh()->description);
+    }
+
+    public function test_update_keeps_unchanged_brief_that_contains_an_email(): void
+    {
+        $original = str_repeat('Quality editorial site for guest posts. ', 3).'Contact desk@example.com for press.';
+        $site = $this->site([
+            'description' => $original,
+        ]);
+
+        $this->actingAs($this->admin)
+            ->putJson(route('admin.sites.update', $site->id), [
+                'site_name' => $site->site_name,
+                'site_url' => $site->site_url,
+                'da' => 41,
+                'description' => '<p>'.$original.'</p>',
+            ])
+            ->assertOk()
+            ->assertJsonPath('success', true);
+
+        $this->assertSame(41, (int) $site->fresh()->da);
+        $this->assertSame($original, SiteDescriptionRules::plainText((string) $site->fresh()->description));
+    }
+
+    public function test_update_rejects_new_brief_that_contains_an_email(): void
+    {
+        $site = $this->site();
+
+        $this->actingAs($this->admin)
+            ->putJson(route('admin.sites.update', $site->id), [
+                'description' => str_repeat('Quality editorial site for guest posts. ', 3).'Email desk@example.com for rates.',
+            ])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['description']);
+    }
+
+    public function test_update_clears_empty_example_url_and_keeps_brief(): void
+    {
+        $original = str_repeat('Admin update guard listing description. ', 3);
+        $site = $this->site([
+            'description' => $original,
             'example_url' => 'https://guard-site.example/sample',
         ]);
 
@@ -541,7 +576,7 @@ class AdminSiteUpdateGuardTest extends TestCase
             ->assertJsonPath('success', true);
 
         $site->refresh();
-        $this->assertTrue(blank($site->description));
+        $this->assertSame($original, $site->description);
         $this->assertTrue(blank($site->example_url));
     }
 
