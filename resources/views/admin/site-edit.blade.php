@@ -70,7 +70,11 @@
             @if($isMarketingEditor)
                 @if($marketingListingLocked)
                     <div class="alert alert-warning border-0 mb-4">
-                        This listing is live, verified, or archived. Marketing cannot change it. Ask an admin.
+                        @if($site->marketingCanEditDescription())
+                            URL, price, and metrics stay locked on live listings. You can still update the advertiser-facing description.
+                        @else
+                            This listing is live, verified, or archived. Marketing cannot change it. Ask an admin.
+                        @endif
                     </div>
                 @else
                     <div class="alert alert-info border-0 mb-4">
@@ -131,14 +135,30 @@
                             <div class="fw-semibold">{{ number_format((int) $site->traffic) }}</div>
                         </div>
                         <div class="col-12" id="description">
-                            <div class="text-muted small">Description</div>
-                            <div class="site-description-readonly border rounded p-3 bg-white mt-1">
-                                @if($site->safeDescriptionHtml() !== '')
-                                    {!! $site->safeDescriptionHtml() !!}
-                                @else
-                                    <span class="text-muted">No description yet</span>
-                                @endif
-                            </div>
+                            @if($site->marketingCanEditDescription())
+                                <form method="POST" action="{{ staff_route('sites.update', $site->id) }}">
+                                    @csrf
+                                    @method('PUT')
+                                    @include('partials.site-description-editor', [
+                                        'value' => old_text('description', $site->description),
+                                        'required' => false,
+                                        'editorId' => 'quillEditorLive',
+                                        'help' => 'Advertisers see this on the listing. Live URL, price, and metrics stay locked.',
+                                    ])
+                                    <button type="submit" class="btn btn-primary mt-2">
+                                        <i class="fa fa-save me-1"></i> Save description
+                                    </button>
+                                </form>
+                            @else
+                                <div class="text-muted small">Description</div>
+                                <div class="site-description-readonly border rounded p-3 bg-white mt-1">
+                                    @if($site->safeDescriptionHtml() !== '')
+                                        {!! $site->safeDescriptionHtml() !!}
+                                    @else
+                                        <span class="text-muted">No description yet</span>
+                                    @endif
+                                </div>
+                            @endif
                         </div>
                     </div>
                 @else

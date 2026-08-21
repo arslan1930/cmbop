@@ -539,7 +539,7 @@ class MarketingOpsScopeTest extends TestCase
             ->assertDontSee('Marketing cannot change it', false);
     }
 
-    public function test_marketer_sees_read_only_edit_page_for_live_site(): void
+    public function test_marketer_sees_description_editor_on_live_site(): void
     {
         $site = $this->makeSite([
             'site_name' => 'Live Locked Site',
@@ -555,18 +555,17 @@ class MarketingOpsScopeTest extends TestCase
             ->get(route('marketing.sites.edit', $site->id))
             ->assertOk()
             ->assertSee('View site', false)
-            ->assertSee('This listing is live, verified, or archived. Marketing cannot change it.', false)
+            ->assertSee('You can still update the advertiser-facing description.', false)
             ->assertSee('https://live-locked.example', false)
-            ->assertSee('Publisher brief stays visible on the locked marketing view.', false)
+            ->assertSee('name="description"', false)
+            ->assertSee('data-site-description-editor', false)
+            ->assertSee('Save description', false)
             ->assertDontSee('name="site_url"', false)
             ->assertDontSee('name="price"', false)
-            ->assertDontSee('name="da"', false)
-            ->assertDontSee('name="description"', false)
-            ->assertDontSee('data-site-description-editor', false)
-            ->assertDontSee('Save listing', false);
+            ->assertDontSee('name="da"', false);
     }
 
-    public function test_marketer_cannot_update_live_or_verified_site(): void
+    public function test_marketer_can_update_description_on_live_or_verified_site(): void
     {
         $category = Category::query()->where('name', 'Business & Finance')->first()
             ?? Category::query()->firstOrFail();
@@ -579,7 +578,7 @@ class MarketingOpsScopeTest extends TestCase
             'price' => 200,
             'verified' => false,
             'active' => true,
-            'description' => 'Original live listing brief that marketers cannot replace.',
+            'description' => 'Original live listing brief that marketers can replace.',
         ]);
         $verified = $this->makeSite([
             'site_name' => 'Already Verified',
@@ -589,20 +588,20 @@ class MarketingOpsScopeTest extends TestCase
             'price' => 210,
             'verified' => true,
             'active' => false,
+            'description' => 'Original verified listing brief that marketers can replace.',
         ]);
 
         foreach ([$live, $verified] as $site) {
             $originalDa = (int) $site->da;
             $originalUrl = $site->site_url;
-
-            $originalDescription = $site->description;
+            $nextBrief = 'This listing is for your audience and the publishers who write guest posts here.';
 
             $this->actingAs($this->marketer)
                 ->put(route('marketing.sites.update', $site->id), [
                     'site_name' => 'Should Not Stick',
                     'site_url' => 'https://should-not-stick.example',
                     'price' => 1,
-                    'description' => 'This listing is for your audience and the publishers who write guest posts here.',
+                    'description' => $nextBrief,
                     'da' => 11,
                     'dr' => 12,
                     'traffic' => 100,
@@ -610,28 +609,15 @@ class MarketingOpsScopeTest extends TestCase
                     'country' => 'de',
                     'categories' => $category->name,
                 ])
-                ->assertRedirect(route('marketing.sites.edit', $site->id))
-                ->assertSessionHasErrors('site_url');
-
-            $this->actingAs($this->marketer)
-                ->putJson(route('marketing.sites.update', $site->id), [
-                    'site_name' => 'Should Not Stick',
-                    'site_url' => 'https://should-not-stick.example',
-                    'price' => 1,
-                    'da' => 11,
-                    'dr' => 12,
-                    'traffic' => 100,
-                    'language' => 'de',
-                    'country' => 'de',
-                    'categories' => $category->name,
-                ])
-                ->assertForbidden()
-                ->assertJsonPath('success', false);
+                ->assertRedirect(route('marketing.sites.index', [
+                    'publisher' => $site->publisher_id,
+                    'site' => $site->id,
+                ]));
 
             $site->refresh();
             $this->assertSame($originalUrl, $site->site_url);
             $this->assertSame($originalDa, (int) $site->da);
-            $this->assertSame($originalDescription, $site->description);
+            $this->assertSame($nextBrief, $site->description);
         }
     }
 

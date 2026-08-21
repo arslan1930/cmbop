@@ -2066,6 +2066,14 @@ class Site extends Model
     }
 
     /**
+     * Marketing may change the advertiser-facing brief unless the site is archived.
+     */
+    public function marketingCanEditDescription(): bool
+    {
+        return ! $this->isArchived();
+    }
+
+    /**
      * Scope to get sites by publisher.
      */
     public function scopeForPublisher(Builder $query, int $publisherId): Builder
