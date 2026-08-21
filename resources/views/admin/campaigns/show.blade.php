@@ -24,6 +24,12 @@
             <p class="text-muted mb-0">Recipient delivery status for this campaign. Failed rows open Email Center — there is no resend-all from here.</p>
         </div>
         <div class="d-flex gap-2">
+            @if($campaign->canDuplicate())
+                <form method="POST" action="{{ route('admin.campaigns.duplicate', $campaign) }}" class="d-inline">
+                    @csrf
+                    <button type="submit" class="btn btn-sm btn-outline-primary">Duplicate</button>
+                </form>
+            @endif
             <a href="{{ route('admin.campaigns.index') }}" class="btn btn-sm btn-outline-secondary">
                 <i class="fa fa-arrow-left me-1"></i> Back to campaigns
             </a>
