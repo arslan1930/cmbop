@@ -134,7 +134,7 @@ class CampaignController extends Controller
 
     public function show(Request $request, EmailCampaign $campaign)
     {
-        if ($campaign->isDraft()) {
+        if ($campaign->isEditableDraft()) {
             return redirect()->route('admin.campaigns.drafts.edit', $campaign);
         }
 

@@ -117,12 +117,6 @@
 </div>
 <script>
 (function () {
-    const frame = document.getElementById('draftPreviewFrame');
-    const status = document.getElementById('draftPreviewStatus');
-    if (!frame || !status) {
-        return;
-    }
-
     const countUrl = @json(route('admin.campaigns.recipient-count'));
     const countToken = document.querySelector('meta[name="csrf-token"]');
 
@@ -225,6 +219,12 @@
             });
         });
     });
+
+    const frame = document.getElementById('draftPreviewFrame');
+    const status = document.getElementById('draftPreviewStatus');
+    if (!frame || !status) {
+        return;
+    }
 
     document.querySelectorAll('.campaign-draft-preview-form').forEach(function (form) {
         form.addEventListener('submit', function (e) {

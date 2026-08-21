@@ -59,6 +59,8 @@ class AdminCampaignDraftChipsTest extends TestCase
             ->assertSee('id="campaignEmailableChip"', false)
             ->assertSee('~— emailable', false)
             ->assertSee('refreshEmailableChip', false)
+            ->assertSee('getElementById(id)', false)
+            ->assertSee('selectAllAdv', false)
             ->getContent();
         $this->assertStringContainsString("method: 'POST'", $index);
 

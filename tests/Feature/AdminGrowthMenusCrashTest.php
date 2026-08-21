@@ -171,6 +171,7 @@ class AdminGrowthMenusCrashTest extends TestCase
             $this->restoreEmailLogsTable();
             $this->remigrate([
                 'database/migrations/2026_07_16_170000_create_email_campaigns_table.php',
+                'database/migrations/2026_08_21_024800_add_include_unverified_to_email_campaigns_table.php',
             ]);
         }
     }
@@ -216,6 +217,16 @@ class AdminGrowthMenusCrashTest extends TestCase
                 ->assertDontSee('Something went wrong');
 
             $this->actingAs($admin)
+                ->get(route('admin.campaigns.drafts'))
+                ->assertOk()
+                ->assertDontSee('Something went wrong');
+
+            $this->actingAs($admin)
+                ->get(route('admin.campaigns.index', ['tab' => 'sending']))
+                ->assertOk()
+                ->assertDontSee('Something went wrong');
+
+            $this->actingAs($admin)
                 ->from(route('admin.campaigns.index'))
                 ->post(route('admin.campaigns.send'), [
                     'name' => 'Ghost send',
@@ -225,9 +236,21 @@ class AdminGrowthMenusCrashTest extends TestCase
                 ])
                 ->assertRedirect(route('admin.campaigns.index'))
                 ->assertSessionHas('error');
+
+            $this->actingAs($admin)
+                ->from(route('admin.campaigns.index'))
+                ->post(route('admin.campaigns.drafts.store'), [
+                    'name' => 'Ghost draft',
+                    'subject' => 'Ghost draft',
+                    'body_html' => '<p>Hello</p>',
+                    'audience' => 'advertisers',
+                ])
+                ->assertRedirect(route('admin.campaigns.index'))
+                ->assertSessionHas('error');
         } finally {
             $this->remigrate([
                 'database/migrations/2026_07_16_170000_create_email_campaigns_table.php',
+                'database/migrations/2026_08_21_024800_add_include_unverified_to_email_campaigns_table.php',
                 'database/migrations/2026_08_15_140000_create_email_campaign_recipients_table.php',
             ]);
         }
