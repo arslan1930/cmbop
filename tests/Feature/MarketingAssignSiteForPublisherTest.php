@@ -88,15 +88,17 @@ class MarketingAssignSiteForPublisherTest extends TestCase
         ], $overrides);
     }
 
-    public function test_marketing_create_page_uses_verify_first_copy_and_quality_bar(): void
+    public function test_marketing_create_page_says_activate_also_verifies_and_shows_quality_bar(): void
     {
         $html = $this->actingAs($this->marketer)
             ->get(route('marketing.sites.create'))
             ->assertOk()
             ->assertSee('Add site for publisher', false)
             ->assertSee(__('messages.staff_handbook_title'), false)
-            ->assertSee('admin verifies first', false)
-            ->assertSee('You Activate only after that', false)
+            ->assertSee('Activate makes the listing live and verifies it', false)
+            ->assertSee('The Verify button stays admin-only', false)
+            ->assertDontSee('admin verifies first', false)
+            ->assertDontSee('You Activate only after that', false)
             ->assertSee('Marketing Activate needs DA ≥ '.Site::GOOD_MIN_DA, false)
             ->assertSee('id="qualityBarWarn"', false)
             ->assertDontSee('Activate / Deactivate as usual', false)
@@ -109,7 +111,7 @@ class MarketingAssignSiteForPublisherTest extends TestCase
             ->assertDontSee('Click niches one by one', false)
             ->assertSee('data-site-description-editor', false)
             ->assertSee('name="description"', false)
-            ->assertSee('data-max-chars="'.\App\Support\SiteDescriptionRules::MAX_CHARS.'"', false)
+            ->assertSee('data-max-chars="'.SiteDescriptionRules::MAX_CHARS.'"', false)
             ->assertSee('max 500 words', false)
             ->assertSee('Shown to advertisers on the listing', false)
             ->assertSee('name="price_homepage[7]"', false)

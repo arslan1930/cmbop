@@ -511,6 +511,25 @@ class AdminSiteActivateGuardTest extends TestCase
             ->assertJsonPath('success', true);
     }
 
+    public function test_marketing_activate_unverified_non_review_ready_asks_admin_to_verify(): void
+    {
+        $site = $this->site([
+            'verified' => false,
+            'active' => false,
+            'onboarding_status' => 'legacy_hold',
+        ]);
+
+        $this->actingAs($this->marketer)
+            ->postJson(route('marketing.sites.active', $site->id), ['active' => 1])
+            ->assertStatus(422)
+            ->assertJsonPath('message', 'This listing is not review-ready. Ask an admin to Verify it.');
+
+        $this->actingAs($this->admin)
+            ->postJson(route('admin.sites.active', $site->id), ['active' => 1])
+            ->assertStatus(422)
+            ->assertJsonPath('message', 'Verify this site before activating it.');
+    }
+
     public function test_staff_list_flags_whether_the_brief_looks_english(): void
     {
         $german = $this->site([

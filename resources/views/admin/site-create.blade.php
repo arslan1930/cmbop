@@ -41,9 +41,9 @@
             <p class="text-muted mb-0 small">
                 Create a listing with core details plus optional homepage, social, and sensitive-topic prices. The publisher gets email + bell and must Accept it into My Sites.
                 @if($isMarketingEditor)
-                    After Accept, admin verifies first (TXT badge). You Activate only after that — and only if DA ≥ {{ \App\Models\Site::GOOD_MIN_DA }}, DR ≥ {{ \App\Models\Site::GOOD_MIN_DR }}, traffic ≥ {{ number_format(\App\Models\Site::GOOD_MIN_TRAFFIC) }}, and a marketplace country is set.
+                    After Accept, Activate makes the listing live and verifies it — and only if DA ≥ {{ \App\Models\Site::GOOD_MIN_DA }}, DR ≥ {{ \App\Models\Site::GOOD_MIN_DR }}, traffic ≥ {{ number_format(\App\Models\Site::GOOD_MIN_TRAFFIC) }}, and a marketplace country is set. The Verify button stays admin-only.
                 @else
-                    After Accept, verify (TXT badge) before Activate. Accept ≠ Verified, and catalog Activate is not automatic.
+                    After Accept, Activate makes the listing live and verifies it. You can still Verify without activating. Accept ≠ Verified, and catalog Activate is not automatic.
                 @endif
                 See the <a href="{{ staff_route('staff-handbook') }}">{{ __('messages.staff_handbook_title') }}</a>.
             </p>
@@ -158,7 +158,7 @@
                             Marketing Activate needs DA ≥ {{ \App\Models\Site::GOOD_MIN_DA }}, DR ≥ {{ \App\Models\Site::GOOD_MIN_DR }}, and traffic ≥ {{ number_format(\App\Models\Site::GOOD_MIN_TRAFFIC) }}. Saving below this is allowed.
                         </div>
                         <div class="alert alert-warning border-0 py-2 px-3 small d-none mb-0 mt-2" id="qualityBarWarn" role="status">
-                            These metrics are below the marketing Activate bar. You can still save — admin must verify, and marketing will not be able to Activate until the bar is met.
+                            These metrics are below the marketing Activate bar. You can still save — marketing will not be able to Activate until the bar is met.
                         </div>
                     </div>
 

@@ -1144,7 +1144,7 @@ class SiteController extends Controller
     {
         $site = Site::findOrFail($id);
         if ($this->isMarketingEditor(auth()->user()) && $this->marketingListingIsLocked($site)) {
-            $message = 'Marketing can only edit pending sites that are not live.';
+            $message = 'Marketing can only change images on pending sites that are not live.';
             if ($request->expectsJson() || $request->ajax()) {
                 return response()->json([
                     'success' => false,
@@ -1313,8 +1313,8 @@ class SiteController extends Controller
         $user = auth()->user();
         $isMarketingEditor = $this->isMarketingEditor($user);
 
-        if ($isMarketingEditor && $this->marketingListingIsLocked($site)) {
-            $message = 'Marketing can only edit pending sites that are not live.';
+        if ($isMarketingEditor && $site->isArchived()) {
+            $message = 'This listing is archived. Marketing cannot change it.';
             if ($request->expectsJson() || $request->ajax()) {
                 return response()->json([
                     'success' => false,
@@ -1326,6 +1326,8 @@ class SiteController extends Controller
                 ->to(staff_route('sites.edit', $site->id))
                 ->withErrors(['site_url' => $message]);
         }
+
+        $marketingDescriptionOnly = $isMarketingEditor && $this->marketingListingIsLocked($site);
 
         // Store old data for email comparison / activity log
         $oldData = [
@@ -1343,11 +1345,14 @@ class SiteController extends Controller
             'publication_time' => $site->publication_time,
             'active' => $site->active,
             'verified' => $site->verified,
+            'description' => $site->description,
         ];
 
-        $data = $isMarketingEditor
-            ? $this->marketingUpdatePayload($request, $site)
-            : $this->adminUpdatePayload($request, $site);
+        $data = $marketingDescriptionOnly
+            ? $this->marketingDescriptionOnlyPayload($request, $site)
+            : ($isMarketingEditor
+                ? $this->marketingUpdatePayload($request, $site)
+                : $this->adminUpdatePayload($request, $site));
 
         if ($data instanceof JsonResponse || $data instanceof RedirectResponse) {
             return $data;
@@ -1866,6 +1871,55 @@ class SiteController extends Controller
         }
 
         return SiteTag::exclusiveAttributePatch($data, $site);
+    }
+
+    /**
+     * Live/verified listings: marketing may change the brief only.
+     *
+     * @return array<string, mixed>|JsonResponse|RedirectResponse
+     */
+    private function marketingDescriptionOnlyPayload(Request $request, Site $site): array|JsonResponse|RedirectResponse
+    {
+        if (! $site->marketingCanEditDescription()) {
+            $message = 'This listing is archived. Marketing cannot change it.';
+            if ($request->expectsJson() || $request->ajax()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => $message,
+                ], 403);
+            }
+
+            return redirect()
+                ->to(staff_route('sites.edit', $site->id))
+                ->withErrors(['site_url' => $message]);
+        }
+
+        $incoming = $request->input('description');
+        if (! is_string($incoming) || SiteDescriptionRules::isBlankHtml($incoming)) {
+            return [];
+        }
+
+        $clean = app(SiteDescriptionSanitizer::class)->sanitize(scalar_text($incoming));
+        $incomingPlain = SiteDescriptionRules::plainText($clean);
+        $existingPlain = SiteDescriptionRules::plainText((string) $site->description);
+        if ($incomingPlain === '' || $incomingPlain === $existingPlain) {
+            return [];
+        }
+
+        $errors = SiteDescriptionRules::errors($clean);
+        if ($errors !== []) {
+            if ($request->expectsJson() || $request->ajax()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => $errors[0],
+                    'errors' => ['description' => $errors],
+                ], 422);
+            }
+
+            return back()->withErrors(['description' => $errors])->withInput();
+        }
+
+        return ['description' => $clean];
     }
 
     /**
@@ -2981,7 +3035,7 @@ class SiteController extends Controller
                         'to' => 1,
                         'bulk_site_request_id' => $site->bulk_site_request_id,
                         'by_role' => $actor->activeRole(),
-                        'via' => 'marketing_activate',
+                        'via' => $isMarketingActor ? 'marketing_activate' : 'staff_activate',
                     ],
                     $site->site_name
                 );

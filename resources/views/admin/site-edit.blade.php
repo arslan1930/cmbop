@@ -35,7 +35,7 @@
 
     <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-4">
         <div>
-            <h4 class="mb-1 fw-bold">{{ $isMarketingEditor ? ($marketingListingLocked ? 'View site' : 'Fill metrics, geo & niches') : 'Edit site' }}</h4>
+            <h4 class="mb-1 fw-bold">{{ $isMarketingEditor ? ($marketingListingLocked ? ($site->marketingCanEditDescription() ? 'Edit description' : 'View site') : 'Fill metrics, geo & niches') : 'Edit site' }}</h4>
             <p class="text-muted mb-0 small">
                 {{ $site->publisher?->name ?? 'Unknown publisher' }}
                 @if($site->publisher?->email)
@@ -70,7 +70,11 @@
             @if($isMarketingEditor)
                 @if($marketingListingLocked)
                     <div class="alert alert-warning border-0 mb-4">
-                        This listing is live, verified, or archived. Marketing cannot change it. Ask an admin.
+                        @if($site->marketingCanEditDescription())
+                            URL, price, and metrics stay locked on live listings. You can still update the advertiser-facing description.
+                        @else
+                            This listing is archived. Marketing cannot change it. Ask an admin.
+                        @endif
                     </div>
                 @else
                     <div class="alert alert-info border-0 mb-4">
@@ -130,15 +134,31 @@
                             <div class="text-muted small">Traffic</div>
                             <div class="fw-semibold">{{ number_format((int) $site->traffic) }}</div>
                         </div>
-                        <div class="col-12" id="description">
-                            <div class="text-muted small">Description</div>
-                            <div class="site-description-readonly border rounded p-3 bg-white mt-1">
-                                @if($site->safeDescriptionHtml() !== '')
-                                    {!! $site->safeDescriptionHtml() !!}
-                                @else
-                                    <span class="text-muted">No description yet</span>
-                                @endif
-                            </div>
+                        <div class="col-12">
+                            @if($site->marketingCanEditDescription())
+                                <form method="POST" action="{{ staff_route('sites.update', $site->id) }}">
+                                    @csrf
+                                    @method('PUT')
+                                    @include('partials.site-description-editor', [
+                                        'value' => old_text('description', $site->description),
+                                        'required' => false,
+                                        'editorId' => 'quillEditorLive',
+                                        'help' => 'Advertisers see this on the listing. Live URL, price, and metrics stay locked.',
+                                    ])
+                                    <button type="submit" class="btn btn-primary mt-2">
+                                        <i class="fa fa-save me-1"></i> Save description
+                                    </button>
+                                </form>
+                            @else
+                                <div class="text-muted small">Description</div>
+                                <div class="site-description-readonly border rounded p-3 bg-white mt-1">
+                                    @if($site->safeDescriptionHtml() !== '')
+                                        {!! $site->safeDescriptionHtml() !!}
+                                    @else
+                                        <span class="text-muted">No description yet</span>
+                                    @endif
+                                </div>
+                            @endif
                         </div>
                     </div>
                 @else
@@ -533,7 +553,7 @@
                                     {{ $site->active ? 'Active' : 'Inactive' }}
                                 </span>
                             </div>
-                            <div class="form-text mt-2">Verify / activate are admin-only.</div>
+                            <div class="form-text mt-2">Use the Sites list to Verify or Activate.</div>
                         </div>
                     </div>
 

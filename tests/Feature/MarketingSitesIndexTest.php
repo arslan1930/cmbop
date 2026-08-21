@@ -224,6 +224,8 @@ class MarketingSitesIndexTest extends TestCase
             ->assertSee($publisher->email, false)
             ->assertDontSee('waiting for Verify, Activate, Reject, or Delete', false)
             ->assertSee('waiting for Activate or delete (pending only)', false)
+            ->assertSee('Activate also verifies review-ready listings', false)
+            ->assertDontSee('Admin verifies.', false)
             ->getContent();
 
         $this->assertStringContainsString('1 new', $html);
@@ -306,6 +308,8 @@ class MarketingSitesIndexTest extends TestCase
             ->get(route('marketing.sites.index', ['needs_review' => 1, 'flat' => 1]))
             ->assertOk()
             ->assertSee('Flat list of sites waiting for Activate or delete (pending only)', false)
+            ->assertSee('Activate also verifies review-ready listings', false)
+            ->assertDontSee('Admin verifies.', false)
             ->assertSee('By publisher', false)
             ->assertSee('data-flat-queue="1"', false)
             ->assertSee('Flat Ready Site', false)

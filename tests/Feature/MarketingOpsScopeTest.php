@@ -536,10 +536,12 @@ class MarketingOpsScopeTest extends TestCase
             ->assertSee('name="example_url"', false)
             ->assertDontSee('Publisher already provided URL and price', false)
             ->assertDontSee('Fix the URL, price, description, or metrics if needed', false)
-            ->assertDontSee('Marketing cannot change it', false);
+            ->assertDontSee('Marketing cannot change it', false)
+            ->assertDontSee('Verify / activate are admin-only', false)
+            ->assertSee('Use the Sites list to Verify or Activate.', false);
     }
 
-    public function test_marketer_sees_read_only_edit_page_for_live_site(): void
+    public function test_marketer_sees_description_editor_on_live_site(): void
     {
         $site = $this->makeSite([
             'site_name' => 'Live Locked Site',
@@ -554,19 +556,18 @@ class MarketingOpsScopeTest extends TestCase
         $this->actingAs($this->marketer)
             ->get(route('marketing.sites.edit', $site->id))
             ->assertOk()
-            ->assertSee('View site', false)
-            ->assertSee('This listing is live, verified, or archived. Marketing cannot change it.', false)
+            ->assertSee('Edit description', false)
+            ->assertSee('You can still update the advertiser-facing description.', false)
             ->assertSee('https://live-locked.example', false)
-            ->assertSee('Publisher brief stays visible on the locked marketing view.', false)
+            ->assertSee('name="description"', false)
+            ->assertSee('data-site-description-editor', false)
+            ->assertSee('Save description', false)
             ->assertDontSee('name="site_url"', false)
             ->assertDontSee('name="price"', false)
-            ->assertDontSee('name="da"', false)
-            ->assertDontSee('name="description"', false)
-            ->assertDontSee('data-site-description-editor', false)
-            ->assertDontSee('Save listing', false);
+            ->assertDontSee('name="da"', false);
     }
 
-    public function test_marketer_cannot_update_live_or_verified_site(): void
+    public function test_marketer_can_update_description_on_live_or_verified_site(): void
     {
         $category = Category::query()->where('name', 'Business & Finance')->first()
             ?? Category::query()->firstOrFail();
@@ -579,7 +580,7 @@ class MarketingOpsScopeTest extends TestCase
             'price' => 200,
             'verified' => false,
             'active' => true,
-            'description' => 'Original live listing brief that marketers cannot replace.',
+            'description' => 'Original live listing brief that marketers can replace.',
         ]);
         $verified = $this->makeSite([
             'site_name' => 'Already Verified',
@@ -589,20 +590,20 @@ class MarketingOpsScopeTest extends TestCase
             'price' => 210,
             'verified' => true,
             'active' => false,
+            'description' => 'Original verified listing brief that marketers can replace.',
         ]);
 
         foreach ([$live, $verified] as $site) {
             $originalDa = (int) $site->da;
             $originalUrl = $site->site_url;
-
-            $originalDescription = $site->description;
+            $nextBrief = 'This listing is for your audience and the publishers who write guest posts here.';
 
             $this->actingAs($this->marketer)
                 ->put(route('marketing.sites.update', $site->id), [
                     'site_name' => 'Should Not Stick',
                     'site_url' => 'https://should-not-stick.example',
                     'price' => 1,
-                    'description' => 'This listing is for your audience and the publishers who write guest posts here.',
+                    'description' => $nextBrief,
                     'da' => 11,
                     'dr' => 12,
                     'traffic' => 100,
@@ -610,28 +611,15 @@ class MarketingOpsScopeTest extends TestCase
                     'country' => 'de',
                     'categories' => $category->name,
                 ])
-                ->assertRedirect(route('marketing.sites.edit', $site->id))
-                ->assertSessionHasErrors('site_url');
-
-            $this->actingAs($this->marketer)
-                ->putJson(route('marketing.sites.update', $site->id), [
-                    'site_name' => 'Should Not Stick',
-                    'site_url' => 'https://should-not-stick.example',
-                    'price' => 1,
-                    'da' => 11,
-                    'dr' => 12,
-                    'traffic' => 100,
-                    'language' => 'de',
-                    'country' => 'de',
-                    'categories' => $category->name,
-                ])
-                ->assertForbidden()
-                ->assertJsonPath('success', false);
+                ->assertRedirect(route('marketing.sites.index', [
+                    'publisher' => $site->publisher_id,
+                    'site' => $site->id,
+                ]));
 
             $site->refresh();
             $this->assertSame($originalUrl, $site->site_url);
             $this->assertSame($originalDa, (int) $site->da);
-            $this->assertSame($originalDescription, $site->description);
+            $this->assertSame($nextBrief, $site->description);
         }
     }
 
@@ -653,7 +641,7 @@ class MarketingOpsScopeTest extends TestCase
         $this->actingAs($this->marketer)
             ->get(route('marketing.sites.edit', $site->id))
             ->assertOk()
-            ->assertSee('This listing is live, verified, or archived. Marketing cannot change it.', false)
+            ->assertSee('This listing is archived. Marketing cannot change it.', false)
             ->assertDontSee('name="site_url"', false);
 
         $this->actingAs($this->marketer)
@@ -748,14 +736,16 @@ class MarketingOpsScopeTest extends TestCase
         $this->assertStringNotContainsString('Activate/Deactivate stay staff catalog controls after accept', $html);
     }
 
-    public function test_marketing_create_page_uses_verify_first_copy(): void
+    public function test_marketing_create_page_says_activate_also_verifies(): void
     {
         $html = $this->actingAs($this->marketer)
             ->get(route('marketing.sites.create'))
             ->assertOk()
             ->assertSee('Add site for publisher', false)
-            ->assertSee('admin verifies first', false)
-            ->assertSee('You Activate only after that', false)
+            ->assertSee('Activate makes the listing live and verifies it', false)
+            ->assertSee('The Verify button stays admin-only', false)
+            ->assertDontSee('admin verifies first', false)
+            ->assertDontSee('You Activate only after that', false)
             ->assertSee('DA ≥ 30', false)
             ->assertDontSee('Activate / Deactivate as usual', false)
             ->assertSee('id="selectedLanguage"', false)

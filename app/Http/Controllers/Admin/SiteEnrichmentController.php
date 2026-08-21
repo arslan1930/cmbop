@@ -603,7 +603,7 @@ class SiteEnrichmentController extends Controller
         if ($user?->isMarketing() && ! $user?->isAdmin() && $site->isLockedForMarketingEdits()) {
             return response()->json([
                 'success' => false,
-                'message' => 'Marketing can only edit pending sites that are not live.',
+                'message' => 'Marketing can only enrich pending sites that are not live.',
             ], 403);
         }
 

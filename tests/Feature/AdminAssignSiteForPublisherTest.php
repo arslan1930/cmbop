@@ -857,7 +857,7 @@ class AdminAssignSiteForPublisherTest extends TestCase
             ->assertSee('Accept / Decline', false);
     }
 
-    public function test_admin_create_page_uses_verify_first_copy_and_posts_language(): void
+    public function test_admin_create_page_says_activate_also_verifies_and_posts_language(): void
     {
         $html = $this->actingAs($this->admin)
             ->get(route('admin.sites.create'))

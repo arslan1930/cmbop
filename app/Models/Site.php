@@ -1157,7 +1157,7 @@ class Site extends Model
     }
 
     /**
-     * Live, verified, or archived listings are read-only for marketing.
+     * Live, verified, or archived listings lock URL/price/metrics for marketing.
      */
     public function isLockedForMarketingEdits(): bool
     {
@@ -1333,8 +1333,8 @@ class Site extends Model
 
     /**
      * Publisher (or staff) explicitly submitted this listing for review.
-     * Legacy rows with a null onboarding status are admin-verify-first —
-     * marketers must not treat those as skip-verify.
+     * Legacy null onboarding is also review-ready for staff Activate
+     * (see isReadyForAdminReview / isReviewReadyForStaffGoLive).
      */
     public function isSubmittedForAdminReview(): bool
     {
@@ -2051,7 +2051,9 @@ class Site extends Model
         }
 
         if (! $this->isReviewReadyForStaffGoLive() && ! (bool) $this->verified) {
-            return 'Verify this site before activating it.';
+            return $requireQualityBar
+                ? 'This listing is not review-ready. Ask an admin to Verify it.'
+                : 'Verify this site before activating it.';
         }
 
         if (! $this->hasMarketplaceCountry()) {
@@ -2063,6 +2065,14 @@ class Site extends Model
         }
 
         return null;
+    }
+
+    /**
+     * Marketing may change the advertiser-facing brief unless the site is archived.
+     */
+    public function marketingCanEditDescription(): bool
+    {
+        return ! $this->isArchived();
     }
 
     /**

@@ -351,7 +351,7 @@ document.addEventListener('click', function(e){
                            ${hasMarketing ? 'checked' : ''} ${seatsFull ? 'disabled' : ''}>
                     <span>
                         <span class="fw-semibold">Marketing team member</span><br>
-                        <small class="text-muted">Can review and activate sites in the marketing panel — no payments or orders. Verify stays admin-only.</small>
+                        <small class="text-muted">Can review and activate sites in the marketing panel — no payments or orders. The Verify button stays admin-only; Activate also verifies review-ready listings.</small>
                     </span>
                 </label>`,
             showCancelButton: true,

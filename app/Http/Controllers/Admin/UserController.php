@@ -365,7 +365,7 @@ class UserController extends Controller
         return response()->json([
             'success' => true,
             'message' => $grantMarketing
-                ? 'Marketing access granted. They can review and activate sites (verify stays admin-only).'
+                ? 'Marketing access granted. They can review and activate sites (Activate also verifies review-ready listings; the Verify button stays admin-only).'
                 : 'Marketing access removed.',
             'roles' => $newRoles,
             'active_role' => $user->activeRole(),
