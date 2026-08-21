@@ -139,7 +139,7 @@
                             <div class="d-flex flex-wrap gap-1">
                                 <a href="{{ $openUrl }}" class="btn btn-sm btn-outline-secondary">Open</a>
                                 <a href="{{ staff_route('sites.edit', $site->id) }}" class="btn btn-sm btn-outline-primary">{{ $site->isLockedForMarketingEdits() ? 'View' : 'Edit' }}</a>
-                                @if(auth()->user()?->canActivateSites() && $site->marketingCanActivate())
+                                @if(auth()->user()?->canActivateSites() && $site->staffCanGoLive(auth()->user()?->isMarketing() && ! auth()->user()?->isAdmin()))
                                     <button type="button" class="btn btn-sm btn-success js-mkt-activate" data-id="{{ $site->id }}" data-name="{{ $site->site_name }}" data-description-english="{{ $site->descriptionLooksLikeEnglish() ? '1' : '0' }}" data-description-excerpt="{{ site_description_excerpt($site->description, 200) }}">Activate</button>
                                 @endif
                             </div>
@@ -1589,11 +1589,7 @@ function renderSites(data){
 
             // Always offer Deactivate after Activate. Hide Activate when the
             // listing cannot go live (server also 422s the same rules).
-            const marketingActivateBlocked = IS_MARKETING_EDITOR && (
-                !!site.details_complete
-                || !!site.below_quality_bar
-            );
-            const activateBlocked = site.can_activate === false || marketingActivateBlocked;
+            const activateBlocked = site.can_activate === false;
             const activateBlockReason = site.activate_block_reason || 'Cannot activate this listing yet.';
             const activeItem = CAN_TOGGLE_ACTIVE
                 ? (isActive
