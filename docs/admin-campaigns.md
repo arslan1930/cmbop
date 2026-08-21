@@ -179,9 +179,10 @@ footgun. `include_unverified` is stored on `email_campaigns` so a reopened
 draft keeps the checkbox.
 
 Tabs on compose and the folder: **Compose · Drafts (N) · Sending · Sent**.
-Opening `/admin/campaigns/{id}` for a draft redirects to
-`admin.campaigns.drafts.edit` (the compose form). Show stays a delivery
-report — there is still **no** resend-all.
+Opening `/admin/campaigns/{id}` for an editable draft redirects to
+`admin.campaigns.drafts.edit` (the compose form). A leftover draft that
+already has recipient rows stays on show as a delivery report — there is
+still **no** resend-all.
 
 **Send clones.** Optional `draft_id` on `POST /admin/campaigns/send` must
 be an editable draft. Send creates a new `queued` campaign, recounts the

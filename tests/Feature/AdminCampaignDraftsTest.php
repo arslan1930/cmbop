@@ -218,6 +218,38 @@ class AdminCampaignDraftsTest extends TestCase
             ->assertRedirect(route('admin.campaigns.drafts.edit', $draft));
     }
 
+    public function test_show_keeps_a_draft_that_already_has_recipients(): void
+    {
+        $admin = $this->makeUser('admin');
+        $advertiser = $this->makeUser('advertiser');
+        $draft = EmailCampaign::create([
+            'name' => 'Leftover draft rows',
+            'subject' => 'Leftover draft subject',
+            'body_html' => '<p>Hello partners.</p>',
+            'audience' => 'advertisers',
+            'status' => EmailCampaign::STATUS_DRAFT,
+            'created_by' => $admin->id,
+        ]);
+        EmailCampaignRecipient::create([
+            'email_campaign_id' => $draft->id,
+            'user_id' => $advertiser->id,
+            'email' => $advertiser->email,
+            'status' => EmailCampaignRecipient::STATUS_PENDING,
+        ]);
+
+        $this->assertFalse($draft->fresh()->isEditableDraft());
+
+        $this->actingAs($admin)
+            ->get(route('admin.campaigns.show', $draft))
+            ->assertOk()
+            ->assertSee('Leftover draft subject', false)
+            ->assertDontSee('Send campaign', false);
+
+        $this->actingAs($admin)
+            ->get(route('admin.campaigns.drafts.edit', $draft))
+            ->assertNotFound();
+    }
+
     public function test_delete_draft_works_and_queued_or_sent_are_not_found(): void
     {
         $admin = $this->makeUser('admin');

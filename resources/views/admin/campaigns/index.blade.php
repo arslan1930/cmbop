@@ -526,6 +526,12 @@
     document.querySelectorAll('.user-check').forEach(function (el) {
         el.addEventListener('change', refreshEmailableChip);
     });
+    ['selectAllAdv', 'selectAllPub', 'clearSelected'].forEach(function (id) {
+        const button = document.getElementById(id);
+        if (button) {
+            button.addEventListener('click', refreshEmailableChip);
+        }
+    });
     refreshEmailableChip();
 
     function confirmSend(text) {
