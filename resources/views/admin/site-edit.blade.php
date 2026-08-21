@@ -402,6 +402,12 @@
                                    step="1" inputmode="numeric" placeholder="e.g. 1500000"
                                    value="{{ old_text('traffic', $site->traffic) }}">
                         </div>
+                        <div class="col-12">
+                            @include('partials.site-description-editor', [
+                                'value' => old_text('description', $site->description),
+                                'required' => false,
+                            ])
+                        </div>
                         @if($site->metrics_manual)
                         <div class="col-12">
                             <div class="alert alert-warning border-0 py-2 mb-0 d-flex flex-wrap align-items-center gap-2">
@@ -461,13 +467,6 @@
                             <label class="form-label fw-semibold" for="link_type">Link type</label>
                             <input type="text" id="link_type" name="link_type" class="form-control"
                                    value="{{ old_text('link_type', $site->link_type) }}" placeholder="dofollow">
-                        </div>
-
-                            <div class="col-12">
-                            @include('partials.site-description-editor', [
-                                'value' => old_text('description', $site->description),
-                                'required' => false,
-                            ])
                         </div>
 
                         @php

@@ -1117,19 +1117,25 @@ class SiteController extends Controller
         $categories = Category::catalogPickerNames();
         $countryLanguageMap = app(CountryLanguagePairs::class)->mapWithNames();
 
-        // Load by absolute path so a stale `view:cache` manifest cannot report
-        // "View [admin.site-edit] not found" when the Blade file is on disk.
+        $editData = compact(
+            'site',
+            'isMarketingEditor',
+            'marketingListingLocked',
+            'languages',
+            'countries',
+            'categories',
+            'countryLanguageMap'
+        );
+
+        // Named view keeps @section / @stack working. File fallback covers a
+        // stale `view:cache` manifest that reports the view missing.
+        if (view()->exists('admin.site-edit')) {
+            return view('admin.site-edit', $editData);
+        }
+
         $editViewPath = resource_path('views/admin/site-edit.blade.php');
         if (is_file($editViewPath)) {
-            return view()->file($editViewPath, compact(
-                'site',
-                'isMarketingEditor',
-                'marketingListingLocked',
-                'languages',
-                'countries',
-                'categories',
-                'countryLanguageMap'
-            ));
+            return view()->file($editViewPath, $editData);
         }
 
         // Fallback: open the existing Sites UI editor for this publisher/site.

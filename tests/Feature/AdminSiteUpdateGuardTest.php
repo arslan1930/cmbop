@@ -505,6 +505,28 @@ class AdminSiteUpdateGuardTest extends TestCase
         $this->assertStringContainsString('<strong>', $saved);
     }
 
+    public function test_edit_form_can_replace_the_brief_on_a_live_site(): void
+    {
+        $site = $this->site([
+            'verified' => true,
+            'active' => true,
+            'description' => str_repeat('Original admin live listing brief. ', 3),
+        ]);
+        $next = 'This listing is for your audience and the publishers who write guest posts here.';
+
+        $this->actingAs($this->admin)
+            ->from(route('admin.sites.edit', $site->id))
+            ->put(route('admin.sites.update', $site->id), [
+                'site_name' => $site->site_name,
+                'site_url' => $site->site_url,
+                'description' => $next,
+            ])
+            ->assertRedirect(route('admin.sites.edit', $site->id))
+            ->assertSessionHasNoErrors();
+
+        $this->assertSame($next, $site->fresh()->description);
+    }
+
     public function test_update_keeps_brief_when_quill_posts_empty_html(): void
     {
         $original = str_repeat('Admin update guard listing description. ', 3);

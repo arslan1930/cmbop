@@ -1,6 +1,9 @@
 {{--
     Listing brief editor (same Quill Snow toolbar as publisher My Sites).
 
+    The textarea is the real form field and stays usable when Quill JS does
+    not load (view()->file() / missing @stack). JS upgrades it in place.
+
     @param string      $value
     @param string      $name
     @param bool        $required
@@ -26,7 +29,7 @@
      data-max-chars="{{ $descMaxChars }}"
      data-max-words="{{ $descMaxWords }}"
      data-placeholder="{{ \App\Support\SiteDescriptionRules::placeholder() }}">
-    <label class="form-label fw-semibold" for="{{ $descEditorId }}">
+    <label class="form-label fw-semibold" for="{{ $descName }}-input">
         {{ $descLabel }}
         @if($descRequired)
             <span class="text-danger">*</span>
@@ -37,8 +40,9 @@
          data-site-desc-surface>{!! $descValue !!}</div>
     <textarea name="{{ $descName }}"
               id="{{ $descName }}-input"
-              class="site-description-editor__input"
-              hidden>{{ $descValue }}</textarea>
+              class="form-control site-description-editor__input"
+              rows="8"
+              @if($descRequired) required @endif>{{ $descValue }}</textarea>
     <div class="site-desc-meta">
         <span class="site-desc-counter" data-site-desc-counter></span>
         <span class="form-text mb-0">{{ $descHelp }}</span>
@@ -49,8 +53,7 @@
 </div>
 @once
     <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
-    @push('scripts')
-        <script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
-        <script src="{{ asset('assets/js/site-description-editor.js') }}?v={{ @filemtime(public_path('assets/js/site-description-editor.js')) ?: '1' }}"></script>
-    @endpush
+    {{-- Inline (not @push) so view()->file('admin/site-edit') still loads Quill. --}}
+    <script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
+    <script src="{{ asset('assets/js/site-description-editor.js') }}?v={{ @filemtime(public_path('assets/js/site-description-editor.js')) ?: '1' }}"></script>
 @endonce

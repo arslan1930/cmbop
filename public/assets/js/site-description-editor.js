@@ -1,6 +1,7 @@
 /**
  * Listing brief editor — same Quill Snow toolbar as publisher My Sites.
- * Syncs the hidden textarea on change / submit so staff save the HTML.
+ * The textarea is the submitted field. Quill is an upgrade; without it
+ * staff can still type in the textarea.
  */
 (function (global) {
     'use strict';
@@ -43,7 +44,7 @@
         if (!root || root.dataset.editorReady === '1') return;
         var surface = root.querySelector('[data-site-desc-surface]');
         var input = root.querySelector('.site-description-editor__input');
-        if (!surface || !input) return;
+        if (!input) return;
 
         var placeholder = root.getAttribute('data-placeholder') || 'Enter site description...';
 
@@ -52,23 +53,17 @@
             updateCounter(root, html);
         }
 
-        if (typeof global.Quill === 'undefined') {
-            surface.setAttribute('contenteditable', 'true');
-            surface.addEventListener('input', function () {
-                syncFrom(surface.innerHTML);
+        if (typeof global.Quill === 'undefined' || !surface) {
+            input.removeAttribute('hidden');
+            input.addEventListener('input', function () {
+                updateCounter(root, input.value);
             });
-            var form = root.closest('form');
-            if (form) {
-                form.addEventListener('submit', function () {
-                    syncFrom(surface.innerHTML);
-                });
-            }
-            syncFrom(surface.innerHTML);
+            updateCounter(root, input.value);
             root.dataset.editorReady = '1';
             return;
         }
 
-        var initial = surface.innerHTML;
+        var initial = input.value || surface.innerHTML;
         var quill = new global.Quill(surface, {
             theme: 'snow',
             placeholder: placeholder,
@@ -87,6 +82,8 @@
             });
         }
         syncFrom(quill.root.innerHTML);
+        input.setAttribute('hidden', 'hidden');
+        root.classList.add('is-ready');
         root.dataset.editorReady = '1';
     }
 

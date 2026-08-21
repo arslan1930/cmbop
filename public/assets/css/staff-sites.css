@@ -638,6 +638,15 @@
   min-height: 140px;
 }
 
+/* Quill surface stays hidden until JS upgrades the textarea. */
+.site-description-editor:not(.is-ready) .site-description-editor__surface {
+  display: none;
+}
+
+.site-description-editor__input:not([hidden]) {
+  min-height: 140px;
+}
+
 .site-description-editor__input[hidden] {
   display: none !important;
 }

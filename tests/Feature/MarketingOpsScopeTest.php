@@ -599,21 +599,36 @@ class MarketingOpsScopeTest extends TestCase
             'domain' => 'admin-full-edit.example',
         ]);
 
-        $this->actingAs($this->admin)
+        $html = $this->actingAs($this->admin)
             ->get(route('admin.sites.edit', $site->id))
             ->assertOk()
             ->assertSee('Edit site', false)
             ->assertSee('name="site_name"', false)
             ->assertSee('name="site_url"', false)
             ->assertSee('name="description"', false)
+            ->assertSee('id="description-input"', false)
             ->assertSee('data-site-description-editor', false)
+            ->assertSee('cdn.quilljs.com/1.3.6/quill.js', false)
+            ->assertSee('assets/js/site-description-editor.js', false)
             ->assertSee('name="example_url"', false)
             ->assertSee('js-staff-verify', false)
             ->assertSee('js-staff-activate', false)
             ->assertDontSee('Verify / activate are admin-only.', false)
             ->assertDontSee('Publisher already provided URL and price', false)
             ->assertDontSee('Fix the URL, price, description, or metrics if needed', false)
-            ->assertDontSee('Marketing cannot change it', false);
+            ->assertDontSee('Marketing cannot change it', false)
+            ->getContent();
+
+        $this->assertDoesNotMatchRegularExpression(
+            '/<textarea[^>]+id="description-input"[^>]+hidden/i',
+            $html,
+            'Admin must be able to type a brief even when Quill JS does not load.'
+        );
+        $descriptionPos = strpos($html, 'id="description-input"');
+        $imagePos = strpos($html, 'id="site_image"');
+        $this->assertNotFalse($descriptionPos);
+        $this->assertNotFalse($imagePos);
+        $this->assertLessThan($imagePos, $descriptionPos, 'Admin description must sit above the cover image.');
     }
 
     public function test_admin_edit_page_shows_unverify_and_deactivate_on_live_site(): void
