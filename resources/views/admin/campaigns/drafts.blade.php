@@ -50,6 +50,22 @@
                                         <input type="hidden" name="cta_url" value="{{ $draft->cta_url }}">
                                         <button type="submit" class="btn btn-sm btn-outline-secondary">Preview</button>
                                     </form>
+                                    <form method="POST" action="{{ route('admin.campaigns.send') }}" class="d-inline campaign-draft-send-form">
+                                        @csrf
+                                        <input type="hidden" name="draft_id" value="{{ $draft->id }}">
+                                        <input type="hidden" name="name" value="{{ $draft->name }}">
+                                        <input type="hidden" name="subject" value="{{ $draft->subject }}">
+                                        <input type="hidden" name="body_html" value="{{ $draft->body_html }}">
+                                        <input type="hidden" name="audience" value="{{ $draft->audience }}">
+                                        <input type="hidden" name="cta_label" value="{{ $draft->cta_label }}">
+                                        <input type="hidden" name="cta_url" value="{{ $draft->cta_url }}">
+                                        <input type="hidden" name="respect_preferences" value="{{ $draft->respect_preferences ? '1' : '0' }}">
+                                        <input type="hidden" name="include_unverified" value="{{ $draft->include_unverified ? '1' : '0' }}">
+                                        @foreach($draft->selected_user_ids ?? [] as $userId)
+                                            <input type="hidden" name="user_ids[]" value="{{ $userId }}">
+                                        @endforeach
+                                        <button type="submit" class="btn btn-sm btn-primary">Send</button>
+                                    </form>
                                     <a href="{{ route('admin.campaigns.drafts.edit', $draft) }}" class="btn btn-sm btn-outline-primary">Open</a>
                                     <form method="POST" action="{{ route('admin.campaigns.drafts.destroy', $draft) }}" class="d-inline">
                                         @csrf
@@ -95,6 +111,75 @@
     if (!frame || !status) {
         return;
     }
+
+    const countUrl = @json(route('admin.campaigns.recipient-count'));
+
+    document.querySelectorAll('.campaign-draft-send-form').forEach(function (form) {
+        form.addEventListener('submit', function (e) {
+            if (form.dataset.slbAllowSubmit === '1') {
+                delete form.dataset.slbAllowSubmit;
+                return;
+            }
+
+            e.preventDefault();
+            const params = new URLSearchParams();
+            params.set('audience', form.querySelector('[name=audience]').value);
+            params.set('include_unverified', form.querySelector('[name=include_unverified]').value || '0');
+            params.set('_token', form.querySelector('[name=_token]').value);
+            form.querySelectorAll('[name="user_ids[]"]').forEach(function (input) {
+                params.append('user_ids[]', input.value);
+            });
+
+            fetch(countUrl, {
+                method: 'POST',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
+                    'X-CSRF-TOKEN': form.querySelector('[name=_token]').value,
+                },
+                body: params.toString(),
+            }).then(function (res) {
+                if (!res.ok) {
+                    throw new Error('count-failed');
+                }
+                return res.json();
+            }).then(function (data) {
+                const count = Number(data.count || 0);
+                const label = data.label || 'the selected audience';
+                if (count < 1) {
+                    return slbAlert({ icon: 'error', title: 'No recipients found for that audience.', toast: false }).then(function () {
+                        return false;
+                    });
+                }
+
+                let text = 'Send to ' + count.toLocaleString() + ' recipient' + (count === 1 ? '' : 's') + ' (' + label + ')?';
+                const excluded = Number(data.unverified_excluded || 0);
+                if (excluded > 0) {
+                    text += ' ' + excluded.toLocaleString() + ' unverified excluded.';
+                }
+
+                return slbConfirm({
+                    title: 'Send campaign?',
+                    text: text,
+                    confirmText: 'Send now',
+                    icon: 'question',
+                });
+            }).then(function (ok) {
+                if (!ok) {
+                    return;
+                }
+                form.dataset.slbAllowSubmit = '1';
+                if (typeof form.requestSubmit === 'function') {
+                    form.requestSubmit();
+                } else {
+                    HTMLFormElement.prototype.submit.call(form);
+                }
+            }).catch(function () {
+                return slbAlert({ icon: 'error', title: 'Could not count recipients — refresh and retry.', toast: false });
+            });
+        });
+    });
 
     document.querySelectorAll('.campaign-draft-preview-form').forEach(function (form) {
         form.addEventListener('submit', function (e) {

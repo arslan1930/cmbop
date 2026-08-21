@@ -184,6 +184,7 @@ class CampaignController extends Controller
         $this->canonicalizeAudienceInput($request);
 
         $data = $request->validate($this->campaignContentRules());
+        $this->assertOptionalDraftSource($request);
 
         if (! EmailCampaign::tableAvailable()
             || ! $this->schemaTableAvailable((new EmailCampaignRecipient)->getTable())) {
@@ -518,6 +519,22 @@ class CampaignController extends Controller
         }
 
         return $campaign;
+    }
+
+    private function assertOptionalDraftSource(Request $request): void
+    {
+        if (! filled($request->input('draft_id'))) {
+            return;
+        }
+
+        $request->validate([
+            'draft_id' => ['integer'],
+        ]);
+
+        $source = EmailCampaign::query()->find((int) $request->input('draft_id'));
+        if ($source) {
+            $this->editableDraftOrAbort($source);
+        }
     }
 
     /**
