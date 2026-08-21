@@ -108,15 +108,10 @@
                     </div>
                     @endif
                     <div class="col-md-4">
-                        <div class="text-muted small">Status</div>
-                        <div class="d-flex flex-wrap gap-2 mt-1">
-                            <span class="badge {{ $site->verified ? 'bg-success' : 'bg-warning text-dark' }}">
-                                {{ $site->verified ? 'Verified' : 'Unverified' }}
-                            </span>
-                            <span class="badge {{ $site->active ? 'bg-primary' : 'bg-secondary' }}">
-                                {{ $site->active ? 'Active' : 'Inactive' }}
-                            </span>
-                        </div>
+                        @include('partials.staff-site-status-actions', [
+                            'site' => $site,
+                            'isMarketingEditor' => $isMarketingEditor,
+                        ])
                     </div>
                 </div>
 
@@ -544,16 +539,10 @@
                         </div>
 
                         <div class="col-md-6">
-                            <label class="form-label fw-semibold d-block">Status</label>
-                            <div class="d-flex flex-wrap gap-2">
-                                <span class="badge {{ $site->verified ? 'bg-success' : 'bg-warning text-dark' }}">
-                                    {{ $site->verified ? 'Verified' : 'Unverified' }}
-                                </span>
-                                <span class="badge {{ $site->active ? 'bg-primary' : 'bg-secondary' }}">
-                                    {{ $site->active ? 'Active' : 'Inactive' }}
-                                </span>
-                            </div>
-                            <div class="form-text mt-2">Verify / activate are admin-only.</div>
+                            @include('partials.staff-site-status-actions', [
+                                'site' => $site,
+                                'isMarketingEditor' => false,
+                            ])
                         </div>
                     </div>
 

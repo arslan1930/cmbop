@@ -328,6 +328,9 @@ class MarketingOpsScopeTest extends TestCase
             ->assertSee('name="categories"', false)
             ->assertSee('name="site_image"', false)
             ->assertSee('enctype="multipart/form-data"', false)
+            ->assertSee('js-staff-activate-blocked', false)
+            ->assertDontSee('js-staff-verify', false)
+            ->assertDontSee('Verify / activate are admin-only.', false)
             ->getContent();
 
         unset($html);
@@ -534,9 +537,31 @@ class MarketingOpsScopeTest extends TestCase
             ->assertSee('name="description"', false)
             ->assertSee('data-site-description-editor', false)
             ->assertSee('name="example_url"', false)
+            ->assertSee('js-staff-verify', false)
+            ->assertSee('js-staff-activate', false)
+            ->assertDontSee('Verify / activate are admin-only.', false)
             ->assertDontSee('Publisher already provided URL and price', false)
             ->assertDontSee('Fix the URL, price, description, or metrics if needed', false)
             ->assertDontSee('Marketing cannot change it', false);
+    }
+
+    public function test_admin_edit_page_shows_unverify_and_deactivate_on_live_site(): void
+    {
+        $site = $this->makeSite([
+            'site_name' => 'Admin Live Status',
+            'site_url' => 'https://admin-live-status.example',
+            'domain' => 'admin-live-status.example',
+            'verified' => true,
+            'active' => true,
+        ]);
+
+        $this->actingAs($this->admin)
+            ->get(route('admin.sites.edit', $site->id))
+            ->assertOk()
+            ->assertSee('js-staff-verify', false)
+            ->assertSee('js-staff-deactivate', false)
+            ->assertDontSee('js-staff-activate', false)
+            ->assertDontSee('Verify / activate are admin-only.', false);
     }
 
     public function test_marketer_sees_description_editor_on_live_site(): void
@@ -560,6 +585,8 @@ class MarketingOpsScopeTest extends TestCase
             ->assertSee('name="description"', false)
             ->assertSee('data-site-description-editor', false)
             ->assertSee('Save description', false)
+            ->assertSee('js-staff-deactivate', false)
+            ->assertDontSee('js-staff-verify', false)
             ->assertDontSee('name="site_url"', false)
             ->assertDontSee('name="price"', false)
             ->assertDontSee('name="da"', false);
