@@ -2,11 +2,18 @@
 
 @section('content')
 @php
-    $preselect = \App\Services\AudienceInventoryService::canonicalAudienceKey((string) request('audience', 'advertisers'))
+    $editingDraft = $editingDraft ?? null;
+    $draftCount = $draftCount ?? 0;
+    $draftAudience = is_string($editingDraft?->audience) ? $editingDraft->audience : 'advertisers';
+    $preselect = \App\Services\AudienceInventoryService::canonicalAudienceKey((string) request('audience', $draftAudience))
         ?? 'advertisers';
     if (!in_array($preselect, \App\Services\AudienceInventoryService::audienceKeys(), true)) {
         $preselect = 'advertisers';
     }
+    $savedUserIds = collect(old('user_ids', $editingDraft?->selected_user_ids ?? []));
+    $saveDraftUrl = $editingDraft
+        ? route('admin.campaigns.drafts.update', $editingDraft)
+        : route('admin.campaigns.drafts.store');
 @endphp
 <div class="container-fluid">
     <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-2">
@@ -15,6 +22,12 @@
             <p class="text-muted mb-0">Email promotions and platform updates to advertisers, publishers, or a custom selection.</p>
         </div>
         <div class="d-flex gap-2">
+            <a href="{{ route('admin.campaigns.drafts') }}" class="btn btn-sm btn-outline-primary">
+                <i class="fa fa-folder-open me-1"></i> Drafts
+                @if($draftCount > 0)
+                    <span class="badge bg-primary ms-1">{{ $draftCount }}</span>
+                @endif
+            </a>
             <a href="{{ route('admin.audiences.index') }}" class="btn btn-sm btn-outline-primary">
                 <i class="fa fa-address-book me-1"></i> Audience Inventory
             </a>
@@ -117,15 +130,23 @@
         <div class="col-xl-7">
             <div class="card border-0 shadow-sm">
                 <div class="card-header bg-white border-0">
-                    <strong><i class="fa fa-paper-plane me-2 text-primary"></i>Compose campaign</strong>
+                    <strong><i class="fa fa-paper-plane me-2 text-primary"></i>{{ $editingDraft ? 'Edit draft' : 'Compose campaign' }}</strong>
                 </div>
                 <div class="card-body">
+                    @if($editingDraft)
+                        <div class="alert alert-info py-2 small mb-3">
+                            Editing saved draft
+                            <strong>{{ $editingDraft->name ?: $editingDraft->subject }}</strong>.
+                            Save keeps it in Drafts. Send still queues a new campaign.
+                            <a href="{{ route('admin.campaigns.drafts') }}">Back to Drafts</a>
+                        </div>
+                    @endif
                     <form method="POST" action="{{ route('admin.campaigns.send') }}" id="campaignForm">
                         @csrf
                         <div class="row g-3">
                             <div class="col-md-6">
                                 <label class="form-label">Internal name (optional)</label>
-                                <input type="text" name="name" class="form-control" value="{{ old_text('name') }}" maxlength="120" placeholder="BF25 advertiser blast">
+                                <input type="text" name="name" class="form-control" value="{{ old_text('name', $editingDraft?->name) }}" maxlength="120" placeholder="BF25 advertiser blast">
                             </div>
                             <div class="col-md-6">
                                 <label class="form-label">Audience</label>
@@ -172,7 +193,7 @@
                                             @foreach($advertisers as $user)
                                                 <div class="form-check">
                                                     <input class="form-check-input user-check adv-check" type="checkbox" name="user_ids[]" value="{{ $user->id }}" id="u{{ $user->id }}"
-                                                        @checked(collect(old('user_ids', []))->contains($user->id))>
+                                                        @checked($savedUserIds->contains($user->id))>
                                                     <label class="form-check-label small" for="u{{ $user->id }}">{{ $user->name }} <span class="text-muted">&lt;{{ $user->email }}&gt;</span></label>
                                                 </div>
                                             @endforeach
@@ -184,7 +205,7 @@
                                                 @if(!$dup)
                                                     <div class="form-check">
                                                         <input class="form-check-input user-check pub-check" type="checkbox" name="user_ids[]" value="{{ $user->id }}" id="p{{ $user->id }}"
-                                                            @checked(collect(old('user_ids', []))->contains($user->id))>
+                                                            @checked($savedUserIds->contains($user->id))>
                                                         <label class="form-check-label small" for="p{{ $user->id }}">{{ $user->name }} <span class="text-muted">&lt;{{ $user->email }}&gt;</span></label>
                                                     </div>
                                                 @else
@@ -227,20 +248,20 @@
                             </div>
                             <div class="col-12">
                                 <label class="form-label">Subject</label>
-                                <input type="text" name="subject" id="campaignSubject" class="form-control" value="{{ old_text('subject', request('subject')) }}" required maxlength="180" placeholder="Black Friday update for our partners">
+                                <input type="text" name="subject" id="campaignSubject" class="form-control" value="{{ old_text('subject', $editingDraft?->subject ?? request('subject')) }}" required maxlength="180" placeholder="Black Friday update for our partners">
                             </div>
                             <div class="col-12">
                                 <label class="form-label">Message (HTML allowed: p, strong, em, lists, links)</label>
-                                <textarea name="body_html" id="campaignBody" class="form-control" rows="8" required maxlength="20000" placeholder="<p>Share your update, discount, or promotion here.</p>">{{ old_text('body_html', request('body_html')) }}</textarea>
+                                <textarea name="body_html" id="campaignBody" class="form-control" rows="8" required maxlength="20000" placeholder="<p>Share your update, discount, or promotion here.</p>">{{ old_text('body_html', $editingDraft?->body_html ?? request('body_html')) }}</textarea>
                             </div>
                             <div class="col-md-6">
                                 <label class="form-label">CTA label (optional)</label>
-                                <input type="text" name="cta_label" class="form-control" value="{{ old_text('cta_label', request('cta_label')) }}" maxlength="80" placeholder="View offer">
+                                <input type="text" name="cta_label" class="form-control" value="{{ old_text('cta_label', $editingDraft?->cta_label ?? request('cta_label')) }}" maxlength="80" placeholder="View offer">
                             </div>
                             <div class="col-md-6">
                                 <label class="form-label">CTA URL (optional)</label>
                                 @php
-                                    $prefillCta = old_text('cta_url', request('cta_url'));
+                                    $prefillCta = old_text('cta_url', $editingDraft?->cta_url ?? request('cta_url'));
                                     if ($prefillCta !== '' && str_starts_with($prefillCta, '/') && ! str_starts_with($prefillCta, '//')) {
                                         $prefillCta = rtrim((string) config('app.url'), '/').$prefillCta;
                                     }
@@ -251,7 +272,7 @@
                                 <div class="form-check">
                                     <input type="hidden" name="respect_preferences" value="0">
                                     <input class="form-check-input" type="checkbox" name="respect_preferences" value="1" id="respect_preferences"
-                                        @checked(filter_var(old('respect_preferences', true), FILTER_VALIDATE_BOOLEAN))>
+                                        @checked(filter_var(old('respect_preferences', $editingDraft?->respect_preferences ?? true), FILTER_VALIDATE_BOOLEAN))>
                                     <label class="form-check-label" for="respect_preferences">
                                         Respect user “Marketing Emails” preference (recommended)
                                     </label>
@@ -259,7 +280,7 @@
                                 <div class="form-check mt-2">
                                     <input type="hidden" name="include_unverified" value="0">
                                     <input class="form-check-input" type="checkbox" name="include_unverified" value="1" id="include_unverified"
-                                        @checked(filter_var(old('include_unverified', false), FILTER_VALIDATE_BOOLEAN))>
+                                        @checked(filter_var(old('include_unverified', $editingDraft?->include_unverified ?? false), FILTER_VALIDATE_BOOLEAN))>
                                     <label class="form-check-label" for="include_unverified">
                                         Include unverified email addresses
                                     </label>
@@ -274,6 +295,9 @@
                                   data-slb-confirm="Send this campaign to the selected audience now?"></span>
                             <button type="submit" class="btn btn-primary" id="campaignSendBtn">
                                 <i class="fa fa-paper-plane me-1"></i> Send campaign
+                            </button>
+                            <button type="submit" class="btn btn-outline-primary" id="campaignSaveDraftBtn" formaction="{{ $saveDraftUrl }}">
+                                <i class="fa fa-floppy-disk me-1"></i> Save draft
                             </button>
                             <button type="button" class="btn btn-outline-secondary" id="previewBtn">
                                 <i class="fa fa-eye me-1"></i> Preview email

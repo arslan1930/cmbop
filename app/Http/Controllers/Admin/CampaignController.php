@@ -22,51 +22,66 @@ class CampaignController extends Controller
 {
     public function index(AudienceInventoryService $inventory)
     {
+        return $this->composeView($inventory);
+    }
+
+    public function drafts()
+    {
         try {
-            EmailCampaign::recoverStalled();
+            $drafts = EmailCampaign::tableAvailable()
+                ? EmailCampaign::query()
+                    ->with('creator')
+                    ->where('status', EmailCampaign::STATUS_DRAFT)
+                    ->latest('updated_at')
+                    ->paginate(20)
+                : new LengthAwarePaginator([], 0, 20);
         } catch (\Throwable $e) {
-            Log::warning('Campaign stall recovery failed', ['error' => $e->getMessage()]);
+            Log::warning('Campaign draft list failed', ['error' => $e->getMessage()]);
+            $drafts = new LengthAwarePaginator([], 0, 20);
         }
 
-        try {
-            $stats = $inventory->stats(includeUnverified: false);
-        } catch (\Throwable $e) {
-            Log::warning('Campaign audience stats failed', ['error' => $e->getMessage()]);
-            $stats = $this->emptyCampaignStats();
-        }
+        return view('admin.campaigns.drafts', compact('drafts'));
+    }
 
-        try {
-            $campaigns = EmailCampaign::tableAvailable()
-                ? EmailCampaign::query()->with('creator')->latest('id')->paginate(15)
-                : new LengthAwarePaginator([], 0, 15);
-        } catch (\Throwable $e) {
-            Log::warning('Campaign list failed', ['error' => $e->getMessage()]);
-            $campaigns = new LengthAwarePaginator([], 0, 15);
-        }
+    public function store(Request $request, AudienceInventoryService $inventory)
+    {
+        return $this->persistDraft($request, $inventory);
+    }
 
-        try {
-            $advertisers = $inventory->pickerUsers('advertiser');
-            $publishers = $inventory->pickerUsers('publisher');
-            $pickerCapped = $inventory->pickerIsCapped('advertiser')
-                || $inventory->pickerIsCapped('publisher');
-        } catch (\Throwable $e) {
-            Log::warning('Campaign audience picker failed', ['error' => $e->getMessage()]);
-            $advertisers = collect();
-            $publishers = collect();
-            $pickerCapped = false;
-        }
+    public function edit(AudienceInventoryService $inventory, EmailCampaign $campaign)
+    {
+        return $this->composeView($inventory, $this->editableDraftOrAbort($campaign));
+    }
 
-        return view('admin.campaigns.index', compact(
-            'stats',
-            'campaigns',
-            'advertisers',
-            'publishers',
-            'pickerCapped'
-        ));
+    public function update(Request $request, AudienceInventoryService $inventory, EmailCampaign $campaign)
+    {
+        return $this->persistDraft($request, $inventory, $this->editableDraftOrAbort($campaign));
+    }
+
+    public function destroy(EmailCampaign $campaign)
+    {
+        $draft = $this->editableDraftOrAbort($campaign);
+        $name = $draft->name ?: $draft->subject;
+        $draft->delete();
+
+        ActivityLogger::tryLog(
+            'campaign.draft_deleted',
+            "Deleted draft \"{$name}\".",
+            null,
+            ['campaign_id' => $draft->id]
+        );
+
+        return redirect()
+            ->route('admin.campaigns.drafts')
+            ->with('success', 'Draft deleted.');
     }
 
     public function show(Request $request, EmailCampaign $campaign)
     {
+        if ($campaign->isDraft()) {
+            return redirect()->route('admin.campaigns.drafts.edit', $campaign);
+        }
+
         try {
             EmailCampaign::recoverStalled();
             $campaign->refresh();
@@ -352,6 +367,131 @@ class CampaignController extends Controller
         }
 
         return CampaignHtml::isSafeHttpUrl($url) ? $url : null;
+    }
+
+    private function composeView(AudienceInventoryService $inventory, ?EmailCampaign $editingDraft = null)
+    {
+        try {
+            EmailCampaign::recoverStalled();
+        } catch (\Throwable $e) {
+            Log::warning('Campaign stall recovery failed', ['error' => $e->getMessage()]);
+        }
+
+        try {
+            $stats = $inventory->stats(includeUnverified: false);
+        } catch (\Throwable $e) {
+            Log::warning('Campaign audience stats failed', ['error' => $e->getMessage()]);
+            $stats = $this->emptyCampaignStats();
+        }
+
+        try {
+            $campaigns = EmailCampaign::tableAvailable()
+                ? EmailCampaign::query()
+                    ->with('creator')
+                    ->where('status', '!=', EmailCampaign::STATUS_DRAFT)
+                    ->latest('id')
+                    ->paginate(15)
+                : new LengthAwarePaginator([], 0, 15);
+            $draftCount = EmailCampaign::tableAvailable()
+                ? EmailCampaign::query()->where('status', EmailCampaign::STATUS_DRAFT)->count()
+                : 0;
+        } catch (\Throwable $e) {
+            Log::warning('Campaign list failed', ['error' => $e->getMessage()]);
+            $campaigns = new LengthAwarePaginator([], 0, 15);
+            $draftCount = 0;
+        }
+
+        try {
+            $advertisers = $inventory->pickerUsers('advertiser');
+            $publishers = $inventory->pickerUsers('publisher');
+            $pickerCapped = $inventory->pickerIsCapped('advertiser')
+                || $inventory->pickerIsCapped('publisher');
+        } catch (\Throwable $e) {
+            Log::warning('Campaign audience picker failed', ['error' => $e->getMessage()]);
+            $advertisers = collect();
+            $publishers = collect();
+            $pickerCapped = false;
+        }
+
+        return view('admin.campaigns.index', compact(
+            'stats',
+            'campaigns',
+            'advertisers',
+            'publishers',
+            'pickerCapped',
+            'editingDraft',
+            'draftCount'
+        ));
+    }
+
+    private function persistDraft(Request $request, AudienceInventoryService $inventory, ?EmailCampaign $existing = null)
+    {
+        $this->canonicalizeAudienceInput($request);
+
+        $data = $request->validate($this->campaignContentRules());
+
+        if (! EmailCampaign::tableAvailable()) {
+            return back()->withInput()->with('error', 'Campaigns are unavailable on this database.');
+        }
+
+        $bodyHtml = CampaignHtml::sanitize($data['body_html']);
+        if (CampaignHtml::isBlank($data['body_html'])) {
+            return back()->withInput()->withErrors([
+                'body_html' => 'Write a message before saving this draft.',
+            ]);
+        }
+
+        $selectedIds = ($data['audience'] ?? null) === 'selected'
+            ? $inventory->collectRecipientRows('selected', $data['user_ids'] ?? [], true)
+                ->pluck('id')
+                ->map(fn ($id) => (int) $id)
+                ->values()
+                ->all()
+            : null;
+
+        $attrs = EmailCampaign::attributesThatExist(array_merge(
+            $this->hydrateCampaignAttributes(
+                $data,
+                $bodyHtml,
+                $selectedIds,
+                $request->boolean('respect_preferences'),
+                $request->boolean('include_unverified')
+            ),
+            [
+                'status' => EmailCampaign::STATUS_DRAFT,
+                'recipients_count' => 0,
+                'sent_count' => 0,
+                'skipped_count' => 0,
+            ]
+        ));
+
+        if ($existing) {
+            $existing->update($attrs);
+            $draft = $existing->fresh() ?? $existing;
+        } else {
+            $attrs['created_by'] = auth()->id();
+            $draft = EmailCampaign::create($attrs);
+        }
+
+        ActivityLogger::tryLog(
+            'campaign.draft_saved',
+            'Saved draft "'.($draft->name ?: $draft->subject).'".',
+            $draft,
+            ['audience' => $draft->audience]
+        );
+
+        return redirect()
+            ->route('admin.campaigns.drafts.edit', $draft)
+            ->with('success', 'Draft saved.');
+    }
+
+    private function editableDraftOrAbort(EmailCampaign $campaign): EmailCampaign
+    {
+        if (! $campaign->isEditableDraft()) {
+            abort(404);
+        }
+
+        return $campaign;
     }
 
     /**

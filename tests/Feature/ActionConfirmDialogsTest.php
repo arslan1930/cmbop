@@ -65,6 +65,7 @@ class ActionConfirmDialogsTest extends TestCase
             resource_path('views/admin/promotions/index.blade.php') => 'Disable the {{ $welcomeBonusEuro }} welcome credit?',
             resource_path('views/admin/moderation/index.blade.php') => 'data-slb-confirm="Approve this submission',
             resource_path('views/admin/campaigns/index.blade.php') => 'data-slb-confirm="Send this campaign',
+            resource_path('views/admin/campaigns/drafts.blade.php') => 'data-slb-confirm="Delete this draft?',
             resource_path('views/admin/bulk-site-requests/show.blade.php') => "title: 'Cancel bulk request?'",
         ];
 

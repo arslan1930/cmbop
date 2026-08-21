@@ -678,6 +678,21 @@ Route::middleware(['auth', 'verified', RedirectMarketingFromAdmin::class, RoleMi
         Route::post('/campaigns/send', [AdminCampaignController::class, 'send'])
             ->middleware('throttle:6,1')
             ->name('campaigns.send');
+        Route::get('/campaigns/drafts', [AdminCampaignController::class, 'drafts'])->name('campaigns.drafts');
+        Route::post('/campaigns/drafts', [AdminCampaignController::class, 'store'])
+            ->middleware('throttle:20,1')
+            ->name('campaigns.drafts.store');
+        Route::get('/campaigns/drafts/{campaign}/edit', [AdminCampaignController::class, 'edit'])
+            ->whereNumber('campaign')
+            ->name('campaigns.drafts.edit');
+        Route::post('/campaigns/drafts/{campaign}', [AdminCampaignController::class, 'update'])
+            ->middleware('throttle:20,1')
+            ->whereNumber('campaign')
+            ->name('campaigns.drafts.update');
+        Route::delete('/campaigns/drafts/{campaign}', [AdminCampaignController::class, 'destroy'])
+            ->middleware('throttle:20,1')
+            ->whereNumber('campaign')
+            ->name('campaigns.drafts.destroy');
         Route::get('/campaigns/{campaign}', [AdminCampaignController::class, 'show'])
             ->whereNumber('campaign')
             ->name('campaigns.show');
