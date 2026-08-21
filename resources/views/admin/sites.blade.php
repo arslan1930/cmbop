@@ -74,12 +74,12 @@
                 <span class="ms-1">
                     @if(!empty($flatQueue))
                         @if(auth()->user()?->isMarketing() && ! auth()->user()?->isAdmin())
-                            Flat list of sites waiting for Activate or delete (pending only). Admin verifies.
+                            Flat list of sites waiting for Activate or delete (pending only). Activate also verifies review-ready listings.
                         @else
                             Flat list of sites waiting for Verify, Activate, Reject, or Delete.
                         @endif
                     @elseif(auth()->user()?->isMarketing() && ! auth()->user()?->isAdmin())
-                        Publishers with new/ready sites waiting for Activate or delete (pending only). Admin verifies.
+                        Publishers with new/ready sites waiting for Activate or delete (pending only). Activate also verifies review-ready listings.
                     @else
                         Publishers with new/ready sites waiting for Verify, Activate, Reject, or Delete. Reminders stay until you decide.
                     @endif

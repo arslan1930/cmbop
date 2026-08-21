@@ -88,7 +88,7 @@ class MarketingAssignSiteForPublisherTest extends TestCase
         ], $overrides);
     }
 
-    public function test_marketing_create_page_uses_verify_first_copy_and_quality_bar(): void
+    public function test_marketing_create_page_says_activate_also_verifies_and_shows_quality_bar(): void
     {
         $html = $this->actingAs($this->marketer)
             ->get(route('marketing.sites.create'))

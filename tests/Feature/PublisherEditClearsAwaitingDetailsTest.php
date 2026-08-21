@@ -109,7 +109,7 @@ class PublisherEditClearsAwaitingDetailsTest extends TestCase
         $this->assertSame(Site::ONBOARDING_DETAILS_COMPLETE, $site->onboarding_status);
         $this->assertFalse($site->isReadyForAdminReview());
 
-        // Publisher still needs Review & submit before admin queue; activate needs verify first.
+        // Publisher still needs Review & submit; Activate stays blocked while details_complete.
         $this->actingAs($this->admin)
             ->postJson(route('admin.sites.active', $site->id), ['active' => 1])
             ->assertStatus(422);

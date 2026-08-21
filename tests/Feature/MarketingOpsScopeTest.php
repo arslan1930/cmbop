@@ -536,7 +536,9 @@ class MarketingOpsScopeTest extends TestCase
             ->assertSee('name="example_url"', false)
             ->assertDontSee('Publisher already provided URL and price', false)
             ->assertDontSee('Fix the URL, price, description, or metrics if needed', false)
-            ->assertDontSee('Marketing cannot change it', false);
+            ->assertDontSee('Marketing cannot change it', false)
+            ->assertDontSee('Verify / activate are admin-only', false)
+            ->assertSee('Use the Sites list to Verify or Activate.', false);
     }
 
     public function test_marketer_sees_description_editor_on_live_site(): void
@@ -734,7 +736,7 @@ class MarketingOpsScopeTest extends TestCase
         $this->assertStringNotContainsString('Activate/Deactivate stay staff catalog controls after accept', $html);
     }
 
-    public function test_marketing_create_page_uses_verify_first_copy(): void
+    public function test_marketing_create_page_says_activate_also_verifies(): void
     {
         $html = $this->actingAs($this->marketer)
             ->get(route('marketing.sites.create'))

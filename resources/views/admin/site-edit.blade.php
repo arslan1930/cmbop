@@ -553,7 +553,7 @@
                                     {{ $site->active ? 'Active' : 'Inactive' }}
                                 </span>
                             </div>
-                            <div class="form-text mt-2">Verify / activate are admin-only.</div>
+                            <div class="form-text mt-2">Use the Sites list to Verify or Activate.</div>
                         </div>
                     </div>
 
