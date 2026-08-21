@@ -1345,6 +1345,7 @@ class SiteController extends Controller
             'publication_time' => $site->publication_time,
             'active' => $site->active,
             'verified' => $site->verified,
+            'description' => $site->description,
         ];
 
         $data = $marketingDescriptionOnly
@@ -3034,7 +3035,7 @@ class SiteController extends Controller
                         'to' => 1,
                         'bulk_site_request_id' => $site->bulk_site_request_id,
                         'by_role' => $actor->activeRole(),
-                        'via' => 'marketing_activate',
+                        'via' => $isMarketingActor ? 'marketing_activate' : 'staff_activate',
                     ],
                     $site->site_name
                 );

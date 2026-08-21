@@ -35,7 +35,7 @@
 
     <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-4">
         <div>
-            <h4 class="mb-1 fw-bold">{{ $isMarketingEditor ? ($marketingListingLocked ? 'View site' : 'Fill metrics, geo & niches') : 'Edit site' }}</h4>
+            <h4 class="mb-1 fw-bold">{{ $isMarketingEditor ? ($marketingListingLocked ? ($site->marketingCanEditDescription() ? 'Edit description' : 'View site') : 'Fill metrics, geo & niches') : 'Edit site' }}</h4>
             <p class="text-muted mb-0 small">
                 {{ $site->publisher?->name ?? 'Unknown publisher' }}
                 @if($site->publisher?->email)
@@ -134,7 +134,7 @@
                             <div class="text-muted small">Traffic</div>
                             <div class="fw-semibold">{{ number_format((int) $site->traffic) }}</div>
                         </div>
-                        <div class="col-12" id="description">
+                        <div class="col-12">
                             @if($site->marketingCanEditDescription())
                                 <form method="POST" action="{{ staff_route('sites.update', $site->id) }}">
                                     @csrf
