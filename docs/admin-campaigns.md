@@ -165,6 +165,39 @@ or marketing, even if that staff account also has a marketplace role.
    422 the whole send).
 
 Throttle: preview `20/min`, send `6/min`, recipient-count `30/min`.
+Draft save / update / delete / duplicate are `20/min`.
+
+## Drafts folder
+
+One Drafts folder (`GET /admin/campaigns/drafts`). There are no nested
+folders. Compose **Save draft** (`POST /admin/campaigns/drafts`, or
+`POST /admin/campaigns/drafts/{id}` when editing) uses the same sanitize /
+CTA / audience rules as send. It must **never insert recipient rows on a draft**
+— `recoverStalled()` only looks at queued / sending /
+sent-with-inflight, and leftover pending rows on a draft would be a
+footgun. `include_unverified` is stored on `email_campaigns` so a reopened
+draft keeps the checkbox.
+
+Tabs on compose and the folder: **Compose · Drafts (N) · Sending · Sent**.
+Opening `/admin/campaigns/{id}` for a draft redirects to
+`admin.campaigns.drafts.edit` (the compose form). Show stays a delivery
+report — there is still **no** resend-all.
+
+**Send clones.** Optional `draft_id` on `POST /admin/campaigns/send` must
+be an editable draft. Send creates a new `queued` campaign, recounts the
+live audience, inserts recipients, and dispatches `SendEmailCampaignJob`.
+The original draft is unchanged. Two sends from one draft are two queued
+campaigns. Folder Preview posts the **saved** subject / body / CTA to the
+existing `campaigns.preview` endpoint. Duplicate
+(`POST /admin/campaigns/{id}/duplicate`, `canDuplicate()`) copies a draft
+or a sent/failed campaign into a new draft named “{name} copy” with no
+recipient rows. Queued and sending cannot be duplicated.
+
+Compose and each Drafts row show a live **~N emailable** chip via
+`POST /admin/campaigns/recipient-count` (same count as the send confirm).
+Do **not** put `data-slb-confirm` on Send — confirm is still imperative
+`slbConfirm()` after that count. Marketing stays redirected; advertisers
+stay 403.
 
 ## Campaign show (recipients)
 

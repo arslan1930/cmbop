@@ -28,6 +28,7 @@
                             <th>Name</th>
                             <th>Subject</th>
                             <th>Audience</th>
+                            <th>Emailable</th>
                             <th>Updated</th>
                             <th>Author</th>
                             <th class="text-end">Actions</th>
@@ -39,6 +40,12 @@
                                 <td class="fw-semibold small">{{ $draft->name ?: '—' }}</td>
                                 <td class="small">{{ \Illuminate\Support\Str::limit($draft->subject, 48) }}</td>
                                 <td class="small">{{ $draft->audienceLabel() }}</td>
+                                <td>
+                                    <span class="badge bg-light text-dark campaign-draft-count-chip"
+                                          data-audience="{{ $draft->audience }}"
+                                          data-include-unverified="{{ $draft->include_unverified ? '1' : '0' }}"
+                                          data-user-ids="{{ implode(',', array_map('intval', $draft->selected_user_ids ?? [])) }}">~— emailable</span>
+                                </td>
                                 <td class="small text-muted">{{ optional($draft->updated_at)->format('M j, g:ia') ?: '—' }}</td>
                                 <td class="small">{{ optional($draft->creator)->name ?: '—' }}</td>
                                 <td class="text-end text-nowrap">
@@ -86,7 +93,7 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="6" class="text-center text-muted py-4">No drafts yet. Save from Compose to add one.</td>
+                                <td colspan="7" class="text-center text-muted py-4">No drafts yet. Save from Compose to add one.</td>
                             </tr>
                         @endforelse
                     </tbody>
@@ -117,6 +124,40 @@
     }
 
     const countUrl = @json(route('admin.campaigns.recipient-count'));
+    const countToken = document.querySelector('meta[name="csrf-token"]');
+
+    document.querySelectorAll('.campaign-draft-count-chip').forEach(function (chip) {
+        const params = new URLSearchParams();
+        params.set('audience', chip.getAttribute('data-audience') || 'advertisers');
+        params.set('include_unverified', chip.getAttribute('data-include-unverified') || '0');
+        const ids = (chip.getAttribute('data-user-ids') || '').split(',').filter(Boolean);
+        ids.forEach(function (id) {
+            params.append('user_ids[]', id);
+        });
+        if (countToken) {
+            params.set('_token', countToken.getAttribute('content') || '');
+        }
+
+        fetch(countUrl, {
+            method: 'POST',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'Accept': 'application/json',
+                'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
+                'X-CSRF-TOKEN': countToken ? (countToken.getAttribute('content') || '') : '',
+            },
+            body: params.toString(),
+        }).then(function (res) {
+            if (!res.ok) {
+                throw new Error('count-failed');
+            }
+            return res.json();
+        }).then(function (data) {
+            chip.textContent = '~' + Number(data.count || 0).toLocaleString() + ' emailable';
+        }).catch(function () {
+            chip.textContent = '~— emailable';
+        });
+    });
 
     document.querySelectorAll('.campaign-draft-send-form').forEach(function (form) {
         form.addEventListener('submit', function (e) {
