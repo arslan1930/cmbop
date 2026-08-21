@@ -505,6 +505,10 @@
     }
 
     form.addEventListener('submit', function (e) {
+        if (e.submitter && e.submitter.id === 'campaignSaveDraftBtn') {
+            return;
+        }
+
         if (form.dataset.slbAllowSubmit === '1') {
             delete form.dataset.slbAllowSubmit;
             e.stopImmediatePropagation();
