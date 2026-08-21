@@ -42,6 +42,14 @@
                                 <td class="small text-muted">{{ optional($draft->updated_at)->format('M j, g:ia') ?: '—' }}</td>
                                 <td class="small">{{ optional($draft->creator)->name ?: '—' }}</td>
                                 <td class="text-end text-nowrap">
+                                    <form method="POST" action="{{ route('admin.campaigns.preview') }}" class="d-inline campaign-draft-preview-form" target="_blank">
+                                        @csrf
+                                        <input type="hidden" name="subject" value="{{ $draft->subject }}">
+                                        <input type="hidden" name="body_html" value="{{ $draft->body_html }}">
+                                        <input type="hidden" name="cta_label" value="{{ $draft->cta_label }}">
+                                        <input type="hidden" name="cta_url" value="{{ $draft->cta_url }}">
+                                        <button type="submit" class="btn btn-sm btn-outline-secondary">Preview</button>
+                                    </form>
                                     <a href="{{ route('admin.campaigns.drafts.edit', $draft) }}" class="btn btn-sm btn-outline-primary">Open</a>
                                     <form method="POST" action="{{ route('admin.campaigns.drafts.destroy', $draft) }}" class="d-inline">
                                         @csrf
@@ -69,5 +77,54 @@
             <div class="card-footer bg-white">{{ $drafts->links() }}</div>
         @endif
     </div>
+
+    <div class="card border-0 shadow-sm mt-4">
+        <div class="card-header bg-white border-0">
+            <strong><i class="fa fa-eye me-2 text-primary"></i>Preview</strong>
+        </div>
+        <div class="card-body">
+            <iframe id="draftPreviewFrame" title="Draft campaign preview" sandbox referrerpolicy="no-referrer" style="width:100%; min-height:360px; border:1px solid #e2e8f0; border-radius:12px; background:#fff;"></iframe>
+            <div class="small text-muted mt-2" id="draftPreviewStatus">Use Preview on a row to render the saved message.</div>
+        </div>
+    </div>
 </div>
+<script>
+(function () {
+    const frame = document.getElementById('draftPreviewFrame');
+    const status = document.getElementById('draftPreviewStatus');
+    if (!frame || !status) {
+        return;
+    }
+
+    document.querySelectorAll('.campaign-draft-preview-form').forEach(function (form) {
+        form.addEventListener('submit', function (e) {
+            e.preventDefault();
+            status.textContent = 'Rendering preview…';
+            status.classList.remove('text-danger');
+            status.classList.add('text-muted');
+
+            fetch(form.action, {
+                method: 'POST',
+                headers: {
+                    'Accept': 'application/json, text/html',
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+                body: new FormData(form),
+            }).then(function (response) {
+                if (!response.ok) {
+                    throw new Error('preview failed');
+                }
+                return response.text();
+            }).then(function (html) {
+                frame.srcdoc = html;
+                status.textContent = 'Saved draft preview.';
+            }).catch(function () {
+                status.textContent = 'Could not render this draft.';
+                status.classList.add('text-danger');
+                status.classList.remove('text-muted');
+            });
+        });
+    });
+})();
+</script>
 @endsection
