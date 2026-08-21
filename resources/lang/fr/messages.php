@@ -477,7 +477,7 @@ return [
     'staff_handbook_section2_list2' => 'L’éditeur reçoit e-mail + notification ; le site reste sous Invitations jusqu’à Acceptation ou Refus.',
     'staff_handbook_section2_list3' => 'Accepter le déplace vers Mes sites. Refuser supprime le brouillon.',
     'staff_handbook_section2_list4' => 'Après acceptation, l’annonce passe en revue équipe. Activer la met en ligne et la vérifie. L’admin peut toujours Vérifier sans activer. N’activez pas tant que l’acceptation est en attente. Marketing : voir la section 6.',
-    'staff_handbook_section2_list5' => 'Le badge Verified via TXT est une étape admin distincte après acceptation ; Accepter ≠ Verified. L’activation catalogue n’est pas automatique.',
+    'staff_handbook_section2_list5' => 'L’admin peut toujours Vérifier sans activer. Accepter ≠ Verified. L’activation catalogue n’est pas automatique.',
     'staff_handbook_section3_title' => 'Sens juridique (Conditions éditeur)',
     'staff_handbook_section3_list1' => 'Accepter = autorisation de gérer l’annonce sur Seolinkbuildings, pas une preuve de propriété juridique.',
     'staff_handbook_section3_list2' => 'L’éditeur est responsable de l’exactitude des indicateurs/prix/contenu après acceptation ; l’aide de l’équipe n’est pas une garantie.',

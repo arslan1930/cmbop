@@ -801,7 +801,7 @@ return [
     'staff_handbook_section2_list2' => 'Il publisher riceve email + campanella; il sito resta in Inviti fino ad Accetta o Rifiuta.',
     'staff_handbook_section2_list3' => 'Accetta lo sposta in I miei siti. Rifiuta elimina la bozza.',
     'staff_handbook_section2_list4' => 'Dopo Accetta, l\'elenco va in revisione del personale. Attiva lo rende live e lo verifica. L\'admin può ancora Verificare senza attivare. Non attivare mentre Accetta è ancora in sospeso. Marketing: vedi la sezione 6.',
-    'staff_handbook_section2_list5' => 'TXT Verificato è un passaggio admin distinto dopo Accetta; Accetta ≠ Verificato. L\'attivazione nel catalogo non è automatica.',
+    'staff_handbook_section2_list5' => 'L\'admin può ancora Verificare senza attivare. Accetta ≠ Verificato. L\'attivazione nel catalogo non è automatica.',
     'staff_handbook_section3_title' => 'Significato legale (Termini publisher)',
     'staff_handbook_section3_list1' => 'Accetta = autorizzazione a gestire l\'elenco su Seolinkbuildings, non prova di titolarità legale.',
     'staff_handbook_section3_list2' => 'Il publisher è responsabile dell\'accuratezza di metriche/prezzo/contenuti dopo l\'accettazione; l\'aiuto del personale non è una garanzia.',

@@ -251,8 +251,8 @@
 
     <div class="alert alert-info border-0 mt-4 mb-0">
         <i class="fa fa-info-circle me-1"></i>
-        You can add and edit listings (metrics, geo, niches, images), seed bulk requests, activate or deactivate sites, and delete pending (not-live) sites.
-        Admin handles verification, payments, and users. Metrics/geo/niche edits do not email the publisher.
+        You can add and edit listings (metrics, geo, niches, images) on pending sites, update the advertiser description on live sites, seed bulk requests, activate or deactivate sites, and delete pending (not-live) sites.
+        The Verify button stays admin-only — Activate on a review-ready listing also verifies it. Admin handles payments and users. Metrics/geo/niche edits do not email the publisher.
     </div>
 
 </div>

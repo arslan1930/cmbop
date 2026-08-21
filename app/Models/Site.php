@@ -1157,7 +1157,7 @@ class Site extends Model
     }
 
     /**
-     * Live, verified, or archived listings are read-only for marketing.
+     * Live, verified, or archived listings lock URL/price/metrics for marketing.
      */
     public function isLockedForMarketingEdits(): bool
     {

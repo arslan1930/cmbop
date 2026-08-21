@@ -477,7 +477,7 @@ return [
     'staff_handbook_section2_list2' => 'Publisher erhält E-Mail + Glocke; die Website bleibt unter Einladungen bis Annahme oder Ablehnung.',
     'staff_handbook_section2_list3' => 'Annehmen verschiebt sie nach „Meine Websites“. Ablehnen löscht den Entwurf.',
     'staff_handbook_section2_list4' => 'Nach der Annahme geht der Eintrag in die Teamprüfung. Aktivieren macht ihn live und verifiziert ihn. Admin kann weiterhin ohne Aktivieren verifizieren. Nicht aktivieren, solange die Annahme noch aussteht. Marketing: siehe Abschnitt 6.',
-    'staff_handbook_section2_list5' => 'TXT-Verified ist ein separater Admin-Schritt nach der Annahme; Annehmen ≠ Verified. Katalogaktivierung ist nicht automatisch.',
+    'staff_handbook_section2_list5' => 'Admin kann weiterhin ohne Aktivieren verifizieren. Annehmen ≠ Verified. Katalogaktivierung ist nicht automatisch.',
     'staff_handbook_section3_title' => 'Rechtliche Bedeutung (Publisher-Bedingungen)',
     'staff_handbook_section3_list1' => 'Annehmen = Ermächtigung zur Verwaltung des Eintrags auf Seolinkbuildings, kein rechtlicher Eigentumsnachweis.',
     'staff_handbook_section3_list2' => 'Der Publisher trägt nach der Annahme die Verantwortung für Genauigkeit von Kennzahlen/Preis/Inhalt; Mitarbeiterhilfe ist keine Gewähr.',

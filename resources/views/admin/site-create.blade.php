@@ -158,7 +158,7 @@
                             Marketing Activate needs DA ≥ {{ \App\Models\Site::GOOD_MIN_DA }}, DR ≥ {{ \App\Models\Site::GOOD_MIN_DR }}, and traffic ≥ {{ number_format(\App\Models\Site::GOOD_MIN_TRAFFIC) }}. Saving below this is allowed.
                         </div>
                         <div class="alert alert-warning border-0 py-2 px-3 small d-none mb-0 mt-2" id="qualityBarWarn" role="status">
-                            These metrics are below the marketing Activate bar. You can still save — admin must verify, and marketing will not be able to Activate until the bar is met.
+                            These metrics are below the marketing Activate bar. You can still save — marketing will not be able to Activate until the bar is met.
                         </div>
                     </div>
 

@@ -477,7 +477,7 @@ return [
     'staff_handbook_section2_list2' => 'Publisher krijgt e-mail + bel; de site blijft onder Uitnodigingen tot Accepteren of Weigeren.',
     'staff_handbook_section2_list3' => 'Accepteren verplaatst deze naar Mijn websites. Weigeren verwijdert het concept.',
     'staff_handbook_section2_list4' => 'Na acceptatie gaat de listing naar teamreview. Activeren zet hem live en verifieert hem. Admin kan nog steeds verifiëren zonder te activeren. Activeer niet zolang acceptatie nog openstaat. Marketing: zie sectie 6.',
-    'staff_handbook_section2_list5' => 'TXT Verified is een aparte admin-stap na acceptatie; Accepteren ≠ Verified. Catalogusactivatie is niet automatisch.',
+    'staff_handbook_section2_list5' => 'Admin kan nog steeds verifiëren zonder te activeren. Accepteren ≠ Verified. Catalogusactivatie is niet automatisch.',
     'staff_handbook_section3_title' => 'Juridische betekenis (publisher-voorwaarden)',
     'staff_handbook_section3_list1' => 'Accepteren = autorisatie om de listing op Seolinkbuildings te beheren, geen juridisch eigendomsbewijs.',
     'staff_handbook_section3_list2' => 'Publisher is na acceptatie verantwoordelijk voor nauwkeurigheid van metrics/prijs/inhoud; teamhulp is geen garantie.',

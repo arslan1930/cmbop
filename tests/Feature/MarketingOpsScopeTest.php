@@ -639,7 +639,7 @@ class MarketingOpsScopeTest extends TestCase
         $this->actingAs($this->marketer)
             ->get(route('marketing.sites.edit', $site->id))
             ->assertOk()
-            ->assertSee('This listing is live, verified, or archived. Marketing cannot change it.', false)
+            ->assertSee('This listing is archived. Marketing cannot change it.', false)
             ->assertDontSee('name="site_url"', false);
 
         $this->actingAs($this->marketer)

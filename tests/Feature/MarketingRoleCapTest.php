@@ -159,7 +159,7 @@ class MarketingRoleCapTest extends TestCase
             ->assertJsonPath('success', true)
             ->assertJsonPath('marketing', true)
             ->assertJsonPath('active_role', 'marketing')
-            ->assertJsonFragment(['message' => 'Marketing access granted. They can review and activate sites (verify stays admin-only).']);
+            ->assertJsonFragment(['message' => 'Marketing access granted. They can review and activate sites (Activate also verifies review-ready listings; the Verify button stays admin-only).']);
 
         $member->refresh();
         $this->assertTrue($member->hasRole('marketing'));

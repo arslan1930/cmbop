@@ -73,7 +73,7 @@
                         @if($site->marketingCanEditDescription())
                             URL, price, and metrics stay locked on live listings. You can still update the advertiser-facing description.
                         @else
-                            This listing is live, verified, or archived. Marketing cannot change it. Ask an admin.
+                            This listing is archived. Marketing cannot change it. Ask an admin.
                         @endif
                     </div>
                 @else

@@ -801,7 +801,7 @@ return [
     'staff_handbook_section2_list2' => 'Publisher gets email + bell; the site stays under Invites until Accept or Decline.',
     'staff_handbook_section2_list3' => 'Accept moves it into My Sites. Decline deletes the draft.',
     'staff_handbook_section2_list4' => 'After Accept, the listing goes to staff review. Activate makes it live and verifies it. Admin can still Verify without activating. Do not activate while Accept is still outstanding. Marketing: see section 6.',
-    'staff_handbook_section2_list5' => 'TXT Verified is a separate admin step after Accept; Accept ≠ Verified. Catalog Activate is not automatic.',
+    'staff_handbook_section2_list5' => 'Admin can still Verify without activating. Accept ≠ Verified. Catalog Activate is not automatic.',
     'staff_handbook_section3_title' => 'Legal meaning (publisher Terms)',
     'staff_handbook_section3_list1' => 'Accept = authorization to manage the listing on Seolinkbuildings, not legal ownership proof.',
     'staff_handbook_section3_list2' => 'Publisher owns accuracy of metrics/price/content after accept; staff help is not a warranty.',

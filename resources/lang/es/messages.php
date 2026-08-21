@@ -801,7 +801,7 @@ return [
     'staff_handbook_section2_list2' => 'El editor recibe correo + campana; el sitio permanece en Invitaciones hasta Aceptar o Rechazar.',
     'staff_handbook_section2_list3' => 'Aceptar lo mueve a Mis sitios. Rechazar elimina el borrador.',
     'staff_handbook_section2_list4' => 'Tras Aceptar, el listado pasa a revisión del personal. Activar lo pone en vivo y lo verifica. El admin puede seguir Verificando sin activar. No active mientras Aceptar siga pendiente. Marketing: véase la sección 6.',
-    'staff_handbook_section2_list5' => 'TXT Verificado es un paso de admin independiente tras Aceptar; Aceptar ≠ Verificado. Activar en el catálogo no es automático.',
+    'staff_handbook_section2_list5' => 'El admin puede seguir Verificando sin activar. Aceptar ≠ Verificado. Activar en el catálogo no es automático.',
     'staff_handbook_section3_title' => 'Significado legal (Términos del editor)',
     'staff_handbook_section3_list1' => 'Aceptar = autorización para gestionar el listado en Seolinkbuildings, no prueba de titularidad legal.',
     'staff_handbook_section3_list2' => 'El editor es responsable de la exactitud de métricas, precio y contenido tras aceptar; la ayuda del personal no es una garantía.',

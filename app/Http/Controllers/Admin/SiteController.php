@@ -1144,7 +1144,7 @@ class SiteController extends Controller
     {
         $site = Site::findOrFail($id);
         if ($this->isMarketingEditor(auth()->user()) && $this->marketingListingIsLocked($site)) {
-            $message = 'Marketing can only edit pending sites that are not live.';
+            $message = 'Marketing can only change images on pending sites that are not live.';
             if ($request->expectsJson() || $request->ajax()) {
                 return response()->json([
                     'success' => false,
@@ -1314,7 +1314,7 @@ class SiteController extends Controller
         $isMarketingEditor = $this->isMarketingEditor($user);
 
         if ($isMarketingEditor && $site->isArchived()) {
-            $message = 'Marketing can only edit pending sites that are not live.';
+            $message = 'This listing is archived. Marketing cannot change it.';
             if ($request->expectsJson() || $request->ajax()) {
                 return response()->json([
                     'success' => false,
@@ -1881,7 +1881,7 @@ class SiteController extends Controller
     private function marketingDescriptionOnlyPayload(Request $request, Site $site): array|JsonResponse|RedirectResponse
     {
         if (! $site->marketingCanEditDescription()) {
-            $message = 'Marketing can only edit pending sites that are not live.';
+            $message = 'This listing is archived. Marketing cannot change it.';
             if ($request->expectsJson() || $request->ajax()) {
                 return response()->json([
                     'success' => false,
