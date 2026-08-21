@@ -1674,8 +1674,12 @@ class SiteController extends Controller
             $rawDescription = $request->input('description');
             if (is_string($rawDescription) && ! SiteDescriptionRules::isBlankHtml($rawDescription)) {
                 $clean = app(SiteDescriptionSanitizer::class)->sanitize($rawDescription);
-                foreach (SiteDescriptionRules::errors($clean) as $message) {
-                    $validator->errors()->add('description', $message);
+                $incomingPlain = SiteDescriptionRules::plainText($clean);
+                $existingPlain = SiteDescriptionRules::plainText((string) $site->description);
+                if ($incomingPlain !== $existingPlain) {
+                    foreach (SiteDescriptionRules::errors($clean) as $message) {
+                        $validator->errors()->add('description', $message);
+                    }
                 }
             }
 
@@ -1845,8 +1849,11 @@ class SiteController extends Controller
         if ($request->has('example_url') && $this->isBlankStringInput($request->input('example_url'))) {
             $data['example_url'] = null;
         }
-        if ($request->has('description') && $this->isBlankStringInput($request->input('description'))) {
-            $data['description'] = '';
+        if ($request->has('description')) {
+            $postedDescription = $request->input('description');
+            if (SiteDescriptionRules::isBlankHtml($postedDescription) || $this->isBlankStringInput($postedDescription)) {
+                unset($data['description']);
+            }
         }
 
         if ($placementPatch !== null) {
