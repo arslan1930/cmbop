@@ -74,6 +74,8 @@ class AdminSitesVerticalLayoutTest extends TestCase
         $this->assertStringContainsString('toggle-site-details', $blade);
         $this->assertStringContainsString('activate_block_reason', $blade);
         $this->assertStringContainsString('Cannot activate', $blade);
+        $this->assertStringContainsString('${STAFF_BASE}/sites/${site.id}/edit', $blade);
+        $this->assertStringContainsString('Metrics &amp; image', $blade);
         $this->assertStringContainsString('admin-expand-row', $blade);
         $this->assertStringContainsString('setSiteDetailsOpen', $blade);
         $this->assertStringContainsString('setSiteDetailsOpen(highlightId, true)', $blade);
