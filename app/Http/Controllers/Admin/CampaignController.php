@@ -43,8 +43,15 @@ class CampaignController extends Controller
 
         $draftCount = $drafts->total();
         $campaignTab = 'drafts';
+        [$sendingCount, $sentCount] = $this->campaignTabCounts();
 
-        return view('admin.campaigns.drafts', compact('drafts', 'draftCount', 'campaignTab'));
+        return view('admin.campaigns.drafts', compact(
+            'drafts',
+            'draftCount',
+            'campaignTab',
+            'sendingCount',
+            'sentCount'
+        ));
     }
 
     public function store(Request $request, AudienceInventoryService $inventory)
@@ -460,10 +467,13 @@ class CampaignController extends Controller
             $draftCount = EmailCampaign::tableAvailable()
                 ? EmailCampaign::query()->where('status', EmailCampaign::STATUS_DRAFT)->count()
                 : 0;
+            [$sendingCount, $sentCount] = $this->campaignTabCounts();
         } catch (\Throwable $e) {
             Log::warning('Campaign list failed', ['error' => $e->getMessage()]);
             $campaigns = new LengthAwarePaginator([], 0, 15);
             $draftCount = 0;
+            $sendingCount = 0;
+            $sentCount = 0;
         }
 
         try {
@@ -486,7 +496,9 @@ class CampaignController extends Controller
             'pickerCapped',
             'editingDraft',
             'draftCount',
-            'campaignTab'
+            'campaignTab',
+            'sendingCount',
+            'sentCount'
         ));
     }
 
@@ -495,6 +507,35 @@ class CampaignController extends Controller
         $tab = search_text(request('tab'));
 
         return in_array($tab, ['sending', 'sent'], true) ? $tab : 'compose';
+    }
+
+    /**
+     * @return array{0: int, 1: int}
+     */
+    private function campaignTabCounts(): array
+    {
+        if (! EmailCampaign::tableAvailable()) {
+            return [0, 0];
+        }
+
+        try {
+            $sending = EmailCampaign::query()
+                ->whereIn('status', [
+                    EmailCampaign::STATUS_QUEUED,
+                    EmailCampaign::STATUS_SENDING,
+                ])
+                ->count();
+            $sent = EmailCampaign::query()
+                ->whereIn('status', [
+                    EmailCampaign::STATUS_SENT,
+                    EmailCampaign::STATUS_FAILED,
+                ])
+                ->count();
+
+            return [$sending, $sent];
+        } catch (\Throwable) {
+            return [0, 0];
+        }
     }
 
     private function persistDraft(Request $request, AudienceInventoryService $inventory, ?EmailCampaign $existing = null)

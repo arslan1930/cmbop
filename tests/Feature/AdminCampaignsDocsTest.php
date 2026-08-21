@@ -76,6 +76,12 @@ class AdminCampaignsDocsTest extends TestCase
         $this->assertStringContainsString('must **not** abort that expire', $body);
         $this->assertStringContainsString('admin.campaigns.show', $body);
         $this->assertStringContainsString('no** resend-all', $body);
+        $this->assertStringContainsString('never insert recipient rows on a draft', $body);
+        $this->assertStringContainsString('Send clones', $body);
+        $this->assertStringContainsString('draft_id', $body);
+        $this->assertStringContainsString('canDuplicate()', $body);
+        $this->assertStringContainsString('~N emailable', $body);
+        $this->assertStringContainsString('admin.campaigns.drafts.edit', $body);
         $this->assertStringNotContainsString('/advertiser/campaigns', $body);
     }
 

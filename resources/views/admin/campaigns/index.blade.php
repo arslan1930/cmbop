@@ -311,6 +311,7 @@
                             <button type="button" class="btn btn-outline-secondary" id="previewBtn">
                                 <i class="fa fa-eye me-1"></i> Preview email
                             </button>
+                            <span id="campaignEmailableChip" class="badge bg-light text-dark align-self-center">~— emailable</span>
                         </div>
                     </form>
                 </div>
@@ -502,6 +503,30 @@
 
         return res.json();
     }
+
+    const emailableChip = document.getElementById('campaignEmailableChip');
+    function refreshEmailableChip() {
+        if (!emailableChip) {
+            return;
+        }
+        fetchRecipientCount()
+            .then(function (data) {
+                const count = Number(data.count || 0);
+                emailableChip.textContent = '~' + count.toLocaleString() + ' emailable';
+            })
+            .catch(function () {
+                emailableChip.textContent = '~— emailable';
+            });
+    }
+    audience.addEventListener('change', refreshEmailableChip);
+    const unverifiedBox = document.getElementById('include_unverified');
+    if (unverifiedBox) {
+        unverifiedBox.addEventListener('change', refreshEmailableChip);
+    }
+    document.querySelectorAll('.user-check').forEach(function (el) {
+        el.addEventListener('change', refreshEmailableChip);
+    });
+    refreshEmailableChip();
 
     function confirmSend(text) {
         return slbConfirm({
