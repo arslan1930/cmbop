@@ -238,6 +238,12 @@
                                    value="{{ old_text('traffic', $site->traffic) }}">
                             @error('traffic')<div class="invalid-feedback">{{ $message }}</div>@enderror
                         </div>
+                        <div class="col-12">
+                            @include('partials.site-description-editor', [
+                                'value' => old_text('description', $site->description),
+                                'required' => true,
+                            ])
+                        </div>
                         @if($site->metrics_manual)
                         <div class="col-12">
                             <div class="alert alert-warning border-0 py-2 mb-0 d-flex flex-wrap align-items-center gap-2">
@@ -299,12 +305,6 @@
                             </div>
                         </div>
 
-                        <div class="col-12">
-                            @include('partials.site-description-editor', [
-                                'value' => old_text('description', $site->description),
-                                'required' => true,
-                            ])
-                        </div>
                     </div>
 
                     <div class="d-flex flex-wrap gap-2 mt-4">

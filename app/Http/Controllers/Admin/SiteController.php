@@ -1370,10 +1370,23 @@ class SiteController extends Controller
             Site::ensureLinkTypeColumn();
         }
 
+        $data = array_filter(
+            $data,
+            static fn (string $key): bool => Site::hasSitesColumn($key),
+            ARRAY_FILTER_USE_KEY
+        );
+
         $previousImage = is_string($site->site_image) ? $site->site_image : null;
 
         try {
             $site->update($data);
+        } catch (ValidationException $e) {
+            $storedThisRequest = $request->attributes->get('staff_stored_site_image');
+            if (is_string($storedThisRequest) && $storedThisRequest !== '') {
+                $this->deleteStoredSiteImage($storedThisRequest);
+            }
+
+            throw $e;
         } catch (\Throwable $e) {
             $storedThisRequest = $request->attributes->get('staff_stored_site_image');
             if (is_string($storedThisRequest) && $storedThisRequest !== '') {
@@ -1396,17 +1409,17 @@ class SiteController extends Controller
                 'error' => $message,
             ]);
 
-            $hint = $this->isDomainUniqueConstraintFailure($e)
-                ? 'This website domain is already registered.'
-                : 'We could not save this website. Please try again.';
+            $errors = $this->staffSiteUpdateFailureErrors($e);
+            $hint = (string) reset($errors);
             if ($request->expectsJson() || $request->ajax()) {
                 return response()->json([
                     'success' => false,
                     'message' => $hint,
+                    'errors' => $errors,
                 ], $this->isDomainUniqueConstraintFailure($e) ? 422 : 500);
             }
 
-            return back()->withErrors(['site_url' => $hint])->withInput();
+            return back()->withErrors($errors)->withInput();
         }
 
         $newImage = is_string($site->site_image) ? $site->site_image : null;
@@ -2110,7 +2123,7 @@ class SiteController extends Controller
                 }
             }
             if ($request->exists('example_url')) {
-                $payload['example_url'] = $request->input('example_url');
+                $payload['example_url'] = scalar_text($request->input('example_url'));
             }
             if ($request->exists('price')) {
                 $payload['price'] = $request->input('price');
@@ -2198,6 +2211,29 @@ class SiteController extends Controller
             || str_contains($message, '1062');
 
         return $isUnique && (str_contains($message, 'domain') || str_contains($message, 'publisher_id_domain'));
+    }
+
+    /**
+     * Do not pin every save failure on Site URL — that made marketing think
+     * a valid .fr listing URL was rejected.
+     *
+     * @return array<string, string>
+     */
+    private function staffSiteUpdateFailureErrors(\Throwable $e): array
+    {
+        if ($this->isDomainUniqueConstraintFailure($e)) {
+            return ['site_url' => 'This website domain is already registered.'];
+        }
+
+        $message = $e->getMessage();
+        if (str_contains($message, 'Unknown column') || str_contains($message, 'no such column')) {
+            return ['save' => 'We could not save this website because the database is missing a recent update. Run the latest migrations and try again.'];
+        }
+        if (str_contains($message, 'Data too long') || str_contains($message, '1406')) {
+            return ['save' => 'One of the fields is too long to save. Shorten it and try again.'];
+        }
+
+        return ['save' => 'We could not save this website. Please try again.'];
     }
 
     /**

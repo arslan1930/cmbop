@@ -11,6 +11,7 @@ use App\Models\User;
 use App\Support\SiteDescriptionRules;
 use Database\Seeders\CategoriesTableSeeder;
 use Database\Seeders\CountriesTableSeeder;
+use Database\Seeders\CountryLanguageSeeder;
 use Database\Seeders\LanguagesTableSeeder;
 use Database\Seeders\RolesTableSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -333,6 +334,12 @@ class MarketingOpsScopeTest extends TestCase
             ->assertDontSee('Verify / activate are admin-only.', false)
             ->getContent();
 
+        $descriptionPos = strpos($html, 'data-site-description-editor');
+        $imagePos = strpos($html, 'id="site_image"');
+        $this->assertNotFalse($descriptionPos);
+        $this->assertNotFalse($imagePos);
+        $this->assertLessThan($imagePos, $descriptionPos, 'Description editor must sit above the cover image.');
+
         unset($html);
 
         $sitesHtml = $this->actingAs($this->marketer)
@@ -391,6 +398,70 @@ class MarketingOpsScopeTest extends TestCase
         $this->assertSame(['de'], $site->languages);
         $this->assertSame(['de'], $site->countries);
         $this->assertContains($category->name, $site->categories ?? []);
+    }
+
+    public function test_marketer_can_save_french_listing_without_blaming_the_url(): void
+    {
+        $this->seed(CountryLanguageSeeder::class);
+
+        $travel = Category::query()->where('name', 'Travel & Tourism')->first()
+            ?? Category::query()->firstOrFail();
+        $fashion = Category::query()->where('name', 'Fashion & Luxury')->value('name')
+            ?? $travel->name;
+        $beauty = Category::query()->where('name', 'Beauty & Skincare')->value('name')
+            ?? $travel->name;
+
+        $site = $this->makeSite([
+            'site_name' => 'Le Blog Beauté',
+            'site_url' => 'https://old-beaute.example',
+            'domain' => 'old-beaute.example',
+            'example_url' => 'https://old-beaute.example/sample',
+            'da' => 16,
+            'dr' => 28,
+            'traffic' => 3,
+            'country' => 'fr',
+            'language' => 'fr',
+            'price' => 70,
+            'description' => '',
+        ]);
+
+        $brief = 'This listing is for your audience and the publishers who write guest posts here.';
+
+        $this->actingAs($this->marketer)
+            ->from(route('marketing.sites.edit', $site->id))
+            ->put(route('marketing.sites.update', $site->id), [
+                'site_name' => 'Le Blog Beauté',
+                'site_url' => 'https://leblogbeaute.fr',
+                'example_url' => 'https://leblogbeaute.fr/',
+                'price' => 70,
+                'description' => $brief,
+                'da' => 16,
+                'dr' => 28,
+                'traffic' => 3,
+                'language' => 'fr',
+                'country' => 'fr',
+                'categories' => $travel->name.'|'.$fashion.'|'.$beauty,
+            ])
+            ->assertRedirect(route('marketing.sites.index', [
+                'publisher' => $site->publisher_id,
+                'site' => $site->id,
+            ]))
+            ->assertSessionDoesntHaveErrors('site_url');
+
+        $site->refresh();
+        $this->assertSame('https://leblogbeaute.fr', $site->site_url);
+        $this->assertSame('leblogbeaute.fr', $site->domain);
+        $this->assertSame('https://leblogbeaute.fr/', $site->example_url);
+        $this->assertSame($brief, $site->description);
+        $this->assertSame(16, (int) $site->da);
+        $this->assertFalse($site->marketingCanActivate());
+
+        $this->actingAs($this->marketer)
+            ->get(route('marketing.sites.edit', $site->id))
+            ->assertOk()
+            ->assertSee('js-staff-activate-blocked', false)
+            ->assertSee('Below the quality bar', false)
+            ->assertSee('data-site-description-editor', false);
     }
 
     public function test_marketer_pending_update_keeps_brief_when_quill_posts_empty_html(): void
