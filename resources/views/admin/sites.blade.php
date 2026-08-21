@@ -1568,9 +1568,10 @@ function renderSites(data){
                 || isActive
                 || !!site.listing_locked
             );
-            const editItem = IS_MARKETING_EDITOR
-                ? `<li><a class="dropdown-item" href="${STAFF_BASE}/sites/${site.id}/edit"><i class="fa fa-${listingLocked ? 'eye' : 'edit'} me-2"></i>${listingLocked ? 'View' : 'Edit'}</a></li>`
-                : `<li><button type="button" class="dropdown-item edit-site" data-id="${site.id}"><i class="fa fa-edit me-2"></i>Edit</button></li>`;
+            const editItem = `<li><a class="dropdown-item" href="${STAFF_BASE}/sites/${site.id}/edit"><i class="fa fa-edit me-2"></i>Edit</a></li>`
+                + (IS_MARKETING_EDITOR
+                    ? ''
+                    : `<li><button type="button" class="dropdown-item edit-site" data-id="${site.id}"><i class="fa fa-image me-2"></i>Metrics &amp; image</button></li>`);
             const enrichItems = (IS_MARKETING_EDITOR && listingLocked)
                 ? ''
                 : `<li><button type="button" class="dropdown-item enrich-site" data-id="${site.id}"><i class="fa fa-sync me-2"></i>Enrich</button></li>
@@ -1771,15 +1772,8 @@ window.addEventListener('DOMContentLoaded',()=>{
         sessionStorage.setItem('selected_user', publisherId);
         fetchUserSites(publisherId).then(() => {
             if (editSiteId) {
-                if (IS_MARKETING_EDITOR) {
-                    window.location.href = `${STAFF_BASE}/sites/${editSiteId}/edit`;
-                    return;
-                }
-                editSiteWithImage(editSiteId);
-                // Drop one-shot edit params so refresh doesn't reopen the modal.
-                params.delete('edit_site');
-                const next = `${window.location.pathname}${params.toString() ? '?' + params.toString() : ''}`;
-                window.history.replaceState({}, '', next);
+                window.location.href = `${STAFF_BASE}/sites/${editSiteId}/edit`;
+                return;
             }
         });
         return;
