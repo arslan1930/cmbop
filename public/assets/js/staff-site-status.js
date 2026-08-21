@@ -131,6 +131,11 @@
         toast((result.data && result.data.message) || fallback, 'error');
     }
 
+    if (global.__staffSiteStatusBound) {
+        return;
+    }
+    global.__staffSiteStatusBound = true;
+
     document.addEventListener('click', function (e) {
         var verifyBtn = e.target.closest('.js-staff-verify');
         if (verifyBtn) {

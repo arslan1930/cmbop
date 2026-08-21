@@ -1568,7 +1568,8 @@ function renderSites(data){
                 || isActive
                 || !!site.listing_locked
             );
-            const editItem = `<li><a class="dropdown-item" href="${STAFF_BASE}/sites/${site.id}/edit"><i class="fa fa-edit me-2"></i>Edit</a></li>`
+            const editLabel = (IS_MARKETING_EDITOR && !!site.archived) ? 'View' : 'Edit';
+            const editItem = `<li><a class="dropdown-item" href="${STAFF_BASE}/sites/${site.id}/edit"><i class="fa fa-edit me-2"></i>${editLabel}</a></li>`
                 + (IS_MARKETING_EDITOR
                     ? ''
                     : `<li><button type="button" class="dropdown-item edit-site" data-id="${site.id}"><i class="fa fa-image me-2"></i>Metrics &amp; image</button></li>`);

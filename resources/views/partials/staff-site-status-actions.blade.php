@@ -78,7 +78,6 @@
     @endif
 </div>
 @once
-    @push('scripts')
-        <script src="{{ asset('assets/js/staff-site-status.js') }}?v={{ @filemtime(public_path('assets/js/staff-site-status.js')) ?: '1' }}"></script>
-    @endpush
+    {{-- Inline (not @push) so view()->file('admin/site-edit') still binds Verify / Activate. --}}
+    <script src="{{ asset('assets/js/staff-site-status.js') }}?v={{ @filemtime(public_path('assets/js/staff-site-status.js')) ?: '1' }}"></script>
 @endonce

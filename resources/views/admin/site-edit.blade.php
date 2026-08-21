@@ -73,7 +73,7 @@
                         @if($site->marketingCanEditDescription())
                             URL, price, and metrics stay locked on live listings. You can still update the advertiser-facing description.
                         @else
-                            This listing is live, verified, or archived. Marketing cannot change it. Ask an admin.
+                            This listing is archived. Marketing cannot change it. Ask an admin.
                         @endif
                     </div>
                 @else
@@ -129,7 +129,7 @@
                             <div class="text-muted small">Traffic</div>
                             <div class="fw-semibold">{{ number_format((int) $site->traffic) }}</div>
                         </div>
-                        <div class="col-12" id="description">
+                        <div class="col-12">
                             @if($site->marketingCanEditDescription())
                                 <form method="POST" action="{{ staff_route('sites.update', $site->id) }}">
                                     @csrf
@@ -138,7 +138,7 @@
                                         'value' => old_text('description', $site->description),
                                         'required' => false,
                                         'editorId' => 'quillEditorLive',
-                                        'help' => 'Advertisers see this on the listing. Live URL, price, and metrics stay locked.',
+                                        'help' => 'Advertisers see this on the listing. Live URL, price, and metrics stay locked. Leave it empty to keep the current brief.',
                                     ])
                                     <button type="submit" class="btn btn-primary mt-2">
                                         <i class="fa fa-save me-1"></i> Save description
@@ -146,7 +146,7 @@
                                 </form>
                             @else
                                 <div class="text-muted small">Description</div>
-                                <div class="site-description-readonly border rounded p-3 bg-white mt-1">
+                                <div id="description" class="site-description-readonly border rounded p-3 bg-white mt-1">
                                     @if($site->safeDescriptionHtml() !== '')
                                         {!! $site->safeDescriptionHtml() !!}
                                     @else
@@ -241,7 +241,8 @@
                         <div class="col-12">
                             @include('partials.site-description-editor', [
                                 'value' => old_text('description', $site->description),
-                                'required' => true,
+                                'required' => false,
+                                'help' => 'Shown to advertisers on the listing. Leave it empty to keep the current brief when you only need to save metrics.',
                             ])
                         </div>
                         @if($site->metrics_manual)

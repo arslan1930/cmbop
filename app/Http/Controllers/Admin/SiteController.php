@@ -1330,7 +1330,7 @@ class SiteController extends Controller
 
             return redirect()
                 ->to(staff_route('sites.edit', $site->id))
-                ->withErrors(['site_url' => $message]);
+                ->withErrors(['save' => $message]);
         }
 
         $marketingDescriptionOnly = $isMarketingEditor && $this->marketingListingIsLocked($site);
@@ -1909,7 +1909,7 @@ class SiteController extends Controller
 
             return redirect()
                 ->to(staff_route('sites.edit', $site->id))
-                ->withErrors(['site_url' => $message]);
+                ->withErrors(['save' => $message]);
         }
 
         $incoming = $request->input('description');

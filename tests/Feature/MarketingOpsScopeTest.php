@@ -332,6 +332,8 @@ class MarketingOpsScopeTest extends TestCase
             ->assertSee('js-staff-activate-blocked', false)
             ->assertDontSee('js-staff-verify', false)
             ->assertDontSee('Verify / activate are admin-only.', false)
+            ->assertSee('assets/js/staff-site-status.js', false)
+            ->assertSee('Leave it empty to keep the current brief', false)
             ->getContent();
 
         $descriptionPos = strpos($html, 'data-site-description-editor');
@@ -339,6 +341,16 @@ class MarketingOpsScopeTest extends TestCase
         $this->assertNotFalse($descriptionPos);
         $this->assertNotFalse($imagePos);
         $this->assertLessThan($imagePos, $descriptionPos, 'Description editor must sit above the cover image.');
+        $this->assertSame(
+            1,
+            preg_match_all('/id="description"(?![\\w-])/', $html),
+            'Activate #description hash must hit exactly one target.'
+        );
+        $this->assertDoesNotMatchRegularExpression(
+            '/<textarea[^>]*id="description-input"[^>]*\\srequired/i',
+            $html,
+            'Pending marketing save must not HTML5-block an empty brief.'
+        );
 
         unset($html);
 
@@ -348,6 +360,7 @@ class MarketingOpsScopeTest extends TestCase
             ->getContent();
         $this->assertStringContainsString('IS_MARKETING_EDITOR = true', $sitesHtml);
         $this->assertStringContainsString('${STAFF_BASE}/sites/${site.id}/edit', $sitesHtml);
+        $this->assertStringContainsString("site.archived) ? 'View' : 'Edit'", $sitesHtml);
         $this->assertStringContainsString('/edit#description', $sitesHtml);
         $this->assertStringContainsString('site-row-preview', $sitesHtml);
         $this->assertStringContainsString('sitePreviewPaths', $sitesHtml);
@@ -617,12 +630,23 @@ class MarketingOpsScopeTest extends TestCase
             ->assertDontSee('Publisher already provided URL and price', false)
             ->assertDontSee('Fix the URL, price, description, or metrics if needed', false)
             ->assertDontSee('Marketing cannot change it', false)
+            ->assertSee('assets/js/staff-site-status.js', false)
             ->getContent();
 
         $this->assertDoesNotMatchRegularExpression(
             '/<textarea[^>]+id="description-input"[^>]+hidden/i',
             $html,
             'Admin must be able to type a brief even when Quill JS does not load.'
+        );
+        $this->assertSame(
+            1,
+            preg_match_all('/id="description"(?![\\w-])/', $html),
+            'Admin edit must not duplicate id="description".'
+        );
+        $this->assertDoesNotMatchRegularExpression(
+            '/<textarea[^>]*id="description-input"[^>]*\\srequired/i',
+            $html,
+            'Admin save must not HTML5-block an empty brief.'
         );
         $descriptionPos = strpos($html, 'id="description-input"');
         $imagePos = strpos($html, 'id="site_image"');
@@ -662,7 +686,7 @@ class MarketingOpsScopeTest extends TestCase
             'description' => 'Publisher brief stays visible on the locked marketing view.',
         ]);
 
-        $this->actingAs($this->marketer)
+        $html = $this->actingAs($this->marketer)
             ->get(route('marketing.sites.edit', $site->id))
             ->assertOk()
             ->assertSee('Edit description', false)
@@ -675,7 +699,14 @@ class MarketingOpsScopeTest extends TestCase
             ->assertDontSee('js-staff-verify', false)
             ->assertDontSee('name="site_url"', false)
             ->assertDontSee('name="price"', false)
-            ->assertDontSee('name="da"', false);
+            ->assertDontSee('name="da"', false)
+            ->getContent();
+
+        $this->assertSame(
+            1,
+            preg_match_all('/id="description"(?![\\w-])/', $html),
+            'Live marketing edit must not wrap the brief in a second id="description".'
+        );
     }
 
     public function test_marketer_can_update_description_on_live_or_verified_site(): void
@@ -753,7 +784,7 @@ class MarketingOpsScopeTest extends TestCase
             ->get(route('marketing.sites.edit', $site->id))
             ->assertOk()
             ->assertSee('View site', false)
-            ->assertSee('This listing is live, verified, or archived. Marketing cannot change it.', false)
+            ->assertSee('This listing is archived. Marketing cannot change it.', false)
             ->assertDontSee('name="site_url"', false)
             ->assertDontSee('Save description', false)
             ->assertDontSee('data-site-description-editor', false);
@@ -771,6 +802,23 @@ class MarketingOpsScopeTest extends TestCase
                 'categories' => $category->name,
             ])
             ->assertForbidden();
+
+        $this->actingAs($this->marketer)
+            ->from(route('marketing.sites.edit', $site->id))
+            ->put(route('marketing.sites.update', $site->id), [
+                'site_name' => 'Should Not Stick',
+                'site_url' => 'https://should-not-stick.example',
+                'price' => 1,
+                'da' => 11,
+                'dr' => 12,
+                'traffic' => 100,
+                'language' => 'de',
+                'country' => 'de',
+                'categories' => $category->name,
+            ])
+            ->assertRedirect(route('marketing.sites.edit', $site->id))
+            ->assertSessionHasErrors('save')
+            ->assertSessionDoesntHaveErrors('site_url');
 
         $this->assertSame('https://archived-pending.example', $site->fresh()->site_url);
         $this->assertSame(40, (int) $site->fresh()->da);
