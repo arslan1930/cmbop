@@ -331,7 +331,7 @@ class MarketingActivateSitesPermissionTest extends TestCase
         // Manage menu must still offer Deactivate after activate (and Activate after deactivate).
         $html = file_get_contents(resource_path('views/admin/sites.blade.php'));
         $this->assertStringContainsString('const isActive = Number(site.active) === 1', $html);
-        $this->assertStringContainsString('marketingActivateBlocked', $html);
+        $this->assertStringContainsString('activateBlocked = site.can_activate === false', $html);
         $this->assertStringContainsString('data-status="0"', $html);
         $this->assertStringContainsString('Deactivate', $html);
         $this->assertStringContainsString('Reason for the publisher', $html);
