@@ -149,6 +149,9 @@
                     @endif
                     <form method="POST" action="{{ route('admin.campaigns.send') }}" id="campaignForm">
                         @csrf
+                        @if($editingDraft)
+                            <input type="hidden" name="draft_id" value="{{ $editingDraft->id }}">
+                        @endif
                         <div class="row g-3">
                             <div class="col-md-6">
                                 <label class="form-label">Internal name (optional)</label>
@@ -505,6 +508,10 @@
     }
 
     form.addEventListener('submit', function (e) {
+        if (e.submitter && e.submitter.id === 'campaignSaveDraftBtn') {
+            return;
+        }
+
         if (form.dataset.slbAllowSubmit === '1') {
             delete form.dataset.slbAllowSubmit;
             e.stopImmediatePropagation();
