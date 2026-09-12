@@ -11,6 +11,7 @@ Allow: /guest-posts-italy
 Allow: /guest-posts-spain
 Allow: /guest-posts-france
 Allow: /guest-posts-netherlands
+Allow: /guest-post-prices-europe
 Disallow: /admin/
 Disallow: /marketing/
 Disallow: /advertiser/
@@ -32,6 +33,7 @@ Allow: /guest-posts-italy
 Allow: /guest-posts-spain
 Allow: /guest-posts-france
 Allow: /guest-posts-netherlands
+Allow: /guest-post-prices-europe
 Disallow: /admin/
 Disallow: /marketing/
 Disallow: /advertiser/
@@ -53,6 +55,7 @@ Allow: /guest-posts-italy
 Allow: /guest-posts-spain
 Allow: /guest-posts-france
 Allow: /guest-posts-netherlands
+Allow: /guest-post-prices-europe
 Disallow: /admin/
 Disallow: /marketing/
 Disallow: /advertiser/
@@ -74,6 +77,7 @@ Allow: /guest-posts-italy
 Allow: /guest-posts-spain
 Allow: /guest-posts-france
 Allow: /guest-posts-netherlands
+Allow: /guest-post-prices-europe
 Disallow: /admin/
 Disallow: /marketing/
 Disallow: /advertiser/
@@ -95,6 +99,7 @@ Allow: /guest-posts-italy
 Allow: /guest-posts-spain
 Allow: /guest-posts-france
 Allow: /guest-posts-netherlands
+Allow: /guest-post-prices-europe
 Disallow: /admin/
 Disallow: /marketing/
 Disallow: /advertiser/
@@ -116,6 +121,7 @@ Allow: /guest-posts-italy
 Allow: /guest-posts-spain
 Allow: /guest-posts-france
 Allow: /guest-posts-netherlands
+Allow: /guest-post-prices-europe
 Disallow: /admin/
 Disallow: /marketing/
 Disallow: /advertiser/
@@ -137,6 +143,7 @@ Allow: /guest-posts-italy
 Allow: /guest-posts-spain
 Allow: /guest-posts-france
 Allow: /guest-posts-netherlands
+Allow: /guest-post-prices-europe
 Disallow: /admin/
 Disallow: /marketing/
 Disallow: /advertiser/
@@ -158,6 +165,7 @@ Allow: /guest-posts-italy
 Allow: /guest-posts-spain
 Allow: /guest-posts-france
 Allow: /guest-posts-netherlands
+Allow: /guest-post-prices-europe
 Disallow: /admin/
 Disallow: /marketing/
 Disallow: /advertiser/
@@ -179,6 +187,7 @@ Allow: /guest-posts-italy
 Allow: /guest-posts-spain
 Allow: /guest-posts-france
 Allow: /guest-posts-netherlands
+Allow: /guest-post-prices-europe
 Disallow: /admin/
 Disallow: /marketing/
 Disallow: /advertiser/
@@ -200,6 +209,7 @@ Allow: /guest-posts-italy
 Allow: /guest-posts-spain
 Allow: /guest-posts-france
 Allow: /guest-posts-netherlands
+Allow: /guest-post-prices-europe
 Disallow: /admin/
 Disallow: /marketing/
 Disallow: /advertiser/
@@ -221,6 +231,7 @@ Allow: /guest-posts-italy
 Allow: /guest-posts-spain
 Allow: /guest-posts-france
 Allow: /guest-posts-netherlands
+Allow: /guest-post-prices-europe
 Disallow: /admin/
 Disallow: /marketing/
 Disallow: /advertiser/
@@ -242,6 +253,7 @@ Allow: /guest-posts-italy
 Allow: /guest-posts-spain
 Allow: /guest-posts-france
 Allow: /guest-posts-netherlands
+Allow: /guest-post-prices-europe
 Disallow: /admin/
 Disallow: /marketing/
 Disallow: /advertiser/
@@ -263,6 +275,7 @@ Allow: /guest-posts-italy
 Allow: /guest-posts-spain
 Allow: /guest-posts-france
 Allow: /guest-posts-netherlands
+Allow: /guest-post-prices-europe
 Disallow: /admin/
 Disallow: /marketing/
 Disallow: /advertiser/
@@ -284,6 +297,7 @@ Allow: /guest-posts-italy
 Allow: /guest-posts-spain
 Allow: /guest-posts-france
 Allow: /guest-posts-netherlands
+Allow: /guest-post-prices-europe
 Disallow: /admin/
 Disallow: /marketing/
 Disallow: /advertiser/
@@ -305,6 +319,7 @@ Allow: /guest-posts-italy
 Allow: /guest-posts-spain
 Allow: /guest-posts-france
 Allow: /guest-posts-netherlands
+Allow: /guest-post-prices-europe
 Disallow: /admin/
 Disallow: /marketing/
 Disallow: /advertiser/
@@ -326,6 +341,7 @@ Allow: /guest-posts-italy
 Allow: /guest-posts-spain
 Allow: /guest-posts-france
 Allow: /guest-posts-netherlands
+Allow: /guest-post-prices-europe
 Disallow: /admin/
 Disallow: /marketing/
 Disallow: /advertiser/
@@ -347,6 +363,7 @@ Allow: /guest-posts-italy
 Allow: /guest-posts-spain
 Allow: /guest-posts-france
 Allow: /guest-posts-netherlands
+Allow: /guest-post-prices-europe
 Disallow: /admin/
 Disallow: /marketing/
 Disallow: /advertiser/
@@ -368,6 +385,7 @@ Allow: /guest-posts-italy
 Allow: /guest-posts-spain
 Allow: /guest-posts-france
 Allow: /guest-posts-netherlands
+Allow: /guest-post-prices-europe
 Disallow: /admin/
 Disallow: /marketing/
 Disallow: /advertiser/
@@ -389,6 +407,7 @@ Allow: /guest-posts-italy
 Allow: /guest-posts-spain
 Allow: /guest-posts-france
 Allow: /guest-posts-netherlands
+Allow: /guest-post-prices-europe
 Disallow: /admin/
 Disallow: /marketing/
 Disallow: /advertiser/

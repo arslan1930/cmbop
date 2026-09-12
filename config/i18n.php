@@ -41,6 +41,7 @@ return [
         'guest-posts-spain',
         'guest-posts-france',
         'guest-posts-netherlands',
+        'guest-post-prices-europe',
     ],
 
     /** Paths that must always render in English (no locale prefix). */

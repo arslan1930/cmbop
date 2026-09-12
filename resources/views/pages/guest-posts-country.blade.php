@@ -178,6 +178,10 @@
         <a href="{{ localized_url('how-it-works') }}" class="btn btn-outline-secondary btn-lg px-4">{{ __('messages.nav_how_it_works') }}</a>
     </div>
     <p class="text-center text-muted small mt-3 mb-0">{{ __('messages.marketplace_catalog_note') }}</p>
+    <p class="text-center small mt-2 mb-0">
+        Europe-wide medians:
+        <a href="{{ url('/guest-post-prices-europe') }}">EU guest-post price index</a>
+    </p>
 
     @include('components.country-lander-nav', [
         'title' => 'Other markets',

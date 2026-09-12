@@ -7,6 +7,7 @@ use App\Services\CartPricingService;
 use App\Services\Catalog\CatalogCountryInventory;
 use App\Services\Catalog\CatalogLanguageFilter;
 use App\Services\Catalog\SiteUrlVisibility;
+use App\Services\Marketing\GuestPostPriceIndex;
 use App\Services\SiteDescriptionSanitizer;
 use App\Support\SiteDescriptionRules;
 use App\Support\SiteTag;
@@ -24,7 +25,10 @@ class Site extends Model
 
     protected static function booted(): void
     {
-        $bustInventory = static fn () => CatalogCountryInventory::forget();
+        $bustInventory = static function () {
+            CatalogCountryInventory::forget();
+            GuestPostPriceIndex::forget();
+        };
         static::saved($bustInventory);
         static::deleted($bustInventory);
     }

@@ -8,6 +8,7 @@ use App\Models\Order;
 use App\Models\Site;
 use App\Services\CuratedBlogWriter;
 use App\Services\Marketing\CatalogTeaserService;
+use App\Services\Marketing\GuestPostPriceIndex;
 use App\Support\CountryLander;
 use Throwable;
 
@@ -62,6 +63,14 @@ class MarketingPageController extends Controller
             'priceFrom' => $teasers->priceFromForCountries($codes),
             'blogLinks' => $this->landerBlogLinks($lander['blog_slugs'] ?? []),
             'siblings' => CountryLander::siblings($key),
+        ]);
+    }
+
+    public function europePriceIndex(GuestPostPriceIndex $index)
+    {
+        return view('pages.guest-post-prices-europe', [
+            'index' => $index->snapshot(),
+            'countryLanders' => CountryLander::siblings(),
         ]);
     }
 

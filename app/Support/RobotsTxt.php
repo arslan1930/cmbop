@@ -49,6 +49,7 @@ class RobotsTxt
             '/guest-posts-spain',
             '/guest-posts-france',
             '/guest-posts-netherlands',
+            '/guest-post-prices-europe',
         ];
     }
 

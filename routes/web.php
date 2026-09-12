@@ -172,6 +172,9 @@ $registerPublicMarketingRoutes = function (string $locale = 'en') {
             ->defaults('key', $landerKey)
             ->name('guest-posts.'.$landerKey);
     }
+
+    Route::get('/guest-post-prices-europe', [MarketingPageController::class, 'europePriceIndex'])
+        ->name('guest-post-prices-europe');
 };
 
 // English (canonical, no prefix)

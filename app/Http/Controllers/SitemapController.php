@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Blog;
 use App\Models\BlogTranslation;
 use App\Services\CuratedBlogSync;
+use App\Services\Marketing\GuestPostPriceIndex;
 use App\Support\CountryLander;
 use App\Support\PublicI18n;
 use Illuminate\Http\Response;
@@ -82,6 +83,9 @@ class SitemapController extends Controller
             foreach (CountryLander::slugs() as $landerPath) {
                 $urls[] = $this->urlEntry($landerPath, $locale, 'weekly', '0.8', ['en'], ['en' => $landerPath]);
             }
+
+            $priceIndex = GuestPostPriceIndex::SLUG;
+            $urls[] = $this->urlEntry($priceIndex, $locale, 'weekly', '0.8', ['en'], ['en' => $priceIndex]);
         }
 
         $translations = collect();

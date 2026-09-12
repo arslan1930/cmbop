@@ -178,6 +178,8 @@ class CountryLanderPageTest extends TestCase
             ->assertSee('Germany', false)
             ->assertSee('country-lander-nav__card', false)
             ->assertSee('Guest posts by market', false)
+            ->assertSee('/guest-post-prices-europe', false)
+            ->assertSee('EU guest-post price index', false)
             ->assertSee(url('/register'), false)
             ->assertSee(localized_url('become-a-publisher'), false);
     }
