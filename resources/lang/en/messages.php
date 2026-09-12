@@ -73,8 +73,8 @@ return [
     'meta_marketplace_description' => 'Filter verified websites by niche, language, and price. Order editorial placements with live-URL tracking on the SEOLinkBuildings marketplace.',
     'meta_how_it_works_title' => 'How Guest Post Ordering Works | SEOLinkBuildings',
     'meta_how_it_works_description' => 'Browse verified publishers with ratings and completion history, fund a EUR wallet (€20 welcome credit), assign content, approve the live URL, and rate delivery — plus how publishers list and get paid.',
-    'meta_become_publisher_title' => 'Sell Guest Posts and Earn | Become a Publisher',
-    'meta_become_publisher_description' => 'List your site, accept placement orders, and withdraw earnings. Join the SEOLinkBuildings publisher network for quality editorial demand.',
+    'meta_become_publisher_title' => 'Become a Publisher for Guest Posts | SEOLinkBuildings',
+    'meta_become_publisher_description' => 'Become a publisher for guest posts: list your site, accept placement orders, and withdraw earnings on the SEOLinkBuildings publisher network.',
     'meta_why_choose_title' => 'Why Brands Choose SEOLinkBuildings',
     'meta_why_choose_description' => 'Verified publishers, multilingual inventory, wallet payments, and order chat—built for agencies and in-house SEO teams who need reliable backlinks.',
     'meta_cookie_title' => 'Cookie Policy | SEOLinkBuildings',
@@ -215,7 +215,7 @@ return [
 
     // Become publisher
     'become_publisher_kicker' => 'Publishers',
-    'become_publisher_title' => 'Monetize your editorial inventory',
+    'become_publisher_title' => 'Become a publisher for guest posts',
     'become_publisher_subtitle' => 'List websites, receive briefed orders, and get paid for quality placements.',
     'become_publisher_point_1_title' => 'Simple listing',
     'become_publisher_point_1_body' => 'Add your site details, pricing, and turnaround so advertisers can find you fast.',

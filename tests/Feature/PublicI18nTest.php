@@ -79,6 +79,18 @@ class PublicI18nTest extends TestCase
         $this->assertStringNotContainsString('Monetarisieren Sie Ihr redaktionelles Inventar', $html);
     }
 
+    public function test_english_publisher_page_targets_become_a_publisher_guest_posts(): void
+    {
+        $html = $this->get('/become-a-publisher')
+            ->assertOk()
+            ->getContent();
+
+        $this->assertStringContainsString('Become a Publisher for Guest Posts | SEOLinkBuildings', $html);
+        $this->assertStringContainsString('Become a publisher for guest posts', $html);
+        $this->assertStringNotContainsString('Sell Guest Posts and Earn', $html);
+        $this->assertStringNotContainsString('Monetize your editorial inventory', $html);
+    }
+
     public function test_locale_login_redirects_to_english_auth(): void
     {
         $this->get('/de/login')
