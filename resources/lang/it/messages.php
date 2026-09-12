@@ -9,7 +9,7 @@ return [
 
     // Hero Section Translations
     'hero_title' => 'SEOLinkBuildings',
-    'hero_support' => 'Comprare guest post su siti di editori verificati.',
+    'hero_support' => 'Comprate guest post su siti di editori verificati.',
     'get_started' => 'Inizia',
     'hero_tagline' => 'Il marketplace globale di link building per SEO, PR digitale e distribuzione di contenuti.',
     'hero_product_alt' => 'Anteprima del catalogo del marketplace con metriche dei publisher e prezzi delle pubblicazioni',

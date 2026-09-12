@@ -9,7 +9,7 @@ return [
 
     // Hero Section Translations
     'hero_title' => 'SEOLinkBuildings',
-    'hero_support' => 'Gastbeitrag-Marktplatz für geprüfte Publisher-Seiten.',
+    'hero_support' => 'Gastbeitrag-Marktplatz für geprüfte Publisher.',
     'get_started' => 'Loslegen',
     'hero_tagline' => 'Der globale Linkbuilding-Marktplatz für SEO, digitale PR und Content-Verteilung.',
     'hero_product_alt' => 'Vorschau des Marktplatz-Katalogs mit Publisher-Kennzahlen und Placement-Preisen',
@@ -547,7 +547,7 @@ return [
     'meta_marketplace_description' => 'Filtern Sie verifizierte Websites nach Nische, Sprache und Preis. Bestellen Sie redaktionelle Placements mit Live-URL-Tracking auf SEOLinkBuildings.',
     'meta_how_it_works_title' => 'So funktionieren Guest-Post-Bestellungen | SEOLinkBuildings',
     'meta_how_it_works_description' => 'Verifizierte Publisher mit Bewertungen und Abschluss-Historie browsen, EUR-Wallet aufladen (€20 Willkommen), Content zuweisen, Live-URL freigeben und bewerten — plus Publisher-Listing und Auszahlung.',
-    'meta_become_publisher_title' => 'Website mit Gastbeiträgen vermarkten | Publisher werden',
+    'meta_become_publisher_title' => 'Ihre Website mit Gastbeiträgen vermarkten | Publisher werden',
     'meta_become_publisher_description' => 'Website mit Gastbeiträgen vermarkten: Seite listen, Platzierungen annehmen und Einnahmen auszahlen — das Publisher-Netzwerk von SEOLinkBuildings.',
     'meta_why_choose_title' => 'Warum Marken SEOLinkBuildings wählen',
     'meta_why_choose_description' => 'Verifizierte Publisher, mehrsprachiges Inventar, Wallet-Zahlungen und Order-Chat — für Agenturen und Inhouse-SEO-Teams mit zuverlässigen Backlinks.',
@@ -679,7 +679,7 @@ return [
     'marketplace_teaser_subtitle' => 'Eine Vorschau live verfügbarer Placements — erstellen Sie ein kostenloses Konto für den vollständigen Katalog.',
     'marketplace_catalog_note' => 'Der Live-Katalog öffnet sich nach dem Login und bleibt auf Englisch.',
     'become_publisher_kicker' => 'Publisher',
-    'become_publisher_title' => 'Website mit Gastbeiträgen vermarkten',
+    'become_publisher_title' => 'Ihre Website mit Gastbeiträgen vermarkten',
     'become_publisher_subtitle' => 'Listen Sie Websites, erhalten Sie briefte Aufträge und verdienen Sie mit Qualitätsplacements.',
     'become_publisher_point_1_title' => 'Einfaches Listing',
     'become_publisher_point_1_body' => 'Fügen Sie Details, Preise und Lieferzeiten hinzu, damit Advertiser Sie schnell finden.',

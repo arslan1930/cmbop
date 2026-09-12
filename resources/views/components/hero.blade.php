@@ -135,8 +135,9 @@
     line-height: 1.15;
     font-weight: 700;
     color: var(--brand-primary, #1a585e);
-    letter-spacing: -0.03em;
-    max-width: 18ch;
+    letter-spacing: -0.015em;
+    word-spacing: 0.04em;
+    max-width: 32ch;
     animation: slbHeroFade 0.7s ease 0.08s both;
   }
 

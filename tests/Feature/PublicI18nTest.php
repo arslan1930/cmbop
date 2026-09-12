@@ -29,7 +29,7 @@ class PublicI18nTest extends TestCase
             ->getContent();
 
         $this->assertStringContainsString('Gastbeiträge kaufen — Gastbeitrag-Marktplatz | SEOLinkBuildings', $html);
-        $this->assertStringContainsString('Gastbeitrag-Marktplatz für geprüfte Publisher-Seiten.', $html);
+        $this->assertStringContainsString('Gastbeitrag-Marktplatz für geprüfte Publisher.', $html);
         $this->assertStringNotContainsString('Guest-Post-Marktplatz für SEO-Backlinks', $html);
         $this->assertStringNotContainsString('The guest post marketplace for verified publisher sites.', $html);
     }
@@ -39,23 +39,23 @@ class PublicI18nTest extends TestCase
         $pages = [
             '/de' => [
                 'Gastbeiträge kaufen — Gastbeitrag-Marktplatz | SEOLinkBuildings',
-                'Gastbeitrag-Marktplatz für geprüfte Publisher-Seiten.',
+                'Gastbeitrag-Marktplatz für geprüfte Publisher.',
             ],
             '/fr' => [
                 'Acheter des guest posts chez des éditeurs vérifiés | SEOLinkBuildings',
-                'Acheter des guest posts sur des sites d’éditeurs vérifiés.',
+                'Achetez des guest posts sur des sites d’éditeurs vérifiés.',
             ],
             '/it' => [
                 'Comprare guest post da editori verificati | SEOLinkBuildings',
-                'Comprare guest post su siti di editori verificati.',
+                'Comprate guest post su siti di editori verificati.',
             ],
             '/es' => [
                 'Comprar guest posts de editores verificados | SEOLinkBuildings',
-                'Comprar guest posts en sitios de editores verificados.',
+                'Compre guest posts en sitios de editores verificados.',
             ],
             '/nl' => [
-                'Guest posts kopen bij gecontroleerde publishers | SEOLinkBuildings',
-                'Guest posts kopen op gecontroleerde publisher-sites.',
+                'Guest posts kopen bij geverifieerde publishers | SEOLinkBuildings',
+                'Guest posts kopen bij geverifieerde publishers.',
             ],
         ];
 
@@ -73,8 +73,8 @@ class PublicI18nTest extends TestCase
             ->assertOk()
             ->getContent();
 
-        $this->assertStringContainsString('Website mit Gastbeiträgen vermarkten | Publisher werden', $html);
-        $this->assertStringContainsString('Website mit Gastbeiträgen vermarkten', $html);
+        $this->assertStringContainsString('Ihre Website mit Gastbeiträgen vermarkten | Publisher werden', $html);
+        $this->assertStringContainsString('Ihre Website mit Gastbeiträgen vermarkten', $html);
         $this->assertStringNotContainsString('Guest Posts verkaufen und verdienen', $html);
         $this->assertStringNotContainsString('Monetarisieren Sie Ihr redaktionelles Inventar', $html);
     }
@@ -85,8 +85,9 @@ class PublicI18nTest extends TestCase
             ->assertOk()
             ->getContent();
 
-        $this->assertStringContainsString('Become a Publisher for Guest Posts | SEOLinkBuildings', $html);
+        $this->assertStringContainsString('Become a Publisher and Sell Guest Posts | SEOLinkBuildings', $html);
         $this->assertStringContainsString('List your site and sell guest posts', $html);
+        $this->assertStringNotContainsString('Become a publisher for guest posts', $html);
         $this->assertStringNotContainsString('Sell Guest Posts and Earn', $html);
         $this->assertStringNotContainsString('Monetize your editorial inventory', $html);
     }
@@ -97,8 +98,9 @@ class PublicI18nTest extends TestCase
             ->assertOk()
             ->getContent();
 
-        $this->assertStringContainsString('Digital PR Marketplace Pricing | SEOLinkBuildings', $html);
-        $this->assertStringContainsString('Digital PR marketplace pricing', $html);
+        $this->assertStringContainsString('Digital PR Marketplace | Guest Posts and Packages | SEOLinkBuildings', $html);
+        $this->assertStringContainsString('The digital PR marketplace for guest posts and packages', $html);
+        $this->assertStringContainsString('Marketplace placements and Digital PR packages', $html);
         $this->assertStringNotContainsString('Guest Post and Digital PR Pricing', $html);
         $this->assertStringNotContainsString('Transparent pricing for every campaign', $html);
         $this->assertStringNotContainsString('The guest post marketplace for verified publisher sites.', $html);

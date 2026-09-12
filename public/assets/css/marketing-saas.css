@@ -29,7 +29,8 @@ body.slb-marketing .h1,
 body.slb-marketing .h2,
 body.slb-marketing .h3 {
   font-family: var(--slb-font-display);
-  letter-spacing: -0.03em;
+  letter-spacing: -0.015em;
+  word-spacing: 0.04em;
 }
 
 /* —— Navbar —— */

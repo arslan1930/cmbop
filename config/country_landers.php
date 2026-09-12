@@ -96,9 +96,9 @@ return [
         'keyword' => 'comprare guest post',
         'kicker' => 'Italian publishers',
         'title' => 'Guest posts in Italy',
-        'meta_title' => 'Guest Posts in Italy — Comprare Guest Post in EUR',
-        'meta_description' => 'Comprare guest post on verified Italian publishers. EUR wallet, tracked live URLs, and a public sample of Italy inventory.',
-        'subtitle' => 'Editorial placements on primary-Italy sites. Comprare guest post with a EUR wallet and a tracked live URL — not a PDF invoice from a broker.',
+        'meta_title' => 'Comprare Guest Post in Italy — Verified Publishers, EUR',
+        'meta_description' => 'Buy guest posts on verified Italian publishers. EUR wallet, tracked live URLs, and a public sample of Italy inventory.',
+        'subtitle' => 'Editorial placements on primary-Italy sites. Pay in EUR and keep the live URL on the order — not a PDF invoice from a broker.',
         'point_1_title' => 'Italy-primary publishers',
         'point_1_body' => 'Teasers are sites whose primary country is Italy. Language is usually Italian; confirm the listing language before you brief.',
         'point_2_title' => 'EUR, not a hidden markup list',
@@ -115,7 +115,7 @@ return [
         'faqs' => [
             [
                 'q' => 'Posso comprare guest post in Italia da questo marketplace?',
-                'a' => 'Yes. This page is the English lander for Italy inventory. After you register, filter country Italy and check out in EUR.',
+                'a' => 'Yes. This English page is the public lander for Italy inventory. After you register, filter country Italy and check out in EUR.',
             ],
             [
                 'q' => 'Is the article written in Italian?',
@@ -138,9 +138,9 @@ return [
         'keyword' => 'guest post comprar',
         'kicker' => 'Spanish publishers',
         'title' => 'Guest posts in Spain',
-        'meta_title' => 'Guest Posts in Spain — Guest Post Comprar in EUR',
-        'meta_description' => 'Guest post comprar on verified Spanish publishers. EUR wallet, tracked live URLs, and a public sample of Spain inventory.',
-        'subtitle' => 'Primary-Spain publishers for teams who need to guest post comprar with a clear EUR price and a live URL on the order.',
+        'meta_title' => 'Guest Post Comprar in Spain — Verified Publishers, EUR',
+        'meta_description' => 'Buy guest posts in Spain on verified publishers. EUR wallet, tracked live URLs, and a public sample of Spain inventory.',
+        'subtitle' => 'Primary-Spain publishers with a clear EUR price and a live URL on the order.',
         'point_1_title' => 'Spain-primary listings',
         'point_1_body' => 'These teasers are sites whose primary country is Spain. Latin American inventory is a different filter after login.',
         'point_2_title' => 'EUR wallet',
@@ -156,8 +156,8 @@ return [
         ],
         'faqs' => [
             [
-                'q' => 'Puedo hacer guest post comprar en sitios de España?',
-                'a' => 'Yes. Register, filter country Spain, and check out in EUR. This page is the public English lander for that inventory.',
+                'q' => '¿Puedo comprar guest posts en sitios de España?',
+                'a' => 'Yes. Register, filter country Spain, and check out in EUR. This English page is the public lander for that inventory.',
             ],
             [
                 'q' => 'Does Spain include Latin America?',
@@ -180,9 +180,9 @@ return [
         'keyword' => 'acheter guest post',
         'kicker' => 'French publishers',
         'title' => 'Guest posts in France',
-        'meta_title' => 'Guest Posts in France — Acheter Guest Post in EUR',
-        'meta_description' => 'Acheter guest post on verified French publishers. EUR wallet, tracked live URLs, and a public sample of France inventory.',
-        'subtitle' => 'Primary-France publishers. Acheter guest post with a EUR wallet and a tracked live URL on the order.',
+        'meta_title' => 'Acheter Guest Post in France — Verified Publishers, EUR',
+        'meta_description' => 'Buy guest posts on verified French publishers. EUR wallet, tracked live URLs, and a public sample of France inventory.',
+        'subtitle' => 'Primary-France publishers. Pay in EUR and keep the live URL on the order.',
         'point_1_title' => 'France-primary sites',
         'point_1_body' => 'Teasers are listings whose primary country is France. Belgian or Swiss French sites are not mixed in here.',
         'point_2_title' => 'EUR native',
@@ -198,8 +198,8 @@ return [
         ],
         'faqs' => [
             [
-                'q' => 'Comment acheter guest post sur des sites français?',
-                'a' => 'Create an account, filter country France, fund the EUR wallet, and send the brief. This page is the public English lander for that catalog slice.',
+                'q' => 'Comment acheter un guest post sur des sites français ?',
+                'a' => 'Create an account, filter country France, fund the EUR wallet, and send the brief. This English page is the public lander for that catalog slice.',
             ],
             [
                 'q' => 'Is the article in French?',
@@ -222,9 +222,9 @@ return [
         'keyword' => 'guest post kopen',
         'kicker' => 'Benelux publishers',
         'title' => 'Guest posts in the Netherlands',
-        'meta_title' => 'Guest Posts in the Netherlands — Guest Post Kopen in EUR',
-        'meta_description' => 'Guest post kopen on verified Dutch publishers. EUR wallet, tracked live URLs, and a public sample of Netherlands inventory.',
-        'subtitle' => 'Primary-Netherlands publishers for teams who want to guest post kopen with a EUR price and a live URL on the order.',
+        'meta_title' => 'Guest Post Kopen in the Netherlands — Verified Publishers, EUR',
+        'meta_description' => 'Buy guest posts on verified Dutch publishers. EUR wallet, tracked live URLs, and a public sample of Netherlands inventory.',
+        'subtitle' => 'Primary-Netherlands publishers with a EUR price and a live URL on the order.',
         'point_1_title' => 'Netherlands-primary listings',
         'point_1_body' => 'This preview is NL-primary sites. Belgium and Luxembourg stay on their own filters after login — useful if you need the rest of Benelux.',
         'point_2_title' => 'EUR wallet',
