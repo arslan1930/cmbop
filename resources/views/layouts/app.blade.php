@@ -18,6 +18,7 @@
         );
         $pageCanonical = trim($__env->yieldContent('canonical')) ?: url()->current();
         $pageImage = trim($__env->yieldContent('og_image')) ?: asset('assets/brand/web/og-share-1200x630.png');
+        $pageLogo = asset('assets/img/logo1.png');
         $pageType = trim($__env->yieldContent('og_type')) ?: 'website';
         $hreflangXDefault = trim($__env->yieldContent('hreflang_x_default')) ?: null;
         $hreflangLocalesRaw = trim($__env->yieldContent('hreflang_locales'));
@@ -75,9 +76,11 @@
     <meta property="og:description" content="{{ $pageDescription }}">
     <meta property="og:url" content="{{ $pageCanonical }}">
     <meta property="og:image" content="{{ $pageImage }}">
+    <meta property="og:image:type" content="image/png">
     <meta property="og:image:width" content="1200">
     <meta property="og:image:height" content="630">
     <meta property="og:image:alt" content="SEOLinkBuildings — Guest post & backlink marketplace">
+    <meta property="og:logo" content="{{ $pageLogo }}">
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:title" content="{{ $pageTitle }}">
     <meta name="twitter:description" content="{{ $pageDescription }}">
