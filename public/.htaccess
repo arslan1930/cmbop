@@ -42,6 +42,11 @@ LimitRequestBody 67108864
 
     RewriteEngine On
 
+    # One host: www → apex (HTTPS). Do not 301 POST — browsers drop the body.
+    RewriteCond %{REQUEST_METHOD} GET
+    RewriteCond %{HTTP_HOST} ^www\.seolinkbuildings\.com$ [NC]
+    RewriteRule ^ https://seolinkbuildings.com%{REQUEST_URI} [L,R=301]
+
     RewriteCond %{HTTP:Authorization} .
     RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
 

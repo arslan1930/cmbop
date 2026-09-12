@@ -166,6 +166,10 @@ $registerPublicMarketingRoutes = function (string $locale = 'en') {
 // English (canonical, no prefix)
 Route::group([], fn () => $registerPublicMarketingRoutes('en'));
 
+// Short legal aliases used in citations / the SEO workbook Pages tab.
+Route::get('/privacy', fn () => Redirect::to('/privacy-policy', 301));
+Route::get('/terms', fn () => Redirect::to('/terms-of-services', 301));
+
 // Prefixed locales use translated slugs; English leftovers 301 below.
 foreach (PublicI18n::prefixed() as $locale) {
     Route::group([

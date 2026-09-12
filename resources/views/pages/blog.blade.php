@@ -2,7 +2,22 @@
 
 @section('title', __('messages.meta_blog_title'))
 @section('description', __('messages.meta_blog_description'))
-@section('canonical', localized_url('blog'))
+@php
+    $blogCanonical = localized_url('blog');
+    if (isset($blog) && $blog->currentPage() > 1) {
+        $blogCanonical .= '?page='.$blog->currentPage();
+    }
+@endphp
+@section('canonical', $blogCanonical)
+
+@push('head')
+    @if(isset($blog) && $blog->previousPageUrl())
+        <link rel="prev" href="{{ $blog->previousPageUrl() }}">
+    @endif
+    @if(isset($blog) && $blog->nextPageUrl())
+        <link rel="next" href="{{ $blog->nextPageUrl() }}">
+    @endif
+@endpush
 
 @section('content')
 

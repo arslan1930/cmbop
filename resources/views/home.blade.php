@@ -11,6 +11,8 @@
     '@type' => 'Organization',
     'name' => 'SEOLinkBuildings',
     'legalName' => config('billing.company.legal_name'),
+    'alternateName' => 'Topurlz Ltd',
+    'identifier' => config('billing.company.registration_no', '16607074'),
     'url' => url('/'),
     'logo' => asset('assets/img/logo1.png'),
     'sameAs' => array_values(array_filter(array_column(config('social.profiles', []), 'url'))),
@@ -25,6 +27,27 @@
         '@type' => 'ContactPoint',
         'contactType' => 'customer support',
         'email' => config('billing.company.support_email', 'support@seolinkbuildings.com'),
+    ],
+], JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE) !!}
+</script>
+<script type="application/ld+json">
+{!! json_encode([
+    '@@context' => 'https://schema.org',
+    '@type' => 'SoftwareApplication',
+    'name' => 'SEOLinkBuildings',
+    'applicationCategory' => 'BusinessApplication',
+    'operatingSystem' => 'Web',
+    'url' => url('/'),
+    'offers' => [
+        '@type' => 'Offer',
+        'price' => '0',
+        'priceCurrency' => 'EUR',
+    ],
+    'provider' => [
+        '@type' => 'Organization',
+        'name' => 'SEOLinkBuildings',
+        'legalName' => config('billing.company.legal_name'),
+        'identifier' => config('billing.company.registration_no', '16607074'),
     ],
 ], JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE) !!}
 </script>

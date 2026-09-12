@@ -44,6 +44,7 @@
             class="slb-hero-product"
             width="1200"
             height="518"
+            fetchpriority="high"
             loading="eager"
             decoding="async"
           >
@@ -391,12 +392,12 @@
   }
 
   @keyframes slbHeroFade {
-    from { opacity: 0; transform: translateY(10px); }
+    from { opacity: 1; transform: translateY(6px); }
     to { opacity: 1; transform: translateY(0); }
   }
 
   @keyframes slbHeroRise {
-    from { opacity: 0; transform: translateY(18px); }
+    from { opacity: 1; transform: translateY(8px); }
     to { opacity: 1; transform: translateY(0); }
   }
 

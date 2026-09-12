@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Blog;
 use App\Models\BlogTranslation;
+use App\Support\RobotsTxt;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -69,6 +70,9 @@ class SeoAndSecurityHeadersTest extends TestCase
         $this->get('/robots.txt')
             ->assertOk()
             ->assertSee('Sitemap:', false)
+            ->assertSee('Allow: /marketplace', false)
+            ->assertSee('Allow: /blog', false)
+            ->assertSee('Allow: /become-a-publisher', false)
             ->assertSee('Disallow: /admin/', false)
             ->assertSee('Disallow: /marketing/', false)
             ->assertSee('Googlebot', false)
@@ -115,10 +119,72 @@ class SeoAndSecurityHeadersTest extends TestCase
             ->assertOk()
             ->assertSee('"@type":"WebSite"', false)
             ->assertSee('"@type":"Organization"', false)
+            ->assertSee('"@type":"SoftwareApplication"', false)
+            ->assertSee('16607074', false)
+            ->assertSee('fetchpriority="high"', false)
             ->assertSee('https://www.facebook.com/seolinkbuildings/', false)
             ->assertSee('https://www.instagram.com/seolinkbuildings', false)
             ->assertSee('https://x.com/seolinbuildings', false)
             ->assertSee('https://www.youtube.com/@seolinkbuildingss', false);
+    }
+
+    public function test_sitemap_index_uses_request_origin_when_app_url_is_loopback(): void
+    {
+        config(['app.url' => 'http://localhost:8000']);
+
+        $this->get('https://seolinkbuildings.com/sitemap.xml')
+            ->assertOk()
+            ->assertDontSee('localhost:8000', false)
+            ->assertSee('https://seolinkbuildings.com/sitemap-en.xml', false)
+            ->assertSee('https://seolinkbuildings.com/sitemap-de.xml', false);
+    }
+
+    public function test_www_host_redirects_to_apex(): void
+    {
+        $this->get('https://www.seolinkbuildings.com/about')
+            ->assertRedirect('https://seolinkbuildings.com/about');
+
+        $this->assertSame(301, $this->get('https://www.seolinkbuildings.com/about')->status());
+    }
+
+    public function test_short_legal_urls_redirect_to_full_paths(): void
+    {
+        $this->get('/privacy')->assertRedirect('/privacy-policy');
+        $this->get('/terms')->assertRedirect('/terms-of-services');
+        $this->assertSame(301, $this->get('/privacy')->status());
+    }
+
+    public function test_blog_page_two_has_rel_prev_and_self_canonical(): void
+    {
+        for ($i = 1; $i <= 13; $i++) {
+            $blog = Blog::factory()->published()->create([
+                'title' => 'Pagination Post '.$i,
+                'slug' => 'pagination-post-'.$i,
+            ]);
+            BlogTranslation::create([
+                'blog_id' => $blog->id,
+                'locale' => 'en',
+                'title' => 'Pagination Post '.$i,
+                'slug' => 'pagination-post-'.$i,
+                'excerpt' => 'Excerpt',
+                'content' => '<p>Body</p>',
+                'is_published' => true,
+            ]);
+        }
+
+        $this->get('/blog?page=2')
+            ->assertOk()
+            ->assertSee('rel="prev"', false)
+            ->assertSee('rel="canonical" href="'.url('/blog').'?page=2"', false);
+    }
+
+    public function test_static_robots_txt_matches_renderer_for_production_origin(): void
+    {
+        $disk = (string) file_get_contents(public_path('robots.txt'));
+        $this->assertSame(
+            RobotsTxt::render('https://seolinkbuildings.com'),
+            $disk
+        );
     }
 
     public function test_faq_page_includes_faqpage_schema(): void

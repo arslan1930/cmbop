@@ -1,5 +1,10 @@
 User-agent: *
 Allow: /
+Allow: /marketplace
+Allow: /blog
+Allow: /become-a-publisher
+Allow: /pricing
+Allow: /how-it-works
 Disallow: /admin/
 Disallow: /marketing/
 Disallow: /advertiser/
@@ -10,6 +15,11 @@ Disallow: /notifications
 
 User-agent: Googlebot
 Allow: /
+Allow: /marketplace
+Allow: /blog
+Allow: /become-a-publisher
+Allow: /pricing
+Allow: /how-it-works
 Disallow: /admin/
 Disallow: /marketing/
 Disallow: /advertiser/
@@ -20,6 +30,11 @@ Disallow: /notifications
 
 User-agent: bingbot
 Allow: /
+Allow: /marketplace
+Allow: /blog
+Allow: /become-a-publisher
+Allow: /pricing
+Allow: /how-it-works
 Disallow: /admin/
 Disallow: /marketing/
 Disallow: /advertiser/
@@ -30,6 +45,11 @@ Disallow: /notifications
 
 User-agent: Slurp
 Allow: /
+Allow: /marketplace
+Allow: /blog
+Allow: /become-a-publisher
+Allow: /pricing
+Allow: /how-it-works
 Disallow: /admin/
 Disallow: /marketing/
 Disallow: /advertiser/
@@ -40,6 +60,11 @@ Disallow: /notifications
 
 User-agent: DuckDuckBot
 Allow: /
+Allow: /marketplace
+Allow: /blog
+Allow: /become-a-publisher
+Allow: /pricing
+Allow: /how-it-works
 Disallow: /admin/
 Disallow: /marketing/
 Disallow: /advertiser/
@@ -50,6 +75,11 @@ Disallow: /notifications
 
 User-agent: GPTBot
 Allow: /
+Allow: /marketplace
+Allow: /blog
+Allow: /become-a-publisher
+Allow: /pricing
+Allow: /how-it-works
 Disallow: /admin/
 Disallow: /marketing/
 Disallow: /advertiser/
@@ -60,6 +90,11 @@ Disallow: /notifications
 
 User-agent: ChatGPT-User
 Allow: /
+Allow: /marketplace
+Allow: /blog
+Allow: /become-a-publisher
+Allow: /pricing
+Allow: /how-it-works
 Disallow: /admin/
 Disallow: /marketing/
 Disallow: /advertiser/
@@ -70,6 +105,11 @@ Disallow: /notifications
 
 User-agent: OAI-SearchBot
 Allow: /
+Allow: /marketplace
+Allow: /blog
+Allow: /become-a-publisher
+Allow: /pricing
+Allow: /how-it-works
 Disallow: /admin/
 Disallow: /marketing/
 Disallow: /advertiser/
@@ -80,6 +120,11 @@ Disallow: /notifications
 
 User-agent: Google-Extended
 Allow: /
+Allow: /marketplace
+Allow: /blog
+Allow: /become-a-publisher
+Allow: /pricing
+Allow: /how-it-works
 Disallow: /admin/
 Disallow: /marketing/
 Disallow: /advertiser/
@@ -90,6 +135,11 @@ Disallow: /notifications
 
 User-agent: ClaudeBot
 Allow: /
+Allow: /marketplace
+Allow: /blog
+Allow: /become-a-publisher
+Allow: /pricing
+Allow: /how-it-works
 Disallow: /admin/
 Disallow: /marketing/
 Disallow: /advertiser/
@@ -100,6 +150,11 @@ Disallow: /notifications
 
 User-agent: Anthropic-AI
 Allow: /
+Allow: /marketplace
+Allow: /blog
+Allow: /become-a-publisher
+Allow: /pricing
+Allow: /how-it-works
 Disallow: /admin/
 Disallow: /marketing/
 Disallow: /advertiser/
@@ -110,6 +165,11 @@ Disallow: /notifications
 
 User-agent: PerplexityBot
 Allow: /
+Allow: /marketplace
+Allow: /blog
+Allow: /become-a-publisher
+Allow: /pricing
+Allow: /how-it-works
 Disallow: /admin/
 Disallow: /marketing/
 Disallow: /advertiser/
@@ -120,6 +180,11 @@ Disallow: /notifications
 
 User-agent: Bytespider
 Allow: /
+Allow: /marketplace
+Allow: /blog
+Allow: /become-a-publisher
+Allow: /pricing
+Allow: /how-it-works
 Disallow: /admin/
 Disallow: /marketing/
 Disallow: /advertiser/
@@ -130,6 +195,11 @@ Disallow: /notifications
 
 User-agent: CCBot
 Allow: /
+Allow: /marketplace
+Allow: /blog
+Allow: /become-a-publisher
+Allow: /pricing
+Allow: /how-it-works
 Disallow: /admin/
 Disallow: /marketing/
 Disallow: /advertiser/
@@ -140,6 +210,11 @@ Disallow: /notifications
 
 User-agent: Applebot-Extended
 Allow: /
+Allow: /marketplace
+Allow: /blog
+Allow: /become-a-publisher
+Allow: /pricing
+Allow: /how-it-works
 Disallow: /admin/
 Disallow: /marketing/
 Disallow: /advertiser/
@@ -150,6 +225,11 @@ Disallow: /notifications
 
 User-agent: meta-externalagent
 Allow: /
+Allow: /marketplace
+Allow: /blog
+Allow: /become-a-publisher
+Allow: /pricing
+Allow: /how-it-works
 Disallow: /admin/
 Disallow: /marketing/
 Disallow: /advertiser/
@@ -160,6 +240,11 @@ Disallow: /notifications
 
 User-agent: LinkedInBot
 Allow: /
+Allow: /marketplace
+Allow: /blog
+Allow: /become-a-publisher
+Allow: /pricing
+Allow: /how-it-works
 Disallow: /admin/
 Disallow: /marketing/
 Disallow: /advertiser/
@@ -170,6 +255,11 @@ Disallow: /notifications
 
 User-agent: facebookexternalhit
 Allow: /
+Allow: /marketplace
+Allow: /blog
+Allow: /become-a-publisher
+Allow: /pricing
+Allow: /how-it-works
 Disallow: /admin/
 Disallow: /marketing/
 Disallow: /advertiser/
@@ -180,6 +270,11 @@ Disallow: /notifications
 
 User-agent: FacebookBot
 Allow: /
+Allow: /marketplace
+Allow: /blog
+Allow: /become-a-publisher
+Allow: /pricing
+Allow: /how-it-works
 Disallow: /admin/
 Disallow: /marketing/
 Disallow: /advertiser/

@@ -34,6 +34,19 @@ class RobotsTxt
     }
 
     /** @return list<string> */
+    public static function allows(): array
+    {
+        return [
+            '/',
+            '/marketplace',
+            '/blog',
+            '/become-a-publisher',
+            '/pricing',
+            '/how-it-works',
+        ];
+    }
+
+    /** @return list<string> */
     public static function disallows(): array
     {
         return [
@@ -49,11 +62,14 @@ class RobotsTxt
 
     public static function render(?string $baseUrl = null): string
     {
-        $base = rtrim($baseUrl ?: (string) config('app.url'), '/');
+        $base = rtrim($baseUrl ?: app_public_url(), '/');
         $blocks = [];
 
         foreach (self::agents() as $agent) {
-            $block = "User-agent: {$agent}\nAllow: /\n";
+            $block = "User-agent: {$agent}\n";
+            foreach (self::allows() as $path) {
+                $block .= "Allow: {$path}\n";
+            }
             foreach (self::disallows() as $path) {
                 $block .= "Disallow: {$path}\n";
             }

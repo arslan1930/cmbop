@@ -2,6 +2,7 @@
 
 // bootstrap/app.php
 
+use App\Http\Middleware\CanonicalHost;
 use App\Http\Middleware\DrainQueuedMail;
 use App\Http\Middleware\HealHostingerProduction;
 use App\Http\Middleware\SecurityHeaders;
@@ -33,6 +34,7 @@ return Application::configure(basePath: dirname(__DIR__))
 
         // Public-site locale detection (SaaS dashboards stay English via SetLocale rules)
         // Security headers (CSP, HSTS, nosniff, frame, referrer) on every web response
+        $middleware->prependToGroup('web', CanonicalHost::class);
         $middleware->appendToGroup('web', [
             SetLocale::class,
             SecurityHeaders::class,
