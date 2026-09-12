@@ -16,13 +16,32 @@ class BrandPresenceTest extends TestCase
             ->getContent();
 
         $this->assertStringContainsString('slb-hero-title', $html);
-        $this->assertStringContainsString('Earn powerful backlinks from trusted websites.', $html);
+        $this->assertStringContainsString('The guest post marketplace for verified publisher sites.', $html);
         $this->assertStringContainsString('assets/img/logo1.png', $html);
         $this->assertStringContainsString('slb-hero-mark', $html);
         $this->assertStringContainsString('favicon.svg', $html);
         $this->assertStringContainsString('alt="SEOLinkBuildings"', $html);
         $this->assertStringContainsString('navbar-logo', $html);
         $this->assertStringContainsString('height: 64px', $html);
+    }
+
+    public function test_homepage_and_marketplace_target_different_money_queries(): void
+    {
+        $home = $this->get('/')
+            ->assertOk()
+            ->getContent();
+
+        $this->assertStringContainsString('Guest Post Marketplace for SEO Backlinks', $home);
+        $this->assertStringContainsString('The guest post marketplace for verified publisher sites.', $home);
+        $this->assertStringNotContainsString('Buy guest posts from verified publishers', $home);
+
+        $market = $this->get('/marketplace')
+            ->assertOk()
+            ->getContent();
+
+        $this->assertStringContainsString('Browse Publisher Sites and Buy Guest Posts', $market);
+        $this->assertStringContainsString('Buy guest posts from verified publishers', $market);
+        $this->assertStringNotContainsString('The guest post marketplace for verified publisher sites.', $market);
     }
 
     public function test_marketing_subpage_hero_includes_brand_line(): void

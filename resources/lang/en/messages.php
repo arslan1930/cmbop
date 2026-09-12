@@ -9,7 +9,7 @@ return [
 
     // Hero Section Translations
     'hero_title' => 'SEOLinkBuildings',
-    'hero_support' => 'Earn powerful backlinks from trusted websites.',
+    'hero_support' => 'The guest post marketplace for verified publisher sites.',
     'get_started' => 'Get Started',
     'hero_tagline' => 'The global link building marketplace for SEO, digital PR, and content distribution.',
     'hero_product_alt' => 'Marketplace catalog preview with publisher metrics and placement prices',
@@ -201,8 +201,8 @@ return [
 
     // Marketplace marketing page
     'marketplace_kicker' => 'Marketplace',
-    'marketplace_title' => 'A publisher network built for SEO outcomes',
-    'marketplace_subtitle' => 'Filter by country, language, category, and metrics — then buy placements with clear pricing.',
+    'marketplace_title' => 'Buy guest posts from verified publishers',
+    'marketplace_subtitle' => 'Filter by country, language, category, and metrics — then buy guest posts with clear EUR prices.',
     'marketplace_point_1_title' => 'Verified publishers',
     'marketplace_point_1_body' => 'Focus on real editorial sites across Europe and major international markets.',
     'marketplace_point_2_title' => 'Wallet checkout',
