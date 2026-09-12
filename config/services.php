@@ -68,6 +68,8 @@ return [
         // Production refuses a lost OAuth "state". Set true only for a
         // documented localhost emergency — it skips CSRF on the callback.
         'oauth_allow_stateless' => (bool) env('GOOGLE_OAUTH_ALLOW_STATELESS', false),
+        // GSC HTML-tag verification. Empty means the layout prints no meta tag.
+        'site_verification' => trim((string) env('GOOGLE_SITE_VERIFICATION', '')),
     ],
 
     'trustpilot' => [

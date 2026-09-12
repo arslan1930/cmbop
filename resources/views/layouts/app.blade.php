@@ -53,6 +53,9 @@
     <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">
     <meta name="author" content="SEOLinkBuildings">
     <meta name="application-name" content="SEOLinkBuildings">
+    @if(($googleSiteVerification = trim((string) config('services.google.site_verification'))) !== '')
+        <meta name="google-site-verification" content="{{ $googleSiteVerification }}">
+    @endif
     <link rel="canonical" href="{{ $pageCanonical }}">
     @foreach($hreflangTags as $tag)
         <link rel="alternate" hreflang="{{ $tag['hreflang'] }}" href="{{ $tag['href'] }}">
