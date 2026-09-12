@@ -9,7 +9,7 @@ return [
 
     // Hero Section Translations
     'hero_title' => 'SEOLinkBuildings',
-    'hero_support' => 'Obtenez des backlinks puissants depuis des sites web de confiance.',
+    'hero_support' => 'Acheter des guest posts sur des sites d’éditeurs vérifiés.',
     'get_started' => 'Commencer',
     'hero_tagline' => 'La marketplace mondiale de création de liens pour le SEO, les RP numériques et la distribution de contenu.',
     'hero_product_alt' => 'Aperçu du catalogue marketplace avec métriques éditeurs et prix de placement',
@@ -535,8 +535,8 @@ return [
     'language_suggestion_dismiss' => 'Garder la langue actuelle',
     'meta_default_title' => 'SEOLinkBuildings — Marketplace guest posts et backlinks',
     'meta_default_description' => 'Seolinkbuildings.com est la marketplace de guest posts pour acheter et vendre des backlinks éditoriaux avec des éditeurs vérifiés et des prix EUR transparents.',
-    'meta_home_title' => 'Marketplace de guest posts pour backlinks SEO | SEOLinkBuildings',
-    'meta_home_description' => 'Achetez des guest posts dofollow auprès d’éditeurs vérifiés sur Seolinkbuildings.com. Wallet EUR, prix clairs, €20 de crédit de bienvenue pour le link building et le digital PR.',
+    'meta_home_title' => 'Acheter des guest posts chez des éditeurs vérifiés | SEOLinkBuildings',
+    'meta_home_description' => 'Achetez des guest posts sur des sites d’éditeurs vérifiés. Wallet EUR, prix clairs, URL live dans la commande — la marketplace SEOLinkBuildings.',
     'meta_about_title' => 'À propos de SEOLinkBuildings — Marketplace guest posts Europe',
     'meta_about_description' => 'Découvrez comment SEOLinkBuildings relie annonceurs et éditeurs pour des guest posts éthiques et du digital PR en Europe (FR/EN/DE/NL). Opéré par Topurlz Ltd (UK).',
     'meta_faq_title' => 'FAQ — Guest posts, paiements et publication | SEOLinkBuildings',

@@ -9,7 +9,7 @@ return [
 
     // HERO SECTION
     'hero_title' => 'SEOLinkBuildings',
-    'hero_support' => 'Verkrijg krachtige backlinks van vertrouwde websites.',
+    'hero_support' => 'Guest posts kopen op gecontroleerde publisher-sites.',
     'get_started' => 'Begin nu',
     'hero_tagline' => 'De wereldwijde linkbuilding-marktplaats voor SEO, digitale PR en contentdistributie.',
     'hero_product_alt' => 'Voorbeeld van de marktplaatscatalogus met publisher-metrics en placementprijzen',
@@ -535,8 +535,8 @@ return [
     'language_suggestion_dismiss' => 'Huidige taal behouden',
     'meta_default_title' => 'SEOLinkBuildings — Guestpost- en backlinkmarktplaats',
     'meta_default_description' => 'Seolinkbuildings.com is de guestpost-marktplaats om redactionele backlinks te kopen en verkopen met geverifieerde publishers en transparante EUR-prijzen.',
-    'meta_home_title' => 'Guestpost-marktplaats voor SEO-backlinks | SEOLinkBuildings',
-    'meta_home_description' => 'Koop dofollow guestposts van geverifieerde publishers op Seolinkbuildings.com. EUR-wallet, transparante prijzen, €20 welkomsttegoed voor linkbuilding en digital PR.',
+    'meta_home_title' => 'Guest posts kopen bij gecontroleerde publishers | SEOLinkBuildings',
+    'meta_home_description' => 'Koop guest posts op gecontroleerde publisher-sites. EUR-wallet, duidelijke prijzen, live-URL in de opdracht — de marktplaats van SEOLinkBuildings.',
     'meta_about_title' => 'Over SEOLinkBuildings — Guestpost-marktplaats voor Europa',
     'meta_about_description' => 'Ontdek hoe SEOLinkBuildings adverteerders en publishers verbindt voor ethische guestposts en digital PR in Europa (NL/EN/DE/FR). Geëxploiteerd door Topurlz Ltd (UK).',
     'meta_faq_title' => 'FAQ — Guestposts, betalingen en publicatie | SEOLinkBuildings',
