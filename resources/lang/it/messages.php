@@ -73,7 +73,7 @@ return [
     'meta_marketplace_description' => 'Filtra siti web verificati per nicchia, lingua e prezzo. Ordina pubblicazioni editoriali con tracciamento dell\'URL live sul marketplace di SEOLinkBuildings.',
     'meta_how_it_works_title' => 'Come funziona l\'ordine di un guest post | SEOLinkBuildings',
     'meta_how_it_works_description' => 'Sfoglia publisher verificati con valutazioni e storico di consegna, ricarica un wallet in EUR (20 € di credito di benvenuto), assegna i contenuti, approva l\'URL live e valuta la consegna — e come i publisher pubblicano e vengono pagati.',
-    'meta_become_publisher_title' => 'Vendi guest post e guadagna | Diventa publisher',
+    'meta_become_publisher_title' => 'Diventare publisher e vendere guest post | SEOLinkBuildings',
     'meta_become_publisher_description' => 'Metti in elenco il tuo sito, accetta ordini di pubblicazione e preleva i guadagni. Entra nella rete di publisher di SEOLinkBuildings per una domanda editoriale di qualità.',
     'meta_why_choose_title' => 'Perché i brand scelgono SEOLinkBuildings',
     'meta_why_choose_description' => 'Publisher verificati, inventario multilingue, pagamenti con wallet e chat dell\'ordine: pensato per agenzie e team SEO interni che hanno bisogno di backlink affidabili.',
@@ -215,7 +215,7 @@ return [
 
     // Become publisher
     'become_publisher_kicker' => 'Publisher',
-    'become_publisher_title' => 'Monetizza il tuo inventario editoriale',
+    'become_publisher_title' => 'Mettete il vostro sito e vendete guest post',
     'become_publisher_subtitle' => 'Metti in elenco i siti, ricevi ordini con brief e vieni pagato per pubblicazioni di qualità.',
     'become_publisher_point_1_title' => 'Elenco semplice',
     'become_publisher_point_1_body' => 'Aggiungi i dati del sito, il prezzo e i tempi di consegna così gli inserzionisti ti trovano in fretta.',

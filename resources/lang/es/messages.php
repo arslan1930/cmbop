@@ -73,7 +73,7 @@ return [
     'meta_marketplace_description' => 'Filtre sitios web verificados por nicho, idioma y precio. Encargue publicaciones editoriales con seguimiento de la URL en vivo en el marketplace de SEOLinkBuildings.',
     'meta_how_it_works_title' => 'Cómo funciona el encargo de un guest post | SEOLinkBuildings',
     'meta_how_it_works_description' => 'Explore editores verificados con valoraciones e historial de entregas, recargue un monedero en EUR (20 € de crédito de bienvenida), asigne el contenido, apruebe la URL en vivo y valore la entrega — y cómo los editores publican y cobran.',
-    'meta_become_publisher_title' => 'Venda guest posts y gane | Hágase editor',
+    'meta_become_publisher_title' => 'Hágase editor y venda guest posts | SEOLinkBuildings',
     'meta_become_publisher_description' => 'Publique su sitio, acepte pedidos de publicación y retire sus ganancias. Únase a la red de editores de SEOLinkBuildings y reciba demanda editorial de calidad.',
     'meta_why_choose_title' => 'Por qué las marcas eligen SEOLinkBuildings',
     'meta_why_choose_description' => 'Editores verificados, inventario multilingüe, pagos con monedero y chat del pedido: pensado para agencias y equipos SEO internos que necesitan backlinks fiables.',
@@ -215,7 +215,7 @@ return [
 
     // Become publisher
     'become_publisher_kicker' => 'Editores',
-    'become_publisher_title' => 'Monetice su inventario editorial',
+    'become_publisher_title' => 'Anuncie su sitio y venda guest posts',
     'become_publisher_subtitle' => 'Liste sitios web, reciba pedidos con briefing y cobre por publicaciones de calidad.',
     'become_publisher_point_1_title' => 'Listado sencillo',
     'become_publisher_point_1_body' => 'Añada los datos de su sitio, el precio y el plazo de entrega para que los anunciantes le encuentren rápido.',

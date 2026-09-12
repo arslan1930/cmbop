@@ -69,6 +69,7 @@ class CountryLanderPageTest extends TestCase
                 ->assertSee('hreflang="en-GB"', false)
                 ->assertSee('FAQPage', false)
                 ->assertSee(url('/register'), false)
+                ->assertSee(localized_url('become-a-publisher'), false)
                 ->assertDontSee('advertiser/catalog', false);
 
             $this->get('/de/'.$slug)
@@ -176,7 +177,9 @@ class CountryLanderPageTest extends TestCase
             ->assertSee('/guest-posts-uk', false)
             ->assertSee('Germany', false)
             ->assertSee('country-lander-nav__card', false)
-            ->assertSee('Guest posts by market', false);
+            ->assertSee('Guest posts by market', false)
+            ->assertSee(url('/register'), false)
+            ->assertSee(localized_url('become-a-publisher'), false);
     }
 
     public function test_robots_allows_lander_paths(): void

@@ -92,6 +92,55 @@ class PublicI18nTest extends TestCase
         $this->assertStringNotContainsString('Monetize your editorial inventory', $html);
     }
 
+    public function test_locale_publisher_pages_use_native_titles_not_thin_calques(): void
+    {
+        $pages = [
+            LocalizedPublicPath::publicPath('become-a-publisher', 'fr') => [
+                'Devenir éditeur et vendre des guest posts | SEOLinkBuildings',
+                'Proposez votre site et vendez des guest posts',
+            ],
+            LocalizedPublicPath::publicPath('become-a-publisher', 'it') => [
+                'Diventare publisher e vendere guest post | SEOLinkBuildings',
+                'Mettete il vostro sito e vendete guest post',
+            ],
+            LocalizedPublicPath::publicPath('become-a-publisher', 'es') => [
+                'Hágase editor y venda guest posts | SEOLinkBuildings',
+                'Anuncie su sitio y venda guest posts',
+            ],
+            LocalizedPublicPath::publicPath('become-a-publisher', 'nl') => [
+                'Publisher worden en guestposts verkopen | SEOLinkBuildings',
+                'Plaats uw site en verkoop guestposts',
+            ],
+        ];
+
+        foreach ($pages as $path => [$title, $h1]) {
+            $html = $this->get($path)->assertOk()->getContent();
+            $this->assertStringContainsString($title, $html, $path.' title');
+            $this->assertStringContainsString($h1, $html, $path.' h1');
+            $this->assertStringNotContainsString('Monétisez votre inventaire éditorial', $html, $path);
+            $this->assertStringNotContainsString('Monetizza il tuo inventario editoriale', $html, $path);
+            $this->assertStringNotContainsString('Monetice su inventario editorial', $html, $path);
+            $this->assertStringNotContainsString('Monetiseer uw redactionele inventaris', $html, $path);
+            $this->assertStringContainsString('hreflang="de"', $html, $path);
+            $this->assertStringContainsString('hreflang="fr"', $html, $path);
+            $this->assertStringContainsString(url('/register'), $html, $path);
+        }
+    }
+
+    public function test_locale_homes_keep_hreflang_without_thin_lander_copies(): void
+    {
+        foreach (['/de', '/fr', '/it', '/es', '/nl'] as $path) {
+            $html = $this->get($path)->assertOk()->getContent();
+            $this->assertStringContainsString('hreflang="de"', $html, $path);
+            $this->assertStringContainsString('hreflang="it"', $html, $path);
+            $this->assertStringContainsString('hreflang="es"', $html, $path);
+            $this->assertStringContainsString('hreflang="fr"', $html, $path);
+            $this->assertStringContainsString('hreflang="nl"', $html, $path);
+            $this->assertStringContainsString(url('/register'), $html, $path);
+            $this->assertStringNotContainsString('/de/guest-posts-germany', $html, $path);
+        }
+    }
+
     public function test_english_pricing_page_targets_digital_pr_marketplace(): void
     {
         $html = $this->get('/pricing')
