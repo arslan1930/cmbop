@@ -70,7 +70,7 @@
                 <h5 class="mb-3">{{ __('messages.address') }}</h5>
                 <p class="small mb-0">{{ __('messages.address_description') }}</p>
                 <p class="small mt-2 mb-0">{{ __('messages.registered_address') }}</p>
-                <p class="small mt-2">{{ __('messages.company_number') }}: 16607074</p>
+                <p class="small mt-2">{{ __('messages.company_number') }}: {{ config('billing.company.registration_no', '16607074') }}</p>
             </div>
 
         </div>

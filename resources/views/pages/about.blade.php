@@ -53,14 +53,7 @@
     'url' => localized_url('about'),
     'description' => __('messages.meta_about_description'),
     'inLanguage' => \App\Support\PublicI18n::htmlLang(),
-    'mainEntity' => [
-        '@type' => 'Organization',
-        'name' => 'SEOLinkBuildings',
-        'legalName' => $legalName,
-        'alternateName' => 'Topurlz Ltd',
-        'url' => url('/'),
-        'email' => $supportEmail,
-        'identifier' => $registrationNo,
+    'mainEntity' => \App\Support\BrandOrganization::schema([
         'foundingLocation' => [
             '@type' => 'Place',
             'address' => [
@@ -68,13 +61,6 @@
                 'addressLocality' => 'London',
                 'addressCountry' => 'GB',
             ],
-        ],
-        'address' => [
-            '@type' => 'PostalAddress',
-            'streetAddress' => '20 Wenlock Road',
-            'addressLocality' => 'London',
-            'postalCode' => 'N1 7GU',
-            'addressCountry' => 'GB',
         ],
         'areaServed' => [
             ['@type' => 'Continent', 'name' => 'Europe'],
@@ -95,11 +81,7 @@
             'Order completion tracking',
             'Verified publishers',
         ],
-        'sameAs' => array_values(array_filter(array_merge(
-            array_column(config('social.profiles', []), 'url'),
-            [$companiesHouseUrl]
-        ))),
-    ],
+    ]),
 ], JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE) !!}
 </script>
 <script type="application/ld+json">

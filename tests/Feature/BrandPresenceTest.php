@@ -25,6 +25,25 @@ class BrandPresenceTest extends TestCase
         $this->assertStringContainsString('height: 64px', $html);
     }
 
+    public function test_homepage_brand_misspelling_uses_schema_not_the_title(): void
+    {
+        $html = $this->get('/')
+            ->assertOk()
+            ->getContent();
+
+        $this->assertStringContainsString('Guest Post Marketplace for SEO Backlinks', $html);
+        $this->assertStringContainsString('"SEO Link Buildings"', $html);
+        $this->assertStringContainsString('"Seolink Buildings"', $html);
+        $this->assertStringContainsString('"Topurlz Ltd"', $html);
+        $this->assertStringContainsString('20 Wenlock Road', $html);
+        $this->assertStringContainsString('N1 7GU', $html);
+        $this->assertStringContainsString('16607074', $html);
+        $this->assertStringContainsString('support@seolinkbuildings.com', $html);
+        $this->assertStringContainsString('find-and-update.company-information.service.gov.uk/company/16607074', $html);
+        $this->assertStringNotContainsString('<title>SEO Link Buildings', $html);
+        $this->assertStringNotContainsString('The guest post marketplace for verified publisher sites.</title>', $html);
+    }
+
     public function test_homepage_and_marketplace_target_different_money_queries(): void
     {
         $home = $this->get('/')
