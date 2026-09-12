@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Blog;
 use App\Models\BlogTranslation;
 use App\Services\CuratedBlogSync;
+use App\Support\CountryLander;
 use App\Support\PublicI18n;
 use Illuminate\Http\Response;
 
@@ -77,6 +78,10 @@ class SitemapController extends Controller
                 'priority' => '0.5',
                 'alternates' => [],
             ];
+
+            foreach (CountryLander::slugs() as $landerPath) {
+                $urls[] = $this->urlEntry($landerPath, $locale, 'weekly', '0.8', ['en'], ['en' => $landerPath]);
+            }
         }
 
         $translations = collect();

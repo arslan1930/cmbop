@@ -64,5 +64,18 @@
         <a href="{{ localized_url('how-it-works') }}" class="btn btn-outline-secondary btn-lg px-4">{{ __('messages.nav_how_it_works') }}</a>
     </div>
     <p class="text-center text-muted small mt-3 mb-0">{{ __('messages.marketplace_catalog_note') }}</p>
+
+    @if(!empty($countryLanders))
+        <nav class="mt-5 pt-4 border-top text-center" aria-label="Country landers">
+            <h2 class="h6 text-muted mb-3">Guest posts by market</h2>
+            <ul class="list-inline mb-0">
+                @foreach($countryLanders as $landerLink)
+                    <li class="list-inline-item me-3 mb-2">
+                        <a href="{{ $landerLink['url'] }}">{{ $landerLink['market'] }}</a>
+                    </li>
+                @endforeach
+            </ul>
+        </nav>
+    @endif
 </div>
 @endsection

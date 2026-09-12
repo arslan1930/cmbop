@@ -43,6 +43,12 @@ class RobotsTxt
             '/become-a-publisher',
             '/pricing',
             '/how-it-works',
+            '/guest-posts-germany',
+            '/guest-posts-uk',
+            '/guest-posts-italy',
+            '/guest-posts-spain',
+            '/guest-posts-france',
+            '/guest-posts-netherlands',
         ];
     }
 

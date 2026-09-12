@@ -35,6 +35,12 @@ return [
         'cookie-policy',
         'refund-policy',
         'newsletter',
+        'guest-posts-germany',
+        'guest-posts-uk',
+        'guest-posts-italy',
+        'guest-posts-spain',
+        'guest-posts-france',
+        'guest-posts-netherlands',
     ],
 
     /** Paths that must always render in English (no locale prefix). */

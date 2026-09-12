@@ -3,6 +3,7 @@
 namespace App\Services\Marketing;
 
 use App\Models\Site;
+use App\Services\Catalog\CatalogCountryInventory;
 use App\Services\PlatformFeeService;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Schema;
@@ -11,6 +12,7 @@ class CatalogTeaserService
 {
     public function __construct(
         private PlatformFeeService $fees,
+        private CatalogCountryInventory $countries,
     ) {}
 
     /**
@@ -98,6 +100,128 @@ class CatalogTeaserService
         } catch (\Throwable) {
             return collect();
         }
+    }
+
+    /**
+     * Quality-bar teasers whose primary country is in $codes.
+     *
+     * @param  list<string>  $codes
+     * @return Collection<int, array<string, mixed>>
+     */
+    public function teasersForCountries(array $codes, int $limit = 8): Collection
+    {
+        $limit = max(1, min(24, $limit));
+        $codes = $this->normalizeCodes($codes);
+        if ($codes === []) {
+            return collect();
+        }
+
+        try {
+            $query = Site::query()
+                ->catalogVisible()
+                ->withGoodMetrics();
+            $this->countries->constrainQueryToPrimaryCountries($query, $codes);
+
+            if (Schema::hasColumn('sites', 'featured_until')) {
+                $query->orderByRaw(
+                    '(featured_until IS NOT NULL AND featured_until > ? AND featured_until <= ?) DESC',
+                    [now(), Site::PLAUSIBLE_SQL_DATETIME_CEIL]
+                );
+            }
+
+            $sites = $query
+                ->orderByDesc('dr')
+                ->orderByDesc('da')
+                ->orderByDesc('id')
+                ->limit($limit)
+                ->get([
+                    'id',
+                    'site_name',
+                    'site_url',
+                    'domain',
+                    'country',
+                    'language',
+                    'countries',
+                    'languages',
+                    'da',
+                    'dr',
+                    'price',
+                    'site_image',
+                    'screenshot_path',
+                    'screenshot_thumb_path',
+                    'favicon_path',
+                    'featured_until',
+                ]);
+
+            return $sites->values()->map(fn (Site $site) => $this->mapTeaser($site));
+        } catch (\Throwable) {
+            return collect();
+        }
+    }
+
+    /**
+     * Catalog-visible site count for primary countries. Null when zero or the query fails.
+     *
+     * @param  list<string>  $codes
+     */
+    public function countForCountries(array $codes): ?int
+    {
+        $codes = $this->normalizeCodes($codes);
+        if ($codes === []) {
+            return null;
+        }
+
+        try {
+            $counts = $this->countries->counts();
+            $total = 0;
+            foreach ($codes as $code) {
+                $total += (int) ($counts[$code] ?? 0);
+            }
+
+            return $total > 0 ? $total : null;
+        } catch (\Throwable) {
+            return null;
+        }
+    }
+
+    /**
+     * Lowest advertiser checkout price for catalog-visible sites in $codes.
+     *
+     * @param  list<string>  $codes
+     */
+    public function priceFromForCountries(array $codes): ?float
+    {
+        $codes = $this->normalizeCodes($codes);
+        if ($codes === []) {
+            return null;
+        }
+
+        try {
+            $query = Site::query()->catalogVisible();
+            $this->countries->constrainQueryToPrimaryCountries($query, $codes);
+            $min = $query->min('price');
+            if ($min === null) {
+                return null;
+            }
+
+            $advertiser = $this->fees->advertiserBase((float) $min);
+
+            return $advertiser > 0 ? $advertiser : null;
+        } catch (\Throwable) {
+            return null;
+        }
+    }
+
+    /**
+     * @param  list<string>  $codes
+     * @return list<string>
+     */
+    private function normalizeCodes(array $codes): array
+    {
+        return array_values(array_unique(array_filter(array_map(
+            static fn ($code) => strtolower(trim((string) $code)),
+            $codes
+        ))));
     }
 
     public function maskDomain(string $host): string

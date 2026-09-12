@@ -8,6 +8,7 @@ use App\Models\Order;
 use App\Models\Site;
 use App\Services\CuratedBlogWriter;
 use App\Services\Marketing\CatalogTeaserService;
+use App\Support\CountryLander;
 use Throwable;
 
 class MarketingPageController extends Controller
@@ -39,6 +40,28 @@ class MarketingPageController extends Controller
     {
         return view('pages.marketplace', [
             'teasers' => $teasers->teasers(8),
+            'countryLanders' => CountryLander::siblings(),
+        ]);
+    }
+
+    public function countryLander(string $key, CatalogTeaserService $teasers)
+    {
+        $lander = CountryLander::find($key);
+        abort_unless(is_array($lander), 404);
+
+        $codes = array_values(array_filter(array_map(
+            static fn ($code) => strtolower(trim((string) $code)),
+            $lander['codes'] ?? []
+        )));
+
+        return view('pages.guest-posts-country', [
+            'landerKey' => $key,
+            'lander' => $lander,
+            'teasers' => $teasers->teasersForCountries($codes, 8),
+            'siteCount' => $teasers->countForCountries($codes),
+            'priceFrom' => $teasers->priceFromForCountries($codes),
+            'blogLinks' => $this->landerBlogLinks($lander['blog_slugs'] ?? []),
+            'siblings' => CountryLander::siblings($key),
         ]);
     }
 
@@ -198,6 +221,55 @@ class MarketingPageController extends Controller
                 $links[] = [
                     'title' => (string) $translation->title,
                     'url' => localized_url('blog/'.$translation->slug),
+                ];
+            } catch (Throwable) {
+                continue;
+            }
+        }
+
+        return $links;
+    }
+
+    /**
+     * Published English translations only — landers are English URLs.
+     *
+     * @param  list<string>  $slugs
+     * @return list<array{title: string, url: string}>
+     */
+    private function landerBlogLinks(array $slugs): array
+    {
+        $links = [];
+
+        foreach ($slugs as $slug) {
+            $slug = trim((string) $slug);
+            if ($slug === '') {
+                continue;
+            }
+
+            try {
+                $match = CuratedBlogWriter::findExisting($slug);
+                $blog = $match
+                    ? Blog::published()
+                        ->withPublishedLocale('en')
+                        ->where('id', $match->id)
+                        ->first()
+                    : Blog::published()
+                        ->withPublishedLocale('en')
+                        ->where('slug', $slug)
+                        ->first();
+
+                if (! $blog) {
+                    continue;
+                }
+
+                $translation = $blog->translationFor('en', null);
+                if (! $translation) {
+                    continue;
+                }
+
+                $links[] = [
+                    'title' => (string) $translation->title,
+                    'url' => url('/blog/'.$translation->slug),
                 ];
             } catch (Throwable) {
                 continue;
