@@ -42,7 +42,7 @@ class CountryLander
     }
 
     /**
-     * @return list<array{key: string, slug: string, market: string, url: string}>
+     * @return list<array{key: string, slug: string, market: string, kicker: string, url: string}>
      */
     public static function siblings(?string $exceptKey = null): array
     {
@@ -59,6 +59,7 @@ class CountryLander
                 'key' => $key,
                 'slug' => $slug,
                 'market' => (string) ($lander['market'] ?? $key),
+                'kicker' => (string) ($lander['kicker'] ?? ''),
                 'url' => url('/'.$slug),
             ];
         }

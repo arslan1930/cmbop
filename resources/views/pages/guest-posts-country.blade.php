@@ -178,17 +178,10 @@
     </div>
     <p class="text-center text-muted small mt-3 mb-0">{{ __('messages.marketplace_catalog_note') }}</p>
 
-    @if(!empty($siblings))
-        <nav class="mt-5 pt-4 border-top" aria-label="Other country landers">
-            <h2 class="h6 text-muted mb-3">Other markets</h2>
-            <ul class="list-inline mb-0">
-                @foreach($siblings as $sibling)
-                    <li class="list-inline-item me-3 mb-2">
-                        <a href="{{ $sibling['url'] }}">{{ $sibling['market'] }}</a>
-                    </li>
-                @endforeach
-            </ul>
-        </nav>
-    @endif
+    @include('components.country-lander-nav', [
+        'title' => 'Other markets',
+        'landers' => $siblings ?? [],
+        'label' => 'Other country landers',
+    ])
 </div>
 @endsection

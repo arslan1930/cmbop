@@ -174,7 +174,9 @@ class CountryLanderPageTest extends TestCase
             ->assertOk()
             ->assertSee('/guest-posts-germany', false)
             ->assertSee('/guest-posts-uk', false)
-            ->assertSee('Germany', false);
+            ->assertSee('Germany', false)
+            ->assertSee('country-lander-nav__card', false)
+            ->assertSee('Guest posts by market', false);
     }
 
     public function test_robots_allows_lander_paths(): void
