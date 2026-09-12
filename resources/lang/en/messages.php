@@ -67,8 +67,8 @@ return [
     'meta_about_description' => 'Learn how SEOLinkBuildings connects advertisers and publishers for ethical guest posts and digital PR across Europe and English-speaking markets. The public site is available in English (UK/US), German, French, Dutch, Spanish, and Italian. Operated by Topurlz Ltd (UK).',
     'meta_faq_title' => 'FAQ — Guest Posts, Payments and Publishing | SEOLinkBuildings',
     'meta_faq_description' => 'Answers on wallets, orders, refunds, verification, and publishing. Learn how the Seolinkbuildings.com marketplace works before you buy or sell.',
-    'meta_pricing_title' => 'Guest Post and Digital PR Pricing | SEOLinkBuildings',
-    'meta_pricing_description' => 'Marketplace placements priced per site, plus managed Digital PR packages from €499/mo. Clear EUR pricing—no surprise fees on Seolinkbuildings.com.',
+    'meta_pricing_title' => 'Digital PR Marketplace Pricing | SEOLinkBuildings',
+    'meta_pricing_description' => 'A digital PR marketplace for guest-post placements and managed packages from €499/mo. Clear EUR pricing — no surprise fees on Seolinkbuildings.com.',
     'meta_marketplace_title' => 'Browse Publisher Sites and Buy Guest Posts | SEOLinkBuildings',
     'meta_marketplace_description' => 'Filter verified websites by niche, language, and price. Order editorial placements with live-URL tracking on the SEOLinkBuildings marketplace.',
     'meta_how_it_works_title' => 'How Guest Post Ordering Works | SEOLinkBuildings',
@@ -184,8 +184,8 @@ return [
 
     // Pricing page chrome
     'pricing_kicker' => 'Pricing',
-    'pricing_page_title' => 'Transparent pricing for every campaign',
-    'pricing_page_subtitle' => 'Pay per placement in the marketplace, or choose a managed Digital PR package.',
+    'pricing_page_title' => 'Digital PR marketplace pricing',
+    'pricing_page_subtitle' => 'Buy guest-post placements in the marketplace, or choose a managed Digital PR package.',
     'pricing_hero_title' => 'Buy placements that match your market',
     'pricing_hero_lead' => 'Browse verified publisher sites, pick a price that fits, and checkout from your wallet.',
     'pricing_hero_from' => 'Marketplace placements start from',
@@ -215,8 +215,8 @@ return [
 
     // Become publisher
     'become_publisher_kicker' => 'Publishers',
-    'become_publisher_title' => 'Become a publisher for guest posts',
-    'become_publisher_subtitle' => 'List websites, receive briefed orders, and get paid for quality placements.',
+    'become_publisher_title' => 'List your site and sell guest posts',
+    'become_publisher_subtitle' => 'List your site, sell guest posts, and get paid for quality placements.',
     'become_publisher_point_1_title' => 'Simple listing',
     'become_publisher_point_1_body' => 'Add your site details, pricing, and turnaround so advertisers can find you fast.',
     'become_publisher_point_2_title' => 'Clear order flow',

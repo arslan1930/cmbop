@@ -86,9 +86,22 @@ class PublicI18nTest extends TestCase
             ->getContent();
 
         $this->assertStringContainsString('Become a Publisher for Guest Posts | SEOLinkBuildings', $html);
-        $this->assertStringContainsString('Become a publisher for guest posts', $html);
+        $this->assertStringContainsString('List your site and sell guest posts', $html);
         $this->assertStringNotContainsString('Sell Guest Posts and Earn', $html);
         $this->assertStringNotContainsString('Monetize your editorial inventory', $html);
+    }
+
+    public function test_english_pricing_page_targets_digital_pr_marketplace(): void
+    {
+        $html = $this->get('/pricing')
+            ->assertOk()
+            ->getContent();
+
+        $this->assertStringContainsString('Digital PR Marketplace Pricing | SEOLinkBuildings', $html);
+        $this->assertStringContainsString('Digital PR marketplace pricing', $html);
+        $this->assertStringNotContainsString('Guest Post and Digital PR Pricing', $html);
+        $this->assertStringNotContainsString('Transparent pricing for every campaign', $html);
+        $this->assertStringNotContainsString('The guest post marketplace for verified publisher sites.', $html);
     }
 
     public function test_locale_login_redirects_to_english_auth(): void
