@@ -1,4 +1,5 @@
 @php
+    $showIntro = $showIntro ?? true;
     $fromPrice = '50';
     try {
         $minPublisherPrice = \App\Models\Site::query()
@@ -27,9 +28,11 @@
 <section class="slb-section slb-pricing">
   <div class="container" style="max-width:1100px;">
     <div class="text-center mb-5">
+      @if($showIntro)
       <div class="slb-section-kicker">{{ $t('pricing_kicker', 'Pricing') }}</div>
       <h2 class="slb-section-title">{{ $t('pricing_hero_title', 'Buy placements that match your market') }}</h2>
       <p class="slb-section-lead mb-2">{{ $t('pricing_hero_lead', 'Browse verified publisher sites, pick a price that fits, and checkout from your wallet.') }}</p>
+      @endif
       <p class="text-muted mb-4">{{ $t('pricing_hero_from', 'Marketplace placements start from') }} <strong class="slb-price-from">€{{ $fromPrice }}</strong>.</p>
       <div class="d-flex flex-wrap justify-content-center gap-2">
         <a href="{{ url('/register') }}" class="btn btn-primary btn-lg px-4">

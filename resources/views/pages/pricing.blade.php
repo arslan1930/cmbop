@@ -89,5 +89,5 @@
         ],
     ])
 </div>
-@include('components.pricing')
+@include('components.pricing', ['showIntro' => false])
 @endsection

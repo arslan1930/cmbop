@@ -100,10 +100,16 @@ class PublicI18nTest extends TestCase
 
         $this->assertStringContainsString('Digital PR Marketplace | Guest Posts and Packages | SEOLinkBuildings', $html);
         $this->assertStringContainsString('The digital PR marketplace for guest posts and packages', $html);
-        $this->assertStringContainsString('Marketplace placements and Digital PR packages', $html);
+        $this->assertStringNotContainsString('Marketplace placements and Digital PR packages', $html);
         $this->assertStringNotContainsString('Guest Post and Digital PR Pricing', $html);
         $this->assertStringNotContainsString('Transparent pricing for every campaign', $html);
         $this->assertStringNotContainsString('The guest post marketplace for verified publisher sites.', $html);
+        $this->assertStringNotContainsString('slb-section-kicker', $html);
+        $this->assertStringContainsString('marketing-kicker', $html);
+
+        $home = $this->get('/')->assertOk()->getContent();
+        $this->assertStringContainsString('Marketplace placements and Digital PR packages', $home);
+        $this->assertStringContainsString('The guest post marketplace for verified publisher sites.', $home);
     }
 
     public function test_locale_login_redirects_to_english_auth(): void
