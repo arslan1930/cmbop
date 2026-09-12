@@ -64,7 +64,7 @@
                     </div>
                     <div class="contact-info-body min-w-0">
                         <p class="fw-bold mb-1" style="color:#1a1a2e;">{{ __('messages.contact_linkedin_label') }}</p>
-                        <a href="https://linkedin.com/company/seolinkbuildings" target="_blank" rel="noopener noreferrer" class="contact-info-link" style="color:#0a66c2; text-decoration:none; font-weight:500;">
+                        <a href="{{ config('social.profiles.linkedin.url') }}" target="_blank" rel="noopener noreferrer" class="contact-info-link" style="color:#0a66c2; text-decoration:none; font-weight:500;">
                             linkedin.com/company/seolinkbuildings
                         </a>
                     </div>

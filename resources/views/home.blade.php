@@ -47,6 +47,13 @@
         'name' => 'SEOLinkBuildings',
         'url' => url('/'),
     ],
+    'hasPart' => [
+        [
+            '@type' => 'AboutPage',
+            'name' => 'About SEOLinkBuildings',
+            'url' => localized_url('about'),
+        ],
+    ],
 ], JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE) !!}
 </script>
 @endpush

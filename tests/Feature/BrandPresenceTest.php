@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Support\BrandOrganization;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -42,6 +43,27 @@ class BrandPresenceTest extends TestCase
         $this->assertStringContainsString('find-and-update.company-information.service.gov.uk/company/16607074', $html);
         $this->assertStringNotContainsString('<title>SEO Link Buildings', $html);
         $this->assertStringNotContainsString('The guest post marketplace for verified publisher sites.</title>', $html);
+    }
+
+    public function test_homepage_brand_serp_links_site_linkedin_trustpilot_and_about(): void
+    {
+        $html = $this->get('/')
+            ->assertOk()
+            ->getContent();
+
+        $this->assertStringContainsString('Guest Post Marketplace for SEO Backlinks', $html);
+        $this->assertStringContainsString('https://www.linkedin.com/company/seolinkbuildings', $html);
+        $this->assertStringContainsString(config('services.trustpilot.review_url'), $html);
+        $this->assertStringContainsString('/about', $html);
+        $this->assertStringContainsString('"@type":"AboutPage"', $html);
+        $this->assertStringContainsString('trustpilot.com/review/seolinkbuildings.com', $html);
+        $this->assertStringNotContainsString('<title>seolinkbuildings', $html);
+        $this->assertStringNotContainsString('<title>SEOLinkBuildings</title>', $html);
+
+        $sameAs = BrandOrganization::sameAs();
+        $this->assertContains('https://www.linkedin.com/company/seolinkbuildings', $sameAs);
+        $this->assertContains(config('services.trustpilot.review_url'), $sameAs);
+        $this->assertContains('https://find-and-update.company-information.service.gov.uk/company/16607074', $sameAs);
     }
 
     public function test_homepage_and_marketplace_target_different_money_queries(): void
@@ -98,6 +120,7 @@ class BrandPresenceTest extends TestCase
         $this->assertStringContainsString('contact-info-link', $html);
         $this->assertStringContainsString('overflow-wrap: anywhere', $html);
         $this->assertStringContainsString('linkedin.com/company/seolinkbuildings', $html);
+        $this->assertStringContainsString(config('social.profiles.linkedin.url'), $html);
     }
 
     public function test_footer_includes_official_social_icons(): void

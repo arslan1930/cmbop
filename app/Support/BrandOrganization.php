@@ -35,10 +35,7 @@ class BrandOrganization
             'url' => url('/'),
             'logo' => asset('assets/img/logo1.png'),
             'email' => $supportEmail,
-            'sameAs' => array_values(array_filter(array_merge(
-                array_column(config('social.profiles', []), 'url'),
-                [$companiesHouse]
-            ))),
+            'sameAs' => self::sameAs($companiesHouse),
             'address' => [
                 '@type' => 'PostalAddress',
                 'streetAddress' => '20 Wenlock Road',
@@ -52,5 +49,23 @@ class BrandOrganization
                 'email' => $supportEmail,
             ],
         ], $extra);
+    }
+
+    /**
+     * Official identities for brand SERP: social profiles, Trustpilot, Companies House.
+     *
+     * @return list<string>
+     */
+    public static function sameAs(?string $companiesHouse = null): array
+    {
+        $company = config('billing.company', []);
+        $registrationNo = (string) ($company['registration_no'] ?? '16607074');
+        $companiesHouse ??= 'https://find-and-update.company-information.service.gov.uk/company/'.$registrationNo;
+        $trustpilot = trim((string) config('services.trustpilot.review_url', ''));
+
+        return array_values(array_unique(array_filter(array_merge(
+            array_column(config('social.profiles', []), 'url'),
+            [$companiesHouse, $trustpilot]
+        ))));
     }
 }
