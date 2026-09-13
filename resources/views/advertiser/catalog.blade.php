@@ -195,7 +195,9 @@
 
     <!-- FILTERS SECTION -->
 @php
-    $moreFilterKeys = ['favorites_filter','blacklist_filter','bulk_deals','da_min','da_max','dr_min','dr_max','traffic_min','traffic_max','new_badge','on_sale','quality','rating_min','has_completions'];
+    $moreFilterKeys = ['favorites_filter','blacklist_filter','bulk_deals','da_min','da_max','dr_min','dr_max','traffic_min','traffic_max','new_badge','on_sale','verified','quality','rating_min','has_completions'];
+    $catalogVerifiedOn = \App\Support\CatalogBrowseDefaults::verifiedOn(request());
+    $catalogQualityOn = \App\Support\CatalogBrowseDefaults::qualityOn(request());
     $moreTagActive = \App\Support\SiteTag::catalogFilterFromRequest(request()) !== null;
     $moreFilterCount = collect($moreFilterKeys)->filter(fn ($k) => filled(request($k)))->count()
         + ($moreTagActive ? 1 : 0);
@@ -240,7 +242,8 @@
     if (request('traffic_min') || request('traffic_max')) $activeFilterChips[] = ['label' => 'Traffic', 'key' => 'traffic', 'params' => ['traffic_min', 'traffic_max']];
     if (request('new_badge') == '1') $activeFilterChips[] = ['label' => 'New sites', 'key' => 'new_badge', 'params' => ['new_badge']];
     if (request('on_sale') == '1') $activeFilterChips[] = ['label' => 'On sale', 'key' => 'on_sale', 'params' => ['on_sale']];
-    if (request('quality') == '1') $activeFilterChips[] = ['label' => 'Quality bar (DA/DR/traffic)', 'key' => 'quality', 'params' => ['quality']];
+    if ($catalogVerifiedOn) $activeFilterChips[] = ['label' => 'Verified', 'key' => 'verified', 'params' => ['verified']];
+    if ($catalogQualityOn) $activeFilterChips[] = ['label' => 'Quality bar (DA/DR/traffic)', 'key' => 'quality', 'params' => ['quality']];
     $catalogRatingMin = filter_number(request('rating_min'));
     if ($catalogRatingMin !== null && $catalogRatingMin > 0) $activeFilterChips[] = ['label' => 'Min rating '.$catalogRatingMin.'+', 'key' => 'rating_min', 'params' => ['rating_min']];
     if (request('has_completions') == '1') $activeFilterChips[] = ['label' => 'Has completions', 'key' => 'has_completions', 'params' => ['has_completions']];
@@ -607,9 +610,17 @@
                             </div>
 
                             <div class="col-6 col-md-4 col-lg-3">
+                                <label class="form-label fw-semibold small text-muted mb-1">Verified</label>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="verified" id="catalogVerifiedFilter" value="1" {{ $catalogVerifiedOn ? 'checked' : '' }}>
+                                    <label class="form-check-label" for="catalogVerifiedFilter">TXT Verified only</label>
+                                </div>
+                            </div>
+
+                            <div class="col-6 col-md-4 col-lg-3">
                                 <label class="form-label fw-semibold small text-muted mb-1">Quality</label>
                                 <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" name="quality" id="catalogQualityGate" value="1" {{ request('quality') == 1 ? 'checked' : '' }}
+                                    <input class="form-check-input" type="checkbox" name="quality" id="catalogQualityGate" value="1" {{ $catalogQualityOn ? 'checked' : '' }}
                                            title="DA ≥ {{ \App\Models\Site::GOOD_MIN_DA }}, DR ≥ {{ \App\Models\Site::GOOD_MIN_DR }}, traffic ≥ {{ number_format(\App\Models\Site::GOOD_MIN_TRAFFIC) }}">
                                     <label class="form-check-label" for="catalogQualityGate">
                                         Quality bar
@@ -763,6 +774,7 @@ window.CatalogConfig = {
     defaultSort: @json(\App\Services\Catalog\CatalogUrlQuery::DEFAULT_SORT),
     // Phase 7 kill switch — false falls back to full page navigations.
     liveSearch: @json((bool) config('catalog.live_search.enabled', true)),
+    browseDefaults: @json(\App\Support\CatalogBrowseDefaults::configMap()),
     routes: {
         results: @json(route('advertiser.catalog.results')),
         bulkDeals: @json(route('advertiser.catalog.bulk-deals')),

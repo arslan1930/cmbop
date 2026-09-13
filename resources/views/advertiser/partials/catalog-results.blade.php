@@ -22,7 +22,10 @@
         || request()->filled('traffic_min')
         || request()->filled('traffic_max')
         || request()->input('new_badge') == '1'
+        || request()->input('verified') == '1'
         || request()->input('quality') == '1'
+        || (class_exists(\App\Support\CatalogBrowseDefaults::class) && \App\Support\CatalogBrowseDefaults::verifiedOn(request()))
+        || (class_exists(\App\Support\CatalogBrowseDefaults::class) && \App\Support\CatalogBrowseDefaults::qualityOn(request()))
         || request()->filled('rating_min')
         || request()->input('has_completions') == '1'
         || request()->input('bulk_deals') == '1'
