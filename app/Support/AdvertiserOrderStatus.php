@@ -76,7 +76,7 @@ class AdvertiserOrderStatus
 
         $query->orderByRaw(
             "CASE
-                WHEN orders.payment_status = 'failed' THEN 2
+                WHEN orders.payment_status IN ('failed', 'refunded') THEN 2
                 WHEN orders.status IN ('completed', 'cancelled') THEN 2
                 WHEN ((orders.status = 'review' AND {$reviewReadySql}){$revisionClause}) THEN 0
                 ELSE 1
@@ -102,9 +102,9 @@ class AdvertiserOrderStatus
     }
 
     /**
-     * Awaiting payment: pending, not paid, and not a failed charge.
+     * Awaiting payment: pending, not paid, and not a failed or refunded charge.
      *
-     * Failed charges are rejected (same as meta() / Project cards).
+     * Failed / refunded charges are rejected (same as meta() / Project cards).
      *
      * @param  Builder<Order>  $query
      * @return Builder<Order>
@@ -159,15 +159,23 @@ class AdvertiserOrderStatus
     }
 
     /**
-     * meta() treats a failed payment as rejected regardless of order status.
+     * Failed and refunded charges are not live work (same as meta()).
+     *
+     * Completed clawbacks stay `payment_status=refunded` with `status=completed`
+     * — pass `$alsoRefunded = false` so those rows remain in the Completed filter.
      *
      * @param  Builder<Order>  $query
      */
-    public static function constrainWithoutFailedPayment(Builder $query): void
+    public static function constrainWithoutFailedPayment(Builder $query, bool $alsoRefunded = true): void
     {
-        $query->where(function ($q) {
+        $query->where(function ($q) use ($alsoRefunded) {
             $q->whereNull('payment_status')
-                ->orWhere('payment_status', '!=', 'failed');
+                ->orWhere(function ($live) use ($alsoRefunded) {
+                    $live->where('payment_status', '!=', 'failed');
+                    if ($alsoRefunded) {
+                        $live->where('payment_status', '!=', 'refunded');
+                    }
+                });
         });
     }
 
@@ -259,6 +267,16 @@ class AdvertiserOrderStatus
             ];
         }
 
+        if ($payment === 'refunded' && $status !== 'completed') {
+            return [
+                'label' => 'Refunded',
+                'next' => 'Refunded to your wallet. No further action needed.',
+                'cls' => 'status-cancelled',
+                'stage' => 'refunded',
+                'auto_approve_hint' => null,
+            ];
+        }
+
         if ($status === 'pending' && $payment !== 'paid') {
             return [
                 'label' => 'Awaiting payment',
@@ -339,6 +357,16 @@ class AdvertiserOrderStatus
         }
 
         if ($status === 'completed') {
+            if ($payment === 'refunded') {
+                return [
+                    'label' => 'Completed · refunded',
+                    'next' => 'Refunded to your wallet. The publisher payout for this placement was reversed.',
+                    'cls' => 'status-completed',
+                    'stage' => 'completed',
+                    'auto_approve_hint' => null,
+                ];
+            }
+
             $itemsCount = $order->items->count();
             $anyLiveUrl = $order->items->contains(fn ($line) => filled($line->live_url));
             if ($itemsCount < 1) {

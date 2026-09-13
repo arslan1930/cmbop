@@ -352,6 +352,95 @@ class AdvertiserProjectOrdersFilterTest extends TestCase
         $this->assertStringNotContainsString('data-projects-attention', $html);
     }
 
+    public function test_refunded_pending_is_rejected_and_completed_clawback_stays_completed(): void
+    {
+        $user = $this->advertiser();
+        $site = $this->siteFor($this->publisher());
+
+        $project = Project::create([
+            'user_id' => $user->id,
+            'project_name' => 'Acme Client',
+            'project_url' => 'https://acme.example',
+        ]);
+
+        $pendingRefunded = $this->makeOrder($user, $site, [
+            'status' => 'pending',
+            'payment_status' => 'refunded',
+            'paid_at' => null,
+        ], [
+            'target_url' => 'https://acme.example/pay',
+        ]);
+        $reviewRefunded = $this->makeOrder($user, $site, [
+            'status' => 'review',
+            'payment_status' => 'refunded',
+        ], [
+            'target_url' => 'https://acme.example/live',
+            'live_url' => 'https://publisher.example/posted',
+        ]);
+        $completedRefunded = $this->makeOrder($user, $site, [
+            'status' => 'completed',
+            'payment_status' => 'refunded',
+        ], [
+            'target_url' => 'https://acme.example/done',
+            'live_url' => 'https://publisher.example/done',
+        ]);
+
+        $html = $this->actingAs($user)
+            ->get(route('advertiser.projects.index'))
+            ->assertOk()
+            ->getContent();
+
+        $this->assertMatchesRegularExpression(
+            '/<span class="project-stage__label">Rejected<\/span>\s*<span class="project-stage__count[^"]*">\s*2\s*</',
+            $html
+        );
+        $this->assertMatchesRegularExpression(
+            '/<span class="project-stage__label">Completed<\/span>\s*<span class="project-stage__count[^"]*">\s*1\s*</',
+            $html
+        );
+        $this->assertStringNotContainsString('data-projects-attention', $html);
+
+        $this->assertSame([], $this->listIds($user, [
+            'project' => $project->id,
+            'project_stage' => 'not_started',
+        ]));
+        $this->assertSame([], $this->listIds($user, [
+            'project' => $project->id,
+            'project_stage' => 'waiting_approval',
+        ]));
+        $this->assertSame([], $this->listIds($user, ['status' => 'awaiting_payment']));
+        $this->assertSame([], $this->listIds($user, ['status' => 'needs_action']));
+        $this->assertSame([], $this->listIds($user, ['status' => 'review']));
+
+        $rejected = $this->listIds($user, [
+            'project' => $project->id,
+            'project_stage' => 'rejected',
+        ]);
+        $this->assertEqualsCanonicalizing([$pendingRefunded->id, $reviewRefunded->id], $rejected);
+
+        $completed = $this->actingAs($user)
+            ->getJson(route('advertiser.orders.list', [
+                'project' => $project->id,
+                'project_stage' => 'completed',
+            ]))
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->json('orders');
+        $this->assertCount(1, $completed);
+        $this->assertSame($completedRefunded->id, (int) $completed[0]['id']);
+        $this->assertSame('Completed · refunded', $completed[0]['status_label']);
+        $this->assertStringNotContainsString('publisher has been paid', (string) ($completed[0]['next_action'] ?? ''));
+
+        $this->actingAs($user)
+            ->getJson(route('advertiser.orders.statistics'))
+            ->assertOk()
+            ->assertJsonPath('data.needs_review', 0)
+            ->assertJsonPath('data.needs_action', 0)
+            ->assertJsonPath('data.awaiting_payment', 0)
+            ->assertJsonPath('data.in_progress', 0)
+            ->assertJsonPath('data.completed', 1);
+    }
+
     public function test_list_matches_target_urls_with_a_port_or_userinfo(): void
     {
         $user = $this->advertiser();

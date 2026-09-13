@@ -426,11 +426,17 @@ class Project extends Model
             }), [self::class, 'constrainWithoutFailedPayment']),
             'completed' => tap($query
                 ->where('status', 'completed')
-                ->whereHas('items', $matchingItems), [self::class, 'constrainWithoutFailedPayment']),
+                ->whereHas('items', $matchingItems), function (Builder $q) {
+                    AdvertiserOrderStatus::constrainWithoutFailedPayment($q, false);
+                }),
             'rejected' => $query
                 ->where(function ($q) {
                     $q->where('status', 'cancelled')
-                        ->orWhere('payment_status', 'failed');
+                        ->orWhere('payment_status', 'failed')
+                        ->orWhere(function ($refunded) {
+                            $refunded->where('payment_status', 'refunded')
+                                ->where('status', '!=', 'completed');
+                        });
                 })
                 ->whereHas('items', $matchingItems),
             'needs_you' => tap($query->where(function ($q) use ($host, $constrainItemWithoutContentRevision) {
@@ -473,13 +479,13 @@ class Project extends Model
     }
 
     /**
-     * meta() treats a failed payment as rejected regardless of order status.
+     * Failed and refunded charges are not live work (same as meta()).
      *
      * @param  Builder<Order>  $query
      */
-    public static function constrainWithoutFailedPayment(Builder $query): void
+    public static function constrainWithoutFailedPayment(Builder $query, bool $alsoRefunded = true): void
     {
-        AdvertiserOrderStatus::constrainWithoutFailedPayment($query);
+        AdvertiserOrderStatus::constrainWithoutFailedPayment($query, $alsoRefunded);
     }
 
     /**

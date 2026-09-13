@@ -1038,6 +1038,9 @@ function bootAdvertiserOrdersPage() {
         if (payment === 'failed') {
             return { label: 'Payment failed', next: 'Pay again from Orders, or choose another payment method.', cls: 'status-cancelled', autoHint: null };
         }
+        if (payment === 'refunded' && status !== 'completed') {
+            return { label: 'Refunded', next: 'Refunded to your wallet. No further action needed.', cls: 'status-cancelled', autoHint: null };
+        }
         if (status === 'pending' && payment !== 'paid') {
             return { label: 'Awaiting payment', next: 'Complete payment so the publisher can start.', cls: 'status-pending', autoHint: null };
         }
@@ -1074,6 +1077,9 @@ function bootAdvertiserOrdersPage() {
             };
         }
         if (status === 'completed') {
+            if (payment === 'refunded') {
+                return { label: 'Completed · refunded', next: 'Refunded to your wallet. The publisher payout for this placement was reversed.', cls: 'status-completed', autoHint: null };
+            }
             const count = Array.isArray(order.items) ? order.items.length : (Number(order.items_count) || 0);
             const anyLive = count > 0 && Array.isArray(order.items) && order.items.some((it) => it && it.live_url);
             if (count < 1) {
