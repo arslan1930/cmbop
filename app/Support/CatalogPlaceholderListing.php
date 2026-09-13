@@ -15,6 +15,18 @@ class CatalogPlaceholderListing
 
     public const ACTIVATE_BLOCK_REASON = 'Replace the placeholder description or demo website address before activating this listing.';
 
+    public const CART_BLOCK_REASON = 'This listing is a placeholder and cannot be added to the cart.';
+
+    public static function hideFromBrowse(): bool
+    {
+        return (bool) config('catalog.hide_placeholders', true);
+    }
+
+    public static function isHiddenFromBuyers(Site $site): bool
+    {
+        return self::hideFromBrowse() && self::matches($site);
+    }
+
     public static function matches(Site $site): bool
     {
         return self::descriptionLooksPlaceholder($site->description)
@@ -72,9 +84,13 @@ class CatalogPlaceholderListing
                 if (! Site::hasSitesColumn($column)) {
                     continue;
                 }
-                $q->orWhere($column, 'like', '%example.com%')
-                    ->orWhere($column, 'like', '%://localhost%')
-                    ->orWhere($column, 'like', '%demo%.com%');
+                foreach (['%example.com%', '%://localhost%', '%demo%.com%'] as $pattern) {
+                    $q->orWhere(function (Builder $inner) use ($column, $pattern) {
+                        $inner->whereNotNull($column)
+                            ->where($column, '!=', '')
+                            ->where($column, 'like', $pattern);
+                    });
+                }
             }
         });
     }

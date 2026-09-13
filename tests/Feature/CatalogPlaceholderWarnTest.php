@@ -65,7 +65,7 @@ class CatalogPlaceholderWarnTest extends TestCase
     {
         $advertiser = $this->userWithRole('advertiser');
         $publisher = $this->userWithRole('publisher');
-        $this->makeSite($publisher, [
+        $placeholder = $this->makeSite($publisher, [
             'domain' => 'demo86.com',
             'site_url' => 'https://demo86.com/guest',
             'description' => 'Lorem Ipsum is simply dummy text for testing purposes.',
@@ -76,7 +76,7 @@ class CatalogPlaceholderWarnTest extends TestCase
         ]);
 
         $html = $this->actingAs($advertiser)
-            ->get(route('advertiser.catalog'))
+            ->get(route('advertiser.catalog', ['site' => $placeholder->id]))
             ->assertOk()
             ->getContent();
 

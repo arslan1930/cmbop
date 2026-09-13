@@ -122,4 +122,16 @@ return [
         'enabled' => filter_var(env('CATALOG_LIVE_SEARCH', true), FILTER_VALIDATE_BOOL),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Hide placeholder / demo listings from default browse
+    |--------------------------------------------------------------------------
+    |
+    | When on, lorem/demo/example.com rows stay out of the advertiser catalog
+    | unless the buyer searches that host or opens ?site={id}. Cart add is
+    | refused. Staff health queues still see them.
+    |
+    */
+    'hide_placeholders' => filter_var(env('CATALOG_HIDE_PLACEHOLDERS', true), FILTER_VALIDATE_BOOL),
+
 ];

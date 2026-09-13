@@ -352,7 +352,7 @@ class CatalogExpandCorrectnessTest extends TestCase
         ]);
 
         $html = $this->actingAs($this->advertiser)
-            ->get(route('advertiser.catalog', ['search' => 'Lorem Demo']))
+            ->get(route('advertiser.catalog', ['search' => 'demo86.com']))
             ->assertOk()
             ->getContent();
 
@@ -393,7 +393,7 @@ class CatalogExpandCorrectnessTest extends TestCase
         ]);
 
         $html = $this->actingAs($this->advertiser)
-            ->get(route('advertiser.catalog', ['search' => 'Host Only Demo']))
+            ->get(route('advertiser.catalog', ['search' => 'demo86.com']))
             ->assertOk()
             ->getContent();
 
