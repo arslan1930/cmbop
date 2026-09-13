@@ -980,7 +980,7 @@ class PublisherMySitesPageTest extends TestCase
         $this->assertStringNotContainsString('Example URL:', $html);
         $this->assertStringNotContainsString('Publication Duration:', $html);
         $this->assertStringNotContainsString('Turnaround Time:', $html);
-        $this->assertStringNotContainsString('Publisher trust', $html);
+        $this->assertStringNotContainsString('catalog-expand-trust', $html);
         $this->assertStringContainsString('site-trust-compact', $html);
         $this->assertStringContainsString('catalog-price', $html);
         $this->assertStringContainsString('€80.00', $html);
