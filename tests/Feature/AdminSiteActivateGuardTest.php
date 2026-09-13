@@ -59,6 +59,7 @@ class AdminSiteActivateGuardTest extends TestCase
             'site_name' => 'Activate Guard Site',
             'site_url' => 'https://activate-guard.example',
             'domain' => 'activate-guard.example',
+            'example_url' => 'https://activate-guard.example/sample',
             'da' => 40,
             'dr' => 42,
             'traffic' => 15000,

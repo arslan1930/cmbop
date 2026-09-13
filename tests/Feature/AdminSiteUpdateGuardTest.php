@@ -57,6 +57,7 @@ class AdminSiteUpdateGuardTest extends TestCase
             'site_name' => 'Guard Site',
             'site_url' => 'https://guard-site.example',
             'domain' => 'guard-site.example',
+            'example_url' => 'https://guard-site.example/sample',
             'da' => 40,
             'dr' => 42,
             'traffic' => 15000,

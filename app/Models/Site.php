@@ -1723,6 +1723,10 @@ class Site extends Model
 
     public const GOOD_MIN_TRAFFIC = 10000;
 
+    public const EXAMPLE_URL_ACTIVATE_BLOCK = 'Add a sample article URL on this website before activating.';
+
+    public const COVER_ACTIVATE_WARNING = 'No cover or homepage screenshot yet. Buyers will see an empty preview — upload a cover when you can. This does not block Activate.';
+
     /**
      * Get sites with minimum metrics.
      */
@@ -2117,11 +2121,45 @@ class Site extends Model
             return CatalogPlaceholderListing::ACTIVATE_BLOCK_REASON;
         }
 
+        if (! $this->hasExampleUrl()) {
+            return self::EXAMPLE_URL_ACTIVATE_BLOCK;
+        }
+
         if ($requireQualityBar && ! $this->hasGoodMetrics()) {
             return 'This listing is below the quality bar (DA ≥ '.self::GOOD_MIN_DA.', DR ≥ '.self::GOOD_MIN_DR.', traffic ≥ '.number_format(self::GOOD_MIN_TRAFFIC).'). Update metrics before activating.';
         }
 
         return null;
+    }
+
+    /**
+     * Sample article URL buyers open from Site Details.
+     */
+    public function hasExampleUrl(): bool
+    {
+        if (! static::hasSitesColumn('example_url')) {
+            return true;
+        }
+
+        $raw = trim((string) ($this->example_url ?? ''));
+
+        return $raw !== '' && filter_var($raw, FILTER_VALIDATE_URL) !== false;
+    }
+
+    /**
+     * Soft Activate warnings. Cover is never a hard block (Hostinger /media
+     * may still be catching up).
+     *
+     * @return list<string>
+     */
+    public function staffGoLiveWarnReasons(): array
+    {
+        $reasons = [];
+        if (! $this->hasCatalogCover()) {
+            $reasons[] = self::COVER_ACTIVATE_WARNING;
+        }
+
+        return $reasons;
     }
 
     /**

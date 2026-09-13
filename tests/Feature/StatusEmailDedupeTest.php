@@ -59,6 +59,7 @@ class StatusEmailDedupeTest extends TestCase
             'site_name' => 'Dedupe Site',
             'site_url' => 'https://dedupe.example',
             'domain' => 'dedupe.example',
+            'example_url' => 'https://dedupe.example/sample',
             'da' => 30, 'dr' => 30, 'traffic' => 2000,
             'country' => 'us', 'language' => 'en',
             'countries' => ['us'], 'languages' => ['en'],
