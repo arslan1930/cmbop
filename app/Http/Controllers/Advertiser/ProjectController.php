@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Order;
 use App\Models\Project;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\Rule;
 
 class ProjectController extends Controller
@@ -18,9 +19,13 @@ class ProjectController extends Controller
             ->latest()
             ->get();
 
+        $itemWith = Schema::hasColumn('order_items', 'content_submission_id')
+            ? ['items.contentSubmission']
+            : ['items'];
+
         $orders = Order::query()
             ->where('user_id', $userId)
-            ->with(['items.contentSubmission'])
+            ->with($itemWith)
             ->get();
 
         $countsByHost = Project::stageCountsByHost($orders);
@@ -60,7 +65,7 @@ class ProjectController extends Controller
 
     public function store(Request $request)
     {
-        $validated = $request->validate($this->projectRules());
+        $validated = $request->validate($this->projectRules(), $this->projectMessages());
 
         Project::create([
             'user_id' => auth()->id(),
@@ -77,7 +82,7 @@ class ProjectController extends Controller
             abort(403);
         }
 
-        $validated = $request->validate($this->projectRules($project->id));
+        $validated = $request->validate($this->projectRules($project->id), $this->projectMessages());
 
         $project->update([
             'project_name' => $validated['project_name'],
@@ -131,6 +136,19 @@ class ProjectController extends Controller
                     }
                 },
             ],
+        ];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private function projectMessages(): array
+    {
+        return [
+            'project_name.regex' => 'Use letters, numbers, spaces, and hyphens only.',
+            'project_name.unique' => 'You already have a project with this name.',
+            'project_url.url' => 'Enter a full website URL, including https://.',
+            'project_url.unique' => 'You already have a project with this URL.',
         ];
     }
 }

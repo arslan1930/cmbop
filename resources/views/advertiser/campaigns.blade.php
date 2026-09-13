@@ -107,10 +107,10 @@
                                 $hint = \App\Models\Project::stageHint($stageKey);
                                 $pulse = $stageKey === 'waiting_approval' && $count > 0;
                             @endphp
-                            <span class="project-stage project-stage--{{ $stageKey }}{{ $count === 0 ? ' is-zero' : '' }}"
+                            <span class="project-stage project-stage--{{ $stageKey }}{{ $count === 0 ? ' is-zero' : '' }}{{ $pulse ? ' is-hot' : '' }}"
                                   title="{{ $hint !== '' ? $label.': '.$hint : $label }}">
                                 <span class="project-stage__label">{{ $label }}</span>
-                                <span class="project-stage__count{{ $pulse ? ' pulse-badge is-pulsing' : '' }}">{{ $count }}</span>
+                                <span class="project-stage__count">{{ $count }}</span>
                             </span>
                         @endforeach
                     </div>

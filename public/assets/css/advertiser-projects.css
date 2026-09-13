@@ -119,7 +119,13 @@
 }
 
 .project-stage.is-zero {
-    opacity: 0.72;
+    background: var(--brand-neutral-bg, #f1f5f9);
+    color: var(--brand-ink-muted, #697078);
+    border-color: var(--border-subtle, #e2e8f0);
+}
+
+.project-stage.is-hot:not(.is-zero) {
+    box-shadow: 0 0 0 1px var(--brand-warning-border, #fdba74);
 }
 
 .project-stage__label {
@@ -134,32 +140,26 @@
     line-height: 1.15;
 }
 
-.project-stage--not_started,
-.project-stage--in_review {
-    background: var(--brand-neutral-bg, #f1f5f9);
-    color: var(--brand-ink-muted, #697078);
-}
-
-.project-stage--in_progress {
+.project-stage--in_progress:not(.is-zero) {
     background: var(--brand-primary-bg, #e6f5f5);
     color: var(--brand-primary, #1a585e);
     border-color: var(--brand-primary-border, #b8e4e4);
 }
 
-.project-stage--waiting_approval,
-.project-stage--needs_improvements {
+.project-stage--waiting_approval:not(.is-zero),
+.project-stage--needs_improvements:not(.is-zero) {
     background: var(--brand-warning-bg, #fff7ed);
     color: var(--brand-warning-ink, #9a3412);
     border-color: var(--brand-warning-border, #fdba74);
 }
 
-.project-stage--completed {
+.project-stage--completed:not(.is-zero) {
     background: var(--brand-success-bg, #d1fae5);
     color: var(--brand-success, #0f766e);
     border-color: rgba(15, 118, 110, 0.22);
 }
 
-.project-stage--rejected {
+.project-stage--rejected:not(.is-zero) {
     background: #fff;
     color: var(--brand-danger, #dc2626);
     border-color: #fecaca;

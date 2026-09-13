@@ -188,7 +188,9 @@ class AdvertiserProjectsUxTest extends TestCase
                 'project_url' => 'https://second.example',
             ])
             ->assertRedirect(route('advertiser.projects.index'))
-            ->assertSessionHasErrors('project_name');
+            ->assertSessionHasErrors([
+                'project_name' => 'You already have a project with this name.',
+            ]);
 
         $this->assertSame('Second Client', $second->fresh()->project_name);
     }
@@ -310,7 +312,9 @@ class AdvertiserProjectsUxTest extends TestCase
                 'project_url' => 'https://acme-gmbh.example',
             ])
             ->assertRedirect(route('advertiser.projects.index'))
-            ->assertSessionHasErrors('project_name');
+            ->assertSessionHasErrors([
+                'project_name' => 'Use letters, numbers, spaces, and hyphens only.',
+            ]);
 
         $this->assertSame(0, Project::where('user_id', $user->id)->count());
     }
@@ -435,7 +439,8 @@ class AdvertiserProjectsUxTest extends TestCase
         ]);
         $this->assertStringContainsString('data-projects-attention', $html);
         $this->assertStringContainsString('1 placement needs you across 1 project', $html);
-        $this->assertStringContainsString('pulse-badge is-pulsing', $html);
+        $this->assertStringContainsString('is-hot', $html);
+        $this->assertStringNotContainsString('project-stage__count pulse-badge', $html);
     }
 
     public function test_brief_target_url_matches_project_when_item_url_is_empty(): void
@@ -529,6 +534,37 @@ class AdvertiserProjectsUxTest extends TestCase
             ->assertSee('No projects yet', false)
             ->assertSee('Create project', false)
             ->assertDontSee('Perfect For Agencies', false);
+    }
+
+    public function test_advertiser_cannot_change_another_users_project(): void
+    {
+        $owner = $this->advertiser();
+        $project = Project::create([
+            'user_id' => $owner->id,
+            'project_name' => 'Owned Client',
+            'project_url' => 'https://owned.example',
+        ]);
+        $other = $this->advertiser();
+
+        $this->actingAs($other)
+            ->put(route('advertiser.projects.update', $project), [
+                'project_name' => 'Stolen Client',
+                'project_url' => 'https://stolen.example',
+            ])
+            ->assertForbidden();
+
+        $this->actingAs($other)
+            ->delete(route('advertiser.projects.destroy', $project))
+            ->assertForbidden();
+
+        $this->assertSame('Owned Client', $project->fresh()->project_name);
+    }
+
+    public function test_publisher_cannot_open_projects(): void
+    {
+        $this->actingAs($this->publisher())
+            ->get(route('advertiser.projects.index'))
+            ->assertForbidden();
     }
 
     public function test_create_form_explains_name_and_host_rules(): void
