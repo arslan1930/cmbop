@@ -36,11 +36,7 @@
             <span class="ui-callout__icon" aria-hidden="true"><i class="fa-solid fa-circle-exclamation"></i></span>
             <div class="ui-callout__body">
                 <strong>Needs your attention</strong>
-                <span class="ms-1">
-                    {{ $attentionPlacements }} {{ $attentionPlacements === 1 ? 'placement needs' : 'placements need' }}
-                    you across {{ $attentionProjects }} {{ $attentionProjects === 1 ? 'project' : 'projects' }}.
-                    Live URLs ready for review and open revisions only.
-                </span>
+                <span class="ms-1">{{ $attentionPlacements }} {{ $attentionPlacements === 1 ? 'placement needs you' : 'placements need you' }} across {{ $attentionProjects }} {{ $attentionProjects === 1 ? 'project' : 'projects' }}. Live URLs ready for review and open revisions only.</span>
             </div>
         </div>
     </div>
