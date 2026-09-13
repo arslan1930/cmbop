@@ -81,7 +81,10 @@ class AddFundsCancelInvoiceTest extends TestCase
 
         $this->actingAs($other)
             ->postJson(route('advertiser.add-funds.cancel', $deposit))
-            ->assertForbidden();
+            ->assertForbidden()
+            ->assertJsonMissingPath('exception')
+            ->assertDontSee('SQLSTATE')
+            ->assertDontSee('App\\Models');
 
         $this->assertSame('pending', $deposit->fresh()->status);
     }

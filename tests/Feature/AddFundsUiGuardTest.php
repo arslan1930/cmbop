@@ -131,6 +131,13 @@ class AddFundsUiGuardTest extends TestCase
         $this->assertStringNotContainsString('walletChart', $view);
         $this->assertStringNotContainsString('crosshairPlugin', $view);
         $this->assertStringNotContainsString('continueAddFundsBtn', $view);
+        $this->assertStringContainsString('data.message || \'Could not cancel this invoice.\'', $js);
+        $this->assertStringContainsString('data.message || \'Could not mark payment as sent.\'', $js);
+        $bootstrap = (string) file_get_contents(base_path('bootstrap/app.php'));
+        $this->assertStringContainsString('NotFoundHttpException', $bootstrap);
+        $this->assertStringContainsString('add-funds', $bootstrap);
+        $this->assertStringContainsString('missingInvoiceJson', $bootstrap);
+        $this->assertStringContainsString('Invoice not found.', $bootstrap);
     }
 
     public function test_recently_used_is_quiet_corner_text_not_a_brand_pill(): void
