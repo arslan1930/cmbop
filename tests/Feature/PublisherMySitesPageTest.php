@@ -964,4 +964,26 @@ class PublisherMySitesPageTest extends TestCase
             ->getContent();
         $this->assertStringContainsString('catalog.css', $page);
     }
+
+    public function test_ajax_empty_preview_says_cover_missing(): void
+    {
+        $this->makeSite([
+            'verified' => true,
+            'active' => true,
+            'site_image' => null,
+            'screenshot_path' => null,
+            'screenshot_thumb_path' => null,
+        ]);
+
+        $this->assertNull(Site::publicDiskUrl(null));
+
+        $html = $this->actingAs($this->publisher)
+            ->get(route('publisher.sites.ajax', ['status' => 'active']))
+            ->assertOk()
+            ->getContent();
+
+        $this->assertStringContainsString('Cover missing', $html);
+        $this->assertStringContainsString('site-row-preview is-empty', $html);
+        $this->assertStringNotContainsString('aria-label="No preview"', $html);
+    }
 }
