@@ -254,6 +254,13 @@ class OrderChatHardeningTest extends TestCase
             'order_id' => $order->id,
             'message' => 'Still reviewing this?',
         ]);
+
+        $this->actingAs($publisher)
+            ->getJson(route('chat.messages', $order->id))
+            ->assertForbidden();
+        $this->actingAs($publisher)
+            ->getJson(route('notifications.order-timeline', $order->id))
+            ->assertForbidden();
     }
 
     public function test_completed_clawback_still_allows_chat(): void
@@ -274,6 +281,16 @@ class OrderChatHardeningTest extends TestCase
 
         $this->actingAs($advertiser)
             ->postJson(route('chat.send', $order->id), ['message' => 'Thanks — refund received'])
+            ->assertOk()
+            ->assertJsonPath('success', true);
+
+        $this->actingAs($publisher)
+            ->getJson(route('chat.messages', $order->id))
+            ->assertOk()
+            ->assertJsonPath('can_send', true)
+            ->assertJsonPath('composer_note', 'This order is completed. You can still message about this placement.');
+        $this->actingAs($publisher)
+            ->getJson(route('notifications.order-timeline', $order->id))
             ->assertOk()
             ->assertJsonPath('success', true);
     }

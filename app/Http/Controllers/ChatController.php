@@ -306,7 +306,8 @@ class ChatController extends Controller
 
         // Tasks already hide unpaid checkouts. Chat used to leak item ids
         // and content links to the publisher before payment landed.
-        return $order->payment_status === 'paid' && $order->status !== 'cancelled';
+        // Completed clawbacks stay open (same as advertiser chat).
+        return AdvertiserOrderDetails::canSendOrderChat($order);
     }
 
     /**
@@ -425,6 +426,7 @@ class ChatController extends Controller
 
         $modificationRequested = $item?->modification_requested === 'yes';
         $canResubmit = ! $isAdvertiser
+            && AdvertiserOrderStatus::isLiveAdvertiserWork($order)
             && $modificationRequested
             && in_array($order->status, ['processing', 'review'], true)
             && filled($item?->id)

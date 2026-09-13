@@ -279,7 +279,7 @@ class NotificationController extends Controller
         }
 
         if ($isPublisher && ! $isAdvertiser && ! $isStaff
-            && ($order->payment_status !== 'paid' || $order->status === 'cancelled')) {
+            && ! AdvertiserOrderDetails::canSendOrderChat($order)) {
             return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
         }
 

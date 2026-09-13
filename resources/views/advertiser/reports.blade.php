@@ -405,7 +405,10 @@ function repOrderStatusBadge(order) {
     }
     if (!label) label = '—';
     var cls = 'bg-secondary';
-    if (order.status === 'completed') cls = 'bg-success';
+    var payment = order.payment_status;
+    if (payment === 'failed' || (payment === 'refunded' && order.status !== 'completed')) {
+        cls = 'bg-secondary';
+    } else if (order.status === 'completed') cls = 'bg-success';
     else if (order.status === 'cancelled') cls = 'bg-danger';
     else if (order.status === 'review') cls = 'bg-warning text-dark';
     else if (order.status === 'processing') cls = 'bg-info text-dark';
