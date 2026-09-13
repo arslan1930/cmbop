@@ -996,6 +996,12 @@
         padding: 4px 18px 20px;
     }
 
+    @media (min-width: 992px) {
+        .mysites-catalog-preview__details .catalog-expand-meta {
+            padding-right: 11rem;
+        }
+    }
+
     .mysites-catalog-preview__stat .catalog-country {
         flex-direction: row;
         gap: 0.35rem;
