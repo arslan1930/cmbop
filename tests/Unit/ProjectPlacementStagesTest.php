@@ -67,7 +67,13 @@ class ProjectPlacementStagesTest extends TestCase
             '%://acme.example',
             '%://acme.example?%',
             '%://acme.example#%',
+            '%://acme.example:%',
             'acme.example/%',
+            '%@acme.example/%',
+            '%@acme.example',
+            '%@acme.example?%',
+            '%@acme.example#%',
+            '%@acme.example:%',
         ], Project::hostLikePatterns('acme.example'));
     }
 

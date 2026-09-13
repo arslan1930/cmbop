@@ -186,6 +186,7 @@ class AdvertiserOrdersUxAbcTest extends TestCase
         $this->assertIsString($js);
         $this->assertStringContainsString('ordersProjectFilterValues', $js);
         $this->assertStringContainsString('clearOrdersProjectStageFilter', $js);
+        $this->assertStringContainsString('syncOrdersKpiActive', $js);
         $this->assertStringContainsString('project_stage', $js);
         $this->assertStringContainsString('Please provide at least 10 characters', $js);
         $this->assertStringContainsString('No matching orders', $js);

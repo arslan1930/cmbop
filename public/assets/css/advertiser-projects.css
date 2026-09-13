@@ -89,6 +89,7 @@
 .project-card__links a {
     font-size: 0.8125rem;
     font-weight: 600;
+    color: var(--brand-primary, #1a585e);
 }
 
 .project-stages {
@@ -119,12 +120,23 @@
     border-color: var(--border-subtle, #e2e8f0);
 }
 
-a.project-stage {
+a.project-stage,
+a.project-stage:visited,
+a.project-stage:hover,
+a.project-stage:focus {
     text-decoration: none;
 }
 
-a.project-stage:hover {
+a.project-stage:hover,
+a.project-stage:focus {
     filter: brightness(0.97);
+}
+
+.project-stage--not_started:not(.is-zero),
+.project-stage--in_review:not(.is-zero) {
+    background: var(--brand-neutral-bg, #f1f5f9);
+    color: var(--brand-ink-muted, #697078);
+    border-color: var(--border-subtle, #e2e8f0);
 }
 
 .project-stage__label {

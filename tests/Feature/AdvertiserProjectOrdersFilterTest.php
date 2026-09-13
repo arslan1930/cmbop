@@ -313,6 +313,76 @@ class AdvertiserProjectOrdersFilterTest extends TestCase
         $this->assertEqualsCanonicalizing([$failedPending->id, $failedReview->id], $rejected);
     }
 
+    public function test_list_matches_target_urls_with_a_port_or_userinfo(): void
+    {
+        $user = $this->advertiser();
+        $site = $this->siteFor($this->publisher());
+
+        $project = Project::create([
+            'user_id' => $user->id,
+            'project_name' => 'Acme Client',
+            'project_url' => 'https://acme.example',
+        ]);
+
+        $withPort = $this->makeOrder($user, $site, [
+            'status' => 'processing',
+        ], [
+            'target_url' => 'https://acme.example:443/landing',
+        ]);
+        $withUserinfo = $this->makeOrder($user, $site, [
+            'status' => 'processing',
+        ], [
+            'target_url' => 'https://user:pass@acme.example/secure',
+        ]);
+        $this->makeOrder($user, $site, [
+            'status' => 'processing',
+        ], [
+            'target_url' => 'https://acme.example.evil:443/nope',
+        ]);
+
+        $ids = $this->listIds($user, ['project' => $project->id]);
+
+        $this->assertEqualsCanonicalizing([$withPort->id, $withUserinfo->id], $ids);
+    }
+
+    public function test_revision_requested_is_needs_improvements_not_in_progress(): void
+    {
+        $user = $this->advertiser();
+        $site = $this->siteFor($this->publisher());
+
+        $project = Project::create([
+            'user_id' => $user->id,
+            'project_name' => 'Acme Client',
+            'project_url' => 'https://acme.example',
+        ]);
+
+        $revision = $this->makeOrder($user, $site, [
+            'status' => 'processing',
+        ], [
+            'target_url' => 'https://acme.example/rev',
+            'modification_requested' => 'yes',
+        ]);
+        $working = $this->makeOrder($user, $site, [
+            'status' => 'processing',
+        ], [
+            'target_url' => 'https://acme.example/ok',
+            'modification_requested' => 'no',
+        ]);
+
+        $this->assertSame([$revision->id], $this->listIds($user, [
+            'project' => $project->id,
+            'project_stage' => 'needs_improvements',
+        ]));
+        $this->assertSame([$working->id], $this->listIds($user, [
+            'project' => $project->id,
+            'project_stage' => 'in_progress',
+        ]));
+        $this->assertEqualsCanonicalizing([$revision->id], $this->listIds($user, [
+            'project' => $project->id,
+            'project_stage' => 'needs_you',
+        ]));
+    }
+
     public function test_array_project_params_do_not_500(): void
     {
         $user = $this->advertiser();

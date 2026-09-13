@@ -45,6 +45,7 @@ class Project extends Model
         'needs_improvements' => 'Needs you',
         'completed' => 'Completed',
         'rejected' => 'Rejected',
+        'needs_you' => 'Needs you',
     ];
 
     /**
@@ -214,7 +215,7 @@ class Project extends Model
     }
 
     /**
-     * Count the advertiser's placements per project host and Guest Posting stage.
+     * Count the advertiser's placements per project host and stage.
      *
      * A line matches a project when its brief target URL host equals the
      * project's project_url host (www. stripped). Lines without a destination
@@ -520,7 +521,13 @@ class Project extends Model
             '%://'.$host,
             '%://'.$host.'?%',
             '%://'.$host.'#%',
+            '%://'.$host.':%',
             $host.'/%',
+            '%@'.$host.'/%',
+            '%@'.$host,
+            '%@'.$host.'?%',
+            '%@'.$host.'#%',
+            '%@'.$host.':%',
         ];
     }
 }

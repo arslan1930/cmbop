@@ -44,7 +44,7 @@ function updateOrdersProjectChip() {
     const namedId = String(chip.getAttribute('data-project-id') || '');
     const name = (namedId && namedId === project)
         ? (chip.getAttribute('data-project-name') || OrdersCfg.projectName || 'Project')
-        : (OrdersCfg.projectName && namedId === project ? OrdersCfg.projectName : 'Project');
+        : 'Project';
     const stageLabel = ordersProjectStageLabel(project_stage);
     if (labelEl) {
         labelEl.textContent = stageLabel ? `Project: ${name} · ${stageLabel}` : `Project: ${name}`;
@@ -107,6 +107,15 @@ function loadOrdStatistics() {
         });
 }
 
+function syncOrdersKpiActive(status) {
+    const current = status !== undefined
+        ? String(status || '')
+        : String(document.getElementById('statusFilter')?.value || '');
+    document.querySelectorAll('[data-orders-kpi]').forEach(function (btn) {
+        btn.classList.toggle('is-active', (btn.getAttribute('data-orders-kpi') || '') === current);
+    });
+}
+
 function applyOrdersStatusFilter(status) {
     const sel = document.getElementById('statusFilter');
     if (!sel) return;
@@ -115,12 +124,10 @@ function applyOrdersStatusFilter(status) {
         clearOrdersProjectStageFilter();
     }
     currentPage = 1;
+    syncOrdersKpiActive(status);
     if (typeof window.fetchOrders === 'function') {
         window.fetchOrders(1, { historyMode: 'push' });
     }
-    document.querySelectorAll('[data-orders-kpi]').forEach(function (btn) {
-        btn.classList.toggle('is-active', (btn.getAttribute('data-orders-kpi') || '') === (status || ''));
-    });
 }
 window.applyOrdersStatusFilter = applyOrdersStatusFilter;
 
@@ -388,6 +395,7 @@ function bootAdvertiserOrdersPage() {
             updateOrdersAttentionChip();
         }
         updateOrdersProjectChip();
+        syncOrdersKpiActive();
     }
     window.hydrateOrdersFiltersFromUrl = hydrateOrdersFiltersFromUrl;
 
@@ -857,6 +865,7 @@ function bootAdvertiserOrdersPage() {
         const dateTo = document.getElementById('dateTo')?.value || '';
         const sort = ordersListSort();
         const projectFilters = ordersProjectFilterValues();
+        syncOrdersKpiActive(status);
 
         const listUrl = ordersRoute('list');
         if (!listUrl) {
