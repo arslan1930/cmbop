@@ -40,7 +40,7 @@ class CatalogBuyerReadiness
                 'key' => 'brief',
                 'label' => 'Advertiser brief',
                 'ok' => $briefOk,
-                'hint' => 'Write a real site description (not placeholder copy).',
+                'hint' => 'Write a real site description advertisers can trust.',
             ],
             [
                 'key' => 'cover',
