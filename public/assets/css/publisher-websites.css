@@ -1112,11 +1112,11 @@
         margin: 0;
         font-size: 0.8125rem;
         font-weight: 650;
-        color: #9a3412;
+        color: #1a585e;
     }
 
     .mysites-buyer-preview__checklist-summary.is-ready {
-        color: #166534;
+        color: #065f46;
     }
 
     .mysites-buyer-preview__gaps {
@@ -1133,10 +1133,10 @@
         align-items: flex-start;
         gap: 0.5rem 0.75rem;
         padding: 0.7rem 0.85rem;
-        border: 1px solid #fed7aa;
+        border: 1px solid #b8e4e4;
         border-radius: 10px;
-        background: #fff7ed;
-        color: #9a3412;
+        background: #f4fbfb;
+        color: #123f42;
         font-size: 0.8125rem;
         line-height: 1.4;
     }
@@ -1149,9 +1149,9 @@
     .mysites-buyer-preview__gap-cta {
         flex: 0 0 auto;
         margin-left: auto;
-        border: 1px solid rgba(154, 52, 18, 0.28);
-        background: #fff;
-        color: #9a3412;
+        border: 1px solid #1a585e;
+        background: #1a585e;
+        color: #fff;
         font-size: 0.75rem;
         font-weight: 650;
         line-height: 1.2;
@@ -1161,13 +1161,15 @@
 
     .mysites-buyer-preview__gap-cta:hover,
     .mysites-buyer-preview__gap-cta:focus-visible {
-        background: #fff7ed;
+        background: #123f42;
+        border-color: #123f42;
+        color: #fff;
         text-decoration: none;
     }
 
     .mysites-buyer-preview__hint {
         display: block;
-        color: #7c2d12;
+        color: #155e75;
         font-weight: 400;
         margin-top: 0.15rem;
     }
@@ -1196,8 +1198,8 @@
         gap: 0.3rem;
         padding: 0.2rem 0.55rem;
         border-radius: 999px;
-        background: #ecfdf5;
-        color: #166534;
+        background: #e6f5f5;
+        color: #1a585e;
         font-size: 0.75rem;
         font-weight: 600;
         line-height: 1.3;
@@ -1212,9 +1214,9 @@
     }
 
     .mysites-buyer-preview__item.is-ok {
-        color: #166534;
+        color: #1a585e;
     }
 
     .mysites-buyer-preview__item.is-gap {
-        color: #9a3412;
+        color: #123f42;
     }
