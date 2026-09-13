@@ -1,11 +1,11 @@
-{{-- Read-only advertiser catalog row + Site Details for My Sites (View expand). --}}
+{{-- Read-only catalog row + optional Site Details for My Sites (View expand).
+     Prices are the publisher list — never the advertiser/commission total. --}}
 @php
     $buyerListPrice = $site->publisherBasePrice();
     $buyerSalePct = $site->activeCustomDiscountPercent();
     $buyerSalePrice = $buyerSalePct !== null
         ? round($buyerListPrice * (1 - (float) $buyerSalePct / 100), 2)
         : null;
-    $buyerPay = $buyerSalePrice ?? $buyerListPrice;
     $buyerHomepageOptions = $site->homepagePlacementOptions();
     $buyerDefaultHomepageDays = $site->longestFreeHomepageDays();
     $buyerSocialChannels = $site->enabledSocialChannels();
@@ -34,25 +34,35 @@
     $hasSensitiveExtras = $sensitivePrices !== [];
     $hasPlacementExtras = $buyerHomepageOptions !== [] || $buyerSocialChannels !== [];
     $hasListingExtras = $hasSensitiveExtras || $hasPlacementExtras;
+    $hasPricingColumn = $hasSensitiveExtras;
     $expandDescriptionHtml = $site->catalogDescriptionHtml();
     $hasExpandDescription = trim(strip_tags($expandDescriptionHtml)) !== '';
     $sampleUrl = safe_external_url($site->example_url);
+    $descriptionCol = $hasPricingColumn
+        ? 'col-lg-3'
+        : ($hasPlacementExtras ? 'col-lg-4' : 'col-lg-5');
+    $metaCol = $hasPricingColumn
+        ? 'col-lg-3'
+        : ($hasPlacementExtras ? 'col-lg-5' : 'col-lg-4');
 @endphp
 <section class="mysites-buyer-preview" aria-labelledby="buyer-preview-{{ $site->id }}">
     <div class="mysites-buyer-preview__head">
-        <h3 class="mysites-buyer-preview__title" id="buyer-preview-{{ $site->id }}">How advertisers see this</h3>
+        <h3 class="mysites-buyer-preview__title" id="buyer-preview-{{ $site->id }}">Catalog preview of your listing</h3>
         @if($buyerCanOpenCatalog)
-            <a href="{{ $buyerCatalogUrl }}" class="mysites-buyer-preview__catalog-link">
+            <a href="{{ $buyerCatalogUrl }}"
+               class="mysites-buyer-preview__catalog-link"
+               title="Your row in the catalog — still your list price">
                 Open in catalog
             </a>
         @endif
     </div>
     <p class="mysites-buyer-preview__lede text-muted small mb-2">
-        Catalog row and Site Details. Prices are your list — not the advertiser total.
+        Prices are your list — not the advertiser total.
     </p>
 
     <div class="mysites-catalog-preview">
         <p class="visually-hidden">Catalog columns: Site, Category, Traffic, DR, DA, Country, Buy.</p>
+        <div class="mysites-catalog-preview__table">
         <div class="mysites-catalog-preview__headrow" aria-hidden="true">
             <span>Site</span>
             <span>Category</span>
@@ -161,17 +171,21 @@
                 <button type="button"
                         class="btn btn-sm btn-outline-secondary mysites-catalog-preview__cart d-inline-flex justify-content-center align-items-center gap-2"
                         disabled
-                        tabindex="-1"
-                        title="Preview only — advertisers add to cart in the catalog">
+                        tabindex="-1">
                     <i class="fa-solid fa-cart-plus" aria-hidden="true"></i>
                     <span>Add to cart</span>
                 </button>
                 <span class="mysites-catalog-preview__cart-note">Preview only</span>
             </div>
         </div>
+        </div>
 
-        <div class="catalog-expand-cell mysites-catalog-preview__details">
-            <h6 class="mb-3">Site Details</h6>
+        <details class="mysites-catalog-preview__details-fold">
+            <summary class="mysites-catalog-preview__details-summary">
+                <span class="mysites-catalog-preview__details-summary-title">Site Details</span>
+                <span class="mysites-catalog-preview__details-hint">Cover, description, tag, extras, sample, turnaround</span>
+            </summary>
+            <div class="catalog-expand-cell mysites-catalog-preview__details">
             @include('advertiser.partials.catalog-placeholder-warning', ['site' => $site])
 
             <div class="row align-items-start g-4 catalog-expand-grid">
@@ -204,7 +218,7 @@
                     @endif
                 </div>
 
-                <div class="col-lg-3 col-md-6 catalog-expand-description">
+                <div class="{{ $descriptionCol }} col-md-6 catalog-expand-description">
                     <p class="mb-1"><strong class="small">Description</strong></p>
                     <div class="text-muted small">
                         @if($hasExpandDescription)
@@ -221,38 +235,24 @@
                     @unless($hasListingExtras)
                         <p class="text-muted small mb-0 mt-2">Base guest post only — no homepage, social, or sensitive add-ons.</p>
                     @endunless
-                    <div class="catalog-expand-trust mt-3">
-                        <p class="mb-1"><strong class="small">Publisher trust</strong></p>
-                        @include('advertiser.partials.catalog-site-trust', ['site' => $site, 'compactClass' => ''])
-                    </div>
                 </div>
 
+                @if($hasPricingColumn)
                 <div class="col-lg-3 col-md-6 catalog-expand-pricing">
-                    <small class="text-muted">
-                        Your price:
-                        <strong>€{{ number_format((float) $buyerPay, 2) }}</strong>
-                        @if($buyerSalePrice !== null)
-                            <span class="text-decoration-line-through">€{{ number_format($buyerListPrice, 2) }}</span>
-                            (sale)
-                        @else
-                            (your list)
-                        @endif
-                    </small>
-                    @if($hasSensitiveExtras)
-                        <p class="mb-1 mt-3"><strong>Sensitive topics</strong></p>
-                        <p class="small text-muted mb-1">Additional charge on top of the base price.</p>
-                        <ul class="list-unstyled small mb-0">
-                            @foreach($sensitivePrices as $type => $additionalPrice)
-                                <li>
-                                    {{ ucfirst((string) $type) }}
-                                    <span class="text-danger">add-on +€{{ number_format((float) $additionalPrice, 2) }}</span>
-                                </li>
-                            @endforeach
-                        </ul>
-                    @endif
+                    <p class="mb-1"><strong>Sensitive topics</strong></p>
+                    <p class="small text-muted mb-1">Additional charge on top of the base price.</p>
+                    <ul class="list-unstyled small mb-0">
+                        @foreach($sensitivePrices as $type => $additionalPrice)
+                            <li>
+                                {{ ucfirst((string) $type) }}
+                                <span class="text-danger">add-on +€{{ number_format((float) $additionalPrice, 2) }}</span>
+                            </li>
+                        @endforeach
+                    </ul>
                 </div>
+                @endif
 
-                <div class="col-lg-3 col-md-6 catalog-expand-meta">
+                <div class="{{ $metaCol }} col-md-6 catalog-expand-meta">
                     <p class="mb-1"><strong>Link type</strong></p>
                     <div class="mb-3">
                         @if($site->linkTypeLabel())
@@ -340,25 +340,38 @@
                     @endif
                 </div>
             </div>
-        </div>
+            </div>
+        </details>
     </div>
 
     @if($buyerChecklist !== [])
-        <h4 class="mysites-buyer-preview__checklist-title">Listing checklist</h4>
-        <ul class="mysites-buyer-preview__checklist">
-            @foreach($buyerChecklist as $item)
-                <li class="mysites-buyer-preview__item {{ $item['ok'] ? 'is-ok' : 'is-gap' }}">
-                    <span class="mysites-buyer-preview__mark" aria-hidden="true">
-                        <i class="fa-solid {{ $item['ok'] ? 'fa-circle-check' : 'fa-circle-exclamation' }}"></i>
-                    </span>
-                    <span>
-                        <strong>{{ $item['label'] }}</strong>
-                        @if(! $item['ok'])
-                            <span class="mysites-buyer-preview__hint">{{ $item['hint'] }}</span>
-                        @endif
-                    </span>
-                </li>
-            @endforeach
-        </ul>
+        <div class="mysites-buyer-preview__checklist-block">
+            <div class="mysites-buyer-preview__checklist-head">
+                <h4 class="mysites-buyer-preview__checklist-title">Listing checklist</h4>
+                <button type="button"
+                        class="mysites-buyer-preview__edit btn-edit"
+                        data-id="{{ $site->id }}">
+                    Edit listing
+                </button>
+            </div>
+            <p class="mysites-buyer-preview__checklist-lede text-muted small mb-2">
+                What you still own on this listing.
+            </p>
+            <ul class="mysites-buyer-preview__checklist">
+                @foreach($buyerChecklist as $item)
+                    <li class="mysites-buyer-preview__item {{ $item['ok'] ? 'is-ok' : 'is-gap' }}">
+                        <span class="mysites-buyer-preview__mark" aria-hidden="true">
+                            <i class="fa-solid {{ $item['ok'] ? 'fa-circle-check' : 'fa-circle-exclamation' }}"></i>
+                        </span>
+                        <span>
+                            <strong>{{ $item['label'] }}</strong>
+                            @if(! $item['ok'])
+                                <span class="mysites-buyer-preview__hint">{{ $item['hint'] }}</span>
+                            @endif
+                        </span>
+                    </li>
+                @endforeach
+            </ul>
+        </div>
     @endif
 </section>
