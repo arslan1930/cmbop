@@ -31,7 +31,7 @@ class AddFundsUiGuardTest extends TestCase
         // The old handler fired Swal + cleared the field on every keystroke when
         // parseFloat(value) < 10, so typing "100" died on the first "1".
         $this->assertStringContainsString("addEventListener('blur'", $js);
-        $this->assertStringContainsString('// Partial / below-minimum while typing', $js);
+        $this->assertStringContainsString('// Partial / below-minimum', $js);
 
         preg_match(
             "/customAmountInput\.addEventListener\('input',\s*function\s*\(\)\s*\{(.*?)\n\s*\}\);/s",
@@ -44,6 +44,7 @@ class AddFundsUiGuardTest extends TestCase
         $this->assertStringNotContainsString('Swal.fire', $body);
         $this->assertStringNotContainsString("this.value = ''", $body);
         $this->assertStringContainsString('amount >= 10', $body);
+        $this->assertStringContainsString('amount <= maxDeposit', $body);
     }
 
     public function test_billing_modal_client_validation_requires_company_name(): void
