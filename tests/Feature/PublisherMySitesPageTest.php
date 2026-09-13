@@ -951,6 +951,11 @@ class PublisherMySitesPageTest extends TestCase
 
         $this->assertStringContainsString('mysites-buyer-preview', $html);
         $this->assertStringContainsString('How advertisers see this', $html);
+        $this->assertStringContainsString('mysites-catalog-preview', $html);
+        $this->assertStringContainsString('catalog-site-name', $html);
+        $this->assertStringContainsString('Homepage preview', $html);
+        $this->assertStringContainsString('catalog-expand-grid', $html);
+        $this->assertStringContainsString('Add to cart', $html);
         $this->assertStringContainsString('Listing checklist', $html);
         $this->assertStringContainsString('Marketplace country', $html);
         $this->assertStringContainsString('Sample article URL', $html);
@@ -985,8 +990,9 @@ class PublisherMySitesPageTest extends TestCase
             ->getContent();
 
         $this->assertStringContainsString('No cover yet', $html);
-        $this->assertStringContainsString('Staff will add a homepage screenshot.', $html);
-        $this->assertStringContainsString('Homepage screenshot is added by staff', $html);
+        $this->assertStringContainsString('Staff will add a homepage screenshot', $html);
+        $this->assertStringContainsString('catalog-cover-empty', $html);
+        $this->assertStringContainsString('mysites-catalog-preview', $html);
         $this->assertStringContainsString('site-row-preview is-empty', $html);
         $this->assertStringNotContainsString('Cover missing', $html);
         $this->assertStringNotContainsString('Cover or screenshot', $html);

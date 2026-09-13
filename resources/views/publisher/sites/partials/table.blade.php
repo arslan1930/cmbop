@@ -510,8 +510,9 @@
 
     .expand-row.expanded .expand-box {
         padding: 18px;
-        max-height: 800px;
+        max-height: none;
         opacity: 1;
+        overflow: visible;
     }
 
     .detail-line {
