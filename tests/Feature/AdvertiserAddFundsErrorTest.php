@@ -161,6 +161,28 @@ class AdvertiserAddFundsErrorTest extends TestCase
         }
     }
 
+    public function test_missing_invoice_json_does_not_leak_model_class(): void
+    {
+        $advertiser = $this->advertiser();
+
+        foreach ([
+            ['POST', route('advertiser.add-funds.cancel', 999999)],
+            ['POST', route('advertiser.add-funds.mark-paid', 999999)],
+            ['GET', route('advertiser.add-funds.status', 999999)],
+        ] as [$method, $url]) {
+            $this->actingAs($advertiser)
+                ->json($method, $url)
+                ->assertNotFound()
+                ->assertJsonPath('success', false)
+                ->assertJsonPath('message', 'Invoice not found.')
+                ->assertJsonMissingPath('exception')
+                ->assertDontSee('SQLSTATE')
+                ->assertDontSee('App\\Models')
+                ->assertDontSee('DepositRequest')
+                ->assertDontSee('No query results');
+        }
+    }
+
     private function restoreDepositRequestsTable(): void
     {
         foreach ([

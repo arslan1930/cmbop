@@ -2,6 +2,7 @@
 
 // bootstrap/app.php
 
+use App\Http\Controllers\Advertiser\AddFundsController;
 use App\Http\Middleware\CanonicalHost;
 use App\Http\Middleware\DrainQueuedMail;
 use App\Http\Middleware\HealHostingerProduction;
@@ -10,6 +11,7 @@ use App\Http\Middleware\SetLocale;
 use App\Services\ContentUpload\ContentUploadService;
 use App\Support\TrustedProxies;
 use Illuminate\Console\Scheduling\Schedule;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -108,6 +110,24 @@ return Application::configure(basePath: dirname(__DIR__))
                 'success' => false,
                 'message' => $uploads->phpSizeRejectedMessage(null, $clientBytes),
             ], 422);
+        });
+
+        // Add Funds implicit {deposit} binding 404s used to leak
+        // "No query results for model [App\Models\DepositRequest]".
+        $exceptions->render(function (ModelNotFoundException $e, $request) {
+            if (! $request->expectsJson() || ! str_contains($request->path(), 'add-funds')) {
+                return null;
+            }
+
+            $controller = AddFundsController::class;
+            if (class_exists($controller) && method_exists($controller, 'missingInvoiceJson')) {
+                return $controller::missingInvoiceJson();
+            }
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Invoice not found.',
+            ], 404);
         });
     })
     ->withSchedule(function (Schedule $schedule) {

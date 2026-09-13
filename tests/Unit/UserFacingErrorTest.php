@@ -2,7 +2,9 @@
 
 namespace Tests\Unit;
 
+use App\Models\DepositRequest;
 use App\Support\UserFacingError;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Database\QueryException;
 use Tests\TestCase;
 
@@ -45,6 +47,12 @@ class UserFacingErrorTest extends TestCase
         $this->assertFalse(UserFacingError::isSafe(new \Exception('cURL error 28: Operation timed out')));
         $this->assertFalse(UserFacingError::isSafe(new \Exception('')));
         $this->assertFalse(UserFacingError::isSafe(new \Exception(str_repeat('a', 250))));
+        $this->assertFalse(UserFacingError::isSafe(
+            (new ModelNotFoundException)->setModel(DepositRequest::class, [999999])
+        ));
+        $this->assertFalse(UserFacingError::isSafe(
+            new \Exception('No query results for model [App\\Models\\DepositRequest] 999999')
+        ));
     }
 
     public function test_message_returns_fallback_for_internal_errors(): void
