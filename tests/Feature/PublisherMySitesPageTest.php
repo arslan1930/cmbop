@@ -7,6 +7,7 @@ use App\Models\BulkSiteRequestItem;
 use App\Models\Role;
 use App\Models\Site;
 use App\Models\User;
+use App\Services\PlatformFeeService;
 use App\Support\CatalogBuyerReadiness;
 use Database\Seeders\CategoriesTableSeeder;
 use Database\Seeders\CountriesTableSeeder;
@@ -63,6 +64,11 @@ class PublisherMySitesPageTest extends TestCase
             'window.publisherSitePreviewOnError',
             $html,
             'My Sites must define preview onerror so ajax row thumbs can fall back /media → /storage.'
+        );
+        $this->assertStringContainsString(
+            "img.closest('.site-preview-zoom')",
+            $html,
+            'Cover fallback must mark .site-preview-zoom broken so the View mock can show No cover yet.'
         );
         $this->assertStringContainsString(
             'const id = $(this).data(\'id\') || siteHint.id;',
@@ -951,12 +957,32 @@ class PublisherMySitesPageTest extends TestCase
 
         $this->assertStringContainsString('mysites-buyer-preview', $html);
         $this->assertStringContainsString('How advertisers see this', $html);
+        $this->assertStringContainsString('mysites-catalog-preview', $html);
+        $this->assertStringNotContainsString('mysites-catalog-preview catalog-page', $html);
+        $this->assertStringContainsString('catalog-site-name', $html);
+        $this->assertStringContainsString('Homepage preview', $html);
+        $this->assertStringContainsString('catalog-expand-grid', $html);
+        $this->assertStringContainsString('Add to cart', $html);
+        $this->assertStringContainsString('Preview only', $html);
         $this->assertStringContainsString('Listing checklist', $html);
         $this->assertStringContainsString('Marketplace country', $html);
         $this->assertStringContainsString('Sample article URL', $html);
+        $this->assertStringContainsString('Publication duration', $html);
+        $this->assertStringContainsString('Turnaround', $html);
+        $this->assertStringContainsString('publisherSitePreviewOnError', $html);
         $this->assertStringNotContainsString('Cover or screenshot', $html);
+        $this->assertStringNotContainsString('Example URL:', $html);
+        $this->assertStringNotContainsString('Publication Duration:', $html);
+        $this->assertStringNotContainsString('Turnaround Time:', $html);
         $this->assertStringContainsString('site-trust-compact', $html);
         $this->assertStringContainsString('catalog-price', $html);
+        $this->assertStringContainsString('€80.00', $html);
+        $this->assertStringContainsString('Your price:', $html);
+        $this->assertStringNotContainsString('You pay:', $html);
+        $advertiserPay = app(PlatformFeeService::class)
+            ->advertiserBase((float) $site->price);
+        $this->assertNotEquals(80.0, $advertiserPay);
+        $this->assertStringNotContainsString('€'.number_format($advertiserPay, 2), $html);
         $this->assertStringNotContainsString('Open in catalog', $html);
         $this->assertStringNotContainsString(route('advertiser.catalog', ['site' => $site->id]), $html);
 
@@ -965,6 +991,12 @@ class PublisherMySitesPageTest extends TestCase
             ->assertOk()
             ->getContent();
         $this->assertStringContainsString('catalog.css', $page);
+        $this->assertStringContainsString('publisher-websites.css', $page);
+        $this->assertGreaterThan(
+            strpos($page, 'catalog.css'),
+            strpos($page, 'publisher-websites.css'),
+            'My Sites CSS must load after catalog.css so preview padding wins over .catalog-expand-cell.'
+        );
     }
 
     public function test_ajax_empty_preview_says_no_cover_yet_not_publisher_error(): void
@@ -985,8 +1017,9 @@ class PublisherMySitesPageTest extends TestCase
             ->getContent();
 
         $this->assertStringContainsString('No cover yet', $html);
-        $this->assertStringContainsString('Staff will add a homepage screenshot.', $html);
-        $this->assertStringContainsString('Homepage screenshot is added by staff', $html);
+        $this->assertStringContainsString('Staff will add a homepage screenshot', $html);
+        $this->assertStringContainsString('catalog-cover-empty', $html);
+        $this->assertStringContainsString('mysites-catalog-preview', $html);
         $this->assertStringContainsString('site-row-preview is-empty', $html);
         $this->assertStringNotContainsString('Cover missing', $html);
         $this->assertStringNotContainsString('Cover or screenshot', $html);
@@ -996,5 +1029,23 @@ class PublisherMySitesPageTest extends TestCase
         $this->assertNotContains('cover', $keys);
         $this->assertContains('example_url', $keys);
         $this->assertContains('brief', $keys);
+    }
+
+    public function test_ajax_preview_empty_country_says_no_country(): void
+    {
+        $this->makeSite([
+            'verified' => true,
+            'active' => true,
+            'country' => '',
+        ]);
+
+        $html = $this->actingAs($this->publisher)
+            ->get(route('publisher.sites.ajax', ['status' => 'active']))
+            ->assertOk()
+            ->getContent();
+
+        $this->assertStringContainsString('No country', $html);
+        $this->assertStringContainsString('data-label="Country"', $html);
+        $this->assertStringContainsString('Marketplace country', $html);
     }
 }
