@@ -7,6 +7,7 @@ use App\Models\Site;
 /**
  * Publisher-facing checklist: fields the publisher owns.
  * Cover / homepage screenshot is staff-uploaded — not listed here.
+ * Listing tag is optional: default "No tags" is a finished choice, not a gap.
  */
 class CatalogBuyerReadiness
 {
@@ -70,26 +71,20 @@ class CatalogBuyerReadiness
                 'actionable' => false,
                 'wizard_step' => null,
             ],
-            [
-                'key' => 'tag',
-                'label' => 'Listing tag',
-                'ok' => $site->tagValue() !== null,
-                'hint' => 'Sponsored, Partner article, or As you prefer — advertisers filter on this.',
-                'cta' => 'Set listing tag',
-                'actionable' => true,
-                'wizard_step' => 3,
-            ],
         ];
     }
 
     /**
-     * Gaps first, then ready items, plus counts for the View summary.
+     * Publisher-owned gaps first, then ready items. Staff-owned misses
+     * (quality bar) are not counted as something the publisher must fix.
      *
      * @return array{
      *     gaps: list<array<string, mixed>>,
      *     ready: list<array<string, mixed>>,
+     *     staff: list<array<string, mixed>>,
      *     gap_count: int,
      *     ready_count: int,
+     *     staff_count: int,
      *     total: int
      * }
      */
@@ -98,19 +93,24 @@ class CatalogBuyerReadiness
         $items = self::checklist($site);
         $gaps = [];
         $ready = [];
+        $staff = [];
         foreach ($items as $item) {
             if ($item['ok']) {
                 $ready[] = $item;
-            } else {
+            } elseif (! empty($item['actionable'])) {
                 $gaps[] = $item;
+            } else {
+                $staff[] = $item;
             }
         }
 
         return [
             'gaps' => $gaps,
             'ready' => $ready,
+            'staff' => $staff,
             'gap_count' => count($gaps),
             'ready_count' => count($ready),
+            'staff_count' => count($staff),
             'total' => count($items),
         ];
     }
