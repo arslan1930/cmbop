@@ -1083,6 +1083,14 @@ class PublisherMySitesPageTest extends TestCase
         $this->assertStringContainsString('1 to fix', $html);
         $this->assertStringContainsString('5 of 6 ready', $html);
         $this->assertStringContainsString('Set listing tag', $html);
+        $this->assertMatchesRegularExpression(
+            '/class="[^"]*mysites-buyer-preview__gap-cta[^"]*btn-edit[^"]*"[^>]*data-id="\d+"/s',
+            $html,
+            'Gap CTA must reuse btn-edit with data-id so the page fetch handler can open Edit.'
+        );
+        $js = file_get_contents(public_path('assets/js/publisher-websites.js'));
+        $this->assertStringContainsString("if ($(this).data('id'))", $js);
+        $this->assertStringContainsString('Checklist CTAs only have data-id', $js);
         $this->assertStringContainsString('Sponsored, Partner article, or As you prefer', $html);
         $this->assertStringNotContainsString('What you still own on this listing.', $html);
         $gapPos = strpos($html, 'Set listing tag');
