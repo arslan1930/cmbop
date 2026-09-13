@@ -159,6 +159,8 @@ class CatalogExpandCorrectnessTest extends TestCase
             ->getContent();
 
         $this->assertStringContainsString('catalog-expand-grid', $html);
+        $this->assertStringContainsString('col-lg-3 col-md-6 catalog-expand-preview', $html);
+        $this->assertStringContainsString('catalog-expand-description', $html);
         $this->assertStringContainsString('catalog-expand-pricing', $html);
         $this->assertStringContainsString('Sensitive topics', $html);
         $this->assertStringContainsString('+€23.00', $html);

@@ -584,7 +584,7 @@
                 {{-- Preview | Description | Pricing | Tags + sample --}}
                 <div class="row align-items-start g-4 catalog-expand-grid">
 
-                    <div class="col-12 catalog-expand-preview">
+                    <div class="col-lg-3 col-md-6 catalog-expand-preview">
                         <p class="small text-muted mb-2"><strong>Homepage preview</strong></p>
                         @php
                             // Full capture → thumb → upload; /media then /storage (Hostinger).

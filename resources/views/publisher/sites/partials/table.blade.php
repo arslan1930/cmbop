@@ -905,12 +905,12 @@
                 @else
                     <span class="site-row-preview is-empty"
                           data-glass-tip
-                          data-glass-tip-body="{{ \App\Models\Site::publicDiskUrl($site->site_image) ? 'Preview unavailable' : 'Cover missing' }}"
+                          data-glass-tip-body="{{ \App\Models\Site::publicDiskUrl($site->site_image) ? 'Preview unavailable' : 'Staff will add a homepage screenshot.' }}"
                           data-glass-tip-placement="top"
                           data-glass-tip-hover-only="1"
-                          aria-label="Cover missing">
+                          aria-label="{{ \App\Models\Site::publicDiskUrl($site->site_image) ? 'Preview unavailable' : 'No cover yet' }}">
                         <i class="fa fa-image" aria-hidden="true"></i>
-                        <span class="site-row-preview__empty-label">Cover missing</span>
+                        <span class="site-row-preview__empty-label">No cover yet</span>
                     </span>
                 @endif
             </td>

@@ -39,6 +39,11 @@
             'align' => 'start',
         ])
     </div>
+    @if(! $site->hasCatalogCover())
+        <p class="mysites-buyer-preview__staff-note text-muted small mb-2">
+            Homepage screenshot is added by staff. You do not need to upload one.
+        </p>
+    @endif
 
     @if($buyerChecklist !== [])
         <h4 class="mysites-buyer-preview__checklist-title">Listing checklist</h4>

@@ -7,6 +7,7 @@ use App\Models\BulkSiteRequestItem;
 use App\Models\Role;
 use App\Models\Site;
 use App\Models\User;
+use App\Support\CatalogBuyerReadiness;
 use Database\Seeders\CategoriesTableSeeder;
 use Database\Seeders\CountriesTableSeeder;
 use Database\Seeders\LanguagesTableSeeder;
@@ -953,7 +954,7 @@ class PublisherMySitesPageTest extends TestCase
         $this->assertStringContainsString('Listing checklist', $html);
         $this->assertStringContainsString('Marketplace country', $html);
         $this->assertStringContainsString('Sample article URL', $html);
-        $this->assertStringContainsString('Cover or screenshot', $html);
+        $this->assertStringNotContainsString('Cover or screenshot', $html);
         $this->assertStringContainsString('site-trust-compact', $html);
         $this->assertStringContainsString('catalog-price', $html);
         $this->assertStringNotContainsString('Open in catalog', $html);
@@ -966,7 +967,7 @@ class PublisherMySitesPageTest extends TestCase
         $this->assertStringContainsString('catalog.css', $page);
     }
 
-    public function test_ajax_empty_preview_says_cover_missing(): void
+    public function test_ajax_empty_preview_says_no_cover_yet_not_publisher_error(): void
     {
         $this->makeSite([
             'verified' => true,
@@ -983,8 +984,17 @@ class PublisherMySitesPageTest extends TestCase
             ->assertOk()
             ->getContent();
 
-        $this->assertStringContainsString('Cover missing', $html);
+        $this->assertStringContainsString('No cover yet', $html);
+        $this->assertStringContainsString('Staff will add a homepage screenshot.', $html);
+        $this->assertStringContainsString('Homepage screenshot is added by staff', $html);
         $this->assertStringContainsString('site-row-preview is-empty', $html);
+        $this->assertStringNotContainsString('Cover missing', $html);
+        $this->assertStringNotContainsString('Cover or screenshot', $html);
         $this->assertStringNotContainsString('aria-label="No preview"', $html);
+
+        $keys = array_column(CatalogBuyerReadiness::checklist(Site::query()->first()), 'key');
+        $this->assertNotContains('cover', $keys);
+        $this->assertContains('example_url', $keys);
+        $this->assertContains('brief', $keys);
     }
 }
