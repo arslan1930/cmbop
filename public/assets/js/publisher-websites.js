@@ -1544,6 +1544,10 @@ $(document).on('click', '.btn-delete', function() {
 $(document).on('click', '.btn-edit', function() {
     const site = $(this).data('site');
     if (!site || !site.id) {
+        // Checklist CTAs only have data-id; websites.blade.php fetches /edit-data.
+        if ($(this).data('id')) {
+            return;
+        }
         Swal.fire({ icon: 'error', title: 'Could not edit', text: 'Site data failed to load. Refresh and try again.' });
         return;
     }

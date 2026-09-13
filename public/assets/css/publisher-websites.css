@@ -1095,39 +1095,114 @@
     .mysites-buyer-preview__checklist-block {
         margin-top: 0.35rem;
         padding-top: 0.85rem;
+        padding-bottom: 3.25rem;
         border-top: 1px solid #e2e8f0;
     }
 
     .mysites-buyer-preview__checklist-head {
         display: flex;
         flex-wrap: wrap;
-        align-items: center;
+        align-items: baseline;
         justify-content: space-between;
         gap: 0.35rem 1rem;
-        padding-right: max(0px, 12rem);
+        margin-bottom: 0.65rem;
     }
 
-    .mysites-buyer-preview__edit {
-        border: 0;
-        background: transparent;
-        padding: 0;
+    .mysites-buyer-preview__checklist-summary {
+        margin: 0;
         font-size: 0.8125rem;
-        font-weight: 600;
-        color: var(--brand-primary, #1a585e);
+        font-weight: 650;
+        color: #1a585e;
     }
 
-    .mysites-buyer-preview__edit:hover,
-    .mysites-buyer-preview__edit:focus-visible {
-        text-decoration: underline;
+    .mysites-buyer-preview__checklist-summary.is-ready {
+        color: #065f46;
     }
 
-    .mysites-buyer-preview__checklist {
+    .mysites-buyer-preview__gaps {
+        list-style: none;
+        margin: 0 0 0.85rem;
+        padding: 0;
+        display: grid;
+        gap: 0.55rem;
+    }
+
+    .mysites-buyer-preview__gap {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: flex-start;
+        gap: 0.5rem 0.75rem;
+        padding: 0.7rem 0.85rem;
+        border: 1px solid #a5f3fc;
+        border-radius: 10px;
+        background: #ecfeff;
+        color: #155e75;
+        font-size: 0.8125rem;
+        line-height: 1.4;
+    }
+
+    .mysites-buyer-preview__gap-body {
+        flex: 1 1 12rem;
+        min-width: 0;
+    }
+
+    .mysites-buyer-preview__gap-cta {
+        flex: 0 0 auto;
+        margin-left: auto;
+        border: 1px solid #1a585e;
+        background: #1a585e;
+        color: #fff;
+        font-size: 0.75rem;
+        font-weight: 650;
+        line-height: 1.2;
+        padding: 0.35rem 0.65rem;
+        border-radius: 999px;
+    }
+
+    .mysites-buyer-preview__gap-cta:hover,
+    .mysites-buyer-preview__gap-cta:focus-visible {
+        background: #123f42;
+        border-color: #123f42;
+        color: #fff;
+        text-decoration: none;
+    }
+
+    .mysites-buyer-preview__hint {
+        display: block;
+        color: #155e75;
+        font-weight: 400;
+        margin-top: 0.15rem;
+    }
+
+    .mysites-buyer-preview__ready-label {
+        margin: 0 0 0.35rem;
+        font-size: 11px;
+        font-weight: 650;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        color: #64748b;
+    }
+
+    .mysites-buyer-preview__ready {
         list-style: none;
         margin: 0;
         padding: 0;
-        padding-right: max(0px, 9rem);
-        display: grid;
-        gap: 0.4rem;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.35rem;
+    }
+
+    .mysites-buyer-preview__ready-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.3rem;
+        padding: 0.2rem 0.55rem;
+        border-radius: 999px;
+        background: #e6f5f5;
+        color: #1a585e;
+        font-size: 0.75rem;
+        font-weight: 600;
+        line-height: 1.3;
     }
 
     .mysites-buyer-preview__item {
@@ -1139,27 +1214,9 @@
     }
 
     .mysites-buyer-preview__item.is-ok {
-        color: #166534;
+        color: #1a585e;
     }
 
     .mysites-buyer-preview__item.is-gap {
-        color: #9a3412;
-    }
-
-    .mysites-buyer-preview__hint {
-        display: block;
-        color: #64748b;
-        font-weight: 400;
-        margin-top: 0.1rem;
-    }
-
-    @media (max-width: 991px) {
-        .mysites-buyer-preview__checklist-head {
-            padding-right: 0;
-        }
-
-        .mysites-buyer-preview__checklist {
-            padding-right: 0;
-            padding-bottom: 3rem;
-        }
+        color: #123f42;
     }
