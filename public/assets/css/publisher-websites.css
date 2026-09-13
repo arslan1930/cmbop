@@ -1205,6 +1205,14 @@
         line-height: 1.3;
     }
 
+    .mysites-buyer-preview__staff-note-chip {
+        display: block;
+        color: #155e75;
+        font-size: 0.8125rem;
+        font-weight: 600;
+        line-height: 1.4;
+    }
+
     .mysites-buyer-preview__item {
         display: flex;
         align-items: flex-start;

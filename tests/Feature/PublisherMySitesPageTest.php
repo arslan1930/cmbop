@@ -1100,6 +1100,29 @@ class PublisherMySitesPageTest extends TestCase
         $this->assertNotContains('tag', array_column(CatalogBuyerReadiness::checklist(Site::query()->first()), 'key'));
     }
 
+    public function test_ajax_preview_checklist_does_not_ask_publisher_to_fix_quality_bar(): void
+    {
+        $this->makeSite([
+            'verified' => true,
+            'active' => true,
+            'example_url' => 'https://oreilly-news.example/sample',
+            'da' => 10,
+            'dr' => 10,
+            'traffic' => 100,
+        ]);
+
+        $html = $this->actingAs($this->publisher)
+            ->get(route('publisher.sites.ajax', ['status' => 'active']))
+            ->assertOk()
+            ->getContent();
+
+        $this->assertStringContainsString('4 of 5 ready', $html);
+        $this->assertStringNotContainsString('to fix', $html);
+        $this->assertStringNotContainsString('mysites-buyer-preview__gap', $html);
+        $this->assertStringContainsString('Staff set DA, DR, and traffic', $html);
+        $this->assertStringNotContainsString('Set listing tag', $html);
+    }
+
     public function test_ajax_preview_sensitive_addons_use_publisher_amounts_without_repeating_list(): void
     {
         $site = $this->makeSite([

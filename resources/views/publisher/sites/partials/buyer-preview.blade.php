@@ -16,9 +16,10 @@
     ];
     $buyerChecklistGroup = class_exists(\App\Support\CatalogBuyerReadiness::class)
         ? \App\Support\CatalogBuyerReadiness::grouped($site)
-        : ['gaps' => [], 'ready' => [], 'gap_count' => 0, 'ready_count' => 0, 'total' => 0];
+        : ['gaps' => [], 'ready' => [], 'staff' => [], 'gap_count' => 0, 'ready_count' => 0, 'staff_count' => 0, 'total' => 0];
     $buyerChecklistGaps = $buyerChecklistGroup['gaps'];
     $buyerChecklistReady = $buyerChecklistGroup['ready'];
+    $buyerChecklistStaff = $buyerChecklistGroup['staff'] ?? [];
     $buyerChecklistGapCount = (int) $buyerChecklistGroup['gap_count'];
     $buyerChecklistReadyCount = (int) $buyerChecklistGroup['ready_count'];
     $buyerChecklistTotal = (int) $buyerChecklistGroup['total'];
@@ -358,6 +359,10 @@
                         {{ $buyerChecklistGapCount }} to fix
                         <span class="text-muted">· {{ $buyerChecklistReadyCount }} of {{ $buyerChecklistTotal }} ready</span>
                     </p>
+                @elseif($buyerChecklistStaff !== [])
+                    <p class="mysites-buyer-preview__checklist-summary is-ready" role="status">
+                        {{ $buyerChecklistReadyCount }} of {{ $buyerChecklistTotal }} ready
+                    </p>
                 @else
                     <p class="mysites-buyer-preview__checklist-summary is-ready" role="status">
                         All {{ $buyerChecklistTotal }} ready
@@ -398,6 +403,18 @@
                         <li class="mysites-buyer-preview__ready-chip">
                             <i class="fa-solid fa-circle-check" aria-hidden="true"></i>
                             {{ $item['label'] }}
+                        </li>
+                    @endforeach
+                </ul>
+            @endif
+
+            @if($buyerChecklistStaff !== [])
+                <p class="mysites-buyer-preview__ready-label">Staff</p>
+                <ul class="mysites-buyer-preview__ready">
+                    @foreach($buyerChecklistStaff as $item)
+                        <li class="mysites-buyer-preview__staff-note-chip">
+                            {{ $item['label'] }}
+                            <span class="mysites-buyer-preview__hint">{{ $item['hint'] }}</span>
                         </li>
                     @endforeach
                 </ul>
