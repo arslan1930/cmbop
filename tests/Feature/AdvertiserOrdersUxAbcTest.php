@@ -185,6 +185,7 @@ class AdvertiserOrdersUxAbcTest extends TestCase
         $js = file_get_contents(public_path('assets/js/advertiser-orders.js'));
         $this->assertIsString($js);
         $this->assertStringContainsString('ordersProjectFilterValues', $js);
+        $this->assertStringContainsString('projectFilters.project', $js);
         $this->assertStringContainsString('clearOrdersProjectStageFilter', $js);
         $this->assertStringContainsString('syncOrdersKpiActive', $js);
         $this->assertStringContainsString('project_stage', $js);

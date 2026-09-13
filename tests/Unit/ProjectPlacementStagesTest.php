@@ -63,17 +63,27 @@ class ProjectPlacementStagesTest extends TestCase
     public function test_host_like_patterns_cover_scheme_path_query_and_hash(): void
     {
         $this->assertSame([
-            '%://acme.example/%',
-            '%://acme.example',
-            '%://acme.example?%',
-            '%://acme.example#%',
-            '%://acme.example:%',
             'acme.example/%',
-            '%://%:%@acme.example/%',
-            '%://%:%@acme.example',
-            '%://%:%@acme.example?%',
-            '%://%:%@acme.example#%',
-            '%://%:%@acme.example:%',
+            'http://acme.example/%',
+            'http://acme.example',
+            'http://acme.example?%',
+            'http://acme.example#%',
+            'http://acme.example:%',
+            'http://%:%@acme.example/%',
+            'http://%:%@acme.example',
+            'http://%:%@acme.example?%',
+            'http://%:%@acme.example#%',
+            'http://%:%@acme.example:%',
+            'https://acme.example/%',
+            'https://acme.example',
+            'https://acme.example?%',
+            'https://acme.example#%',
+            'https://acme.example:%',
+            'https://%:%@acme.example/%',
+            'https://%:%@acme.example',
+            'https://%:%@acme.example?%',
+            'https://%:%@acme.example#%',
+            'https://%:%@acme.example:%',
         ], Project::hostLikePatterns('acme.example'));
 
         $this->assertSame([

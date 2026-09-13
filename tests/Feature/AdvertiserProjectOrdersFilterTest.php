@@ -233,6 +233,17 @@ class AdvertiserProjectOrdersFilterTest extends TestCase
         $ids = $this->listIds($other, ['project' => $foreign->id]);
 
         $this->assertSame([], $ids);
+
+        $html = $this->actingAs($other)
+            ->get(route('advertiser.orders', ['project' => $foreign->id]))
+            ->assertOk()
+            ->getContent();
+
+        $this->assertStringNotContainsString('Project: Owned Client', $html);
+        $this->assertMatchesRegularExpression(
+            '/id="ordersProjectChip"\s+class="[^"]*d-none/',
+            $html
+        );
     }
 
     public function test_list_matches_brief_target_when_item_url_is_empty(): void
@@ -366,10 +377,57 @@ class AdvertiserProjectOrdersFilterTest extends TestCase
         ], [
             'target_url' => 'https://evil.com?x:y@acme.example',
         ]);
+        $this->makeOrder($user, $site, [
+            'status' => 'processing',
+        ], [
+            'target_url' => 'https://other-client.example/page?redirect=https://acme.example/x',
+        ]);
 
         $ids = $this->listIds($user, ['project' => $project->id]);
 
         $this->assertEqualsCanonicalizing([$withPort->id, $withUserinfo->id], $ids);
+    }
+
+    public function test_content_revision_on_another_host_does_not_match_this_project(): void
+    {
+        $user = $this->advertiser();
+        $site = $this->siteFor($this->publisher());
+
+        $project = Project::create([
+            'user_id' => $user->id,
+            'project_name' => 'Acme Client',
+            'project_url' => 'https://acme.example',
+        ]);
+
+        $order = $this->makeOrder($user, $site, [
+            'status' => 'processing',
+        ], [
+            'target_url' => 'https://acme.example/ok',
+            'content_revision_requested' => 'no',
+        ]);
+        OrderItem::create([
+            'order_id' => $order->id,
+            'site_id' => $site->id,
+            'site_name' => $site->site_name,
+            'site_url' => $site->site_url,
+            'price' => 50,
+            'content_link' => 'https://example.com/article-2.docx',
+            'target_url' => 'https://beta.example/rev',
+            'content_revision_requested' => 'yes',
+        ]);
+
+        $this->assertSame([], $this->listIds($user, [
+            'project' => $project->id,
+            'project_stage' => 'needs_improvements',
+        ]));
+        $this->assertSame([], $this->listIds($user, [
+            'project' => $project->id,
+            'project_stage' => 'needs_you',
+        ]));
+        $this->assertSame([$order->id], $this->listIds($user, [
+            'project' => $project->id,
+            'project_stage' => 'in_progress',
+        ]));
     }
 
     public function test_revision_requested_is_needs_improvements_not_in_progress(): void

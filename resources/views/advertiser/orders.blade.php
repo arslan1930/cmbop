@@ -171,7 +171,7 @@
                     $filterProjectStage = (string) ($filterProjectStage ?? '');
                     $projectFilterValue = $filterProject?->id ?? search_text(request('project'));
                     $projectStageLabel = \App\Models\Project::stageLabel($filterProjectStage);
-                    $showProjectChip = $projectFilterValue !== '' && $projectFilterValue !== null && (int) $projectFilterValue > 0;
+                    $showProjectChip = $filterProject !== null;
                 @endphp
                 <input type="hidden" name="project" id="projectFilter" value="{{ $projectFilterValue }}">
                 <input type="hidden" name="project_stage" id="projectStageFilter" value="{{ $filterProjectStage }}">

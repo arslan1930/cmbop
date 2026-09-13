@@ -824,6 +824,7 @@ function bootAdvertiserOrdersPage() {
     };
 
     function ordersHaveActiveFilters() {
+        const projectFilters = ordersProjectFilterValues();
         return !!(
             (document.getElementById('searchInput')?.value || '').trim()
             || document.getElementById('statusFilter')?.value
@@ -831,6 +832,8 @@ function bootAdvertiserOrdersPage() {
             || document.getElementById('paymentMethodFilter')?.value
             || document.getElementById('dateFrom')?.value
             || document.getElementById('dateTo')?.value
+            || projectFilters.project
+            || projectFilters.project_stage
             || ordersListSort() !== 'attention'
         );
     }

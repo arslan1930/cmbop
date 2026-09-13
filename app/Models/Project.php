@@ -315,12 +315,22 @@ class Project extends Model
             }
         };
 
-        $withoutOpenContentRevision = function (Builder $q): void {
+        $constrainItemWithoutContentRevision = function ($items): void {
             if (Schema::hasColumn('order_items', 'content_revision_requested')) {
-                $q->whereDoesntHave('items', function ($items) {
-                    $items->where('content_revision_requested', 'yes');
+                $items->where(function ($q) {
+                    $q->whereNull('content_revision_requested')
+                        ->orWhere('content_revision_requested', '!=', 'yes');
                 });
             }
+        };
+
+        $withoutOpenContentRevision = function (Builder $q) use ($host): void {
+            if ($host !== '' || ! Schema::hasColumn('order_items', 'content_revision_requested')) {
+                return;
+            }
+            $q->whereDoesntHave('items', function ($items) {
+                $items->where('content_revision_requested', 'yes');
+            });
         };
 
         $alignWithMeta = function (Builder $q) use ($withoutOpenContentRevision): void {
@@ -334,10 +344,11 @@ class Project extends Model
                 ->whereHas('items', $matchingItems), [self::class, 'constrainWithoutFailedPayment']),
             'in_progress' => tap($query
                 ->where('status', 'processing')
-                ->whereHas('items', function ($items) use ($host) {
+                ->whereHas('items', function ($items) use ($host, $constrainItemWithoutContentRevision) {
                     if ($host !== '') {
                         self::constrainItemsByHost($items, $host);
                     }
+                    $constrainItemWithoutContentRevision($items);
                     if (Schema::hasColumn('order_items', 'modification_requested')) {
                         $items->where(function ($q) {
                             $q->whereNull('modification_requested')
@@ -347,20 +358,22 @@ class Project extends Model
                 }), $alignWithMeta),
             'in_review' => tap($query
                 ->where('status', 'review')
-                ->whereHas('items', function ($items) use ($host) {
+                ->whereHas('items', function ($items) use ($host, $constrainItemWithoutContentRevision) {
                     if ($host !== '') {
                         self::constrainItemsByHost($items, $host);
                     }
+                    $constrainItemWithoutContentRevision($items);
                     $items->where(function ($q) {
                         $q->whereNull('live_url')->orWhere('live_url', '');
                     });
                 }), $alignWithMeta),
             'waiting_approval' => tap(
                 AdvertiserOrderStatus::constrainReviewReady($query)
-                    ->whereHas('items', function ($items) use ($host) {
+                    ->whereHas('items', function ($items) use ($host, $constrainItemWithoutContentRevision) {
                         if ($host !== '') {
                             self::constrainItemsByHost($items, $host);
                         }
+                        $constrainItemWithoutContentRevision($items);
                         $items->whereNotNull('live_url')->where('live_url', '!=', '');
                     }),
                 $alignWithMeta
@@ -385,14 +398,12 @@ class Project extends Model
                         return;
                     }
                     $revision->whereIn('status', ['processing', 'review'])
-                        ->whereHas('items', function ($items) {
+                        ->whereHas('items', function ($items) use ($host) {
                             $items->where('content_revision_requested', 'yes');
+                            if ($host !== '') {
+                                self::constrainItemsByHost($items, $host);
+                            }
                         });
-                    if ($host !== '') {
-                        $revision->whereHas('items', function ($items) use ($host) {
-                            self::constrainItemsByHost($items, $host);
-                        });
-                    }
                 });
             }), [self::class, 'constrainWithoutFailedPayment']),
             'completed' => tap($query
@@ -404,22 +415,24 @@ class Project extends Model
                         ->orWhere('payment_status', 'failed');
                 })
                 ->whereHas('items', $matchingItems),
-            'needs_you' => tap($query->where(function ($q) use ($host) {
-                $q->where(function ($ready) use ($host) {
+            'needs_you' => tap($query->where(function ($q) use ($host, $constrainItemWithoutContentRevision) {
+                $q->where(function ($ready) use ($host, $constrainItemWithoutContentRevision) {
                     tap(
                         AdvertiserOrderStatus::constrainReviewReady($ready)
-                            ->whereHas('items', function ($items) use ($host) {
+                            ->whereHas('items', function ($items) use ($host, $constrainItemWithoutContentRevision) {
                                 if ($host !== '') {
                                     self::constrainItemsByHost($items, $host);
                                 }
+                                $constrainItemWithoutContentRevision($items);
                                 $items->whereNotNull('live_url')->where('live_url', '!=', '');
                             }),
-                        function (Builder $inner): void {
-                            if (Schema::hasColumn('order_items', 'content_revision_requested')) {
-                                $inner->whereDoesntHave('items', function ($items) {
-                                    $items->where('content_revision_requested', 'yes');
-                                });
+                        function (Builder $inner) use ($host): void {
+                            if ($host !== '' || ! Schema::hasColumn('order_items', 'content_revision_requested')) {
+                                return;
                             }
+                            $inner->whereDoesntHave('items', function ($items) {
+                                $items->where('content_revision_requested', 'yes');
+                            });
                         }
                     );
                 })->orWhere(function ($improvements) use ($host) {
@@ -518,23 +531,30 @@ class Project extends Model
     }
 
     /**
+     * Authority-only LIKE shapes. Leading `%://` would also hit an
+     * embedded URL in a query (`?redirect=https://host/…`); the string
+     * must start with http(s) plus this host (or scheme-less host/).
+     *
      * @return list<string>
      */
     public static function hostLikePatterns(string $host): array
     {
-        return [
-            '%://'.$host.'/%',
-            '%://'.$host,
-            '%://'.$host.'?%',
-            '%://'.$host.'#%',
-            '%://'.$host.':%',
-            $host.'/%',
-            '%://%:%@'.$host.'/%',
-            '%://%:%@'.$host,
-            '%://%:%@'.$host.'?%',
-            '%://%:%@'.$host.'#%',
-            '%://%:%@'.$host.':%',
-        ];
+        $patterns = [$host.'/%'];
+
+        foreach (['http://', 'https://'] as $scheme) {
+            $patterns[] = $scheme.$host.'/%';
+            $patterns[] = $scheme.$host;
+            $patterns[] = $scheme.$host.'?%';
+            $patterns[] = $scheme.$host.'#%';
+            $patterns[] = $scheme.$host.':%';
+            $patterns[] = $scheme.'%:%@'.$host.'/%';
+            $patterns[] = $scheme.'%:%@'.$host;
+            $patterns[] = $scheme.'%:%@'.$host.'?%';
+            $patterns[] = $scheme.'%:%@'.$host.'#%';
+            $patterns[] = $scheme.'%:%@'.$host.':%';
+        }
+
+        return $patterns;
     }
 
     /**
