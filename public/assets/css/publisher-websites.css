@@ -1133,10 +1133,10 @@
         align-items: flex-start;
         gap: 0.5rem 0.75rem;
         padding: 0.7rem 0.85rem;
-        border: 1px solid #b8e4e4;
+        border: 1px solid #a5f3fc;
         border-radius: 10px;
-        background: #f4fbfb;
-        color: #123f42;
+        background: #ecfeff;
+        color: #155e75;
         font-size: 0.8125rem;
         line-height: 1.4;
     }
