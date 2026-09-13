@@ -618,6 +618,22 @@ class Site extends Model
         return $at instanceof \DateTimeInterface && $at->gt(now()->subDays($days));
     }
 
+    /**
+     * Live, unverified, and new — staff activated it. Do not pair this with
+     * the TXT Verified chip (same meaning).
+     */
+    public function showsStaffReviewedChip(): bool
+    {
+        return (bool) $this->active
+            && ! (bool) $this->verified
+            && $this->isRecentlyCreated();
+    }
+
+    public function isStaffReviewedListing(): bool
+    {
+        return (bool) $this->verified || $this->showsStaffReviewedChip();
+    }
+
     public function safeFeaturedUntil(): ?\DateTimeInterface
     {
         return $this->safeDateAttribute('featured_until');
