@@ -97,11 +97,9 @@ class AddFundsController extends Controller
         }
 
         $summary = [];
-        $analytics = ['labels' => [], 'deposits' => [], 'orders' => []];
         if ($wallet) {
             try {
                 $summary = $this->overview->summary($user->id, $wallet);
-                $analytics = $this->overview->analytics($user->id, 'month');
             } catch (\Throwable $e) {
                 Log::warning('Add Funds wallet overview failed', [
                     'user_id' => $user->id,
@@ -177,7 +175,6 @@ class AddFundsController extends Controller
             'pendingRequests' => $pendingRequests,
             'wallet' => $wallet,
             'summary' => $summary,
-            'analytics' => $analytics,
             'advertiserBalance' => (float) ($wallet?->balance ?? 0),
             'advertiserBonusBalance' => $wallet ? $wallet->lockedBonusBalance() : 0.0,
             'advertiserWithdrawableBalance' => $wallet ? $wallet->withdrawableBalance() : 0.0,

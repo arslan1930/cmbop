@@ -18,9 +18,57 @@ document.addEventListener('DOMContentLoaded', function() {
     const prefillAmount = boot.prefillAmount || null;
     const checkoutNeeded = Number(boot.checkoutNeeded || 0);
     const prefillMethod = boot.prefillMethod || null;
+    const maxDeposit = 100000;
 
     function isManualMethod(method) {
         return method === 'wise' || method === 'bank' || method === 'crypto';
+    }
+
+    function announceCopied() {
+        const live = document.getElementById('afCopyStatus');
+        if (live) {
+            live.textContent = '';
+            live.textContent = 'Copied to clipboard';
+        }
+    }
+
+    function copyPayText(text, btn) {
+        const value = String(text || '').trim();
+        if (!value) {
+            return;
+        }
+
+        const markCopied = function () {
+            if (btn) {
+                const original = btn.innerHTML;
+                btn.innerHTML = '<i class="fas fa-check" aria-hidden="true"></i> Copied!';
+                setTimeout(function () { btn.innerHTML = original; }, 1500);
+            }
+            announceCopied();
+        };
+
+        const fallbackCopy = function () {
+            const ta = document.createElement('textarea');
+            ta.value = value;
+            ta.setAttribute('readonly', '');
+            ta.style.position = 'absolute';
+            ta.style.left = '-9999px';
+            document.body.appendChild(ta);
+            ta.select();
+            try {
+                document.execCommand('copy');
+                markCopied();
+            } catch (e) {
+                Swal.fire('Copy failed', 'Select the text and copy it manually.', 'info');
+            }
+            document.body.removeChild(ta);
+        };
+
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(value).then(markCopied).catch(fallbackCopy);
+        } else {
+            fallbackCopy();
+        }
     }
 
     // Instant rails only: metadata REF at proceed time. Never shown as a pay instruction.
@@ -154,13 +202,13 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function applyPrefill() {
         if (prefillAmount && Number(prefillAmount) >= 10) {
-            setSelectedAmount(Number(prefillAmount));
+            const amount = Math.min(Number(prefillAmount), maxDeposit);
+            setSelectedAmount(amount);
             const matchBtn = Array.from(document.querySelectorAll('.amount-btn')).find(
-                btn => Number(btn.dataset.amount) === Number(prefillAmount)
+                btn => Number(btn.dataset.amount) === amount
             );
             if (matchBtn) {
-                document.querySelectorAll('.amount-btn').forEach(b => b.classList.remove('active'));
-                matchBtn.classList.add('active');
+                markAmountButton(matchBtn);
             } else if (customAmountInput) {
                 customAmountInput.value = String(prefillAmount);
             }
@@ -185,16 +233,15 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function applyCoverCheckoutAmount(needed) {
         const amount = Number(needed);
-        if (!(amount >= 10) || invoiceLocked) {
+        if (!(amount >= 10) || amount > maxDeposit || invoiceLocked) {
             return;
         }
         setSelectedAmount(amount);
         const matchBtn = Array.from(document.querySelectorAll('.amount-btn')).find(
             btn => Number(btn.dataset.amount) === amount
         );
-        document.querySelectorAll('.amount-btn').forEach(b => b.classList.remove('active'));
+        markAmountButton(matchBtn || null);
         if (matchBtn) {
-            matchBtn.classList.add('active');
             if (customAmountInput) customAmountInput.value = '';
         } else if (customAmountInput) {
             customAmountInput.value = String(amount);
@@ -329,19 +376,25 @@ document.addEventListener('DOMContentLoaded', function() {
     const summaryAmount = document.getElementById('summaryAmount');
     const summaryTotal = document.getElementById('summaryTotal');
 
+    function markAmountButton(activeBtn) {
+        amountBtns.forEach(b => {
+            b.classList.toggle('active', b === activeBtn);
+            b.setAttribute('aria-pressed', b === activeBtn ? 'true' : 'false');
+        });
+    }
+
     // Amount button click
     amountBtns.forEach(btn => {
         btn.addEventListener('click', function() {
             const amount = parseFloat(this.dataset.amount);
             setSelectedAmount(amount);
-            amountBtns.forEach(b => b.classList.remove('active'));
-            this.classList.add('active');
+            markAmountButton(this);
             customAmountInput.value = '';
         });
     });
 
     // Custom amount: allow mid-typing (e.g. "1" while entering "100").
-    // Enforce the €10 minimum on blur and when proceeding — not on every keystroke.
+    // Enforce the €10–€100,000 range on blur and when proceeding — not on every keystroke.
     customAmountInput.addEventListener('input', function() {
         const raw = String(this.value || '').trim();
         if (raw === '') {
@@ -352,13 +405,13 @@ document.addEventListener('DOMContentLoaded', function() {
         }
 
         const amount = parseFloat(raw);
-        if (!isNaN(amount) && amount >= 10) {
+        if (!isNaN(amount) && amount >= 10 && amount <= maxDeposit) {
             setSelectedAmount(amount);
-            amountBtns.forEach(b => b.classList.remove('active'));
+            markAmountButton(null);
             return;
         }
 
-        // Partial / below-minimum while typing — keep the field, clear the selection.
+        // Partial / below-minimum / over-max while typing — keep the field, clear the selection.
         selectedAmount = 0;
         selectedAmountDisplay.style.display = 'none';
         updateSummary(0);
@@ -373,8 +426,21 @@ document.addEventListener('DOMContentLoaded', function() {
         const amount = parseFloat(raw);
         if (isNaN(amount) || amount < 10) {
             Swal.fire({
-                title: 'Invalid Amount',
-                text: 'Minimum amount is €10',
+                title: 'Invalid amount',
+                text: 'Minimum amount is €10.',
+                icon: 'warning',
+                confirmButtonText: 'OK'
+            });
+            this.value = '';
+            selectedAmount = 0;
+            selectedAmountDisplay.style.display = 'none';
+            updateSummary(0);
+            return;
+        }
+        if (amount > maxDeposit) {
+            Swal.fire({
+                title: 'Amount too large',
+                text: 'Maximum amount is €100,000.',
                 icon: 'warning',
                 confirmButtonText: 'OK'
             });
@@ -419,55 +485,69 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Prefill amount/method comes from applyPrefill() above (server + ?amount=&method=).
 
+    function selectPaymentOption(option) {
+        if (!option.dataset.method || option.getAttribute('aria-disabled') === 'true') {
+            return;
+        }
+        if (invoiceLocked) {
+            return;
+        }
+
+        const method = option.dataset.method;
+        selectedMethod = method;
+
+        paymentOptions.forEach(opt => {
+            opt.classList.remove('selected');
+            if (opt.getAttribute('role') === 'button') {
+                opt.setAttribute('aria-pressed', opt === option ? 'true' : 'false');
+            }
+        });
+        option.classList.add('selected');
+        if (option.getAttribute('role') === 'button') {
+            option.setAttribute('aria-pressed', 'true');
+        }
+
+        if (paymentError) paymentError.style.display = 'none';
+
+        hideManualPayDetails();
+        if (cardDetails) cardDetails.style.display = 'none';
+        if (paypalDetails) paypalDetails.style.display = 'none';
+
+        if (method === 'card' && cardDetails) {
+            cardDetails.style.display = 'block';
+            if (paymentDetailsSection) paymentDetailsSection.style.display = 'block';
+        } else if (method === 'paypal' && paypalDetails) {
+            paypalDetails.style.display = 'block';
+            if (paymentDetailsSection) paymentDetailsSection.style.display = 'block';
+        } else if (paymentDetailsSection) {
+            paymentDetailsSection.style.display = 'none';
+        }
+
+        if (typeof syncProceedLabel === 'function') syncProceedLabel();
+    }
+
     // Payment option click — manual rails do not reveal pay details until invoice.
     paymentOptions.forEach(option => {
         option.addEventListener('click', function() {
-            if (!this.dataset.method || this.getAttribute('aria-disabled') === 'true') {
+            selectPaymentOption(this);
+        });
+        option.addEventListener('keydown', function (e) {
+            if (e.key !== 'Enter' && e.key !== ' ') {
                 return;
             }
-            if (invoiceLocked) {
-                return;
-            }
-
-            const method = this.dataset.method;
-            selectedMethod = method;
-
-            paymentOptions.forEach(opt => opt.classList.remove('selected'));
-            this.classList.add('selected');
-
-            if (paymentError) paymentError.style.display = 'none';
-
-            hideManualPayDetails();
-            if (cardDetails) cardDetails.style.display = 'none';
-            if (paypalDetails) paypalDetails.style.display = 'none';
-
-            if (method === 'card' && cardDetails) {
-                cardDetails.style.display = 'block';
-                if (paymentDetailsSection) paymentDetailsSection.style.display = 'block';
-            } else if (method === 'paypal' && paypalDetails) {
-                paypalDetails.style.display = 'block';
-                if (paymentDetailsSection) paymentDetailsSection.style.display = 'block';
-            } else if (paymentDetailsSection) {
-                paymentDetailsSection.style.display = 'none';
-            }
-
-            if (typeof syncProceedLabel === 'function') syncProceedLabel();
+            e.preventDefault();
+            selectPaymentOption(this);
         });
     });
     
     // Copy buttons
     document.querySelectorAll('.copy-btn').forEach(btn => {
         btn.addEventListener('click', function() {
+            const explicit = this.getAttribute('data-copy');
             const targetId = this.dataset.target;
-            const textEl = document.getElementById(targetId);
-            if (textEl) {
-                const textToCopy = textEl.innerText;
-                navigator.clipboard.writeText(textToCopy).then(() => {
-                    const originalHtml = this.innerHTML;
-                    this.innerHTML = '<i class="fas fa-check"></i> Copied!';
-                    setTimeout(() => this.innerHTML = originalHtml, 1500);
-                });
-            }
+            const textEl = targetId ? document.getElementById(targetId) : null;
+            const textToCopy = explicit || (textEl ? textEl.innerText : '');
+            copyPayText(textToCopy, this);
         });
     });
     
@@ -477,11 +557,7 @@ document.addEventListener('DOMContentLoaded', function() {
             if (!referenceCode) {
                 return;
             }
-            navigator.clipboard.writeText('REF' + referenceCode).then(() => {
-                const originalHtml = this.innerHTML;
-                this.innerHTML = '<i class="fas fa-check"></i> Copied!';
-                setTimeout(() => this.innerHTML = originalHtml, 1500);
-            });
+            copyPayText('REF' + referenceCode, this);
         });
     });
     
@@ -599,6 +675,15 @@ document.addEventListener('DOMContentLoaded', function() {
             Swal.fire({
                 title: 'Amount Required',
                 text: 'Please select or enter an amount of at least €10.',
+                icon: 'warning',
+                confirmButtonText: 'OK'
+            });
+            return;
+        }
+        if (selectedAmount > maxDeposit) {
+            Swal.fire({
+                title: 'Amount too large',
+                text: 'Maximum amount is €100,000.',
                 icon: 'warning',
                 confirmButtonText: 'OK'
             });

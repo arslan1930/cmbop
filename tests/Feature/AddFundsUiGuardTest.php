@@ -110,6 +110,26 @@ class AddFundsUiGuardTest extends TestCase
             '/payment option click[\s\S]{0,400}syncWiseQr/i',
             $js
         );
+        $this->assertStringContainsString('payments/usdt.svg', $view);
+        $this->assertStringNotContainsString('fa-bitcoin', $view);
+        $this->assertStringContainsString('function copyPayText', $js);
+        $this->assertStringContainsString('document.execCommand(\'copy\')', $js);
+        $this->assertStringContainsString('afCopyStatus', $view);
+        $this->assertStringContainsString('data-copy=', $view);
+        $this->assertStringContainsString('aria-labelledby="billingInfoModalLabel"', $view);
+        $this->assertStringContainsString('for="company_name"', $view);
+        $this->assertStringContainsString('autocomplete="organization"', $view);
+        $this->assertStringNotContainsString('State/Province <span class="text-danger">*</span>', $view);
+        $this->assertStringContainsString('€10–€100,000', $view);
+        $this->assertStringContainsString('max="100000"', $view);
+        $this->assertStringContainsString('aria-pressed="false"', $view);
+        $this->assertStringContainsString("e.key !== 'Enter' && e.key !== ' '", $js);
+        $this->assertStringContainsString('function selectPaymentOption', $js);
+        $this->assertStringContainsString('Maximum amount is €100,000.', $js);
+        $this->assertStringNotContainsString('new Chart(', $view);
+        $this->assertStringNotContainsString('walletChart', $view);
+        $this->assertStringNotContainsString('crosshairPlugin', $view);
+        $this->assertStringNotContainsString('continueAddFundsBtn', $view);
     }
 
     public function test_recently_used_is_quiet_corner_text_not_a_brand_pill(): void
