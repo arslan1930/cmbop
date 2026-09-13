@@ -1513,6 +1513,17 @@ window.publisherSitePreviewOnError = function (img) {
     }
     img.onerror = null;
     img.removeAttribute('src');
+    var zoom = img.closest('.site-preview-zoom');
+    if (zoom) {
+        zoom.classList.add('is-broken');
+        var fallback = zoom.nextElementSibling;
+        if (fallback && fallback.classList.contains('site-preview-fallback')) {
+            fallback.classList.remove('d-none');
+            fallback.classList.add('d-inline-flex');
+            fallback.removeAttribute('aria-hidden');
+        }
+        return;
+    }
     var wrap = img.closest('.site-row-preview');
     if (wrap) {
         wrap.classList.add('is-empty');

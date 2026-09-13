@@ -51,7 +51,8 @@
         Catalog row and Site Details. Prices are your list — not the advertiser total.
     </p>
 
-    <div class="mysites-catalog-preview catalog-page" aria-hidden="false">
+    <div class="mysites-catalog-preview">
+        <p class="visually-hidden">Catalog columns: Site, Category, Traffic, DR, DA, Country, Buy.</p>
         <div class="mysites-catalog-preview__headrow" aria-hidden="true">
             <span>Site</span>
             <span>Category</span>
@@ -114,7 +115,7 @@
                 </div>
             </div>
 
-            <div class="mysites-catalog-preview__stat">
+            <div class="mysites-catalog-preview__stat" data-label="Category">
                 @if($buyerNiches !== [])
                     <div class="categories-wrapper">
                         <div class="categories-column">
@@ -127,32 +128,45 @@
                     <span class="text-muted small">No niches</span>
                 @endif
             </div>
-            <div class="mysites-catalog-preview__stat">
+            <div class="mysites-catalog-preview__stat" data-label="Traffic">
                 @include('advertiser.partials.catalog-metric', ['type' => 'traffic', 'value' => $site->traffic, 'inline' => false])
             </div>
-            <div class="mysites-catalog-preview__stat">
+            <div class="mysites-catalog-preview__stat" data-label="DR">
                 @include('advertiser.partials.catalog-metric', ['type' => 'dr', 'value' => $site->dr, 'inline' => false])
             </div>
-            <div class="mysites-catalog-preview__stat">
+            <div class="mysites-catalog-preview__stat" data-label="DA">
                 @include('advertiser.partials.catalog-metric', ['type' => 'da', 'value' => $site->da, 'inline' => false])
             </div>
-            <div class="mysites-catalog-preview__stat">
-                <div class="catalog-country">
-                    <span class="catalog-country__flag" aria-hidden="true">{!! getCountryFlag($buyerCountry) !!}</span>
-                    <span class="catalog-country__name text-muted small">{{ fullCountry($buyerCountry) }}</span>
-                </div>
+            <div class="mysites-catalog-preview__stat" data-label="Country">
+                @php
+                    $buyerCountryFlag = getCountryFlag($buyerCountry);
+                    $buyerCountryName = trim((string) fullCountry($buyerCountry));
+                @endphp
+                @if($buyerCountryFlag !== '' || $buyerCountryName !== '')
+                    <div class="catalog-country">
+                        <span class="catalog-country__flag" aria-hidden="true">{!! $buyerCountryFlag !!}</span>
+                        <span class="catalog-country__name text-muted small">{{ $buyerCountryName }}</span>
+                    </div>
+                @else
+                    <span class="text-muted small">No country</span>
+                @endif
             </div>
-            <div class="mysites-catalog-preview__buy">
+            <div class="mysites-catalog-preview__buy" data-label="Buy">
                 @include('advertiser.partials.catalog-price', [
                     'listPrice' => $buyerListPrice,
                     'salePrice' => $buyerSalePrice,
                     'salePercent' => $buyerSalePct,
                     'align' => 'center',
                 ])
-                <button type="button" class="btn btn-sm btn-primary d-inline-flex justify-content-center align-items-center gap-2" disabled tabindex="-1">
+                <button type="button"
+                        class="btn btn-sm btn-outline-secondary mysites-catalog-preview__cart d-inline-flex justify-content-center align-items-center gap-2"
+                        disabled
+                        tabindex="-1"
+                        title="Preview only — advertisers add to cart in the catalog">
                     <i class="fa-solid fa-cart-plus" aria-hidden="true"></i>
                     <span>Add to cart</span>
                 </button>
+                <span class="mysites-catalog-preview__cart-note">Preview only</span>
             </div>
         </div>
 
@@ -171,7 +185,7 @@
                                  class="site-image-thumbnail"
                                  data-preview-chain="{{ json_encode($previewPaths, JSON_UNESCAPED_SLASHES) }}"
                                  data-preview-i="0"
-                                 onerror="var z=this.closest('.site-preview-zoom');if(z){z.classList.add('is-broken');}">
+                                 onerror="if(window.publisherSitePreviewOnError){window.publisherSitePreviewOnError(this);}else{var z=this.closest('.site-preview-zoom');if(z){z.classList.add('is-broken');}}">
                         </div>
                         <div class="site-preview-fallback bg-light border rounded d-none flex-column align-items-center justify-content-center gap-2 px-3" aria-hidden="true">
                             <i class="fa-solid fa-image text-muted" style="font-size: 28px;" aria-hidden="true"></i>
@@ -199,6 +213,11 @@
                             <span>No description yet</span>
                         @endif
                     </div>
+                    @if($site->lastPublicationLabel())
+                        <p class="text-muted small mb-0 mt-1" style="color:#94a3b8 !important;">
+                            {{ $site->lastPublicationLabel() }}
+                        </p>
+                    @endif
                     @unless($hasListingExtras)
                         <p class="text-muted small mb-0 mt-2">Base guest post only — no homepage, social, or sensitive add-ons.</p>
                     @endunless
@@ -285,9 +304,39 @@
 
                     <p class="mb-1"><strong>Sample article</strong></p>
                     @if($sampleUrl !== '#')
-                        <span class="text-muted small" style="word-break: break-all;">{{ \Illuminate\Support\Str::limit((string) $site->example_url, 50) }}</span>
+                        <a href="{{ $sampleUrl }}"
+                           target="_blank"
+                           rel="noopener noreferrer"
+                           class="text-decoration-none catalog-site-url d-inline-block mb-3"
+                           style="word-break: break-all;">
+                            {{ \Illuminate\Support\Str::limit((string) $site->example_url, 50) }}
+                        </a>
                     @else
-                        <span class="text-muted small">No sample article yet</span>
+                        <span class="text-muted small d-block mb-3">No sample article yet</span>
+                    @endif
+
+                    <p class="mb-1"><strong title="Typical publisher turnaround once an order is accepted">Turnaround</strong></p>
+                    @if($site->turnaroundLabel())
+                        <span class="badge text-muted border px-2 py-1 mb-3"
+                              style="font-size: 11px;"
+                              title="Typical publisher turnaround once an order is accepted">
+                            <i class="fa-solid fa-hourglass-half me-1" aria-hidden="true"></i>
+                            {{ $site->turnaroundLabel() }}
+                        </span>
+                    @else
+                        <span class="text-muted small d-block mb-3">Not specified</span>
+                    @endif
+
+                    <p class="mb-1"><strong title="How long the published article stays live">Publication duration</strong></p>
+                    @if($site->publicationDurationLabel())
+                        <span class="badge text-muted border px-2 py-1"
+                              style="font-size: 11px;"
+                              title="How long the published article stays live">
+                            <i class="fa-solid fa-clock me-1" aria-hidden="true"></i>
+                            {{ $site->publicationDurationLabel() }}
+                        </span>
+                    @else
+                        <span class="text-muted small">Not specified</span>
                     @endif
                 </div>
             </div>

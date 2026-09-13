@@ -508,6 +508,10 @@
         transition: all 0.3s ease-in-out;
     }
 
+    .expand-row.expanded td {
+        overflow: visible;
+    }
+
     .expand-row.expanded .expand-box {
         padding: 18px;
         max-height: none;
@@ -1285,75 +1289,6 @@
         <tr class="expand-row" id="expand-{{ $site->id }}">
             <td colspan="7">
                 <div class="expand-box">
-                    <div class="detail-line">
-                        <strong>Example URL:</strong>
-                        <a href="{{ $site->example_url }}" target="_blank" rel="noopener noreferrer">{{ $site->example_url }}</a>
-                    </div>
-
-                    <div class="detail-line">
-                        <strong>Publication Duration:</strong> {{ getPublicationDuration($site->publication_time) }}
-                    </div>
-
-                    <div class="detail-line">
-                        <strong>Link Type:</strong> {{ ucfirst($site->link_type) }}
-                    </div>
-
-                    <div class="detail-line">
-                        <strong>Turnaround Time:</strong>
-                        <span class="turnaround-badge {{ getTurnaroundClass($site->turnaround_time ?? '3days') }}">
-                            {{ getTurnaroundLabel($site->turnaround_time ?? '3days') }}
-                        </span>
-                    </div>
-
-                    <div class="detail-line">
-                        <strong>Tags:</strong>
-                        @if($site->tagValue())
-                            <span class="tag-badge">{{ $site->tagLabel() }}</span>
-                        @else
-                            <span class="text-muted">{{ \App\Support\SiteTag::NONE_LABEL }}</span>
-                        @endif
-                    </div>
-
-                    @if($site->sensitive_prices)
-                        <div class="detail-line">
-                            <strong>Sensitive Topics:</strong>
-                            @php
-                                $prices = is_array($site->sensitive_prices)
-                                    ? $site->sensitive_prices
-                                    : (is_string($site->sensitive_prices) ? json_decode($site->sensitive_prices, true) : []);
-                            @endphp
-                            @foreach($prices as $key => $value)
-                                <span class="sensitive-badge">{{ ucfirst($key) }}: €{{ number_format($value, 2) }}</span>
-                            @endforeach
-                        </div>
-                    @endif
-
-                    @if($site->offersHomepagePlacement())
-                        <div class="detail-line">
-                            <strong>Homepage placement:</strong>
-                            @foreach($site->homepagePlacementOptions() as $days => $fee)
-                                <span class="sensitive-badge">
-                                    {{ $days }} day{{ $days > 1 ? 's' : '' }}:
-                                    {{ (float) $fee <= 0 ? 'Free' : '€'.number_format((float) $fee, 2) }}
-                                </span>
-                            @endforeach
-                        </div>
-                    @endif
-
-                    @if($site->offersSocialPromotion())
-                        <div class="detail-line">
-                            <strong>Social sharing:</strong>
-                            @foreach($site->enabledSocialChannels() as $channel)
-                                <span class="tag-badge">{{ $channel === 'x' ? 'X' : ucfirst($channel) }}</span>
-                            @endforeach
-                        </div>
-                    @endif
-
-                    <div class="desc-box">
-                        <strong>Description:</strong>
-                        <div>{!! $site->safeDescriptionHtml() !!}</div>
-                    </div>
-
                     @include('publisher.sites.partials.buyer-preview', ['site' => $site])
                 </div>
             </td>
