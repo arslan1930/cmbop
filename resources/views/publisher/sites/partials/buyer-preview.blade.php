@@ -14,9 +14,14 @@
         'instagram' => 'Instagram',
         'x' => 'X',
     ];
-    $buyerChecklist = class_exists(\App\Support\CatalogBuyerReadiness::class)
-        ? \App\Support\CatalogBuyerReadiness::checklist($site)
-        : [];
+    $buyerChecklistGroup = class_exists(\App\Support\CatalogBuyerReadiness::class)
+        ? \App\Support\CatalogBuyerReadiness::grouped($site)
+        : ['gaps' => [], 'ready' => [], 'gap_count' => 0, 'ready_count' => 0, 'total' => 0];
+    $buyerChecklistGaps = $buyerChecklistGroup['gaps'];
+    $buyerChecklistReady = $buyerChecklistGroup['ready'];
+    $buyerChecklistGapCount = (int) $buyerChecklistGroup['gap_count'];
+    $buyerChecklistReadyCount = (int) $buyerChecklistGroup['ready_count'];
+    $buyerChecklistTotal = (int) $buyerChecklistGroup['total'];
     $buyerViewer = auth()->user();
     $buyerCanOpenCatalog = (bool) $buyerViewer?->hasRole('advertiser');
     $buyerCatalogUrl = route('advertiser.catalog', ['site' => $site->id]);
@@ -344,34 +349,56 @@
         </details>
     </div>
 
-    @if($buyerChecklist !== [])
-        <div class="mysites-buyer-preview__checklist-block">
+    @if($buyerChecklistTotal > 0)
+        <div class="mysites-buyer-preview__checklist-block {{ $buyerChecklistGapCount > 0 ? 'has-gaps' : 'is-ready' }}">
             <div class="mysites-buyer-preview__checklist-head">
                 <h4 class="mysites-buyer-preview__checklist-title">Listing checklist</h4>
-                <button type="button"
-                        class="mysites-buyer-preview__edit btn-edit"
-                        data-id="{{ $site->id }}">
-                    Edit listing
-                </button>
+                @if($buyerChecklistGapCount > 0)
+                    <p class="mysites-buyer-preview__checklist-summary" role="status">
+                        {{ $buyerChecklistGapCount }} to fix
+                        <span class="text-muted">· {{ $buyerChecklistReadyCount }} of {{ $buyerChecklistTotal }} ready</span>
+                    </p>
+                @else
+                    <p class="mysites-buyer-preview__checklist-summary is-ready" role="status">
+                        All {{ $buyerChecklistTotal }} ready
+                    </p>
+                @endif
             </div>
-            <p class="mysites-buyer-preview__checklist-lede text-muted small mb-2">
-                What you still own on this listing.
-            </p>
-            <ul class="mysites-buyer-preview__checklist">
-                @foreach($buyerChecklist as $item)
-                    <li class="mysites-buyer-preview__item {{ $item['ok'] ? 'is-ok' : 'is-gap' }}">
-                        <span class="mysites-buyer-preview__mark" aria-hidden="true">
-                            <i class="fa-solid {{ $item['ok'] ? 'fa-circle-check' : 'fa-circle-exclamation' }}"></i>
-                        </span>
-                        <span>
-                            <strong>{{ $item['label'] }}</strong>
-                            @if(! $item['ok'])
+
+            @if($buyerChecklistGaps !== [])
+                <ul class="mysites-buyer-preview__gaps">
+                    @foreach($buyerChecklistGaps as $item)
+                        <li class="mysites-buyer-preview__gap">
+                            <span class="mysites-buyer-preview__mark" aria-hidden="true">
+                                <i class="fa-solid fa-circle-exclamation"></i>
+                            </span>
+                            <span class="mysites-buyer-preview__gap-body">
+                                <strong>{{ $item['label'] }}</strong>
                                 <span class="mysites-buyer-preview__hint">{{ $item['hint'] }}</span>
+                            </span>
+                            @if(! empty($item['actionable']) && ! empty($item['cta']))
+                                <button type="button"
+                                        class="mysites-buyer-preview__gap-cta btn-edit"
+                                        data-id="{{ $site->id }}">
+                                    {{ $item['cta'] }}
+                                </button>
                             @endif
-                        </span>
-                    </li>
-                @endforeach
-            </ul>
+                        </li>
+                    @endforeach
+                </ul>
+            @endif
+
+            @if($buyerChecklistReady !== [])
+                <p class="mysites-buyer-preview__ready-label">Ready</p>
+                <ul class="mysites-buyer-preview__ready">
+                    @foreach($buyerChecklistReady as $item)
+                        <li class="mysites-buyer-preview__ready-chip">
+                            <i class="fa-solid fa-circle-check" aria-hidden="true"></i>
+                            {{ $item['label'] }}
+                        </li>
+                    @endforeach
+                </ul>
+            @endif
         </div>
     @endif
 </section>

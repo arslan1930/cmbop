@@ -970,8 +970,10 @@ class PublisherMySitesPageTest extends TestCase
         $this->assertStringContainsString('Add to cart', $html);
         $this->assertStringContainsString('Preview only', $html);
         $this->assertStringContainsString('Listing checklist', $html);
-        $this->assertStringContainsString('What you still own on this listing.', $html);
-        $this->assertStringContainsString('Edit listing', $html);
+        $this->assertStringContainsString('All 6 ready', $html);
+        $this->assertStringContainsString('mysites-buyer-preview__ready-chip', $html);
+        $this->assertStringNotContainsString('What you still own on this listing.', $html);
+        $this->assertStringNotContainsString('to fix', $html);
         $this->assertStringContainsString('Marketplace country', $html);
         $this->assertStringContainsString('Sample article URL', $html);
         $this->assertStringContainsString('Publication duration', $html);
@@ -1057,6 +1059,37 @@ class PublisherMySitesPageTest extends TestCase
         $this->assertStringContainsString('No country', $html);
         $this->assertStringContainsString('data-label="Country"', $html);
         $this->assertStringContainsString('Marketplace country', $html);
+        $this->assertStringContainsString('Set country', $html);
+        $this->assertStringContainsString('to fix', $html);
+        $this->assertTrue(
+            strpos($html, 'mysites-buyer-preview__gap') < strpos($html, 'mysites-buyer-preview__ready-chip'),
+            'Gaps must render before ready chips.'
+        );
+    }
+
+    public function test_ajax_preview_checklist_puts_tag_gap_first_with_cta(): void
+    {
+        $this->makeSite([
+            'verified' => true,
+            'active' => true,
+            'example_url' => 'https://oreilly-news.example/sample',
+        ]);
+
+        $html = $this->actingAs($this->publisher)
+            ->get(route('publisher.sites.ajax', ['status' => 'active']))
+            ->assertOk()
+            ->getContent();
+
+        $this->assertStringContainsString('1 to fix', $html);
+        $this->assertStringContainsString('5 of 6 ready', $html);
+        $this->assertStringContainsString('Set listing tag', $html);
+        $this->assertStringContainsString('Sponsored, Partner article, or As you prefer', $html);
+        $this->assertStringNotContainsString('What you still own on this listing.', $html);
+        $gapPos = strpos($html, 'Set listing tag');
+        $readyPos = strpos($html, 'mysites-buyer-preview__ready-chip');
+        $this->assertNotFalse($gapPos);
+        $this->assertNotFalse($readyPos);
+        $this->assertLessThan($readyPos, $gapPos);
     }
 
     public function test_ajax_preview_sensitive_addons_use_publisher_amounts_without_repeating_list(): void
