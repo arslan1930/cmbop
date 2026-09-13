@@ -7,10 +7,14 @@ use Illuminate\Database\Eloquent\Builder;
 
 /**
  * Detect demo / lorem catalog rows so Site Details can warn buyers.
- * Does not hide the listing.
+ * Does not hide the listing (see CATALOG_HIDE_PLACEHOLDERS on a later PR).
  */
 class CatalogPlaceholderListing
 {
+    public const BUYER_CAPTION = 'This listing still uses placeholder copy or a demo website address. Treat metrics and sample URLs as unverified until they are replaced.';
+
+    public const ACTIVATE_BLOCK_REASON = 'Replace the placeholder description or demo website address before activating this listing.';
+
     public static function matches(Site $site): bool
     {
         return self::descriptionLooksPlaceholder($site->description)

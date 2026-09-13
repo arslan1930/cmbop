@@ -574,6 +574,7 @@
         <div class="row">
             <div class="col-md-12">
                 <h6 class="mb-3">Site Details</h6>
+                @include('advertiser.partials.catalog-placeholder-warning', ['site' => $site])
 
                 {{-- Preview | Description | Pricing | Tags + sample --}}
                 <div class="row align-items-start g-4 catalog-expand-grid">
@@ -1343,6 +1344,7 @@
             </button>
 
             <dl class="catalog-card-details" id="card-details-{{ $site->id }}" hidden>
+                @include('advertiser.partials.catalog-placeholder-warning', ['site' => $site])
                 @php
                     $mobilePreviewPaths = $site->homepagePreviewUrlChain();
                     $mobilePreviewUrl = $mobilePreviewPaths[0] ?? null;
