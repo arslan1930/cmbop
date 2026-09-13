@@ -7,6 +7,7 @@ use App\Models\BulkSiteRequestItem;
 use App\Models\Role;
 use App\Models\Site;
 use App\Models\User;
+use App\Services\PlatformFeeService;
 use App\Support\CatalogBuyerReadiness;
 use Database\Seeders\CategoriesTableSeeder;
 use Database\Seeders\CountriesTableSeeder;
@@ -962,6 +963,13 @@ class PublisherMySitesPageTest extends TestCase
         $this->assertStringNotContainsString('Cover or screenshot', $html);
         $this->assertStringContainsString('site-trust-compact', $html);
         $this->assertStringContainsString('catalog-price', $html);
+        $this->assertStringContainsString('€80.00', $html);
+        $this->assertStringContainsString('Your price:', $html);
+        $this->assertStringNotContainsString('You pay:', $html);
+        $advertiserPay = app(PlatformFeeService::class)
+            ->advertiserBase((float) $site->price);
+        $this->assertNotEquals(80.0, $advertiserPay);
+        $this->assertStringNotContainsString('€'.number_format($advertiserPay, 2), $html);
         $this->assertStringNotContainsString('Open in catalog', $html);
         $this->assertStringNotContainsString(route('advertiser.catalog', ['site' => $site->id]), $html);
 

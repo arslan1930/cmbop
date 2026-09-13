@@ -1,9 +1,10 @@
 {{-- Read-only advertiser catalog row + Site Details for My Sites (View expand). --}}
 @php
-    $buyerPrices = $site->catalogPricesForViewer(null);
-    $buyerListPrice = (float) $buyerPrices['list'];
-    $buyerSalePrice = $buyerPrices['sale'];
-    $buyerSalePct = $buyerPrices['sale_percent'];
+    $buyerListPrice = $site->publisherBasePrice();
+    $buyerSalePct = $site->activeCustomDiscountPercent();
+    $buyerSalePrice = $buyerSalePct !== null
+        ? round($buyerListPrice * (1 - (float) $buyerSalePct / 100), 2)
+        : null;
     $buyerPay = $buyerSalePrice ?? $buyerListPrice;
     $buyerHomepageOptions = $site->homepagePlacementOptions();
     $buyerDefaultHomepageDays = $site->longestFreeHomepageDays();
@@ -47,7 +48,7 @@
         @endif
     </div>
     <p class="mysites-buyer-preview__lede text-muted small mb-2">
-        Catalog row and Site Details — including the homepage screenshot buyers see.
+        Catalog row and Site Details. Prices are your list — not the advertiser total.
     </p>
 
     <div class="mysites-catalog-preview catalog-page" aria-hidden="false">
@@ -209,13 +210,13 @@
 
                 <div class="col-lg-3 col-md-6 catalog-expand-pricing">
                     <small class="text-muted">
-                        You pay:
+                        Your price:
                         <strong>€{{ number_format((float) $buyerPay, 2) }}</strong>
                         @if($buyerSalePrice !== null)
                             <span class="text-decoration-line-through">€{{ number_format($buyerListPrice, 2) }}</span>
-                            (offer price)
+                            (sale)
                         @else
-                            (base price)
+                            (your list)
                         @endif
                     </small>
                     @if($hasSensitiveExtras)
