@@ -932,7 +932,7 @@ class PublisherMySitesPageTest extends TestCase
 
         $this->assertStringContainsString('Dual Role Pending', $html);
         $this->assertSame('publisher', $user->fresh()->activeRole());
-        $this->assertStringContainsString('How advertisers see this', $html);
+        $this->assertStringContainsString('Catalog preview of your listing', $html);
         $this->assertStringContainsString('Open in catalog', $html);
         $this->assertStringContainsString(
             route('advertiser.catalog', ['site' => Site::query()->where('site_name', 'Dual Role Pending')->value('id')], false),
@@ -956,15 +956,21 @@ class PublisherMySitesPageTest extends TestCase
             ->getContent();
 
         $this->assertStringContainsString('mysites-buyer-preview', $html);
-        $this->assertStringContainsString('How advertisers see this', $html);
+        $this->assertStringContainsString('Catalog preview of your listing', $html);
+        $this->assertStringNotContainsString('How advertisers see this', $html);
+        $this->assertStringContainsString('Prices are your list — not the advertiser total.', $html);
         $this->assertStringContainsString('mysites-catalog-preview', $html);
         $this->assertStringNotContainsString('mysites-catalog-preview catalog-page', $html);
         $this->assertStringContainsString('catalog-site-name', $html);
         $this->assertStringContainsString('Homepage preview', $html);
         $this->assertStringContainsString('catalog-expand-grid', $html);
+        $this->assertStringContainsString('mysites-catalog-preview__details-fold', $html);
+        $this->assertStringNotContainsString('<details class="mysites-catalog-preview__details-fold" open', $html);
         $this->assertStringContainsString('Add to cart', $html);
         $this->assertStringContainsString('Preview only', $html);
         $this->assertStringContainsString('Listing checklist', $html);
+        $this->assertStringContainsString('What you still own on this listing.', $html);
+        $this->assertStringContainsString('Edit listing', $html);
         $this->assertStringContainsString('Marketplace country', $html);
         $this->assertStringContainsString('Sample article URL', $html);
         $this->assertStringContainsString('Publication duration', $html);
@@ -974,11 +980,14 @@ class PublisherMySitesPageTest extends TestCase
         $this->assertStringNotContainsString('Example URL:', $html);
         $this->assertStringNotContainsString('Publication Duration:', $html);
         $this->assertStringNotContainsString('Turnaround Time:', $html);
+        $this->assertStringNotContainsString('Publisher trust', $html);
         $this->assertStringContainsString('site-trust-compact', $html);
         $this->assertStringContainsString('catalog-price', $html);
         $this->assertStringContainsString('€80.00', $html);
-        $this->assertStringContainsString('Your price:', $html);
+        $this->assertStringNotContainsString('Your price:', $html);
+        $this->assertStringNotContainsString('(your list)', $html);
         $this->assertStringNotContainsString('You pay:', $html);
+        $this->assertStringNotContainsString('catalogPricesForViewer', $html);
         $advertiserPay = app(PlatformFeeService::class)
             ->advertiserBase((float) $site->price);
         $this->assertNotEquals(80.0, $advertiserPay);
@@ -1047,5 +1056,28 @@ class PublisherMySitesPageTest extends TestCase
         $this->assertStringContainsString('No country', $html);
         $this->assertStringContainsString('data-label="Country"', $html);
         $this->assertStringContainsString('Marketplace country', $html);
+    }
+
+    public function test_ajax_preview_sensitive_addons_use_publisher_amounts_without_repeating_list(): void
+    {
+        $site = $this->makeSite([
+            'verified' => true,
+            'active' => true,
+            'sensitive_prices' => ['crypto' => 15],
+        ]);
+
+        $html = $this->actingAs($this->publisher)
+            ->get(route('publisher.sites.ajax', ['status' => 'active']))
+            ->assertOk()
+            ->getContent();
+
+        $this->assertStringContainsString('Sensitive topics', $html);
+        $this->assertStringContainsString('add-on +€15.00', $html);
+        $this->assertStringContainsString('€80.00', $html);
+        $this->assertStringNotContainsString('Your price:', $html);
+        $this->assertStringNotContainsString('You pay:', $html);
+        $advertiserPay = app(PlatformFeeService::class)
+            ->advertiserBase((float) $site->price);
+        $this->assertStringNotContainsString('€'.number_format($advertiserPay, 2), $html);
     }
 }

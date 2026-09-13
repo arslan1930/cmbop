@@ -927,7 +927,6 @@
     .mysites-catalog-preview__cart:disabled {
         opacity: 0.55;
         cursor: not-allowed;
-        pointer-events: none;
     }
 
     .mysites-catalog-preview__cart-note {
@@ -941,8 +940,56 @@
         min-width: 0;
     }
 
+    .mysites-catalog-preview__details-fold {
+        border-top: 1px solid #f1f5f9;
+        background: var(--surface-2, #f7fafb);
+    }
+
+    .mysites-catalog-preview__details-summary {
+        list-style: none;
+        cursor: pointer;
+        padding: 12px 18px;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: baseline;
+        gap: 0.35rem 0.85rem;
+        font-weight: 650;
+        color: #1a202c;
+    }
+
+    .mysites-catalog-preview__details-summary::-webkit-details-marker {
+        display: none;
+    }
+
+    .mysites-catalog-preview__details-summary::before {
+        content: '';
+        width: 0.45rem;
+        height: 0.45rem;
+        border-right: 2px solid #64748b;
+        border-bottom: 2px solid #64748b;
+        transform: rotate(-45deg);
+        margin-right: 0.15rem;
+        flex: 0 0 auto;
+    }
+
+    .mysites-catalog-preview__details-fold[open] > .mysites-catalog-preview__details-summary::before {
+        transform: rotate(45deg);
+        translate: 0 -0.1rem;
+    }
+
+    .mysites-catalog-preview__details-summary:focus-visible {
+        outline: 2px solid var(--brand-primary-soft, #3faeb2);
+        outline-offset: -2px;
+    }
+
+    .mysites-catalog-preview__details-hint {
+        font-size: 12px;
+        font-weight: 500;
+        color: #64748b;
+    }
+
     .mysites-catalog-preview .catalog-expand-cell.mysites-catalog-preview__details {
-        padding: 16px 18px 20px;
+        padding: 4px 18px 20px;
         /* Win over catalog.css .catalog-expand-cell { padding: 20px }. */
         padding-right: max(18px, 13rem);
     }
@@ -1017,6 +1064,34 @@
         align-items: center;
         gap: 0.5rem 0.85rem;
         margin-bottom: 0.85rem;
+    }
+
+    .mysites-buyer-preview__checklist-block {
+        margin-top: 0.35rem;
+        padding-top: 0.85rem;
+        border-top: 1px solid #e2e8f0;
+    }
+
+    .mysites-buyer-preview__checklist-head {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 0.35rem 1rem;
+    }
+
+    .mysites-buyer-preview__edit {
+        border: 0;
+        background: transparent;
+        padding: 0;
+        font-size: 0.8125rem;
+        font-weight: 600;
+        color: var(--brand-primary, #1a585e);
+    }
+
+    .mysites-buyer-preview__edit:hover,
+    .mysites-buyer-preview__edit:focus-visible {
+        text-decoration: underline;
     }
 
     .mysites-buyer-preview__checklist {
