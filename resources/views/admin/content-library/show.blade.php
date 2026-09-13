@@ -25,7 +25,7 @@
     $advertiserUrl = $submission->user
         ? route('admin.users.index', ['user' => $submission->user->id]).'#user-'.$submission->user->id
         : null;
-    $libraryOrder = $submission->libraryOrder();
+    $libraryOrder = $libraryOrder ?? $submission->libraryOrder();
     $orderUrl = $libraryOrder
         ? route('admin.orders.show', $libraryOrder->id)
         : null;

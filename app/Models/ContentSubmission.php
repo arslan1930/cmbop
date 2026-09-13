@@ -1657,42 +1657,105 @@ class ContentSubmission extends Model
      */
     public function placementItem(): ?OrderItem
     {
-        if ($this->order_item_id) {
-            if ($this->relationLoaded('orderItem') && $this->orderItem) {
-                return $this->orderItem;
+        try {
+            if (! $this->orderItemsTableAvailable()) {
+                return $this->placementItemFromLoadedRelations();
             }
-            if ($this->relationLoaded('orderItems')) {
-                $owned = $this->orderItems->firstWhere('id', (int) $this->order_item_id);
-                if ($owned) {
-                    return $owned;
+
+            if ($this->order_item_id) {
+                if ($this->relationLoaded('orderItem') && $this->orderItem) {
+                    return $this->orderItem;
+                }
+                if ($this->relationLoaded('orderItems')) {
+                    $owned = $this->orderItems->firstWhere('id', (int) $this->order_item_id);
+                    if ($owned) {
+                        return $owned;
+                    }
+                }
+
+                return $this->orderItem()->with('site')->first();
+            }
+
+            $items = $this->relationLoaded('orderItems')
+                ? $this->orderItems
+                : $this->orderItems()->with(['site', 'order'])->orderBy('id')->get();
+
+            if ($this->order_id) {
+                $onOwner = $items->first(function (OrderItem $item) {
+                    return (int) $item->order_id === (int) $this->order_id
+                        && (int) ($item->content_submission_id ?? 0) === (int) $this->id;
+                });
+                if ($onOwner) {
+                    return $onOwner;
                 }
             }
 
-            return $this->orderItem()->with('site')->first();
+            return $items->first(function (OrderItem $item) {
+                if ($item->isClawedBack()) {
+                    return false;
+                }
+
+                $order = $item->relationLoaded('order')
+                    ? $item->order
+                    : $item->order()->first();
+
+                return $order instanceof Order && $order->status !== 'cancelled';
+            });
+        } catch (\Throwable $e) {
+            report($e);
+
+            return $this->placementItemFromLoadedRelations();
+        }
+    }
+
+    protected function orderItemsTableAvailable(): bool
+    {
+        try {
+            if (! Schema::hasTable('order_items')) {
+                return false;
+            }
+
+            DB::table('order_items')->limit(1)->exists();
+
+            return true;
+        } catch (\Throwable) {
+            return false;
+        }
+    }
+
+    protected function placementItemFromLoadedRelations(): ?OrderItem
+    {
+        if ($this->relationLoaded('orderItem') && $this->orderItem instanceof OrderItem) {
+            return $this->orderItem;
         }
 
-        $items = $this->relationLoaded('orderItems')
-            ? $this->orderItems
-            : $this->orderItems()->with(['site', 'order'])->orderBy('id')->get();
+        if (! $this->relationLoaded('orderItems')) {
+            return null;
+        }
+
+        if ($this->order_item_id) {
+            $owned = $this->orderItems->firstWhere('id', (int) $this->order_item_id);
+            if ($owned instanceof OrderItem) {
+                return $owned;
+            }
+        }
 
         if ($this->order_id) {
-            $onOwner = $items->first(function (OrderItem $item) {
+            $onOwner = $this->orderItems->first(function (OrderItem $item) {
                 return (int) $item->order_id === (int) $this->order_id
                     && (int) ($item->content_submission_id ?? 0) === (int) $this->id;
             });
-            if ($onOwner) {
+            if ($onOwner instanceof OrderItem) {
                 return $onOwner;
             }
         }
 
-        return $items->first(function (OrderItem $item) {
+        return $this->orderItems->first(function (OrderItem $item) {
             if ($item->isClawedBack()) {
                 return false;
             }
 
-            $order = $item->relationLoaded('order')
-                ? $item->order
-                : $item->order()->first();
+            $order = $item->relationLoaded('order') ? $item->order : null;
 
             return $order instanceof Order && $order->status !== 'cancelled';
         });
@@ -1703,6 +1766,17 @@ class ContentSubmission extends Model
      * was never written. Admin library "View order" must not go blank.
      */
     public function libraryOrder(): ?Order
+    {
+        try {
+            return $this->resolveLibraryOrder();
+        } catch (\Throwable $e) {
+            report($e);
+
+            return null;
+        }
+    }
+
+    protected function resolveLibraryOrder(): ?Order
     {
         $paidId = $this->paidClaimOrderId();
         if ($paidId) {
@@ -1754,12 +1828,18 @@ class ContentSubmission extends Model
 
     public function liveUrl(): ?string
     {
-        $item = $this->currentPaidPlacementItem();
-        if (! $item || ! $item->hasLiveUrl()) {
+        try {
+            $item = $this->currentPaidPlacementItem();
+            if (! $item || ! $item->hasLiveUrl()) {
+                return null;
+            }
+
+            return trim((string) $item->live_url) ?: null;
+        } catch (\Throwable $e) {
+            report($e);
+
             return null;
         }
-
-        return trim((string) $item->live_url) ?: null;
     }
 
     /**
@@ -1768,7 +1848,13 @@ class ContentSubmission extends Model
      */
     public function libraryPlacementItem(): ?OrderItem
     {
-        return $this->currentPaidPlacementItem() ?: $this->placementItem();
+        try {
+            return $this->currentPaidPlacementItem() ?: $this->placementItem();
+        } catch (\Throwable $e) {
+            report($e);
+
+            return null;
+        }
     }
 
     /**
@@ -1873,6 +1959,20 @@ class ContentSubmission extends Model
      * @return 'available'|'evaluating'|'in_progress'|'published'|'expired'|'archived'|'needs_fix'|'unavailable'
      */
     public function libraryAvailability(): string
+    {
+        try {
+            return $this->resolveLibraryAvailability();
+        } catch (\Throwable $e) {
+            report($e);
+
+            return 'unavailable';
+        }
+    }
+
+    /**
+     * @return 'available'|'evaluating'|'in_progress'|'published'|'expired'|'archived'|'needs_fix'|'unavailable'
+     */
+    protected function resolveLibraryAvailability(): string
     {
         if ($this->isArchived()) {
             return 'archived';

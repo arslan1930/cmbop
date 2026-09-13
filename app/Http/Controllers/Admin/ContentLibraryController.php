@@ -80,6 +80,11 @@ class ContentLibraryController extends Controller
         }
 
         $this->attachFileOnDiskFlags($submissions);
+        foreach ($submissions as $submission) {
+            if ($submission instanceof ContentSubmission) {
+                $this->sealMissingLibraryRelations($submission);
+            }
+        }
 
         $filterUser = $filters['user_id'] > 0
             ? $this->safeAdvertiserLookup($filters['user_id'])
@@ -108,6 +113,23 @@ class ContentLibraryController extends Controller
 
     public function show(Request $request, ContentSubmission $submission)
     {
+        $filters = $this->parseFilters($request);
+        $placement = null;
+        $previewHtml = '';
+        $reasons = [];
+        $matchedTerms = [];
+        $blockedUrls = [];
+        $availability = 'evaluating';
+        $fileOnDisk = false;
+        $liveUrl = null;
+        $notice = '';
+        $libraryOrder = null;
+        $canRetry = false;
+        $canOverrideApprove = ! $submission->isArchived();
+        $canOverrideReject = ! $submission->isArchived();
+        $canArchive = ! $submission->isArchived();
+        $canRestore = $submission->isArchived();
+
         try {
             $submission->load($this->libraryShowRelations());
         } catch (\Throwable $e) {
@@ -118,28 +140,51 @@ class ContentLibraryController extends Controller
             );
         }
 
-        $filters = $this->parseFilters($request);
-        $placement = $submission->libraryPlacementItem();
-        $fileOnDisk = $this->staffActions->fileOnDisk($submission);
+        $this->sealMissingLibraryRelations($submission);
+
+        try {
+            $placement = $submission->libraryPlacementItem();
+            $fileOnDisk = $this->staffActions->fileOnDisk($submission);
+            $previewHtml = $this->staffPreviewHtml($submission);
+            $reasons = $submission->evaluationReasonGroups();
+            $matchedTerms = $submission->evaluationMatchedTerms();
+            $blockedUrls = $submission->evaluationBlockedUrls();
+            $availability = $submission->libraryAvailability();
+            $liveUrl = $submission->liveUrl();
+            $notice = $submission->editorNotice();
+            $libraryOrder = $submission->libraryOrder();
+            $canRetry = $this->canRetry($submission, $fileOnDisk);
+            $canOverrideApprove = ! $submission->isArchived();
+            $canOverrideReject = ! $submission->isArchived() && ! $submission->isLockedByPaidOrder();
+            $canArchive = ! $submission->isArchived()
+                && ! (($submission->isInUse() || $submission->isClaimedByAnotherOrder()) && ! $submission->isPublished());
+            $canRestore = $submission->isArchived();
+        } catch (\Throwable $e) {
+            report($e);
+            session()->flash(
+                'error',
+                UserFacingError::message($e, 'Some article details could not be loaded. Preview or order links may be incomplete.')
+            );
+        }
 
         return view('admin.content-library.show', [
             'submission' => $submission,
-            'previewHtml' => $this->staffPreviewHtml($submission),
-            'reasons' => $submission->evaluationReasonGroups(),
-            'matchedTerms' => $submission->evaluationMatchedTerms(),
-            'blockedUrls' => $submission->evaluationBlockedUrls(),
-            'availability' => $submission->libraryAvailability(),
+            'previewHtml' => $previewHtml,
+            'reasons' => $reasons,
+            'matchedTerms' => $matchedTerms,
+            'blockedUrls' => $blockedUrls,
+            'availability' => $availability,
             'fileOnDisk' => $fileOnDisk,
             'placement' => $placement,
-            'liveUrl' => $submission->liveUrl(),
-            'notice' => $submission->editorNotice(),
+            'liveUrl' => $liveUrl,
+            'notice' => $notice,
+            'libraryOrder' => $libraryOrder,
             'filterQuery' => $this->filterQuery($filters),
-            'canRetry' => $this->canRetry($submission, $fileOnDisk),
-            'canOverrideApprove' => ! $submission->isArchived(),
-            'canOverrideReject' => ! $submission->isArchived() && ! $submission->isLockedByPaidOrder(),
-            'canArchive' => ! $submission->isArchived()
-                && ! (($submission->isInUse() || $submission->isClaimedByAnotherOrder()) && ! $submission->isPublished()),
-            'canRestore' => $submission->isArchived(),
+            'canRetry' => $canRetry,
+            'canOverrideApprove' => $canOverrideApprove,
+            'canOverrideReject' => $canOverrideReject,
+            'canArchive' => $canArchive,
+            'canRestore' => $canRestore,
         ]);
     }
 
@@ -770,9 +815,20 @@ class ContentLibraryController extends Controller
             return back()->with('error', 'Select at least one article.');
         }
 
+        try {
+            $rows = ContentSubmission::query()->whereIn('id', $ids)->get();
+        } catch (\Throwable $e) {
+            report($e);
+
+            return back()->with(
+                'error',
+                UserFacingError::message($e, 'We could not update those articles. Please try again.')
+            );
+        }
+
         $done = 0;
         $failed = 0;
-        foreach (ContentSubmission::query()->whereIn('id', $ids)->get() as $submission) {
+        foreach ($rows as $submission) {
             try {
                 if ($action === 'retry') {
                     $this->staffActions->retry($submission);
@@ -852,6 +908,26 @@ class ContentLibraryController extends Controller
             report($e);
 
             return null;
+        }
+    }
+
+    private function sealMissingLibraryRelations(ContentSubmission $submission): void
+    {
+        if (! $this->schemaTableAvailable('order_items')) {
+            if (! $submission->relationLoaded('orderItem')) {
+                $submission->setRelation('orderItem', null);
+            }
+            if (! $submission->relationLoaded('orderItems')) {
+                $submission->setRelation('orderItems', $submission->newCollection());
+            }
+        }
+
+        if (! $this->schemaTableAvailable('orders') && ! $submission->relationLoaded('order')) {
+            $submission->setRelation('order', null);
+        }
+
+        if (! $this->schemaTableAvailable('content_moderation_logs') && ! $submission->relationLoaded('moderationLog')) {
+            $submission->setRelation('moderationLog', null);
         }
     }
 

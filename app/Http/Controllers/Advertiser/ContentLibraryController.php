@@ -19,7 +19,9 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\Rule;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 
@@ -49,9 +51,20 @@ class ContentLibraryController extends Controller
      */
     protected function libraryPageData(Request $request): array
     {
-        $cfg = $this->uploads->effectiveConfig();
-        $cfg['max_kilobytes'] = $this->uploads->effectiveMaxKilobytes($cfg);
-        $cfg['php_max_kilobytes'] = $this->uploads->phpUploadMaxKilobytes();
+        try {
+            $cfg = $this->uploads->effectiveConfig();
+            $cfg['max_kilobytes'] = $this->uploads->effectiveMaxKilobytes($cfg);
+            $cfg['php_max_kilobytes'] = $this->uploads->phpUploadMaxKilobytes();
+        } catch (\Throwable $e) {
+            report($e);
+            session()->flash(
+                'error',
+                UserFacingError::message($e, 'We could not load your content library. Please refresh and try again.')
+            );
+            $cfg = config('content_upload', []);
+            $cfg['max_kilobytes'] = $this->uploads->effectiveMaxKilobytes($cfg);
+            $cfg['php_max_kilobytes'] = $this->uploads->phpUploadMaxKilobytes();
+        }
         // Default to Approved (available) — the All chip was removed from the UI.
         $status = strtolower(trim(scalar_text($request->query('status', 'approved'))));
         $availability = strtolower(trim(scalar_text($request->query('availability', 'available'))));
@@ -100,10 +113,7 @@ class ContentLibraryController extends Controller
             $availability = 'available';
         }
 
-        $with = ['order', 'orderItem.site', 'orderItems.site', 'orderItems.order'];
-        if (OrderItemDispute::tableAvailable()) {
-            $with[] = 'orderItems.disputes';
-        }
+        $with = $this->libraryListRelations();
 
         // Needs corrections / expired / archived chips must not keep the default
         // status=approved filter (that would hide rejected rows).
@@ -175,6 +185,11 @@ class ContentLibraryController extends Controller
 
             $submissions = $query->paginate(20, ['*'], 'page', $page)->withQueryString();
             $submissions->setPath($libraryPath);
+            foreach ($submissions as $row) {
+                if ($row instanceof ContentSubmission) {
+                    $this->sealMissingLibraryRelations($row);
+                }
+            }
         } catch (\Throwable $e) {
             report($e);
             session()->flash(
@@ -289,7 +304,7 @@ class ContentLibraryController extends Controller
         return [
             'submissions' => $submissions,
             'uploadCfg' => $cfg,
-            'uploadsEnabled' => $this->uploads->uploadsEnabled(),
+            'uploadsEnabled' => $this->safeLibraryQuery(fn () => $this->uploads->uploadsEnabled(), true),
             'statusFilter' => $status,
             'availabilityFilter' => $availabilityUi,
             'languageFilter' => $languageFilter ?: 'all',
@@ -308,9 +323,12 @@ class ContentLibraryController extends Controller
             'languageCountryMap' => $languageCountryMap,
             'countryLanguageMap' => $countryLanguageMap,
             'openUpload' => filter_var(scalar_text($request->query('upload')), FILTER_VALIDATE_BOOLEAN)
-                && $this->uploads->uploadsEnabled(),
+                && (bool) $this->safeLibraryQuery(fn () => $this->uploads->uploadsEnabled(), false),
             'editSubmission' => $editSubmission,
-            'editSubmissionBoot' => $this->serializeEditBoot($editSubmission),
+            'editSubmissionBoot' => $this->safeLibraryQuery(
+                fn () => $this->serializeEditBoot($editSubmission),
+                null,
+            ),
             'libraryFilterBase' => [
                 'status' => $status,
                 'availability' => $availabilityUi,
@@ -332,8 +350,16 @@ class ContentLibraryController extends Controller
             ], 403);
         }
 
-        $cfg = $this->uploads->effectiveConfig();
-        $maxKb = $this->uploads->effectiveMaxKilobytes($cfg);
+        try {
+            $cfg = $this->uploads->effectiveConfig();
+            $maxKb = $this->uploads->effectiveMaxKilobytes($cfg);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'success' => false,
+                'title' => 'Upload failed',
+                'message' => UserFacingError::message($e, 'The article could not be uploaded. Please try again.'),
+            ], 500);
+        }
         $allowedCountries = array_map('strtolower', config('markets.allowed_country_codes', []));
         $allowedLanguages = array_map('strtolower', config('markets.allowed_language_codes', []));
 
@@ -734,6 +760,59 @@ class ContentLibraryController extends Controller
         } catch (\Throwable $e) {
             report($e);
             $query->whereRaw('0 = 1');
+        }
+    }
+
+    /**
+     * @return list<string>
+     */
+    protected function libraryListRelations(): array
+    {
+        $with = [];
+        if ($this->schemaTableAvailable('orders')) {
+            $with[] = 'order';
+        }
+        if ($this->schemaTableAvailable('order_items') && $this->schemaTableAvailable('sites')) {
+            $with[] = 'orderItem.site';
+            $with[] = 'orderItems.site';
+        }
+        if ($this->schemaTableAvailable('order_items') && $this->schemaTableAvailable('orders')) {
+            $with[] = 'orderItems.order';
+        }
+        if ($this->schemaTableAvailable('order_items') && OrderItemDispute::tableAvailable()) {
+            $with[] = 'orderItems.disputes';
+        }
+
+        return $with;
+    }
+
+    protected function schemaTableAvailable(string $table): bool
+    {
+        try {
+            if (! Schema::hasTable($table)) {
+                return false;
+            }
+            DB::table($table)->limit(1)->exists();
+
+            return true;
+        } catch (\Throwable) {
+            return false;
+        }
+    }
+
+    protected function sealMissingLibraryRelations(ContentSubmission $submission): void
+    {
+        if (! $this->schemaTableAvailable('order_items')) {
+            if (! $submission->relationLoaded('orderItem')) {
+                $submission->setRelation('orderItem', null);
+            }
+            if (! $submission->relationLoaded('orderItems')) {
+                $submission->setRelation('orderItems', $submission->newCollection());
+            }
+        }
+
+        if (! $this->schemaTableAvailable('orders') && ! $submission->relationLoaded('order')) {
+            $submission->setRelation('order', null);
         }
     }
 
