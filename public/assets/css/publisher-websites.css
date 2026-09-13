@@ -868,16 +868,20 @@
     .mysites-buyer-preview {
         margin-top: 0;
         padding-top: 0;
+        padding-bottom: 3.25rem;
     }
 
     .mysites-catalog-preview {
         margin: 0.25rem 0 1.15rem;
         border: 1px solid #e2e8f0;
         border-radius: 12px;
-        overflow-x: auto;
-        overflow-y: hidden;
+        overflow: hidden;
         background: #fff;
         box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+    }
+
+    .mysites-catalog-preview__table {
+        overflow-x: auto;
     }
 
     .mysites-catalog-preview__headrow,
@@ -949,10 +953,11 @@
         list-style: none;
         cursor: pointer;
         padding: 12px 18px;
+        padding-right: max(18px, 12rem);
         display: flex;
         flex-wrap: wrap;
-        align-items: baseline;
-        gap: 0.35rem 0.85rem;
+        align-items: center;
+        gap: 0.25rem 0.75rem;
         font-weight: 650;
         color: #1a202c;
     }
@@ -963,18 +968,17 @@
 
     .mysites-catalog-preview__details-summary::before {
         content: '';
-        width: 0.45rem;
-        height: 0.45rem;
+        width: 0.4rem;
+        height: 0.4rem;
         border-right: 2px solid #64748b;
         border-bottom: 2px solid #64748b;
         transform: rotate(-45deg);
-        margin-right: 0.15rem;
+        margin: 0 0.15rem 0 0.05rem;
         flex: 0 0 auto;
     }
 
     .mysites-catalog-preview__details-fold[open] > .mysites-catalog-preview__details-summary::before {
-        transform: rotate(45deg);
-        translate: 0 -0.1rem;
+        transform: rotate(45deg) translateY(-1px);
     }
 
     .mysites-catalog-preview__details-summary:focus-visible {
@@ -990,8 +994,16 @@
 
     .mysites-catalog-preview .catalog-expand-cell.mysites-catalog-preview__details {
         padding: 4px 18px 20px;
-        /* Win over catalog.css .catalog-expand-cell { padding: 20px }. */
-        padding-right: max(18px, 13rem);
+    }
+
+    .mysites-catalog-preview__stat .catalog-country {
+        flex-direction: row;
+        gap: 0.35rem;
+        max-width: 100%;
+    }
+
+    .mysites-catalog-preview__stat .catalog-country__flag {
+        font-size: 18px;
     }
 
     @media (min-width: 992px) {
@@ -1032,7 +1044,11 @@
 
         .mysites-catalog-preview .catalog-expand-cell.mysites-catalog-preview__details {
             padding-right: 18px;
-            padding-bottom: 4.5rem;
+            padding-bottom: 1.25rem;
+        }
+
+        .mysites-catalog-preview__details-summary {
+            padding-right: 18px;
         }
     }
 
@@ -1048,8 +1064,12 @@
     .mysites-buyer-preview__checklist-title {
         font-size: 0.95rem;
         font-weight: 650;
-        margin: 0 0 0.35rem;
+        margin: 0;
         color: #1a202c;
+    }
+
+    .mysites-buyer-preview__lede {
+        margin-top: 0.25rem;
     }
 
     .mysites-buyer-preview__catalog-link {
@@ -1075,9 +1095,10 @@
     .mysites-buyer-preview__checklist-head {
         display: flex;
         flex-wrap: wrap;
-        align-items: baseline;
+        align-items: center;
         justify-content: space-between;
         gap: 0.35rem 1rem;
+        padding-right: max(0px, 12rem);
     }
 
     .mysites-buyer-preview__edit {
@@ -1127,6 +1148,10 @@
     }
 
     @media (max-width: 991px) {
+        .mysites-buyer-preview__checklist-head {
+            padding-right: 0;
+        }
+
         .mysites-buyer-preview__checklist {
             padding-right: 0;
             padding-bottom: 3rem;

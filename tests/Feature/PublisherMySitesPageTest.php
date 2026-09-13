@@ -960,6 +960,7 @@ class PublisherMySitesPageTest extends TestCase
         $this->assertStringNotContainsString('How advertisers see this', $html);
         $this->assertStringContainsString('Prices are your list — not the advertiser total.', $html);
         $this->assertStringContainsString('mysites-catalog-preview', $html);
+        $this->assertStringContainsString('mysites-catalog-preview__table', $html);
         $this->assertStringNotContainsString('mysites-catalog-preview catalog-page', $html);
         $this->assertStringContainsString('catalog-site-name', $html);
         $this->assertStringContainsString('Homepage preview', $html);

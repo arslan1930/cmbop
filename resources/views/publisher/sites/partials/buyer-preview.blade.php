@@ -62,6 +62,7 @@
 
     <div class="mysites-catalog-preview">
         <p class="visually-hidden">Catalog columns: Site, Category, Traffic, DR, DA, Country, Buy.</p>
+        <div class="mysites-catalog-preview__table">
         <div class="mysites-catalog-preview__headrow" aria-hidden="true">
             <span>Site</span>
             <span>Category</span>
@@ -176,6 +177,7 @@
                 </button>
                 <span class="mysites-catalog-preview__cart-note">Preview only</span>
             </div>
+        </div>
         </div>
 
         <details class="mysites-catalog-preview__details-fold">
