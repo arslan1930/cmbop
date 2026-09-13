@@ -52,6 +52,12 @@ function updateOrdersProjectChip() {
     chip.classList.remove('d-none');
 }
 
+function clearOrdersProjectStageFilter() {
+    const stageEl = document.getElementById('projectStageFilter');
+    if (stageEl) stageEl.value = '';
+    updateOrdersProjectChip();
+}
+
 function clearOrdersProjectFilter() {
     const projectEl = document.getElementById('projectFilter');
     const stageEl = document.getElementById('projectStageFilter');
@@ -105,6 +111,9 @@ function applyOrdersStatusFilter(status) {
     const sel = document.getElementById('statusFilter');
     if (!sel) return;
     sel.value = status || '';
+    if (status) {
+        clearOrdersProjectStageFilter();
+    }
     currentPage = 1;
     if (typeof window.fetchOrders === 'function') {
         window.fetchOrders(1, { historyMode: 'push' });
@@ -330,6 +339,9 @@ function bootAdvertiserOrdersPage() {
     // Dropdown / date filters live-refresh the table (catalog-style), not only on Filter click.
     ['statusFilter', 'paymentStatusFilter', 'paymentMethodFilter', 'dateFrom', 'dateTo', 'ordersSort'].forEach(function (id) {
         document.getElementById(id)?.addEventListener('change', function () {
+            if (id === 'statusFilter' && (document.getElementById('statusFilter')?.value || '')) {
+                clearOrdersProjectStageFilter();
+            }
             currentPage = 1;
             fetchOrders(1, { historyMode: 'replace', intent: 'search' });
         });

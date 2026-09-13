@@ -15,7 +15,7 @@ class Project extends Model
     use HasFactory;
 
     /**
-     * Guest Posting badge buckets shown on the advertiser projects page.
+     * Placement-stage buckets shown on the advertiser projects page.
      *
      * `waiting_approval` is live-URL review only (same as My Orders
      * “Needs review”). `in_review` is review without a live URL.
@@ -322,10 +322,15 @@ class Project extends Model
             }
         };
 
+        $alignWithMeta = function (Builder $q) use ($withoutOpenContentRevision): void {
+            self::constrainWithoutFailedPayment($q);
+            $withoutOpenContentRevision($q);
+        };
+
         return match ($stage) {
-            'not_started' => $query
+            'not_started' => tap($query
                 ->where('status', 'pending')
-                ->whereHas('items', $matchingItems),
+                ->whereHas('items', $matchingItems), [self::class, 'constrainWithoutFailedPayment']),
             'in_progress' => tap($query
                 ->where('status', 'processing')
                 ->whereHas('items', function ($items) use ($host) {
@@ -338,7 +343,7 @@ class Project extends Model
                                 ->orWhere('modification_requested', '!=', 'yes');
                         });
                     }
-                }), $withoutOpenContentRevision),
+                }), $alignWithMeta),
             'in_review' => tap($query
                 ->where('status', 'review')
                 ->whereHas('items', function ($items) use ($host) {
@@ -348,7 +353,7 @@ class Project extends Model
                     $items->where(function ($q) {
                         $q->whereNull('live_url')->orWhere('live_url', '');
                     });
-                }), $withoutOpenContentRevision),
+                }), $alignWithMeta),
             'waiting_approval' => tap(
                 AdvertiserOrderStatus::constrainReviewReady($query)
                     ->whereHas('items', function ($items) use ($host) {
@@ -357,9 +362,9 @@ class Project extends Model
                         }
                         $items->whereNotNull('live_url')->where('live_url', '!=', '');
                     }),
-                $withoutOpenContentRevision
+                $alignWithMeta
             ),
-            'needs_improvements' => $query->where(function ($q) use ($host) {
+            'needs_improvements' => tap($query->where(function ($q) use ($host) {
                 $q->where(function ($mod) use ($host) {
                     $mod->where('status', 'processing')
                         ->whereHas('items', function ($items) use ($host) {
@@ -388,17 +393,17 @@ class Project extends Model
                         });
                     }
                 });
-            }),
-            'completed' => $query
+            }), [self::class, 'constrainWithoutFailedPayment']),
+            'completed' => tap($query
                 ->where('status', 'completed')
-                ->whereHas('items', $matchingItems),
+                ->whereHas('items', $matchingItems), [self::class, 'constrainWithoutFailedPayment']),
             'rejected' => $query
                 ->where(function ($q) {
                     $q->where('status', 'cancelled')
                         ->orWhere('payment_status', 'failed');
                 })
                 ->whereHas('items', $matchingItems),
-            'needs_you' => $query->where(function ($q) use ($host) {
+            'needs_you' => tap($query->where(function ($q) use ($host) {
                 $q->where(function ($ready) use ($host) {
                     tap(
                         AdvertiserOrderStatus::constrainReviewReady($ready)
@@ -419,9 +424,22 @@ class Project extends Model
                 })->orWhere(function ($improvements) use ($host) {
                     self::constrainOrdersByStage($improvements, 'needs_improvements', $host !== '' ? $host : null);
                 });
-            }),
+            }), [self::class, 'constrainWithoutFailedPayment']),
             default => $query,
         };
+    }
+
+    /**
+     * meta() treats a failed payment as rejected regardless of order status.
+     *
+     * @param  Builder<Order>  $query
+     */
+    public static function constrainWithoutFailedPayment(Builder $query): void
+    {
+        $query->where(function ($q) {
+            $q->whereNull('payment_status')
+                ->orWhere('payment_status', '!=', 'failed');
+        });
     }
 
     /**

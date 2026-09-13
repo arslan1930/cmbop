@@ -53,7 +53,6 @@
     @forelse($projects as $project)
         @php
             $stageCounts = $project->stage_counts ?? \App\Models\Project::emptyStageCounts();
-            $needsYou = \App\Models\Project::needsYouCountFrom($stageCounts);
             $host = \App\Models\Project::hostFromUrl($project->project_url);
         @endphp
 

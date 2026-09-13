@@ -256,4 +256,80 @@ class AdvertiserProjectOrdersFilterTest extends TestCase
 
         $this->assertSame([$match->id], $ids);
     }
+
+    public function test_failed_payment_is_rejected_not_needs_review_or_not_started(): void
+    {
+        $user = $this->advertiser();
+        $site = $this->siteFor($this->publisher());
+
+        $project = Project::create([
+            'user_id' => $user->id,
+            'project_name' => 'Acme Client',
+            'project_url' => 'https://acme.example',
+        ]);
+
+        $failedPending = $this->makeOrder($user, $site, [
+            'status' => 'pending',
+            'payment_status' => 'failed',
+            'paid_at' => null,
+        ], [
+            'target_url' => 'https://acme.example/pay',
+        ]);
+        $failedReview = $this->makeOrder($user, $site, [
+            'status' => 'review',
+            'payment_status' => 'failed',
+        ], [
+            'target_url' => 'https://acme.example/live',
+            'live_url' => 'https://publisher.example/posted',
+        ]);
+
+        $html = $this->actingAs($user)
+            ->get(route('advertiser.projects.index'))
+            ->assertOk()
+            ->getContent();
+
+        $this->assertMatchesRegularExpression(
+            '/<span class="project-stage__label">Rejected<\/span>\s*<span class="project-stage__count[^"]*">\s*2\s*</',
+            $html
+        );
+
+        $this->assertSame([], $this->listIds($user, [
+            'project' => $project->id,
+            'project_stage' => 'not_started',
+        ]));
+        $this->assertSame([], $this->listIds($user, [
+            'project' => $project->id,
+            'project_stage' => 'waiting_approval',
+        ]));
+        $this->assertSame([], $this->listIds($user, [
+            'project' => $project->id,
+            'project_stage' => 'needs_you',
+        ]));
+
+        $rejected = $this->listIds($user, [
+            'project' => $project->id,
+            'project_stage' => 'rejected',
+        ]);
+        $this->assertEqualsCanonicalizing([$failedPending->id, $failedReview->id], $rejected);
+    }
+
+    public function test_array_project_params_do_not_500(): void
+    {
+        $user = $this->advertiser();
+
+        $this->actingAs($user)
+            ->get(route('advertiser.orders', [
+                'project' => ['1'],
+                'project_stage' => ['waiting_approval'],
+            ]))
+            ->assertOk();
+
+        $this->actingAs($user)
+            ->getJson(route('advertiser.orders.list', [
+                'project' => ['1'],
+                'project_stage' => ['waiting_approval'],
+            ]))
+            ->assertOk()
+            ->assertJsonPath('success', true);
+    }
 }
