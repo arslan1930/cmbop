@@ -573,10 +573,19 @@
     min-width: 0;
 }
 
-.catalog-expand-preview {
-    /* Compact desktop window — same 300px cap as the 16:10 frame inside.
-       A 720px col-12 stole the row and blew the screenshot up. */
-    max-width: 300px;
+/* Preview sits in the first grid slot next to Description / Pricing / Tags.
+   Cap the 16:10 frame, not the column — a column max-width left a hole. */
+.catalog-expand-preview .site-preview-zoom,
+.catalog-expand-preview .site-preview-fallback,
+.catalog-expand-preview .catalog-cover-empty {
+    margin-left: 0;
+    margin-right: auto;
+}
+
+.catalog-expand-preview .catalog-cover-empty {
+    aspect-ratio: 16 / 10;
+    justify-content: center;
+    box-sizing: border-box;
 }
 
 .catalog-expand-pricing .form-check-label {
@@ -951,6 +960,14 @@ body:has(.catalog-page) {
     margin: 0;
     color: var(--brand-ink-muted, #697078);
     overflow-wrap: anywhere;
+}
+
+.catalog-card-details .catalog-cover-empty {
+    max-width: min(220px, 100%);
+    margin: 0;
+    aspect-ratio: 16 / 10;
+    justify-content: center;
+    box-sizing: border-box;
 }
 
 /* ------------------------------------------------------------------ controls */

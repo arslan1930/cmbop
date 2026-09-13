@@ -5,7 +5,8 @@ namespace App\Support;
 use App\Models\Site;
 
 /**
- * Publisher-facing checklist: what advertisers see as incomplete on a listing.
+ * Publisher-facing checklist: fields the publisher owns.
+ * Cover / homepage screenshot is staff-uploaded — not listed here.
  */
 class CatalogBuyerReadiness
 {
@@ -41,12 +42,6 @@ class CatalogBuyerReadiness
                 'label' => 'Advertiser brief',
                 'ok' => $briefOk,
                 'hint' => 'Write a real site description advertisers can trust.',
-            ],
-            [
-                'key' => 'cover',
-                'label' => 'Cover or screenshot',
-                'ok' => $site->hasCatalogCover(),
-                'hint' => 'Without a cover, Site Details shows an empty preview.',
             ],
             [
                 'key' => 'example_url',

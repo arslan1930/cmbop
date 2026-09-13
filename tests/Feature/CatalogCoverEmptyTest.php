@@ -76,6 +76,8 @@ class CatalogCoverEmptyTest extends TestCase
             ->getContent();
 
         $this->assertStringContainsString('catalog-cover-empty', $html);
+        $this->assertStringContainsString('col-lg-3 col-md-6 catalog-expand-preview', $html);
+        $this->assertStringNotContainsString('col-12 catalog-expand-preview', $html);
         $this->assertStringContainsString('No cover yet', $html);
         $this->assertStringContainsString('catalog-tile', $html);
         $this->assertStringNotContainsString('Screenshot not available yet', $html);

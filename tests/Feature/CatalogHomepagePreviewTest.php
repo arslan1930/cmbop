@@ -82,7 +82,8 @@ class CatalogHomepagePreviewTest extends TestCase
             ->getContent();
 
         $this->assertStringContainsString('Homepage preview', $html);
-        $this->assertStringContainsString('col-12 catalog-expand-preview', $html);
+        $this->assertStringContainsString('col-lg-3 col-md-6 catalog-expand-preview', $html);
+        $this->assertStringNotContainsString('col-12 catalog-expand-preview', $html);
         $this->assertStringContainsString('site-preview-zoom', $html);
         // Previews live in Site Details expand only — not on catalog rows.
         $this->assertStringNotContainsString('catalog-th-preview', $html);
@@ -136,8 +137,8 @@ class CatalogHomepagePreviewTest extends TestCase
         $this->assertStringContainsString('.site-preview-zoom-pop', $css);
         // Inline frame is the old compact desktop window; hover pop is 720px.
         $this->assertStringContainsString('max-width: min(300px, 100%)', $css);
-        $this->assertStringContainsString('.catalog-expand-preview {', $css);
-        $this->assertStringContainsString('max-width: 300px;', $css);
+        $this->assertStringContainsString('.catalog-expand-preview .site-preview-zoom', $css);
+        $this->assertStringContainsString('margin-left: 0', $css);
         $this->assertStringContainsString('width: min(720px, calc(100vw - 32px))', $css);
         $this->assertStringContainsString('object-fit: contain', $css);
         // Hover zoom restored, gated for fine pointers + reduced-motion (Safari-safe).
