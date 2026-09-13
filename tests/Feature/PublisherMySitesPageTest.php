@@ -75,6 +75,11 @@ class PublisherMySitesPageTest extends TestCase
             $html,
             'Edit click handler must resolve the site id from data-id or data-site.'
         );
+        $this->assertStringContainsString(
+            'const wizardStepHint = parseInt($(this).data(\'wizardStep\'), 10);',
+            $html,
+            'Gap CTAs must jump to the wizard step that holds the missing field.'
+        );
     }
 
     private function makeSite(array $overrides = []): Site
@@ -1060,6 +1065,11 @@ class PublisherMySitesPageTest extends TestCase
         $this->assertStringContainsString('data-label="Country"', $html);
         $this->assertStringContainsString('Marketplace country', $html);
         $this->assertStringContainsString('Set country', $html);
+        $this->assertMatchesRegularExpression(
+            '/class="[^"]*mysites-buyer-preview__gap-cta[^"]*"[^>]*data-wizard-step="2"[^>]*>\s*Set country/s',
+            $html,
+            'Set country must open wizard step 2 (market + niche).'
+        );
         $this->assertStringContainsString('to fix', $html);
         $this->assertTrue(
             strpos($html, 'mysites-buyer-preview__gap') < strpos($html, 'mysites-buyer-preview__ready-chip'),
@@ -1084,13 +1094,14 @@ class PublisherMySitesPageTest extends TestCase
         $this->assertStringContainsString('5 of 6 ready', $html);
         $this->assertStringContainsString('Set listing tag', $html);
         $this->assertMatchesRegularExpression(
-            '/class="[^"]*mysites-buyer-preview__gap-cta[^"]*btn-edit[^"]*"[^>]*data-id="\d+"/s',
+            '/class="[^"]*mysites-buyer-preview__gap-cta[^"]*btn-edit[^"]*"[^>]*data-id="\d+"[^>]*data-wizard-step="3"/s',
             $html,
-            'Gap CTA must reuse btn-edit with data-id so the page fetch handler can open Edit.'
+            'Set listing tag must open Edit on wizard step 3 (tags).'
         );
         $js = file_get_contents(public_path('assets/js/publisher-websites.js'));
         $this->assertStringContainsString("if ($(this).data('id'))", $js);
         $this->assertStringContainsString('Checklist CTAs only have data-id', $js);
+        $this->assertStringContainsString("$(this).data('wizardStep')", $js);
         $this->assertStringContainsString('Sponsored, Partner article, or As you prefer', $html);
         $this->assertStringNotContainsString('What you still own on this listing.', $html);
         $gapPos = strpos($html, 'Set listing tag');

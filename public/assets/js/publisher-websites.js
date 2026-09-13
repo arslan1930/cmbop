@@ -1543,6 +1543,7 @@ $(document).on('click', '.btn-delete', function() {
 // Edit functionality - Prefill all values
 $(document).on('click', '.btn-edit', function() {
     const site = $(this).data('site');
+    const wizardStepHint = parseInt($(this).data('wizardStep'), 10);
     if (!site || !site.id) {
         // Checklist CTAs only have data-id; websites.blade.php fetches /edit-data.
         if ($(this).data('id')) {
@@ -1557,7 +1558,7 @@ $(document).on('click', '.btn-edit', function() {
     $('#showFormBtn').addClass('d-none');
     $('#showBulkRequestBtn').addClass('d-none');
     $('#formHeader').text('Edit Site: ' + site.site_name);
-    setWizardStep(1);
+    setWizardStep((wizardStepHint >= 1 && wizardStepHint <= 3) ? wizardStepHint : 1);
     $('#wizardDraftHint').text('');
     
     // Set form action for update
