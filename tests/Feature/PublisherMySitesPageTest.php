@@ -495,7 +495,8 @@ class PublisherMySitesPageTest extends TestCase
             ->getContent();
 
         $this->assertStringContainsString('/media/sites/real-cover.webp', $ajaxHtml);
-        $this->assertStringNotContainsString('placeholder', $ajaxHtml);
+        $this->assertStringNotContainsString('home-placeholder', $ajaxHtml);
+        $this->assertStringNotContainsString('site-screenshots/', $ajaxHtml);
     }
 
     public function test_ajax_filters_pending_active_and_invites_sites(): void
