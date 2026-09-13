@@ -4889,6 +4889,41 @@ class CatalogController extends Controller
      *
      * @param  Builder<Order>  $query
      */
+    private function advertiserOwnedProject(Request $request, int $userId): ?Project
+    {
+        $projectId = (int) (filter_number($request->input('project')) ?? 0);
+        if ($projectId <= 0) {
+            return null;
+        }
+
+        return Project::query()
+            ->where('user_id', $userId)
+            ->whereKey($projectId)
+            ->first();
+    }
+
+    /**
+     * When a project filter is on, the attention banner must match that
+     * destination — not the account-wide My Orders count.
+     */
+    private function advertiserNeedsActionCount(Request $request, int $userId): int
+    {
+        $query = AdvertiserOrderStatus::needsActionQuery($userId);
+        $projectId = (int) (filter_number($request->input('project')) ?? 0);
+        if ($projectId <= 0) {
+            return $query->count();
+        }
+
+        $project = $this->advertiserOwnedProject($request, $userId);
+        if (! $project) {
+            return 0;
+        }
+
+        Project::constrainOrdersByHost($query, (string) $project->project_url);
+
+        return $query->count();
+    }
+
     private function applyAdvertiserProjectOrderFilters($query, Request $request, int $userId): void
     {
         $projectId = (int) (filter_number($request->input('project')) ?? 0);
@@ -4896,10 +4931,7 @@ class CatalogController extends Controller
             return;
         }
 
-        $project = Project::query()
-            ->where('user_id', $userId)
-            ->whereKey($projectId)
-            ->first();
+        $project = $this->advertiserOwnedProject($request, $userId);
 
         if (! $project) {
             $query->whereRaw('0 = 1');
@@ -5227,7 +5259,7 @@ class CatalogController extends Controller
                 return $this->advertiserOrderDetailPayload($order);
             });
 
-            $needsAction = AdvertiserOrderStatus::needsActionCountForUser((int) $userId);
+            $needsAction = $this->advertiserNeedsActionCount($request, (int) $userId);
 
             return response()->json([
                 'success' => true,

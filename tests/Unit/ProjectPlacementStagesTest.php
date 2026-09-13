@@ -40,7 +40,7 @@ class ProjectPlacementStagesTest extends TestCase
         $this->assertSame('acme-client-7', Project::generateSlug('Acme-Client', 7));
     }
 
-    public function test_needs_you_count_is_live_url_review_plus_revisions(): void
+    public function test_needs_you_count_is_live_url_review_plus_content_revisions(): void
     {
         $counts = Project::emptyStageCounts();
         $this->assertSame(0, Project::needsYouCountFrom($counts));
@@ -50,6 +50,9 @@ class ProjectPlacementStagesTest extends TestCase
 
         $counts['waiting_approval'] = 1;
         $counts['needs_improvements'] = 3;
+        $this->assertSame(1, Project::needsYouCountFrom($counts));
+
+        $counts['content_revision'] = 3;
         $this->assertSame(4, Project::needsYouCountFrom($counts));
     }
 

@@ -98,9 +98,6 @@ function loadOrdStatistics() {
             setText('ordInProgress', data.in_progress);
             setText('ordCompleted', data.completed);
             setText('ordAwaitingPayment', data.awaiting_payment);
-            if (typeof window.updateNeedsActionBanner === 'function') {
-                window.updateNeedsActionBanner(data.needs_action || 0);
-            }
         })
         .catch(function (error) {
             console.error('Error loading order statistics:', error);

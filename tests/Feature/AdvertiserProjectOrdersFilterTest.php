@@ -462,10 +462,64 @@ class AdvertiserProjectOrdersFilterTest extends TestCase
             'project' => $project->id,
             'project_stage' => 'in_progress',
         ]));
-        $this->assertEqualsCanonicalizing([$revision->id], $this->listIds($user, [
+        $this->assertSame([], $this->listIds($user, [
             'project' => $project->id,
             'project_stage' => 'needs_you',
         ]));
+    }
+
+    public function test_content_revision_is_needs_you_and_scopes_the_attention_count(): void
+    {
+        $user = $this->advertiser();
+        $site = $this->siteFor($this->publisher());
+
+        $acme = Project::create([
+            'user_id' => $user->id,
+            'project_name' => 'Acme Client',
+            'project_url' => 'https://acme.example',
+        ]);
+        Project::create([
+            'user_id' => $user->id,
+            'project_name' => 'Beta Client',
+            'project_url' => 'https://beta.example',
+        ]);
+
+        $revision = $this->makeOrder($user, $site, [
+            'status' => 'processing',
+        ], [
+            'target_url' => 'https://acme.example/rev',
+            'content_revision_requested' => 'yes',
+        ]);
+        $this->makeOrder($user, $site, [
+            'status' => 'review',
+            'payment_status' => 'paid',
+        ], [
+            'target_url' => 'https://beta.example/live',
+            'live_url' => 'https://publisher.example/beta',
+        ]);
+
+        $this->assertSame([$revision->id], $this->listIds($user, [
+            'project' => $acme->id,
+            'project_stage' => 'needs_you',
+        ]));
+        $this->assertSame([$revision->id], $this->listIds($user, [
+            'project' => $acme->id,
+            'project_stage' => 'needs_improvements',
+        ]));
+
+        $scoped = $this->actingAs($user)
+            ->getJson(route('advertiser.orders.list', ['project' => $acme->id]))
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->json('needs_action');
+        $this->assertSame(1, (int) $scoped);
+
+        $account = $this->actingAs($user)
+            ->getJson(route('advertiser.orders.list'))
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->json('needs_action');
+        $this->assertSame(2, (int) $account);
     }
 
     public function test_array_project_params_do_not_500(): void

@@ -445,6 +445,115 @@ class AdvertiserProjectsUxTest extends TestCase
         $this->assertStringNotContainsString('data-projects-attention', $html);
     }
 
+    public function test_publisher_wait_revision_is_not_projects_attention(): void
+    {
+        $user = $this->advertiser();
+        $site = $this->siteFor($this->publisher());
+
+        Project::create([
+            'user_id' => $user->id,
+            'project_name' => 'Acme Client',
+            'project_url' => 'https://acme.example',
+        ]);
+
+        $this->makeOrder($user, $site, [
+            'status' => 'processing',
+            'payment_status' => 'paid',
+        ], [
+            'target_url' => 'https://acme.example/rev',
+            'modification_requested' => 'yes',
+        ]);
+
+        $html = $this->actingAs($user)
+            ->get(route('advertiser.projects.index'))
+            ->assertOk()
+            ->getContent();
+
+        $this->assertStageCounts($this->projectCardHtml($html, 'Acme Client'), [
+            'Needs you' => 1,
+        ]);
+        $this->assertStringNotContainsString('data-projects-attention', $html);
+    }
+
+    public function test_content_revision_counts_as_projects_attention(): void
+    {
+        $user = $this->advertiser();
+        $site = $this->siteFor($this->publisher());
+
+        Project::create([
+            'user_id' => $user->id,
+            'project_name' => 'Acme Client',
+            'project_url' => 'https://acme.example',
+        ]);
+
+        $this->makeOrder($user, $site, [
+            'status' => 'processing',
+            'payment_status' => 'paid',
+        ], [
+            'target_url' => 'https://acme.example/article',
+            'content_revision_requested' => 'yes',
+        ]);
+
+        $html = $this->actingAs($user)
+            ->get(route('advertiser.projects.index'))
+            ->assertOk()
+            ->getContent();
+
+        $this->assertStageCounts($this->projectCardHtml($html, 'Acme Client'), [
+            'Needs you' => 1,
+        ]);
+        $this->assertStringContainsString('data-projects-attention', $html);
+        $this->assertStringContainsString('1 placement needs you across 1 project', $html);
+    }
+
+    public function test_sibling_content_revision_does_not_count_on_another_host(): void
+    {
+        $user = $this->advertiser();
+        $site = $this->siteFor($this->publisher());
+
+        Project::create([
+            'user_id' => $user->id,
+            'project_name' => 'Acme Client',
+            'project_url' => 'https://acme.example',
+        ]);
+        Project::create([
+            'user_id' => $user->id,
+            'project_name' => 'Beta Client',
+            'project_url' => 'https://beta.example',
+        ]);
+
+        $order = $this->makeOrder($user, $site, [
+            'status' => 'processing',
+            'payment_status' => 'paid',
+        ], [
+            'target_url' => 'https://acme.example/ok',
+            'content_revision_requested' => 'no',
+        ]);
+        OrderItem::create([
+            'order_id' => $order->id,
+            'site_id' => $site->id,
+            'site_name' => $site->site_name,
+            'site_url' => $site->site_url,
+            'price' => 50,
+            'content_link' => 'https://example.com/article-2.docx',
+            'target_url' => 'https://beta.example/rev',
+            'content_revision_requested' => 'yes',
+        ]);
+
+        $html = $this->actingAs($user)
+            ->get(route('advertiser.projects.index'))
+            ->assertOk()
+            ->getContent();
+
+        $this->assertStageCounts($this->projectCardHtml($html, 'Acme Client'), [
+            'In progress' => 1,
+        ]);
+        $this->assertStageCounts($this->projectCardHtml($html, 'Beta Client'), [
+            'Needs you' => 1,
+        ]);
+        $this->assertStringContainsString('1 placement needs you across 1 project', $html);
+    }
+
     public function test_review_with_live_url_counts_as_needs_review_and_attention(): void
     {
         $user = $this->advertiser();

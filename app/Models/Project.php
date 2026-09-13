@@ -172,14 +172,16 @@ class Project extends Model
     }
 
     /**
-     * Live-URL review + open revisions — same attention set as My Orders.
+     * Live-URL review + advertiser content revisions — same set as
+     * My Orders `needs_action`. Publisher-wait `modification_requested`
+     * stays on the Needs you chip, not in this KPI.
      *
      * @param  array<string, int>  $counts
      */
     public static function needsYouCountFrom(array $counts): int
     {
         return (int) ($counts['waiting_approval'] ?? 0)
-            + (int) ($counts['needs_improvements'] ?? 0);
+            + (int) ($counts['content_revision'] ?? 0);
     }
 
     public static function stageLabel(string $key): string
@@ -222,7 +224,7 @@ class Project extends Model
      * URL on the item or the linked article are skipped.
      *
      * @param  Collection<int, Order>  $orders  Orders with items (and contentSubmission) eager-loaded.
-     * @return array<string, array{not_started: int, in_progress: int, in_review: int, waiting_approval: int, needs_improvements: int, completed: int, rejected: int}>
+     * @return array<string, array{not_started: int, in_progress: int, in_review: int, waiting_approval: int, needs_improvements: int, completed: int, rejected: int, content_revision?: int}>
      */
     public static function stageCountsByHost(Collection $orders): array
     {
@@ -235,7 +237,8 @@ class Project extends Model
                     continue;
                 }
 
-                $bucket = self::stageBucket((string) (AdvertiserOrderStatus::meta($order, $item)['stage'] ?? ''));
+                $rawStage = (string) (AdvertiserOrderStatus::meta($order, $item)['stage'] ?? '');
+                $bucket = self::stageBucket($rawStage);
                 if ($bucket === null) {
                     continue;
                 }
@@ -245,6 +248,9 @@ class Project extends Model
                 }
 
                 $byHost[$host][$bucket]++;
+                if ($rawStage === 'content_revision') {
+                    $byHost[$host]['content_revision'] = (int) ($byHost[$host]['content_revision'] ?? 0) + 1;
+                }
             }
         }
 
@@ -435,8 +441,19 @@ class Project extends Model
                             });
                         }
                     );
-                })->orWhere(function ($improvements) use ($host) {
-                    self::constrainOrdersByStage($improvements, 'needs_improvements', $host !== '' ? $host : null);
+                })->orWhere(function ($revision) use ($host) {
+                    if (! Schema::hasColumn('order_items', 'content_revision_requested')) {
+                        $revision->whereRaw('0 = 1');
+
+                        return;
+                    }
+                    $revision->whereIn('status', ['processing', 'review'])
+                        ->whereHas('items', function ($items) use ($host) {
+                            $items->where('content_revision_requested', 'yes');
+                            if ($host !== '') {
+                                self::constrainItemsByHost($items, $host);
+                            }
+                        });
                 });
             }), [self::class, 'constrainWithoutFailedPayment']),
             default => $query,
