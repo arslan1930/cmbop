@@ -975,7 +975,7 @@ class PublisherMySitesPageTest extends TestCase
         $this->assertStringContainsString('Add to cart', $html);
         $this->assertStringContainsString('Preview only', $html);
         $this->assertStringContainsString('Listing checklist', $html);
-        $this->assertStringContainsString('All 6 ready', $html);
+        $this->assertStringContainsString('All 5 ready', $html);
         $this->assertStringContainsString('mysites-buyer-preview__ready-chip', $html);
         $this->assertStringNotContainsString('What you still own on this listing.', $html);
         $this->assertStringNotContainsString('to fix', $html);
@@ -1044,6 +1044,7 @@ class PublisherMySitesPageTest extends TestCase
 
         $keys = array_column(CatalogBuyerReadiness::checklist(Site::query()->first()), 'key');
         $this->assertNotContains('cover', $keys);
+        $this->assertNotContains('tag', $keys);
         $this->assertContains('example_url', $keys);
         $this->assertContains('brief', $keys);
     }
@@ -1077,7 +1078,7 @@ class PublisherMySitesPageTest extends TestCase
         );
     }
 
-    public function test_ajax_preview_checklist_puts_tag_gap_first_with_cta(): void
+    public function test_ajax_preview_checklist_treats_no_tag_as_ready(): void
     {
         $this->makeSite([
             'verified' => true,
@@ -1090,25 +1091,13 @@ class PublisherMySitesPageTest extends TestCase
             ->assertOk()
             ->getContent();
 
-        $this->assertStringContainsString('1 to fix', $html);
-        $this->assertStringContainsString('5 of 6 ready', $html);
-        $this->assertStringContainsString('Set listing tag', $html);
-        $this->assertMatchesRegularExpression(
-            '/class="[^"]*mysites-buyer-preview__gap-cta[^"]*btn-edit[^"]*"[^>]*data-id="\d+"[^>]*data-wizard-step="3"/s',
-            $html,
-            'Set listing tag must open Edit on wizard step 3 (tags).'
-        );
-        $js = file_get_contents(public_path('assets/js/publisher-websites.js'));
-        $this->assertStringContainsString("if ($(this).data('id'))", $js);
-        $this->assertStringContainsString('Checklist CTAs only have data-id', $js);
-        $this->assertStringContainsString("$(this).data('wizardStep')", $js);
-        $this->assertStringContainsString('Sponsored, Partner article, or As you prefer', $html);
+        $this->assertStringContainsString('All 5 ready', $html);
+        $this->assertStringContainsString('mysites-buyer-preview__ready-chip', $html);
+        $this->assertStringNotContainsString('1 to fix', $html);
+        $this->assertStringNotContainsString('Set listing tag', $html);
+        $this->assertStringNotContainsString('mysites-buyer-preview__gap', $html);
         $this->assertStringNotContainsString('What you still own on this listing.', $html);
-        $gapPos = strpos($html, 'Set listing tag');
-        $readyPos = strpos($html, 'mysites-buyer-preview__ready-chip');
-        $this->assertNotFalse($gapPos);
-        $this->assertNotFalse($readyPos);
-        $this->assertLessThan($readyPos, $gapPos);
+        $this->assertNotContains('tag', array_column(CatalogBuyerReadiness::checklist(Site::query()->first()), 'key'));
     }
 
     public function test_ajax_preview_sensitive_addons_use_publisher_amounts_without_repeating_list(): void

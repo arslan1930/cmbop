@@ -7,6 +7,7 @@ use App\Models\Site;
 /**
  * Publisher-facing checklist: fields the publisher owns.
  * Cover / homepage screenshot is staff-uploaded — not listed here.
+ * Listing tag is optional: default "No tags" is a finished choice, not a gap.
  */
 class CatalogBuyerReadiness
 {
@@ -69,15 +70,6 @@ class CatalogBuyerReadiness
                 'cta' => null,
                 'actionable' => false,
                 'wizard_step' => null,
-            ],
-            [
-                'key' => 'tag',
-                'label' => 'Listing tag',
-                'ok' => $site->tagValue() !== null,
-                'hint' => 'Sponsored, Partner article, or As you prefer — advertisers filter on this.',
-                'cta' => 'Set listing tag',
-                'actionable' => true,
-                'wizard_step' => 3,
             ],
         ];
     }
