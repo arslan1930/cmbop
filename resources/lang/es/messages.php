@@ -355,7 +355,7 @@ return [
     // Services Section
     'services_title' => 'Un marketplace pensado para publicaciones',
     'services_description' => 'Explore editores verificados, pague desde su monedero y siga cada pedido hasta la URL en vivo.',
-    'value_1_title' => 'Catálogo de editores verificados',
+    'value_1_title' => 'Catálogo de editores revisado por el equipo',
     'value_1_description' => 'Filtre por país, idioma, nicho y métricas para encontrar sitios que encajen con su campaña.',
     'value_2_title' => 'Pago con monedero',
     'value_2_description' => 'Precios de publicación claros antes de comprar. Recargue una vez y encargue cuando esté listo.',

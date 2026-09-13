@@ -355,7 +355,7 @@ return [
     // Services Section
     'services_title' => 'A marketplace built for placements',
     'services_description' => 'Browse verified publishers, pay from your wallet, and track every order through to a live URL.',
-    'value_1_title' => 'Verified publisher catalog',
+    'value_1_title' => 'Staff-reviewed publisher catalog',
     'value_1_description' => 'Filter by country, language, niche, and metrics to find sites that fit your campaign.',
     'value_2_title' => 'Wallet checkout',
     'value_2_description' => 'Clear placement prices before you buy. Top up once and order when you are ready.',

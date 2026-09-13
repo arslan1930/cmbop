@@ -41,7 +41,7 @@ return [
     'value_2_description' => 'Prix de placement clairs avant l’achat. Rechargez une fois, commandez quand vous êtes prêt.',
     'value_2_title' => 'Paiement par wallet',
     'value_1_description' => 'Filtrez par pays, langue, niche et métriques pour trouver les sites adaptés à votre campagne.',
-    'value_1_title' => 'Catalogue d’éditeurs vérifiés',
+    'value_1_title' => 'Catalogue d’éditeurs contrôlé par l’équipe',
 
     'card_1_title' => 'Audit SEO Gratuit',
     'card_1_description' => 'Un examen complet de votre profil de backlinks et des fondamentaux SEO.',

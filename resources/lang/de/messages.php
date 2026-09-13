@@ -41,7 +41,7 @@ return [
     'value_2_description' => 'Klare Placement-Preise vor dem Kauf. Einmal aufladen, dann bestellen wenn Sie bereit sind.',
     'value_2_title' => 'Wallet-Checkout',
     'value_1_description' => 'Filtern Sie nach Land, Sprache, Nische und Kennzahlen — und finden Sie passende Sites.',
-    'value_1_title' => 'Verifizierter Publisher-Katalog',
+    'value_1_title' => 'Vom Team geprüfter Publisher-Katalog',
 
     'card_1_title' => 'Kostenloses SEO-Audit',
     'card_1_description' => 'Eine umfassende Überprüfung Ihres Backlink-Profils und Ihrer SEO-Grundlagen.',

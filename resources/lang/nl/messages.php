@@ -41,7 +41,7 @@ return [
     'value_2_description' => 'Duidelijke placementprijzen vóór je koopt. Eenmaal opwaarderen, bestellen wanneer je klaar bent.',
     'value_2_title' => 'Wallet-checkout',
     'value_1_description' => 'Filter op land, taal, niche en metrics om sites te vinden die bij je campagne passen.',
-    'value_1_title' => 'Geverifieerde publisher-catalogus',
+    'value_1_title' => 'Door het team beoordeelde publisher-catalogus',
 
     'card_1_title' => 'Gratis SEO-audit',
     'card_1_description' => 'Een uitgebreide beoordeling van uw backlinkprofiel en SEO-basisbeginselen.',
