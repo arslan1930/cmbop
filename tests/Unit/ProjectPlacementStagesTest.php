@@ -54,6 +54,12 @@ class ProjectPlacementStagesTest extends TestCase
 
         $counts['content_revision'] = 3;
         $this->assertSame(4, Project::needsYouCountFrom($counts));
+        $this->assertSame(4, Project::cardPriorityFrom($counts));
+
+        $chipOnly = Project::emptyStageCounts();
+        $chipOnly['needs_improvements'] = 2;
+        $this->assertSame(0, Project::needsYouCountFrom($chipOnly));
+        $this->assertSame(2, Project::cardPriorityFrom($chipOnly));
     }
 
     public function test_sanitize_host_for_like_strips_wildcards(): void

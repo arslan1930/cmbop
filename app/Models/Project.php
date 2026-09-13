@@ -184,6 +184,18 @@ class Project extends Model
             + (int) ($counts['content_revision'] ?? 0);
     }
 
+    /**
+     * Cards with a Needs review or Needs you chip stay above quiet rows.
+     * Includes publisher-wait revisions that are not in the attention banner.
+     *
+     * @param  array<string, int>  $counts
+     */
+    public static function cardPriorityFrom(array $counts): int
+    {
+        return (int) ($counts['waiting_approval'] ?? 0)
+            + (int) ($counts['needs_improvements'] ?? 0);
+    }
+
     public static function stageLabel(string $key): string
     {
         return self::STAGE_LABELS[$key] ?? $key;
@@ -237,7 +249,7 @@ class Project extends Model
                     continue;
                 }
 
-                $rawStage = (string) (AdvertiserOrderStatus::meta($order, $item)['stage'] ?? '');
+                $rawStage = (string) (AdvertiserOrderStatus::meta($order, $item, true)['stage'] ?? '');
                 $bucket = self::stageBucket($rawStage);
                 if ($bucket === null) {
                     continue;

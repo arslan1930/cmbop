@@ -40,7 +40,7 @@ class ProjectController extends Controller
 
         $projects = $projects
             ->sortByDesc(fn (Project $project) => $project->created_at)
-            ->sortByDesc(fn (Project $project) => Project::needsYouCountFrom(
+            ->sortByDesc(fn (Project $project) => Project::cardPriorityFrom(
                 $project->stage_counts ?? Project::emptyStageCounts()
             ))
             ->values();

@@ -8,6 +8,7 @@ use App\Models\Project;
 use App\Models\Role;
 use App\Models\Site;
 use App\Models\User;
+use App\Support\AdvertiserOrderStatus;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\Support\CreatesContentSubmissions;
 use Tests\TestCase;
@@ -552,6 +553,13 @@ class AdvertiserProjectsUxTest extends TestCase
             'Needs you' => 1,
         ]);
         $this->assertStringContainsString('1 placement needs you across 1 project', $html);
+
+        $order = $order->fresh('items');
+        $acmeItem = $order->items->first();
+        $betaItem = $order->items->last();
+        $this->assertSame('content_revision', AdvertiserOrderStatus::meta($order, $acmeItem)['stage']);
+        $this->assertSame('processing', AdvertiserOrderStatus::meta($order, $acmeItem, true)['stage']);
+        $this->assertSame('content_revision', AdvertiserOrderStatus::meta($order, $betaItem, true)['stage']);
     }
 
     public function test_review_with_live_url_counts_as_needs_review_and_attention(): void
@@ -684,6 +692,53 @@ class AdvertiserProjectsUxTest extends TestCase
         $this->assertNotFalse($quietPos);
         $this->assertLessThan($quietPos, $urgentPos);
         $this->assertTrue($urgent->created_at->lt(Project::where('project_name', 'Quiet Client')->value('created_at')));
+    }
+
+    public function test_publisher_wait_revision_cards_still_sort_ahead(): void
+    {
+        $user = $this->advertiser();
+        $site = $this->siteFor($this->publisher());
+
+        $waiting = Project::create([
+            'user_id' => $user->id,
+            'project_name' => 'Waiting Client',
+            'project_url' => 'https://waiting.example',
+        ]);
+        $waiting->forceFill([
+            'created_at' => now()->subDay(),
+            'updated_at' => now()->subDay(),
+        ])->save();
+        Project::create([
+            'user_id' => $user->id,
+            'project_name' => 'Quiet Client',
+            'project_url' => 'https://quiet-wait.example',
+        ]);
+
+        $this->makeOrder($user, $site, [
+            'status' => 'processing',
+            'payment_status' => 'paid',
+        ], [
+            'target_url' => 'https://waiting.example/rev',
+            'modification_requested' => 'yes',
+        ]);
+        $this->makeOrder($user, $site, [
+            'status' => 'completed',
+            'payment_status' => 'paid',
+        ], [
+            'target_url' => 'https://quiet-wait.example/page',
+        ]);
+
+        $html = $this->actingAs($user)
+            ->get(route('advertiser.projects.index'))
+            ->assertOk()
+            ->getContent();
+
+        $waitingPos = strpos($html, 'Waiting Client');
+        $quietPos = strpos($html, 'Quiet Client');
+        $this->assertNotFalse($waitingPos);
+        $this->assertNotFalse($quietPos);
+        $this->assertLessThan($quietPos, $waitingPos);
+        $this->assertStringNotContainsString('data-projects-attention', $html);
     }
 
     public function test_empty_state_offers_create_project(): void

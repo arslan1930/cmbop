@@ -105,9 +105,12 @@ class AdvertiserOrderStatus
     }
 
     /**
+     * Order-level by default so chat/list still see a sibling content-revision.
+     * Pass `$itemScoped = true` for per-line Project counts.
+     *
      * @return array{label: string, next: string, cls: string, stage: string, auto_approve_hint: ?string}
      */
-    public static function meta(Order $order, ?OrderItem $item = null): array
+    public static function meta(Order $order, ?OrderItem $item = null, bool $itemScoped = false): array
     {
         $focused = func_num_args() >= 2 && $item !== null;
         $item = $item ?? $order->items->first();
@@ -131,7 +134,7 @@ class AdvertiserOrderStatus
                 ? $line->isContentRevisionRequested()
                 : (($line->content_revision_requested ?? 'no') === 'yes');
         };
-        $contentRevisionRequested = $focused
+        $contentRevisionRequested = ($focused && $itemScoped)
             ? $lineNeedsContentRevision($item)
             : ($order->items->contains($lineNeedsContentRevision) || $lineNeedsContentRevision($item));
         $payment = (string) $order->payment_status;
