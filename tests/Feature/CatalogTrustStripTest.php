@@ -81,9 +81,37 @@ class CatalogTrustStripTest extends TestCase
         $this->assertStringContainsString('site-trust-compact', $html);
         $this->assertStringContainsString('Awaiting first ratings', $html);
         $this->assertStringContainsString('No completed orders yet', $html);
-        $this->assertStringContainsString('Ratings from advertisers after completed orders', $html);
+        $this->assertStringContainsString('Staff reviewed this listing', $html);
+        $this->assertStringNotContainsString('site-trust-compact__stars', $html);
         $this->assertStringNotContainsString('No completions yet', $html);
         $this->assertStringContainsString('<dt>Trust</dt>', $html);
+        $this->assertStringContainsString('Verified', $html);
+        $this->assertStringNotContainsString('Staff reviewed</span>', $html);
+        $this->assertSame('dr_desc', CatalogUrlQuery::DEFAULT_SORT);
+    }
+
+    public function test_unverified_new_listing_shows_staff_reviewed_chip_without_stars(): void
+    {
+        $this->makeSite([
+            'site_name' => 'Unverified New Live',
+            'site_url' => 'https://unverified-new-live.example',
+            'domain' => 'unverified-new-live.example',
+            'verified' => false,
+            'active' => true,
+            'created_at' => now()->subDays(2),
+        ]);
+
+        $html = $this->actingAs($this->advertiser)
+            ->get(route('advertiser.catalog', ['search' => 'Unverified New']))
+            ->assertOk()
+            ->getContent();
+
+        $this->assertStringContainsString('Staff reviewed', $html);
+        $this->assertStringContainsString('site-chip--staff', $html);
+        $this->assertStringContainsString('Awaiting first ratings', $html);
+        $this->assertStringContainsString('No completed orders yet', $html);
+        $this->assertStringNotContainsString('site-trust-compact__stars', $html);
+        $this->assertStringNotContainsString('Verified Publisher', $html);
     }
 
     public function test_leftover_rating_without_completions_hides_stars(): void

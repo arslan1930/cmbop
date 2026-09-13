@@ -2179,6 +2179,17 @@ button.site-chip {
     color: #0d9488;
 }
 
+.site-chip--staff {
+    background: linear-gradient(180deg, #f0f9ff 0%, #e0f2fe 100%);
+    color: #075985;
+    border-color: rgba(7, 89, 133, 0.22);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+}
+
+.site-chip--staff i {
+    color: #0284c7;
+}
+
 .site-chip--blacklist {
     background: linear-gradient(180deg, #fff5f5 0%, #fee2e2 100%);
     color: #b91c1c;

@@ -302,6 +302,8 @@
                                             <i class="fa-solid fa-circle-check" aria-hidden="true"></i>
                                             <span>Verified</span>
                                         </button>
+                                    @else
+                                        @include('advertiser.partials.catalog-staff-reviewed-chip', ['site' => $site])
                                     @endif
                                 </span>
 
@@ -1033,6 +1035,8 @@
                     <div class="catalog-site-badges catalog-site-badges--mobile mt-1">
                         @if($site->verified)
                             <span class="site-chip site-chip--verified site-chip--status"><i class="fa-solid fa-circle-check" aria-hidden="true"></i><span>Verified</span></span>
+                        @else
+                            @include('advertiser.partials.catalog-staff-reviewed-chip', ['site' => $site])
                         @endif
                         @include('advertiser.partials.catalog-tag-chip', ['site' => $site])
                         @if($isNew)

@@ -9,11 +9,15 @@
     // Stars only after completed placements — leftover rating_count, or
     // cancelled-only history, must not look like a proven 5.0.
     $showStars = $hasRatings && $completedCount > 0;
+    $staffReviewed = $site->isStaffReviewedListing();
     $ariaParts = [];
     if ($showStars) {
         $ariaParts[] = number_format($avg, 1).' out of 5 from '.$count.' '.($count === 1 ? 'rating' : 'ratings');
     } else {
         $ariaParts[] = 'Awaiting first ratings';
+        if ($staffReviewed) {
+            $ariaParts[] = 'Staff reviewed listing';
+        }
     }
     if ($completionRate !== null) {
         $ariaParts[] = $completionRate.' percent completed';
@@ -25,7 +29,11 @@
      data-site-id="{{ $site->id }}"
      data-glass-tip
      data-glass-tip-title="Publisher trust"
-     data-glass-tip-body="Ratings from advertisers after completed orders. Completion rate is successful vs cancelled placements on this site."
+     data-glass-tip-body="{{ $showStars
+        ? 'Ratings from advertisers after completed orders. Completion rate is successful vs cancelled placements on this site.'
+        : ($staffReviewed
+            ? 'Staff reviewed this listing. Ratings appear after advertisers complete orders — new listings start at zero. We do not show placeholder stars.'
+            : 'Ratings from advertisers after completed orders. Completion rate is successful vs cancelled placements on this site.') }}"
      data-glass-tip-placement="top"
      role="group"
      aria-label="{{ implode('. ', $ariaParts) }}">
