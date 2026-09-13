@@ -137,6 +137,8 @@ return [
     /*
     | Default browse filters. Keep off until the admin health queues are clean,
     | then set CATALOG_DEFAULT_VERIFIED=true / CATALOG_DEFAULT_QUALITY=true.
+    | Leave CATALOG_DEFAULT_QUALITY=false when live inventory is still below
+    | the DA/DR/traffic bar — otherwise default browse looks empty.
     | Buyers can still dismiss the chip (?verified=0 / ?quality=0).
     */
     'default_verified' => filter_var(env('CATALOG_DEFAULT_VERIFIED', false), FILTER_VALIDATE_BOOL),
