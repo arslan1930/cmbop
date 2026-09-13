@@ -2009,7 +2009,7 @@ function bootAdvertiserOrdersPage() {
         const documentHtml = it.content_link
             ? `<a href="${safeUrl(it.content_link)}" class="text-primary" target="_blank" rel="noopener noreferrer"><i class="fa fa-download me-1"></i>${escapeHtml(it.content_original_name || 'Download article')}</a>`
             : (hideEmpty ? '' : '—');
-        const revisionAlert = it.content_revision_requested === 'yes' ? (() => {
+        const revisionAlert = it.content_revision_requested === 'yes' && orderNeedsContentRevision(order) ? (() => {
             const isLibrary = !!(it.content_submission_id);
             const currentLabel = it.content_original_name
                 || it.article_title
@@ -2071,8 +2071,6 @@ function bootAdvertiserOrdersPage() {
 
     function renderOrderDetails(order) {
         const items = Array.isArray(order.items) ? order.items : [];
-        const isUnderReview = order.status === 'review';
-        const hasAnyLiveUrl = items.some((it) => it && it.live_url && it.live_url !== '');
         const statusMeta = getAdvertiserStatusMeta(order);
         const timelineHtml = buildAdvertiserTimeline(order);
         const itemsCount = Number(order.items_count) || items.length || 0;
@@ -2102,14 +2100,13 @@ function bootAdvertiserOrdersPage() {
 
         let actionButtons = '';
         const revisionItems = items.filter((it) => it && it.content_revision_requested === 'yes');
-        const needsContentRevision = revisionItems.length > 0;
         if (order.can_retry_payment) {
             actionButtons = `
                 <button class="btn btn-sm btn-primary" onclick="retryOrderPayment(${order.id})">
                     <i class="fa fa-credit-card"></i> Pay again
                 </button>
             `;
-        } else if (needsContentRevision && (order.status === 'processing' || order.status === 'review')) {
+        } else if (orderNeedsContentRevision(order) && (order.status === 'processing' || order.status === 'review')) {
             const fulfillButtons = revisionItems.map((revisionItem, idx) => {
                 const isLibrary = !!(revisionItem.content_submission_id);
                 const currentLabel = revisionItem.content_original_name
@@ -2128,14 +2125,14 @@ function bootAdvertiserOrdersPage() {
                     <i class="fa fa-comments"></i> Chat
                 </button>
             `;
-        } else if (isUnderReview && hasAnyLiveUrl) {
+        } else if (orderCanApprove(order)) {
             actionButtons = `
                 <button class="btn btn-sm btn-success" onclick="approveOrder(${order.id})">
                     <i class="fa fa-check-circle"></i> Approve
                 </button>
-                <button class="btn btn-sm btn-warning" onclick="requestModification(${order.id})">
+                ${orderCanRequestChanges(order) ? `<button class="btn btn-sm btn-warning" onclick="requestModification(${order.id})">
                     <i class="fa fa-edit"></i> Request changes
-                </button>
+                </button>` : ''}
                 <button class="btn btn-sm btn-outline-danger" onclick="raiseIssue(${order.id}, ${jsAttr(order.order_number || '')}, ${jsAttr(statusMeta.label || '')})">
                     <i class="fa fa-flag"></i> Raise an issue
                 </button>

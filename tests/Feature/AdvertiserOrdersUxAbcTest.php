@@ -235,6 +235,9 @@ class AdvertiserOrdersUxAbcTest extends TestCase
         $this->assertStringContainsString('replaceState', $js);
         // Row primary action follows leftover flags; Approve/Request changes/revise sit on the list.
         $this->assertStringContainsString('onclick="approveOrder(${order.id})"', $js);
+        $this->assertStringContainsString('} else if (orderCanApprove(order)) {', $js);
+        $this->assertStringContainsString('orderNeedsContentRevision(order)', $js);
+        $this->assertStringNotContainsString('} else if (isUnderReview && hasAnyLiveUrl) {', $js);
         preg_match('/function renderOrderRowActions\(order\) \{(.*?)\n    \}/s', $js, $rowActionsFn);
         $this->assertNotEmpty($rowActionsFn[1] ?? null, 'renderOrderRowActions function should be present');
         $this->assertStringContainsString('action-buttons', $rowActionsFn[1]);

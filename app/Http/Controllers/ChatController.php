@@ -418,6 +418,7 @@ class ChatController extends Controller
         $liveUrl = safe_href_url($item?->live_url);
         $contentLink = safe_href_url($item?->publisherContentLink());
         $canReview = $isAdvertiser
+            && AdvertiserOrderStatus::isLiveAdvertiserWork($order)
             && $order->status === 'review'
             && filled($liveUrl)
             && ! $openContentRevision;
