@@ -60,6 +60,68 @@ final class AdvertiserOrderDetails
         return 'Declines refund automatically · request changes before auto-approve';
     }
 
+    /**
+     * Completed (including clawback) stays open. Leftover refunds and failed
+     * charges are not “pay to unlock chat”.
+     */
+    public static function canSendOrderChat(Order $order): bool
+    {
+        if ((string) $order->status === 'cancelled') {
+            return false;
+        }
+
+        if ((string) $order->status === 'completed') {
+            return true;
+        }
+
+        return (string) $order->payment_status === 'paid';
+    }
+
+    public static function orderChatComposerNote(Order $order): ?string
+    {
+        if ((string) $order->status === 'cancelled') {
+            return 'This order is cancelled. Chat is read-only.';
+        }
+
+        if ((string) $order->payment_status === 'refunded' && (string) $order->status !== 'completed') {
+            return 'This order was refunded. Chat is read-only.';
+        }
+
+        if (! self::canSendOrderChat($order)) {
+            return 'Chat is available after the order is paid.';
+        }
+
+        if ((string) $order->status === 'completed') {
+            return self::placementsMissing($order)
+                ? 'This order is completed. You can still message support about it.'
+                : 'This order is completed. You can still message about this placement.';
+        }
+
+        return null;
+    }
+
+    public static function orderChatSendBlockedMessage(Order $order): string
+    {
+        if ((string) $order->status === 'cancelled') {
+            return 'This order is cancelled. Chat is closed.';
+        }
+
+        if ((string) $order->payment_status === 'refunded') {
+            return 'This order was refunded. Chat is closed.';
+        }
+
+        return 'Chat is available after the order is paid.';
+    }
+
+    public static function unpaidActionMessage(Order $order, string $verb): string
+    {
+        if ((string) $order->payment_status === 'refunded') {
+            return "This order was refunded and cannot be {$verb}.";
+        }
+
+        return "This order cannot be {$verb} because payment is not complete.";
+    }
+
     public static function hasLiveUrl(Order $order): bool
     {
         $order->loadMissing('items');
@@ -173,6 +235,12 @@ final class AdvertiserOrderDetails
             ->sort()
             ->first();
         $push($liveAt, 'Live URL submitted', 'reconstructed_live_url');
+
+        if ((string) $order->payment_status === 'failed') {
+            $push($order->updated_at, 'Payment failed', 'reconstructed_payment_failed');
+        } elseif ((string) $order->payment_status === 'refunded' && (string) $order->status !== 'completed') {
+            $push($order->updated_at, 'Refunded', 'reconstructed_refunded');
+        }
 
         $push(
             $order->completed_at,

@@ -348,6 +348,31 @@ class AdvertiserOrderDetailsModalTest extends TestCase
         );
     }
 
+    public function test_leftover_refunded_review_timeline_ends_on_refunded(): void
+    {
+        $advertiser = $this->advertiser();
+        $publisher = $this->publisher();
+        $site = $this->siteFor($publisher);
+        $order = $this->makeOrder($advertiser, $site, [
+            'status' => 'review',
+            'payment_status' => 'refunded',
+        ], [
+            'live_url' => 'https://live.example/refunded-review',
+            'live_url_submitted_at' => now()->subHours(2),
+        ]);
+
+        $response = $this->actingAs($advertiser)
+            ->getJson(route('notifications.order-timeline', $order->id))
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('reconstructed', true);
+
+        $titles = collect($response->json('activities'))->pluck('title')->all();
+        $this->assertContains('Refunded', $titles);
+        $this->assertSame('Refunded', end($titles));
+        $this->assertNotContains('Completed', $titles);
+    }
+
     public function test_get_order_survives_leftover_unparseable_item_dates(): void
     {
         $advertiser = $this->advertiser();

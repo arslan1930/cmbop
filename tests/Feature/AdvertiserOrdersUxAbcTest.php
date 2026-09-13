@@ -237,6 +237,7 @@ class AdvertiserOrdersUxAbcTest extends TestCase
         $this->assertStringContainsString('onclick="approveOrder(${order.id})"', $js);
         $this->assertStringContainsString('} else if (orderCanApprove(order)) {', $js);
         $this->assertStringContainsString('orderNeedsContentRevision(order)', $js);
+        $this->assertStringContainsString("order?.payment_status !== 'paid' && order?.status !== 'completed'", $js);
         $this->assertStringNotContainsString('} else if (isUnderReview && hasAnyLiveUrl) {', $js);
         preg_match('/function renderOrderRowActions\(order\) \{(.*?)\n    \}/s', $js, $rowActionsFn);
         $this->assertNotEmpty($rowActionsFn[1] ?? null, 'renderOrderRowActions function should be present');

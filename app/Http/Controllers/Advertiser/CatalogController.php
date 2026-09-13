@@ -4302,7 +4302,7 @@ class CatalogController extends Controller
             if ($order->payment_status !== 'paid') {
                 return response()->json([
                     'success' => false,
-                    'message' => 'This order cannot be changed because payment is not complete.',
+                    'message' => AdvertiserOrderDetails::unpaidActionMessage($order, 'changed'),
                 ], 422);
             }
 
@@ -4859,8 +4859,7 @@ class CatalogController extends Controller
         $order->needs_content_revision = $liveWork && $needsRevision;
         $order->can_approve = $canReview;
         $order->can_request_changes = $canReview;
-        $order->chat_readonly = $order->status === 'cancelled'
-            || $order->payment_status !== 'paid';
+        $order->chat_readonly = ! AdvertiserOrderDetails::canSendOrderChat($order);
     }
 
     /**
@@ -5394,7 +5393,7 @@ class CatalogController extends Controller
             if ($order->payment_status !== 'paid') {
                 return response()->json([
                     'success' => false,
-                    'message' => 'This order cannot be approved because payment is not complete.',
+                    'message' => AdvertiserOrderDetails::unpaidActionMessage($order, 'approved'),
                 ], 422);
             }
 
@@ -5427,7 +5426,7 @@ class CatalogController extends Controller
 
                 return response()->json([
                     'success' => false,
-                    'message' => 'This order cannot be approved because payment is not complete.',
+                    'message' => AdvertiserOrderDetails::unpaidActionMessage($order, 'approved'),
                 ], 422);
             }
 
@@ -5756,9 +5755,11 @@ class CatalogController extends Controller
         $order->auto_approve_hint = $meta['auto_approve_hint'];
         $this->sanitizeAdvertiserOrderItemUrls($order);
         $this->attachAdvertiserOrderActionFlags($order);
-        foreach ($order->items as $line) {
-            if (method_exists($line, 'getAutoApproveHoursRemaining')) {
-                $line->auto_approve_hours_remaining = (int) $line->getAutoApproveHoursRemaining();
+        if (AdvertiserOrderStatus::isLiveAdvertiserWork($order)) {
+            foreach ($order->items as $line) {
+                if (method_exists($line, 'getAutoApproveHoursRemaining')) {
+                    $line->auto_approve_hours_remaining = (int) $line->getAutoApproveHoursRemaining();
+                }
             }
         }
         $this->attachDisputeMeta($order, $order->items->first(), app(OrderClawbackService::class));

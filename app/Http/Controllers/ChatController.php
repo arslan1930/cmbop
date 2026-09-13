@@ -207,12 +207,10 @@ class ChatController extends Controller
                 ], 403);
             }
 
-            if ($order->status === 'cancelled' || $order->payment_status !== 'paid') {
+            if (! AdvertiserOrderDetails::canSendOrderChat($order)) {
                 return response()->json([
                     'success' => false,
-                    'message' => $order->status === 'cancelled'
-                        ? 'This order is cancelled. Chat is closed.'
-                        : 'Chat is available after the order is paid.',
+                    'message' => AdvertiserOrderDetails::orderChatSendBlockedMessage($order),
                     'can_send' => false,
                 ], 422);
             }
@@ -422,17 +420,8 @@ class ChatController extends Controller
             && $order->status === 'review'
             && filled($liveUrl)
             && ! $openContentRevision;
-        $canSend = $order->status !== 'cancelled' && $order->payment_status === 'paid';
-        $composerNote = null;
-        if ($order->status === 'cancelled') {
-            $composerNote = 'This order is cancelled. Chat is read-only.';
-        } elseif ($order->payment_status !== 'paid') {
-            $composerNote = 'Chat is available after the order is paid.';
-        } elseif ($order->status === 'completed') {
-            $composerNote = AdvertiserOrderDetails::placementsMissing($order)
-                ? 'This order is completed. You can still message support about it.'
-                : 'This order is completed. You can still message about this placement.';
-        }
+        $canSend = AdvertiserOrderDetails::canSendOrderChat($order);
+        $composerNote = AdvertiserOrderDetails::orderChatComposerNote($order);
 
         $modificationRequested = $item?->modification_requested === 'yes';
         $canResubmit = ! $isAdvertiser

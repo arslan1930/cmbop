@@ -448,11 +448,19 @@ class AdvertiserProjectOrdersFilterTest extends TestCase
             ->json('order');
         $this->assertFalse($reviewRow['can_approve']);
         $this->assertFalse($reviewRow['can_request_changes']);
+        $this->assertTrue($reviewRow['chat_readonly']);
         $this->assertSame('', $reviewRow['policy_note']);
+        $this->assertNull($reviewRow['auto_approve_hint']);
+        $this->assertArrayNotHasKey('auto_approve_hours_remaining', $reviewRow['items'][0] ?? []);
         $this->assertSame(
             'Refunded',
             collect($reviewRow['timeline_steps'])->firstWhere('current', true)['label'] ?? null
         );
+
+        $this->actingAs($user)
+            ->postJson(route('advertiser.orders.approve', $reviewRefunded->id))
+            ->assertStatus(422)
+            ->assertJsonPath('message', 'This order was refunded and cannot be approved.');
 
         $revisionRow = $this->actingAs($user)
             ->getJson(route('advertiser.orders.get', $revisionRefunded->id))
@@ -472,6 +480,7 @@ class AdvertiserProjectOrdersFilterTest extends TestCase
         $this->assertCount(1, $completed);
         $this->assertSame($completedRefunded->id, (int) $completed[0]['id']);
         $this->assertSame('Completed · refunded', $completed[0]['status_label']);
+        $this->assertFalse($completed[0]['chat_readonly']);
         $this->assertStringNotContainsString('publisher has been paid', (string) ($completed[0]['next_action'] ?? ''));
         $this->assertSame(
             'Completed · refunded',

@@ -1347,7 +1347,8 @@ function bootAdvertiserOrdersPage() {
     function orderChatReadonly(order) {
         if (order && order.chat_readonly === true) return true;
         if (order && order.chat_readonly === false) return false;
-        return order?.status === 'cancelled' || order?.payment_status !== 'paid';
+        return order?.status === 'cancelled'
+            || (order?.payment_status !== 'paid' && order?.status !== 'completed');
     }
 
     function orderPaymentRefunded(order) {

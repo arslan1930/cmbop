@@ -224,6 +224,60 @@ class OrderChatHardeningTest extends TestCase
             ->assertForbidden();
     }
 
+    public function test_leftover_refunded_review_is_read_only_not_pay_to_chat(): void
+    {
+        Mail::fake();
+
+        $advertiser = $this->advertiser();
+        $publisher = $this->publisher();
+        $site = $this->siteFor($publisher);
+        $order = $this->orderFor($advertiser, $site, 'review');
+        $order->update(['payment_status' => 'refunded']);
+        $order->items->first()?->update([
+            'live_url' => 'https://publisher.example/refunded-review',
+        ]);
+
+        $this->actingAs($advertiser)
+            ->getJson(route('chat.messages', $order->id))
+            ->assertOk()
+            ->assertJsonPath('can_send', false)
+            ->assertJsonPath('composer_note', 'This order was refunded. Chat is read-only.')
+            ->assertJsonPath('order_details.can_approve', false);
+
+        $this->actingAs($advertiser)
+            ->postJson(route('chat.send', $order->id), ['message' => 'Still reviewing this?'])
+            ->assertStatus(422)
+            ->assertJsonPath('can_send', false)
+            ->assertJsonPath('message', 'This order was refunded. Chat is closed.');
+
+        $this->assertDatabaseMissing('order_chat_messages', [
+            'order_id' => $order->id,
+            'message' => 'Still reviewing this?',
+        ]);
+    }
+
+    public function test_completed_clawback_still_allows_chat(): void
+    {
+        Mail::fake();
+
+        $advertiser = $this->advertiser();
+        $publisher = $this->publisher();
+        $site = $this->siteFor($publisher);
+        $order = $this->orderFor($advertiser, $site, 'completed');
+        $order->update(['payment_status' => 'refunded']);
+
+        $this->actingAs($advertiser)
+            ->getJson(route('chat.messages', $order->id))
+            ->assertOk()
+            ->assertJsonPath('can_send', true)
+            ->assertJsonPath('composer_note', 'This order is completed. You can still message about this placement.');
+
+        $this->actingAs($advertiser)
+            ->postJson(route('chat.send', $order->id), ['message' => 'Thanks — refund received'])
+            ->assertOk()
+            ->assertJsonPath('success', true);
+    }
+
     public function test_publisher_unread_ignores_unpaid_and_cancelled_orders(): void
     {
         $advertiser = $this->advertiser();
