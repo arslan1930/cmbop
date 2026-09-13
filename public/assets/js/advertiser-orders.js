@@ -1114,6 +1114,30 @@ function bootAdvertiserOrdersPage() {
             { label: 'Completed', done: completed && hasItems, current: false },
         ];
 
+        if (status === 'cancelled') {
+            return steps;
+        }
+        if (order.payment_status === 'failed') {
+            steps[0].label = 'Payment failed';
+            steps[0].done = false;
+            steps[0].current = true;
+            steps.slice(1).forEach(function (step) {
+                step.done = false;
+                step.current = false;
+            });
+            return steps;
+        }
+        if (order.payment_status === 'refunded' && status !== 'completed') {
+            steps[0].label = 'Refunded';
+            steps[0].done = true;
+            steps[0].current = true;
+            steps.slice(1).forEach(function (step) {
+                step.done = false;
+                step.current = false;
+            });
+            return steps;
+        }
+
         if (status === 'pending' && !paid) {
             steps[0].current = true;
             steps[0].done = false;
@@ -1137,6 +1161,9 @@ function bootAdvertiserOrdersPage() {
         } else if (status === 'completed') {
             steps[4].current = true;
             steps[4].done = hasItems;
+            if (order.payment_status === 'refunded') {
+                steps[4].label = 'Completed · refunded';
+            }
         }
 
         return steps;
@@ -1148,10 +1175,10 @@ function bootAdvertiserOrdersPage() {
         const items = Array.isArray(order.items) ? order.items : [];
         const item = items[0] || {};
         let raw = null;
-        if (current.label === 'Completed') raw = order.completed_at;
+        if (current.label === 'Completed' || current.label === 'Completed · refunded') raw = order.completed_at;
         else if (current.label === 'URL delivered') {
             raw = items.map((it) => it && it.live_url_submitted_at).filter(Boolean).sort()[0] || null;
-        } else if (current.label === 'Paid') raw = order.paid_at;
+        } else if (current.label === 'Paid' || current.label === 'Payment failed' || current.label === 'Refunded') raw = order.paid_at;
         else if (current.label === 'Accepted' || current.label === 'Scheduled') raw = item.accepted_at || order.paid_at;
         else if (current.label === 'Processing' || current.label === 'Revision') raw = item.accepted_at || order.updated_at;
         if (!raw) return '';
@@ -1218,11 +1245,11 @@ function bootAdvertiserOrdersPage() {
                 meta: { reconstructed: true },
             });
         };
-        push(order.paid_at, 'Paid');
+        if (order.payment_status !== 'failed') push(order.paid_at, 'Paid');
         const items = Array.isArray(order.items) ? order.items : [];
         const liveAt = items.map((it) => it && it.live_url_submitted_at).filter(Boolean).sort()[0];
         push(liveAt, 'Live URL submitted');
-        push(order.completed_at, 'Completed');
+        push(order.completed_at, order.payment_status === 'refunded' ? 'Completed · refunded' : 'Completed');
         if (!events.length) push(order.updated_at, 'Last updated');
         return events;
     }
@@ -1287,7 +1314,14 @@ function bootAdvertiserOrdersPage() {
         });
     }
 
+    function orderIsLiveWork(order) {
+        if (!order) return false;
+        if (order.status === 'cancelled') return false;
+        return order.payment_status !== 'failed' && order.payment_status !== 'refunded';
+    }
+
     function orderNeedsContentRevision(order) {
+        if (!orderIsLiveWork(order)) return false;
         if (order && order.needs_content_revision === true) return true;
         if (order && order.needs_content_revision === false) return false;
         const items = Array.isArray(order?.items) ? order.items : [];
@@ -1295,6 +1329,7 @@ function bootAdvertiserOrdersPage() {
     }
 
     function orderCanApprove(order) {
+        if (!orderIsLiveWork(order)) return false;
         if (order && order.can_approve === true) return true;
         if (order && order.can_approve === false) return false;
         const items = Array.isArray(order?.items) ? order.items : [];
@@ -1887,7 +1922,7 @@ function bootAdvertiserOrdersPage() {
             }
             return `<div class="order-view-refund">${escapeHtml(note)} ${link}</div>`;
         }
-        if (order.status === 'cancelled' || order.payment_status === 'refunded') {
+        if (order.status === 'cancelled' || order.payment_status === 'refunded' || order.payment_status === 'failed') {
             return `<div class="order-view-refund">${link}</div>`;
         }
         const note = typeof order.policy_note === 'string'

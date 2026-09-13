@@ -4852,10 +4852,11 @@ class CatalogController extends Controller
             && $items->contains(function ($line) {
                 return $line instanceof OrderItem && $line->isContentRevisionRequested();
             });
-        $canReview = $order->status === 'review' && $hasLiveUrl && ! $needsRevision;
+        $liveWork = AdvertiserOrderStatus::isLiveAdvertiserWork($order);
+        $canReview = $liveWork && $order->status === 'review' && $hasLiveUrl && ! $needsRevision;
 
         $order->can_retry_payment = $this->orderCanRetryPayment($order);
-        $order->needs_content_revision = (bool) $needsRevision;
+        $order->needs_content_revision = $liveWork && $needsRevision;
         $order->can_approve = $canReview;
         $order->can_request_changes = $canReview;
         $order->chat_readonly = $order->status === 'cancelled'
@@ -5169,6 +5170,9 @@ class CatalogController extends Controller
                 } elseif ($status === 'review') {
                     // Matches the Needs review KPI: live URL ready, not “in review” without a URL.
                     AdvertiserOrderStatus::constrainReviewReady($query);
+                } elseif ($status === 'processing') {
+                    $query->where('status', 'processing');
+                    AdvertiserOrderStatus::constrainWithoutFailedPayment($query);
                 } else {
                     $query->where('status', $status);
                 }

@@ -603,9 +603,13 @@
                                             $numericOrder = preg_replace('/\D+/', '', (string) ($order->order_number ?? '')) ?: (string) $order->id;
                                             $statusMeta = \App\Support\AdvertiserOrderStatus::meta($order);
                                             $statusLabel = $statusMeta['label'];
-                                            $statusDotClass = ($statusMeta['stage'] ?? '') === 'url_delivered'
-                                                ? 'review'
-                                                : (($statusMeta['stage'] ?? '') === 'review' ? 'pending' : (string) $order->status);
+                                            $statusStage = (string) ($statusMeta['stage'] ?? '');
+                                            $statusDotClass = match ($statusStage) {
+                                                'url_delivered' => 'review',
+                                                'review' => 'pending',
+                                                'refunded', 'payment_failed', 'cancelled' => 'cancelled',
+                                                default => (string) $order->status,
+                                            };
                                             $orderFocusUrl = route('advertiser.orders', ['focus' => 'order', 'order' => $order->id]);
                                             $siteModel = $firstItem?->relationLoaded('site') ? $firstItem->site : null;
                                             $canSeeRecentUrl = $siteModel

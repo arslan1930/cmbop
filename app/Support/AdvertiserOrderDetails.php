@@ -53,7 +53,7 @@ final class AdvertiserOrderDetails
             return 'If a published link is later removed, use Report link removed.';
         }
 
-        if ($status === 'cancelled' || $payment === 'refunded') {
+        if ($status === 'cancelled' || in_array($payment, ['refunded', 'failed'], true)) {
             return '';
         }
 
@@ -163,7 +163,9 @@ final class AdvertiserOrderDetails
             ];
         };
 
-        $push($order->paid_at, 'Paid', 'reconstructed_paid');
+        if ((string) $order->payment_status !== 'failed') {
+            $push($order->paid_at, 'Paid', 'reconstructed_paid');
+        }
 
         $liveAt = $order->items
             ->map(fn ($line) => $line instanceof OrderItem ? $line->live_url_submitted_at : null)
@@ -172,7 +174,11 @@ final class AdvertiserOrderDetails
             ->first();
         $push($liveAt, 'Live URL submitted', 'reconstructed_live_url');
 
-        $push($order->completed_at, 'Completed', 'reconstructed_completed');
+        $push(
+            $order->completed_at,
+            (string) $order->payment_status === 'refunded' ? 'Completed · refunded' : 'Completed',
+            'reconstructed_completed'
+        );
 
         if ($events === []) {
             $push($order->updated_at, 'Last updated', 'reconstructed_updated');

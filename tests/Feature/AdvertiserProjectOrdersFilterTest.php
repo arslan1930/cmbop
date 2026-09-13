@@ -350,6 +350,19 @@ class AdvertiserProjectOrdersFilterTest extends TestCase
             ->assertJsonPath('data.awaiting_payment', 0)
             ->assertJsonPath('data.in_progress', 0);
         $this->assertStringNotContainsString('data-projects-attention', $html);
+
+        $failedReviewRow = $this->actingAs($user)
+            ->getJson(route('advertiser.orders.get', $failedReview->id))
+            ->assertOk()
+            ->json('order');
+        $this->assertFalse($failedReviewRow['can_approve']);
+        $this->assertFalse($failedReviewRow['can_request_changes']);
+        $this->assertFalse($failedReviewRow['needs_content_revision']);
+        $this->assertSame('', $failedReviewRow['policy_note']);
+        $this->assertSame(
+            'Payment failed',
+            collect($failedReviewRow['timeline_steps'])->firstWhere('current', true)['label'] ?? null
+        );
     }
 
     public function test_refunded_pending_is_rejected_and_completed_clawback_stays_completed(): void
@@ -384,6 +397,13 @@ class AdvertiserProjectOrdersFilterTest extends TestCase
             'target_url' => 'https://acme.example/done',
             'live_url' => 'https://publisher.example/done',
         ]);
+        $revisionRefunded = $this->makeOrder($user, $site, [
+            'status' => 'processing',
+            'payment_status' => 'refunded',
+        ], [
+            'target_url' => 'https://acme.example/rev',
+            'content_revision_requested' => 'yes',
+        ]);
 
         $html = $this->actingAs($user)
             ->get(route('advertiser.projects.index'))
@@ -391,7 +411,7 @@ class AdvertiserProjectOrdersFilterTest extends TestCase
             ->getContent();
 
         $this->assertMatchesRegularExpression(
-            '/<span class="project-stage__label">Rejected<\/span>\s*<span class="project-stage__count[^"]*">\s*2\s*</',
+            '/<span class="project-stage__label">Rejected<\/span>\s*<span class="project-stage__count[^"]*">\s*3\s*</',
             $html
         );
         $this->assertMatchesRegularExpression(
@@ -411,12 +431,35 @@ class AdvertiserProjectOrdersFilterTest extends TestCase
         $this->assertSame([], $this->listIds($user, ['status' => 'awaiting_payment']));
         $this->assertSame([], $this->listIds($user, ['status' => 'needs_action']));
         $this->assertSame([], $this->listIds($user, ['status' => 'review']));
+        $this->assertSame([], $this->listIds($user, ['status' => 'processing']));
 
         $rejected = $this->listIds($user, [
             'project' => $project->id,
             'project_stage' => 'rejected',
         ]);
-        $this->assertEqualsCanonicalizing([$pendingRefunded->id, $reviewRefunded->id], $rejected);
+        $this->assertEqualsCanonicalizing(
+            [$pendingRefunded->id, $reviewRefunded->id, $revisionRefunded->id],
+            $rejected
+        );
+
+        $reviewRow = $this->actingAs($user)
+            ->getJson(route('advertiser.orders.get', $reviewRefunded->id))
+            ->assertOk()
+            ->json('order');
+        $this->assertFalse($reviewRow['can_approve']);
+        $this->assertFalse($reviewRow['can_request_changes']);
+        $this->assertSame('', $reviewRow['policy_note']);
+        $this->assertSame(
+            'Refunded',
+            collect($reviewRow['timeline_steps'])->firstWhere('current', true)['label'] ?? null
+        );
+
+        $revisionRow = $this->actingAs($user)
+            ->getJson(route('advertiser.orders.get', $revisionRefunded->id))
+            ->assertOk()
+            ->json('order');
+        $this->assertFalse($revisionRow['needs_content_revision']);
+        $this->assertFalse($revisionRow['can_approve']);
 
         $completed = $this->actingAs($user)
             ->getJson(route('advertiser.orders.list', [
@@ -430,6 +473,10 @@ class AdvertiserProjectOrdersFilterTest extends TestCase
         $this->assertSame($completedRefunded->id, (int) $completed[0]['id']);
         $this->assertSame('Completed · refunded', $completed[0]['status_label']);
         $this->assertStringNotContainsString('publisher has been paid', (string) ($completed[0]['next_action'] ?? ''));
+        $this->assertSame(
+            'Completed · refunded',
+            collect($completed[0]['timeline_steps'] ?? [])->firstWhere('current', true)['label'] ?? null
+        );
 
         $this->actingAs($user)
             ->getJson(route('advertiser.orders.statistics'))

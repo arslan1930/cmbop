@@ -159,6 +159,21 @@ class AdvertiserOrderStatus
     }
 
     /**
+     * Approve / revision actions and live KPIs: not cancelled, failed, or refunded.
+     */
+    public static function isLiveAdvertiserWork(Order $order): bool
+    {
+        $status = (string) $order->status;
+        $payment = (string) $order->payment_status;
+
+        if ($status === 'cancelled') {
+            return false;
+        }
+
+        return ! in_array($payment, ['failed', 'refunded'], true);
+    }
+
+    /**
      * Failed and refunded charges are not live work (same as meta()).
      *
      * Completed clawbacks stay `payment_status=refunded` with `status=completed`
@@ -426,6 +441,30 @@ class AdvertiserOrderStatus
             return $steps;
         }
 
+        $payment = (string) $order->payment_status;
+        if ($payment === 'failed') {
+            $steps[0]['label'] = 'Payment failed';
+            $steps[0]['done'] = false;
+            $steps[0]['current'] = true;
+            for ($i = 1; $i < count($steps); $i++) {
+                $steps[$i]['done'] = false;
+                $steps[$i]['current'] = false;
+            }
+
+            return $steps;
+        }
+        if ($payment === 'refunded' && $status !== 'completed') {
+            $steps[0]['label'] = 'Refunded';
+            $steps[0]['done'] = true;
+            $steps[0]['current'] = true;
+            for ($i = 1; $i < count($steps); $i++) {
+                $steps[$i]['done'] = false;
+                $steps[$i]['current'] = false;
+            }
+
+            return $steps;
+        }
+
         if ($status === 'pending' && ! $paid) {
             $steps[0]['current'] = true;
             $steps[0]['done'] = false;
@@ -450,6 +489,9 @@ class AdvertiserOrderStatus
         } elseif ($status === 'completed') {
             $steps[4]['current'] = true;
             $steps[4]['done'] = $hasItems;
+            if ($payment === 'refunded') {
+                $steps[4]['label'] = 'Completed · refunded';
+            }
         }
 
         return $steps;

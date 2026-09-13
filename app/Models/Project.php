@@ -52,7 +52,7 @@ class Project extends Model
      * @var array<string, string>
      */
     public const STAGE_HINTS = [
-        'not_started' => 'Paid, scheduled, or waiting for the publisher to start',
+        'not_started' => 'Awaiting payment, paid and waiting, or scheduled',
         'in_progress' => 'Publisher is preparing the placement',
         'in_review' => 'In review — waiting for a live URL',
         'waiting_approval' => 'Live URL ready for your review',
