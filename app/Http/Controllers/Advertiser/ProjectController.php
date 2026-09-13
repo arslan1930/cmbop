@@ -20,7 +20,7 @@ class ProjectController extends Controller
 
         $orders = Order::query()
             ->where('user_id', $userId)
-            ->with('items')
+            ->with(['items.contentSubmission'])
             ->get();
 
         $countsByHost = Project::stageCountsByHost($orders);
@@ -33,7 +33,29 @@ class ProjectController extends Controller
             );
         }
 
-        return view('advertiser.campaigns', compact('projects'));
+        $projects = $projects
+            ->sortByDesc(fn (Project $project) => $project->created_at)
+            ->sortByDesc(fn (Project $project) => Project::needsYouCountFrom(
+                $project->stage_counts ?? Project::emptyStageCounts()
+            ))
+            ->values();
+
+        $attentionPlacements = (int) $projects->sum(
+            fn (Project $project) => Project::needsYouCountFrom(
+                $project->stage_counts ?? Project::emptyStageCounts()
+            )
+        );
+        $attentionProjects = $projects
+            ->filter(fn (Project $project) => Project::needsYouCountFrom(
+                $project->stage_counts ?? Project::emptyStageCounts()
+            ) > 0)
+            ->count();
+
+        return view('advertiser.campaigns', compact(
+            'projects',
+            'attentionPlacements',
+            'attentionProjects',
+        ));
     }
 
     public function store(Request $request)

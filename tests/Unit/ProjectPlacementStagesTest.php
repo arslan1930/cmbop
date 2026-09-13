@@ -22,6 +22,7 @@ class ProjectPlacementStagesTest extends TestCase
         $this->assertSame('not_started', Project::stageBucket('scheduled'));
         $this->assertSame('not_started', Project::stageBucket('paid'));
         $this->assertSame('in_progress', Project::stageBucket('processing'));
+        $this->assertSame('in_review', Project::stageBucket('review'));
         $this->assertSame('waiting_approval', Project::stageBucket('url_delivered'));
         $this->assertSame('needs_improvements', Project::stageBucket('revision'));
         $this->assertSame('needs_improvements', Project::stageBucket('content_revision'));
@@ -37,5 +38,18 @@ class ProjectPlacementStagesTest extends TestCase
         $this->assertSame('acme-client-7', Project::generateSlug('Acme Client', 7));
         $this->assertSame('acme-client-9', Project::generateSlug('Acme Client', 9));
         $this->assertSame('acme-client-7', Project::generateSlug('Acme-Client', 7));
+    }
+
+    public function test_needs_you_count_is_live_url_review_plus_revisions(): void
+    {
+        $counts = Project::emptyStageCounts();
+        $this->assertSame(0, Project::needsYouCountFrom($counts));
+
+        $counts['in_review'] = 2;
+        $this->assertSame(0, Project::needsYouCountFrom($counts));
+
+        $counts['waiting_approval'] = 1;
+        $counts['needs_improvements'] = 3;
+        $this->assertSame(4, Project::needsYouCountFrom($counts));
     }
 }

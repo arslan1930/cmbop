@@ -1,75 +1,92 @@
 @extends('advertiser.layouts.app')
 
+@section('title', 'Projects')
+
+@push('page-styles')
+    <link rel="stylesheet" href="{{ asset('assets/css/advertiser-projects.css') }}?v={{ @filemtime(public_path('assets/css/advertiser-projects.css')) ?: '1' }}">
+@endpush
+
 @section('content')
 
 @php
     $projects = $projects ?? collect();
+    $attentionPlacements = (int) ($attentionPlacements ?? 0);
+    $attentionProjects = (int) ($attentionProjects ?? 0);
+    $stageKeys = \App\Models\Project::STAGE_KEYS;
 @endphp
 
-<div class="d-flex flex-column align-items-start gap-2 mb-3">
-
+<div class="project-page-head d-flex flex-column align-items-start gap-2 mb-3">
     <div>
-        <h3 class="mb-1">Perfect For Agencies & Marketing Teams</h3>
-        <p class="text-muted mb-2">
-            Create a project for each of your clients to ensure you never duplicate placements.
+        <h2 class="mb-1">Projects</h2>
+        <p class="text-muted mb-0">
+            One project per client site. Counts are placements whose destination host matches this project.
         </p>
     </div>
 
     <hr class="w-100">
 
-    <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#projectModal">
-        <i class="fa fa-plus"></i> Create Project
+    <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#projectModal">
+        <i class="fa fa-plus" aria-hidden="true"></i> Create Project
     </button>
-
 </div>
 
-{{-- ================= ALERTS ================= --}}
-
-@if($errors->any())
-    <div class="alert alert-danger alert-dismissible fade show">
-        {{ $errors->first() }}
-        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+@if($attentionPlacements > 0)
+    <div class="ui-callout ui-callout--attention ui-callout--banner mb-4" role="status" data-projects-attention>
+        <div class="ui-callout__main">
+            <span class="ui-callout__icon" aria-hidden="true"><i class="fa-solid fa-circle-exclamation"></i></span>
+            <div class="ui-callout__body">
+                <strong>Needs your attention</strong>
+                <span class="ms-1">
+                    {{ $attentionPlacements }} {{ $attentionPlacements === 1 ? 'placement needs' : 'placements need' }}
+                    you across {{ $attentionProjects }} {{ $attentionProjects === 1 ? 'project' : 'projects' }}.
+                    Live URLs ready for review and open revisions only.
+                </span>
+            </div>
+        </div>
     </div>
 @endif
 
-
-<!-- ================= PROJECT LIST ================= -->
 <div class="row g-3 mb-4">
 
     @forelse($projects as $project)
+        @php
+            $stageCounts = $project->stage_counts ?? \App\Models\Project::emptyStageCounts();
+            $needsYou = \App\Models\Project::needsYouCountFrom($stageCounts);
+            $host = \App\Models\Project::hostFromUrl($project->project_url);
+        @endphp
 
         <div class="col-md-4 col-sm-6">
 
-            <div class="card h-100 border border-secondary-subtle shadow-sm rounded-3">
+            <div class="card project-card h-100 shadow-sm rounded-3{{ $needsYou > 0 ? ' is-attention' : '' }}">
 
                 <div class="card-body">
 
-                    <!-- HEADER ROW -->
-                    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
+                    <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-2">
 
-                        <!-- PROJECT NAME -->
-                        <a href="{{ $project->project_url }}"
-                           target="_blank"
-                           class="text-decoration-none text-dark">
+                        <div class="min-w-0">
+                            <a href="{{ $project->project_url }}"
+                               target="_blank"
+                               rel="noopener noreferrer"
+                               class="project-card__name text-decoration-none">
+                                <h6 class="mb-0">
+                                    {{ $project->project_name }}
+                                    <i class="fa-solid fa-arrow-up-right-from-square ms-1 small" aria-hidden="true"></i>
+                                </h6>
+                            </a>
+                            @if($host !== '')
+                                <div class="project-card__host mt-1">{{ $host }}</div>
+                            @endif
+                        </div>
 
-                            <h6 class="mb-0">
-                                {{ $project->project_name }}
-                                <i class="fa-solid fa-arrow-up-right-from-square ms-1 small"></i>
-                            </h6>
-
-                        </a>
-
-                        <!-- ACTION BUTTONS -->
                         <div class="d-flex gap-1">
-
-                            <!-- EDIT -->
-                            <button class="btn btn-sm btn-outline-secondary"
+                            <button type="button"
+                                    class="btn btn-sm btn-outline-secondary"
                                     data-bs-toggle="modal"
-                                    data-bs-target="#editProjectModal{{ $project->id }}">
-                                <i class="fa-solid fa-pen-to-square"></i>
+                                    data-bs-target="#editProjectModal{{ $project->id }}"
+                                    aria-label="Edit {{ $project->project_name }}">
+                                <i class="fa-solid fa-pen-to-square" aria-hidden="true"></i>
                             </button>
 
-                            <!-- DELETE -->
                             <form method="POST"
                                 action="{{ route('advertiser.projects.destroy', $project->id) }}"
                                 data-slb-confirm="This project will be removed. This cannot be undone."
@@ -80,63 +97,36 @@
                                 @method('DELETE')
 
                                 <button class="btn btn-sm btn-outline-danger" type="submit" aria-label="Delete project">
-                                    <i class="fa-solid fa-trash"></i>
+                                    <i class="fa-solid fa-trash" aria-hidden="true"></i>
                                 </button>
                             </form>
-
                         </div>
 
                     </div>
 
                     <hr class="my-2">
 
-                    {{-- STATUS ROW (MOBILE FRIENDLY) --}}
-                    <div class="d-flex align-items-center flex-wrap gap-2">
-
-                        <!-- Heading -->
+                    <div class="d-flex align-items-start flex-wrap gap-2">
                         <span class="fw-semibold">
-                            <i class="fa-solid fa-pen-to-square me-1"></i>
+                            <i class="fa-solid fa-pen-to-square me-1" aria-hidden="true"></i>
                             Guest Posting
                         </span>
 
-                        <!-- Badges: counts of this advertiser's placements whose target URL host matches the project URL. -->
-                        @php
-                            $stageCounts = $project->stage_counts ?? \App\Models\Project::emptyStageCounts();
-                        @endphp
-                        <div class="d-flex flex-wrap gap-2 ms-auto">
-
-                            <span class="badge bg-primary-subtle text-primary px-2 py-1"
-                                  title="Not started">
-                                {{ $stageCounts['not_started'] }}
-                            </span>
-
-                            <span class="badge bg-info-subtle text-info px-2 py-1"
-                                  title="In progress">
-                                {{ $stageCounts['in_progress'] }}
-                            </span>
-
-                            <span class="badge bg-warning-subtle text-warning px-2 py-1"
-                                  title="Waiting approval">
-                                {{ $stageCounts['waiting_approval'] }}
-                            </span>
-
-                            <span class="badge bg-secondary-subtle text-secondary px-2 py-1"
-                                  title="Needs improvements">
-                                {{ $stageCounts['needs_improvements'] }}
-                            </span>
-
-                            <span class="badge bg-success-subtle text-success px-2 py-1"
-                                  title="Completed">
-                                {{ $stageCounts['completed'] }}
-                            </span>
-
-                            <span class="badge bg-danger-subtle text-danger px-2 py-1"
-                                  title="Rejected">
-                                {{ $stageCounts['rejected'] }}
-                            </span>
-
+                        <div class="project-stages ms-auto">
+                            @foreach($stageKeys as $stageKey)
+                                @php
+                                    $count = (int) ($stageCounts[$stageKey] ?? 0);
+                                    $label = \App\Models\Project::stageLabel($stageKey);
+                                    $hint = \App\Models\Project::stageHint($stageKey);
+                                    $pulse = $stageKey === 'waiting_approval' && $count > 0;
+                                @endphp
+                                <span class="project-stage project-stage--{{ $stageKey }}"
+                                      title="{{ $hint !== '' ? $label.': '.$hint : $label }}">
+                                    <span class="project-stage__label">{{ $label }}</span>
+                                    <span class="project-stage__count{{ $pulse ? ' pulse-badge is-pulsing' : '' }}">{{ $count }}</span>
+                                </span>
+                            @endforeach
                         </div>
-
                     </div>
 
                 </div>
@@ -145,8 +135,7 @@
 
         </div>
 
-        <!-- ================= EDIT MODAL ================= -->
-        <div class="modal fade" id="editProjectModal{{ $project->id }}" tabindex="-1">
+        <div class="modal fade" id="editProjectModal{{ $project->id }}" tabindex="-1" aria-labelledby="editProjectTitle{{ $project->id }}" aria-hidden="true">
             <div class="modal-dialog modal-dialog-centered">
                 <div class="modal-content">
 
@@ -154,31 +143,19 @@
                         action="{{ route('advertiser.projects.update', $project->id) }}">
                         @csrf
                         @method('PUT')
+                        <input type="hidden" name="editing_project_id" value="{{ $project->id }}">
 
                         <div class="modal-header">
-                            <h5 class="modal-title">Edit Project</h5>
-                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                            <h5 class="modal-title" id="editProjectTitle{{ $project->id }}">Edit Project</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                         </div>
 
                         <div class="modal-body">
-
-                            <div class="mb-3">
-                                <label class="form-label">Project Name</label>
-                                <input type="text"
-                                       name="project_name"
-                                       value="{{ $project->project_name }}"
-                                       class="form-control"
-                                       required>
-                            </div>
-                            <div class="mb-3">
-                                <label class="form-label">Project URL</label>
-                                <input type="url"
-                                       name="project_url"
-                                       value="{{ $project->project_url }}"
-                                       class="form-control"
-                                       required>
-                            </div>            
-
+                            @include('advertiser.partials.project-fields', [
+                                'fieldId' => 'edit-'.$project->id,
+                                'nameValue' => old('editing_project_id') == $project->id ? old('project_name', $project->project_name) : $project->project_name,
+                                'urlValue' => old('editing_project_id') == $project->id ? old('project_url', $project->project_url) : $project->project_url,
+                            ])
                         </div>
 
                         <div class="modal-footer">
@@ -194,59 +171,65 @@
 
     @empty
         <div class="col-12">
-            <div class="alert alert-light border">
-                No projects found. Create your first project.
+            <div class="ui-callout ui-callout--info project-empty">
+                <span class="ui-callout__icon" aria-hidden="true"><i class="fa-solid fa-folder-open"></i></span>
+                <div class="ui-callout__body">
+                    <strong>No projects yet</strong>
+                    <span class="d-block text-muted">Create a project for each client site so placement counts stay grouped.</span>
+                </div>
+                <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#projectModal">
+                    Create project
+                </button>
             </div>
         </div>
     @endforelse
 
 </div>
 
-<!-- ================= CREATE PROJECT MODAL ================= -->
-<div class="modal fade" id="projectModal" tabindex="-1">
-
+<div class="modal fade" id="projectModal" tabindex="-1" aria-labelledby="createProjectTitle" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
-
         <div class="modal-content shadow-lg border-0">
 
             <form method="POST" action="{{ route('advertiser.projects.store') }}">
                 @csrf
 
                 <div class="modal-header">
-                    <h5 class="modal-title">Create New Project</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    <h5 class="modal-title" id="createProjectTitle">Create New Project</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
 
                 <div class="modal-body">
-
-                    <div class="mb-3">
-                        <label class="form-label">Project Name</label>
-                        <input type="text" name="project_name" class="form-control" required>
-                    </div>
-
-                    <div class="mb-3">
-                        <label class="form-label">Project URL</label>
-                        <input type="url" name="project_url" class="form-control" required>
-                    </div>
-
+                    @include('advertiser.partials.project-fields', [
+                        'fieldId' => 'create',
+                        'nameValue' => old('editing_project_id') ? '' : old('project_name'),
+                        'urlValue' => old('editing_project_id') ? '' : old('project_url'),
+                    ])
                 </div>
 
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
-                        Close
-                    </button>
-
-                    <button type="submit" class="btn btn-primary">
-                        Create
-                    </button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Create</button>
                 </div>
 
             </form>
 
         </div>
-
     </div>
-
 </div>
 
 @endsection
+
+@if($errors->any())
+@push('scripts')
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    var editId = @json(old('editing_project_id'));
+    var modalId = editId ? ('editProjectModal' + editId) : 'projectModal';
+    var el = document.getElementById(modalId);
+    if (el && window.bootstrap && window.bootstrap.Modal) {
+        window.bootstrap.Modal.getOrCreateInstance(el).show();
+    }
+});
+</script>
+@endpush
+@endif

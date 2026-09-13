@@ -1,0 +1,97 @@
+/* Advertiser → Projects cards and stage badges */
+
+.project-page-head h2 {
+    font-weight: 600;
+}
+
+.project-card {
+    border: 1px solid var(--border-subtle, #e5eef0);
+}
+
+.project-card.is-attention {
+    border-color: #fed7aa;
+    box-shadow: 0 0 0 1px rgba(194, 65, 12, 0.08);
+}
+
+.project-card__name {
+    color: inherit;
+}
+
+.project-card__name:hover {
+    color: var(--brand-primary, #1a585e);
+}
+
+.project-card__host {
+    font-size: 0.8125rem;
+    color: var(--brand-ink-muted, #75787B);
+    word-break: break-all;
+}
+
+.project-stages {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+}
+
+.project-stage {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: center;
+    min-width: 4.5rem;
+    padding: 0.35rem 0.5rem;
+    border-radius: 0.5rem;
+    line-height: 1.2;
+}
+
+.project-stage__label {
+    font-size: 0.65rem;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    white-space: nowrap;
+}
+
+.project-stage__count {
+    font-size: 1rem;
+    font-weight: 700;
+    display: inline-block;
+}
+
+.project-stage--not_started {
+    background: #e8f2ff;
+    color: #1d4ed8;
+}
+
+.project-stage--in_progress {
+    background: #e0f4f8;
+    color: #0e7490;
+}
+
+.project-stage--in_review {
+    background: #f1f5f9;
+    color: #475569;
+}
+
+.project-stage--waiting_approval {
+    background: #fff7ed;
+    color: #c2410c;
+}
+
+.project-stage--needs_improvements {
+    background: #f1f5f9;
+    color: #334155;
+}
+
+.project-stage--completed {
+    background: var(--brand-success-bg, #d1fae5);
+    color: var(--brand-success, #0f766e);
+}
+
+.project-stage--rejected {
+    background: #fee2e2;
+    color: #b91c1c;
+}
+
+.project-empty {
+    align-items: center;
+}

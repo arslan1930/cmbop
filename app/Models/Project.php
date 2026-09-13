@@ -15,15 +15,47 @@ class Project extends Model
     /**
      * Guest Posting badge buckets shown on the advertiser projects page.
      *
+     * `waiting_approval` is live-URL review only (same as My Orders
+     * “Needs review”). `in_review` is review without a live URL.
+     *
      * @var list<string>
      */
     public const STAGE_KEYS = [
         'not_started',
         'in_progress',
+        'in_review',
         'waiting_approval',
         'needs_improvements',
         'completed',
         'rejected',
+    ];
+
+    /**
+     * Visible badge labels (not tooltip-only).
+     *
+     * @var array<string, string>
+     */
+    public const STAGE_LABELS = [
+        'not_started' => 'Not started',
+        'in_progress' => 'In progress',
+        'in_review' => 'In review',
+        'waiting_approval' => 'Needs review',
+        'needs_improvements' => 'Needs you',
+        'completed' => 'Completed',
+        'rejected' => 'Rejected',
+    ];
+
+    /**
+     * @var array<string, string>
+     */
+    public const STAGE_HINTS = [
+        'not_started' => 'Paid, scheduled, or waiting for the publisher to start',
+        'in_progress' => 'Publisher is preparing the placement',
+        'in_review' => 'In review — waiting for a live URL',
+        'waiting_approval' => 'Live URL ready for your review',
+        'needs_improvements' => 'Revision or a new article needed',
+        'completed' => 'Marked complete',
+        'rejected' => 'Cancelled, refunded, or payment failed',
     ];
 
     protected $fillable = [
@@ -121,13 +153,14 @@ class Project extends Model
     }
 
     /**
-     * @return array{not_started: int, in_progress: int, waiting_approval: int, needs_improvements: int, completed: int, rejected: int}
+     * @return array{not_started: int, in_progress: int, in_review: int, waiting_approval: int, needs_improvements: int, completed: int, rejected: int}
      */
     public static function emptyStageCounts(): array
     {
         return [
             'not_started' => 0,
             'in_progress' => 0,
+            'in_review' => 0,
             'waiting_approval' => 0,
             'needs_improvements' => 0,
             'completed' => 0,
@@ -135,11 +168,33 @@ class Project extends Model
         ];
     }
 
+    /**
+     * Live-URL review + open revisions — same attention set as My Orders.
+     *
+     * @param  array<string, int>  $counts
+     */
+    public static function needsYouCountFrom(array $counts): int
+    {
+        return (int) ($counts['waiting_approval'] ?? 0)
+            + (int) ($counts['needs_improvements'] ?? 0);
+    }
+
+    public static function stageLabel(string $key): string
+    {
+        return self::STAGE_LABELS[$key] ?? $key;
+    }
+
+    public static function stageHint(string $key): string
+    {
+        return self::STAGE_HINTS[$key] ?? '';
+    }
+
     public static function stageBucket(string $stage): ?string
     {
         return match ($stage) {
             'awaiting_payment', 'scheduled', 'paid' => 'not_started',
             'processing' => 'in_progress',
+            'review' => 'in_review',
             'url_delivered' => 'waiting_approval',
             'revision', 'content_revision' => 'needs_improvements',
             'completed' => 'completed',
@@ -149,13 +204,22 @@ class Project extends Model
     }
 
     /**
+     * Destination host for a placement: item target URL, then the article brief.
+     */
+    public static function placementHost(OrderItem $item): string
+    {
+        return self::hostFromUrl($item->briefTargetUrl());
+    }
+
+    /**
      * Count the advertiser's placements per project host and Guest Posting stage.
      *
-     * A line matches a project when its target_url host equals the project's
-     * project_url host (www. stripped). Lines without a target URL are skipped.
+     * A line matches a project when its brief target URL host equals the
+     * project's project_url host (www. stripped). Lines without a destination
+     * URL on the item or the linked article are skipped.
      *
-     * @param  Collection<int, Order>  $orders  Orders with items eager-loaded.
-     * @return array<string, array{not_started: int, in_progress: int, waiting_approval: int, needs_improvements: int, completed: int, rejected: int}>
+     * @param  Collection<int, Order>  $orders  Orders with items (and contentSubmission) eager-loaded.
+     * @return array<string, array{not_started: int, in_progress: int, in_review: int, waiting_approval: int, needs_improvements: int, completed: int, rejected: int}>
      */
     public static function stageCountsByHost(Collection $orders): array
     {
@@ -163,7 +227,7 @@ class Project extends Model
 
         foreach ($orders as $order) {
             foreach ($order->items as $item) {
-                $host = self::hostFromUrl($item->target_url ?? null);
+                $host = self::placementHost($item);
                 if ($host === '') {
                     continue;
                 }
