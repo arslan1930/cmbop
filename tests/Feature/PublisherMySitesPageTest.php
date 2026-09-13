@@ -495,7 +495,8 @@ class PublisherMySitesPageTest extends TestCase
             ->getContent();
 
         $this->assertStringContainsString('/media/sites/real-cover.webp', $ajaxHtml);
-        $this->assertStringNotContainsString('placeholder', $ajaxHtml);
+        $this->assertStringNotContainsString('home-placeholder', $ajaxHtml);
+        $this->assertStringNotContainsString('site-screenshots/', $ajaxHtml);
     }
 
     public function test_ajax_filters_pending_active_and_invites_sites(): void
@@ -924,5 +925,66 @@ class PublisherMySitesPageTest extends TestCase
 
         $this->assertStringContainsString('Dual Role Pending', $html);
         $this->assertSame('publisher', $user->fresh()->activeRole());
+        $this->assertStringContainsString('How advertisers see this', $html);
+        $this->assertStringContainsString('Open in catalog', $html);
+        $this->assertStringContainsString(
+            route('advertiser.catalog', ['site' => Site::query()->where('site_name', 'Dual Role Pending')->value('id')], false),
+            $html
+        );
+    }
+
+    public function test_ajax_expand_shows_buyer_preview_without_catalog_link_for_publisher_only(): void
+    {
+        $site = $this->makeSite([
+            'verified' => true,
+            'active' => true,
+            'example_url' => 'https://oreilly-news.example/sample',
+            'site_image' => 'sites/covers/oreilly.webp',
+            'sponsored' => true,
+        ]);
+
+        $html = $this->actingAs($this->publisher)
+            ->get(route('publisher.sites.ajax', ['status' => 'active']))
+            ->assertOk()
+            ->getContent();
+
+        $this->assertStringContainsString('mysites-buyer-preview', $html);
+        $this->assertStringContainsString('How advertisers see this', $html);
+        $this->assertStringContainsString('Listing checklist', $html);
+        $this->assertStringContainsString('Marketplace country', $html);
+        $this->assertStringContainsString('Sample article URL', $html);
+        $this->assertStringContainsString('Cover or screenshot', $html);
+        $this->assertStringContainsString('site-trust-compact', $html);
+        $this->assertStringContainsString('catalog-price', $html);
+        $this->assertStringNotContainsString('Open in catalog', $html);
+        $this->assertStringNotContainsString(route('advertiser.catalog', ['site' => $site->id]), $html);
+
+        $page = $this->actingAs($this->publisher)
+            ->get(route('publisher.websites'))
+            ->assertOk()
+            ->getContent();
+        $this->assertStringContainsString('catalog.css', $page);
+    }
+
+    public function test_ajax_empty_preview_says_cover_missing(): void
+    {
+        $this->makeSite([
+            'verified' => true,
+            'active' => true,
+            'site_image' => null,
+            'screenshot_path' => null,
+            'screenshot_thumb_path' => null,
+        ]);
+
+        $this->assertNull(Site::publicDiskUrl(null));
+
+        $html = $this->actingAs($this->publisher)
+            ->get(route('publisher.sites.ajax', ['status' => 'active']))
+            ->assertOk()
+            ->getContent();
+
+        $this->assertStringContainsString('Cover missing', $html);
+        $this->assertStringContainsString('site-row-preview is-empty', $html);
+        $this->assertStringNotContainsString('aria-label="No preview"', $html);
     }
 }

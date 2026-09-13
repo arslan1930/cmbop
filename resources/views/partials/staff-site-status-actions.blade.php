@@ -11,6 +11,7 @@
     $canActivate = (bool) $actor?->canActivateSites();
     $activateBlock = $site->staffGoLiveBlockReason($isMarketingEditor);
     $canGoLive = $activateBlock === null;
+    $activateWarnings = $canGoLive ? $site->staffGoLiveWarnReasons() : [];
 @endphp
 <div class="staff-site-status-actions"
      data-staff-site-status
@@ -73,6 +74,8 @@
     @endif
     @if($canActivate && ! $site->active && $activateBlock)
         <div class="form-text mt-2">{{ $activateBlock }}</div>
+    @elseif($canActivate && ! $site->active && $activateWarnings !== [])
+        <div class="form-text mt-2 text-warning-emphasis">{{ implode(' ', $activateWarnings) }}</div>
     @elseif($canVerify || $canActivate)
         <div class="form-text mt-2">Save does not change status. Use Verify or Activate here.</div>
     @endif

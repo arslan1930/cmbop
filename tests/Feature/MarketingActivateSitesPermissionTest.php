@@ -351,6 +351,73 @@ class MarketingActivateSitesPermissionTest extends TestCase
         $this->assertTrue((bool) $site->fresh()->active);
     }
 
+    public function test_marketer_cannot_activate_site_without_example_url(): void
+    {
+        $marketer = $this->userWithRoles(['marketing'], 'marketing');
+        $publisher = $this->userWithRoles(['publisher'], 'publisher');
+        $site = $this->makeSite($publisher, [
+            'site_name' => 'No Sample Url',
+            'site_url' => 'https://no-sample-url.example',
+            'domain' => 'no-sample-url.example',
+            'example_url' => null,
+        ]);
+
+        $this->actingAs($marketer)
+            ->postJson(route('marketing.sites.active', $site->id), ['active' => 1])
+            ->assertStatus(422)
+            ->assertJsonPath('success', false)
+            ->assertJsonPath('message', Site::EXAMPLE_URL_ACTIVATE_BLOCK)
+            ->assertJsonPath('missing_example_url', true);
+
+        $this->assertFalse((bool) $site->fresh()->active);
+    }
+
+    public function test_missing_cover_does_not_block_activate(): void
+    {
+        $marketer = $this->userWithRoles(['marketing'], 'marketing');
+        $publisher = $this->userWithRoles(['publisher'], 'publisher');
+        $site = $this->makeSite($publisher, [
+            'site_name' => 'No Cover Ready',
+            'site_url' => 'https://no-cover-ready.example',
+            'domain' => 'no-cover-ready.example',
+            'example_url' => 'https://no-cover-ready.example/sample',
+            'site_image' => null,
+            'screenshot_path' => null,
+            'screenshot_thumb_path' => null,
+        ]);
+
+        $this->assertFalse($site->hasCatalogCover());
+        $this->assertContains(Site::COVER_ACTIVATE_WARNING, $site->staffGoLiveWarnReasons());
+
+        $this->actingAs($marketer)
+            ->postJson(route('marketing.sites.active', $site->id), ['active' => 1])
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('missing_cover', true)
+            ->assertJsonFragment(['activate_warnings' => [Site::COVER_ACTIVATE_WARNING]]);
+
+        $this->assertTrue((bool) $site->fresh()->active);
+    }
+
+    public function test_staff_editor_shows_cover_warning_but_keeps_activate(): void
+    {
+        $marketer = $this->userWithRoles(['marketing'], 'marketing');
+        $publisher = $this->userWithRoles(['publisher'], 'publisher');
+        $site = $this->makeSite($publisher, [
+            'site_name' => 'Cover Warn Editor',
+            'site_url' => 'https://cover-warn-editor.example',
+            'domain' => 'cover-warn-editor.example',
+            'example_url' => 'https://cover-warn-editor.example/sample',
+        ]);
+
+        $this->actingAs($marketer)
+            ->get(route('marketing.sites.edit', $site->id))
+            ->assertOk()
+            ->assertSee(Site::COVER_ACTIVATE_WARNING, false)
+            ->assertSee('js-staff-activate', false)
+            ->assertDontSee('js-staff-activate-blocked', false);
+    }
+
     public function test_users_page_does_not_expose_activate_permission_toggle(): void
     {
         $admin = $this->userWithRoles(['admin'], 'admin');

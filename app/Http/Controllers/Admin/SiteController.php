@@ -619,6 +619,8 @@ class SiteController extends Controller
             'archived' => $site->isArchived(),
             'can_activate' => $this->staffCanActivateSite($site),
             'activate_block_reason' => $this->staffActivateBlockReason($site),
+            'activate_warnings' => $site->staffGoLiveWarnReasons(),
+            'missing_cover' => ! $site->hasCatalogCover(),
             'orders_count' => $site->orderItemsCount(),
             'preview_thumb_url' => $preview['thumb'],
             'preview_full_url' => $preview['full'],
@@ -1648,6 +1650,8 @@ class SiteController extends Controller
                 'email_sent' => $emailSent,
                 'can_activate' => $this->staffCanActivateSite($site),
                 'activate_block_reason' => $this->staffActivateBlockReason($site),
+                'activate_warnings' => $site->staffGoLiveWarnReasons(),
+                'missing_cover' => ! $site->hasCatalogCover(),
             ]);
         }
 
@@ -3191,6 +3195,9 @@ class SiteController extends Controller
                         'message' => $block,
                         'missing_market' => ! $site->hasMarketplaceCountry(),
                         'below_quality_bar' => $isMarketingActor && ! $site->hasGoodMetrics(),
+                        'missing_example_url' => ! $site->hasExampleUrl(),
+                        'missing_cover' => ! $site->hasCatalogCover(),
+                        'activate_warnings' => $site->staffGoLiveWarnReasons(),
                     ], 422);
                 }
             }
@@ -3271,6 +3278,9 @@ class SiteController extends Controller
                 'warning' => $warning,
                 'missing_market' => false,
                 'below_quality_bar' => $belowQualityBar,
+                'missing_example_url' => false,
+                'missing_cover' => $activating && ! $site->hasCatalogCover(),
+                'activate_warnings' => $activating ? $site->staffGoLiveWarnReasons() : [],
             ]);
         } catch (ValidationException $e) {
             throw $e;

@@ -191,10 +191,26 @@
     .site-row-preview.is-empty > i,
     .site-row-preview.is-empty > span {
         position: absolute;
-        inset: 0;
+        left: 0;
+        right: 0;
         display: inline-flex;
         align-items: center;
         justify-content: center;
+    }
+
+    .site-row-preview.is-empty > i {
+        top: 28%;
+    }
+
+    .site-row-preview.is-empty > .site-row-preview__empty-label {
+        top: 58%;
+        font-size: 10px;
+        font-weight: 600;
+        letter-spacing: 0.01em;
+        color: #64748b;
+        padding: 0 6px;
+        text-align: center;
+        line-height: 1.2;
     }
 
     .site-row-identity {
@@ -889,11 +905,12 @@
                 @else
                     <span class="site-row-preview is-empty"
                           data-glass-tip
-                          data-glass-tip-body="No preview"
+                          data-glass-tip-body="{{ \App\Models\Site::publicDiskUrl($site->site_image) ? 'Preview unavailable' : 'Cover missing' }}"
                           data-glass-tip-placement="top"
                           data-glass-tip-hover-only="1"
-                          aria-label="No preview">
+                          aria-label="Cover missing">
                         <i class="fa fa-image" aria-hidden="true"></i>
+                        <span class="site-row-preview__empty-label">Cover missing</span>
                     </span>
                 @endif
             </td>
@@ -1335,6 +1352,8 @@
                         <strong>Description:</strong>
                         <div>{!! $site->safeDescriptionHtml() !!}</div>
                     </div>
+
+                    @include('publisher.sites.partials.buyer-preview', ['site' => $site])
                 </div>
             </td>
         </tr>

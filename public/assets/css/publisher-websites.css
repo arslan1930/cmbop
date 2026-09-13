@@ -864,3 +864,70 @@
     #bulkRequestModal .bulk-url-price-field .form-label {
         margin-bottom: 0.3rem;
     }
+
+    .mysites-buyer-preview {
+        margin-top: 1rem;
+        padding-top: 1rem;
+        border-top: 1px solid #e2e8f0;
+    }
+
+    .mysites-buyer-preview__head {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 0.5rem 1rem;
+    }
+
+    .mysites-buyer-preview__title,
+    .mysites-buyer-preview__checklist-title {
+        font-size: 0.95rem;
+        font-weight: 650;
+        margin: 0 0 0.35rem;
+        color: #1a202c;
+    }
+
+    .mysites-buyer-preview__catalog-link {
+        font-size: 0.8125rem;
+        font-weight: 600;
+        color: var(--brand-primary, #1a585e);
+    }
+
+    .mysites-buyer-preview__signals {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0.5rem 0.85rem;
+        margin-bottom: 0.85rem;
+    }
+
+    .mysites-buyer-preview__checklist {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: grid;
+        gap: 0.4rem;
+    }
+
+    .mysites-buyer-preview__item {
+        display: flex;
+        align-items: flex-start;
+        gap: 0.5rem;
+        font-size: 0.8125rem;
+        line-height: 1.4;
+    }
+
+    .mysites-buyer-preview__item.is-ok {
+        color: #166534;
+    }
+
+    .mysites-buyer-preview__item.is-gap {
+        color: #9a3412;
+    }
+
+    .mysites-buyer-preview__hint {
+        display: block;
+        color: #64748b;
+        font-weight: 400;
+        margin-top: 0.1rem;
+    }

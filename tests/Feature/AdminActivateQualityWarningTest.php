@@ -49,6 +49,7 @@ class AdminActivateQualityWarningTest extends TestCase
             'site_name' => 'Activate Quality Site',
             'site_url' => 'https://activate-quality.test',
             'domain' => 'activate-quality.test',
+            'example_url' => 'https://activate-quality.test/sample',
             'da' => 10,
             'dr' => 10,
             'traffic' => 100,

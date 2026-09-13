@@ -1129,6 +1129,28 @@ body:has(.catalog-page) {
     inset: 0;
 }
 
+.catalog-cover-empty {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    width: 100%;
+    max-width: min(300px, 100%);
+    margin: 0 auto;
+    padding: 1.25rem 0.85rem;
+    border: 1px dashed var(--border-subtle, #e2e8f0);
+    border-radius: 12px;
+    background: var(--surface-2, #f7fafb);
+    box-sizing: border-box;
+}
+
+.catalog-cover-empty__caption {
+    font-size: 0.8125rem;
+    color: var(--brand-ink-muted, #76797c);
+    text-align: center;
+}
+
 .site-trust-compact {
     display: inline-flex;
     flex-wrap: wrap;

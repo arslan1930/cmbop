@@ -62,7 +62,7 @@ class MarketingOpsScopeTest extends TestCase
 
     private function makeSite(array $overrides = []): Site
     {
-        return Site::create(array_merge([
+        $defaults = [
             'publisher_id' => $this->publisher->id,
             'site_name' => 'Ops Scope Site',
             'site_url' => 'https://ops-scope.example',
@@ -79,7 +79,14 @@ class MarketingOpsScopeTest extends TestCase
             'link_type' => 'dofollow',
             'verified' => false,
             'active' => false,
-        ], $overrides));
+        ];
+        $payload = array_merge($defaults, $overrides);
+        if (! array_key_exists('example_url', $overrides)) {
+            $host = $payload['domain'] ?? 'ops-scope.example';
+            $payload['example_url'] = 'https://'.$host.'/sample';
+        }
+
+        return Site::create($payload);
     }
 
     public function test_marketer_cannot_verify_but_can_activate_sites(): void
