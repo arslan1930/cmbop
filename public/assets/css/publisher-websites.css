@@ -941,9 +941,9 @@
         min-width: 0;
     }
 
-    .mysites-catalog-preview__details {
+    .mysites-catalog-preview .catalog-expand-cell.mysites-catalog-preview__details {
         padding: 16px 18px 20px;
-        /* Keep the right column clear of the fixed Help & feedback pill. */
+        /* Win over catalog.css .catalog-expand-cell { padding: 20px }. */
         padding-right: max(18px, 11rem);
     }
 
@@ -983,7 +983,7 @@
             margin-bottom: 4px;
         }
 
-        .mysites-catalog-preview__details {
+        .mysites-catalog-preview .catalog-expand-cell.mysites-catalog-preview__details {
             padding-right: 18px;
             padding-bottom: 4.5rem;
         }

@@ -991,6 +991,12 @@ class PublisherMySitesPageTest extends TestCase
             ->assertOk()
             ->getContent();
         $this->assertStringContainsString('catalog.css', $page);
+        $this->assertStringContainsString('publisher-websites.css', $page);
+        $this->assertGreaterThan(
+            strpos($page, 'catalog.css'),
+            strpos($page, 'publisher-websites.css'),
+            'My Sites CSS must load after catalog.css so preview padding wins over .catalog-expand-cell.'
+        );
     }
 
     public function test_ajax_empty_preview_says_no_cover_yet_not_publisher_error(): void
