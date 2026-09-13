@@ -42,8 +42,8 @@ class CatalogRowDetailsTest extends TestCase
         return Site::create(array_merge([
             'publisher_id' => $this->publisher->id,
             'site_name' => 'Row Details Blog',
-            'site_url' => 'https://demo3.com/blog',
-            'domain' => 'demo3.com',
+            'site_url' => 'https://row-details.test/blog',
+            'domain' => 'row-details.test',
             'da' => 40,
             'dr' => 45,
             'traffic' => 9000,
@@ -83,7 +83,7 @@ class CatalogRowDetailsTest extends TestCase
             ->getContent();
 
         $this->assertMatchesRegularExpression(
-            '/class="[^"]*site-open-link[^"]*catalog-site-rooted-url[^"]*"[^>]*>\s*https:\/\/demo3\.com\s*</',
+            '/class="[^"]*site-open-link[^"]*catalog-site-rooted-url[^"]*"[^>]*>\s*https:\/\/row-details\.test\s*</',
             $html
         );
         $this->assertStringContainsString('advertiser/go/', $html);

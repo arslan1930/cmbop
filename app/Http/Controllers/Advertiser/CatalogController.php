@@ -52,6 +52,7 @@ use App\Services\StripeCustomerService;
 use App\Services\StripePaymentService;
 use App\Services\Wallet\WalletLedgerService;
 use App\Support\AdvertiserOrderStatus;
+use App\Support\CatalogPlaceholderListing;
 use App\Support\CatalogVisitUrl;
 use App\Support\PaypalPaymentError;
 use App\Support\SiteTag;
@@ -59,6 +60,7 @@ use App\Support\UserFacingError;
 use App\Support\UserMessages;
 use Carbon\CarbonInterface;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -120,6 +122,31 @@ class CatalogController extends Controller
         }
 
         return $host;
+    }
+
+    /**
+     * @param  Builder<Site>  $query
+     */
+    private function excludeHiddenPlaceholderListings($query, Request $request): void
+    {
+        if (! class_exists(CatalogPlaceholderListing::class) || ! CatalogPlaceholderListing::hideFromBrowse()) {
+            return;
+        }
+
+        $siteId = filter_number($request->input('site'));
+        if ($siteId !== null && (int) $siteId > 0) {
+            return;
+        }
+
+        $searchText = search_text($request->input('search'));
+        $hostNeedle = $searchText !== '' ? $this->catalogSearchHostNeedle($searchText) : null;
+        if (is_string($hostNeedle) && CatalogPlaceholderListing::hostLooksPlaceholder($hostNeedle)) {
+            return;
+        }
+
+        $query->whereNot(function ($q) {
+            CatalogPlaceholderListing::constrainQuery($q);
+        });
     }
 
     /**
@@ -618,6 +645,8 @@ class CatalogController extends Controller
                 searchAllDomains: true,
             );
         }
+
+        $this->excludeHiddenPlaceholderListings($query, $request);
 
         if ($request->filled('verified') && $request->verified == 1) {
             $query->where('verified', 1);
@@ -1245,7 +1274,8 @@ class CatalogController extends Controller
             if ($name === '') {
                 $name = 'A website';
             }
-            if (! $site || ! $site->isCatalogVisible()) {
+            if (! $site || ! $site->isCatalogVisible()
+                || (class_exists(CatalogPlaceholderListing::class) && CatalogPlaceholderListing::isHiddenFromBuyers($site))) {
                 $removedInactive[] = $name;
 
                 continue;
@@ -1814,6 +1844,13 @@ class CatalogController extends Controller
                     'success' => false,
                     'error' => Site::cannotOrderOwnListingMessage(),
                 ], 403);
+            }
+
+            if (class_exists(CatalogPlaceholderListing::class) && CatalogPlaceholderListing::isHiddenFromBuyers($site)) {
+                return response()->json([
+                    'success' => false,
+                    'error' => CatalogPlaceholderListing::CART_BLOCK_REASON,
+                ], 422);
             }
 
             // Resolve homepage up-front so re-adds merge onto the same identity key.
@@ -6306,6 +6343,9 @@ class CatalogController extends Controller
                 continue;
             }
             if ($site->isOwnedBy(auth()->user())) {
+                continue;
+            }
+            if (class_exists(CatalogPlaceholderListing::class) && CatalogPlaceholderListing::isHiddenFromBuyers($site)) {
                 continue;
             }
 
