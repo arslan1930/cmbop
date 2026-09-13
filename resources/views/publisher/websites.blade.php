@@ -3184,6 +3184,7 @@ closeBtn.on('click', function(){
 $(document).on('click', '.btn-edit', async function() {
     const siteHint = $(this).data('site') || {};
     const id = $(this).data('id') || siteHint.id;
+    const wizardStepHint = parseInt($(this).data('wizardStep'), 10);
     if (!id) {
         Swal.fire({ icon: 'error', title: 'Could not load site for editing' });
         return;
@@ -3206,6 +3207,9 @@ $(document).on('click', '.btn-edit', async function() {
             if (!warn.isConfirmed) return;
         }
         prefillSiteForm(data.site);
+        if (wizardStepHint >= 1 && wizardStepHint <= 3) {
+            setWizardStep(wizardStepHint);
+        }
     } catch (e) {
         Swal.fire({ icon: 'error', title: 'Could not load site for editing' });
     }

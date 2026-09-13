@@ -379,7 +379,10 @@
                             @if(! empty($item['actionable']) && ! empty($item['cta']))
                                 <button type="button"
                                         class="mysites-buyer-preview__gap-cta btn-edit"
-                                        data-id="{{ $site->id }}">
+                                        data-id="{{ $site->id }}"
+                                        @if(! empty($item['wizard_step']))
+                                            data-wizard-step="{{ (int) $item['wizard_step'] }}"
+                                        @endif>
                                     {{ $item['cta'] }}
                                 </button>
                             @endif

@@ -11,7 +11,7 @@ use App\Models\Site;
 class CatalogBuyerReadiness
 {
     /**
-     * @return list<array{key: string, label: string, ok: bool, hint: string, cta: ?string, actionable: bool}>
+     * @return list<array{key: string, label: string, ok: bool, hint: string, cta: ?string, actionable: bool, wizard_step: ?int}>
      */
     public static function checklist(Site $site): array
     {
@@ -32,6 +32,7 @@ class CatalogBuyerReadiness
                 'hint' => 'Advertisers filter by country. Set one before going live.',
                 'cta' => 'Set country',
                 'actionable' => true,
+                'wizard_step' => 2,
             ],
             [
                 'key' => 'niches',
@@ -40,6 +41,7 @@ class CatalogBuyerReadiness
                 'hint' => 'Pick at least one niche so the listing appears in catalog filters.',
                 'cta' => 'Set niches',
                 'actionable' => true,
+                'wizard_step' => 2,
             ],
             [
                 'key' => 'brief',
@@ -48,6 +50,7 @@ class CatalogBuyerReadiness
                 'hint' => 'Write a real site description advertisers can trust.',
                 'cta' => 'Edit description',
                 'actionable' => true,
+                'wizard_step' => 1,
             ],
             [
                 'key' => 'example_url',
@@ -56,6 +59,7 @@ class CatalogBuyerReadiness
                 'hint' => 'Buyers open this from Details to judge content quality.',
                 'cta' => 'Add sample URL',
                 'actionable' => true,
+                'wizard_step' => 1,
             ],
             [
                 'key' => 'quality',
@@ -64,6 +68,7 @@ class CatalogBuyerReadiness
                 'hint' => 'Staff set DA, DR, and traffic. DA ≥ '.Site::GOOD_MIN_DA.', DR ≥ '.Site::GOOD_MIN_DR.', traffic ≥ '.number_format(Site::GOOD_MIN_TRAFFIC).'.',
                 'cta' => null,
                 'actionable' => false,
+                'wizard_step' => null,
             ],
             [
                 'key' => 'tag',
@@ -72,6 +77,7 @@ class CatalogBuyerReadiness
                 'hint' => 'Sponsored, Partner article, or As you prefer — advertisers filter on this.',
                 'cta' => 'Set listing tag',
                 'actionable' => true,
+                'wizard_step' => 3,
             ],
         ];
     }
