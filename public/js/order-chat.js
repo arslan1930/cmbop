@@ -63,9 +63,10 @@
         return lead + pair[1];
       });
     });
-    return text.replace(/\u0000URL(\d+)\u0000/g, function (_, index) {
+    text = text.replace(/\u0000URL(\d+)\u0000/g, function (_, index) {
       return escapeHtml(slots[Number(index)]);
     });
+    return text.replace(/\r\n|\r|\n/g, '<br>');
   }
 
   function focusChatComposer() {
@@ -247,6 +248,9 @@
 
         self.currentUserId = data.current_user_id;
         self.applyComposerState(data.can_send !== false, data.composer_note || (data.order_details && data.order_details.composer_note));
+        if (!incremental) {
+          focusChatComposer();
+        }
 
         if (typeof self.config.renderOrderDetails === 'function') {
           self.config.renderOrderDetails(data.order_details || null);

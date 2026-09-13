@@ -21,6 +21,7 @@ class AdvertiserOrdersChatComposerUxTest extends TestCase
             $this->assertStringContainsString('function focusChatComposer', $js);
             $this->assertStringContainsString('chatMessageInput', $js);
             $this->assertStringContainsString('Enter / Shift+Enter stay as a new line', $js);
+            $this->assertStringContainsString("replace(/\\r\\n|\\r|\\n/g, '<br>')", $js);
             $this->assertStringNotContainsString('emoji-mart', $js);
             $this->assertStringNotContainsString('data-emoji-picker', $js);
             $this->assertStringContainsString('document.body.appendChild(modalEl)', $js);
