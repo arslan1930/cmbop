@@ -98,7 +98,7 @@ class AdvertiserProjectsUxTest extends TestCase
         $pos = strpos($html, $needle);
         $this->assertNotFalse($pos, 'Expected project "'.$projectName.'" in HTML');
 
-        $nextCard = strpos($html, 'col-md-4', $pos + 1);
+        $nextCard = strpos($html, 'project-card-col', $pos + 1);
         $length = $nextCard !== false ? $nextCard - $pos : 12000;
 
         return substr($html, $pos, max($length, 1));
@@ -373,7 +373,7 @@ class AdvertiserProjectsUxTest extends TestCase
 
         $this->assertStringContainsString(route('advertiser.projects.index', [], false), $html);
         $this->assertStringContainsString('<title>Projects</title>', $html);
-        $this->assertStringContainsString('<h2 class="mb-1">Projects</h2>', $html);
+        $this->assertStringContainsString('>Projects</h2>', $html);
         $this->assertStringContainsString('destination host matches this project', $html);
     }
 

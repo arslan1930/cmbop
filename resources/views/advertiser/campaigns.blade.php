@@ -15,34 +15,33 @@
     $stageKeys = \App\Models\Project::STAGE_KEYS;
 @endphp
 
-<div class="project-page-head d-flex flex-column align-items-start gap-2 mb-3">
-    <div>
-        <h2 class="mb-1">Projects</h2>
+<div class="container-fluid">
+
+<div class="project-page-head mb-4">
+    <div class="project-page-head__copy">
+        <h2 class="mb-1 fw-semibold">Projects</h2>
         <p class="text-muted mb-0">
             One project per client site. Counts are placements whose destination host matches this project.
         </p>
     </div>
-
-    <hr class="w-100">
-
     <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#projectModal">
         <i class="fa fa-plus" aria-hidden="true"></i> Create Project
     </button>
 </div>
 
 @if($attentionPlacements > 0)
-    <div class="ui-callout ui-callout--attention ui-callout--banner mb-4" role="status" data-projects-attention>
+    <div class="ui-callout ui-callout--attention ui-callout--banner project-attention mb-4" role="status" data-projects-attention>
         <div class="ui-callout__main">
             <span class="ui-callout__icon" aria-hidden="true"><i class="fa-solid fa-circle-exclamation"></i></span>
             <div class="ui-callout__body">
                 <strong>Needs your attention</strong>
-                <span class="ms-1">{{ $attentionPlacements }} {{ $attentionPlacements === 1 ? 'placement needs you' : 'placements need you' }} across {{ $attentionProjects }} {{ $attentionProjects === 1 ? 'project' : 'projects' }}. Live URLs ready for review and open revisions only.</span>
+                <span class="ui-callout__detail">{{ $attentionPlacements }} {{ $attentionPlacements === 1 ? 'placement needs you' : 'placements need you' }} across {{ $attentionProjects }} {{ $attentionProjects === 1 ? 'project' : 'projects' }}. Live URLs ready for review and open revisions only.</span>
             </div>
         </div>
     </div>
 @endif
 
-<div class="row g-3 mb-4">
+<div class="project-list mb-4">
 
     @forelse($projects as $project)
         @php
@@ -51,30 +50,29 @@
             $host = \App\Models\Project::hostFromUrl($project->project_url);
         @endphp
 
-        <div class="col-md-4 col-sm-6">
+        <div class="project-card-col">
 
-            <div class="card project-card h-100 shadow-sm rounded-3{{ $needsYou > 0 ? ' is-attention' : '' }}">
+            <div class="card project-card shadow-sm rounded-3{{ $needsYou > 0 ? ' is-attention' : '' }}">
 
                 <div class="card-body">
 
-                    <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-2">
-
-                        <div class="min-w-0">
+                    <div class="project-card__top">
+                        <div class="project-card__identity">
                             <a href="{{ $project->project_url }}"
                                target="_blank"
                                rel="noopener noreferrer"
                                class="project-card__name text-decoration-none">
-                                <h6 class="mb-0">
+                                <h3>
                                     {{ $project->project_name }}
                                     <i class="fa-solid fa-arrow-up-right-from-square ms-1 small" aria-hidden="true"></i>
-                                </h6>
+                                </h3>
                             </a>
                             @if($host !== '')
-                                <div class="project-card__host mt-1">{{ $host }}</div>
+                                <div class="project-card__host">{{ $host }}</div>
                             @endif
                         </div>
 
-                        <div class="d-flex gap-1">
+                        <div class="project-card__actions">
                             <button type="button"
                                     class="btn btn-sm btn-outline-secondary"
                                     data-bs-toggle="modal"
@@ -97,32 +95,24 @@
                                 </button>
                             </form>
                         </div>
-
                     </div>
 
-                    <hr class="my-2">
+                    <p class="project-card__kicker">Guest posting</p>
 
-                    <div class="d-flex align-items-start flex-wrap gap-2">
-                        <span class="fw-semibold">
-                            <i class="fa-solid fa-pen-to-square me-1" aria-hidden="true"></i>
-                            Guest Posting
-                        </span>
-
-                        <div class="project-stages ms-auto">
-                            @foreach($stageKeys as $stageKey)
-                                @php
-                                    $count = (int) ($stageCounts[$stageKey] ?? 0);
-                                    $label = \App\Models\Project::stageLabel($stageKey);
-                                    $hint = \App\Models\Project::stageHint($stageKey);
-                                    $pulse = $stageKey === 'waiting_approval' && $count > 0;
-                                @endphp
-                                <span class="project-stage project-stage--{{ $stageKey }}"
-                                      title="{{ $hint !== '' ? $label.': '.$hint : $label }}">
-                                    <span class="project-stage__label">{{ $label }}</span>
-                                    <span class="project-stage__count{{ $pulse ? ' pulse-badge is-pulsing' : '' }}">{{ $count }}</span>
-                                </span>
-                            @endforeach
-                        </div>
+                    <div class="project-stages">
+                        @foreach($stageKeys as $stageKey)
+                            @php
+                                $count = (int) ($stageCounts[$stageKey] ?? 0);
+                                $label = \App\Models\Project::stageLabel($stageKey);
+                                $hint = \App\Models\Project::stageHint($stageKey);
+                                $pulse = $stageKey === 'waiting_approval' && $count > 0;
+                            @endphp
+                            <span class="project-stage project-stage--{{ $stageKey }}{{ $count === 0 ? ' is-zero' : '' }}"
+                                  title="{{ $hint !== '' ? $label.': '.$hint : $label }}">
+                                <span class="project-stage__label">{{ $label }}</span>
+                                <span class="project-stage__count{{ $pulse ? ' pulse-badge is-pulsing' : '' }}">{{ $count }}</span>
+                            </span>
+                        @endforeach
                     </div>
 
                 </div>
@@ -166,17 +156,15 @@
         </div>
 
     @empty
-        <div class="col-12">
-            <div class="ui-callout ui-callout--info project-empty">
-                <span class="ui-callout__icon" aria-hidden="true"><i class="fa-solid fa-folder-open"></i></span>
-                <div class="ui-callout__body">
-                    <strong>No projects yet</strong>
-                    <span class="d-block text-muted">Create a project for each client site so placement counts stay grouped.</span>
-                </div>
-                <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#projectModal">
-                    Create project
-                </button>
+        <div class="ui-callout ui-callout--info project-empty">
+            <span class="ui-callout__icon" aria-hidden="true"><i class="fa-solid fa-folder-open"></i></span>
+            <div class="ui-callout__body">
+                <strong>No projects yet</strong>
+                <span class="d-block text-muted">Create a project for each client site so placement counts stay grouped.</span>
             </div>
+            <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#projectModal">
+                Create project
+            </button>
         </div>
     @endforelse
 
@@ -211,6 +199,8 @@
 
         </div>
     </div>
+</div>
+
 </div>
 
 @endsection
