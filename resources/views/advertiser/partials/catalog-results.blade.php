@@ -614,13 +614,13 @@
                             </div>
                             <div class="site-preview-fallback bg-light border rounded d-none flex-column align-items-center justify-content-center gap-2 px-3" aria-hidden="true">
                                 <i class="fa-solid fa-image text-muted" style="font-size: 28px;" aria-hidden="true"></i>
-                                <span class="small text-muted">Screenshot not available yet</span>
+                                <span class="small text-muted">No cover yet</span>
                             </div>
                         @else
-                            <div class="site-preview-fallback bg-light border rounded d-inline-flex flex-column align-items-center justify-content-center gap-2 px-3" role="img" aria-label="Screenshot not available yet">
-                                <i class="fa-solid fa-image text-muted" style="font-size: 28px;" aria-hidden="true"></i>
-                                <span class="small text-muted">Screenshot not available yet</span>
-                            </div>
+                            @include('advertiser.partials.catalog-cover-empty', [
+                                'label' => $displayHost,
+                                'size' => 'lg',
+                            ])
                         @endif
                     </div>
 
@@ -1378,10 +1378,13 @@
                             </div>
                             <div class="site-preview-fallback bg-light border rounded d-none flex-column align-items-center justify-content-center gap-2 px-3" aria-hidden="true">
                                 <i class="fa-solid fa-image text-muted" style="font-size: 24px;" aria-hidden="true"></i>
-                                <span class="small text-muted">Screenshot not available yet</span>
+                                <span class="small text-muted">No cover yet</span>
                             </div>
                         @else
-                            <span class="text-muted small">Screenshot not available yet</span>
+                            @include('advertiser.partials.catalog-cover-empty', [
+                                'label' => $displayHost,
+                                'size' => 'md',
+                            ])
                         @endif
                     </dd>
                 </div>

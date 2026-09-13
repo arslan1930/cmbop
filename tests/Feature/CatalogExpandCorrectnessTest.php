@@ -163,7 +163,9 @@ class CatalogExpandCorrectnessTest extends TestCase
         $this->assertStringContainsString('Sensitive topics', $html);
         $this->assertStringContainsString('+€23.00', $html);
         $this->assertMatchesRegularExpression('/→\s*you pay €\d+\.\d{2}/u', $html);
-        $this->assertStringContainsString('Screenshot not available yet', $html);
+        $this->assertStringContainsString('No cover yet', $html);
+        $this->assertStringContainsString('catalog-cover-empty', $html);
+        $this->assertStringNotContainsString('Screenshot not available yet', $html);
         $this->assertStringContainsString('No sample article yet', $html);
         $this->assertStringNotContainsString('Not available</a>', $html);
         $this->assertStringNotContainsString('No extra pricing options for this listing.', $html);
