@@ -9,6 +9,7 @@ use App\Services\Catalog\CatalogLanguageFilter;
 use App\Services\Catalog\SiteUrlVisibility;
 use App\Services\Marketing\GuestPostPriceIndex;
 use App\Services\SiteDescriptionSanitizer;
+use App\Support\CatalogPlaceholderListing;
 use App\Support\SiteDescriptionRules;
 use App\Support\SiteTag;
 use Illuminate\Database\Eloquent\Builder;
@@ -2110,6 +2111,10 @@ class Site extends Model
 
         if (! $this->hasMarketplaceCountry()) {
             return 'Set a marketplace country before activating this site.';
+        }
+
+        if (class_exists(CatalogPlaceholderListing::class) && CatalogPlaceholderListing::matches($this)) {
+            return CatalogPlaceholderListing::ACTIVATE_BLOCK_REASON;
         }
 
         if ($requireQualityBar && ! $this->hasGoodMetrics()) {
