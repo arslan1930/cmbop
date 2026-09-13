@@ -11,6 +11,7 @@ use App\Services\EmailNotificationService;
 use App\Services\InAppNotificationService;
 use App\Services\Reminders\OrderDeadline;
 use App\Services\Reminders\ReminderFatigueGuard;
+use App\Support\AdvertiserOrderStatus;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
@@ -86,7 +87,10 @@ class NudgeAdvertisers extends Command
             ->where('live_url_submitted_at', '>', now()->subHours($window))
             ->whereNull('review_nudge_sent_at')
             ->where(fn ($q) => $q->where('modification_requested', 'no')->orWhereNull('modification_requested'))
-            ->whereHas('order', fn ($q) => $q->where('status', 'review'))
+            ->whereHas('order', function ($q) {
+                $q->where('status', 'review')
+                    ->where('payment_status', 'paid');
+            })
             ->with('order')
             ->limit(300)
             ->get();
@@ -99,6 +103,10 @@ class NudgeAdvertisers extends Command
                 $advertiser = $order ? User::find($order->user_id) : null;
 
                 if (! $order || ! $advertiser?->email || ! $item->live_url_submitted_at) {
+                    continue;
+                }
+
+                if (! AdvertiserOrderStatus::isLiveAdvertiserWork($order)) {
                     continue;
                 }
 
