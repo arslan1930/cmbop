@@ -19,6 +19,9 @@ class AdvertiserOrdersChatComposerUxTest extends TestCase
             $this->assertStringContainsString('e.ctrlKey || e.metaKey', $js);
             $this->assertStringContainsString("e.key !== 'Escape'", $js);
             $this->assertStringContainsString('function focusChatComposer', $js);
+            $this->assertStringContainsString('function chatModalIsOpen', $js);
+            $this->assertStringContainsString("classList.contains('show')", $js);
+            $this->assertStringContainsString('!incremental && self.currentOrderId', $js);
             $this->assertStringContainsString('chatMessageInput', $js);
             $this->assertStringContainsString('Enter / Shift+Enter stay as a new line', $js);
             $this->assertStringContainsString("replace(/\\r\\n|\\r|\\n/g, '<br>')", $js);

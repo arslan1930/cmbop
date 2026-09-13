@@ -69,11 +69,18 @@
     return text.replace(/\r\n|\r|\n/g, '<br>');
   }
 
+  function chatModalIsOpen() {
+    var modal = document.getElementById('chatModal');
+    return !!(modal && modal.classList.contains('show'));
+  }
+
   function focusChatComposer() {
     var input = document.getElementById('chatMessageInput');
-    if (!input || input.disabled) return;
+    if (!input || input.disabled || !chatModalIsOpen()) return;
     setTimeout(function () {
-      input.focus();
+      if (!input.disabled && chatModalIsOpen()) {
+        input.focus();
+      }
     }, 150);
   }
 
@@ -114,6 +121,7 @@
     if (modal) {
       modal.addEventListener('keydown', function (e) {
         if (e.key !== 'Escape') return;
+        if (!chatModalIsOpen()) return;
         if (document.querySelector('.swal2-container')) return;
         e.preventDefault();
         self.hideModal();
@@ -248,7 +256,7 @@
 
         self.currentUserId = data.current_user_id;
         self.applyComposerState(data.can_send !== false, data.composer_note || (data.order_details && data.order_details.composer_note));
-        if (!incremental) {
+        if (!incremental && self.currentOrderId) {
           focusChatComposer();
         }
 
