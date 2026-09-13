@@ -369,6 +369,11 @@ class CheckoutSystemFixTest extends TestCase
             strtolower((string) $response->json('message'))
         );
         $this->assertNotNull($response->json('redirect_url'));
+        $redirect = (string) $response->json('redirect_url');
+        $this->assertStringContainsString('from=checkout', $redirect);
+        $this->assertStringContainsString('needed=', $redirect);
+        $this->assertStringContainsString('method=wise', $redirect);
+        $this->assertStringContainsString('add-funds', $redirect);
 
         // Nothing is charged and the article stays free to order.
         $this->assertSame(0, OrderItem::where('content_submission_id', $sub->id)->count());

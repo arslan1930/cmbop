@@ -93,6 +93,11 @@ class AddFundsUiGuardTest extends TestCase
         $this->assertStringContainsString('data-invoice-ready="0"', $view);
         $this->assertStringContainsString('Your transfer reference is created with the invoice', $view);
         $this->assertStringContainsString('function applyInvoice', $js);
+        $this->assertStringContainsString('function applyCoverCheckoutAmount', $js);
+        $this->assertStringContainsString('coverCheckoutBtn', $js);
+        $this->assertStringContainsString('checkoutNeeded', $view);
+        $this->assertStringContainsString('checkoutShortfallBanner', $view);
+        $this->assertStringContainsString('AddFundsCheckout::query', (string) file_get_contents(resource_path('views/advertiser/checkout.blade.php')));
         $this->assertStringContainsString('function stampServerReference', $js);
         $this->assertStringContainsString('if (!invoiceLocked)', $js);
         $this->assertStringNotContainsString('function updateReferenceCode', $js);

@@ -86,7 +86,11 @@ class ManualWalletFundingFlowTest extends TestCase
             $response->assertStatus(422)
                 ->assertJsonPath('success', false)
                 ->assertJsonPath('code', 'fund_wallet_first');
-            $this->assertStringContainsString('add-funds', (string) $response->json('redirect_url'));
+            $redirect = (string) $response->json('redirect_url');
+            $this->assertStringContainsString('add-funds', $redirect);
+            $this->assertStringContainsString('from=checkout', $redirect);
+            $this->assertStringContainsString('needed=', $redirect);
+            $this->assertStringContainsString('method='.$method, $redirect);
             $this->assertSame(0, Order::where('reference_code', 'FW'.strtoupper(substr($method, 0, 3)))->count());
         }
     }
@@ -126,6 +130,8 @@ class ManualWalletFundingFlowTest extends TestCase
             ->assertOk()
             ->assertSee('Paying by Bank, Wise, or crypto?', false)
             ->assertSee('Add funds &amp; get invoice', false)
+            ->assertSee('from=checkout', false)
+            ->assertSee('needed=', false)
             ->assertSee('data-method="paypal"', false)
             ->assertDontSee('data-method="wise"', false)
             ->assertDontSee('data-method="bank"', false);

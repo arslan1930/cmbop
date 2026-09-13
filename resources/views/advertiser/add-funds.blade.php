@@ -141,6 +141,26 @@
         </div>
     @endif
 
+    @if(($checkoutNeeded ?? 0) >= 10)
+        <div id="checkoutShortfallBanner" class="alert alert-info border mb-3" role="status">
+            <div class="d-flex flex-wrap align-items-start justify-content-between gap-3">
+                <div>
+                    <div class="fw-semibold mb-1">Add at least €{{ number_format($checkoutNeeded, 2) }} to finish checkout</div>
+                    <p class="small mb-0">
+                        After we credit your wallet, return and pay this order from your balance.
+                        <a href="{{ route('advertiser.checkout') }}" class="fw-semibold">Back to checkout</a>
+                    </p>
+                </div>
+                <button type="button"
+                        class="btn btn-sm btn-outline-primary flex-shrink-0"
+                        id="coverCheckoutBtn"
+                        data-needed="{{ number_format($checkoutNeeded, 2, '.', '') }}">
+                    Cover checkout €{{ number_format($checkoutNeeded, 2) }}
+                </button>
+            </div>
+        </div>
+    @endif
+
     <div class="row g-3 mb-4" id="depositSection">
                 <!-- Left Column - Add Funds Form -->
         <div class="col-lg-8">
@@ -1568,6 +1588,7 @@ window.AddFundsBoot = {
     cryptoEnabled: @json((bool) ($cryptoEnabled ?? false)),
     wisePayUrl: @json($wisePayUrl ?? config('billing.deposit_payment.wise_pay_url')),
     prefillAmount: @json($prefillAmount ?? null),
+    checkoutNeeded: @json($checkoutNeeded ?? null),
     prefillMethod: @json($prefillMethod ?? null),
     lastUsedMethod: @json($lastUsedMethod ?? null),
     openCardsTab: @json((bool) ($openCardsTab ?? false)),

@@ -15,6 +15,7 @@ document.addEventListener('DOMContentLoaded', function() {
     let invoiceMarkPaidUrl = null;
     let invoiceViewUrl = null;
     const prefillAmount = boot.prefillAmount || null;
+    const checkoutNeeded = Number(boot.checkoutNeeded || 0);
     const prefillMethod = boot.prefillMethod || null;
 
     function isManualMethod(method) {
@@ -174,6 +175,32 @@ document.addEventListener('DOMContentLoaded', function() {
             opt.click();
         }
     }
+
+    function applyCoverCheckoutAmount(needed) {
+        const amount = Number(needed);
+        if (!(amount >= 10) || invoiceLocked) {
+            return;
+        }
+        setSelectedAmount(amount);
+        const matchBtn = Array.from(document.querySelectorAll('.amount-btn')).find(
+            btn => Number(btn.dataset.amount) === amount
+        );
+        document.querySelectorAll('.amount-btn').forEach(b => b.classList.remove('active'));
+        if (matchBtn) {
+            matchBtn.classList.add('active');
+            if (customAmountInput) customAmountInput.value = '';
+        } else if (customAmountInput) {
+            customAmountInput.value = String(amount);
+        }
+    }
+
+    const coverCheckoutBtn = document.getElementById('coverCheckoutBtn');
+    if (coverCheckoutBtn) {
+        coverCheckoutBtn.addEventListener('click', function () {
+            applyCoverCheckoutAmount(this.dataset.needed || checkoutNeeded);
+        });
+    }
+
     const selectedAmountDisplay = document.getElementById('selectedAmountDisplay');
     const selectedAmountValue = document.getElementById('selectedAmountValue');
     const paymentOptions = document.querySelectorAll('.payment-option');

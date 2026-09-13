@@ -107,6 +107,16 @@ class AddFundsController extends Controller
         }
 
         $prefillAmount = max(0, (float) $request->query('amount', 0));
+        $checkoutNeeded = null;
+        if ($request->query('from') === 'checkout') {
+            $rawNeeded = $request->query('needed');
+            if (is_numeric($rawNeeded)) {
+                $needed = round((float) $rawNeeded, 2);
+                if ($needed >= 10 && $needed <= 100000) {
+                    $checkoutNeeded = $needed;
+                }
+            }
+        }
         $stripeConfigured = app(StripeCustomerService::class)->configured();
         $paypalConfigured = app(PaypalCheckoutService::class)->configured();
         $cryptoEnabled = DepositPaymentConfig::cryptoEnabled();
@@ -177,6 +187,7 @@ class AddFundsController extends Controller
             'payoutLocked' => $user->payoutProfileLocked(),
             'availableMethods' => $availableMethods,
             'prefillAmount' => $prefillAmount >= 10 ? $prefillAmount : null,
+            'checkoutNeeded' => $checkoutNeeded,
             'prefillMethod' => $prefillMethod,
             'lastUsedMethod' => $lastUsedMethod,
             'depositMethodOrder' => $depositMethodOrder,
