@@ -39,8 +39,8 @@
 }
 
 .project-card.is-attention {
-    border-color: #fed7aa;
-    box-shadow: 0 0 0 1px rgba(194, 65, 12, 0.08);
+    border-color: var(--brand-warning-border, #fdba74);
+    box-shadow: 0 0 0 1px rgba(180, 83, 9, 0.08);
 }
 
 .project-card .card-body {
@@ -110,13 +110,16 @@
     gap: 0.15rem;
     min-width: 0;
     padding: 0.55rem 0.4rem;
+    border: 1px solid var(--border-subtle, #e2e8f0);
     border-radius: 0.6rem;
+    background: var(--surface-3, #f1f5f9);
+    color: var(--brand-ink-muted, #697078);
     text-align: center;
     line-height: 1.2;
 }
 
 .project-stage.is-zero {
-    opacity: 0.58;
+    opacity: 0.72;
 }
 
 .project-stage__label {
@@ -131,39 +134,35 @@
     line-height: 1.15;
 }
 
-.project-stage--not_started {
-    background: #e8f2ff;
-    color: #1d4ed8;
+.project-stage--not_started,
+.project-stage--in_review {
+    background: var(--brand-neutral-bg, #f1f5f9);
+    color: var(--brand-ink-muted, #697078);
 }
 
 .project-stage--in_progress {
-    background: #e0f4f8;
-    color: #0e7490;
+    background: var(--brand-primary-bg, #e6f5f5);
+    color: var(--brand-primary, #1a585e);
+    border-color: var(--brand-primary-border, #b8e4e4);
 }
 
-.project-stage--in_review {
-    background: #f1f5f9;
-    color: #475569;
-}
-
-.project-stage--waiting_approval {
-    background: #fff7ed;
-    color: #c2410c;
-}
-
+.project-stage--waiting_approval,
 .project-stage--needs_improvements {
-    background: #eef2f7;
-    color: #334155;
+    background: var(--brand-warning-bg, #fff7ed);
+    color: var(--brand-warning-ink, #9a3412);
+    border-color: var(--brand-warning-border, #fdba74);
 }
 
 .project-stage--completed {
     background: var(--brand-success-bg, #d1fae5);
     color: var(--brand-success, #0f766e);
+    border-color: rgba(15, 118, 110, 0.22);
 }
 
 .project-stage--rejected {
-    background: #fee2e2;
-    color: #b91c1c;
+    background: #fff;
+    color: var(--brand-danger, #dc2626);
+    border-color: #fecaca;
 }
 
 .project-empty {
