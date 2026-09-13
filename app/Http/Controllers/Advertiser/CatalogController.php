@@ -52,6 +52,7 @@ use App\Services\StripeCustomerService;
 use App\Services\StripePaymentService;
 use App\Services\Wallet\WalletLedgerService;
 use App\Support\AdvertiserOrderStatus;
+use App\Support\CatalogBrowseDefaults;
 use App\Support\CatalogPlaceholderListing;
 use App\Support\CatalogVisitUrl;
 use App\Support\PaypalPaymentError;
@@ -648,12 +649,13 @@ class CatalogController extends Controller
 
         $this->excludeHiddenPlaceholderListings($query, $request);
 
-        if ($request->filled('verified') && $request->verified == 1) {
+        if (class_exists(CatalogBrowseDefaults::class) ? CatalogBrowseDefaults::verifiedOn($request) : ($request->filled('verified') && $request->verified == 1)) {
             $query->where('verified', 1);
         }
 
-        // Optional buyer quality gate (DA≥30, DR≥30, traffic≥10k) — not on by default.
-        if ($request->input('quality') == '1' || $request->input('quality') === 1) {
+        // Optional buyer quality gate (DA≥30, DR≥30, traffic≥10k) — off unless ?quality=1
+        // or CATALOG_DEFAULT_QUALITY=true.
+        if (class_exists(CatalogBrowseDefaults::class) ? CatalogBrowseDefaults::qualityOn($request) : ($request->input('quality') == '1' || $request->input('quality') === 1)) {
             $query->withGoodMetrics();
         }
 

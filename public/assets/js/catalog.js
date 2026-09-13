@@ -2299,6 +2299,10 @@ const CatalogUrl = (function () {
         });
         (drop || []).forEach(function (key) { raw.delete(key); });
         if (dropPage !== false) raw.delete('page');
+        const defaults = (window.CatalogConfig && CatalogConfig.browseDefaults) || {};
+        (drop || []).forEach(function (key) {
+            if (defaults[key]) raw.set(key, '0');
+        });
         return canonicalize(raw);
     }
 
@@ -2682,7 +2686,13 @@ const CatalogLive = (function () {
         if (params.get('traffic_min') || params.get('traffic_max')) chips.push({ label: 'Traffic', params: ['traffic_min', 'traffic_max'] });
         if (params.get('new_badge') === '1') chips.push({ label: 'New sites', params: ['new_badge'] });
         if (params.get('on_sale') === '1') chips.push({ label: 'On sale', params: ['on_sale'] });
-        if (params.get('quality') === '1') chips.push({ label: 'Quality bar (DA/DR/traffic)', params: ['quality'] });
+        const browseDefaults = (window.CatalogConfig && CatalogConfig.browseDefaults) || {};
+        if (params.get('verified') === '1' || (!params.has('verified') && browseDefaults.verified)) {
+            chips.push({ label: 'Verified', params: ['verified'] });
+        }
+        if (params.get('quality') === '1' || (!params.has('quality') && browseDefaults.quality)) {
+            chips.push({ label: 'Quality bar (DA/DR/traffic)', params: ['quality'] });
+        }
         if (params.get('rating_min')) chips.push({ label: 'Min rating ' + params.get('rating_min') + '+', params: ['rating_min'] });
         if (params.get('has_completions') === '1') chips.push({ label: 'Has completions', params: ['has_completions'] });
         if (params.get('per_page') && params.get('per_page') !== '20') {
@@ -2735,7 +2745,12 @@ const CatalogLive = (function () {
                 + '<a href="' + catalogEscapeHtml(href) + '" class="filter-chip__remove" aria-label="Remove filter: '
                 + catalogEscapeHtml(chip.label) + '" title="Remove this filter">&times;</a></span>';
         });
-        html += '<a href="' + catalogEscapeHtml(CatalogUrl.path) + '" class="small ms-1 catalog-clear-all">Clear all</a></div>';
+        const clearParams = CatalogUrl.canonicalize(new URLSearchParams());
+        const browseDefaults = (window.CatalogConfig && CatalogConfig.browseDefaults) || {};
+        Object.keys(browseDefaults).forEach(function (key) {
+            if (browseDefaults[key]) clearParams.set(key, '0');
+        });
+        html += '<a href="' + catalogEscapeHtml(CatalogUrl.href(clearParams)) + '" class="small ms-1 catalog-clear-all">Clear all</a></div>';
         host.innerHTML = html;
     }
 
@@ -3401,6 +3416,10 @@ document.addEventListener('click', function (e) {
     if (clearAll && clearAll.getAttribute('href')) {
         e.preventDefault();
         const empty = CatalogUrl.canonicalize(new URLSearchParams());
+        const browseDefaults = (window.CatalogConfig && CatalogConfig.browseDefaults) || {};
+        Object.keys(browseDefaults).forEach(function (key) {
+            if (browseDefaults[key]) empty.set(key, '0');
+        });
         // Preserve wizard chrome when clearing filters inside the guided flow.
         const wizard = CatalogUrl.fromLocation().get('wizard');
         if (wizard) empty.set('wizard', wizard);

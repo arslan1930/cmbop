@@ -134,4 +134,13 @@ return [
     */
     'hide_placeholders' => filter_var(env('CATALOG_HIDE_PLACEHOLDERS', true), FILTER_VALIDATE_BOOL),
 
+    /*
+    | Default browse filters. Keep off until the admin health queues are clean,
+    | then set CATALOG_DEFAULT_VERIFIED=true / CATALOG_DEFAULT_QUALITY=true.
+    | Buyers can still dismiss the chip (?verified=0 / ?quality=0).
+    */
+    'default_verified' => filter_var(env('CATALOG_DEFAULT_VERIFIED', false), FILTER_VALIDATE_BOOL),
+
+    'default_quality' => filter_var(env('CATALOG_DEFAULT_QUALITY', false), FILTER_VALIDATE_BOOL),
+
 ];
