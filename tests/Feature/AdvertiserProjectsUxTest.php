@@ -439,8 +439,26 @@ class AdvertiserProjectsUxTest extends TestCase
         ]);
         $this->assertStringContainsString('data-projects-attention', $html);
         $this->assertStringContainsString('1 placement needs you across 1 project', $html);
-        $this->assertStringContainsString('is-hot', $html);
+        $this->assertStringNotContainsString('is-hot', $html);
+        $this->assertStringNotContainsString('is-attention', $html);
+        $this->assertStringNotContainsString('Guest posting', $html);
         $this->assertStringNotContainsString('project-stage__count pulse-badge', $html);
+        $this->assertStringContainsString('Show placements needing you', $html);
+        $this->assertStringContainsString('View orders', $html);
+        $project = Project::where('user_id', $user->id)->where('project_name', 'Acme Client')->first();
+        $this->assertNotNull($project);
+        $this->assertStringContainsString(
+            e(route('advertiser.orders', ['project' => $project->id], false)),
+            $html
+        );
+        $this->assertStringContainsString(
+            e(route('advertiser.orders', ['project' => $project->id, 'project_stage' => 'waiting_approval'], false)),
+            $html
+        );
+        $this->assertStringContainsString(
+            e(route('advertiser.orders', ['project' => $project->id, 'project_stage' => 'needs_you'], false)),
+            $html
+        );
     }
 
     public function test_brief_target_url_matches_project_when_item_url_is_empty(): void

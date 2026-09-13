@@ -52,4 +52,29 @@ class ProjectPlacementStagesTest extends TestCase
         $counts['needs_improvements'] = 3;
         $this->assertSame(4, Project::needsYouCountFrom($counts));
     }
+
+    public function test_sanitize_host_for_like_strips_wildcards(): void
+    {
+        $this->assertSame('acme.example', Project::sanitizeHostForLike('https://www.acme.example/path'));
+        $this->assertSame('acme.example', Project::sanitizeHostForLike('%acme.example_'));
+        $this->assertSame('', Project::sanitizeHostForLike('%'));
+    }
+
+    public function test_host_like_patterns_cover_scheme_path_query_and_hash(): void
+    {
+        $this->assertSame([
+            '%://acme.example/%',
+            '%://acme.example',
+            '%://acme.example?%',
+            '%://acme.example#%',
+            'acme.example/%',
+        ], Project::hostLikePatterns('acme.example'));
+    }
+
+    public function test_stage_filter_keys_include_needs_you(): void
+    {
+        $this->assertContains('needs_you', Project::stageFilterKeys());
+        $this->assertTrue(Project::isKnownStageFilter('waiting_approval'));
+        $this->assertFalse(Project::isKnownStageFilter('not-a-stage'));
+    }
 }

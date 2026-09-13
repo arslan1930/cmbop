@@ -45,21 +45,26 @@ class ProjectController extends Controller
             ))
             ->values();
 
-        $attentionPlacements = (int) $projects->sum(
+        $attentionProjectsList = $projects->filter(
+            fn (Project $project) => Project::needsYouCountFrom(
+                $project->stage_counts ?? Project::emptyStageCounts()
+            ) > 0
+        );
+        $attentionPlacements = (int) $attentionProjectsList->sum(
             fn (Project $project) => Project::needsYouCountFrom(
                 $project->stage_counts ?? Project::emptyStageCounts()
             )
         );
-        $attentionProjects = $projects
-            ->filter(fn (Project $project) => Project::needsYouCountFrom(
-                $project->stage_counts ?? Project::emptyStageCounts()
-            ) > 0)
-            ->count();
+        $attentionProjects = $attentionProjectsList->count();
+        $attentionProjectId = $attentionProjects === 1
+            ? $attentionProjectsList->first()?->id
+            : null;
 
         return view('advertiser.campaigns', compact(
             'projects',
             'attentionPlacements',
             'attentionProjects',
+            'attentionProjectId',
         ));
     }
 

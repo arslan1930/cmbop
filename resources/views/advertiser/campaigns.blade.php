@@ -12,7 +12,11 @@
     $projects = $projects ?? collect();
     $attentionPlacements = (int) ($attentionPlacements ?? 0);
     $attentionProjects = (int) ($attentionProjects ?? 0);
+    $attentionProjectId = $attentionProjectId ?? null;
     $stageKeys = \App\Models\Project::STAGE_KEYS;
+    $attentionOrdersUrl = $attentionProjects === 1 && $attentionProjectId
+        ? route('advertiser.orders', ['project' => $attentionProjectId, 'project_stage' => 'needs_you'])
+        : route('advertiser.orders', ['status' => 'needs_action']);
 @endphp
 
 <div class="container-fluid">
@@ -38,6 +42,9 @@
                 <span class="ui-callout__detail">{{ $attentionPlacements }} {{ $attentionPlacements === 1 ? 'placement needs you' : 'placements need you' }} across {{ $attentionProjects }} {{ $attentionProjects === 1 ? 'project' : 'projects' }}. Live URLs ready for review and open revisions only.</span>
             </div>
         </div>
+        <div class="ui-callout__actions">
+            <a href="{{ $attentionOrdersUrl }}" class="btn btn-sm btn-primary">Show placements needing you</a>
+        </div>
     </div>
 @endif
 
@@ -52,7 +59,7 @@
 
         <div class="project-card-col">
 
-            <div class="card project-card shadow-sm rounded-3{{ $needsYou > 0 ? ' is-attention' : '' }}">
+            <div class="card project-card shadow-sm rounded-3">
 
                 <div class="card-body">
 
@@ -70,6 +77,9 @@
                             @if($host !== '')
                                 <div class="project-card__host">{{ $host }}</div>
                             @endif
+                            <div class="project-card__links">
+                                <a href="{{ route('advertiser.orders', ['project' => $project->id]) }}">View orders</a>
+                            </div>
                         </div>
 
                         <div class="project-card__actions">
@@ -97,21 +107,24 @@
                         </div>
                     </div>
 
-                    <p class="project-card__kicker">Guest posting</p>
-
                     <div class="project-stages">
                         @foreach($stageKeys as $stageKey)
                             @php
                                 $count = (int) ($stageCounts[$stageKey] ?? 0);
                                 $label = \App\Models\Project::stageLabel($stageKey);
                                 $hint = \App\Models\Project::stageHint($stageKey);
-                                $pulse = $stageKey === 'waiting_approval' && $count > 0;
+                                $stageTag = $count > 0 ? 'a' : 'span';
+                                $stageHref = $count > 0
+                                    ? route('advertiser.orders', ['project' => $project->id, 'project_stage' => $stageKey])
+                                    : null;
                             @endphp
-                            <span class="project-stage project-stage--{{ $stageKey }}{{ $count === 0 ? ' is-zero' : '' }}{{ $pulse ? ' is-hot' : '' }}"
-                                  title="{{ $hint !== '' ? $label.': '.$hint : $label }}">
+                            <{{ $stageTag }}
+                                @if($stageHref) href="{{ $stageHref }}" @endif
+                                class="project-stage project-stage--{{ $stageKey }}{{ $count === 0 ? ' is-zero' : '' }}"
+                                title="{{ $hint !== '' ? $label.': '.$hint : $label }}">
                                 <span class="project-stage__label">{{ $label }}</span>
                                 <span class="project-stage__count">{{ $count }}</span>
-                            </span>
+                            </{{ $stageTag }}>
                         @endforeach
                     </div>
 

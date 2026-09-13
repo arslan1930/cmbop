@@ -137,6 +137,7 @@ class AdvertiserOrdersUxAbcTest extends TestCase
         $this->assertStringContainsString('.orders-total--refunded', $css);
         $this->assertStringContainsString('.orders-more-sites', $css);
         $this->assertStringContainsString('.orders-sort-select', $css);
+        $this->assertStringContainsString('.orders-project-chip', $css);
         $this->assertStringContainsString('type="search"', $html);
         $this->assertStringContainsString('id="ordersSearchStatus"', $html);
         $this->assertStringContainsString('id="ordersSearchClear"', $html);
@@ -147,6 +148,10 @@ class AdvertiserOrdersUxAbcTest extends TestCase
         $this->assertStringContainsString('orders-filter-bar', $html);
         $this->assertStringContainsString('orders-filter-bar__row', $html);
         $this->assertStringContainsString('orders-filter-bar__actions', $html);
+        $this->assertStringContainsString('id="projectFilter"', $html);
+        $this->assertStringContainsString('id="projectStageFilter"', $html);
+        $this->assertStringContainsString('id="ordersProjectChip"', $html);
+        $this->assertStringContainsString('id="ordersProjectChipClear"', $html);
         $this->assertStringNotContainsString('row g-2 g-md-3 align-items-end', $html);
         $this->assertStringNotContainsString('col-xl-2', $html);
         $this->assertStringNotContainsString('col-xl-3', $html);
@@ -179,6 +184,8 @@ class AdvertiserOrdersUxAbcTest extends TestCase
 
         $js = file_get_contents(public_path('assets/js/advertiser-orders.js'));
         $this->assertIsString($js);
+        $this->assertStringContainsString('ordersProjectFilterValues', $js);
+        $this->assertStringContainsString('project_stage', $js);
         $this->assertStringContainsString('Please provide at least 10 characters', $js);
         $this->assertStringContainsString('No matching orders', $js);
         $this->assertStringContainsString('payment-refunded', $js);

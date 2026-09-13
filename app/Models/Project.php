@@ -3,9 +3,11 @@
 namespace App\Models;
 
 use App\Support\AdvertiserOrderStatus;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
 class Project extends Model
@@ -246,5 +248,261 @@ class Project extends Model
         }
 
         return $byHost;
+    }
+
+    /**
+     * Stage keys accepted on My Orders (`project_stage`), including the
+     * attention-banner composite `needs_you`.
+     *
+     * @return list<string>
+     */
+    public static function stageFilterKeys(): array
+    {
+        return array_merge(self::STAGE_KEYS, ['needs_you']);
+    }
+
+    public static function isKnownStageFilter(string $stage): bool
+    {
+        return in_array($stage, self::stageFilterKeys(), true);
+    }
+
+    /**
+     * Limit orders to placements whose brief destination host matches.
+     *
+     * Matches item `target_url`, then the linked article brief when the
+     * item URL is empty. Does not use the publisher `site_url`.
+     *
+     * @param  Builder<Order>  $query
+     * @return Builder<Order>
+     */
+    public static function constrainOrdersByHost(Builder $query, string $urlOrHost): Builder
+    {
+        $host = self::sanitizeHostForLike($urlOrHost);
+        if ($host === '') {
+            return $query->whereRaw('0 = 1');
+        }
+
+        return $query->whereHas('items', function ($items) use ($host) {
+            self::constrainItemsByHost($items, $host);
+        });
+    }
+
+    /**
+     * Limit orders to a Projects stage. When `$urlOrHost` is set, the stage
+     * must hold on a line that also matches that destination host.
+     *
+     * @param  Builder<Order>  $query
+     * @return Builder<Order>
+     */
+    public static function constrainOrdersByStage(Builder $query, string $stage, ?string $urlOrHost = null): Builder
+    {
+        $stage = strtolower(trim($stage));
+        if (! self::isKnownStageFilter($stage)) {
+            return $query;
+        }
+
+        $host = $urlOrHost !== null && $urlOrHost !== ''
+            ? self::sanitizeHostForLike($urlOrHost)
+            : '';
+        if ($urlOrHost !== null && $urlOrHost !== '' && $host === '') {
+            return $query->whereRaw('0 = 1');
+        }
+
+        $matchingItems = function ($items) use ($host) {
+            if ($host !== '') {
+                self::constrainItemsByHost($items, $host);
+            }
+        };
+
+        $withoutOpenContentRevision = function (Builder $q): void {
+            if (Schema::hasColumn('order_items', 'content_revision_requested')) {
+                $q->whereDoesntHave('items', function ($items) {
+                    $items->where('content_revision_requested', 'yes');
+                });
+            }
+        };
+
+        return match ($stage) {
+            'not_started' => $query
+                ->where('status', 'pending')
+                ->whereHas('items', $matchingItems),
+            'in_progress' => tap($query
+                ->where('status', 'processing')
+                ->whereHas('items', function ($items) use ($host) {
+                    if ($host !== '') {
+                        self::constrainItemsByHost($items, $host);
+                    }
+                    if (Schema::hasColumn('order_items', 'modification_requested')) {
+                        $items->where(function ($q) {
+                            $q->whereNull('modification_requested')
+                                ->orWhere('modification_requested', '!=', 'yes');
+                        });
+                    }
+                }), $withoutOpenContentRevision),
+            'in_review' => tap($query
+                ->where('status', 'review')
+                ->whereHas('items', function ($items) use ($host) {
+                    if ($host !== '') {
+                        self::constrainItemsByHost($items, $host);
+                    }
+                    $items->where(function ($q) {
+                        $q->whereNull('live_url')->orWhere('live_url', '');
+                    });
+                }), $withoutOpenContentRevision),
+            'waiting_approval' => tap(
+                AdvertiserOrderStatus::constrainReviewReady($query)
+                    ->whereHas('items', function ($items) use ($host) {
+                        if ($host !== '') {
+                            self::constrainItemsByHost($items, $host);
+                        }
+                        $items->whereNotNull('live_url')->where('live_url', '!=', '');
+                    }),
+                $withoutOpenContentRevision
+            ),
+            'needs_improvements' => $query->where(function ($q) use ($host) {
+                $q->where(function ($mod) use ($host) {
+                    $mod->where('status', 'processing')
+                        ->whereHas('items', function ($items) use ($host) {
+                            if ($host !== '') {
+                                self::constrainItemsByHost($items, $host);
+                            }
+                            if (Schema::hasColumn('order_items', 'modification_requested')) {
+                                $items->where('modification_requested', 'yes');
+                            } else {
+                                $items->whereRaw('0 = 1');
+                            }
+                        });
+                })->orWhere(function ($revision) use ($host) {
+                    if (! Schema::hasColumn('order_items', 'content_revision_requested')) {
+                        $revision->whereRaw('0 = 1');
+
+                        return;
+                    }
+                    $revision->whereIn('status', ['processing', 'review'])
+                        ->whereHas('items', function ($items) {
+                            $items->where('content_revision_requested', 'yes');
+                        });
+                    if ($host !== '') {
+                        $revision->whereHas('items', function ($items) use ($host) {
+                            self::constrainItemsByHost($items, $host);
+                        });
+                    }
+                });
+            }),
+            'completed' => $query
+                ->where('status', 'completed')
+                ->whereHas('items', $matchingItems),
+            'rejected' => $query
+                ->where(function ($q) {
+                    $q->where('status', 'cancelled')
+                        ->orWhere('payment_status', 'failed');
+                })
+                ->whereHas('items', $matchingItems),
+            'needs_you' => $query->where(function ($q) use ($host) {
+                $q->where(function ($ready) use ($host) {
+                    tap(
+                        AdvertiserOrderStatus::constrainReviewReady($ready)
+                            ->whereHas('items', function ($items) use ($host) {
+                                if ($host !== '') {
+                                    self::constrainItemsByHost($items, $host);
+                                }
+                                $items->whereNotNull('live_url')->where('live_url', '!=', '');
+                            }),
+                        function (Builder $inner): void {
+                            if (Schema::hasColumn('order_items', 'content_revision_requested')) {
+                                $inner->whereDoesntHave('items', function ($items) {
+                                    $items->where('content_revision_requested', 'yes');
+                                });
+                            }
+                        }
+                    );
+                })->orWhere(function ($improvements) use ($host) {
+                    self::constrainOrdersByStage($improvements, 'needs_improvements', $host !== '' ? $host : null);
+                });
+            }),
+            default => $query,
+        };
+    }
+
+    /**
+     * @param  Builder<OrderItem>  $query
+     */
+    public static function constrainItemsByHost(Builder $query, string $urlOrHost): void
+    {
+        $host = self::sanitizeHostForLike($urlOrHost);
+        if ($host === '') {
+            $query->whereRaw('0 = 1');
+
+            return;
+        }
+
+        $applyToColumn = function (Builder $q, string $column) use ($host): void {
+            self::constrainColumnByHost($q, $column, $host);
+        };
+
+        $query->where(function ($q) use ($applyToColumn) {
+            $applyToColumn($q, 'target_url');
+
+            if (Schema::hasColumn('order_items', 'content_submission_id')) {
+                $q->orWhere(function ($fallback) use ($applyToColumn) {
+                    $fallback->where(function ($empty) {
+                        $empty->whereNull('target_url')->orWhere('target_url', '');
+                    })->whereHas('contentSubmission', function ($submission) use ($applyToColumn) {
+                        $applyToColumn($submission, 'target_url');
+                    });
+                });
+            }
+        });
+    }
+
+    /**
+     * Registrable host with LIKE wildcards removed so a crafted project URL
+     * cannot widen the destination match.
+     */
+    public static function sanitizeHostForLike(string $urlOrHost): string
+    {
+        $host = self::hostFromUrl($urlOrHost);
+        if ($host === '') {
+            $host = strtolower(trim($urlOrHost));
+            $host = str_starts_with($host, 'www.') ? substr($host, 4) : $host;
+        }
+
+        return str_replace(['%', '_', '\\'], '', $host);
+    }
+
+    /**
+     * @param  Builder<*>  $query
+     */
+    private static function constrainColumnByHost(Builder $query, string $column, string $host): void
+    {
+        $hosts = array_values(array_unique(array_filter([$host, $host !== '' ? 'www.'.$host : ''])));
+        $query->where(function ($inner) use ($column, $hosts) {
+            $first = true;
+            foreach ($hosts as $candidate) {
+                foreach (self::hostLikePatterns($candidate) as $pattern) {
+                    if ($first) {
+                        $inner->where($column, 'like', $pattern);
+                        $first = false;
+                    } else {
+                        $inner->orWhere($column, 'like', $pattern);
+                    }
+                }
+                $inner->orWhere($column, '=', $candidate);
+            }
+        });
+    }
+
+    /**
+     * @return list<string>
+     */
+    public static function hostLikePatterns(string $host): array
+    {
+        return [
+            '%://'.$host.'/%',
+            '%://'.$host,
+            '%://'.$host.'?%',
+            '%://'.$host.'#%',
+            $host.'/%',
+        ];
     }
 }

@@ -38,11 +38,6 @@
     background: #fff;
 }
 
-.project-card.is-attention {
-    border-color: var(--brand-warning-border, #fdba74);
-    box-shadow: 0 0 0 1px rgba(180, 83, 9, 0.08);
-}
-
 .project-card .card-body {
     padding: 1.1rem 1.15rem 1.15rem;
 }
@@ -87,13 +82,13 @@
     flex-shrink: 0;
 }
 
-.project-card__kicker {
-    margin: 0 0 0.55rem;
-    font-size: 0.7rem;
+.project-card__links {
+    margin-top: 0.45rem;
+}
+
+.project-card__links a {
+    font-size: 0.8125rem;
     font-weight: 600;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    color: var(--brand-ink-muted, #75787B);
 }
 
 .project-stages {
@@ -124,8 +119,12 @@
     border-color: var(--border-subtle, #e2e8f0);
 }
 
-.project-stage.is-hot:not(.is-zero) {
-    box-shadow: 0 0 0 1px var(--brand-warning-border, #fdba74);
+a.project-stage {
+    text-decoration: none;
+}
+
+a.project-stage:hover {
+    filter: brightness(0.97);
 }
 
 .project-stage__label {
