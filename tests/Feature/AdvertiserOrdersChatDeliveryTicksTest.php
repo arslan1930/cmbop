@@ -261,6 +261,11 @@ class AdvertiserOrdersChatDeliveryTicksTest extends TestCase
         ]);
 
         Schema::table('order_chat_messages', function ($table) {
+            try {
+                $table->dropIndex('order_chat_messages_user_id_is_read_index');
+            } catch (\Throwable $e) {
+                // SQLite leftover drop needs the composite index gone first.
+            }
             $table->dropColumn('is_read');
         });
 
