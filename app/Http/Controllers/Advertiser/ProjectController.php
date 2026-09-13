@@ -132,7 +132,7 @@ class ProjectController extends Controller
             ],
             'project_url' => [
                 'required',
-                'url',
+                'url:http,https',
                 'max:255',
                 $urlUnique,
                 function (string $attribute, mixed $value, \Closure $fail) use ($userId, $ignoreId) {

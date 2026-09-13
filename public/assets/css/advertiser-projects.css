@@ -65,7 +65,7 @@
     line-height: 1.3;
 }
 
-.project-card__name:hover {
+a.project-card__name:hover {
     color: var(--brand-primary, #1a585e);
 }
 

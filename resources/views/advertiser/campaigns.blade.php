@@ -54,6 +54,7 @@
         @php
             $stageCounts = $project->stage_counts ?? \App\Models\Project::emptyStageCounts();
             $host = \App\Models\Project::hostFromUrl($project->project_url);
+            $safeProjectUrl = safe_href_url($project->project_url);
         @endphp
 
         <div class="project-card-col">
@@ -64,15 +65,21 @@
 
                     <div class="project-card__top">
                         <div class="project-card__identity">
-                            <a href="{{ $project->project_url }}"
-                               target="_blank"
-                               rel="noopener noreferrer"
-                               class="project-card__name text-decoration-none">
-                                <h3>
-                                    {{ $project->project_name }}
-                                    <i class="fa-solid fa-arrow-up-right-from-square ms-1 small" aria-hidden="true"></i>
-                                </h3>
-                            </a>
+                            @if($safeProjectUrl)
+                                <a href="{{ $safeProjectUrl }}"
+                                   target="_blank"
+                                   rel="noopener noreferrer"
+                                   class="project-card__name text-decoration-none">
+                                    <h3>
+                                        {{ $project->project_name }}
+                                        <i class="fa-solid fa-arrow-up-right-from-square ms-1 small" aria-hidden="true"></i>
+                                    </h3>
+                                </a>
+                            @else
+                                <div class="project-card__name">
+                                    <h3>{{ $project->project_name }}</h3>
+                                </div>
+                            @endif
                             @if($host !== '')
                                 <div class="project-card__host">{{ $host }}</div>
                             @endif

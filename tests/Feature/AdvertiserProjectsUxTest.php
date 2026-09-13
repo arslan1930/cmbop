@@ -301,6 +301,41 @@ class AdvertiserProjectsUxTest extends TestCase
         $this->assertStageCounts($beta, ['In progress' => 1]);
     }
 
+    public function test_leftover_javascript_project_url_is_not_an_href(): void
+    {
+        $user = $this->advertiser();
+        Project::create([
+            'user_id' => $user->id,
+            'project_name' => 'Legacy Client',
+            'project_url' => 'javascript:alert(1)',
+        ]);
+
+        $html = $this->actingAs($user)
+            ->get(route('advertiser.projects.index'))
+            ->assertOk()
+            ->assertSee('Legacy Client', false)
+            ->getContent();
+
+        $this->assertStringNotContainsString('href="javascript:', $html);
+        $this->assertStringNotContainsString("href='javascript:", $html);
+    }
+
+    public function test_store_rejects_non_http_project_urls(): void
+    {
+        $user = $this->advertiser();
+
+        $this->actingAs($user)
+            ->from(route('advertiser.projects.index'))
+            ->post(route('advertiser.projects.store'), [
+                'project_name' => 'Bad Client',
+                'project_url' => 'javascript:alert(1)',
+            ])
+            ->assertRedirect(route('advertiser.projects.index'))
+            ->assertSessionHasErrors('project_url');
+
+        $this->assertSame(0, Project::where('user_id', $user->id)->count());
+    }
+
     public function test_store_rejects_names_that_would_fail_on_update(): void
     {
         $user = $this->advertiser();

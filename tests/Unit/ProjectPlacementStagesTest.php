@@ -75,6 +75,12 @@ class ProjectPlacementStagesTest extends TestCase
             '%://%:%@acme.example#%',
             '%://%:%@acme.example:%',
         ], Project::hostLikePatterns('acme.example'));
+
+        $this->assertSame([
+            '%://%/%@acme.example%',
+            '%://%?%@acme.example%',
+            '%://%#%@acme.example%',
+        ], Project::hostLikeFalseUserinfoPatterns('acme.example'));
     }
 
     public function test_stage_filter_keys_include_needs_you(): void

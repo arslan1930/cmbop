@@ -356,6 +356,16 @@ class AdvertiserProjectOrdersFilterTest extends TestCase
         ], [
             'target_url' => 'https://other-client.example/?email=foo@acme.example',
         ]);
+        $this->makeOrder($user, $site, [
+            'status' => 'processing',
+        ], [
+            'target_url' => 'https://evil.com/foo:bar@acme.example',
+        ]);
+        $this->makeOrder($user, $site, [
+            'status' => 'processing',
+        ], [
+            'target_url' => 'https://evil.com?x:y@acme.example',
+        ]);
 
         $ids = $this->listIds($user, ['project' => $project->id]);
 

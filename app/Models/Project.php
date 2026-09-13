@@ -509,6 +509,12 @@ class Project extends Model
                 $inner->orWhere($column, '=', $candidate);
             }
         });
+
+        foreach ($hosts as $candidate) {
+            foreach (self::hostLikeFalseUserinfoPatterns($candidate) as $pattern) {
+                $query->where($column, 'not like', $pattern);
+            }
+        }
     }
 
     /**
@@ -528,6 +534,22 @@ class Project extends Model
             '%://%:%@'.$host.'?%',
             '%://%:%@'.$host.'#%',
             '%://%:%@'.$host.':%',
+        ];
+    }
+
+    /**
+     * Userinfo LIKE (`%://%:%@host`) also hits a path/query/hash that
+     * happens to contain `:…@host`. parse_url would not treat that as
+     * this project's authority (https://evil.com/foo:bar@acme.example).
+     *
+     * @return list<string>
+     */
+    public static function hostLikeFalseUserinfoPatterns(string $host): array
+    {
+        return [
+            '%://%/%@'.$host.'%',
+            '%://%?%@'.$host.'%',
+            '%://%#%@'.$host.'%',
         ];
     }
 }
