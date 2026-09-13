@@ -16,6 +16,7 @@ use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Exceptions\PostTooLargeException;
+use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -112,10 +113,20 @@ return Application::configure(basePath: dirname(__DIR__))
             ], 422);
         });
 
-        // Add Funds implicit {deposit} binding 404s used to leak
-        // "No query results for model [App\Models\DepositRequest]".
-        $exceptions->render(function (ModelNotFoundException $e, $request) {
+        // Implicit {deposit} binding becomes NotFoundHttpException after
+        // prepareException(). The Eloquent text leaks App\Models\DepositRequest.
+        $exceptions->render(function (NotFoundHttpException $e, $request) {
             if (! $request->expectsJson() || ! str_contains($request->path(), 'add-funds')) {
+                return null;
+            }
+
+            $previous = $e->getPrevious();
+            $fromDeposit = $previous instanceof ModelNotFoundException
+                && str_contains((string) $previous->getModel(), 'DepositRequest');
+            $leaksModel = str_contains($e->getMessage(), 'DepositRequest')
+                || str_contains($e->getMessage(), 'No query results');
+
+            if (! $fromDeposit && ! $leaksModel) {
                 return null;
             }
 
