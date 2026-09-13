@@ -479,10 +479,7 @@ class Project extends Model
      */
     public static function constrainWithoutFailedPayment(Builder $query): void
     {
-        $query->where(function ($q) {
-            $q->whereNull('payment_status')
-                ->orWhere('payment_status', '!=', 'failed');
-        });
+        AdvertiserOrderStatus::constrainWithoutFailedPayment($query);
     }
 
     /**

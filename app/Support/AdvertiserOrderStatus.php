@@ -22,7 +22,7 @@ class AdvertiserOrderStatus
     {
         app(CheckoutSchemaService::class)->ensureCheckoutTables();
 
-        return Order::query()
+        $query = Order::query()
             ->where('user_id', $userId)
             ->where(function ($q) {
                 $q->where(function ($reviewReady) {
@@ -38,6 +38,9 @@ class AdvertiserOrderStatus
                     });
                 }
             });
+        static::constrainWithoutFailedPayment($query);
+
+        return $query;
     }
 
     public static function needsActionCountForUser(int $userId): int
@@ -73,6 +76,7 @@ class AdvertiserOrderStatus
 
         $query->orderByRaw(
             "CASE
+                WHEN orders.payment_status = 'failed' THEN 2
                 WHEN orders.status IN ('completed', 'cancelled') THEN 2
                 WHEN ((orders.status = 'review' AND {$reviewReadySql}){$revisionClause}) THEN 0
                 ELSE 1
@@ -88,10 +92,83 @@ class AdvertiserOrderStatus
      */
     public static function constrainReviewReady(Builder $query): Builder
     {
-        return $query->where('status', 'review')
+        $query->where('status', 'review')
             ->whereHas('items', function ($items) {
                 $items->whereNotNull('live_url')->where('live_url', '!=', '');
             });
+        static::constrainWithoutFailedPayment($query);
+
+        return $query;
+    }
+
+    /**
+     * Awaiting payment: pending, not paid, and not a failed charge.
+     *
+     * Failed charges are rejected (same as meta() / Project cards).
+     *
+     * @param  Builder<Order>  $query
+     * @return Builder<Order>
+     */
+    public static function constrainAwaitingPayment(Builder $query): Builder
+    {
+        $query->where('status', 'pending')
+            ->where(function ($q) {
+                $q->whereNull('payment_status')
+                    ->orWhere('payment_status', '!=', 'paid');
+            });
+        static::constrainWithoutFailedPayment($query);
+
+        return $query;
+    }
+
+    /**
+     * Paid and waiting on the publisher, or the publisher is already working.
+     *
+     * @param  Builder<Order>  $query
+     * @return Builder<Order>
+     */
+    public static function constrainInProgress(Builder $query): Builder
+    {
+        $query->where(function ($q) {
+            $q->where(function ($pendingPaid) {
+                $pendingPaid->where('status', 'pending')
+                    ->where('payment_status', 'paid')
+                    ->notAwaitingScheduledRelease();
+            })->orWhere('status', 'processing');
+        });
+        static::constrainWithoutFailedPayment($query);
+
+        return $query;
+    }
+
+    /**
+     * Review without a live URL yet. Failed charges are rejected, not “in review”.
+     *
+     * @param  Builder<Order>  $query
+     * @return Builder<Order>
+     */
+    public static function constrainReviewWaitingUrl(Builder $query): Builder
+    {
+        $query->where('status', 'review')
+            ->whereDoesntHave('items', function ($items) {
+                $items->whereNotNull('live_url')->where('live_url', '!=', '');
+            });
+        static::constrainWithoutFailedPayment($query);
+
+        return $query;
+    }
+
+    /**
+     * meta() treats a failed payment as rejected regardless of order status.
+     *
+     * @param  Builder<Order>  $query
+     */
+    public static function constrainWithoutFailedPayment(Builder $query): void
+    {
+        $query->where(function ($q) {
+            $q->whereNull('payment_status')
+                ->orWhere('payment_status', '!=', 'failed');
+        });
     }
 
     public static function liveUrlExistsSql(string $orderIdColumn = 'orders.id'): string

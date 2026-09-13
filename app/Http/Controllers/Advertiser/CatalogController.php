@@ -5103,23 +5103,9 @@ class CatalogController extends Controller
 
             $needsReview = AdvertiserOrderStatus::constrainReviewReady(clone $base)->count();
             $needsAction = AdvertiserOrderStatus::needsActionCountForUser((int) $userId);
-            $inProgress = (clone $base)
-                ->where(function ($q) {
-                    $q->where(function ($pendingPaid) {
-                        $pendingPaid->where('status', 'pending')
-                            ->where('payment_status', 'paid')
-                            ->notAwaitingScheduledRelease();
-                    })->orWhere('status', 'processing');
-                })
-                ->count();
+            $inProgress = AdvertiserOrderStatus::constrainInProgress(clone $base)->count();
             $completed = (clone $base)->where('status', 'completed')->count();
-            $awaitingPayment = (clone $base)
-                ->where('status', 'pending')
-                ->where(function ($q) {
-                    $q->whereNull('payment_status')
-                        ->orWhere('payment_status', '!=', 'paid');
-                })
-                ->count();
+            $awaitingPayment = AdvertiserOrderStatus::constrainAwaitingPayment(clone $base)->count();
 
             return response()->json([
                 'success' => true,
@@ -5167,24 +5153,14 @@ class CatalogController extends Controller
             if ($statusFilter !== '') {
                 $status = $statusFilter;
                 if ($status === 'awaiting_payment') {
-                    $query->where('status', 'pending')
-                        ->where(function ($q) {
-                            $q->whereNull('payment_status')
-                                ->orWhere('payment_status', '!=', 'paid');
-                        });
+                    AdvertiserOrderStatus::constrainAwaitingPayment($query);
                 } elseif ($status === 'awaiting_publisher') {
                     $query->where('status', 'pending')
                         ->where('payment_status', 'paid')
                         ->notAwaitingScheduledRelease();
                 } elseif ($status === 'in_progress') {
                     // Matches funnel KPI: paid·waiting publisher + publisher working.
-                    $query->where(function ($q) {
-                        $q->where(function ($pendingPaid) {
-                            $pendingPaid->where('status', 'pending')
-                                ->where('payment_status', 'paid')
-                                ->notAwaitingScheduledRelease();
-                        })->orWhere('status', 'processing');
-                    });
+                    AdvertiserOrderStatus::constrainInProgress($query);
                 } elseif ($status === 'needs_action') {
                     $query->whereIn(
                         'id',

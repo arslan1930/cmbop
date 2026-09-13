@@ -333,6 +333,23 @@ class AdvertiserProjectOrdersFilterTest extends TestCase
             'project_stage' => 'rejected',
         ]);
         $this->assertEqualsCanonicalizing([$failedPending->id, $failedReview->id], $rejected);
+
+        $this->assertSame([], $this->listIds($user, ['status' => 'needs_action']));
+        $this->assertSame([], $this->listIds($user, ['status' => 'review']));
+        $this->assertSame([], $this->listIds($user, ['status' => 'awaiting_payment']));
+        $this->assertSame([], $this->listIds($user, ['status' => 'in_progress']));
+        $this->actingAs($user)
+            ->getJson(route('advertiser.orders.list', ['project' => $project->id]))
+            ->assertOk()
+            ->assertJsonPath('needs_action', 0);
+        $this->actingAs($user)
+            ->getJson(route('advertiser.orders.statistics'))
+            ->assertOk()
+            ->assertJsonPath('data.needs_review', 0)
+            ->assertJsonPath('data.needs_action', 0)
+            ->assertJsonPath('data.awaiting_payment', 0)
+            ->assertJsonPath('data.in_progress', 0);
+        $this->assertStringNotContainsString('data-projects-attention', $html);
     }
 
     public function test_list_matches_target_urls_with_a_port_or_userinfo(): void
