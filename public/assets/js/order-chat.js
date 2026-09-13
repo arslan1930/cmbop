@@ -280,6 +280,7 @@
             self.lastMessageId = msg.id;
           }
         });
+        self.applyReceipts(data.receipts || []);
       })
       .catch(function () {
         if (!incremental) {
@@ -357,6 +358,41 @@
     }
   };
 
+  function chatTickHtml(isOwn, isBlocked, isRead) {
+    if (!isOwn || isBlocked) return '';
+    var read = !!isRead;
+    var label = read ? 'Read' : 'Delivered';
+    var icons = read
+      ? '<i class="fa fa-check"></i><i class="fa fa-check"></i>'
+      : '<i class="fa fa-check"></i>';
+    return (
+      '<span class="chat-bubble__ticks" data-chat-ticks data-read="' +
+      (read ? '1' : '0') +
+      '" aria-label="' +
+      label +
+      '" title="' +
+      label +
+      '">' +
+      icons +
+      '</span>'
+    );
+  }
+
+  OrderChat.prototype.applyReceipts = function (receipts) {
+    if (!receipts || !receipts.length) return;
+    receipts.forEach(function (receipt) {
+      if (!receipt || !receipt.id || !receipt.is_read) return;
+      var row = document.querySelector('#chatMessages [data-message-id="' + String(receipt.id) + '"]');
+      if (!row) return;
+      var ticks = row.querySelector('[data-chat-ticks]');
+      if (!ticks || ticks.getAttribute('data-read') === '1') return;
+      ticks.setAttribute('data-read', '1');
+      ticks.setAttribute('aria-label', 'Read');
+      ticks.setAttribute('title', 'Read');
+      ticks.innerHTML = '<i class="fa fa-check"></i><i class="fa fa-check"></i>';
+    });
+  };
+
   OrderChat.messageHtml = function (msg, currentUserId) {
     var isOwn = Number(msg.user_id) === Number(currentUserId);
     var isBlocked = !!(msg.is_blocked);
@@ -371,6 +407,7 @@
     var blockedNote = isBlocked
       ? '<div class="chat-bubble__blocked-note">Not delivered — personal contact details aren’t allowed.</div>'
       : '';
+    var ticks = chatTickHtml(isOwn, isBlocked, !!(msg.is_read));
     return (
       '<div class="d-flex ' +
       alignClass +
@@ -384,6 +421,7 @@
       senderName +
       ' · ' +
       time +
+      ticks +
       '</div>' +
       '<div>' +
       messageText +

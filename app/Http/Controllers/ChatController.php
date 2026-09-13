@@ -177,6 +177,7 @@ class ChatController extends Controller
             return response()->json([
                 'success' => true,
                 'messages' => $this->serializeMessages($messages),
+                'receipts' => $this->serializeOwnReadReceipts((int) $orderId, $user),
                 'has_more_older' => $hasMoreOlder,
                 'current_user_id' => $user->id,
                 'order_details' => $details,
@@ -404,6 +405,50 @@ class ChatController extends Controller
         }
 
         return $out;
+    }
+
+    /**
+     * Own saved messages the counterpart has opened. Poll uses this to flip
+     * single ticks to double without re-downloading the whole thread.
+     * Leftover is_read / read_at must not hide messages.
+     *
+     * @return list<array{id: int, is_read: true, read_at: ?string}>
+     */
+    private function serializeOwnReadReceipts(int $orderId, User $user): array
+    {
+        try {
+            $query = OrderChatMessage::query()
+                ->where('order_id', $orderId)
+                ->where('user_id', $user->id)
+                ->notBlocked()
+                ->where('is_read', true);
+
+            try {
+                $rows = (clone $query)->get(['id', 'is_read', 'read_at']);
+            } catch (\Throwable $e) {
+                $rows = (clone $query)->get(['id', 'is_read']);
+            }
+
+            $out = [];
+            foreach ($rows as $message) {
+                $readAt = null;
+                try {
+                    $readAt = optional($message->read_at)?->toIso8601String();
+                } catch (\Throwable $e) {
+                    $readAt = null;
+                }
+
+                $out[] = [
+                    'id' => (int) $message->id,
+                    'is_read' => true,
+                    'read_at' => $readAt,
+                ];
+            }
+
+            return $out;
+        } catch (\Throwable $e) {
+            return [];
+        }
     }
 
     /**
