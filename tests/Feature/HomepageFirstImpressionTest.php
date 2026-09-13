@@ -24,7 +24,7 @@ class HomepageFirstImpressionTest extends TestCase
         $this->assertStringContainsString('--grad-hero', file_get_contents(public_path('assets/css/brand-colors.css')));
         $this->assertStringContainsString('var(--grad-hero', file_get_contents(resource_path('views/components/hero.blade.php')));
 
-        $response->assertSee('Verified publisher catalog', false);
+        $response->assertSee('Staff-reviewed publisher catalog', false);
         $response->assertSee('Wallet checkout', false);
         $response->assertSee('Track to live URL', false);
         $response->assertSee('Starter Package', false);

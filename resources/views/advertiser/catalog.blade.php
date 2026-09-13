@@ -185,9 +185,9 @@
             <h2 class="mb-1 fw-semibold">Catalog</h2>
             <p class="text-muted mb-0">
                 @if(!empty($orderingSubmission))
-                    Browse any verified publishers for “{{ $orderingSubmission->title ?: $orderingSubmission->original_filename }}”. Filters stay optional — language does not have to match.
+                    Browse any live listings for “{{ $orderingSubmission->title ?: $orderingSubmission->original_filename }}”. Filters stay optional — language does not have to match.
                 @else
-                    Browse verified publishers and add sites to your cart.
+                    Browse live publisher listings and add sites to your cart.
                 @endif
             </p>
         </div>

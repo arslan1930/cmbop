@@ -355,7 +355,7 @@ return [
     // Services Section
     'services_title' => 'Un marketplace pensato per le pubblicazioni',
     'services_description' => 'Sfoglia publisher verificati, paga dal wallet e segui ogni ordine fino all\'URL live.',
-    'value_1_title' => 'Catalogo di publisher verificati',
+    'value_1_title' => 'Catalogo di publisher revisionato dallo staff',
     'value_1_description' => 'Filtra per Paese, lingua, nicchia e metriche per trovare siti adatti alla tua campagna.',
     'value_2_title' => 'Checkout dal wallet',
     'value_2_description' => 'Prezzi delle pubblicazioni chiari prima di comprare. Ricarica una volta e ordina quando sei pronto.',

@@ -77,6 +77,8 @@ class CatalogPlaceholderHideTest extends TestCase
         $this->actingAs($advertiser)
             ->get(route('advertiser.catalog'))
             ->assertOk()
+            ->assertSee('Browse live publisher listings and add sites to your cart.', false)
+            ->assertDontSee('Browse verified publishers and add sites to your cart.', false)
             ->assertSee('Real Hide Listing', false)
             ->assertDontSee('Demo Eighty Six', false)
             ->assertDontSee('demo86.com', false);
