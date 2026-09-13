@@ -1335,6 +1335,8 @@
                         <strong>Description:</strong>
                         <div>{!! $site->safeDescriptionHtml() !!}</div>
                     </div>
+
+                    @include('publisher.sites.partials.buyer-preview', ['site' => $site])
                 </div>
             </td>
         </tr>
