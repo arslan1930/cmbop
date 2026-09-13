@@ -303,6 +303,13 @@ class ContentSubmissionController extends Controller
             ], 403);
         }
 
+        if (! ContentSubmission::tableAvailable()) {
+            return $this->leftoverJson(
+                new \RuntimeException('Content submissions are unavailable.'),
+                'Unable to store image.'
+            );
+        }
+
         $image = $request->file('image');
         [$contentLength, $clientBytes] = $this->uploads->uploadByteHints($request);
         if ($message = $this->uploads->rejectedImageUploadMessage(

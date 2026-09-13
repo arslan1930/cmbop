@@ -12,7 +12,6 @@ use App\Models\User;
 use App\Services\Advertiser\ContentLibrarySearchQuery;
 use App\Services\ContentUpload\ContentUploadService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Schema;
 use Tests\Support\CreatesContentSubmissions;
@@ -586,7 +585,6 @@ class ContentLibraryImprovementsPlanTest extends TestCase
 
         $this->actingAs($advertiser)
             ->postJson(route('advertiser.content-submissions.editor-image'), [
-                'image' => UploadedFile::fake()->image('pic.png'),
                 'content_submission_id' => 1,
                 'current_image_count' => 0,
             ])
