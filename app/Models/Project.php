@@ -45,7 +45,7 @@ class Project extends Model
         'needs_improvements' => 'Needs you',
         'completed' => 'Completed',
         'rejected' => 'Rejected',
-        'needs_you' => 'Needs you',
+        'needs_you' => 'Needs attention',
     ];
 
     /**
@@ -523,11 +523,11 @@ class Project extends Model
             '%://'.$host.'#%',
             '%://'.$host.':%',
             $host.'/%',
-            '%@'.$host.'/%',
-            '%@'.$host,
-            '%@'.$host.'?%',
-            '%@'.$host.'#%',
-            '%@'.$host.':%',
+            '%://%:%@'.$host.'/%',
+            '%://%:%@'.$host,
+            '%://%:%@'.$host.'?%',
+            '%://%:%@'.$host.'#%',
+            '%://%:%@'.$host.':%',
         ];
     }
 }

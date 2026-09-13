@@ -130,6 +130,17 @@ class AdvertiserProjectOrdersFilterTest extends TestCase
         $this->assertStringContainsString('id="ordersProjectChipClear"', $html);
         $this->assertStringContainsString('value="'.$project->id.'"', $html);
         $this->assertStringContainsString('value="waiting_approval"', $html);
+
+        $attention = $this->actingAs($user)
+            ->get(route('advertiser.orders', [
+                'project' => $project->id,
+                'project_stage' => 'needs_you',
+            ]))
+            ->assertOk()
+            ->getContent();
+
+        $this->assertStringContainsString('Project: Acme Client · Needs attention', $attention);
+        $this->assertStringNotContainsString('Project: Acme Client · Needs you', $attention);
     }
 
     public function test_list_filters_by_brief_target_host_not_publisher_site(): void
@@ -338,6 +349,12 @@ class AdvertiserProjectOrdersFilterTest extends TestCase
             'status' => 'processing',
         ], [
             'target_url' => 'https://acme.example.evil:443/nope',
+        ]);
+
+        $this->makeOrder($user, $site, [
+            'status' => 'processing',
+        ], [
+            'target_url' => 'https://other-client.example/?email=foo@acme.example',
         ]);
 
         $ids = $this->listIds($user, ['project' => $project->id]);

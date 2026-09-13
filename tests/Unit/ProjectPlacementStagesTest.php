@@ -69,11 +69,11 @@ class ProjectPlacementStagesTest extends TestCase
             '%://acme.example#%',
             '%://acme.example:%',
             'acme.example/%',
-            '%@acme.example/%',
-            '%@acme.example',
-            '%@acme.example?%',
-            '%@acme.example#%',
-            '%@acme.example:%',
+            '%://%:%@acme.example/%',
+            '%://%:%@acme.example',
+            '%://%:%@acme.example?%',
+            '%://%:%@acme.example#%',
+            '%://%:%@acme.example:%',
         ], Project::hostLikePatterns('acme.example'));
     }
 
@@ -82,5 +82,7 @@ class ProjectPlacementStagesTest extends TestCase
         $this->assertContains('needs_you', Project::stageFilterKeys());
         $this->assertTrue(Project::isKnownStageFilter('waiting_approval'));
         $this->assertFalse(Project::isKnownStageFilter('not-a-stage'));
+        $this->assertSame('Needs you', Project::stageLabel('needs_improvements'));
+        $this->assertSame('Needs attention', Project::stageLabel('needs_you'));
     }
 }

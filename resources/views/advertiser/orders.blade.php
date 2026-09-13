@@ -302,7 +302,7 @@
 window.AdvertiserOrdersConfig = {
     csrfToken: @json(csrf_token()),
     projectName: @json($filterProject?->project_name),
-    projectStageLabels: @json(array_merge(\App\Models\Project::STAGE_LABELS, ['needs_you' => 'Needs you'])),
+    projectStageLabels: @json(\App\Models\Project::STAGE_LABELS),
     routes: {
         // Relative paths avoid APP_URL host mismatches (Hostinger) breaking live search fetch.
         list: @json(route('advertiser.orders.list', absolute: false)),
